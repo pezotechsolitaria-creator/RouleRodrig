@@ -1,0 +1,126 @@
+{
+  "hero": {
+    "eyebrow": "RODRIGUES ISLAND • EST. 2026",
+    "headline": [
+      "RIDE",
+      "RODRIGUES",
+      "YOUR WAY."
+    ],
+    "subheadline": "Premium scooter rentals on the island's most stunning roads.",
+    "backgroundImage": "/images/burgman-sunset.jpeg"
+  },
+  "stats": [
+    {
+      "value": 500,
+      "suffix": "+",
+      "label": "Happy Riders"
+    },
+    {
+      "value": 2,
+      "suffix": "",
+      "label": "Scooter Models"
+    },
+    {
+      "value": 24,
+      "suffix": "/7",
+      "label": "Support"
+    }
+  ],
+  "fleet": [
+    {
+      "id": "burgman",
+      "badge": "PREMIUM",
+      "name": "BURGMAN 200",
+      "tagline": "The ultimate island cruiser.",
+      "description": "Powerful, comfortable, and built for long coastal rides. The Burgman delivers effortless performance on every stretch of road.",
+      "image": "/images/burgman-rider.jpeg",
+      "price": "From Rs 800",
+      "unit": "/ day"
+    },
+    {
+      "id": "avenis",
+      "badge": "POPULAR",
+      "name": "AVENIS 125",
+      "tagline": "Agile, efficient, unstoppable.",
+      "description": "Perfect for weaving through Rodrigues' scenic backroads and tight coastal paths. Light, fuel-efficient, and a pure joy to ride.",
+      "image": "/images/avenis-front.jpeg",
+      "price": "From Rs 600",
+      "unit": "/ day"
+    },
+    {
+      "id": "scooter-1780519312391",
+      "badge": "NEW",
+      "name": "Ninja kawa",
+      "tagline": "Your new ride.",
+      "description": "Add a description for this scooter.",
+      "image": "/images/avenis-front.jpeg",
+      "price": "From Rs 0",
+      "unit": "/ day"
+    }
+  ],
+  "pricing": [
+    {
+      "name": "Suzuki Burgman 200",
+      "prices": [
+        "Rs 800",
+        "Rs 2,200",
+        "Rs 4,500"
+      ]
+    },
+    {
+      "name": "Suzuki Avenis 125",
+      "prices": [
+        "Rs 600",
+        "Rs 1,650",
+        "Rs 3,200"
+      ]
+    },
+    {
+      "name": "Ninja kawa",
+      "prices": [
+        "Rs 1000",
+        "Rs 0",
+        "Rs 0"
+      ]
+    }
+  ],
+  "contact": {
+    "phone": "+230 57698834 / +230 58757473",
+    "email": "roulerodrig@gmail.com",
+    "location": "Allee Tamarin,Rodrigues",
+    "hours": "Mon – Sun: 7:00 AM – 8:00 PM"
+  },
+  "gallery": [],
+  "testimonials": [
+    {
+      "id": "testimonial-1",
+      "name": "Sophie Laurent",
+      "origin": "Paris, France",
+      "rating": 5,
+      "text": "Renting from Roule Rodrigues was the best decision of our trip. The Burgman was spotless, powerful, and the whole island opened up to us. We found hidden beaches we would never have reached otherwise."
+    },
+    {
+      "id": "testimonial-2",
+      "name": "James Okoye",
+      "origin": "London, UK",
+      "rating": 5,
+      "text": "Incredible service from start to finish. The scooter was delivered to our guesthouse, fully fuelled and helmets included. The team was available on WhatsApp whenever we needed anything — I cannot recommend them enough."
+    },
+    {
+      "id": "testimonial-3",
+      "name": "Anika van der Berg",
+      "origin": "Cape Town, South Africa",
+      "rating": 5,
+      "text": "We spent a week on the Avenis and covered every corner of Rodrigues. The cliffs at Pointe Cotton, the lagoon at Saint-François — all unforgettable. And the price is absolutely unbeatable for this level of service."
+    }
+  ],
+  "social": {
+    "instagram": "",
+    "facebook": "",
+    "tiktok": "",
+    "whatsapp": ""
+  },
+  "branding": {
+    "logo": ""
+  }
+}

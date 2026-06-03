@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Fonts — resolved from next/font CSS vars injected on <html> */
+  --font-syne: var(--font-syne-var);
+  --font-bebas: var(--font-bebas-var);
+  --font-dm: var(--font-dm-var);
+
+  /* Brand colors */
+  --color-yellow: #F5C842;
+  --color-yellow-dark: #d4a800;
+  --color-dark: #0a0a0a;
+  --color-dark-card: #111111;
+  --color-dark-border: #222222;
+  --color-offwhite: #F5F5F0;
+  --color-muted: #888888;
+
+  /* Marquee animation */
+  --animate-marquee: marquee 20s linear infinite;
+  --animate-bounce-slow: bounce-slow 1.5s ease-in-out infinite;
+}
+
+@keyframes marquee {
+  0%   { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(8px); }
+}
+
+/* ── Base ───────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+*:focus-visible {
+  outline: 2px solid #F5C842;
+  outline-offset: 2px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar       { width: 3px; }
+::-webkit-scrollbar-track { background: #0a0a0a; }
+::-webkit-scrollbar-thumb { background: #F5C842; border-radius: 2px; }
