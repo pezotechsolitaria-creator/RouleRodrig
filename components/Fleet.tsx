@@ -59,7 +59,7 @@ export default function Fleet({ fleet }: { fleet?: FleetItem[] }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
           {items.map((scooter, i) => {
             const specs = SPECS_BY_ID[scooter.id] ?? SPECS_BY_ID._default;
-            const isUpload = scooter.image.startsWith("/uploads/");
+            const isUpload = scooter.image.startsWith("/uploads/") || scooter.image.startsWith("http");
             return (
               <motion.div
                 key={scooter.id}

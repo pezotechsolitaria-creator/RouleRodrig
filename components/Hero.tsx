@@ -21,7 +21,7 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
           className="object-cover object-center"
           priority
           sizes="100vw"
-          unoptimized={h.backgroundImage.startsWith("/uploads/")}
+          unoptimized={h.backgroundImage.startsWith("/uploads/") || h.backgroundImage.startsWith("http")}
         />
         {/* layered gradient: heavy bottom for text legibility */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-black/85" />

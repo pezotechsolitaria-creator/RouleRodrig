@@ -14,8 +14,8 @@ import Footer from "@/components/Footer";
 
 export const dynamic = "force-dynamic";
 
-export default function Home() {
-  const content = getContent();
+export default async function Home() {
+  const content = await getContent();
 
   return (
     <main>

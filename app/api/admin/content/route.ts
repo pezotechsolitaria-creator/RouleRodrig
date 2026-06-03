@@ -9,14 +9,14 @@ function isAuthed(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   if (!isAuthed(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  return NextResponse.json(getContent());
+  return NextResponse.json(await getContent());
 }
 
 export async function PUT(req: NextRequest) {
   if (!isAuthed(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const body = (await req.json()) as SiteContent;
-    saveContent(body);
+    await saveContent(body);
     revalidatePath('/');
     return NextResponse.json({ success: true });
   } catch {
