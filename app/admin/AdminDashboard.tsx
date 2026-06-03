@@ -73,7 +73,7 @@ function Textarea({ value, onChange, rows = 3 }: { value: string; onChange: (v: 
 
 // ── Image picker ─────────────────────────────────────────────────────────────
 
-function ImagePicker({ src, onUpload, label }: { src: string; onUpload: (path: string) => void; label: string }) {
+function ImagePicker({ src, onUpload, label, onSessionExpired }: { src: string; onUpload: (path: string) => void; label: string; onSessionExpired?: () => void }) {
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -83,6 +83,7 @@ function ImagePicker({ src, onUpload, label }: { src: string; onUpload: (path: s
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      if (res.status === 401) { onSessionExpired?.(); return; }
       if (res.ok) {
         const { path } = (await res.json()) as { path: string };
         onUpload(path);
@@ -332,7 +333,7 @@ function ContactEditor({ content, onChange }: { content: SiteContent; onChange: 
   );
 }
 
-function GalleryEditor({ content, onChange }: { content: SiteContent; onChange: (c: SiteContent) => void }) {
+function GalleryEditor({ content, onChange, onSessionExpired }: { content: SiteContent; onChange: (c: SiteContent) => void; onSessionExpired: () => void }) {
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -356,11 +357,12 @@ function GalleryEditor({ content, onChange }: { content: SiteContent; onChange: 
     }
     const updated = { ...content, gallery: [...content.gallery, ...newImages] };
     onChange(updated);
-    await fetch("/api/admin/content", {
+    const saveRes = await fetch("/api/admin/content", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updated),
     });
+    if (saveRes.status === 401) onSessionExpired();
     setUploading(false);
   }
 
@@ -611,6 +613,10 @@ export default function AdminDashboard({ initialContent }: { initialContent: Sit
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(content),
       });
+      if (res.status === 401) {
+        router.push("/admin/login");
+        return;
+      }
       if (!res.ok) throw new Error();
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -715,7 +721,7 @@ export default function AdminDashboard({ initialContent }: { initialContent: Sit
           {section === "contact" && <ContactEditor content={content} onChange={setContent} />}
           {section === "gallery" && (
             <>
-              <GalleryEditor content={content} onChange={setContent} />
+              <GalleryEditor content={content} onChange={setContent} onSessionExpired={() => router.push("/admin/login")} />
               <p className="mt-4 text-muted/50 text-xs font-dm">
                 Gallery photos are saved automatically — no need to click Save Changes.
               </p>
