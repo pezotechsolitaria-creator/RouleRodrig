@@ -125,7 +125,7 @@ export default function Navbar({ branding }: { branding?: BrandingContent }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="fixed inset-0 bg-dark z-[60] flex flex-col items-center justify-center"
+            className="fixed inset-0 bg-dark z-[60] flex flex-col items-center justify-center overflow-hidden"
           >
             <button
               className="absolute top-5 right-6 text-offwhite hover:text-yellow transition-colors"
@@ -139,7 +139,7 @@ export default function Navbar({ branding }: { branding?: BrandingContent }) {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.1 }}
-              className="flex flex-col items-center gap-8"
+              className="flex flex-col items-center gap-6 w-full px-6"
             >
               {navLinks.map((link, i) => (
                 <motion.div
@@ -151,7 +151,7 @@ export default function Navbar({ branding }: { branding?: BrandingContent }) {
                   <Link
                     href={link.href}
                     onClick={() => setMenuOpen(false)}
-                    className="font-syne font-extrabold text-5xl text-offwhite hover:text-yellow transition-colors uppercase"
+                    className="font-syne font-extrabold text-4xl text-offwhite hover:text-yellow transition-colors uppercase block w-full text-center"
                   >
                     {link.label}
                   </Link>

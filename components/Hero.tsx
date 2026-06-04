@@ -52,7 +52,7 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
                   ease: [0.22, 1, 0.36, 1],
                 }}
                 className="block font-syne font-extrabold text-offwhite leading-[0.9] uppercase tracking-tight"
-                style={{ fontSize: "clamp(32px, 11vw, 140px)" }}
+                style={{ fontSize: "clamp(22px, 8vw, 140px)" }}
               >
                 {line}
               </motion.h1>

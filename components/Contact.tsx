@@ -69,7 +69,7 @@ export default function Contact({
     "w-full bg-dark-card border border-dark-border rounded-xl px-4 py-3.5 text-offwhite text-sm font-dm placeholder:text-muted/50 focus:border-yellow focus:outline-none transition-colors";
 
   return (
-    <section id="contact" className="bg-dark py-24 md:py-36" aria-label="Contact us">
+    <section id="contact" className="bg-dark py-24 md:py-36 overflow-x-hidden" aria-label="Contact us">
       <div className="max-w-7xl mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 30 }}

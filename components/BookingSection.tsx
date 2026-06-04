@@ -106,7 +106,7 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
   const today = new Date().toISOString().split("T")[0];
 
   return (
-    <section id="booking" className="bg-[#0a0a0a] py-24 md:py-36" aria-label="Book a scooter">
+    <section id="booking" className="bg-[#0a0a0a] py-24 md:py-36 overflow-x-hidden" aria-label="Book a scooter">
       <div className="max-w-7xl mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
