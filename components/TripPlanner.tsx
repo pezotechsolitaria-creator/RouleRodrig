@@ -93,7 +93,7 @@ export default function TripPlanner() {
           <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.planner.eyebrow}</p>
           <h2
             className="font-syne font-extrabold text-offwhite uppercase leading-none"
-            style={{ fontSize: "clamp(40px, 7vw, 72px)" }}
+            style={{ fontSize: "clamp(24px, 7vw, 72px)" }}
           >
             {t.planner.title}
           </h2>

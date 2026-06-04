@@ -43,7 +43,7 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
           <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.map.eyebrow}</p>
           <h2
             className="font-syne font-extrabold text-offwhite uppercase leading-none"
-            style={{ fontSize: "clamp(40px, 7vw, 72px)" }}
+            style={{ fontSize: "clamp(24px, 7vw, 72px)" }}
           >
             {t.map.title}
           </h2>

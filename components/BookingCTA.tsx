@@ -41,7 +41,7 @@ export default function BookingCTA() {
           <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-4">GET STARTED</p>
           <h2
             className="font-syne font-extrabold text-offwhite uppercase leading-none mb-6"
-            style={{ fontSize: "clamp(60px, 12vw, 130px)" }}
+            style={{ fontSize: "clamp(32px, 10vw, 130px)" }}
           >
             READY TO RIDE?
           </h2>
