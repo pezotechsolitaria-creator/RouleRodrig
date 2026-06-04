@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   MapPin,
 } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface Activity {
   slot: string;
@@ -30,13 +31,6 @@ interface Day {
   activities: Activity[];
 }
 
-const INTERESTS = [
-  { id: "beach",     label: "Beach & Lagoon",       emoji: "🏖️" },
-  { id: "culture",   label: "Culture & History",     emoji: "🏛️" },
-  { id: "adventure", label: "Adventure & Hiking",    emoji: "🛵" },
-  { id: "food",      label: "Food & Markets",        emoji: "🍛" },
-];
-
 const SLOT_COLOR: Record<string, string> = {
   Morning:   "bg-amber-400/10 text-amber-400 border-amber-400/30",
   Lunch:     "bg-green-500/10 text-green-400 border-green-500/30",
@@ -45,11 +39,20 @@ const SLOT_COLOR: Record<string, string> = {
 };
 
 export default function TripPlanner() {
+  const { t } = useLanguage();
   const [days, setDays] = useState(3);
   const [interests, setInterests] = useState<string[]>(["beach", "culture", "adventure", "food"]);
   const [generating, setGenerating] = useState(false);
   const [itinerary, setItinerary] = useState<Day[] | null>(null);
   const [activeDay, setActiveDay] = useState(0);
+
+  // Build translated interests list
+  const INTERESTS = [
+    { id: "beach",     label: t.planner.interests.beach,     emoji: "🏖️" },
+    { id: "culture",   label: t.planner.interests.culture,   emoji: "🏛️" },
+    { id: "adventure", label: t.planner.interests.adventure, emoji: "🛵" },
+    { id: "food",      label: t.planner.interests.food,      emoji: "🍛" },
+  ];
 
   function toggleInterest(id: string) {
     setInterests((prev) =>
@@ -87,15 +90,15 @@ export default function TripPlanner() {
           transition={{ duration: 0.7 }}
           className="mb-12"
         >
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">PERSONALISED FOR YOU</p>
+          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.planner.eyebrow}</p>
           <h2
             className="font-syne font-extrabold text-offwhite uppercase leading-none"
             style={{ fontSize: "clamp(40px, 7vw, 72px)" }}
           >
-            TRIP PLANNER
+            {t.planner.title}
           </h2>
           <p className="text-muted font-dm text-sm md:text-base mt-4 max-w-xl">
-            Tell us how long you have and what you love — we&apos;ll build your perfect Rodrigues itinerary, day by day.
+            {t.planner.subtitle}
           </p>
         </motion.div>
 
@@ -109,10 +112,10 @@ export default function TripPlanner() {
             transition={{ duration: 0.7 }}
           >
             <div className="bg-dark-card border border-dark-border rounded-2xl p-7 space-y-7 sticky top-24">
-              {/* Days slider */}
+              {/* Days selector */}
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <p className="font-bebas text-muted text-[10px] tracking-[0.3em]">DAYS IN RODRIGUES</p>
+                  <p className="font-bebas text-muted text-[10px] tracking-[0.3em]">{t.planner.daysLabel}</p>
                   <span className="font-syne font-extrabold text-yellow text-2xl">{days}</span>
                 </div>
                 <div className="flex gap-2">
@@ -134,7 +137,7 @@ export default function TripPlanner() {
 
               {/* Interests */}
               <div>
-                <p className="font-bebas text-muted text-[10px] tracking-[0.3em] mb-4">WHAT YOU LOVE</p>
+                <p className="font-bebas text-muted text-[10px] tracking-[0.3em] mb-4">{t.planner.interestsLabel}</p>
                 <div className="grid grid-cols-2 gap-2">
                   {INTERESTS.map((interest) => {
                     const active = interests.includes(interest.id);
@@ -162,15 +165,15 @@ export default function TripPlanner() {
                 className="w-full flex items-center justify-center gap-3 bg-yellow text-dark font-syne font-bold py-4 rounded-xl hover:bg-yellow-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {generating ? (
-                  <><Loader2 size={18} className="animate-spin" /> Crafting your trip…</>
+                  <><Loader2 size={18} className="animate-spin" /> {t.planner.planning}</>
                 ) : (
-                  <><Sparkles size={18} /> Plan My Trip</>
+                  <><Sparkles size={18} /> {t.planner.plan}</>
                 )}
               </button>
 
               {itinerary && (
                 <button
-                  onClick={() => { setItinerary(null); }}
+                  onClick={() => setItinerary(null)}
                   className="w-full text-center font-dm text-xs text-muted/50 hover:text-muted transition-colors"
                 >
                   Start over
@@ -191,10 +194,8 @@ export default function TripPlanner() {
                   className="flex flex-col items-center justify-center min-h-[460px] text-center"
                 >
                   <Compass size={56} className="text-yellow/20 mb-6" />
-                  <p className="font-syne font-bold text-offwhite/30 text-xl">Your itinerary will appear here</p>
-                  <p className="text-muted/40 font-dm text-sm mt-2 max-w-xs">
-                    Choose your days, pick your interests, and hit Plan My Trip.
-                  </p>
+                  <p className="font-syne font-bold text-offwhite/30 text-xl">{t.planner.emptyTitle}</p>
+                  <p className="text-muted/40 font-dm text-sm mt-2 max-w-xs">{t.planner.emptyDesc}</p>
                 </motion.div>
               )}
 
@@ -210,9 +211,9 @@ export default function TripPlanner() {
                     <Loader2 size={40} className="text-yellow animate-spin" />
                   </div>
                   <div className="text-center">
-                    <p className="font-syne font-bold text-offwhite text-lg">Crafting your itinerary…</p>
+                    <p className="font-syne font-bold text-offwhite text-lg">{t.planner.planning}</p>
                     <p className="text-muted font-dm text-sm mt-1">
-                      Mapping the best spots across Rodrigues for {days} day{days !== 1 ? "s" : ""}
+                      {t.planner.loadingDesc(days)}
                     </p>
                   </div>
                 </motion.div>
@@ -260,7 +261,7 @@ export default function TripPlanner() {
                           </div>
                           <div>
                             <p className="font-bebas text-yellow text-[10px] tracking-[0.3em]">
-                              DAY {itinerary[activeDay].day} OF {itinerary.length}
+                              {t.planner.dayOf(itinerary[activeDay].day, itinerary.length)}
                             </p>
                             <p className="font-syne font-bold text-offwhite text-lg leading-tight">
                               {itinerary[activeDay].theme}
@@ -310,14 +311,14 @@ export default function TripPlanner() {
                             disabled={activeDay === 0}
                             className="flex items-center gap-2 text-sm font-dm text-muted hover:text-offwhite disabled:opacity-30 transition-colors"
                           >
-                            <ChevronLeft size={16} /> Previous day
+                            <ChevronLeft size={16} /> {t.planner.prevDay}
                           </button>
                           <button
                             onClick={() => setActiveDay((p) => Math.min(itinerary.length - 1, p + 1))}
                             disabled={activeDay === itinerary.length - 1}
                             className="flex items-center gap-2 text-sm font-dm text-muted hover:text-offwhite disabled:opacity-30 transition-colors"
                           >
-                            Next day <ChevronRight size={16} />
+                            {t.planner.nextDay} <ChevronRight size={16} />
                           </button>
                         </div>
                       </motion.div>
@@ -328,16 +329,15 @@ export default function TripPlanner() {
                   <div className="mt-6 bg-yellow/5 border border-yellow/20 rounded-2xl p-5 flex items-start gap-3">
                     <Sparkles size={16} className="text-yellow shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-syne font-bold text-offwhite text-sm">Ready to ride?</p>
+                      <p className="font-syne font-bold text-offwhite text-sm">{t.planner.readyTitle}</p>
                       <p className="font-dm text-muted/70 text-xs mt-1">
-                        Book your scooter now and start your{" "}
-                        <span className="text-yellow">{days}-day</span> Rodrigues adventure.
+                        {t.planner.readyDesc(days)}
                       </p>
                       <a
                         href="#booking"
                         className="inline-flex items-center gap-1.5 mt-3 bg-yellow text-dark font-syne font-bold text-xs px-4 py-2 rounded-full hover:bg-yellow-dark transition-colors"
                       >
-                        Book Now <ChevronRight size={12} />
+                        {t.planner.bookNow} <ChevronRight size={12} />
                       </a>
                     </div>
                   </div>

@@ -5,6 +5,7 @@ import { Phone, Mail, MapPin, Clock, Send, CheckCircle, AlertCircle, Loader2 } f
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type ContactContent, type FleetItem } from "@/lib/defaults";
 import { createClient } from "@/lib/supabase/client";
+import { useLanguage } from "@/context/LanguageContext";
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -15,6 +16,7 @@ export default function Contact({
   contact?: ContactContent;
   fleet?: FleetItem[];
 }) {
+  const { t } = useLanguage();
   const c = contact ?? DEFAULT_CONTENT.contact;
   const scooters = fleet ?? DEFAULT_CONTENT.fleet;
 
@@ -76,12 +78,12 @@ export default function Contact({
           transition={{ duration: 0.7 }}
           className="mb-16"
         >
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">GET IN TOUCH</p>
+          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.contact.eyebrow}</p>
           <h2
             className="font-syne font-extrabold text-offwhite uppercase leading-none"
             style={{ fontSize: "clamp(48px, 8vw, 80px)" }}
           >
-            CONTACT US
+            {t.contact.title}
           </h2>
         </motion.div>
 
@@ -94,8 +96,7 @@ export default function Contact({
             transition={{ duration: 0.8 }}
           >
             <p className="text-muted font-dm leading-relaxed text-sm md:text-base mb-10 max-w-sm">
-              Ready to explore Rodrigues on two wheels? Reach out via WhatsApp for the fastest
-              response, or fill out the form and we&apos;ll get back to you within a few hours.
+              {t.contact.subtitle}
             </p>
 
             <div className="space-y-5">
@@ -126,7 +127,6 @@ export default function Contact({
             viewport={{ once: true, margin: "-60px" }}
             transition={{ duration: 0.8, delay: 0.1 }}
           >
-            {/* Success message */}
             {formState === "success" && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -135,15 +135,12 @@ export default function Contact({
               >
                 <CheckCircle size={18} className="text-green-400 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-syne font-bold text-green-400 text-sm">Message sent!</p>
-                  <p className="font-dm text-green-400/70 text-xs mt-0.5">
-                    We&apos;ll get back to you within a few hours. Check your WhatsApp too!
-                  </p>
+                  <p className="font-syne font-bold text-green-400 text-sm">{t.contact.successTitle}</p>
+                  <p className="font-dm text-green-400/70 text-xs mt-0.5">{t.contact.successDesc}</p>
                 </div>
               </motion.div>
             )}
 
-            {/* Error message */}
             {formState === "error" && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -152,10 +149,8 @@ export default function Contact({
               >
                 <AlertCircle size={18} className="text-red-400 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-syne font-bold text-red-400 text-sm">Something went wrong</p>
-                  <p className="font-dm text-red-400/70 text-xs mt-0.5">
-                    Please try again or reach us directly on WhatsApp.
-                  </p>
+                  <p className="font-syne font-bold text-red-400 text-sm">{t.contact.errorTitle}</p>
+                  <p className="font-dm text-red-400/70 text-xs mt-0.5">{t.contact.errorDesc}</p>
                 </div>
               </motion.div>
             )}
@@ -163,7 +158,9 @@ export default function Contact({
             <form className="space-y-4" onSubmit={handleSubmit} aria-label="Contact form" noValidate>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="name" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">NAME</label>
+                  <label htmlFor="name" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                    {t.contact.nameLabel}
+                  </label>
                   <input
                     id="name" name="name" type="text" autoComplete="name"
                     placeholder="Your name" className={inputCls}
@@ -172,7 +169,9 @@ export default function Contact({
                   />
                 </div>
                 <div>
-                  <label htmlFor="email" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">EMAIL</label>
+                  <label htmlFor="email" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                    {t.contact.emailLabel}
+                  </label>
                   <input
                     id="email" name="email" type="email" autoComplete="email"
                     placeholder="your@email.com" className={inputCls}
@@ -184,7 +183,9 @@ export default function Contact({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="phone" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">PHONE</label>
+                  <label htmlFor="phone" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                    {t.contact.phoneLabel}
+                  </label>
                   <input
                     id="phone" name="phone" type="tel" autoComplete="tel"
                     placeholder="+230 XXXX XXXX" className={inputCls}
@@ -193,7 +194,9 @@ export default function Contact({
                   />
                 </div>
                 <div>
-                  <label htmlFor="scooter" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">SCOOTER</label>
+                  <label htmlFor="scooter" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                    {t.contact.scooterLabel}
+                  </label>
                   <select
                     id="scooter" name="scooter"
                     className={`${inputCls} appearance-none`}
@@ -201,7 +204,7 @@ export default function Contact({
                     onChange={(e) => setForm({ ...form, scooter: e.target.value })}
                     disabled={formState === "loading"}
                   >
-                    <option value="">Select a scooter</option>
+                    <option value="">{t.booking.scooterPlaceholder}</option>
                     {scooters.map((s) => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
@@ -210,20 +213,24 @@ export default function Contact({
               </div>
 
               <div>
-                <label htmlFor="dates" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">RENTAL DATES</label>
+                <label htmlFor="dates" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                  {t.contact.datesLabel}
+                </label>
                 <input
                   id="dates" name="dates" type="text"
-                  placeholder="e.g. 15 Jan – 22 Jan" className={inputCls}
+                  placeholder={t.contact.datesPlaceholder} className={inputCls}
                   value={form.dates} onChange={(e) => setForm({ ...form, dates: e.target.value })}
                   disabled={formState === "loading"}
                 />
               </div>
 
               <div>
-                <label htmlFor="message" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">MESSAGE</label>
+                <label htmlFor="message" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                  {t.contact.messageLabel}
+                </label>
                 <textarea
                   id="message" name="message" rows={4}
-                  placeholder="Any questions or special requests?"
+                  placeholder={t.contact.messagePlaceholder}
                   className={`${inputCls} resize-none`}
                   value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })}
                   disabled={formState === "loading"}
@@ -237,11 +244,11 @@ export default function Contact({
                 aria-label="Send message"
               >
                 {formState === "loading" ? (
-                  <><Loader2 size={16} className="animate-spin" /> Sending…</>
+                  <><Loader2 size={16} className="animate-spin" /> {t.contact.sending}</>
                 ) : formState === "success" ? (
-                  <><CheckCircle size={16} /> Sent!</>
+                  <><CheckCircle size={16} /> {t.contact.sent}</>
                 ) : (
-                  <>Send Message <Send size={16} /></>
+                  <>{t.contact.submit} <Send size={16} /></>
                 )}
               </button>
             </form>

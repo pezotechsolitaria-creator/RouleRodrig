@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { MapPin } from "lucide-react";
 import type { MapLocation } from "@/lib/defaults";
+import { useLanguage } from "@/context/LanguageContext";
 
 // Load Leaflet map only on client (no SSR — window required)
 const IslandMap = dynamic(() => import("./IslandMap"), { ssr: false });
@@ -25,6 +26,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 export default function MapSection({ locations }: { locations?: MapLocation[] }) {
+  const { t } = useLanguage();
   const locs = locations ?? [];
   if (locs.length === 0) return null;
 
@@ -38,15 +40,15 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
           transition={{ duration: 0.7 }}
           className="mb-12"
         >
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">EXPLORE THE ISLAND</p>
+          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.map.eyebrow}</p>
           <h2
             className="font-syne font-extrabold text-offwhite uppercase leading-none"
             style={{ fontSize: "clamp(40px, 7vw, 72px)" }}
           >
-            ISLAND GUIDE
+            {t.map.title}
           </h2>
           <p className="text-muted font-dm text-sm md:text-base mt-4 max-w-lg">
-            Discover Rodrigues&apos; hidden gems. Click any marker for details — then go find it on two wheels.
+            {t.map.subtitle}
           </p>
         </motion.div>
 

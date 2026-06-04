@@ -6,17 +6,27 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import type { BrandingContent } from "@/lib/defaults";
+import { useLanguage } from "@/context/LanguageContext";
+import { LANGUAGE_FLAGS, LANGUAGE_NATIVE, type Language } from "@/lib/i18n";
 
-const NAV_LINKS = [
-  { label: "Scooters", href: "#fleet" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "About", href: "#about" },
-  { label: "Contact", href: "#contact" },
-];
+const LANG_CYCLE: Language[] = ["en", "fr", "cr"];
 
 export default function Navbar({ branding }: { branding?: BrandingContent }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const { t, language, setLanguage } = useLanguage();
+
+  function cycleLanguage() {
+    const idx = LANG_CYCLE.indexOf(language);
+    setLanguage(LANG_CYCLE[(idx + 1) % LANG_CYCLE.length]);
+  }
+
+  const navLinks = [
+    { label: t.nav.scooters, href: "#fleet" },
+    { label: t.nav.pricing,  href: "#pricing" },
+    { label: t.nav.map,      href: "#map" },
+    { label: t.nav.contact,  href: "#contact" },
+  ];
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 60);
@@ -68,21 +78,33 @@ export default function Navbar({ branding }: { branding?: BrandingContent }) {
             {logoEl}
           </Link>
 
-          <div className="hidden md:flex items-center gap-8">
-            {NAV_LINKS.map((link) => (
+          <div className="hidden md:flex items-center gap-6">
+            {navLinks.map((link) => (
               <Link
-                key={link.label}
+                key={link.href}
                 href={link.href}
                 className="text-muted hover:text-offwhite transition-colors text-sm font-dm font-medium tracking-wide"
               >
                 {link.label}
               </Link>
             ))}
+
+            {/* Language cycle button */}
+            <button
+              onClick={cycleLanguage}
+              className="flex items-center gap-1.5 text-xs font-dm text-muted hover:text-offwhite border border-dark-border hover:border-yellow/50 px-3 py-2 rounded-full transition-all duration-200"
+              aria-label={`Switch to ${LANGUAGE_NATIVE[LANG_CYCLE[(LANG_CYCLE.indexOf(language) + 1) % LANG_CYCLE.length]]}`}
+              title={`Switch to ${LANGUAGE_NATIVE[LANG_CYCLE[(LANG_CYCLE.indexOf(language) + 1) % LANG_CYCLE.length]]}`}
+            >
+              <span>{LANGUAGE_FLAGS[language]}</span>
+              <span className="uppercase tracking-wide">{language}</span>
+            </button>
+
             <Link
-              href="#contact"
+              href="#booking"
               className="flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-5 py-2.5 rounded-full hover:bg-yellow-dark transition-all duration-200 hover:scale-105"
             >
-              Book Now <ArrowRight size={14} />
+              {t.nav.bookNow} <ArrowRight size={14} />
             </Link>
           </div>
 
@@ -119,9 +141,9 @@ export default function Navbar({ branding }: { branding?: BrandingContent }) {
               transition={{ duration: 0.4, delay: 0.1 }}
               className="flex flex-col items-center gap-8"
             >
-              {NAV_LINKS.map((link, i) => (
+              {navLinks.map((link, i) => (
                 <motion.div
-                  key={link.label}
+                  key={link.href}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.15 + i * 0.07 }}
@@ -140,15 +162,24 @@ export default function Navbar({ branding }: { branding?: BrandingContent }) {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.45 }}
-                className="mt-4"
+                className="mt-4 flex flex-col items-center gap-4"
               >
                 <Link
-                  href="#contact"
+                  href="#booking"
                   onClick={() => setMenuOpen(false)}
                   className="flex items-center gap-3 bg-yellow text-dark font-syne font-bold text-xl px-10 py-5 rounded-full"
                 >
-                  Book Now <ArrowRight size={20} />
+                  {t.nav.bookNow} <ArrowRight size={20} />
                 </Link>
+
+                {/* Language switcher (mobile) */}
+                <button
+                  onClick={cycleLanguage}
+                  className="flex items-center gap-2 text-muted hover:text-yellow font-dm text-sm transition-colors"
+                >
+                  <span>{LANGUAGE_FLAGS[language]}</span>
+                  <span>{LANGUAGE_NATIVE[language]}</span>
+                </button>
               </motion.div>
             </motion.div>
           </motion.div>

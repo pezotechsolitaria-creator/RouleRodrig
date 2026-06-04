@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Syne, Bebas_Neue, DM_Sans } from "next/font/google";
 import "./globals.css";
+import { LanguageProvider } from "@/context/LanguageContext";
+import LanguagePicker from "@/components/LanguagePicker";
 
 const syne = Syne({
   subsets: ["latin"],
@@ -56,7 +58,10 @@ export default function RootLayout({
       className={`${syne.variable} ${bebasNeue.variable} ${dmSans.variable} antialiased`}
     >
       <body className="bg-dark text-offwhite font-dm overflow-x-hidden">
-        {children}
+        <LanguageProvider>
+          <LanguagePicker />
+          {children}
+        </LanguageProvider>
       </body>
     </html>
   );

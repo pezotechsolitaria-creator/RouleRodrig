@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { FleetItem } from "@/lib/defaults";
+import { useLanguage } from "@/context/LanguageContext";
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -26,7 +27,6 @@ function daysBetween(a: string, b: string): number {
   return Math.max(0, Math.round(diff / 86_400_000));
 }
 
-// Extract base daily price number from string like "From Rs 800"
 function extractDailyPrice(priceStr: string): number {
   const match = priceStr.match(/[\d,]+/);
   if (!match) return 0;
@@ -45,6 +45,7 @@ function estimateTotal(scooter: FleetItem | undefined, days: number): string {
 }
 
 export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
+  const { t } = useLanguage();
   const scooters = (fleet ?? []).filter((s) => s.available !== false);
 
   const [formState, setFormState] = useState<FormState>("idle");
@@ -114,15 +115,15 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
           transition={{ duration: 0.7 }}
           className="mb-16"
         >
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">RESERVE YOUR RIDE</p>
+          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.booking.eyebrow}</p>
           <h2
             className="font-syne font-extrabold text-offwhite uppercase leading-none"
             style={{ fontSize: "clamp(48px, 8vw, 80px)" }}
           >
-            BOOK ONLINE
+            {t.booking.title}
           </h2>
           <p className="text-muted font-dm text-sm md:text-base mt-4 max-w-lg">
-            Pick your scooter, choose your dates, and we&apos;ll confirm your booking within a few hours.
+            {t.booking.subtitle}
           </p>
         </motion.div>
 
@@ -143,10 +144,8 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
               >
                 <CheckCircle size={18} className="text-green-400 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-syne font-bold text-green-400 text-sm">Booking request sent!</p>
-                  <p className="font-dm text-green-400/70 text-xs mt-0.5">
-                    We&apos;ll confirm your reservation within a few hours via WhatsApp or email.
-                  </p>
+                  <p className="font-syne font-bold text-green-400 text-sm">{t.booking.successTitle}</p>
+                  <p className="font-dm text-green-400/70 text-xs mt-0.5">{t.booking.successDesc}</p>
                 </div>
               </motion.div>
             )}
@@ -159,10 +158,8 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
               >
                 <AlertCircle size={18} className="text-red-400 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-syne font-bold text-red-400 text-sm">Something went wrong</p>
-                  <p className="font-dm text-red-400/70 text-xs mt-0.5">
-                    Please try again or reach us on WhatsApp.
-                  </p>
+                  <p className="font-syne font-bold text-red-400 text-sm">{t.booking.errorTitle}</p>
+                  <p className="font-dm text-red-400/70 text-xs mt-0.5">{t.booking.errorDesc}</p>
                 </div>
               </motion.div>
             )}
@@ -171,7 +168,7 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
               {/* Scooter */}
               <div>
                 <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                  SCOOTER <span className="text-yellow">*</span>
+                  {t.booking.scooterLabel} <span className="text-yellow">*</span>
                 </label>
                 <select
                   value={form.scooter}
@@ -180,7 +177,7 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
                   disabled={formState === "loading"}
                   required
                 >
-                  <option value="">Choose a scooter…</option>
+                  <option value="">{t.booking.scooterPlaceholder}</option>
                   {scooters.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name} — {s.price}
@@ -193,7 +190,7 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                    PICKUP DATE <span className="text-yellow">*</span>
+                    {t.booking.pickupLabel} <span className="text-yellow">*</span>
                   </label>
                   <input
                     type="date"
@@ -207,7 +204,7 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
                 </div>
                 <div>
                   <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                    RETURN DATE <span className="text-yellow">*</span>
+                    {t.booking.returnLabel} <span className="text-yellow">*</span>
                   </label>
                   <input
                     type="date"
@@ -225,13 +222,13 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                    YOUR NAME <span className="text-yellow">*</span>
+                    {t.booking.nameLabel} <span className="text-yellow">*</span>
                   </label>
                   <div className="relative">
                     <User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" />
                     <input
                       type="text"
-                      placeholder="Full name"
+                      placeholder={t.booking.namePlaceholder}
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
                       className={`${inputCls} pl-10`}
@@ -241,7 +238,9 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
                   </div>
                 </div>
                 <div>
-                  <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">EMAIL</label>
+                  <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                    {t.booking.emailLabel}
+                  </label>
                   <div className="relative">
                     <Mail size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" />
                     <input
@@ -258,12 +257,14 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
 
               {/* Phone */}
               <div>
-                <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">PHONE / WHATSAPP</label>
+                <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                  {t.booking.phoneLabel}
+                </label>
                 <div className="relative">
                   <Phone size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" />
                   <input
                     type="tel"
-                    placeholder="+230 XXXX XXXX"
+                    placeholder={t.booking.phonePlaceholder}
                     value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
                     className={`${inputCls} pl-10`}
@@ -274,12 +275,14 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
 
               {/* Message */}
               <div>
-                <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">SPECIAL REQUESTS</label>
+                <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                  {t.booking.messageLabel}
+                </label>
                 <div className="relative">
                   <MessageSquare size={14} className="absolute left-4 top-4 text-muted/50" />
                   <textarea
                     rows={3}
-                    placeholder="Hotel name, delivery address, extra helmet…"
+                    placeholder={t.booking.messagePlaceholder}
                     value={form.message}
                     onChange={(e) => setForm({ ...form, message: e.target.value })}
                     className={`${inputCls} pl-10 resize-none`}
@@ -295,23 +298,23 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
                   onClick={() => setShowPartnerCode((v) => !v)}
                   className="text-xs font-dm text-muted/50 hover:text-yellow transition-colors flex items-center gap-1.5"
                 >
-                  {showPartnerCode ? "▾" : "▸"} Do you have a partner or hotel referral code?
+                  {showPartnerCode ? "▾" : "▸"} {t.booking.partnerPrompt}
                 </button>
                 {showPartnerCode && (
                   <div className="mt-3">
-                    <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">PARTNER CODE</label>
+                    <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                      {t.booking.partnerLabel}
+                    </label>
                     <input
                       type="text"
-                      placeholder="e.g. CHEZ-FRANCINE"
+                      placeholder={t.booking.partnerPlaceholder}
                       value={form.partner_code}
                       onChange={(e) => setForm({ ...form, partner_code: e.target.value.toUpperCase() })}
                       className={inputCls}
                       disabled={formState === "loading"}
                       maxLength={30}
                     />
-                    <p className="text-muted/40 font-dm text-xs mt-1.5">
-                      Ask your hotel or guesthouse for their code to qualify for commissions.
-                    </p>
+                    <p className="text-muted/40 font-dm text-xs mt-1.5">{t.booking.partnerHint}</p>
                   </div>
                 )}
               </div>
@@ -322,11 +325,11 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
                 className="w-full flex items-center justify-center gap-2.5 bg-yellow text-dark font-syne font-bold text-base py-4 rounded-xl hover:bg-yellow-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {formState === "loading" ? (
-                  <><Loader2 size={16} className="animate-spin" /> Sending…</>
+                  <><Loader2 size={16} className="animate-spin" /> {t.booking.sending}</>
                 ) : formState === "success" ? (
-                  <><CheckCircle size={16} /> Request Sent!</>
+                  <><CheckCircle size={16} /> {t.booking.sent}</>
                 ) : (
-                  <>Request Booking <Send size={16} /></>
+                  <>{t.booking.submit} <Send size={16} /></>
                 )}
               </button>
             </form>
@@ -343,16 +346,16 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
             <div className="sticky top-24 space-y-5">
               {/* Booking summary */}
               <div className="bg-dark-card border border-dark-border rounded-2xl p-6">
-                <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-4">BOOKING SUMMARY</p>
+                <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-4">{t.booking.summaryTitle}</p>
                 <dl className="space-y-3">
                   <div className="flex justify-between items-start">
-                    <dt className="text-muted font-dm text-xs">Scooter</dt>
+                    <dt className="text-muted font-dm text-xs">{t.booking.summaryScooter}</dt>
                     <dd className="text-offwhite font-dm text-xs text-right font-medium">
                       {selectedScooter ? selectedScooter.name : "—"}
                     </dd>
                   </div>
                   <div className="flex justify-between items-start">
-                    <dt className="text-muted font-dm text-xs">Pickup</dt>
+                    <dt className="text-muted font-dm text-xs">{t.booking.summaryPickup}</dt>
                     <dd className="text-offwhite font-dm text-xs">
                       {form.start_date
                         ? new Date(form.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
@@ -360,7 +363,7 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
                     </dd>
                   </div>
                   <div className="flex justify-between items-start">
-                    <dt className="text-muted font-dm text-xs">Return</dt>
+                    <dt className="text-muted font-dm text-xs">{t.booking.summaryReturn}</dt>
                     <dd className="text-offwhite font-dm text-xs">
                       {form.end_date
                         ? new Date(form.end_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
@@ -368,21 +371,19 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
                     </dd>
                   </div>
                   <div className="flex justify-between items-start">
-                    <dt className="text-muted font-dm text-xs">Duration</dt>
+                    <dt className="text-muted font-dm text-xs">{t.booking.summaryDuration}</dt>
                     <dd className="text-offwhite font-dm text-xs">
-                      {days > 0 ? `${days} day${days !== 1 ? "s" : ""}` : "—"}
+                      {days > 0 ? t.booking.days(days) : "—"}
                     </dd>
                   </div>
                   {estimatedTotal && (
                     <>
                       <div className="border-t border-dark-border pt-3 flex justify-between items-center">
-                        <dt className="text-muted font-dm text-xs">Estimated Total</dt>
+                        <dt className="text-muted font-dm text-xs">{t.booking.summaryTotal}</dt>
                         <dd className="text-yellow font-syne font-bold text-base">{estimatedTotal}</dd>
                       </div>
                       {days >= 3 && (
-                        <p className="text-green-400/80 text-xs font-dm">
-                          Multi-day discount applied!
-                        </p>
+                        <p className="text-green-400/80 text-xs font-dm">{t.booking.discountNote}</p>
                       )}
                     </>
                   )}
@@ -391,18 +392,18 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
 
               {/* Available scooters */}
               <div className="bg-dark-card border border-dark-border rounded-2xl p-6">
-                <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-4">FLEET AVAILABILITY</p>
+                <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-4">{t.booking.availabilityTitle}</p>
                 <div className="space-y-2.5">
                   {(fleet ?? []).map((s) => (
                     <div key={s.id} className="flex items-center justify-between">
                       <span className="text-offwhite/80 font-dm text-xs">{s.name}</span>
                       {s.available !== false ? (
                         <span className="flex items-center gap-1.5 text-green-400 text-[10px] font-bebas tracking-[0.15em]">
-                          <BadgeCheck size={12} /> AVAILABLE
+                          <BadgeCheck size={12} /> {t.fleet.available}
                         </span>
                       ) : (
                         <span className="flex items-center gap-1.5 text-red-400/70 text-[10px] font-bebas tracking-[0.15em]">
-                          <Ban size={12} /> UNAVAILABLE
+                          <Ban size={12} /> {t.fleet.unavailable}
                         </span>
                       )}
                     </div>
@@ -412,15 +413,9 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
 
               {/* What's included */}
               <div className="bg-dark-card border border-dark-border rounded-2xl p-6">
-                <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-4">INCLUDED</p>
+                <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-4">{t.booking.includedTitle}</p>
                 <ul className="space-y-2">
-                  {[
-                    "Helmet & lock",
-                    "Full tank of fuel",
-                    "24/7 WhatsApp support",
-                    "Free delivery to hotel",
-                    "Third-party insurance",
-                  ].map((item) => (
+                  {t.booking.included.map((item) => (
                     <li key={item} className="flex items-center gap-2.5 text-xs font-dm text-offwhite/70">
                       <CheckCircle size={12} className="text-yellow shrink-0" />
                       {item}
@@ -432,7 +427,7 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
               <div className="flex items-start gap-3 bg-yellow/5 border border-yellow/20 rounded-2xl p-4">
                 <CalendarDays size={16} className="text-yellow shrink-0 mt-0.5" />
                 <p className="text-muted font-dm text-xs leading-relaxed">
-                  This is a booking <span className="text-offwhite font-medium">request</span>. We&apos;ll confirm availability and send payment details within a few hours.
+                  {t.booking.requestNote}
                 </p>
               </div>
             </div>

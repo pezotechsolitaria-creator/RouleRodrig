@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban } from "lucide-react";
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type FleetItem } from "@/lib/defaults";
+import { useLanguage } from "@/context/LanguageContext";
 
 const SPECS_BY_ID: Record<string, { icon: React.ElementType; label: string }[]> = {
   burgman: [
@@ -29,6 +30,7 @@ const SPECS_BY_ID: Record<string, { icon: React.ElementType; label: string }[]> 
 
 export default function Fleet({ fleet }: { fleet?: FleetItem[] }) {
   const items = fleet ?? DEFAULT_CONTENT.fleet;
+  const { t } = useLanguage();
 
   return (
     <section id="fleet" className="bg-dark py-24 md:py-36" aria-label="Scooter fleet">
@@ -42,16 +44,16 @@ export default function Fleet({ fleet }: { fleet?: FleetItem[] }) {
           className="mb-16 flex flex-col md:flex-row md:items-end md:justify-between gap-4"
         >
           <div>
-            <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">OUR FLEET</p>
+            <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.fleet.sectionEyebrow}</p>
             <h2
               className="font-syne font-extrabold text-offwhite uppercase leading-none"
               style={{ fontSize: "clamp(48px, 8vw, 80px)" }}
             >
-              CHOOSE YOUR RIDE
+              {t.fleet.sectionTitle}
             </h2>
           </div>
           <p className="text-muted font-dm text-sm max-w-xs leading-relaxed md:text-right">
-            Two icons of Rodrigues riding. Both immaculate. Both ready for you.
+            {t.fleet.sectionSub}
           </p>
         </motion.div>
 
@@ -88,11 +90,11 @@ export default function Fleet({ fleet }: { fleet?: FleetItem[] }) {
                     </span>
                     {scooter.available === false ? (
                       <span className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.15em] bg-red-500/90 text-white px-3 py-1.5 rounded-full">
-                        <Ban size={10} /> UNAVAILABLE
+                        <Ban size={10} /> {t.fleet.unavailable}
                       </span>
                     ) : (
                       <span className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.15em] bg-green-500/90 text-white px-3 py-1.5 rounded-full">
-                        <BadgeCheck size={10} /> AVAILABLE
+                        <BadgeCheck size={10} /> {t.fleet.available}
                       </span>
                     )}
                   </div>
@@ -142,7 +144,9 @@ export default function Fleet({ fleet }: { fleet?: FleetItem[] }) {
                       aria-label={`Book ${scooter.name}`}
                       aria-disabled={scooter.available === false}
                     >
-                      {scooter.available === false ? "Unavailable" : <>Book Now <ArrowRight size={14} /></>}
+                      {scooter.available === false
+                        ? t.fleet.unavailableBtn
+                        : <>{t.fleet.bookNow} <ArrowRight size={14} /></>}
                     </Link>
                   </div>
                 </div>

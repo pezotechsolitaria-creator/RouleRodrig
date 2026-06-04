@@ -1,15 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import { InstagramIcon, FacebookIcon, TikTokIcon, WhatsAppIcon } from "@/lib/icons";
 import type { SocialLinks, BrandingContent } from "@/lib/defaults";
-
-const NAV_LINKS = [
-  { label: "Scooters",  href: "#fleet" },
-  { label: "Booking",   href: "#booking" },
-  { label: "Pricing",   href: "#pricing" },
-  { label: "Island Map",href: "#map" },
-  { label: "Contact",   href: "#contact" },
-];
+import { useLanguage } from "@/context/LanguageContext";
 
 const SOCIAL_CONFIG = [
   { key: "instagram" as const, Icon: InstagramIcon,  label: "Instagram" },
@@ -25,8 +20,17 @@ export default function Footer({
   social?: SocialLinks;
   branding?: BrandingContent;
 }) {
+  const { t } = useLanguage();
   const year = new Date().getFullYear();
   const activeSocial = SOCIAL_CONFIG.filter(({ key }) => social?.[key]);
+
+  const navLinks = [
+    { label: t.nav.scooters, href: "#fleet"    },
+    { label: t.nav.booking,  href: "#booking"  },
+    { label: t.nav.pricing,  href: "#pricing"  },
+    { label: t.nav.map,      href: "#map"      },
+    { label: t.nav.contact,  href: "#contact"  },
+  ];
 
   return (
     <footer className="bg-dark-card border-t border-dark-border" aria-label="Site footer">
@@ -58,16 +62,16 @@ export default function Footer({
               )}
             </Link>
             <p className="text-muted font-dm text-sm leading-relaxed max-w-[220px]">
-              Explore Rodrigues. Ride free. Premium scooter rentals on the most beautiful island in the Indian Ocean.
+              {t.footer.tagline}
             </p>
           </div>
 
           {/* Navigate */}
           <nav aria-label="Footer navigation">
-            <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-5">NAVIGATE</p>
+            <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-5">{t.footer.navigate}</p>
             <ul className="flex flex-col gap-3">
-              {NAV_LINKS.map((link) => (
-                <li key={link.label}>
+              {navLinks.map((link) => (
+                <li key={link.href}>
                   <Link
                     href={link.href}
                     className="text-muted hover:text-offwhite transition-colors text-sm font-dm"
@@ -81,7 +85,7 @@ export default function Footer({
 
           {/* Social */}
           <div>
-            <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-5">FOLLOW US</p>
+            <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-5">{t.footer.follow}</p>
             {activeSocial.length > 0 ? (
               <div className="flex gap-3 mb-6">
                 {activeSocial.map(({ key, Icon, label }) => (
@@ -111,15 +115,15 @@ export default function Footer({
               </div>
             )}
             <p className="text-muted font-dm text-xs leading-relaxed">
-              Tag us in your Rodrigues adventures.<br />
+              {t.footer.tag}<br />
               <span className="text-yellow/70">#RouleRodrigues</span>
             </p>
           </div>
         </div>
 
         <div className="pt-6 border-t border-dark-border flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-dm text-muted">
-          <p>© {year} Roule Rodrigues. All rights reserved.</p>
-          <p>Rodrigues Island, Republic of Mauritius</p>
+          <p>{t.footer.rights(year)}</p>
+          <p>{t.footer.location}</p>
         </div>
       </div>
     </footer>
