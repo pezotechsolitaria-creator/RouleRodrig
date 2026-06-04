@@ -1,20 +1,21 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Camera, Users, MessageCircle, Music2 } from "lucide-react";
+import { InstagramIcon, FacebookIcon, TikTokIcon, WhatsAppIcon } from "@/lib/icons";
 import type { SocialLinks, BrandingContent } from "@/lib/defaults";
 
 const NAV_LINKS = [
-  { label: "Scooters", href: "#fleet" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "About", href: "#about" },
-  { label: "Contact", href: "#contact" },
+  { label: "Scooters",  href: "#fleet" },
+  { label: "Booking",   href: "#booking" },
+  { label: "Pricing",   href: "#pricing" },
+  { label: "Island Map",href: "#map" },
+  { label: "Contact",   href: "#contact" },
 ];
 
 const SOCIAL_CONFIG = [
-  { key: "instagram" as const, icon: Camera, label: "Instagram" },
-  { key: "facebook" as const, icon: Users, label: "Facebook" },
-  { key: "tiktok" as const, icon: Music2, label: "TikTok" },
-  { key: "whatsapp" as const, icon: MessageCircle, label: "WhatsApp" },
+  { key: "instagram" as const, Icon: InstagramIcon,  label: "Instagram" },
+  { key: "facebook"  as const, Icon: FacebookIcon,   label: "Facebook"  },
+  { key: "tiktok"    as const, Icon: TikTokIcon,     label: "TikTok"    },
+  { key: "whatsapp"  as const, Icon: WhatsAppIcon,   label: "WhatsApp"  },
 ];
 
 export default function Footer({
@@ -25,7 +26,6 @@ export default function Footer({
   branding?: BrandingContent;
 }) {
   const year = new Date().getFullYear();
-
   const activeSocial = SOCIAL_CONFIG.filter(({ key }) => social?.[key]);
 
   return (
@@ -84,7 +84,7 @@ export default function Footer({
             <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-5">FOLLOW US</p>
             {activeSocial.length > 0 ? (
               <div className="flex gap-3 mb-6">
-                {activeSocial.map(({ key, icon: Icon, label }) => (
+                {activeSocial.map(({ key, Icon, label }) => (
                   <a
                     key={key}
                     href={social![key]}
@@ -93,19 +93,19 @@ export default function Footer({
                     aria-label={`Follow us on ${label}`}
                     className="w-10 h-10 rounded-full border border-dark-border flex items-center justify-center text-muted hover:border-yellow hover:text-yellow transition-colors"
                   >
-                    <Icon size={16} />
+                    <Icon className="w-4 h-4" />
                   </a>
                 ))}
               </div>
             ) : (
               <div className="flex gap-3 mb-6">
-                {SOCIAL_CONFIG.map(({ icon: Icon, label }) => (
+                {SOCIAL_CONFIG.map(({ Icon, label }) => (
                   <div
                     key={label}
                     className="w-10 h-10 rounded-full border border-dark-border flex items-center justify-center text-muted/30"
                     aria-hidden="true"
                   >
-                    <Icon size={16} />
+                    <Icon className="w-4 h-4" />
                   </div>
                 ))}
               </div>

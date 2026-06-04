@@ -1,4 +1,5 @@
 import { getContent } from "@/lib/content";
+import AnnouncementBar from "@/components/AnnouncementBar";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import Stats from "@/components/Stats";
@@ -6,6 +7,8 @@ import Fleet from "@/components/Fleet";
 import Experience from "@/components/Experience";
 import Pricing from "@/components/Pricing";
 import WhyUs from "@/components/WhyUs";
+import BookingSection from "@/components/BookingSection";
+import MapSection from "@/components/MapSection";
 import Gallery from "@/components/Gallery";
 import Testimonials from "@/components/Testimonials";
 import BookingCTA from "@/components/BookingCTA";
@@ -18,19 +21,24 @@ export default async function Home() {
   const content = await getContent();
 
   return (
-    <main>
-      <Navbar branding={content.branding} />
-      <Hero hero={content.hero} />
-      <Stats stats={content.stats} />
-      <Fleet fleet={content.fleet} />
-      <Experience />
-      <Pricing pricing={content.pricing} />
-      <WhyUs />
-      <Gallery gallery={content.gallery} />
-      <Testimonials testimonials={content.testimonials} />
-      <BookingCTA />
-      <Contact contact={content.contact} fleet={content.fleet} />
-      <Footer social={content.social} branding={content.branding} />
-    </main>
+    <>
+      <AnnouncementBar announcement={content.announcement} />
+      <main>
+        <Navbar branding={content.branding} />
+        <Hero hero={content.hero} />
+        <Stats stats={content.stats} />
+        <Fleet fleet={content.fleet} />
+        <Experience />
+        <Pricing pricing={content.pricing} />
+        <WhyUs />
+        <BookingSection fleet={content.fleet} />
+        <MapSection locations={content.mapLocations} />
+        <Gallery gallery={content.gallery} />
+        <Testimonials testimonials={content.testimonials} />
+        <BookingCTA />
+        <Contact contact={content.contact} fleet={content.fleet} />
+        <Footer social={content.social} branding={content.branding} />
+      </main>
+    </>
   );
 }

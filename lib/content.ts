@@ -3,22 +3,29 @@ import { DEFAULT_CONTENT, type SiteContent } from './defaults';
 
 export { DEFAULT_CONTENT };
 export type { SiteContent };
-export type { HeroContent, StatItem, FleetItem, PricingRow, ContactContent, GalleryImage, TestimonialItem, SocialLinks, BrandingContent } from './defaults';
+export type { HeroContent, StatItem, FleetItem, PricingRow, ContactContent, GalleryImage, TestimonialItem, SocialLinks, BrandingContent, AnnouncementContent, MapLocation } from './defaults';
 
 // True when running on Vercel (KV env vars are auto-injected)
 const IS_VERCEL = !!process.env.KV_REST_API_URL;
 
 function mergeWithDefaults(parsed: Partial<SiteContent>): SiteContent {
+  // Ensure existing fleet items have the new `available` field
+  const fleet = (parsed.fleet ?? DEFAULT_CONTENT.fleet).map((s) => ({
+    ...s,
+    available: s.available ?? true,
+  }));
   return {
     hero: { ...DEFAULT_CONTENT.hero, ...(parsed.hero ?? {}) },
     stats: parsed.stats ?? DEFAULT_CONTENT.stats,
-    fleet: parsed.fleet ?? DEFAULT_CONTENT.fleet,
+    fleet,
     pricing: parsed.pricing ?? DEFAULT_CONTENT.pricing,
     contact: { ...DEFAULT_CONTENT.contact, ...(parsed.contact ?? {}) },
     gallery: parsed.gallery ?? [],
     testimonials: parsed.testimonials ?? DEFAULT_CONTENT.testimonials,
     social: { ...DEFAULT_CONTENT.social, ...(parsed.social ?? {}) },
     branding: { ...DEFAULT_CONTENT.branding, ...(parsed.branding ?? {}) },
+    announcement: { ...DEFAULT_CONTENT.announcement, ...(parsed.announcement ?? {}) },
+    mapLocations: parsed.mapLocations ?? DEFAULT_CONTENT.mapLocations,
   };
 }
 

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Gauge, Zap, Users, Shield, ArrowRight } from "lucide-react";
+import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban } from "lucide-react";
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type FleetItem } from "@/lib/defaults";
 
@@ -76,15 +76,26 @@ export default function Fleet({ fleet }: { fleet?: FleetItem[] }) {
                     src={scooter.image}
                     alt={scooter.name}
                     fill
-                    className="object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+                    className={`object-cover transition-transform duration-700 group-hover:scale-[1.04] ${scooter.available === false ? "brightness-50" : ""}`}
                     sizes="(max-width: 768px) 100vw, 50vw"
                     loading={i === 0 ? "eager" : "lazy"}
                     unoptimized={isUpload}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-dark-card via-dark-card/20 to-transparent" />
-                  <span className="absolute top-5 left-5 font-bebas text-xs tracking-[0.2em] bg-yellow text-dark px-3.5 py-1.5 rounded-full">
-                    {scooter.badge}
-                  </span>
+                  <div className="absolute top-5 left-5 flex items-center gap-2">
+                    <span className="font-bebas text-xs tracking-[0.2em] bg-yellow text-dark px-3.5 py-1.5 rounded-full">
+                      {scooter.badge}
+                    </span>
+                    {scooter.available === false ? (
+                      <span className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.15em] bg-red-500/90 text-white px-3 py-1.5 rounded-full">
+                        <Ban size={10} /> UNAVAILABLE
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.15em] bg-green-500/90 text-white px-3 py-1.5 rounded-full">
+                        <BadgeCheck size={10} /> AVAILABLE
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Content */}
@@ -122,11 +133,16 @@ export default function Fleet({ fleet }: { fleet?: FleetItem[] }) {
                       <span className="font-dm text-muted text-sm ml-1">{scooter.unit}</span>
                     </div>
                     <Link
-                      href="#contact"
-                      className="flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-6 py-3 rounded-full hover:bg-yellow-dark transition-colors"
+                      href="#booking"
+                      className={`flex items-center gap-2 font-syne font-bold text-sm px-6 py-3 rounded-full transition-colors ${
+                        scooter.available === false
+                          ? "bg-dark-border text-muted cursor-not-allowed pointer-events-none"
+                          : "bg-yellow text-dark hover:bg-yellow-dark"
+                      }`}
                       aria-label={`Book ${scooter.name}`}
+                      aria-disabled={scooter.available === false}
                     >
-                      Book Now <ArrowRight size={14} />
+                      {scooter.available === false ? "Unavailable" : <>Book Now <ArrowRight size={14} /></>}
                     </Link>
                   </div>
                 </div>

@@ -22,6 +22,7 @@ export interface FleetItem {
   image: string;
   price: string;
   unit: string;
+  available: boolean;
 }
 
 export interface PricingRow {
@@ -62,6 +63,23 @@ export interface BrandingContent {
   logo: string;
 }
 
+export interface AnnouncementContent {
+  active: boolean;
+  text: string;
+  link: string;
+  linkText: string;
+  bgColor: string; // e.g. "yellow" | "green" | "blue" | "red"
+}
+
+export interface MapLocation {
+  id: string;
+  name: string;
+  description: string;
+  category: "beach" | "viewpoint" | "restaurant" | "landmark" | "activity";
+  lat: number;
+  lng: number;
+}
+
 export interface SiteContent {
   hero: HeroContent;
   stats: StatItem[];
@@ -72,6 +90,8 @@ export interface SiteContent {
   testimonials: TestimonialItem[];
   social: SocialLinks;
   branding: BrandingContent;
+  announcement: AnnouncementContent;
+  mapLocations: MapLocation[];
 }
 
 export const DEFAULT_CONTENT: SiteContent = {
@@ -97,6 +117,7 @@ export const DEFAULT_CONTENT: SiteContent = {
       image: '/images/burgman-rider.jpeg',
       price: 'From Rs 800',
       unit: '/ day',
+      available: true,
     },
     {
       id: 'avenis',
@@ -108,6 +129,7 @@ export const DEFAULT_CONTENT: SiteContent = {
       image: '/images/avenis-front.jpeg',
       price: 'From Rs 600',
       unit: '/ day',
+      available: true,
     },
   ],
   pricing: [
@@ -153,4 +175,53 @@ export const DEFAULT_CONTENT: SiteContent = {
   branding: {
     logo: '',
   },
+  announcement: {
+    active: false,
+    text: 'Book 3+ days and get a FREE helmet & lock upgrade!',
+    link: '#booking',
+    linkText: 'Book now',
+    bgColor: 'yellow',
+  },
+  mapLocations: [
+    {
+      id: 'pointe-cotton',
+      name: 'Pointe Cotton',
+      description: 'Dramatic cliffs with breathtaking views of the Indian Ocean.',
+      category: 'viewpoint',
+      lat: -19.6728,
+      lng: 63.4764,
+    },
+    {
+      id: 'saint-francois',
+      name: 'Saint-François Lagoon',
+      description: 'Crystal-clear turquoise lagoon — perfect for snorkelling.',
+      category: 'beach',
+      lat: -19.7201,
+      lng: 63.4628,
+    },
+    {
+      id: 'grand-baie',
+      name: 'Grand Baie Beach',
+      description: 'Wide sandy beach, ideal for swimming and relaxing.',
+      category: 'beach',
+      lat: -19.6911,
+      lng: 63.3589,
+    },
+    {
+      id: 'caverne-patate',
+      name: 'Caverne Patate',
+      description: 'Stunning limestone cave system — guided tours available.',
+      category: 'landmark',
+      lat: -19.7253,
+      lng: 63.3614,
+    },
+    {
+      id: 'port-mathurin',
+      name: 'Port Mathurin Market',
+      description: 'The island\'s main town — visit the Saturday market for local produce.',
+      category: 'landmark',
+      lat: -19.6811,
+      lng: 63.4147,
+    },
+  ],
 };
