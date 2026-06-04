@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -19,10 +19,15 @@ import {
   Plus,
   Star,
   Share2,
+  Inbox,
+  RefreshCw,
+  Mail,
+  Calendar,
 } from "lucide-react";
 import type { SiteContent, FleetItem, GalleryImage, TestimonialItem, PricingRow } from "@/lib/defaults";
+import type { ContactSubmission } from "@/lib/supabase/types";
 
-type Section = "hero" | "fleet" | "pricing" | "contact" | "gallery" | "testimonials" | "branding";
+type Section = "hero" | "fleet" | "pricing" | "contact" | "gallery" | "testimonials" | "branding" | "submissions";
 
 const NAV: { id: Section; label: string; icon: React.ElementType }[] = [
   { id: "hero", label: "Hero", icon: Sparkles },
@@ -32,6 +37,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType }[] = [
   { id: "gallery", label: "Gallery", icon: Images },
   { id: "testimonials", label: "Reviews", icon: Star },
   { id: "branding", label: "Branding & Social", icon: Share2 },
+  { id: "submissions", label: "Enquiries", icon: Inbox },
 ];
 
 // ── Shared field components ───────────────────────────────────────────────────
@@ -593,6 +599,118 @@ function BrandingEditor({ content, onChange }: { content: SiteContent; onChange:
   );
 }
 
+// ── Submissions viewer ────────────────────────────────────────────────────────
+
+function SubmissionsViewer() {
+  const [submissions, setSubmissions] = useState<ContactSubmission[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await fetch("/api/admin/submissions");
+      if (!res.ok) throw new Error();
+      setSubmissions(await res.json());
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 size={28} className="text-yellow animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-red-400 font-dm text-sm mb-4">Failed to load submissions.</p>
+        <button onClick={load} className="flex items-center gap-2 text-yellow font-dm text-sm mx-auto hover:text-yellow-dark transition-colors">
+          <RefreshCw size={14} /> Try again
+        </button>
+      </div>
+    );
+  }
+
+  if (submissions.length === 0) {
+    return (
+      <div className="text-center py-20">
+        <Inbox size={36} className="text-muted/30 mx-auto mb-4" />
+        <p className="text-muted/50 font-dm text-sm">No enquiries yet.</p>
+        <p className="text-muted/30 font-dm text-xs mt-1">When customers fill in the contact form, their messages appear here.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-muted/50 font-dm text-xs">{submissions.length} enquir{submissions.length !== 1 ? "ies" : "y"}</p>
+        <button onClick={load} className="flex items-center gap-1.5 text-muted/50 hover:text-yellow font-dm text-xs transition-colors">
+          <RefreshCw size={12} /> Refresh
+        </button>
+      </div>
+
+      {submissions.map((s) => (
+        <div key={s.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5 space-y-3">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="font-syne font-bold text-offwhite text-sm">{s.name || "—"}</p>
+              <p className="font-bebas text-muted text-[10px] tracking-[0.2em] mt-0.5">
+                {new Date(s.created_at).toLocaleDateString("en-GB", {
+                  day: "numeric", month: "short", year: "numeric",
+                  hour: "2-digit", minute: "2-digit",
+                })}
+              </p>
+            </div>
+            {s.scooter && (
+              <span className="font-bebas text-[10px] tracking-[0.15em] bg-yellow/10 text-yellow px-2.5 py-1 rounded-full shrink-0">
+                {s.scooter.toUpperCase()}
+              </span>
+            )}
+          </div>
+
+          {/* Contact details */}
+          <div className="flex flex-wrap gap-x-5 gap-y-1.5">
+            {s.email && (
+              <a href={`mailto:${s.email}`} className="flex items-center gap-1.5 text-xs font-dm text-muted hover:text-yellow transition-colors">
+                <Mail size={11} /> {s.email}
+              </a>
+            )}
+            {s.phone && (
+              <a href={`https://wa.me/${s.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-dm text-muted hover:text-yellow transition-colors">
+                <Phone size={11} /> {s.phone}
+              </a>
+            )}
+            {s.dates && (
+              <span className="flex items-center gap-1.5 text-xs font-dm text-muted">
+                <Calendar size={11} /> {s.dates}
+              </span>
+            )}
+          </div>
+
+          {/* Message */}
+          {s.message && (
+            <p className="text-offwhite/60 font-dm text-xs leading-relaxed border-t border-[#2a2a2a] pt-3">
+              {s.message}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Main dashboard ────────────────────────────────────────────────────────────
 
 export default function AdminDashboard({ initialContent }: { initialContent: SiteContent }) {
@@ -642,9 +760,10 @@ export default function AdminDashboard({ initialContent }: { initialContent: Sit
     gallery: { title: "Photo Gallery", desc: "Upload scooter photos — they appear as a gallery on the site." },
     testimonials: { title: "Customer Reviews", desc: "Add or remove customer testimonials shown on the site." },
     branding: { title: "Branding & Social", desc: "Upload your logo and link your social media pages." },
+    submissions: { title: "Enquiries", desc: "Contact form submissions from customers." },
   };
 
-  const isAutoSave = section === "gallery";
+  const isAutoSave = section === "gallery" || section === "submissions";
 
   return (
     <div className="min-h-screen bg-[#080808] flex font-dm">
@@ -729,6 +848,7 @@ export default function AdminDashboard({ initialContent }: { initialContent: Sit
           )}
           {section === "testimonials" && <TestimonialsEditor content={content} onChange={setContent} />}
           {section === "branding" && <BrandingEditor content={content} onChange={setContent} />}
+          {section === "submissions" && <SubmissionsViewer />}
         </div>
       </main>
     </div>
