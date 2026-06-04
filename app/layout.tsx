@@ -55,7 +55,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${syne.variable} ${bebasNeue.variable} ${dmSans.variable} antialiased overflow-x-hidden`}
+      className={`${syne.variable} ${bebasNeue.variable} ${dmSans.variable} antialiased`}
     >
       <body className="bg-dark text-offwhite font-dm overflow-x-hidden">
         <LanguageProvider>

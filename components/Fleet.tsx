@@ -46,8 +46,8 @@ export default function Fleet({ fleet }: { fleet?: FleetItem[] }) {
           <div>
             <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.fleet.sectionEyebrow}</p>
             <h2
-              className="font-syne font-extrabold text-offwhite uppercase leading-none"
-              style={{ fontSize: "clamp(28px, 8vw, 80px)" }}
+              className="font-syne font-extrabold text-offwhite uppercase leading-none break-words"
+              style={{ fontSize: "clamp(48px, 8vw, 80px)" }}
             >
               {t.fleet.sectionTitle}
             </h2>
