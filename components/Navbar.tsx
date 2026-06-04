@@ -35,8 +35,8 @@ export default function Navbar({ branding }: { branding?: BrandingContent }) {
   }, []);
 
   useEffect(() => {
-    document.body.style.overflow = menuOpen ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    document.body.style.overflowY = menuOpen ? "hidden" : "";
+    return () => { document.body.style.overflowY = ""; };
   }, [menuOpen]);
 
   const logoEl = branding?.logo ? (

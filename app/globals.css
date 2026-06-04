@@ -33,6 +33,7 @@
 /* ── Base ───────────────────────────────────────────── */
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 *:focus-visible {

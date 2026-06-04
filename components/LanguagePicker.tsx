@@ -17,10 +17,10 @@ const LANGS: Language[] = ["en", "fr", "cr"];
 export default function LanguagePicker() {
   const { hasChosen, setLanguage } = useLanguage();
 
-  // Lock body scroll while picker is visible
+  // Lock vertical scroll while picker is visible (overflow-x untouched)
   useEffect(() => {
-    document.body.style.overflow = hasChosen ? "" : "hidden";
-    return () => { document.body.style.overflow = ""; };
+    document.body.style.overflowY = hasChosen ? "" : "hidden";
+    return () => { document.body.style.overflowY = ""; };
   }, [hasChosen]);
 
   return (
