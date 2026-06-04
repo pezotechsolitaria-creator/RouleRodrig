@@ -29,10 +29,16 @@ import {
   Megaphone,
   BadgeCheck,
   Ban,
-  TrendingUp,
-  Users,
   ClipboardList,
   Eye,
+  Handshake,
+  Store,
+  Tag,
+  ToggleLeft,
+  ToggleRight,
+  Copy,
+  ExternalLink,
+  Globe,
 } from "lucide-react";
 import type {
   SiteContent,
@@ -43,7 +49,7 @@ import type {
   MapLocation,
   AnnouncementContent,
 } from "@/lib/defaults";
-import type { ContactSubmission, Booking } from "@/lib/supabase/types";
+import type { ContactSubmission, Booking, Partner, MarketplaceListing } from "@/lib/supabase/types";
 
 type Section =
   | "dashboard"
@@ -57,12 +63,16 @@ type Section =
   | "branding"
   | "submissions"
   | "bookings"
-  | "map";
+  | "map"
+  | "partners"
+  | "marketplace";
 
 const NAV: { id: Section; label: string; icon: React.ElementType; group?: string }[] = [
   { id: "dashboard",    label: "Dashboard",       icon: LayoutDashboard, group: "overview" },
   { id: "bookings",     label: "Bookings",         icon: BookOpen,        group: "overview" },
   { id: "submissions",  label: "Enquiries",        icon: Inbox,           group: "overview" },
+  { id: "partners",     label: "Partners",         icon: Handshake,       group: "business" },
+  { id: "marketplace",  label: "Marketplace",      icon: Store,           group: "business" },
   { id: "announcement", label: "Announcement",     icon: Megaphone,       group: "content" },
   { id: "hero",         label: "Hero",             icon: Sparkles,        group: "content" },
   { id: "fleet",        label: "Fleet",            icon: Bike,            group: "content" },
@@ -240,10 +250,10 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
   }, []);
 
   const cards = [
-    { label: "Total Bookings",  value: stats?.bookings ?? "—",  icon: BookOpen,     color: "text-yellow",   section: "bookings" as Section },
-    { label: "Pending",          value: stats?.pending ?? "—",   icon: ClipboardList,color: "text-amber-400",section: "bookings" as Section },
-    { label: "Confirmed",        value: stats?.confirmed ?? "—", icon: CheckCircle,  color: "text-green-400",section: "bookings" as Section },
-    { label: "Enquiries",        value: stats?.enquiries ?? "—", icon: Inbox,        color: "text-blue-400", section: "submissions" as Section },
+    { label: "Total Bookings",  value: stats?.bookings ?? "—",  icon: BookOpen,     color: "text-yellow",   section: "bookings"     as Section },
+    { label: "Pending",          value: stats?.pending ?? "—",   icon: ClipboardList,color: "text-amber-400",section: "bookings"     as Section },
+    { label: "Confirmed",        value: stats?.confirmed ?? "—", icon: CheckCircle,  color: "text-green-400",section: "bookings"     as Section },
+    { label: "Enquiries",        value: stats?.enquiries ?? "—", icon: Inbox,        color: "text-blue-400", section: "submissions"  as Section },
   ];
 
   return (
@@ -1506,6 +1516,673 @@ function MapEditor({
   );
 }
 
+// ── Partners manager ──────────────────────────────────────────────────────────
+
+const PARTNER_TYPES = ["hotel", "guesthouse", "travel_agency", "other"] as const;
+
+type PartnerForm = {
+  name: string;
+  type: Partner["type"];
+  email: string;
+  phone: string;
+  partner_code: string;
+  commission_pct: string;
+  notes: string;
+};
+
+const emptyPartnerForm = (): PartnerForm => ({
+  name: "", type: "hotel", email: "", phone: "",
+  partner_code: "", commission_pct: "10", notes: "",
+});
+
+function generateCode(name: string) {
+  return name
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s]/g, "")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .join("-")
+    .substring(0, 20) || `PARTNER-${Date.now().toString(36).toUpperCase()}`;
+}
+
+function PartnersManager() {
+  const [partners, setPartners] = useState<Partner[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<PartnerForm>(emptyPartnerForm());
+  const [editing, setEditing] = useState<string | null>(null); // partner id being edited
+  const [showForm, setShowForm] = useState(false);
+  const [commissionView, setCommissionView] = useState<string | null>(null); // partner id
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/partners");
+      if (res.ok) setPartners(await res.json());
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadBookings() {
+    setBookingsLoading(true);
+    try {
+      const res = await fetch("/api/admin/bookings");
+      if (res.ok) setBookings(await res.json());
+    } finally {
+      setBookingsLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function handleSave() {
+    if (!form.name || !form.partner_code) return;
+    setSaving(true);
+    try {
+      const payload = {
+        ...form,
+        commission_pct: parseFloat(form.commission_pct) || 10,
+        ...(editing ? { id: editing } : {}),
+      };
+      const res = await fetch("/api/admin/partners", {
+        method: editing ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        await load();
+        setShowForm(false);
+        setEditing(null);
+        setForm(emptyPartnerForm());
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Remove this partner?")) return;
+    await fetch(`/api/admin/partners?id=${id}`, { method: "DELETE" });
+    setPartners((prev) => prev.filter((p) => p.id !== id));
+  }
+
+  async function toggleActive(p: Partner) {
+    await fetch("/api/admin/partners", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: p.id, active: !p.active }),
+    });
+    setPartners((prev) => prev.map((x) => x.id === p.id ? { ...x, active: !x.active } : x));
+  }
+
+  function openEdit(p: Partner) {
+    setForm({
+      name: p.name, type: p.type, email: p.email ?? "",
+      phone: p.phone ?? "", partner_code: p.partner_code,
+      commission_pct: String(p.commission_pct), notes: p.notes ?? "",
+    });
+    setEditing(p.id);
+    setShowForm(true);
+  }
+
+  function openCommission(p: Partner) {
+    setCommissionView(p.id);
+    if (bookings.length === 0) loadBookings();
+  }
+
+  function copyCode(code: string) {
+    navigator.clipboard.writeText(code);
+    setCopied(code);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  if (commissionView) {
+    const partner = partners.find((p) => p.id === commissionView);
+    const partnerBookings = bookings.filter((b) => b.partner_code === partner?.partner_code);
+    const totalRaw = partnerBookings.reduce((acc, b) => acc + (b.total_amount ?? 0), 0);
+    const commission = Math.round(totalRaw * (partner?.commission_pct ?? 10) / 100);
+
+    return (
+      <div className="space-y-6">
+        <button
+          onClick={() => setCommissionView(null)}
+          className="flex items-center gap-2 text-sm font-dm text-muted hover:text-yellow transition-colors"
+        >
+          ← Back to Partners
+        </button>
+
+        <div>
+          <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-1">COMMISSION REPORT</p>
+          <h2 className="font-syne font-bold text-offwhite text-xl">{partner?.name}</h2>
+          <p className="font-dm text-muted text-sm mt-1">
+            Code: <span className="text-yellow font-mono">{partner?.partner_code}</span> ·{" "}
+            Commission: <span className="text-yellow">{partner?.commission_pct}%</span>
+          </p>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            { label: "Bookings via this partner", value: partnerBookings.length },
+            { label: "Total rental value (est.)", value: `Rs ${totalRaw.toLocaleString()}` },
+            { label: `Commission due (${partner?.commission_pct}%)`, value: `Rs ${commission.toLocaleString()}` },
+          ].map((s) => (
+            <div key={s.label} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
+              <p className="font-syne font-extrabold text-yellow text-2xl mb-1">{s.value}</p>
+              <p className="font-dm text-muted text-xs">{s.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {bookingsLoading ? (
+          <div className="flex items-center gap-2 text-muted font-dm text-sm">
+            <Loader2 size={14} className="animate-spin" /> Loading bookings…
+          </div>
+        ) : partnerBookings.length === 0 ? (
+          <div className="text-center py-10">
+            <p className="text-muted/50 font-dm text-sm">No bookings attributed to this partner yet.</p>
+            <p className="text-muted/30 font-dm text-xs mt-1">
+              Share their code <span className="font-mono text-yellow">{partner?.partner_code}</span> with them.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="font-bebas text-muted text-[10px] tracking-[0.3em]">ATTRIBUTED BOOKINGS</p>
+            {partnerBookings.map((b) => (
+              <div key={b.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <p className="font-dm text-offwhite text-sm font-medium">{b.name}</p>
+                  <p className="font-dm text-muted text-xs">{b.scooter.toUpperCase()} · {b.days} days · {new Date(b.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} – {new Date(b.end_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
+                </div>
+                <div className="text-right">
+                  {b.total_price && <p className="font-syne font-bold text-yellow text-sm">{b.total_price}</p>}
+                  {b.total_amount && <p className="font-dm text-green-400 text-xs">Commission: Rs {Math.round(b.total_amount * (partner?.commission_pct ?? 10) / 100).toLocaleString()}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
+          <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-3">INVOICE SUMMARY (for printing)</p>
+          <div className="font-dm text-sm space-y-1 text-offwhite/70">
+            <p><strong className="text-offwhite">Partner:</strong> {partner?.name}</p>
+            <p><strong className="text-offwhite">Code:</strong> {partner?.partner_code}</p>
+            <p><strong className="text-offwhite">Bookings:</strong> {partnerBookings.length}</p>
+            <p><strong className="text-offwhite">Total rental value:</strong> Rs {totalRaw.toLocaleString()}</p>
+            <p><strong className="text-offwhite">Commission rate:</strong> {partner?.commission_pct}%</p>
+            <p className="text-yellow font-bold text-base pt-2"><strong>Amount due: Rs {commission.toLocaleString()}</strong></p>
+          </div>
+          <button
+            onClick={() => window.print()}
+            className="mt-4 flex items-center gap-2 border border-[#2a2a2a] hover:border-yellow text-offwhite/70 hover:text-yellow px-4 py-2 rounded-lg text-xs font-dm transition-colors"
+          >
+            🖨️ Print Report
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-0.5">REFERRAL NETWORK</p>
+          <p className="font-dm text-muted text-xs">Hotels and guesthouses that refer customers and earn commission.</p>
+        </div>
+        <button
+          onClick={() => { setForm(emptyPartnerForm()); setEditing(null); setShowForm(true); }}
+          className="flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-xs px-4 py-2 rounded-full hover:bg-yellow-dark transition-colors"
+        >
+          <Plus size={13} /> Add Partner
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-[#0d0d0d] border border-yellow/30 rounded-2xl p-6 space-y-5">
+          <p className="font-bebas text-yellow text-xs tracking-[0.3em]">
+            {editing ? "EDIT PARTNER" : "NEW PARTNER"}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="BUSINESS NAME">
+              <TextInput
+                value={form.name}
+                onChange={(v) => setForm({ ...form, name: v, partner_code: form.partner_code || generateCode(v) })}
+                placeholder="e.g. Chez Francine Guesthouse"
+              />
+            </Field>
+            <Field label="TYPE">
+              <select
+                value={form.type}
+                onChange={(e) => setForm({ ...form, type: e.target.value as Partner["type"] })}
+                className={`${inputCls} appearance-none`}
+              >
+                {PARTNER_TYPES.map((t) => (
+                  <option key={t} value={t}>{t.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="EMAIL">
+              <TextInput value={form.email} onChange={(v) => setForm({ ...form, email: v })} placeholder="contact@hotel.mu" />
+            </Field>
+            <Field label="PHONE">
+              <TextInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} placeholder="+230 5XXX XXXX" />
+            </Field>
+            <Field label="PARTNER CODE (unique)">
+              <div className="flex gap-2">
+                <TextInput
+                  value={form.partner_code}
+                  onChange={(v) => setForm({ ...form, partner_code: v.toUpperCase().replace(/[^A-Z0-9-]/g, "") })}
+                  placeholder="e.g. CHEZ-FRANCINE"
+                />
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, partner_code: generateCode(form.name) })}
+                  className="shrink-0 border border-[#2a2a2a] hover:border-yellow text-muted hover:text-yellow px-3 rounded-xl text-xs font-dm transition-colors"
+                >
+                  Auto
+                </button>
+              </div>
+            </Field>
+            <Field label="COMMISSION %">
+              <TextInput
+                value={form.commission_pct}
+                onChange={(v) => setForm({ ...form, commission_pct: v })}
+                placeholder="10"
+                type="number"
+              />
+            </Field>
+          </div>
+          <Field label="NOTES">
+            <Textarea value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} rows={2} />
+          </Field>
+          <div className="flex gap-3">
+            <button
+              onClick={handleSave}
+              disabled={saving || !form.name || !form.partner_code}
+              className="flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-5 py-2.5 rounded-full hover:bg-yellow-dark disabled:opacity-50 transition-colors"
+            >
+              {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+              {editing ? "Save Changes" : "Create Partner"}
+            </button>
+            <button
+              onClick={() => { setShowForm(false); setEditing(null); setForm(emptyPartnerForm()); }}
+              className="text-sm font-dm text-muted hover:text-offwhite transition-colors px-4"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-muted font-dm text-sm py-10">
+          <Loader2 size={16} className="animate-spin" /> Loading partners…
+        </div>
+      ) : partners.length === 0 ? (
+        <div className="text-center py-16">
+          <Handshake size={36} className="text-muted/20 mx-auto mb-4" />
+          <p className="text-muted/50 font-dm text-sm">No partners yet.</p>
+          <p className="text-muted/30 font-dm text-xs mt-1">Add a hotel or guesthouse to start tracking referral commissions.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {partners.map((p) => (
+            <div key={p.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <p className="font-syne font-bold text-offwhite text-sm">{p.name}</p>
+                    <span className="font-bebas text-[9px] tracking-[0.15em] border border-[#2a2a2a] text-muted px-2 py-0.5 rounded-full">
+                      {p.type.replace("_", " ").toUpperCase()}
+                    </span>
+                    {p.active ? (
+                      <span className="flex items-center gap-1 text-green-400 text-[9px] font-bebas tracking-[0.15em]">
+                        <BadgeCheck size={10} /> ACTIVE
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-red-400/70 text-[9px] font-bebas tracking-[0.15em]">
+                        <Ban size={10} /> INACTIVE
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bebas text-[9px] tracking-[0.15em] text-muted">CODE:</span>
+                      <span className="font-mono text-yellow text-xs font-bold">{p.partner_code}</span>
+                      <button
+                        onClick={() => copyCode(p.partner_code)}
+                        className="text-muted/40 hover:text-yellow transition-colors"
+                        aria-label="Copy code"
+                      >
+                        {copied === p.partner_code ? <CheckCircle size={11} className="text-green-400" /> : <Copy size={11} />}
+                      </button>
+                    </div>
+                    <span className="text-muted/40 text-xs font-dm">{p.commission_pct}% commission</span>
+                    {p.email && (
+                      <a href={`mailto:${p.email}`} className="flex items-center gap-1 text-xs font-dm text-muted/50 hover:text-yellow transition-colors">
+                        <Mail size={10} /> {p.email}
+                      </a>
+                    )}
+                  </div>
+                  {p.notes && <p className="text-muted/40 font-dm text-xs mt-1">{p.notes}</p>}
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => openCommission(p)}
+                    className="flex items-center gap-1.5 border border-[#2a2a2a] hover:border-yellow text-muted/60 hover:text-yellow px-3 py-1.5 rounded-lg text-xs font-dm transition-colors"
+                  >
+                    <ClipboardList size={11} /> Report
+                  </button>
+                  <button
+                    onClick={() => openEdit(p)}
+                    className="flex items-center gap-1.5 border border-[#2a2a2a] hover:border-yellow text-muted/60 hover:text-yellow px-3 py-1.5 rounded-lg text-xs font-dm transition-colors"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => toggleActive(p)}
+                    className="text-muted/40 hover:text-yellow transition-colors"
+                    title={p.active ? "Deactivate" : "Activate"}
+                  >
+                    {p.active ? <ToggleRight size={18} className="text-green-400" /> : <ToggleLeft size={18} />}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(p.id)}
+                    className="text-muted/30 hover:text-red-400 transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="bg-yellow/5 border border-yellow/20 rounded-2xl p-5">
+        <p className="font-syne font-bold text-offwhite text-sm mb-2">How it works</p>
+        <ol className="space-y-1.5">
+          {[
+            "Add a hotel or guesthouse partner and set their commission percentage.",
+            "Share their unique code with them (e.g. CHEZ-FRANCINE).",
+            "When guests book, they enter the code in the booking form.",
+            "View the Commission Report to see bookings and amounts due.",
+            "Pay partners based on the report — click Print to create a paper record.",
+          ].map((step, i) => (
+            <li key={i} className="flex items-start gap-2.5 text-xs font-dm text-muted/70">
+              <span className="font-bebas text-yellow shrink-0">{i + 1}.</span>
+              {step}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
+  );
+}
+
+// ── Marketplace manager ────────────────────────────────────────────────────────
+
+const MARKETPLACE_CATEGORIES = ["restaurant", "tour", "activity", "accommodation", "shopping"] as const;
+
+type ListingForm = {
+  business_name: string;
+  category: MarketplaceListing["category"];
+  description: string;
+  offer: string;
+  contact: string;
+  website: string;
+};
+
+const emptyListingForm = (): ListingForm => ({
+  business_name: "", category: "restaurant", description: "",
+  offer: "", contact: "", website: "",
+});
+
+function MarketplaceManager() {
+  const [listings, setListings] = useState<MarketplaceListing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<ListingForm>(emptyListingForm());
+  const [editing, setEditing] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/marketplace");
+      if (res.ok) setListings(await res.json());
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function handleSave() {
+    if (!form.business_name || !form.description || !form.offer) return;
+    setSaving(true);
+    try {
+      const payload = { ...form, ...(editing ? { id: editing } : {}) };
+      const res = await fetch("/api/admin/marketplace", {
+        method: editing ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        await load();
+        setShowForm(false);
+        setEditing(null);
+        setForm(emptyListingForm());
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Remove this listing?")) return;
+    await fetch(`/api/admin/marketplace?id=${id}`, { method: "DELETE" });
+    setListings((prev) => prev.filter((l) => l.id !== id));
+  }
+
+  async function toggleField(l: MarketplaceListing, field: "active" | "featured") {
+    await fetch("/api/admin/marketplace", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: l.id, [field]: !l[field] }),
+    });
+    setListings((prev) => prev.map((x) => x.id === l.id ? { ...x, [field]: !x[field] } : x));
+  }
+
+  function openEdit(l: MarketplaceListing) {
+    setForm({
+      business_name: l.business_name, category: l.category,
+      description: l.description, offer: l.offer,
+      contact: l.contact ?? "", website: l.website ?? "",
+    });
+    setEditing(l.id);
+    setShowForm(true);
+  }
+
+  const CATEGORY_EMOJI: Record<string, string> = {
+    restaurant: "🍽️", tour: "🧭", activity: "🤿", accommodation: "🏡", shopping: "🛍️",
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-0.5">LOCAL BUSINESS DEALS</p>
+          <p className="font-dm text-muted text-xs">Restaurants, tours and activities that offer deals to your customers.</p>
+        </div>
+        <button
+          onClick={() => { setForm(emptyListingForm()); setEditing(null); setShowForm(true); }}
+          className="flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-xs px-4 py-2 rounded-full hover:bg-yellow-dark transition-colors"
+        >
+          <Plus size={13} /> Add Listing
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-[#0d0d0d] border border-yellow/30 rounded-2xl p-6 space-y-5">
+          <p className="font-bebas text-yellow text-xs tracking-[0.3em]">
+            {editing ? "EDIT LISTING" : "NEW LISTING"}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="BUSINESS NAME">
+              <TextInput
+                value={form.business_name}
+                onChange={(v) => setForm({ ...form, business_name: v })}
+                placeholder="e.g. La Belle Rodrigue Restaurant"
+              />
+            </Field>
+            <Field label="CATEGORY">
+              <select
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value as MarketplaceListing["category"] })}
+                className={`${inputCls} appearance-none`}
+              >
+                {MARKETPLACE_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {CATEGORY_EMOJI[c]} {c.charAt(0).toUpperCase() + c.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <Field label="DESCRIPTION">
+            <Textarea
+              value={form.description}
+              onChange={(v) => setForm({ ...form, description: v })}
+              rows={2}
+              // placeholder prop not in Textarea — use default
+            />
+          </Field>
+          <Field label="SPECIAL OFFER (what customers get)">
+            <TextInput
+              value={form.offer}
+              onChange={(v) => setForm({ ...form, offer: v })}
+              placeholder="e.g. 10% off your meal when you show your scooter rental receipt"
+            />
+          </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="CONTACT (phone or WhatsApp)">
+              <TextInput value={form.contact} onChange={(v) => setForm({ ...form, contact: v })} placeholder="+230 5XXX XXXX" />
+            </Field>
+            <Field label="WEBSITE (optional)">
+              <TextInput value={form.website} onChange={(v) => setForm({ ...form, website: v })} placeholder="https://..." />
+            </Field>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={handleSave}
+              disabled={saving || !form.business_name || !form.description || !form.offer}
+              className="flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-5 py-2.5 rounded-full hover:bg-yellow-dark disabled:opacity-50 transition-colors"
+            >
+              {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+              {editing ? "Save Changes" : "Add Listing"}
+            </button>
+            <button
+              onClick={() => { setShowForm(false); setEditing(null); setForm(emptyListingForm()); }}
+              className="text-sm font-dm text-muted hover:text-offwhite transition-colors px-4"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-muted font-dm text-sm py-10">
+          <Loader2 size={16} className="animate-spin" /> Loading listings…
+        </div>
+      ) : listings.length === 0 ? (
+        <div className="text-center py-16">
+          <Store size={36} className="text-muted/20 mx-auto mb-4" />
+          <p className="text-muted/50 font-dm text-sm">No listings yet.</p>
+          <p className="text-muted/30 font-dm text-xs mt-1">Add a restaurant or tour operator to show deals to your customers.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {listings.map((l) => (
+            <div key={l.id} className={`bg-[#0d0d0d] border rounded-2xl p-5 ${l.active ? "border-[#2a2a2a]" : "border-[#1a1a1a] opacity-60"}`}>
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-base">{CATEGORY_EMOJI[l.category] ?? "🏪"}</span>
+                    <p className="font-syne font-bold text-offwhite text-sm">{l.business_name}</p>
+                    {l.featured && (
+                      <span className="font-bebas text-[9px] tracking-[0.15em] bg-yellow/10 text-yellow border border-yellow/20 px-2 py-0.5 rounded-full">
+                        ★ FEATURED
+                      </span>
+                    )}
+                    {!l.active && (
+                      <span className="font-bebas text-[9px] tracking-[0.15em] text-muted/40 border border-muted/20 px-2 py-0.5 rounded-full">
+                        HIDDEN
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-muted font-dm text-xs mb-1 line-clamp-1">{l.description}</p>
+                  <div className="flex items-center gap-1.5">
+                    <Tag size={10} className="text-yellow shrink-0" />
+                    <p className="text-yellow/80 font-dm text-xs">{l.offer}</p>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1.5">
+                    {l.contact && (
+                      <span className="text-muted/50 font-dm text-xs">{l.contact}</span>
+                    )}
+                    {l.website && (
+                      <a href={l.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-muted/50 hover:text-yellow text-xs font-dm transition-colors">
+                        <Globe size={10} /> Website
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => toggleField(l, "featured")}
+                    title={l.featured ? "Remove featured" : "Mark as featured"}
+                    className={`text-xs font-dm px-2.5 py-1 rounded-full border transition-colors ${l.featured ? "border-yellow/40 text-yellow" : "border-[#2a2a2a] text-muted/40 hover:border-yellow/30"}`}
+                  >
+                    ★
+                  </button>
+                  <button
+                    onClick={() => toggleField(l, "active")}
+                    title={l.active ? "Hide from website" : "Show on website"}
+                    className="text-muted/40 hover:text-yellow transition-colors"
+                  >
+                    {l.active ? <ToggleRight size={18} className="text-green-400" /> : <ToggleLeft size={18} />}
+                  </button>
+                  <button onClick={() => openEdit(l)} className="text-muted/40 hover:text-yellow transition-colors">
+                    <Eye size={14} />
+                  </button>
+                  <button onClick={() => handleDelete(l.id)} className="text-muted/30 hover:text-red-400 transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="bg-yellow/5 border border-yellow/20 rounded-2xl p-5">
+        <p className="font-syne font-bold text-offwhite text-sm mb-2">Monetisation tip</p>
+        <p className="font-dm text-muted/70 text-xs leading-relaxed">
+          Charge local businesses a monthly listing fee (e.g. Rs 500–2,000/month) to appear in the Deals section.
+          Featured listings appear first. This can become a recurring income stream with very little effort.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Main dashboard ─────────────────────────────────────────────────────────────
 
 export default function AdminDashboard({
@@ -1564,14 +2241,18 @@ export default function AdminDashboard({
     submissions:  { title: "Enquiries",           desc: "Contact form submissions from customers." },
     bookings:     { title: "Bookings",            desc: "Booking requests from the website booking form." },
     map:          { title: "Island Map Locations",desc: "Manage the points of interest shown on the island guide map." },
+    partners:     { title: "Hotel Partners",      desc: "Manage referral partners and track commission." },
+    marketplace:  { title: "Marketplace / Deals", desc: "Local business listings shown to customers on the website." },
   };
 
   const isAutoSave =
-    section === "gallery" || section === "submissions" || section === "bookings" || section === "dashboard";
+    section === "gallery" || section === "submissions" || section === "bookings" ||
+    section === "dashboard" || section === "partners" || section === "marketplace";
 
   // Group NAV items
   const overviewNav = NAV.filter((n) => n.group === "overview");
-  const contentNav = NAV.filter((n) => n.group === "content");
+  const businessNav = NAV.filter((n) => n.group === "business");
+  const contentNav  = NAV.filter((n) => n.group === "content");
 
   return (
     <div className="min-h-screen bg-[#080808] flex font-dm">
@@ -1612,6 +2293,29 @@ export default function AdminDashboard({
               ))}
             </div>
           </div>
+
+          {/* Business group */}
+          {businessNav.length > 0 && (
+            <div>
+              <p className="font-bebas text-muted/40 text-[8px] tracking-[0.3em] px-3 mb-1">BUSINESS</p>
+              <div className="space-y-0.5">
+                {businessNav.map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    onClick={() => setSection(id)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
+                      section === id
+                        ? "bg-yellow/10 text-yellow"
+                        : "text-muted hover:text-offwhite hover:bg-white/5"
+                    }`}
+                  >
+                    <Icon size={15} className="shrink-0" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Content group */}
           <div>
@@ -1724,6 +2428,8 @@ export default function AdminDashboard({
           {section === "map" && (
             <MapEditor content={content} onChange={setContent} />
           )}
+          {section === "partners" && <PartnersManager />}
+          {section === "marketplace" && <MarketplaceManager />}
         </div>
       </main>
     </div>

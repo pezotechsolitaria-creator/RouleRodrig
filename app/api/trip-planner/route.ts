@@ -1,0 +1,172 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+// ── Rodrigues activity knowledge base ───────────────────────────────────────
+
+interface Activity {
+  id: string;
+  name: string;
+  emoji: string;
+  type: 'beach' | 'culture' | 'adventure' | 'viewpoint' | 'food';
+  slot: 'morning' | 'afternoon' | 'evening' | 'lunch';
+  duration: string;
+  description: string;
+  tip: string;
+}
+
+const ACTIVITIES: Activity[] = [
+  // Beaches
+  { id: 'grand-baie', name: 'Grand Baie Beach', emoji: '🏖️', type: 'beach', slot: 'morning', duration: '2–3 hrs', description: 'Wide sandy beach with crystal-clear water, perfect for swimming and snorkelling. A Rodrigues classic.', tip: 'Arrive before 9am for the calmest water. Bring snorkel gear — the reef is stunning.' },
+  { id: 'saint-francois', name: 'Saint-François Lagoon', emoji: '🌊', type: 'beach', slot: 'morning', duration: '2–3 hrs', description: 'One of the Indian Ocean\'s most beautiful lagoons. Turquoise water, white sand, and untouched reef.', tip: 'Best before noon — the light on the water is magical. Combine with a ride along the eastern road.' },
+  { id: 'trou-argent', name: 'Trou d\'Argent Beach', emoji: '🏝️', type: 'beach', slot: 'morning', duration: '2 hrs', description: 'Rodrigues\' most secluded beach — accessible only on foot via a cliffside path. Absolutely breathtaking.', tip: 'Park near Pointe Cotton and walk down (10 min). Go early — locals say it\'s the most beautiful beach in the whole Indian Ocean.' },
+  { id: 'anse-mourouk', name: 'Anse Mourouk', emoji: '🌴', type: 'beach', slot: 'afternoon', duration: '2 hrs', description: 'A southern beach surrounded by dramatic coastal scenery. Quiet, wild, and very Rodriguan.', tip: 'Combine with a coastal ride through the south — the cliffs and views along the way are unforgettable.' },
+  { id: 'riviere-banane', name: 'Rivière Banane Beach', emoji: '🌿', type: 'beach', slot: 'morning', duration: '1.5 hrs', description: 'A quiet, local beach near a river mouth. Great for a relaxed swim away from the tourist trail.', tip: 'Ask locals for the best spot to enter the water. Very peaceful on weekday mornings.' },
+  { id: 'anse-quitor', name: 'Anse Quitor', emoji: '🐚', type: 'beach', slot: 'afternoon', duration: '1.5 hrs', description: 'A small, sheltered cove popular with local families. Great for snorkelling along the rocky edges.', tip: 'Bring your own supplies — no facilities here. The isolation is the whole point.' },
+
+  // Culture & Landmarks
+  { id: 'caverne-patate', name: 'Caverne Patate', emoji: '🪨', type: 'culture', slot: 'morning', duration: '2 hrs', description: 'Rodrigues\' most impressive limestone cave system with guided tours through underground chambers, stalagmites and stalactites.', tip: 'Book in advance — tours fill up. Wear closed shoes. The guide\'s storytelling is excellent.' },
+  { id: 'market', name: 'Port Mathurin Saturday Market', emoji: '🛒', type: 'culture', slot: 'morning', duration: '2 hrs', description: 'The heart of Rodrigues life. Fresh produce, handmade crafts, street food, and the genuine soul of the island.', tip: 'Only on Saturdays, from 6am. Go early for the best pickled salads and freshly squeezed juices.' },
+  { id: 'francois-leguat', name: 'François Leguat Giant Tortoise Reserve', emoji: '🐢', type: 'culture', slot: 'afternoon', duration: '2 hrs', description: 'Walk among thousands of giant tortoises and explore the reserve\'s unique caves. A wonderful nature experience for all ages.', tip: 'Allow extra time — you\'ll want to stay longer than planned. The caves inside are also fascinating.' },
+  { id: 'port-mathurin', name: 'Port Mathurin Town Walk', emoji: '🏛️', type: 'culture', slot: 'morning', duration: '1.5 hrs', description: 'Stroll the colourful capital, visit St Gabriel Church, the market hall, and waterfront. Feel the island\'s French Creole character.', tip: 'The waterfront at sunrise is serene. Stop at a local bakery for a pain beurre before exploring.' },
+
+  // Adventure
+  { id: 'coastal-ride', name: 'East Coast Scenic Scooter Ride', emoji: '🛵', type: 'adventure', slot: 'afternoon', duration: '2–3 hrs', description: 'The most spectacular road on the island — ride from Pointe Cotton south to Saint-François along dramatic cliffs and open lagoons.', tip: 'This is why you rented the scooter. Stop wherever looks good. You will not regret it.' },
+  { id: 'grand-montagne', name: 'Grand Montagne Nature Reserve', emoji: '🦜', type: 'adventure', slot: 'morning', duration: '2–3 hrs', description: 'Hike through endemic forest with incredible birdlife. Home to the rare Rodrigues warbler and fody.', tip: 'Start at 7am before the heat builds. The trail markers are clear and the birdlife is extraordinary in the early morning.' },
+  { id: 'gombrani', name: 'Île Gombrani Snorkel Trip', emoji: '🤿', type: 'adventure', slot: 'morning', duration: '3–4 hrs', description: 'Boat trip to a small uninhabited islet surrounded by pristine coral reef. Some of the best snorkelling in Rodrigues.', tip: 'Book from Port Mathurin waterfront. Bring your own mask for a better fit — and sunscreen.' },
+  { id: 'southern-ride', name: 'Southern Coastal Ride', emoji: '🏍️', type: 'adventure', slot: 'afternoon', duration: '2 hrs', description: 'Explore the wild southern coast by scooter — dramatic cliffs, isolated bays, and barely any other tourists.', tip: 'Start from Port Mathurin heading south. The road through Baie Malgache is particularly beautiful.' },
+
+  // Viewpoints
+  { id: 'pointe-cotton', name: 'Pointe Cotton Cliffs', emoji: '🌅', type: 'viewpoint', slot: 'afternoon', duration: '1 hr', description: 'The most dramatic cliffs on the island. Sheer drops into the Indian Ocean with 180-degree views.', tip: 'Go in the afternoon for golden light on the cliffs. Wind can be strong — hold on to your hat.' },
+  { id: 'roche-bon-dieu', name: 'Roche Bon Dieu at Sunset', emoji: '🌇', type: 'viewpoint', slot: 'evening', duration: '1 hr', description: 'The best sunset viewpoint on the island. Panoramic views over Port Mathurin and the lagoon turning gold.', tip: 'Arrive 30 minutes before sunset and bring a picnic. The colours are extraordinary on clear evenings.' },
+  { id: 'mont-lubin', name: 'Mont Lubin Summit', emoji: '⛰️', type: 'viewpoint', slot: 'morning', duration: '1–2 hrs', description: 'The highest point of Rodrigues at 393m. On clear days you can see Mauritius on the horizon.', tip: 'Start early before clouds gather at the peak. The scooter ride up is part of the adventure.' },
+  { id: 'plaine-corail', name: 'Plaine Corail Viewpoint', emoji: '✈️', type: 'viewpoint', slot: 'afternoon', duration: '45 min', description: 'The airstrip viewpoint where you can watch small planes arrive. Unique views across the southern plateau.', tip: 'A quick stop on the way south. Doubles as a great photography spot — the wide open plateau is striking.' },
+
+  // Food & Evenings
+  { id: 'lunch-local', name: 'Local Rodriguan Lunch', emoji: '🍛', type: 'food', slot: 'lunch', duration: '1 hr', description: 'Try octopus curry, smoked marlin, heart of palm salad and fresh tropical fruit juice. Rodriguan cuisine is unforgettable.', tip: 'Ask your guesthouse host where to eat — the best local places are always word-of-mouth and rarely online.' },
+  { id: 'lunch-port', name: 'Lunch at Port Mathurin', emoji: '🥘', type: 'food', slot: 'lunch', duration: '1 hr', description: 'Grab lunch at one of the small restaurants around the market. Fresh fish, Creole stews, and local pickles.', tip: 'The fish is caught the same morning. Try the "carry poisson" — spiced tuna stew served over rice.' },
+  { id: 'seafood-dinner', name: 'Fresh Seafood Dinner', emoji: '🦞', type: 'food', slot: 'evening', duration: '1.5 hrs', description: 'End your day with grilled lobster, calamari or reef fish caught that morning. The freshest seafood in the Indian Ocean.', tip: 'Many guesthouses serve dinner on request with produce from local fishers. Ask your host for tonight\'s catch.' },
+  { id: 'rum-tasting', name: 'Local Rhum Arrangé Tasting', emoji: '🍹', type: 'food', slot: 'evening', duration: '1 hr', description: 'Sample Rodrigues\' famous fruit-infused rums — passion fruit, vanilla, ginger, and seasonal island fruits.', tip: 'Look for small home-producers who blend their own — far more interesting than shop bottles. Your host may have some.' },
+  { id: 'sunset-drink', name: 'Sunset Drinks by the Lagoon', emoji: '🌅', type: 'food', slot: 'evening', duration: '1 hr', description: 'Find a quiet spot by the lagoon with a cold Dodo beer or local fruit punch as the sun sets over the Indian Ocean.', tip: 'The lagoon at Saint-François changes colour spectacularly at dusk. Pack drinks from the local shop.' },
+];
+
+// Day themes based on itinerary composition
+const DAY_THEMES = [
+  'Coastal Discovery',
+  'Island Explorer',
+  'Hidden Rodrigues',
+  'Culture & Coast',
+  'Wild & Wonderful',
+  'Southern Adventure',
+  'Perfect Last Day',
+];
+
+function pickUnused(pool: Activity[], used: Set<string>): Activity | undefined {
+  const available = pool.filter((a) => !used.has(a.id));
+  if (available.length === 0) return pool[Math.floor(Math.random() * pool.length)];
+  return available[Math.floor(Math.random() * available.length)];
+}
+
+function buildItinerary(days: number, interests: string[]) {
+  const used = new Set<string>();
+  const wantBeach = interests.includes('beach') || interests.includes('all');
+  const wantCulture = interests.includes('culture') || interests.includes('all');
+  const wantAdventure = interests.includes('adventure') || interests.includes('all');
+  const wantFood = interests.includes('food') || interests.includes('all');
+
+  const beaches = ACTIVITIES.filter((a) => a.type === 'beach');
+  const cultures = ACTIVITIES.filter((a) => a.type === 'culture');
+  const adventures = ACTIVITIES.filter((a) => a.type === 'adventure');
+  const viewpoints = ACTIVITIES.filter((a) => a.type === 'viewpoint');
+  const lunches = ACTIVITIES.filter((a) => a.slot === 'lunch');
+  const evenings = ACTIVITIES.filter((a) => a.slot === 'evening');
+
+  const itinerary = [];
+
+  for (let d = 0; d < days; d++) {
+    // Morning: bias toward beach if interested, else adventure/culture rotation
+    let morningPool: Activity[];
+    if (wantBeach && d % 2 === 0) {
+      morningPool = beaches.filter((a) => a.slot === 'morning');
+    } else if (wantAdventure && d % 3 === 1) {
+      morningPool = adventures.filter((a) => a.slot === 'morning');
+    } else if (wantCulture) {
+      morningPool = cultures.filter((a) => a.slot === 'morning');
+    } else {
+      morningPool = [
+        ...beaches.filter((a) => a.slot === 'morning'),
+        ...cultures.filter((a) => a.slot === 'morning'),
+      ];
+    }
+    if (morningPool.length === 0)
+      morningPool = ACTIVITIES.filter((a) => a.slot === 'morning');
+
+    const morning = pickUnused(morningPool, used);
+    if (morning) used.add(morning.id);
+
+    // Lunch
+    const lunch = pickUnused(lunches, used);
+    if (lunch) used.add(lunch.id);
+
+    // Afternoon: culture, viewpoint, or adventure
+    let afternoonPool: Activity[];
+    if (wantCulture && d % 3 !== 2) {
+      afternoonPool = [
+        ...cultures.filter((a) => a.slot === 'afternoon'),
+        ...viewpoints.filter((a) => a.slot === 'afternoon'),
+      ];
+    } else if (wantAdventure) {
+      afternoonPool = adventures.filter((a) => a.slot === 'afternoon');
+    } else {
+      afternoonPool = [
+        ...viewpoints.filter((a) => a.slot === 'afternoon'),
+        ...beaches.filter((a) => a.slot === 'afternoon'),
+      ];
+    }
+    if (afternoonPool.length === 0)
+      afternoonPool = ACTIVITIES.filter((a) => a.slot === 'afternoon');
+
+    const afternoon = pickUnused(afternoonPool, used);
+    if (afternoon) used.add(afternoon.id);
+
+    // Evening: always a viewpoint sunset or nice dinner
+    let eveningPool: Activity[];
+    if (d % 2 === 0) {
+      eveningPool = viewpoints.filter((a) => a.slot === 'evening');
+      if (eveningPool.length === 0) eveningPool = evenings;
+    } else {
+      eveningPool = wantFood ? evenings : viewpoints.filter((a) => a.slot === 'evening');
+      if (eveningPool.length === 0) eveningPool = evenings;
+    }
+
+    const evening = pickUnused(eveningPool, used);
+    if (evening) used.add(evening.id);
+
+    itinerary.push({
+      day: d + 1,
+      theme: DAY_THEMES[d % DAY_THEMES.length],
+      activities: [
+        morning   ? { ...morning,   slot: 'Morning'   } : null,
+        lunch     ? { ...lunch,     slot: 'Lunch'     } : null,
+        afternoon ? { ...afternoon, slot: 'Afternoon' } : null,
+        evening   ? { ...evening,   slot: 'Evening'   } : null,
+      ].filter(Boolean),
+    });
+  }
+
+  return itinerary;
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const { days = 3, interests = ['all'] } = await req.json() as {
+      days: number;
+      interests: string[];
+    };
+
+    const clampedDays = Math.max(1, Math.min(7, days));
+    const itinerary = buildItinerary(clampedDays, interests);
+
+    return NextResponse.json({ itinerary });
+  } catch {
+    return NextResponse.json({ error: 'Failed to generate itinerary' }, { status: 500 });
+  }
+}

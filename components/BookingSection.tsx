@@ -48,6 +48,7 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
   const scooters = (fleet ?? []).filter((s) => s.available !== false);
 
   const [formState, setFormState] = useState<FormState>("idle");
+  const [showPartnerCode, setShowPartnerCode] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -56,6 +57,7 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
     start_date: "",
     end_date: "",
     message: "",
+    partner_code: "",
   });
 
   const days = daysBetween(form.start_date, form.end_date);
@@ -83,13 +85,16 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
           end_date: form.end_date,
           days,
           total_price: estimatedTotal || null,
+          total_amount: estimatedTotal ? parseInt(estimatedTotal.replace(/\D/g, ""), 10) || null : null,
           message: form.message || null,
           status: "pending",
+          partner_code: form.partner_code.trim().toUpperCase() || null,
         },
       ]);
       if (error) throw error;
       setFormState("success");
-      setForm({ name: "", email: "", phone: "", scooter: "", start_date: "", end_date: "", message: "" });
+      setForm({ name: "", email: "", phone: "", scooter: "", start_date: "", end_date: "", message: "", partner_code: "" });
+      setShowPartnerCode(false);
       setTimeout(() => setFormState("idle"), 8000);
     } catch {
       setFormState("error");
@@ -281,6 +286,34 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
                     disabled={formState === "loading"}
                   />
                 </div>
+              </div>
+
+              {/* Partner / Hotel code */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowPartnerCode((v) => !v)}
+                  className="text-xs font-dm text-muted/50 hover:text-yellow transition-colors flex items-center gap-1.5"
+                >
+                  {showPartnerCode ? "▾" : "▸"} Do you have a partner or hotel referral code?
+                </button>
+                {showPartnerCode && (
+                  <div className="mt-3">
+                    <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">PARTNER CODE</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. CHEZ-FRANCINE"
+                      value={form.partner_code}
+                      onChange={(e) => setForm({ ...form, partner_code: e.target.value.toUpperCase() })}
+                      className={inputCls}
+                      disabled={formState === "loading"}
+                      maxLength={30}
+                    />
+                    <p className="text-muted/40 font-dm text-xs mt-1.5">
+                      Ask your hotel or guesthouse for their code to qualify for commissions.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <button
