@@ -52,7 +52,7 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
                   ease: [0.22, 1, 0.36, 1],
                 }}
                 className="block font-syne font-extrabold text-offwhite leading-[0.9] uppercase tracking-tight"
-                style={{ fontSize: "clamp(56px, 11vw, 140px)" }}
+                style={{ fontSize: "clamp(32px, 11vw, 140px)" }}
               >
                 {line}
               </motion.h1>
@@ -96,7 +96,7 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
       <motion.div
         animate={{ y: [0, 8, 0] }}
         transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute bottom-28 left-1/2 -translate-x-1/2 z-10 text-white/40"
+        className="hidden md:flex absolute bottom-28 left-1/2 -translate-x-1/2 z-10 text-white/40"
         aria-hidden="true"
       >
         <ChevronsDown size={28} />
