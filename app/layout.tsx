@@ -3,6 +3,7 @@ import { Syne, Bebas_Neue, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from "@/context/LanguageContext";
 import LanguagePicker from "@/components/LanguagePicker";
+import PWARegister from "@/components/PWARegister";
 
 const syne = Syne({
   subsets: ["latin"],
@@ -89,6 +90,7 @@ export default function RootLayout({
         <LanguageProvider>
           <LanguagePicker />
           {children}
+          <PWARegister />
         </LanguageProvider>
       </body>
     </html>
