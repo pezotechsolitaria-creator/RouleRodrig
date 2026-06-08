@@ -46,7 +46,11 @@ export default async function Home() {
         <Contact contact={content.contact} fleet={content.fleet} />
         <Footer social={content.social} branding={content.branding} />
       </main>
-      <WhatsAppButton phone={content.contact.phone} whatsapp={content.social.whatsapp} />
+      <WhatsAppButton
+        phone={content.contact.phone}
+        whatsapp={content.social.whatsapp}
+        numbers={content.contact.whatsappNumbers}
+      />
     </>
   );
 }

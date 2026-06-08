@@ -1,12 +1,10 @@
 import 'server-only';
 import { DEFAULT_CONTENT, type SiteContent } from './defaults';
+import { createClient } from './supabase/server';
 
 export { DEFAULT_CONTENT };
 export type { SiteContent };
-export type { HeroContent, StatItem, FleetItem, PricingRow, ContactContent, GalleryImage, TestimonialItem, SocialLinks, BrandingContent, AnnouncementContent, MapLocation } from './defaults';
-
-// True when running on Vercel (KV env vars are auto-injected)
-const IS_VERCEL = !!process.env.KV_REST_API_URL;
+export type { HeroContent, StatItem, FleetItem, PricingRow, ContactContent, GalleryImage, TestimonialItem, SocialLinks, BrandingContent, AnnouncementContent, MapLocation, WhatsAppNumber } from './defaults';
 
 function mergeWithDefaults(parsed: Partial<SiteContent>): SiteContent {
   // Ensure existing fleet items have the new `available` field
@@ -19,7 +17,12 @@ function mergeWithDefaults(parsed: Partial<SiteContent>): SiteContent {
     stats: parsed.stats ?? DEFAULT_CONTENT.stats,
     fleet,
     pricing: parsed.pricing ?? DEFAULT_CONTENT.pricing,
-    contact: { ...DEFAULT_CONTENT.contact, ...(parsed.contact ?? {}) },
+    contact: {
+      ...DEFAULT_CONTENT.contact,
+      ...(parsed.contact ?? {}),
+      // new multi-number field — default to [] for older saved content
+      whatsappNumbers: parsed.contact?.whatsappNumbers ?? DEFAULT_CONTENT.contact.whatsappNumbers ?? [],
+    },
     gallery: parsed.gallery ?? [],
     testimonials: parsed.testimonials ?? DEFAULT_CONTENT.testimonials,
     social: { ...DEFAULT_CONTENT.social, ...(parsed.social ?? {}) },
@@ -29,50 +32,34 @@ function mergeWithDefaults(parsed: Partial<SiteContent>): SiteContent {
   };
 }
 
-export async function getContent(): Promise<SiteContent> {
-  if (IS_VERCEL) {
-    try {
-      const { kv } = await import('@vercel/kv');
-      const stored = await kv.get<Partial<SiteContent>>('site-content');
-      if (stored) return mergeWithDefaults(stored);
-    } catch {
-      /* fall through to defaults */
-    }
-    return JSON.parse(JSON.stringify(DEFAULT_CONTENT)) as SiteContent;
-  }
+// ── Storage: Supabase `site_content` table (single row, id = 'main') ──
+// Replaces Vercel KV / content.json so the admin "Save Changes" works
+// reliably on the deployed site, consistent with every other table.
 
-  // Local development — read from content.json
+export async function getContent(): Promise<SiteContent> {
   try {
-    const { readFileSync, existsSync } = await import('fs');
-    const { join } = await import('path');
-    const filePath = join(process.cwd(), 'content.json');
-    if (existsSync(filePath)) {
-      const parsed = JSON.parse(readFileSync(filePath, 'utf-8')) as Partial<SiteContent>;
-      return mergeWithDefaults(parsed);
-    }
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from('site_content')
+      .select('data')
+      .eq('id', 'main')
+      .maybeSingle();
+    if (data?.data) return mergeWithDefaults(data.data as Partial<SiteContent>);
   } catch {
-    /* fall through */
+    /* fall through to defaults */
   }
   return JSON.parse(JSON.stringify(DEFAULT_CONTENT)) as SiteContent;
 }
 
 export async function saveContent(content: SiteContent): Promise<void> {
-  if (IS_VERCEL) {
-    const { kv } = await import('@vercel/kv');
-    await kv.set('site-content', content);
-    return;
-  }
-  const { writeFileSync } = await import('fs');
-  const { join } = await import('path');
-  writeFileSync(join(process.cwd(), 'content.json'), JSON.stringify(content, null, 2), 'utf-8');
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('site_content')
+    .upsert({ id: 'main', data: content, updated_at: new Date().toISOString() });
+  if (error) throw new Error(error.message);
 }
 
+// Kept for backward-compat with callers; uploads now go to Supabase Storage.
 export function ensureUploadsDir(): void {
-  if (IS_VERCEL) return;
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const fs = require('fs') as typeof import('fs');
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const path = require('path') as typeof import('path');
-  const dir = path.join(process.cwd(), 'public', 'uploads');
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  /* no-op — image uploads are stored in Supabase Storage */
 }

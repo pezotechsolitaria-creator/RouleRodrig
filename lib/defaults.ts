@@ -30,11 +30,17 @@ export interface PricingRow {
   prices: [string, string, string];
 }
 
+export interface WhatsAppNumber {
+  label: string;   // e.g. "Bookings", "Support", "English line"
+  number: string;  // full international format, e.g. +230 5912 3456
+}
+
 export interface ContactContent {
   phone: string;
   email: string;
   location: string;
   hours: string;
+  whatsappNumbers: WhatsAppNumber[];
 }
 
 export interface GalleryImage {
@@ -141,6 +147,7 @@ export const DEFAULT_CONTENT: SiteContent = {
     email: 'hello@roulerodigues.mu',
     location: 'Rodrigues Island, Mauritius',
     hours: 'Mon – Sun: 7:00 AM – 8:00 PM',
+    whatsappNumbers: [],
   },
   gallery: [],
   testimonials: [

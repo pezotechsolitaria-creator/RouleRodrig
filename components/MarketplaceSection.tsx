@@ -105,6 +105,19 @@ export default function MarketplaceSection() {
                     transition={{ duration: 0.6, delay: i * 0.07 }}
                     className="bg-dark-card border border-dark-border rounded-2xl p-6 flex flex-col hover:border-yellow/40 transition-colors group"
                   >
+                    {/* Partner / deal photo */}
+                    {listing.image_url && (
+                      <div className="-mx-6 -mt-6 mb-4 h-40 overflow-hidden rounded-t-2xl">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={listing.image_url}
+                          alt={listing.business_name}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
+
                     {/* Header */}
                     <div className="flex items-start justify-between gap-3 mb-4">
                       <div>

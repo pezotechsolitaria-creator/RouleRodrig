@@ -51,6 +51,7 @@ import type {
   PricingRow,
   MapLocation,
   AnnouncementContent,
+  WhatsAppNumber,
 } from "@/lib/defaults";
 import type { ContactSubmission, Booking, Partner, MarketplaceListing, ProductReview } from "@/lib/supabase/types";
 
@@ -692,32 +693,87 @@ function ContactEditor({
   const set = (patch: Partial<typeof c>) =>
     onChange({ ...content, contact: { ...c, ...patch } });
 
+  const numbers: WhatsAppNumber[] = c.whatsappNumbers ?? [];
+  const setNumbers = (list: WhatsAppNumber[]) => set({ whatsappNumbers: list });
+  const updateNumber = (i: number, patch: Partial<WhatsAppNumber>) =>
+    setNumbers(numbers.map((n, idx) => (idx === i ? { ...n, ...patch } : n)));
+  const addNumber = () => setNumbers([...numbers, { label: "", number: "" }]);
+  const removeNumber = (i: number) => setNumbers(numbers.filter((_, idx) => idx !== i));
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-      <Field label="WHATSAPP / PHONE">
-        <TextInput
-          value={c.phone}
-          onChange={(v) => set({ phone: v })}
-          placeholder="+230 5XXX XXXX"
-        />
-      </Field>
-      <Field label="EMAIL">
-        <TextInput
-          value={c.email}
-          onChange={(v) => set({ email: v })}
-          placeholder="hello@example.com"
-        />
-      </Field>
-      <Field label="LOCATION">
-        <TextInput value={c.location} onChange={(v) => set({ location: v })} />
-      </Field>
-      <Field label="OPENING HOURS">
-        <TextInput
-          value={c.hours}
-          onChange={(v) => set({ hours: v })}
-          placeholder="Mon – Sun: 7:00 AM – 8:00 PM"
-        />
-      </Field>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <Field label="MAIN PHONE">
+          <TextInput
+            value={c.phone}
+            onChange={(v) => set({ phone: v })}
+            placeholder="+230 5XXX XXXX"
+          />
+        </Field>
+        <Field label="EMAIL">
+          <TextInput
+            value={c.email}
+            onChange={(v) => set({ email: v })}
+            placeholder="hello@example.com"
+          />
+        </Field>
+        <Field label="LOCATION">
+          <TextInput value={c.location} onChange={(v) => set({ location: v })} />
+        </Field>
+        <Field label="OPENING HOURS">
+          <TextInput
+            value={c.hours}
+            onChange={(v) => set({ hours: v })}
+            placeholder="Mon – Sun: 7:00 AM – 8:00 PM"
+          />
+        </Field>
+      </div>
+
+      {/* ── Multiple WhatsApp numbers ── */}
+      <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
+        <div>
+          <p className="font-bebas text-yellow text-xs tracking-[0.3em]">WHATSAPP NUMBERS</p>
+          <p className="font-dm text-muted text-xs mt-1">
+            Add one or more WhatsApp lines (e.g. Bookings, Support). The floating button shows
+            them all — each opens that number&apos;s chat. Use full format <strong className="text-offwhite">+230 5XXX XXXX</strong>.
+          </p>
+        </div>
+
+        {numbers.length === 0 && (
+          <p className="font-dm text-muted/50 text-xs">No WhatsApp numbers yet — add one below.</p>
+        )}
+
+        {numbers.map((n, i) => (
+          <div key={i} className="flex items-end gap-3">
+            <div className="flex-1">
+              <Field label="LABEL">
+                <TextInput value={n.label} onChange={(v) => updateNumber(i, { label: v })} placeholder="e.g. Bookings" />
+              </Field>
+            </div>
+            <div className="flex-1">
+              <Field label="NUMBER">
+                <TextInput value={n.number} onChange={(v) => updateNumber(i, { number: v })} placeholder="+230 5912 3456" />
+              </Field>
+            </div>
+            <button
+              type="button"
+              onClick={() => removeNumber(i)}
+              className="mb-3 text-muted/60 hover:text-red-400 transition-colors shrink-0"
+              aria-label="Remove number"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={addNumber}
+          className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 text-muted/60 hover:text-yellow rounded-xl py-3 text-sm font-dm transition-colors"
+        >
+          <Plus size={15} /> Add WhatsApp Number
+        </button>
+      </div>
     </div>
   );
 }
@@ -1942,11 +1998,12 @@ type ListingForm = {
   offer: string;
   contact: string;
   website: string;
+  image_url: string;
 };
 
 const emptyListingForm = (): ListingForm => ({
   business_name: "", category: "restaurant", description: "",
-  offer: "", contact: "", website: "",
+  offer: "", contact: "", website: "", image_url: "",
 });
 
 function MarketplaceManager() {
@@ -2010,6 +2067,7 @@ function MarketplaceManager() {
       business_name: l.business_name, category: l.category,
       description: l.description, offer: l.offer,
       contact: l.contact ?? "", website: l.website ?? "",
+      image_url: l.image_url ?? "",
     });
     setEditing(l.id);
     setShowForm(true);
@@ -2061,6 +2119,11 @@ function MarketplaceManager() {
               </select>
             </Field>
           </div>
+          <ImagePicker
+            label="PARTNER / DEAL PHOTO"
+            src={form.image_url}
+            onUpload={(p) => setForm({ ...form, image_url: p })}
+          />
           <Field label="DESCRIPTION">
             <Textarea
               value={form.description}
