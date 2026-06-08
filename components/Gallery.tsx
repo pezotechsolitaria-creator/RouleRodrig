@@ -3,8 +3,10 @@
 import Image from "next/image";
 import { motion } from "framer-motion";
 import type { GalleryImage } from "@/lib/defaults";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function Gallery({ gallery }: { gallery: GalleryImage[] }) {
+  const { t } = useLanguage();
   if (!gallery || gallery.length === 0) return null;
 
   return (
@@ -17,12 +19,12 @@ export default function Gallery({ gallery }: { gallery: GalleryImage[] }) {
           transition={{ duration: 0.7 }}
           className="mb-12"
         >
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">PHOTOS</p>
+          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.gallery.eyebrow}</p>
           <h2
             className="font-syne font-extrabold text-offwhite uppercase leading-none"
             style={{ fontSize: "clamp(34px, 8vw, 80px)" }}
           >
-            OUR SCOOTERS
+            {t.gallery.title}
           </h2>
         </motion.div>
 

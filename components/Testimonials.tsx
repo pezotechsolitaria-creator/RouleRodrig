@@ -3,9 +3,11 @@
 import { Star } from "lucide-react";
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type TestimonialItem } from "@/lib/defaults";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function Testimonials({ testimonials }: { testimonials?: TestimonialItem[] }) {
   const items = testimonials ?? DEFAULT_CONTENT.testimonials;
+  const { t } = useLanguage();
   if (!items || items.length === 0) return null;
 
   return (
@@ -18,12 +20,12 @@ export default function Testimonials({ testimonials }: { testimonials?: Testimon
           transition={{ duration: 0.7 }}
           className="mb-16"
         >
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">REVIEWS</p>
+          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.testimonials.eyebrow}</p>
           <h2
             className="font-syne font-extrabold text-offwhite uppercase leading-none"
             style={{ fontSize: "clamp(34px, 8vw, 80px)" }}
           >
-            WHAT RIDERS SAY
+            {t.testimonials.title}
           </h2>
         </motion.div>
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ExternalLink, Phone, Tag, Star, Loader2 } from "lucide-react";
 import type { MarketplaceListing } from "@/lib/supabase/types";
+import { useLanguage } from "@/context/LanguageContext";
 
 const CATEGORY_CONFIG: Record<
   string,
@@ -17,6 +18,7 @@ const CATEGORY_CONFIG: Record<
 };
 
 export default function MarketplaceSection() {
+  const { t } = useLanguage();
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
@@ -46,15 +48,15 @@ export default function MarketplaceSection() {
           transition={{ duration: 0.7 }}
           className="mb-12"
         >
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">EXCLUSIVE OFFERS</p>
+          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.marketplace.eyebrow}</p>
           <h2
             className="font-syne font-extrabold text-offwhite uppercase leading-none"
             style={{ fontSize: "clamp(32px, 7vw, 72px)" }}
           >
-            LOCAL DEALS
+            {t.marketplace.title}
           </h2>
           <p className="text-muted font-dm text-sm md:text-base mt-4 max-w-lg">
-            Special offers from our island partners — restaurants, tours, and activities exclusively for Roule Rodrigues riders.
+            {t.marketplace.subtitle}
           </p>
         </motion.div>
 

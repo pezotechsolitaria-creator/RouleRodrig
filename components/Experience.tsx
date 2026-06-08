@@ -3,32 +3,17 @@
 import Image from "next/image";
 import { MapPin, ClipboardList, CreditCard, Key } from "lucide-react";
 import { motion } from "framer-motion";
+import { useLanguage } from "@/context/LanguageContext";
 
-const STEPS = [
-  {
-    icon: ClipboardList,
-    step: "01",
-    title: "Choose Your Scooter",
-    description:
-      "Pick the Burgman 200 for raw power or the Avenis 125 for agility — both are immaculate and ready to explore.",
-  },
-  {
-    icon: CreditCard,
-    step: "02",
-    title: "Pay Securely",
-    description:
-      "Simple, transparent pricing. Book online or pay on arrival. No hidden fees, no surprises.",
-  },
-  {
-    icon: Key,
-    step: "03",
-    title: "Pick Up & Ride",
-    description:
-      "Collect your scooter at our location or opt for free island delivery on weekly rentals. The road is yours.",
-  },
-];
+const STEP_ICONS = [ClipboardList, CreditCard, Key];
 
 export default function Experience() {
+  const { t } = useLanguage();
+  const steps = t.experience.steps.map((s, i) => ({
+    ...s,
+    icon: STEP_ICONS[i] ?? ClipboardList,
+    step: `0${i + 1}`,
+  }));
   return (
     <section id="about" className="bg-dark-card py-24 md:py-36 overflow-hidden" aria-label="About our experience">
       <div className="max-w-7xl mx-auto px-6">
@@ -62,30 +47,26 @@ export default function Experience() {
           >
             <div className="flex items-center gap-2 mb-5">
               <MapPin size={14} className="text-yellow" />
-              <p className="font-bebas text-yellow text-xs tracking-[0.35em]">THE ISLAND AWAITS</p>
+              <p className="font-bebas text-yellow text-xs tracking-[0.35em]">{t.experience.eyebrow1}</p>
             </div>
             <h2
               className="font-syne font-extrabold text-offwhite uppercase leading-[0.92] mb-7"
               style={{ fontSize: "clamp(36px, 5vw, 64px)" }}
             >
-              RODRIGUES LIKE YOU&apos;VE NEVER SEEN IT
+              {t.experience.title1}
             </h2>
             <p className="text-muted font-dm leading-relaxed mb-5 text-sm md:text-base">
-              Wind along coastal cliffs where the turquoise lagoon stretches endlessly to the horizon.
-              Discover hidden beaches only reachable by scooter, and weave through charming villages
-              where locals greet you with a genuine smile.
+              {t.experience.para1}
             </p>
             <p className="text-muted font-dm leading-relaxed text-sm md:text-base">
-              Rodrigues is a world apart — unspoiled, unhurried, and utterly extraordinary.
-              The best way to experience it all? On two wheels, at your own pace, with the wind
-              as your only guide.
+              {t.experience.para2}
             </p>
 
             {/* Accent stat */}
             <div className="mt-10 flex items-end gap-3 border-l-2 border-yellow pl-5">
               <p className="font-bebas text-yellow text-5xl leading-none">40+</p>
               <p className="font-dm text-muted text-sm leading-relaxed mb-1">
-                km of stunning coastal roads<br />to discover at your own pace
+                {t.experience.statLabel}
               </p>
             </div>
           </motion.div>
@@ -103,16 +84,16 @@ export default function Experience() {
             transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
             className="order-2 md:order-1"
           >
-            <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-5">EASY RENTAL PROCESS</p>
+            <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-5">{t.experience.eyebrow2}</p>
             <h2
               className="font-syne font-extrabold text-offwhite uppercase leading-[0.92] mb-12"
               style={{ fontSize: "clamp(36px, 5vw, 64px)" }}
             >
-              THREE STEPS TO THE OPEN ROAD
+              {t.experience.title2}
             </h2>
 
             <div className="space-y-8">
-              {STEPS.map(({ icon: Icon, step, title, description }, i) => (
+              {steps.map(({ icon: Icon, step, title, description }, i) => (
                 <motion.div
                   key={step}
                   initial={{ opacity: 0, x: -24 }}
@@ -125,7 +106,7 @@ export default function Experience() {
                     <Icon size={18} className="text-yellow" />
                   </div>
                   <div>
-                    <p className="font-bebas text-yellow text-[10px] tracking-[0.25em] mb-1">STEP {step}</p>
+                    <p className="font-bebas text-yellow text-[10px] tracking-[0.25em] mb-1">{t.experience.stepLabel} {step}</p>
                     <h4 className="font-syne font-bold text-offwhite text-lg mb-1.5">{title}</h4>
                     <p className="text-muted font-dm text-sm leading-relaxed">{description}</p>
                   </div>

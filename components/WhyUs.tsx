@@ -2,35 +2,16 @@
 
 import { Shield, Clock, MapPin, Headphones } from "lucide-react";
 import { motion } from "framer-motion";
+import { useLanguage } from "@/context/LanguageContext";
 
-const FEATURES = [
-  {
-    icon: Shield,
-    title: "Fully Insured",
-    description:
-      "Ride with complete peace of mind. Every rental includes comprehensive third-party insurance coverage at no extra cost.",
-  },
-  {
-    icon: Clock,
-    title: "Flexible Hours",
-    description:
-      "Pick up and drop off on your schedule. We work around your itinerary — early mornings and late evenings are no problem.",
-  },
-  {
-    icon: MapPin,
-    title: "Island Delivery",
-    description:
-      "We deliver your scooter directly to your hotel, guesthouse, or airport. Weekly rentals include free delivery island-wide.",
-  },
-  {
-    icon: Headphones,
-    title: "24/7 Support",
-    description:
-      "Got a flat tyre? Need directions? We're always one WhatsApp message away, day or night, wherever you are on the island.",
-  },
-];
+const FEATURE_ICONS = [Shield, Clock, MapPin, Headphones];
 
 export default function WhyUs() {
+  const { t } = useLanguage();
+  const features = t.whyUs.features.map((f, i) => ({
+    ...f,
+    icon: FEATURE_ICONS[i] ?? Shield,
+  }));
   return (
     <section className="bg-dark-card py-24 md:py-36 border-y border-dark-border" aria-label="Why choose us">
       <div className="max-w-7xl mx-auto px-6">
@@ -42,18 +23,18 @@ export default function WhyUs() {
           className="mb-16 flex flex-col md:flex-row md:items-end md:justify-between gap-4"
         >
           <div>
-            <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">WHY CHOOSE US</p>
+            <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.whyUs.eyebrow}</p>
             <h2
               className="font-syne font-extrabold text-offwhite uppercase leading-none"
               style={{ fontSize: "clamp(34px, 8vw, 80px)" }}
             >
-              RIDE WITH CONFIDENCE
+              {t.whyUs.title}
             </h2>
           </div>
         </motion.div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {FEATURES.map((feature, i) => {
+          {features.map((feature, i) => {
             const Icon = feature.icon;
             return (
               <motion.div

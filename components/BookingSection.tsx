@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   CalendarDays,
@@ -15,7 +15,6 @@ import {
   BadgeCheck,
   Ban,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import type { FleetItem } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -65,6 +64,38 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
   const selectedScooter = scooters.find((s) => s.id === form.scooter);
   const estimatedTotal = estimateTotal(selectedScooter, days);
 
+  // ── Availability: booked date ranges for the selected scooter ──
+  const [bookedRanges, setBookedRanges] = useState<{ start: string; end: string; confirmed: boolean }[]>([]);
+
+  useEffect(() => {
+    if (!form.scooter) {
+      setBookedRanges([]);
+      return;
+    }
+    let active = true;
+    fetch(`/api/availability?scooter=${encodeURIComponent(form.scooter)}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => { if (active && Array.isArray(d)) setBookedRanges(d); })
+      .catch(() => { if (active) setBookedRanges([]); });
+    return () => { active = false; };
+  }, [form.scooter]);
+
+  // Does the chosen range overlap an existing confirmed booking?
+  const hasOverlap =
+    !!form.start_date && !!form.end_date &&
+    bookedRanges.some(
+      (r) => r.confirmed && form.start_date <= r.end && form.end_date >= r.start
+    );
+
+  function fmtRange(start: string, end: string): string {
+    const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+    try {
+      return `${new Date(start).toLocaleDateString("en-GB", opts)} – ${new Date(end).toLocaleDateString("en-GB", opts)}`;
+    } catch {
+      return `${start} – ${end}`;
+    }
+  }
+
   const inputCls =
     "w-full bg-dark-card border border-dark-border rounded-xl px-4 py-3.5 text-offwhite text-sm font-dm placeholder:text-muted/50 focus:border-yellow focus:outline-none transition-colors";
 
@@ -72,12 +103,14 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
     e.preventDefault();
     if (!form.name || !form.scooter || !form.start_date || !form.end_date) return;
     if (days <= 0) return;
+    if (hasOverlap) return; // selected dates clash with a confirmed booking
 
     setFormState("loading");
     try {
-      const supabase = createClient();
-      const { error } = await supabase.from("bookings").insert([
-        {
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           name: form.name,
           email: form.email || null,
           phone: form.phone || null,
@@ -88,11 +121,10 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
           total_price: estimatedTotal || null,
           total_amount: estimatedTotal ? parseInt(estimatedTotal.replace(/\D/g, ""), 10) || null : null,
           message: form.message || null,
-          status: "pending",
           partner_code: form.partner_code.trim().toUpperCase() || null,
-        },
-      ]);
-      if (error) throw error;
+        }),
+      });
+      if (!res.ok) throw new Error("Booking failed");
       setFormState("success");
       setForm({ name: "", email: "", phone: "", scooter: "", start_date: "", end_date: "", message: "", partner_code: "" });
       setShowPartnerCode(false);
@@ -218,6 +250,28 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
                 </div>
               </div>
 
+              {/* Availability — booked dates for the selected scooter */}
+              {form.scooter && bookedRanges.filter((r) => r.confirmed).length > 0 && (
+                <div className={`rounded-xl px-4 py-3 border text-xs font-dm ${hasOverlap ? "border-red-500/40 bg-red-500/10" : "border-dark-border bg-dark-card"}`}>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <CalendarDays size={13} className={hasOverlap ? "text-red-400" : "text-yellow"} />
+                    <span className={`font-bebas tracking-[0.2em] text-[10px] ${hasOverlap ? "text-red-400" : "text-muted"}`}>
+                      {t.booking.bookedDatesLabel}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {bookedRanges.filter((r) => r.confirmed).map((r, i) => (
+                      <span key={i} className="inline-block bg-dark/60 border border-dark-border rounded-full px-2.5 py-1 text-muted">
+                        {fmtRange(r.start, r.end)}
+                      </span>
+                    ))}
+                  </div>
+                  {hasOverlap && (
+                    <p className="text-red-400 mt-2 font-medium">{t.booking.overlapWarning}</p>
+                  )}
+                </div>
+              )}
+
               {/* Name + Email */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -321,7 +375,7 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
 
               <button
                 type="submit"
-                disabled={formState === "loading" || formState === "success"}
+                disabled={formState === "loading" || formState === "success" || hasOverlap}
                 className="w-full flex items-center justify-center gap-2.5 bg-yellow text-dark font-syne font-bold text-base py-4 rounded-xl hover:bg-yellow-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {formState === "loading" ? (

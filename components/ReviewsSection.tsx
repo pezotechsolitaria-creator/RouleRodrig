@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Star, PenLine, Loader2, CheckCircle, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { FleetItem } from "@/lib/defaults";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface PublicReview {
   id: string;
@@ -31,6 +32,8 @@ function Stars({ value, size = 14 }: { value: number; size?: number }) {
 }
 
 export default function ReviewsSection({ fleet = [] }: { fleet?: FleetItem[] }) {
+  const { t } = useLanguage();
+  const tr = t.reviews;
   const [reviews, setReviews] = useState<PublicReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -57,9 +60,9 @@ export default function ReviewsSection({ fleet = [] }: { fleet?: FleetItem[] }) 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (rating < 1) return setError("Please choose a star rating.");
-    if (name.trim().length < 2) return setError("Please enter your name.");
-    if (text.trim().length < 4) return setError("Please write a short review.");
+    if (rating < 1) return setError(tr.errRating);
+    if (name.trim().length < 2) return setError(tr.errName);
+    if (text.trim().length < 4) return setError(tr.errText);
 
     setSubmitting(true);
     try {
@@ -106,18 +109,18 @@ export default function ReviewsSection({ fleet = [] }: { fleet?: FleetItem[] }) 
           className="mb-12 flex flex-col md:flex-row md:items-end md:justify-between gap-6"
         >
           <div>
-            <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">RIDER REVIEWS</p>
+            <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{tr.eyebrow}</p>
             <h2
               className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]"
               style={{ fontSize: "clamp(34px, 8vw, 80px)" }}
             >
-              SHARE YOUR RIDE
+              {tr.title}
             </h2>
             {avg && (
               <div className="flex items-center gap-3 mt-4">
                 <Stars value={Math.round(Number(avg))} size={16} />
                 <span className="font-syne font-bold text-offwhite text-sm">
-                  {avg} · {reviews.length} review{reviews.length !== 1 ? "s" : ""}
+                  {avg} · {reviews.length}★
                 </span>
               </div>
             )}
@@ -127,21 +130,21 @@ export default function ReviewsSection({ fleet = [] }: { fleet?: FleetItem[] }) 
             onClick={() => { setFormOpen(true); setDone(false); setError(null); }}
             className="flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-6 py-3.5 rounded-full hover:bg-yellow-dark transition-colors shrink-0 self-start md:self-auto"
           >
-            <PenLine size={15} /> Write a Review
+            <PenLine size={15} /> {tr.write}
           </button>
         </motion.div>
 
         {/* Reviews grid */}
         {loading ? (
           <div className="flex items-center gap-2 text-muted font-dm text-sm py-8">
-            <Loader2 size={16} className="animate-spin" /> Loading reviews…
+            <Loader2 size={16} className="animate-spin" /> {tr.loading}
           </div>
         ) : reviews.length === 0 ? (
           <div className="text-center border border-dashed border-dark-border rounded-2xl py-16 px-6">
             <Star size={32} className="text-yellow/40 mx-auto mb-4" />
-            <p className="font-syne font-bold text-offwhite text-lg">Be the first to review</p>
+            <p className="font-syne font-bold text-offwhite text-lg">{tr.beFirst}</p>
             <p className="font-dm text-muted text-sm mt-1">
-              Rented with us? Share your experience and help other travellers.
+              {tr.beFirstDesc}
             </p>
           </div>
         ) : (
@@ -198,8 +201,8 @@ export default function ReviewsSection({ fleet = [] }: { fleet?: FleetItem[] }) 
             >
               <div className="flex items-start justify-between mb-6">
                 <div>
-                  <p className="font-bebas text-yellow text-[10px] tracking-[0.3em]">YOUR EXPERIENCE</p>
-                  <h3 className="font-syne font-extrabold text-offwhite text-xl">Write a Review</h3>
+                  <p className="font-bebas text-yellow text-[10px] tracking-[0.3em]">{tr.modalEyebrow}</p>
+                  <h3 className="font-syne font-extrabold text-offwhite text-xl">{tr.modalTitle}</h3>
                 </div>
                 <button
                   onClick={() => setFormOpen(false)}
@@ -213,15 +216,15 @@ export default function ReviewsSection({ fleet = [] }: { fleet?: FleetItem[] }) 
               {done ? (
                 <div className="text-center py-8">
                   <CheckCircle size={40} className="text-green-400 mx-auto mb-4" />
-                  <p className="font-syne font-bold text-offwhite text-lg">Thank you!</p>
+                  <p className="font-syne font-bold text-offwhite text-lg">{tr.thankTitle}</p>
                   <p className="font-dm text-muted text-sm mt-2 max-w-xs mx-auto">
-                    Your review has been submitted and will appear on the site once our team approves it.
+                    {tr.thankDesc}
                   </p>
                   <button
                     onClick={() => setFormOpen(false)}
                     className="mt-6 bg-yellow text-dark font-syne font-bold text-sm px-6 py-3 rounded-full hover:bg-yellow-dark transition-colors"
                   >
-                    Done
+                    {tr.done}
                   </button>
                 </div>
               ) : (
@@ -229,7 +232,7 @@ export default function ReviewsSection({ fleet = [] }: { fleet?: FleetItem[] }) 
                   {/* Rating */}
                   <div>
                     <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                      YOUR RATING
+                      {tr.ratingLabel}
                     </label>
                     <div className="flex gap-2">
                       {[1, 2, 3, 4, 5].map((n) => (
@@ -254,23 +257,23 @@ export default function ReviewsSection({ fleet = [] }: { fleet?: FleetItem[] }) 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                        YOUR NAME
+                        {tr.nameLabel}
                       </label>
                       <input
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="e.g. Sophie L."
+                        placeholder={tr.namePh}
                         className="w-full bg-[#0d0d0d] border border-dark-border rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none"
                       />
                     </div>
                     <div>
                       <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                        WHERE FROM (optional)
+                        {tr.originLabel}
                       </label>
                       <input
                         value={origin}
                         onChange={(e) => setOrigin(e.target.value)}
-                        placeholder="e.g. Paris, France"
+                        placeholder={tr.originPh}
                         className="w-full bg-[#0d0d0d] border border-dark-border rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none"
                       />
                     </div>
@@ -279,14 +282,14 @@ export default function ReviewsSection({ fleet = [] }: { fleet?: FleetItem[] }) 
                   {fleet.length > 0 && (
                     <div>
                       <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                        WHICH SCOOTER? (optional)
+                        {tr.scooterLabel}
                       </label>
                       <select
                         value={scooterId}
                         onChange={(e) => setScooterId(e.target.value)}
                         className="w-full bg-[#0d0d0d] border border-dark-border rounded-xl px-4 py-3 text-offwhite text-sm font-dm focus:border-yellow focus:outline-none appearance-none"
                       >
-                        <option value="">— Select —</option>
+                        <option value="">{tr.selectPh}</option>
                         {fleet.map((f) => (
                           <option key={f.id} value={f.id}>{f.name}</option>
                         ))}
@@ -296,13 +299,13 @@ export default function ReviewsSection({ fleet = [] }: { fleet?: FleetItem[] }) 
 
                   <div>
                     <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                      YOUR REVIEW
+                      {tr.reviewLabel}
                     </label>
                     <textarea
                       value={text}
                       onChange={(e) => setText(e.target.value)}
                       rows={4}
-                      placeholder="Tell other travellers about your experience…"
+                      placeholder={tr.reviewPh}
                       className="w-full bg-[#0d0d0d] border border-dark-border rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none resize-none"
                     />
                   </div>
@@ -315,10 +318,10 @@ export default function ReviewsSection({ fleet = [] }: { fleet?: FleetItem[] }) 
                     className="w-full flex items-center justify-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-6 py-3.5 rounded-full hover:bg-yellow-dark disabled:opacity-50 transition-colors"
                   >
                     {submitting ? <Loader2 size={15} className="animate-spin" /> : <PenLine size={15} />}
-                    {submitting ? "Submitting…" : "Submit Review"}
+                    {submitting ? tr.submitting : tr.submit}
                   </button>
                   <p className="text-muted/50 text-xs font-dm text-center">
-                    Reviews are checked before appearing publicly.
+                    {tr.note}
                   </p>
                 </form>
               )}

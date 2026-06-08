@@ -3,24 +3,18 @@
 import { Check } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-
-const PLANS = [
-  { label: "Daily", highlight: false },
-  { label: "3 Days", highlight: true, tag: "BEST VALUE" },
-  { label: "Weekly", highlight: false },
-];
-
 import { DEFAULT_CONTENT, type PricingRow } from "@/lib/defaults";
-
-const INCLUDED = [
-  "Helmet",
-  "Third-party insurance",
-  "24/7 WhatsApp support",
-  "Free delivery on weekly rentals",
-];
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function Pricing({ pricing }: { pricing?: PricingRow[] }) {
   const scooters = pricing ?? DEFAULT_CONTENT.pricing;
+  const { t } = useLanguage();
+  const PLANS = [
+    { label: t.pricing.daily, highlight: false, tag: undefined as string | undefined },
+    { label: t.pricing.threeDays, highlight: true, tag: t.pricing.bestValue },
+    { label: t.pricing.weekly, highlight: false, tag: undefined as string | undefined },
+  ];
+  const INCLUDED = t.pricing.included;
   return (
     <section id="pricing" className="bg-dark py-24 md:py-36" aria-label="Pricing">
       <div className="max-w-7xl mx-auto px-6">
@@ -31,12 +25,12 @@ export default function Pricing({ pricing }: { pricing?: PricingRow[] }) {
           transition={{ duration: 0.7 }}
           className="mb-16"
         >
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">PRICING</p>
+          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.pricing.eyebrow}</p>
           <h2
             className="font-syne font-extrabold text-offwhite uppercase leading-none"
             style={{ fontSize: "clamp(34px, 8vw, 80px)" }}
           >
-            TRANSPARENT PRICING
+            {t.pricing.title}
           </h2>
         </motion.div>
 
@@ -51,7 +45,7 @@ export default function Pricing({ pricing }: { pricing?: PricingRow[] }) {
             <thead>
               <tr>
                 <th className="text-left px-6 py-5 font-bebas text-muted text-xs tracking-[0.25em] border-b border-dark-border bg-dark-card w-[40%]">
-                  MODEL
+                  {t.pricing.model}
                 </th>
                 {PLANS.map((plan) => (
                   <th
@@ -108,7 +102,7 @@ export default function Pricing({ pricing }: { pricing?: PricingRow[] }) {
           className="mt-6 p-6 md:p-8 bg-dark-card border border-dark-border rounded-2xl flex flex-col md:flex-row md:items-center gap-6 md:gap-0 md:justify-between"
         >
           <div>
-            <p className="font-bebas text-yellow text-xs tracking-[0.3em] mb-4">ALWAYS INCLUDED</p>
+            <p className="font-bebas text-yellow text-xs tracking-[0.3em] mb-4">{t.pricing.includedTitle}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2.5 gap-x-8">
               {INCLUDED.map((item) => (
                 <div key={item} className="flex items-center gap-2.5 text-offwhite/80 text-sm font-dm">
@@ -122,7 +116,7 @@ export default function Pricing({ pricing }: { pricing?: PricingRow[] }) {
             href="#contact"
             className="flex items-center justify-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-8 py-4 rounded-full hover:bg-yellow-dark transition-colors whitespace-nowrap md:ml-8 shrink-0"
           >
-            Get a Quote
+            {t.pricing.quote}
           </Link>
         </motion.div>
       </div>
