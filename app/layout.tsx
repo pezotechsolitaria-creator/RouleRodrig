@@ -28,7 +28,7 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: "Roule Rodrigues | Premium Scooter Rentals on Rodrigues Island",
   description:
-    "Explore Rodrigues Island on two wheels. Premium Suzuki Burgman 200 and Avenis 125 scooter rentals — helmet included, flexible hours, 24/7 support.",
+    "Explore Rodrigues Island on two wheels. Premium Suzuki Burgman 125 and Avenis 125 scooter rentals — helmet included, flexible hours, local support.",
   keywords: [
     "scooter rental",
     "Rodrigues Island",
@@ -40,10 +40,25 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Roule Rodrigues | Premium Scooter Rentals",
     description:
-      "Explore Rodrigues Island on two wheels. Premium scooter rentals with helmet included, flexible hours, and 24/7 support.",
+      "Discover Rodrigues on your own terms. Premium scooter rentals with helmet included, flexible hours, and local support.",
     type: "website",
     locale: "en_US",
     siteName: "Roule Rodrigues",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Roule Rodrigues — scooter at golden hour on Rodrigues Island",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Roule Rodrigues | Premium Scooter Rentals",
+    description:
+      "Discover Rodrigues on your own terms. Premium scooter rentals — helmet included, flexible hours, local support.",
+    images: ["/og-image.jpg"],
   },
 };
 

@@ -34,7 +34,7 @@ export default function Pricing({ pricing }: { pricing?: PricingRow[] }) {
           <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">PRICING</p>
           <h2
             className="font-syne font-extrabold text-offwhite uppercase leading-none"
-            style={{ fontSize: "clamp(48px, 8vw, 80px)" }}
+            style={{ fontSize: "clamp(34px, 8vw, 80px)" }}
           >
             TRANSPARENT PRICING
           </h2>

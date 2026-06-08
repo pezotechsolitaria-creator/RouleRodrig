@@ -9,7 +9,7 @@ import { useLanguage } from "@/context/LanguageContext";
 
 const SPECS_BY_ID: Record<string, { icon: React.ElementType; label: string }[]> = {
   burgman: [
-    { icon: Gauge, label: "200cc Engine" },
+    { icon: Gauge, label: "125cc Engine" },
     { icon: Zap, label: "Automatic" },
     { icon: Users, label: "2 Riders" },
     { icon: Shield, label: "Helmet Included" },
@@ -46,8 +46,8 @@ export default function Fleet({ fleet }: { fleet?: FleetItem[] }) {
           <div>
             <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.fleet.sectionEyebrow}</p>
             <h2
-              className="font-syne font-extrabold text-offwhite uppercase leading-none break-words"
-              style={{ fontSize: "clamp(48px, 8vw, 80px)" }}
+              className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]"
+              style={{ fontSize: "clamp(38px, 8vw, 80px)" }}
             >
               {t.fleet.sectionTitle}
             </h2>

@@ -110,7 +110,7 @@ export const DEFAULT_CONTENT: SiteContent = {
     {
       id: 'burgman',
       badge: 'PREMIUM',
-      name: 'BURGMAN 200',
+      name: 'BURGMAN 125',
       tagline: 'The ultimate island cruiser.',
       description:
         'Powerful, comfortable, and built for long coastal rides. The Burgman delivers effortless performance on every stretch of road.',
@@ -133,7 +133,7 @@ export const DEFAULT_CONTENT: SiteContent = {
     },
   ],
   pricing: [
-    { name: 'Suzuki Burgman 200', prices: ['Rs 800', 'Rs 2,200', 'Rs 4,500'] },
+    { name: 'Suzuki Burgman 125', prices: ['Rs 800', 'Rs 2,200', 'Rs 4,500'] },
     { name: 'Suzuki Avenis 125', prices: ['Rs 600', 'Rs 1,650', 'Rs 3,200'] },
   ],
   contact: {

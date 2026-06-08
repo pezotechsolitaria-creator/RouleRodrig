@@ -30,7 +30,7 @@
     {
       "id": "burgman",
       "badge": "PREMIUM",
-      "name": "BURGMAN 200",
+      "name": "BURGMAN 125",
       "tagline": "The ultimate island cruiser.",
       "description": "Powerful, comfortable, and built for long coastal rides. The Burgman delivers effortless performance on every stretch of road.",
       "image": "/images/burgman-rider.jpeg",
@@ -60,7 +60,7 @@
   ],
   "pricing": [
     {
-      "name": "Suzuki Burgman 200",
+      "name": "Suzuki Burgman 125",
       "prices": [
         "Rs 800",
         "Rs 2,200",

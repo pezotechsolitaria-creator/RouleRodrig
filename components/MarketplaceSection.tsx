@@ -49,7 +49,7 @@ export default function MarketplaceSection() {
           <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">EXCLUSIVE OFFERS</p>
           <h2
             className="font-syne font-extrabold text-offwhite uppercase leading-none"
-            style={{ fontSize: "clamp(40px, 7vw, 72px)" }}
+            style={{ fontSize: "clamp(32px, 7vw, 72px)" }}
           >
             LOCAL DEALS
           </h2>

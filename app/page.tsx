@@ -13,9 +13,11 @@ import MapSection from "@/components/MapSection";
 import MarketplaceSection from "@/components/MarketplaceSection";
 import Gallery from "@/components/Gallery";
 import Testimonials from "@/components/Testimonials";
+import ReviewsSection from "@/components/ReviewsSection";
 import BookingCTA from "@/components/BookingCTA";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
+import WhatsAppButton from "@/components/WhatsAppButton";
 
 export const dynamic = "force-dynamic";
 
@@ -39,10 +41,12 @@ export default async function Home() {
         <MarketplaceSection />
         <Gallery gallery={content.gallery} />
         <Testimonials testimonials={content.testimonials} />
+        <ReviewsSection fleet={content.fleet} />
         <BookingCTA />
         <Contact contact={content.contact} fleet={content.fleet} />
         <Footer social={content.social} branding={content.branding} />
       </main>
+      <WhatsAppButton phone={content.contact.phone} whatsapp={content.social.whatsapp} />
     </>
   );
 }

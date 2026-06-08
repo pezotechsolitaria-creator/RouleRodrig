@@ -20,7 +20,7 @@ export default function Gallery({ gallery }: { gallery: GalleryImage[] }) {
           <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">PHOTOS</p>
           <h2
             className="font-syne font-extrabold text-offwhite uppercase leading-none"
-            style={{ fontSize: "clamp(48px, 8vw, 80px)" }}
+            style={{ fontSize: "clamp(34px, 8vw, 80px)" }}
           >
             OUR SCOOTERS
           </h2>

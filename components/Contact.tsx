@@ -80,8 +80,8 @@ export default function Contact({
         >
           <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.contact.eyebrow}</p>
           <h2
-            className="font-syne font-extrabold text-offwhite uppercase leading-none break-words"
-            style={{ fontSize: "clamp(48px, 8vw, 80px)" }}
+            className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]"
+            style={{ fontSize: "clamp(38px, 8vw, 80px)" }}
           >
             {t.contact.title}
           </h2>

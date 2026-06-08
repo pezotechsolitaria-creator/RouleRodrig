@@ -39,6 +39,9 @@ import {
   Copy,
   ExternalLink,
   Globe,
+  Menu,
+  X,
+  MessageSquare,
 } from "lucide-react";
 import type {
   SiteContent,
@@ -49,7 +52,7 @@ import type {
   MapLocation,
   AnnouncementContent,
 } from "@/lib/defaults";
-import type { ContactSubmission, Booking, Partner, MarketplaceListing } from "@/lib/supabase/types";
+import type { ContactSubmission, Booking, Partner, MarketplaceListing, ProductReview } from "@/lib/supabase/types";
 
 type Section =
   | "dashboard"
@@ -60,6 +63,7 @@ type Section =
   | "contact"
   | "gallery"
   | "testimonials"
+  | "reviews"
   | "branding"
   | "submissions"
   | "bookings"
@@ -71,6 +75,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "dashboard",    label: "Dashboard",       icon: LayoutDashboard, group: "overview" },
   { id: "bookings",     label: "Bookings",         icon: BookOpen,        group: "overview" },
   { id: "submissions",  label: "Enquiries",        icon: Inbox,           group: "overview" },
+  { id: "reviews",      label: "Customer Reviews", icon: MessageSquare,   group: "overview" },
   { id: "partners",     label: "Partners",         icon: Handshake,       group: "business" },
   { id: "marketplace",  label: "Marketplace",      icon: Store,           group: "business" },
   { id: "announcement", label: "Announcement",     icon: Megaphone,       group: "content" },
@@ -79,7 +84,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "pricing",      label: "Pricing",          icon: DollarSign,      group: "content" },
   { id: "contact",      label: "Contact Info",     icon: Phone,           group: "content" },
   { id: "gallery",      label: "Gallery",          icon: Images,          group: "content" },
-  { id: "testimonials", label: "Reviews",          icon: Star,            group: "content" },
+  { id: "testimonials", label: "Featured Reviews", icon: Star,            group: "content" },
   { id: "branding",     label: "Branding & Social",icon: Share2,          group: "content" },
   { id: "map",          label: "Island Map",       icon: MapPin,          group: "content" },
 ];
@@ -2183,6 +2188,220 @@ function MarketplaceManager() {
   );
 }
 
+// ── Customer reviews moderation ──────────────────────────────────────────────────
+
+function ReviewsModeration() {
+  const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [tab, setTab] = useState<"pending" | "approved" | "rejected">("pending");
+  const [busy, setBusy] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await fetch("/api/admin/reviews");
+      if (!res.ok) throw new Error();
+      setReviews(await res.json());
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function setStatus(id: string, status: ProductReview["status"]) {
+    setBusy(id);
+    try {
+      await fetch("/api/admin/reviews", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function remove(id: string) {
+    setBusy(id);
+    try {
+      await fetch(`/api/admin/reviews?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      setReviews((prev) => prev.filter((r) => r.id !== id));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const counts = {
+    pending: reviews.filter((r) => r.status === "pending").length,
+    approved: reviews.filter((r) => r.status === "approved").length,
+    rejected: reviews.filter((r) => r.status === "rejected").length,
+  };
+  const visible = reviews.filter((r) => r.status === tab);
+
+  const TABS: { id: "pending" | "approved" | "rejected"; label: string }[] = [
+    { id: "pending", label: "Pending" },
+    { id: "approved", label: "Approved" },
+    { id: "rejected", label: "Rejected" },
+  ];
+
+  if (loading)
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 size={28} className="text-yellow animate-spin" />
+      </div>
+    );
+
+  if (error)
+    return (
+      <div className="text-center py-20">
+        <p className="text-red-400 font-dm text-sm mb-4">Failed to load reviews.</p>
+        <button onClick={load} className="flex items-center gap-2 text-yellow font-dm text-sm mx-auto">
+          <RefreshCw size={14} /> Try again
+        </button>
+      </div>
+    );
+
+  return (
+    <div className="space-y-6">
+      {/* Tabs */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`flex items-center gap-2 font-dm text-sm px-4 py-2 rounded-full border transition-colors ${
+              tab === t.id
+                ? "border-yellow/50 bg-yellow/10 text-yellow"
+                : "border-dark-border text-muted hover:text-offwhite"
+            }`}
+          >
+            {t.label}
+            <span
+              className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 ${
+                tab === t.id ? "bg-yellow text-dark" : "bg-[#1a1a1a] text-muted"
+              }`}
+            >
+              {counts[t.id]}
+            </span>
+          </button>
+        ))}
+        <button
+          onClick={load}
+          className="ml-auto flex items-center gap-1.5 text-muted/50 hover:text-yellow font-dm text-xs transition-colors"
+        >
+          <RefreshCw size={12} /> Refresh
+        </button>
+      </div>
+
+      {visible.length === 0 ? (
+        <div className="text-center py-16">
+          <MessageSquare size={36} className="text-muted/20 mx-auto mb-4" />
+          <p className="text-muted/50 font-dm text-sm">No {tab} reviews.</p>
+          {tab === "pending" && (
+            <p className="text-muted/30 font-dm text-xs mt-1">
+              New reviews submitted by customers will appear here for your approval.
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {visible.map((r) => (
+            <div key={r.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5 space-y-3">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-syne font-bold text-offwhite text-sm">{r.name}</p>
+                    {r.origin && (
+                      <span className="font-bebas text-muted text-[10px] tracking-[0.2em]">· {r.origin}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 mt-1">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        size={13}
+                        className={i < r.rating ? "fill-yellow text-yellow" : "text-muted/25"}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {r.scooter_name && (
+                    <span className="font-bebas text-[10px] tracking-[0.15em] bg-yellow/10 text-yellow px-2.5 py-1 rounded-full">
+                      {r.scooter_name}
+                    </span>
+                  )}
+                  <span className="font-bebas text-muted text-[10px] tracking-[0.2em]">
+                    {new Date(r.created_at).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-offwhite/70 font-dm text-sm leading-relaxed border-t border-[#2a2a2a] pt-3">
+                {r.text}
+              </p>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2 pt-1 flex-wrap">
+                {r.status !== "approved" && (
+                  <button
+                    disabled={busy === r.id}
+                    onClick={() => setStatus(r.id, "approved")}
+                    className="flex items-center gap-1.5 font-dm text-xs border border-green-500/40 text-green-400 hover:bg-green-500/10 px-3.5 py-2 rounded-full transition-colors disabled:opacity-40"
+                  >
+                    {busy === r.id ? <Loader2 size={12} className="animate-spin" /> : <BadgeCheck size={13} />}
+                    Approve
+                  </button>
+                )}
+                {r.status !== "rejected" && (
+                  <button
+                    disabled={busy === r.id}
+                    onClick={() => setStatus(r.id, "rejected")}
+                    className="flex items-center gap-1.5 font-dm text-xs border border-red-500/40 text-red-400 hover:bg-red-500/10 px-3.5 py-2 rounded-full transition-colors disabled:opacity-40"
+                  >
+                    {busy === r.id ? <Loader2 size={12} className="animate-spin" /> : <Ban size={13} />}
+                    Reject
+                  </button>
+                )}
+                {r.status === "rejected" && (
+                  <button
+                    disabled={busy === r.id}
+                    onClick={() => remove(r.id)}
+                    className="flex items-center gap-1.5 font-dm text-xs text-muted/50 hover:text-red-400 px-2 py-2 transition-colors disabled:opacity-40 ml-auto"
+                  >
+                    <Trash2 size={13} /> Delete permanently
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="bg-yellow/5 border border-yellow/20 rounded-2xl p-5">
+        <p className="font-syne font-bold text-offwhite text-sm mb-2">How reviews work</p>
+        <p className="font-dm text-muted/70 text-xs leading-relaxed">
+          Customers submit reviews from the website. They stay <strong className="text-offwhite">Pending</strong> and
+          hidden until you <strong className="text-green-400">Approve</strong> them. Approved reviews appear publicly in
+          the &ldquo;Share Your Ride&rdquo; section. Rejected reviews are never shown and can be deleted.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Main dashboard ─────────────────────────────────────────────────────────────
 
 export default function AdminDashboard({
@@ -2195,7 +2414,14 @@ export default function AdminDashboard({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const router = useRouter();
+
+  // Selecting a section also closes the mobile drawer
+  function selectSection(s: Section) {
+    setSection(s);
+    setMobileNavOpen(false);
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -2236,7 +2462,8 @@ export default function AdminDashboard({
     pricing:      { title: "Pricing",             desc: "Update rental prices for all durations." },
     contact:      { title: "Contact Info",        desc: "Edit phone, email, location and opening hours." },
     gallery:      { title: "Photo Gallery",       desc: "Upload scooter photos — they appear as a gallery on the site." },
-    testimonials: { title: "Customer Reviews",    desc: "Add or remove customer testimonials shown on the site." },
+    testimonials: { title: "Featured Reviews",    desc: "Hand-picked testimonials you control and display on the site." },
+    reviews:      { title: "Customer Reviews",    desc: "Approve or reject reviews submitted by customers." },
     branding:     { title: "Branding & Social",   desc: "Upload your logo and link your social media pages." },
     submissions:  { title: "Enquiries",           desc: "Contact form submissions from customers." },
     bookings:     { title: "Bookings",            desc: "Booking requests from the website booking form." },
@@ -2247,18 +2474,41 @@ export default function AdminDashboard({
 
   const isAutoSave =
     section === "gallery" || section === "submissions" || section === "bookings" ||
-    section === "dashboard" || section === "partners" || section === "marketplace";
+    section === "dashboard" || section === "partners" || section === "marketplace" ||
+    section === "reviews";
 
   // Group NAV items
   const overviewNav = NAV.filter((n) => n.group === "overview");
   const businessNav = NAV.filter((n) => n.group === "business");
   const contentNav  = NAV.filter((n) => n.group === "content");
 
-  return (
-    <div className="min-h-screen bg-[#080808] flex font-dm">
-      {/* ── Sidebar ─────────────────────────────────────────────── */}
-      <aside className="w-56 shrink-0 bg-dark-card border-r border-dark-border flex flex-col sticky top-0 h-screen">
-        <div className="px-5 py-6 border-b border-dark-border">
+  // Reusable nav-group renderer (shared by drawer)
+  const renderNavGroup = (label: string, items: typeof NAV) => (
+    <div>
+      <p className="font-bebas text-muted/40 text-[8px] tracking-[0.3em] px-3 mb-1">{label}</p>
+      <div className="space-y-0.5">
+        {items.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => selectSection(id)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
+              section === id
+                ? "bg-yellow/10 text-yellow"
+                : "text-muted hover:text-offwhite hover:bg-white/5"
+            }`}
+          >
+            <Icon size={16} className="shrink-0" />
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const sidebarInner = (
+    <>
+      <div className="px-5 py-6 border-b border-dark-border flex items-center justify-between">
+        <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="font-syne font-extrabold text-base text-offwhite uppercase tracking-tight leading-none">
               ROULE
@@ -2271,124 +2521,112 @@ export default function AdminDashboard({
           </div>
           <p className="font-bebas text-muted text-[9px] tracking-[0.3em]">ADMIN</p>
         </div>
+        {/* Close button — mobile only */}
+        <button
+          onClick={() => setMobileNavOpen(false)}
+          className="lg:hidden text-muted hover:text-offwhite p-1 -mr-1"
+          aria-label="Close menu"
+        >
+          <X size={20} />
+        </button>
+      </div>
 
-        <nav className="flex-1 py-4 px-3 space-y-4 overflow-y-auto">
-          {/* Overview group */}
-          <div>
-            <p className="font-bebas text-muted/40 text-[8px] tracking-[0.3em] px-3 mb-1">OVERVIEW</p>
-            <div className="space-y-0.5">
-              {overviewNav.map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => setSection(id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
-                    section === id
-                      ? "bg-yellow/10 text-yellow"
-                      : "text-muted hover:text-offwhite hover:bg-white/5"
-                  }`}
-                >
-                  <Icon size={15} className="shrink-0" />
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
+      <nav className="flex-1 py-4 px-3 space-y-4 overflow-y-auto">
+        {renderNavGroup("OVERVIEW", overviewNav)}
+        {businessNav.length > 0 && renderNavGroup("BUSINESS", businessNav)}
+        {renderNavGroup("CONTENT", contentNav)}
+      </nav>
 
-          {/* Business group */}
-          {businessNav.length > 0 && (
-            <div>
-              <p className="font-bebas text-muted/40 text-[8px] tracking-[0.3em] px-3 mb-1">BUSINESS</p>
-              <div className="space-y-0.5">
-                {businessNav.map(({ id, label, icon: Icon }) => (
-                  <button
-                    key={id}
-                    onClick={() => setSection(id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
-                      section === id
-                        ? "bg-yellow/10 text-yellow"
-                        : "text-muted hover:text-offwhite hover:bg-white/5"
-                    }`}
-                  >
-                    <Icon size={15} className="shrink-0" />
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+      <div className="px-3 py-4 border-t border-dark-border">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted hover:text-red-400 hover:bg-red-500/5 transition-colors"
+        >
+          <LogOut size={16} className="shrink-0" />
+          Log out
+        </button>
+      </div>
+    </>
+  );
 
-          {/* Content group */}
-          <div>
-            <p className="font-bebas text-muted/40 text-[8px] tracking-[0.3em] px-3 mb-1">CONTENT</p>
-            <div className="space-y-0.5">
-              {contentNav.map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => setSection(id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
-                    section === id
-                      ? "bg-yellow/10 text-yellow"
-                      : "text-muted hover:text-offwhite hover:bg-white/5"
-                  }`}
-                >
-                  <Icon size={15} className="shrink-0" />
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </nav>
+  const saveButton = (
+    <button
+      onClick={handleSave}
+      disabled={saving || isAutoSave}
+      className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-full text-sm font-syne font-bold transition-all disabled:cursor-not-allowed shrink-0 ${
+        saved
+          ? "bg-green-500/20 text-green-400 border border-green-500/30"
+          : saveError
+          ? "bg-red-500/20 text-red-400 border border-red-500/30"
+          : "bg-yellow text-dark hover:bg-yellow-dark disabled:opacity-40"
+      }`}
+    >
+      {saving ? (
+        <Loader2 size={14} className="animate-spin" />
+      ) : saved ? (
+        <CheckCircle size={14} />
+      ) : saveError ? (
+        <AlertCircle size={14} />
+      ) : (
+        <Save size={14} />
+      )}
+      <span className={isAutoSave ? "hidden sm:inline" : ""}>
+        {saving ? "Saving…" : saved ? "Saved!" : saveError ? "Error" : "Save Changes"}
+      </span>
+    </button>
+  );
 
-        <div className="px-3 py-4 border-t border-dark-border">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted hover:text-red-400 hover:bg-red-500/5 transition-colors"
-          >
-            <LogOut size={16} className="shrink-0" />
-            Log out
-          </button>
-        </div>
+  return (
+    <div className="min-h-screen bg-[#080808] flex font-dm">
+      {/* ── Desktop sidebar (static) ──────────────────────────────── */}
+      <aside className="hidden lg:flex w-56 shrink-0 bg-dark-card border-r border-dark-border flex-col sticky top-0 h-screen">
+        {sidebarInner}
+      </aside>
+
+      {/* ── Mobile drawer + backdrop ──────────────────────────────── */}
+      {mobileNavOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+          onClick={() => setMobileNavOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        className={`lg:hidden fixed top-0 left-0 z-50 w-[82%] max-w-[300px] h-full bg-dark-card border-r border-dark-border flex flex-col transition-transform duration-300 ${
+          mobileNavOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        {sidebarInner}
       </aside>
 
       {/* ── Main ─────────────────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col min-h-screen overflow-y-auto">
-        <header className="sticky top-0 z-10 bg-[#080808]/90 backdrop-blur border-b border-dark-border px-8 py-4 flex items-center justify-between">
-          <div>
-            <p className="font-bebas text-yellow text-[10px] tracking-[0.3em]">
-              {SECTION_TITLES[section].desc}
-            </p>
-            <h1 className="font-syne font-bold text-offwhite text-lg leading-tight">
-              {SECTION_TITLES[section].title}
-            </h1>
+      <main className="flex-1 flex flex-col min-h-screen overflow-y-auto w-full min-w-0">
+        <header className="sticky top-0 z-10 bg-[#080808]/90 backdrop-blur border-b border-dark-border px-4 sm:px-8 py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Hamburger — mobile only */}
+            <button
+              onClick={() => setMobileNavOpen(true)}
+              className="lg:hidden text-offwhite hover:text-yellow p-2 -ml-2 shrink-0"
+              aria-label="Open menu"
+            >
+              <Menu size={22} />
+            </button>
+            <div className="min-w-0">
+              <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] hidden sm:block">
+                {SECTION_TITLES[section].desc}
+              </p>
+              <h1 className="font-syne font-bold text-offwhite text-base sm:text-lg leading-tight truncate">
+                {SECTION_TITLES[section].title}
+              </h1>
+            </div>
           </div>
 
-          <button
-            onClick={handleSave}
-            disabled={saving || isAutoSave}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-syne font-bold transition-all disabled:cursor-not-allowed ${
-              saved
-                ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                : saveError
-                ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                : "bg-yellow text-dark hover:bg-yellow-dark disabled:opacity-40"
-            }`}
-          >
-            {saving ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : saved ? (
-              <CheckCircle size={14} />
-            ) : saveError ? (
-              <AlertCircle size={14} />
-            ) : (
-              <Save size={14} />
-            )}
-            {saving ? "Saving…" : saved ? "Saved!" : saveError ? "Error" : "Save Changes"}
-          </button>
+          {saveButton}
         </header>
 
-        <div className="flex-1 p-8 max-w-3xl">
+        <div className="flex-1 p-4 sm:p-6 lg:p-8 w-full max-w-3xl">
           {section === "dashboard" && (
-            <DashboardView onNavigate={setSection} />
+            <DashboardView onNavigate={selectSection} />
           )}
           {section === "announcement" && (
             <AnnouncementEditor content={content} onChange={setContent} />
@@ -2424,6 +2662,7 @@ export default function AdminDashboard({
             <BrandingEditor content={content} onChange={setContent} />
           )}
           {section === "submissions" && <SubmissionsViewer />}
+          {section === "reviews" && <ReviewsModeration />}
           {section === "bookings" && <BookingsManager />}
           {section === "map" && (
             <MapEditor content={content} onChange={setContent} />

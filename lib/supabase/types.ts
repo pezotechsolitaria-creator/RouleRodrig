@@ -39,6 +39,18 @@ export interface Partner {
   created_at: string;
 }
 
+export interface ProductReview {
+  id: string;
+  scooter_id: string | null;
+  scooter_name: string | null;
+  name: string;
+  origin: string | null;
+  rating: number;
+  text: string;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+}
+
 export interface MarketplaceListing {
   id: string;
   business_name: string;

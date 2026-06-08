@@ -40,3 +40,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent tooling / local dev (not part of the website build)
+/.claude
+/.agents
+/skills-lock.json
+
+# hyperframes video project (separate from the website)
+/video
+
+# stray uploads / images kept out of the repo (managed at runtime)
+/public/uploads
+/WhatsApp Image*.jpeg
