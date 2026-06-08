@@ -60,6 +60,12 @@ export default function TripPlanner() {
     );
   }
 
+  // Send the planned trip length to the booking form, then scroll to it
+  function bookThisTrip() {
+    window.dispatchEvent(new CustomEvent("rr:prefill-booking", { detail: { days } }));
+    document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" });
+  }
+
   async function generate() {
     setGenerating(true);
     setItinerary(null);
@@ -333,12 +339,12 @@ export default function TripPlanner() {
                       <p className="font-dm text-muted/70 text-xs mt-1">
                         {t.planner.readyDesc(days)}
                       </p>
-                      <a
-                        href="#booking"
+                      <button
+                        onClick={bookThisTrip}
                         className="inline-flex items-center gap-1.5 mt-3 bg-yellow text-dark font-syne font-bold text-xs px-4 py-2 rounded-full hover:bg-yellow-dark transition-colors"
                       >
                         {t.planner.bookNow} <ChevronRight size={12} />
-                      </a>
+                      </button>
                     </div>
                   </div>
                 </motion.div>

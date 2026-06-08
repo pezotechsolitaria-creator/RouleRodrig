@@ -107,6 +107,7 @@ const translations = {
       requestNote:    "This is a booking request. We'll confirm availability and send payment details within a few hours.",
       bookedDatesLabel: "ALREADY BOOKED",
       overlapWarning: "These dates overlap an existing booking. Please choose different dates.",
+      tripPrefill:    (n: number) => `Booking for your ${n}-day trip ✨ Dates are pre-filled — just pick your pickup date and scooter.`,
       days:           (n: number) => `${n} day${n !== 1 ? "s" : ""}`,
     },
 
@@ -338,6 +339,7 @@ const translations = {
       requestNote:    "Ceci est une demande de réservation. Nous confirmerons la disponibilité et enverrons les détails de paiement dans les heures qui suivent.",
       bookedDatesLabel: "DÉJÀ RÉSERVÉ",
       overlapWarning: "Ces dates chevauchent une réservation existante. Veuillez choisir d'autres dates.",
+      tripPrefill:    (n: number) => `Réservation pour votre voyage de ${n} jour${n > 1 ? "s" : ""} ✨ Les dates sont pré-remplies — choisissez votre date de prise en charge et votre scooter.`,
       days:           (n: number) => `${n} jour${n > 1 ? "s" : ""}`,
     },
     contact: {
@@ -545,6 +547,7 @@ const translations = {
       requestNote:    "Sa enn demann rezervasion. Nou pou konfirm disponibilite ek anvoy detay peman dan kektan.",
       bookedDatesLabel: "DEZA REZERVE",
       overlapWarning: "Sa bann dat la pe sevose ar enn lot rezervasion. Silvouple swazi lezot dat.",
+      tripPrefill:    (n: number) => `Rezervasion pou ou vwayaz ${n} zour ✨ Bann dat fini ranpli — swazi zis ou dat pran ek ou skooter.`,
       days:           (n: number) => `${n} zour`,
     },
     contact: {

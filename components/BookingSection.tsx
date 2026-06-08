@@ -14,6 +14,7 @@ import {
   Loader2,
   BadgeCheck,
   Ban,
+  Sparkles,
 } from "lucide-react";
 import type { FleetItem } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
@@ -63,6 +64,30 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
   const days = daysBetween(form.start_date, form.end_date);
   const selectedScooter = scooters.find((s) => s.id === form.scooter);
   const estimatedTotal = estimateTotal(selectedScooter, days);
+
+  // ── Trip Planner → Booking: pre-fill the trip length ──
+  const [desiredDays, setDesiredDays] = useState<number | null>(null);
+
+  function isoAddDays(base: string, n: number): string {
+    const d = new Date(base);
+    d.setDate(d.getDate() + n);
+    return d.toISOString().split("T")[0];
+  }
+
+  useEffect(() => {
+    function onPrefill(e: Event) {
+      const detail = (e as CustomEvent).detail as { days?: number };
+      const n = Number(detail?.days);
+      if (!Number.isFinite(n) || n <= 0) return;
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const start = tomorrow.toISOString().split("T")[0];
+      setForm((f) => ({ ...f, start_date: start, end_date: isoAddDays(start, n) }));
+      setDesiredDays(n);
+    }
+    window.addEventListener("rr:prefill-booking", onPrefill);
+    return () => window.removeEventListener("rr:prefill-booking", onPrefill);
+  }, []);
 
   // ── Availability: booked date ranges for the selected scooter ──
   const [bookedRanges, setBookedRanges] = useState<{ start: string; end: string; confirmed: boolean }[]>([]);
@@ -197,6 +222,20 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+              {/* Trip Planner pre-fill banner */}
+              {desiredDays && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center gap-2.5 bg-yellow/10 border border-yellow/30 rounded-xl px-4 py-3"
+                >
+                  <Sparkles size={15} className="text-yellow shrink-0" />
+                  <p className="font-dm text-yellow text-xs leading-snug">
+                    {t.booking.tripPrefill(desiredDays)}
+                  </p>
+                </motion.div>
+              )}
+
               {/* Scooter */}
               <div>
                 <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
@@ -228,7 +267,15 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
                     type="date"
                     min={today}
                     value={form.start_date}
-                    onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      // Keep the planned trip length locked when prefilled
+                      setForm((f) => ({
+                        ...f,
+                        start_date: v,
+                        end_date: desiredDays && v ? isoAddDays(v, desiredDays) : f.end_date,
+                      }));
+                    }}
                     className={inputCls}
                     disabled={formState === "loading"}
                     required
@@ -242,7 +289,11 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
                     type="date"
                     min={form.start_date || today}
                     value={form.end_date}
-                    onChange={(e) => setForm({ ...form, end_date: e.target.value })}
+                    onChange={(e) => {
+                      // Manual edit hands date control back to the user
+                      setForm((f) => ({ ...f, end_date: e.target.value }));
+                      setDesiredDays(null);
+                    }}
                     className={inputCls}
                     disabled={formState === "loading"}
                     required
