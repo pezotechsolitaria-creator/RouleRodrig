@@ -4,6 +4,9 @@ import "./globals.css";
 import { LanguageProvider } from "@/context/LanguageContext";
 import LanguagePicker from "@/components/LanguagePicker";
 import PWARegister from "@/components/PWARegister";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import { SITE_URL } from "@/lib/site";
 
 const syne = Syne({
   subsets: ["latin"],
@@ -27,6 +30,8 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+  alternates: { canonical: "/" },
   title: "Roule Rodrigues | Premium Scooter Rentals on Rodrigues Island",
   description:
     "Explore Rodrigues Island on two wheels. Premium Suzuki Burgman 125 and Avenis 125 scooter rentals — helmet included, flexible hours, local support.",
@@ -92,6 +97,8 @@ export default function RootLayout({
           {children}
           <PWARegister />
         </LanguageProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
