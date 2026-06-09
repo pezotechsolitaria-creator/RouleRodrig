@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban } from "lucide-react";
 import { motion } from "framer-motion";
-import { DEFAULT_CONTENT, type FleetItem } from "@/lib/defaults";
+import { DEFAULT_CONTENT, type FleetItem, type VehicleCategory } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
+import { useCurrency } from "@/context/CurrencyContext";
 
 const SPECS_BY_ID: Record<string, { icon: React.ElementType; label: string }[]> = {
   burgman: [
@@ -28,9 +30,45 @@ const SPECS_BY_ID: Record<string, { icon: React.ElementType; label: string }[]> 
   ],
 };
 
-export default function Fleet({ fleet }: { fleet?: FleetItem[] }) {
-  const items = fleet ?? DEFAULT_CONTENT.fleet;
+export default function Fleet({
+  fleet,
+  categories,
+}: {
+  fleet?: FleetItem[];
+  categories?: VehicleCategory[];
+}) {
+  const allItems = fleet ?? DEFAULT_CONTENT.fleet;
+  const cats = categories ?? [];
   const { t } = useLanguage();
+  const { convert } = useCurrency();
+  const [activeCat, setActiveCat] = useState<string>("all");
+
+  // Which categories are enabled / known
+  const enabledIds = new Set(cats.filter((c) => c.enabled).map((c) => c.id));
+  const knownIds = new Set(cats.map((c) => c.id));
+  const catOf = (it: FleetItem) => it.category ?? "scooter";
+
+  // A vehicle is visible if categories aren't configured, its category is
+  // unknown (safety), or its category is enabled.
+  const visibleItems = allItems.filter((it) => {
+    if (cats.length === 0) return true;
+    const c = catOf(it);
+    if (!knownIds.has(c)) return true;
+    return enabledIds.has(c);
+  });
+
+  // Tabs: enabled categories that actually have visible vehicles
+  const usedCats = cats.filter(
+    (c) => c.enabled && visibleItems.some((it) => catOf(it) === c.id)
+  );
+  const showTabs = usedCats.length > 1;
+
+  const items =
+    showTabs && activeCat !== "all"
+      ? visibleItems.filter((it) => catOf(it) === activeCat)
+      : visibleItems;
+
+  if (visibleItems.length === 0) return null;
 
   return (
     <section id="fleet" className="bg-dark py-24 md:py-36" aria-label="Scooter fleet">
@@ -57,6 +95,35 @@ export default function Fleet({ fleet }: { fleet?: FleetItem[] }) {
           </p>
         </motion.div>
 
+        {/* Category filter pills */}
+        {showTabs && (
+          <div className="flex flex-wrap gap-2.5 mb-10">
+            <button
+              onClick={() => setActiveCat("all")}
+              className={`font-syne font-bold text-sm px-5 py-2.5 rounded-full transition-colors ${
+                activeCat === "all"
+                  ? "bg-yellow text-dark"
+                  : "bg-dark-card border border-dark-border text-muted hover:text-offwhite hover:border-yellow/40"
+              }`}
+            >
+              {t.fleet.allTypes}
+            </button>
+            {usedCats.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setActiveCat(c.id)}
+                className={`font-syne font-bold text-sm px-5 py-2.5 rounded-full transition-colors ${
+                  activeCat === c.id
+                    ? "bg-yellow text-dark"
+                    : "bg-dark-card border border-dark-border text-muted hover:text-offwhite hover:border-yellow/40"
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
           {items.map((scooter, i) => {
@@ -64,7 +131,7 @@ export default function Fleet({ fleet }: { fleet?: FleetItem[] }) {
             const isUpload = scooter.image.startsWith("/uploads/") || scooter.image.startsWith("http");
             return (
               <motion.div
-                key={scooter.id}
+                key={`${scooter.id}-${i}`}
                 initial={{ opacity: 0, y: 50 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-60px" }}
@@ -131,7 +198,7 @@ export default function Fleet({ fleet }: { fleet?: FleetItem[] }) {
                   {/* Price + CTA */}
                   <div className="flex items-center justify-between pt-5 border-t border-dark-border">
                     <div>
-                      <span className="font-syne font-extrabold text-yellow text-2xl">{scooter.price}</span>
+                      <span className="font-syne font-extrabold text-yellow text-2xl">{convert(scooter.price)}</span>
                       <span className="font-dm text-muted text-sm ml-1">{scooter.unit}</span>
                     </div>
                     <Link

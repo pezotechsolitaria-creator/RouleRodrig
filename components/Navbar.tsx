@@ -7,6 +7,8 @@ import Link from "next/link";
 import Image from "next/image";
 import type { BrandingContent } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
+import { useCurrency } from "@/context/CurrencyContext";
+import { CURRENCIES, CURRENCY_SYMBOL } from "@/lib/currency";
 import { LANGUAGE_FLAGS, LANGUAGE_NATIVE, type Language } from "@/lib/i18n";
 
 const LANG_CYCLE: Language[] = ["en", "fr", "cr"];
@@ -15,10 +17,16 @@ export default function Navbar({ branding }: { branding?: BrandingContent }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { t, language, setLanguage } = useLanguage();
+  const { currency, setCurrency } = useCurrency();
 
   function cycleLanguage() {
     const idx = LANG_CYCLE.indexOf(language);
     setLanguage(LANG_CYCLE[(idx + 1) % LANG_CYCLE.length]);
+  }
+
+  function cycleCurrency() {
+    const idx = CURRENCIES.indexOf(currency);
+    setCurrency(CURRENCIES[(idx + 1) % CURRENCIES.length]);
   }
 
   const navLinks = [
@@ -100,6 +108,17 @@ export default function Navbar({ branding }: { branding?: BrandingContent }) {
               <span className="uppercase tracking-wide">{language}</span>
             </button>
 
+            {/* Currency cycle button */}
+            <button
+              onClick={cycleCurrency}
+              className="flex items-center gap-1.5 text-xs font-dm text-muted hover:text-offwhite border border-dark-border hover:border-yellow/50 px-3 py-2 rounded-full transition-all duration-200"
+              aria-label="Change currency"
+              title="Change currency"
+            >
+              <span className="font-bold text-yellow">{CURRENCY_SYMBOL[currency]}</span>
+              <span className="uppercase tracking-wide">{currency}</span>
+            </button>
+
             <Link
               href="#booking"
               className="flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-5 py-2.5 rounded-full hover:bg-yellow-dark transition-all duration-200 hover:scale-105"
@@ -172,14 +191,25 @@ export default function Navbar({ branding }: { branding?: BrandingContent }) {
                   {t.nav.bookNow} <ArrowRight size={20} />
                 </Link>
 
-                {/* Language switcher (mobile) */}
-                <button
-                  onClick={cycleLanguage}
-                  className="flex items-center gap-2 text-muted hover:text-yellow font-dm text-sm transition-colors"
-                >
-                  <span>{LANGUAGE_FLAGS[language]}</span>
-                  <span>{LANGUAGE_NATIVE[language]}</span>
-                </button>
+                {/* Language + currency switchers (mobile) */}
+                <div className="flex items-center gap-6">
+                  <button
+                    onClick={cycleLanguage}
+                    className="flex items-center gap-2 text-muted hover:text-yellow font-dm text-sm transition-colors"
+                  >
+                    <span>{LANGUAGE_FLAGS[language]}</span>
+                    <span>{LANGUAGE_NATIVE[language]}</span>
+                  </button>
+                  <span className="w-px h-4 bg-dark-border" />
+                  <button
+                    onClick={cycleCurrency}
+                    className="flex items-center gap-2 text-muted hover:text-yellow font-dm text-sm transition-colors"
+                    aria-label="Change currency"
+                  >
+                    <span className="font-bold text-yellow">{CURRENCY_SYMBOL[currency]}</span>
+                    <span>{currency}</span>
+                  </button>
+                </div>
               </motion.div>
             </motion.div>
           </motion.div>

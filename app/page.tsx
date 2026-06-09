@@ -101,7 +101,7 @@ export default async function Home() {
         <Navbar branding={content.branding} />
         <Hero hero={content.hero} />
         <Stats stats={content.stats} />
-        <Fleet fleet={content.fleet} />
+        <Fleet fleet={content.fleet} categories={content.vehicleCategories} />
         <Experience />
         <Pricing pricing={content.pricing} />
         <WhyUs />

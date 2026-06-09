@@ -5,10 +5,12 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { DEFAULT_CONTENT, type PricingRow } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
+import { useCurrency } from "@/context/CurrencyContext";
 
 export default function Pricing({ pricing }: { pricing?: PricingRow[] }) {
   const scooters = pricing ?? DEFAULT_CONTENT.pricing;
   const { t } = useLanguage();
+  const { convert } = useCurrency();
   const PLANS = [
     { label: t.pricing.daily, highlight: false, tag: undefined as string | undefined },
     { label: t.pricing.threeDays, highlight: true, tag: t.pricing.bestValue },
@@ -69,7 +71,7 @@ export default function Pricing({ pricing }: { pricing?: PricingRow[] }) {
             <tbody>
               {scooters.map((scooter, si) => (
                 <tr
-                  key={scooter.name}
+                  key={`${scooter.name}-${si}`}
                   className={`border-b border-dark-border hover:bg-dark-card/60 transition-colors ${
                     si === scooters.length - 1 ? "border-b-0" : ""
                   }`}
@@ -84,7 +86,7 @@ export default function Pricing({ pricing }: { pricing?: PricingRow[] }) {
                         pi === 1 ? "text-yellow bg-yellow/5" : "text-offwhite"
                       }`}
                     >
-                      {price}
+                      {convert(price)}
                     </td>
                   ))}
                 </tr>

@@ -59,6 +59,7 @@ const translations = {
       unavailable:    "UNAVAILABLE",
       bookNow:        "Book Now",
       unavailableBtn: "Unavailable",
+      allTypes:       "All",
     },
 
     // Booking section
@@ -303,6 +304,7 @@ const translations = {
       unavailable:    "INDISPONIBLE",
       bookNow:        "Réserver",
       unavailableBtn: "Indisponible",
+      allTypes:       "Tous",
     },
     booking: {
       eyebrow:        "RÉSERVEZ VOTRE SCOOTER",
@@ -519,6 +521,7 @@ const translations = {
       unavailable:    "PA DISPONIB",
       bookNow:        "Rezerv Astèr",
       unavailableBtn: "Pa Disponib",
+      allTypes:       "Tou",
     },
     booking: {
       eyebrow:        "REZERV OU LOTO",

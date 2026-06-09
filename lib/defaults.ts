@@ -23,6 +23,13 @@ export interface FleetItem {
   price: string;
   unit: string;
   available: boolean;
+  category?: string; // vehicle category id, e.g. "scooter"
+}
+
+export interface VehicleCategory {
+  id: string;
+  label: string;    // shown as the filter tab, e.g. "Scooters", "Cars"
+  enabled: boolean; // show this category on the website
 }
 
 export interface PricingRow {
@@ -125,6 +132,7 @@ export interface SiteContent {
   mapLocations: MapLocation[];
   plannerActivities: PlannerActivity[];
   rideRoutes: RideRoute[];
+  vehicleCategories: VehicleCategory[];
 }
 
 export const DEFAULT_CONTENT: SiteContent = {
@@ -151,6 +159,7 @@ export const DEFAULT_CONTENT: SiteContent = {
       price: 'From Rs 800',
       unit: '/ day',
       available: true,
+      category: 'scooter',
     },
     {
       id: 'avenis',
@@ -163,6 +172,7 @@ export const DEFAULT_CONTENT: SiteContent = {
       price: 'From Rs 600',
       unit: '/ day',
       available: true,
+      category: 'scooter',
     },
   ],
   pricing: [
@@ -322,5 +332,13 @@ export const DEFAULT_CONTENT: SiteContent = {
       mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Mont+Lubin+Rodrigues',
       image: '',
     },
+  ],
+  vehicleCategories: [
+    { id: 'scooter',   label: 'Scooters',    enabled: true },
+    { id: 'motorbike', label: 'Motorbikes',  enabled: false },
+    { id: 'car',       label: 'Cars',        enabled: false },
+    { id: 'ebike',     label: 'E-Bikes',     enabled: false },
+    { id: 'bicycle',   label: 'Bicycles',    enabled: false },
+    { id: 'kayak',     label: 'Kayaks',      enabled: false },
   ],
 };

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import type { FleetItem } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
+import { useCurrency } from "@/context/CurrencyContext";
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -46,6 +47,7 @@ function estimateTotal(scooter: FleetItem | undefined, days: number): string {
 
 export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
   const { t } = useLanguage();
+  const { convert } = useCurrency();
   const scooters = (fleet ?? []).filter((s) => s.available !== false);
 
   const [formState, setFormState] = useState<FormState>("idle");
@@ -251,7 +253,7 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
                   <option value="">{t.booking.scooterPlaceholder}</option>
                   {scooters.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name} — {s.price}
+                      {s.name} — {convert(s.price)}
                     </option>
                   ))}
                 </select>
@@ -485,7 +487,7 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
                     <>
                       <div className="border-t border-dark-border pt-3 flex justify-between items-center">
                         <dt className="text-muted font-dm text-xs">{t.booking.summaryTotal}</dt>
-                        <dd className="text-yellow font-syne font-bold text-base">{estimatedTotal}</dd>
+                        <dd className="text-yellow font-syne font-bold text-base">{convert(estimatedTotal)}</dd>
                       </div>
                       {days >= 3 && (
                         <p className="text-green-400/80 text-xs font-dm">{t.booking.discountNote}</p>

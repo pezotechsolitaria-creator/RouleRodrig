@@ -54,6 +54,7 @@ import type {
   WhatsAppNumber,
   PlannerActivity,
   RideRoute,
+  VehicleCategory,
 } from "@/lib/defaults";
 import type { ContactSubmission, Booking, Partner, MarketplaceListing, ProductReview } from "@/lib/supabase/types";
 
@@ -506,6 +507,7 @@ function FleetEditor({
       price: "From Rs 0",
       unit: "/ day",
       available: true,
+      category: content.vehicleCategories?.[0]?.id ?? "scooter",
     };
     const newRow: PricingRow = {
       name: "New Scooter",
@@ -526,8 +528,67 @@ function FleetEditor({
     });
   }
 
+  // ── Vehicle categories ──
+  const cats: VehicleCategory[] = content.vehicleCategories ?? [];
+  const setCats = (next: VehicleCategory[]) =>
+    onChange({ ...content, vehicleCategories: next });
+  const updateCat = (idx: number, patch: Partial<VehicleCategory>) =>
+    setCats(cats.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
+  const addCat = () =>
+    setCats([...cats, { id: `cat-${Date.now()}`, label: "New Type", enabled: true }]);
+  const removeCat = (idx: number) => setCats(cats.filter((_, i) => i !== idx));
+
   return (
     <div className="space-y-8">
+      {/* ── Vehicle categories manager ── */}
+      <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
+        <div>
+          <p className="font-bebas text-yellow text-xs tracking-[0.3em]">VEHICLE CATEGORIES</p>
+          <p className="text-muted/60 text-xs font-dm mt-1">
+            Turn a category ON to show it on the website. Filter tabs appear automatically when more
+            than one enabled category has vehicles.
+          </p>
+        </div>
+        <div className="space-y-2.5">
+          {cats.map((c, i) => (
+            <div key={c.id} className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => updateCat(i, { enabled: !c.enabled })}
+                className={`relative w-10 h-5.5 rounded-full transition-colors shrink-0 ${c.enabled ? "bg-yellow" : "bg-[#2a2a2a]"}`}
+                style={{ height: "22px", width: "40px" }}
+                aria-label={c.enabled ? "Enabled" : "Disabled"}
+              >
+                <span className={`absolute top-1 w-3.5 h-3.5 bg-white rounded-full transition-transform ${c.enabled ? "translate-x-[21px]" : "translate-x-1"}`} />
+              </button>
+              <input
+                value={c.label}
+                onChange={(e) => updateCat(i, { label: e.target.value })}
+                className="flex-1 bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg px-3 py-2 text-offwhite text-sm font-dm focus:border-yellow focus:outline-none"
+              />
+              <span className={`text-[10px] font-bebas tracking-[0.15em] w-16 text-center ${c.enabled ? "text-green-400" : "text-muted/40"}`}>
+                {c.enabled ? "SHOWN" : "HIDDEN"}
+              </span>
+              <button
+                type="button"
+                onClick={() => removeCat(i)}
+                className="text-muted/40 hover:text-red-400 transition-colors shrink-0"
+                aria-label="Remove category"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={addCat}
+          className="flex items-center gap-2 text-xs font-dm text-muted/60 hover:text-yellow transition-colors"
+        >
+          <Plus size={13} /> Add category
+        </button>
+      </div>
+
       {content.fleet.map((scooter, idx) => (
         <div
           key={scooter.id}
@@ -596,6 +657,24 @@ function FleetEditor({
                 onChange={(v) => updateScooter(idx, { price: v })}
                 placeholder="e.g. From Rs 800"
               />
+            </Field>
+            <Field label="CATEGORY">
+              <select
+                value={scooter.category ?? "scooter"}
+                onChange={(e) => updateScooter(idx, { category: e.target.value })}
+                className={`${inputCls} appearance-none`}
+              >
+                {cats.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}{c.enabled ? "" : " (hidden)"}
+                  </option>
+                ))}
+                {!cats.some((c) => c.id === (scooter.category ?? "scooter")) && (
+                  <option value={scooter.category ?? "scooter"}>
+                    {scooter.category ?? "scooter"}
+                  </option>
+                )}
+              </select>
             </Field>
           </div>
           <Field label="DESCRIPTION">

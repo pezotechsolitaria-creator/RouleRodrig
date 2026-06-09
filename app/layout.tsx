@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Syne, Bebas_Neue, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from "@/context/LanguageContext";
+import { CurrencyProvider } from "@/context/CurrencyContext";
 import LanguagePicker from "@/components/LanguagePicker";
 import PWARegister from "@/components/PWARegister";
 import { Analytics } from "@vercel/analytics/react";
@@ -93,9 +94,11 @@ export default function RootLayout({
     >
       <body className="bg-dark text-offwhite font-dm overflow-x-hidden">
         <LanguageProvider>
-          <LanguagePicker />
-          {children}
-          <PWARegister />
+          <CurrencyProvider>
+            <LanguagePicker />
+            {children}
+            <PWARegister />
+          </CurrencyProvider>
         </LanguageProvider>
         <Analytics />
         <SpeedInsights />
