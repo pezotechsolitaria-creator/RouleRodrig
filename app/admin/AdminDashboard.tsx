@@ -53,6 +53,7 @@ import type {
   AnnouncementContent,
   WhatsAppNumber,
   PlannerActivity,
+  RideRoute,
 } from "@/lib/defaults";
 import type { ContactSubmission, Booking, Partner, MarketplaceListing, ProductReview } from "@/lib/supabase/types";
 
@@ -67,6 +68,7 @@ type Section =
   | "testimonials"
   | "reviews"
   | "planner"
+  | "routes"
   | "branding"
   | "submissions"
   | "bookings"
@@ -91,6 +93,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "branding",     label: "Branding & Social",icon: Share2,          group: "content" },
   { id: "map",          label: "Island Map",       icon: MapPin,          group: "content" },
   { id: "planner",      label: "Trip Planner",     icon: Sparkles,        group: "content" },
+  { id: "routes",       label: "Ride Routes",      icon: MapPin,          group: "content" },
 ];
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
@@ -1712,6 +1715,114 @@ function PlannerEditor({
   );
 }
 
+// ── Ride Routes editor ──────────────────────────────────────────────────────────
+
+const ROUTE_DIFFICULTY: RideRoute["difficulty"][] = ["Easy", "Moderate", "Advanced"];
+
+function RideRoutesEditor({
+  content,
+  onChange,
+}: {
+  content: SiteContent;
+  onChange: (c: SiteContent) => void;
+}) {
+  const routes = content.rideRoutes ?? [];
+
+  function update(idx: number, patch: Partial<RideRoute>) {
+    onChange({ ...content, rideRoutes: routes.map((r, i) => (i === idx ? { ...r, ...patch } : r)) });
+  }
+  function add() {
+    const newRoute: RideRoute = {
+      id: `route-${Date.now()}`,
+      name: "New Route",
+      description: "",
+      distance: "20 km",
+      duration: "2 hrs",
+      difficulty: "Easy",
+      stops: "",
+      mapsUrl: "",
+      image: "",
+    };
+    onChange({ ...content, rideRoutes: [...routes, newRoute] });
+  }
+  function remove(idx: number) {
+    onChange({ ...content, rideRoutes: routes.filter((_, i) => i !== idx) });
+  }
+
+  return (
+    <div className="space-y-6">
+      <p className="text-muted/70 font-dm text-xs leading-relaxed">
+        Curated scenic routes shown on the website. Each card links straight to Google Maps. List stops
+        one per line. Tip: open the route in Google Maps, copy the share link, and paste it below.
+      </p>
+
+      {routes.map((r, idx) => (
+        <div key={r.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="font-bebas text-yellow text-xs tracking-[0.3em]">ROUTE {idx + 1} — {r.name}</p>
+            <button
+              type="button"
+              onClick={() => remove(idx)}
+              className="flex items-center gap-1.5 text-xs font-dm text-muted/60 hover:text-red-400 transition-colors"
+            >
+              <Trash2 size={12} /> Remove
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="NAME">
+              <TextInput value={r.name} onChange={(v) => update(idx, { name: v })} placeholder="e.g. Sunset Coastal Loop" />
+            </Field>
+            <Field label="DIFFICULTY">
+              <select
+                value={r.difficulty}
+                onChange={(e) => update(idx, { difficulty: e.target.value as RideRoute["difficulty"] })}
+                className={`${inputCls} appearance-none`}
+              >
+                {ROUTE_DIFFICULTY.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="DISTANCE">
+              <TextInput value={r.distance} onChange={(v) => update(idx, { distance: v })} placeholder="e.g. 34 km" />
+            </Field>
+            <Field label="DURATION">
+              <TextInput value={r.duration} onChange={(v) => update(idx, { duration: v })} placeholder="e.g. 2–3 hrs" />
+            </Field>
+          </div>
+
+          <Field label="DESCRIPTION">
+            <Textarea value={r.description} onChange={(v) => update(idx, { description: v })} rows={2} />
+          </Field>
+          <Field label="STOPS (one per line)">
+            <Textarea value={r.stops} onChange={(v) => update(idx, { stops: v })} rows={4} />
+          </Field>
+          <Field label="GOOGLE MAPS LINK">
+            <TextInput value={r.mapsUrl} onChange={(v) => update(idx, { mapsUrl: v })} placeholder="https://maps.google.com/..." />
+          </Field>
+
+          <ImagePicker
+            label="ROUTE PHOTO"
+            src={r.image ?? ""}
+            onUpload={(p) => update(idx, { image: p })}
+          />
+        </div>
+      ))}
+
+      <button
+        type="button"
+        onClick={add}
+        className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 text-muted/60 hover:text-yellow rounded-2xl py-5 text-sm font-dm transition-colors"
+      >
+        <Plus size={16} /> Add Route
+      </button>
+
+      <p className="text-muted/50 text-xs font-dm">Click Save Changes to publish your routes.</p>
+    </div>
+  );
+}
+
 // ── Partners manager ──────────────────────────────────────────────────────────
 
 const PARTNER_TYPES = ["hotel", "guesthouse", "travel_agency", "other"] as const;
@@ -2667,6 +2778,7 @@ export default function AdminDashboard({
     bookings:     { title: "Bookings",            desc: "Booking requests from the website booking form." },
     map:          { title: "Island Map Locations",desc: "Manage the points of interest shown on the island guide map." },
     planner:      { title: "AI Trip Planner",     desc: "Edit the real places, photos and tips the planner uses to build itineraries." },
+    routes:       { title: "Ride Routes",         desc: "Curated scenic scooter routes shown on the website with a Google Maps link." },
     partners:     { title: "Hotel Partners",      desc: "Manage referral partners and track commission." },
     marketplace:  { title: "Marketplace / Deals", desc: "Local business listings shown to customers on the website." },
   };
@@ -2868,6 +2980,9 @@ export default function AdminDashboard({
           )}
           {section === "planner" && (
             <PlannerEditor content={content} onChange={setContent} />
+          )}
+          {section === "routes" && (
+            <RideRoutesEditor content={content} onChange={setContent} />
           )}
           {section === "partners" && <PartnersManager />}
           {section === "marketplace" && <MarketplaceManager />}

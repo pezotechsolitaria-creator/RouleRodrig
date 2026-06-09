@@ -99,6 +99,18 @@ export interface PlannerActivity {
   image?: string; // optional photo shown in the itinerary card
 }
 
+export interface RideRoute {
+  id: string;
+  name: string;
+  description: string;
+  distance: string;   // e.g. "32 km"
+  duration: string;   // e.g. "2–3 hrs"
+  difficulty: "Easy" | "Moderate" | "Advanced";
+  stops: string;      // newline-separated list of stops
+  mapsUrl: string;    // Google Maps link
+  image?: string;
+}
+
 export interface SiteContent {
   hero: HeroContent;
   stats: StatItem[];
@@ -112,6 +124,7 @@ export interface SiteContent {
   announcement: AnnouncementContent;
   mapLocations: MapLocation[];
   plannerActivities: PlannerActivity[];
+  rideRoutes: RideRoute[];
 }
 
 export const DEFAULT_CONTENT: SiteContent = {
@@ -274,5 +287,40 @@ export const DEFAULT_CONTENT: SiteContent = {
     { id: 'seafood-dinner', name: 'Fresh Seafood Dinner', emoji: '🦞', type: 'food', slot: 'evening', duration: '1.5 hrs', description: 'End your day with grilled lobster, calamari or reef fish caught that morning.', tip: 'Many guesthouses serve dinner on request — ask for the catch of the day.', image: '' },
     { id: 'rum-tasting', name: 'Local Rhum Arrangé Tasting', emoji: '🍹', type: 'food', slot: 'evening', duration: '1 hr', description: "Sample Rodrigues' famous fruit-infused rums — passion fruit, vanilla, ginger, and seasonal fruits.", tip: 'Look for small home-producers who blend their own.', image: '' },
     { id: 'sunset-drink', name: 'Sunset Drinks by the Lagoon', emoji: '🌅', type: 'food', slot: 'evening', duration: '1 hr', description: 'Find a quiet spot by the lagoon with a cold drink as the sun sets over the Indian Ocean.', tip: 'The lagoon at Saint-François changes colour spectacularly at dusk.', image: '' },
+  ],
+  rideRoutes: [
+    {
+      id: 'sunset-coastal-loop',
+      name: 'Sunset Coastal Loop',
+      description: "The east coast at its most dramatic — clifftop roads, the Saint-François lagoon, and a sunset finish. The ride every visitor remembers.",
+      distance: '34 km',
+      duration: '2–3 hrs',
+      difficulty: 'Moderate',
+      stops: "Pointe Cotton Cliffs\nTrou d'Argent Beach\nSaint-François Lagoon\nRoche Bon Dieu (sunset)",
+      mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Pointe+Cotton+Rodrigues',
+      image: '',
+    },
+    {
+      id: 'hidden-beaches-trail',
+      name: 'Hidden Beaches Trail',
+      description: 'A relaxed southern run to the quiet coves most tourists never find. Pack a towel and take your time.',
+      distance: '26 km',
+      duration: '2 hrs',
+      difficulty: 'Easy',
+      stops: "Anse Mourouk\nAnse Quitor\nGravier Beach\nLunch in the south",
+      mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Anse+Mourouk+Rodrigues',
+      image: '',
+    },
+    {
+      id: 'island-summit-ride',
+      name: 'Island Summit Ride',
+      description: 'Climb to the rooftop of Rodrigues through endemic forest, with panoramic views across the whole island on a clear day.',
+      distance: '22 km',
+      duration: '2–3 hrs',
+      difficulty: 'Advanced',
+      stops: "Mont Lubin Summit\nGrande Montagne Nature Reserve\nPort Mathurin",
+      mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Mont+Lubin+Rodrigues',
+      image: '',
+    },
   ],
 };

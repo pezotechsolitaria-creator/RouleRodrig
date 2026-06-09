@@ -176,6 +176,16 @@ const translations = {
       subtitle: "Discover Rodrigues' hidden gems. Click any marker for details — then go find it on two wheels.",
     },
 
+    // Ride Routes
+    routes: {
+      eyebrow:  "SCENIC RIDES",
+      title:    "RIDE ROUTES",
+      subtitle: "Hand-picked scooter routes across Rodrigues — open any one in Google Maps and just ride.",
+      offline:  "Works offline — load once, ride anywhere",
+      openMaps: "Open in Google Maps",
+      difficulty: { Easy: "Easy", Moderate: "Moderate", Advanced: "Advanced" },
+    },
+
     // Experience / About
     experience: {
       eyebrow1: "THE ISLAND AWAITS",
@@ -399,6 +409,14 @@ const translations = {
       title:    "GUIDE DE L'ÎLE",
       subtitle: "Découvrez les trésors cachés de Rodrigues. Cliquez sur un marqueur pour les détails — puis partez les découvrir à scooter.",
     },
+    routes: {
+      eyebrow:  "ITINÉRAIRES",
+      title:    "PARCOURS À SCOOTER",
+      subtitle: "Des itinéraires en scooter triés sur le volet à Rodrigues — ouvrez-en un dans Google Maps et roulez.",
+      offline:  "Fonctionne hors-ligne — chargez une fois, roulez partout",
+      openMaps: "Ouvrir dans Google Maps",
+      difficulty: { Easy: "Facile", Moderate: "Modéré", Advanced: "Difficile" },
+    },
     experience: {
       eyebrow1: "L'ÎLE VOUS ATTEND",
       title1:   "RODRIGUES COMME JAMAIS",
@@ -606,6 +624,14 @@ const translations = {
       eyebrow:  "EXPLOR ZIL LA",
       title:    "GID ZIL",
       subtitle: "Dekouvr kaset Rodrig. Klik lor enn marker pou detay — ek al trouve lor de rou.",
+    },
+    routes: {
+      eyebrow:  "BANN PARKOUR",
+      title:    "PARKOUR SKOOTER",
+      subtitle: "Bann parkour skooter swazi spesial pou Rodrig — ouver enn dan Google Maps ek al rul.",
+      offline:  "Marse oflinn — sarz enn fwa, rul partou",
+      openMaps: "Ouver dan Google Maps",
+      difficulty: { Easy: "Fasil", Moderate: "Mwayen", Advanced: "Difisil" },
     },
     experience: {
       eyebrow1: "ZIL LA PE ATAN OU",
