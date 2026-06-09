@@ -1563,6 +1563,12 @@ function MapEditor({
               rows={2}
             />
           </Field>
+
+          <ImagePicker
+            label="PHOTO (shown when the dot is clicked)"
+            src={loc.image ?? ""}
+            onUpload={(p) => updateLoc(idx, { image: p })}
+          />
         </div>
       ))}
 

@@ -84,6 +84,7 @@ export interface MapLocation {
   category: "beach" | "viewpoint" | "restaurant" | "landmark" | "activity";
   lat: number;
   lng: number;
+  image?: string; // optional photo shown in the map popup
 }
 
 export interface SiteContent {
