@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getContent } from '@/lib/content';
+import { DEFAULT_CONTENT, type PlannerActivity } from '@/lib/defaults';
 
 // ── Rodrigues activity knowledge base ───────────────────────────────────────
+// The pool of places is now editable from the admin dashboard (Trip Planner
+// section). The day-by-day sequencing below stays automatic — the admin
+// controls the real places, photos and descriptions; the planner arranges them.
 
-interface Activity {
-  id: string;
-  name: string;
-  emoji: string;
-  type: 'beach' | 'culture' | 'adventure' | 'viewpoint' | 'food';
-  slot: 'morning' | 'afternoon' | 'evening' | 'lunch';
-  duration: string;
-  description: string;
-  tip: string;
-}
+type Activity = PlannerActivity;
 
-const ACTIVITIES: Activity[] = [
+const FALLBACK_ACTIVITIES: Activity[] = [
   // Beaches
   { id: 'grand-baie', name: 'Grand Baie Beach', emoji: '🏖️', type: 'beach', slot: 'morning', duration: '2–3 hrs', description: 'Wide sandy beach with crystal-clear water, perfect for swimming and snorkelling. A Rodrigues classic.', tip: 'Arrive before 9am for the calmest water. Bring snorkel gear — the reef is stunning.' },
   { id: 'saint-francois', name: 'Saint-François Lagoon', emoji: '🌊', type: 'beach', slot: 'morning', duration: '2–3 hrs', description: 'One of the Indian Ocean\'s most beautiful lagoons. Turquoise water, white sand, and untouched reef.', tip: 'Best before noon — the light on the water is magical. Combine with a ride along the eastern road.' },
@@ -65,7 +61,7 @@ function pickUnused(pool: Activity[], used: Set<string>): Activity | undefined {
   return available[Math.floor(Math.random() * available.length)];
 }
 
-function buildItinerary(days: number, interests: string[]) {
+function buildItinerary(days: number, interests: string[], ACTIVITIES: Activity[]) {
   const used = new Set<string>();
   const wantBeach = interests.includes('beach') || interests.includes('all');
   const wantCulture = interests.includes('culture') || interests.includes('all');
@@ -163,7 +159,19 @@ export async function POST(req: NextRequest) {
     };
 
     const clampedDays = Math.max(1, Math.min(7, days));
-    const itinerary = buildItinerary(clampedDays, interests);
+
+    // Pull the admin-managed places (real info + photos); fall back to built-ins
+    let activities: Activity[] = FALLBACK_ACTIVITIES;
+    try {
+      const content = await getContent();
+      if (content.plannerActivities && content.plannerActivities.length > 0) {
+        activities = content.plannerActivities;
+      }
+    } catch {
+      activities = FALLBACK_ACTIVITIES.length ? FALLBACK_ACTIVITIES : DEFAULT_CONTENT.plannerActivities;
+    }
+
+    const itinerary = buildItinerary(clampedDays, interests, activities);
 
     return NextResponse.json({ itinerary });
   } catch {

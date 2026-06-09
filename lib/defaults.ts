@@ -87,6 +87,18 @@ export interface MapLocation {
   image?: string; // optional photo shown in the map popup
 }
 
+export interface PlannerActivity {
+  id: string;
+  name: string;
+  emoji: string;
+  type: "beach" | "culture" | "adventure" | "viewpoint" | "food";
+  slot: "morning" | "afternoon" | "evening" | "lunch";
+  duration: string;
+  description: string;
+  tip: string;
+  image?: string; // optional photo shown in the itinerary card
+}
+
 export interface SiteContent {
   hero: HeroContent;
   stats: StatItem[];
@@ -99,6 +111,7 @@ export interface SiteContent {
   branding: BrandingContent;
   announcement: AnnouncementContent;
   mapLocations: MapLocation[];
+  plannerActivities: PlannerActivity[];
 }
 
 export const DEFAULT_CONTENT: SiteContent = {
@@ -231,5 +244,35 @@ export const DEFAULT_CONTENT: SiteContent = {
       lat: -19.6811,
       lng: 63.4147,
     },
+  ],
+  plannerActivities: [
+    // Beaches
+    { id: 'grand-baie', name: 'Grand Baie Beach', emoji: '🏖️', type: 'beach', slot: 'morning', duration: '2–3 hrs', description: 'Wide sandy beach with crystal-clear water, perfect for swimming and snorkelling. A Rodrigues classic.', tip: 'Arrive before 9am for the calmest water. Bring snorkel gear — the reef is stunning.', image: '' },
+    { id: 'saint-francois', name: 'Saint-François Lagoon', emoji: '🌊', type: 'beach', slot: 'morning', duration: '2–3 hrs', description: "One of the Indian Ocean's most beautiful lagoons. Turquoise water, white sand, and untouched reef.", tip: 'Best before noon — the light on the water is magical. Combine with a ride along the eastern road.', image: '' },
+    { id: 'trou-argent', name: "Trou d'Argent Beach", emoji: '🏝️', type: 'beach', slot: 'morning', duration: '2 hrs', description: "Rodrigues' most secluded beach — accessible only on foot via a cliffside path. Absolutely breathtaking.", tip: 'Park near Pointe Cotton and walk down (10 min). Go early.', image: '' },
+    { id: 'anse-mourouk', name: 'Anse Mourouk', emoji: '🌴', type: 'beach', slot: 'afternoon', duration: '2 hrs', description: 'A southern beach surrounded by dramatic coastal scenery. Quiet, wild, and very Rodriguan.', tip: 'Combine with a coastal ride through the south — the cliffs and views are unforgettable.', image: '' },
+    { id: 'riviere-banane', name: 'Rivière Banane Beach', emoji: '🌿', type: 'beach', slot: 'morning', duration: '1.5 hrs', description: 'A quiet, local beach near a river mouth. Great for a relaxed swim away from the tourist trail.', tip: 'Very peaceful on weekday mornings.', image: '' },
+    { id: 'anse-quitor', name: 'Anse Quitor', emoji: '🐚', type: 'beach', slot: 'afternoon', duration: '1.5 hrs', description: 'A small, sheltered cove popular with local families. Great for snorkelling along the rocky edges.', tip: 'Bring your own supplies — no facilities here.', image: '' },
+    // Culture & Landmarks
+    { id: 'caverne-patate', name: 'Caverne Patate', emoji: '🪨', type: 'culture', slot: 'morning', duration: '2 hrs', description: "Rodrigues' most impressive limestone cave system with guided tours through underground chambers.", tip: 'Book in advance — tours fill up. Wear closed shoes.', image: '' },
+    { id: 'market', name: 'Port Mathurin Saturday Market', emoji: '🛒', type: 'culture', slot: 'morning', duration: '2 hrs', description: 'The heart of Rodrigues life. Fresh produce, handmade crafts, street food, and the genuine soul of the island.', tip: 'Only on Saturdays, from 6am. Go early for the best pickled salads.', image: '' },
+    { id: 'francois-leguat', name: 'François Leguat Giant Tortoise Reserve', emoji: '🐢', type: 'culture', slot: 'afternoon', duration: '2 hrs', description: "Walk among thousands of giant tortoises and explore the reserve's unique caves.", tip: 'Allow extra time — the caves inside are also fascinating.', image: '' },
+    { id: 'port-mathurin', name: 'Port Mathurin Town Walk', emoji: '🏛️', type: 'culture', slot: 'morning', duration: '1.5 hrs', description: "Stroll the colourful capital, visit St Gabriel Church, the market hall, and waterfront.", tip: 'The waterfront at sunrise is serene. Stop at a local bakery for a pain beurre.', image: '' },
+    // Adventure
+    { id: 'coastal-ride', name: 'East Coast Scenic Scooter Ride', emoji: '🛵', type: 'adventure', slot: 'afternoon', duration: '2–3 hrs', description: 'The most spectacular road on the island — ride from Pointe Cotton south to Saint-François along dramatic cliffs.', tip: 'This is why you rented the scooter. Stop wherever looks good.', image: '' },
+    { id: 'grand-montagne', name: 'Grand Montagne Nature Reserve', emoji: '🦜', type: 'adventure', slot: 'morning', duration: '2–3 hrs', description: 'Hike through endemic forest with incredible birdlife. Home to the rare Rodrigues warbler and fody.', tip: 'Start at 7am before the heat builds.', image: '' },
+    { id: 'gombrani', name: 'Île Gombrani Snorkel Trip', emoji: '🤿', type: 'adventure', slot: 'morning', duration: '3–4 hrs', description: 'Boat trip to a small uninhabited islet surrounded by pristine coral reef. Some of the best snorkelling in Rodrigues.', tip: 'Book from Port Mathurin waterfront. Bring your own mask.', image: '' },
+    { id: 'southern-ride', name: 'Southern Coastal Ride', emoji: '🏍️', type: 'adventure', slot: 'afternoon', duration: '2 hrs', description: 'Explore the wild southern coast by scooter — dramatic cliffs, isolated bays, and barely any other tourists.', tip: 'The road through Baie Malgache is particularly beautiful.', image: '' },
+    // Viewpoints
+    { id: 'pointe-cotton', name: 'Pointe Cotton Cliffs', emoji: '🌅', type: 'viewpoint', slot: 'afternoon', duration: '1 hr', description: 'The most dramatic cliffs on the island. Sheer drops into the Indian Ocean with 180-degree views.', tip: 'Go in the afternoon for golden light on the cliffs.', image: '' },
+    { id: 'roche-bon-dieu', name: 'Roche Bon Dieu at Sunset', emoji: '🌇', type: 'viewpoint', slot: 'evening', duration: '1 hr', description: 'The best sunset viewpoint on the island. Panoramic views over Port Mathurin and the lagoon turning gold.', tip: 'Arrive 30 minutes before sunset and bring a picnic.', image: '' },
+    { id: 'mont-lubin', name: 'Mont Lubin Summit', emoji: '⛰️', type: 'viewpoint', slot: 'morning', duration: '1–2 hrs', description: 'The highest point of Rodrigues at 393m. On clear days you can see Mauritius on the horizon.', tip: 'Start early before clouds gather at the peak.', image: '' },
+    { id: 'plaine-corail', name: 'Plaine Corail Viewpoint', emoji: '✈️', type: 'viewpoint', slot: 'afternoon', duration: '45 min', description: 'The airstrip viewpoint where you can watch small planes arrive. Unique views across the southern plateau.', tip: 'A quick stop on the way south — a great photography spot.', image: '' },
+    // Food & Evenings
+    { id: 'lunch-local', name: 'Local Rodriguan Lunch', emoji: '🍛', type: 'food', slot: 'lunch', duration: '1 hr', description: 'Try octopus curry, smoked marlin, heart of palm salad and fresh tropical fruit juice.', tip: 'Ask your guesthouse host where to eat — the best local places are word-of-mouth.', image: '' },
+    { id: 'lunch-port', name: 'Lunch at Port Mathurin', emoji: '🥘', type: 'food', slot: 'lunch', duration: '1 hr', description: 'Grab lunch at one of the small restaurants around the market. Fresh fish, Creole stews, and local pickles.', tip: 'The fish is caught the same morning.', image: '' },
+    { id: 'seafood-dinner', name: 'Fresh Seafood Dinner', emoji: '🦞', type: 'food', slot: 'evening', duration: '1.5 hrs', description: 'End your day with grilled lobster, calamari or reef fish caught that morning.', tip: 'Many guesthouses serve dinner on request — ask for the catch of the day.', image: '' },
+    { id: 'rum-tasting', name: 'Local Rhum Arrangé Tasting', emoji: '🍹', type: 'food', slot: 'evening', duration: '1 hr', description: "Sample Rodrigues' famous fruit-infused rums — passion fruit, vanilla, ginger, and seasonal fruits.", tip: 'Look for small home-producers who blend their own.', image: '' },
+    { id: 'sunset-drink', name: 'Sunset Drinks by the Lagoon', emoji: '🌅', type: 'food', slot: 'evening', duration: '1 hr', description: 'Find a quiet spot by the lagoon with a cold drink as the sun sets over the Indian Ocean.', tip: 'The lagoon at Saint-François changes colour spectacularly at dusk.', image: '' },
   ],
 };

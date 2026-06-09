@@ -52,6 +52,7 @@ import type {
   MapLocation,
   AnnouncementContent,
   WhatsAppNumber,
+  PlannerActivity,
 } from "@/lib/defaults";
 import type { ContactSubmission, Booking, Partner, MarketplaceListing, ProductReview } from "@/lib/supabase/types";
 
@@ -65,6 +66,7 @@ type Section =
   | "gallery"
   | "testimonials"
   | "reviews"
+  | "planner"
   | "branding"
   | "submissions"
   | "bookings"
@@ -88,6 +90,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "testimonials", label: "Featured Reviews", icon: Star,            group: "content" },
   { id: "branding",     label: "Branding & Social",icon: Share2,          group: "content" },
   { id: "map",          label: "Island Map",       icon: MapPin,          group: "content" },
+  { id: "planner",      label: "Trip Planner",     icon: Sparkles,        group: "content" },
 ];
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
@@ -1583,6 +1586,132 @@ function MapEditor({
   );
 }
 
+// ── Trip Planner activities editor ──────────────────────────────────────────────
+
+const PLANNER_TYPES: PlannerActivity["type"][] = ["beach", "culture", "adventure", "viewpoint", "food"];
+const PLANNER_SLOTS: PlannerActivity["slot"][] = ["morning", "lunch", "afternoon", "evening"];
+
+function PlannerEditor({
+  content,
+  onChange,
+}: {
+  content: SiteContent;
+  onChange: (c: SiteContent) => void;
+}) {
+  const activities = content.plannerActivities ?? [];
+
+  function update(idx: number, patch: Partial<PlannerActivity>) {
+    onChange({
+      ...content,
+      plannerActivities: activities.map((a, i) => (i === idx ? { ...a, ...patch } : a)),
+    });
+  }
+  function add() {
+    const newAct: PlannerActivity = {
+      id: `place-${Date.now()}`,
+      name: "New Place",
+      emoji: "📍",
+      type: "beach",
+      slot: "morning",
+      duration: "1–2 hrs",
+      description: "",
+      tip: "",
+      image: "",
+    };
+    onChange({ ...content, plannerActivities: [...activities, newAct] });
+  }
+  function remove(idx: number) {
+    onChange({ ...content, plannerActivities: activities.filter((_, i) => i !== idx) });
+  }
+
+  return (
+    <div className="space-y-6">
+      <p className="text-muted/70 font-dm text-xs leading-relaxed">
+        These are the real Rodrigues places the AI Trip Planner arranges into day-by-day itineraries.
+        Edit the names, descriptions and tips, and add a photo to each — the planner still builds the
+        schedule automatically based on the visitor&apos;s days and interests.
+      </p>
+
+      {activities.map((act, idx) => (
+        <div key={act.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="font-bebas text-yellow text-xs tracking-[0.3em]">
+              {act.emoji} {act.name || `PLACE ${idx + 1}`}
+            </p>
+            <button
+              type="button"
+              onClick={() => remove(idx)}
+              className="flex items-center gap-1.5 text-xs font-dm text-muted/60 hover:text-red-400 transition-colors"
+            >
+              <Trash2 size={12} /> Remove
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="NAME">
+              <TextInput value={act.name} onChange={(v) => update(idx, { name: v })} placeholder="e.g. Trou d'Argent Beach" />
+            </Field>
+            <Field label="EMOJI">
+              <TextInput value={act.emoji} onChange={(v) => update(idx, { emoji: v })} placeholder="🏖️" />
+            </Field>
+            <Field label="CATEGORY">
+              <select
+                value={act.type}
+                onChange={(e) => update(idx, { type: e.target.value as PlannerActivity["type"] })}
+                className={`${inputCls} appearance-none`}
+              >
+                {PLANNER_TYPES.map((tp) => (
+                  <option key={tp} value={tp}>{tp.charAt(0).toUpperCase() + tp.slice(1)}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="TIME OF DAY">
+              <select
+                value={act.slot}
+                onChange={(e) => update(idx, { slot: e.target.value as PlannerActivity["slot"] })}
+                className={`${inputCls} appearance-none`}
+              >
+                {PLANNER_SLOTS.map((sl) => (
+                  <option key={sl} value={sl}>{sl.charAt(0).toUpperCase() + sl.slice(1)}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="DURATION">
+              <TextInput value={act.duration} onChange={(v) => update(idx, { duration: v })} placeholder="e.g. 2–3 hrs" />
+            </Field>
+          </div>
+
+          <Field label="DESCRIPTION">
+            <Textarea value={act.description} onChange={(v) => update(idx, { description: v })} rows={2} />
+          </Field>
+          <Field label="INSIDER TIP">
+            <Textarea value={act.tip} onChange={(v) => update(idx, { tip: v })} rows={2} />
+          </Field>
+
+          <ImagePicker
+            label="PHOTO (shown in the itinerary)"
+            src={act.image ?? ""}
+            onUpload={(p) => update(idx, { image: p })}
+          />
+        </div>
+      ))}
+
+      <button
+        type="button"
+        onClick={add}
+        className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 text-muted/60 hover:text-yellow rounded-2xl py-5 text-sm font-dm transition-colors"
+      >
+        <Plus size={16} /> Add Place
+      </button>
+
+      <p className="text-muted/50 text-xs font-dm">
+        Category and time-of-day help the planner slot each place correctly (e.g. a beach in the morning,
+        a viewpoint at sunset). Click Save Changes to publish.
+      </p>
+    </div>
+  );
+}
+
 // ── Partners manager ──────────────────────────────────────────────────────────
 
 const PARTNER_TYPES = ["hotel", "guesthouse", "travel_agency", "other"] as const;
@@ -2537,6 +2666,7 @@ export default function AdminDashboard({
     submissions:  { title: "Enquiries",           desc: "Contact form submissions from customers." },
     bookings:     { title: "Bookings",            desc: "Booking requests from the website booking form." },
     map:          { title: "Island Map Locations",desc: "Manage the points of interest shown on the island guide map." },
+    planner:      { title: "AI Trip Planner",     desc: "Edit the real places, photos and tips the planner uses to build itineraries." },
     partners:     { title: "Hotel Partners",      desc: "Manage referral partners and track commission." },
     marketplace:  { title: "Marketplace / Deals", desc: "Local business listings shown to customers on the website." },
   };
@@ -2735,6 +2865,9 @@ export default function AdminDashboard({
           {section === "bookings" && <BookingsManager />}
           {section === "map" && (
             <MapEditor content={content} onChange={setContent} />
+          )}
+          {section === "planner" && (
+            <PlannerEditor content={content} onChange={setContent} />
           )}
           {section === "partners" && <PartnersManager />}
           {section === "marketplace" && <MarketplaceManager />}

@@ -23,6 +23,7 @@ interface Activity {
   duration: string;
   description: string;
   tip: string;
+  image?: string;
 }
 
 interface Day {
@@ -283,8 +284,17 @@ export default function TripPlanner() {
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: idx * 0.08 }}
-                              className="bg-dark-card border border-dark-border rounded-2xl p-5 hover:border-yellow/30 transition-colors"
+                              className="bg-dark-card border border-dark-border rounded-2xl p-5 hover:border-yellow/30 transition-colors overflow-hidden"
                             >
+                              {act.image && (
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                <img
+                                  src={act.image}
+                                  alt={act.name}
+                                  className="w-full h-40 object-cover rounded-xl mb-4"
+                                  loading="lazy"
+                                />
+                              )}
                               <div className="flex items-start gap-4">
                                 <span className="text-2xl mt-0.5 shrink-0">{act.emoji}</span>
                                 <div className="flex-1 min-w-0">
