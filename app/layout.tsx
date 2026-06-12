@@ -76,6 +76,10 @@ export const metadata: Metadata = {
     title: "Roule Rodrigues",
     statusBarStyle: "black-translucent",
   },
+  // Set NEXT_PUBLIC_GOOGLE_VERIFICATION in Vercel to verify Google Search Console
+  ...(process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION
+    ? { verification: { google: process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION } }
+    : {}),
 };
 
 export const viewport: Viewport = {
