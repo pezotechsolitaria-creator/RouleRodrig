@@ -16,6 +16,7 @@ import MarketplaceSection from "@/components/MarketplaceSection";
 import Gallery from "@/components/Gallery";
 import Testimonials from "@/components/Testimonials";
 import ReviewsSection from "@/components/ReviewsSection";
+import WaitlistSection from "@/components/WaitlistSection";
 import BookingCTA from "@/components/BookingCTA";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
@@ -113,6 +114,7 @@ export default async function Home() {
         <Gallery gallery={content.gallery} />
         <Testimonials testimonials={content.testimonials} />
         <ReviewsSection fleet={content.fleet} />
+        <WaitlistSection />
         <BookingCTA />
         <Contact contact={content.contact} fleet={content.fleet} />
         <Footer social={content.social} branding={content.branding} />

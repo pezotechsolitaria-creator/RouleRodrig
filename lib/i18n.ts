@@ -187,6 +187,20 @@ const translations = {
       difficulty: { Easy: "Easy", Moderate: "Moderate", Advanced: "Advanced" },
     },
 
+    // Waitlist
+    waitlist: {
+      eyebrow:      "STAY IN THE LOOP",
+      title:        "ISLAND TIPS & DEALS",
+      subtitle:     "Join the list for exclusive offers, new routes, and the best of Rodrigues — straight to your inbox.",
+      placeholder:  "your@email.com",
+      button:       "Join",
+      successTitle: "You're on the list! 🎉",
+      successDesc:  "We'll be in touch with the good stuff.",
+      privacy:      "No spam. Unsubscribe anytime.",
+      invalid:      "Please enter a valid email.",
+      error:        "Something went wrong. Please try again.",
+    },
+
     // Experience / About
     experience: {
       eyebrow1: "THE ISLAND AWAITS",
@@ -419,6 +433,18 @@ const translations = {
       openMaps: "Ouvrir dans Google Maps",
       difficulty: { Easy: "Facile", Moderate: "Modéré", Advanced: "Difficile" },
     },
+    waitlist: {
+      eyebrow:      "RESTEZ INFORMÉ",
+      title:        "CONSEILS & OFFRES",
+      subtitle:     "Inscrivez-vous pour des offres exclusives, de nouveaux parcours et le meilleur de Rodrigues — directement dans votre boîte mail.",
+      placeholder:  "votre@email.com",
+      button:       "S'inscrire",
+      successTitle: "Vous êtes inscrit ! 🎉",
+      successDesc:  "Nous vous écrirons avec les bonnes nouvelles.",
+      privacy:      "Pas de spam. Désinscription à tout moment.",
+      invalid:      "Veuillez saisir un email valide.",
+      error:        "Une erreur s'est produite. Veuillez réessayer.",
+    },
     experience: {
       eyebrow1: "L'ÎLE VOUS ATTEND",
       title1:   "RODRIGUES COMME JAMAIS",
@@ -635,6 +661,18 @@ const translations = {
       offline:  "Marse oflinn — sarz enn fwa, rul partou",
       openMaps: "Ouver dan Google Maps",
       difficulty: { Easy: "Fasil", Moderate: "Mwayen", Advanced: "Difisil" },
+    },
+    waitlist: {
+      eyebrow:      "RES INFORME",
+      title:        "KONSEY & OFER",
+      subtitle:     "Inskrir ou pou bann ofer exklizif, nouvo parkour ek meyer Rodrig — direk dan ou email.",
+      placeholder:  "ou@email.com",
+      button:       "Inskrir",
+      successTitle: "Ou finn inskrir! 🎉",
+      successDesc:  "Nou pou ekrir ou ar bann bon nouvel.",
+      privacy:      "Pena spam. Dezinskrir ninport kan.",
+      invalid:      "Silvouple met enn email valid.",
+      error:        "Enn zafer finn mal pas. Esey ankor.",
     },
     experience: {
       eyebrow1: "ZIL LA PE ATAN OU",

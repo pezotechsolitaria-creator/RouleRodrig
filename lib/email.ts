@@ -124,3 +124,49 @@ export async function sendBookingEmails(b: BookingEmailData): Promise<{ customer
 
   return result;
 }
+
+// ── Reminder emails (sent by the daily cron) ─────────────────────────
+
+function reminderShell(title: string, body: string): string {
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #eee">
+      <div style="background:#0a0a0a;padding:22px;text-align:center">
+        <span style="color:${BRAND};font-size:20px;font-weight:800;letter-spacing:1px">ROULE RODRIGUES</span>
+      </div>
+      <div style="padding:28px">
+        <h1 style="font-size:19px;color:#0a0a0a;margin:0 0 12px">${title}</h1>
+        ${body}
+      </div>
+      <div style="background:#f5f5f0;padding:16px;text-align:center;color:#888;font-size:12px">
+        Roule Rodrigues · Rodrigues Island, Mauritius
+      </div>
+    </div>`;
+}
+
+/** Reminder sent the day before pickup. */
+export async function sendPickupReminder(b: BookingEmailData): Promise<boolean> {
+  if (!b.email) return false;
+  const body = `
+    <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px">
+      Hi ${b.name}, this is a friendly reminder that your scooter pickup is <strong>tomorrow</strong>. 🛵
+    </p>
+    <table style="width:100%;border-collapse:collapse;border-top:1px solid #eee;border-bottom:1px solid #eee">${summaryRows(b)}</table>
+    <p style="color:#888;font-size:13px;line-height:1.6;margin:16px 0 0">
+      Please bring a valid driving licence. See you soon — message us on WhatsApp if anything changes.
+    </p>`;
+  return send(b.email, "Reminder: your Roule Rodrigues pickup is tomorrow 🛵", reminderShell("Your ride is almost here!", body));
+}
+
+/** Reminder sent on the return day. */
+export async function sendReturnReminder(b: BookingEmailData): Promise<boolean> {
+  if (!b.email) return false;
+  const body = `
+    <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px">
+      Hi ${b.name}, just a reminder that your scooter is due back <strong>today</strong>.
+    </p>
+    <table style="width:100%;border-collapse:collapse;border-top:1px solid #eee;border-bottom:1px solid #eee">${summaryRows(b)}</table>
+    <p style="color:#888;font-size:13px;line-height:1.6;margin:16px 0 0">
+      Thanks for riding with us! We'd love a quick review of your experience. 💛
+    </p>`;
+  return send(b.email, "Reminder: your scooter return is today", reminderShell("Return reminder", body));
+}

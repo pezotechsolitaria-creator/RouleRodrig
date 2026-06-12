@@ -24,6 +24,8 @@ export interface Booking {
   status: "pending" | "confirmed" | "cancelled" | "completed";
   partner_code: string | null;
   created_at: string;
+  pickup_reminded?: boolean;
+  return_reminded?: boolean;
 }
 
 export interface Partner {
@@ -36,6 +38,14 @@ export interface Partner {
   commission_pct: number;
   active: boolean;
   notes: string | null;
+  created_at: string;
+}
+
+export interface WaitlistEntry {
+  id: string;
+  email: string;
+  name: string | null;
+  source: string | null;
   created_at: string;
 }
 

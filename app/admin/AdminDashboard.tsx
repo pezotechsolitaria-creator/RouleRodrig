@@ -56,7 +56,7 @@ import type {
   RideRoute,
   VehicleCategory,
 } from "@/lib/defaults";
-import type { ContactSubmission, Booking, Partner, MarketplaceListing, ProductReview } from "@/lib/supabase/types";
+import type { ContactSubmission, Booking, Partner, MarketplaceListing, ProductReview, WaitlistEntry } from "@/lib/supabase/types";
 
 type Section =
   | "dashboard"
@@ -68,6 +68,7 @@ type Section =
   | "gallery"
   | "testimonials"
   | "reviews"
+  | "waitlist"
   | "planner"
   | "routes"
   | "branding"
@@ -82,6 +83,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "bookings",     label: "Bookings",         icon: BookOpen,        group: "overview" },
   { id: "submissions",  label: "Enquiries",        icon: Inbox,           group: "overview" },
   { id: "reviews",      label: "Customer Reviews", icon: MessageSquare,   group: "overview" },
+  { id: "waitlist",     label: "Waitlist",         icon: Mail,            group: "overview" },
   { id: "partners",     label: "Partners",         icon: Handshake,       group: "business" },
   { id: "marketplace",  label: "Marketplace",      icon: Store,           group: "business" },
   { id: "announcement", label: "Announcement",     icon: Megaphone,       group: "content" },
@@ -231,6 +233,11 @@ function ImagePicker({
 
 // ── Dashboard overview ─────────────────────────────────────────────────────────
 
+function islandDate(offsetDays = 0): string {
+  const now = new Date(Date.now() + 4 * 3600 * 1000 + offsetDays * 86400000);
+  return now.toISOString().slice(0, 10);
+}
+
 function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
   const [stats, setStats] = useState<{
     bookings: number;
@@ -238,6 +245,7 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
     confirmed: number;
     enquiries: number;
   } | null>(null);
+  const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -249,6 +257,7 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
         ]);
         const bookings: Booking[] = bRes.ok ? await bRes.json() : [];
         const submissions: ContactSubmission[] = sRes.ok ? await sRes.json() : [];
+        setAllBookings(bookings);
         setStats({
           bookings: bookings.length,
           pending: bookings.filter((b) => b.status === "pending").length,
@@ -261,6 +270,21 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
     }
     load();
   }, []);
+
+  const today = islandDate(0);
+  const tomorrow = islandDate(1);
+  const active = (b: Booking) => b.status === "pending" || b.status === "confirmed";
+  const pickupsTomorrow = allBookings.filter((b) => active(b) && b.start_date === tomorrow);
+  const returnsToday = allBookings.filter((b) => active(b) && b.end_date === today);
+
+  function waLink(b: Booking, kind: "pickup" | "return") {
+    const digits = (b.phone ?? "").replace(/\D/g, "");
+    const msg =
+      kind === "pickup"
+        ? `Hi ${b.name}, friendly reminder from Roule Rodrigues — your ${b.scooter} pickup is tomorrow. See you soon! 🛵`
+        : `Hi ${b.name}, reminder from Roule Rodrigues — your ${b.scooter} is due back today. Thanks for riding with us! 💛`;
+    return `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
+  }
 
   const cards = [
     { label: "Total Bookings",  value: stats?.bookings ?? "—",  icon: BookOpen,     color: "text-yellow",   section: "bookings"     as Section },
@@ -301,6 +325,76 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* Today's reminders — pickups tomorrow + returns today */}
+      {!loading && (pickupsTomorrow.length > 0 || returnsToday.length > 0) && (
+        <div>
+          <p className="font-bebas text-muted text-[10px] tracking-[0.3em] mb-4">TODAY&apos;S REMINDERS</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Pickups tomorrow */}
+            <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
+              <p className="font-syne font-bold text-amber-400 text-sm mb-3 flex items-center gap-2">
+                <Calendar size={14} /> Pickups tomorrow ({pickupsTomorrow.length})
+              </p>
+              {pickupsTomorrow.length === 0 ? (
+                <p className="text-muted/40 font-dm text-xs">None.</p>
+              ) : (
+                <div className="space-y-2">
+                  {pickupsTomorrow.map((b) => (
+                    <div key={b.id} className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-dm text-offwhite text-sm truncate">{b.name}</p>
+                        <p className="font-dm text-muted text-xs truncate">{b.scooter}</p>
+                      </div>
+                      {b.phone && (
+                        <a
+                          href={waLink(b, "pickup")}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 bg-green-500/15 text-green-400 hover:bg-green-500/25 text-xs font-dm px-3 py-1.5 rounded-full transition-colors shrink-0"
+                        >
+                          <Phone size={11} /> WhatsApp
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Returns today */}
+            <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
+              <p className="font-syne font-bold text-blue-400 text-sm mb-3 flex items-center gap-2">
+                <Calendar size={14} /> Returns today ({returnsToday.length})
+              </p>
+              {returnsToday.length === 0 ? (
+                <p className="text-muted/40 font-dm text-xs">None.</p>
+              ) : (
+                <div className="space-y-2">
+                  {returnsToday.map((b) => (
+                    <div key={b.id} className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-dm text-offwhite text-sm truncate">{b.name}</p>
+                        <p className="font-dm text-muted text-xs truncate">{b.scooter}</p>
+                      </div>
+                      {b.phone && (
+                        <a
+                          href={waLink(b, "return")}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 bg-green-500/15 text-green-400 hover:bg-green-500/25 text-xs font-dm px-3 py-1.5 rounded-full transition-colors shrink-0"
+                        >
+                          <Phone size={11} /> WhatsApp
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -2790,6 +2884,105 @@ function ReviewsModeration() {
   );
 }
 
+// ── Waitlist viewer ──────────────────────────────────────────────────────────
+
+function WaitlistViewer() {
+  const [list, setList] = useState<WaitlistEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/waitlist");
+      if (res.ok) setList(await res.json());
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => { load(); }, []);
+
+  async function remove(id: string) {
+    await fetch(`/api/admin/waitlist?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    setList((p) => p.filter((e) => e.id !== id));
+  }
+
+  function copyAll() {
+    navigator.clipboard?.writeText(list.map((e) => e.email).join(", ")).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  function exportCsv() {
+    const rows = [["email", "name", "source", "signed_up"]];
+    list.forEach((e) =>
+      rows.push([e.email, e.name ?? "", e.source ?? "", new Date(e.created_at).toISOString()])
+    );
+    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `waitlist-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  if (loading)
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 size={28} className="text-yellow animate-spin" />
+      </div>
+    );
+
+  if (list.length === 0)
+    return (
+      <div className="text-center py-20">
+        <Mail size={36} className="text-muted/30 mx-auto mb-4" />
+        <p className="text-muted/50 font-dm text-sm">No signups yet.</p>
+        <p className="text-muted/30 font-dm text-xs mt-1">
+          When people join from the website&apos;s &ldquo;Stay in the loop&rdquo; section, they appear here.
+        </p>
+      </div>
+    );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
+        <p className="text-muted/60 font-dm text-xs">{list.length} signup{list.length !== 1 ? "s" : ""}</p>
+        <div className="flex items-center gap-2">
+          <button onClick={copyAll} className="flex items-center gap-1.5 text-xs font-dm border border-[#2a2a2a] hover:border-yellow/40 text-muted hover:text-yellow px-3 py-1.5 rounded-full transition-colors">
+            <Copy size={12} /> {copied ? "Copied!" : "Copy emails"}
+          </button>
+          <button onClick={exportCsv} className="flex items-center gap-1.5 text-xs font-dm border border-[#2a2a2a] hover:border-yellow/40 text-muted hover:text-yellow px-3 py-1.5 rounded-full transition-colors">
+            <Share2 size={12} /> Export CSV
+          </button>
+          <button onClick={load} className="flex items-center gap-1.5 text-muted/50 hover:text-yellow font-dm text-xs transition-colors">
+            <RefreshCw size={12} /> Refresh
+          </button>
+        </div>
+      </div>
+      <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl divide-y divide-[#1a1a1a]">
+        {list.map((e) => (
+          <div key={e.id} className="flex items-center justify-between gap-3 px-5 py-3">
+            <div className="min-w-0">
+              <a href={`mailto:${e.email}`} className="font-dm text-offwhite text-sm hover:text-yellow transition-colors truncate block">
+                {e.email}
+              </a>
+              <p className="font-bebas text-muted/50 text-[10px] tracking-[0.15em] mt-0.5">
+                {new Date(e.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+              </p>
+            </div>
+            <button onClick={() => remove(e.id)} className="text-muted/30 hover:text-red-400 transition-colors shrink-0">
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Main dashboard ─────────────────────────────────────────────────────────────
 
 export default function AdminDashboard({
@@ -2856,6 +3049,7 @@ export default function AdminDashboard({
     submissions:  { title: "Enquiries",           desc: "Contact form submissions from customers." },
     bookings:     { title: "Bookings",            desc: "Booking requests from the website booking form." },
     map:          { title: "Island Map Locations",desc: "Manage the points of interest shown on the island guide map." },
+    waitlist:     { title: "Waitlist",            desc: "People who signed up for deals and island tips." },
     planner:      { title: "AI Trip Planner",     desc: "Edit the real places, photos and tips the planner uses to build itineraries." },
     routes:       { title: "Ride Routes",         desc: "Curated scenic scooter routes shown on the website with a Google Maps link." },
     partners:     { title: "Hotel Partners",      desc: "Manage referral partners and track commission." },
@@ -2865,7 +3059,7 @@ export default function AdminDashboard({
   const isAutoSave =
     section === "gallery" || section === "submissions" || section === "bookings" ||
     section === "dashboard" || section === "partners" || section === "marketplace" ||
-    section === "reviews";
+    section === "reviews" || section === "waitlist";
 
   // Group NAV items
   const overviewNav = NAV.filter((n) => n.group === "overview");
@@ -3053,6 +3247,7 @@ export default function AdminDashboard({
           )}
           {section === "submissions" && <SubmissionsViewer />}
           {section === "reviews" && <ReviewsModeration />}
+          {section === "waitlist" && <WaitlistViewer />}
           {section === "bookings" && <BookingsManager />}
           {section === "map" && (
             <MapEditor content={content} onChange={setContent} />
