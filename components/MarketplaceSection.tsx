@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ExternalLink, Phone, Tag, Star, Loader2 } from "lucide-react";
+import { ExternalLink, Phone, Tag, Star, Loader2, Truck, ShoppingBag, UtensilsCrossed } from "lucide-react";
 import type { MarketplaceListing } from "@/lib/supabase/types";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -142,6 +142,27 @@ export default function MarketplaceSection() {
                     <p className="text-muted font-dm text-sm leading-relaxed flex-1 mb-4">
                       {listing.description}
                     </p>
+
+                    {/* Service options */}
+                    {(listing.delivery || listing.pickup || listing.dine_in) && (
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {listing.delivery && (
+                          <span className="flex items-center gap-1.5 text-[11px] font-dm text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-1 rounded-full">
+                            <Truck size={11} /> Delivery
+                          </span>
+                        )}
+                        {listing.pickup && (
+                          <span className="flex items-center gap-1.5 text-[11px] font-dm text-blue-400 bg-blue-500/10 border border-blue-500/25 px-2.5 py-1 rounded-full">
+                            <ShoppingBag size={11} /> Pickup
+                          </span>
+                        )}
+                        {listing.dine_in && (
+                          <span className="flex items-center gap-1.5 text-[11px] font-dm text-amber-400 bg-amber-400/10 border border-amber-400/25 px-2.5 py-1 rounded-full">
+                            <UtensilsCrossed size={11} /> Dine-in
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {/* Offer highlight */}
                     <div className="flex items-start gap-2.5 bg-yellow/5 border border-yellow/20 rounded-xl px-4 py-3 mb-5">

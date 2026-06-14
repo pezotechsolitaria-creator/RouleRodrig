@@ -2562,11 +2562,15 @@ type ListingForm = {
   contact: string;
   website: string;
   image_url: string;
+  delivery: boolean;
+  pickup: boolean;
+  dine_in: boolean;
 };
 
 const emptyListingForm = (): ListingForm => ({
   business_name: "", category: "restaurant", description: "",
   offer: "", contact: "", website: "", image_url: "",
+  delivery: false, pickup: false, dine_in: false,
 });
 
 function MarketplaceManager() {
@@ -2631,6 +2635,7 @@ function MarketplaceManager() {
       description: l.description, offer: l.offer,
       contact: l.contact ?? "", website: l.website ?? "",
       image_url: l.image_url ?? "",
+      delivery: l.delivery ?? false, pickup: l.pickup ?? false, dine_in: l.dine_in ?? false,
     });
     setEditing(l.id);
     setShowForm(true);
@@ -2710,6 +2715,28 @@ function MarketplaceManager() {
               <TextInput value={form.website} onChange={(v) => setForm({ ...form, website: v })} placeholder="https://..." />
             </Field>
           </div>
+          <Field label="SERVICE OPTIONS">
+            <div className="flex flex-wrap gap-2.5">
+              {([
+                { key: "delivery", label: "Delivery" },
+                { key: "pickup", label: "Pickup" },
+                { key: "dine_in", label: "Dine-in" },
+              ] as const).map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setForm({ ...form, [key]: !form[key] })}
+                  className={`text-xs font-dm px-4 py-2 rounded-full border transition-colors ${
+                    form[key]
+                      ? "border-yellow/50 bg-yellow/10 text-yellow"
+                      : "border-[#2a2a2a] text-muted/60 hover:border-yellow/30"
+                  }`}
+                >
+                  {form[key] ? "✓ " : ""}{label}
+                </button>
+              ))}
+            </div>
+          </Field>
           <div className="flex gap-3">
             <button
               onClick={handleSave}

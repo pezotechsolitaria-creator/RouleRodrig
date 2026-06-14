@@ -72,5 +72,8 @@ export interface MarketplaceListing {
   website: string | null;
   active: boolean;
   featured: boolean;
+  delivery: boolean;
+  pickup: boolean;
+  dine_in: boolean;
   created_at: string;
 }
