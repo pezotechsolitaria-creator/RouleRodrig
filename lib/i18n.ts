@@ -174,7 +174,8 @@ const translations = {
     map: {
       eyebrow:  "EXPLORE THE ISLAND",
       title:    "ISLAND GUIDE",
-      subtitle: "Discover Rodrigues' hidden gems. Click any marker for details — then go find it on two wheels.",
+      subtitle: "Discover Rodrigues' hidden gems. Tap any place for live directions and distance from where you are.",
+      directions: "Directions & distance",
     },
 
     // Ride Routes
@@ -423,7 +424,8 @@ const translations = {
     map: {
       eyebrow:  "EXPLORER L'ÎLE",
       title:    "GUIDE DE L'ÎLE",
-      subtitle: "Découvrez les trésors cachés de Rodrigues. Cliquez sur un marqueur pour les détails — puis partez les découvrir à scooter.",
+      subtitle: "Découvrez les trésors cachés de Rodrigues. Touchez un lieu pour l'itinéraire et la distance depuis votre position.",
+      directions: "Itinéraire & distance",
     },
     routes: {
       eyebrow:  "ITINÉRAIRES",
@@ -652,7 +654,8 @@ const translations = {
     map: {
       eyebrow:  "EXPLOR ZIL LA",
       title:    "GID ZIL",
-      subtitle: "Dekouvr kaset Rodrig. Klik lor enn marker pou detay — ek al trouve lor de rou.",
+      subtitle: "Dekouvr kaset Rodrig. Tous enn plas pou get direksion ek distans depi kot ou ete.",
+      directions: "Direksion & distans",
     },
     routes: {
       eyebrow:  "BANN PARKOUR",

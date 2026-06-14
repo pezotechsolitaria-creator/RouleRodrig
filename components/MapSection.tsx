@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
-import { MapPin } from "lucide-react";
+import { Navigation } from "lucide-react";
 import type { MapLocation } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -80,15 +80,29 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
             <IslandMap locations={locs} />
           </div>
 
-          {/* Location list */}
+          {/* Location list — tap any place for live directions */}
           <div className="space-y-3 overflow-y-auto max-h-[460px] pr-1">
             {locs.map((loc) => (
-              <div
+              <a
                 key={loc.id}
-                className="flex items-start gap-3 bg-dark-card border border-dark-border rounded-xl p-4 hover:border-yellow/40 transition-colors"
+                href={`https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-start gap-3 bg-dark-card border border-dark-border rounded-xl p-4 hover:border-yellow/40 transition-colors"
+                aria-label={`Get directions to ${loc.name}`}
               >
-                <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1.5 ${CATEGORY_COLOR[loc.category] ?? "bg-yellow"}`} />
-                <div>
+                {loc.image ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={loc.image}
+                    alt={loc.name}
+                    className="w-14 h-14 rounded-lg object-cover shrink-0"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1.5 ${CATEGORY_COLOR[loc.category] ?? "bg-yellow"}`} />
+                )}
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
                     <p className="font-syne font-bold text-offwhite text-sm">{loc.name}</p>
                     <span className="font-bebas text-[9px] tracking-[0.15em] text-muted uppercase">
@@ -96,9 +110,11 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
                     </span>
                   </div>
                   <p className="text-muted font-dm text-xs leading-relaxed">{loc.description}</p>
+                  <span className="inline-flex items-center gap-1 mt-2 text-[11px] font-dm text-yellow/70 group-hover:text-yellow transition-colors">
+                    <Navigation size={11} /> {t.map.directions}
+                  </span>
                 </div>
-                <MapPin size={12} className="text-muted/30 shrink-0 mt-1" />
-              </div>
+              </a>
             ))}
           </div>
         </motion.div>

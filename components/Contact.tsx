@@ -26,9 +26,19 @@ export default function Contact({
     email: "",
     phone: "",
     scooter: "",
-    dates: "",
+    dateStart: "",
+    dateEnd: "",
     message: "",
   });
+
+  const today = new Date().toISOString().split("T")[0];
+  function fmt(d: string) {
+    try {
+      return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+    } catch {
+      return d;
+    }
+  }
 
   const CONTACT_INFO = [
     { icon: Phone, label: "WhatsApp", value: c.phone, href: `https://wa.me/${c.phone.replace(/\D/g, "")}` },
@@ -42,6 +52,13 @@ export default function Contact({
     setFormState("loading");
 
     try {
+      const dates =
+        form.dateStart && form.dateEnd
+          ? `${fmt(form.dateStart)} → ${fmt(form.dateEnd)}`
+          : form.dateStart
+          ? fmt(form.dateStart)
+          : "";
+
       const supabase = createClient();
       const { error } = await supabase.from("contact_submissions").insert([
         {
@@ -49,7 +66,7 @@ export default function Contact({
           email: form.email || null,
           phone: form.phone || null,
           scooter: form.scooter || null,
-          dates: form.dates || null,
+          dates: dates || null,
           message: form.message || null,
         },
       ]);
@@ -57,7 +74,7 @@ export default function Contact({
       if (error) throw error;
 
       setFormState("success");
-      setForm({ name: "", email: "", phone: "", scooter: "", dates: "", message: "" });
+      setForm({ name: "", email: "", phone: "", scooter: "", dateStart: "", dateEnd: "", message: "" });
       setTimeout(() => setFormState("idle"), 6000);
     } catch {
       setFormState("error");
@@ -212,16 +229,38 @@ export default function Contact({
                 </div>
               </div>
 
-              <div>
-                <label htmlFor="dates" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                  {t.contact.datesLabel}
-                </label>
-                <input
-                  id="dates" name="dates" type="text"
-                  placeholder={t.contact.datesPlaceholder} className={inputCls}
-                  value={form.dates} onChange={(e) => setForm({ ...form, dates: e.target.value })}
-                  disabled={formState === "loading"}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="dateStart" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                    {t.contact.datesLabel} — {t.booking.pickupLabel}
+                  </label>
+                  <input
+                    id="dateStart" name="dateStart" type="date" min={today}
+                    className={inputCls}
+                    value={form.dateStart}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        dateStart: e.target.value,
+                        // keep return on/after pickup
+                        dateEnd: form.dateEnd && form.dateEnd < e.target.value ? e.target.value : form.dateEnd,
+                      })
+                    }
+                    disabled={formState === "loading"}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="dateEnd" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                    {t.contact.datesLabel} — {t.booking.returnLabel}
+                  </label>
+                  <input
+                    id="dateEnd" name="dateEnd" type="date" min={form.dateStart || today}
+                    className={inputCls}
+                    value={form.dateEnd}
+                    onChange={(e) => setForm({ ...form, dateEnd: e.target.value })}
+                    disabled={formState === "loading"}
+                  />
+                </div>
               </div>
 
               <div>
