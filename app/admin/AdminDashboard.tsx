@@ -55,6 +55,8 @@ import type {
   PlannerActivity,
   RideRoute,
   VehicleCategory,
+  UsefulContact,
+  EventItem,
 } from "@/lib/defaults";
 import type { ContactSubmission, Booking, Partner, MarketplaceListing, ProductReview, WaitlistEntry } from "@/lib/supabase/types";
 
@@ -71,6 +73,8 @@ type Section =
   | "waitlist"
   | "planner"
   | "routes"
+  | "events"
+  | "useful"
   | "branding"
   | "submissions"
   | "bookings"
@@ -97,6 +101,8 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "map",          label: "Island Map",       icon: MapPin,          group: "content" },
   { id: "planner",      label: "Trip Planner",     icon: Sparkles,        group: "content" },
   { id: "routes",       label: "Ride Routes",      icon: MapPin,          group: "content" },
+  { id: "events",       label: "Events",           icon: Calendar,        group: "content" },
+  { id: "useful",       label: "Useful Numbers",   icon: Phone,           group: "content" },
 ];
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
@@ -2017,6 +2023,123 @@ function RideRoutesEditor({
   );
 }
 
+// ── Useful contacts editor ──────────────────────────────────────────────────────
+
+const CONTACT_CATS: UsefulContact["category"][] = ["emergency", "taxi", "other"];
+
+function UsefulContactsEditor({
+  content,
+  onChange,
+}: {
+  content: SiteContent;
+  onChange: (c: SiteContent) => void;
+}) {
+  const list = content.usefulContacts ?? [];
+  const set = (next: UsefulContact[]) => onChange({ ...content, usefulContacts: next });
+  const update = (i: number, patch: Partial<UsefulContact>) =>
+    set(list.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+  const add = () =>
+    set([...list, { id: `uc-${Date.now()}`, category: "taxi", label: "", number: "", note: "" }]);
+  const remove = (i: number) => set(list.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="space-y-4">
+      <p className="text-muted/70 font-dm text-xs leading-relaxed">
+        Emergency, taxi and other useful contacts. These show on the website grouped by type, each as a
+        tap-to-call number. Entries with a placeholder number (XXXX) stay hidden until you set a real one.
+      </p>
+      {list.map((c, i) => (
+        <div key={c.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="font-bebas text-yellow text-xs tracking-[0.3em]">{c.label || "CONTACT"}</p>
+            <button type="button" onClick={() => remove(i)} className="flex items-center gap-1.5 text-xs font-dm text-muted/60 hover:text-red-400 transition-colors">
+              <Trash2 size={12} /> Remove
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="TYPE">
+              <select value={c.category} onChange={(e) => update(i, { category: e.target.value as UsefulContact["category"] })} className={`${inputCls} appearance-none`}>
+                {CONTACT_CATS.map((cat) => (
+                  <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="LABEL">
+              <TextInput value={c.label} onChange={(v) => update(i, { label: v })} placeholder="e.g. Police, Taxi Jean" />
+            </Field>
+            <Field label="NUMBER">
+              <TextInput value={c.number} onChange={(v) => update(i, { number: v })} placeholder="e.g. 999 or +230 5XXX XXXX" />
+            </Field>
+            <Field label="NOTE (optional)">
+              <TextInput value={c.note ?? ""} onChange={(v) => update(i, { note: v })} placeholder="e.g. 24/7, Port Mathurin" />
+            </Field>
+          </div>
+        </div>
+      ))}
+      <button type="button" onClick={add} className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 text-muted/60 hover:text-yellow rounded-2xl py-5 text-sm font-dm transition-colors">
+        <Plus size={16} /> Add Contact
+      </button>
+      <p className="text-muted/50 text-xs font-dm">Click Save Changes to publish.</p>
+    </div>
+  );
+}
+
+// ── Events editor ────────────────────────────────────────────────────────────────
+
+function EventsEditor({
+  content,
+  onChange,
+}: {
+  content: SiteContent;
+  onChange: (c: SiteContent) => void;
+}) {
+  const list = content.events ?? [];
+  const set = (next: EventItem[]) => onChange({ ...content, events: next });
+  const update = (i: number, patch: Partial<EventItem>) =>
+    set(list.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+  const add = () =>
+    set([...list, { id: `ev-${Date.now()}`, title: "", date: "", description: "", location: "", image: "" }]);
+  const remove = (i: number) => set(list.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="space-y-6">
+      <p className="text-muted/70 font-dm text-xs leading-relaxed">
+        Festivals, markets and happenings around Rodrigues. The Events section is hidden on the website
+        until you add at least one.
+      </p>
+      {list.map((ev, i) => (
+        <div key={ev.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="font-bebas text-yellow text-xs tracking-[0.3em]">{ev.title || `EVENT ${i + 1}`}</p>
+            <button type="button" onClick={() => remove(i)} className="flex items-center gap-1.5 text-xs font-dm text-muted/60 hover:text-red-400 transition-colors">
+              <Trash2 size={12} /> Remove
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="TITLE">
+              <TextInput value={ev.title} onChange={(v) => update(i, { title: v })} placeholder="e.g. Fish Festival" />
+            </Field>
+            <Field label="DATE">
+              <TextInput value={ev.date} onChange={(v) => update(i, { date: v })} placeholder="e.g. Every Saturday · 15 Aug 2026" />
+            </Field>
+            <Field label="LOCATION (optional)">
+              <TextInput value={ev.location ?? ""} onChange={(v) => update(i, { location: v })} placeholder="e.g. Port Mathurin" />
+            </Field>
+          </div>
+          <Field label="DESCRIPTION">
+            <Textarea value={ev.description} onChange={(v) => update(i, { description: v })} rows={2} />
+          </Field>
+          <ImagePicker label="EVENT PHOTO" src={ev.image ?? ""} onUpload={(p) => update(i, { image: p })} />
+        </div>
+      ))}
+      <button type="button" onClick={add} className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 text-muted/60 hover:text-yellow rounded-2xl py-5 text-sm font-dm transition-colors">
+        <Plus size={16} /> Add Event
+      </button>
+      <p className="text-muted/50 text-xs font-dm">Click Save Changes to publish.</p>
+    </div>
+  );
+}
+
 // ── Partners manager ──────────────────────────────────────────────────────────
 
 const PARTNER_TYPES = ["hotel", "guesthouse", "travel_agency", "other"] as const;
@@ -3073,6 +3196,8 @@ export default function AdminDashboard({
     waitlist:     { title: "Waitlist",            desc: "People who signed up for deals and island tips." },
     planner:      { title: "AI Trip Planner",     desc: "Edit the real places, photos and tips the planner uses to build itineraries." },
     routes:       { title: "Ride Routes",         desc: "Curated scenic scooter routes shown on the website with a Google Maps link." },
+    events:       { title: "Island Events",       desc: "Festivals, markets and happenings shown to visitors." },
+    useful:       { title: "Useful Numbers",      desc: "Emergency, taxi and key local contacts — shown as tap-to-call." },
     partners:     { title: "Hotel Partners",      desc: "Manage referral partners and track commission." },
     marketplace:  { title: "Marketplace / Deals", desc: "Local business listings shown to customers on the website." },
   };
@@ -3278,6 +3403,12 @@ export default function AdminDashboard({
           )}
           {section === "routes" && (
             <RideRoutesEditor content={content} onChange={setContent} />
+          )}
+          {section === "events" && (
+            <EventsEditor content={content} onChange={setContent} />
+          )}
+          {section === "useful" && (
+            <UsefulContactsEditor content={content} onChange={setContent} />
           )}
           {section === "partners" && <PartnersManager />}
           {section === "marketplace" && <MarketplaceManager />}

@@ -202,6 +202,21 @@ const translations = {
       error:        "Something went wrong. Please try again.",
     },
 
+    // Useful numbers
+    useful: {
+      eyebrow:  "GOOD TO KNOW",
+      title:    "USEFUL NUMBERS",
+      subtitle: "Save these before you ride — emergencies, taxis and key local contacts. Tap any number to call.",
+      groups:   { emergency: "EMERGENCY", taxi: "TAXIS", other: "OTHER" },
+    },
+
+    // Events
+    events: {
+      eyebrow:  "WHAT'S ON",
+      title:    "ISLAND EVENTS",
+      subtitle: "Festivals, markets and happenings around Rodrigues during your stay.",
+    },
+
     // Experience / About
     experience: {
       eyebrow1: "THE ISLAND AWAITS",
@@ -447,6 +462,17 @@ const translations = {
       invalid:      "Veuillez saisir un email valide.",
       error:        "Une erreur s'est produite. Veuillez réessayer.",
     },
+    useful: {
+      eyebrow:  "BON À SAVOIR",
+      title:    "NUMÉROS UTILES",
+      subtitle: "Enregistrez-les avant de rouler — urgences, taxis et contacts locaux. Touchez un numéro pour appeler.",
+      groups:   { emergency: "URGENCES", taxi: "TAXIS", other: "AUTRES" },
+    },
+    events: {
+      eyebrow:  "À L'AFFICHE",
+      title:    "ÉVÉNEMENTS",
+      subtitle: "Festivals, marchés et animations à Rodrigues pendant votre séjour.",
+    },
     experience: {
       eyebrow1: "L'ÎLE VOUS ATTEND",
       title1:   "RODRIGUES COMME JAMAIS",
@@ -676,6 +702,17 @@ const translations = {
       privacy:      "Pena spam. Dezinskrir ninport kan.",
       invalid:      "Silvouple met enn email valid.",
       error:        "Enn zafer finn mal pas. Esey ankor.",
+    },
+    useful: {
+      eyebrow:  "BON POU KONE",
+      title:    "NIMERO ITIL",
+      subtitle: "Anrezistre zot avan ou rul — irzans, taxi ek kontak lokal. Tous enn nimero pou apele.",
+      groups:   { emergency: "IRZANS", taxi: "TAXI", other: "LEZOT" },
+    },
+    events: {
+      eyebrow:  "SA KI POU ARIVE",
+      title:    "EVENMAN",
+      subtitle: "Festival, bazar ek lanimasion dan Rodrig pandan ou sezour.",
     },
     experience: {
       eyebrow1: "ZIL LA PE ATAN OU",

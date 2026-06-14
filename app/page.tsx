@@ -12,6 +12,8 @@ import TripPlanner from "@/components/TripPlanner";
 import BookingSection from "@/components/BookingSection";
 import MapSection from "@/components/MapSection";
 import RideRoutes from "@/components/RideRoutes";
+import Events from "@/components/Events";
+import UsefulNumbers from "@/components/UsefulNumbers";
 import MarketplaceSection from "@/components/MarketplaceSection";
 import Gallery from "@/components/Gallery";
 import Testimonials from "@/components/Testimonials";
@@ -110,7 +112,9 @@ export default async function Home() {
         <BookingSection fleet={content.fleet} />
         <MapSection locations={content.mapLocations} />
         <RideRoutes routes={content.rideRoutes} />
+        <Events events={content.events} />
         <MarketplaceSection />
+        <UsefulNumbers contacts={content.usefulContacts} />
         <Gallery gallery={content.gallery} />
         <Testimonials testimonials={content.testimonials} />
         <ReviewsSection fleet={content.fleet} />

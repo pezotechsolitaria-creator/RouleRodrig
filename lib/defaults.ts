@@ -118,6 +118,23 @@ export interface RideRoute {
   image?: string;
 }
 
+export interface UsefulContact {
+  id: string;
+  category: "emergency" | "taxi" | "other";
+  label: string;
+  number: string;
+  note?: string;
+}
+
+export interface EventItem {
+  id: string;
+  title: string;
+  date: string;        // free text, e.g. "Every Saturday" or "15 Aug 2026"
+  description: string;
+  location?: string;
+  image?: string;
+}
+
 export interface SiteContent {
   hero: HeroContent;
   stats: StatItem[];
@@ -133,6 +150,8 @@ export interface SiteContent {
   plannerActivities: PlannerActivity[];
   rideRoutes: RideRoute[];
   vehicleCategories: VehicleCategory[];
+  usefulContacts: UsefulContact[];
+  events: EventItem[];
 }
 
 export const DEFAULT_CONTENT: SiteContent = {
@@ -341,4 +360,12 @@ export const DEFAULT_CONTENT: SiteContent = {
     { id: 'bicycle',   label: 'Bicycles',    enabled: false },
     { id: 'kayak',     label: 'Kayaks',      enabled: false },
   ],
+  usefulContacts: [
+    { id: 'police',    category: 'emergency', label: 'Police',                number: '999',  note: 'Or 112' },
+    { id: 'ambulance', category: 'emergency', label: 'Ambulance (SAMU)',      number: '114',  note: '' },
+    { id: 'fire',      category: 'emergency', label: 'Fire & Rescue',         number: '995',  note: 'Or 115' },
+    { id: 'hospital',  category: 'emergency', label: 'Queen Elizabeth Hospital', number: '+230 832 3661', note: 'Crève Cœur, Rodrigues' },
+    { id: 'taxi1',     category: 'taxi',      label: 'Add your taxi partner', number: '+230 5XXX XXXX', note: 'Edit in admin' },
+  ],
+  events: [],
 };
