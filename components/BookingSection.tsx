@@ -19,6 +19,7 @@ import {
 import type { FleetItem } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import { useCurrency } from "@/context/CurrencyContext";
+import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -259,71 +260,36 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
                 </select>
               </div>
 
-              {/* Dates */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                    {t.booking.pickupLabel} <span className="text-yellow">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    min={today}
-                    value={form.start_date}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      // Keep the planned trip length locked when prefilled
-                      setForm((f) => ({
-                        ...f,
-                        start_date: v,
-                        end_date: desiredDays && v ? isoAddDays(v, desiredDays) : f.end_date,
-                      }));
-                    }}
-                    className={inputCls}
-                    disabled={formState === "loading"}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                    {t.booking.returnLabel} <span className="text-yellow">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    min={form.start_date || today}
-                    value={form.end_date}
-                    onChange={(e) => {
-                      // Manual edit hands date control back to the user
-                      setForm((f) => ({ ...f, end_date: e.target.value }));
-                      setDesiredDays(null);
-                    }}
-                    className={inputCls}
-                    disabled={formState === "loading"}
-                    required
-                  />
-                </div>
+              {/* Dates — visual availability calendar */}
+              <div>
+                <label className="font-bebas text-muted text-[10px] tracking-[0.25em] flex items-center gap-1.5 mb-2">
+                  <CalendarDays size={12} className="text-yellow" />
+                  {t.booking.datesLabel} <span className="text-yellow">*</span>
+                </label>
+                <AvailabilityCalendar
+                  startDate={form.start_date}
+                  endDate={form.end_date}
+                  minDate={today}
+                  bookedRanges={bookedRanges}
+                  onChange={(start, end) => {
+                    setForm((f) => ({ ...f, start_date: start, end_date: end }));
+                    setDesiredDays(null); // visual pick = manual control
+                  }}
+                  labels={{
+                    booked: t.booking.calBooked,
+                    available: t.booking.calAvailable,
+                    selected: t.booking.calSelected,
+                    hint: t.booking.calHint,
+                  }}
+                />
+                {/* Selected range readout */}
+                {form.start_date && form.end_date && (
+                  <div className="flex items-center gap-2 mt-3 text-sm font-dm">
+                    <span className="text-offwhite font-medium">{fmtRange(form.start_date, form.end_date)}</span>
+                    {days > 0 && <span className="text-yellow">· {t.booking.days(days)}</span>}
+                  </div>
+                )}
               </div>
-
-              {/* Availability — booked dates for the selected scooter */}
-              {form.scooter && bookedRanges.filter((r) => r.confirmed).length > 0 && (
-                <div className={`rounded-xl px-4 py-3 border text-xs font-dm ${hasOverlap ? "border-red-500/40 bg-red-500/10" : "border-dark-border bg-dark-card"}`}>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <CalendarDays size={13} className={hasOverlap ? "text-red-400" : "text-yellow"} />
-                    <span className={`font-bebas tracking-[0.2em] text-[10px] ${hasOverlap ? "text-red-400" : "text-muted"}`}>
-                      {t.booking.bookedDatesLabel}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {bookedRanges.filter((r) => r.confirmed).map((r, i) => (
-                      <span key={i} className="inline-block bg-dark/60 border border-dark-border rounded-full px-2.5 py-1 text-muted">
-                        {fmtRange(r.start, r.end)}
-                      </span>
-                    ))}
-                  </div>
-                  {hasOverlap && (
-                    <p className="text-red-400 mt-2 font-medium">{t.booking.overlapWarning}</p>
-                  )}
-                </div>
-              )}
 
               {/* Name + Email */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
