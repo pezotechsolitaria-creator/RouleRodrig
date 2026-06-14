@@ -1287,6 +1287,17 @@ function SubmissionsViewer() {
   const [submissions, setSubmissions] = useState<ContactSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  async function remove(id: string) {
+    setDeleting(id);
+    try {
+      const res = await fetch(`/api/admin/submissions?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (res.ok) setSubmissions((prev) => prev.filter((s) => s.id !== id));
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -1369,11 +1380,21 @@ function SubmissionsViewer() {
                 })}
               </p>
             </div>
-            {s.scooter && (
-              <span className="font-bebas text-[10px] tracking-[0.15em] bg-yellow/10 text-yellow px-2.5 py-1 rounded-full shrink-0">
-                {s.scooter.toUpperCase()}
-              </span>
-            )}
+            <div className="flex items-center gap-3 shrink-0">
+              {s.scooter && (
+                <span className="font-bebas text-[10px] tracking-[0.15em] bg-yellow/10 text-yellow px-2.5 py-1 rounded-full">
+                  {s.scooter.toUpperCase()}
+                </span>
+              )}
+              <button
+                onClick={() => remove(s.id)}
+                disabled={deleting === s.id}
+                className="text-muted/30 hover:text-red-400 transition-colors"
+                aria-label="Delete enquiry"
+              >
+                {deleting === s.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-x-5 gap-y-1.5">

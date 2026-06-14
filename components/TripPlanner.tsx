@@ -11,6 +11,7 @@ import {
   ChevronRight,
   ChevronLeft,
   MapPin,
+  X,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -46,6 +47,7 @@ export default function TripPlanner() {
   const [generating, setGenerating] = useState(false);
   const [itinerary, setItinerary] = useState<Day[] | null>(null);
   const [activeDay, setActiveDay] = useState(0);
+  const [lightbox, setLightbox] = useState<{ src: string; name: string } | null>(null);
 
   // Build translated interests list
   const INTERESTS = [
@@ -291,7 +293,8 @@ export default function TripPlanner() {
                                 <img
                                   src={act.image}
                                   alt={act.name}
-                                  className="w-full h-40 object-cover rounded-xl mb-4"
+                                  onClick={() => setLightbox({ src: act.image!, name: act.name })}
+                                  className="w-full h-40 object-cover rounded-xl mb-4 cursor-pointer hover:opacity-90 transition-opacity"
                                   loading="lazy"
                                 />
                               )}
@@ -363,6 +366,40 @@ export default function TripPlanner() {
           </div>
         </div>
       </div>
+
+      {/* Photo lightbox */}
+      <AnimatePresence>
+        {lightbox && (
+          <motion.div
+            className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setLightbox(null)}
+          >
+            <button
+              onClick={() => setLightbox(null)}
+              className="absolute top-5 right-6 text-offwhite hover:text-yellow transition-colors"
+              aria-label="Close"
+            >
+              <X size={28} />
+            </button>
+            <motion.figure
+              initial={{ opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.94 }}
+              onClick={(e) => e.stopPropagation()}
+              className="max-w-3xl w-full"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={lightbox.src} alt={lightbox.name} className="w-full max-h-[80vh] object-contain rounded-2xl" />
+              <figcaption className="text-center font-syne font-bold text-offwhite text-sm mt-4">
+                {lightbox.name}
+              </figcaption>
+            </motion.figure>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
