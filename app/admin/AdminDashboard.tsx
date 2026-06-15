@@ -58,6 +58,7 @@ import type {
   VehicleCategory,
   UsefulContact,
   EventItem,
+  Sponsor,
 } from "@/lib/defaults";
 import type { ContactSubmission, Booking, Partner, MarketplaceListing, ProductReview, WaitlistEntry } from "@/lib/supabase/types";
 
@@ -76,6 +77,7 @@ type Section =
   | "routes"
   | "events"
   | "useful"
+  | "sponsors"
   | "branding"
   | "submissions"
   | "bookings"
@@ -104,6 +106,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "routes",       label: "Ride Routes",      icon: MapPin,          group: "content" },
   { id: "events",       label: "Events",           icon: Calendar,        group: "content" },
   { id: "useful",       label: "Useful Numbers",   icon: Phone,           group: "content" },
+  { id: "sponsors",     label: "Sponsors / Ads",   icon: Megaphone,       group: "content" },
 ];
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
@@ -2172,6 +2175,86 @@ function EventsEditor({
   );
 }
 
+// ── Sponsors / ads editor ────────────────────────────────────────────────────────
+
+function SponsorsEditor({
+  content,
+  onChange,
+}: {
+  content: SiteContent;
+  onChange: (c: SiteContent) => void;
+}) {
+  const list = content.sponsors ?? [];
+  const setList = (next: Sponsor[]) => onChange({ ...content, sponsors: next });
+  const update = (i: number, patch: Partial<Sponsor>) =>
+    setList(list.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+  const add = () =>
+    setList([...list, { id: `sp-${Date.now()}`, name: "", image: "", link: "", enabled: true }]);
+  const remove = (i: number) => setList(list.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="space-y-6">
+      {/* Master toggle */}
+      <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 flex items-center justify-between">
+        <div>
+          <p className="font-syne font-bold text-offwhite text-sm">Show Sponsors Strip</p>
+          <p className="font-dm text-muted text-xs mt-0.5">
+            A row of sponsor logos near the footer. Sell these slots to local businesses.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onChange({ ...content, sponsorsEnabled: !content.sponsorsEnabled })}
+          className={`relative w-11 h-6 rounded-full transition-colors ${content.sponsorsEnabled ? "bg-yellow" : "bg-[#2a2a2a]"}`}
+        >
+          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${content.sponsorsEnabled ? "translate-x-6" : "translate-x-1"}`} />
+        </button>
+      </div>
+
+      {list.map((sp, i) => (
+        <div key={sp.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="font-bebas text-yellow text-xs tracking-[0.3em]">{sp.name || `SPONSOR ${i + 1}`}</p>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => update(i, { enabled: !sp.enabled })}
+                className={`text-xs font-dm px-3 py-1 rounded-full border transition-colors ${sp.enabled ? "border-green-500/40 text-green-400" : "border-[#2a2a2a] text-muted/50"}`}
+              >
+                {sp.enabled ? "Shown" : "Hidden"}
+              </button>
+              <button type="button" onClick={() => remove(i)} className="text-muted/40 hover:text-red-400 transition-colors">
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="SPONSOR NAME">
+              <TextInput value={sp.name} onChange={(v) => update(i, { name: v })} placeholder="e.g. Banque XYZ" />
+            </Field>
+            <Field label="LINK (optional)">
+              <TextInput value={sp.link} onChange={(v) => update(i, { link: v })} placeholder="https://..." />
+            </Field>
+          </div>
+          <ImagePicker label="LOGO" src={sp.image} onUpload={(p) => update(i, { image: p })} />
+        </div>
+      ))}
+
+      <button type="button" onClick={add} className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 text-muted/60 hover:text-yellow rounded-2xl py-5 text-sm font-dm transition-colors">
+        <Plus size={16} /> Add Sponsor
+      </button>
+
+      <div className="bg-yellow/5 border border-yellow/20 rounded-2xl p-5">
+        <p className="font-syne font-bold text-offwhite text-sm mb-1">💡 Monetisation tip</p>
+        <p className="font-dm text-muted/70 text-xs leading-relaxed">
+          Charge businesses a monthly fee (e.g. Rs 1,000–3,000) to display their logo here. Toggle the
+          strip off in low season. Click Save Changes to publish.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Partners manager ──────────────────────────────────────────────────────────
 
 const PARTNER_TYPES = ["hotel", "guesthouse", "travel_agency", "other"] as const;
@@ -3271,6 +3354,7 @@ export default function AdminDashboard({
     routes:       { title: "Ride Routes",         desc: "Curated scenic scooter routes shown on the website with a Google Maps link." },
     events:       { title: "Island Events",       desc: "Festivals, markets and happenings shown to visitors." },
     useful:       { title: "Useful Numbers",      desc: "Emergency, taxi and key local contacts — shown as tap-to-call." },
+    sponsors:     { title: "Sponsors / Ads",      desc: "Paid sponsor logos shown near the footer. Toggle the whole strip on/off." },
     partners:     { title: "Hotel Partners",      desc: "Manage referral partners and track commission." },
     marketplace:  { title: "Marketplace / Deals", desc: "Local business listings shown to customers on the website." },
   };
@@ -3482,6 +3566,9 @@ export default function AdminDashboard({
           )}
           {section === "useful" && (
             <UsefulContactsEditor content={content} onChange={setContent} />
+          )}
+          {section === "sponsors" && (
+            <SponsorsEditor content={content} onChange={setContent} />
           )}
           {section === "partners" && <PartnersManager />}
           {section === "marketplace" && <MarketplaceManager />}

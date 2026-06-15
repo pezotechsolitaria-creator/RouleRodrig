@@ -125,6 +125,14 @@ export interface RideRoute {
   image?: string;
 }
 
+export interface Sponsor {
+  id: string;
+  name: string;
+  image: string;   // logo / banner
+  link: string;    // where it links to
+  enabled: boolean;
+}
+
 export interface UsefulContact {
   id: string;
   category: "emergency" | "taxi" | "other";
@@ -159,6 +167,8 @@ export interface SiteContent {
   vehicleCategories: VehicleCategory[];
   usefulContacts: UsefulContact[];
   events: EventItem[];
+  sponsorsEnabled: boolean;
+  sponsors: Sponsor[];
 }
 
 export const DEFAULT_CONTENT: SiteContent = {
@@ -375,4 +385,6 @@ export const DEFAULT_CONTENT: SiteContent = {
     { id: 'taxi1',     category: 'taxi',      label: 'Add your taxi partner', number: '+230 5XXX XXXX', note: 'Edit in admin' },
   ],
   events: [],
+  sponsorsEnabled: false,
+  sponsors: [],
 };

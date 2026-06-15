@@ -22,6 +22,7 @@ import WaitlistSection from "@/components/WaitlistSection";
 import BookingCTA from "@/components/BookingCTA";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
+import Sponsors from "@/components/Sponsors";
 import WhatsAppButton from "@/components/WhatsAppButton";
 
 export const dynamic = "force-dynamic";
@@ -124,6 +125,7 @@ export default async function Home() {
         <WaitlistSection />
         <BookingCTA />
         <Contact contact={content.contact} fleet={content.fleet} />
+        <Sponsors enabled={content.sponsorsEnabled} sponsors={content.sponsors} />
         <Footer social={content.social} branding={content.branding} />
       </main>
       <WhatsAppButton

@@ -222,6 +222,9 @@ const translations = {
       subtitle: "Festivals, markets and happenings around Rodrigues during your stay.",
     },
 
+    // Sponsors
+    sponsors: { title: "PROUDLY SUPPORTED BY" },
+
     // Experience / About
     experience: {
       eyebrow1: "THE ISLAND AWAITS",
@@ -483,6 +486,7 @@ const translations = {
       title:    "ÉVÉNEMENTS",
       subtitle: "Festivals, marchés et animations à Rodrigues pendant votre séjour.",
     },
+    sponsors: { title: "FIÈREMENT SOUTENU PAR" },
     experience: {
       eyebrow1: "L'ÎLE VOUS ATTEND",
       title1:   "RODRIGUES COMME JAMAIS",
@@ -729,6 +733,7 @@ const translations = {
       title:    "EVENMAN",
       subtitle: "Festival, bazar ek lanimasion dan Rodrig pandan ou sezour.",
     },
+    sponsors: { title: "SOUTENI PAR" },
     experience: {
       eyebrow1: "ZIL LA PE ATAN OU",
       title1:   "RODRIG KOUMA OU PANKOR TROUVE",
