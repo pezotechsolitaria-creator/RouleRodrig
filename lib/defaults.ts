@@ -124,6 +124,7 @@ export interface RideRoute {
   stops: string;      // newline-separated list of stops
   mapsUrl: string;    // Google Maps link
   image?: string;
+  featured?: boolean; // pinned to top + gold border
 }
 
 export interface Sponsor {
@@ -149,6 +150,7 @@ export interface EventItem {
   description: string;
   location?: string;
   image?: string;
+  featured?: boolean;  // pinned to top + gold border
 }
 
 export interface SiteContent {

@@ -1,14 +1,18 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Calendar, MapPin } from "lucide-react";
+import { Calendar, MapPin, Star } from "lucide-react";
 import type { EventItem } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 
 export default function Events({ events = [] }: { events?: EventItem[] }) {
   const { t } = useLanguage();
   const e = t.events;
-  const items = events.filter((ev) => ev.title);
+
+  // Featured first, then the rest in original order
+  const items = [...events.filter((ev) => ev.title)].sort((a, b) =>
+    (b.featured ? 1 : 0) - (a.featured ? 1 : 0)
+  );
   if (items.length === 0) return null;
 
   return (
@@ -39,7 +43,11 @@ export default function Events({ events = [] }: { events?: EventItem[] }) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-60px" }}
               transition={{ duration: 0.5, delay: (i % 3) * 0.1 }}
-              className="flex flex-col bg-dark border border-dark-border rounded-2xl overflow-hidden hover:border-yellow/40 transition-colors"
+              className={`flex flex-col bg-dark rounded-2xl overflow-hidden transition-colors ${
+                ev.featured
+                  ? "border-2 border-yellow/50 hover:border-yellow shadow-[0_0_24px_rgba(245,200,66,0.08)]"
+                  : "border border-dark-border hover:border-yellow/40"
+              }`}
             >
               {ev.image ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
@@ -50,11 +58,19 @@ export default function Events({ events = [] }: { events?: EventItem[] }) {
                 </div>
               )}
               <div className="p-6 flex flex-col flex-1">
-                {ev.date && (
-                  <span className="inline-flex items-center gap-1.5 font-bebas text-yellow text-[11px] tracking-[0.2em] mb-2">
-                    <Calendar size={12} /> {ev.date}
-                  </span>
-                )}
+                {/* Featured badge + date */}
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  {ev.featured && (
+                    <span className="flex items-center gap-1 font-bebas text-[9px] tracking-[0.15em] bg-yellow/10 text-yellow border border-yellow/30 px-2.5 py-1 rounded-full">
+                      <Star size={8} className="fill-yellow" /> FEATURED
+                    </span>
+                  )}
+                  {ev.date && (
+                    <span className="inline-flex items-center gap-1.5 font-bebas text-yellow text-[11px] tracking-[0.2em]">
+                      <Calendar size={12} /> {ev.date}
+                    </span>
+                  )}
+                </div>
                 <h3 className="font-syne font-extrabold text-offwhite text-lg uppercase leading-tight mb-2">{ev.title}</h3>
                 <p className="text-muted font-dm text-sm leading-relaxed flex-1">{ev.description}</p>
                 {ev.location && (

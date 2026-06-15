@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { MapPin, Clock, Route as RouteIcon, ArrowUpRight, WifiOff } from "lucide-react";
+import { MapPin, Clock, Route as RouteIcon, ArrowUpRight, WifiOff, Star } from "lucide-react";
 import type { RideRoute } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -15,6 +15,11 @@ export default function RideRoutes({ routes = [] }: { routes?: RideRoute[] }) {
   const { t } = useLanguage();
   const tr = t.routes;
   if (!routes || routes.length === 0) return null;
+
+  // Featured first, then original order
+  const sorted = [...routes].sort((a, b) =>
+    (b.featured ? 1 : 0) - (a.featured ? 1 : 0)
+  );
 
   return (
     <section id="routes" className="bg-dark-card py-24 md:py-36 border-y border-dark-border" aria-label="Scenic ride routes">
@@ -41,7 +46,7 @@ export default function RideRoutes({ routes = [] }: { routes?: RideRoute[] }) {
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
-          {routes.map((r, i) => {
+          {sorted.map((r, i) => {
             const stops = r.stops.split(/\n+/).map((s) => s.trim()).filter(Boolean);
             return (
               <motion.article
@@ -50,7 +55,11 @@ export default function RideRoutes({ routes = [] }: { routes?: RideRoute[] }) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-60px" }}
                 transition={{ duration: 0.6, delay: (i % 3) * 0.1 }}
-                className="group flex flex-col bg-dark border border-dark-border rounded-2xl overflow-hidden hover:border-yellow/40 transition-colors"
+                className={`group flex flex-col bg-dark rounded-2xl overflow-hidden transition-colors ${
+                  r.featured
+                    ? "border-2 border-yellow/50 hover:border-yellow shadow-[0_0_24px_rgba(245,200,66,0.08)]"
+                    : "border border-dark-border hover:border-yellow/40"
+                }`}
               >
                 {/* Image / gradient header */}
                 <div className="relative h-44 overflow-hidden">
@@ -63,9 +72,17 @@ export default function RideRoutes({ routes = [] }: { routes?: RideRoute[] }) {
                     </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-dark via-transparent to-transparent" />
-                  <span className={`absolute top-4 left-4 font-bebas text-[10px] tracking-[0.2em] border px-3 py-1 rounded-full ${DIFFICULTY_CLS[r.difficulty] ?? DIFFICULTY_CLS.Moderate}`}>
-                    {tr.difficulty[r.difficulty as keyof typeof tr.difficulty] ?? r.difficulty}
-                  </span>
+                  {/* Difficulty + featured badges */}
+                  <div className="absolute top-4 left-4 flex items-center gap-2">
+                    <span className={`font-bebas text-[10px] tracking-[0.2em] border px-3 py-1 rounded-full ${DIFFICULTY_CLS[r.difficulty] ?? DIFFICULTY_CLS.Moderate}`}>
+                      {tr.difficulty[r.difficulty as keyof typeof tr.difficulty] ?? r.difficulty}
+                    </span>
+                    {r.featured && (
+                      <span className="flex items-center gap-1 font-bebas text-[9px] tracking-[0.15em] bg-yellow/10 text-yellow border border-yellow/30 px-2.5 py-1 rounded-full">
+                        <Star size={8} className="fill-yellow" /> FEATURED
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Body */}
