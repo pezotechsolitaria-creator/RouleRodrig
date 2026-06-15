@@ -2421,6 +2421,7 @@ function PartnersManager() {
         {/* ── Referral toolkit ── */}
         {partner && (() => {
           const refLink = `${SITE_URL}/?ref=${partner.partner_code}`;
+          const dashLink = `${SITE_URL}/partner?code=${partner.partner_code}`;
           const qr = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=10&data=${encodeURIComponent(refLink)}`;
           const waShare = `https://wa.me/?text=${encodeURIComponent(`Rent a scooter on Rodrigues with Roule Rodrigues 🛵 Book here: ${refLink}`)}`;
           return (
@@ -2464,9 +2465,22 @@ function PartnersManager() {
                       <MessageSquare size={12} /> Share on WhatsApp
                     </a>
                   </div>
-                  <p className="text-muted/40 text-[11px] font-dm">
-                    Tip: print the QR and put it at the hotel reception. Right-click / long-press the QR to save it.
-                  </p>
+                  <div>
+                    <p className="font-bebas text-muted text-[9px] tracking-[0.25em] mb-1">PARTNER DASHBOARD (for the hotel)</p>
+                    <div className="flex items-center gap-2 bg-dark border border-[#2a2a2a] rounded-lg px-3 py-2.5">
+                      <span className="font-mono text-muted text-xs truncate flex-1">{dashLink}</span>
+                      <button
+                        onClick={() => copyCode(dashLink)}
+                        className="shrink-0 text-muted hover:text-yellow transition-colors"
+                        aria-label="Copy dashboard link"
+                      >
+                        {copied === dashLink ? <CheckCircle size={12} className="text-green-400" /> : <Copy size={12} />}
+                      </button>
+                    </div>
+                    <p className="text-muted/40 text-[11px] font-dm mt-1">
+                      Send this to the hotel so they can track their own bookings & earnings (no login).
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
