@@ -4,7 +4,13 @@ export const COOKIE_NAME = 'rr_admin';
 const SALT = 'roule-rodrigues-admin-2024';
 
 function getAdminPassword(): string {
-  return process.env.ADMIN_PASSWORD ?? 'admin2024';
+  const pw = process.env.ADMIN_PASSWORD;
+  if (pw && pw.length > 0) return pw;
+  // No insecure default in production — refuse all auth until ADMIN_PASSWORD
+  // is configured. (A hard-coded default + known salt would let anyone forge
+  // an admin session.) The default is allowed only for local development.
+  if (process.env.NODE_ENV === 'production') return '';
+  return 'admin2024';
 }
 
 export function hashPassword(password: string): string {
@@ -32,6 +38,7 @@ export function verifyPassword(input: string): boolean {
 
 export function verifySession(cookieValue: string | undefined): boolean {
   if (!cookieValue) return false;
+  if (!getAdminPassword()) return false; // not configured → deny everything
   const expected = getSessionValue();
   if (cookieValue.length !== expected.length) return false;
   try {
