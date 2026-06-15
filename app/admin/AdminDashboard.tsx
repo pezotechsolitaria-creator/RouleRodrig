@@ -2597,12 +2597,16 @@ type ListingForm = {
   delivery: boolean;
   pickup: boolean;
   dine_in: boolean;
+  whatsapp: string;
+  hours: string;
+  maps_url: string;
 };
 
 const emptyListingForm = (): ListingForm => ({
   business_name: "", category: "restaurant", description: "",
   offer: "", contact: "", website: "", image_url: "",
   delivery: false, pickup: false, dine_in: false,
+  whatsapp: "", hours: "", maps_url: "",
 });
 
 function MarketplaceManager() {
@@ -2668,6 +2672,7 @@ function MarketplaceManager() {
       contact: l.contact ?? "", website: l.website ?? "",
       image_url: l.image_url ?? "",
       delivery: l.delivery ?? false, pickup: l.pickup ?? false, dine_in: l.dine_in ?? false,
+      whatsapp: l.whatsapp ?? "", hours: l.hours ?? "", maps_url: l.maps_url ?? "",
     });
     setEditing(l.id);
     setShowForm(true);
@@ -2740,13 +2745,22 @@ function MarketplaceManager() {
             />
           </Field>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="CONTACT (phone or WhatsApp)">
+            <Field label="CONTACT (phone, shown on card)">
               <TextInput value={form.contact} onChange={(v) => setForm({ ...form, contact: v })} placeholder="+230 5XXX XXXX" />
+            </Field>
+            <Field label="WHATSAPP NUMBER (tap-to-chat)">
+              <TextInput value={form.whatsapp} onChange={(v) => setForm({ ...form, whatsapp: v })} placeholder="+230 5XXX XXXX" />
+            </Field>
+            <Field label="OPENING HOURS / CLOSING TIME">
+              <TextInput value={form.hours} onChange={(v) => setForm({ ...form, hours: v })} placeholder="e.g. Mon–Sat 9:00–18:00" />
             </Field>
             <Field label="WEBSITE (optional)">
               <TextInput value={form.website} onChange={(v) => setForm({ ...form, website: v })} placeholder="https://..." />
             </Field>
           </div>
+          <Field label="GOOGLE MAPS LINK (location)">
+            <TextInput value={form.maps_url} onChange={(v) => setForm({ ...form, maps_url: v })} placeholder="https://maps.google.com/... or maps/dir link" />
+          </Field>
           <Field label="SERVICE OPTIONS">
             <div className="flex flex-wrap gap-2.5">
               {([

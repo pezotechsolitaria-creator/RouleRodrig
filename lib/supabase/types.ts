@@ -75,5 +75,8 @@ export interface MarketplaceListing {
   delivery: boolean;
   pickup: boolean;
   dine_in: boolean;
+  whatsapp: string | null;
+  hours: string | null;
+  maps_url: string | null;
   created_at: string;
 }

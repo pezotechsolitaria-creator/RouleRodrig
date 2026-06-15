@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ExternalLink, Phone, Tag, Star, Loader2, Truck, ShoppingBag, UtensilsCrossed } from "lucide-react";
+import { ExternalLink, Phone, Tag, Star, Loader2, Truck, ShoppingBag, UtensilsCrossed, MessageCircle, Navigation, Clock } from "lucide-react";
 import type { MarketplaceListing } from "@/lib/supabase/types";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -172,9 +172,36 @@ export default function MarketplaceSection() {
                       </p>
                     </div>
 
-                    {/* CTA row */}
-                    <div className="flex items-center gap-3 flex-wrap mt-auto">
-                      {listing.contact && (
+                    {/* Hours */}
+                    {listing.hours && (
+                      <p className="flex items-center gap-1.5 text-xs font-dm text-muted/70 mb-3">
+                        <Clock size={11} className="text-yellow/70" /> {listing.hours}
+                      </p>
+                    )}
+
+                    {/* Primary actions */}
+                    <div className="flex items-center gap-2 flex-wrap mt-auto">
+                      {listing.whatsapp && (
+                        <a
+                          href={`https://wa.me/${listing.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(`Hi ${listing.business_name}, I found you on Roule Rodrigues 🛵`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 bg-green-500/15 text-green-400 hover:bg-green-500/25 text-xs font-syne font-bold px-3.5 py-2 rounded-full transition-colors"
+                        >
+                          <MessageCircle size={12} /> WhatsApp
+                        </a>
+                      )}
+                      {listing.maps_url && (
+                        <a
+                          href={listing.maps_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 bg-yellow/10 text-yellow hover:bg-yellow/20 text-xs font-syne font-bold px-3.5 py-2 rounded-full transition-colors"
+                        >
+                          <Navigation size={12} /> Directions
+                        </a>
+                      )}
+                      {!listing.whatsapp && listing.contact && (
                         <a
                           href={listing.contact.startsWith("+") || listing.contact.startsWith("0")
                             ? `tel:${listing.contact}`
