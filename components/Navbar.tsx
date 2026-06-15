@@ -13,7 +13,7 @@ import { LANGUAGE_FLAGS, LANGUAGE_NATIVE, type Language } from "@/lib/i18n";
 
 const LANG_CYCLE: Language[] = ["en", "fr", "cr"];
 
-export default function Navbar({ branding }: { branding?: BrandingContent }) {
+export default function Navbar({ branding, announcementActive }: { branding?: BrandingContent; announcementActive?: boolean }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { t, language, setLanguage } = useLanguage();
@@ -75,7 +75,9 @@ export default function Navbar({ branding }: { branding?: BrandingContent }) {
         initial={{ y: -100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+        className={`fixed left-0 right-0 z-50 transition-all duration-500 ${
+          announcementActive ? "top-11" : "top-0"
+        } ${
           scrolled
             ? "bg-dark/90 backdrop-blur-xl border-b border-dark-border"
             : "bg-transparent"

@@ -76,12 +76,19 @@ export interface BrandingContent {
   logo: string;
 }
 
-export interface AnnouncementContent {
-  active: boolean;
+export interface AnnouncementItem {
   text: string;
   link: string;
   linkText: string;
-  bgColor: string; // e.g. "yellow" | "green" | "blue" | "red"
+}
+
+export interface AnnouncementContent {
+  active: boolean;
+  text: string;      // legacy single message (kept as fallback)
+  link: string;
+  linkText: string;
+  bgColor: string;   // e.g. "yellow" | "green" | "blue" | "red"
+  items?: AnnouncementItem[]; // multiple rotating messages
 }
 
 export interface MapLocation {

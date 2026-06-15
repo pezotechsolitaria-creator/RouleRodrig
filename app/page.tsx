@@ -1,6 +1,6 @@
 import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
-import AnnouncementBar from "@/components/AnnouncementBar";
+import AnnouncementBar, { announcementMessages } from "@/components/AnnouncementBar";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import Stats from "@/components/Stats";
@@ -101,7 +101,10 @@ export default async function Home() {
       />
       <AnnouncementBar announcement={content.announcement} />
       <main>
-        <Navbar branding={content.branding} />
+        <Navbar
+          branding={content.branding}
+          announcementActive={content.announcement.active && announcementMessages(content.announcement).length > 0}
+        />
         <Hero hero={content.hero} />
         <Stats stats={content.stats} />
         <Fleet fleet={content.fleet} categories={content.vehicleCategories} />

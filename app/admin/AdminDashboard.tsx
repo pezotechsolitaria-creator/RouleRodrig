@@ -51,6 +51,7 @@ import type {
   PricingRow,
   MapLocation,
   AnnouncementContent,
+  AnnouncementItem,
   WhatsAppNumber,
   PlannerActivity,
   RideRoute,
@@ -452,6 +453,23 @@ function AnnouncementEditor({
   const set = (patch: Partial<AnnouncementContent>) =>
     onChange({ ...content, announcement: { ...a, ...patch } });
 
+  // Multiple rotating messages (falls back to the legacy single message)
+  const items: AnnouncementItem[] =
+    a.items && a.items.length
+      ? a.items
+      : [{ text: a.text ?? "", link: a.link ?? "", linkText: a.linkText ?? "" }];
+  const setItems = (next: AnnouncementItem[]) =>
+    set({
+      items: next,
+      text: next[0]?.text ?? "",
+      link: next[0]?.link ?? "",
+      linkText: next[0]?.linkText ?? "",
+    });
+  const updateItem = (i: number, patch: Partial<AnnouncementItem>) =>
+    setItems(items.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
+  const addItem = () => setItems([...items, { text: "", link: "", linkText: "" }]);
+  const removeItem = (i: number) => setItems(items.filter((_, idx) => idx !== i));
+
   const COLOR_OPTIONS = [
     { value: "yellow", label: "Yellow", cls: "bg-yellow" },
     { value: "green",  label: "Green",  cls: "bg-emerald-500" },
@@ -487,27 +505,41 @@ function AnnouncementEditor({
             { yellow: "bg-yellow text-dark", green: "bg-emerald-500 text-white", blue: "bg-sky-500 text-white", red: "bg-red-500 text-white" }[a.bgColor] ?? "bg-yellow text-dark"
           }`}
         >
-          <span>{a.text || "Your announcement text…"}</span>
-          {a.linkText && <span className="font-bold underline">{a.linkText} →</span>}
+          <span>📣 {items[0]?.text || "Your announcement text…"}</span>
+          {items[0]?.linkText && <span className="font-bold underline">{items[0].linkText} →</span>}
         </div>
       )}
 
       <div className="space-y-5">
-        <Field label="ANNOUNCEMENT TEXT">
-          <TextInput
-            value={a.text}
-            onChange={(v) => set({ text: v })}
-            placeholder="e.g. Book 3+ days and get a FREE helmet upgrade!"
-          />
-        </Field>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="LINK URL (optional)">
-            <TextInput value={a.link} onChange={(v) => set({ link: v })} placeholder="#booking" />
-          </Field>
-          <Field label="LINK TEXT (optional)">
-            <TextInput value={a.linkText} onChange={(v) => set({ linkText: v })} placeholder="Book now" />
-          </Field>
+        {/* Multiple messages */}
+        <div>
+          <p className="font-bebas text-muted text-[10px] tracking-[0.25em] mb-2">MESSAGES (rotate automatically)</p>
+          <div className="space-y-3">
+            {items.map((m, i) => (
+              <div key={i} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bebas text-yellow text-[10px] tracking-[0.25em]">MESSAGE {i + 1}</span>
+                  {items.length > 1 && (
+                    <button type="button" onClick={() => removeItem(i)} className="text-muted/50 hover:text-red-400 transition-colors">
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
+                <TextInput value={m.text} onChange={(v) => updateItem(i, { text: v })} placeholder="e.g. Book 3+ days and get a FREE helmet!" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <TextInput value={m.link} onChange={(v) => updateItem(i, { link: v })} placeholder="Link (e.g. #booking)" />
+                  <TextInput value={m.linkText} onChange={(v) => updateItem(i, { linkText: v })} placeholder="Link text (e.g. Book now)" />
+                </div>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={addItem}
+            className="mt-3 flex items-center gap-2 text-xs font-dm text-muted/60 hover:text-yellow transition-colors"
+          >
+            <Plus size={13} /> Add another message
+          </button>
         </div>
 
         <Field label="COLOUR">
