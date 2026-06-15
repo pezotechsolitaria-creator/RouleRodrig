@@ -1,5 +1,6 @@
 "use client";
 
+import "leaflet/dist/leaflet.css"; // bundled locally — no external CDN (CSP-safe)
 import { useEffect, useRef } from "react";
 import type { MapLocation } from "@/lib/defaults";
 

@@ -71,12 +71,7 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
         >
           {/* Map */}
           <div className="lg:col-span-2 rounded-2xl overflow-hidden border border-dark-border" style={{ minHeight: 460 }}>
-            {/* leaflet.css must be loaded — inject via link tag */}
-            <link
-              rel="stylesheet"
-              href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-              crossOrigin=""
-            />
+            {/* Leaflet CSS is imported locally inside IslandMap (CSP-safe) */}
             <IslandMap locations={locs} />
           </div>
 
