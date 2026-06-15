@@ -92,6 +92,21 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
     return () => window.removeEventListener("rr:prefill-booking", onPrefill);
   }, []);
 
+  // ── Referral auto-attribution: pull the hotel/partner code captured from
+  //    the ?ref= link and pre-fill it so the guest never has to type a code. ──
+  const [referredBy, setReferredBy] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const ref = localStorage.getItem("rr_ref");
+      if (ref) {
+        setForm((f) => (f.partner_code ? f : { ...f, partner_code: ref }));
+        setReferredBy(ref);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   // ── Availability: booked date ranges for the selected scooter ──
   const [bookedRanges, setBookedRanges] = useState<{ start: string; end: string; confirmed: boolean }[]>([]);
 
@@ -235,6 +250,20 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
                   <Sparkles size={15} className="text-yellow shrink-0" />
                   <p className="font-dm text-yellow text-xs leading-snug">
                     {t.booking.tripPrefill(desiredDays)}
+                  </p>
+                </motion.div>
+              )}
+
+              {/* Referral attribution banner */}
+              {referredBy && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center gap-2.5 bg-green-500/10 border border-green-500/30 rounded-xl px-4 py-3"
+                >
+                  <BadgeCheck size={15} className="text-green-400 shrink-0" />
+                  <p className="font-dm text-green-400 text-xs leading-snug">
+                    {t.booking.referredBy(referredBy)}
                   </p>
                 </motion.div>
               )}

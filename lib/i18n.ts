@@ -114,6 +114,7 @@ const translations = {
       calSelected:    "Your dates",
       calHint:        "Tap pickup, then return",
       tripPrefill:    (n: number) => `Booking for your ${n}-day trip ✨ Dates are pre-filled — just pick your pickup date and scooter.`,
+      referredBy:     (code: string) => `Referred by ${code} — your booking is linked to them automatically.`,
       days:           (n: number) => `${n} day${n !== 1 ? "s" : ""}`,
     },
 
@@ -395,6 +396,7 @@ const translations = {
       calSelected:    "Vos dates",
       calHint:        "Touchez la prise puis le retour",
       tripPrefill:    (n: number) => `Réservation pour votre voyage de ${n} jour${n > 1 ? "s" : ""} ✨ Les dates sont pré-remplies — choisissez votre date de prise en charge et votre scooter.`,
+      referredBy:     (code: string) => `Recommandé par ${code} — votre réservation leur est automatiquement liée.`,
       days:           (n: number) => `${n} jour${n > 1 ? "s" : ""}`,
     },
     contact: {
@@ -642,6 +644,7 @@ const translations = {
       calSelected:    "Ou bann dat",
       calHint:        "Tous dat pran, apre dat retir",
       tripPrefill:    (n: number) => `Rezervasion pou ou vwayaz ${n} zour ✨ Bann dat fini ranpli — swazi zis ou dat pran ek ou skooter.`,
+      referredBy:     (code: string) => `Rekomande par ${code} — ou rezervasion lie ar zot otomatikman.`,
       days:           (n: number) => `${n} zour`,
     },
     contact: {

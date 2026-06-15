@@ -5,6 +5,7 @@ import { LanguageProvider } from "@/context/LanguageContext";
 import { CurrencyProvider } from "@/context/CurrencyContext";
 import LanguagePicker from "@/components/LanguagePicker";
 import PWARegister from "@/components/PWARegister";
+import RefCapture from "@/components/RefCapture";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SITE_URL } from "@/lib/site";
@@ -102,6 +103,7 @@ export default function RootLayout({
         <LanguageProvider>
           <CurrencyProvider>
             <LanguagePicker />
+            <RefCapture />
             {children}
             <PWARegister />
           </CurrencyProvider>

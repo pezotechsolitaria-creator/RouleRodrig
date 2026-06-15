@@ -61,6 +61,7 @@ import type {
   Sponsor,
 } from "@/lib/defaults";
 import type { ContactSubmission, Booking, Partner, MarketplaceListing, ProductReview, WaitlistEntry } from "@/lib/supabase/types";
+import { SITE_URL } from "@/lib/site";
 
 type Section =
   | "dashboard"
@@ -2416,6 +2417,61 @@ function PartnersManager() {
             </div>
           ))}
         </div>
+
+        {/* ── Referral toolkit ── */}
+        {partner && (() => {
+          const refLink = `${SITE_URL}/?ref=${partner.partner_code}`;
+          const qr = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=10&data=${encodeURIComponent(refLink)}`;
+          const waShare = `https://wa.me/?text=${encodeURIComponent(`Rent a scooter on Rodrigues with Roule Rodrigues 🛵 Book here: ${refLink}`)}`;
+          return (
+            <div className="bg-[#0d0d0d] border border-yellow/20 rounded-2xl p-5">
+              <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-1">REFERRAL TOOLKIT</p>
+              <p className="font-dm text-muted/70 text-xs mb-4">
+                Give the hotel their <strong className="text-offwhite">link or QR poster</strong>. Anyone who books
+                after scanning/clicking it is <strong className="text-offwhite">automatically attributed</strong> — no
+                code to remember.
+              </p>
+              <div className="flex flex-col md:flex-row gap-5">
+                {/* QR */}
+                <div className="flex flex-col items-center gap-2 shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={qr} alt="Referral QR" className="w-36 h-36 rounded-xl bg-white p-1.5" />
+                  <a href={qr} target="_blank" rel="noopener noreferrer" className="text-xs font-dm text-muted hover:text-yellow transition-colors">
+                    Open / download QR
+                  </a>
+                </div>
+                {/* Link + actions */}
+                <div className="flex-1 min-w-0 space-y-3">
+                  <div>
+                    <p className="font-bebas text-muted text-[9px] tracking-[0.25em] mb-1">REFERRAL LINK</p>
+                    <div className="flex items-center gap-2 bg-dark border border-[#2a2a2a] rounded-lg px-3 py-2.5">
+                      <span className="font-mono text-yellow text-xs truncate flex-1">{refLink}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => copyCode(refLink)}
+                      className="flex items-center gap-1.5 text-xs font-dm border border-[#2a2a2a] hover:border-yellow/40 text-muted hover:text-yellow px-3 py-2 rounded-full transition-colors"
+                    >
+                      <Copy size={12} /> {copied === refLink ? "Copied!" : "Copy link"}
+                    </button>
+                    <a
+                      href={waShare}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-xs font-dm bg-green-500/15 text-green-400 hover:bg-green-500/25 px-3 py-2 rounded-full transition-colors"
+                    >
+                      <MessageSquare size={12} /> Share on WhatsApp
+                    </a>
+                  </div>
+                  <p className="text-muted/40 text-[11px] font-dm">
+                    Tip: print the QR and put it at the hotel reception. Right-click / long-press the QR to save it.
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {bookingsLoading ? (
           <div className="flex items-center gap-2 text-muted font-dm text-sm">
