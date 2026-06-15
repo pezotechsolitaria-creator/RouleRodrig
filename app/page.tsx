@@ -11,6 +11,7 @@ import WhyUs from "@/components/WhyUs";
 import TripPlanner from "@/components/TripPlanner";
 import BookingSection from "@/components/BookingSection";
 import MapSection from "@/components/MapSection";
+import GettingAround from "@/components/GettingAround";
 import RideRoutes from "@/components/RideRoutes";
 import Events from "@/components/Events";
 import UsefulNumbers from "@/components/UsefulNumbers";
@@ -115,6 +116,7 @@ export default async function Home() {
         <TripPlanner />
         <BookingSection fleet={content.fleet} />
         <MapSection locations={content.mapLocations} />
+        <GettingAround content={content.gettingAround} />
         <RideRoutes routes={content.rideRoutes} />
         <Events events={content.events} />
         <MarketplaceSection />

@@ -43,6 +43,7 @@ import {
   X,
   MessageSquare,
   Car,
+  Bus,
 } from "lucide-react";
 import type { TaxiDriver, TaxiDriverReview } from "@/lib/supabase/taxi-types";
 import type {
@@ -61,6 +62,7 @@ import type {
   UsefulContact,
   EventItem,
   Sponsor,
+  TransportOption,
 } from "@/lib/defaults";
 import type { ContactSubmission, Booking, Partner, MarketplaceListing, ProductReview, WaitlistEntry } from "@/lib/supabase/types";
 import { SITE_URL } from "@/lib/site";
@@ -87,7 +89,8 @@ type Section =
   | "map"
   | "partners"
   | "marketplace"
-  | "taxi";
+  | "taxi"
+  | "gettingAround";
 
 const NAV: { id: Section; label: string; icon: React.ElementType; group?: string }[] = [
   { id: "dashboard",    label: "Dashboard",       icon: LayoutDashboard, group: "overview" },
@@ -109,6 +112,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "map",          label: "Island Map",       icon: MapPin,          group: "content" },
   { id: "planner",      label: "Trip Planner",     icon: Sparkles,        group: "content" },
   { id: "routes",       label: "Ride Routes",      icon: MapPin,          group: "content" },
+  { id: "gettingAround",label: "Getting Around",   icon: Bus,             group: "content" },
   { id: "events",       label: "Events",           icon: Calendar,        group: "content" },
   { id: "useful",       label: "Useful Numbers",   icon: Phone,           group: "content" },
   { id: "sponsors",     label: "Sponsors / Ads",   icon: Megaphone,       group: "content" },
@@ -2272,6 +2276,118 @@ function UsefulContactsEditor({
   );
 }
 
+// ── Getting Around editor ─────────────────────────────────────────────────────────
+
+const TRANSPORT_ICONS: TransportOption["icon"][] = ["bus", "taxi", "scooter", "car", "bike", "walk"];
+
+function GettingAroundEditor({
+  content,
+  onChange,
+}: {
+  content: SiteContent;
+  onChange: (c: SiteContent) => void;
+}) {
+  const ga = content.gettingAround;
+  const set = (patch: Partial<typeof ga>) =>
+    onChange({ ...content, gettingAround: { ...ga, ...patch } });
+  const updateOpt = (i: number, patch: Partial<TransportOption>) =>
+    set({ options: ga.options.map((o, idx) => (idx === i ? { ...o, ...patch } : o)) });
+  const addOpt = () =>
+    set({ options: [...ga.options, { id: `opt-${Date.now()}`, icon: "car", title: "", text: "" }] });
+  const removeOpt = (i: number) => set({ options: ga.options.filter((_, idx) => idx !== i) });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
+        <div>
+          <p className="font-syne font-bold text-offwhite text-sm">Show the “Getting Around” card</p>
+          <p className="text-muted/60 text-xs font-dm mt-0.5">Bus / taxi / scooter comparison shown on the homepage.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => set({ enabled: !ga.enabled })}
+          className="text-muted/60 hover:text-yellow transition-colors"
+          title={ga.enabled ? "Visible" : "Hidden"}
+        >
+          {ga.enabled ? <ToggleRight size={26} className="text-green-400" /> : <ToggleLeft size={26} />}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4">
+        <Field label="SECTION TITLE">
+          <TextInput value={ga.title} onChange={(v) => set({ title: v })} placeholder="e.g. Getting Around Rodrigues" />
+        </Field>
+        <Field label="SUBTITLE">
+          <TextInput value={ga.subtitle} onChange={(v) => set({ subtitle: v })} />
+        </Field>
+      </div>
+
+      {ga.options.map((o, i) => (
+        <div key={o.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <p className="font-bebas text-yellow text-xs tracking-[0.3em]">{o.title || `OPTION ${i + 1}`}</p>
+              {o.highlight && (
+                <span className="flex items-center gap-1 font-bebas text-[9px] tracking-[0.15em] bg-yellow/10 text-yellow border border-yellow/30 px-2 py-0.5 rounded-full">
+                  <Star size={8} className="fill-yellow" /> HIGHLIGHTED
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => updateOpt(i, { highlight: !o.highlight })}
+                className={`flex items-center gap-1.5 text-xs font-dm px-3 py-1.5 rounded-full border transition-colors ${o.highlight ? "border-yellow/40 text-yellow bg-yellow/10" : "border-[#2a2a2a] text-muted/60 hover:border-yellow/30 hover:text-yellow"}`}
+              >
+                <Star size={11} /> {o.highlight ? "Highlighted" : "Highlight"}
+              </button>
+              <button type="button" onClick={() => removeOpt(i)} className="flex items-center gap-1.5 text-xs font-dm text-muted/60 hover:text-red-400 transition-colors">
+                <Trash2 size={12} /> Remove
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="TITLE">
+              <TextInput value={o.title} onChange={(v) => updateOpt(i, { title: v })} placeholder="e.g. Rent a Scooter" />
+            </Field>
+            <Field label="ICON">
+              <select
+                value={o.icon}
+                onChange={(e) => updateOpt(i, { icon: e.target.value as TransportOption["icon"] })}
+                className={`${inputCls} appearance-none`}
+              >
+                {TRANSPORT_ICONS.map((ic) => (
+                  <option key={ic} value={ic}>{ic.charAt(0).toUpperCase() + ic.slice(1)}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <Field label="DESCRIPTION">
+            <Textarea value={o.text} onChange={(v) => updateOpt(i, { text: v })} rows={3} />
+          </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="BUTTON LINK (optional)">
+              <TextInput value={o.link ?? ""} onChange={(v) => updateOpt(i, { link: v })} placeholder="e.g. #booking or /taxi" />
+            </Field>
+            <Field label="BUTTON TEXT (optional)">
+              <TextInput value={o.linkText ?? ""} onChange={(v) => updateOpt(i, { linkText: v })} placeholder="e.g. Rent a scooter" />
+            </Field>
+          </div>
+        </div>
+      ))}
+
+      <button
+        type="button"
+        onClick={addOpt}
+        className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 text-muted/60 hover:text-yellow rounded-2xl py-5 text-sm font-dm transition-colors"
+      >
+        <Plus size={16} /> Add Transport Option
+      </button>
+      <p className="text-muted/50 text-xs font-dm">Click Save Changes to publish.</p>
+    </div>
+  );
+}
+
 // ── Events editor ────────────────────────────────────────────────────────────────
 
 function EventsEditor({
@@ -3928,6 +4044,7 @@ export default function AdminDashboard({
     waitlist:     { title: "Waitlist",            desc: "People who signed up for deals and island tips." },
     planner:      { title: "AI Trip Planner",     desc: "Edit the real places, photos and tips the planner uses to build itineraries." },
     routes:       { title: "Ride Routes",         desc: "Curated scenic scooter routes shown on the website with a Google Maps link." },
+    gettingAround:{ title: "Getting Around",      desc: "The transport-options card (bus / taxi / scooter) shown in the island guide." },
     events:       { title: "Island Events",       desc: "Festivals, markets and happenings shown to visitors." },
     useful:       { title: "Useful Numbers",      desc: "Emergency, taxi and key local contacts — shown as tap-to-call." },
     sponsors:     { title: "Sponsors / Ads",      desc: "Paid sponsor logos shown near the footer. Toggle the whole strip on/off." },
@@ -4137,6 +4254,9 @@ export default function AdminDashboard({
           )}
           {section === "routes" && (
             <RideRoutesEditor content={content} onChange={setContent} />
+          )}
+          {section === "gettingAround" && (
+            <GettingAroundEditor content={content} onChange={setContent} />
           )}
           {section === "events" && (
             <EventsEditor content={content} onChange={setContent} />

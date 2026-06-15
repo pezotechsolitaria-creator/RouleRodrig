@@ -153,6 +153,23 @@ export interface EventItem {
   featured?: boolean;  // pinned to top + gold border
 }
 
+export interface TransportOption {
+  id: string;
+  icon: "bus" | "taxi" | "scooter" | "walk" | "bike" | "car";
+  title: string;
+  text: string;
+  highlight?: boolean;  // gold-accented "recommended" card
+  link?: string;        // optional CTA, e.g. "#booking" or "/taxi"
+  linkText?: string;
+}
+
+export interface GettingAroundContent {
+  enabled: boolean;
+  title: string;
+  subtitle: string;
+  options: TransportOption[];
+}
+
 export interface SiteContent {
   hero: HeroContent;
   stats: StatItem[];
@@ -172,6 +189,7 @@ export interface SiteContent {
   events: EventItem[];
   sponsorsEnabled: boolean;
   sponsors: Sponsor[];
+  gettingAround: GettingAroundContent;
 }
 
 export const DEFAULT_CONTENT: SiteContent = {
@@ -390,4 +408,34 @@ export const DEFAULT_CONTENT: SiteContent = {
   events: [],
   sponsorsEnabled: false,
   sponsors: [],
+  gettingAround: {
+    enabled: true,
+    title: 'Getting Around Rodrigues',
+    subtitle: 'Three ways to explore the island — here\'s the honest rundown.',
+    options: [
+      {
+        id: 'bus',
+        icon: 'bus',
+        title: 'Public Bus',
+        text: 'Buses run from Port Mathurin to the main villages, but they\'re slow and infrequent — the last buses leave in the early evening, and they don\'t reach the hidden beaches.',
+      },
+      {
+        id: 'taxi',
+        icon: 'taxi',
+        title: 'Taxi',
+        text: 'Perfect for airport transfers and one-off trips. Browse trusted local drivers, agree your fare directly, and read traveller reviews.',
+        link: '/taxi',
+        linkText: 'See drivers',
+      },
+      {
+        id: 'scooter',
+        icon: 'scooter',
+        title: 'Rent a Scooter',
+        text: 'The only way to reach the secret coves, clifftop viewpoints and back roads — on your own schedule, at your own pace. Helmet included.',
+        highlight: true,
+        link: '#booking',
+        linkText: 'Rent a scooter',
+      },
+    ],
+  },
 };
