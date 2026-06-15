@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getPrivileged } from "@/lib/supabase/admin";
 
 // ── Public: booked date ranges for a scooter (no personal data) ─────
 // Returns confirmed + pending ranges so customers can avoid requesting
-// dates that are already taken. Only date fields are exposed.
+// dates that are already taken. Only date fields are exposed. Uses the
+// privileged client (bookings are locked to admin-only at the DB level).
 export async function GET(req: NextRequest) {
   const scooter = req.nextUrl.searchParams.get("scooter");
-  const supabase = await createClient();
+  const supabase = await getPrivileged();
 
   let query = supabase
     .from("bookings")

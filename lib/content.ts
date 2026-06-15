@@ -64,7 +64,10 @@ export async function getContent(): Promise<SiteContent> {
 }
 
 export async function saveContent(content: SiteContent): Promise<void> {
-  const supabase = await createClient();
+  // Writes go through the privileged client so site_content can be locked to
+  // read-only for the public anon role (prevents site defacement).
+  const { getPrivileged } = await import('./supabase/admin');
+  const supabase = await getPrivileged();
   const { error } = await supabase
     .from('site_content')
     .upsert({ id: 'main', data: content, updated_at: new Date().toISOString() });

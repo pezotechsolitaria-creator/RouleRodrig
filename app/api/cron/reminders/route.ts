@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getPrivileged } from "@/lib/supabase/admin";
 import { sendPickupReminder, sendReturnReminder } from "@/lib/email";
 import type { Booking } from "@/lib/supabase/types";
 
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   const today = islandDate(0);
   const tomorrow = islandDate(1);
-  const supabase = await createClient();
+  const supabase = await getPrivileged();
 
   let pickupSent = 0;
   let returnSent = 0;

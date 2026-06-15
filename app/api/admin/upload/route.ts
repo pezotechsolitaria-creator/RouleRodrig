@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySession, COOKIE_NAME } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
+import { getPrivileged } from '@/lib/supabase/admin';
 
 // Uploads images to the Supabase Storage `uploads` bucket and returns a
 // public URL. Uses Supabase (always configured) instead of Vercel Blob.
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-    const supabase = await createClient();
+    const supabase = await getPrivileged();
     const { error } = await supabase.storage
       .from('uploads')
       .upload(filename, file, {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { getPrivileged } from "@/lib/supabase/admin";
 
 function isAuthed(req: NextRequest) {
   return verifySession(req.cookies.get(COOKIE_NAME)?.value);
@@ -9,7 +9,7 @@ function isAuthed(req: NextRequest) {
 // ── Admin: list waitlist signups ────────────────────────────────────
 export async function GET(req: NextRequest) {
   if (!isAuthed(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const supabase = await createClient();
+  const supabase = await getPrivileged();
   const { data, error } = await supabase
     .from("waitlist")
     .select("*")
@@ -23,7 +23,7 @@ export async function DELETE(req: NextRequest) {
   if (!isAuthed(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-  const supabase = await createClient();
+  const supabase = await getPrivileged();
   const { error } = await supabase.from("waitlist").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

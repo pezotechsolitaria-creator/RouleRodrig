@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getPrivileged } from "@/lib/supabase/admin";
 import { guard } from "@/lib/rate-limit";
 
 // ── Public: a hotel/partner can look up their own referral performance with
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing code" }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  const supabase = await getPrivileged();
 
   // Find the partner this code belongs to.
   const { data: partner, error: pErr } = await supabase
