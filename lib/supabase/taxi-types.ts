@@ -13,4 +13,19 @@ export interface TaxiDriver {
   featured: boolean;
   active: boolean;
   created_at: string;
+  // Aggregated from approved reviews (attached by /api/taxi)
+  rating_avg?: number | null;
+  rating_count?: number;
+}
+
+export interface TaxiDriverReview {
+  id: string;
+  driver_id: string | null;
+  driver_name: string | null;
+  name: string;
+  origin: string | null;
+  rating: number;
+  text: string;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
 }

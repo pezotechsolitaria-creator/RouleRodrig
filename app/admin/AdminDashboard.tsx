@@ -44,7 +44,7 @@ import {
   MessageSquare,
   Car,
 } from "lucide-react";
-import type { TaxiDriver } from "@/lib/supabase/taxi-types";
+import type { TaxiDriver, TaxiDriverReview } from "@/lib/supabase/taxi-types";
 import type {
   SiteContent,
   FleetItem,
@@ -3450,6 +3450,7 @@ function TaxiManager() {
   const [form, setForm] = useState<DriverForm>(emptyDriverForm());
   const [editing, setEditing] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [reviews, setReviews] = useState<TaxiDriverReview[]>([]);
 
   async function load() {
     setLoading(true);
@@ -3458,7 +3459,27 @@ function TaxiManager() {
       if (res.ok) setDrivers(await res.json());
     } finally { setLoading(false); }
   }
-  useEffect(() => { load(); }, []);
+  async function loadReviews() {
+    try {
+      const res = await fetch("/api/admin/taxi-reviews");
+      if (res.ok) setReviews(await res.json());
+    } catch { /* ignore */ }
+  }
+  useEffect(() => { load(); loadReviews(); }, []);
+
+  async function setReviewStatus(id: string, status: "approved" | "rejected") {
+    await fetch("/api/admin/taxi-reviews", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    });
+    setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+  }
+  async function deleteReview(id: string) {
+    if (!confirm("Delete this review permanently?")) return;
+    await fetch(`/api/admin/taxi-reviews?id=${id}`, { method: "DELETE" });
+    setReviews((prev) => prev.filter((r) => r.id !== id));
+  }
 
   async function handleSave() {
     if (!form.name || !form.phone) return;
@@ -3669,6 +3690,72 @@ function TaxiManager() {
         Drivers are shown at <span className="font-mono text-offwhite/40">/taxi</span>.
         Featured drivers appear first with a gold border. Toggle visibility with the switch.
       </p>
+
+      {/* ── Driver reviews moderation ── */}
+      <div className="pt-4 border-t border-[#1f1f1f]">
+        <div className="flex items-center gap-2 mb-3">
+          <Star size={13} className="text-yellow" />
+          <p className="font-bebas text-yellow text-[10px] tracking-[0.3em]">DRIVER REVIEWS</p>
+          {reviews.some((r) => r.status === "pending") && (
+            <span className="font-bebas text-[9px] tracking-[0.15em] bg-yellow text-dark px-2 py-0.5 rounded-full">
+              {reviews.filter((r) => r.status === "pending").length} PENDING
+            </span>
+          )}
+        </div>
+
+        {reviews.length === 0 ? (
+          <p className="text-muted/50 text-xs font-dm">No driver reviews yet.</p>
+        ) : (
+          <div className="space-y-2.5">
+            {reviews.map((r) => (
+              <div key={r.id} className="bg-dark-card border border-dark-border rounded-xl p-4">
+                <div className="flex items-start justify-between gap-3 mb-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="flex items-center gap-0.5">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star key={i} size={11} className={i < r.rating ? "fill-yellow text-yellow" : "text-muted/30"} />
+                      ))}
+                    </span>
+                    {r.driver_name && (
+                      <span className="font-bebas text-[9px] tracking-[0.15em] text-muted">→ {r.driver_name}</span>
+                    )}
+                    <span className={`font-bebas text-[8px] tracking-[0.15em] px-2 py-0.5 rounded-full ${
+                      r.status === "approved" ? "bg-green-500/10 text-green-400"
+                      : r.status === "rejected" ? "bg-red-500/10 text-red-400/70"
+                      : "bg-yellow/10 text-yellow"
+                    }`}>
+                      {r.status.toUpperCase()}
+                    </span>
+                  </div>
+                  <button onClick={() => deleteReview(r.id)} className="text-muted/30 hover:text-red-400 transition-colors shrink-0" title="Delete">
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+                <p className="text-offwhite/80 text-sm font-dm leading-relaxed">{r.text}</p>
+                <p className="text-muted text-xs font-dm mt-1.5">{r.name}{r.origin ? ` · ${r.origin}` : ""}</p>
+                {r.status !== "approved" && (
+                  <div className="flex items-center gap-2 mt-3">
+                    <button
+                      onClick={() => setReviewStatus(r.id, "approved")}
+                      className="flex items-center gap-1.5 text-xs font-dm bg-green-500/15 text-green-400 hover:bg-green-500/25 px-3 py-1.5 rounded-full transition-colors"
+                    >
+                      <CheckCircle size={12} /> Approve
+                    </button>
+                    {r.status !== "rejected" && (
+                      <button
+                        onClick={() => setReviewStatus(r.id, "rejected")}
+                        className="flex items-center gap-1.5 text-xs font-dm border border-[#2a2a2a] text-muted/60 hover:text-red-400 hover:border-red-500/40 px-3 py-1.5 rounded-full transition-colors"
+                      >
+                        <Ban size={12} /> Reject
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

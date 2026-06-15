@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Car,
   Phone,
@@ -15,8 +15,11 @@ import {
   DollarSign,
   Bus,
   Bike,
+  PenLine,
+  X,
+  CheckCircle,
 } from "lucide-react";
-import type { TaxiDriver } from "@/lib/supabase/taxi-types";
+import type { TaxiDriver, TaxiDriverReview } from "@/lib/supabase/taxi-types";
 
 const VEHICLE_EMOJI: Record<string, string> = {
   car: "🚗",
@@ -34,17 +37,229 @@ const VEHICLE_ICON: Record<string, React.ElementType> = {
   other: Car,
 };
 
+function fmtDate(s: string): string {
+  try {
+    return new Date(s).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  } catch {
+    return s;
+  }
+}
+
+function Stars({ value, size = 14 }: { value: number; size?: number }) {
+  return (
+    <div className="flex gap-0.5" aria-label={`${value} out of 5 stars`}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Star key={i} size={size} className={i < Math.round(value) ? "fill-yellow text-yellow" : "text-muted/30"} />
+      ))}
+    </div>
+  );
+}
+
+// ── Reviews + rating modal for a single driver ───────────────────────────────
+function DriverReviewsModal({ driver, onClose }: { driver: TaxiDriver; onClose: () => void }) {
+  const [reviews, setReviews] = useState<TaxiDriverReview[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [name, setName] = useState("");
+  const [origin, setOrigin] = useState("");
+  const [rating, setRating] = useState(0);
+  const [hover, setHover] = useState(0);
+  const [text, setText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/taxi/reviews?driver=${encodeURIComponent(driver.id)}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d: TaxiDriverReview[]) => setReviews(Array.isArray(d) ? d : []))
+      .catch(() => setReviews([]))
+      .finally(() => setLoading(false));
+  }, [driver.id]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (rating < 1) return setError("Please choose a star rating.");
+    if (name.trim().length < 2) return setError("Please enter your name.");
+    if (text.trim().length < 4) return setError("Please write a short review.");
+
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/taxi/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          driver_id: driver.id,
+          driver_name: driver.name,
+          name,
+          origin,
+          rating,
+          text,
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || "Something went wrong.");
+      }
+      setDone(true);
+      setName(""); setOrigin(""); setRating(0); setText("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.94, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.94, y: 20 }}
+        transition={{ duration: 0.25 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg bg-dark-card border border-dark-border rounded-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto"
+      >
+        <div className="flex items-start justify-between mb-5">
+          <div>
+            <p className="font-bebas text-yellow text-[10px] tracking-[0.3em]">DRIVER FEEDBACK</p>
+            <h3 className="font-syne font-extrabold text-offwhite text-xl">{driver.name}</h3>
+            {driver.rating_count ? (
+              <div className="flex items-center gap-2 mt-1">
+                <Stars value={driver.rating_avg ?? 0} />
+                <span className="text-muted text-xs font-dm">
+                  {driver.rating_avg?.toFixed(1)} · {driver.rating_count} review{driver.rating_count !== 1 ? "s" : ""}
+                </span>
+              </div>
+            ) : null}
+          </div>
+          <button onClick={onClose} className="text-muted hover:text-offwhite p-1 -mr-1 -mt-1" aria-label="Close">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Existing approved reviews */}
+        <div className="mb-6">
+          {loading ? (
+            <div className="flex items-center gap-2 text-muted text-sm py-4">
+              <Loader2 size={15} className="animate-spin" /> Loading reviews…
+            </div>
+          ) : reviews.length === 0 ? (
+            <p className="text-muted/70 text-sm font-dm py-2">No reviews yet — be the first to rate {driver.name}.</p>
+          ) : (
+            <div className="space-y-3 max-h-52 overflow-y-auto pr-1">
+              {reviews.map((r) => (
+                <div key={r.id} className="bg-dark border border-dark-border rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <Stars value={r.rating} size={12} />
+                    <span className="text-muted/50 text-[11px] font-dm">{fmtDate(r.created_at)}</span>
+                  </div>
+                  <p className="text-offwhite/80 text-sm font-dm leading-relaxed">{r.text}</p>
+                  <p className="text-muted text-xs font-dm mt-2">
+                    {r.name}{r.origin ? ` · ${r.origin}` : ""}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Submit form */}
+        <div className="border-t border-dark-border pt-5">
+          {done ? (
+            <div className="text-center py-4">
+              <CheckCircle size={36} className="text-green-400 mx-auto mb-3" />
+              <p className="font-syne font-bold text-offwhite">Thank you!</p>
+              <p className="text-muted text-sm font-dm mt-1 max-w-xs mx-auto">
+                Your review is awaiting approval and will appear shortly.
+              </p>
+              <button
+                onClick={onClose}
+                className="mt-5 bg-yellow text-dark font-syne font-bold text-sm px-6 py-3 rounded-full hover:bg-yellow-dark transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={submit} className="space-y-4">
+              <p className="font-bebas text-muted text-[10px] tracking-[0.25em]">RATE THIS DRIVER</p>
+              <div className="flex gap-1.5">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setRating(n)}
+                    onMouseEnter={() => setHover(n)}
+                    onMouseLeave={() => setHover(0)}
+                    className="transition-transform hover:scale-110"
+                    aria-label={`${n} star${n !== 1 ? "s" : ""}`}
+                  >
+                    <Star size={30} className={n <= (hover || rating) ? "fill-yellow text-yellow" : "text-muted/30"} />
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name"
+                  className="w-full bg-dark border border-dark-border rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none"
+                />
+                <input
+                  value={origin}
+                  onChange={(e) => setOrigin(e.target.value)}
+                  placeholder="Where you're from (optional)"
+                  className="w-full bg-dark border border-dark-border rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none"
+                />
+              </div>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={3}
+                placeholder="How was your ride? Punctual, friendly, safe driving…"
+                className="w-full bg-dark border border-dark-border rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none resize-none"
+              />
+              {error && <p className="text-red-400 text-sm font-dm">{error}</p>}
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full flex items-center justify-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-6 py-3.5 rounded-full hover:bg-yellow-dark disabled:opacity-50 transition-colors"
+              >
+                {submitting ? <Loader2 size={15} className="animate-spin" /> : <PenLine size={15} />}
+                {submitting ? "Submitting…" : "Submit review"}
+              </button>
+              <p className="text-muted/50 text-xs font-dm text-center">
+                Reviews are checked before publishing to keep feedback fair.
+              </p>
+            </form>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function TaxiPage() {
   const [drivers, setDrivers] = useState<TaxiDriver[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reviewDriver, setReviewDriver] = useState<TaxiDriver | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     fetch("/api/taxi")
       .then((r) => r.json())
       .then((d) => { if (Array.isArray(d)) setDrivers(d); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   return (
     <main className="min-h-screen bg-dark text-offwhite font-dm">
@@ -72,7 +287,7 @@ export default function TaxiPage() {
           </h1>
           <p className="text-muted font-dm text-sm md:text-base max-w-xl leading-relaxed">
             Trusted local drivers for airport transfers, island tours and point-to-point rides. Tap WhatsApp
-            or call directly to agree your fare — no app, no middleman.
+            or call directly to agree your fare — and leave a review to help other travellers.
           </p>
         </motion.div>
 
@@ -131,6 +346,19 @@ export default function TaxiPage() {
                       </p>
                     </div>
 
+                    {/* Rating summary */}
+                    {d.rating_count ? (
+                      <button
+                        onClick={() => setReviewDriver(d)}
+                        className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity"
+                      >
+                        <Stars value={d.rating_avg ?? 0} size={13} />
+                        <span className="text-offwhite/80 text-xs font-dm">
+                          {d.rating_avg?.toFixed(1)} · {d.rating_count} review{d.rating_count !== 1 ? "s" : ""}
+                        </span>
+                      </button>
+                    ) : null}
+
                     {d.areas && (
                       <p className="flex items-start gap-1.5 text-offwhite/70 text-xs font-dm">
                         <MapPin size={12} className="text-yellow shrink-0 mt-0.5" />
@@ -151,9 +379,7 @@ export default function TaxiPage() {
                       </p>
                     )}
 
-                    {d.notes && (
-                      <p className="text-muted/60 text-xs font-dm italic">{d.notes}</p>
-                    )}
+                    {d.notes && <p className="text-muted/60 text-xs font-dm italic">{d.notes}</p>}
 
                     {/* CTA row */}
                     <div className="flex items-center gap-2 mt-auto pt-3 border-t border-dark-border">
@@ -172,6 +398,14 @@ export default function TaxiPage() {
                         <Phone size={13} /> Call
                       </a>
                     </div>
+
+                    {/* Rate / reviews button */}
+                    <button
+                      onClick={() => setReviewDriver(d)}
+                      className="flex items-center justify-center gap-1.5 text-xs font-dm text-muted hover:text-yellow border border-dark-border hover:border-yellow/40 px-3 py-2 rounded-full transition-colors"
+                    >
+                      <Star size={12} /> {d.rating_count ? "Reviews & rate" : "Rate this driver"}
+                    </button>
                   </div>
                 </motion.div>
               );
@@ -183,6 +417,12 @@ export default function TaxiPage() {
           Fares are agreed directly with the driver. Prices listed are starting estimates only.
         </p>
       </div>
+
+      <AnimatePresence>
+        {reviewDriver && (
+          <DriverReviewsModal driver={reviewDriver} onClose={() => setReviewDriver(null)} />
+        )}
+      </AnimatePresence>
     </main>
   );
 }
