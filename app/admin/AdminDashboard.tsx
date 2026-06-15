@@ -42,7 +42,9 @@ import {
   Menu,
   X,
   MessageSquare,
+  Car,
 } from "lucide-react";
+import type { TaxiDriver } from "@/lib/supabase/taxi-types";
 import type {
   SiteContent,
   FleetItem,
@@ -84,7 +86,8 @@ type Section =
   | "bookings"
   | "map"
   | "partners"
-  | "marketplace";
+  | "marketplace"
+  | "taxi";
 
 const NAV: { id: Section; label: string; icon: React.ElementType; group?: string }[] = [
   { id: "dashboard",    label: "Dashboard",       icon: LayoutDashboard, group: "overview" },
@@ -94,6 +97,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "waitlist",     label: "Waitlist",         icon: Mail,            group: "overview" },
   { id: "partners",     label: "Partners",         icon: Handshake,       group: "business" },
   { id: "marketplace",  label: "Marketplace",      icon: Store,           group: "business" },
+  { id: "taxi",         label: "Taxi & Transport",  icon: Car,             group: "business" },
   { id: "announcement", label: "Announcement",     icon: Megaphone,       group: "content" },
   { id: "hero",         label: "Hero",             icon: Sparkles,        group: "content" },
   { id: "fleet",        label: "Fleet",            icon: Bike,            group: "content" },
@@ -3421,6 +3425,254 @@ function ReviewsModeration() {
   );
 }
 
+// ── Taxi & Transport manager ─────────────────────────────────────────────────
+
+const VEHICLE_TYPES: TaxiDriver["vehicle_type"][] = ["car","minibus","van","scooter","other"];
+const VEHICLE_LABELS: Record<string, string> = {
+  car: "Car", minibus: "Minibus", van: "Van", scooter: "Scooter", other: "Other",
+};
+
+type DriverForm = {
+  name: string; phone: string; whatsapp: string; photo: string;
+  vehicle: string; vehicle_type: TaxiDriver["vehicle_type"];
+  languages: string; areas: string; rate_from: string; notes: string;
+};
+
+const emptyDriverForm = (): DriverForm => ({
+  name: "", phone: "", whatsapp: "", photo: "", vehicle: "",
+  vehicle_type: "car", languages: "", areas: "", rate_from: "", notes: "",
+});
+
+function TaxiManager() {
+  const [drivers, setDrivers] = useState<TaxiDriver[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<DriverForm>(emptyDriverForm());
+  const [editing, setEditing] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/taxi");
+      if (res.ok) setDrivers(await res.json());
+    } finally { setLoading(false); }
+  }
+  useEffect(() => { load(); }, []);
+
+  async function handleSave() {
+    if (!form.name || !form.phone) return;
+    setSaving(true);
+    try {
+      const payload = {
+        ...form,
+        languages: form.languages.split(",").map((s) => s.trim()).filter(Boolean),
+        ...(editing ? { id: editing } : {}),
+      };
+      const res = await fetch("/api/admin/taxi", {
+        method: editing ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) { await load(); setShowForm(false); setEditing(null); setForm(emptyDriverForm()); }
+    } finally { setSaving(false); }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Remove this driver?")) return;
+    await fetch(`/api/admin/taxi?id=${id}`, { method: "DELETE" });
+    setDrivers((prev) => prev.filter((d) => d.id !== id));
+  }
+
+  async function toggle(d: TaxiDriver, field: "active" | "featured") {
+    await fetch("/api/admin/taxi", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: d.id, [field]: !d[field] }),
+    });
+    setDrivers((prev) => prev.map((x) => x.id === d.id ? { ...x, [field]: !x[field] } : x));
+  }
+
+  function openEdit(d: TaxiDriver) {
+    setForm({
+      name: d.name, phone: d.phone, whatsapp: d.whatsapp ?? "",
+      photo: d.photo ?? "", vehicle: d.vehicle, vehicle_type: d.vehicle_type,
+      languages: (d.languages ?? []).join(", "),
+      areas: d.areas, rate_from: d.rate_from ?? "", notes: d.notes ?? "",
+    });
+    setEditing(d.id);
+    setShowForm(true);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-0.5">DRIVER DIRECTORY</p>
+          <p className="font-dm text-muted text-xs">
+            Listed at <span className="text-offwhite/60 font-mono">/taxi</span> — tourists tap WhatsApp or call directly. No commission, no app.
+          </p>
+        </div>
+        <button
+          onClick={() => { setForm(emptyDriverForm()); setEditing(null); setShowForm(true); }}
+          className="flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-xs px-4 py-2 rounded-full hover:bg-yellow-dark transition-colors"
+        >
+          <Plus size={13} /> Add Driver
+        </button>
+      </div>
+
+      {/* Add / edit form */}
+      {showForm && (
+        <div className="bg-[#0d0d0d] border border-yellow/20 rounded-2xl p-6 space-y-5">
+          <p className="font-bebas text-yellow text-[10px] tracking-[0.3em]">
+            {editing ? "EDIT DRIVER" : "NEW DRIVER"}
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="DRIVER NAME *">
+              <TextInput value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="e.g. Jean-Pierre Morel" />
+            </Field>
+            <Field label="PHONE *">
+              <TextInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} placeholder="+230 5XXX XXXX" />
+            </Field>
+            <Field label="WHATSAPP (if different)">
+              <TextInput value={form.whatsapp} onChange={(v) => setForm({ ...form, whatsapp: v })} placeholder="+230 5XXX XXXX" />
+            </Field>
+            <Field label="STARTING RATE">
+              <TextInput value={form.rate_from} onChange={(v) => setForm({ ...form, rate_from: v })} placeholder="e.g. Rs 500" />
+            </Field>
+            <Field label="VEHICLE">
+              <TextInput value={form.vehicle} onChange={(v) => setForm({ ...form, vehicle: v })} placeholder="e.g. Toyota Innova 7-seater" />
+            </Field>
+            <Field label="VEHICLE TYPE">
+              <select
+                value={form.vehicle_type}
+                onChange={(e) => setForm({ ...form, vehicle_type: e.target.value as TaxiDriver["vehicle_type"] })}
+                className={`${inputCls} appearance-none`}
+              >
+                {VEHICLE_TYPES.map((t) => (
+                  <option key={t} value={t}>{VEHICLE_LABELS[t]}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="LANGUAGES (comma-separated)">
+              <TextInput value={form.languages} onChange={(v) => setForm({ ...form, languages: v })} placeholder="English, French, Creole" />
+            </Field>
+          </div>
+
+          <Field label="AREAS / ROUTES COVERED">
+            <Textarea value={form.areas} onChange={(v) => setForm({ ...form, areas: v })} rows={2}
+            />
+          </Field>
+
+          <Field label="NOTES (optional)">
+            <TextInput value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} placeholder="e.g. Airport specialist, night rides available" />
+          </Field>
+
+          <ImagePicker label="DRIVER / VEHICLE PHOTO" src={form.photo} onUpload={(p) => setForm({ ...form, photo: p })} />
+
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || !form.name || !form.phone}
+              className="flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-6 py-2.5 rounded-full hover:bg-yellow-dark transition-colors disabled:opacity-50"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              {editing ? "Save Changes" : "Add Driver"}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowForm(false); setEditing(null); setForm(emptyDriverForm()); }}
+              className="text-muted/60 hover:text-offwhite text-sm font-dm transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Driver list */}
+      {loading ? (
+        <div className="flex items-center gap-3 text-muted text-sm py-8">
+          <Loader2 size={16} className="animate-spin text-yellow" /> Loading drivers…
+        </div>
+      ) : drivers.length === 0 && !showForm ? (
+        <div className="bg-dark-card border border-dark-border rounded-2xl p-10 text-center">
+          <Car size={36} className="text-muted/20 mx-auto mb-3" />
+          <p className="text-muted font-dm text-sm">No drivers yet. Add your first one above.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {drivers.map((d) => (
+            <div key={d.id} className={`bg-dark-card border rounded-2xl p-5 flex items-start gap-4 transition-colors ${d.featured ? "border-yellow/30" : "border-dark-border"}`}>
+              {/* Photo thumbnail */}
+              <div className="w-14 h-14 rounded-xl overflow-hidden bg-[#0d0d0d] border border-[#2a2a2a] shrink-0 flex items-center justify-center">
+                {d.photo ? (
+                  <Image src={d.photo} alt={d.name} width={56} height={56} className="object-cover w-full h-full" unoptimized />
+                ) : (
+                  <Car size={20} className="text-muted/30" />
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                  <p className="font-syne font-bold text-offwhite text-sm">{d.name}</p>
+                  {d.featured && (
+                    <span className="flex items-center gap-1 font-bebas text-[8px] tracking-[0.15em] bg-yellow/10 text-yellow border border-yellow/30 px-2 py-0.5 rounded-full">
+                      <Star size={7} className="fill-yellow" /> FEATURED
+                    </span>
+                  )}
+                  {!d.active && (
+                    <span className="font-bebas text-[8px] tracking-[0.15em] text-red-400/70 border border-red-500/20 px-2 py-0.5 rounded-full">HIDDEN</span>
+                  )}
+                </div>
+                <p className="text-muted text-xs font-dm">{d.vehicle} · {VEHICLE_LABELS[d.vehicle_type]}</p>
+                <p className="text-muted/60 text-xs font-dm mt-0.5 truncate">{d.phone}{d.rate_from ? ` · From ${d.rate_from}` : ""}</p>
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                <button
+                  onClick={() => toggle(d, "featured")}
+                  title={d.featured ? "Unfeature" : "Feature"}
+                  className={`flex items-center gap-1 text-xs font-dm px-2.5 py-1.5 rounded-full border transition-colors ${d.featured ? "border-yellow/40 text-yellow bg-yellow/10" : "border-[#2a2a2a] text-muted/50 hover:text-yellow hover:border-yellow/30"}`}
+                >
+                  <Star size={10} />
+                </button>
+                <button
+                  onClick={() => openEdit(d)}
+                  className="text-xs font-dm border border-[#2a2a2a] hover:border-yellow text-muted/60 hover:text-yellow px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => toggle(d, "active")}
+                  className="text-muted/40 hover:text-yellow transition-colors"
+                  title={d.active ? "Hide" : "Show"}
+                >
+                  {d.active ? <ToggleRight size={18} className="text-green-400" /> : <ToggleLeft size={18} />}
+                </button>
+                <button
+                  onClick={() => handleDelete(d.id)}
+                  className="text-muted/30 hover:text-red-400 transition-colors"
+                  title="Delete"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p className="text-muted/40 text-xs font-dm">
+        Drivers are shown at <span className="font-mono text-offwhite/40">/taxi</span>.
+        Featured drivers appear first with a gold border. Toggle visibility with the switch.
+      </p>
+    </div>
+  );
+}
+
 // ── Waitlist viewer ──────────────────────────────────────────────────────────
 
 function WaitlistViewer() {
@@ -3594,12 +3846,13 @@ export default function AdminDashboard({
     sponsors:     { title: "Sponsors / Ads",      desc: "Paid sponsor logos shown near the footer. Toggle the whole strip on/off." },
     partners:     { title: "Hotel Partners",      desc: "Manage referral partners and track commission." },
     marketplace:  { title: "Marketplace / Deals", desc: "Local business listings shown to customers on the website." },
+    taxi:         { title: "Taxi & Transport",     desc: "Driver directory shown at /taxi — tourists tap WhatsApp or call directly." },
   };
 
   const isAutoSave =
     section === "gallery" || section === "submissions" || section === "bookings" ||
     section === "dashboard" || section === "partners" || section === "marketplace" ||
-    section === "reviews" || section === "waitlist";
+    section === "taxi" || section === "reviews" || section === "waitlist";
 
   // Group NAV items
   const overviewNav = NAV.filter((n) => n.group === "overview");
@@ -3809,6 +4062,7 @@ export default function AdminDashboard({
           )}
           {section === "partners" && <PartnersManager />}
           {section === "marketplace" && <MarketplaceManager />}
+          {section === "taxi" && <TaxiManager />}
         </div>
       </main>
     </div>

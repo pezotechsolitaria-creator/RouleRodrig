@@ -33,6 +33,7 @@ export default function Navbar({ branding, announcementActive }: { branding?: Br
     { label: t.nav.scooters, href: "#fleet" },
     { label: t.nav.pricing,  href: "#pricing" },
     { label: t.nav.map,      href: "#map" },
+    { label: t.nav.taxi,     href: "/taxi" },
     { label: t.nav.contact,  href: "#contact" },
   ];
 
