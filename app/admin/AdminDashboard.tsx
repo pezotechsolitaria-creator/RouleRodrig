@@ -213,15 +213,26 @@ function ImagePicker({
           )}
         </div>
         <div>
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={uploading}
-            className="flex items-center gap-2 border border-[#2a2a2a] hover:border-yellow text-offwhite/70 hover:text-yellow text-xs font-dm px-4 py-2 rounded-lg transition-colors disabled:opacity-40"
-          >
-            {uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
-            {uploading ? "Uploading…" : "Change Image"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center gap-2 border border-[#2a2a2a] hover:border-yellow text-offwhite/70 hover:text-yellow text-xs font-dm px-4 py-2 rounded-lg transition-colors disabled:opacity-40"
+            >
+              {uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+              {uploading ? "Uploading…" : src ? "Change" : "Upload"}
+            </button>
+            {src && (
+              <button
+                type="button"
+                onClick={() => onUpload("")}
+                className="flex items-center gap-1.5 border border-[#2a2a2a] hover:border-red-500/50 text-muted/60 hover:text-red-400 text-xs font-dm px-3 py-2 rounded-lg transition-colors"
+              >
+                <Trash2 size={12} /> Remove
+              </button>
+            )}
+          </div>
           {src && (
             <p className="text-muted/50 text-[10px] font-dm mt-1.5 truncate max-w-[200px]">{src}</p>
           )}
@@ -238,6 +249,121 @@ function ImagePicker({
           }}
         />
       </div>
+    </Field>
+  );
+}
+
+// ── Multi-image picker (galleries) ──────────────────────────────────────────────
+// Upload several photos, reorder (first = cover), and delete any of them.
+
+function MultiImagePicker({
+  images,
+  onChange,
+  label,
+  hint,
+  onSessionExpired,
+}: {
+  images: string[];
+  onChange: (imgs: string[]) => void;
+  label: string;
+  hint?: string;
+  onSessionExpired?: () => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function handleFiles(files: FileList) {
+    setUploading(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of Array.from(files)) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+        if (res.status === 401) {
+          onSessionExpired?.();
+          return;
+        }
+        if (res.ok) {
+          const { path } = (await res.json()) as { path: string };
+          uploaded.push(path);
+        }
+      }
+      if (uploaded.length) onChange([...images, ...uploaded]);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function removeAt(i: number) {
+    onChange(images.filter((_, idx) => idx !== i));
+  }
+  function makeCover(i: number) {
+    if (i === 0) return;
+    const next = [...images];
+    const [pic] = next.splice(i, 1);
+    next.unshift(pic);
+    onChange(next);
+  }
+
+  return (
+    <Field label={label}>
+      {hint && <p className="text-muted/50 text-[11px] font-dm -mt-1 mb-2.5">{hint}</p>}
+      <div className="flex flex-wrap gap-3">
+        {images.map((src, i) => (
+          <div
+            key={`${src}-${i}`}
+            className="relative w-24 h-24 rounded-xl overflow-hidden bg-[#0d0d0d] border border-[#2a2a2a] group"
+          >
+            <Image src={src} alt={`photo ${i + 1}`} fill className="object-cover" unoptimized />
+            {i === 0 && (
+              <span className="absolute top-1 left-1 bg-yellow text-dark text-[8px] font-bebas tracking-[0.15em] px-1.5 py-0.5 rounded">
+                COVER
+              </span>
+            )}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100">
+              {i !== 0 && (
+                <button
+                  type="button"
+                  onClick={() => makeCover(i)}
+                  title="Make cover"
+                  className="bg-white/15 hover:bg-yellow hover:text-dark text-white rounded-full p-1.5 transition-colors"
+                >
+                  <Star size={12} />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => removeAt(i)}
+                title="Remove"
+                className="bg-white/15 hover:bg-red-500 text-white rounded-full p-1.5 transition-colors"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="w-24 h-24 rounded-xl border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 text-muted/60 hover:text-yellow flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-40"
+        >
+          {uploading ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
+          <span className="text-[10px] font-dm">{uploading ? "Uploading…" : "Add photos"}</span>
+        </button>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files?.length) handleFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
     </Field>
   );
 }
@@ -763,9 +889,15 @@ function FleetEditor({
             </div>
           </div>
           <ImagePicker
-            label="SCOOTER IMAGE"
+            label="COVER IMAGE"
             src={scooter.image}
             onUpload={(p) => updateScooter(idx, { image: p })}
+          />
+          <MultiImagePicker
+            label="PHOTO GALLERY"
+            hint="Add multiple angles — these appear in a carousel on the fleet card. First = cover (also sets the Cover Image above)."
+            images={scooter.images ?? []}
+            onChange={(imgs) => updateScooter(idx, { images: imgs, ...(imgs.length ? { image: imgs[0] } : {}) })}
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="NAME">
@@ -2747,6 +2879,7 @@ type ListingForm = {
   contact: string;
   website: string;
   image_url: string;
+  images: string[];
   delivery: boolean;
   pickup: boolean;
   dine_in: boolean;
@@ -2757,7 +2890,7 @@ type ListingForm = {
 
 const emptyListingForm = (): ListingForm => ({
   business_name: "", category: "restaurant", description: "",
-  offer: "", contact: "", website: "", image_url: "",
+  offer: "", contact: "", website: "", image_url: "", images: [],
   delivery: false, pickup: false, dine_in: false,
   whatsapp: "", hours: "", maps_url: "",
 });
@@ -2824,6 +2957,7 @@ function MarketplaceManager() {
       description: l.description, offer: l.offer,
       contact: l.contact ?? "", website: l.website ?? "",
       image_url: l.image_url ?? "",
+      images: l.images ?? [],
       delivery: l.delivery ?? false, pickup: l.pickup ?? false, dine_in: l.dine_in ?? false,
       whatsapp: l.whatsapp ?? "", hours: l.hours ?? "", maps_url: l.maps_url ?? "",
     });
@@ -2877,10 +3011,11 @@ function MarketplaceManager() {
               </select>
             </Field>
           </div>
-          <ImagePicker
-            label="PARTNER / DEAL PHOTO"
-            src={form.image_url}
-            onUpload={(p) => setForm({ ...form, image_url: p })}
+          <MultiImagePicker
+            label="PHOTOS"
+            hint="First photo = cover shown on the card. Add multiple angles / dishes / views."
+            images={form.images.length ? form.images : (form.image_url ? [form.image_url] : [])}
+            onChange={(imgs) => setForm({ ...form, images: imgs, image_url: imgs[0] ?? "" })}
           />
           <Field label="DESCRIPTION">
             <Textarea

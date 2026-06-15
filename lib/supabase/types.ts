@@ -67,7 +67,8 @@ export interface MarketplaceListing {
   category: "restaurant" | "tour" | "activity" | "accommodation" | "shopping";
   description: string;
   offer: string;
-  image_url: string | null;
+  image_url: string | null;     // legacy cover image (kept for backward compat)
+  images: string[] | null;      // optional gallery — multiple photos
   contact: string | null;
   website: string | null;
   active: boolean;

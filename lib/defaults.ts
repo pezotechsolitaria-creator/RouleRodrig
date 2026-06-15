@@ -19,7 +19,8 @@ export interface FleetItem {
   name: string;
   tagline: string;
   description: string;
-  image: string;
+  image: string;          // legacy cover image (kept for backward compat)
+  images?: string[];      // optional gallery — multiple photos/angles
   price: string;
   unit: string;
   available: boolean;

@@ -12,6 +12,7 @@ function mergeWithDefaults(parsed: Partial<SiteContent>): SiteContent {
     ...s,
     available: s.available ?? true,
     category: s.category ?? "scooter",
+    images: s.images ?? [],
   }));
   return {
     hero: { ...DEFAULT_CONTENT.hero, ...(parsed.hero ?? {}) },

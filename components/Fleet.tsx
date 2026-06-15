@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban } from "lucide-react";
+import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type FleetItem, type VehicleCategory } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
@@ -30,6 +30,77 @@ const SPECS_BY_ID: Record<string, { icon: React.ElementType; label: string }[]> 
   ],
 };
 
+function FleetImageCarousel({ scooter }: { scooter: FleetItem }) {
+  const photos = scooter.images && scooter.images.length > 0
+    ? scooter.images
+    : scooter.image ? [scooter.image] : [];
+  const [idx, setIdx] = useState(0);
+
+  const prev = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIdx((i) => (i - 1 + photos.length) % photos.length);
+  };
+  const next = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIdx((i) => (i + 1) % photos.length);
+  };
+
+  if (photos.length === 0) return (
+    <div className="relative h-[340px] md:h-[420px] bg-dark-card flex items-center justify-center">
+      <Gauge size={48} className="text-muted/20" />
+    </div>
+  );
+
+  const src = photos[idx];
+  const isUpload = src.startsWith("/uploads/") || src.startsWith("http");
+
+  return (
+    <div className="relative h-[340px] md:h-[420px] overflow-hidden group/carousel">
+      <Image
+        src={src}
+        alt={`${scooter.name} — photo ${idx + 1}`}
+        fill
+        className={`object-cover transition-all duration-500 group-hover:scale-[1.04] ${scooter.available === false ? "brightness-50" : ""}`}
+        sizes="(max-width: 768px) 100vw, 50vw"
+        loading="eager"
+        unoptimized={isUpload}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-dark-card via-dark-card/20 to-transparent" />
+
+      {/* Prev / Next arrows — only shown with multiple photos */}
+      {photos.length > 1 && (
+        <>
+          <button
+            onClick={prev}
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/carousel:opacity-100 transition-opacity hover:bg-black/80"
+            aria-label="Previous photo"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            onClick={next}
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/carousel:opacity-100 transition-opacity hover:bg-black/80"
+            aria-label="Next photo"
+          >
+            <ChevronRight size={16} />
+          </button>
+          {/* Dot indicators */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+            {photos.map((_, i) => (
+              <button
+                key={i}
+                onClick={(e) => { e.preventDefault(); setIdx(i); }}
+                className={`w-1.5 h-1.5 rounded-full transition-all ${i === idx ? "bg-yellow w-3" : "bg-white/50"}`}
+                aria-label={`Photo ${i + 1}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function Fleet({
   fleet,
   categories,
@@ -43,13 +114,10 @@ export default function Fleet({
   const { convert } = useCurrency();
   const [activeCat, setActiveCat] = useState<string>("all");
 
-  // Which categories are enabled / known
   const enabledIds = new Set(cats.filter((c) => c.enabled).map((c) => c.id));
   const knownIds = new Set(cats.map((c) => c.id));
   const catOf = (it: FleetItem) => it.category ?? "scooter";
 
-  // A vehicle is visible if categories aren't configured, its category is
-  // unknown (safety), or its category is enabled.
   const visibleItems = allItems.filter((it) => {
     if (cats.length === 0) return true;
     const c = catOf(it);
@@ -57,7 +125,6 @@ export default function Fleet({
     return enabledIds.has(c);
   });
 
-  // Tabs: enabled categories that actually have visible vehicles
   const usedCats = cats.filter(
     (c) => c.enabled && visibleItems.some((it) => catOf(it) === c.id)
   );
@@ -73,7 +140,6 @@ export default function Fleet({
   return (
     <section id="fleet" className="bg-dark py-24 md:py-36" aria-label="Scooter fleet">
       <div className="max-w-7xl mx-auto px-6">
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -95,7 +161,6 @@ export default function Fleet({
           </p>
         </motion.div>
 
-        {/* Category filter pills */}
         {showTabs && (
           <div className="flex flex-wrap gap-2.5 mb-10">
             <button
@@ -124,11 +189,9 @@ export default function Fleet({
           </div>
         )}
 
-        {/* Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
           {items.map((scooter, i) => {
             const specs = SPECS_BY_ID[scooter.id] ?? SPECS_BY_ID._default;
-            const isUpload = scooter.image.startsWith("/uploads/") || scooter.image.startsWith("http");
             return (
               <motion.div
                 key={`${scooter.id}-${i}`}
@@ -139,32 +202,23 @@ export default function Fleet({
                 whileHover={{ scale: 1.015 }}
                 className="group relative bg-dark-card rounded-2xl overflow-hidden border border-dark-border hover:border-yellow/60 transition-all duration-400"
               >
-                {/* Image */}
-                <div className="relative h-[340px] md:h-[420px] overflow-hidden">
-                  <Image
-                    src={scooter.image}
-                    alt={scooter.name}
-                    fill
-                    className={`object-cover transition-transform duration-700 group-hover:scale-[1.04] ${scooter.available === false ? "brightness-50" : ""}`}
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                    loading={i === 0 ? "eager" : "lazy"}
-                    unoptimized={isUpload}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-dark-card via-dark-card/20 to-transparent" />
-                  <div className="absolute top-5 left-5 flex items-center gap-2">
-                    <span className="font-bebas text-xs tracking-[0.2em] bg-yellow text-dark px-3.5 py-1.5 rounded-full">
-                      {scooter.badge}
+                {/* Photo carousel */}
+                <FleetImageCarousel scooter={scooter} />
+
+                {/* Badges overlay */}
+                <div className="absolute top-5 left-5 flex items-center gap-2 z-10">
+                  <span className="font-bebas text-xs tracking-[0.2em] bg-yellow text-dark px-3.5 py-1.5 rounded-full">
+                    {scooter.badge}
+                  </span>
+                  {scooter.available === false ? (
+                    <span className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.15em] bg-red-500/90 text-white px-3 py-1.5 rounded-full">
+                      <Ban size={10} /> {t.fleet.unavailable}
                     </span>
-                    {scooter.available === false ? (
-                      <span className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.15em] bg-red-500/90 text-white px-3 py-1.5 rounded-full">
-                        <Ban size={10} /> {t.fleet.unavailable}
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.15em] bg-green-500/90 text-white px-3 py-1.5 rounded-full">
-                        <BadgeCheck size={10} /> {t.fleet.available}
-                      </span>
-                    )}
-                  </div>
+                  ) : (
+                    <span className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.15em] bg-green-500/90 text-white px-3 py-1.5 rounded-full">
+                      <BadgeCheck size={10} /> {t.fleet.available}
+                    </span>
+                  )}
                 </div>
 
                 {/* Content */}
@@ -182,7 +236,6 @@ export default function Fleet({
                     {scooter.description}
                   </p>
 
-                  {/* Specs grid */}
                   <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-8">
                     {specs.map((spec) => {
                       const Icon = spec.icon;
@@ -195,7 +248,6 @@ export default function Fleet({
                     })}
                   </div>
 
-                  {/* Price + CTA */}
                   <div className="flex items-center justify-between pt-5 border-t border-dark-border">
                     <div>
                       <span className="font-syne font-extrabold text-yellow text-2xl">{convert(scooter.price)}</span>

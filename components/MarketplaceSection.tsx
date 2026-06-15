@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ExternalLink, Phone, Tag, Star, Loader2, Truck, ShoppingBag, UtensilsCrossed, MessageCircle, Navigation, Clock } from "lucide-react";
+import { ExternalLink, Phone, Tag, Star, Loader2, Truck, ShoppingBag, UtensilsCrossed, MessageCircle, Navigation, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import type { MarketplaceListing } from "@/lib/supabase/types";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -16,6 +16,68 @@ const CATEGORY_CONFIG: Record<
   accommodation: { label: "Accommodation",emoji: "🏡", color: "bg-amber-400/10  text-amber-400 border-amber-400/30" },
   shopping:      { label: "Shopping",     emoji: "🛍️", color: "bg-pink-500/10   text-pink-400  border-pink-500/30" },
 };
+
+function ListingCarousel({ listing }: { listing: MarketplaceListing }) {
+  // Merge images[] (new) and image_url (legacy) into one photo array.
+  const all: string[] = [];
+  if (listing.images && listing.images.length > 0) {
+    all.push(...listing.images);
+  } else if (listing.image_url) {
+    all.push(listing.image_url);
+  }
+
+  const [idx, setIdx] = useState(0);
+  if (all.length === 0) return null;
+
+  const prev = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIdx((i) => (i - 1 + all.length) % all.length);
+  };
+  const next = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIdx((i) => (i + 1) % all.length);
+  };
+
+  return (
+    <div className="-mx-6 -mt-6 mb-4 h-44 overflow-hidden rounded-t-2xl relative group/photo">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={all[idx]}
+        alt=""
+        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+        loading="lazy"
+      />
+      {all.length > 1 && (
+        <>
+          <button
+            onClick={prev}
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity hover:bg-black/80"
+            aria-label="Previous"
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <button
+            onClick={next}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity hover:bg-black/80"
+            aria-label="Next"
+          >
+            <ChevronRight size={14} />
+          </button>
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+            {all.map((_, i) => (
+              <button
+                key={i}
+                onClick={(e) => { e.preventDefault(); setIdx(i); }}
+                className={`h-1 rounded-full transition-all ${i === idx ? "bg-yellow w-3" : "bg-white/50 w-1"}`}
+                aria-label={`Photo ${i + 1}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function MarketplaceSection() {
   const { t } = useLanguage();
@@ -66,7 +128,6 @@ export default function MarketplaceSection() {
           </div>
         ) : (
           <>
-            {/* Category filter pills */}
             {categories.length > 2 && (
               <div className="flex flex-wrap gap-2 mb-8">
                 {categories.map((cat) => {
@@ -105,18 +166,8 @@ export default function MarketplaceSection() {
                     transition={{ duration: 0.6, delay: i * 0.07 }}
                     className="bg-dark-card border border-dark-border rounded-2xl p-6 flex flex-col hover:border-yellow/40 transition-colors group"
                   >
-                    {/* Partner / deal photo */}
-                    {listing.image_url && (
-                      <div className="-mx-6 -mt-6 mb-4 h-40 overflow-hidden rounded-t-2xl">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={listing.image_url}
-                          alt={listing.business_name}
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                          loading="lazy"
-                        />
-                      </div>
-                    )}
+                    {/* Photo carousel (handles multi + legacy single) */}
+                    <ListingCarousel listing={listing} />
 
                     {/* Header */}
                     <div className="flex items-start justify-between gap-3 mb-4">
@@ -138,12 +189,10 @@ export default function MarketplaceSection() {
                       </div>
                     </div>
 
-                    {/* Description */}
                     <p className="text-muted font-dm text-sm leading-relaxed flex-1 mb-4">
                       {listing.description}
                     </p>
 
-                    {/* Service options */}
                     {(listing.delivery || listing.pickup || listing.dine_in) && (
                       <div className="flex flex-wrap gap-2 mb-4">
                         {listing.delivery && (
@@ -164,7 +213,6 @@ export default function MarketplaceSection() {
                       </div>
                     )}
 
-                    {/* Offer highlight */}
                     <div className="flex items-start gap-2.5 bg-yellow/5 border border-yellow/20 rounded-xl px-4 py-3 mb-5">
                       <Tag size={13} className="text-yellow shrink-0 mt-0.5" />
                       <p className="text-yellow font-dm text-sm font-medium leading-snug">
@@ -172,14 +220,12 @@ export default function MarketplaceSection() {
                       </p>
                     </div>
 
-                    {/* Hours */}
                     {listing.hours && (
                       <p className="flex items-center gap-1.5 text-xs font-dm text-muted/70 mb-3">
                         <Clock size={11} className="text-yellow/70" /> {listing.hours}
                       </p>
                     )}
 
-                    {/* Primary actions */}
                     <div className="flex items-center gap-2 flex-wrap mt-auto">
                       {listing.whatsapp && (
                         <a
