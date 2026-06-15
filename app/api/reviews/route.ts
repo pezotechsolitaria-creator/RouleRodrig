@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { guard } from "@/lib/rate-limit";
 
 // ── Public: list APPROVED reviews only ──────────────────────────────
 export async function GET(req: NextRequest) {
@@ -21,6 +22,10 @@ export async function GET(req: NextRequest) {
 
 // ── Public: submit a review (always created as PENDING) ─────────────
 export async function POST(req: NextRequest) {
+  // 5 review submissions per minute per IP
+  const limited = guard(req, "reviews", 5, 60_000);
+  if (limited) return limited;
+
   let body: {
     name?: string;
     origin?: string;

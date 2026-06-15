@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sendBookingEmails } from "@/lib/email";
+import { guard } from "@/lib/rate-limit";
 
 // ── Public: create a booking request + send confirmation emails ─────
 export async function POST(req: NextRequest) {
+  // 8 booking requests per minute per IP
+  const limited = guard(req, "bookings", 8, 60_000);
+  if (limited) return limited;
+
   let body: {
     name?: string;
     email?: string | null;

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyPassword, getSessionValue, COOKIE_NAME } from '@/lib/auth';
+import { guard } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
+  // Brute-force protection: 5 attempts per 5 minutes per IP
+  const limited = guard(req, 'admin-login', 5, 5 * 60_000);
+  if (limited) return limited;
+
   try {
     const { password } = (await req.json()) as { password?: string };
     if (!password || !verifyPassword(password)) {

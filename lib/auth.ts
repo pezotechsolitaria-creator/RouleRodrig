@@ -16,7 +16,18 @@ export function getSessionValue(): string {
 }
 
 export function verifyPassword(input: string): boolean {
-  return input === getAdminPassword();
+  const expected = getAdminPassword();
+  if (!expected) return false; // not configured → deny all
+  const a = Buffer.from(input);
+  const b = Buffer.from(expected);
+  // Length check first (timingSafeEqual throws on length mismatch), then a
+  // constant-time compare to avoid leaking the password via response timing.
+  if (a.length !== b.length) return false;
+  try {
+    return crypto.timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
 }
 
 export function verifySession(cookieValue: string | undefined): boolean {

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Phone, Mail, MapPin, Clock, Send, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type ContactContent, type FleetItem } from "@/lib/defaults";
-import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/context/LanguageContext";
 
 type FormState = "idle" | "loading" | "success" | "error";
@@ -59,19 +58,20 @@ export default function Contact({
           ? fmt(form.dateStart)
           : "";
 
-      const supabase = createClient();
-      const { error } = await supabase.from("contact_submissions").insert([
-        {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           name: form.name || null,
           email: form.email || null,
           phone: form.phone || null,
           scooter: form.scooter || null,
           dates: dates || null,
           message: form.message || null,
-        },
-      ]);
+        }),
+      });
 
-      if (error) throw error;
+      if (!res.ok) throw new Error("Submission failed");
 
       setFormState("success");
       setForm({ name: "", email: "", phone: "", scooter: "", dateStart: "", dateEnd: "", message: "" });

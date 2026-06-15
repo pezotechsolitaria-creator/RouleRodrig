@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { guard } from "@/lib/rate-limit";
 
 // ── Public: a hotel/partner can look up their own referral performance with
 //    just their code. No login required, and NO guest personal data is ever
@@ -7,6 +8,10 @@ import { createClient } from "@/lib/supabase/server";
 //    (scooter, dates, status, amount). This keeps partners motivated without
 //    exposing customer PII or needing admin access. ─────────────────────────
 export async function GET(req: NextRequest) {
+  // 30 lookups per minute per IP — blocks code enumeration / scraping
+  const limited = guard(req, "partner-stats", 30, 60_000);
+  if (limited) return limited;
+
   const raw = req.nextUrl.searchParams.get("code") ?? "";
   const code = raw.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 30);
   if (!code) {
