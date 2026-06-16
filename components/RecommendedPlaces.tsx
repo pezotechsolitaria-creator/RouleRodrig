@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { BedDouble, UtensilsCrossed, Compass, ArrowUpRight, MapPin } from "lucide-react";
+import { track } from "@vercel/analytics";
+import { BedDouble, UtensilsCrossed, Compass, ArrowUpRight, MapPin, MessageCircle, Star } from "lucide-react";
 import type { RecommendedContent, RecommendedPlace } from "@/lib/defaults";
 
 const CATEGORY: Record<
@@ -14,6 +15,9 @@ const CATEGORY: Record<
   activity:   { label: "Activity",   plural: "Do",   icon: Compass,          color: "bg-blue-500/10 text-blue-400 border-blue-500/30" },
 };
 
+// Source tag included in every outbound link/message so leads are attributable.
+const SOURCE = "roulerodrigues";
+
 export default function RecommendedPlaces({ content }: { content?: RecommendedContent }) {
   const [filter, setFilter] = useState<string>("all");
   if (!content || !content.enabled) return null;
@@ -21,12 +25,32 @@ export default function RecommendedPlaces({ content }: { content?: RecommendedCo
   const items = (content.items ?? []).filter((p) => p.name);
   if (items.length === 0) return null;
 
-  const cats = Array.from(new Set(items.map((p) => p.category)));
+  // Sponsored (featured) places surface first.
+  const sorted = [...items].sort((a, b) => Number(b.featured ?? false) - Number(a.featured ?? false));
+  const cats = Array.from(new Set(sorted.map((p) => p.category)));
   const showTabs = cats.length > 1;
-  const shown = filter === "all" ? items : items.filter((p) => p.category === filter);
+  const shown = filter === "all" ? sorted : sorted.filter((p) => p.category === filter);
+
+  function waLink(p: RecommendedPlace): string {
+    const ref = `${SOURCE}-${p.id}`;
+    const msg =
+      `Hi ${p.name}! 👋\n\n` +
+      `I found you via Roule Rodrigues (${CATEGORY[p.category].label}).\n` +
+      `I'd like to book / enquire.\n\n` +
+      `Ref: ${ref}`;
+    return `https://wa.me/${(p.whatsapp ?? "").replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`;
+  }
+
+  function logLead(p: RecommendedPlace, type: "whatsapp" | "link") {
+    try {
+      track("stay_eat_do_lead", { business: p.name, category: p.category, type, ref: `${SOURCE}-${p.id}` });
+    } catch {
+      /* analytics is best-effort */
+    }
+  }
 
   return (
-    <section id="recommended" className="bg-dark py-24 md:py-32" aria-label="Recommended places">
+    <section id="recommended" className="bg-dark py-24 md:py-32 scroll-mt-24" aria-label="Recommended places">
       <div className="max-w-7xl mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -83,6 +107,7 @@ export default function RecommendedPlaces({ content }: { content?: RecommendedCo
           {shown.map((p, i) => {
             const cfg = CATEGORY[p.category];
             const isExternal = p.link?.startsWith("http");
+            const hasWa = !!(p.whatsapp && p.whatsapp.replace(/\D/g, "").length >= 6);
             return (
               <motion.div
                 key={p.id}
@@ -90,7 +115,11 @@ export default function RecommendedPlaces({ content }: { content?: RecommendedCo
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-40px" }}
                 transition={{ duration: 0.5, delay: (i % 3) * 0.08 }}
-                className="bg-dark-card border border-dark-border rounded-2xl overflow-hidden flex flex-col hover:border-yellow/40 transition-colors group"
+                className={`bg-dark-card rounded-2xl overflow-hidden flex flex-col transition-colors group ${
+                  p.featured
+                    ? "border-2 border-yellow/50 hover:border-yellow shadow-[0_0_24px_rgba(245,200,66,0.08)]"
+                    : "border border-dark-border hover:border-yellow/40"
+                }`}
               >
                 {/* Image */}
                 <div className="relative h-44 bg-gradient-to-br from-yellow/10 via-dark-card to-dark overflow-hidden">
@@ -110,23 +139,43 @@ export default function RecommendedPlaces({ content }: { content?: RecommendedCo
                   <span className={`absolute top-3 left-3 flex items-center gap-1.5 font-bebas text-[9px] tracking-[0.2em] border px-2.5 py-1 rounded-full backdrop-blur-sm ${cfg.color}`}>
                     <cfg.icon size={10} /> {cfg.label.toUpperCase()}
                   </span>
+                  {p.featured && (
+                    <span className="absolute top-3 right-3 flex items-center gap-1 font-bebas text-[9px] tracking-[0.15em] bg-yellow text-dark px-2.5 py-1 rounded-full">
+                      <Star size={8} className="fill-dark" /> SPONSORED
+                    </span>
+                  )}
                 </div>
 
                 {/* Content */}
                 <div className="p-5 flex flex-col flex-1">
                   <h3 className="font-syne font-bold text-offwhite text-base mb-1.5">{p.name}</h3>
                   <p className="text-muted/85 font-dm text-sm leading-relaxed flex-1">{p.description}</p>
-                  {p.link && (
-                    <a
-                      href={p.link}
-                      target={isExternal ? "_blank" : undefined}
-                      rel={isExternal ? "noopener noreferrer" : undefined}
-                      className="mt-4 inline-flex items-center gap-1.5 text-yellow hover:text-yellow-dark text-sm font-syne font-bold transition-colors"
-                    >
-                      {p.linkText || (isExternal ? "Visit" : "View on map")}
-                      {isExternal ? <ArrowUpRight size={14} /> : <MapPin size={14} />}
-                    </a>
-                  )}
+
+                  <div className="flex items-center gap-2 flex-wrap mt-4">
+                    {hasWa && (
+                      <a
+                        href={waLink(p)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => logLead(p, "whatsapp")}
+                        className="flex items-center gap-1.5 bg-green-500/15 text-green-400 hover:bg-green-500/25 text-xs font-syne font-bold px-3.5 py-2 rounded-full transition-colors"
+                      >
+                        <MessageCircle size={13} /> Book / Enquire
+                      </a>
+                    )}
+                    {p.link && (
+                      <a
+                        href={p.link}
+                        target={isExternal ? "_blank" : undefined}
+                        rel={isExternal ? "noopener noreferrer" : undefined}
+                        onClick={() => logLead(p, "link")}
+                        className="inline-flex items-center gap-1.5 text-yellow hover:text-yellow-dark text-xs font-syne font-bold transition-colors"
+                      >
+                        {p.linkText || (isExternal ? "Visit" : "View on map")}
+                        {isExternal ? <ArrowUpRight size={13} /> : <MapPin size={13} />}
+                      </a>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             );

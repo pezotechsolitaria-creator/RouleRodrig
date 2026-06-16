@@ -13,7 +13,15 @@ import { LANGUAGE_FLAGS, LANGUAGE_NATIVE, type Language } from "@/lib/i18n";
 
 const LANG_CYCLE: Language[] = ["en", "fr", "cr"];
 
-export default function Navbar({ branding, announcementActive }: { branding?: BrandingContent; announcementActive?: boolean }) {
+export default function Navbar({
+  branding,
+  announcementActive,
+  showStayEatDo,
+}: {
+  branding?: BrandingContent;
+  announcementActive?: boolean;
+  showStayEatDo?: boolean;
+}) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { t, language, setLanguage } = useLanguage();
@@ -31,9 +39,9 @@ export default function Navbar({ branding, announcementActive }: { branding?: Br
 
   const navLinks = [
     { label: t.nav.scooters, href: "#fleet" },
-    { label: t.nav.pricing,  href: "#pricing" },
     { label: t.nav.map,      href: "#map" },
     { label: t.nav.taxi,     href: "/taxi" },
+    ...(showStayEatDo ? [{ label: t.nav.stayEatDo, href: "/#recommended" }] : []),
     { label: t.nav.contact,  href: "#contact" },
   ];
 

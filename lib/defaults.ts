@@ -162,6 +162,8 @@ export interface RecommendedPlace {
   image: string;
   link?: string;       // website, booking page or Google Maps link
   linkText?: string;
+  whatsapp?: string;   // business WhatsApp — enables the "Book / Enquire" redirect
+  featured?: boolean;  // sponsored placement — shown first with a badge
 }
 
 export interface RecommendedContent {

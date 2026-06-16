@@ -128,6 +128,7 @@ export default async function Home() {
         <Navbar
           branding={content.branding}
           announcementActive={content.announcement.active && announcementMessages(content.announcement).length > 0}
+          showStayEatDo={content.recommended.enabled && content.recommended.items.length > 0}
         />
         <Hero hero={content.hero} />
         <Stats stats={content.stats} />

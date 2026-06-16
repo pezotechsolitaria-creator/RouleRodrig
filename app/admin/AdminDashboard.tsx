@@ -2346,10 +2346,26 @@ function RecommendedEditor({
       {rec.items.map((it, i) => (
         <div key={it.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <p className="font-bebas text-yellow text-xs tracking-[0.3em]">{it.name || `PLACE ${i + 1}`}</p>
-            <button type="button" onClick={() => removeItem(i)} className="flex items-center gap-1.5 text-xs font-dm text-muted/60 hover:text-red-400 transition-colors">
-              <Trash2 size={12} /> Remove
-            </button>
+            <div className="flex items-center gap-2">
+              <p className="font-bebas text-yellow text-xs tracking-[0.3em]">{it.name || `PLACE ${i + 1}`}</p>
+              {it.featured && (
+                <span className="flex items-center gap-1 font-bebas text-[9px] tracking-[0.15em] bg-yellow/10 text-yellow border border-yellow/30 px-2 py-0.5 rounded-full">
+                  <Star size={8} className="fill-yellow" /> SPONSORED
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => updateItem(i, { featured: !it.featured })}
+                className={`flex items-center gap-1.5 text-xs font-dm px-3 py-1.5 rounded-full border transition-colors ${it.featured ? "border-yellow/40 text-yellow bg-yellow/10" : "border-[#2a2a2a] text-muted/60 hover:border-yellow/30 hover:text-yellow"}`}
+              >
+                <Star size={11} /> {it.featured ? "Sponsored" : "Make sponsored"}
+              </button>
+              <button type="button" onClick={() => removeItem(i)} className="flex items-center gap-1.5 text-xs font-dm text-muted/60 hover:text-red-400 transition-colors">
+                <Trash2 size={12} /> Remove
+              </button>
+            </div>
           </div>
           <ImagePicker label="PHOTO" src={it.image} onUpload={(p) => updateItem(i, { image: p })} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2370,6 +2386,9 @@ function RecommendedEditor({
           </div>
           <Field label="DESCRIPTION">
             <Textarea value={it.description} onChange={(v) => updateItem(i, { description: v })} rows={2} />
+          </Field>
+          <Field label="WHATSAPP NUMBER (enables the “Book / Enquire” button)">
+            <TextInput value={it.whatsapp ?? ""} onChange={(v) => updateItem(i, { whatsapp: v })} placeholder="+230 5XXX XXXX" />
           </Field>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="LINK (website or Google Maps, optional)">
