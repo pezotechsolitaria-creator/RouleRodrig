@@ -121,7 +121,21 @@ export default function Footer({
           </div>
         </div>
 
-        <div className="pt-6 border-t border-dark-border flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-dm text-muted">
+        {/* Legal links */}
+        <div className="pt-6 border-t border-dark-border flex flex-wrap items-center justify-center gap-x-5 gap-y-2 mb-5">
+          {[
+            { label: t.footer.terms,      href: "/legal/terms" },
+            { label: t.footer.privacy,    href: "/legal/privacy" },
+            { label: t.footer.refunds,    href: "/legal/refunds" },
+            { label: t.footer.disclaimer, href: "/legal/disclaimer" },
+          ].map((l) => (
+            <Link key={l.href} href={l.href} className="text-muted hover:text-yellow transition-colors text-xs font-dm">
+              {l.label}
+            </Link>
+          ))}
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-dm text-muted">
           <p>{t.footer.rights(year)}</p>
           <p>{t.footer.location}</p>
         </div>

@@ -264,6 +264,17 @@ export default function TaxiPage() {
     } catch {
       /* analytics is best-effort */
     }
+    // Durable record for the admin Leads dashboard (keepalive survives navigation)
+    try {
+      fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "taxi", target_name: driver.name, category: driver.vehicle_type, type }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch {
+      /* best-effort */
+    }
   }
 
   const load = useCallback(() => {
@@ -431,6 +442,9 @@ export default function TaxiPage() {
 
         <p className="text-muted/40 font-dm text-xs mt-10 text-center">
           {tx.fareNote}
+        </p>
+        <p className="text-muted/40 font-dm text-[11px] mt-3 text-center max-w-2xl mx-auto leading-relaxed">
+          {tx.disclaimer}
         </p>
       </div>
 

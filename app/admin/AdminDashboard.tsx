@@ -48,6 +48,7 @@ import {
   ChevronUp,
   ChevronDown,
   BedDouble,
+  TrendingUp,
 } from "lucide-react";
 import type { TaxiDriver, TaxiDriverReview } from "@/lib/supabase/taxi-types";
 import type {
@@ -92,6 +93,7 @@ type Section =
   | "branding"
   | "submissions"
   | "bookings"
+  | "leads"
   | "map"
   | "partners"
   | "marketplace"
@@ -106,6 +108,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "submissions",  label: "Enquiries",        icon: Inbox,           group: "overview" },
   { id: "reviews",      label: "Customer Reviews", icon: MessageSquare,   group: "overview" },
   { id: "waitlist",     label: "Waitlist",         icon: Mail,            group: "overview" },
+  { id: "leads",        label: "Listing Leads",    icon: TrendingUp,      group: "overview" },
   { id: "partners",     label: "Partners",         icon: Handshake,       group: "business" },
   { id: "marketplace",  label: "Marketplace",      icon: Store,           group: "business" },
   { id: "taxi",         label: "Taxi & Transport",  icon: Car,             group: "business" },
@@ -4102,6 +4105,108 @@ function TaxiManager() {
 
 // ── Waitlist viewer ──────────────────────────────────────────────────────────
 
+interface LeadSummary { target: string; kind: string; category: string | null; total: number; last30: number; }
+interface LeadRecent { kind: string; target_name: string; category: string | null; type: string | null; ref: string | null; created_at: string; }
+interface LeadData {
+  totals: { all: number; last30: number; stayEatDo: number; taxi: number };
+  summary: LeadSummary[];
+  recent: LeadRecent[];
+}
+
+function LeadsViewer() {
+  const [data, setData] = useState<LeadData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/admin/leads")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setData(d))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const kindLabel = (k: string) => (k === "taxi" ? "Taxi" : "Stay·Eat·Do");
+  const fmt = (s: string) => {
+    try { return new Date(s).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); } catch { return s; }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-3 text-muted text-sm py-10">
+        <Loader2 size={16} className="animate-spin text-yellow" /> Loading leads…
+      </div>
+    );
+  }
+  if (!data || data.totals.all === 0) {
+    return (
+      <div className="bg-dark-card border border-dark-border rounded-2xl p-10 text-center">
+        <TrendingUp size={36} className="text-muted/20 mx-auto mb-3" />
+        <p className="text-muted font-dm text-sm">No leads yet. When visitors tap “Book / Enquire” on a Stay·Eat·Do listing or contact a taxi driver, it shows up here.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Totals */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: "Leads (last 30 days)", value: data.totals.last30 },
+          { label: "Leads (all time)", value: data.totals.all },
+          { label: "Stay·Eat·Do", value: data.totals.stayEatDo },
+          { label: "Taxi", value: data.totals.taxi },
+        ].map((s) => (
+          <div key={s.label} className="bg-dark-card border border-dark-border rounded-2xl p-5">
+            <p className="font-syne font-extrabold text-yellow text-2xl mb-1">{s.value}</p>
+            <p className="font-dm text-muted text-xs">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Per-listing summary — what you invoice on */}
+      <div className="bg-dark-card border border-dark-border rounded-2xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-dark-border flex items-center justify-between">
+          <p className="font-bebas text-yellow text-[10px] tracking-[0.3em]">LEADS BY LISTING</p>
+          <p className="font-bebas text-muted/50 text-[9px] tracking-[0.2em]">30 DAYS · ALL TIME</p>
+        </div>
+        <div className="divide-y divide-dark-border">
+          {data.summary.map((s, i) => (
+            <div key={i} className="flex items-center justify-between gap-3 px-5 py-3">
+              <div className="min-w-0">
+                <p className="text-offwhite text-sm font-medium truncate">{s.target}</p>
+                <p className="text-muted text-xs">{kindLabel(s.kind)}{s.category ? ` · ${s.category}` : ""}</p>
+              </div>
+              <div className="flex items-center gap-4 shrink-0 font-mono">
+                <span className="text-yellow text-sm font-bold">{s.last30}</span>
+                <span className="text-muted/60 text-xs">{s.total}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent activity */}
+      <div>
+        <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-3">RECENT ACTIVITY</p>
+        <div className="bg-dark-card border border-dark-border rounded-2xl divide-y divide-dark-border overflow-hidden">
+          {data.recent.map((r, i) => (
+            <div key={i} className="flex items-center justify-between gap-3 px-5 py-2.5">
+              <div className="min-w-0">
+                <span className="text-offwhite/90 text-sm">{r.target_name}</span>
+                <span className="text-muted/50 text-xs ml-2">{kindLabel(r.kind)}{r.type ? ` · ${r.type}` : ""}</span>
+              </div>
+              <span className="text-muted/50 text-xs font-dm shrink-0">{fmt(r.created_at)}</span>
+            </div>
+          ))}
+        </div>
+        <p className="text-muted/40 text-xs font-dm mt-3">
+          Bold = last 30 days, grey = all time. Use these counts to bill featured placements or pay-per-lead.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function WaitlistViewer() {
   const [list, setList] = useState<WaitlistEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -4264,6 +4369,7 @@ export default function AdminDashboard({
     branding:     { title: "Branding & Social",   desc: "Upload your logo and link your social media pages." },
     submissions:  { title: "Enquiries",           desc: "Contact form submissions from customers." },
     bookings:     { title: "Bookings",            desc: "Booking requests from the website booking form." },
+    leads:        { title: "Listing Leads",       desc: "Clicks & enquiries on your Stay·Eat·Do and Taxi listings — for billing featured / pay-per-lead." },
     map:          { title: "Island Map Locations",desc: "Manage the points of interest shown on the island guide map." },
     waitlist:     { title: "Waitlist",            desc: "People who signed up for deals and island tips." },
     planner:      { title: "AI Trip Planner",     desc: "Edit the real places, photos and tips the planner uses to build itineraries." },
@@ -4471,6 +4577,7 @@ export default function AdminDashboard({
           {section === "submissions" && <SubmissionsViewer />}
           {section === "reviews" && <ReviewsModeration />}
           {section === "waitlist" && <WaitlistViewer />}
+          {section === "leads" && <LeadsViewer />}
           {section === "bookings" && <BookingsManager />}
           {section === "map" && (
             <MapEditor content={content} onChange={setContent} />

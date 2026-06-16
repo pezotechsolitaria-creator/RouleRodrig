@@ -118,6 +118,9 @@ const translations = {
       tripPrefill:    (n: number) => `Booking for your ${n}-day trip ✨ Dates are pre-filled — just pick your pickup date and scooter.`,
       referredBy:     (code: string) => `Referred by ${code} — your booking is linked to them automatically.`,
       confirmWhatsApp: "Confirm on WhatsApp",
+      agreeBefore:     "I agree to the",
+      agreeLink:       "Terms & Rental Policy",
+      agreeError:      "Please accept the Terms & Rental Policy to continue.",
       days:           (n: number) => `${n} day${n !== 1 ? "s" : ""}`,
     },
 
@@ -151,6 +154,11 @@ const translations = {
       tag:      "Tag us in your Rodrigues adventures.",
       rights:   (year: number) => `© ${year} Roule Rodrigues. All rights reserved.`,
       location: "Rodrigues Island, Republic of Mauritius",
+      legal:      "LEGAL",
+      terms:      "Terms",
+      privacy:    "Privacy",
+      refunds:    "Refunds",
+      disclaimer: "Disclaimer",
     },
 
     // Trip planner
@@ -338,6 +346,7 @@ const translations = {
       reviewsRate:    "Reviews & rate",
       rate:           "Rate this driver",
       fareNote:       "Fares are agreed directly with the driver. Prices listed are starting estimates only.",
+      disclaimer:     "Roule Rodrigues is a scooter-rental platform. Taxi drivers are independent third parties listed for your convenience — we are not a transport operator and are not responsible for their service.",
       feedback:       "DRIVER FEEDBACK",
       review:         "review",
       reviews:        "reviews",
@@ -372,6 +381,7 @@ const translations = {
       visit:         "Visit",
       viewMap:       "View on map",
       sponsored:     "SPONSORED",
+      disclaimer:    "These are independent businesses listed for your convenience. Roule Rodrigues is a scooter-rental platform and is not responsible for their services or bookings.",
     },
 
     // Getting Around card
@@ -460,6 +470,9 @@ const translations = {
       tripPrefill:    (n: number) => `Réservation pour votre voyage de ${n} jour${n > 1 ? "s" : ""} ✨ Les dates sont pré-remplies — choisissez votre date de prise en charge et votre scooter.`,
       referredBy:     (code: string) => `Recommandé par ${code} — votre réservation leur est automatiquement liée.`,
       confirmWhatsApp: "Confirmer sur WhatsApp",
+      agreeBefore:     "J'accepte les",
+      agreeLink:       "Conditions & Règles de location",
+      agreeError:      "Veuillez accepter les Conditions & Règles de location pour continuer.",
       days:           (n: number) => `${n} jour${n > 1 ? "s" : ""}`,
     },
     contact: {
@@ -489,6 +502,11 @@ const translations = {
       tag:      "Identifiez-nous dans vos aventures à Rodrigues.",
       rights:   (year: number) => `© ${year} Roule Rodrigues. Tous droits réservés.`,
       location: "Île Rodrigues, République de Maurice",
+      legal:      "LÉGAL",
+      terms:      "Conditions",
+      privacy:    "Confidentialité",
+      refunds:    "Remboursements",
+      disclaimer: "Avertissement",
     },
     planner: {
       eyebrow:    "PERSONNALISÉ POUR VOUS",
@@ -646,6 +664,7 @@ const translations = {
       reviewsRate:    "Avis & noter",
       rate:           "Noter ce chauffeur",
       fareNote:       "Les tarifs se conviennent directement avec le chauffeur. Les prix indiqués sont des estimations de départ.",
+      disclaimer:     "Roule Rodrigues est une plateforme de location de scooters. Les chauffeurs de taxi sont des tiers indépendants listés pour votre commodité — nous ne sommes pas un opérateur de transport et ne sommes pas responsables de leur service.",
       feedback:       "AVIS CHAUFFEUR",
       review:         "avis",
       reviews:        "avis",
@@ -680,6 +699,7 @@ const translations = {
       visit:         "Visiter",
       viewMap:       "Voir sur la carte",
       sponsored:     "SPONSORISÉ",
+      disclaimer:    "Ce sont des entreprises indépendantes listées pour votre commodité. Roule Rodrigues est une plateforme de location de scooters et n'est pas responsable de leurs services ou réservations.",
     },
 
     // Carte Se déplacer
@@ -768,6 +788,9 @@ const translations = {
       tripPrefill:    (n: number) => `Rezervasion pou ou vwayaz ${n} zour ✨ Bann dat fini ranpli — swazi zis ou dat pran ek ou skooter.`,
       referredBy:     (code: string) => `Rekomande par ${code} — ou rezervasion lie ar zot otomatikman.`,
       confirmWhatsApp: "Konfirme lor WhatsApp",
+      agreeBefore:     "Mo aksepte bann",
+      agreeLink:       "Kondision & Reg Lokasion",
+      agreeError:      "Silvouple aksepte bann Kondision & Reg Lokasion pou kontinie.",
       days:           (n: number) => `${n} zour`,
     },
     contact: {
@@ -797,6 +820,11 @@ const translations = {
       tag:      "Tagn nou dan ou lavantur Rodrig.",
       rights:   (year: number) => `© ${year} Roule Rodrigues. Tou drwa rezerve.`,
       location: "Zil Rodrig, Repiblik Moris",
+      legal:      "LEGAL",
+      terms:      "Kondision",
+      privacy:    "Konfidansialite",
+      refunds:    "Ranbourseman",
+      disclaimer: "Avertisman",
     },
     planner: {
       eyebrow:    "PERSONALIZE POU OU",
@@ -954,6 +982,7 @@ const translations = {
       reviewsRate:    "Lavi & note",
       rate:           "Note sa chofer la",
       fareNote:       "Bann pri met dakor direk ar chofer. Bann pri montre la zis enn estimasion.",
+      disclaimer:     "Roule Rodrigues enn plateform lokasion skooter. Bann chofer taksi zot bann tiers indepandan liste pou ou konvenians — nou pa enn operater transpor ek nou pa responsab pou zot servis.",
       feedback:       "LAVI CHOFER",
       review:         "lavi",
       reviews:        "lavi",
@@ -988,6 +1017,7 @@ const translations = {
       visit:         "Vizite",
       viewMap:       "Get lor kart",
       sponsored:     "SPONSORIZE",
+      disclaimer:    "Sa bann biznes indepandan liste pou ou konvenians. Roule Rodrigues enn plateform lokasion skooter ek nou pa responsab pou zot servis ouswa rezervasion.",
     },
 
     // Kart Pou Deplase

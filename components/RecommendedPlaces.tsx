@@ -58,6 +58,17 @@ export default function RecommendedPlaces({ content }: { content?: RecommendedCo
     } catch {
       /* analytics is best-effort */
     }
+    // Durable record for the admin Leads dashboard (keepalive survives navigation)
+    try {
+      fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "stay_eat_do", target_name: p.name, category: p.category, type, ref: `${SOURCE}-${p.id}` }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch {
+      /* best-effort */
+    }
   }
 
   return (
@@ -192,6 +203,10 @@ export default function RecommendedPlaces({ content }: { content?: RecommendedCo
             );
           })}
         </div>
+
+        <p className="text-muted/40 font-dm text-[11px] mt-8 text-center max-w-2xl mx-auto leading-relaxed">
+          {ts.disclaimer}
+        </p>
       </div>
     </section>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   CalendarDays,
@@ -56,6 +57,8 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
   const [lastBooking, setLastBooking] = useState<
     { scooter: string; range: string; days: number; name: string; total: string } | null
   >(null);
+  const [agreed, setAgreed] = useState(false);
+  const [agreeError, setAgreeError] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -165,6 +168,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
     if (!form.name || !form.scooter || !form.start_date || !form.end_date) return;
     if (days <= 0) return;
     if (hasOverlap) return; // selected dates clash with a confirmed booking
+    if (!agreed) { setAgreeError(true); return; } // must accept terms
 
     setFormState("loading");
     try {
@@ -197,6 +201,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
       setFormState("success");
       setForm({ name: "", email: "", phone: "", scooter: "", start_date: "", end_date: "", message: "", partner_code: "" });
       setShowPartnerCode(false);
+      setAgreed(false);
       setTimeout(() => setFormState("idle"), 12000);
     } catch {
       setFormState("error");
@@ -468,9 +473,28 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                 )}
               </div>
 
+              {/* Terms acceptance — required before booking */}
+              <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => { setAgreed(e.target.checked); if (e.target.checked) setAgreeError(false); }}
+                  className="mt-0.5 w-4 h-4 accent-yellow shrink-0"
+                  disabled={formState === "loading"}
+                />
+                <span className={`font-dm text-xs leading-snug ${agreeError ? "text-red-400" : "text-muted"}`}>
+                  {t.booking.agreeBefore}{" "}
+                  <Link href="/legal/terms" target="_blank" className="text-yellow hover:underline">
+                    {t.booking.agreeLink}
+                  </Link>
+                  .
+                </span>
+              </label>
+              {agreeError && <p className="text-red-400 font-dm text-xs -mt-2">{t.booking.agreeError}</p>}
+
               <button
                 type="submit"
-                disabled={formState === "loading" || formState === "success" || hasOverlap}
+                disabled={formState === "loading" || formState === "success" || hasOverlap || !agreed}
                 className="w-full flex items-center justify-center gap-2.5 bg-yellow text-dark font-syne font-bold text-base py-4 rounded-xl hover:bg-yellow-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {formState === "loading" ? (
