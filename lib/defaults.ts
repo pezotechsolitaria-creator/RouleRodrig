@@ -154,6 +154,23 @@ export interface EventItem {
   featured?: boolean;  // pinned to top + gold border
 }
 
+export interface RecommendedPlace {
+  id: string;
+  category: "hotel" | "restaurant" | "activity";
+  name: string;
+  description: string;
+  image: string;
+  link?: string;       // website, booking page or Google Maps link
+  linkText?: string;
+}
+
+export interface RecommendedContent {
+  enabled: boolean;
+  title: string;
+  subtitle: string;
+  items: RecommendedPlace[];
+}
+
 export interface FaqItem {
   id: string;
   question: string;
@@ -205,6 +222,7 @@ export interface SiteContent {
   sponsors: Sponsor[];
   gettingAround: GettingAroundContent;
   faq: FaqContent;
+  recommended: RecommendedContent;
 }
 
 export const DEFAULT_CONTENT: SiteContent = {
@@ -501,5 +519,11 @@ export const DEFAULT_CONTENT: SiteContent = {
         answer: 'Yes, our scooters comfortably seat two riders, and we provide a second helmet at no extra cost.',
       },
     ],
+  },
+  recommended: {
+    enabled: true,
+    title: 'Where to Stay, Eat & Do',
+    subtitle: 'Our hand-picked places to make the most of your Rodrigues trip.',
+    items: [],
   },
 };

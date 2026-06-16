@@ -16,6 +16,7 @@ import RideRoutes from "@/components/RideRoutes";
 import Events from "@/components/Events";
 import UsefulNumbers from "@/components/UsefulNumbers";
 import MarketplaceSection from "@/components/MarketplaceSection";
+import RecommendedPlaces from "@/components/RecommendedPlaces";
 import Gallery from "@/components/Gallery";
 import Testimonials from "@/components/Testimonials";
 import ReviewsSection from "@/components/ReviewsSection";
@@ -141,6 +142,7 @@ export default async function Home() {
         <RideRoutes routes={content.rideRoutes} />
         <Events events={content.events} />
         <MarketplaceSection />
+        <RecommendedPlaces content={content.recommended} />
         <UsefulNumbers contacts={content.usefulContacts} />
         <Gallery gallery={content.gallery} />
         <Testimonials testimonials={content.testimonials} />

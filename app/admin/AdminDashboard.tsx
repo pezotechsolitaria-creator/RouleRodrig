@@ -47,6 +47,7 @@ import {
   HelpCircle,
   ChevronUp,
   ChevronDown,
+  BedDouble,
 } from "lucide-react";
 import type { TaxiDriver, TaxiDriverReview } from "@/lib/supabase/taxi-types";
 import type {
@@ -67,6 +68,7 @@ import type {
   Sponsor,
   TransportOption,
   FaqItem,
+  RecommendedPlace,
 } from "@/lib/defaults";
 import type { ContactSubmission, Booking, Partner, MarketplaceListing, ProductReview, WaitlistEntry } from "@/lib/supabase/types";
 import { SITE_URL } from "@/lib/site";
@@ -95,7 +97,8 @@ type Section =
   | "marketplace"
   | "taxi"
   | "gettingAround"
-  | "faq";
+  | "faq"
+  | "recommended";
 
 const NAV: { id: Section; label: string; icon: React.ElementType; group?: string }[] = [
   { id: "dashboard",    label: "Dashboard",       icon: LayoutDashboard, group: "overview" },
@@ -118,6 +121,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "planner",      label: "Trip Planner",     icon: Sparkles,        group: "content" },
   { id: "routes",       label: "Ride Routes",      icon: MapPin,          group: "content" },
   { id: "gettingAround",label: "Getting Around",   icon: Bus,             group: "content" },
+  { id: "recommended",  label: "Stay · Eat · Do",  icon: BedDouble,       group: "content" },
   { id: "faq",          label: "FAQ",              icon: HelpCircle,      group: "content" },
   { id: "events",       label: "Events",           icon: Calendar,        group: "content" },
   { id: "useful",       label: "Useful Numbers",   icon: Phone,           group: "content" },
@@ -2289,6 +2293,107 @@ function UsefulContactsEditor({
   );
 }
 
+// ── Stay · Eat · Do (Recommended places) editor ───────────────────────────────────
+
+const RECOMMENDED_CATEGORIES: RecommendedPlace["category"][] = ["hotel", "restaurant", "activity"];
+const RECOMMENDED_LABEL: Record<RecommendedPlace["category"], string> = {
+  hotel: "🏨 Hotel / Guesthouse",
+  restaurant: "🍽️ Restaurant",
+  activity: "🤿 Activity",
+};
+
+function RecommendedEditor({
+  content,
+  onChange,
+}: {
+  content: SiteContent;
+  onChange: (c: SiteContent) => void;
+}) {
+  const rec = content.recommended;
+  const set = (patch: Partial<typeof rec>) => onChange({ ...content, recommended: { ...rec, ...patch } });
+  const updateItem = (i: number, patch: Partial<RecommendedPlace>) =>
+    set({ items: rec.items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)) });
+  const addItem = () =>
+    set({ items: [...rec.items, { id: `rec-${Date.now()}`, category: "hotel", name: "", description: "", image: "" }] });
+  const removeItem = (i: number) => set({ items: rec.items.filter((_, idx) => idx !== i) });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
+        <div>
+          <p className="font-syne font-bold text-offwhite text-sm">Show the “Stay · Eat · Do” section</p>
+          <p className="text-muted/60 text-xs font-dm mt-0.5">Curated hotels, restaurants & activities on the homepage.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => set({ enabled: !rec.enabled })}
+          className="text-muted/60 hover:text-yellow transition-colors"
+          title={rec.enabled ? "Visible" : "Hidden"}
+        >
+          {rec.enabled ? <ToggleRight size={26} className="text-green-400" /> : <ToggleLeft size={26} />}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4">
+        <Field label="SECTION TITLE">
+          <TextInput value={rec.title} onChange={(v) => set({ title: v })} />
+        </Field>
+        <Field label="SUBTITLE">
+          <TextInput value={rec.subtitle} onChange={(v) => set({ subtitle: v })} />
+        </Field>
+      </div>
+
+      {rec.items.map((it, i) => (
+        <div key={it.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="font-bebas text-yellow text-xs tracking-[0.3em]">{it.name || `PLACE ${i + 1}`}</p>
+            <button type="button" onClick={() => removeItem(i)} className="flex items-center gap-1.5 text-xs font-dm text-muted/60 hover:text-red-400 transition-colors">
+              <Trash2 size={12} /> Remove
+            </button>
+          </div>
+          <ImagePicker label="PHOTO" src={it.image} onUpload={(p) => updateItem(i, { image: p })} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="NAME">
+              <TextInput value={it.name} onChange={(v) => updateItem(i, { name: v })} placeholder="e.g. Le Récif Hotel" />
+            </Field>
+            <Field label="CATEGORY">
+              <select
+                value={it.category}
+                onChange={(e) => updateItem(i, { category: e.target.value as RecommendedPlace["category"] })}
+                className={`${inputCls} appearance-none`}
+              >
+                {RECOMMENDED_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{RECOMMENDED_LABEL[c]}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <Field label="DESCRIPTION">
+            <Textarea value={it.description} onChange={(v) => updateItem(i, { description: v })} rows={2} />
+          </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="LINK (website or Google Maps, optional)">
+              <TextInput value={it.link ?? ""} onChange={(v) => updateItem(i, { link: v })} placeholder="https://..." />
+            </Field>
+            <Field label="BUTTON TEXT (optional)">
+              <TextInput value={it.linkText ?? ""} onChange={(v) => updateItem(i, { linkText: v })} placeholder="e.g. Book now / View on map" />
+            </Field>
+          </div>
+        </div>
+      ))}
+
+      <button
+        type="button"
+        onClick={addItem}
+        className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 text-muted/60 hover:text-yellow rounded-2xl py-5 text-sm font-dm transition-colors"
+      >
+        <Plus size={16} /> Add Place
+      </button>
+      <p className="text-muted/50 text-xs font-dm">Click Save Changes to publish.</p>
+    </div>
+  );
+}
+
 // ── FAQ editor ──────────────────────────────────────────────────────────────────
 
 function FaqEditor({
@@ -4145,6 +4250,7 @@ export default function AdminDashboard({
     planner:      { title: "AI Trip Planner",     desc: "Edit the real places, photos and tips the planner uses to build itineraries." },
     routes:       { title: "Ride Routes",         desc: "Curated scenic scooter routes shown on the website with a Google Maps link." },
     gettingAround:{ title: "Getting Around",      desc: "The transport-options card (bus / taxi / scooter) shown in the island guide." },
+    recommended:  { title: "Stay · Eat · Do",     desc: "Curated hotels, restaurants & activities. Toggle the whole section on or off." },
     faq:          { title: "FAQ",                 desc: "Frequently asked questions shown on the site (also boosts SEO)." },
     events:       { title: "Island Events",       desc: "Festivals, markets and happenings shown to visitors." },
     useful:       { title: "Useful Numbers",      desc: "Emergency, taxi and key local contacts — shown as tap-to-call." },
@@ -4361,6 +4467,9 @@ export default function AdminDashboard({
           )}
           {section === "faq" && (
             <FaqEditor content={content} onChange={setContent} />
+          )}
+          {section === "recommended" && (
+            <RecommendedEditor content={content} onChange={setContent} />
           )}
           {section === "events" && (
             <EventsEditor content={content} onChange={setContent} />
