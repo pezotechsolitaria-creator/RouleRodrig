@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyPassword, getSessionValue, COOKIE_NAME } from '@/lib/auth';
+import { verifyPassword, getSessionValue, COOKIE_NAME, SESSION_TTL_MS } from '@/lib/auth';
 import { guard } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: Math.floor(SESSION_TTL_MS / 1000), // matches server-side TTL (30 days)
       path: '/',
     });
     return res;

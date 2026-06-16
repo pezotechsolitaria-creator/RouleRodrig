@@ -3,6 +3,9 @@ import crypto from 'crypto';
 export const COOKIE_NAME = 'rr_admin';
 const SALT = 'roule-rodrigues-admin-2024';
 
+// Sessions expire server-side after this window (cookie maxAge should match).
+export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
 function getAdminPassword(): string {
   const pw = process.env.ADMIN_PASSWORD;
   if (pw && pw.length > 0) return pw;
@@ -13,12 +16,10 @@ function getAdminPassword(): string {
   return 'admin2024';
 }
 
-export function hashPassword(password: string): string {
-  return crypto.createHmac('sha256', SALT).update(password).digest('hex');
-}
-
-export function getSessionValue(): string {
-  return hashPassword(getAdminPassword());
+// HMAC key: a dedicated SESSION_SECRET if provided, else the legacy salt.
+// Setting SESSION_SECRET lets you invalidate every session by rotating it.
+function signingKey(): string {
+  return process.env.SESSION_SECRET || SALT;
 }
 
 export function verifyPassword(input: string): boolean {
@@ -36,16 +37,39 @@ export function verifyPassword(input: string): boolean {
   }
 }
 
+// Session token = `${issuedAt}.${hmac}`. Binding the timestamp means the token
+// rotates on every login and can expire server-side; binding the password means
+// changing ADMIN_PASSWORD instantly invalidates all existing sessions.
+function sign(issuedAt: number): string {
+  const h = crypto
+    .createHmac('sha256', signingKey())
+    .update(`${issuedAt}.${getAdminPassword()}`)
+    .digest('hex');
+  return `${issuedAt}.${h}`;
+}
+
+export function getSessionValue(): string {
+  return sign(Date.now());
+}
+
 export function verifySession(cookieValue: string | undefined): boolean {
   if (!cookieValue) return false;
   if (!getAdminPassword()) return false; // not configured → deny everything
-  const expected = getSessionValue();
-  if (cookieValue.length !== expected.length) return false;
+
+  const dot = cookieValue.indexOf('.');
+  if (dot <= 0) return false;
+
+  const issuedAt = Number(cookieValue.slice(0, dot));
+  if (!Number.isFinite(issuedAt)) return false;
+  if (Date.now() - issuedAt > SESSION_TTL_MS) return false;   // expired
+  if (issuedAt > Date.now() + 60_000) return false;           // future-dated → reject
+
+  const expected = sign(issuedAt);
+  const a = Buffer.from(cookieValue);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
   try {
-    return crypto.timingSafeEqual(
-      Buffer.from(cookieValue, 'hex'),
-      Buffer.from(expected, 'hex'),
-    );
+    return crypto.timingSafeEqual(a, b);
   } catch {
     return false;
   }
