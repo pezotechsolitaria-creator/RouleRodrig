@@ -5,21 +5,32 @@ import { motion } from "framer-motion";
 import { track } from "@vercel/analytics";
 import { BedDouble, UtensilsCrossed, Compass, ArrowUpRight, MapPin, MessageCircle, Star } from "lucide-react";
 import type { RecommendedContent, RecommendedPlace } from "@/lib/defaults";
+import { useLanguage } from "@/context/LanguageContext";
 
 const CATEGORY: Record<
   RecommendedPlace["category"],
-  { label: string; plural: string; icon: React.ElementType; color: string }
+  { icon: React.ElementType; color: string }
 > = {
-  hotel:      { label: "Hotel",      plural: "Stay", icon: BedDouble,        color: "bg-amber-400/10 text-amber-400 border-amber-400/30" },
-  restaurant: { label: "Restaurant", plural: "Eat",  icon: UtensilsCrossed,  color: "bg-green-500/10 text-green-400 border-green-500/30" },
-  activity:   { label: "Activity",   plural: "Do",   icon: Compass,          color: "bg-blue-500/10 text-blue-400 border-blue-500/30" },
+  hotel:      { icon: BedDouble,        color: "bg-amber-400/10 text-amber-400 border-amber-400/30" },
+  restaurant: { icon: UtensilsCrossed,  color: "bg-green-500/10 text-green-400 border-green-500/30" },
+  activity:   { icon: Compass,          color: "bg-blue-500/10 text-blue-400 border-blue-500/30" },
 };
 
 // Source tag included in every outbound link/message so leads are attributable.
 const SOURCE = "roulerodrigues";
 
 export default function RecommendedPlaces({ content }: { content?: RecommendedContent }) {
+  const { t } = useLanguage();
+  const ts = t.stayEatDo;
   const [filter, setFilter] = useState<string>("all");
+
+  const PLURAL: Record<RecommendedPlace["category"], string> = {
+    hotel: ts.stay, restaurant: ts.eat, activity: ts.do,
+  };
+  const CATLABEL: Record<RecommendedPlace["category"], string> = {
+    hotel: ts.catHotel, restaurant: ts.catRestaurant, activity: ts.catActivity,
+  };
+
   if (!content || !content.enabled) return null;
 
   const items = (content.items ?? []).filter((p) => p.name);
@@ -35,7 +46,7 @@ export default function RecommendedPlaces({ content }: { content?: RecommendedCo
     const ref = `${SOURCE}-${p.id}`;
     const msg =
       `Hi ${p.name}! 👋\n\n` +
-      `I found you via Roule Rodrigues (${CATEGORY[p.category].label}).\n` +
+      `I found you via Roule Rodrigues (${CATLABEL[p.category]}).\n` +
       `I'd like to book / enquire.\n\n` +
       `Ref: ${ref}`;
     return `https://wa.me/${(p.whatsapp ?? "").replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`;
@@ -59,7 +70,7 @@ export default function RecommendedPlaces({ content }: { content?: RecommendedCo
           transition={{ duration: 0.6 }}
           className="mb-10"
         >
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">RECOMMENDED</p>
+          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{ts.eyebrow}</p>
           <h2
             className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]"
             style={{ fontSize: "clamp(32px, 7vw, 72px)" }}
@@ -82,7 +93,7 @@ export default function RecommendedPlaces({ content }: { content?: RecommendedCo
                   : "border-dark-border text-muted hover:border-yellow/40 hover:text-offwhite"
               }`}
             >
-              All
+              {ts.all}
             </button>
             {cats.map((c) => {
               const cfg = CATEGORY[c];
@@ -96,7 +107,7 @@ export default function RecommendedPlaces({ content }: { content?: RecommendedCo
                       : "border-dark-border text-muted hover:border-yellow/40 hover:text-offwhite"
                   }`}
                 >
-                  <cfg.icon size={13} /> {cfg.plural}
+                  <cfg.icon size={13} /> {PLURAL[c]}
                 </button>
               );
             })}
@@ -137,11 +148,11 @@ export default function RecommendedPlaces({ content }: { content?: RecommendedCo
                     </div>
                   )}
                   <span className={`absolute top-3 left-3 flex items-center gap-1.5 font-bebas text-[9px] tracking-[0.2em] border px-2.5 py-1 rounded-full backdrop-blur-sm ${cfg.color}`}>
-                    <cfg.icon size={10} /> {cfg.label.toUpperCase()}
+                    <cfg.icon size={10} /> {CATLABEL[p.category]}
                   </span>
                   {p.featured && (
                     <span className="absolute top-3 right-3 flex items-center gap-1 font-bebas text-[9px] tracking-[0.15em] bg-yellow text-dark px-2.5 py-1 rounded-full">
-                      <Star size={8} className="fill-dark" /> SPONSORED
+                      <Star size={8} className="fill-dark" /> {ts.sponsored}
                     </span>
                   )}
                 </div>
@@ -160,7 +171,7 @@ export default function RecommendedPlaces({ content }: { content?: RecommendedCo
                         onClick={() => logLead(p, "whatsapp")}
                         className="flex items-center gap-1.5 bg-green-500/15 text-green-400 hover:bg-green-500/25 text-xs font-syne font-bold px-3.5 py-2 rounded-full transition-colors"
                       >
-                        <MessageCircle size={13} /> Book / Enquire
+                        <MessageCircle size={13} /> {ts.bookEnquire}
                       </a>
                     )}
                     {p.link && (
@@ -171,7 +182,7 @@ export default function RecommendedPlaces({ content }: { content?: RecommendedCo
                         onClick={() => logLead(p, "link")}
                         className="inline-flex items-center gap-1.5 text-yellow hover:text-yellow-dark text-xs font-syne font-bold transition-colors"
                       >
-                        {p.linkText || (isExternal ? "Visit" : "View on map")}
+                        {p.linkText || (isExternal ? ts.visit : ts.viewMap)}
                         {isExternal ? <ArrowUpRight size={13} /> : <MapPin size={13} />}
                       </a>
                     )}

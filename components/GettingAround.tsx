@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Bus, Car, Bike, Footprints, ArrowRight, Star } from "lucide-react";
 import type { GettingAroundContent, TransportOption } from "@/lib/defaults";
+import { useLanguage } from "@/context/LanguageContext";
 
 const ICONS: Record<TransportOption["icon"], React.ElementType> = {
   bus: Bus,
@@ -15,6 +16,7 @@ const ICONS: Record<TransportOption["icon"], React.ElementType> = {
 };
 
 export default function GettingAround({ content }: { content?: GettingAroundContent }) {
+  const { t } = useLanguage();
   if (!content || !content.enabled) return null;
   const options = content.options ?? [];
   if (options.length === 0) return null;
@@ -29,7 +31,7 @@ export default function GettingAround({ content }: { content?: GettingAroundCont
           transition={{ duration: 0.6 }}
           className="mb-12"
         >
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">GETTING AROUND</p>
+          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.gettingAround.eyebrow}</p>
           <h2
             className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]"
             style={{ fontSize: "clamp(34px, 8vw, 80px)" }}
@@ -60,7 +62,7 @@ export default function GettingAround({ content }: { content?: GettingAroundCont
               >
                 {opt.highlight && (
                   <span className="absolute top-5 right-5 flex items-center gap-1 font-bebas text-[9px] tracking-[0.15em] bg-yellow text-dark px-2.5 py-1 rounded-full">
-                    <Star size={8} className="fill-dark" /> BEST WAY
+                    <Star size={8} className="fill-dark" /> {t.gettingAround.bestWay}
                   </span>
                 )}
                 <div

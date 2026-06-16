@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { track } from "@vercel/analytics";
+import { useLanguage } from "@/context/LanguageContext";
 import {
   Car,
   Phone,
@@ -57,6 +59,8 @@ function Stars({ value, size = 14 }: { value: number; size?: number }) {
 
 // ── Reviews + rating modal for a single driver ───────────────────────────────
 function DriverReviewsModal({ driver, onClose }: { driver: TaxiDriver; onClose: () => void }) {
+  const { t } = useLanguage();
+  const tx = t.taxi;
   const [reviews, setReviews] = useState<TaxiDriverReview[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -80,9 +84,9 @@ function DriverReviewsModal({ driver, onClose }: { driver: TaxiDriver; onClose: 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (rating < 1) return setError("Please choose a star rating.");
-    if (name.trim().length < 2) return setError("Please enter your name.");
-    if (text.trim().length < 4) return setError("Please write a short review.");
+    if (rating < 1) return setError(tx.errRating);
+    if (name.trim().length < 2) return setError(tx.errName);
+    if (text.trim().length < 4) return setError(tx.errText);
 
     setSubmitting(true);
     try {
@@ -129,13 +133,13 @@ function DriverReviewsModal({ driver, onClose }: { driver: TaxiDriver; onClose: 
       >
         <div className="flex items-start justify-between mb-5">
           <div>
-            <p className="font-bebas text-yellow text-[10px] tracking-[0.3em]">DRIVER FEEDBACK</p>
+            <p className="font-bebas text-yellow text-[10px] tracking-[0.3em]">{tx.feedback}</p>
             <h3 className="font-syne font-extrabold text-offwhite text-xl">{driver.name}</h3>
             {driver.rating_count ? (
               <div className="flex items-center gap-2 mt-1">
                 <Stars value={driver.rating_avg ?? 0} />
                 <span className="text-muted text-xs font-dm">
-                  {driver.rating_avg?.toFixed(1)} · {driver.rating_count} review{driver.rating_count !== 1 ? "s" : ""}
+                  {driver.rating_avg?.toFixed(1)} · {driver.rating_count} {driver.rating_count !== 1 ? tx.reviews : tx.review}
                 </span>
               </div>
             ) : null}
@@ -149,10 +153,10 @@ function DriverReviewsModal({ driver, onClose }: { driver: TaxiDriver; onClose: 
         <div className="mb-6">
           {loading ? (
             <div className="flex items-center gap-2 text-muted text-sm py-4">
-              <Loader2 size={15} className="animate-spin" /> Loading reviews…
+              <Loader2 size={15} className="animate-spin" /> {tx.loadingReviews}
             </div>
           ) : reviews.length === 0 ? (
-            <p className="text-muted/70 text-sm font-dm py-2">No reviews yet — be the first to rate {driver.name}.</p>
+            <p className="text-muted/70 text-sm font-dm py-2">{tx.noReviews(driver.name)}</p>
           ) : (
             <div className="space-y-3 max-h-52 overflow-y-auto pr-1">
               {reviews.map((r) => (
@@ -176,20 +180,20 @@ function DriverReviewsModal({ driver, onClose }: { driver: TaxiDriver; onClose: 
           {done ? (
             <div className="text-center py-4">
               <CheckCircle size={36} className="text-green-400 mx-auto mb-3" />
-              <p className="font-syne font-bold text-offwhite">Thank you!</p>
+              <p className="font-syne font-bold text-offwhite">{tx.thankTitle}</p>
               <p className="text-muted text-sm font-dm mt-1 max-w-xs mx-auto">
-                Your review is awaiting approval and will appear shortly.
+                {tx.thankDesc}
               </p>
               <button
                 onClick={onClose}
                 className="mt-5 bg-yellow text-dark font-syne font-bold text-sm px-6 py-3 rounded-full hover:bg-yellow-dark transition-colors"
               >
-                Done
+                {tx.done}
               </button>
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-4">
-              <p className="font-bebas text-muted text-[10px] tracking-[0.25em]">RATE THIS DRIVER</p>
+              <p className="font-bebas text-muted text-[10px] tracking-[0.25em]">{tx.rateThis}</p>
               <div className="flex gap-1.5">
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button
@@ -209,13 +213,13 @@ function DriverReviewsModal({ driver, onClose }: { driver: TaxiDriver; onClose: 
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Your name"
+                  placeholder={tx.yourName}
                   className="w-full bg-dark border border-dark-border rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none"
                 />
                 <input
                   value={origin}
                   onChange={(e) => setOrigin(e.target.value)}
-                  placeholder="Where you're from (optional)"
+                  placeholder={tx.fromPh}
                   className="w-full bg-dark border border-dark-border rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none"
                 />
               </div>
@@ -223,7 +227,7 @@ function DriverReviewsModal({ driver, onClose }: { driver: TaxiDriver; onClose: 
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 rows={3}
-                placeholder="How was your ride? Punctual, friendly, safe driving…"
+                placeholder={tx.reviewPh}
                 className="w-full bg-dark border border-dark-border rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none resize-none"
               />
               {error && <p className="text-red-400 text-sm font-dm">{error}</p>}
@@ -233,10 +237,10 @@ function DriverReviewsModal({ driver, onClose }: { driver: TaxiDriver; onClose: 
                 className="w-full flex items-center justify-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-6 py-3.5 rounded-full hover:bg-yellow-dark disabled:opacity-50 transition-colors"
               >
                 {submitting ? <Loader2 size={15} className="animate-spin" /> : <PenLine size={15} />}
-                {submitting ? "Submitting…" : "Submit review"}
+                {submitting ? tx.submitting : tx.submit}
               </button>
               <p className="text-muted/50 text-xs font-dm text-center">
-                Reviews are checked before publishing to keep feedback fair.
+                {tx.moderationNote}
               </p>
             </form>
           )}
@@ -247,9 +251,20 @@ function DriverReviewsModal({ driver, onClose }: { driver: TaxiDriver; onClose: 
 }
 
 export default function TaxiPage() {
+  const { t } = useLanguage();
+  const tx = t.taxi;
   const [drivers, setDrivers] = useState<TaxiDriver[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewDriver, setReviewDriver] = useState<TaxiDriver | null>(null);
+
+  // Option A — log each contact tap so demand is measurable in Vercel Analytics.
+  function logContact(driver: TaxiDriver, type: "whatsapp" | "call") {
+    try {
+      track("taxi_contact", { driver: driver.name, type, vehicle: driver.vehicle_type });
+    } catch {
+      /* analytics is best-effort */
+    }
+  }
 
   const load = useCallback(() => {
     fetch("/api/taxi")
@@ -278,28 +293,27 @@ export default function TaxiPage() {
           transition={{ duration: 0.6 }}
           className="mb-14"
         >
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">RODRIGUES ISLAND · TRANSPORT</p>
+          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{tx.eyebrow}</p>
           <h1
             className="font-syne font-extrabold uppercase leading-[0.95] mb-4"
             style={{ fontSize: "clamp(38px, 9vw, 80px)" }}
           >
-            Taxi &<br />Transport
+            {tx.title1}<br />{tx.title2}
           </h1>
           <p className="text-muted font-dm text-sm md:text-base max-w-xl leading-relaxed">
-            Trusted local drivers for airport transfers, island tours and point-to-point rides. Tap WhatsApp
-            or call directly to agree your fare — and leave a review to help other travellers.
+            {tx.subtitle}
           </p>
         </motion.div>
 
         {/* Driver grid */}
         {loading ? (
           <div className="flex items-center gap-3 text-muted py-16">
-            <Loader2 size={18} className="animate-spin text-yellow" /> Loading drivers…
+            <Loader2 size={18} className="animate-spin text-yellow" /> {tx.loading}
           </div>
         ) : drivers.length === 0 ? (
           <div className="text-center py-20">
             <Car size={48} className="text-muted/20 mx-auto mb-4" />
-            <p className="text-muted font-dm text-sm">No drivers listed yet — check back soon.</p>
+            <p className="text-muted font-dm text-sm">{tx.empty}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -331,7 +345,7 @@ export default function TaxiPage() {
                     )}
                     {d.featured && (
                       <span className="absolute top-3 left-3 flex items-center gap-1 font-bebas text-[9px] tracking-[0.15em] bg-yellow/10 text-yellow border border-yellow/30 px-2.5 py-1 rounded-full backdrop-blur-sm">
-                        <Star size={8} className="fill-yellow" /> TOP DRIVER
+                        <Star size={8} className="fill-yellow" /> {tx.topDriver}
                       </span>
                     )}
                   </div>
@@ -354,7 +368,7 @@ export default function TaxiPage() {
                       >
                         <Stars value={d.rating_avg ?? 0} size={13} />
                         <span className="text-offwhite/80 text-xs font-dm">
-                          {d.rating_avg?.toFixed(1)} · {d.rating_count} review{d.rating_count !== 1 ? "s" : ""}
+                          {d.rating_avg?.toFixed(1)} · {d.rating_count} {d.rating_count !== 1 ? tx.reviews : tx.review}
                         </span>
                       </button>
                     ) : null}
@@ -375,7 +389,7 @@ export default function TaxiPage() {
 
                     {d.rate_from && (
                       <p className="flex items-center gap-1.5 text-yellow text-xs font-dm font-medium">
-                        <DollarSign size={12} /> From {d.rate_from}
+                        <DollarSign size={12} /> {tx.from} {d.rate_from}
                       </p>
                     )}
 
@@ -387,15 +401,17 @@ export default function TaxiPage() {
                         href={waLink}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={() => logContact(d, "whatsapp")}
                         className="flex-1 flex items-center justify-center gap-1.5 bg-green-500/15 text-green-400 hover:bg-green-500/25 text-xs font-syne font-bold px-3 py-2.5 rounded-full transition-colors"
                       >
-                        <MessageCircle size={13} /> WhatsApp
+                        <MessageCircle size={13} /> {tx.whatsapp}
                       </a>
                       <a
                         href={`tel:${d.phone.replace(/\s/g, "")}`}
+                        onClick={() => logContact(d, "call")}
                         className="flex items-center justify-center gap-1.5 bg-dark border border-dark-border hover:border-yellow/40 text-muted hover:text-yellow text-xs font-syne font-bold px-3 py-2.5 rounded-full transition-colors"
                       >
-                        <Phone size={13} /> Call
+                        <Phone size={13} /> {tx.call}
                       </a>
                     </div>
 
@@ -404,7 +420,7 @@ export default function TaxiPage() {
                       onClick={() => setReviewDriver(d)}
                       className="flex items-center justify-center gap-1.5 text-xs font-dm text-muted hover:text-yellow border border-dark-border hover:border-yellow/40 px-3 py-2 rounded-full transition-colors"
                     >
-                      <Star size={12} /> {d.rating_count ? "Reviews & rate" : "Rate this driver"}
+                      <Star size={12} /> {d.rating_count ? tx.reviewsRate : tx.rate}
                     </button>
                   </div>
                 </motion.div>
@@ -414,7 +430,7 @@ export default function TaxiPage() {
         )}
 
         <p className="text-muted/40 font-dm text-xs mt-10 text-center">
-          Fares are agreed directly with the driver. Prices listed are starting estimates only.
+          {tx.fareNote}
         </p>
       </div>
 
