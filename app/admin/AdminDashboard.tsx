@@ -44,6 +44,9 @@ import {
   MessageSquare,
   Car,
   Bus,
+  HelpCircle,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import type { TaxiDriver, TaxiDriverReview } from "@/lib/supabase/taxi-types";
 import type {
@@ -63,6 +66,7 @@ import type {
   EventItem,
   Sponsor,
   TransportOption,
+  FaqItem,
 } from "@/lib/defaults";
 import type { ContactSubmission, Booking, Partner, MarketplaceListing, ProductReview, WaitlistEntry } from "@/lib/supabase/types";
 import { SITE_URL } from "@/lib/site";
@@ -90,7 +94,8 @@ type Section =
   | "partners"
   | "marketplace"
   | "taxi"
-  | "gettingAround";
+  | "gettingAround"
+  | "faq";
 
 const NAV: { id: Section; label: string; icon: React.ElementType; group?: string }[] = [
   { id: "dashboard",    label: "Dashboard",       icon: LayoutDashboard, group: "overview" },
@@ -113,6 +118,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "planner",      label: "Trip Planner",     icon: Sparkles,        group: "content" },
   { id: "routes",       label: "Ride Routes",      icon: MapPin,          group: "content" },
   { id: "gettingAround",label: "Getting Around",   icon: Bus,             group: "content" },
+  { id: "faq",          label: "FAQ",              icon: HelpCircle,      group: "content" },
   { id: "events",       label: "Events",           icon: Calendar,        group: "content" },
   { id: "useful",       label: "Useful Numbers",   icon: Phone,           group: "content" },
   { id: "sponsors",     label: "Sponsors / Ads",   icon: Megaphone,       group: "content" },
@@ -951,6 +957,13 @@ function FleetEditor({
                   </option>
                 )}
               </select>
+            </Field>
+            <Field label="UNITS (how many you own)">
+              <TextInput
+                value={String(scooter.units ?? 1)}
+                onChange={(v) => updateScooter(idx, { units: Math.max(1, parseInt(v.replace(/\D/g, ""), 10) || 1) })}
+                placeholder="e.g. 3"
+              />
             </Field>
           </div>
           <Field label="DESCRIPTION">
@@ -2270,6 +2283,93 @@ function UsefulContactsEditor({
       ))}
       <button type="button" onClick={add} className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 text-muted/60 hover:text-yellow rounded-2xl py-5 text-sm font-dm transition-colors">
         <Plus size={16} /> Add Contact
+      </button>
+      <p className="text-muted/50 text-xs font-dm">Click Save Changes to publish.</p>
+    </div>
+  );
+}
+
+// ── FAQ editor ──────────────────────────────────────────────────────────────────
+
+function FaqEditor({
+  content,
+  onChange,
+}: {
+  content: SiteContent;
+  onChange: (c: SiteContent) => void;
+}) {
+  const faq = content.faq;
+  const set = (patch: Partial<typeof faq>) => onChange({ ...content, faq: { ...faq, ...patch } });
+  const updateItem = (i: number, patch: Partial<FaqItem>) =>
+    set({ items: faq.items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)) });
+  const addItem = () =>
+    set({ items: [...faq.items, { id: `faq-${Date.now()}`, question: "", answer: "" }] });
+  const removeItem = (i: number) => set({ items: faq.items.filter((_, idx) => idx !== i) });
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= faq.items.length) return;
+    const next = [...faq.items];
+    [next[i], next[j]] = [next[j], next[i]];
+    set({ items: next });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
+        <div>
+          <p className="font-syne font-bold text-offwhite text-sm">Show the FAQ section</p>
+          <p className="text-muted/60 text-xs font-dm mt-0.5">Answers common questions and improves SEO (rich results).</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => set({ enabled: !faq.enabled })}
+          className="text-muted/60 hover:text-yellow transition-colors"
+          title={faq.enabled ? "Visible" : "Hidden"}
+        >
+          {faq.enabled ? <ToggleRight size={26} className="text-green-400" /> : <ToggleLeft size={26} />}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4">
+        <Field label="SECTION TITLE">
+          <TextInput value={faq.title} onChange={(v) => set({ title: v })} />
+        </Field>
+        <Field label="SUBTITLE">
+          <TextInput value={faq.subtitle} onChange={(v) => set({ subtitle: v })} />
+        </Field>
+      </div>
+
+      {faq.items.map((it, i) => (
+        <div key={it.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="font-bebas text-yellow text-xs tracking-[0.3em]">Q{i + 1}</p>
+            <div className="flex items-center gap-1.5">
+              <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="p-1 text-muted/50 hover:text-yellow disabled:opacity-20 transition-colors" title="Move up">
+                <ChevronUp size={15} />
+              </button>
+              <button type="button" onClick={() => move(i, 1)} disabled={i === faq.items.length - 1} className="p-1 text-muted/50 hover:text-yellow disabled:opacity-20 transition-colors" title="Move down">
+                <ChevronDown size={15} />
+              </button>
+              <button type="button" onClick={() => removeItem(i)} className="flex items-center gap-1.5 text-xs font-dm text-muted/60 hover:text-red-400 transition-colors ml-2">
+                <Trash2 size={12} /> Remove
+              </button>
+            </div>
+          </div>
+          <Field label="QUESTION">
+            <TextInput value={it.question} onChange={(v) => updateItem(i, { question: v })} placeholder="e.g. Do I need a driving licence?" />
+          </Field>
+          <Field label="ANSWER">
+            <Textarea value={it.answer} onChange={(v) => updateItem(i, { answer: v })} rows={3} />
+          </Field>
+        </div>
+      ))}
+
+      <button
+        type="button"
+        onClick={addItem}
+        className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 text-muted/60 hover:text-yellow rounded-2xl py-5 text-sm font-dm transition-colors"
+      >
+        <Plus size={16} /> Add Question
       </button>
       <p className="text-muted/50 text-xs font-dm">Click Save Changes to publish.</p>
     </div>
@@ -4045,6 +4145,7 @@ export default function AdminDashboard({
     planner:      { title: "AI Trip Planner",     desc: "Edit the real places, photos and tips the planner uses to build itineraries." },
     routes:       { title: "Ride Routes",         desc: "Curated scenic scooter routes shown on the website with a Google Maps link." },
     gettingAround:{ title: "Getting Around",      desc: "The transport-options card (bus / taxi / scooter) shown in the island guide." },
+    faq:          { title: "FAQ",                 desc: "Frequently asked questions shown on the site (also boosts SEO)." },
     events:       { title: "Island Events",       desc: "Festivals, markets and happenings shown to visitors." },
     useful:       { title: "Useful Numbers",      desc: "Emergency, taxi and key local contacts — shown as tap-to-call." },
     sponsors:     { title: "Sponsors / Ads",      desc: "Paid sponsor logos shown near the footer. Toggle the whole strip on/off." },
@@ -4257,6 +4358,9 @@ export default function AdminDashboard({
           )}
           {section === "gettingAround" && (
             <GettingAroundEditor content={content} onChange={setContent} />
+          )}
+          {section === "faq" && (
+            <FaqEditor content={content} onChange={setContent} />
           )}
           {section === "events" && (
             <EventsEditor content={content} onChange={setContent} />

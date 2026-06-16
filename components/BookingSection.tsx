@@ -46,13 +46,16 @@ function estimateTotal(scooter: FleetItem | undefined, days: number): string {
   return `Rs ${total.toLocaleString()}`;
 }
 
-export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
+export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[]; whatsapp?: string }) {
   const { t } = useLanguage();
   const { convert } = useCurrency();
   const scooters = (fleet ?? []).filter((s) => s.available !== false);
 
   const [formState, setFormState] = useState<FormState>("idle");
   const [showPartnerCode, setShowPartnerCode] = useState(false);
+  const [lastBooking, setLastBooking] = useState<
+    { scooter: string; range: string; days: number; name: string; total: string } | null
+  >(null);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -67,6 +70,7 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
   const days = daysBetween(form.start_date, form.end_date);
   const selectedScooter = scooters.find((s) => s.id === form.scooter);
   const estimatedTotal = estimateTotal(selectedScooter, days);
+  const capacity = Math.max(1, selectedScooter?.units ?? 1);
 
   // ── Trip Planner → Booking: pre-fill the trip length ──
   const [desiredDays, setDesiredDays] = useState<number | null>(null);
@@ -123,12 +127,26 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
     return () => { active = false; };
   }, [form.scooter]);
 
-  // Does the chosen range overlap an existing confirmed booking?
+  // Capacity-aware availability: a date is only "full" when the number of
+  // confirmed bookings covering it reaches the number of units of that model.
+  function confirmedCountOn(day: string): number {
+    return bookedRanges.reduce(
+      (n, r) => (r.confirmed && day >= r.start && day <= r.end ? n + 1 : n),
+      0,
+    );
+  }
   const hasOverlap =
     !!form.start_date && !!form.end_date &&
-    bookedRanges.some(
-      (r) => r.confirmed && form.start_date <= r.end && form.end_date >= r.start
-    );
+    (() => {
+      const d = new Date(form.start_date);
+      const end = new Date(form.end_date);
+      while (d <= end) {
+        const day = d.toISOString().split("T")[0];
+        if (confirmedCountOn(day) >= capacity) return true;
+        d.setDate(d.getDate() + 1);
+      }
+      return false;
+    })();
 
   function fmtRange(start: string, end: string): string {
     const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
@@ -168,10 +186,18 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
         }),
       });
       if (!res.ok) throw new Error("Booking failed");
+      // Capture a summary (the form is cleared next) for the WhatsApp confirm link
+      setLastBooking({
+        scooter: selectedScooter?.name ?? form.scooter,
+        range: fmtRange(form.start_date, form.end_date),
+        days,
+        name: form.name,
+        total: estimatedTotal,
+      });
       setFormState("success");
       setForm({ name: "", email: "", phone: "", scooter: "", start_date: "", end_date: "", message: "", partner_code: "" });
       setShowPartnerCode(false);
-      setTimeout(() => setFormState("idle"), 8000);
+      setTimeout(() => setFormState("idle"), 12000);
     } catch {
       setFormState("error");
       setTimeout(() => setFormState("idle"), 5000);
@@ -215,13 +241,33 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-6 flex items-start gap-3 bg-green-500/10 border border-green-500/30 rounded-xl px-5 py-4"
+                className="mb-6 bg-green-500/10 border border-green-500/30 rounded-xl px-5 py-4"
               >
-                <CheckCircle size={18} className="text-green-400 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-syne font-bold text-green-400 text-sm">{t.booking.successTitle}</p>
-                  <p className="font-dm text-green-400/70 text-xs mt-0.5">{t.booking.successDesc}</p>
+                <div className="flex items-start gap-3">
+                  <CheckCircle size={18} className="text-green-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-syne font-bold text-green-400 text-sm">{t.booking.successTitle}</p>
+                    <p className="font-dm text-green-400/70 text-xs mt-0.5">{t.booking.successDesc}</p>
+                  </div>
                 </div>
+                {/* One-tap WhatsApp confirmation to the business */}
+                {lastBooking && whatsapp && (
+                  <a
+                    href={`https://wa.me/${whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(
+                      `Hi Roule Rodrigues! I'd like to confirm my booking:\n\n` +
+                      `🛵 Scooter: ${lastBooking.scooter}\n` +
+                      `📅 Dates: ${lastBooking.range} (${lastBooking.days} day${lastBooking.days !== 1 ? "s" : ""})\n` +
+                      `👤 Name: ${lastBooking.name}\n` +
+                      (lastBooking.total ? `💰 Est. total: ${lastBooking.total}\n` : "") +
+                      `\nThank you!`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 w-full flex items-center justify-center gap-2 bg-green-500 text-white font-syne font-bold text-sm py-3 rounded-xl hover:bg-green-600 transition-colors"
+                  >
+                    <MessageSquare size={16} /> {t.booking.confirmWhatsApp}
+                  </a>
+                )}
               </motion.div>
             )}
 
@@ -300,6 +346,7 @@ export default function BookingSection({ fleet }: { fleet?: FleetItem[] }) {
                   endDate={form.end_date}
                   minDate={today}
                   bookedRanges={bookedRanges}
+                  capacity={capacity}
                   onChange={(start, end) => {
                     setForm((f) => ({ ...f, start_date: start, end_date: end }));
                     setDesiredDays(null); // visual pick = manual control

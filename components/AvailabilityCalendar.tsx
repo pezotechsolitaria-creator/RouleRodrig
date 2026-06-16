@@ -14,6 +14,7 @@ interface Props {
   endDate: string;
   minDate: string; // today, YYYY-MM-DD
   bookedRanges: BookedRange[];
+  capacity?: number; // number of units of this model (default 1)
   onChange: (start: string, end: string) => void;
   labels: { booked: string; available: string; selected: string; hint: string };
 }
@@ -29,6 +30,7 @@ export default function AvailabilityCalendar({
   endDate,
   minDate,
   bookedRanges,
+  capacity = 1,
   onChange,
   labels,
 }: Props) {
@@ -36,7 +38,10 @@ export default function AvailabilityCalendar({
   const [view, setView] = useState(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
 
   const blocked = bookedRanges.filter((r) => r.confirmed);
-  const isBooked = (day: string) => blocked.some((r) => day >= r.start && day <= r.end);
+  // A day is only fully booked when confirmed bookings on it reach the unit count.
+  const cap = Math.max(1, capacity);
+  const isBooked = (day: string) =>
+    blocked.reduce((n, r) => (day >= r.start && day <= r.end ? n + 1 : n), 0) >= cap;
   const isPast = (day: string) => day < minDate;
 
   function rangeHasBooked(a: string, b: string): boolean {

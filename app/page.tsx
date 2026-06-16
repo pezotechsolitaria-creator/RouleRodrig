@@ -19,6 +19,7 @@ import MarketplaceSection from "@/components/MarketplaceSection";
 import Gallery from "@/components/Gallery";
 import Testimonials from "@/components/Testimonials";
 import ReviewsSection from "@/components/ReviewsSection";
+import Faq from "@/components/Faq";
 import WaitlistSection from "@/components/WaitlistSection";
 import BookingCTA from "@/components/BookingCTA";
 import Contact from "@/components/Contact";
@@ -92,8 +93,28 @@ export default async function Home() {
             : {}),
         };
       }),
+      ...(content.faq.enabled && content.faq.items.length
+        ? [
+            {
+              "@type": "FAQPage",
+              "@id": `${SITE_URL}/#faq`,
+              mainEntity: content.faq.items.map((f) => ({
+                "@type": "Question",
+                name: f.question,
+                acceptedAnswer: { "@type": "Answer", text: f.answer },
+              })),
+            },
+          ]
+        : []),
     ],
   };
+
+  // Business WhatsApp number for the one-tap booking confirmation
+  const businessWhatsApp =
+    content.social.whatsapp ||
+    content.contact.whatsappNumbers?.[0]?.number ||
+    content.contact.phone ||
+    "";
 
   return (
     <>
@@ -114,7 +135,7 @@ export default async function Home() {
         <Pricing pricing={content.pricing} />
         <WhyUs />
         <TripPlanner />
-        <BookingSection fleet={content.fleet} />
+        <BookingSection fleet={content.fleet} whatsapp={businessWhatsApp} />
         <MapSection locations={content.mapLocations} />
         <GettingAround content={content.gettingAround} />
         <RideRoutes routes={content.rideRoutes} />
@@ -124,6 +145,7 @@ export default async function Home() {
         <Gallery gallery={content.gallery} />
         <Testimonials testimonials={content.testimonials} />
         <ReviewsSection fleet={content.fleet} />
+        <Faq content={content.faq} />
         <WaitlistSection />
         <BookingCTA />
         <Contact contact={content.contact} fleet={content.fleet} />

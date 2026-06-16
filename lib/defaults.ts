@@ -24,6 +24,7 @@ export interface FleetItem {
   price: string;
   unit: string;
   available: boolean;
+  units?: number;         // how many of this model you own (for availability)
   category?: string; // vehicle category id, e.g. "scooter"
 }
 
@@ -153,6 +154,19 @@ export interface EventItem {
   featured?: boolean;  // pinned to top + gold border
 }
 
+export interface FaqItem {
+  id: string;
+  question: string;
+  answer: string;
+}
+
+export interface FaqContent {
+  enabled: boolean;
+  title: string;
+  subtitle: string;
+  items: FaqItem[];
+}
+
 export interface TransportOption {
   id: string;
   icon: "bus" | "taxi" | "scooter" | "walk" | "bike" | "car";
@@ -190,6 +204,7 @@ export interface SiteContent {
   sponsorsEnabled: boolean;
   sponsors: Sponsor[];
   gettingAround: GettingAroundContent;
+  faq: FaqContent;
 }
 
 export const DEFAULT_CONTENT: SiteContent = {
@@ -216,6 +231,7 @@ export const DEFAULT_CONTENT: SiteContent = {
       price: 'From Rs 800',
       unit: '/ day',
       available: true,
+      units: 1,
       category: 'scooter',
     },
     {
@@ -229,6 +245,7 @@ export const DEFAULT_CONTENT: SiteContent = {
       price: 'From Rs 600',
       unit: '/ day',
       available: true,
+      units: 1,
       category: 'scooter',
     },
   ],
@@ -435,6 +452,53 @@ export const DEFAULT_CONTENT: SiteContent = {
         highlight: true,
         link: '#booking',
         linkText: 'Rent a scooter',
+      },
+    ],
+  },
+  faq: {
+    enabled: true,
+    title: 'Frequently Asked Questions',
+    subtitle: 'Everything you need to know before you ride.',
+    items: [
+      {
+        id: 'license',
+        question: 'Do I need a driving licence?',
+        answer: 'Yes — a valid driving licence (car or motorcycle) is required, and you must bring it with you at pickup. An international permit is recommended if your licence is not in the Latin alphabet.',
+      },
+      {
+        id: 'age',
+        question: 'What is the minimum age to rent?',
+        answer: 'You must be at least 18 years old and hold a valid licence to rent and ride.',
+      },
+      {
+        id: 'helmet',
+        question: 'Is a helmet included?',
+        answer: 'Always. A helmet is included free for every rider, and a second helmet is provided for a passenger. Wearing a helmet is mandatory by law on Rodrigues.',
+      },
+      {
+        id: 'insurance',
+        question: 'Is insurance included?',
+        answer: 'Basic third-party insurance is included with every rental. Please ride responsibly and follow local road rules — full terms are shared at pickup.',
+      },
+      {
+        id: 'delivery',
+        question: 'Can you deliver the scooter to my hotel?',
+        answer: 'Yes — we can deliver to and collect from your hotel or guesthouse anywhere on the island. Just let us know your location when you book.',
+      },
+      {
+        id: 'fuel',
+        question: 'What about fuel?',
+        answer: 'Your scooter is delivered ready to ride. We simply ask that you return it with a similar fuel level, or we settle the small difference.',
+      },
+      {
+        id: 'breakdown',
+        question: 'What happens if the scooter breaks down?',
+        answer: 'Call or WhatsApp us any time — we offer support and, if needed, a replacement scooter so your trip is never interrupted.',
+      },
+      {
+        id: 'passengers',
+        question: 'Can two people ride together?',
+        answer: 'Yes, our scooters comfortably seat two riders, and we provide a second helmet at no extra cost.',
       },
     ],
   },
