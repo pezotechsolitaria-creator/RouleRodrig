@@ -159,6 +159,7 @@ const translations = {
       privacy:    "Privacy",
       refunds:    "Refunds",
       disclaimer: "Disclaimer",
+      listScooter: "List your scooter",
     },
 
     // Trip planner
@@ -507,6 +508,7 @@ const translations = {
       privacy:    "Confidentialité",
       refunds:    "Remboursements",
       disclaimer: "Avertissement",
+      listScooter: "Référencez votre scooter",
     },
     planner: {
       eyebrow:    "PERSONNALISÉ POUR VOUS",
@@ -825,6 +827,7 @@ const translations = {
       privacy:    "Konfidansialite",
       refunds:    "Ranbourseman",
       disclaimer: "Avertisman",
+      listScooter: "Met ou skooter lor sit",
     },
     planner: {
       eyebrow:    "PERSONALIZE POU OU",

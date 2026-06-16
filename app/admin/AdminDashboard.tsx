@@ -49,6 +49,7 @@ import {
   ChevronDown,
   BedDouble,
   TrendingUp,
+  UserPlus,
 } from "lucide-react";
 import type { TaxiDriver, TaxiDriverReview } from "@/lib/supabase/taxi-types";
 import type {
@@ -94,6 +95,7 @@ type Section =
   | "submissions"
   | "bookings"
   | "leads"
+  | "owners"
   | "map"
   | "partners"
   | "marketplace"
@@ -109,6 +111,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "reviews",      label: "Customer Reviews", icon: MessageSquare,   group: "overview" },
   { id: "waitlist",     label: "Waitlist",         icon: Mail,            group: "overview" },
   { id: "leads",        label: "Listing Leads",    icon: TrendingUp,      group: "overview" },
+  { id: "owners",       label: "Owner Applications", icon: UserPlus,      group: "overview" },
   { id: "partners",     label: "Partners",         icon: Handshake,       group: "business" },
   { id: "marketplace",  label: "Marketplace",      icon: Store,           group: "business" },
   { id: "taxi",         label: "Taxi & Transport",  icon: Car,             group: "business" },
@@ -4105,6 +4108,112 @@ function TaxiManager() {
 
 // ── Waitlist viewer ──────────────────────────────────────────────────────────
 
+interface OwnerApplication {
+  id: string;
+  owner_name: string;
+  phone: string;
+  email: string | null;
+  location: string | null;
+  scooters: string | null;
+  message: string | null;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+}
+
+function OwnerApplicationsViewer() {
+  const [list, setList] = useState<OwnerApplication[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/owner-applications");
+      if (res.ok) setList(await res.json());
+    } finally { setLoading(false); }
+  }
+  useEffect(() => { load(); }, []);
+
+  async function setStatus(id: string, status: "approved" | "rejected") {
+    await fetch("/api/admin/owner-applications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    });
+    setList((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+  }
+  async function remove(id: string) {
+    if (!confirm("Delete this application permanently?")) return;
+    await fetch(`/api/admin/owner-applications?id=${id}`, { method: "DELETE" });
+    setList((prev) => prev.filter((a) => a.id !== id));
+  }
+
+  const fmt = (s: string) => {
+    try { return new Date(s).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch { return s; }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-3 text-muted text-sm py-10">
+        <Loader2 size={16} className="animate-spin text-yellow" /> Loading applications…
+      </div>
+    );
+  }
+  if (list.length === 0) {
+    return (
+      <div className="bg-dark-card border border-dark-border rounded-2xl p-10 text-center">
+        <UserPlus size={36} className="text-muted/20 mx-auto mb-3" />
+        <p className="text-muted font-dm text-sm">No applications yet. They arrive via the <span className="font-mono text-offwhite/40">/list-your-scooter</span> page.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {list.map((a) => (
+        <div key={a.id} className="bg-dark-card border border-dark-border rounded-2xl p-5">
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-syne font-bold text-offwhite text-sm">{a.owner_name}</p>
+                <span className={`font-bebas text-[8px] tracking-[0.15em] px-2 py-0.5 rounded-full ${
+                  a.status === "approved" ? "bg-green-500/10 text-green-400"
+                  : a.status === "rejected" ? "bg-red-500/10 text-red-400/70"
+                  : "bg-yellow/10 text-yellow"
+                }`}>{a.status.toUpperCase()}</span>
+              </div>
+              <p className="text-muted text-xs font-dm mt-0.5">{fmt(a.created_at)}</p>
+            </div>
+            <button onClick={() => remove(a.id)} className="text-muted/30 hover:text-red-400 transition-colors shrink-0" title="Delete">
+              <Trash2 size={14} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs font-dm text-offwhite/80 mb-3">
+            <p><span className="text-muted">Phone:</span> <a href={`https://wa.me/${a.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="text-yellow hover:underline">{a.phone}</a></p>
+            {a.email && <p><span className="text-muted">Email:</span> <a href={`mailto:${a.email}`} className="text-yellow hover:underline">{a.email}</a></p>}
+            {a.location && <p><span className="text-muted">Area:</span> {a.location}</p>}
+            {a.scooters && <p><span className="text-muted">Scooters:</span> {a.scooters}</p>}
+          </div>
+          {a.message && <p className="text-muted/80 text-sm font-dm italic mb-3">“{a.message}”</p>}
+
+          {a.status !== "approved" && (
+            <div className="flex items-center gap-2">
+              <button onClick={() => setStatus(a.id, "approved")} className="flex items-center gap-1.5 text-xs font-dm bg-green-500/15 text-green-400 hover:bg-green-500/25 px-3 py-1.5 rounded-full transition-colors">
+                <CheckCircle size={12} /> Approve
+              </button>
+              {a.status !== "rejected" && (
+                <button onClick={() => setStatus(a.id, "rejected")} className="flex items-center gap-1.5 text-xs font-dm border border-[#2a2a2a] text-muted/60 hover:text-red-400 hover:border-red-500/40 px-3 py-1.5 rounded-full transition-colors">
+                  <Ban size={12} /> Reject
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 interface LeadSummary { target: string; kind: string; category: string | null; total: number; last30: number; }
 interface LeadRecent { kind: string; target_name: string; category: string | null; type: string | null; ref: string | null; created_at: string; }
 interface LeadData {
@@ -4370,6 +4479,7 @@ export default function AdminDashboard({
     submissions:  { title: "Enquiries",           desc: "Contact form submissions from customers." },
     bookings:     { title: "Bookings",            desc: "Booking requests from the website booking form." },
     leads:        { title: "Listing Leads",       desc: "Clicks & enquiries on your Stay·Eat·Do and Taxi listings — for billing featured / pay-per-lead." },
+    owners:       { title: "Owner Applications",  desc: "Scooter owners applying to list their vehicles via /list-your-scooter." },
     map:          { title: "Island Map Locations",desc: "Manage the points of interest shown on the island guide map." },
     waitlist:     { title: "Waitlist",            desc: "People who signed up for deals and island tips." },
     planner:      { title: "AI Trip Planner",     desc: "Edit the real places, photos and tips the planner uses to build itineraries." },
@@ -4578,6 +4688,7 @@ export default function AdminDashboard({
           {section === "reviews" && <ReviewsModeration />}
           {section === "waitlist" && <WaitlistViewer />}
           {section === "leads" && <LeadsViewer />}
+          {section === "owners" && <OwnerApplicationsViewer />}
           {section === "bookings" && <BookingsManager />}
           {section === "map" && (
             <MapEditor content={content} onChange={setContent} />

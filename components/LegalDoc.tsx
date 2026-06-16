@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ShieldAlert } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 // Shared presentational wrapper for legal pages (server component).
 export default function LegalDoc({
@@ -35,16 +35,6 @@ export default function LegalDoc({
         {intro && <p className="text-muted/90 text-sm leading-relaxed mb-8">{intro}</p>}
 
         <div className="space-y-8">{children}</div>
-
-        {/* Honest note — this is a template, not legal advice */}
-        <div className="mt-12 flex items-start gap-3 bg-yellow/5 border border-yellow/20 rounded-2xl p-5">
-          <ShieldAlert size={18} className="text-yellow shrink-0 mt-0.5" />
-          <p className="text-muted/70 text-xs leading-relaxed">
-            This document is a plain-language starting template, not legal advice. Before launch, have it
-            reviewed by a qualified professional familiar with Mauritius &amp; Rodrigues law to ensure it
-            fully protects you.
-          </p>
-        </div>
       </div>
     </main>
   );

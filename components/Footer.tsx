@@ -25,11 +25,11 @@ export default function Footer({
   const activeSocial = SOCIAL_CONFIG.filter(({ key }) => social?.[key]);
 
   const navLinks = [
-    { label: t.nav.scooters, href: "#fleet"    },
-    { label: t.nav.booking,  href: "#booking"  },
-    { label: t.nav.pricing,  href: "#pricing"  },
-    { label: t.nav.map,      href: "#map"      },
-    { label: t.nav.contact,  href: "#contact"  },
+    { label: t.nav.scooters,      href: "#fleet"    },
+    { label: t.nav.booking,       href: "#booking"  },
+    { label: t.nav.map,           href: "#map"      },
+    { label: t.nav.contact,       href: "#contact"  },
+    { label: t.footer.listScooter, href: "/list-your-scooter" },
   ];
 
   return (
