@@ -154,6 +154,11 @@ export interface EventItem {
   featured?: boolean;  // pinned to top + gold border
 }
 
+export interface ExperienceContent {
+  image1: string; // top "Ride / explore" photo
+  image2: string; // "Three steps to the open road" photo
+}
+
 export interface RecommendedPlace {
   id: string;
   category: "hotel" | "restaurant" | "activity";
@@ -225,6 +230,7 @@ export interface SiteContent {
   gettingAround: GettingAroundContent;
   faq: FaqContent;
   recommended: RecommendedContent;
+  experience: ExperienceContent;
 }
 
 export const DEFAULT_CONTENT: SiteContent = {
@@ -527,5 +533,9 @@ export const DEFAULT_CONTENT: SiteContent = {
     title: 'Where to Stay, Eat & Do',
     subtitle: 'Our hand-picked places to make the most of your Rodrigues trip.',
     items: [],
+  },
+  experience: {
+    image1: '/images/burgman-sunset.jpeg',
+    image2: '/images/avenis-rear.jpeg',
   },
 };

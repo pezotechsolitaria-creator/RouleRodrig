@@ -102,7 +102,8 @@ type Section =
   | "taxi"
   | "gettingAround"
   | "faq"
-  | "recommended";
+  | "recommended"
+  | "experience";
 
 const NAV: { id: Section; label: string; icon: React.ElementType; group?: string }[] = [
   { id: "dashboard",    label: "Dashboard",       icon: LayoutDashboard, group: "overview" },
@@ -117,6 +118,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "taxi",         label: "Taxi & Transport",  icon: Car,             group: "business" },
   { id: "announcement", label: "Announcement",     icon: Megaphone,       group: "content" },
   { id: "hero",         label: "Hero",             icon: Sparkles,        group: "content" },
+  { id: "experience",   label: "Experience Photos", icon: Images,         group: "content" },
   { id: "fleet",        label: "Fleet",            icon: Bike,            group: "content" },
   { id: "pricing",      label: "Pricing",          icon: DollarSign,      group: "content" },
   { id: "contact",      label: "Contact Info",     icon: Phone,           group: "content" },
@@ -719,6 +721,29 @@ function AnnouncementEditor({
 }
 
 // ── Section editors ────────────────────────────────────────────────────────────
+
+function ExperienceEditor({
+  content,
+  onChange,
+}: {
+  content: SiteContent;
+  onChange: (c: SiteContent) => void;
+}) {
+  const ex = content.experience;
+  const set = (patch: Partial<typeof ex>) =>
+    onChange({ ...content, experience: { ...ex, ...patch } });
+  return (
+    <div className="space-y-6">
+      <p className="text-muted/70 text-sm font-dm">
+        These are the two photos in the “Three Steps to the Open Road” story section. The text there is
+        translated automatically — only the photos are edited here.
+      </p>
+      <ImagePicker label="TOP PHOTO (sunset / hero shot)" src={ex.image1} onUpload={(p) => set({ image1: p })} />
+      <ImagePicker label="STEPS PHOTO (“Three steps to the open road”)" src={ex.image2} onUpload={(p) => set({ image2: p })} />
+      <p className="text-muted/50 text-xs font-dm">Click Save Changes to publish.</p>
+    </div>
+  );
+}
 
 function HeroEditor({
   content,
@@ -4469,6 +4494,7 @@ export default function AdminDashboard({
     dashboard:    { title: "Dashboard",           desc: "Overview of bookings and enquiries." },
     announcement: { title: "Announcement Bar",    desc: "Show a promotional banner at the top of the site." },
     hero:         { title: "Hero Section",        desc: "Edit the full-screen hero text and background image." },
+    experience:   { title: "Experience Photos",   desc: "The two photos in the “Three Steps to the Open Road” story section." },
     fleet:        { title: "Fleet / Scooters",    desc: "Add, remove, or edit scooters. Toggle availability." },
     pricing:      { title: "Pricing",             desc: "Update rental prices for all durations." },
     contact:      { title: "Contact Info",        desc: "Edit phone, email, location and opening hours." },
@@ -4656,6 +4682,9 @@ export default function AdminDashboard({
           )}
           {section === "hero" && (
             <HeroEditor content={content} onChange={setContent} />
+          )}
+          {section === "experience" && (
+            <ExperienceEditor content={content} onChange={setContent} />
           )}
           {section === "fleet" && (
             <FleetEditor content={content} onChange={setContent} />

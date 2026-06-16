@@ -133,7 +133,7 @@ export default async function Home() {
         <Hero hero={content.hero} />
         <Stats stats={content.stats} />
         <Fleet fleet={content.fleet} categories={content.vehicleCategories} />
-        <Experience />
+        <Experience content={content.experience} />
         <Pricing pricing={content.pricing} />
         <WhyUs />
         <TripPlanner />

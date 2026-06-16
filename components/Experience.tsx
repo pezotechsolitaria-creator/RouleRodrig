@@ -4,11 +4,14 @@ import Image from "next/image";
 import { MapPin, ClipboardList, CreditCard, Key } from "lucide-react";
 import { motion } from "framer-motion";
 import { useLanguage } from "@/context/LanguageContext";
+import type { ExperienceContent } from "@/lib/defaults";
 
 const STEP_ICONS = [ClipboardList, CreditCard, Key];
 
-export default function Experience() {
+export default function Experience({ content }: { content?: ExperienceContent }) {
   const { t } = useLanguage();
+  const img1 = content?.image1 || "/images/burgman-sunset.jpeg";
+  const img2 = content?.image2 || "/images/avenis-rear.jpeg";
   const steps = t.experience.steps.map((s, i) => ({
     ...s,
     icon: STEP_ICONS[i] ?? ClipboardList,
@@ -27,12 +30,13 @@ export default function Experience() {
             className="relative h-72 md:h-[540px] rounded-2xl overflow-hidden"
           >
             <Image
-              src="/images/burgman-sunset.jpeg"
+              src={img1}
               alt="Suzuki Burgman scooter at golden-hour sunset on the coast of Rodrigues Island"
               fill
               className="object-cover"
               sizes="(max-width: 768px) 100vw, 50vw"
               loading="lazy"
+              unoptimized={img1.startsWith("/uploads/") || img1.startsWith("http")}
             />
             <div className="absolute inset-0 bg-gradient-to-tr from-dark-card/70 via-transparent to-transparent" />
             {/* Yellow accent bar */}
@@ -123,12 +127,13 @@ export default function Experience() {
             className="relative h-72 md:h-[540px] rounded-2xl overflow-hidden order-1 md:order-2"
           >
             <Image
-              src="/images/avenis-rear.jpeg"
+              src={img2}
               alt="Yellow Suzuki Avenis 125 scooter rear view in tropical garden setting"
               fill
               className="object-cover"
               sizes="(max-width: 768px) 100vw, 50vw"
               loading="lazy"
+              unoptimized={img2.startsWith("/uploads/") || img2.startsWith("http")}
             />
             <div className="absolute inset-0 bg-gradient-to-tl from-dark-card/70 via-transparent to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-yellow/60" />
