@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
   let body: {
     owner_name?: string; phone?: string; email?: string;
     location?: string; scooters?: string; message?: string;
+    id_card?: string; insurance?: string; vehicle_photos?: unknown;
   };
   try {
     body = await req.json();
@@ -31,6 +32,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Please enter a valid email." }, { status: 400 });
   }
 
+  // Only accept storage paths (no URLs) for documents, capped at 12 photos.
+  const isPath = (s: unknown): s is string =>
+    typeof s === "string" && s.length > 0 && s.length < 200 && !/[:/\\]/.test(s);
+  const vehicle_photos = Array.isArray(body.vehicle_photos)
+    ? body.vehicle_photos.filter(isPath).slice(0, 12)
+    : [];
+
   const record = {
     owner_name,
     phone,
@@ -38,6 +46,9 @@ export async function POST(req: NextRequest) {
     location: clean(body.location, 120),
     scooters: clean(body.scooters, 400),
     message: clean(body.message, 1000),
+    id_card: isPath(body.id_card) ? body.id_card : null,
+    insurance: isPath(body.insurance) ? body.insurance : null,
+    vehicle_photos,
     status: "pending" as const,
   };
 

@@ -15,7 +15,27 @@ export async function GET(req: NextRequest) {
     .select("*")
     .order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data ?? []);
+
+  // Turn private storage paths into short-lived signed URLs (30 min) so the
+  // admin can view sensitive documents without making the bucket public.
+  async function sign(path: string | null | undefined): Promise<string | null> {
+    if (!path) return null;
+    const { data: s } = await supabase.storage.from("applications").createSignedUrl(path, 1800);
+    return s?.signedUrl ?? null;
+  }
+
+  const rows = await Promise.all(
+    (data ?? []).map(async (a) => ({
+      ...a,
+      id_card_url: await sign(a.id_card),
+      insurance_url: await sign(a.insurance),
+      vehicle_photo_urls: (
+        await Promise.all((Array.isArray(a.vehicle_photos) ? a.vehicle_photos : []).map((p: string) => sign(p)))
+      ).filter(Boolean),
+    })),
+  );
+
+  return NextResponse.json(rows);
 }
 
 export async function PATCH(req: NextRequest) {

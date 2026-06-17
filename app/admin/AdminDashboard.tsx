@@ -50,6 +50,7 @@ import {
   BedDouble,
   TrendingUp,
   UserPlus,
+  FileCheck,
 } from "lucide-react";
 import type { TaxiDriver, TaxiDriverReview } from "@/lib/supabase/taxi-types";
 import type {
@@ -4143,6 +4144,9 @@ interface OwnerApplication {
   message: string | null;
   status: "pending" | "approved" | "rejected";
   created_at: string;
+  id_card_url?: string | null;
+  insurance_url?: string | null;
+  vehicle_photo_urls?: string[];
 }
 
 function OwnerApplicationsViewer() {
@@ -4220,6 +4224,28 @@ function OwnerApplicationsViewer() {
             {a.scooters && <p><span className="text-muted">Scooters:</span> {a.scooters}</p>}
           </div>
           {a.message && <p className="text-muted/80 text-sm font-dm italic mb-3">“{a.message}”</p>}
+
+          {/* Documents (private — short-lived signed links) */}
+          {(a.id_card_url || a.insurance_url || (a.vehicle_photo_urls && a.vehicle_photo_urls.length > 0)) && (
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              {a.id_card_url && (
+                <a href={a.id_card_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-dm bg-dark border border-[#2a2a2a] hover:border-yellow/40 text-muted hover:text-yellow px-3 py-1.5 rounded-full transition-colors">
+                  <FileCheck size={12} /> View ID
+                </a>
+              )}
+              {a.insurance_url && (
+                <a href={a.insurance_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-dm bg-dark border border-[#2a2a2a] hover:border-yellow/40 text-muted hover:text-yellow px-3 py-1.5 rounded-full transition-colors">
+                  <FileCheck size={12} /> View insurance
+                </a>
+              )}
+              {(a.vehicle_photo_urls ?? []).map((u, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <a key={i} href={u} target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-lg overflow-hidden border border-[#2a2a2a] hover:border-yellow/40">
+                  <img src={u} alt={`vehicle ${i + 1}`} className="w-full h-full object-cover" />
+                </a>
+              ))}
+            </div>
+          )}
 
           {a.status !== "approved" && (
             <div className="flex items-center gap-2">
