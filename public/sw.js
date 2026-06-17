@@ -1,7 +1,7 @@
 // Minimal service worker — required for Android/Chrome installability.
 // Network-first so content is always fresh online, with a cached fallback
 // for navigations when offline.
-const CACHE = "rr-cache-v2";
+const CACHE = "rr-cache-v3";
 
 // Precache the home page so the island guide / routes work offline after one visit
 self.addEventListener("install", (event) => {
@@ -24,6 +24,13 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
+
+  const url = new URL(request.url);
+  // Never cache the admin app or API — these must always be fresh so newly
+  // deployed features show up immediately. Let the browser handle them.
+  if (url.pathname.startsWith("/admin") || url.pathname.startsWith("/api")) {
+    return;
+  }
 
   event.respondWith(
     (async () => {
