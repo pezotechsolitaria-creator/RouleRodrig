@@ -70,10 +70,14 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
     partner_code: "",
   });
 
-  const days = daysBetween(form.start_date, form.end_date);
   const selectedScooter = scooters.find((s) => s.id === form.scooter);
+  // A single tap = a 1-day rental: if no return date is chosen, return is the
+  // next day so the customer isn't forced to pick two days for one day's hire.
+  const effectiveEnd = form.end_date || (form.start_date ? isoAddDays(form.start_date, 1) : "");
+  const days = daysBetween(form.start_date, effectiveEnd);
   const estimatedTotal = estimateTotal(selectedScooter, days);
-  const capacity = Math.max(1, selectedScooter?.units ?? 1);
+  const activeUnits = (selectedScooter?.assets ?? []).filter((a) => a.active !== false).length;
+  const capacity = activeUnits > 0 ? activeUnits : Math.max(1, selectedScooter?.units ?? 1);
 
   // ── Trip Planner → Booking: pre-fill the trip length ──
   const [desiredDays, setDesiredDays] = useState<number | null>(null);
@@ -145,10 +149,10 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
     );
   }
   const hasOverlap =
-    !!form.start_date && !!form.end_date &&
+    !!form.start_date && !!effectiveEnd &&
     (() => {
       const d = new Date(form.start_date);
-      const end = new Date(form.end_date);
+      const end = new Date(effectiveEnd);
       while (d <= end) {
         const day = d.toISOString().split("T")[0];
         if (heldCountOn(day) >= capacity) return true;
@@ -171,7 +175,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name || !form.scooter || !form.start_date || !form.end_date) return;
+    if (!form.name || !form.scooter || !form.start_date) return;
     if (days <= 0) return;
     if (hasOverlap) return; // selected dates clash with a confirmed booking
     if (!agreed) { setAgreeError(true); return; } // must accept terms
@@ -187,7 +191,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
           phone: form.phone || null,
           scooter: form.scooter,
           start_date: form.start_date,
-          end_date: form.end_date,
+          end_date: effectiveEnd,
           days,
           total_price: estimatedTotal || null,
           total_amount: estimatedTotal ? parseInt(estimatedTotal.replace(/\D/g, ""), 10) || null : null,
@@ -199,7 +203,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
       // Capture a summary (the form is cleared next) for the WhatsApp confirm link
       setLastBooking({
         scooter: selectedScooter?.name ?? form.scooter,
-        range: fmtRange(form.start_date, form.end_date),
+        range: fmtRange(form.start_date, effectiveEnd),
         days,
         name: form.name,
         total: estimatedTotal,
@@ -370,12 +374,15 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                   }}
                 />
                 {/* Selected range readout */}
-                {form.start_date && form.end_date && (
+                {form.start_date && (
                   <div className="flex items-center gap-2 mt-3 text-sm font-dm">
-                    <span className="text-offwhite font-medium">{fmtRange(form.start_date, form.end_date)}</span>
+                    <span className="text-offwhite font-medium">{fmtRange(form.start_date, effectiveEnd)}</span>
                     {days > 0 && <span className="text-yellow">· {t.booking.days(days)}</span>}
                   </div>
                 )}
+                <p className="text-muted/40 font-dm text-[11px] mt-1.5">
+                  Tap one day for a 1-day rental, or tap a return day for a longer trip.
+                </p>
               </div>
 
               {/* Name + Email */}
@@ -540,8 +547,8 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                   <div className="flex justify-between items-start">
                     <dt className="text-muted font-dm text-xs">{t.booking.summaryReturn}</dt>
                     <dd className="text-offwhite font-dm text-xs">
-                      {form.end_date
-                        ? new Date(form.end_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+                      {effectiveEnd
+                        ? new Date(effectiveEnd).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
                         : "—"}
                     </dd>
                   </div>

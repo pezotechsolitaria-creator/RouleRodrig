@@ -408,18 +408,21 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
     enquiries: number;
   } | null>(null);
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
+  const [places, setPlaces] = useState<PlaceBooking[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const [bRes, sRes] = await Promise.all([
+        const [bRes, sRes, pRes] = await Promise.all([
           fetch("/api/admin/bookings"),
           fetch("/api/admin/submissions"),
+          fetch("/api/admin/place-bookings"),
         ]);
         const bookings: Booking[] = bRes.ok ? await bRes.json() : [];
         const submissions: ContactSubmission[] = sRes.ok ? await sRes.json() : [];
         setAllBookings(bookings);
+        setPlaces(pRes.ok ? await pRes.json() : []);
         setStats({
           bookings: bookings.length,
           pending: bookings.filter((b) => b.status === "pending").length,
@@ -436,8 +439,12 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
   const today = islandDate(0);
   const tomorrow = islandDate(1);
   const active = (b: Booking) => b.status === "pending" || b.status === "confirmed";
+  const pickupsToday = allBookings.filter((b) => active(b) && b.start_date === today);
   const pickupsTomorrow = allBookings.filter((b) => active(b) && b.start_date === tomorrow);
   const returnsToday = allBookings.filter((b) => active(b) && b.end_date === today);
+  const placeActive = (p: PlaceBooking) => p.status === "pending" || p.status === "confirmed";
+  const checkinsToday = places.filter((p) => placeActive(p) && p.start_date === today);
+  const hasAgenda = pickupsToday.length || returnsToday.length || pickupsTomorrow.length || checkinsToday.length;
 
   function waLink(b: Booking, kind: "pickup" | "return") {
     const digits = (b.phone ?? "").replace(/\D/g, "");
@@ -490,11 +497,36 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
         </div>
       )}
 
-      {/* Today's reminders — pickups tomorrow + returns today */}
-      {!loading && (pickupsTomorrow.length > 0 || returnsToday.length > 0) && (
+      {/* Today's agenda */}
+      {!loading && hasAgenda ? (
         <div>
-          <p className="font-bebas text-muted text-[10px] tracking-[0.3em] mb-4">TODAY&apos;S REMINDERS</p>
+          <p className="font-bebas text-muted text-[10px] tracking-[0.3em] mb-4">TODAY&apos;S AGENDA · {today}</p>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Deliver today */}
+            <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
+              <p className="font-syne font-bold text-yellow text-sm mb-3 flex items-center gap-2">
+                <Calendar size={14} /> Deliver today ({pickupsToday.length})
+              </p>
+              {pickupsToday.length === 0 ? (
+                <p className="text-muted/40 font-dm text-xs">None.</p>
+              ) : (
+                <div className="space-y-2">
+                  {pickupsToday.map((b) => (
+                    <div key={b.id} className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-dm text-offwhite text-sm truncate">{b.name}</p>
+                        <p className="font-dm text-muted text-xs truncate">{b.scooter}{b.asset_label ? ` · ${b.asset_label}` : ""}</p>
+                      </div>
+                      {b.phone && (
+                        <a href={waLink(b, "pickup")} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-green-500/15 text-green-400 hover:bg-green-500/25 text-xs font-dm px-3 py-1.5 rounded-full transition-colors shrink-0">
+                          <Phone size={11} /> WhatsApp
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             {/* Pickups tomorrow */}
             <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
               <p className="font-syne font-bold text-amber-400 text-sm mb-3 flex items-center gap-2">
@@ -508,7 +540,7 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
                     <div key={b.id} className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-dm text-offwhite text-sm truncate">{b.name}</p>
-                        <p className="font-dm text-muted text-xs truncate">{b.scooter}</p>
+                        <p className="font-dm text-muted text-xs truncate">{b.scooter}{b.asset_label ? ` · ${b.asset_label}` : ""}</p>
                       </div>
                       {b.phone && (
                         <a
@@ -539,7 +571,7 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
                     <div key={b.id} className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-dm text-offwhite text-sm truncate">{b.name}</p>
-                        <p className="font-dm text-muted text-xs truncate">{b.scooter}</p>
+                        <p className="font-dm text-muted text-xs truncate">{b.scooter}{b.asset_label ? ` · ${b.asset_label}` : ""}</p>
                       </div>
                       {b.phone && (
                         <a
@@ -556,9 +588,35 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
                 </div>
               )}
             </div>
+
+            {/* Stay·Eat·Do check-ins today */}
+            <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
+              <p className="font-syne font-bold text-green-400 text-sm mb-3 flex items-center gap-2">
+                <Calendar size={14} /> Stay·Eat·Do today ({checkinsToday.length})
+              </p>
+              {checkinsToday.length === 0 ? (
+                <p className="text-muted/40 font-dm text-xs">None.</p>
+              ) : (
+                <div className="space-y-2">
+                  {checkinsToday.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-dm text-offwhite text-sm truncate">{p.name}</p>
+                        <p className="font-dm text-muted text-xs truncate">{p.place_name}{p.time_slot ? ` · ${p.time_slot}` : ""}</p>
+                      </div>
+                      {p.phone && (
+                        <a href={`https://wa.me/${p.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-green-500/15 text-green-400 hover:bg-green-500/25 text-xs font-dm px-3 py-1.5 rounded-full transition-colors shrink-0">
+                          <Phone size={11} /> WhatsApp
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Quick links */}
       <div>
@@ -882,6 +940,60 @@ function FleetEditor({
               rows={3}
             />
           </Field>
+
+          {/* Individual units — exact asset tracking */}
+          <div className="border-t border-[#2a2a2a] pt-4">
+            <p className="font-bebas text-muted text-[10px] tracking-[0.25em]">INDIVIDUAL UNITS (optional — exact tracking)</p>
+            <p className="text-muted/40 font-dm text-[11px] mb-3">
+              Add each physical bike (colour / plate). Bookings auto-assign a free one and you&apos;ll see exactly which. Overrides &ldquo;Units&rdquo; for availability.
+            </p>
+            <div className="space-y-2">
+              {(scooter.assets ?? []).map((a, ai) => (
+                <div key={a.id} className="flex items-center gap-2 flex-wrap bg-dark border border-[#2a2a2a] rounded-lg p-2">
+                  <input
+                    value={a.label}
+                    onChange={(e) => updateScooter(idx, { assets: (scooter.assets ?? []).map((x, i) => (i === ai ? { ...x, label: e.target.value } : x)) })}
+                    placeholder="Label e.g. Avenis #1"
+                    className="flex-1 min-w-[120px] bg-transparent border border-[#2a2a2a] rounded px-2 py-1.5 text-xs text-offwhite font-dm focus:border-yellow focus:outline-none"
+                  />
+                  <input
+                    value={a.color ?? ""}
+                    onChange={(e) => updateScooter(idx, { assets: (scooter.assets ?? []).map((x, i) => (i === ai ? { ...x, color: e.target.value } : x)) })}
+                    placeholder="Colour"
+                    className="w-24 bg-transparent border border-[#2a2a2a] rounded px-2 py-1.5 text-xs text-offwhite font-dm focus:border-yellow focus:outline-none"
+                  />
+                  <input
+                    value={a.plate ?? ""}
+                    onChange={(e) => updateScooter(idx, { assets: (scooter.assets ?? []).map((x, i) => (i === ai ? { ...x, plate: e.target.value } : x)) })}
+                    placeholder="Plate"
+                    className="w-24 bg-transparent border border-[#2a2a2a] rounded px-2 py-1.5 text-xs text-offwhite font-dm focus:border-yellow focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => updateScooter(idx, { assets: (scooter.assets ?? []).map((x, i) => (i === ai ? { ...x, active: x.active === false } : x)) })}
+                    className={`font-bebas text-[9px] tracking-[0.15em] px-2.5 py-1.5 rounded-full border ${a.active === false ? "border-red-500/30 text-red-400/70" : "border-green-500/30 text-green-400"}`}
+                  >
+                    {a.active === false ? "OFF" : "ACTIVE"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateScooter(idx, { assets: (scooter.assets ?? []).filter((_, i) => i !== ai) })}
+                    className="text-muted/50 hover:text-red-400 transition-colors"
+                    aria-label="Remove unit"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => updateScooter(idx, { assets: [...(scooter.assets ?? []), { id: `unit-${Date.now()}`, label: "", color: "", plate: "", active: true }] })}
+              className="mt-2 flex items-center gap-2 text-xs font-dm text-muted/60 hover:text-yellow transition-colors"
+            >
+              <Plus size={13} /> Add unit
+            </button>
+          </div>
         </div>
       ))}
 
@@ -1550,11 +1662,33 @@ const STATUS_CONFIG: Record<
   completed: { label: "Completed", cls: "bg-blue-500/10  text-blue-400  border-blue-500/30",    dot: "bg-blue-400"    },
 };
 
-function BookingsManager() {
+function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
+
+  // Physical units for a given booking's model (for the reassign dropdown)
+  function unitsFor(scooter: string) {
+    const item = (fleet ?? []).find((f) => f.id === scooter || f.name === scooter);
+    return item?.assets ?? [];
+  }
+
+  async function assignAsset(id: string, scooter: string, assetId: string) {
+    const unit = unitsFor(scooter).find((a) => a.id === assetId);
+    const asset_label = unit ? (unit.color ? `${unit.label} · ${unit.color}` : unit.label) : null;
+    setUpdating(id);
+    try {
+      await fetch("/api/admin/bookings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, asset_id: assetId || null, asset_label }),
+      });
+      setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, asset_id: assetId || null, asset_label } : b)));
+    } finally {
+      setUpdating(null);
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -1679,8 +1813,33 @@ function BookingsManager() {
                 <span className="font-bebas text-[10px] tracking-[0.15em] bg-yellow/10 text-yellow px-2.5 py-1 rounded-full">
                   {b.scooter.toUpperCase()}
                 </span>
+                {b.asset_label && (
+                  <span className="font-bebas text-[10px] tracking-[0.15em] bg-green-500/10 text-green-400 px-2.5 py-1 rounded-full">
+                    🛵 {b.asset_label}
+                  </span>
+                )}
               </div>
             </div>
+
+            {/* Reassign which physical unit (only when units are defined) */}
+            {unitsFor(b.scooter).length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-bebas text-muted text-[9px] tracking-[0.2em]">ASSIGNED UNIT:</p>
+                <select
+                  value={b.asset_id ?? ""}
+                  disabled={updating === b.id}
+                  onChange={(e) => assignAsset(b.id, b.scooter, e.target.value)}
+                  className="bg-dark border border-[#2a2a2a] rounded-lg px-2.5 py-1 text-xs text-offwhite font-dm focus:border-yellow focus:outline-none"
+                >
+                  <option value="">Auto / unassigned</option>
+                  {unitsFor(b.scooter).map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.label}{a.color ? ` · ${a.color}` : ""}{a.active === false ? " (off)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Booking details */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -4857,7 +5016,7 @@ export default function AdminDashboard({
           {section === "waitlist" && <WaitlistViewer />}
           {section === "leads" && <LeadsViewer />}
           {section === "owners" && <OwnerApplicationsViewer />}
-          {section === "bookings" && <BookingsManager />}
+          {section === "bookings" && <BookingsManager fleet={content.fleet} />}
           {section === "place_bookings" && <PlaceBookingsManager />}
           {section === "map" && (
             <MapEditor content={content} onChange={setContent} />

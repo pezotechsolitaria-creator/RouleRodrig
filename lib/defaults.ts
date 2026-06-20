@@ -13,6 +13,14 @@ export interface StatItem {
   label: string;
 }
 
+export interface FleetAsset {
+  id: string;       // stable unique id for this physical unit
+  label: string;    // what the owner calls it, e.g. "Avenis — Yellow"
+  color?: string;   // optional colour for quick visual ID
+  plate?: string;   // optional number plate
+  active?: boolean;  // false = temporarily out of service (repair etc.)
+}
+
 export interface FleetItem {
   id: string;
   badge: string;
@@ -25,6 +33,7 @@ export interface FleetItem {
   unit: string;
   available: boolean;
   units?: number;         // how many of this model you own (for availability)
+  assets?: FleetAsset[];  // individual physical units — enables exact asset tracking
   soldOutToday?: boolean; // computed at request time: every unit is out on a trip today
   category?: string; // vehicle category id, e.g. "scooter"
 }

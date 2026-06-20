@@ -13,6 +13,7 @@ interface BookingEmailData {
   days: number;
   total_price: string | null;
   message: string | null;
+  asset_label?: string | null;
 }
 
 const BRAND = "#F5C842";
@@ -72,10 +73,13 @@ async function send(to: string, subject: string, html: string): Promise<boolean>
 function summaryRows(b: BookingEmailData): string {
   const rows: [string, string][] = [
     ["Scooter", b.scooter],
+  ];
+  if (b.asset_label) rows.push(["Unit", b.asset_label]);
+  rows.push(
     ["Pickup", fmtDate(b.start_date)],
     ["Return", fmtDate(b.end_date)],
     ["Duration", `${b.days} day${b.days !== 1 ? "s" : ""}`],
-  ];
+  );
   if (b.total_price) rows.push(["Estimated total", b.total_price]);
   return rows
     .map(

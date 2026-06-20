@@ -195,7 +195,7 @@ export default function Contact({
                 </div>
                 <div>
                   <label htmlFor="scooter" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                    {t.contact.scooterLabel}
+                    {t.contact.scooterLabel} <span className="text-muted/40 normal-case tracking-normal">· optional</span>
                   </label>
                   <select
                     id="scooter" name="scooter"
@@ -204,7 +204,7 @@ export default function Contact({
                     onChange={(e) => setForm({ ...form, scooter: e.target.value })}
                     disabled={formState === "loading"}
                   >
-                    <option value="">{t.booking.scooterPlaceholder}</option>
+                    <option value="">Not sure / general question</option>
                     {scooters.map((s) => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}

@@ -17,10 +17,14 @@ export default function Navbar({
   branding,
   announcementActive,
   showStayEatDo,
+  showRoutes,
+  showEvents,
 }: {
   branding?: BrandingContent;
   announcementActive?: boolean;
   showStayEatDo?: boolean;
+  showRoutes?: boolean;
+  showEvents?: boolean;
 }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -40,8 +44,10 @@ export default function Navbar({
   const navLinks = [
     { label: t.nav.scooters, href: "#fleet" },
     { label: t.nav.map,      href: "#map" },
+    ...(showRoutes ? [{ label: t.nav.routes, href: "/#routes" }] : []),
     { label: t.nav.taxi,     href: "/taxi" },
     ...(showStayEatDo ? [{ label: t.nav.stayEatDo, href: "/#recommended" }] : []),
+    ...(showEvents ? [{ label: t.nav.events, href: "/#events" }] : []),
     { label: t.nav.contact,  href: "#contact" },
   ];
 

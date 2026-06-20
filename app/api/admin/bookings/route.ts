@@ -22,14 +22,17 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   if (!isAuthed(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { id, status } = await req.json() as { id: string; status: string };
-  if (!id || !status) return NextResponse.json({ error: 'Missing id or status' }, { status: 400 });
+  const body = await req.json() as { id: string; status?: string; asset_id?: string | null; asset_label?: string | null };
+  if (!body.id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+
+  const patch: Record<string, unknown> = {};
+  if (body.status) patch.status = body.status;
+  if ('asset_id' in body) patch.asset_id = body.asset_id;
+  if ('asset_label' in body) patch.asset_label = body.asset_label;
+  if (Object.keys(patch).length === 0) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
 
   const supabase = await getPrivileged();
-  const { error } = await supabase
-    .from('bookings')
-    .update({ status })
-    .eq('id', id);
+  const { error } = await supabase.from('bookings').update(patch).eq('id', body.id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

@@ -62,10 +62,11 @@ export default async function Home() {
   } catch {
     /* availability is best-effort — never block the page on it */
   }
-  const fleet = content.fleet.map((s) => ({
-    ...s,
-    soldOutToday: (heldToday[s.id] ?? 0) >= Math.max(1, s.units ?? 1),
-  }));
+  const fleet = content.fleet.map((s) => {
+    const activeUnits = (s.assets ?? []).filter((a) => a.active !== false).length;
+    const capacity = activeUnits > 0 ? activeUnits : Math.max(1, s.units ?? 1);
+    return { ...s, soldOutToday: (heldToday[s.id] ?? 0) >= capacity };
+  });
 
   // ── SEO structured data (JSON-LD): LocalBusiness + Products ──
   const sameAs = [
@@ -155,6 +156,8 @@ export default async function Home() {
           branding={content.branding}
           announcementActive={false}
           showStayEatDo={content.recommended.enabled && content.recommended.items.length > 0}
+          showRoutes={content.rideRoutes.length > 0}
+          showEvents={content.events.some((e) => e.title)}
         />
         <Hero hero={content.hero} />
         <Stats stats={content.stats} />

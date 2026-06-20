@@ -23,6 +23,8 @@ export interface Booking {
   message: string | null;
   status: "pending" | "confirmed" | "cancelled" | "completed";
   partner_code: string | null;
+  asset_id: string | null;     // which physical unit was assigned
+  asset_label: string | null;  // snapshot of its label at booking time
   created_at: string;
   pickup_reminded?: boolean;
   return_reminded?: boolean;
