@@ -6,6 +6,10 @@ import { guard } from "@/lib/rate-limit";
 import { isActiveHold } from "@/lib/holds";
 
 // ── Public: create a Stay·Eat·Do reservation request + confirmation emails ──
+// Category-aware capacity:
+//   • hotel      → counts rooms (quantity) per night vs total rooms
+//   • restaurant → counts covers (quantity) per date + time slot vs seats/slot
+//   • activity   → counts people (quantity) per date (+ slot) vs spots
 export async function POST(req: NextRequest) {
   const limited = guard(req, "place-bookings", 8, 60_000);
   if (limited) return limited;
@@ -19,6 +23,8 @@ export async function POST(req: NextRequest) {
     start_date?: string;
     end_date?: string;
     guests?: number | null;
+    quantity?: number | null;
+    time_slot?: string | null;
     message?: string | null;
   };
   try {
@@ -30,16 +36,16 @@ export async function POST(req: NextRequest) {
   const place_id = (body.place_id ?? "").trim();
   const name = (body.name ?? "").trim();
   const start_date = (body.start_date ?? "").trim();
-  const end_date = (body.end_date ?? "").trim();
 
-  if (!place_id || !name || !start_date || !end_date) {
+  if (!place_id || !name || !start_date) {
     return NextResponse.json({ error: "Missing required reservation details." }, { status: 400 });
   }
 
-  // Resolve the listing for a trusted name/category/capacity.
+  // Resolve the listing for a trusted name/category/capacity/slots.
   let place_name = (body.place_name ?? place_id).toString().slice(0, 160);
   let category: string | null = null;
   let capacity = 1;
+  let slots: string[] = [];
   try {
     const content = await getContent();
     const item = content.recommended.items.find((p) => p.id === place_id);
@@ -47,14 +53,34 @@ export async function POST(req: NextRequest) {
       place_name = item.name;
       category = item.category;
       capacity = Math.max(1, item.capacity ?? 1);
+      slots = Array.isArray(item.timeSlots) ? item.timeSlots : [];
     }
   } catch {
     /* fall back to provided name */
   }
 
+  const isStay = category === "hotel";
+  // Hotels book a date range; restaurants/activities a single day.
+  const end_date = isStay ? (body.end_date ?? "").trim() || start_date : start_date;
+
+  // A time slot is required for restaurants/activities that define slots.
+  const time_slot =
+    !isStay && slots.length > 0
+      ? (body.time_slot ?? "").toString().trim().slice(0, 40) || null
+      : null;
+  if (!isStay && slots.length > 0 && !time_slot) {
+    return NextResponse.json({ error: "Please choose a time." }, { status: 400 });
+  }
+
+  // quantity = rooms (hotel) / covers (restaurant) / people (activity)
+  const quantity = Math.min(
+    capacity,
+    Math.max(1, Number.isFinite(Number(body.quantity)) ? Math.round(Number(body.quantity)) : 1),
+  );
+
   const guests =
     Number.isFinite(Number(body.guests)) && Number(body.guests) > 0
-      ? Math.min(50, Math.round(Number(body.guests)))
+      ? Math.min(99, Math.round(Number(body.guests)))
       : null;
 
   const record = {
@@ -67,30 +93,49 @@ export async function POST(req: NextRequest) {
     start_date,
     end_date,
     guests,
+    quantity,
+    time_slot,
     message: (body.message ?? "")?.toString().trim() || null,
     status: "pending" as const,
   };
 
   const supabase = await getPrivileged();
 
-  // Capacity-aware guard so a fully-booked listing can't be over-reserved.
+  // Capacity-aware guard (sums quantity, not booking count).
   try {
     const { data: active } = await supabase
       .from("place_bookings")
-      .select("start_date, end_date, status, created_at")
+      .select("start_date, end_date, status, created_at, quantity, time_slot")
       .eq("place_id", place_id)
       .in("status", ["pending", "confirmed"])
       .gte("end_date", start_date)
       .lte("start_date", end_date);
-    const ranges = ((active ?? []) as { start_date: string; end_date: string; status: string; created_at: string }[])
-      .filter((r) => isActiveHold(r));
-    const heldOn = (day: string) =>
-      ranges.reduce((n, r) => (day >= r.start_date && day <= r.end_date ? n + 1 : n), 0);
-    for (let d = new Date(start_date); d <= new Date(end_date); d.setDate(d.getDate() + 1)) {
-      const day = d.toISOString().slice(0, 10);
-      if (heldOn(day) >= capacity) {
+    const rows = ((active ?? []) as {
+      start_date: string; end_date: string; status: string; created_at: string; quantity: number; time_slot: string | null;
+    }[]).filter((r) => isActiveHold(r));
+
+    if (isStay) {
+      // Rooms used must not exceed total rooms on any night of the stay.
+      const usedOn = (day: string) =>
+        rows.reduce((n, r) => (day >= r.start_date && day <= r.end_date ? n + (r.quantity ?? 1) : n), 0);
+      for (let d = new Date(start_date); d <= new Date(end_date); d.setDate(d.getDate() + 1)) {
+        const day = d.toISOString().slice(0, 10);
+        if (usedOn(day) + quantity > capacity) {
+          return NextResponse.json(
+            { error: "Not enough rooms left for those dates. Please adjust your dates or rooms." },
+            { status: 409 },
+          );
+        }
+      }
+    } else {
+      // Covers/spots used for this date (and slot, if any) must fit capacity.
+      const used = rows.reduce(
+        (n, r) => (r.start_date === start_date && (r.time_slot ?? null) === time_slot ? n + (r.quantity ?? 1) : n),
+        0,
+      );
+      if (used + quantity > capacity) {
         return NextResponse.json(
-          { error: "Those dates are no longer available. Please pick another range." },
+          { error: "That date/time is fully booked. Please pick another." },
           { status: 409 },
         );
       }

@@ -1891,6 +1891,20 @@ function PlaceBookingsManager() {
                   <p className="font-dm text-offwhite text-xs mt-0.5">{new Date(b.end_date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</p>
                 </div>
               )}
+              {b.time_slot && (
+                <div>
+                  <p className="font-bebas text-muted text-[9px] tracking-[0.2em]">TIME</p>
+                  <p className="font-dm text-offwhite text-xs mt-0.5">{b.time_slot}</p>
+                </div>
+              )}
+              {b.quantity > 0 && (
+                <div>
+                  <p className="font-bebas text-muted text-[9px] tracking-[0.2em]">
+                    {b.category === "hotel" ? "ROOMS" : b.category === "restaurant" ? "PARTY" : "PEOPLE"}
+                  </p>
+                  <p className="font-dm text-offwhite text-xs mt-0.5">{b.quantity}</p>
+                </div>
+              )}
               {b.guests != null && (
                 <div>
                   <p className="font-bebas text-muted text-[9px] tracking-[0.2em]">GUESTS</p>
@@ -2497,7 +2511,13 @@ function RecommendedEditor({
             <div className="flex items-center justify-between bg-dark border border-[#2a2a2a] rounded-xl px-4 py-3">
               <div>
                 <p className="font-dm text-offwhite text-sm">On-site booking</p>
-                <p className="text-muted/50 text-[11px] font-dm">Show a “Book now” form with a live calendar</p>
+                <p className="text-muted/50 text-[11px] font-dm">
+                  {it.category === "hotel"
+                    ? "Date-range booking with a live rooms calendar"
+                    : it.category === "restaurant"
+                    ? "Table reservations by date + time slot"
+                    : "Single-day booking with seats per date"}
+                </p>
               </div>
               <button
                 type="button"
@@ -2508,18 +2528,39 @@ function RecommendedEditor({
                 <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${it.bookable ? "translate-x-6" : "translate-x-1"}`} />
               </button>
             </div>
-            <Field label="CAPACITY PER DATE">
+            {it.bookable && (
+              <Field
+                label={
+                  it.category === "hotel"
+                    ? "TOTAL ROOMS"
+                    : it.category === "restaurant"
+                    ? "SEATS PER TIME SLOT"
+                    : "SPOTS PER DATE"
+                }
+              >
+                <TextInput
+                  value={it.capacity != null ? String(it.capacity) : ""}
+                  onChange={(v) => updateItem(i, { capacity: parseInt(v) || undefined })}
+                  placeholder="1"
+                  type="number"
+                />
+              </Field>
+            )}
+          </div>
+          {it.bookable && it.category !== "hotel" && (
+            <Field label="TIME SLOTS (comma-separated — leave blank for whole-day)">
               <TextInput
-                value={it.capacity != null ? String(it.capacity) : ""}
-                onChange={(v) => updateItem(i, { capacity: parseInt(v) || undefined })}
-                placeholder="1"
-                type="number"
+                value={(it.timeSlots ?? []).join(", ")}
+                onChange={(v) => updateItem(i, { timeSlots: v.split(",").map((s) => s.trim()).filter(Boolean) })}
+                placeholder="e.g. 12:30, 19:00, 20:30"
               />
             </Field>
-          </div>
-          <Field label="PRICE NOTE (optional — shown in the booking form)">
-            <TextInput value={it.priceNote ?? ""} onChange={(v) => updateItem(i, { priceNote: v })} placeholder="e.g. from Rs 2,500 / night" />
-          </Field>
+          )}
+          {it.bookable && (
+            <Field label="PRICE NOTE (optional — shown in the booking form)">
+              <TextInput value={it.priceNote ?? ""} onChange={(v) => updateItem(i, { priceNote: v })} placeholder="e.g. from Rs 2,500 / night" />
+            </Field>
+          )}
         </div>
       ))}
 

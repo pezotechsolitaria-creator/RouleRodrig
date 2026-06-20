@@ -15,6 +15,8 @@ interface Props {
   minDate: string; // today, YYYY-MM-DD
   bookedRanges: BookedRange[];
   capacity?: number; // number of units of this model (default 1)
+  singleDay?: boolean; // pick one day (start === end) instead of a range
+  isDayFull?: (day: string) => boolean; // custom "fully booked" test (overrides the count logic)
   onChange: (start: string, end: string) => void;
   labels: { booked: string; available: string; selected: string; hint: string };
 }
@@ -31,6 +33,8 @@ export default function AvailabilityCalendar({
   minDate,
   bookedRanges,
   capacity = 1,
+  singleDay = false,
+  isDayFull,
   onChange,
   labels,
 }: Props) {
@@ -39,10 +43,13 @@ export default function AvailabilityCalendar({
 
   // Both pending holds and confirmed bookings reserve a date.
   const blocked = bookedRanges;
-  // A day is fully booked when active bookings on it reach the unit count.
+  // A day is fully booked when active bookings on it reach the unit count —
+  // unless the caller supplies its own test (e.g. rooms/seats summing).
   const cap = Math.max(1, capacity);
   const isBooked = (day: string) =>
-    blocked.reduce((n, r) => (day >= r.start && day <= r.end ? n + 1 : n), 0) >= cap;
+    isDayFull
+      ? isDayFull(day)
+      : blocked.reduce((n, r) => (day >= r.start && day <= r.end ? n + 1 : n), 0) >= cap;
   const isPast = (day: string) => day < minDate;
 
   function rangeHasBooked(a: string, b: string): boolean {
@@ -57,6 +64,10 @@ export default function AvailabilityCalendar({
 
   function pick(day: string) {
     if (isPast(day) || isBooked(day)) return;
+    if (singleDay) {
+      onChange(day, day); // single-day reservation (restaurants / activities)
+      return;
+    }
     if (!startDate || (startDate && endDate)) {
       onChange(day, ""); // begin a new range
     } else if (day <= startDate) {

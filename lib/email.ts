@@ -249,6 +249,8 @@ interface PlaceBookingEmailData {
   start_date: string;
   end_date: string;
   guests: number | null;
+  quantity?: number | null;
+  time_slot?: string | null;
   message: string | null;
 }
 
@@ -256,9 +258,15 @@ function placeRows(b: PlaceBookingEmailData): string {
   const sameDay = b.start_date === b.end_date;
   const rows: [string, string][] = [
     ["Place", b.place_name],
-    [sameDay ? "Date" : "From", fmtDate(b.start_date)],
+    [sameDay ? "Date" : "Check-in", fmtDate(b.start_date)],
   ];
-  if (!sameDay) rows.push(["To", fmtDate(b.end_date)]);
+  if (!sameDay) rows.push(["Check-out", fmtDate(b.end_date)]);
+  if (b.time_slot) rows.push(["Time", b.time_slot]);
+  const qty = b.quantity ?? 0;
+  if (qty > 0) {
+    const unit = b.category === "hotel" ? "Rooms" : b.category === "restaurant" ? "Party size" : "People";
+    rows.push([unit, String(qty)]);
+  }
   if (b.guests) rows.push(["Guests", String(b.guests)]);
   return rows
     .map(

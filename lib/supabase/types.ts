@@ -40,6 +40,8 @@ export interface PlaceBooking {
   start_date: string;
   end_date: string;
   guests: number | null;
+  quantity: number;        // rooms (hotel) / covers (restaurant) / people (activity)
+  time_slot: string | null; // restaurants & activities
   message: string | null;
   status: "pending" | "confirmed" | "cancelled" | "completed";
   created_at: string;

@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from("place_bookings")
-    .select("place_id, start_date, end_date, status, created_at")
+    .select("place_id, start_date, end_date, status, created_at, quantity, time_slot")
     .in("status", ["pending", "confirmed"])
     .gte("end_date", new Date().toISOString().split("T")[0]);
 
@@ -27,6 +27,8 @@ export async function GET(req: NextRequest) {
       start: b.start_date,
       end: b.end_date,
       confirmed: b.status === "confirmed",
+      quantity: b.quantity ?? 1,
+      slot: b.time_slot ?? null,
     }));
   return NextResponse.json(ranges);
 }

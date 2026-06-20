@@ -171,7 +171,8 @@ export interface RecommendedPlace {
   whatsapp?: string;   // business WhatsApp — enables the "Book / Enquire" redirect
   featured?: boolean;  // sponsored placement — shown first with a badge
   bookable?: boolean;  // enables the on-site reservation form + live calendar
-  capacity?: number;   // how many simultaneous reservations a date can hold (default 1)
+  capacity?: number;   // hotel = total rooms · restaurant = seats per slot · activity = spots per date (default 1)
+  timeSlots?: string[]; // restaurants & activities: bookable times, e.g. ["12:30","19:00","20:30"]
   priceNote?: string;  // optional price hint shown in the booking form, e.g. "from Rs 2500/night"
 }
 
