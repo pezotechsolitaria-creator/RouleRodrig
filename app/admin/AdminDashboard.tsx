@@ -406,33 +406,41 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
     pending: number;
     confirmed: number;
     enquiries: number;
+    revenue: number;
   } | null>(null);
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [places, setPlaces] = useState<PlaceBooking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function load() {
+    setRefreshing(true);
+    try {
+      const [bRes, sRes, pRes] = await Promise.all([
+        fetch("/api/admin/bookings"),
+        fetch("/api/admin/submissions"),
+        fetch("/api/admin/place-bookings"),
+      ]);
+      const bookings: Booking[] = bRes.ok ? await bRes.json() : [];
+      const submissions: ContactSubmission[] = sRes.ok ? await sRes.json() : [];
+      setAllBookings(bookings);
+      setPlaces(pRes.ok ? await pRes.json() : []);
+      setStats({
+        bookings: bookings.length,
+        pending: bookings.filter((b) => b.status === "pending").length,
+        confirmed: bookings.filter((b) => b.status === "confirmed").length,
+        enquiries: submissions.filter((s) => !s.handled).length,
+        revenue: bookings
+          .filter((b) => b.status === "confirmed" || b.status === "completed")
+          .reduce((sum, b) => sum + (b.total_amount ?? 0), 0),
+      });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
 
   useEffect(() => {
-    async function load() {
-      try {
-        const [bRes, sRes, pRes] = await Promise.all([
-          fetch("/api/admin/bookings"),
-          fetch("/api/admin/submissions"),
-          fetch("/api/admin/place-bookings"),
-        ]);
-        const bookings: Booking[] = bRes.ok ? await bRes.json() : [];
-        const submissions: ContactSubmission[] = sRes.ok ? await sRes.json() : [];
-        setAllBookings(bookings);
-        setPlaces(pRes.ok ? await pRes.json() : []);
-        setStats({
-          bookings: bookings.length,
-          pending: bookings.filter((b) => b.status === "pending").length,
-          confirmed: bookings.filter((b) => b.status === "confirmed").length,
-          enquiries: submissions.length,
-        });
-      } finally {
-        setLoading(false);
-      }
-    }
     load();
   }, []);
 
@@ -459,14 +467,24 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
     { label: "Total Bookings",  value: stats?.bookings ?? "—",  icon: BookOpen,     color: "text-yellow",   section: "bookings"     as Section },
     { label: "Pending",          value: stats?.pending ?? "—",   icon: ClipboardList,color: "text-amber-400",section: "bookings"     as Section },
     { label: "Confirmed",        value: stats?.confirmed ?? "—", icon: CheckCircle,  color: "text-green-400",section: "bookings"     as Section },
-    { label: "Enquiries",        value: stats?.enquiries ?? "—", icon: Inbox,        color: "text-blue-400", section: "submissions"  as Section },
+    { label: "New Enquiries",    value: stats?.enquiries ?? "—", icon: Inbox,        color: "text-blue-400", section: "submissions"  as Section },
+    { label: "Est. Revenue",     value: stats ? `Rs ${stats.revenue.toLocaleString()}` : "—", icon: DollarSign, color: "text-yellow", section: "bookings" as Section },
   ];
 
   return (
     <div className="space-y-10">
-      <div>
-        <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-1">OVERVIEW</p>
-        <h2 className="font-syne font-bold text-offwhite text-xl">Business Dashboard</h2>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-1">OVERVIEW</p>
+          <h2 className="font-syne font-bold text-offwhite text-xl">Business Dashboard</h2>
+        </div>
+        <button
+          onClick={load}
+          disabled={refreshing}
+          className="flex items-center gap-1.5 text-muted/60 hover:text-yellow font-dm text-xs transition-colors disabled:opacity-50"
+        >
+          <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} /> Refresh
+        </button>
       </div>
 
       {loading ? (
@@ -474,7 +492,7 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
           <Loader2 size={16} className="animate-spin" /> Loading stats…
         </div>
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {cards.map((card) => {
             const Icon = card.icon;
             return (
@@ -1177,10 +1195,12 @@ function GalleryEditor({
   content,
   onChange,
   onSessionExpired,
+  onSaved,
 }: {
   content: SiteContent;
   onChange: (c: SiteContent) => void;
   onSessionExpired: () => void;
+  onSaved?: (c: SiteContent) => void;
 }) {
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -1211,6 +1231,7 @@ function GalleryEditor({
       body: JSON.stringify(updated),
     });
     if (saveRes.status === 401) onSessionExpired();
+    else if (saveRes.ok) onSaved?.(updated);
     setUploading(false);
   }
 
@@ -1504,6 +1525,16 @@ function SubmissionsViewer() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"new" | "handled" | "all">("new");
+
+  async function setHandled(id: string, handled: boolean) {
+    setSubmissions((prev) => prev.map((s) => (s.id === id ? { ...s, handled } : s)));
+    await fetch("/api/admin/submissions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, handled }),
+    });
+  }
 
   async function remove(id: string) {
     setDeleting(id);
@@ -1564,12 +1595,31 @@ function SubmissionsViewer() {
       </div>
     );
 
+  const newCount = submissions.filter((s) => !s.handled).length;
+  const shown = submissions.filter((s) =>
+    filter === "all" ? true : filter === "handled" ? s.handled : !s.handled,
+  );
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-muted/50 font-dm text-xs">
-          {submissions.length} enquir{submissions.length !== 1 ? "ies" : "y"}
-        </p>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {([
+            ["new", `NEW (${newCount})`],
+            ["handled", `HANDLED (${submissions.length - newCount})`],
+            ["all", `ALL (${submissions.length})`],
+          ] as const).map(([f, label]) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`font-bebas text-[10px] tracking-[0.12em] px-3 py-1.5 rounded-full border transition-colors ${
+                filter === f ? "bg-yellow text-dark border-yellow" : "border-[#2a2a2a] text-muted/70 hover:border-yellow/40 hover:text-yellow"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <button
           onClick={load}
           className="flex items-center gap-1.5 text-muted/50 hover:text-yellow font-dm text-xs transition-colors"
@@ -1578,10 +1628,12 @@ function SubmissionsViewer() {
         </button>
       </div>
 
-      {submissions.map((s) => (
+      {shown.length === 0 ? (
+        <p className="text-muted/40 font-dm text-sm text-center py-10">No {filter === "all" ? "" : filter} enquiries.</p>
+      ) : shown.map((s) => (
         <div
           key={s.id}
-          className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5 space-y-3"
+          className={`bg-[#0d0d0d] border rounded-2xl p-5 space-y-3 transition-colors ${s.handled ? "border-[#1c1c1c] opacity-60" : "border-[#2a2a2a]"}`}
         >
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -1602,6 +1654,16 @@ function SubmissionsViewer() {
                   {s.scooter.toUpperCase()}
                 </span>
               )}
+              <button
+                onClick={() => setHandled(s.id, !s.handled)}
+                className={`font-bebas text-[9px] tracking-[0.12em] px-2.5 py-1 rounded-full border transition-colors ${
+                  s.handled
+                    ? "border-[#2a2a2a] text-muted/60 hover:text-yellow hover:border-yellow/40"
+                    : "border-green-500/30 text-green-400 hover:bg-green-500/10"
+                }`}
+              >
+                {s.handled ? "Reopen" : "✓ Handled"}
+              </button>
               <button
                 onClick={() => remove(s.id)}
                 disabled={deleting === s.id}
@@ -1667,6 +1729,8 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | Booking["status"]>("all");
+  const [q, setQ] = useState("");
 
   // Physical units for a given booking's model (for the reassign dropdown)
   function unitsFor(scooter: string) {
@@ -1770,12 +1834,37 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
       </div>
     );
 
+  const query = q.trim().toLowerCase();
+  const shown = bookings.filter((b) => {
+    if (filter !== "all" && b.status !== filter) return false;
+    if (!query) return true;
+    return (
+      b.name.toLowerCase().includes(query) ||
+      b.scooter.toLowerCase().includes(query) ||
+      (b.email ?? "").toLowerCase().includes(query) ||
+      (b.phone ?? "").toLowerCase().includes(query) ||
+      (b.asset_label ?? "").toLowerCase().includes(query)
+    );
+  });
+  const counts = { all: bookings.length } as Record<string, number>;
+  for (const b of bookings) counts[b.status] = (counts[b.status] ?? 0) + 1;
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-muted/50 font-dm text-xs">
-          {bookings.length} booking{bookings.length !== 1 ? "s" : ""}
-        </p>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {(["all", "pending", "confirmed", "completed", "cancelled"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`font-bebas text-[10px] tracking-[0.12em] px-3 py-1.5 rounded-full border transition-colors ${
+                filter === f ? "bg-yellow text-dark border-yellow" : "border-[#2a2a2a] text-muted/70 hover:border-yellow/40 hover:text-yellow"
+              }`}
+            >
+              {f.toUpperCase()} ({counts[f] ?? 0})
+            </button>
+          ))}
+        </div>
         <button
           onClick={load}
           className="flex items-center gap-1.5 text-muted/50 hover:text-yellow font-dm text-xs transition-colors"
@@ -1783,8 +1872,17 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
           <RefreshCw size={12} /> Refresh
         </button>
       </div>
+      <input
+        type="text"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search by name, scooter, email, phone…"
+        className="w-full bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-offwhite font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none transition-colors"
+      />
 
-      {bookings.map((b) => {
+      {shown.length === 0 ? (
+        <p className="text-muted/40 font-dm text-sm text-center py-10">No bookings match your filter.</p>
+      ) : shown.map((b) => {
         const sc = STATUS_CONFIG[b.status] ?? STATUS_CONFIG.pending;
         return (
           <div
@@ -1946,6 +2044,8 @@ function PlaceBookingsManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | PlaceBooking["status"]>("all");
+  const [q, setQ] = useState("");
 
   async function load() {
     setLoading(true);
@@ -2012,14 +2112,49 @@ function PlaceBookingsManager() {
       </div>
     );
 
+  const query = q.trim().toLowerCase();
+  const shown = rows.filter((b) => {
+    if (filter !== "all" && b.status !== filter) return false;
+    if (!query) return true;
+    return (
+      b.name.toLowerCase().includes(query) ||
+      b.place_name.toLowerCase().includes(query) ||
+      (b.email ?? "").toLowerCase().includes(query) ||
+      (b.phone ?? "").toLowerCase().includes(query)
+    );
+  });
+  const counts = { all: rows.length } as Record<string, number>;
+  for (const b of rows) counts[b.status] = (counts[b.status] ?? 0) + 1;
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-muted/50 font-dm text-xs">{rows.length} reservation{rows.length !== 1 ? "s" : ""}</p>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {(["all", "pending", "confirmed", "completed", "cancelled"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`font-bebas text-[10px] tracking-[0.12em] px-3 py-1.5 rounded-full border transition-colors ${
+                filter === f ? "bg-yellow text-dark border-yellow" : "border-[#2a2a2a] text-muted/70 hover:border-yellow/40 hover:text-yellow"
+              }`}
+            >
+              {f.toUpperCase()} ({counts[f] ?? 0})
+            </button>
+          ))}
+        </div>
         <button onClick={load} className="flex items-center gap-1.5 text-muted/50 hover:text-yellow font-dm text-xs transition-colors"><RefreshCw size={12} /> Refresh</button>
       </div>
+      <input
+        type="text"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search by name, place, email, phone…"
+        className="w-full bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-offwhite font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none transition-colors"
+      />
 
-      {rows.map((b) => {
+      {shown.length === 0 ? (
+        <p className="text-muted/40 font-dm text-sm text-center py-10">No reservations match your filter.</p>
+      ) : shown.map((b) => {
         const sc = STATUS_CONFIG[b.status] ?? STATUS_CONFIG.pending;
         const sameDay = b.start_date === b.end_date;
         return (
@@ -4751,7 +4886,22 @@ export default function AdminDashboard({
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // Snapshot of the last-persisted content, to detect unsaved edits.
+  const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(initialContent));
   const router = useRouter();
+
+  const dirty = JSON.stringify(content) !== savedSnapshot;
+
+  // Warn before leaving (reload / close / navigate away) with unsaved edits.
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
 
   // Selecting a section also closes the mobile drawer
   function selectSection(s: Section) {
@@ -4774,6 +4924,7 @@ export default function AdminDashboard({
         return;
       }
       if (!res.ok) throw new Error();
+      setSavedSnapshot(JSON.stringify(content)); // edits are now persisted
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
@@ -4900,30 +5051,39 @@ export default function AdminDashboard({
   );
 
   const saveButton = (
-    <button
-      onClick={handleSave}
-      disabled={saving || isAutoSave}
-      className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-full text-sm font-syne font-bold transition-all disabled:cursor-not-allowed shrink-0 ${
-        saved
-          ? "bg-green-500/20 text-green-400 border border-green-500/30"
-          : saveError
-          ? "bg-red-500/20 text-red-400 border border-red-500/30"
-          : "bg-yellow text-dark hover:bg-yellow-dark disabled:opacity-40"
-      }`}
-    >
-      {saving ? (
-        <Loader2 size={14} className="animate-spin" />
-      ) : saved ? (
-        <CheckCircle size={14} />
-      ) : saveError ? (
-        <AlertCircle size={14} />
-      ) : (
-        <Save size={14} />
+    <div className="flex items-center gap-2.5 shrink-0">
+      {dirty && !isAutoSave && !saving && !saved && (
+        <span className="hidden sm:flex items-center gap-1.5 text-amber-400 text-xs font-dm whitespace-nowrap">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" /> Unsaved changes
+        </span>
       )}
-      <span className={isAutoSave ? "hidden sm:inline" : ""}>
-        {saving ? "Saving…" : saved ? "Saved!" : saveError ? "Error" : "Save Changes"}
-      </span>
-    </button>
+      <button
+        onClick={handleSave}
+        disabled={saving || isAutoSave || !dirty}
+        className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-full text-sm font-syne font-bold transition-all disabled:cursor-not-allowed shrink-0 ${
+          saved
+            ? "bg-green-500/20 text-green-400 border border-green-500/30"
+            : saveError
+            ? "bg-red-500/20 text-red-400 border border-red-500/30"
+            : dirty && !isAutoSave
+            ? "bg-yellow text-dark hover:bg-yellow-dark ring-2 ring-yellow/50 ring-offset-2 ring-offset-[#080808]"
+            : "bg-yellow text-dark hover:bg-yellow-dark disabled:opacity-40"
+        }`}
+      >
+        {saving ? (
+          <Loader2 size={14} className="animate-spin" />
+        ) : saved ? (
+          <CheckCircle size={14} />
+        ) : saveError ? (
+          <AlertCircle size={14} />
+        ) : (
+          <Save size={14} />
+        )}
+        <span className={isAutoSave ? "hidden sm:inline" : ""}>
+          {saving ? "Saving…" : saved ? "Saved!" : saveError ? "Error" : isAutoSave ? "Auto-saved" : dirty ? "Save changes" : "All saved"}
+        </span>
+      </button>
+    </div>
   );
 
   return (
@@ -4999,6 +5159,7 @@ export default function AdminDashboard({
                 content={content}
                 onChange={setContent}
                 onSessionExpired={() => router.push("/admin/login")}
+                onSaved={(c) => setSavedSnapshot(JSON.stringify(c))}
               />
               <p className="mt-4 text-muted/50 text-xs font-dm">
                 Gallery photos are saved automatically — no need to click Save Changes.

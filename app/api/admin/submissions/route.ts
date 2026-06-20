@@ -19,6 +19,18 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(data);
 }
 
+export async function PATCH(req: NextRequest) {
+  if (!isAuthed(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id, handled } = await req.json() as { id: string; handled: boolean };
+  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+
+  const supabase = await getPrivileged();
+  const { error } = await supabase.from('contact_submissions').update({ handled: !!handled }).eq('id', id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
+
 export async function DELETE(req: NextRequest) {
   if (!isAuthed(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 

@@ -6,6 +6,7 @@ export interface ContactSubmission {
   scooter: string | null;
   dates: string | null;
   message: string | null;
+  handled: boolean;
   created_at: string;
 }
 
