@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPrivileged } from "@/lib/supabase/admin";
+import { isActiveHold } from "@/lib/holds";
 
 // ── Public: booked date ranges for a scooter (no personal data) ─────
 // Returns confirmed + pending ranges so customers can avoid requesting
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from("bookings")
-    .select("scooter, start_date, end_date, status")
+    .select("scooter, start_date, end_date, status, created_at")
     .in("status", ["pending", "confirmed"])
     .gte("end_date", new Date().toISOString().split("T")[0]);
 
@@ -20,11 +21,14 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const ranges = (data ?? []).map((b) => ({
-    scooter: b.scooter,
-    start: b.start_date,
-    end: b.end_date,
-    confirmed: b.status === "confirmed",
-  }));
+  // Drop expired pending holds so abandoned requests stop blocking the calendar.
+  const ranges = (data ?? [])
+    .filter((b) => isActiveHold(b))
+    .map((b) => ({
+      scooter: b.scooter,
+      start: b.start_date,
+      end: b.end_date,
+      confirmed: b.status === "confirmed",
+    }));
   return NextResponse.json(ranges);
 }

@@ -3,6 +3,7 @@ import { getPrivileged } from "@/lib/supabase/admin";
 import { getContent } from "@/lib/content";
 import { sendPlaceBookingEmails } from "@/lib/email";
 import { guard } from "@/lib/rate-limit";
+import { isActiveHold } from "@/lib/holds";
 
 // ── Public: create a Stay·Eat·Do reservation request + confirmation emails ──
 export async function POST(req: NextRequest) {
@@ -76,12 +77,13 @@ export async function POST(req: NextRequest) {
   try {
     const { data: active } = await supabase
       .from("place_bookings")
-      .select("start_date, end_date")
+      .select("start_date, end_date, status, created_at")
       .eq("place_id", place_id)
       .in("status", ["pending", "confirmed"])
       .gte("end_date", start_date)
       .lte("start_date", end_date);
-    const ranges = (active ?? []) as { start_date: string; end_date: string }[];
+    const ranges = ((active ?? []) as { start_date: string; end_date: string; status: string; created_at: string }[])
+      .filter((r) => isActiveHold(r));
     const heldOn = (day: string) =>
       ranges.reduce((n, r) => (day >= r.start_date && day <= r.end_date ? n + 1 : n), 0);
     for (let d = new Date(start_date); d <= new Date(end_date); d.setDate(d.getDate() + 1)) {

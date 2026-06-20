@@ -11,6 +11,7 @@ import {
   sendAdminPlaceReminder,
 } from "@/lib/email";
 import type { Booking, PlaceBooking } from "@/lib/supabase/types";
+import { holdCutoffMs } from "@/lib/holds";
 
 // Runs once a day (Vercel Cron). Drives the booking "bots":
 //  • Customer: pickup reminder (day before), return reminder (day before),
@@ -84,14 +85,18 @@ export async function GET(req: NextRequest) {
     await supabase.from("bookings").update({ feedback_reminded: true }).eq("id", b.id);
   }
 
-  // ── Release abandoned holds: still "pending" but the pickup day has passed ──
+  // ── Release abandoned holds ──
+  // A pending request is cancelled once it's older than the expiry window
+  // (default 48h, HOLD_EXPIRY_HOURS) OR its pickup day has already passed.
+  const holdCutoff = holdCutoffMs();
   const { data: stale } = await supabase
     .from("bookings")
-    .select("id")
-    .eq("status", "pending")
-    .lt("start_date", today);
+    .select("id, start_date, created_at")
+    .eq("status", "pending");
 
-  for (const b of (stale ?? []) as { id: string }[]) {
+  for (const b of (stale ?? []) as { id: string; start_date: string; created_at: string }[]) {
+    const expired = new Date(b.created_at).getTime() < holdCutoff || b.start_date < today;
+    if (!expired) continue;
     await supabase.from("bookings").update({ status: "cancelled" }).eq("id", b.id);
     holdsReleased++;
   }
@@ -125,10 +130,11 @@ export async function GET(req: NextRequest) {
 
   const { data: placeStale } = await supabase
     .from("place_bookings")
-    .select("id")
-    .eq("status", "pending")
-    .lt("start_date", today);
-  for (const b of (placeStale ?? []) as { id: string }[]) {
+    .select("id, start_date, created_at")
+    .eq("status", "pending");
+  for (const b of (placeStale ?? []) as { id: string; start_date: string; created_at: string }[]) {
+    const expired = new Date(b.created_at).getTime() < holdCutoff || b.start_date < today;
+    if (!expired) continue;
     await supabase.from("place_bookings").update({ status: "cancelled" }).eq("id", b.id);
     holdsReleased++;
   }

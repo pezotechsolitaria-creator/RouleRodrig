@@ -1,6 +1,7 @@
 import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
 import { getPrivileged } from "@/lib/supabase/admin";
+import { isActiveHold } from "@/lib/holds";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import Stats from "@/components/Stats";
@@ -50,11 +51,14 @@ export default async function Home() {
     const supabase = await getPrivileged();
     const { data } = await supabase
       .from("bookings")
-      .select("scooter")
+      .select("scooter, status, created_at")
       .in("status", ["pending", "confirmed"])
       .lte("start_date", todayIsland)
       .gte("end_date", todayIsland);
-    for (const b of data ?? []) heldToday[b.scooter] = (heldToday[b.scooter] ?? 0) + 1;
+    for (const b of data ?? []) {
+      if (!isActiveHold(b)) continue; // ignore expired pending holds
+      heldToday[b.scooter] = (heldToday[b.scooter] ?? 0) + 1;
+    }
   } catch {
     /* availability is best-effort — never block the page on it */
   }
