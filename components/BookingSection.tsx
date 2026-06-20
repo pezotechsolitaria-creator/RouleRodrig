@@ -7,7 +7,6 @@ import {
   CalendarDays,
   User,
   Mail,
-  Phone,
   MessageSquare,
   Send,
   CheckCircle,
@@ -21,6 +20,7 @@ import type { FleetItem } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
+import PhoneInput from "@/components/PhoneInput";
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -50,7 +50,7 @@ function estimateTotal(scooter: FleetItem | undefined, days: number): string {
 export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[]; whatsapp?: string }) {
   const { t } = useLanguage();
   const { convert } = useCurrency();
-  const scooters = (fleet ?? []).filter((s) => s.available !== false);
+  const scooters = (fleet ?? []).filter((s) => s.available !== false && !s.soldOutToday);
 
   const [formState, setFormState] = useState<FormState>("idle");
   const [showPartnerCode, setShowPartnerCode] = useState(false);
@@ -86,7 +86,12 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
 
   useEffect(() => {
     function onPrefill(e: Event) {
-      const detail = (e as CustomEvent).detail as { days?: number };
+      const detail = (e as CustomEvent).detail as { days?: number; scooter?: string };
+      // Pre-select the scooter chosen from a Fleet "Book Now" button
+      if (detail?.scooter) {
+        const id = String(detail.scooter);
+        setForm((f) => ({ ...f, scooter: id }));
+      }
       const n = Number(detail?.days);
       if (!Number.isFinite(n) || n <= 0) return;
       const tomorrow = new Date();
@@ -130,11 +135,12 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
     return () => { active = false; };
   }, [form.scooter]);
 
-  // Capacity-aware availability: a date is only "full" when the number of
-  // confirmed bookings covering it reaches the number of units of that model.
-  function confirmedCountOn(day: string): number {
+  // Capacity-aware availability: a date is "full" when the number of active
+  // bookings (pending holds + confirmed) covering it reaches the model's unit
+  // count. A new request holds its dates immediately so others can't grab them.
+  function heldCountOn(day: string): number {
     return bookedRanges.reduce(
-      (n, r) => (r.confirmed && day >= r.start && day <= r.end ? n + 1 : n),
+      (n, r) => (day >= r.start && day <= r.end ? n + 1 : n),
       0,
     );
   }
@@ -145,7 +151,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
       const end = new Date(form.end_date);
       while (d <= end) {
         const day = d.toISOString().split("T")[0];
-        if (confirmedCountOn(day) >= capacity) return true;
+        if (heldCountOn(day) >= capacity) return true;
         d.setDate(d.getDate() + 1);
       }
       return false;
@@ -409,22 +415,18 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                 </div>
               </div>
 
-              {/* Phone */}
+              {/* Phone — with international country-code picker */}
               <div>
                 <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
                   {t.booking.phoneLabel}
                 </label>
-                <div className="relative">
-                  <Phone size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" />
-                  <input
-                    type="tel"
-                    placeholder={t.booking.phonePlaceholder}
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    className={`${inputCls} pl-10`}
-                    disabled={formState === "loading"}
-                  />
-                </div>
+                <PhoneInput
+                  value={form.phone}
+                  onChange={(full) => setForm((f) => ({ ...f, phone: full }))}
+                  disabled={formState === "loading"}
+                  placeholder={t.booking.phonePlaceholder}
+                  inputClassName={`${inputCls} pl-10`}
+                />
               </div>
 
               {/* Message */}
@@ -570,7 +572,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                   {(fleet ?? []).map((s) => (
                     <div key={s.id} className="flex items-center justify-between">
                       <span className="text-offwhite/80 font-dm text-xs">{s.name}</span>
-                      {s.available !== false ? (
+                      {s.available !== false && !s.soldOutToday ? (
                         <span className="flex items-center gap-1.5 text-green-400 text-[10px] font-bebas tracking-[0.15em]">
                           <BadgeCheck size={12} /> {t.fleet.available}
                         </span>

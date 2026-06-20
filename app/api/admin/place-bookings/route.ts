@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
 
   const supabase = await getPrivileged();
   const { data, error } = await supabase
-    .from('bookings')
+    .from('place_bookings')
     .select('*')
     .order('created_at', { ascending: false });
 
@@ -26,11 +26,7 @@ export async function PATCH(req: NextRequest) {
   if (!id || !status) return NextResponse.json({ error: 'Missing id or status' }, { status: 400 });
 
   const supabase = await getPrivileged();
-  const { error } = await supabase
-    .from('bookings')
-    .update({ status })
-    .eq('id', id);
-
+  const { error } = await supabase.from('place_bookings').update({ status }).eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
@@ -42,11 +38,7 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
   const supabase = await getPrivileged();
-  const { error } = await supabase
-    .from('bookings')
-    .delete()
-    .eq('id', id);
-
+  const { error } = await supabase.from('place_bookings').delete().eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

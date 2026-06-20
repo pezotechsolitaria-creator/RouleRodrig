@@ -1,6 +1,6 @@
 import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
-import AnnouncementBar, { announcementMessages } from "@/components/AnnouncementBar";
+import { getPrivileged } from "@/lib/supabase/admin";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import Stats from "@/components/Stats";
@@ -40,6 +40,29 @@ function priceNumber(price: string): number | null {
 export default async function Home() {
   const content = await getContent();
 
+  // ── Live fleet availability ──────────────────────────────────────────
+  // A model is "sold out today" when every unit it owns is already out on an
+  // active (pending or confirmed) booking that covers today. Computed per
+  // request so the fleet reflects real stock with no admin editing.
+  const todayIsland = new Date(Date.now() + 4 * 3600 * 1000).toISOString().slice(0, 10); // Rodrigues = UTC+4
+  const heldToday: Record<string, number> = {};
+  try {
+    const supabase = await getPrivileged();
+    const { data } = await supabase
+      .from("bookings")
+      .select("scooter")
+      .in("status", ["pending", "confirmed"])
+      .lte("start_date", todayIsland)
+      .gte("end_date", todayIsland);
+    for (const b of data ?? []) heldToday[b.scooter] = (heldToday[b.scooter] ?? 0) + 1;
+  } catch {
+    /* availability is best-effort — never block the page on it */
+  }
+  const fleet = content.fleet.map((s) => ({
+    ...s,
+    soldOutToday: (heldToday[s.id] ?? 0) >= Math.max(1, s.units ?? 1),
+  }));
+
   // ── SEO structured data (JSON-LD): LocalBusiness + Products ──
   const sameAs = [
     content.social.instagram,
@@ -70,7 +93,7 @@ export default async function Home() {
         areaServed: { "@type": "Place", name: "Rodrigues Island, Mauritius" },
         ...(sameAs.length ? { sameAs } : {}),
       },
-      ...content.fleet.map((s) => {
+      ...fleet.map((s) => {
         const price = priceNumber(s.price);
         return {
           "@type": "Product",
@@ -85,7 +108,7 @@ export default async function Home() {
                   price,
                   priceCurrency: "MUR",
                   availability:
-                    s.available === false
+                    s.available === false || s.soldOutToday
                       ? "https://schema.org/OutOfStock"
                       : "https://schema.org/InStock",
                   url: `${SITE_URL}/#booking`,
@@ -123,35 +146,34 @@ export default async function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <AnnouncementBar announcement={content.announcement} />
       <main>
         <Navbar
           branding={content.branding}
-          announcementActive={content.announcement.active && announcementMessages(content.announcement).length > 0}
+          announcementActive={false}
           showStayEatDo={content.recommended.enabled && content.recommended.items.length > 0}
         />
         <Hero hero={content.hero} />
         <Stats stats={content.stats} />
-        <Fleet fleet={content.fleet} categories={content.vehicleCategories} />
+        <Fleet fleet={fleet} categories={content.vehicleCategories} />
         <Experience content={content.experience} />
         <Pricing pricing={content.pricing} />
         <WhyUs />
         <TripPlanner />
-        <BookingSection fleet={content.fleet} whatsapp={businessWhatsApp} />
+        <BookingSection fleet={fleet} whatsapp={businessWhatsApp} />
         <MapSection locations={content.mapLocations} />
         <GettingAround content={content.gettingAround} />
         <RideRoutes routes={content.rideRoutes} />
         <Events events={content.events} />
         <MarketplaceSection />
-        <RecommendedPlaces content={content.recommended} />
+        <RecommendedPlaces content={content.recommended} whatsapp={businessWhatsApp} />
         <UsefulNumbers contacts={content.usefulContacts} />
         <Gallery gallery={content.gallery} />
         <Testimonials testimonials={content.testimonials} />
-        <ReviewsSection fleet={content.fleet} />
+        <ReviewsSection fleet={fleet} />
         <Faq content={content.faq} />
         <WaitlistSection />
         <BookingCTA />
-        <Contact contact={content.contact} fleet={content.fleet} />
+        <Contact contact={content.contact} fleet={fleet} />
         <Sponsors enabled={content.sponsorsEnabled} sponsors={content.sponsors} />
         <Footer social={content.social} branding={content.branding} />
       </main>

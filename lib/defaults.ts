@@ -25,6 +25,7 @@ export interface FleetItem {
   unit: string;
   available: boolean;
   units?: number;         // how many of this model you own (for availability)
+  soldOutToday?: boolean; // computed at request time: every unit is out on a trip today
   category?: string; // vehicle category id, e.g. "scooter"
 }
 
@@ -169,6 +170,9 @@ export interface RecommendedPlace {
   linkText?: string;
   whatsapp?: string;   // business WhatsApp — enables the "Book / Enquire" redirect
   featured?: boolean;  // sponsored placement — shown first with a badge
+  bookable?: boolean;  // enables the on-site reservation form + live calendar
+  capacity?: number;   // how many simultaneous reservations a date can hold (default 1)
+  priceNote?: string;  // optional price hint shown in the booking form, e.g. "from Rs 2500/night"
 }
 
 export interface RecommendedContent {

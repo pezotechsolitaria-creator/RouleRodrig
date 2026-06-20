@@ -26,6 +26,25 @@ export interface Booking {
   created_at: string;
   pickup_reminded?: boolean;
   return_reminded?: boolean;
+  feedback_reminded?: boolean;
+}
+
+export interface PlaceBooking {
+  id: string;
+  place_id: string;
+  place_name: string;
+  category: string | null;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  start_date: string;
+  end_date: string;
+  guests: number | null;
+  message: string | null;
+  status: "pending" | "confirmed" | "cancelled" | "completed";
+  created_at: string;
+  reminded?: boolean;
+  feedback_reminded?: boolean;
 }
 
 export interface Partner {

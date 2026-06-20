@@ -37,8 +37,9 @@ export default function AvailabilityCalendar({
   const anchor = startDate ? new Date(startDate) : new Date(minDate);
   const [view, setView] = useState(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
 
-  const blocked = bookedRanges.filter((r) => r.confirmed);
-  // A day is only fully booked when confirmed bookings on it reach the unit count.
+  // Both pending holds and confirmed bookings reserve a date.
+  const blocked = bookedRanges;
+  // A day is fully booked when active bookings on it reach the unit count.
   const cap = Math.max(1, capacity);
   const isBooked = (day: string) =>
     blocked.reduce((n, r) => (day >= r.start && day <= r.end ? n + 1 : n), 0) >= cap;

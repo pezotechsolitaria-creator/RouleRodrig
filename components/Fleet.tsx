@@ -60,7 +60,7 @@ function FleetImageCarousel({ scooter }: { scooter: FleetItem }) {
         src={src}
         alt={`${scooter.name} — photo ${idx + 1}`}
         fill
-        className={`object-cover transition-all duration-500 group-hover:scale-[1.04] ${scooter.available === false ? "brightness-50" : ""}`}
+        className={`object-cover transition-all duration-500 group-hover:scale-[1.04] ${scooter.available === false || scooter.soldOutToday ? "brightness-50" : ""}`}
         sizes="(max-width: 768px) 100vw, 50vw"
         loading="eager"
         unoptimized={isUpload}
@@ -192,6 +192,8 @@ export default function Fleet({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
           {items.map((scooter, i) => {
             const specs = SPECS_BY_ID[scooter.id] ?? SPECS_BY_ID._default;
+            // "out" = not offered (admin off) OR every unit is on a trip today
+            const out = scooter.available === false || scooter.soldOutToday === true;
             return (
               <motion.div
                 key={`${scooter.id}-${i}`}
@@ -210,7 +212,7 @@ export default function Fleet({
                   <span className="font-bebas text-xs tracking-[0.2em] bg-yellow text-dark px-3.5 py-1.5 rounded-full">
                     {scooter.badge}
                   </span>
-                  {scooter.available === false ? (
+                  {out ? (
                     <span className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.15em] bg-red-500/90 text-white px-3 py-1.5 rounded-full">
                       <Ban size={10} /> {t.fleet.unavailable}
                     </span>
@@ -255,15 +257,22 @@ export default function Fleet({
                     </div>
                     <Link
                       href="#booking"
+                      onClick={() => {
+                        if (!out) {
+                          window.dispatchEvent(
+                            new CustomEvent("rr:prefill-booking", { detail: { scooter: scooter.id } }),
+                          );
+                        }
+                      }}
                       className={`flex items-center gap-2 font-syne font-bold text-sm px-6 py-3 rounded-full transition-colors ${
-                        scooter.available === false
+                        out
                           ? "bg-dark-border text-muted cursor-not-allowed pointer-events-none"
                           : "bg-yellow text-dark hover:bg-yellow-dark"
                       }`}
                       aria-label={`Book ${scooter.name}`}
-                      aria-disabled={scooter.available === false}
+                      aria-disabled={out}
                     >
-                      {scooter.available === false
+                      {out
                         ? t.fleet.unavailableBtn
                         : <>{t.fleet.bookNow} <ArrowRight size={14} /></>}
                     </Link>

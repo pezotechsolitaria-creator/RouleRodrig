@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { track } from "@vercel/analytics";
-import { BedDouble, UtensilsCrossed, Compass, ArrowUpRight, MapPin, MessageCircle, Star } from "lucide-react";
+import { BedDouble, UtensilsCrossed, Compass, ArrowUpRight, MapPin, MessageCircle, Star, CalendarCheck } from "lucide-react";
 import type { RecommendedContent, RecommendedPlace } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
+import PlaceBookingModal from "@/components/PlaceBookingModal";
 
 const CATEGORY: Record<
   RecommendedPlace["category"],
@@ -19,10 +20,11 @@ const CATEGORY: Record<
 // Source tag included in every outbound link/message so leads are attributable.
 const SOURCE = "roulerodrigues";
 
-export default function RecommendedPlaces({ content }: { content?: RecommendedContent }) {
+export default function RecommendedPlaces({ content, whatsapp }: { content?: RecommendedContent; whatsapp?: string }) {
   const { t } = useLanguage();
   const ts = t.stayEatDo;
   const [filter, setFilter] = useState<string>("all");
+  const [bookingPlace, setBookingPlace] = useState<RecommendedPlace | null>(null);
 
   const PLURAL: Record<RecommendedPlace["category"], string> = {
     hotel: ts.stay, restaurant: ts.eat, activity: ts.do,
@@ -174,6 +176,14 @@ export default function RecommendedPlaces({ content }: { content?: RecommendedCo
                   <p className="text-muted/85 font-dm text-sm leading-relaxed flex-1">{p.description}</p>
 
                   <div className="flex items-center gap-2 flex-wrap mt-4">
+                    {p.bookable && (
+                      <button
+                        onClick={() => setBookingPlace(p)}
+                        className="flex items-center gap-1.5 bg-yellow text-dark hover:bg-yellow-dark text-xs font-syne font-bold px-3.5 py-2 rounded-full transition-colors"
+                      >
+                        <CalendarCheck size={13} /> Book now
+                      </button>
+                    )}
                     {hasWa && (
                       <a
                         href={waLink(p)}
@@ -208,6 +218,13 @@ export default function RecommendedPlaces({ content }: { content?: RecommendedCo
           {ts.disclaimer}
         </p>
       </div>
+      {bookingPlace && (
+        <PlaceBookingModal
+          place={bookingPlace}
+          whatsapp={whatsapp}
+          onClose={() => setBookingPlace(null)}
+        />
+      )}
     </section>
   );
 }

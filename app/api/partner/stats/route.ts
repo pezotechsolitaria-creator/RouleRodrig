@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   // Find the partner this code belongs to.
   const { data: partner, error: pErr } = await supabase
     .from("partners")
-    .select("name, type, commission_pct, active")
+    .select("name, type, active")
     .eq("partner_code", code)
     .maybeSingle();
 
@@ -40,17 +40,14 @@ export async function GET(req: NextRequest) {
   if (bErr) return NextResponse.json({ error: bErr.message }, { status: 500 });
 
   const bookings = rows ?? [];
-  // Cancelled bookings don't earn commission.
+  // Total rental value referred (excluding cancelled).
   const earning = bookings.filter((b) => b.status !== "cancelled");
   const totalRaw = earning.reduce((acc, b) => acc + (b.total_amount ?? 0), 0);
-  const pct = partner.commission_pct ?? 10;
-  const commission = Math.round((totalRaw * pct) / 100);
 
   return NextResponse.json({
     partner: {
       name: partner.name,
       type: partner.type,
-      commission_pct: pct,
       active: partner.active,
     },
     stats: {
@@ -60,7 +57,6 @@ export async function GET(req: NextRequest) {
       completed: bookings.filter((b) => b.status === "completed").length,
       cancelled: bookings.filter((b) => b.status === "cancelled").length,
       totalValue: totalRaw,
-      commission,
     },
     recent: bookings.slice(0, 20).map((b) => ({
       scooter: b.scooter,

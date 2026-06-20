@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { guard } from "@/lib/rate-limit";
+import { sendEnquiryAck } from "@/lib/email";
 
 // ── Public: contact / enquiry submission ─────────────────────────────────────
 // Moved server-side (was a direct client→Supabase insert) so we can rate-limit,
@@ -47,6 +48,15 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { error } = await supabase.from("contact_submissions").insert([record]);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Instant branded auto-reply so the customer knows we got it (never blocks)
+  if (email) {
+    try {
+      await sendEnquiryAck(email, name);
+    } catch {
+      /* ignore email failures */
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -28,7 +28,7 @@ type Recent = {
 };
 
 type StatsResponse = {
-  partner: { name: string; type: string; commission_pct: number; active: boolean };
+  partner: { name: string; type: string; active: boolean };
   stats: {
     total: number;
     confirmed: number;
@@ -36,7 +36,6 @@ type StatsResponse = {
     completed: number;
     cancelled: number;
     totalValue: number;
-    commission: number;
   };
   recent: Recent[];
 };
@@ -133,7 +132,7 @@ export default function PartnerPage() {
         </div>
 
         <div className="mb-10">
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">EARNINGS DASHBOARD</p>
+          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">REFERRAL DASHBOARD</p>
           <h1
             className="font-syne font-extrabold uppercase leading-[0.95]"
             style={{ fontSize: "clamp(32px, 7vw, 60px)" }}
@@ -141,8 +140,8 @@ export default function PartnerPage() {
             Your referrals
           </h1>
           <p className="text-muted text-sm mt-3 max-w-lg">
-            Enter your partner code to see every booking sent through your link and the
-            commission you&apos;ve earned. No login needed.
+            Enter your partner code to see every booking sent through your link.
+            No login needed.
           </p>
         </div>
 
@@ -205,7 +204,7 @@ export default function PartnerPage() {
               <div>
                 <p className="font-syne font-bold text-lg leading-tight">{data.partner.name}</p>
                 <p className="text-muted text-xs capitalize">
-                  {data.partner.type.replace("_", " ")} · {data.partner.commission_pct}% commission
+                  {data.partner.type.replace("_", " ")}
                   {!data.partner.active && " · inactive"}
                 </p>
               </div>
@@ -216,8 +215,8 @@ export default function PartnerPage() {
               {[
                 { label: "Total bookings", value: data.stats.total, icon: TrendingUp, accent: "text-offwhite" },
                 { label: "Confirmed", value: data.stats.confirmed, icon: CheckCircle, accent: "text-green-400" },
-                { label: "Rental value", value: `Rs ${data.stats.totalValue.toLocaleString()}`, icon: Wallet, accent: "text-offwhite" },
-                { label: "You earned", value: `Rs ${data.stats.commission.toLocaleString()}`, icon: Wallet, accent: "text-yellow" },
+                { label: "Completed", value: data.stats.completed, icon: CheckCircle, accent: "text-blue-400" },
+                { label: "Rental value", value: `Rs ${data.stats.totalValue.toLocaleString()}`, icon: Wallet, accent: "text-yellow" },
               ].map((s) => (
                 <div key={s.label} className="bg-dark-card border border-dark-border rounded-2xl p-5">
                   <s.icon size={16} className="text-muted/40 mb-3" />
@@ -298,7 +297,7 @@ export default function PartnerPage() {
                 </div>
               )}
               <p className="text-muted/40 text-xs mt-4">
-                Rental value is an estimate. Commission is settled directly with Roule Rodrigues.
+                Rental value is an estimate based on the booking requests sent through your link.
               </p>
             </div>
           </div>

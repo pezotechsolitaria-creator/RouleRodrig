@@ -60,8 +60,6 @@ import type {
   TestimonialItem,
   PricingRow,
   MapLocation,
-  AnnouncementContent,
-  AnnouncementItem,
   WhatsAppNumber,
   PlannerActivity,
   RideRoute,
@@ -73,12 +71,11 @@ import type {
   FaqItem,
   RecommendedPlace,
 } from "@/lib/defaults";
-import type { ContactSubmission, Booking, Partner, MarketplaceListing, ProductReview, WaitlistEntry } from "@/lib/supabase/types";
+import type { ContactSubmission, Booking, PlaceBooking, Partner, MarketplaceListing, ProductReview, WaitlistEntry } from "@/lib/supabase/types";
 import { SITE_URL } from "@/lib/site";
 
 type Section =
   | "dashboard"
-  | "announcement"
   | "hero"
   | "fleet"
   | "pricing"
@@ -95,6 +92,7 @@ type Section =
   | "branding"
   | "submissions"
   | "bookings"
+  | "place_bookings"
   | "leads"
   | "owners"
   | "map"
@@ -109,6 +107,7 @@ type Section =
 const NAV: { id: Section; label: string; icon: React.ElementType; group?: string }[] = [
   { id: "dashboard",    label: "Dashboard",       icon: LayoutDashboard, group: "overview" },
   { id: "bookings",     label: "Bookings",         icon: BookOpen,        group: "overview" },
+  { id: "place_bookings", label: "Stay·Eat·Do Bookings", icon: BedDouble,  group: "overview" },
   { id: "submissions",  label: "Enquiries",        icon: Inbox,           group: "overview" },
   { id: "reviews",      label: "Customer Reviews", icon: MessageSquare,   group: "overview" },
   { id: "waitlist",     label: "Waitlist",         icon: Mail,            group: "overview" },
@@ -117,7 +116,6 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "partners",     label: "Partners",         icon: Handshake,       group: "business" },
   { id: "marketplace",  label: "Marketplace",      icon: Store,           group: "business" },
   { id: "taxi",         label: "Taxi & Transport",  icon: Car,             group: "business" },
-  { id: "announcement", label: "Announcement",     icon: Megaphone,       group: "content" },
   { id: "hero",         label: "Hero",             icon: Sparkles,        group: "content" },
   { id: "experience",   label: "Experience Photos", icon: Images,         group: "content" },
   { id: "fleet",        label: "Fleet",            icon: Bike,            group: "content" },
@@ -568,7 +566,6 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
             { label: "Manage Bookings",   desc: "View & update booking status",      section: "bookings" as Section,     icon: BookOpen },
-            { label: "New Announcement",  desc: "Show a promo bar on the website",   section: "announcement" as Section, icon: Megaphone },
             { label: "Edit Fleet",        desc: "Toggle availability, update photos", section: "fleet" as Section,       icon: Bike },
             { label: "Read Enquiries",    desc: "Customer contact form messages",    section: "submissions" as Section,  icon: Inbox },
             { label: "Edit Island Map",   desc: "Add / remove map locations",        section: "map" as Section,          icon: MapPin },
@@ -593,130 +590,6 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
           })}
         </div>
       </div>
-    </div>
-  );
-}
-
-// ── Announcement editor ────────────────────────────────────────────────────────
-
-function AnnouncementEditor({
-  content,
-  onChange,
-}: {
-  content: SiteContent;
-  onChange: (c: SiteContent) => void;
-}) {
-  const a = content.announcement;
-  const set = (patch: Partial<AnnouncementContent>) =>
-    onChange({ ...content, announcement: { ...a, ...patch } });
-
-  // Multiple rotating messages (falls back to the legacy single message)
-  const items: AnnouncementItem[] =
-    a.items && a.items.length
-      ? a.items
-      : [{ text: a.text ?? "", link: a.link ?? "", linkText: a.linkText ?? "" }];
-  const setItems = (next: AnnouncementItem[]) =>
-    set({
-      items: next,
-      text: next[0]?.text ?? "",
-      link: next[0]?.link ?? "",
-      linkText: next[0]?.linkText ?? "",
-    });
-  const updateItem = (i: number, patch: Partial<AnnouncementItem>) =>
-    setItems(items.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
-  const addItem = () => setItems([...items, { text: "", link: "", linkText: "" }]);
-  const removeItem = (i: number) => setItems(items.filter((_, idx) => idx !== i));
-
-  const COLOR_OPTIONS = [
-    { value: "yellow", label: "Yellow", cls: "bg-yellow" },
-    { value: "green",  label: "Green",  cls: "bg-emerald-500" },
-    { value: "blue",   label: "Blue",   cls: "bg-sky-500" },
-    { value: "red",    label: "Red",    cls: "bg-red-500" },
-  ];
-
-  return (
-    <div className="space-y-6">
-      {/* Active toggle */}
-      <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 flex items-center justify-between">
-        <div>
-          <p className="font-syne font-bold text-offwhite text-sm">Show Announcement Bar</p>
-          <p className="font-dm text-muted text-xs mt-0.5">
-            Display a coloured banner at the very top of the website
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => set({ active: !a.active })}
-          className={`relative w-11 h-6 rounded-full transition-colors ${a.active ? "bg-yellow" : "bg-[#2a2a2a]"}`}
-        >
-          <span
-            className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${a.active ? "translate-x-6" : "translate-x-1"}`}
-          />
-        </button>
-      </div>
-
-      {/* Live preview */}
-      {a.active && (
-        <div
-          className={`w-full rounded-xl py-2.5 px-5 text-center text-sm font-dm font-medium flex items-center justify-center gap-3 ${
-            { yellow: "bg-yellow text-dark", green: "bg-emerald-500 text-white", blue: "bg-sky-500 text-white", red: "bg-red-500 text-white" }[a.bgColor] ?? "bg-yellow text-dark"
-          }`}
-        >
-          <span>📣 {items[0]?.text || "Your announcement text…"}</span>
-          {items[0]?.linkText && <span className="font-bold underline">{items[0].linkText} →</span>}
-        </div>
-      )}
-
-      <div className="space-y-5">
-        {/* Multiple messages */}
-        <div>
-          <p className="font-bebas text-muted text-[10px] tracking-[0.25em] mb-2">MESSAGES (rotate automatically)</p>
-          <div className="space-y-3">
-            {items.map((m, i) => (
-              <div key={i} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-bebas text-yellow text-[10px] tracking-[0.25em]">MESSAGE {i + 1}</span>
-                  {items.length > 1 && (
-                    <button type="button" onClick={() => removeItem(i)} className="text-muted/50 hover:text-red-400 transition-colors">
-                      <Trash2 size={13} />
-                    </button>
-                  )}
-                </div>
-                <TextInput value={m.text} onChange={(v) => updateItem(i, { text: v })} placeholder="e.g. Book 3+ days and get a FREE helmet!" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <TextInput value={m.link} onChange={(v) => updateItem(i, { link: v })} placeholder="Link (e.g. #booking)" />
-                  <TextInput value={m.linkText} onChange={(v) => updateItem(i, { linkText: v })} placeholder="Link text (e.g. Book now)" />
-                </div>
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={addItem}
-            className="mt-3 flex items-center gap-2 text-xs font-dm text-muted/60 hover:text-yellow transition-colors"
-          >
-            <Plus size={13} /> Add another message
-          </button>
-        </div>
-
-        <Field label="COLOUR">
-          <div className="flex gap-3 mt-1">
-            {COLOR_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => set({ bgColor: opt.value })}
-                className={`w-7 h-7 rounded-full ${opt.cls} transition-transform hover:scale-110 ${a.bgColor === opt.value ? "ring-2 ring-offset-2 ring-offset-[#0d0d0d] ring-white" : ""}`}
-                aria-label={opt.label}
-              />
-            ))}
-          </div>
-        </Field>
-      </div>
-
-      <p className="text-muted/50 text-xs font-dm">
-        Remember to click Save Changes after editing.
-      </p>
     </div>
   );
 }
@@ -1713,6 +1586,21 @@ function BookingsManager() {
     }
   }
 
+  async function deleteBooking(id: string) {
+    if (!confirm("Delete this booking permanently? This cannot be undone.")) return;
+    setUpdating(id);
+    try {
+      const res = await fetch("/api/admin/bookings", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) setBookings((prev) => prev.filter((b) => b.id !== id));
+    } finally {
+      setUpdating(null);
+    }
+  }
+
   useEffect(() => {
     load();
   }, []);
@@ -1875,6 +1763,180 @@ function BookingsManager() {
                   </button>
                 );
               })}
+              {/* Delete — clear once a booking is completed or cancelled */}
+              <button
+                disabled={updating === b.id}
+                onClick={() => deleteBooking(b.id)}
+                title="Delete this booking permanently"
+                className="flex items-center gap-1.5 font-bebas text-[9px] tracking-[0.12em] border border-red-500/30 text-red-400/80 px-2.5 py-1 rounded-full transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
+              >
+                <Trash2 size={10} /> Delete
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Stay · Eat · Do reservations manager ────────────────────────────────────────
+
+function PlaceBookingsManager() {
+  const [rows, setRows] = useState<PlaceBooking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [updating, setUpdating] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await fetch("/api/admin/place-bookings");
+      if (!res.ok) throw new Error();
+      setRows(await res.json());
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function updateStatus(id: string, status: string) {
+    setUpdating(id);
+    try {
+      await fetch("/api/admin/place-bookings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      setRows((prev) => prev.map((b) => (b.id === id ? { ...b, status: status as PlaceBooking["status"] } : b)));
+    } finally {
+      setUpdating(null);
+    }
+  }
+
+  async function remove(id: string) {
+    if (!confirm("Delete this reservation permanently? This cannot be undone.")) return;
+    setUpdating(id);
+    try {
+      const res = await fetch("/api/admin/place-bookings", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) setRows((prev) => prev.filter((b) => b.id !== id));
+    } finally {
+      setUpdating(null);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  if (loading)
+    return <div className="flex items-center justify-center py-20"><Loader2 size={28} className="text-yellow animate-spin" /></div>;
+
+  if (error)
+    return (
+      <div className="text-center py-20">
+        <p className="text-red-400 font-dm text-sm mb-4">Failed to load reservations.</p>
+        <button onClick={load} className="flex items-center gap-2 text-yellow font-dm text-sm mx-auto"><RefreshCw size={14} /> Try again</button>
+      </div>
+    );
+
+  if (rows.length === 0)
+    return (
+      <div className="text-center py-20">
+        <BedDouble size={36} className="text-muted/30 mx-auto mb-4" />
+        <p className="text-muted/50 font-dm text-sm">No Stay·Eat·Do reservations yet.</p>
+        <p className="text-muted/30 font-dm text-xs mt-1">Enable “On-site booking” on a listing in Stay·Eat·Do to take reservations.</p>
+      </div>
+    );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-muted/50 font-dm text-xs">{rows.length} reservation{rows.length !== 1 ? "s" : ""}</p>
+        <button onClick={load} className="flex items-center gap-1.5 text-muted/50 hover:text-yellow font-dm text-xs transition-colors"><RefreshCw size={12} /> Refresh</button>
+      </div>
+
+      {rows.map((b) => {
+        const sc = STATUS_CONFIG[b.status] ?? STATUS_CONFIG.pending;
+        const sameDay = b.start_date === b.end_date;
+        return (
+          <div key={b.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5 space-y-4">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <p className="font-syne font-bold text-offwhite text-sm">{b.name}</p>
+                <p className="font-bebas text-muted text-[10px] tracking-[0.2em] mt-0.5">
+                  {new Date(b.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.15em] border px-3 py-1 rounded-full ${sc.cls}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />{sc.label}
+                </span>
+                <span className="font-bebas text-[10px] tracking-[0.15em] bg-yellow/10 text-yellow px-2.5 py-1 rounded-full">{b.place_name}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div>
+                <p className="font-bebas text-muted text-[9px] tracking-[0.2em]">{sameDay ? "DATE" : "FROM"}</p>
+                <p className="font-dm text-offwhite text-xs mt-0.5">{new Date(b.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</p>
+              </div>
+              {!sameDay && (
+                <div>
+                  <p className="font-bebas text-muted text-[9px] tracking-[0.2em]">TO</p>
+                  <p className="font-dm text-offwhite text-xs mt-0.5">{new Date(b.end_date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</p>
+                </div>
+              )}
+              {b.guests != null && (
+                <div>
+                  <p className="font-bebas text-muted text-[9px] tracking-[0.2em]">GUESTS</p>
+                  <p className="font-dm text-offwhite text-xs mt-0.5">{b.guests}</p>
+                </div>
+              )}
+              {b.category && (
+                <div>
+                  <p className="font-bebas text-muted text-[9px] tracking-[0.2em]">TYPE</p>
+                  <p className="font-dm text-offwhite text-xs mt-0.5 capitalize">{b.category}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-dm text-muted">
+              {b.email && <a href={`mailto:${b.email}`} className="hover:text-yellow transition-colors flex items-center gap-1"><Mail size={11} /> {b.email}</a>}
+              {b.phone && <a href={`https://wa.me/${b.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="hover:text-yellow transition-colors flex items-center gap-1"><MessageSquare size={11} /> {b.phone}</a>}
+            </div>
+            {b.message && <p className="font-dm text-muted/80 text-xs bg-dark border border-[#2a2a2a] rounded-lg p-3">{b.message}</p>}
+
+            <div className="flex items-center gap-2 pt-2 flex-wrap">
+              <p className="font-bebas text-muted text-[9px] tracking-[0.2em] mr-1">UPDATE STATUS:</p>
+              {(["pending", "confirmed", "cancelled", "completed"] as const).map((s) => {
+                const cfg = STATUS_CONFIG[s];
+                return (
+                  <button
+                    key={s}
+                    disabled={b.status === s || updating === b.id}
+                    onClick={() => updateStatus(b.id, s)}
+                    className={`flex items-center gap-1.5 font-bebas text-[9px] tracking-[0.12em] border px-2.5 py-1 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                      b.status === s ? cfg.cls : "border-[#2a2a2a] text-muted/60 hover:border-yellow/40 hover:text-yellow"
+                    }`}
+                  >
+                    {updating === b.id ? <Loader2 size={10} className="animate-spin" /> : <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />}
+                    {cfg.label}
+                  </button>
+                );
+              })}
+              <button
+                disabled={updating === b.id}
+                onClick={() => remove(b.id)}
+                title="Delete this reservation permanently"
+                className="flex items-center gap-1.5 font-bebas text-[9px] tracking-[0.12em] border border-red-500/30 text-red-400/80 px-2.5 py-1 rounded-full transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
+              >
+                <Trash2 size={10} /> Delete
+              </button>
             </div>
           </div>
         );
@@ -2430,6 +2492,34 @@ function RecommendedEditor({
               <TextInput value={it.linkText ?? ""} onChange={(v) => updateItem(i, { linkText: v })} placeholder="e.g. Book now / View on map" />
             </Field>
           </div>
+          {/* On-site reservations (live calendar) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex items-center justify-between bg-dark border border-[#2a2a2a] rounded-xl px-4 py-3">
+              <div>
+                <p className="font-dm text-offwhite text-sm">On-site booking</p>
+                <p className="text-muted/50 text-[11px] font-dm">Show a “Book now” form with a live calendar</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => updateItem(i, { bookable: !it.bookable })}
+                className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${it.bookable ? "bg-yellow" : "bg-[#2a2a2a]"}`}
+                aria-label="Toggle on-site booking"
+              >
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${it.bookable ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+            </div>
+            <Field label="CAPACITY PER DATE">
+              <TextInput
+                value={it.capacity != null ? String(it.capacity) : ""}
+                onChange={(v) => updateItem(i, { capacity: parseInt(v) || undefined })}
+                placeholder="1"
+                type="number"
+              />
+            </Field>
+          </div>
+          <Field label="PRICE NOTE (optional — shown in the booking form)">
+            <TextInput value={it.priceNote ?? ""} onChange={(v) => updateItem(i, { priceNote: v })} placeholder="e.g. from Rs 2,500 / night" />
+          </Field>
         </div>
       ))}
 
@@ -2806,13 +2896,12 @@ type PartnerForm = {
   email: string;
   phone: string;
   partner_code: string;
-  commission_pct: string;
   notes: string;
 };
 
 const emptyPartnerForm = (): PartnerForm => ({
   name: "", type: "hotel", email: "", phone: "",
-  partner_code: "", commission_pct: "10", notes: "",
+  partner_code: "", notes: "",
 });
 
 function generateCode(name: string) {
@@ -2866,7 +2955,7 @@ function PartnersManager() {
     try {
       const payload = {
         ...form,
-        commission_pct: parseFloat(form.commission_pct) || 10,
+        commission_pct: 0,
         ...(editing ? { id: editing } : {}),
       };
       const res = await fetch("/api/admin/partners", {
@@ -2904,7 +2993,7 @@ function PartnersManager() {
     setForm({
       name: p.name, type: p.type, email: p.email ?? "",
       phone: p.phone ?? "", partner_code: p.partner_code,
-      commission_pct: String(p.commission_pct), notes: p.notes ?? "",
+      notes: p.notes ?? "",
     });
     setEditing(p.id);
     setShowForm(true);
@@ -2925,7 +3014,6 @@ function PartnersManager() {
     const partner = partners.find((p) => p.id === commissionView);
     const partnerBookings = bookings.filter((b) => b.partner_code === partner?.partner_code);
     const totalRaw = partnerBookings.reduce((acc, b) => acc + (b.total_amount ?? 0), 0);
-    const commission = Math.round(totalRaw * (partner?.commission_pct ?? 10) / 100);
 
     return (
       <div className="space-y-6">
@@ -2937,19 +3025,17 @@ function PartnersManager() {
         </button>
 
         <div>
-          <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-1">COMMISSION REPORT</p>
+          <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-1">REFERRAL REPORT</p>
           <h2 className="font-syne font-bold text-offwhite text-xl">{partner?.name}</h2>
           <p className="font-dm text-muted text-sm mt-1">
-            Code: <span className="text-yellow font-mono">{partner?.partner_code}</span> ·{" "}
-            Commission: <span className="text-yellow">{partner?.commission_pct}%</span>
+            Code: <span className="text-yellow font-mono">{partner?.partner_code}</span>
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           {[
             { label: "Bookings via this partner", value: partnerBookings.length },
             { label: "Total rental value (est.)", value: `Rs ${totalRaw.toLocaleString()}` },
-            { label: `Commission due (${partner?.commission_pct}%)`, value: `Rs ${commission.toLocaleString()}` },
           ].map((s) => (
             <div key={s.label} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
               <p className="font-syne font-extrabold text-yellow text-2xl mb-1">{s.value}</p>
@@ -3018,7 +3104,7 @@ function PartnersManager() {
                       </button>
                     </div>
                     <p className="text-muted/40 text-[11px] font-dm mt-1">
-                      Send this to the hotel so they can track their own bookings & earnings (no login).
+                      Send this to the hotel so they can track their own referred bookings (no login).
                     </p>
                   </div>
                 </div>
@@ -3049,7 +3135,6 @@ function PartnersManager() {
                 </div>
                 <div className="text-right">
                   {b.total_price && <p className="font-syne font-bold text-yellow text-sm">{b.total_price}</p>}
-                  {b.total_amount && <p className="font-dm text-green-400 text-xs">Commission: Rs {Math.round(b.total_amount * (partner?.commission_pct ?? 10) / 100).toLocaleString()}</p>}
                 </div>
               </div>
             ))}
@@ -3057,14 +3142,12 @@ function PartnersManager() {
         )}
 
         <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
-          <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-3">INVOICE SUMMARY (for printing)</p>
+          <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-3">SUMMARY (for printing)</p>
           <div className="font-dm text-sm space-y-1 text-offwhite/70">
             <p><strong className="text-offwhite">Partner:</strong> {partner?.name}</p>
             <p><strong className="text-offwhite">Code:</strong> {partner?.partner_code}</p>
             <p><strong className="text-offwhite">Bookings:</strong> {partnerBookings.length}</p>
-            <p><strong className="text-offwhite">Total rental value:</strong> Rs {totalRaw.toLocaleString()}</p>
-            <p><strong className="text-offwhite">Commission rate:</strong> {partner?.commission_pct}%</p>
-            <p className="text-yellow font-bold text-base pt-2"><strong>Amount due: Rs {commission.toLocaleString()}</strong></p>
+            <p className="text-yellow font-bold text-base pt-2"><strong>Total rental value: Rs {totalRaw.toLocaleString()}</strong></p>
           </div>
           <button
             onClick={() => window.print()}
@@ -3082,7 +3165,7 @@ function PartnersManager() {
       <div className="flex items-center justify-between">
         <div>
           <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-0.5">REFERRAL NETWORK</p>
-          <p className="font-dm text-muted text-xs">Hotels and guesthouses that refer customers and earn commission.</p>
+          <p className="font-dm text-muted text-xs">Hotels and guesthouses that refer customers through their link.</p>
         </div>
         <button
           onClick={() => { setForm(emptyPartnerForm()); setEditing(null); setShowForm(true); }}
@@ -3138,14 +3221,6 @@ function PartnersManager() {
                 </button>
               </div>
             </Field>
-            <Field label="COMMISSION %">
-              <TextInput
-                value={form.commission_pct}
-                onChange={(v) => setForm({ ...form, commission_pct: v })}
-                placeholder="10"
-                type="number"
-              />
-            </Field>
           </div>
           <Field label="NOTES">
             <Textarea value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} rows={2} />
@@ -3177,7 +3252,7 @@ function PartnersManager() {
         <div className="text-center py-16">
           <Handshake size={36} className="text-muted/20 mx-auto mb-4" />
           <p className="text-muted/50 font-dm text-sm">No partners yet.</p>
-          <p className="text-muted/30 font-dm text-xs mt-1">Add a hotel or guesthouse to start tracking referral commissions.</p>
+          <p className="text-muted/30 font-dm text-xs mt-1">Add a hotel or guesthouse to start tracking referrals.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -3212,7 +3287,6 @@ function PartnersManager() {
                         {copied === p.partner_code ? <CheckCircle size={11} className="text-green-400" /> : <Copy size={11} />}
                       </button>
                     </div>
-                    <span className="text-muted/40 text-xs font-dm">{p.commission_pct}% commission</span>
                     {p.email && (
                       <a href={`mailto:${p.email}`} className="flex items-center gap-1 text-xs font-dm text-muted/50 hover:text-yellow transition-colors">
                         <Mail size={10} /> {p.email}
@@ -3258,10 +3332,10 @@ function PartnersManager() {
         <p className="font-syne font-bold text-offwhite text-sm mb-2">How it works</p>
         <ol className="space-y-1.5">
           {[
-            "Add a hotel or guesthouse partner and set their commission percentage.",
+            "Add a hotel or guesthouse partner and share their referral link.",
             "Share their unique code with them (e.g. CHEZ-FRANCINE).",
             "When guests book, they enter the code in the booking form.",
-            "View the Commission Report to see bookings and amounts due.",
+            "View the referral report to see the bookings each partner sent.",
             "Pay partners based on the report — click Print to create a paper record.",
           ].map((step, i) => (
             <li key={i} className="flex items-start gap-2.5 text-xs font-dm text-muted/70">
@@ -4518,7 +4592,6 @@ export default function AdminDashboard({
 
   const SECTION_TITLES: Record<Section, { title: string; desc: string }> = {
     dashboard:    { title: "Dashboard",           desc: "Overview of bookings and enquiries." },
-    announcement: { title: "Announcement Bar",    desc: "Show a promotional banner at the top of the site." },
     hero:         { title: "Hero Section",        desc: "Edit the full-screen hero text and background image." },
     experience:   { title: "Experience Photos",   desc: "The two photos in the “Three Steps to the Open Road” story section." },
     fleet:        { title: "Fleet / Scooters",    desc: "Add, remove, or edit scooters. Toggle availability." },
@@ -4530,6 +4603,7 @@ export default function AdminDashboard({
     branding:     { title: "Branding & Social",   desc: "Upload your logo and link your social media pages." },
     submissions:  { title: "Enquiries",           desc: "Contact form submissions from customers." },
     bookings:     { title: "Bookings",            desc: "Booking requests from the website booking form." },
+    place_bookings: { title: "Stay·Eat·Do Bookings", desc: "Reservation requests for hotels, restaurants & activities." },
     leads:        { title: "Listing Leads",       desc: "Clicks & enquiries on your Stay·Eat·Do and Taxi listings — for billing featured / pay-per-lead." },
     owners:       { title: "Owner Applications",  desc: "Scooter owners applying to list their vehicles via /list-your-scooter." },
     map:          { title: "Island Map Locations",desc: "Manage the points of interest shown on the island guide map." },
@@ -4542,13 +4616,14 @@ export default function AdminDashboard({
     events:       { title: "Island Events",       desc: "Festivals, markets and happenings shown to visitors." },
     useful:       { title: "Useful Numbers",      desc: "Emergency, taxi and key local contacts — shown as tap-to-call." },
     sponsors:     { title: "Sponsors / Ads",      desc: "Paid sponsor logos shown near the footer. Toggle the whole strip on/off." },
-    partners:     { title: "Hotel Partners",      desc: "Manage referral partners and track commission." },
+    partners:     { title: "Hotel Partners",      desc: "Manage referral partners and track referrals." },
     marketplace:  { title: "Marketplace / Deals", desc: "Local business listings shown to customers on the website." },
     taxi:         { title: "Taxi & Transport",     desc: "Driver directory shown at /taxi — tourists tap WhatsApp or call directly." },
   };
 
   const isAutoSave =
     section === "gallery" || section === "submissions" || section === "bookings" ||
+    section === "place_bookings" ||
     section === "dashboard" || section === "partners" || section === "marketplace" ||
     section === "taxi" || section === "reviews" || section === "waitlist";
 
@@ -4703,9 +4778,6 @@ export default function AdminDashboard({
           {section === "dashboard" && (
             <DashboardView onNavigate={selectSection} />
           )}
-          {section === "announcement" && (
-            <AnnouncementEditor content={content} onChange={setContent} />
-          )}
           {section === "hero" && (
             <HeroEditor content={content} onChange={setContent} />
           )}
@@ -4745,6 +4817,7 @@ export default function AdminDashboard({
           {section === "leads" && <LeadsViewer />}
           {section === "owners" && <OwnerApplicationsViewer />}
           {section === "bookings" && <BookingsManager />}
+          {section === "place_bookings" && <PlaceBookingsManager />}
           {section === "map" && (
             <MapEditor content={content} onChange={setContent} />
           )}
