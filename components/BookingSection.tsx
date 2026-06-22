@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   CalendarDays,
+  Clock,
   User,
   Mail,
   MessageSquare,
@@ -23,6 +24,23 @@ import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import PhoneInput from "@/components/PhoneInput";
 
 type FormState = "idle" | "loading" | "success" | "error";
+
+// Half-hour pickup/return times across typical operating hours (06:00–20:00).
+const TIME_SLOTS: { value: string; label: string }[] = (() => {
+  const out: { value: string; label: string }[] = [];
+  for (let m = 6 * 60; m <= 20 * 60; m += 30) {
+    const h = Math.floor(m / 60), mm = m % 60;
+    const value = `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+    const h12 = ((h + 11) % 12) + 1;
+    const label = `${h12}:${String(mm).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+    out.push({ value, label });
+  }
+  return out;
+})();
+
+function timeLabel(value?: string | null): string {
+  return TIME_SLOTS.find((s) => s.value === value)?.label ?? (value ?? "");
+}
 
 function daysBetween(a: string, b: string): number {
   if (!a || !b) return 0;
@@ -66,6 +84,8 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
     scooter: "",
     start_date: "",
     end_date: "",
+    pickup_time: "10:00",
+    return_time: "10:00",
     message: "",
     partner_code: "",
   });
@@ -192,6 +212,8 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
           scooter: form.scooter,
           start_date: form.start_date,
           end_date: effectiveEnd,
+          pickup_time: form.pickup_time || null,
+          return_time: form.return_time || null,
           days,
           total_price: estimatedTotal || null,
           total_amount: estimatedTotal ? parseInt(estimatedTotal.replace(/\D/g, ""), 10) || null : null,
@@ -209,7 +231,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
         total: estimatedTotal,
       });
       setFormState("success");
-      setForm({ name: "", email: "", phone: "", scooter: "", start_date: "", end_date: "", message: "", partner_code: "" });
+      setForm({ name: "", email: "", phone: "", scooter: "", start_date: "", end_date: "", pickup_time: "10:00", return_time: "10:00", message: "", partner_code: "" });
       setShowPartnerCode(false);
       setAgreed(false);
       setTimeout(() => setFormState("idle"), 12000);
@@ -385,6 +407,40 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                 </p>
               </div>
 
+              {/* Pickup & return times */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="font-bebas text-muted text-[10px] tracking-[0.25em] flex items-center gap-1.5 mb-2">
+                    <Clock size={12} className="text-yellow" /> {t.booking.pickupLabel} time
+                  </label>
+                  <select
+                    value={form.pickup_time}
+                    onChange={(e) => setForm({ ...form, pickup_time: e.target.value })}
+                    className={`${inputCls} appearance-none`}
+                    disabled={formState === "loading"}
+                  >
+                    {TIME_SLOTS.map((s) => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bebas text-muted text-[10px] tracking-[0.25em] flex items-center gap-1.5 mb-2">
+                    <Clock size={12} className="text-yellow" /> {t.booking.returnLabel} time
+                  </label>
+                  <select
+                    value={form.return_time}
+                    onChange={(e) => setForm({ ...form, return_time: e.target.value })}
+                    className={`${inputCls} appearance-none`}
+                    disabled={formState === "loading"}
+                  >
+                    {TIME_SLOTS.map((s) => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               {/* Name + Email */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -538,17 +594,17 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                   </div>
                   <div className="flex justify-between items-start">
                     <dt className="text-muted font-dm text-xs">{t.booking.summaryPickup}</dt>
-                    <dd className="text-offwhite font-dm text-xs">
+                    <dd className="text-offwhite font-dm text-xs text-right">
                       {form.start_date
-                        ? new Date(form.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+                        ? <>{new Date(form.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}<span className="text-yellow ml-1">· {timeLabel(form.pickup_time)}</span></>
                         : "—"}
                     </dd>
                   </div>
                   <div className="flex justify-between items-start">
                     <dt className="text-muted font-dm text-xs">{t.booking.summaryReturn}</dt>
-                    <dd className="text-offwhite font-dm text-xs">
+                    <dd className="text-offwhite font-dm text-xs text-right">
                       {effectiveEnd
-                        ? new Date(effectiveEnd).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+                        ? <>{new Date(effectiveEnd).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}<span className="text-yellow ml-1">· {timeLabel(form.return_time)}</span></>
                         : "—"}
                     </dd>
                   </div>

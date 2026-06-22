@@ -532,7 +532,9 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
                   {pickupsToday.map((b) => (
                     <div key={b.id} className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-dm text-offwhite text-sm truncate">{b.name}</p>
+                        <p className="font-dm text-offwhite text-sm truncate">
+                          {b.name}{b.pickup_time && <span className="text-yellow font-medium"> · {fmtTime12(b.pickup_time)}</span>}
+                        </p>
                         <p className="font-dm text-muted text-xs truncate">{b.scooter}{b.asset_label ? ` · ${b.asset_label}` : ""}</p>
                       </div>
                       {b.phone && (
@@ -1714,6 +1716,14 @@ function SubmissionsViewer() {
 
 // ── Bookings manager ───────────────────────────────────────────────────────────
 
+function fmtTime12(t?: string | null): string {
+  if (!t) return "";
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t.trim());
+  if (!m) return t;
+  const h = Number(m[1]);
+  return `${((h + 11) % 12) + 1}:${m[2]} ${h < 12 ? "AM" : "PM"}`;
+}
+
 const STATUS_CONFIG: Record<
   string,
   { label: string; cls: string; dot: string }
@@ -1944,19 +1954,15 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
               <div>
                 <p className="font-bebas text-muted text-[9px] tracking-[0.2em]">PICKUP</p>
                 <p className="font-dm text-offwhite text-xs mt-0.5">
-                  {new Date(b.start_date).toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                  })}
+                  {new Date(b.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                  {b.pickup_time && <span className="text-yellow"> · {fmtTime12(b.pickup_time)}</span>}
                 </p>
               </div>
               <div>
                 <p className="font-bebas text-muted text-[9px] tracking-[0.2em]">RETURN</p>
                 <p className="font-dm text-offwhite text-xs mt-0.5">
-                  {new Date(b.end_date).toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                  })}
+                  {new Date(b.end_date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                  {b.return_time && <span className="text-yellow"> · {fmtTime12(b.return_time)}</span>}
                 </p>
               </div>
               <div>
@@ -2788,6 +2794,13 @@ function RecommendedEditor({
           </div>
           <Field label="DESCRIPTION">
             <Textarea value={it.description} onChange={(v) => updateItem(i, { description: v })} rows={2} />
+          </Field>
+          <Field label="HIGHLIGHTS (comma-separated — shown in the detail view)">
+            <TextInput
+              value={(it.highlights ?? []).join(", ")}
+              onChange={(v) => updateItem(i, { highlights: v.split(",").map((s) => s.trim()).filter(Boolean) })}
+              placeholder="e.g. Sea view, Free breakfast, Pool, Air-con"
+            />
           </Field>
           <Field label="WHATSAPP NUMBER (enables the “Book / Enquire” button)">
             <TextInput value={it.whatsapp ?? ""} onChange={(v) => updateItem(i, { whatsapp: v })} placeholder="+230 5XXX XXXX" />

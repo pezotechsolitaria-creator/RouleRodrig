@@ -19,6 +19,8 @@ export async function POST(req: NextRequest) {
     scooter?: string;
     start_date?: string;
     end_date?: string;
+    pickup_time?: string | null;
+    return_time?: string | null;
     days?: number;
     total_price?: string | null;
     total_amount?: number | null;
@@ -103,6 +105,8 @@ export async function POST(req: NextRequest) {
     scooter: scooter.slice(0, 120),
     start_date,
     end_date,
+    pickup_time: (body.pickup_time ?? "")?.toString().trim().slice(0, 10) || null,
+    return_time: (body.return_time ?? "")?.toString().trim().slice(0, 10) || null,
     days,
     total_price: body.total_price ?? null,
     total_amount: body.total_amount ?? null,

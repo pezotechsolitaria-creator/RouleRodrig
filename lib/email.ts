@@ -14,6 +14,8 @@ interface BookingEmailData {
   total_price: string | null;
   message: string | null;
   asset_label?: string | null;
+  pickup_time?: string | null;
+  return_time?: string | null;
 }
 
 const BRAND = "#F5C842";
@@ -33,6 +35,15 @@ function waButton(phone: string | null | undefined, text: string, label: string)
 // Business WhatsApp number used in customer-facing buttons.
 function ownerWa(): string {
   return process.env.OWNER_WHATSAPP || process.env.OWNER_PHONE || "";
+}
+
+function fmtTime(t?: string | null): string {
+  if (!t) return "";
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t.trim());
+  if (!m) return t;
+  const h = Number(m[1]);
+  const h12 = ((h + 11) % 12) + 1;
+  return `${h12}:${m[2]} ${h < 12 ? "AM" : "PM"}`;
 }
 
 function fmtDate(d: string): string {
@@ -76,8 +87,8 @@ function summaryRows(b: BookingEmailData): string {
   ];
   if (b.asset_label) rows.push(["Unit", b.asset_label]);
   rows.push(
-    ["Pickup", fmtDate(b.start_date)],
-    ["Return", fmtDate(b.end_date)],
+    ["Pickup", fmtDate(b.start_date) + (b.pickup_time ? ` · ${fmtTime(b.pickup_time)}` : "")],
+    ["Return", fmtDate(b.end_date) + (b.return_time ? ` · ${fmtTime(b.return_time)}` : "")],
     ["Duration", `${b.days} day${b.days !== 1 ? "s" : ""}`],
   );
   if (b.total_price) rows.push(["Estimated total", b.total_price]);

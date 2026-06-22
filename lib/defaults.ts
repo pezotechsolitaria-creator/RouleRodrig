@@ -183,6 +183,8 @@ export interface RecommendedPlace {
   capacity?: number;   // hotel = total rooms · restaurant = seats per slot · activity = spots per date (default 1)
   timeSlots?: string[]; // restaurants & activities: bookable times, e.g. ["12:30","19:00","20:30"]
   priceNote?: string;  // optional price hint shown in the booking form, e.g. "from Rs 2500/night"
+  highlights?: string[]; // bullet highlights/amenities shown in the detail view
+  images?: string[];   // optional extra photos for the detail gallery
 }
 
 export interface RecommendedContent {

@@ -3,11 +3,12 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban, ChevronLeft, ChevronRight } from "lucide-react";
+import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban, ChevronLeft, ChevronRight, Star, Maximize2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type FleetItem, type VehicleCategory } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import { useCurrency } from "@/context/CurrencyContext";
+import ScooterDetailModal from "@/components/ScooterDetailModal";
 
 const SPECS_BY_ID: Record<string, { icon: React.ElementType; label: string }[]> = {
   burgman: [
@@ -104,15 +105,20 @@ function FleetImageCarousel({ scooter }: { scooter: FleetItem }) {
 export default function Fleet({
   fleet,
   categories,
+  ratings,
+  whatsapp,
 }: {
   fleet?: FleetItem[];
   categories?: VehicleCategory[];
+  ratings?: Record<string, { avg: number; count: number }>;
+  whatsapp?: string;
 }) {
   const allItems = fleet ?? DEFAULT_CONTENT.fleet;
   const cats = categories ?? [];
   const { t } = useLanguage();
   const { convert } = useCurrency();
   const [activeCat, setActiveCat] = useState<string>("all");
+  const [detail, setDetail] = useState<{ scooter: FleetItem; specs: { icon: React.ElementType; label: string }[] } | null>(null);
 
   const enabledIds = new Set(cats.filter((c) => c.enabled).map((c) => c.id));
   const knownIds = new Set(cats.map((c) => c.id));
@@ -229,11 +235,25 @@ export default function Fleet({
                     {scooter.tagline}
                   </p>
                   <h3
-                    className="font-syne font-extrabold text-offwhite uppercase leading-none mb-4"
+                    className="font-syne font-extrabold text-offwhite uppercase leading-none mb-3"
                     style={{ fontSize: "clamp(32px, 5vw, 44px)" }}
                   >
                     {scooter.name}
                   </h3>
+                  {(() => {
+                    const r = ratings?.[scooter.id];
+                    return r && r.count > 0 ? (
+                      <div className="flex items-center gap-1.5 mb-3">
+                        <span className="flex items-center gap-0.5">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <Star key={n} size={13} className={n <= Math.round(r.avg) ? "text-yellow fill-yellow" : "text-muted/30"} />
+                          ))}
+                        </span>
+                        <span className="font-dm text-offwhite text-xs font-medium">{r.avg.toFixed(1)}</span>
+                        <span className="font-dm text-muted text-[11px]">({r.count})</span>
+                      </div>
+                    ) : null;
+                  })()}
                   <p className="text-muted/80 font-dm text-sm leading-relaxed mb-7">
                     {scooter.description}
                   </p>
@@ -250,32 +270,41 @@ export default function Fleet({
                     })}
                   </div>
 
-                  <div className="flex items-center justify-between pt-5 border-t border-dark-border">
+                  <div className="pt-5 border-t border-dark-border space-y-3">
                     <div>
                       <span className="font-syne font-extrabold text-yellow text-2xl">{convert(scooter.price)}</span>
                       <span className="font-dm text-muted text-sm ml-1">{scooter.unit}</span>
                     </div>
-                    <Link
-                      href="#booking"
-                      onClick={() => {
-                        if (!out) {
-                          window.dispatchEvent(
-                            new CustomEvent("rr:prefill-booking", { detail: { scooter: scooter.id } }),
-                          );
-                        }
-                      }}
-                      className={`flex items-center gap-2 font-syne font-bold text-sm px-6 py-3 rounded-full transition-colors ${
-                        out
-                          ? "bg-dark-border text-muted cursor-not-allowed pointer-events-none"
-                          : "bg-yellow text-dark hover:bg-yellow-dark"
-                      }`}
-                      aria-label={`Book ${scooter.name}`}
-                      aria-disabled={out}
-                    >
-                      {out
-                        ? t.fleet.unavailableBtn
-                        : <>{t.fleet.bookNow} <ArrowRight size={14} /></>}
-                    </Link>
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setDetail({ scooter, specs })}
+                        className="flex items-center justify-center gap-1.5 font-syne font-bold text-sm px-4 py-3 rounded-full border border-dark-border text-offwhite/80 hover:border-yellow/50 hover:text-yellow transition-colors shrink-0"
+                      >
+                        <Maximize2 size={13} /> Details
+                      </button>
+                      <Link
+                        href="#booking"
+                        onClick={() => {
+                          if (!out) {
+                            window.dispatchEvent(
+                              new CustomEvent("rr:prefill-booking", { detail: { scooter: scooter.id } }),
+                            );
+                          }
+                        }}
+                        className={`flex-1 flex items-center justify-center gap-2 font-syne font-bold text-sm px-6 py-3 rounded-full transition-colors ${
+                          out
+                            ? "bg-dark-border text-muted cursor-not-allowed pointer-events-none"
+                            : "bg-yellow text-dark hover:bg-yellow-dark"
+                        }`}
+                        aria-label={`Book ${scooter.name}`}
+                        aria-disabled={out}
+                      >
+                        {out
+                          ? t.fleet.unavailableBtn
+                          : <>{t.fleet.bookNow} <ArrowRight size={14} /></>}
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -283,6 +312,16 @@ export default function Fleet({
           })}
         </div>
       </div>
+
+      {detail && (
+        <ScooterDetailModal
+          scooter={detail.scooter}
+          specs={detail.specs}
+          rating={ratings?.[detail.scooter.id]}
+          whatsapp={whatsapp}
+          onClose={() => setDetail(null)}
+        />
+      )}
     </section>
   );
 }

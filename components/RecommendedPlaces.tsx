@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { track } from "@vercel/analytics";
-import { BedDouble, UtensilsCrossed, Compass, ArrowUpRight, MapPin, MessageCircle, Star, CalendarCheck } from "lucide-react";
+import { BedDouble, UtensilsCrossed, Compass, ArrowUpRight, MapPin, MessageCircle, Star, CalendarCheck, Maximize2 } from "lucide-react";
 import type { RecommendedContent, RecommendedPlace } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import PlaceBookingModal from "@/components/PlaceBookingModal";
+import PlaceDetailModal from "@/components/PlaceDetailModal";
 
 const CATEGORY: Record<
   RecommendedPlace["category"],
@@ -25,6 +26,7 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
   const ts = t.stayEatDo;
   const [filter, setFilter] = useState<string>("all");
   const [bookingPlace, setBookingPlace] = useState<RecommendedPlace | null>(null);
+  const [detailPlace, setDetailPlace] = useState<RecommendedPlace | null>(null);
 
   const PLURAL: Record<RecommendedPlace["category"], string> = {
     hotel: ts.stay, restaurant: ts.eat, activity: ts.do,
@@ -145,8 +147,11 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
                     : "border border-dark-border hover:border-yellow/40"
                 }`}
               >
-                {/* Image */}
-                <div className="relative h-44 bg-gradient-to-br from-yellow/10 via-dark-card to-dark overflow-hidden">
+                {/* Image — opens the detail view */}
+                <div
+                  onClick={() => setDetailPlace(p)}
+                  className="relative h-44 bg-gradient-to-br from-yellow/10 via-dark-card to-dark overflow-hidden cursor-pointer"
+                >
                   {p.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -176,6 +181,12 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
                   <p className="text-muted/85 font-dm text-sm leading-relaxed flex-1">{p.description}</p>
 
                   <div className="flex items-center gap-2 flex-wrap mt-4">
+                    <button
+                      onClick={() => setDetailPlace(p)}
+                      className="flex items-center gap-1.5 border border-dark-border text-offwhite/80 hover:border-yellow/50 hover:text-yellow text-xs font-syne font-bold px-3.5 py-2 rounded-full transition-colors"
+                    >
+                      <Maximize2 size={12} /> Details
+                    </button>
                     {p.bookable && (
                       <button
                         onClick={() => setBookingPlace(p)}
@@ -218,6 +229,14 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
           {ts.disclaimer}
         </p>
       </div>
+      {detailPlace && (
+        <PlaceDetailModal
+          place={detailPlace}
+          whatsapp={whatsapp}
+          onBook={() => setBookingPlace(detailPlace)}
+          onClose={() => setDetailPlace(null)}
+        />
+      )}
       {bookingPlace && (
         <PlaceBookingModal
           place={bookingPlace}

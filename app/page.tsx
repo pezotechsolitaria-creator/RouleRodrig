@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import Stats from "@/components/Stats";
 import Fleet from "@/components/Fleet";
+import TrustBar from "@/components/TrustBar";
 import Experience from "@/components/Experience";
 import Pricing from "@/components/Pricing";
 import WhyUs from "@/components/WhyUs";
@@ -67,6 +68,28 @@ export default async function Home() {
     const capacity = activeUnits > 0 ? activeUnits : Math.max(1, s.units ?? 1);
     return { ...s, soldOutToday: (heldToday[s.id] ?? 0) >= capacity };
   });
+
+  // ── Real star ratings per scooter (from APPROVED reviews only) ──
+  const ratings: Record<string, { avg: number; count: number }> = {};
+  try {
+    const supabase = await getPrivileged();
+    const { data } = await supabase
+      .from("product_reviews")
+      .select("scooter_id, rating")
+      .eq("status", "approved");
+    const acc: Record<string, { sum: number; count: number }> = {};
+    for (const r of data ?? []) {
+      const id = r.scooter_id as string | null;
+      const rating = Number(r.rating);
+      if (!id || !Number.isFinite(rating)) continue;
+      acc[id] = { sum: (acc[id]?.sum ?? 0) + rating, count: (acc[id]?.count ?? 0) + 1 };
+    }
+    for (const [id, v] of Object.entries(acc)) {
+      ratings[id] = { avg: Math.round((v.sum / v.count) * 10) / 10, count: v.count };
+    }
+  } catch {
+    /* ratings are best-effort */
+  }
 
   // ── SEO structured data (JSON-LD): LocalBusiness + Products ──
   const sameAs = [
@@ -161,7 +184,8 @@ export default async function Home() {
         />
         <Hero hero={content.hero} />
         <Stats stats={content.stats} />
-        <Fleet fleet={fleet} categories={content.vehicleCategories} />
+        <Fleet fleet={fleet} categories={content.vehicleCategories} ratings={ratings} whatsapp={businessWhatsApp} />
+        <TrustBar />
         <Experience content={content.experience} />
         <Pricing pricing={content.pricing} />
         <WhyUs />

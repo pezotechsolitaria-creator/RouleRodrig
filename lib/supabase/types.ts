@@ -18,6 +18,8 @@ export interface Booking {
   scooter: string;
   start_date: string;
   end_date: string;
+  pickup_time: string | null;
+  return_time: string | null;
   days: number;
   total_price: string | null;
   total_amount: number | null;
