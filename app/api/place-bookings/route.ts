@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPrivileged } from "@/lib/supabase/admin";
 import { getContent } from "@/lib/content";
 import { sendPlaceBookingEmails } from "@/lib/email";
+import { sendOwnerWhatsApp } from "@/lib/whatsapp";
 import { guard } from "@/lib/rate-limit";
 import { isActiveHold } from "@/lib/holds";
 
@@ -151,6 +152,19 @@ export async function POST(req: NextRequest) {
     await sendPlaceBookingEmails(record);
   } catch {
     /* ignore email failures */
+  }
+
+  // Free owner WhatsApp alert (CallMeBot) — owner only, best-effort
+  try {
+    await sendOwnerWhatsApp(
+      `🌴 New reservation\n${record.name} — ${record.place_name}` +
+        `\n${record.start_date}` +
+        (record.time_slot ? ` · ${record.time_slot}` : "") +
+        (record.guests ? ` · ${record.guests} guests` : "") +
+        (record.phone ? `\n📞 ${record.phone}` : ""),
+    );
+  } catch {
+    /* ignore */
   }
 
   return NextResponse.json({ ok: true });

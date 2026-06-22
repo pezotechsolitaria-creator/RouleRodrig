@@ -12,6 +12,7 @@ import {
 } from "@/lib/email";
 import type { Booking, PlaceBooking } from "@/lib/supabase/types";
 import { holdCutoffMs } from "@/lib/holds";
+import { sendOwnerWhatsApp } from "@/lib/whatsapp";
 
 // Runs once a day (Vercel Cron). Drives the booking "bots":
 //  • Customer: pickup reminder (day before), return reminder (day before),
@@ -137,6 +138,29 @@ export async function GET(req: NextRequest) {
     if (!expired) continue;
     await supabase.from("place_bookings").update({ status: "cancelled" }).eq("id", b.id);
     holdsReleased++;
+  }
+
+  // ── One daily WhatsApp digest to the owner (CallMeBot — owner only) ──
+  try {
+    const lines: string[] = [];
+    const pk = (pickups ?? []) as Booking[];
+    const rt = (returns ?? []) as Booking[];
+    const ci = (placeSoon ?? []) as PlaceBooking[];
+    if (pk.length) {
+      lines.push(`🛵 Deliver tomorrow (${pk.length}):`);
+      for (const b of pk) lines.push(`• ${b.name} — ${b.scooter}${b.asset_label ? ` (${b.asset_label})` : ""}${b.pickup_time ? ` at ${b.pickup_time}` : ""}${b.phone ? ` — ${b.phone}` : ""}`);
+    }
+    if (rt.length) {
+      lines.push(`↩️ Collect tomorrow (${rt.length}):`);
+      for (const b of rt) lines.push(`• ${b.name} — ${b.scooter}${b.return_time ? ` at ${b.return_time}` : ""}${b.phone ? ` — ${b.phone}` : ""}`);
+    }
+    if (ci.length) {
+      lines.push(`🌴 Stay·Eat·Do tomorrow (${ci.length}):`);
+      for (const b of ci) lines.push(`• ${b.name} — ${b.place_name}${b.time_slot ? ` at ${b.time_slot}` : ""}${b.phone ? ` — ${b.phone}` : ""}`);
+    }
+    if (lines.length) await sendOwnerWhatsApp(`Roule Rodrigues — tomorrow\n${lines.join("\n")}`);
+  } catch {
+    /* ignore */
   }
 
   return NextResponse.json({
