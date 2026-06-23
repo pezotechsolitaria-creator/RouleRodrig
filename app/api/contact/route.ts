@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { guard } from "@/lib/rate-limit";
 import { sendEnquiryAck } from "@/lib/email";
+import { isValidPhone } from "@/lib/phone";
 
 // ── Public: contact / enquiry submission ─────────────────────────────────────
 // Moved server-side (was a direct client→Supabase insert) so we can rate-limit,
@@ -35,11 +36,15 @@ export async function POST(req: NextRequest) {
   if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return NextResponse.json({ error: "Please enter a valid email." }, { status: 400 });
   }
+  const phone = clean(body.phone, 40);
+  if (phone && !isValidPhone(phone)) {
+    return NextResponse.json({ error: "Please enter a valid phone number." }, { status: 400 });
+  }
 
   const record = {
     name,
     email,
-    phone: clean(body.phone, 40),
+    phone,
     scooter: clean(body.scooter, 120),
     dates: clean(body.dates, 120),
     message,

@@ -6,6 +6,7 @@ import { sendBookingEmails } from "@/lib/email";
 import { sendOwnerWhatsApp } from "@/lib/whatsapp";
 import { guard } from "@/lib/rate-limit";
 import { isActiveHold } from "@/lib/holds";
+import { isValidPhone } from "@/lib/phone";
 
 // ── Public: create a booking request + send confirmation emails ─────
 export async function POST(req: NextRequest) {
@@ -43,6 +44,12 @@ export async function POST(req: NextRequest) {
 
   if (!name || !scooter || !start_date || !end_date || !Number.isFinite(days) || days <= 0) {
     return NextResponse.json({ error: "Missing required booking details." }, { status: 400 });
+  }
+
+  // A valid, reachable phone is required (blocks typos + fake/troll numbers)
+  const phone = (body.phone ?? "").toString().trim();
+  if (!isValidPhone(phone)) {
+    return NextResponse.json({ error: "A valid phone number is required." }, { status: 400 });
   }
 
   // ── Resolve the fleet model for capacity + asset tracking ──
@@ -102,7 +109,7 @@ export async function POST(req: NextRequest) {
   const record = {
     name: name.slice(0, 120),
     email: (body.email ?? "")?.toString().trim() || null,
-    phone: (body.phone ?? "")?.toString().trim() || null,
+    phone,
     scooter: scooter.slice(0, 120),
     start_date,
     end_date,

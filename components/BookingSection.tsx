@@ -22,6 +22,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import PhoneInput from "@/components/PhoneInput";
+import { isValidPhone } from "@/lib/phone";
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -193,10 +194,13 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
   const inputCls =
     "w-full bg-dark-card border border-dark-border rounded-xl px-4 py-3.5 text-offwhite text-sm font-dm placeholder:text-muted/50 focus:border-yellow focus:outline-none transition-colors";
 
+  const phoneOk = isValidPhone(form.phone);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name || !form.scooter || !form.start_date) return;
     if (days <= 0) return;
+    if (!phoneOk) return; // a valid, reachable phone is required
     if (hasOverlap) return; // selected dates clash with a confirmed booking
     if (!agreed) { setAgreeError(true); return; } // must accept terms
 
@@ -481,7 +485,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
               {/* Phone — with international country-code picker */}
               <div>
                 <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                  {t.booking.phoneLabel}
+                  {t.booking.phoneLabel} <span className="text-yellow">*</span>
                 </label>
                 <PhoneInput
                   value={form.phone}
@@ -559,7 +563,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
 
               <button
                 type="submit"
-                disabled={formState === "loading" || formState === "success" || hasOverlap || !agreed}
+                disabled={formState === "loading" || formState === "success" || hasOverlap || !agreed || !phoneOk}
                 className="w-full flex items-center justify-center gap-2.5 bg-yellow text-dark font-syne font-bold text-base py-4 rounded-xl hover:bg-yellow-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {formState === "loading" ? (

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Phone } from "lucide-react";
+import { Phone, CheckCircle } from "lucide-react";
+import { isValidPhone } from "@/lib/phone";
 
 // Curated list — Mauritius first, then the markets Rodrigues actually sees
 // (Réunion, France, UK, Germany, Italy, India, South Africa…). Each carries a
@@ -87,43 +88,55 @@ export default function PhoneInput({ value, onChange, disabled, placeholder, inp
     onChange(clean ? `${dial} ${clean}` : "");
   }
 
+  const hasInput = num.trim().length > 0;
+  const valid = hasInput && isValidPhone(`${country.dial} ${num}`);
+  const showError = hasInput && !valid;
+
   return (
-    <div className="flex gap-2">
-      <div className="relative shrink-0">
-        <select
-          aria-label="Country code"
-          value={dialIso}
-          onChange={(e) => {
-            setDialIso(e.target.value);
-            const c = COUNTRIES.find((x) => x.iso === e.target.value);
-            if (c) emit(c.dial, num);
-          }}
-          disabled={disabled}
-          className="appearance-none h-full bg-dark-card border border-dark-border rounded-xl pl-3 pr-7 py-3.5 text-offwhite text-sm font-dm focus:border-yellow focus:outline-none transition-colors cursor-pointer max-w-[118px]"
-        >
-          {COUNTRIES.map((c) => (
-            <option key={c.iso} value={c.iso}>
-              {c.flag} {c.dial} {c.name}
-            </option>
-          ))}
-        </select>
-        <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted/60 text-xs">▾</span>
+    <div>
+      <div className="flex gap-2">
+        <div className="relative shrink-0">
+          <select
+            aria-label="Country code"
+            value={dialIso}
+            onChange={(e) => {
+              setDialIso(e.target.value);
+              const c = COUNTRIES.find((x) => x.iso === e.target.value);
+              if (c) emit(c.dial, num);
+            }}
+            disabled={disabled}
+            className="appearance-none h-full bg-dark-card border border-dark-border rounded-xl pl-3 pr-7 py-3.5 text-offwhite text-sm font-dm focus:border-yellow focus:outline-none transition-colors cursor-pointer max-w-[118px]"
+          >
+            {COUNTRIES.map((c) => (
+              <option key={c.iso} value={c.iso}>
+                {c.flag} {c.dial} {c.name}
+              </option>
+            ))}
+          </select>
+          <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted/60 text-xs">▾</span>
+        </div>
+        <div className="relative flex-1">
+          <Phone size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" />
+          <input
+            type="tel"
+            inputMode="tel"
+            placeholder={placeholder ?? "5912 3456"}
+            value={num}
+            onChange={(e) => {
+              setNum(e.target.value);
+              emit(country.dial, e.target.value);
+            }}
+            disabled={disabled}
+            className={`${inputClassName ?? ""}${showError ? " !border-red-500/60" : valid ? " !border-green-500/50" : ""}`}
+          />
+          {valid && <CheckCircle size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-green-400" />}
+        </div>
       </div>
-      <div className="relative flex-1">
-        <Phone size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" />
-        <input
-          type="tel"
-          inputMode="tel"
-          placeholder={placeholder ?? "5912 3456"}
-          value={num}
-          onChange={(e) => {
-            setNum(e.target.value);
-            emit(country.dial, e.target.value);
-          }}
-          disabled={disabled}
-          className={inputClassName}
-        />
-      </div>
+      {showError && (
+        <p className="text-red-400 font-dm text-[11px] mt-1.5">
+          Enter a valid {country.name} number ({country.flag} {country.dial}).
+        </p>
+      )}
     </div>
   );
 }

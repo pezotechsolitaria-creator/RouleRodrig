@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type ContactContent, type FleetItem } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import PhoneInput from "@/components/PhoneInput";
+import { isValidPhone } from "@/lib/phone";
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -36,8 +37,11 @@ export default function Contact({
     { icon: Clock, label: "Opening Hours", value: c.hours, href: null },
   ];
 
+  const phoneOk = !form.phone || isValidPhone(form.phone);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!phoneOk) return; // invalid number entered
     setFormState("loading");
 
     try {
@@ -227,7 +231,7 @@ export default function Contact({
 
               <button
                 type="submit"
-                disabled={formState === "loading" || formState === "success"}
+                disabled={formState === "loading" || formState === "success" || !phoneOk}
                 className="w-full flex items-center justify-center gap-2.5 bg-yellow text-dark font-syne font-bold text-base py-4 rounded-xl hover:bg-yellow-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 aria-label="Send message"
               >
