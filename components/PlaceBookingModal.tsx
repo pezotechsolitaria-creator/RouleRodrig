@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { X, Loader2, CheckCircle, AlertCircle, Send, User, Mail, Users, MessageSquare, Clock, BedDouble } from "lucide-react";
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import PhoneInput from "@/components/PhoneInput";
-import { isValidPhone } from "@/lib/phone";
+import { isValidPhone, isValidEmail } from "@/lib/phone";
 import { useLanguage } from "@/context/LanguageContext";
 import type { RecommendedPlace } from "@/lib/defaults";
 
@@ -93,7 +93,8 @@ export default function PlaceBookingModal({
   const dateChosen = isStay ? !!(form.start && form.end) : !!form.start;
   const slotOk = isStay || slots.length === 0 || !!form.slot;
   const capacityOk = isStay ? minRoomsLeft >= qty : seatsLeft >= qty;
-  const canSubmit = !!form.name && isValidPhone(form.phone) && dateChosen && slotOk && capacityOk && formState !== "loading";
+  const emailOk = !form.email || isValidEmail(form.email);
+  const canSubmit = !!form.name && isValidPhone(form.phone) && emailOk && dateChosen && slotOk && capacityOk && formState !== "loading";
 
   const inputCls =
     "w-full bg-dark border border-dark-border rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/50 focus:border-yellow focus:outline-none transition-colors";
@@ -268,13 +269,16 @@ export default function PlaceBookingModal({
                 className={`${inputCls} pl-10`} required disabled={formState === "loading"}
               />
             </div>
-            <div className="relative">
-              <Mail size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" />
-              <input
-                type="email" placeholder="your@email.com" value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className={`${inputCls} pl-10`} disabled={formState === "loading"}
-              />
+            <div>
+              <div className="relative">
+                <Mail size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" />
+                <input
+                  type="email" placeholder="your@email.com" value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className={`${inputCls} pl-10${!emailOk ? " !border-red-500/60" : ""}`} disabled={formState === "loading"}
+                />
+              </div>
+              {!emailOk && <p className="text-red-400 font-dm text-[11px] mt-1.5">Please enter a valid email address.</p>}
             </div>
             <PhoneInput
               value={form.phone}

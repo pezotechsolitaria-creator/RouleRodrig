@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Phone, CheckCircle } from "lucide-react";
-import { isValidPhone } from "@/lib/phone";
+import { useEffect, useRef, useState } from "react";
+import { Phone, CheckCircle, ChevronDown, Search } from "lucide-react";
+import { isValidPhoneNumber, parsePhoneNumberFromString, getExampleNumber, type CountryCode } from "libphonenumber-js";
+import examples from "libphonenumber-js/examples.mobile.json";
 
-// Curated list — Mauritius first, then the markets Rodrigues actually sees
-// (Réunion, France, UK, Germany, Italy, India, South Africa…). Each carries a
-// flag + dial code + name so guests never guess the right international prefix.
+// Curated list — Mauritius first, then the markets Rodrigues actually sees.
 interface Country {
-  iso: string;
+  iso: CountryCode;
   dial: string;
   name: string;
   flag: string;
@@ -60,6 +59,17 @@ const COUNTRIES: Country[] = [
   { iso: "SC", dial: "+248", name: "Seychelles", flag: "🇸🇨" },
 ];
 
+// Example NATIONAL number (no country code, no trunk prefix) for the placeholder.
+function placeholderFor(iso: CountryCode): string {
+  try {
+    const ex = getExampleNumber(iso, examples);
+    if (!ex) return "Your number";
+    return ex.formatInternational().replace(/^\+\d+\s*/, "") || "Your number";
+  } catch {
+    return "Your number";
+  }
+}
+
 interface Props {
   value: string;
   onChange: (full: string) => void;
@@ -69,63 +79,117 @@ interface Props {
 }
 
 /**
- * Phone field with an international country-code picker (flag + name + dial).
- * Emits the combined value, e.g. "+230 5912 3456". Defaults to Mauritius.
+ * Phone field with a searchable country picker (flag + dial) and a national-only
+ * input. Validates against the selected country's rules and emits a normalised
+ * international number, e.g. "+230 5251 2345".
  */
-export default function PhoneInput({ value, onChange, disabled, placeholder, inputClassName }: Props) {
-  const [dialIso, setDialIso] = useState("MU");
+export default function PhoneInput({ value, onChange, disabled, inputClassName }: Props) {
+  const [dialIso, setDialIso] = useState<CountryCode>("MU");
   const [num, setNum] = useState("");
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const wrapRef = useRef<HTMLDivElement>(null);
 
   // Reset the local number when the parent clears the field (e.g. after submit)
   useEffect(() => {
     if (!value) setNum("");
   }, [value]);
 
+  // Close the dropdown on outside click
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
   const country = COUNTRIES.find((c) => c.iso === dialIso) ?? COUNTRIES[0];
 
-  function emit(dial: string, local: string) {
-    const clean = local.replace(/[^\d\s]/g, "").trim();
-    onChange(clean ? `${dial} ${clean}` : "");
+  // Emit a normalised international number when valid; otherwise a best-effort
+  // string so the parent's validation can still flag it.
+  function emit(iso: CountryCode, local: string) {
+    const clean = local.trim();
+    if (!clean) return onChange("");
+    const parsed = parsePhoneNumberFromString(clean, iso);
+    if (parsed && parsed.isValid()) onChange(parsed.formatInternational());
+    else {
+      const dial = COUNTRIES.find((c) => c.iso === iso)?.dial ?? "";
+      onChange(`${dial} ${clean.replace(/[^\d\s]/g, "").trim()}`);
+    }
   }
 
   const hasInput = num.trim().length > 0;
-  const valid = hasInput && isValidPhone(`${country.dial} ${num}`);
+  const valid = hasInput && isValidPhoneNumber(num, country.iso);
   const showError = hasInput && !valid;
 
+  const filtered = COUNTRIES.filter((c) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return c.name.toLowerCase().includes(q) || c.dial.includes(q) || c.iso.toLowerCase().includes(q);
+  });
+
   return (
-    <div>
+    <div ref={wrapRef}>
       <div className="flex gap-2">
+        {/* Country picker */}
         <div className="relative shrink-0">
-          <select
-            aria-label="Country code"
-            value={dialIso}
-            onChange={(e) => {
-              setDialIso(e.target.value);
-              const c = COUNTRIES.find((x) => x.iso === e.target.value);
-              if (c) emit(c.dial, num);
-            }}
+          <button
+            type="button"
             disabled={disabled}
-            className="appearance-none h-full bg-dark-card border border-dark-border rounded-xl pl-3 pr-7 py-3.5 text-offwhite text-sm font-dm focus:border-yellow focus:outline-none transition-colors cursor-pointer max-w-[118px]"
+            onClick={() => setOpen((o) => !o)}
+            aria-label="Select country code"
+            className="flex items-center gap-1.5 h-full bg-dark-card border border-dark-border rounded-xl px-3 py-3.5 text-offwhite text-sm font-dm hover:border-yellow/50 focus:border-yellow focus:outline-none transition-colors"
           >
-            {COUNTRIES.map((c) => (
-              <option key={c.iso} value={c.iso}>
-                {c.flag} {c.dial} {c.name}
-              </option>
-            ))}
-          </select>
-          <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted/60 text-xs">▾</span>
+            <span className="text-base leading-none">{country.flag}</span>
+            <span>{country.dial}</span>
+            <ChevronDown size={14} className="text-muted/60" />
+          </button>
+
+          {open && (
+            <div className="absolute z-50 mt-2 left-0 w-72 max-w-[80vw] bg-dark-card border border-dark-border rounded-xl shadow-2xl overflow-hidden">
+              <div className="p-2 border-b border-dark-border relative">
+                <Search size={13} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" />
+                <input
+                  autoFocus
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search country…"
+                  className="w-full bg-dark border border-dark-border rounded-lg pl-9 pr-3 py-2 text-sm text-offwhite font-dm focus:border-yellow focus:outline-none"
+                />
+              </div>
+              <div className="max-h-60 overflow-y-auto">
+                {filtered.map((c) => (
+                  <button
+                    key={c.iso}
+                    type="button"
+                    onClick={() => { setDialIso(c.iso); emit(c.iso, num); setOpen(false); setSearch(""); }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors hover:bg-yellow/10 ${
+                      c.iso === dialIso ? "bg-yellow/5 text-yellow" : "text-offwhite/85"
+                    }`}
+                  >
+                    <span className="text-base">{c.flag}</span>
+                    <span className="flex-1 truncate">{c.name}</span>
+                    <span className="text-muted text-xs">{c.dial}</span>
+                  </button>
+                ))}
+                {filtered.length === 0 && (
+                  <p className="px-3 py-4 text-muted/50 text-xs text-center">No match</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* National number */}
         <div className="relative flex-1">
           <Phone size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" />
           <input
             type="tel"
             inputMode="tel"
-            placeholder={placeholder ?? "5912 3456"}
+            placeholder={placeholderFor(country.iso)}
             value={num}
-            onChange={(e) => {
-              setNum(e.target.value);
-              emit(country.dial, e.target.value);
-            }}
+            onChange={(e) => { setNum(e.target.value); emit(country.iso, e.target.value); }}
             disabled={disabled}
             className={`${inputClassName ?? ""}${showError ? " !border-red-500/60" : valid ? " !border-green-500/50" : ""}`}
           />
@@ -134,7 +198,7 @@ export default function PhoneInput({ value, onChange, disabled, placeholder, inp
       </div>
       {showError && (
         <p className="text-red-400 font-dm text-[11px] mt-1.5">
-          Enter a valid {country.name} number ({country.flag} {country.dial}).
+          Enter a valid {country.name} number ({country.flag} {country.dial}) — no country code needed.
         </p>
       )}
     </div>

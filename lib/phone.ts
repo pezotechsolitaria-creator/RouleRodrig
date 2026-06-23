@@ -12,3 +12,10 @@ export function isValidPhone(full: string | null | undefined): boolean {
     return false;
   }
 }
+
+// Basic but solid email format check (used client + server).
+export function isValidEmail(email: string | null | undefined): boolean {
+  const v = (email ?? "").trim();
+  if (!v || v.length > 254) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
+}

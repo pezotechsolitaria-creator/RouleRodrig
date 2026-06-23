@@ -22,7 +22,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import PhoneInput from "@/components/PhoneInput";
-import { isValidPhone } from "@/lib/phone";
+import { isValidPhone, isValidEmail } from "@/lib/phone";
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -195,12 +195,13 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
     "w-full bg-dark-card border border-dark-border rounded-xl px-4 py-3.5 text-offwhite text-sm font-dm placeholder:text-muted/50 focus:border-yellow focus:outline-none transition-colors";
 
   const phoneOk = isValidPhone(form.phone);
+  const emailOk = !form.email || isValidEmail(form.email);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name || !form.scooter || !form.start_date) return;
     if (days <= 0) return;
-    if (!phoneOk) return; // a valid, reachable phone is required
+    if (!phoneOk || !emailOk) return; // valid phone required; email valid if given
     if (hasOverlap) return; // selected dates clash with a confirmed booking
     if (!agreed) { setAgreeError(true); return; } // must accept terms
 
@@ -475,10 +476,11 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                       placeholder="your@email.com"
                       value={form.email}
                       onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      className={`${inputCls} pl-10`}
+                      className={`${inputCls} pl-10${!emailOk ? " !border-red-500/60" : ""}`}
                       disabled={formState === "loading"}
                     />
                   </div>
+                  {!emailOk && <p className="text-red-400 font-dm text-[11px] mt-1.5">Please enter a valid email address.</p>}
                 </div>
               </div>
 
@@ -563,7 +565,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
 
               <button
                 type="submit"
-                disabled={formState === "loading" || formState === "success" || hasOverlap || !agreed || !phoneOk}
+                disabled={formState === "loading" || formState === "success" || hasOverlap || !agreed || !phoneOk || !emailOk}
                 className="w-full flex items-center justify-center gap-2.5 bg-yellow text-dark font-syne font-bold text-base py-4 rounded-xl hover:bg-yellow-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {formState === "loading" ? (

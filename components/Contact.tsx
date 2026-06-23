@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type ContactContent, type FleetItem } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import PhoneInput from "@/components/PhoneInput";
-import { isValidPhone } from "@/lib/phone";
+import { isValidPhone, isValidEmail } from "@/lib/phone";
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -38,10 +38,11 @@ export default function Contact({
   ];
 
   const phoneOk = !form.phone || isValidPhone(form.phone);
+  const emailOk = !form.email || isValidEmail(form.email);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!phoneOk) return; // invalid number entered
+    if (!phoneOk || !emailOk) return; // invalid number/email entered
     setFormState("loading");
 
     try {
@@ -178,10 +179,11 @@ export default function Contact({
                   </label>
                   <input
                     id="email" name="email" type="email" autoComplete="email"
-                    placeholder="your@email.com" className={inputCls}
+                    placeholder="your@email.com" className={`${inputCls}${!emailOk ? " !border-red-500/60" : ""}`}
                     value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
                     disabled={formState === "loading"}
                   />
+                  {!emailOk && <p className="text-red-400 font-dm text-[11px] mt-1.5">Please enter a valid email address.</p>}
                 </div>
               </div>
 
@@ -231,7 +233,7 @@ export default function Contact({
 
               <button
                 type="submit"
-                disabled={formState === "loading" || formState === "success" || !phoneOk}
+                disabled={formState === "loading" || formState === "success" || !phoneOk || !emailOk}
                 className="w-full flex items-center justify-center gap-2.5 bg-yellow text-dark font-syne font-bold text-base py-4 rounded-xl hover:bg-yellow-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 aria-label="Send message"
               >

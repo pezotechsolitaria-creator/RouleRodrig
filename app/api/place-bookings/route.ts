@@ -5,7 +5,7 @@ import { sendPlaceBookingEmails } from "@/lib/email";
 import { sendOwnerWhatsApp } from "@/lib/whatsapp";
 import { guard } from "@/lib/rate-limit";
 import { isActiveHold } from "@/lib/holds";
-import { isValidPhone } from "@/lib/phone";
+import { isValidPhone, isValidEmail } from "@/lib/phone";
 
 // ── Public: create a Stay·Eat·Do reservation request + confirmation emails ──
 // Category-aware capacity:
@@ -46,6 +46,10 @@ export async function POST(req: NextRequest) {
   const phone = (body.phone ?? "").toString().trim();
   if (!isValidPhone(phone)) {
     return NextResponse.json({ error: "A valid phone number is required." }, { status: 400 });
+  }
+  const email = (body.email ?? "").toString().trim();
+  if (email && !isValidEmail(email)) {
+    return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 });
   }
 
   // Resolve the listing for a trusted name/category/capacity/slots.
@@ -95,7 +99,7 @@ export async function POST(req: NextRequest) {
     place_name,
     category,
     name: name.slice(0, 120),
-    email: (body.email ?? "")?.toString().trim() || null,
+    email: email || null,
     phone,
     start_date,
     end_date,
