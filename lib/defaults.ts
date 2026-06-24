@@ -36,6 +36,8 @@ export interface FleetItem {
   assets?: FleetAsset[];  // individual physical units — enables exact asset tracking
   soldOutToday?: boolean; // computed at request time: every unit is out on a trip today
   category?: string; // vehicle category id, e.g. "scooter"
+  specs?: string[];       // spec chips (e.g. "Air conditioning", "5 seats") — category-appropriate
+  included?: string[];    // what's included (e.g. "Full tank of fuel") — category-appropriate
 }
 
 export interface VehicleCategory {

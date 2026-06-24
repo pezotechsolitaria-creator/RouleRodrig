@@ -765,7 +765,7 @@ function FleetEditor({
       badge: "NEW",
       name: "New Scooter",
       tagline: "Your new ride.",
-      description: "Add a description for this scooter.",
+      description: "Add a description for this vehicle.",
       image: "/images/avenis-front.jpeg",
       price: "From Rs 0",
       unit: "/ day",
@@ -960,6 +960,27 @@ function FleetEditor({
               rows={3}
             />
           </Field>
+
+          {/* Category-appropriate spec chips + included items */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="SPECS (comma-separated chips)">
+              <TextInput
+                value={(scooter.specs ?? []).join(", ")}
+                onChange={(v) => updateScooter(idx, { specs: v.split(",").map((s) => s.trim()).filter(Boolean) })}
+                placeholder={scooter.category === "scooter" ? "125cc Engine, Automatic, 2 Riders, Helmet Included" : "e.g. Air conditioning, Automatic, 5 seats, 4 doors"}
+              />
+            </Field>
+            <Field label="WHAT'S INCLUDED (comma-separated)">
+              <TextInput
+                value={(scooter.included ?? []).join(", ")}
+                onChange={(v) => updateScooter(idx, { included: v.split(",").map((s) => s.trim()).filter(Boolean) })}
+                placeholder="e.g. Full tank of fuel, Insurance, Free delivery"
+              />
+            </Field>
+          </div>
+          <p className="text-muted/40 font-dm text-[11px] -mt-2">
+            Leave blank to use the scooter defaults. Fill these for cars, kayaks, etc. so they don&apos;t show scooter info (helmet, riders…).
+          </p>
 
           {/* Individual units — exact asset tracking */}
           <div className="border-t border-[#2a2a2a] pt-4">

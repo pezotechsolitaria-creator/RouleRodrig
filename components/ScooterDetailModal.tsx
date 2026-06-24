@@ -30,12 +30,14 @@ function Stars({ value }: { value: number }) {
 export default function ScooterDetailModal({
   scooter,
   specs,
+  included,
   rating,
   whatsapp,
   onClose,
 }: {
   scooter: FleetItem;
   specs: Spec[];
+  included?: string[];
   rating?: { avg: number; count: number };
   whatsapp?: string;
   onClose: () => void;
@@ -140,29 +142,33 @@ export default function ScooterDetailModal({
           <p className="text-muted/85 font-dm text-sm leading-relaxed mt-4">{scooter.description}</p>
 
           {/* Spec grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
-            {specs.map((spec) => {
-              const Icon = spec.icon;
-              return (
-                <div key={spec.label} className="bg-dark border border-dark-border rounded-xl p-3 flex flex-col items-center text-center gap-1.5">
-                  <Icon size={18} className="text-yellow" />
-                  <span className="font-dm text-offwhite/80 text-[11px] leading-tight">{spec.label}</span>
-                </div>
-              );
-            })}
-          </div>
+          {specs.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+              {specs.map((spec) => {
+                const Icon = spec.icon;
+                return (
+                  <div key={spec.label} className="bg-dark border border-dark-border rounded-xl p-3 flex flex-col items-center text-center gap-1.5">
+                    <Icon size={18} className="text-yellow" />
+                    <span className="font-dm text-offwhite/80 text-[11px] leading-tight">{spec.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* What's included */}
-          <div className="mt-6">
-            <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-3">{t.booking.includedTitle}</p>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {t.booking.included.map((item) => (
-                <li key={item} className="flex items-center gap-2 text-xs font-dm text-offwhite/70">
-                  <CheckCircle size={13} className="text-yellow shrink-0" /> {item}
-                </li>
-              ))}
-            </ul>
-          </div>
+          {(included ?? []).length > 0 && (
+            <div className="mt-6">
+              <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-3">{t.booking.includedTitle}</p>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {(included ?? []).map((item) => (
+                  <li key={item} className="flex items-center gap-2 text-xs font-dm text-offwhite/70">
+                    <CheckCircle size={13} className="text-yellow shrink-0" /> {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex items-center gap-3 mt-7 flex-wrap">

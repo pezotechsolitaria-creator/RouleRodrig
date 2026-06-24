@@ -16,6 +16,7 @@ interface BeforeInstallPromptEvent extends Event {
 export default function PWARegister() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [mode, setMode] = useState<"none" | "android" | "ios">("none");
+  const [iosSafari, setIosSafari] = useState(true);
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -47,8 +48,10 @@ export default function PWARegister() {
       // iPadOS 13+ masquerades as Mac — detect touch + Mac
       (/macintosh/i.test(ua) && "ontouchend" in document);
     const isSafari = /^((?!chrome|crios|fxios|edgios).)*safari/i.test(ua);
-    if (isIOS && isSafari && !dismissed) {
-      // Show after a short delay so it doesn't fight with the language picker
+    if (isIOS && !dismissed) {
+      // Show for any iOS browser — but if it isn't Safari we tell them to open
+      // in Safari, since iOS only allows "Add to Home Screen" from Safari.
+      setIosSafari(isSafari);
       const tmr = setTimeout(() => setMode("ios"), 2500);
       return () => {
         clearTimeout(tmr);
@@ -94,15 +97,25 @@ export default function PWARegister() {
 
   // ── iOS: manual Add-to-Home-Screen instructions ──
   return (
-    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[95] w-[calc(100%-2rem)] max-w-sm bg-dark-card border border-yellow/40 rounded-2xl px-4 py-3.5 shadow-[0_8px_30px_rgba(0,0,0,0.6)]">
+    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[95] w-[calc(100%-2rem)] max-w-sm bg-dark-card border border-yellow/40 rounded-2xl px-4 py-4 shadow-[0_8px_30px_rgba(0,0,0,0.6)]">
       <div className="flex items-start gap-3">
-        <Download size={20} className="text-yellow shrink-0 mt-0.5" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/apple-icon.png" alt="" className="w-10 h-10 rounded-xl shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="font-syne font-bold text-offwhite text-sm">Install Roulé Rodrigues</p>
-          <p className="font-dm text-muted text-xs mt-1 leading-relaxed">
-            Tap <Share size={12} className="inline align-text-bottom text-yellow" /> <strong className="text-offwhite">Share</strong>, then{" "}
-            <strong className="text-offwhite">“Add to Home Screen”</strong>.
-          </p>
+          <p className="font-syne font-bold text-offwhite text-sm">Add Roulé Rodrigues to your phone</p>
+          {iosSafari ? (
+            <ol className="font-dm text-muted text-xs mt-1.5 leading-relaxed space-y-0.5 list-decimal list-inside">
+              <li>Tap <Share size={12} className="inline align-text-bottom text-yellow" /> <strong className="text-offwhite">Share</strong> (bottom of Safari)</li>
+              <li>Choose <strong className="text-offwhite">“Add to Home Screen”</strong></li>
+              <li>Tap <strong className="text-offwhite">Add</strong> — done! 🛵</li>
+            </ol>
+          ) : (
+            <p className="font-dm text-muted text-xs mt-1.5 leading-relaxed">
+              Open <strong className="text-offwhite">roule-rodrig.vercel.app in Safari</strong>, then tap{" "}
+              <Share size={12} className="inline align-text-bottom text-yellow" /> <strong className="text-offwhite">Share → “Add to Home Screen”</strong>.
+              <span className="block text-muted/60 mt-1">(iPhone only adds apps from Safari.)</span>
+            </p>
+          )}
         </div>
         <button onClick={dismiss} aria-label="Dismiss" className="text-muted hover:text-offwhite p-1 -mt-1 -mr-1">
           <X size={16} />

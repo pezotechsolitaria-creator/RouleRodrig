@@ -3,33 +3,49 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban, ChevronLeft, ChevronRight, Star, Maximize2 } from "lucide-react";
+import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban, ChevronLeft, ChevronRight, Star, Maximize2, Snowflake, Fuel, MapPin, Bluetooth, DoorOpen, Check, LifeBuoy } from "lucide-react";
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type FleetItem, type VehicleCategory } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import ScooterDetailModal from "@/components/ScooterDetailModal";
 
-const SPECS_BY_ID: Record<string, { icon: React.ElementType; label: string }[]> = {
-  burgman: [
-    { icon: Gauge, label: "125cc Engine" },
-    { icon: Zap, label: "Automatic" },
-    { icon: Users, label: "2 Riders" },
-    { icon: Shield, label: "Helmet Included" },
-  ],
-  avenis: [
-    { icon: Gauge, label: "125cc Engine" },
-    { icon: Zap, label: "Automatic" },
-    { icon: Users, label: "2 Riders" },
-    { icon: Shield, label: "Helmet Included" },
-  ],
-  _default: [
-    { icon: Zap, label: "Automatic" },
-    { icon: Users, label: "2 Riders" },
-    { icon: Shield, label: "Helmet Included" },
-    { icon: Gauge, label: "Scooter" },
-  ],
-};
+type Spec = { icon: React.ElementType; label: string };
+
+// Default spec chips for scooters (used when the owner hasn't set custom specs).
+const SCOOTER_SPECS: Spec[] = [
+  { icon: Gauge, label: "125cc Engine" },
+  { icon: Zap, label: "Automatic" },
+  { icon: Users, label: "2 Riders" },
+  { icon: Shield, label: "Helmet Included" },
+];
+
+// Pick a sensible icon for an owner-typed spec, by keyword (works for any vehicle).
+function specIcon(label: string): React.ElementType {
+  const s = label.toLowerCase();
+  if (/auto|gear|transmis/.test(s)) return Zap;
+  if (/seat|rider|person|people|pax|passenger/.test(s)) return Users;
+  if (/helmet|insur|safe|protect|jacket|life/.test(s)) return s.includes("life") ? LifeBuoy : Shield;
+  if (/engine|cc|power|km|speed|range|battery/.test(s)) return Gauge;
+  if (/air|a\/c|\bac\b|cool|climate/.test(s)) return Snowflake;
+  if (/fuel|petrol|tank|diesel/.test(s)) return Fuel;
+  if (/door/.test(s)) return DoorOpen;
+  if (/gps|map|nav/.test(s)) return MapPin;
+  if (/bluetooth|audio|music/.test(s)) return Bluetooth;
+  return Check;
+}
+
+// Resolve the spec chips for a vehicle: owner's custom specs first, else the
+// scooter defaults for scooter-type categories, else none (no wrong assumptions).
+function isScooterCat(cat: string): boolean {
+  return /scooter|moto|bike|moped/.test(cat.toLowerCase());
+}
+function resolveSpecs(item: FleetItem): Spec[] {
+  const own = (item.specs ?? []).filter(Boolean);
+  if (own.length) return own.map((label) => ({ icon: specIcon(label), label }));
+  if (isScooterCat(item.category ?? "scooter") || item.id === "burgman" || item.id === "avenis") return SCOOTER_SPECS;
+  return [];
+}
 
 function FleetImageCarousel({ scooter }: { scooter: FleetItem }) {
   const photos = scooter.images && scooter.images.length > 0
@@ -118,7 +134,7 @@ export default function Fleet({
   const { t } = useLanguage();
   const { convert } = useCurrency();
   const [activeCat, setActiveCat] = useState<string>("all");
-  const [detail, setDetail] = useState<{ scooter: FleetItem; specs: { icon: React.ElementType; label: string }[] } | null>(null);
+  const [detail, setDetail] = useState<{ scooter: FleetItem; specs: Spec[]; included: string[] } | null>(null);
 
   const enabledIds = new Set(cats.filter((c) => c.enabled).map((c) => c.id));
   const knownIds = new Set(cats.map((c) => c.id));
@@ -136,10 +152,14 @@ export default function Fleet({
   );
   const showTabs = usedCats.length > 1;
 
-  const items =
+  const baseItems =
     showTabs && activeCat !== "all"
       ? visibleItems.filter((it) => catOf(it) === activeCat)
       : visibleItems;
+
+  // Available vehicles first, sold-out / unavailable ones last.
+  const isOut = (it: FleetItem) => it.available === false || it.soldOutToday === true;
+  const items = [...baseItems].sort((a, b) => Number(isOut(a)) - Number(isOut(b)));
 
   if (visibleItems.length === 0) return null;
 
@@ -197,7 +217,13 @@ export default function Fleet({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
           {items.map((scooter, i) => {
-            const specs = SPECS_BY_ID[scooter.id] ?? SPECS_BY_ID._default;
+            const specs = resolveSpecs(scooter);
+            const ownInc = (scooter.included ?? []).filter(Boolean);
+            const included = ownInc.length
+              ? ownInc
+              : (isScooterCat(scooter.category ?? "scooter") || scooter.id === "burgman" || scooter.id === "avenis")
+              ? [...t.booking.included]
+              : [];
             // "out" = not offered (admin off) OR every unit is on a trip today
             const out = scooter.available === false || scooter.soldOutToday === true;
             return (
@@ -258,17 +284,19 @@ export default function Fleet({
                     {scooter.description}
                   </p>
 
-                  <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-8">
-                    {specs.map((spec) => {
-                      const Icon = spec.icon;
-                      return (
-                        <div key={spec.label} className="flex items-center gap-2.5 text-sm">
-                          <Icon size={14} className="text-yellow shrink-0" />
-                          <span className="font-dm text-offwhite/80">{spec.label}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {specs.length > 0 && (
+                    <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-8">
+                      {specs.map((spec) => {
+                        const Icon = spec.icon;
+                        return (
+                          <div key={spec.label} className="flex items-center gap-2.5 text-sm">
+                            <Icon size={14} className="text-yellow shrink-0" />
+                            <span className="font-dm text-offwhite/80">{spec.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   <div className="pt-5 border-t border-dark-border space-y-3">
                     <div>
@@ -278,7 +306,7 @@ export default function Fleet({
                     <div className="flex items-center gap-2.5">
                       <button
                         type="button"
-                        onClick={() => setDetail({ scooter, specs })}
+                        onClick={() => setDetail({ scooter, specs, included })}
                         className="flex items-center justify-center gap-1.5 font-syne font-bold text-sm px-4 py-3 rounded-full border border-dark-border text-offwhite/80 hover:border-yellow/50 hover:text-yellow transition-colors shrink-0"
                       >
                         <Maximize2 size={13} /> Details
@@ -317,6 +345,7 @@ export default function Fleet({
         <ScooterDetailModal
           scooter={detail.scooter}
           specs={detail.specs}
+          included={detail.included}
           rating={ratings?.[detail.scooter.id]}
           whatsapp={whatsapp}
           onClose={() => setDetail(null)}
