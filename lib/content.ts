@@ -4,7 +4,7 @@ import { createClient } from './supabase/server';
 
 export { DEFAULT_CONTENT };
 export type { SiteContent };
-export type { HeroContent, StatItem, FleetItem, PricingRow, ContactContent, GalleryImage, TestimonialItem, SocialLinks, BrandingContent, AnnouncementContent, AnnouncementItem, MapLocation, WhatsAppNumber, PlannerActivity, RideRoute, VehicleCategory, UsefulContact, EventItem, Sponsor, TransportOption, GettingAroundContent, FaqItem, FaqContent, RecommendedPlace, RecommendedContent, ExperienceContent } from './defaults';
+export type { HeroContent, StatItem, FleetItem, PricingRow, ContactContent, GalleryImage, TestimonialItem, SocialLinks, BrandingContent, AnnouncementContent, AnnouncementItem, MapLocation, WhatsAppNumber, PlannerActivity, RideRoute, VehicleCategory, UsefulContact, EventItem, Sponsor, TransportOption, GettingAroundContent, FaqItem, FaqContent, RecommendedPlace, RecommendedContent, ExperienceContent, PromoSlide } from './defaults';
 
 function mergeWithDefaults(parsed: Partial<SiteContent>): SiteContent {
   // Ensure existing fleet items have the new `available` field
@@ -18,6 +18,7 @@ function mergeWithDefaults(parsed: Partial<SiteContent>): SiteContent {
   return {
     hero: { ...DEFAULT_CONTENT.hero, ...(parsed.hero ?? {}) },
     stats: parsed.stats ?? DEFAULT_CONTENT.stats,
+    promoSlides: parsed.promoSlides ?? DEFAULT_CONTENT.promoSlides,
     fleet,
     pricing: parsed.pricing ?? DEFAULT_CONTENT.pricing,
     contact: {

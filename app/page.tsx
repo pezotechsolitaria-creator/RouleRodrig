@@ -4,7 +4,7 @@ import { getPrivileged } from "@/lib/supabase/admin";
 import { isActiveHold } from "@/lib/holds";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
-import Stats from "@/components/Stats";
+import PromoCarousel from "@/components/PromoCarousel";
 import Fleet from "@/components/Fleet";
 import TrustBar from "@/components/TrustBar";
 import Experience from "@/components/Experience";
@@ -183,7 +183,7 @@ export default async function Home() {
           showEvents={content.events.some((e) => e.title)}
         />
         <Hero hero={content.hero} />
-        <Stats stats={content.stats} />
+        <PromoCarousel slides={content.promoSlides} />
         <Fleet fleet={fleet} categories={content.vehicleCategories} ratings={ratings} whatsapp={businessWhatsApp} />
         <TrustBar />
         <Experience content={content.experience} />

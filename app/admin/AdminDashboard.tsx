@@ -77,6 +77,7 @@ import { SITE_URL } from "@/lib/site";
 type Section =
   | "dashboard"
   | "hero"
+  | "promo"
   | "fleet"
   | "pricing"
   | "contact"
@@ -117,6 +118,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "marketplace",  label: "Marketplace",      icon: Store,           group: "business" },
   { id: "taxi",         label: "Taxi & Transport",  icon: Car,             group: "business" },
   { id: "hero",         label: "Hero",             icon: Sparkles,        group: "content" },
+  { id: "promo",        label: "Promo Carousel",   icon: Images,          group: "content" },
   { id: "experience",   label: "Experience Photos", icon: Images,         group: "content" },
   { id: "fleet",        label: "Fleet",            icon: Bike,            group: "content" },
   { id: "pricing",      label: "Pricing",          icon: DollarSign,      group: "content" },
@@ -763,7 +765,7 @@ function FleetEditor({
     const newScooter: FleetItem = {
       id,
       badge: "NEW",
-      name: "New Scooter",
+      name: "New Vehicle",
       tagline: "Your new ride.",
       description: "Add a description for this vehicle.",
       image: "/images/avenis-front.jpeg",
@@ -773,7 +775,7 @@ function FleetEditor({
       category: content.vehicleCategories?.[0]?.id ?? "scooter",
     };
     const newRow: PricingRow = {
-      name: "New Scooter",
+      name: "New Vehicle",
       prices: ["Rs 0", "Rs 0", "Rs 0"],
     };
     onChange({
@@ -859,7 +861,7 @@ function FleetEditor({
         >
           <div className="flex items-center justify-between">
             <p className="font-bebas text-yellow text-xs tracking-[0.3em]">
-              SCOOTER {idx + 1} — {scooter.name}
+              {(cats.find((c) => c.id === (scooter.category ?? "scooter"))?.label ?? "Vehicle").toUpperCase()} — {scooter.name || "Untitled"}
             </p>
             <div className="flex items-center gap-4">
               {/* Availability toggle */}
@@ -1043,12 +1045,79 @@ function FleetEditor({
         onClick={addScooter}
         className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 text-muted/60 hover:text-yellow rounded-2xl py-5 text-sm font-dm transition-colors"
       >
-        <Plus size={16} /> Add Scooter
+        <Plus size={16} /> Add Vehicle
       </button>
 
       <p className="text-muted/50 text-xs font-dm">
-        Click the status badge to toggle availability. Adding/removing a scooter also updates the pricing table.
+        Click the status badge to toggle availability. Adding/removing a vehicle also updates the pricing table.
       </p>
+    </div>
+  );
+}
+
+function PromoEditor({
+  content,
+  onChange,
+}: {
+  content: SiteContent;
+  onChange: (c: SiteContent) => void;
+}) {
+  const slides = content.promoSlides ?? [];
+  const update = (i: number, patch: Partial<(typeof slides)[number]>) =>
+    onChange({ ...content, promoSlides: slides.map((s, idx) => (idx === i ? { ...s, ...patch } : s)) });
+  const add = () =>
+    onChange({ ...content, promoSlides: [...slides, { id: `promo-${Date.now()}`, title: "", subtitle: "", image: "", video: "", link: "", linkText: "", enabled: true }] });
+  const remove = (i: number) => onChange({ ...content, promoSlides: slides.filter((_, idx) => idx !== i) });
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= slides.length) return;
+    const next = [...slides];
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange({ ...content, promoSlides: next });
+  };
+
+  return (
+    <div className="space-y-6">
+      <p className="text-muted/60 text-xs font-dm">
+        Rotating slides shown near the top of the homepage (they replaced the old stats). Use them to cross-promote
+        Stay·Eat·Do, taxi, offers or announcements so mobile visitors don&apos;t miss them. Click Save Changes to publish.
+      </p>
+      {slides.map((s, i) => (
+        <div key={s.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="font-bebas text-yellow text-[10px] tracking-[0.3em]">SLIDE {i + 1}{s.title ? ` — ${s.title}` : ""}</p>
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="text-muted/60 hover:text-yellow disabled:opacity-30 transition-colors">↑</button>
+              <button type="button" onClick={() => move(i, 1)} disabled={i === slides.length - 1} className="text-muted/60 hover:text-yellow disabled:opacity-30 transition-colors">↓</button>
+              <button
+                type="button"
+                onClick={() => update(i, { enabled: !s.enabled })}
+                className={`font-bebas text-[9px] tracking-[0.15em] px-2.5 py-1 rounded-full border ${s.enabled !== false ? "border-green-500/30 text-green-400" : "border-[#2a2a2a] text-muted/60"}`}
+              >
+                {s.enabled !== false ? "SHOWN" : "HIDDEN"}
+              </button>
+              <button type="button" onClick={() => remove(i)} className="text-muted/50 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+            </div>
+          </div>
+          <ImagePicker label="IMAGE (or video poster)" src={s.image} onUpload={(p) => update(i, { image: p })} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="TITLE"><TextInput value={s.title} onChange={(v) => update(i, { title: v })} placeholder="e.g. Stay · Eat · Do" /></Field>
+            <Field label="VIDEO URL (optional, .mp4)"><TextInput value={s.video ?? ""} onChange={(v) => update(i, { video: v })} placeholder="https://…/clip.mp4" /></Field>
+          </div>
+          <Field label="SUBTITLE"><Textarea value={s.subtitle} onChange={(v) => update(i, { subtitle: v })} rows={2} /></Field>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="LINK"><TextInput value={s.link ?? ""} onChange={(v) => update(i, { link: v })} placeholder="/#recommended, /taxi, /#routes…" /></Field>
+            <Field label="BUTTON TEXT"><TextInput value={s.linkText ?? ""} onChange={(v) => update(i, { linkText: v })} placeholder="Explore" /></Field>
+          </div>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={add}
+        className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 text-muted/60 hover:text-yellow rounded-2xl py-5 text-sm font-dm transition-colors"
+      >
+        <Plus size={16} /> Add Slide
+      </button>
     </div>
   );
 }
@@ -4978,8 +5047,9 @@ export default function AdminDashboard({
   const SECTION_TITLES: Record<Section, { title: string; desc: string }> = {
     dashboard:    { title: "Dashboard",           desc: "Overview of bookings and enquiries." },
     hero:         { title: "Hero Section",        desc: "Edit the full-screen hero text and background image." },
+    promo:        { title: "Promo Carousel",       desc: "Rotating slides near the top of the homepage — cross-promote Stay·Eat·Do, taxi, offers & announcements." },
     experience:   { title: "Experience Photos",   desc: "The two photos in the “Three Steps to the Open Road” story section." },
-    fleet:        { title: "Fleet / Scooters",    desc: "Add, remove, or edit scooters. Toggle availability." },
+    fleet:        { title: "Fleet / Vehicles",    desc: "Add, remove, or edit any vehicle (scooter, car, kayak…). Toggle availability." },
     pricing:      { title: "Pricing",             desc: "Update rental prices for all durations." },
     contact:      { title: "Contact Info",        desc: "Edit phone, email, location and opening hours." },
     gallery:      { title: "Photo Gallery",       desc: "Upload scooter photos — they appear as a gallery on the site." },
@@ -5174,6 +5244,9 @@ export default function AdminDashboard({
           )}
           {section === "hero" && (
             <HeroEditor content={content} onChange={setContent} />
+          )}
+          {section === "promo" && (
+            <PromoEditor content={content} onChange={setContent} />
           )}
           {section === "experience" && (
             <ExperienceEditor content={content} onChange={setContent} />

@@ -226,9 +226,21 @@ export interface GettingAroundContent {
   options: TransportOption[];
 }
 
+export interface PromoSlide {
+  id: string;
+  title: string;
+  subtitle: string;
+  image: string;      // background image (also poster if a video is set)
+  video?: string;     // optional mp4 URL (autoplays muted, looped)
+  link?: string;      // CTA target, e.g. "/#recommended" or "/taxi"
+  linkText?: string;  // CTA label
+  enabled: boolean;
+}
+
 export interface SiteContent {
   hero: HeroContent;
   stats: StatItem[];
+  promoSlides: PromoSlide[];
   fleet: FleetItem[];
   pricing: PricingRow[];
   contact: ContactContent;
@@ -262,6 +274,11 @@ export const DEFAULT_CONTENT: SiteContent = {
     { value: 500, suffix: '+', label: 'Happy Riders' },
     { value: 2, suffix: '', label: 'Scooter Models' },
     { value: 24, suffix: '/7', label: 'Support' },
+  ],
+  promoSlides: [
+    { id: 'promo-stay', title: 'Stay · Eat · Do', subtitle: 'Hand-picked hotels, restaurants & activities across Rodrigues — book in a tap.', image: '', link: '/#recommended', linkText: 'Explore', enabled: true },
+    { id: 'promo-taxi', title: 'Need a ride?', subtitle: 'Trusted local taxi drivers for airport transfers & island tours.', image: '', link: '/taxi', linkText: 'See drivers', enabled: true },
+    { id: 'promo-routes', title: 'Scenic ride routes', subtitle: 'Curated island loops with every stop mapped out for you.', image: '', link: '/#routes', linkText: 'View routes', enabled: true },
   ],
   fleet: [
     {
