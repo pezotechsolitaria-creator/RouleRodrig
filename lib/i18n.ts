@@ -64,6 +64,7 @@ const translations = {
       bookNow:        "Book Now",
       unavailableBtn: "Unavailable",
       allTypes:       "All",
+      bookedThisWeek: (n: number) => `Booked ${n}× this week`,
     },
 
     // Booking section
@@ -433,6 +434,7 @@ const translations = {
       bookNow:        "Réserver",
       unavailableBtn: "Indisponible",
       allTypes:       "Tous",
+      bookedThisWeek: (n: number) => `Réservé ${n}× cette semaine`,
     },
     booking: {
       eyebrow:        "RÉSERVEZ VOTRE SCOOTER",
@@ -766,6 +768,7 @@ const translations = {
       bookNow:        "Rezerv Astèr",
       unavailableBtn: "Pa Disponib",
       allTypes:       "Tou",
+      bookedThisWeek: (n: number) => `Rezerve ${n}× sa semenn la`,
     },
     booking: {
       eyebrow:        "REZERV OU LOTO",

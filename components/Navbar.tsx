@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Menu, X, ArrowRight } from "lucide-react";
+import { Menu, X, ArrowRight, Heart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import type { BrandingContent } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import { useCurrency } from "@/context/CurrencyContext";
+import { useFavorites } from "@/context/FavoritesContext";
 import { CURRENCIES, CURRENCY_SYMBOL } from "@/lib/currency";
 import { LANGUAGE_FLAGS, LANGUAGE_NATIVE, type Language } from "@/lib/i18n";
 
@@ -30,6 +31,9 @@ export default function Navbar({
   const [menuOpen, setMenuOpen] = useState(false);
   const { t, language, setLanguage } = useLanguage();
   const { currency, setCurrency } = useCurrency();
+  const { count: savedCount } = useFavorites();
+
+  const openSaved = () => window.dispatchEvent(new CustomEvent("rr:open-saved"));
 
   function cycleLanguage() {
     const idx = LANG_CYCLE.indexOf(language);
@@ -136,6 +140,21 @@ export default function Navbar({
               <span className="uppercase tracking-wide">{currency}</span>
             </button>
 
+            {/* Saved / wishlist */}
+            <button
+              onClick={openSaved}
+              aria-label={`Saved (${savedCount})`}
+              title="Your saved list"
+              className="relative flex items-center justify-center w-10 h-10 rounded-full border border-dark-border hover:border-yellow/50 text-muted hover:text-offwhite transition-all duration-200"
+            >
+              <Heart size={17} className={savedCount > 0 ? "fill-red-500 text-red-500" : ""} />
+              {savedCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-yellow text-dark text-[10px] font-syne font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
+                  {savedCount}
+                </span>
+              )}
+            </button>
+
             <Link
               href="#booking"
               className="flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-5 py-2.5 rounded-full hover:bg-yellow-dark transition-all duration-200 hover:scale-105"
@@ -144,13 +163,28 @@ export default function Navbar({
             </Link>
           </div>
 
-          <button
-            className="md:hidden text-offwhite p-1 hover:text-yellow transition-colors"
-            onClick={() => setMenuOpen(true)}
-            aria-label="Open navigation menu"
-          >
-            <Menu size={24} />
-          </button>
+          {/* Mobile: saved heart + menu */}
+          <div className="md:hidden flex items-center gap-1">
+            <button
+              onClick={openSaved}
+              aria-label={`Saved (${savedCount})`}
+              className="relative text-offwhite p-2 hover:text-yellow transition-colors"
+            >
+              <Heart size={22} className={savedCount > 0 ? "fill-red-500 text-red-500" : ""} />
+              {savedCount > 0 && (
+                <span className="absolute top-0 right-0 bg-yellow text-dark text-[10px] font-syne font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
+                  {savedCount}
+                </span>
+              )}
+            </button>
+            <button
+              className="text-offwhite p-1 hover:text-yellow transition-colors"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Open navigation menu"
+            >
+              <Menu size={24} />
+            </button>
+          </div>
         </div>
       </motion.nav>
 

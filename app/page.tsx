@@ -29,6 +29,7 @@ import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
 import Sponsors from "@/components/Sponsors";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import StickyBookBar from "@/components/StickyBookBar";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,25 @@ export default async function Home() {
   } catch {
     /* availability is best-effort — never block the page on it */
   }
+  // ── Honest social proof: real bookings per scooter in the last 7 days ──
+  // Only surfaced on cards when genuinely meaningful (≥2). Never fabricated.
+  const recentBookings: Record<string, number> = {};
+  try {
+    const supabase = await getPrivileged();
+    const sevenAgo = new Date(Date.now() - 7 * 864e5).toISOString();
+    const { data } = await supabase
+      .from("bookings")
+      .select("scooter, created_at, status")
+      .gte("created_at", sevenAgo)
+      .neq("status", "cancelled");
+    for (const b of data ?? []) {
+      if (!b.scooter) continue;
+      recentBookings[b.scooter] = (recentBookings[b.scooter] ?? 0) + 1;
+    }
+  } catch {
+    /* social proof is best-effort */
+  }
+
   const fleet = content.fleet.map((s) => {
     const activeUnits = (s.assets ?? []).filter((a) => a.active !== false).length;
     const capacity = activeUnits > 0 ? activeUnits : Math.max(1, s.units ?? 1);
@@ -184,7 +204,7 @@ export default async function Home() {
         />
         <Hero hero={content.hero} />
         <PromoCarousel slides={content.promoSlides} />
-        <Fleet fleet={fleet} categories={content.vehicleCategories} ratings={ratings} whatsapp={businessWhatsApp} />
+        <Fleet fleet={fleet} categories={content.vehicleCategories} ratings={ratings} recentBookings={recentBookings} whatsapp={businessWhatsApp} />
         <TrustBar />
         <Experience content={content.experience} />
         <Pricing pricing={content.pricing} />
@@ -213,6 +233,7 @@ export default async function Home() {
         whatsapp={content.social.whatsapp}
         numbers={content.contact.whatsappNumbers}
       />
+      <StickyBookBar whatsapp={businessWhatsApp} />
     </>
   );
 }

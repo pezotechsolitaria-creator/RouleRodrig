@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban, ChevronLeft, ChevronRight, Star, Maximize2, Snowflake, Fuel, MapPin, Bluetooth, DoorOpen, Check, LifeBuoy } from "lucide-react";
+import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban, ChevronLeft, ChevronRight, Star, Maximize2, Snowflake, Fuel, MapPin, Bluetooth, DoorOpen, Check, LifeBuoy, Flame } from "lucide-react";
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type FleetItem, type VehicleCategory } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
@@ -123,11 +123,13 @@ export default function Fleet({
   fleet,
   categories,
   ratings,
+  recentBookings,
   whatsapp,
 }: {
   fleet?: FleetItem[];
   categories?: VehicleCategory[];
   ratings?: Record<string, { avg: number; count: number }>;
+  recentBookings?: Record<string, number>;
   whatsapp?: string;
 }) {
   const allItems = fleet ?? DEFAULT_CONTENT.fleet;
@@ -295,6 +297,16 @@ export default function Fleet({
                       </div>
                     ) : null;
                   })()}
+                  {(recentBookings?.[scooter.id] ?? 0) >= 2 && (
+                    <div className="inline-flex items-center gap-1.5 mb-4 bg-orange-500/10 border border-orange-500/30 text-orange-400 rounded-full px-3 py-1">
+                      <Flame size={12} />
+                      <span className="font-dm text-xs font-medium">
+                        {t.fleet.bookedThisWeek
+                          ? t.fleet.bookedThisWeek(recentBookings![scooter.id])
+                          : `Booked ${recentBookings![scooter.id]}× this week`}
+                      </span>
+                    </div>
+                  )}
                   <p className="text-muted/80 font-dm text-sm leading-relaxed mb-7">
                     {scooter.description}
                   </p>

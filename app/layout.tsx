@@ -6,6 +6,7 @@ import { CurrencyProvider } from "@/context/CurrencyContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 import LanguagePicker from "@/components/LanguagePicker";
 import FavoritesPanel from "@/components/FavoritesPanel";
+import ReturnWelcome from "@/components/ReturnWelcome";
 import PWARegister from "@/components/PWARegister";
 import RefCapture from "@/components/RefCapture";
 import { Analytics } from "@vercel/analytics/react";
@@ -108,6 +109,7 @@ export default function RootLayout({
               <LanguagePicker />
               <RefCapture />
               {children}
+              <ReturnWelcome />
               <FavoritesPanel />
               <PWARegister />
             </FavoritesProvider>
