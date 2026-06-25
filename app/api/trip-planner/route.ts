@@ -171,8 +171,9 @@ function buildItinerary(days: number, interests: string[], ACTIVITIES: Activity[
       pace === "relaxed" ? null : (evening ? { ...evening, slot: "Evening" } : null),
     ].filter(Boolean) as Activity[];
 
-    // Attach one-tap navigation to each stop + a full-day route link.
-    const activities = slotted.map((a) => ({ ...a, mapsUrl: mapsQuery(a.name) }));
+    // Attach one-tap navigation to each stop (prefer the place's own precise
+    // Google reference) + a full-day route link.
+    const activities = slotted.map((a) => ({ ...a, mapsUrl: a.mapsUrl || mapsQuery(a.name) }));
 
     itinerary.push({
       day: d + 1,
