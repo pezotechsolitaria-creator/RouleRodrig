@@ -61,7 +61,21 @@ function pickUnused(pool: Activity[], used: Set<string>): Activity | undefined {
   return available[Math.floor(Math.random() * available.length)];
 }
 
-function buildItinerary(days: number, interests: string[], ACTIVITIES: Activity[]) {
+type Pace = "relaxed" | "balanced" | "packed";
+
+// Google Maps helpers — one-tap navigation for every stop and the whole day.
+const mapsQuery = (name: string) =>
+  `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name + ", Rodrigues")}`;
+function dayRouteUrl(names: string[]): string {
+  if (names.length === 0) return "";
+  if (names.length === 1) return mapsQuery(names[0]);
+  const enc = (s: string) => encodeURIComponent(s + ", Rodrigues");
+  const destination = enc(names[names.length - 1]);
+  const waypoints = names.slice(0, -1).map(enc).join("|");
+  return `https://www.google.com/maps/dir/?api=1&destination=${destination}&waypoints=${waypoints}`;
+}
+
+function buildItinerary(days: number, interests: string[], ACTIVITIES: Activity[], pace: Pace = "balanced") {
   const used = new Set<string>();
   const wantBeach = interests.includes('beach') || interests.includes('all');
   const wantCulture = interests.includes('culture') || interests.includes('all');
@@ -136,15 +150,35 @@ function buildItinerary(days: number, interests: string[], ACTIVITIES: Activity[
     const evening = pickUnused(eveningPool, used);
     if (evening) used.add(evening.id);
 
+    // Packed days get one extra stop (a viewpoint or adventure) in the late
+    // afternoon; relaxed days drop the evening to leave the day breathing room.
+    let extra: Activity | undefined;
+    if (pace === "packed") {
+      const extraPool = [
+        ...viewpoints.filter((a) => a.slot === "afternoon"),
+        ...adventures.filter((a) => a.slot === "afternoon"),
+        ...ACTIVITIES.filter((a) => a.slot === "afternoon"),
+      ];
+      extra = pickUnused(extraPool, used);
+      if (extra) used.add(extra.id);
+    }
+
+    const slotted = [
+      morning   ? { ...morning,   slot: "Morning" }        : null,
+      lunch     ? { ...lunch,     slot: "Lunch" }          : null,
+      afternoon ? { ...afternoon, slot: "Afternoon" }      : null,
+      pace === "packed" && extra ? { ...extra, slot: "Late afternoon" } : null,
+      pace === "relaxed" ? null : (evening ? { ...evening, slot: "Evening" } : null),
+    ].filter(Boolean) as Activity[];
+
+    // Attach one-tap navigation to each stop + a full-day route link.
+    const activities = slotted.map((a) => ({ ...a, mapsUrl: mapsQuery(a.name) }));
+
     itinerary.push({
       day: d + 1,
       theme: DAY_THEMES[d % DAY_THEMES.length],
-      activities: [
-        morning   ? { ...morning,   slot: 'Morning'   } : null,
-        lunch     ? { ...lunch,     slot: 'Lunch'     } : null,
-        afternoon ? { ...afternoon, slot: 'Afternoon' } : null,
-        evening   ? { ...evening,   slot: 'Evening'   } : null,
-      ].filter(Boolean),
+      mapsUrl: dayRouteUrl(activities.map((a) => a.name)),
+      activities,
     });
   }
 
@@ -153,12 +187,14 @@ function buildItinerary(days: number, interests: string[], ACTIVITIES: Activity[
 
 export async function POST(req: NextRequest) {
   try {
-    const { days = 3, interests = ['all'] } = await req.json() as {
+    const { days = 3, interests = ['all'], pace = 'balanced' } = await req.json() as {
       days: number;
       interests: string[];
+      pace?: Pace;
     };
 
     const clampedDays = Math.max(1, Math.min(7, days));
+    const safePace: Pace = pace === 'relaxed' || pace === 'packed' ? pace : 'balanced';
 
     // Pull the admin-managed places (real info + photos); fall back to built-ins
     let activities: Activity[] = FALLBACK_ACTIVITIES;
@@ -171,7 +207,7 @@ export async function POST(req: NextRequest) {
       activities = FALLBACK_ACTIVITIES.length ? FALLBACK_ACTIVITIES : DEFAULT_CONTENT.plannerActivities;
     }
 
-    const itinerary = buildItinerary(clampedDays, interests, activities);
+    const itinerary = buildItinerary(clampedDays, interests, activities, safePace);
 
     return NextResponse.json({ itinerary });
   } catch {

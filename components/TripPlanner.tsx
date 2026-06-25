@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Compass,
@@ -11,6 +11,9 @@ import {
   ChevronRight,
   ChevronLeft,
   MapPin,
+  Navigation,
+  Copy,
+  Check,
   X,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
@@ -25,29 +28,53 @@ interface Activity {
   description: string;
   tip: string;
   image?: string;
+  mapsUrl?: string;
 }
 
 interface Day {
   day: number;
   theme: string;
+  mapsUrl?: string;
   activities: Activity[];
 }
 
+type Pace = "relaxed" | "balanced" | "packed";
+
 const SLOT_COLOR: Record<string, string> = {
-  Morning:   "bg-amber-400/10 text-amber-400 border-amber-400/30",
-  Lunch:     "bg-green-500/10 text-green-400 border-green-500/30",
-  Afternoon: "bg-blue-500/10  text-blue-400  border-blue-500/30",
-  Evening:   "bg-violet-500/10 text-violet-400 border-violet-500/30",
+  Morning:          "bg-amber-400/10 text-amber-400 border-amber-400/30",
+  Lunch:            "bg-green-500/10 text-green-400 border-green-500/30",
+  Afternoon:        "bg-blue-500/10  text-blue-400  border-blue-500/30",
+  "Late afternoon": "bg-orange-500/10 text-orange-400 border-orange-500/30",
+  Evening:          "bg-violet-500/10 text-violet-400 border-violet-500/30",
 };
+
+const STORE_KEY = "rr-trip-planner-v1";
 
 export default function TripPlanner() {
   const { t } = useLanguage();
   const [days, setDays] = useState(3);
   const [interests, setInterests] = useState<string[]>(["beach", "culture", "adventure", "food"]);
+  const [pace, setPace] = useState<Pace>("balanced");
   const [generating, setGenerating] = useState(false);
   const [itinerary, setItinerary] = useState<Day[] | null>(null);
   const [activeDay, setActiveDay] = useState(0);
   const [lightbox, setLightbox] = useState<{ src: string; name: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Restore the last plan so it survives a reload / coming back to the page.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { days?: number; interests?: string[]; pace?: Pace; itinerary?: Day[] };
+      if (typeof saved.days === "number") setDays(saved.days);
+      if (Array.isArray(saved.interests)) setInterests(saved.interests);
+      if (saved.pace) setPace(saved.pace);
+      if (Array.isArray(saved.itinerary) && saved.itinerary.length) setItinerary(saved.itinerary);
+    } catch {
+      /* ignore corrupt storage */
+    }
+  }, []);
 
   // Build translated interests list
   const INTERESTS = [
@@ -76,17 +103,47 @@ export default function TripPlanner() {
       const res = await fetch("/api/trip-planner", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ days, interests: interests.length ? interests : ["all"] }),
+        body: JSON.stringify({ days, interests: interests.length ? interests : ["all"], pace }),
       });
       if (!res.ok) throw new Error();
       const data = (await res.json()) as { itinerary: Day[] };
       setItinerary(data.itinerary);
       setActiveDay(0);
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify({ days, interests, pace, itinerary: data.itinerary }));
+      } catch { /* ignore */ }
     } catch {
       // silently fall through — keep form visible
     } finally {
       setGenerating(false);
     }
+  }
+
+  // Render the full plan as shareable plain text.
+  function planToText(): string {
+    if (!itinerary) return "";
+    const lines = [`My ${days}-day Rodrigues trip — roule-rodrig.vercel.app`, ""];
+    for (const day of itinerary) {
+      lines.push(`Day ${day.day} — ${day.theme}`);
+      for (const a of day.activities) {
+        lines.push(`  ${a.slot}: ${a.name} (${a.duration})`);
+      }
+      lines.push("");
+    }
+    return lines.join("\n").trim();
+  }
+
+  async function copyPlan() {
+    try {
+      await navigator.clipboard.writeText(planToText());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch { /* clipboard blocked — ignore */ }
+  }
+
+  function sharePlan() {
+    const url = `https://wa.me/?text=${encodeURIComponent(planToText())}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -168,6 +225,26 @@ export default function TripPlanner() {
                 </div>
               </div>
 
+              {/* Pace */}
+              <div>
+                <p className="font-bebas text-muted text-[10px] tracking-[0.3em] mb-4">{t.planner.paceLabel}</p>
+                <div className="flex gap-2">
+                  {(["relaxed", "balanced", "packed"] as const).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setPace(p)}
+                      className={`flex-1 px-2 py-2.5 rounded-lg font-syne font-bold text-xs transition-all ${
+                        pace === p
+                          ? "bg-yellow text-dark"
+                          : "bg-[#0d0d0d] border border-[#2a2a2a] text-muted hover:border-yellow/40 hover:text-offwhite"
+                      }`}
+                    >
+                      {t.planner.pace[p]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <button
                 onClick={generate}
                 disabled={generating}
@@ -182,7 +259,7 @@ export default function TripPlanner() {
 
               {itinerary && (
                 <button
-                  onClick={() => setItinerary(null)}
+                  onClick={() => { setItinerary(null); try { localStorage.removeItem(STORE_KEY); } catch { /* ignore */ } }}
                   className="w-full text-center font-dm text-xs text-muted/50 hover:text-muted transition-colors"
                 >
                   Start over
@@ -236,21 +313,37 @@ export default function TripPlanner() {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.5 }}
                 >
-                  {/* Day tabs */}
-                  <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-                    {itinerary.map((day, i) => (
+                  {/* Day tabs + share controls */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {itinerary.map((day, i) => (
+                        <button
+                          key={day.day}
+                          onClick={() => setActiveDay(i)}
+                          className={`shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-syne font-bold transition-all ${
+                            activeDay === i
+                              ? "bg-yellow text-dark"
+                              : "bg-dark-card border border-dark-border text-muted hover:text-offwhite hover:border-yellow/40"
+                          }`}
+                        >
+                          Day {day.day}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
                       <button
-                        key={day.day}
-                        onClick={() => setActiveDay(i)}
-                        className={`shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-syne font-bold transition-all ${
-                          activeDay === i
-                            ? "bg-yellow text-dark"
-                            : "bg-dark-card border border-dark-border text-muted hover:text-offwhite hover:border-yellow/40"
-                        }`}
+                        onClick={copyPlan}
+                        className="flex items-center gap-1.5 text-xs font-dm text-muted hover:text-offwhite border border-dark-border hover:border-yellow/40 rounded-full px-3 py-1.5 transition-colors"
                       >
-                        Day {day.day}
+                        {copied ? <><Check size={12} className="text-green-400" /> {t.planner.copied}</> : <><Copy size={12} /> {t.planner.copyPlan}</>}
                       </button>
-                    ))}
+                      <button
+                        onClick={sharePlan}
+                        className="flex items-center gap-1.5 text-xs font-dm text-muted hover:text-offwhite border border-dark-border hover:border-yellow/40 rounded-full px-3 py-1.5 transition-colors"
+                      >
+                        <Sparkles size={12} /> {t.planner.sharePlan}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Active day */}
@@ -265,17 +358,27 @@ export default function TripPlanner() {
                       >
                         {/* Day header */}
                         <div className="flex items-center gap-3 mb-6">
-                          <div className="w-10 h-10 rounded-full bg-yellow/10 flex items-center justify-center">
+                          <div className="w-10 h-10 rounded-full bg-yellow/10 flex items-center justify-center shrink-0">
                             <MapPin size={16} className="text-yellow" />
                           </div>
-                          <div>
+                          <div className="flex-1 min-w-0">
                             <p className="font-bebas text-yellow text-[10px] tracking-[0.3em]">
-                              {t.planner.dayOf(itinerary[activeDay].day, itinerary.length)}
+                              {t.planner.dayOf(itinerary[activeDay].day, itinerary.length)} · {t.planner.stopsCount(itinerary[activeDay].activities.length)}
                             </p>
                             <p className="font-syne font-bold text-offwhite text-lg leading-tight">
                               {itinerary[activeDay].theme}
                             </p>
                           </div>
+                          {itinerary[activeDay].mapsUrl && (
+                            <a
+                              href={itinerary[activeDay].mapsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 flex items-center gap-1.5 text-xs font-syne font-bold text-yellow bg-yellow/10 border border-yellow/30 hover:bg-yellow hover:text-dark rounded-full px-3.5 py-2 transition-colors"
+                            >
+                              <Navigation size={13} /> <span className="hidden sm:inline">{t.planner.dayRoute}</span>
+                            </a>
+                          )}
                         </div>
 
                         {/* Activities */}
@@ -316,6 +419,16 @@ export default function TripPlanner() {
                                       <Lightbulb size={11} className="text-yellow shrink-0 mt-0.5" />
                                       <p className="text-yellow/80 font-dm text-xs leading-relaxed">{act.tip}</p>
                                     </div>
+                                  )}
+                                  {act.mapsUrl && (
+                                    <a
+                                      href={act.mapsUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 mt-2.5 text-[11px] font-dm text-yellow/70 hover:text-yellow transition-colors"
+                                    >
+                                      <Navigation size={11} /> {t.planner.directions}
+                                    </a>
                                   )}
                                 </div>
                               </div>
