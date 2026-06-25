@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Compass, Check } from "lucide-react";
+import { ArrowRight, Compass } from "lucide-react";
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type HeroContent } from "@/lib/defaults";
 
@@ -98,8 +98,6 @@ function HeroBackdrop() {
   );
 }
 
-const TRUST = ["Helmet included", "Free delivery", "Local support 7/7"];
-
 export default function Hero({ hero }: { hero?: HeroContent }) {
   const h = hero ?? DEFAULT_CONTENT.hero;
   const headlineLines = h.headline;
@@ -120,8 +118,10 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
           />
         )}
         {/* Layered cinematic darkening for depth + legibility */}
-        <div className="absolute inset-0 bg-gradient-to-b from-dark/85 via-dark/45 to-dark" />
-        <div className="absolute inset-0 bg-gradient-to-r from-dark/70 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-dark/85 via-dark/40 to-dark" />
+        <div className="absolute inset-0 bg-gradient-to-r from-dark/75 via-dark/20 to-transparent" />
+        {/* Soft scrim anchored where the text sits, so the headline always reads */}
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 80% 70% at 20% 75%, rgba(0,0,0,0.55), transparent 60%)" }} />
       </div>
 
       {/* ── Animated Rodrigues visual system ───────────── */}
@@ -148,8 +148,8 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
                 initial={{ y: 120, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 0.95, delay: 0.25 + i * 0.12, ease: [0.22, 1, 0.36, 1] }}
-                className="block font-syne font-extrabold text-offwhite leading-[0.88] uppercase tracking-tight"
-                style={{ fontSize: "clamp(40px, 9vw, 150px)" }}
+                className="block font-syne font-extrabold text-offwhite leading-[0.9] uppercase tracking-tight [text-shadow:0_2px_40px_rgba(0,0,0,0.45)]"
+                style={{ fontSize: "clamp(2.1rem, 7.5vw, 7.5rem)" }}
               >
                 {line}
               </motion.h1>
@@ -187,20 +187,6 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
             Explore Rodrigues <Compass size={18} />
           </Link>
         </motion.div>
-
-        {/* Subtle trust microcopy — premium, no buttons */}
-        <motion.ul
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: 1.25 }}
-          className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-2"
-        >
-          {TRUST.map((item) => (
-            <li key={item} className="flex items-center gap-2 text-white/55 font-dm text-xs md:text-sm">
-              <Check size={14} className="text-yellow shrink-0" /> {item}
-            </li>
-          ))}
-        </motion.ul>
       </div>
 
       {/* ── Refined scroll cue ─────────────────────────── */}
