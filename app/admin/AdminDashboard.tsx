@@ -745,6 +745,28 @@ function HeroEditor({
   );
 }
 
+// ── Vehicle "kind" detection + sensible defaults per kind ──
+// A category is identified by keyword so cars never inherit scooter info
+// (helmet, 2 riders) and kayaks aren't "automatic". Owners can edit everything.
+type VehicleKind = "scooter" | "car" | "kayak" | "bike" | "boat" | "other";
+function vehicleKind(catId: string, label = ""): VehicleKind {
+  const s = `${catId} ${label}`.toLowerCase();
+  if (/scooter|moped|moto/.test(s)) return "scooter";
+  if (/car|auto|suv|van|truck|4x4|jeep/.test(s)) return "car";
+  if (/kayak|canoe|paddle|sup|board/.test(s)) return "kayak";
+  if (/bike|bicycl|cycl|vtt|e-?bike/.test(s)) return "bike";
+  if (/boat|catamaran|jet ?ski|pirogue|yacht/.test(s)) return "boat";
+  return "other";
+}
+const KIND_DEFAULTS: Record<VehicleKind, { specs: string[]; included: string[]; noun: string; placeholder: string }> = {
+  scooter: { noun: "scooter", specs: ["125cc Engine", "Automatic", "2 Riders", "Helmet Included"], included: ["2 helmets", "Lock & chain", "Full tank", "Local support 7/7"], placeholder: "125cc Engine, Automatic, 2 Riders, Helmet Included" },
+  car:     { noun: "car",     specs: ["Air conditioning", "Automatic", "5 Seats", "4 Doors"],        included: ["Full tank of fuel", "Insurance", "Free delivery", "24/7 support"], placeholder: "Air conditioning, Automatic, 5 Seats, 4 Doors" },
+  kayak:   { noun: "kayak",   specs: ["2 Seats", "Stable hull", "Paddles included", "Life jackets"], included: ["Paddles", "Life jackets", "Dry bag", "Safety briefing"],          placeholder: "2 Seats, Stable hull, Paddles included, Life jackets" },
+  bike:    { noun: "bike",    specs: ["21 Gears", "Front suspension", "Adjustable seat", "Helmet"],  included: ["Helmet", "Repair kit", "Lock", "Local support"],                  placeholder: "21 Gears, Front suspension, Adjustable seat, Helmet" },
+  boat:    { noun: "boat",    specs: ["Up to 6 people", "Outboard motor", "Sun canopy", "Life jackets"], included: ["Skipper", "Life jackets", "Fuel", "Cooler box"],              placeholder: "Up to 6 people, Outboard motor, Sun canopy, Life jackets" },
+  other:   { noun: "vehicle", specs: [], included: [], placeholder: "e.g. key feature, capacity, transmission" },
+};
+
 function FleetEditor({
   content,
   onChange,
@@ -760,27 +782,31 @@ function FleetEditor({
     onChange({ ...content, fleet, pricing });
   }
 
-  function addScooter() {
-    const id = `scooter-${Date.now()}`;
-    const newScooter: FleetItem = {
+  // Add a vehicle directly into a chosen category, seeded with kind-correct
+  // defaults so a new car shows car info — never scooter helmet/riders.
+  function addVehicle(categoryId: string, label = "") {
+    const kind = vehicleKind(categoryId, label);
+    const def = KIND_DEFAULTS[kind];
+    const id = `veh-${Date.now()}`;
+    const name = `New ${label || def.noun}`;
+    const newVehicle: FleetItem = {
       id,
       badge: "NEW",
-      name: "New Vehicle",
-      tagline: "Your new ride.",
-      description: "Add a description for this vehicle.",
-      image: "/images/avenis-front.jpeg",
+      name,
+      tagline: "Add a short tagline.",
+      description: `Add a description for this ${def.noun}.`,
+      image: "",
       price: "From Rs 0",
       unit: "/ day",
       available: true,
-      category: content.vehicleCategories?.[0]?.id ?? "scooter",
+      category: categoryId,
+      specs: [...def.specs],
+      included: [...def.included],
     };
-    const newRow: PricingRow = {
-      name: "New Vehicle",
-      prices: ["Rs 0", "Rs 0", "Rs 0"],
-    };
+    const newRow: PricingRow = { name, prices: ["Rs 0", "Rs 0", "Rs 0"] };
     onChange({
       ...content,
-      fleet: [...content.fleet, newScooter],
+      fleet: [...content.fleet, newVehicle],
       pricing: [...content.pricing, newRow],
     });
   }
@@ -802,6 +828,18 @@ function FleetEditor({
   const addCat = () =>
     setCats([...cats, { id: `cat-${Date.now()}`, label: "New Type", enabled: true }]);
   const removeCat = (idx: number) => setCats(cats.filter((_, i) => i !== idx));
+
+  // ── Group the fleet by category so cars/kayaks never sit among scooters ──
+  const rows = content.fleet.map((item, idx) => ({ item, idx }));
+  const knownCatIds = new Set(cats.map((c) => c.id));
+  const groupDefs: { id: string; label: string }[] = cats.map((c) => ({ id: c.id, label: c.label }));
+  rows.forEach(({ item }) => {
+    const c = item.category ?? "scooter";
+    if (!knownCatIds.has(c) && !groupDefs.some((g) => g.id === c)) {
+      groupDefs.push({ id: c, label: c });
+    }
+  });
+  if (groupDefs.length === 0) groupDefs.push({ id: "scooter", label: "Scooter" });
 
   return (
     <div className="space-y-8">
@@ -854,14 +892,44 @@ function FleetEditor({
         </button>
       </div>
 
-      {content.fleet.map((scooter, idx) => (
+      {groupDefs.map((g) => {
+        const groupRows = rows.filter((r) => (r.item.category ?? "scooter") === g.id);
+        const gnoun = KIND_DEFAULTS[vehicleKind(g.id, g.label)].noun;
+        return (
+        <div key={g.id} className="space-y-5">
+          <div className="flex items-center justify-between border-b border-[#2a2a2a] pb-3">
+            <p className="font-syne font-extrabold text-offwhite text-lg">
+              {g.label}
+              <span className="text-muted/50 text-sm font-dm font-normal ml-2">
+                {groupRows.length} {groupRows.length === 1 ? "vehicle" : "vehicles"}
+              </span>
+            </p>
+            <button
+              type="button"
+              onClick={() => addVehicle(g.id, g.label)}
+              className="flex items-center gap-1.5 text-xs font-dm text-yellow/90 hover:text-yellow border border-yellow/30 hover:border-yellow/60 rounded-full px-3.5 py-1.5 transition-colors shrink-0"
+            >
+              <Plus size={13} /> Add {gnoun}
+            </button>
+          </div>
+
+          {groupRows.length === 0 && (
+            <p className="text-muted/40 font-dm text-xs italic py-1">
+              No {gnoun}s yet — click &ldquo;Add {gnoun}&rdquo; to create one with the right setup.
+            </p>
+          )}
+
+          {groupRows.map(({ item: scooter, idx }) => {
+            const kind = vehicleKind(scooter.category ?? "scooter", g.label);
+            const def = KIND_DEFAULTS[kind];
+            return (
         <div
           key={scooter.id}
           className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-5"
         >
           <div className="flex items-center justify-between">
             <p className="font-bebas text-yellow text-xs tracking-[0.3em]">
-              {(cats.find((c) => c.id === (scooter.category ?? "scooter"))?.label ?? "Vehicle").toUpperCase()} — {scooter.name || "Untitled"}
+              {g.label.toUpperCase()} — {scooter.name || "Untitled"}
             </p>
             <div className="flex items-center gap-4">
               {/* Availability toggle */}
@@ -969,26 +1037,44 @@ function FleetEditor({
               <TextInput
                 value={(scooter.specs ?? []).join(", ")}
                 onChange={(v) => updateScooter(idx, { specs: v.split(",").map((s) => s.trim()).filter(Boolean) })}
-                placeholder={scooter.category === "scooter" ? "125cc Engine, Automatic, 2 Riders, Helmet Included" : "e.g. Air conditioning, Automatic, 5 seats, 4 doors"}
+                placeholder={def.placeholder}
               />
             </Field>
             <Field label="WHAT'S INCLUDED (comma-separated)">
               <TextInput
                 value={(scooter.included ?? []).join(", ")}
                 onChange={(v) => updateScooter(idx, { included: v.split(",").map((s) => s.trim()).filter(Boolean) })}
-                placeholder="e.g. Full tank of fuel, Insurance, Free delivery"
+                placeholder={def.included.length ? def.included.join(", ") : "e.g. Full tank of fuel, Insurance, Free delivery"}
               />
             </Field>
           </div>
-          <p className="text-muted/40 font-dm text-[11px] -mt-2">
-            Leave blank to use the scooter defaults. Fill these for cars, kayaks, etc. so they don&apos;t show scooter info (helmet, riders…).
+          {def.specs.length > 0 && (
+            <div className="flex flex-wrap gap-2 -mt-2">
+              <button
+                type="button"
+                onClick={() => updateScooter(idx, { specs: [...def.specs] })}
+                className="text-[11px] font-dm text-muted/60 hover:text-yellow border border-[#2a2a2a] hover:border-yellow/40 rounded-full px-3 py-1 transition-colors"
+              >
+                ↻ Reset to {def.noun} specs
+              </button>
+              <button
+                type="button"
+                onClick={() => updateScooter(idx, { included: [...def.included] })}
+                className="text-[11px] font-dm text-muted/60 hover:text-yellow border border-[#2a2a2a] hover:border-yellow/40 rounded-full px-3 py-1 transition-colors"
+              >
+                ↻ Reset to {def.noun} extras
+              </button>
+            </div>
+          )}
+          <p className="text-muted/40 font-dm text-[11px]">
+            These show on the {def.noun} card &amp; detail view. Each category has its own info — a {def.noun} never shows scooter helmet/riders.
           </p>
 
           {/* Individual units — exact asset tracking */}
           <div className="border-t border-[#2a2a2a] pt-4">
             <p className="font-bebas text-muted text-[10px] tracking-[0.25em]">INDIVIDUAL UNITS (optional — exact tracking)</p>
             <p className="text-muted/40 font-dm text-[11px] mb-3">
-              Add each physical bike (colour / plate). Bookings auto-assign a free one and you&apos;ll see exactly which. Overrides &ldquo;Units&rdquo; for availability.
+              Add each physical {def.noun} (colour / plate). Bookings auto-assign a free one and you&apos;ll see exactly which. Overrides &ldquo;Units&rdquo; for availability.
             </p>
             <div className="space-y-2">
               {(scooter.assets ?? []).map((a, ai) => (
@@ -996,7 +1082,7 @@ function FleetEditor({
                   <input
                     value={a.label}
                     onChange={(e) => updateScooter(idx, { assets: (scooter.assets ?? []).map((x, i) => (i === ai ? { ...x, label: e.target.value } : x)) })}
-                    placeholder="Label e.g. Avenis #1"
+                    placeholder={`Label e.g. ${scooter.name || def.noun} #1`}
                     className="flex-1 min-w-[120px] bg-transparent border border-[#2a2a2a] rounded px-2 py-1.5 text-xs text-offwhite font-dm focus:border-yellow focus:outline-none"
                   />
                   <input
@@ -1038,18 +1124,17 @@ function FleetEditor({
             </button>
           </div>
         </div>
-      ))}
-
-      <button
-        type="button"
-        onClick={addScooter}
-        className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 text-muted/60 hover:text-yellow rounded-2xl py-5 text-sm font-dm transition-colors"
-      >
-        <Plus size={16} /> Add Vehicle
-      </button>
+            );
+          })}
+        </div>
+        );
+      })}
 
       <p className="text-muted/50 text-xs font-dm">
-        Click the status badge to toggle availability. Adding/removing a vehicle also updates the pricing table.
+        Vehicles are grouped by category — use &ldquo;Add …&rdquo; in each group to create one already set up
+        with the right info (cars get car specs, kayaks get kayak specs, never scooter helmet/riders).
+        Need a new category like Cars or Kayaks? Add it at the top, then add vehicles into it. Adding or
+        removing a vehicle also updates the pricing table.
       </p>
     </div>
   );
