@@ -2437,7 +2437,7 @@ function PlaceBookingsManager() {
 // ── Map locations editor ───────────────────────────────────────────────────────
 
 const CATEGORIES: MapLocation["category"][] = [
-  "beach", "viewpoint", "restaurant", "landmark", "activity",
+  "beach", "viewpoint", "restaurant", "landmark", "activity", "gas",
 ];
 
 function MapEditor({
@@ -2736,7 +2736,7 @@ function RideRoutesEditor({
         <div key={r.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <p className="font-bebas text-yellow text-xs tracking-[0.3em]">ROUTE {idx + 1} — {r.name}</p>
+              <p className="font-bebas text-yellow text-xs tracking-[0.3em]">{(r.kind ?? "ride") === "hike" ? "TRAIL" : "ROUTE"} {idx + 1} — {r.name}</p>
               {r.featured && (
                 <span className="flex items-center gap-1 font-bebas text-[9px] tracking-[0.15em] bg-yellow/10 text-yellow border border-yellow/30 px-2 py-0.5 rounded-full">
                   <Star size={8} className="fill-yellow" /> FEATURED
@@ -2764,6 +2764,16 @@ function RideRoutesEditor({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="NAME">
               <TextInput value={r.name} onChange={(v) => update(idx, { name: v })} placeholder="e.g. Sunset Coastal Loop" />
+            </Field>
+            <Field label="TYPE">
+              <select
+                value={r.kind ?? "ride"}
+                onChange={(e) => update(idx, { kind: e.target.value as RideRoute["kind"] })}
+                className={`${inputCls} appearance-none`}
+              >
+                <option value="ride">🛵 Scooter ride</option>
+                <option value="hike">🥾 Hiking / adventure trail</option>
+              </select>
             </Field>
             <Field label="DIFFICULTY">
               <select

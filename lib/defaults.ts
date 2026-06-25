@@ -109,7 +109,7 @@ export interface MapLocation {
   id: string;
   name: string;
   description: string;
-  category: "beach" | "viewpoint" | "restaurant" | "landmark" | "activity";
+  category: "beach" | "viewpoint" | "restaurant" | "landmark" | "activity" | "gas";
   lat: number;
   lng: number;
   image?: string; // optional photo shown in the map popup
@@ -138,6 +138,7 @@ export interface RideRoute {
   mapsUrl: string;    // Google Maps link
   image?: string;
   featured?: boolean; // pinned to top + gold border
+  kind?: "ride" | "hike"; // scooter ride (default) vs hiking/adventure trail
 }
 
 export interface Sponsor {
@@ -402,6 +403,68 @@ export const DEFAULT_CONTENT: SiteContent = {
       lat: -19.6811,
       lng: 63.4147,
     },
+
+    // ── More beaches ──
+    {
+      id: 'trou-dargent',
+      name: "Trou d'Argent",
+      description: "Rodrigues' most famous secluded beach — reached on foot via the cliff path from Graviers/Pointe Cotton. Stunning.",
+      category: 'beach',
+      lat: -19.7385,
+      lng: 63.4790,
+    },
+    {
+      id: 'anse-mourouk',
+      name: 'Anse Mourouk (Mourouk)',
+      description: 'Long wild beach on the south coast near Mourouk Ebony — great for kitesurfing and big skies.',
+      category: 'beach',
+      lat: -19.7560,
+      lng: 63.4240,
+    },
+    {
+      id: 'graviers',
+      name: 'Graviers Beach',
+      description: 'Quiet east-coast beach and the starting point of the coastal walk to Trou d\'Argent.',
+      category: 'beach',
+      lat: -19.7330,
+      lng: 63.4720,
+    },
+    {
+      id: 'anse-ally',
+      name: 'Anse Ally',
+      description: 'Calm, shallow lagoon beach on the north-west coast — family-friendly and easy to reach.',
+      category: 'beach',
+      lat: -19.6740,
+      lng: 63.3870,
+    },
+
+    // ── Petrol stations ──
+    // NOTE for the owner: coordinates are best-estimates placed in the right
+    // town. Open admin → Island Map to fine-tune the exact lat/lng of each pump.
+    {
+      id: 'gas-port-mathurin',
+      name: 'Petrol Station — Port Mathurin',
+      description: 'Main filling station in the capital. Fill up here before heading out to remote beaches and the south.',
+      category: 'gas',
+      lat: -19.6829,
+      lng: 63.4185,
+    },
+    {
+      id: 'gas-mont-lubin',
+      name: 'Petrol Station — Mont Lubin',
+      description: 'Central station near the Mont Lubin junction — handy when crossing the island.',
+      category: 'gas',
+      lat: -19.7170,
+      lng: 63.4090,
+    },
+    {
+      id: 'gas-la-ferme',
+      name: 'Petrol Station — La Ferme',
+      description: 'Western fuel stop near La Ferme — useful for the south-west coast and Port Sud-Est road.',
+      category: 'gas',
+      lat: -19.7250,
+      lng: 63.3880,
+    },
   ],
   plannerActivities: [
     // Beaches
@@ -466,6 +529,56 @@ export const DEFAULT_CONTENT: SiteContent = {
       stops: "Mont Lubin Summit\nGrande Montagne Nature Reserve\nPort Mathurin",
       mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Mont+Lubin+Rodrigues',
       image: '',
+    },
+
+    // ── Hiking & adventure trails (on foot) ──
+    {
+      id: 'trou-dargent-coastal-walk',
+      name: "Trou d'Argent Coastal Walk",
+      description: "The island's signature hike — a cliff-top coastal path from Graviers past wild coves to the legendary Trou d'Argent beach. Bring water and swim shoes.",
+      distance: '6 km return',
+      duration: '2–3 hrs',
+      difficulty: 'Moderate',
+      stops: "Graviers car park\nSt François beach\nAnse Bouteille\nTrou d'Argent (swim stop)",
+      mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Trou+d%27Argent+Rodrigues',
+      image: '',
+      kind: 'hike',
+    },
+    {
+      id: 'grande-montagne-forest-trail',
+      name: 'Grande Montagne Nature Trail',
+      description: 'A guided walk through restored endemic forest in the island\'s highest reserve — rare birds (Rodrigues warbler & fody), giant ebony, and big views.',
+      distance: '3–4 km',
+      duration: '1.5–2 hrs',
+      difficulty: 'Easy',
+      stops: "Grande Montagne visitor centre\nEndemic forest loop\nLookout point",
+      mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Grande+Montagne+Nature+Reserve+Rodrigues',
+      image: '',
+      kind: 'hike',
+    },
+    {
+      id: 'mont-limon-summit-hike',
+      name: 'Mont Limon Summit Hike',
+      description: 'Short but steep climb to the highest point of Rodrigues (398 m). Clear mornings give a full 360° panorama of the island and its lagoon.',
+      distance: '2 km return',
+      duration: '1–1.5 hrs',
+      difficulty: 'Moderate',
+      stops: "Mont Limon trailhead\nSummit viewpoint (398 m)",
+      mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Mont+Limon+Rodrigues',
+      image: '',
+      kind: 'hike',
+    },
+    {
+      id: 'francois-leguat-cave-adventure',
+      name: 'Caverne Patate & Tortoise Reserve',
+      description: 'A half-day adventure combining the François Leguat giant-tortoise reserve with a guided descent into the dramatic Caverne Patate limestone caves.',
+      distance: 'Guided',
+      duration: '2–3 hrs',
+      difficulty: 'Easy',
+      stops: "François Leguat Reserve\nGuided cave descent\nMuseum & café",
+      mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Caverne+Patate+Rodrigues',
+      image: '',
+      kind: 'hike',
     },
   ],
   vehicleCategories: [

@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { MapPin, Clock, Route as RouteIcon, ArrowUpRight, WifiOff, Star } from "lucide-react";
+import { MapPin, Clock, Route as RouteIcon, ArrowUpRight, WifiOff, Star, Footprints, Bike } from "lucide-react";
 import type { RideRoute } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -11,13 +12,22 @@ const DIFFICULTY_CLS: Record<string, string> = {
   Advanced: "bg-red-500/10 text-red-400 border-red-500/30",
 };
 
+const kindOf = (r: RideRoute) => r.kind ?? "ride";
+
 export default function RideRoutes({ routes = [] }: { routes?: RideRoute[] }) {
   const { t } = useLanguage();
   const tr = t.routes;
+  const [filter, setFilter] = useState<"all" | "ride" | "hike">("all");
   if (!routes || routes.length === 0) return null;
 
+  const hasRides = routes.some((r) => kindOf(r) === "ride");
+  const hasHikes = routes.some((r) => kindOf(r) === "hike");
+  const showFilter = hasRides && hasHikes;
+
+  const base = filter === "all" ? routes : routes.filter((r) => kindOf(r) === filter);
+
   // Featured first, then original order
-  const sorted = [...routes].sort((a, b) =>
+  const sorted = [...base].sort((a, b) =>
     (b.featured ? 1 : 0) - (a.featured ? 1 : 0)
   );
 
@@ -45,9 +55,36 @@ export default function RideRoutes({ routes = [] }: { routes?: RideRoute[] }) {
           </div>
         </motion.div>
 
+        {showFilter && (
+          <div className="flex flex-wrap gap-2.5 mb-10">
+            {([
+              { id: "all", label: "All", icon: null },
+              { id: "ride", label: "Scooter rides", icon: Bike },
+              { id: "hike", label: "Hiking & trails", icon: Footprints },
+            ] as const).map((f) => {
+              const Icon = f.icon;
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => setFilter(f.id)}
+                  className={`flex items-center gap-2 font-syne font-bold text-sm px-5 py-2.5 rounded-full transition-colors ${
+                    filter === f.id
+                      ? "bg-yellow text-dark"
+                      : "bg-dark border border-dark-border text-muted hover:text-offwhite hover:border-yellow/40"
+                  }`}
+                >
+                  {Icon && <Icon size={15} />} {f.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
           {sorted.map((r, i) => {
             const stops = r.stops.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+            const isHike = kindOf(r) === "hike";
+            const DistIcon = isHike ? Footprints : RouteIcon;
             return (
               <motion.article
                 key={r.id}
@@ -68,12 +105,15 @@ export default function RideRoutes({ routes = [] }: { routes?: RideRoute[] }) {
                     <img src={r.image} alt={r.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-yellow/20 via-dark-card to-dark flex items-center justify-center">
-                      <RouteIcon size={40} className="text-yellow/40" />
+                      {isHike ? <Footprints size={40} className="text-yellow/40" /> : <RouteIcon size={40} className="text-yellow/40" />}
                     </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-dark via-transparent to-transparent" />
-                  {/* Difficulty + featured badges */}
+                  {/* Kind + difficulty + featured badges */}
                   <div className="absolute top-4 left-4 flex items-center gap-2">
+                    <span className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.2em] bg-dark/80 backdrop-blur text-offwhite border border-white/15 px-3 py-1 rounded-full">
+                      {isHike ? <><Footprints size={10} /> TRAIL</> : <><Bike size={10} /> RIDE</>}
+                    </span>
                     <span className={`font-bebas text-[10px] tracking-[0.2em] border px-3 py-1 rounded-full ${DIFFICULTY_CLS[r.difficulty] ?? DIFFICULTY_CLS.Moderate}`}>
                       {tr.difficulty[r.difficulty as keyof typeof tr.difficulty] ?? r.difficulty}
                     </span>
@@ -92,7 +132,7 @@ export default function RideRoutes({ routes = [] }: { routes?: RideRoute[] }) {
 
                   <div className="flex items-center gap-5 mb-4">
                     <span className="flex items-center gap-1.5 text-offwhite/80 font-dm text-xs">
-                      <RouteIcon size={13} className="text-yellow" /> {r.distance}
+                      <DistIcon size={13} className="text-yellow" /> {r.distance}
                     </span>
                     <span className="flex items-center gap-1.5 text-offwhite/80 font-dm text-xs">
                       <Clock size={13} className="text-yellow" /> {r.duration}

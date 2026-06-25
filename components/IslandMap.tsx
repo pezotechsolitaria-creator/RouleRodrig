@@ -10,6 +10,7 @@ const CATEGORY_COLOR: Record<string, string> = {
   restaurant:"#10B981",
   landmark:  "#8B5CF6",
   activity:  "#EF4444",
+  gas:       "#F97316",
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -18,6 +19,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   restaurant:"Restaurant",
   landmark:  "Landmark",
   activity:  "Activity",
+  gas:       "Petrol station",
 };
 
 type Props = {

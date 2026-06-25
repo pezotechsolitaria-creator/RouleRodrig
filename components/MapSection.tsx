@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { Navigation } from "lucide-react";
@@ -15,6 +16,7 @@ const CATEGORY_COLOR: Record<string, string> = {
   restaurant:"bg-emerald-500",
   landmark:  "bg-violet-500",
   activity:  "bg-red-500",
+  gas:       "bg-orange-500",
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -23,11 +25,20 @@ const CATEGORY_LABEL: Record<string, string> = {
   restaurant:"Restaurant",
   landmark:  "Landmark",
   activity:  "Activity",
+  gas:       "Petrol",
 };
 
 export default function MapSection({ locations }: { locations?: MapLocation[] }) {
   const { t } = useLanguage();
   const locs = locations ?? [];
+  const [filter, setFilter] = useState<string>("all");
+
+  // Only offer filter chips for categories that actually have locations.
+  const presentCats = Object.keys(CATEGORY_LABEL).filter((k) =>
+    locs.some((l) => l.category === k),
+  );
+  const shown = filter === "all" ? locs : locs.filter((l) => l.category === filter);
+
   if (locs.length === 0) return null;
 
   return (
@@ -52,14 +63,37 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
           </p>
         </motion.div>
 
-        {/* Legend */}
-        <div className="flex flex-wrap gap-3 mb-8">
-          {Object.entries(CATEGORY_LABEL).map(([key, label]) => (
-            <span key={key} className="flex items-center gap-2 text-xs font-dm text-muted">
-              <span className={`w-3 h-3 rounded-full shrink-0 ${CATEGORY_COLOR[key]}`} />
-              {label}
-            </span>
-          ))}
+        {/* Filter chips — tap a category to focus the map + list */}
+        <div className="flex flex-wrap gap-2 mb-8">
+          <button
+            type="button"
+            onClick={() => setFilter("all")}
+            className={`flex items-center gap-2 text-xs font-dm px-3.5 py-1.5 rounded-full border transition-colors ${
+              filter === "all"
+                ? "bg-yellow text-dark border-yellow font-semibold"
+                : "border-dark-border text-muted hover:text-offwhite hover:border-yellow/40"
+            }`}
+          >
+            All ({locs.length})
+          </button>
+          {presentCats.map((key) => {
+            const n = locs.filter((l) => l.category === key).length;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFilter(key)}
+                className={`flex items-center gap-2 text-xs font-dm px-3.5 py-1.5 rounded-full border transition-colors ${
+                  filter === key
+                    ? "bg-yellow text-dark border-yellow font-semibold"
+                    : "border-dark-border text-muted hover:text-offwhite hover:border-yellow/40"
+                }`}
+              >
+                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${CATEGORY_COLOR[key]}`} />
+                {CATEGORY_LABEL[key]} ({n})
+              </button>
+            );
+          })}
         </div>
 
         <motion.div
@@ -72,12 +106,12 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
           {/* Map */}
           <div className="lg:col-span-2 rounded-2xl overflow-hidden border border-dark-border" style={{ minHeight: 460 }}>
             {/* Leaflet CSS is imported locally inside IslandMap (CSP-safe) */}
-            <IslandMap locations={locs} />
+            <IslandMap locations={shown} />
           </div>
 
           {/* Location list — tap any place for live directions */}
           <div className="space-y-3 overflow-y-auto max-h-[460px] pr-1">
-            {locs.map((loc) => (
+            {shown.map((loc) => (
               <a
                 key={loc.id}
                 href={`https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`}
