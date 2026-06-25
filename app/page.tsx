@@ -29,7 +29,6 @@ import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
 import Sponsors from "@/components/Sponsors";
 import WhatsAppButton from "@/components/WhatsAppButton";
-import StickyBookBar from "@/components/StickyBookBar";
 
 export const dynamic = "force-dynamic";
 
@@ -233,7 +232,6 @@ export default async function Home() {
         whatsapp={content.social.whatsapp}
         numbers={content.contact.whatsappNumbers}
       />
-      <StickyBookBar whatsapp={businessWhatsApp} />
     </>
   );
 }

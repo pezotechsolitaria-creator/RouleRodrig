@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { guard } from "@/lib/rate-limit";
+import { sendWaitlistWelcome } from "@/lib/email";
 
 // ── Public: join the waitlist ───────────────────────────────────────
 export async function POST(req: NextRequest) {
@@ -21,16 +22,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Please enter a valid email." }, { status: 400 });
   }
 
+  const source = (body.source ?? "website").slice(0, 40);
   const supabase = await createClient();
   const { error } = await supabase.from("waitlist").insert({
     email: email.slice(0, 160),
     name: (body.name ?? "").trim().slice(0, 80) || null,
-    source: (body.source ?? "website").slice(0, 40),
+    source,
   });
 
+  const isDuplicate = !!error && /duplicate|unique/i.test(error.message);
   // Duplicate email (unique index) → treat as success, they're already in
-  if (error && !/duplicate|unique/i.test(error.message)) {
+  if (error && !isDuplicate) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Fire a friendly welcome email — only for genuinely new sign-ups, never
+  // blocks the response, no-ops cleanly if Resend isn't configured yet.
+  if (!isDuplicate) {
+    try {
+      await sendWaitlistWelcome(email, source);
+    } catch {
+      /* ignore email failures */
+    }
   }
   return NextResponse.json({ ok: true });
 }

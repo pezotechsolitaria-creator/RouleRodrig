@@ -80,7 +80,7 @@ export default function WhatsAppButton({
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Chat with us on WhatsApp"
-        className={`rr-floating-btn fixed bottom-5 right-5 z-[90] flex items-center justify-center w-14 h-14 rounded-full bg-[#25D366] shadow-[0_8px_30px_rgba(37,211,102,0.4)] transition-all duration-300 hover:scale-110 ${wrapVisibility}`}
+        className={`fixed bottom-5 right-5 z-[90] flex items-center justify-center w-14 h-14 rounded-full bg-[#25D366] shadow-[0_8px_30px_rgba(37,211,102,0.4)] transition-all duration-300 hover:scale-110 ${wrapVisibility}`}
       >
         {fabGlyph}
       </a>
@@ -89,7 +89,7 @@ export default function WhatsAppButton({
 
   // ── Multiple numbers: expandable menu ──
   return (
-    <div className={`rr-floating-btn fixed bottom-5 right-5 z-[90] flex flex-col items-end gap-3 transition-all duration-300 ${wrapVisibility}`}>
+    <div className={`fixed bottom-5 right-5 z-[90] flex flex-col items-end gap-3 transition-all duration-300 ${wrapVisibility}`}>
       {open && (
         <div className="flex flex-col gap-2 mb-1">
           {targets.map((t, i) => (

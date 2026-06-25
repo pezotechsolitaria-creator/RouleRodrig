@@ -384,3 +384,22 @@ export async function sendEnquiryAck(to: string, name: string | null): Promise<b
     ${ownerWa() ? `<div style="text-align:center">${waButton(ownerWa(), "Hi Roule Rodrigues! I just sent an enquiry through your website. ", "💬 Chat on WhatsApp")}</div>` : ""}`;
   return send(to, "We've got your message 🛵 — Roule Rodrigues", reminderShell("Thanks for getting in touch!", body));
 }
+
+// ── Waitlist / saved-list welcome (lifecycle remarketing) ────────────────
+export async function sendWaitlistWelcome(to: string, source?: string): Promise<boolean> {
+  const savedList = source === "saved-list";
+  const intro = savedList
+    ? "Thanks for saving your favourites on Roule Rodrigues! Your list is ready whenever you are — come back any time to pick up where you left off and book."
+    : "Thanks for joining Roule Rodrigues! 🌴 We'll send you the best island tips, scooter deals and hidden spots from Rodrigues — no spam, ever.";
+  const body = `
+    <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 18px">${intro}</p>
+    <div style="text-align:center;margin:18px 0 6px">
+      <a href="${SITE_URL}" style="display:inline-block;background:${BRAND};color:#0a0a0a;text-decoration:none;font-weight:700;font-size:14px;padding:12px 26px;border-radius:10px">Plan your Rodrigues trip →</a>
+    </div>
+    ${ownerWa() ? `<div style="text-align:center;margin-top:8px">${waButton(ownerWa(), "Hi Roule Rodrigues! I'd love some help planning my trip. ", "💬 Chat on WhatsApp")}</div>` : ""}`;
+  return send(
+    to,
+    savedList ? "Your Roule Rodrigues list is saved 🛵" : "Welcome to Roule Rodrigues 🛵🌴",
+    reminderShell(savedList ? "Your saved list is waiting" : "Welcome aboard!", body),
+  );
+}

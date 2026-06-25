@@ -90,7 +90,7 @@ export default function FavoritesPanel() {
       <button
         onClick={() => setOpen(true)}
         aria-label={`${c.saved} (${count})`}
-        className="rr-floating-btn fixed bottom-6 left-6 z-40 flex items-center gap-2 bg-dark-card/90 backdrop-blur-md border border-white/15 text-offwhite rounded-full pl-3 pr-4 py-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:border-yellow/50 transition-colors"
+        className="fixed bottom-6 left-6 z-40 flex items-center gap-2 bg-dark-card/90 backdrop-blur-md border border-white/15 text-offwhite rounded-full pl-3 pr-4 py-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:border-yellow/50 transition-colors"
       >
         <span className="relative flex">
           <Heart size={18} className="fill-red-500 text-red-500" />
