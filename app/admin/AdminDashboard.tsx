@@ -1186,8 +1186,9 @@ function PromoEditor({
           </div>
           <ImagePicker label="IMAGE (or video poster)" src={s.image} onUpload={(p) => update(i, { image: p })} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="TITLE"><TextInput value={s.title} onChange={(v) => update(i, { title: v })} placeholder="e.g. Stay · Eat · Do" /></Field>
+            <Field label="EYEBROW (small label, optional)"><TextInput value={s.eyebrow ?? ""} onChange={(v) => update(i, { eyebrow: v })} placeholder="e.g. ISLAND TIP" /></Field>
             <Field label="VIDEO URL (optional, .mp4)"><TextInput value={s.video ?? ""} onChange={(v) => update(i, { video: v })} placeholder="https://…/clip.mp4" /></Field>
+            <Field label="TITLE"><TextInput value={s.title} onChange={(v) => update(i, { title: v })} placeholder="e.g. Stay · Eat · Do" /></Field>
           </div>
           <Field label="SUBTITLE"><Textarea value={s.subtitle} onChange={(v) => update(i, { subtitle: v })} rows={2} /></Field>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

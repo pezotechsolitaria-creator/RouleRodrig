@@ -229,6 +229,7 @@ export interface GettingAroundContent {
 
 export interface PromoSlide {
   id: string;
+  eyebrow?: string;   // small label above the title, e.g. "ISLAND TIP"
   title: string;
   subtitle: string;
   image: string;      // background image (also poster if a video is set)
