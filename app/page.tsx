@@ -69,6 +69,14 @@ export default async function Home() {
     return { ...s, soldOutToday: (heldToday[s.id] ?? 0) >= capacity };
   });
 
+  // ── Live counts for the hero glass cards (real data, never faked) ──
+  const heroQuick = {
+    scooters: fleet.filter((s) => s.available !== false && !s.soldOutToday).length,
+    stays: content.recommended.items.filter((p) => p.category === "hotel").length,
+    eats: content.recommended.items.filter((p) => p.category === "restaurant").length,
+    routes: content.rideRoutes.length + content.mapLocations.length,
+  };
+
   // ── Real star ratings per scooter (from APPROVED reviews only) ──
   const ratings: Record<string, { avg: number; count: number }> = {};
   try {
@@ -182,7 +190,7 @@ export default async function Home() {
           showRoutes={content.rideRoutes.length > 0}
           showEvents={content.events.some((e) => e.title)}
         />
-        <Hero hero={content.hero} />
+        <Hero hero={content.hero} quick={heroQuick} />
         <PromoCarousel slides={content.promoSlides} />
         <Fleet fleet={fleet} categories={content.vehicleCategories} ratings={ratings} whatsapp={businessWhatsApp} />
         <TrustBar />
