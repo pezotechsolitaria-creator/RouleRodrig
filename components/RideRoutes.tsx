@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { MapPin, Clock, Route as RouteIcon, ArrowUpRight, WifiOff, Star, Footprints, Bike } from "lucide-react";
 import type { RideRoute } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
+import SaveButton from "@/components/SaveButton";
 
 const DIFFICULTY_CLS: Record<string, string> = {
   Easy:     "bg-green-500/10 text-green-400 border-green-500/30",
@@ -109,6 +110,19 @@ export default function RideRoutes({ routes = [] }: { routes?: RideRoute[] }) {
                     </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-dark via-transparent to-transparent" />
+                  {/* Save (wishlist) heart */}
+                  <div className="absolute top-4 right-4 z-10">
+                    <SaveButton
+                      item={{
+                        id: r.id,
+                        type: "route",
+                        name: r.name,
+                        image: r.image,
+                        href: "#routes",
+                        meta: `${r.distance} · ${r.duration}`,
+                      }}
+                    />
+                  </div>
                   {/* Kind + difficulty + featured badges */}
                   <div className="absolute top-4 left-4 flex items-center gap-2">
                     <span className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.2em] bg-dark/80 backdrop-blur text-offwhite border border-white/15 px-3 py-1 rounded-full">

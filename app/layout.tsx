@@ -3,7 +3,9 @@ import { Syne, Bebas_Neue, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { CurrencyProvider } from "@/context/CurrencyContext";
+import { FavoritesProvider } from "@/context/FavoritesContext";
 import LanguagePicker from "@/components/LanguagePicker";
+import FavoritesPanel from "@/components/FavoritesPanel";
 import PWARegister from "@/components/PWARegister";
 import RefCapture from "@/components/RefCapture";
 import { Analytics } from "@vercel/analytics/react";
@@ -102,10 +104,13 @@ export default function RootLayout({
       <body className="bg-dark text-offwhite font-dm overflow-x-hidden">
         <LanguageProvider>
           <CurrencyProvider>
-            <LanguagePicker />
-            <RefCapture />
-            {children}
-            <PWARegister />
+            <FavoritesProvider>
+              <LanguagePicker />
+              <RefCapture />
+              {children}
+              <FavoritesPanel />
+              <PWARegister />
+            </FavoritesProvider>
           </CurrencyProvider>
         </LanguageProvider>
         <Analytics />

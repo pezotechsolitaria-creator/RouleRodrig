@@ -9,6 +9,7 @@ import { DEFAULT_CONTENT, type FleetItem, type VehicleCategory } from "@/lib/def
 import { useLanguage } from "@/context/LanguageContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import ScooterDetailModal from "@/components/ScooterDetailModal";
+import SaveButton from "@/components/SaveButton";
 
 type Spec = { icon: React.ElementType; label: string };
 
@@ -238,6 +239,20 @@ export default function Fleet({
               >
                 {/* Photo carousel */}
                 <FleetImageCarousel scooter={scooter} />
+
+                {/* Save (wishlist) heart */}
+                <div className="absolute top-5 right-5 z-10">
+                  <SaveButton
+                    item={{
+                      id: scooter.id,
+                      type: "scooter",
+                      name: scooter.name,
+                      image: scooter.images?.[0] || scooter.image,
+                      href: "#fleet",
+                      meta: `${convert(scooter.price)} ${scooter.unit}`,
+                    }}
+                  />
+                </div>
 
                 {/* Badges overlay */}
                 <div className="absolute top-5 left-5 flex items-center gap-2 z-10">

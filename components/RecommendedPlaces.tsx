@@ -8,6 +8,7 @@ import type { RecommendedContent, RecommendedPlace } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import PlaceBookingModal from "@/components/PlaceBookingModal";
 import PlaceDetailModal from "@/components/PlaceDetailModal";
+import SaveButton from "@/components/SaveButton";
 
 const CATEGORY: Record<
   RecommendedPlace["category"],
@@ -173,6 +174,13 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
                       <Star size={8} className="fill-dark" /> {ts.sponsored}
                     </span>
                   )}
+                  <div className="absolute bottom-3 right-3 z-10">
+                    <SaveButton
+                      item={{ id: p.id, type: "place", name: p.name, image: p.image, href: "#recommended", meta: CATLABEL[p.category] }}
+                      className="flex items-center justify-center w-8 h-8 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-white hover:bg-black/65 transition-colors"
+                      size={15}
+                    />
+                  </div>
                 </div>
 
                 {/* Content */}
