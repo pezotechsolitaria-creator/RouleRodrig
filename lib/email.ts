@@ -54,31 +54,71 @@ function fmtDate(d: string): string {
   }
 }
 
+// Parse a "Name <email@x>" string (or a bare address) into parts.
+function parseFrom(raw: string): { email: string; name: string } {
+  const m = /^\s*(.*?)\s*<\s*([^>]+)\s*>\s*$/.exec(raw);
+  if (m) return { name: m[1] || "Roule Rodrigues", email: m[2].trim() };
+  return { name: "Roule Rodrigues", email: raw.trim() };
+}
+
+/**
+ * Sends one email via whichever provider is configured:
+ *   • Resend  — set RESEND_API_KEY (+ RESEND_FROM). Needs a verified domain.
+ *   • Brevo   — set BREVO_API_KEY (+ BREVO_FROM). Works with just a verified
+ *               sender email (e.g. a Gmail) — no domain required.
+ * No-ops cleanly when neither is set, so the app never breaks.
+ */
 async function send(to: string, subject: string, html: string): Promise<boolean> {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) {
-    console.log("[email] RESEND_API_KEY not set — skipping email to", to);
-    return false;
-  }
-  const from = process.env.RESEND_FROM || "Roule Rodrigues <onboarding@resend.dev>";
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ from, to, subject, html }),
-    });
-    if (!res.ok) {
-      console.error("[email] Resend error", res.status, await res.text().catch(() => ""));
+  const resendKey = process.env.RESEND_API_KEY;
+  const brevoKey = process.env.BREVO_API_KEY;
+
+  // ── Resend ──
+  if (resendKey) {
+    const from = process.env.RESEND_FROM || "Roule Rodrigues <onboarding@resend.dev>";
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ from, to, subject, html }),
+      });
+      if (!res.ok) {
+        console.error("[email] Resend error", res.status, await res.text().catch(() => ""));
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error("[email] Resend send failed", err);
       return false;
     }
-    return true;
-  } catch (err) {
-    console.error("[email] send failed", err);
-    return false;
   }
+
+  // ── Brevo (no domain needed — verified sender email is enough) ──
+  if (brevoKey) {
+    const fromRaw = process.env.BREVO_FROM || process.env.RESEND_FROM || "";
+    if (!fromRaw) {
+      console.error("[email] BREVO_FROM not set — skipping email to", to);
+      return false;
+    }
+    const sender = parseFrom(fromRaw);
+    try {
+      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: { "api-key": brevoKey, "Content-Type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ sender, to: [{ email: to }], subject, htmlContent: html }),
+      });
+      if (!res.ok) {
+        console.error("[email] Brevo error", res.status, await res.text().catch(() => ""));
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error("[email] Brevo send failed", err);
+      return false;
+    }
+  }
+
+  console.log("[email] No email provider set (RESEND_API_KEY or BREVO_API_KEY) — skipping email to", to);
+  return false;
 }
 
 function summaryRows(b: BookingEmailData): string {
