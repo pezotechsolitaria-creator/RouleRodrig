@@ -103,7 +103,8 @@ type Section =
   | "gettingAround"
   | "faq"
   | "recommended"
-  | "experience";
+  | "experience"
+  | "notifications";
 
 const NAV: { id: Section; label: string; icon: React.ElementType; group?: string }[] = [
   { id: "dashboard",    label: "Dashboard",       icon: LayoutDashboard, group: "overview" },
@@ -114,6 +115,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "waitlist",     label: "Waitlist",         icon: Mail,            group: "overview" },
   { id: "leads",        label: "Listing Leads",    icon: TrendingUp,      group: "overview" },
   { id: "owners",       label: "Owner Applications", icon: UserPlus,      group: "overview" },
+  { id: "notifications", label: "WhatsApp Alerts",  icon: MessageSquare,   group: "overview" },
   { id: "partners",     label: "Partners",         icon: Handshake,       group: "business" },
   { id: "marketplace",  label: "Marketplace",      icon: Store,           group: "business" },
   { id: "taxi",         label: "Taxi & Transport",  icon: Car,             group: "business" },
@@ -4975,6 +4977,137 @@ function LeadsViewer() {
   );
 }
 
+// ── WhatsApp alert (CallMeBot) settings ──────────────────────────────────────
+function NotificationsEditor() {
+  const [phone, setPhone] = useState("");
+  const [apikey, setApikey] = useState("");
+  const [apikeyHint, setApikeyHint] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/notifications");
+        if (res.ok) {
+          const d = await res.json();
+          setPhone(d.phone || "");
+          setApikeyHint(d.apikeyHint || "");
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/admin/notifications", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, apikey }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setMsg({ ok: true, text: "Saved! Alerts now go to this number. Send a test to confirm." });
+        setApikeyHint(apikey ? `••••${apikey.slice(-3)}` : apikeyHint);
+        setApikey("");
+      } else {
+        setMsg({ ok: false, text: d.error || "Could not save." });
+      }
+    } catch {
+      setMsg({ ok: false, text: "Network error — try again." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function sendTest() {
+    setTesting(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/admin/notifications", { method: "POST" });
+      const d = await res.json().catch(() => ({}));
+      setMsg(
+        res.ok
+          ? { ok: true, text: "Test sent — check WhatsApp on the configured number!" }
+          : { ok: false, text: d.error || "Test failed." },
+      );
+    } catch {
+      setMsg({ ok: false, text: "Network error — try again." });
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  if (loading) {
+    return <div className="flex justify-center py-16"><Loader2 size={22} className="animate-spin text-yellow" /></div>;
+  }
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      {/* How to switch to a new number */}
+      <div className="bg-[#0d0d0d] border border-yellow/25 rounded-2xl p-6">
+        <p className="font-bebas text-yellow text-xs tracking-[0.3em] mb-3">SWITCHING TO A NEW NUMBER — 2 MINUTES</p>
+        <ol className="space-y-2.5 text-sm font-dm text-offwhite/85 list-decimal list-inside">
+          <li>
+            On the <strong>new phone</strong>, save this contact: <strong className="text-yellow">+34 644 84 71 89</strong> (CallMeBot).
+          </li>
+          <li>
+            From that phone, send it this WhatsApp message:{" "}
+            <em className="text-offwhite">&ldquo;I allow callmebot to send me messages&rdquo;</em>
+          </li>
+          <li>CallMeBot replies in a minute with your personal <strong>API key</strong> (a number).</li>
+          <li>Enter the new number and that API key below, save, then send a test.</li>
+        </ol>
+        <p className="text-muted/50 font-dm text-xs mt-3">
+          Each phone number has its own key — the old number&apos;s key won&apos;t work for a new number.
+        </p>
+      </div>
+
+      {/* Settings */}
+      <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
+        <Field label="WHATSAPP NUMBER (with country code, digits only)">
+          <TextInput value={phone} onChange={setPhone} placeholder="e.g. 23058355588" />
+        </Field>
+        <Field label={apikeyHint ? `CALLMEBOT API KEY (current: ${apikeyHint} — enter a new one to replace)` : "CALLMEBOT API KEY"}>
+          <TextInput value={apikey} onChange={setApikey} placeholder="e.g. 7133530" />
+        </Field>
+
+        {msg && (
+          <p className={`flex items-center gap-2 text-sm font-dm ${msg.ok ? "text-green-400" : "text-red-400"}`}>
+            {msg.ok ? <CheckCircle size={15} /> : <AlertCircle size={15} />} {msg.text}
+          </p>
+        )}
+
+        <div className="flex flex-wrap gap-3 pt-1">
+          <button
+            onClick={save}
+            disabled={saving || !phone || !apikey}
+            className="flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-5 py-2.5 rounded-full hover:bg-yellow-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Save
+          </button>
+          <button
+            onClick={sendTest}
+            disabled={testing}
+            className="flex items-center gap-2 border border-[#2a2a2a] hover:border-yellow/50 text-offwhite font-dm text-sm px-5 py-2.5 rounded-full transition-colors disabled:opacity-50"
+          >
+            {testing ? <Loader2 size={15} className="animate-spin" /> : <MessageSquare size={15} />} Send test message
+          </button>
+        </div>
+        <p className="text-muted/40 font-dm text-[11px]">
+          Alerts sent here: new bookings, Stay·Eat·Do reservations, and the daily deliver/collect digest.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function WaitlistViewer() {
   const [list, setList] = useState<WaitlistEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -5170,13 +5303,15 @@ export default function AdminDashboard({
     partners:     { title: "Hotel Partners",      desc: "Manage referral partners and track referrals." },
     marketplace:  { title: "Marketplace / Deals", desc: "Local business listings shown to customers on the website." },
     taxi:         { title: "Taxi & Transport",     desc: "Driver directory shown at /taxi — tourists tap WhatsApp or call directly." },
+    notifications:{ title: "WhatsApp Alerts",      desc: "Where your booking alerts go. Change the number or API key any time — no redeploy needed." },
   };
 
   const isAutoSave =
     section === "gallery" || section === "submissions" || section === "bookings" ||
     section === "place_bookings" ||
     section === "dashboard" || section === "partners" || section === "marketplace" ||
-    section === "taxi" || section === "reviews" || section === "waitlist";
+    section === "taxi" || section === "reviews" || section === "waitlist" ||
+    section === "notifications";
 
   // Group NAV items
   const overviewNav = NAV.filter((n) => n.group === "overview");
@@ -5378,6 +5513,7 @@ export default function AdminDashboard({
           {section === "submissions" && <SubmissionsViewer />}
           {section === "reviews" && <ReviewsModeration />}
           {section === "waitlist" && <WaitlistViewer />}
+          {section === "notifications" && <NotificationsEditor />}
           {section === "leads" && <LeadsViewer />}
           {section === "owners" && <OwnerApplicationsViewer />}
           {section === "bookings" && <BookingsManager fleet={content.fleet} />}
