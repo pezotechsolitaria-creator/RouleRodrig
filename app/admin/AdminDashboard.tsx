@@ -115,7 +115,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "waitlist",     label: "Waitlist",         icon: Mail,            group: "overview" },
   { id: "leads",        label: "Listing Leads",    icon: TrendingUp,      group: "overview" },
   { id: "owners",       label: "Owner Applications", icon: UserPlus,      group: "overview" },
-  { id: "notifications", label: "WhatsApp Alerts",  icon: MessageSquare,   group: "overview" },
+  { id: "notifications", label: "Alerts & Email",   icon: MessageSquare,   group: "overview" },
   { id: "partners",     label: "Partners",         icon: Handshake,       group: "business" },
   { id: "marketplace",  label: "Marketplace",      icon: Store,           group: "business" },
   { id: "taxi",         label: "Taxi & Transport",  icon: Car,             group: "business" },
@@ -5104,6 +5104,137 @@ function NotificationsEditor() {
           Alerts sent here: new bookings, Stay·Eat·Do reservations, and the daily deliver/collect digest.
         </p>
       </div>
+
+      <EmailSettingsCard />
+    </div>
+  );
+}
+
+// ── Customer email (Brevo) settings ─────────────────────────────────────────
+function EmailSettingsCard() {
+  const [from, setFrom] = useState("");
+  const [apikey, setApikey] = useState("");
+  const [apikeyHint, setApikeyHint] = useState("");
+  const [testTo, setTestTo] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/email");
+        if (res.ok) {
+          const d = await res.json();
+          setFrom(d.from || "");
+          setApikeyHint(d.apikeyHint || "");
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/admin/email", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apikey, from }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setMsg({ ok: true, text: "Saved! Send a test email below to confirm it works." });
+        setApikeyHint(apikey ? "••••saved" : apikeyHint);
+        setApikey("");
+      } else {
+        setMsg({ ok: false, text: d.error || "Could not save." });
+      }
+    } catch {
+      setMsg({ ok: false, text: "Network error — try again." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function sendTest() {
+    setTesting(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/admin/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: testTo }),
+      });
+      const d = await res.json().catch(() => ({}));
+      setMsg(
+        res.ok
+          ? { ok: true, text: `Test email sent to ${testTo} — check the inbox (and spam).` }
+          : { ok: false, text: d.error || "Test failed." },
+      );
+    } catch {
+      setMsg({ ok: false, text: "Network error — try again." });
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  if (loading) {
+    return <div className="flex justify-center py-10"><Loader2 size={20} className="animate-spin text-yellow" /></div>;
+  }
+
+  return (
+    <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
+      <div>
+        <p className="font-bebas text-yellow text-xs tracking-[0.3em]">CUSTOMER EMAILS (BREVO)</p>
+        <p className="text-muted/60 text-xs font-dm mt-1 leading-relaxed">
+          Powers booking confirmations, reminders, feedback requests and the saved-list welcome.
+          Free at brevo.com (300 emails/day) — verify a sender email under{" "}
+          <strong className="text-offwhite/80">Brevo → Senders</strong>, create an API key under{" "}
+          <strong className="text-offwhite/80">SMTP &amp; API</strong>, then paste both here.
+        </p>
+      </div>
+
+      <Field label={apikeyHint ? `BREVO API KEY (current: ${apikeyHint} — paste a new one to replace)` : "BREVO API KEY (xkeysib-…)"}>
+        <TextInput value={apikey} onChange={setApikey} placeholder="xkeysib-…" />
+      </Field>
+      <Field label="SENDER (must be verified in Brevo)">
+        <TextInput value={from} onChange={setFrom} placeholder="Roule Rodrigues <you@gmail.com>" />
+      </Field>
+
+      {msg && (
+        <p className={`flex items-center gap-2 text-sm font-dm ${msg.ok ? "text-green-400" : "text-red-400"}`}>
+          {msg.ok ? <CheckCircle size={15} /> : <AlertCircle size={15} />} {msg.text}
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-3 pt-1">
+        <button
+          onClick={save}
+          disabled={saving || !apikey || !from}
+          className="flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-5 py-2.5 rounded-full hover:bg-yellow-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Save
+        </button>
+        <div className="flex items-center gap-2 flex-1 min-w-[240px]">
+          <input
+            value={testTo}
+            onChange={(e) => setTestTo(e.target.value)}
+            placeholder="you@email.com"
+            className="flex-1 bg-[#0d0d0d] border border-[#2a2a2a] rounded-full px-4 py-2.5 text-sm text-offwhite font-dm focus:border-yellow focus:outline-none"
+          />
+          <button
+            onClick={sendTest}
+            disabled={testing || !testTo}
+            className="flex items-center gap-2 border border-[#2a2a2a] hover:border-yellow/50 text-offwhite font-dm text-sm px-4 py-2.5 rounded-full transition-colors disabled:opacity-50 shrink-0"
+          >
+            {testing ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />} Send test
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -5335,7 +5466,7 @@ export default function AdminDashboard({
     partners:     { title: "Hotel Partners",      desc: "Manage referral partners and track referrals." },
     marketplace:  { title: "Marketplace / Deals", desc: "Local business listings shown to customers on the website." },
     taxi:         { title: "Taxi & Transport",     desc: "Driver directory shown at /taxi — tourists tap WhatsApp or call directly." },
-    notifications:{ title: "WhatsApp Alerts",      desc: "Where your booking alerts go. Change the number or API key any time — no redeploy needed." },
+    notifications:{ title: "Alerts & Email",       desc: "Your WhatsApp alert number and the email service (Brevo) that sends customer confirmations — editable any time, no redeploy." },
   };
 
   const isAutoSave =

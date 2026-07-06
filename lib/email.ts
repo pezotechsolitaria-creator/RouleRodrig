@@ -61,16 +61,56 @@ function parseFrom(raw: string): { email: string; name: string } {
   return { name: "Roule Rodrigues", email: raw.trim() };
 }
 
+// ── Brevo config: admin-saved values (app_secrets) first, env fallback ──
+// Same pattern as the WhatsApp alerts — the owner can paste the API key and
+// sender in Admin → Alerts & Email with no redeploy.
+let emailCfg: { key: string; from: string; at: number } | null = null;
+const EMAIL_CFG_TTL = 5 * 60 * 1000;
+
+/** Drop the cached email config (called after the admin saves new settings). */
+export function invalidateEmailConfig(): void {
+  emailCfg = null;
+}
+
+async function getBrevoConfig(): Promise<{ key: string; from: string }> {
+  if (emailCfg && Date.now() - emailCfg.at < EMAIL_CFG_TTL) return emailCfg;
+  let dbKey = "";
+  let dbFrom = "";
+  try {
+    const { getPrivileged } = await import("./supabase/admin");
+    const supabase = await getPrivileged();
+    const { data } = await supabase
+      .from("app_secrets")
+      .select("key, value")
+      .in("key", ["brevo_api_key", "email_from"]);
+    const m: Record<string, string> = {};
+    for (const r of (data ?? []) as { key: string; value: string }[]) m[r.key] = r.value;
+    dbKey = (m["brevo_api_key"] ?? "").trim();
+    dbFrom = (m["email_from"] ?? "").trim();
+  } catch {
+    /* fall through to env */
+  }
+  const cfg = {
+    key: dbKey || process.env.BREVO_API_KEY || "",
+    from: dbFrom || process.env.BREVO_FROM || process.env.RESEND_FROM || "",
+    at: Date.now(),
+  };
+  emailCfg = cfg;
+  return cfg;
+}
+
 /**
  * Sends one email via whichever provider is configured:
  *   • Resend  — set RESEND_API_KEY (+ RESEND_FROM). Needs a verified domain.
- *   • Brevo   — set BREVO_API_KEY (+ BREVO_FROM). Works with just a verified
- *               sender email (e.g. a Gmail) — no domain required.
+ *   • Brevo   — key + sender from Admin → Alerts & Email (or BREVO_API_KEY /
+ *               BREVO_FROM env). Works with just a verified sender email
+ *               (e.g. a Gmail) — no domain required.
  * No-ops cleanly when neither is set, so the app never breaks.
  */
 async function send(to: string, subject: string, html: string): Promise<boolean> {
   const resendKey = process.env.RESEND_API_KEY;
-  const brevoKey = process.env.BREVO_API_KEY;
+  const brevo = await getBrevoConfig();
+  const brevoKey = brevo.key;
 
   // ── Resend ──
   if (resendKey) {
@@ -94,9 +134,9 @@ async function send(to: string, subject: string, html: string): Promise<boolean>
 
   // ── Brevo (no domain needed — verified sender email is enough) ──
   if (brevoKey) {
-    const fromRaw = process.env.BREVO_FROM || process.env.RESEND_FROM || "";
+    const fromRaw = brevo.from;
     if (!fromRaw) {
-      console.error("[email] BREVO_FROM not set — skipping email to", to);
+      console.error("[email] Email sender not set (Admin → Alerts & Email) — skipping email to", to);
       return false;
     }
     const sender = parseFrom(fromRaw);

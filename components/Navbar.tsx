@@ -29,6 +29,7 @@ export default function Navbar({
 }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState("");
   const { t, language, setLanguage } = useLanguage();
   const { currency, setCurrency } = useCurrency();
   const { count: savedCount } = useFavorites();
@@ -59,6 +60,25 @@ export default function Navbar({
     const onScroll = () => setScrolled(window.scrollY > 60);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Scrollspy: highlight the nav link of the section currently in view.
+  useEffect(() => {
+    const ids = ["fleet", "map", "routes", "recommended", "events", "contact"];
+    const els = ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
+    if (els.length === 0) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActiveSection(visible[0].target.id);
+        else if (window.scrollY < 300) setActiveSection("");
+      },
+      { rootMargin: "-35% 0px -55% 0px" },
+    );
+    els.forEach((el) => obs.observe(el));
+    return () => obs.disconnect();
   }, []);
 
   useEffect(() => {
@@ -108,15 +128,27 @@ export default function Navbar({
           </Link>
 
           <div className="hidden md:flex items-center gap-6">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-muted hover:text-offwhite transition-colors text-sm font-dm font-medium tracking-wide"
-              >
-                {link.label}
-              </Link>
-            ))}
+            {navLinks.map((link) => {
+              const isActive = activeSection !== "" && link.href.replace("/#", "#") === `#${activeSection}`;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`relative pb-1 transition-colors text-sm font-dm font-medium tracking-wide ${
+                    isActive ? "text-offwhite" : "text-muted hover:text-offwhite"
+                  }`}
+                >
+                  {link.label}
+                  {isActive && (
+                    <motion.span
+                      layoutId="nav-active-underline"
+                      className="absolute left-0 right-0 -bottom-0.5 h-[2px] rounded-full bg-yellow"
+                      transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                    />
+                  )}
+                </Link>
+              );
+            })}
 
             {/* Language cycle button */}
             <button

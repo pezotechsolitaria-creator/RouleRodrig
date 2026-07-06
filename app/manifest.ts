@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Roule Rodrigues — Scooter Rentals",
+    name: "Roule Rodrigues",
     short_name: "Roule Rodrigues",
     description:
-      "Premium scooter rentals on Rodrigues Island. Discover the island on your own terms.",
+      "Your gateway to Rodrigues Island — scooters, stays, restaurants, routes and trip planning in one app.",
     start_url: "/",
     display: "standalone",
     background_color: "#0a0a0a",
