@@ -61,3 +61,15 @@ h1, h2, h3, h4 {
 ::-webkit-scrollbar       { width: 3px; }
 ::-webkit-scrollbar-track { background: #0a0a0a; }
 ::-webkit-scrollbar-thumb { background: #F5C842; border-radius: 2px; }
+
+/* Anchor jumps land below the fixed navbar instead of underneath it */
+section[id], [id="booking"], [id="fleet"], [id="map"], [id="routes"], [id="recommended"], [id="contact"] {
+  scroll-margin-top: 88px;
+}
+
+/* Respect users who prefer reduced motion: no auto-scrolling ticker,
+   no smooth scrolling — content stays fully readable. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .animate-marquee { animation: none !important; }
+}
