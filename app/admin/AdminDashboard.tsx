@@ -5115,6 +5115,7 @@ function EmailSettingsCard() {
   const [from, setFrom] = useState("");
   const [apikey, setApikey] = useState("");
   const [apikeyHint, setApikeyHint] = useState("");
+  const [listId, setListId] = useState("");
   const [testTo, setTestTo] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -5128,6 +5129,7 @@ function EmailSettingsCard() {
         if (res.ok) {
           const d = await res.json();
           setFrom(d.from || "");
+          setListId(d.listId || "");
           setApikeyHint(d.apikeyHint || "");
         }
       } finally {
@@ -5143,7 +5145,7 @@ function EmailSettingsCard() {
       const res = await fetch("/api/admin/email", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apikey, from }),
+        body: JSON.stringify({ apikey, from, listId }),
       });
       const d = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -5203,6 +5205,9 @@ function EmailSettingsCard() {
       </Field>
       <Field label="SENDER (must be verified in Brevo)">
         <TextInput value={from} onChange={setFrom} placeholder="Roule Rodrigues <you@gmail.com>" />
+      </Field>
+      <Field label="BREVO LIST ID (optional — customers auto-join this list, triggering your Brevo automations)">
+        <TextInput value={listId} onChange={setListId} placeholder="e.g. 3 (Brevo → Contacts → Lists)" />
       </Field>
 
       {msg && (

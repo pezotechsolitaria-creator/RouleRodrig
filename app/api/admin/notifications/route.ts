@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
 import { getPrivileged } from "@/lib/supabase/admin";
 import { sendOwnerWhatsApp, invalidateWhatsAppConfig } from "@/lib/whatsapp";
+import { guard } from "@/lib/rate-limit";
 
 function isAuthed(req: NextRequest) {
   return verifySession(req.cookies.get(COOKIE_NAME)?.value);
@@ -62,6 +63,8 @@ export async function PUT(req: NextRequest) {
 // ── Admin: send a test alert to the configured number ───────────────────
 export async function POST(req: NextRequest) {
   if (!isAuthed(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const limited = guard(req, "admin-wa-test", 10, 60_000);
+  if (limited) return limited;
   invalidateWhatsAppConfig(); // always test with the freshest settings
   const ok = await sendOwnerWhatsApp(
     "Test from Roule Rodrigues admin - your WhatsApp alerts are working!",

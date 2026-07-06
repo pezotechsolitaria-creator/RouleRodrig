@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { guard } from "@/lib/rate-limit";
-import { sendWaitlistWelcome } from "@/lib/email";
+import { sendWaitlistWelcome, upsertBrevoContact } from "@/lib/email";
 
 // ── Public: join the waitlist ───────────────────────────────────────
 export async function POST(req: NextRequest) {
@@ -37,12 +37,18 @@ export async function POST(req: NextRequest) {
   }
 
   // Fire a friendly welcome email — only for genuinely new sign-ups, never
-  // blocks the response, no-ops cleanly if Resend isn't configured yet.
+  // blocks the response, no-ops cleanly if email isn't configured yet.
   if (!isDuplicate) {
     try {
       await sendWaitlistWelcome(email, source);
     } catch {
       /* ignore email failures */
+    }
+    // Also sync into Brevo contacts/list for automations & campaigns.
+    try {
+      await upsertBrevoContact({ email, firstName: (body.name ?? "").trim() || null });
+    } catch {
+      /* best-effort */
     }
   }
   return NextResponse.json({ ok: true });

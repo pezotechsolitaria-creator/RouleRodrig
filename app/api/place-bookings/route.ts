@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPrivileged } from "@/lib/supabase/admin";
 import { getContent } from "@/lib/content";
-import { sendPlaceBookingEmails } from "@/lib/email";
+import { sendPlaceBookingEmails, upsertBrevoContact } from "@/lib/email";
 import { sendOwnerWhatsApp } from "@/lib/whatsapp";
 import { guard } from "@/lib/rate-limit";
 import { isActiveHold } from "@/lib/holds";
@@ -162,6 +162,21 @@ export async function POST(req: NextRequest) {
     await sendPlaceBookingEmails(record);
   } catch {
     /* ignore email failures */
+  }
+
+  // Sync into Brevo (contact + list) so the owner's automations can fire.
+  if (record.email) {
+    try {
+      await upsertBrevoContact({
+        email: record.email,
+        firstName: record.name.split(/\s+/)[0],
+        phone: record.phone,
+        bookingDate: record.start_date,
+        bookingType: record.place_name,
+      });
+    } catch {
+      /* best-effort */
+    }
   }
 
   // Free owner WhatsApp alert (CallMeBot) — owner only, best-effort

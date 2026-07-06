@@ -7,7 +7,6 @@ import { FavoritesProvider } from "@/context/FavoritesContext";
 import LanguagePicker from "@/components/LanguagePicker";
 import FavoritesPanel from "@/components/FavoritesPanel";
 import ReturnWelcome from "@/components/ReturnWelcome";
-import AppSplash from "@/components/AppSplash";
 import PWARegister from "@/components/PWARegister";
 import RefCapture from "@/components/RefCapture";
 import { Analytics } from "@vercel/analytics/react";
@@ -104,10 +103,47 @@ export default function RootLayout({
       className={`${syne.variable} ${bebasNeue.variable} ${dmSans.variable} antialiased`}
     >
       <body className="bg-dark text-offwhite font-dm overflow-x-hidden">
+        {/* ── Installed-app splash ─────────────────────────────────────
+            Gate script runs before first paint: shows the splash only when
+            launched as an installed app (Android standalone / iOS A2HS),
+            once per session, never for reduced-motion users — then removes
+            the overlay from the DOM after the CSS animation finishes.     */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var d=document.documentElement;var sa=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;var rm=window.matchMedia('(prefers-reduced-motion: reduce)').matches;if(sa&&!rm&&!sessionStorage.getItem('rr-splash')){sessionStorage.setItem('rr-splash','1');d.setAttribute('data-splash','on');setTimeout(function(){var el=document.getElementById('rr-splash');if(el)el.remove();d.removeAttribute('data-splash');},5300);}}catch(e){}})();`,
+          }}
+        />
+        <div id="rr-splash" aria-hidden="true">
+          <svg className="rr-sp-rings" viewBox="0 0 600 600" fill="none">
+            {[70, 130, 190, 250, 310, 370].map((r) => (
+              <ellipse key={r} cx="300" cy="300" rx={r} ry={r * 0.82} stroke="#F5C842" strokeWidth="1" />
+            ))}
+          </svg>
+          <div className="rr-sp-icon-wrap">
+            <span className="rr-sp-glow" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="rr-sp-icon" src="/icon-192.png" alt="" width={104} height={104} />
+          </div>
+          <p className="rr-sp-name">
+            Roule <em>Rodrigues</em>
+          </p>
+          <p className="rr-sp-tag">EXPLORE THE ISLAND</p>
+          <svg className="rr-sp-route" viewBox="0 0 208 24" fill="none">
+            <path
+              d="M4 18 C 48 6, 80 22, 116 12 S 178 4, 204 10"
+              pathLength={300}
+              stroke="#F5C842"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+            <circle cx="204" cy="10" r="3.5" fill="#F5C842" />
+          </svg>
+          <span className="rr-sp-bar"><span /></span>
+        </div>
+
         <LanguageProvider>
           <CurrencyProvider>
             <FavoritesProvider>
-              <AppSplash />
               <LanguagePicker />
               <RefCapture />
               {children}

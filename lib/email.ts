@@ -64,7 +64,7 @@ function parseFrom(raw: string): { email: string; name: string } {
 // ── Brevo config: admin-saved values (app_secrets) first, env fallback ──
 // Same pattern as the WhatsApp alerts — the owner can paste the API key and
 // sender in Admin → Alerts & Email with no redeploy.
-let emailCfg: { key: string; from: string; at: number } | null = null;
+let emailCfg: { key: string; from: string; listId: number; at: number } | null = null;
 const EMAIL_CFG_TTL = 5 * 60 * 1000;
 
 /** Drop the cached email config (called after the admin saves new settings). */
@@ -72,31 +72,78 @@ export function invalidateEmailConfig(): void {
   emailCfg = null;
 }
 
-async function getBrevoConfig(): Promise<{ key: string; from: string }> {
+async function getBrevoConfig(): Promise<{ key: string; from: string; listId: number }> {
   if (emailCfg && Date.now() - emailCfg.at < EMAIL_CFG_TTL) return emailCfg;
   let dbKey = "";
   let dbFrom = "";
+  let dbList = "";
   try {
     const { getPrivileged } = await import("./supabase/admin");
     const supabase = await getPrivileged();
     const { data } = await supabase
       .from("app_secrets")
       .select("key, value")
-      .in("key", ["brevo_api_key", "email_from"]);
+      .in("key", ["brevo_api_key", "email_from", "brevo_list_id"]);
     const m: Record<string, string> = {};
     for (const r of (data ?? []) as { key: string; value: string }[]) m[r.key] = r.value;
     dbKey = (m["brevo_api_key"] ?? "").trim();
     dbFrom = (m["email_from"] ?? "").trim();
+    dbList = (m["brevo_list_id"] ?? "").trim();
   } catch {
     /* fall through to env */
   }
+  const listRaw = dbList || process.env.BREVO_LIST_ID || "";
+  const listId = Number.parseInt(listRaw, 10);
   const cfg = {
     key: dbKey || process.env.BREVO_API_KEY || "",
     from: dbFrom || process.env.BREVO_FROM || process.env.RESEND_FROM || "",
+    listId: Number.isFinite(listId) && listId > 0 ? listId : 0,
     at: Date.now(),
   };
   emailCfg = cfg;
   return cfg;
+}
+
+/**
+ * Create/update a Brevo CONTACT and add it to the configured list, so Brevo
+ * automations (confirmation, instructions, pre-trip reminder) can trigger on
+ * "contact joins list". Best-effort: never throws, no-ops without a key.
+ * The automation workflows themselves are built inside Brevo, not in code.
+ */
+export async function upsertBrevoContact(c: {
+  email: string;
+  firstName?: string | null;
+  phone?: string | null;
+  bookingDate?: string | null;
+  bookingType?: string | null;
+}): Promise<boolean> {
+  const { key, listId } = await getBrevoConfig();
+  if (!key || !c.email) return false;
+  const attributes: Record<string, string> = {};
+  if (c.firstName) attributes.FIRSTNAME = c.firstName.slice(0, 80);
+  if (c.phone) attributes.PHONE = c.phone.slice(0, 30);
+  if (c.bookingDate) attributes.BOOKING_DATE = c.bookingDate.slice(0, 20);
+  if (c.bookingType) attributes.BOOKING_TYPE = c.bookingType.slice(0, 80);
+  try {
+    const res = await fetch("https://api.brevo.com/v3/contacts", {
+      method: "POST",
+      headers: { "api-key": key, "Content-Type": "application/json", accept: "application/json" },
+      body: JSON.stringify({
+        email: c.email.toLowerCase(),
+        updateEnabled: true,
+        attributes,
+        ...(listId ? { listIds: [listId] } : {}),
+      }),
+    });
+    if (!res.ok && res.status !== 204) {
+      console.error("[brevo] contact upsert failed", res.status, await res.text().catch(() => ""));
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("[brevo] contact upsert error", err);
+    return false;
+  }
 }
 
 /**

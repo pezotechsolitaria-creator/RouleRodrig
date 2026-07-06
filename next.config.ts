@@ -66,6 +66,12 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
       {
+        // Keep the admin area out of search engines even if a link leaks
+        // (belt-and-braces with robots.txt, which crawlers may ignore)
+        source: "/admin/:path*",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" }],
+      },
+      {
         // The service worker must never be cached aggressively
         source: "/sw.js",
         headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }],
