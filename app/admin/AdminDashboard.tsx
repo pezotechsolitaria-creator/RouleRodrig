@@ -5218,11 +5218,43 @@ export default function AdminDashboard({
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [navQuery, setNavQuery] = useState("");
+  // "Needs attention" counts shown as sidebar badges.
+  const [attention, setAttention] = useState<Partial<Record<Section, number>>>({});
   // Snapshot of the last-persisted content, to detect unsaved edits.
   const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(initialContent));
   const router = useRouter();
 
   const dirty = JSON.stringify(content) !== savedSnapshot;
+
+  // Load pending counts on mount + when the tab regains focus, so the owner
+  // sees at a glance what needs action (new bookings, unanswered enquiries…).
+  useEffect(() => {
+    let alive = true;
+    async function loadAttention() {
+      try {
+        const [b, p, s, r] = await Promise.all([
+          fetch("/api/admin/bookings").then((x) => (x.ok ? x.json() : [])),
+          fetch("/api/admin/place-bookings").then((x) => (x.ok ? x.json() : [])),
+          fetch("/api/admin/submissions").then((x) => (x.ok ? x.json() : [])),
+          fetch("/api/admin/reviews").then((x) => (x.ok ? x.json() : [])),
+        ]);
+        if (!alive) return;
+        setAttention({
+          bookings: (Array.isArray(b) ? b : []).filter((x: { status?: string }) => x.status === "pending").length,
+          place_bookings: (Array.isArray(p) ? p : []).filter((x: { status?: string }) => x.status === "pending").length,
+          submissions: (Array.isArray(s) ? s : []).filter((x: { handled?: boolean }) => !x.handled).length,
+          reviews: (Array.isArray(r) ? r : []).filter((x: { status?: string }) => x.status === "pending").length,
+        });
+      } catch {
+        /* badges are best-effort */
+      }
+    }
+    loadAttention();
+    const onFocus = () => loadAttention();
+    window.addEventListener("focus", onFocus);
+    return () => { alive = false; window.removeEventListener("focus", onFocus); };
+  }, []);
 
   // Warn before leaving (reload / close / navigate away) with unsaved edits.
   useEffect(() => {
@@ -5313,30 +5345,41 @@ export default function AdminDashboard({
     section === "taxi" || section === "reviews" || section === "waitlist" ||
     section === "notifications";
 
-  // Group NAV items
-  const overviewNav = NAV.filter((n) => n.group === "overview");
-  const businessNav = NAV.filter((n) => n.group === "business");
-  const contentNav  = NAV.filter((n) => n.group === "content");
+  // Group NAV items — filtered by the sidebar quick-search
+  const q = navQuery.trim().toLowerCase();
+  const matches = (n: (typeof NAV)[number]) => !q || n.label.toLowerCase().includes(q);
+  const overviewNav = NAV.filter((n) => n.group === "overview" && matches(n));
+  const businessNav = NAV.filter((n) => n.group === "business" && matches(n));
+  const contentNav  = NAV.filter((n) => n.group === "content" && matches(n));
+  const nothingMatches = overviewNav.length + businessNav.length + contentNav.length === 0;
 
   // Reusable nav-group renderer (shared by drawer)
   const renderNavGroup = (label: string, items: typeof NAV) => (
     <div>
       <p className="font-bebas text-muted/40 text-[8px] tracking-[0.3em] px-3 mb-1">{label}</p>
       <div className="space-y-0.5">
-        {items.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => selectSection(id)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
-              section === id
-                ? "bg-yellow/10 text-yellow"
-                : "text-muted hover:text-offwhite hover:bg-white/5"
-            }`}
-          >
-            <Icon size={16} className="shrink-0" />
-            {label}
-          </button>
-        ))}
+        {items.map(({ id, label, icon: Icon }) => {
+          const badge = attention[id] ?? 0;
+          return (
+            <button
+              key={id}
+              onClick={() => selectSection(id)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
+                section === id
+                  ? "bg-yellow/10 text-yellow"
+                  : "text-muted hover:text-offwhite hover:bg-white/5"
+              }`}
+            >
+              <Icon size={16} className="shrink-0" />
+              <span className="flex-1 truncate">{label}</span>
+              {badge > 0 && (
+                <span className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-yellow text-dark text-[11px] font-syne font-bold flex items-center justify-center">
+                  {badge > 99 ? "99+" : badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -5367,10 +5410,23 @@ export default function AdminDashboard({
         </button>
       </div>
 
+      {/* Quick-search — jump to any of the 30 sections instantly */}
+      <div className="px-3 pt-3">
+        <input
+          value={navQuery}
+          onChange={(e) => setNavQuery(e.target.value)}
+          placeholder="Find a section…"
+          className="w-full bg-[#0d0d0d] border border-dark-border rounded-lg px-3 py-2 text-sm text-offwhite font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none"
+        />
+      </div>
+
       <nav className="flex-1 py-4 px-3 space-y-4 overflow-y-auto">
-        {renderNavGroup("OVERVIEW", overviewNav)}
-        {businessNav.length > 0 && renderNavGroup("BUSINESS", businessNav)}
-        {renderNavGroup("CONTENT", contentNav)}
+        {overviewNav.length > 0 && renderNavGroup("DAILY BUSINESS", overviewNav)}
+        {businessNav.length > 0 && renderNavGroup("PARTNERS & SERVICES", businessNav)}
+        {contentNav.length > 0 && renderNavGroup("WEBSITE CONTENT", contentNav)}
+        {nothingMatches && (
+          <p className="px-3 py-4 text-muted/40 text-xs font-dm">No section matches &ldquo;{navQuery}&rdquo;</p>
+        )}
       </nav>
 
       <div className="px-3 py-4 border-t border-dark-border">

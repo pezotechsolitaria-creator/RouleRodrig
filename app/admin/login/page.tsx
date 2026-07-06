@@ -96,12 +96,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-muted/60 text-xs font-dm mt-5">
-          Default password:{" "}
-          <span className="text-yellow/80 font-medium">admin2024</span>
-          {" "}— change via{" "}
-          <code className="text-offwhite/50">.env.local</code>
-        </p>
       </div>
     </div>
   );
