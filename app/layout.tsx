@@ -110,7 +110,7 @@ export default function RootLayout({
             the overlay from the DOM after the CSS animation finishes.     */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var d=document.documentElement;var sa=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;var rm=window.matchMedia('(prefers-reduced-motion: reduce)').matches;if(sa&&!rm&&!sessionStorage.getItem('rr-splash')){sessionStorage.setItem('rr-splash','1');d.setAttribute('data-splash','on');setTimeout(function(){var el=document.getElementById('rr-splash');if(el)el.remove();d.removeAttribute('data-splash');},7600);}}catch(e){}})();`,
+            __html: `(function(){try{var d=document.documentElement;var sa=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;var force=location.search.indexOf('splash=1')>-1;var rm=window.matchMedia('(prefers-reduced-motion: reduce)').matches;if((sa||force)&&!rm){d.setAttribute('data-splash','on');var done=function(){var el=document.getElementById('rr-splash');if(el)el.remove();d.removeAttribute('data-splash');};setTimeout(done,7600);document.addEventListener('DOMContentLoaded',function(){var el=document.getElementById('rr-splash');if(el)el.addEventListener('click',function(){el.classList.add('rr-skip');setTimeout(done,420);},{once:true});});}}catch(e){}})();`,
           }}
         />
         <div id="rr-splash" aria-hidden="true">
@@ -139,6 +139,7 @@ export default function RootLayout({
             <circle cx="204" cy="10" r="3.5" fill="#F5C842" />
           </svg>
           <span className="rr-sp-bar"><span /></span>
+          <span className="rr-sp-skip">TAP TO SKIP</span>
         </div>
 
         <LanguageProvider>

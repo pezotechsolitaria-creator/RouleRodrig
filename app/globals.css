@@ -195,6 +195,24 @@ html[data-splash="on"] #rr-splash {
   animation: rr-sp-fill 6.3s cubic-bezier(0.4, 0, 0.2, 1) 0.2s forwards;
 }
 
+/* "Tap to skip" hint — appears after a beat so it doesn't distract early */
+#rr-splash .rr-sp-skip {
+  position: absolute;
+  bottom: max(20px, env(safe-area-inset-bottom, 0px) + 14px);
+  font-family: var(--font-bebas), sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.35em;
+  text-indent: 0.35em;
+  color: rgba(255, 255, 255, 0.32);
+  opacity: 0;
+  animation: rr-sp-fade 0.6s ease 2.2s forwards;
+}
+
+/* Fast exit when the user taps to skip */
+html[data-splash="on"] #rr-splash.rr-skip {
+  animation: rr-splash-exit 0.4s ease forwards;
+}
+
 @keyframes rr-sp-pop {
   0%   { opacity: 0; transform: scale(0.62) translateY(12px); }
   60%  { opacity: 1; transform: scale(1.06) translateY(0); }
