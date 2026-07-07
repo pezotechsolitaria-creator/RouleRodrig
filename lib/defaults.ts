@@ -112,7 +112,8 @@ export interface MapLocation {
   category: "beach" | "viewpoint" | "restaurant" | "landmark" | "activity" | "gas";
   lat: number;
   lng: number;
-  image?: string; // optional photo shown in the map popup
+  image?: string;    // cover photo (kept in sync with images[0])
+  images?: string[]; // photo gallery shown in the map popup + location list
 }
 
 export interface PlannerActivity {

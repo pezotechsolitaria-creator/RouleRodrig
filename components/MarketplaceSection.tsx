@@ -51,14 +51,14 @@ function ListingCarousel({ listing }: { listing: MarketplaceListing }) {
         <>
           <button
             onClick={prev}
-            className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity hover:bg-black/80"
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center transition-opacity hover:bg-black/80 opacity-90 md:opacity-0 md:group-hover/photo:opacity-100"
             aria-label="Previous"
           >
             <ChevronLeft size={14} />
           </button>
           <button
             onClick={next}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity hover:bg-black/80"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center transition-opacity hover:bg-black/80 opacity-90 md:opacity-0 md:group-hover/photo:opacity-100"
             aria-label="Next"
           >
             <ChevronRight size={14} />

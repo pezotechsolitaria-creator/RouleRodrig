@@ -2549,10 +2549,11 @@ function MapEditor({
             />
           </Field>
 
-          <ImagePicker
-            label="PHOTO (shown when the dot is clicked)"
-            src={loc.image ?? ""}
-            onUpload={(p) => updateLoc(idx, { image: p })}
+          <MultiImagePicker
+            label="PHOTOS (gallery shown when the dot is clicked)"
+            hint="Add as many angles as you like — the first photo is the cover shown in the location list."
+            images={loc.images ?? (loc.image ? [loc.image] : [])}
+            onChange={(imgs) => updateLoc(idx, { images: imgs, image: imgs[0] ?? "" })}
           />
         </div>
       ))}

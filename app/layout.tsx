@@ -110,7 +110,7 @@ export default function RootLayout({
             the overlay from the DOM after the CSS animation finishes.     */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var d=document.documentElement;var sa=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;var rm=window.matchMedia('(prefers-reduced-motion: reduce)').matches;if(sa&&!rm&&!sessionStorage.getItem('rr-splash')){sessionStorage.setItem('rr-splash','1');d.setAttribute('data-splash','on');setTimeout(function(){var el=document.getElementById('rr-splash');if(el)el.remove();d.removeAttribute('data-splash');},5300);}}catch(e){}})();`,
+            __html: `(function(){try{var d=document.documentElement;var sa=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;var rm=window.matchMedia('(prefers-reduced-motion: reduce)').matches;if(sa&&!rm&&!sessionStorage.getItem('rr-splash')){sessionStorage.setItem('rr-splash','1');d.setAttribute('data-splash','on');setTimeout(function(){var el=document.getElementById('rr-splash');if(el)el.remove();d.removeAttribute('data-splash');},7600);}}catch(e){}})();`,
           }}
         />
         <div id="rr-splash" aria-hidden="true">

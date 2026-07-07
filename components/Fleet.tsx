@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban, ChevronLeft, ChevronRight, Star, Maximize2, Snowflake, Fuel, MapPin, Bluetooth, DoorOpen, Check, LifeBuoy, Flame } from "lucide-react";
@@ -48,11 +48,28 @@ function resolveSpecs(item: FleetItem): Spec[] {
   return [];
 }
 
+/**
+ * Vehicle photo carousel — built for phones first:
+ * photos auto-rotate while the card is on screen, a finger-swipe changes
+ * photo, and the arrows/dots/counter are ALWAYS visible on touch screens
+ * (they only hide-until-hover on desktop). Crossfade keeps it smooth.
+ */
 function FleetImageCarousel({ scooter }: { scooter: FleetItem }) {
   const photos = scooter.images && scooter.images.length > 0
     ? scooter.images
     : scooter.image ? [scooter.image] : [];
   const [idx, setIdx] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const touchX = useRef<number | null>(null);
+
+  // Auto-rotate — no touch needed to discover the other photos
+  // (same simple pattern as the promo carousel; pauses on hover/touch)
+  useEffect(() => {
+    if (photos.length <= 1 || paused) return;
+    const t = setInterval(() => setIdx((i) => (i + 1) % photos.length), 3500);
+    return () => clearInterval(t);
+  }, [photos.length, paused]);
 
   const prev = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -69,46 +86,74 @@ function FleetImageCarousel({ scooter }: { scooter: FleetItem }) {
     </div>
   );
 
-  const src = photos[idx];
-  const isUpload = src.startsWith("/uploads/") || src.startsWith("http");
+  const dim = scooter.available === false || scooter.soldOutToday;
 
   return (
-    <div className="relative h-[340px] md:h-[420px] overflow-hidden group/carousel">
-      <Image
-        src={src}
-        alt={`${scooter.name} — photo ${idx + 1}`}
-        fill
-        className={`object-cover transition-all duration-500 group-hover:scale-[1.04] ${scooter.available === false || scooter.soldOutToday ? "brightness-50" : ""}`}
-        sizes="(max-width: 768px) 100vw, 50vw"
-        loading="eager"
-        unoptimized={isUpload}
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-dark-card via-dark-card/20 to-transparent" />
+    <div
+      ref={wrapRef}
+      className="relative h-[340px] md:h-[420px] overflow-hidden group/carousel"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onTouchStart={(e) => { setPaused(true); touchX.current = e.touches[0].clientX; }}
+      onTouchEnd={(e) => {
+        if (touchX.current !== null) {
+          const dx = e.changedTouches[0].clientX - touchX.current;
+          if (Math.abs(dx) > 40 && photos.length > 1) {
+            setIdx((i) => (i + (dx < 0 ? 1 : -1) + photos.length) % photos.length);
+          }
+          touchX.current = null;
+        }
+        // resume the slideshow shortly after the finger lifts
+        setTimeout(() => setPaused(false), 4000);
+      }}
+    >
+      {/* Stacked photos with crossfade */}
+      {photos.map((src, i) => (
+        <Image
+          key={`${src}-${i}`}
+          src={src}
+          alt={`${scooter.name} — photo ${i + 1}`}
+          fill
+          className={`object-cover transition-opacity duration-700 group-hover:scale-[1.04] ${
+            i === idx ? "opacity-100" : "opacity-0"
+          } ${dim ? "brightness-50" : ""}`}
+          sizes="(max-width: 768px) 100vw, 50vw"
+          loading={i === 0 ? "eager" : "lazy"}
+          unoptimized={src.startsWith("/uploads/") || src.startsWith("http")}
+        />
+      ))}
+      <div className="absolute inset-0 bg-gradient-to-t from-dark-card via-dark-card/20 to-transparent pointer-events-none" />
 
-      {/* Prev / Next arrows — only shown with multiple photos */}
       {photos.length > 1 && (
         <>
+          {/* Arrows — always visible on touch screens, hover-reveal on desktop */}
           <button
             onClick={prev}
-            className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/carousel:opacity-100 transition-opacity hover:bg-black/80"
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-black/45 backdrop-blur-sm border border-white/15 text-white flex items-center justify-center transition-opacity hover:bg-black/75 opacity-90 md:opacity-0 md:group-hover/carousel:opacity-100"
             aria-label="Previous photo"
           >
-            <ChevronLeft size={16} />
+            <ChevronLeft size={17} />
           </button>
           <button
             onClick={next}
-            className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/carousel:opacity-100 transition-opacity hover:bg-black/80"
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-black/45 backdrop-blur-sm border border-white/15 text-white flex items-center justify-center transition-opacity hover:bg-black/75 opacity-90 md:opacity-0 md:group-hover/carousel:opacity-100"
             aria-label="Next photo"
           >
-            <ChevronRight size={16} />
+            <ChevronRight size={17} />
           </button>
-          {/* Dot indicators */}
+
+          {/* Photo counter */}
+          <span className="absolute bottom-4 right-4 z-10 font-dm text-[11px] text-white/90 bg-black/45 backdrop-blur-sm border border-white/10 rounded-full px-2.5 py-1">
+            {idx + 1} / {photos.length}
+          </span>
+
+          {/* Dots */}
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
             {photos.map((_, i) => (
               <button
                 key={i}
                 onClick={(e) => { e.preventDefault(); setIdx(i); }}
-                className={`w-1.5 h-1.5 rounded-full transition-all ${i === idx ? "bg-yellow w-3" : "bg-white/50"}`}
+                className={`h-1.5 rounded-full transition-all ${i === idx ? "bg-yellow w-4" : "bg-white/60 w-1.5"}`}
                 aria-label={`Photo ${i + 1}`}
               />
             ))}

@@ -120,10 +120,10 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
                 className="group flex items-start gap-3 bg-dark-card border border-dark-border rounded-xl p-4 hover:border-yellow/40 transition-colors"
                 aria-label={`Get directions to ${loc.name}`}
               >
-                {loc.image ? (
+                {(loc.images?.[0] || loc.image) ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
-                    src={loc.image}
+                    src={loc.images?.[0] || loc.image}
                     alt={loc.name}
                     className="w-14 h-14 rounded-lg object-cover shrink-0"
                     loading="lazy"

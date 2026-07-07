@@ -80,9 +80,19 @@ export default function IslandMapInner({ locations }: Props) {
           fillOpacity: 0.9,
         }).addTo(map);
 
-        const photo = loc.image
-          ? `<img src="${esc(loc.image)}" alt="${esc(loc.name)}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:8px;display:block;" />`
-          : "";
+        // Photo gallery: swipeable horizontal strip when there are several photos
+        const pics = (loc.images && loc.images.length > 0 ? loc.images : loc.image ? [loc.image] : []).filter(Boolean);
+        const photo =
+          pics.length > 1
+            ? `<div style="display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;border-radius:8px;margin-bottom:8px;">${pics
+                .map(
+                  (p) =>
+                    `<img src="${esc(p)}" alt="${esc(loc.name)}" loading="lazy" style="width:186px;height:120px;object-fit:cover;border-radius:8px;flex-shrink:0;scroll-snap-align:start;display:block;" />`,
+                )
+                .join("")}</div><p style="margin:0 0 6px;font-size:10px;color:#9ca3af;">◂ ${pics.length} photos — swipe ▸</p>`
+            : pics.length === 1
+            ? `<img src="${esc(pics[0])}" alt="${esc(loc.name)}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:8px;display:block;" />`
+            : "";
         const directions = `<a href="https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:11px;font-weight:700;color:#0a0a0a;background:#F5C842;padding:6px 12px;border-radius:20px;text-decoration:none;">Get directions →</a>`;
 
         marker.bindPopup(

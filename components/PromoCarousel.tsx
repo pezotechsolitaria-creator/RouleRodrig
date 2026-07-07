@@ -135,10 +135,10 @@ export default function PromoCarousel({ slides }: { slides?: PromoSlide[] }) {
           {/* ── Controls ─────────────────────────────────── */}
           {count > 1 && (
             <>
-              <button onClick={prev} aria-label="Previous" className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/15 text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 hover:scale-110">
+              <button onClick={prev} aria-label="Previous" className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-11 md:h-11 rounded-full bg-black/35 md:bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/15 text-white flex items-center justify-center transition-all opacity-90 md:opacity-0 md:group-hover:opacity-100 hover:scale-110">
                 <ChevronLeft size={20} />
               </button>
-              <button onClick={next} aria-label="Next" className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/15 text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 hover:scale-110">
+              <button onClick={next} aria-label="Next" className="absolute right-3 md:right-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-11 md:h-11 rounded-full bg-black/35 md:bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/15 text-white flex items-center justify-center transition-all opacity-90 md:opacity-0 md:group-hover:opacity-100 hover:scale-110">
                 <ChevronRight size={20} />
               </button>
 
