@@ -9,6 +9,7 @@ import type { BrandingContent } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { useFavorites } from "@/context/FavoritesContext";
+import InstallAppButton from "@/components/InstallAppButton";
 import { CURRENCIES, CURRENCY_SYMBOL } from "@/lib/currency";
 import { LANGUAGE_FLAGS, LANGUAGE_NATIVE, type Language } from "@/lib/i18n";
 
@@ -172,6 +173,9 @@ export default function Navbar({
               <span className="uppercase tracking-wide">{currency}</span>
             </button>
 
+            {/* Install app (persistent — native prompt or instructions) */}
+            <InstallAppButton variant="chip" />
+
             {/* Saved / wishlist */}
             <button
               onClick={openSaved}
@@ -273,6 +277,11 @@ export default function Navbar({
                 >
                   {t.nav.bookNow} <ArrowRight size={20} />
                 </Link>
+
+                {/* Install app — always available on phones */}
+                <div onClick={() => setMenuOpen(false)}>
+                  <InstallAppButton variant="menu" />
+                </div>
 
                 {/* Language + currency switchers (mobile) */}
                 <div className="flex items-center gap-6">

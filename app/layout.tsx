@@ -108,6 +108,13 @@ export default function RootLayout({
             launched as an installed app (Android standalone / iOS A2HS),
             once per session, never for reduced-motion users — then removes
             the overlay from the DOM after the CSS animation finishes.     */}
+        {/* Capture the Android install event before React loads so the
+            "Install" button always has it available (Chrome fires it early). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){window.__rrInstallEvent=null;window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__rrInstallEvent=e;window.dispatchEvent(new Event('rr:installable'));});window.addEventListener('appinstalled',function(){window.__rrInstallEvent=null;window.dispatchEvent(new Event('rr:installed'));});})();`,
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var d=document.documentElement;var sa=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;var force=location.search.indexOf('splash=1')>-1;var rm=window.matchMedia('(prefers-reduced-motion: reduce)').matches;if((sa||force)&&!rm){d.setAttribute('data-splash','on');var done=function(){var el=document.getElementById('rr-splash');if(el)el.remove();d.removeAttribute('data-splash');};setTimeout(done,7600);document.addEventListener('DOMContentLoaded',function(){var el=document.getElementById('rr-splash');if(el)el.addEventListener('click',function(){el.classList.add('rr-skip');setTimeout(done,420);},{once:true});});}}catch(e){}})();`,
