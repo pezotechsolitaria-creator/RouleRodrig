@@ -5,9 +5,9 @@ import { motion } from "framer-motion";
 import type { GalleryImage } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 
-export default function Gallery({ gallery }: { gallery: GalleryImage[] }) {
+export default function Gallery({ gallery, enabled = true }: { gallery: GalleryImage[]; enabled?: boolean }) {
   const { t } = useLanguage();
-  if (!gallery || gallery.length === 0) return null;
+  if (!enabled || !gallery || gallery.length === 0) return null;
 
   return (
     <section className="bg-dark-card py-24 md:py-32 border-y border-dark-border" aria-label="Scooter gallery">

@@ -688,15 +688,52 @@ function ExperienceEditor({
   const ex = content.experience;
   const set = (patch: Partial<typeof ex>) =>
     onChange({ ...content, experience: { ...ex, ...patch } });
+  const show1 = ex.showImage1 !== false;
+  const show2 = ex.showImage2 !== false;
   return (
     <div className="space-y-6">
       <p className="text-muted/70 text-sm font-dm">
-        These are the two photos in the “Three Steps to the Open Road” story section. The text there is
-        translated automatically — only the photos are edited here.
+        These are the two photos in the story section. The text is translated automatically. Turn a photo
+        <strong className="text-offwhite"> OFF</strong> to hide it — the layout stays clean and professional
+        without it (the &ldquo;three steps&rdquo; become a modern card row).
       </p>
-      <ImagePicker label="TOP PHOTO (sunset / hero shot)" src={ex.image1} onUpload={(p) => set({ image1: p })} />
-      <ImagePicker label="STEPS PHOTO (“Three steps to the open road”)" src={ex.image2} onUpload={(p) => set({ image2: p })} />
+
+      <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5 space-y-4">
+        <ToggleRow label="Show top photo" on={show1} onToggle={() => set({ showImage1: !show1 })} />
+        {show1 && <ImagePicker label="TOP PHOTO (sunset / hero shot)" src={ex.image1} onUpload={(p) => set({ image1: p })} />}
+      </div>
+
+      <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5 space-y-4">
+        <ToggleRow label="Show process photo" on={show2} onToggle={() => set({ showImage2: !show2 })} />
+        {show2 && <ImagePicker label="STEPS PHOTO (“Three steps to the open road”)" src={ex.image2} onUpload={(p) => set({ image2: p })} />}
+      </div>
+
+      <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
+        <ToggleRow
+          label="Show “Our Scooters” photo gallery"
+          on={content.galleryEnabled !== false}
+          onToggle={() => onChange({ ...content, galleryEnabled: content.galleryEnabled === false })}
+        />
+      </div>
+
       <p className="text-muted/50 text-xs font-dm">Click Save Changes to publish.</p>
+    </div>
+  );
+}
+
+function ToggleRow({ label, on, onToggle }: { label: string; on: boolean; onToggle: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="font-dm text-sm text-offwhite">{label}</span>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-label={on ? "On" : "Off"}
+        className={`relative shrink-0 rounded-full transition-colors ${on ? "bg-yellow" : "bg-[#2a2a2a]"}`}
+        style={{ height: "22px", width: "40px" }}
+      >
+        <span className={`absolute top-1 w-3.5 h-3.5 bg-white rounded-full transition-transform ${on ? "translate-x-[21px]" : "translate-x-1"}`} />
+      </button>
     </div>
   );
 }

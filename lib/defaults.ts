@@ -170,8 +170,10 @@ export interface EventItem {
 }
 
 export interface ExperienceContent {
-  image1: string; // top "Ride / explore" photo
-  image2: string; // "Three steps to the open road" photo
+  image1: string;        // top "Ride / explore" photo
+  image2: string;        // "Three steps to the open road" photo
+  showImage1?: boolean;  // toggle the top photo (default true)
+  showImage2?: boolean;  // toggle the process photo (default true)
 }
 
 export interface RecommendedPlace {
@@ -249,6 +251,7 @@ export interface SiteContent {
   pricing: PricingRow[];
   contact: ContactContent;
   gallery: GalleryImage[];
+  galleryEnabled?: boolean;
   testimonials: TestimonialItem[];
   social: SocialLinks;
   branding: BrandingContent;
@@ -695,5 +698,8 @@ export const DEFAULT_CONTENT: SiteContent = {
   experience: {
     image1: '/images/burgman-sunset.jpeg',
     image2: '/images/avenis-rear.jpeg',
+    showImage1: true,
+    showImage2: true,
   },
+  galleryEnabled: true,
 };

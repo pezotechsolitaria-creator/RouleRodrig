@@ -217,7 +217,7 @@ export default async function Home() {
         <MarketplaceSection />
         <RecommendedPlaces content={content.recommended} whatsapp={businessWhatsApp} />
         <UsefulNumbers contacts={content.usefulContacts} />
-        <Gallery gallery={content.gallery} />
+        <Gallery gallery={content.gallery} enabled={content.galleryEnabled !== false} />
         <Testimonials testimonials={content.testimonials} />
         <ReviewsSection fleet={fleet} />
         <Faq content={content.faq} />

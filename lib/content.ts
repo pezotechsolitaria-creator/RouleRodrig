@@ -28,6 +28,7 @@ function mergeWithDefaults(parsed: Partial<SiteContent>): SiteContent {
       whatsappNumbers: parsed.contact?.whatsappNumbers ?? DEFAULT_CONTENT.contact.whatsappNumbers ?? [],
     },
     gallery: parsed.gallery ?? [],
+    galleryEnabled: parsed.galleryEnabled ?? DEFAULT_CONTENT.galleryEnabled ?? true,
     testimonials: parsed.testimonials ?? DEFAULT_CONTENT.testimonials,
     social: { ...DEFAULT_CONTENT.social, ...(parsed.social ?? {}) },
     branding: { ...DEFAULT_CONTENT.branding, ...(parsed.branding ?? {}) },
