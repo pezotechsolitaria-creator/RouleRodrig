@@ -72,6 +72,19 @@ export function invalidateEmailConfig(): void {
   emailCfg = null;
 }
 
+/**
+ * True when Brevo is configured WITH a contact list — meaning the owner has
+ * set up Brevo automations to send the day-before pickup + return reminders.
+ * When true, the built-in cron skips those two CUSTOMER emails so there are no
+ * duplicates (owner alerts + feedback + digest still run). When Brevo has no
+ * list configured, the built-in reminders stay on so customers are never left
+ * without one.
+ */
+export async function brevoRemindersEnabled(): Promise<boolean> {
+  const { key, listId } = await getBrevoConfig();
+  return !!(key && listId);
+}
+
 async function getBrevoConfig(): Promise<{ key: string; from: string; listId: number }> {
   if (emailCfg && Date.now() - emailCfg.at < EMAIL_CFG_TTL) return emailCfg;
   let dbKey = "";
@@ -130,9 +143,15 @@ export async function upsertBrevoContact(c: {
   if (c.phone) attributes.PHONE = c.phone.slice(0, 30);
   if (c.vehicle) attributes.VEHICLE = c.vehicle.slice(0, 80);
   if (c.bookingId) attributes.BOOKING_ID = c.bookingId.slice(0, 40);
-  if (c.pickupDate) attributes.PICKUP_DATE = fmtDate(c.pickupDate);
+  if (c.pickupDate) {
+    attributes.PICKUP_DATE = fmtDate(c.pickupDate);       // display text, e.g. "12 Jul 2026"
+    attributes.PICKUP_ON = c.pickupDate.slice(0, 10);      // ISO date for date-triggered automations
+  }
   if (c.pickupTime) attributes.PICKUP_TIME = fmtTime(c.pickupTime);
-  if (c.returnDate) attributes.RETURN_DATE = fmtDate(c.returnDate);
+  if (c.returnDate) {
+    attributes.RETURN_DATE = fmtDate(c.returnDate);
+    attributes.RETURN_ON = c.returnDate.slice(0, 10);
+  }
   if (c.returnTime) attributes.RETURN_TIME = fmtTime(c.returnTime);
   try {
     const res = await fetch("https://api.brevo.com/v3/contacts", {

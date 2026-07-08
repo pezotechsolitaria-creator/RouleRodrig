@@ -93,7 +93,7 @@ html[data-splash="on"] #rr-splash {
     radial-gradient(ellipse 70% 45% at 50% -10%, rgba(245,200,66,0.10), transparent 60%),
     radial-gradient(ellipse 60% 40% at 85% 110%, rgba(249,115,22,0.08), transparent 60%),
     #0a0a0a;
-  animation: rr-splash-exit 0.8s ease 6.6s forwards;
+  animation: rr-splash-exit 0.9s ease 14.3s forwards;
   /* Stop Samsung/Chrome font boosting from inflating the wordmark */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
@@ -203,21 +203,43 @@ html[data-splash="on"] #rr-splash {
   border-radius: 9999px;
   background: #F5C842;
   transform: translateX(-100%);
-  animation: rr-sp-fill 6.3s cubic-bezier(0.4, 0, 0.2, 1) 0.2s forwards;
+  animation: rr-sp-fill 13.8s cubic-bezier(0.4, 0, 0.2, 1) 0.3s forwards;
 }
 
-/* "Tap to skip" hint — appears after a beat so it doesn't distract early */
+/* "Tap to skip" hint — fades in early then gently pulses so it's noticed */
 #rr-splash .rr-sp-skip {
   position: absolute;
-  bottom: max(20px, env(safe-area-inset-bottom, 0px) + 14px);
+  bottom: max(22px, env(safe-area-inset-bottom, 0px) + 16px);
   font-family: var(--font-bebas), sans-serif;
-  font-size: 10px;
-  letter-spacing: 0.35em;
-  text-indent: 0.35em;
-  color: rgba(255, 255, 255, 0.32);
+  font-size: 12px;
+  letter-spacing: 0.38em;
+  text-indent: 0.38em;
+  color: rgba(255, 255, 255, 0.6);
   opacity: 0;
-  animation: rr-sp-fade 0.6s ease 2.2s forwards;
+  animation: rr-sp-skip 3s ease 1.4s infinite;
 }
+
+/* ── Ocean waves — gentle continuous motion for the long intro ── */
+#rr-splash .rr-sp-ocean {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 14%;
+  height: 64px;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  animation: rr-sp-fade 0.9s ease 1.2s forwards;
+}
+#rr-splash .rr-sp-ocean svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 200%;
+  height: 100%;
+}
+#rr-splash .rr-sp-wave-a { opacity: 0.55; animation: rr-sp-wave 7s linear infinite; }
+#rr-splash .rr-sp-wave-b { opacity: 0.28; animation: rr-sp-wave 12s linear infinite reverse; }
 
 /* Fast exit when the user taps to skip */
 html[data-splash="on"] #rr-splash.rr-skip {
@@ -250,6 +272,16 @@ html[data-splash="on"] #rr-splash.rr-skip {
 @keyframes rr-sp-pinpulse {
   0%, 100% { transform: scale(1); opacity: 1; }
   50%      { transform: scale(1.45); opacity: 0.75; }
+}
+@keyframes rr-sp-wave {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes rr-sp-skip {
+  0%   { opacity: 0; }
+  20%  { opacity: 0.6; }
+  60%  { opacity: 0.28; }
+  100% { opacity: 0.6; }
 }
 @keyframes rr-sp-glowpulse {
   0%, 100% { opacity: 0.55; transform: scale(1); }

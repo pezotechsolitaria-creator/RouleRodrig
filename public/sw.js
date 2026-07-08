@@ -1,7 +1,7 @@
 // Minimal service worker — required for Android/Chrome installability.
 // Network-first so content is always fresh online, with a cached fallback
 // for navigations when offline.
-const CACHE = "rr-cache-v8";
+const CACHE = "rr-cache-v9";
 
 // Precache the home page so the island guide / routes work offline after one visit
 self.addEventListener("install", (event) => {

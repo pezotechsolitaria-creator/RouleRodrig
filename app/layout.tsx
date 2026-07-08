@@ -117,7 +117,7 @@ export default function RootLayout({
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var d=document.documentElement;var lang=null;try{lang=localStorage.getItem('rr_language');}catch(e){}var hasLang=lang==='en'||lang==='fr'||lang==='cr';var sa=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;var force=location.search.indexOf('splash=1')>-1;var rm=window.matchMedia('(prefers-reduced-motion: reduce)').matches;var seen=false;try{seen=localStorage.getItem('rr-splash-seen')==='1';}catch(e){}var showSplash=!rm&&(sa||force||!seen);if(showSplash&&!force){try{localStorage.setItem('rr-splash-seen','1');}catch(e){}}var revealLang=function(){if(!hasLang)d.setAttribute('data-show-lang','1');};if(showSplash){d.setAttribute('data-splash','on');var pv=function(){try{document.querySelectorAll('video').forEach(function(v){try{if(!v.paused)v.pause();}catch(e){}});}catch(e){}};var iv=setInterval(pv,180);pv();var done=function(){clearInterval(iv);var el=document.getElementById('rr-splash');if(el)el.remove();d.removeAttribute('data-splash');revealLang();try{document.querySelectorAll('video').forEach(function(v){if(v.autoplay||v.hasAttribute('autoplay')){try{var p=v.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}});}catch(e){}};setTimeout(done,7600);document.addEventListener('DOMContentLoaded',function(){var el=document.getElementById('rr-splash');if(el)el.addEventListener('click',function(){el.classList.add('rr-skip');setTimeout(done,420);},{once:true});});}else{revealLang();}}catch(e){}})();`,
+            __html: `(function(){try{var d=document.documentElement;var lang=null;try{lang=localStorage.getItem('rr_language');}catch(e){}var hasLang=lang==='en'||lang==='fr'||lang==='cr';var sa=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;var force=location.search.indexOf('splash=1')>-1;var rm=window.matchMedia('(prefers-reduced-motion: reduce)').matches;var seen=false;try{seen=localStorage.getItem('rr-splash-seen')==='1';}catch(e){}var showSplash=!rm&&(sa||force||!seen);if(showSplash&&!force){try{localStorage.setItem('rr-splash-seen','1');}catch(e){}}var revealLang=function(){if(!hasLang)d.setAttribute('data-show-lang','1');};if(showSplash){d.setAttribute('data-splash','on');var pv=function(){try{document.querySelectorAll('video').forEach(function(v){try{if(!v.paused)v.pause();}catch(e){}});}catch(e){}};var iv=setInterval(pv,180);pv();var done=function(){clearInterval(iv);var el=document.getElementById('rr-splash');if(el)el.remove();d.removeAttribute('data-splash');revealLang();try{document.querySelectorAll('video').forEach(function(v){if(v.autoplay||v.hasAttribute('autoplay')){try{var p=v.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}});}catch(e){}};setTimeout(done,15500);document.addEventListener('DOMContentLoaded',function(){var el=document.getElementById('rr-splash');if(el)el.addEventListener('click',function(){el.classList.add('rr-skip');setTimeout(done,420);},{once:true});});}else{revealLang();}}catch(e){}})();`,
           }}
         />
         <div id="rr-splash" aria-hidden="true">
@@ -146,6 +146,14 @@ export default function RootLayout({
             />
             <circle cx="204" cy="10" r="3.5" fill="#F5C842" />
           </svg>
+          <div className="rr-sp-ocean" aria-hidden="true">
+            <svg className="rr-sp-wave-a" viewBox="0 0 2880 60" preserveAspectRatio="none">
+              <path d="M0,34 C240,14 480,54 720,34 C960,14 1200,54 1440,34 C1680,14 1920,54 2160,34 C2400,14 2640,54 2880,34" fill="none" stroke="#F5C842" strokeWidth="2.5" strokeLinecap="round" />
+            </svg>
+            <svg className="rr-sp-wave-b" viewBox="0 0 2880 60" preserveAspectRatio="none">
+              <path d="M0,30 C240,50 480,10 720,30 C960,50 1200,10 1440,30 C1680,50 1920,10 2160,30 C2400,50 2640,10 2880,30" fill="none" stroke="#F5C842" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </div>
           <span className="rr-sp-bar"><span /></span>
           <span className="rr-sp-skip">TAP TO SKIP</span>
         </div>
