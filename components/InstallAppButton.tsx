@@ -57,18 +57,25 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
 
   if (installed) return null;
 
-  async function handleClick() {
+  // Always open the modal so a tap ALWAYS gives visible feedback (the old
+  // behaviour called the native prompt directly, which silently did nothing
+  // when the browser hadn't offered one). The native one-tap install lives
+  // inside the modal.
+  function handleClick() {
+    setOpen(true);
+  }
+
+  async function installNow() {
     const evt = (window as unknown as { __rrInstallEvent?: BeforeInstallPromptEvent }).__rrInstallEvent;
-    if (evt) {
-      // Native Android/desktop-Chrome install dialog
+    if (!evt) return;
+    try {
       await evt.prompt();
       const choice = await evt.userChoice.catch(() => ({ outcome: "dismissed" as const }));
       (window as unknown as { __rrInstallEvent?: BeforeInstallPromptEvent | null }).__rrInstallEvent = null;
-      if (choice.outcome === "accepted") setInstalled(true);
-      return;
+      if (choice.outcome === "accepted") { setInstalled(true); setOpen(false); }
+    } catch {
+      /* keep the manual steps visible */
     }
-    // No native prompt available → show manual steps
-    setOpen(true);
   }
 
   const trigger =
@@ -122,6 +129,19 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
                   <p className="font-dm text-muted text-xs">Add it to your home screen — opens like an app.</p>
                 </div>
               </div>
+
+              {/* One-tap install when the browser offers it */}
+              {hasNative && (
+                <div className="mb-5">
+                  <button
+                    onClick={installNow}
+                    className="w-full flex items-center justify-center gap-2 bg-yellow text-dark font-syne font-bold text-sm py-3.5 rounded-full hover:bg-yellow-dark transition-colors"
+                  >
+                    <Download size={16} /> Install now
+                  </button>
+                  <p className="text-center font-dm text-muted/60 text-[11px] mt-2">or add it manually:</p>
+                </div>
+              )}
 
               <ol className="space-y-3">
                 {platform === "ios-safari" && (

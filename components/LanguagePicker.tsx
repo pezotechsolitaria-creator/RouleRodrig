@@ -15,34 +15,33 @@ import {
 const LANGS: Language[] = ["en", "fr", "cr"];
 
 export default function LanguagePicker() {
-  const { hasChosen, setLanguage } = useLanguage();
-  // Hold the picker back until the app-intro splash has fully finished, so the
-  // two full-screen overlays never fight (that was cutting the splash to ~3s).
-  const [splashActive, setSplashActive] = useState(false);
+  const { setLanguage } = useLanguage();
+  // Visibility is driven ENTIRELY by the `data-show-lang` flag that an inline
+  // script sets before paint — set only for a first-time visitor, and only
+  // AFTER the intro splash finishes. This kills the old flash-of-picker for
+  // returning users (who never get the flag) and guarantees it shows once.
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (document.documentElement.getAttribute("data-splash") === "on") {
-      setSplashActive(true);
-      const obs = new MutationObserver(() => {
-        if (document.documentElement.getAttribute("data-splash") !== "on") {
-          setSplashActive(false);
-          obs.disconnect();
-        }
-      });
-      obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-splash"] });
-      // Safety net in case the attribute is cleared before the observer attaches
-      const t = setTimeout(() => { setSplashActive(false); obs.disconnect(); }, 8200);
-      return () => { obs.disconnect(); clearTimeout(t); };
-    }
+    const d = document.documentElement;
+    const shouldShow = () => d.getAttribute("data-show-lang") === "1";
+    if (shouldShow()) { setVisible(true); return; }
+    const obs = new MutationObserver(() => { if (shouldShow()) setVisible(true); });
+    obs.observe(d, { attributes: true, attributeFilter: ["data-show-lang"] });
+    return () => obs.disconnect();
   }, []);
-
-  const visible = !hasChosen && !splashActive;
 
   // Lock vertical scroll only while the picker is actually showing
   useEffect(() => {
     document.body.style.overflowY = visible ? "hidden" : "";
     return () => { document.body.style.overflowY = ""; };
   }, [visible]);
+
+  function choose(lang: Language) {
+    setLanguage(lang);
+    try { document.documentElement.removeAttribute("data-show-lang"); } catch { /* ignore */ }
+    setVisible(false);
+  }
 
   return (
     <AnimatePresence>
@@ -102,7 +101,7 @@ export default function LanguagePicker() {
                   initial={{ opacity: 0, x: -16 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.22 + i * 0.08, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                  onClick={() => setLanguage(lang)}
+                  onClick={() => choose(lang)}
                   className="group flex items-center gap-4 w-full bg-dark-card border border-dark-border active:border-yellow hover:border-yellow/60 rounded-2xl px-5 py-4 transition-all duration-200 active:bg-yellow/5 text-left"
                 >
                   <span className="text-4xl leading-none shrink-0">{LANGUAGE_FLAGS[lang]}</span>
@@ -127,7 +126,7 @@ export default function LanguagePicker() {
                   initial={{ opacity: 0, y: 24 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.22 + i * 0.09, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                  onClick={() => setLanguage(lang)}
+                  onClick={() => choose(lang)}
                   className="group flex flex-col items-center gap-5 bg-dark-card border-2 border-dark-border hover:border-yellow rounded-2xl p-8 transition-all duration-300 hover:scale-[1.04] hover:bg-yellow/5 text-center"
                 >
                   <span className="text-5xl leading-none">{LANGUAGE_FLAGS[lang]}</span>
