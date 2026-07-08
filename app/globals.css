@@ -84,7 +84,7 @@ html[data-splash="on"] #rr-splash {
   display: flex;
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: 300; /* above the language picker (z-200) so the intro is never interrupted */
   flex-direction: column;
   align-items: center;
   justify-content: center;

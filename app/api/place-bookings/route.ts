@@ -167,12 +167,16 @@ export async function POST(req: NextRequest) {
   // Sync into Brevo (contact + list) so the owner's automations can fire.
   if (record.email) {
     try {
+      const bookingRef = "RR-" + Date.now().toString(36).toUpperCase().slice(-6);
       await upsertBrevoContact({
         email: record.email,
         firstName: record.name.split(/\s+/)[0],
         phone: record.phone,
-        bookingDate: record.start_date,
-        bookingType: record.place_name,
+        vehicle: record.place_name,
+        bookingId: bookingRef,
+        pickupDate: record.start_date,
+        pickupTime: record.time_slot,
+        returnDate: record.end_date,
       });
     } catch {
       /* best-effort */

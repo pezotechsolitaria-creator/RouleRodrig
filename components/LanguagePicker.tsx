@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
@@ -16,16 +16,37 @@ const LANGS: Language[] = ["en", "fr", "cr"];
 
 export default function LanguagePicker() {
   const { hasChosen, setLanguage } = useLanguage();
+  // Hold the picker back until the app-intro splash has fully finished, so the
+  // two full-screen overlays never fight (that was cutting the splash to ~3s).
+  const [splashActive, setSplashActive] = useState(false);
 
-  // Lock vertical scroll while picker is visible (overflow-x untouched)
   useEffect(() => {
-    document.body.style.overflowY = hasChosen ? "" : "hidden";
+    if (document.documentElement.getAttribute("data-splash") === "on") {
+      setSplashActive(true);
+      const obs = new MutationObserver(() => {
+        if (document.documentElement.getAttribute("data-splash") !== "on") {
+          setSplashActive(false);
+          obs.disconnect();
+        }
+      });
+      obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-splash"] });
+      // Safety net in case the attribute is cleared before the observer attaches
+      const t = setTimeout(() => { setSplashActive(false); obs.disconnect(); }, 8200);
+      return () => { obs.disconnect(); clearTimeout(t); };
+    }
+  }, []);
+
+  const visible = !hasChosen && !splashActive;
+
+  // Lock vertical scroll only while the picker is actually showing
+  useEffect(() => {
+    document.body.style.overflowY = visible ? "hidden" : "";
     return () => { document.body.style.overflowY = ""; };
-  }, [hasChosen]);
+  }, [visible]);
 
   return (
     <AnimatePresence>
-      {!hasChosen && (
+      {visible && (
         <motion.div
           key="language-picker"
           initial={{ opacity: 0 }}

@@ -114,16 +114,26 @@ export async function upsertBrevoContact(c: {
   email: string;
   firstName?: string | null;
   phone?: string | null;
-  bookingDate?: string | null;
-  bookingType?: string | null;
+  vehicle?: string | null;
+  bookingId?: string | null;
+  pickupDate?: string | null;  // ISO date
+  pickupTime?: string | null;  // HH:MM
+  returnDate?: string | null;  // ISO date
+  returnTime?: string | null;  // HH:MM
 }): Promise<boolean> {
   const { key, listId } = await getBrevoConfig();
   if (!key || !c.email) return false;
+  // These become Brevo contact attributes (auto-created on first use), so the
+  // automation email templates can render {{ contact.VEHICLE }}, etc.
   const attributes: Record<string, string> = {};
   if (c.firstName) attributes.FIRSTNAME = c.firstName.slice(0, 80);
   if (c.phone) attributes.PHONE = c.phone.slice(0, 30);
-  if (c.bookingDate) attributes.BOOKING_DATE = c.bookingDate.slice(0, 20);
-  if (c.bookingType) attributes.BOOKING_TYPE = c.bookingType.slice(0, 80);
+  if (c.vehicle) attributes.VEHICLE = c.vehicle.slice(0, 80);
+  if (c.bookingId) attributes.BOOKING_ID = c.bookingId.slice(0, 40);
+  if (c.pickupDate) attributes.PICKUP_DATE = fmtDate(c.pickupDate);
+  if (c.pickupTime) attributes.PICKUP_TIME = fmtTime(c.pickupTime);
+  if (c.returnDate) attributes.RETURN_DATE = fmtDate(c.returnDate);
+  if (c.returnTime) attributes.RETURN_TIME = fmtTime(c.returnTime);
   try {
     const res = await fetch("https://api.brevo.com/v3/contacts", {
       method: "POST",
