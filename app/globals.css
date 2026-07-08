@@ -93,7 +93,7 @@ html[data-splash="on"] #rr-splash {
     radial-gradient(ellipse 70% 45% at 50% -10%, rgba(245,200,66,0.10), transparent 60%),
     radial-gradient(ellipse 60% 40% at 85% 110%, rgba(249,115,22,0.08), transparent 60%),
     #0a0a0a;
-  animation: rr-splash-exit 0.9s ease 14.3s forwards;
+  animation: rr-splash-exit 0.8s ease 6.5s forwards;
   /* Stop Samsung/Chrome font boosting from inflating the wordmark */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
@@ -203,7 +203,7 @@ html[data-splash="on"] #rr-splash {
   border-radius: 9999px;
   background: #F5C842;
   transform: translateX(-100%);
-  animation: rr-sp-fill 13.8s cubic-bezier(0.4, 0, 0.2, 1) 0.3s forwards;
+  animation: rr-sp-fill 6.1s cubic-bezier(0.4, 0, 0.2, 1) 0.3s forwards;
 }
 
 /* "Tap to skip" hint — fades in early then gently pulses so it's noticed */
@@ -218,6 +218,66 @@ html[data-splash="on"] #rr-splash {
   opacity: 0;
   animation: rr-sp-skip 3s ease 1.4s infinite;
 }
+
+/* Entrance burst ring behind the icon */
+#rr-splash .rr-sp-burst {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 104px;
+  height: 104px;
+  margin: -52px 0 0 -52px;
+  border-radius: 9999px;
+  border: 2px solid rgba(245, 200, 66, 0.6);
+  opacity: 0;
+  animation: rr-sp-burst 1.5s cubic-bezier(0.22, 1, 0.36, 1) 0.25s;
+}
+
+/* Light sweep across the icon */
+#rr-splash .rr-sp-shine {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 104px;
+  height: 104px;
+  margin: -52px 0 0 -52px;
+  border-radius: 26px;
+  overflow: hidden;
+  pointer-events: none;
+}
+#rr-splash .rr-sp-shine::before {
+  content: "";
+  position: absolute;
+  top: -40%;
+  left: -70%;
+  width: 45%;
+  height: 180%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  transform: rotate(16deg);
+  animation: rr-sp-shine 3.4s ease-in-out 1.4s infinite;
+}
+
+/* Rising ember particles */
+#rr-splash .rr-sp-particles { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+#rr-splash .rr-sp-particles i {
+  position: absolute;
+  bottom: 24%;
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: #F5C842;
+  opacity: 0;
+  animation: rr-sp-particle 5s ease-in-out infinite;
+}
+#rr-splash .rr-sp-particles i:nth-child(1) { left: 12%; animation-delay: 0.2s; animation-duration: 5.2s; }
+#rr-splash .rr-sp-particles i:nth-child(2) { left: 24%; animation-delay: 1.4s; animation-duration: 4.4s; }
+#rr-splash .rr-sp-particles i:nth-child(3) { left: 36%; animation-delay: 0.7s; animation-duration: 5.8s; width: 3px; height: 3px; }
+#rr-splash .rr-sp-particles i:nth-child(4) { left: 46%; animation-delay: 2.1s; animation-duration: 4.8s; }
+#rr-splash .rr-sp-particles i:nth-child(5) { left: 56%; animation-delay: 0.9s; animation-duration: 5.4s; width: 5px; height: 5px; }
+#rr-splash .rr-sp-particles i:nth-child(6) { left: 66%; animation-delay: 1.8s; animation-duration: 4.6s; }
+#rr-splash .rr-sp-particles i:nth-child(7) { left: 78%; animation-delay: 0.4s; animation-duration: 5.6s; width: 3px; height: 3px; }
+#rr-splash .rr-sp-particles i:nth-child(8) { left: 88%; animation-delay: 2.4s; animation-duration: 5s; }
+#rr-splash .rr-sp-particles i:nth-child(9) { left: 30%; animation-delay: 3s; animation-duration: 5.3s; }
 
 /* ── Ocean waves — gentle continuous motion for the long intro ── */
 #rr-splash .rr-sp-ocean {
@@ -276,6 +336,20 @@ html[data-splash="on"] #rr-splash.rr-skip {
 @keyframes rr-sp-wave {
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
+}
+@keyframes rr-sp-burst {
+  0%   { transform: scale(0.6); opacity: 0.85; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+@keyframes rr-sp-shine {
+  0%       { left: -70%; }
+  55%, 100% { left: 150%; }
+}
+@keyframes rr-sp-particle {
+  0%   { transform: translateY(0) scale(0.5); opacity: 0; }
+  15%  { opacity: 0.85; }
+  85%  { opacity: 0.5; }
+  100% { transform: translateY(-320px) scale(1); opacity: 0; }
 }
 @keyframes rr-sp-skip {
   0%   { opacity: 0; }

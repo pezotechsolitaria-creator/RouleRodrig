@@ -117,7 +117,7 @@ export default function RootLayout({
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var d=document.documentElement;var lang=null;try{lang=localStorage.getItem('rr_language');}catch(e){}var hasLang=lang==='en'||lang==='fr'||lang==='cr';var sa=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;var force=location.search.indexOf('splash=1')>-1;var rm=window.matchMedia('(prefers-reduced-motion: reduce)').matches;var seen=false;try{seen=localStorage.getItem('rr-splash-seen')==='1';}catch(e){}var showSplash=!rm&&(sa||force||!seen);if(showSplash&&!force){try{localStorage.setItem('rr-splash-seen','1');}catch(e){}}var revealLang=function(){if(!hasLang)d.setAttribute('data-show-lang','1');};if(showSplash){d.setAttribute('data-splash','on');var pv=function(){try{document.querySelectorAll('video').forEach(function(v){try{if(!v.paused)v.pause();}catch(e){}});}catch(e){}};var iv=setInterval(pv,180);pv();var done=function(){clearInterval(iv);var el=document.getElementById('rr-splash');if(el)el.remove();d.removeAttribute('data-splash');revealLang();try{document.querySelectorAll('video').forEach(function(v){if(v.autoplay||v.hasAttribute('autoplay')){try{var p=v.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}});}catch(e){}};setTimeout(done,15500);document.addEventListener('DOMContentLoaded',function(){var el=document.getElementById('rr-splash');if(el)el.addEventListener('click',function(){el.classList.add('rr-skip');setTimeout(done,420);},{once:true});});}else{revealLang();}}catch(e){}})();`,
+            __html: `(function(){try{var d=document.documentElement;var lang=null;try{lang=localStorage.getItem('rr_language');}catch(e){}var hasLang=lang==='en'||lang==='fr'||lang==='cr';var sa=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;var force=location.search.indexOf('splash=1')>-1;var seen=false;try{seen=localStorage.getItem('rr-splash-seen')==='1';}catch(e){}var showSplash=sa||force||!seen;if(showSplash&&!force){try{localStorage.setItem('rr-splash-seen','1');}catch(e){}}var revealLang=function(){if(!hasLang)d.setAttribute('data-show-lang','1');};if(showSplash){d.setAttribute('data-splash','on');var pv=function(){try{document.querySelectorAll('video').forEach(function(v){try{if(!v.paused)v.pause();}catch(e){}});}catch(e){}};var iv=setInterval(pv,180);pv();var done=function(){clearInterval(iv);var el=document.getElementById('rr-splash');if(el)el.remove();d.removeAttribute('data-splash');revealLang();try{document.querySelectorAll('video').forEach(function(v){if(v.autoplay||v.hasAttribute('autoplay')){try{var p=v.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}});}catch(e){}};setTimeout(done,7500);document.addEventListener('DOMContentLoaded',function(){var el=document.getElementById('rr-splash');if(el)el.addEventListener('click',function(){el.classList.add('rr-skip');setTimeout(done,420);},{once:true});});}else{revealLang();}}catch(e){}})();`,
           }}
         />
         <div id="rr-splash" aria-hidden="true">
@@ -126,10 +126,15 @@ export default function RootLayout({
               <ellipse key={r} cx="300" cy="300" rx={r} ry={r * 0.82} stroke="#F5C842" strokeWidth="1" />
             ))}
           </svg>
+          <div className="rr-sp-particles" aria-hidden="true">
+            <i /><i /><i /><i /><i /><i /><i /><i /><i />
+          </div>
           <div className="rr-sp-icon-wrap">
+            <span className="rr-sp-burst" />
             <span className="rr-sp-glow" />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className="rr-sp-icon" src="/icon-192.png" alt="" width={104} height={104} />
+            <span className="rr-sp-shine" />
           </div>
           <p className="rr-sp-name">
             <span>Roule</span>
