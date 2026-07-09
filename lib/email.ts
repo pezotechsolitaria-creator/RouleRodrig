@@ -216,11 +216,21 @@ async function send(to: string, subject: string, html: string): Promise<boolean>
       return false;
     }
     const sender = parseFrom(fromRaw);
+    // Because unauthenticated Gmail senders get their from-domain rewritten to
+    // @brevosend.com, set Reply-To to the real address so replies reach the
+    // owner's inbox (falls back to OWNER_EMAIL).
+    const replyEmail = process.env.OWNER_EMAIL || sender.email;
     try {
       const res = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: { "api-key": brevoKey, "Content-Type": "application/json", accept: "application/json" },
-        body: JSON.stringify({ sender, to: [{ email: to }], subject, htmlContent: html }),
+        body: JSON.stringify({
+          sender,
+          to: [{ email: to }],
+          replyTo: { email: replyEmail, name: "Roule Rodrigues" },
+          subject,
+          htmlContent: html,
+        }),
       });
       if (!res.ok) {
         console.error("[email] Brevo error", res.status, await res.text().catch(() => ""));
@@ -272,16 +282,24 @@ export async function sendBookingEmails(b: BookingEmailData): Promise<{ customer
           <span style="color:${BRAND};font-size:22px;font-weight:800;letter-spacing:1px">ROULE RODRIGUES</span>
         </div>
         <div style="padding:28px">
-          <h1 style="font-size:20px;color:#0a0a0a;margin:0 0 8px">Thanks, ${b.name}! 🛵</h1>
+          <h1 style="font-size:20px;color:#0a0a0a;margin:0 0 8px">Thank you, ${b.name}! 🎉</h1>
           <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 20px">
-            We've received your booking request. Our team will confirm availability and send
-            payment details within a few hours — usually via WhatsApp.
+            Thank you for choosing Roule Rodrigues! We've received your booking and will confirm
+            availability and payment details shortly — usually within a few hours, often via WhatsApp.
           </p>
+          <p style="color:#0a0a0a;font-weight:700;font-size:13px;margin:0 0 6px">Booking details</p>
           <table style="width:100%;border-collapse:collapse;border-top:1px solid #eee;border-bottom:1px solid #eee;margin-bottom:20px">${summaryRows(b)}</table>
-          <p style="color:#888;font-size:12px;line-height:1.6;margin:0 0 14px">
-            This is a request, not a confirmed reservation. We'll be in touch shortly to finalise everything.
+          <p style="color:#0a0a0a;font-weight:700;font-size:13px;margin:0 0 6px">Before your pickup, please bring</p>
+          <ul style="color:#555;font-size:13px;line-height:1.7;margin:0 0 18px;padding-left:18px">
+            <li>A valid driver's licence</li>
+            <li>Your booking confirmation</li>
+            <li>A valid ID or passport if requested</li>
+          </ul>
+          <p style="color:#555;font-size:13px;line-height:1.6;margin:0 0 14px">
+            Arrive 10–15 minutes early and inspect the scooter with our team before leaving.
+            Any questions? Just reply to this email — we look forward to welcoming you!
           </p>
-          ${ownerWa() ? `<div style="text-align:center">${waButton(ownerWa(), `Hi Roule Rodrigues! I just requested ${b.scooter} for ${fmtDate(b.start_date)} – ${fmtDate(b.end_date)}.`, "💬 Message us on WhatsApp")}</div>` : ""}
+          ${ownerWa() ? `<div style="text-align:center">${waButton(ownerWa(), `Hi Roule Rodrigues! I just booked ${b.scooter} for ${fmtDate(b.start_date)} – ${fmtDate(b.end_date)}.`, "💬 Message us on WhatsApp")}</div>` : ""}
         </div>
         <div style="background:#f5f5f0;padding:16px;text-align:center;color:#888;font-size:12px">
           Roule Rodrigues · Rodrigues Island, Mauritius
@@ -339,14 +357,15 @@ export async function sendPickupReminder(b: BookingEmailData): Promise<boolean> 
   if (!b.email) return false;
   const body = `
     <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px">
-      Hi ${b.name}, this is a friendly reminder that your scooter pickup is <strong>tomorrow</strong>. 🛵
+      Hi ${b.name}, this is a friendly reminder that your scooter rental is <strong>tomorrow</strong>. 🛵
     </p>
     <table style="width:100%;border-collapse:collapse;border-top:1px solid #eee;border-bottom:1px solid #eee">${summaryRows(b)}</table>
-    <p style="color:#888;font-size:13px;line-height:1.6;margin:16px 0 8px">
-      Please bring a valid driving licence. See you soon!
+    <p style="color:#555;font-size:13px;line-height:1.6;margin:16px 0 8px">
+      Please bring your driver's licence and arrive a few minutes early. We can't wait to help you
+      discover Rodrigues Island — see you tomorrow!
     </p>
     ${ownerWa() ? `<div style="text-align:center">${waButton(ownerWa(), `Hi! About my Roule Rodrigues pickup tomorrow (${b.scooter}) — `, "💬 Message us on WhatsApp")}</div>` : ""}`;
-  return send(b.email, "Reminder: your Roule Rodrigues pickup is tomorrow 🛵", reminderShell("Your ride is almost here!", body));
+  return send(b.email, "Your Roule Rodrigues rental is tomorrow 🛵", reminderShell("See you tomorrow!", body));
 }
 
 /** Reminder sent the day before the return is due. */
@@ -354,11 +373,18 @@ export async function sendReturnReminder(b: BookingEmailData): Promise<boolean> 
   if (!b.email) return false;
   const body = `
     <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px">
-      Hi ${b.name}, just a reminder that your scooter is due back <strong>tomorrow</strong> (${fmtDate(b.end_date)}).
+      Hi ${b.name}, a friendly reminder that your scooter is due back <strong>tomorrow</strong> (${fmtDate(b.end_date)}).
     </p>
     <table style="width:100%;border-collapse:collapse;border-top:1px solid #eee;border-bottom:1px solid #eee">${summaryRows(b)}</table>
-    <p style="color:#888;font-size:13px;line-height:1.6;margin:16px 0 8px">
-      Please refuel before returning. Thanks for riding with us! 💛
+    <p style="color:#0a0a0a;font-weight:700;font-size:13px;margin:16px 0 6px">Before returning the scooter, please</p>
+    <ul style="color:#555;font-size:13px;line-height:1.7;margin:0 0 16px;padding-left:18px">
+      <li>Return it with the agreed fuel level</li>
+      <li>Bring back the keys and any accessories provided</li>
+      <li>Let us know immediately if you had any issue during your rental</li>
+    </ul>
+    <p style="color:#555;font-size:13px;line-height:1.6;margin:0 0 8px">
+      Thank you for choosing Roule Rodrigues — we hope you had an amazing time exploring Rodrigues,
+      and we'd love to welcome you again on your next visit! 💛
     </p>
     ${ownerWa() ? `<div style="text-align:center">${waButton(ownerWa(), `Hi! About my Roule Rodrigues return (${b.scooter}) — `, "💬 Message us on WhatsApp")}</div>` : ""}`;
   return send(b.email, "Reminder: your scooter return is tomorrow", reminderShell("Return reminder", body));

@@ -9,7 +9,6 @@ import {
   sendPlaceReminder,
   sendPlaceFeedbackRequest,
   sendAdminPlaceReminder,
-  brevoRemindersEnabled,
 } from "@/lib/email";
 import type { Booking, PlaceBooking } from "@/lib/supabase/types";
 import { holdCutoffMs } from "@/lib/holds";
@@ -46,10 +45,6 @@ export async function GET(req: NextRequest) {
   let feedbackSent = 0;
   let holdsReleased = 0;
 
-  // When Brevo automations handle the customer pickup/return reminders, skip
-  // the built-in customer emails (owner alerts still fire) to avoid duplicates.
-  const brevoReminders = await brevoRemindersEnabled();
-
   // ── Pickups tomorrow → remind the customer and the owner ──
   const { data: pickups } = await supabase
     .from("bookings")
@@ -59,7 +54,7 @@ export async function GET(req: NextRequest) {
     .eq("pickup_reminded", false);
 
   for (const b of (pickups ?? []) as Booking[]) {
-    if (!brevoReminders && b.email && (await sendPickupReminder(b))) pickupSent++;
+    if (b.email && (await sendPickupReminder(b))) pickupSent++;
     await sendAdminPickupReminder(b);
     await supabase.from("bookings").update({ pickup_reminded: true }).eq("id", b.id);
   }
@@ -73,7 +68,7 @@ export async function GET(req: NextRequest) {
     .eq("return_reminded", false);
 
   for (const b of (returns ?? []) as Booking[]) {
-    if (!brevoReminders && b.email && (await sendReturnReminder(b))) returnSent++;
+    if (b.email && (await sendReturnReminder(b))) returnSent++;
     await sendAdminReturnReminder(b);
     await supabase.from("bookings").update({ return_reminded: true }).eq("id", b.id);
   }

@@ -29,6 +29,7 @@ import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
 import Sponsors from "@/components/Sponsors";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import ScrollProgress from "@/components/ScrollProgress";
 
 export const dynamic = "force-dynamic";
 
@@ -193,6 +194,7 @@ export default async function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <ScrollProgress />
       <main>
         <Navbar
           branding={content.branding}
