@@ -211,14 +211,16 @@ export default function TripPlanner() {
                       <button
                         key={interest.id}
                         onClick={() => toggleInterest(interest.id)}
-                        className={`flex items-center gap-2.5 px-3.5 py-3 rounded-xl border text-left text-sm font-dm transition-all ${
+                        aria-pressed={active}
+                        className={`relative flex items-center gap-2.5 px-3.5 py-3 rounded-xl border text-left text-sm font-dm transition-all ${
                           active
-                            ? "bg-yellow/10 border-yellow/40 text-yellow"
+                            ? "bg-green-500/15 border-green-500/60 text-green-300 shadow-[0_0_0_1px_rgba(34,197,94,0.35)]"
                             : "bg-[#0d0d0d] border-[#2a2a2a] text-muted hover:border-yellow/30 hover:text-offwhite"
                         }`}
                       >
                         <span className="text-base">{interest.emoji}</span>
-                        <span className="text-xs leading-tight">{interest.label}</span>
+                        <span className="text-xs leading-tight flex-1">{interest.label}</span>
+                        {active && <Check size={15} className="text-green-400 shrink-0" />}
                       </button>
                     );
                   })}

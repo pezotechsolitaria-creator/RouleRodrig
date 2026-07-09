@@ -37,21 +37,22 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   alternates: { canonical: "/" },
-  title: "Roule Rodrigues | Premium Scooter Rentals on Rodrigues Island",
+  title: "Roule Rodrigues | Vehicle Rentals & Island Experiences on Rodrigues",
   description:
-    "Explore Rodrigues Island on two wheels. Premium Suzuki Burgman 125 and Avenis 125 scooter rentals — helmet included, flexible hours, local support.",
+    "Explore Rodrigues Island your way — rent scooters and cars, and discover the best restaurants, activities and local transport. Flexible hours, local support, helmet included on scooters.",
   keywords: [
-    "scooter rental",
+    "scooter rental Rodrigues",
+    "car rental Rodrigues",
     "Rodrigues Island",
     "Mauritius",
-    "Suzuki Burgman",
-    "Avenis 125",
+    "vehicle rental Rodrigues",
+    "location voiture Rodrigues",
     "moto location Rodrigues",
   ],
   openGraph: {
-    title: "Roule Rodrigues | Premium Scooter Rentals",
+    title: "Roule Rodrigues | Vehicle Rentals & Island Experiences",
     description:
-      "Discover Rodrigues on your own terms. Premium scooter rentals with helmet included, flexible hours, and local support.",
+      "Discover Rodrigues on your own terms — scooters, cars, restaurants, activities and local transport. Flexible hours and local support.",
     type: "website",
     locale: "en_US",
     siteName: "Roule Rodrigues",
@@ -66,9 +67,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Roule Rodrigues | Premium Scooter Rentals",
+    title: "Roule Rodrigues | Vehicle Rentals & Island Experiences",
     description:
-      "Discover Rodrigues on your own terms. Premium scooter rentals — helmet included, flexible hours, local support.",
+      "Discover Rodrigues on your own terms — scooters, cars, restaurants, activities and local transport. Flexible hours, local support.",
     images: ["/og-image.jpg"],
   },
   icons: {
