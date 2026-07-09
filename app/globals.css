@@ -35,6 +35,19 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Anchor jumps (nav links, "back to Explore") land below the fixed navbar */
+section[id],
+[id="explore"],
+[id="map"],
+[id="routes"],
+[id="contact"] {
+  scroll-margin-top: 5.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
 /* Never let the page scroll sideways on mobile */
 html, body {
   max-width: 100%;

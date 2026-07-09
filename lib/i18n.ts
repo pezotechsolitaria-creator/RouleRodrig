@@ -69,9 +69,9 @@ const translations = {
 
     // Booking section
     booking: {
-      eyebrow:        "RESERVE YOUR RIDE",
+      eyebrow:        "RESERVE ONLINE",
       title:          "BOOK ONLINE",
-      subtitle:       "Pick your scooter, choose your dates, and we'll confirm your booking within a few hours.",
+      subtitle:       "Pick your vehicle, choose your dates, and we'll confirm your booking within a few hours.",
       scooterLabel:   "VEHICLE",
       scooterPlaceholder: "Choose a vehicle…",
       pickupLabel:    "PICKUP DATE",
@@ -448,9 +448,9 @@ const translations = {
       bookedThisWeek: (n: number) => `Réservé ${n}× cette semaine`,
     },
     booking: {
-      eyebrow:        "RÉSERVEZ VOTRE SCOOTER",
+      eyebrow:        "RÉSERVEZ EN LIGNE",
       title:          "RÉSERVER EN LIGNE",
-      subtitle:       "Choisissez votre scooter, sélectionnez vos dates, et nous confirmerons votre réservation dans les heures qui suivent.",
+      subtitle:       "Choisissez votre véhicule, sélectionnez vos dates, et nous confirmerons votre réservation dans les heures qui suivent.",
       scooterLabel:   "VÉHICULE",
       scooterPlaceholder: "Choisir un véhicule…",
       pickupLabel:    "DATE DE PRISE EN CHARGE",
@@ -793,9 +793,9 @@ const translations = {
       bookedThisWeek: (n: number) => `Rezerve ${n}× sa semenn la`,
     },
     booking: {
-      eyebrow:        "REZERV OU LOTO",
+      eyebrow:        "REZERV AN LIZINN",
       title:          "REZERV AN LIZINN",
-      subtitle:       "Swazi ou skooter, swazi ou dat, ek nou pou konfirm ou rezervasion dan kektan.",
+      subtitle:       "Swazi ou veikil, swazi ou dat, ek nou pou konfirm ou rezervasion dan kektan.",
       scooterLabel:   "VEIKIL",
       scooterPlaceholder: "Swazi enn veikil…",
       pickupLabel:    "DAT PRAN",

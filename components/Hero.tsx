@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Compass } from "lucide-react";
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type HeroContent } from "@/lib/defaults";
+import { useLanguage } from "@/context/LanguageContext";
 
 // Fixed positions so SSR and client render identically (no hydration mismatch).
 const PARTICLES = [
@@ -101,6 +102,7 @@ function HeroBackdrop() {
 export default function Hero({ hero }: { hero?: HeroContent }) {
   const h = hero ?? DEFAULT_CONTENT.hero;
   const headlineLines = h.headline;
+  const { t } = useLanguage();
 
   return (
     <section className="relative min-h-screen w-full overflow-hidden flex flex-col" aria-label="Hero section">
@@ -109,7 +111,7 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
         {h.backgroundImage && (
           <Image
             src={h.backgroundImage}
-            alt="Scooter by the ocean at golden hour on Rodrigues Island"
+            alt="Exploring Rodrigues Island at golden hour"
             fill
             className="object-cover object-center"
             priority
@@ -175,16 +177,16 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
           className="mt-10 flex flex-wrap gap-4"
         >
           <Link
-            href="#booking"
+            href="/#explore"
             className="group relative flex items-center gap-2 bg-yellow text-dark font-syne font-bold px-8 py-4 rounded-full text-sm md:text-base transition-all duration-200 hover:scale-[1.04] shadow-[0_0_0_rgba(245,200,66,0)] hover:shadow-[0_8px_44px_rgba(245,200,66,0.4)]"
           >
-            Book a Scooter <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
+            {t.explore.title} <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
           </Link>
           <Link
-            href="#fleet"
+            href="/#map"
             className="flex items-center gap-2 border border-white/25 text-white px-8 py-4 rounded-full text-sm md:text-base hover:bg-white/10 hover:border-white/45 transition-colors backdrop-blur-sm"
           >
-            Explore Rodrigues <Compass size={18} />
+            {t.map.title} <Compass size={18} />
           </Link>
         </motion.div>
       </div>

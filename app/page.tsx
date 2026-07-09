@@ -15,6 +15,7 @@ import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import ScrollProgress from "@/components/ScrollProgress";
 import ScrollToTop from "@/components/ScrollToTop";
+import BackToExplore from "@/components/BackToExplore";
 
 export const dynamic = "force-dynamic";
 
@@ -157,6 +158,7 @@ export default async function Home() {
         numbers={content.contact.whatsappNumbers}
       />
       <ScrollToTop />
+      <BackToExplore />
     </>
   );
 }
