@@ -211,6 +211,16 @@ const translations = {
       directions: "Directions & distance",
       scrollMore: "Scroll for more",
     },
+    explore: {
+      nav:      "Explore",
+      eyebrow:  "START HERE",
+      title:    "What are you looking for?",
+      subtitle: "Vehicles, places to eat, things to do — pick a category to explore.",
+      cta:      "Explore",
+      option:   "option",
+      options:  "options",
+      back:     "What are you looking for?",
+    },
 
     // Ride Routes
     routes: {
@@ -572,6 +582,16 @@ const translations = {
       directions: "Itinéraire & distance",
       scrollMore: "Faites défiler",
     },
+    explore: {
+      nav:      "Explorer",
+      eyebrow:  "COMMENCEZ ICI",
+      title:    "Que recherchez-vous ?",
+      subtitle: "Véhicules, restaurants, activités — choisissez une catégorie à explorer.",
+      cta:      "Explorer",
+      option:   "option",
+      options:  "options",
+      back:     "Que recherchez-vous ?",
+    },
     routes: {
       eyebrow:  "ITINÉRAIRES",
       title:    "PARCOURS À SCOOTER",
@@ -906,6 +926,16 @@ const translations = {
       subtitle: "Dekouvr kaset Rodrig. Tous enn foto pou agrandi li, ouswa « direksion » pou distans depi kot ou ete.",
       directions: "Direksion & distans",
       scrollMore: "Fer defile",
+    },
+    explore: {
+      nav:      "Explor",
+      eyebrow:  "KOUMANS ISI",
+      title:    "Ki ou pe rode ?",
+      subtitle: "Bann veikil, restoran, aktivite — swazir enn kategori pou explor.",
+      cta:      "Explor",
+      option:   "opsion",
+      options:  "opsion",
+      back:     "Ki ou pe rode ?",
     },
     routes: {
       eyebrow:  "BANN PARKOUR",

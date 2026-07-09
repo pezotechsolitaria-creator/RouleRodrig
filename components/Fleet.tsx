@@ -170,12 +170,18 @@ export default function Fleet({
   ratings,
   recentBookings,
   whatsapp,
+  eyebrow,
+  title,
+  subtitle,
 }: {
   fleet?: FleetItem[];
   categories?: VehicleCategory[];
   ratings?: Record<string, { avg: number; count: number }>;
   recentBookings?: Record<string, number>;
   whatsapp?: string;
+  eyebrow?: string;
+  title?: string;
+  subtitle?: string;
 }) {
   const allItems = fleet ?? DEFAULT_CONTENT.fleet;
   const cats = categories ?? [];
@@ -222,16 +228,16 @@ export default function Fleet({
           className="mb-16 flex flex-col md:flex-row md:items-end md:justify-between gap-4"
         >
           <div>
-            <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.fleet.sectionEyebrow}</p>
+            <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{eyebrow ?? t.fleet.sectionEyebrow}</p>
             <h2
               className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]"
               style={{ fontSize: "clamp(38px, 8vw, 80px)" }}
             >
-              {t.fleet.sectionTitle}
+              {title ?? t.fleet.sectionTitle}
             </h2>
           </div>
           <p className="text-muted font-dm text-sm max-w-xs leading-relaxed md:text-right">
-            {t.fleet.sectionSub}
+            {subtitle ?? t.fleet.sectionSub}
           </p>
         </motion.div>
 

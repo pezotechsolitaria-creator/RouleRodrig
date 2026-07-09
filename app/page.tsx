@@ -1,32 +1,17 @@
-import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
-import { getPrivileged } from "@/lib/supabase/admin";
-import { isActiveHold } from "@/lib/holds";
+import { getFleetView } from "@/lib/site-data";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
-import PromoCarousel from "@/components/PromoCarousel";
-import Fleet from "@/components/Fleet";
-import TrustBar from "@/components/TrustBar";
-import Experience from "@/components/Experience";
-import Pricing from "@/components/Pricing";
-import WhyUs from "@/components/WhyUs";
+import WhatLookingFor, { type BrowseCategory } from "@/components/WhatLookingFor";
 import TripPlanner from "@/components/TripPlanner";
-import BookingSection from "@/components/BookingSection";
 import MapSection from "@/components/MapSection";
-import GettingAround from "@/components/GettingAround";
 import RideRoutes from "@/components/RideRoutes";
-import Events from "@/components/Events";
 import UsefulNumbers from "@/components/UsefulNumbers";
-import MarketplaceSection from "@/components/MarketplaceSection";
-import RecommendedPlaces from "@/components/RecommendedPlaces";
-import Gallery from "@/components/Gallery";
-import Testimonials from "@/components/Testimonials";
 import ReviewsSection from "@/components/ReviewsSection";
 import Faq from "@/components/Faq";
 import WaitlistSection from "@/components/WaitlistSection";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
-import Sponsors from "@/components/Sponsors";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import ScrollProgress from "@/components/ScrollProgress";
 import ScrollToTop from "@/components/ScrollToTop";
@@ -40,84 +25,46 @@ function priceNumber(price: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+// First usable photo from a list of items (fleet / places / events).
+function firstImage(items: { image?: string; images?: string[] }[]): string | undefined {
+  for (const it of items) {
+    const img = it.images?.[0] || it.image;
+    if (img) return img;
+  }
+  return undefined;
+}
+
 export default async function Home() {
-  const content = await getContent();
+  const { content, fleet, ratings, recentBookings, businessWhatsApp } = await getFleetView();
 
-  // ── Live fleet availability ──────────────────────────────────────────
-  // A model is "sold out today" when every unit it owns is already out on an
-  // active (pending or confirmed) booking that covers today. Computed per
-  // request so the fleet reflects real stock with no admin editing.
-  const todayIsland = new Date(Date.now() + 4 * 3600 * 1000).toISOString().slice(0, 10); // Rodrigues = UTC+4
-  const heldToday: Record<string, number> = {};
-  try {
-    const supabase = await getPrivileged();
-    const { data } = await supabase
-      .from("bookings")
-      .select("scooter, status, created_at")
-      .in("status", ["pending", "confirmed"])
-      .lte("start_date", todayIsland)
-      .gte("end_date", todayIsland);
-    for (const b of data ?? []) {
-      if (!isActiveHold(b)) continue; // ignore expired pending holds
-      heldToday[b.scooter] = (heldToday[b.scooter] ?? 0) + 1;
-    }
-  } catch {
-    /* availability is best-effort — never block the page on it */
+  // ── "What are you looking for?" categories ──────────────────────────────
+  // Vehicles (by enabled category) → places (restaurants/activities/stays) →
+  // getting around → what's on. Only categories that actually have items show.
+  const browseCats: BrowseCategory[] = [];
+  for (const vc of content.vehicleCategories.filter((c) => c.enabled)) {
+    const items = fleet.filter((f) => (f.category ?? "scooter") === vc.id);
+    if (!items.length) continue;
+    browseCats.push({ slug: vc.id, label: vc.label, image: firstImage(items), count: items.length });
   }
-  // ── Honest social proof: real bookings per scooter in the last 7 days ──
-  // Only surfaced on cards when genuinely meaningful (≥2). Never fabricated.
-  const recentBookings: Record<string, number> = {};
-  try {
-    const supabase = await getPrivileged();
-    const sevenAgo = new Date(Date.now() - 7 * 864e5).toISOString();
-    const { data } = await supabase
-      .from("bookings")
-      .select("scooter, created_at, status")
-      .gte("created_at", sevenAgo)
-      .neq("status", "cancelled");
-    for (const b of data ?? []) {
-      if (!b.scooter) continue;
-      recentBookings[b.scooter] = (recentBookings[b.scooter] ?? 0) + 1;
-    }
-  } catch {
-    /* social proof is best-effort */
+  if (content.recommended.enabled) {
+    const rest = content.recommended.items.filter((p) => p.category === "restaurant");
+    if (rest.length) browseCats.push({ slug: "restaurants", label: "Restaurants", image: firstImage(rest), emoji: "🍽️", count: rest.length });
+    const act = content.recommended.items.filter((p) => p.category === "activity");
+    if (act.length) browseCats.push({ slug: "activities", label: "Activities", image: firstImage(act), emoji: "🤿", count: act.length });
+    const stays = content.recommended.items.filter((p) => p.category === "hotel");
+    if (stays.length) browseCats.push({ slug: "stays", label: "Stays", image: firstImage(stays), emoji: "🏝️", count: stays.length });
   }
-
-  const fleet = content.fleet.map((s) => {
-    const activeUnits = (s.assets ?? []).filter((a) => a.active !== false).length;
-    const capacity = activeUnits > 0 ? activeUnits : Math.max(1, s.units ?? 1);
-    return { ...s, soldOutToday: (heldToday[s.id] ?? 0) >= capacity };
-  });
-
-  // ── Real star ratings per scooter (from APPROVED reviews only) ──
-  const ratings: Record<string, { avg: number; count: number }> = {};
-  try {
-    const supabase = await getPrivileged();
-    const { data } = await supabase
-      .from("product_reviews")
-      .select("scooter_id, rating")
-      .eq("status", "approved");
-    const acc: Record<string, { sum: number; count: number }> = {};
-    for (const r of data ?? []) {
-      const id = r.scooter_id as string | null;
-      const rating = Number(r.rating);
-      if (!id || !Number.isFinite(rating)) continue;
-      acc[id] = { sum: (acc[id]?.sum ?? 0) + rating, count: (acc[id]?.count ?? 0) + 1 };
-    }
-    for (const [id, v] of Object.entries(acc)) {
-      ratings[id] = { avg: Math.round((v.sum / v.count) * 10) / 10, count: v.count };
-    }
-  } catch {
-    /* ratings are best-effort */
+  const gaOptions = (content.gettingAround?.options ?? []).filter((o) => o.icon !== "bus");
+  if (content.gettingAround?.enabled && gaOptions.length) {
+    browseCats.push({ slug: "getting-around", label: "Getting around", emoji: "🚕", count: gaOptions.length });
+  }
+  const events = content.events.filter((e) => e.title);
+  if (events.length) {
+    browseCats.push({ slug: "events", label: "What's on", image: firstImage(events), emoji: "🎉", count: events.length });
   }
 
   // ── SEO structured data (JSON-LD): LocalBusiness + Products ──
-  const sameAs = [
-    content.social.instagram,
-    content.social.facebook,
-    content.social.tiktok,
-  ].filter((u) => u && u.trim());
-
+  const sameAs = [content.social.instagram, content.social.facebook, content.social.tiktok].filter((u) => u && u.trim());
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -126,7 +73,7 @@ export default async function Home() {
         "@id": `${SITE_URL}/#business`,
         name: "Roule Rodrigues",
         description:
-          "Premium scooter rentals on Rodrigues Island — Suzuki Burgman 125 and Avenis 125. Helmet included, flexible hours, local support.",
+          "Vehicle rentals and island experiences on Rodrigues — scooters, cars, restaurants, activities and local transport. Helmet included, flexible hours, local support.",
         url: SITE_URL,
         image: `${SITE_URL}/og-image.jpg`,
         priceRange: "Rs",
@@ -148,7 +95,6 @@ export default async function Home() {
           name: s.name,
           description: s.description,
           ...(s.image ? { image: s.image.startsWith("http") ? s.image : `${SITE_URL}${s.image}` } : {}),
-          brand: { "@type": "Brand", name: "Suzuki" },
           ...(price
             ? {
                 offers: {
@@ -159,7 +105,7 @@ export default async function Home() {
                     s.available === false || s.soldOutToday
                       ? "https://schema.org/OutOfStock"
                       : "https://schema.org/InStock",
-                  url: `${SITE_URL}/#booking`,
+                  url: `${SITE_URL}/browse/${s.category ?? "scooter"}`,
                 },
               }
             : {}),
@@ -181,19 +127,9 @@ export default async function Home() {
     ],
   };
 
-  // Business WhatsApp number for the one-tap booking confirmation
-  const businessWhatsApp =
-    content.social.whatsapp ||
-    content.contact.whatsappNumbers?.[0]?.number ||
-    content.contact.phone ||
-    "";
-
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <ScrollProgress />
       <main>
         <Navbar
@@ -204,28 +140,15 @@ export default async function Home() {
           showEvents={content.events.some((e) => e.title)}
         />
         <Hero hero={content.hero} />
-        <PromoCarousel slides={content.promoSlides} />
-        <Fleet fleet={fleet} categories={content.vehicleCategories} ratings={ratings} recentBookings={recentBookings} whatsapp={businessWhatsApp} />
-        <TrustBar />
-        <Experience content={content.experience} />
-        <Pricing pricing={content.pricing} />
-        <WhyUs />
+        <WhatLookingFor categories={browseCats} />
         <TripPlanner />
-        <BookingSection fleet={fleet} whatsapp={businessWhatsApp} />
         <MapSection locations={content.mapLocations} />
-        <GettingAround content={content.gettingAround} />
         <RideRoutes routes={content.rideRoutes} />
-        <Events events={content.events} />
-        <MarketplaceSection />
-        <RecommendedPlaces content={content.recommended} whatsapp={businessWhatsApp} />
         <UsefulNumbers contacts={content.usefulContacts} />
-        <Gallery gallery={content.gallery} enabled={content.galleryEnabled !== false} />
-        <Testimonials testimonials={content.testimonials} />
         <ReviewsSection fleet={fleet} />
         <Faq content={content.faq} />
         <WaitlistSection />
         <Contact contact={content.contact} fleet={fleet} />
-        <Sponsors enabled={content.sponsorsEnabled} sponsors={content.sponsors} />
         <Footer social={content.social} branding={content.branding} />
       </main>
       <WhatsAppButton

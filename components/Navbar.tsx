@@ -47,14 +47,14 @@ export default function Navbar({
     setCurrency(CURRENCIES[(idx + 1) % CURRENCIES.length]);
   }
 
+  // Stay·Eat·Do and Events now live inside the "What are you looking for?" hub,
+  // so the nav stays lean: Explore → Island guide → Routes → Taxi → Contact.
   const navLinks = [
-    { label: t.nav.scooters, href: "#fleet" },
-    { label: t.nav.map,      href: "#map" },
+    { label: t.explore.nav, href: "/#explore" },
+    { label: t.nav.map,      href: "/#map" },
     ...(showRoutes ? [{ label: t.nav.routes, href: "/#routes" }] : []),
     { label: t.nav.taxi,     href: "/taxi" },
-    ...(showStayEatDo ? [{ label: t.nav.stayEatDo, href: "/#recommended" }] : []),
-    ...(showEvents ? [{ label: t.nav.events, href: "/#events" }] : []),
-    { label: t.nav.contact,  href: "#contact" },
+    { label: t.nav.contact,  href: "/#contact" },
   ];
 
   useEffect(() => {
@@ -65,7 +65,7 @@ export default function Navbar({
 
   // Scrollspy: highlight the nav link of the section currently in view.
   useEffect(() => {
-    const ids = ["fleet", "map", "routes", "recommended", "events", "contact"];
+    const ids = ["explore", "map", "routes", "contact"];
     const els = ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
     if (els.length === 0) return;
     const obs = new IntersectionObserver(
@@ -192,7 +192,7 @@ export default function Navbar({
             </button>
 
             <Link
-              href="#booking"
+              href="/#explore"
               className="flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-5 py-2.5 rounded-full hover:bg-yellow-dark transition-all duration-200 hover:scale-105"
             >
               {t.nav.bookNow} <ArrowRight size={14} />
@@ -271,7 +271,7 @@ export default function Navbar({
                 className="mt-4 flex flex-col items-center gap-4"
               >
                 <Link
-                  href="#booking"
+                  href="/#explore"
                   onClick={() => setMenuOpen(false)}
                   className="flex items-center gap-3 bg-yellow text-dark font-syne font-bold text-xl px-10 py-5 rounded-full"
                 >
