@@ -18,6 +18,11 @@ interface BookingEmailData {
   return_time?: string | null;
 }
 
+interface Attachment {
+  name: string;
+  content: string; // base64
+}
+
 // ── Brand system ─────────────────────────────────────────────────────────
 // A small, consistent design language shared by every email so the whole
 // lifecycle (confirmation → reminders → feedback) looks like one premium brand.
@@ -34,6 +39,7 @@ const C = {
 const FONT =
   "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 const BRAND = C.gold; // kept for backwards-compat references
+const LOCATION = "Port Mathurin, Rodrigues Island, Mauritius";
 
 // ── WhatsApp one-tap buttons ─────────────────────────────────────────────
 // We don't auto-send over WhatsApp (no paid API) — instead every email carries
@@ -50,29 +56,43 @@ function waButton(phone: string | null | undefined, text: string, label: string)
   </td></tr></table>`;
 }
 
-// Business WhatsApp number for customer-facing buttons. Env first, then the
-// number the owner saved for alerts (app_secrets.callmebot_phone) so the
-// buttons light up without any extra configuration.
-let ownerWaCache: { wa: string; at: number } | null = null;
-async function getOwnerWa(): Promise<string> {
-  const env = process.env.OWNER_WHATSAPP || process.env.OWNER_PHONE || "";
-  if (env) return env;
-  if (ownerWaCache && Date.now() - ownerWaCache.at < EMAIL_CFG_TTL) return ownerWaCache.wa;
-  let wa = "";
+// ── Brand context (WhatsApp number + logo) ───────────────────────────────
+// Sourced from env first, then the values the owner saved in the DB
+// (app_secrets.callmebot_phone + site_content.branding.logo) so the WhatsApp
+// button and header logo work with no extra configuration. Cached briefly.
+let brandCache: { wa: string; logo: string; at: number } | null = null;
+async function getBrand(): Promise<{ wa: string; logo: string }> {
+  if (brandCache && Date.now() - brandCache.at < EMAIL_CFG_TTL) return brandCache;
+  let wa = process.env.OWNER_WHATSAPP || process.env.OWNER_PHONE || "";
+  let logo = process.env.EMAIL_LOGO_URL || "";
   try {
     const { getPrivileged } = await import("./supabase/admin");
     const supabase = await getPrivileged();
-    const { data } = await supabase
-      .from("app_secrets")
-      .select("value")
-      .eq("key", "callmebot_phone")
-      .maybeSingle();
-    wa = (data?.value ?? "").toString().trim();
+    if (!wa) {
+      const { data } = await supabase
+        .from("app_secrets")
+        .select("value")
+        .eq("key", "callmebot_phone")
+        .maybeSingle();
+      wa = (data?.value ?? "").toString().trim();
+    }
+    if (!logo) {
+      const { data } = await supabase
+        .from("site_content")
+        .select("data")
+        .eq("id", "main")
+        .maybeSingle();
+      const branding = (data?.data as { branding?: { logo?: string } } | null)?.branding;
+      logo = (branding?.logo ?? "").toString().trim();
+    }
   } catch {
     /* best-effort */
   }
-  ownerWaCache = { wa, at: Date.now() };
-  return wa;
+  // Only embed absolute image URLs (relative /uploads paths aren't reachable
+  // from an email client).
+  if (logo && !/^https?:\/\//i.test(logo)) logo = "";
+  brandCache = { wa, logo, at: Date.now() };
+  return brandCache;
 }
 
 function fmtTime(t?: string | null): string {
@@ -111,6 +131,19 @@ function paragraph(html: string): string {
 
 function sectionLabel(text: string): string {
   return `<div style="font-family:${FONT};font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:${C.ink};margin:2px 0 10px">${text}</div>`;
+}
+
+function frHeading(text: string): string {
+  return `<h2 style="font-family:${FONT};font-size:19px;line-height:1.3;font-weight:800;color:${C.ink};margin:0 0 16px">${text}</h2>`;
+}
+
+// A subtle "· FRANÇAIS ·" divider separating the English and French blocks.
+function sepFr(): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 22px"><tr>
+    <td style="width:42%;border-bottom:1px solid ${C.line};font-size:0;line-height:0">&nbsp;</td>
+    <td style="padding:0 12px;text-align:center;white-space:nowrap;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:2px;color:${C.muted}">FRANÇAIS</td>
+    <td style="width:42%;border-bottom:1px solid ${C.line};font-size:0;line-height:0">&nbsp;</td>
+  </tr></table>`;
 }
 
 // Renders label/value pairs as tidy rows with hairline dividers.
@@ -156,18 +189,23 @@ function primaryButton(href: string, label: string): string {
 
 /**
  * The master shell every email is built with: soft canvas, rounded white card,
- * dark branded header with tagline + gold rule, content area, and a footer with
- * the business identity. `eyebrow` is a small gold kicker above the title.
+ * dark branded header (logo lockup when available, else wordmark) with tagline
+ * + gold rule, content area, and a footer with the business identity.
  */
-function shell(opts: { preheader?: string; eyebrow?: string; title: string; body: string }): string {
-  const { preheader: pre = "", eyebrow = "", title, body } = opts;
+function shell(opts: { preheader?: string; eyebrow?: string; title: string; body: string; logo?: string }): string {
+  const { preheader: pre = "", eyebrow = "", title, body, logo = "" } = opts;
+  const lockup = logo
+    ? `<span style="display:inline-block;background:#ffffff;border-radius:12px;padding:9px 16px">
+         <img src="${logo}" alt="ROULE RODRIGUES" height="38" style="height:38px;width:auto;max-width:190px;display:block;border:0;outline:none;text-decoration:none">
+       </span>`
+    : `<div style="font-family:${FONT};font-size:22px;font-weight:800;letter-spacing:2px;color:${C.gold}">ROULE&nbsp;RODRIGUES</div>`;
   return `${pre ? preheader(pre) : ""}
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.soft};margin:0;padding:26px 12px">
     <tr><td align="center">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:${C.card};border-radius:18px;overflow:hidden;border:1px solid ${C.line}">
-        <tr><td style="background:${C.ink};padding:28px 32px;text-align:center">
-          <div style="font-family:${FONT};font-size:22px;font-weight:800;letter-spacing:2px;color:${C.gold}">ROULE&nbsp;RODRIGUES</div>
-          <div style="font-family:${FONT};font-size:11px;font-weight:600;letter-spacing:3px;color:#9a9a9a;margin-top:7px">SCOOTER RENTALS · RODRIGUES ISLAND</div>
+        <tr><td style="background:${C.ink};padding:26px 32px;text-align:center">
+          ${lockup}
+          <div style="font-family:${FONT};font-size:11px;font-weight:600;letter-spacing:3px;color:#9a9a9a;margin-top:12px">SCOOTER RENTALS · RODRIGUES ISLAND</div>
         </td></tr>
         <tr><td style="height:4px;line-height:4px;font-size:0;background:${C.gold}">&nbsp;</td></tr>
         <tr><td style="padding:34px 32px 28px">
@@ -178,8 +216,8 @@ function shell(opts: { preheader?: string; eyebrow?: string; title: string; body
         <tr><td style="background:${C.soft};border-top:1px solid ${C.line};padding:24px 32px;text-align:center">
           <div style="font-family:${FONT};font-size:13px;font-weight:700;color:${C.ink}">Roule Rodrigues</div>
           <div style="font-family:${FONT};font-size:12px;color:${C.muted};margin-top:5px;line-height:1.7">
-            Port Mathurin · Rodrigues Island, Mauritius<br>
-            <a href="${SITE_URL}" style="color:#b8912b;text-decoration:none;font-weight:600">Visit our website →</a>
+            ${LOCATION}<br>
+            <a href="${SITE_URL}" style="color:#b8912b;text-decoration:none;font-weight:600">Visit our website · Voir le site →</a>
           </div>
         </td></tr>
       </table>
@@ -188,6 +226,60 @@ function shell(opts: { preheader?: string; eyebrow?: string; title: string; body
       </div>
     </td></tr>
   </table>`;
+}
+
+// ── Add-to-calendar (booking confirmation) ───────────────────────────────
+// Returns a Google Calendar "add event" link + a universal .ics file (opens in
+// Apple Calendar, Google, Outlook). Rodrigues is UTC+4 (no DST).
+function buildCalendar(b: BookingEmailData): { gcal: string; ics: string } {
+  const title = `Roule Rodrigues — ${b.scooter} pickup`;
+  const desc =
+    "Your Roule Rodrigues rental — bring your driver's licence and booking confirmation. / " +
+    "Votre location Roule Rodrigues — apportez votre permis de conduire et votre confirmation.";
+  const fUtc = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+  const m = /^(\d{1,2}):(\d{2})$/.exec((b.pickup_time ?? "").trim());
+
+  let dtStartLine: string;
+  let dtEndLine: string;
+  let gdates: string;
+  if (m) {
+    const start = new Date(`${b.start_date}T${m[1].padStart(2, "0")}:${m[2]}:00+04:00`);
+    const end = new Date(start.getTime() + 30 * 60000);
+    dtStartLine = `DTSTART:${fUtc(start)}`;
+    dtEndLine = `DTEND:${fUtc(end)}`;
+    gdates = `${fUtc(start)}/${fUtc(end)}`;
+  } else {
+    const ymd = b.start_date.replace(/-/g, "");
+    const next = new Date(new Date(b.start_date).getTime() + 86400000)
+      .toISOString()
+      .slice(0, 10)
+      .replace(/-/g, "");
+    dtStartLine = `DTSTART;VALUE=DATE:${ymd}`;
+    dtEndLine = `DTEND;VALUE=DATE:${next}`;
+    gdates = `${ymd}/${next}`;
+  }
+  const uid = `${b.start_date}-${waDigits(b.phone) || Math.random().toString(36).slice(2)}@roulerodrigues`;
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Roule Rodrigues//Booking//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${fUtc(new Date())}`,
+    dtStartLine,
+    dtEndLine,
+    `SUMMARY:${title}`,
+    `LOCATION:${LOCATION}`,
+    `DESCRIPTION:${desc}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+  const gcal =
+    `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}` +
+    `&dates=${gdates}&details=${encodeURIComponent(desc)}&location=${encodeURIComponent(LOCATION)}`;
+  return { gcal, ics };
 }
 
 // ── Brevo config: admin-saved values (app_secrets) first, env fallback ──
@@ -199,7 +291,7 @@ const EMAIL_CFG_TTL = 5 * 60 * 1000;
 /** Drop the cached email config (called after the admin saves new settings). */
 export function invalidateEmailConfig(): void {
   emailCfg = null;
-  ownerWaCache = null;
+  brandCache = null;
 }
 
 /**
@@ -313,7 +405,7 @@ export async function upsertBrevoContact(c: {
  *               (e.g. a Gmail) — no domain required.
  * No-ops cleanly when neither is set, so the app never breaks.
  */
-async function send(to: string, subject: string, html: string): Promise<boolean> {
+async function send(to: string, subject: string, html: string, attachments?: Attachment[]): Promise<boolean> {
   const resendKey = process.env.RESEND_API_KEY;
   const brevo = await getBrevoConfig();
   const brevoKey = brevo.key;
@@ -325,7 +417,15 @@ async function send(to: string, subject: string, html: string): Promise<boolean>
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from, to, subject, html }),
+        body: JSON.stringify({
+          from,
+          to,
+          subject,
+          html,
+          ...(attachments?.length
+            ? { attachments: attachments.map((a) => ({ filename: a.name, content: a.content })) }
+            : {}),
+        }),
       });
       if (!res.ok) {
         console.error("[email] Resend error", res.status, await res.text().catch(() => ""));
@@ -360,6 +460,9 @@ async function send(to: string, subject: string, html: string): Promise<boolean>
           replyTo: { email: replyEmail, name: "Roule Rodrigues" },
           subject,
           htmlContent: html,
+          ...(attachments?.length
+            ? { attachment: attachments.map((a) => ({ name: a.name, content: a.content })) }
+            : {}),
         }),
       });
       if (!res.ok) {
@@ -377,15 +480,17 @@ async function send(to: string, subject: string, html: string): Promise<boolean>
   return false;
 }
 
+// Bilingual "Label EN · Label FR" rows so a single detail card serves both
+// languages without duplicating the whole table.
 function summaryRows(b: BookingEmailData): string {
-  const pairs: [string, string][] = [["Vehicle", b.scooter]];
-  if (b.asset_label) pairs.push(["Unit", b.asset_label]);
+  const pairs: [string, string][] = [["Vehicle · Véhicule", b.scooter]];
+  if (b.asset_label) pairs.push(["Unit · Unité", b.asset_label]);
   pairs.push(
-    ["Pickup", fmtDate(b.start_date) + (b.pickup_time ? ` · ${fmtTime(b.pickup_time)}` : "")],
-    ["Return", fmtDate(b.end_date) + (b.return_time ? ` · ${fmtTime(b.return_time)}` : "")],
-    ["Duration", `${b.days} day${b.days !== 1 ? "s" : ""}`],
+    ["Pickup · Retrait", fmtDate(b.start_date) + (b.pickup_time ? ` · ${fmtTime(b.pickup_time)}` : "")],
+    ["Return · Retour", fmtDate(b.end_date) + (b.return_time ? ` · ${fmtTime(b.return_time)}` : "")],
+    ["Duration · Durée", `${b.days} day${b.days !== 1 ? "s" : ""}`],
   );
-  if (b.total_price) pairs.push(["Estimated total", b.total_price]);
+  if (b.total_price) pairs.push(["Estimated total · Total estimé", b.total_price]);
   return rows(pairs);
 }
 
@@ -396,38 +501,43 @@ function summaryRows(b: BookingEmailData): string {
  */
 export async function sendBookingEmails(b: BookingEmailData): Promise<{ customer: boolean; owner: boolean }> {
   const result = { customer: false, owner: false };
-  const wa = await getOwnerWa();
+  const { wa, logo } = await getBrand();
 
-  // ── Customer confirmation ──
+  // ── Customer confirmation (bilingual EN + FR, with add-to-calendar) ──
   if (b.email) {
+    const cal = buildCalendar(b);
     const body = `
-      ${paragraph(
-        `Thank you for choosing Roule Rodrigues. We've received your booking request and our team will confirm availability and payment details shortly — usually within a few hours, often via WhatsApp.`,
-      )}
-      ${sectionLabel("Your booking")}
+      ${paragraph(`Thank you for choosing Roule Rodrigues. We've received your booking request — our team will confirm availability and payment details shortly, usually within a few hours (often via WhatsApp).`)}
+      ${sectionLabel("Your booking · Votre réservation")}
       ${detailCard(summaryRows(b))}
+      <div style="text-align:center;margin-bottom:6px">${primaryButton(cal.gcal, "📅 Add to calendar · Ajouter au calendrier")}</div>
       ${sectionLabel("Before your pickup, please bring")}
       ${checkList(["A valid driver's licence", "Your booking confirmation", "A valid ID or passport if requested"])}
-      ${paragraph(
-        `Please arrive 10–15 minutes early so we can walk you through the vehicle together before you set off. Have a question in the meantime? Simply reply to this email — we look forward to welcoming you!`,
-      )}
-      ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! I just booked the ${b.scooter} for ${fmtDate(b.start_date)} – ${fmtDate(b.end_date)}.`, "💬 Message us on WhatsApp")}</div>` : ""}`;
+      ${paragraph(`Please arrive 10–15 minutes early so we can walk you through the vehicle together. Any question? Just reply to this email — we look forward to welcoming you!`)}
+      ${sepFr()}
+      ${frHeading(`Merci, ${b.name} !`)}
+      ${paragraph(`Merci d'avoir choisi Roule Rodrigues. Nous avons bien reçu votre demande de réservation — notre équipe confirmera la disponibilité et les modalités de paiement très bientôt, généralement sous quelques heures (souvent via WhatsApp).`)}
+      ${sectionLabel("À apporter le jour du retrait")}
+      ${checkList(["Un permis de conduire valide", "Votre confirmation de réservation", "Une pièce d'identité ou un passeport si demandé"])}
+      ${paragraph(`Merci d'arriver 10 à 15 minutes en avance afin que nous puissions vérifier le véhicule ensemble. Une question ? Répondez simplement à cet e-mail — au plaisir de vous accueillir !`)}
+      ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! I just booked the ${b.scooter} for ${fmtDate(b.start_date)} – ${fmtDate(b.end_date)}.`, "💬 WhatsApp")}</div>` : ""}`;
     result.customer = await send(
       b.email,
-      "Your Roule Rodrigues booking request 🛵",
+      "Your booking request · Votre réservation 🛵",
       shell({
-        preheader: "We've received your booking — we'll confirm availability shortly.",
-        eyebrow: "Booking received",
+        preheader: "We've received your booking · Nous avons bien reçu votre réservation.",
+        eyebrow: "Booking received · Réservation reçue",
         title: `Thank you, ${b.name}!`,
         body,
+        logo,
       }),
+      [{ name: "roule-rodrigues-booking.ics", content: Buffer.from(cal.ics, "utf8").toString("base64") }],
     );
   }
 
-  // ── Owner notification ──
+  // ── Owner notification (internal, English) ──
   const owner = process.env.OWNER_EMAIL;
   if (owner) {
-    const ownerRows: [string, string][] = [];
     const body = `
       ${paragraph(`You have a new booking request. Details below — manage it in your admin dashboard under <strong>Bookings</strong>.`)}
       ${detailCard(
@@ -435,7 +545,6 @@ export async function sendBookingEmails(b: BookingEmailData): Promise<{ customer
           rows([
             ...(b.phone ? ([["Phone", b.phone]] as [string, string][]) : []),
             ...(b.email ? ([["Email", b.email]] as [string, string][]) : []),
-            ...ownerRows,
           ]),
       )}
       ${b.message ? paragraph(`<strong style="color:${C.ink}">Customer note:</strong> ${b.message}`) : ""}
@@ -443,7 +552,7 @@ export async function sendBookingEmails(b: BookingEmailData): Promise<{ customer
     result.owner = await send(
       owner,
       `New booking: ${b.name} — ${b.scooter}`,
-      shell({ eyebrow: "New booking request", title: b.name, body }),
+      shell({ eyebrow: "New booking request", title: b.name, body, logo }),
     );
   }
 
@@ -455,23 +564,26 @@ export async function sendBookingEmails(b: BookingEmailData): Promise<{ customer
 /** Reminder sent the day before pickup. */
 export async function sendPickupReminder(b: BookingEmailData): Promise<boolean> {
   if (!b.email) return false;
-  const wa = await getOwnerWa();
+  const { wa, logo } = await getBrand();
   const body = `
     ${paragraph(`Hi ${b.name}, this is a friendly reminder that your rental starts <strong>tomorrow</strong>. 🛵`)}
     ${detailCard(summaryRows(b))}
     ${paragraph(`Please bring your driver's licence and arrive a few minutes early. We can't wait to help you discover Rodrigues Island — see you tomorrow!`)}
-    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi! About my Roule Rodrigues pickup tomorrow (${b.scooter}) — `, "💬 Message us on WhatsApp")}</div>` : ""}`;
+    ${sepFr()}
+    ${frHeading("À demain !")}
+    ${paragraph(`Bonjour ${b.name}, petit rappel : votre location commence <strong>demain</strong>. 🛵 Merci d'apporter votre permis de conduire et d'arriver quelques minutes en avance. Nous avons hâte de vous aider à découvrir l'île Rodrigues — à demain !`)}
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi! About my Roule Rodrigues pickup tomorrow (${b.scooter}) — `, "💬 WhatsApp")}</div>` : ""}`;
   return send(
     b.email,
-    "Your Roule Rodrigues rental is tomorrow 🛵",
-    shell({ preheader: "Pickup is tomorrow — here's everything you need.", eyebrow: "Pickup reminder", title: "See you tomorrow!", body }),
+    "Your rental is tomorrow · Votre location, c'est demain 🛵",
+    shell({ preheader: "Pickup is tomorrow · Le retrait, c'est demain.", eyebrow: "Pickup reminder · Rappel de retrait", title: "See you tomorrow!", body, logo }),
   );
 }
 
 /** Reminder sent the day before the return is due. */
 export async function sendReturnReminder(b: BookingEmailData): Promise<boolean> {
   if (!b.email) return false;
-  const wa = await getOwnerWa();
+  const { wa, logo } = await getBrand();
   const body = `
     ${paragraph(`Hi ${b.name}, a friendly reminder that your vehicle is due back <strong>tomorrow</strong> (${fmtDate(b.end_date)}).`)}
     ${detailCard(summaryRows(b))}
@@ -482,54 +594,69 @@ export async function sendReturnReminder(b: BookingEmailData): Promise<boolean> 
       "Let us know right away if you had any issue during your rental",
     ])}
     ${paragraph(`Thank you for choosing Roule Rodrigues — we hope you had an amazing time exploring the island, and we'd love to welcome you again on your next visit! 💛`)}
-    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi! About my Roule Rodrigues return (${b.scooter}) — `, "💬 Message us on WhatsApp")}</div>` : ""}`;
+    ${sepFr()}
+    ${frHeading("Rappel de retour")}
+    ${paragraph(`Bonjour ${b.name}, petit rappel : votre véhicule est à rendre <strong>demain</strong> (${fmtDate(b.end_date)}).`)}
+    ${sectionLabel("Avant de rendre le véhicule, merci de")}
+    ${checkList([
+      "Le rendre avec le niveau de carburant convenu",
+      "Rapporter les clés et tous les accessoires fournis",
+      "Nous prévenir immédiatement en cas de souci pendant la location",
+    ])}
+    ${paragraph(`Merci d'avoir choisi Roule Rodrigues — nous espérons que vous avez passé un moment inoubliable à Rodrigues, et au plaisir de vous revoir lors de votre prochaine visite ! 💛`)}
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi! About my Roule Rodrigues return (${b.scooter}) — `, "💬 WhatsApp")}</div>` : ""}`;
   return send(
     b.email,
-    "Reminder: your return is tomorrow",
-    shell({ preheader: "Your vehicle is due back tomorrow — a quick checklist inside.", eyebrow: "Return reminder", title: "Return reminder", body }),
+    "Your return is tomorrow · Votre retour, c'est demain",
+    shell({ preheader: "Your vehicle is due back tomorrow · Retour du véhicule demain.", eyebrow: "Return reminder · Rappel de retour", title: "Return reminder", body, logo }),
   );
 }
 
 // ── Post-rental feedback request (sent the day after return) ──────────────
 export async function sendFeedbackRequest(b: BookingEmailData): Promise<boolean> {
   if (!b.email) return false;
-  const wa = await getOwnerWa();
+  const { wa, logo } = await getBrand();
   const reviewUrl = process.env.GOOGLE_REVIEW_URL || `${SITE_URL}/#reviews`;
   const body = `
     ${paragraph(`Hi ${b.name}, we hope you loved exploring Rodrigues! 🌴 How was your ride with the ${b.scooter}?`)}
     ${paragraph(`A quick review means the world to a small island business — it takes about 30 seconds and helps other travellers discover us.`)}
-    <div style="text-align:center">${primaryButton(reviewUrl, "⭐ Leave a review")}</div>
-    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! Here's my feedback on the ${b.scooter}: `, "💬 Send feedback on WhatsApp")}</div>` : ""}`;
+    ${sepFr()}
+    ${frHeading("Merci d'avoir roulé avec nous !")}
+    ${paragraph(`Bonjour ${b.name}, nous espérons que vous avez adoré Rodrigues ! 🌴 Comment s'est passée votre balade avec le ${b.scooter} ? Un petit avis compte énormément pour une petite entreprise locale — cela prend 30 secondes et aide d'autres voyageurs à nous découvrir.`)}
+    <div style="text-align:center">${primaryButton(reviewUrl, "⭐ Leave a review · Laisser un avis")}</div>
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! Here's my feedback on the ${b.scooter}: `, "💬 WhatsApp")}</div>` : ""}`;
   return send(
     b.email,
-    "How was your ride? 🛵 We'd love your feedback",
-    shell({ preheader: "A 30-second review helps other travellers find us.", eyebrow: "Your feedback", title: "Thanks for riding with us!", body }),
+    "How was your ride? · Votre avis ? 🛵",
+    shell({ preheader: "A 30-second review helps other travellers · Votre avis compte.", eyebrow: "Your feedback · Votre avis", title: "Thanks for riding with us!", body, logo }),
   );
 }
 
-// ── Owner / admin reminders (sent the day before) ────────────────────────
-function ownerActionEmail(b: BookingEmailData, kind: "deliver" | "collect"): string {
+// ── Owner / admin reminders (sent the day before, internal English) ───────
+function ownerActionEmail(b: BookingEmailData, kind: "deliver" | "collect", logo: string): string {
   const verb = kind === "deliver" ? "Deliver" : "Collect";
   const when = kind === "deliver" ? fmtDate(b.start_date) : fmtDate(b.end_date);
   const body = `
     ${paragraph(`<strong style="color:${C.ink}">${verb} tomorrow</strong> (${when}) for <strong>${b.name}</strong>.`)}
     ${detailCard(summaryRows(b) + rows(b.phone ? ([["Phone", b.phone]] as [string, string][]) : []))}
     ${b.phone ? `<div style="text-align:center">${waButton(b.phone, `Hi ${b.name}, this is Roule Rodrigues about your ${b.scooter} ${kind === "deliver" ? "pickup" : "return"} tomorrow — `, "💬 Message " + b.name)}</div>` : ""}`;
-  return shell({ eyebrow: `${verb} reminder`, title: `${verb} tomorrow`, body });
+  return shell({ eyebrow: `${verb} reminder`, title: `${verb} tomorrow`, body, logo });
 }
 
 /** Owner reminder: a scooter needs delivering tomorrow. */
 export async function sendAdminPickupReminder(b: BookingEmailData): Promise<boolean> {
   const owner = process.env.OWNER_EMAIL;
   if (!owner) return false;
-  return send(owner, `🛵 Deliver tomorrow: ${b.name} — ${b.scooter}`, ownerActionEmail(b, "deliver"));
+  const { logo } = await getBrand();
+  return send(owner, `🛵 Deliver tomorrow: ${b.name} — ${b.scooter}`, ownerActionEmail(b, "deliver", logo));
 }
 
 /** Owner reminder: a scooter is due back tomorrow. */
 export async function sendAdminReturnReminder(b: BookingEmailData): Promise<boolean> {
   const owner = process.env.OWNER_EMAIL;
   if (!owner) return false;
-  return send(owner, `↩️ Collect tomorrow: ${b.name} — ${b.scooter}`, ownerActionEmail(b, "collect"));
+  const { logo } = await getBrand();
+  return send(owner, `↩️ Collect tomorrow: ${b.name} — ${b.scooter}`, ownerActionEmail(b, "collect", logo));
 }
 
 // ── Stay · Eat · Do reservations ─────────────────────────────────────────
@@ -550,35 +677,39 @@ interface PlaceBookingEmailData {
 function placeRows(b: PlaceBookingEmailData): string {
   const sameDay = b.start_date === b.end_date;
   const pairs: [string, string][] = [
-    ["Place", b.place_name],
-    [sameDay ? "Date" : "Check-in", fmtDate(b.start_date)],
+    ["Place · Lieu", b.place_name],
+    [sameDay ? "Date" : "Check-in · Arrivée", fmtDate(b.start_date)],
   ];
-  if (!sameDay) pairs.push(["Check-out", fmtDate(b.end_date)]);
-  if (b.time_slot) pairs.push(["Time", b.time_slot]);
+  if (!sameDay) pairs.push(["Check-out · Départ", fmtDate(b.end_date)]);
+  if (b.time_slot) pairs.push(["Time · Heure", b.time_slot]);
   const qty = b.quantity ?? 0;
   if (qty > 0) {
-    const unit = b.category === "hotel" ? "Rooms" : b.category === "restaurant" ? "Party size" : "People";
+    const unit = b.category === "hotel" ? "Rooms · Chambres" : b.category === "restaurant" ? "Party size · Couverts" : "People · Personnes";
     pairs.push([unit, String(qty)]);
   }
-  if (b.guests) pairs.push(["Guests", String(b.guests)]);
+  if (b.guests) pairs.push(["Guests · Invités", String(b.guests)]);
   return rows(pairs);
 }
 
 /** Customer confirmation + owner notification for a Stay·Eat·Do reservation. */
 export async function sendPlaceBookingEmails(b: PlaceBookingEmailData): Promise<{ customer: boolean; owner: boolean }> {
   const result = { customer: false, owner: false };
-  const wa = await getOwnerWa();
+  const { wa, logo } = await getBrand();
 
   if (b.email) {
     const body = `
       ${paragraph(`Hi ${b.name}, we've received your reservation request for <strong>${b.place_name}</strong>. Our team will confirm availability with the venue and get back to you shortly.`)}
       ${detailCard(placeRows(b))}
       ${paragraph(`<span style="color:${C.muted};font-size:13px">This is a request, not yet a confirmed reservation — we'll be in touch to finalise everything.</span>`)}
-      ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! I just requested ${b.place_name} for ${fmtDate(b.start_date)}.`, "💬 Message us on WhatsApp")}</div>` : ""}`;
+      ${sepFr()}
+      ${frHeading("Merci pour votre réservation !")}
+      ${paragraph(`Bonjour ${b.name}, nous avons bien reçu votre demande de réservation pour <strong>${b.place_name}</strong>. Notre équipe confirmera la disponibilité auprès de l'établissement et reviendra vers vous très vite.`)}
+      ${paragraph(`<span style="color:${C.muted};font-size:13px">Il s'agit d'une demande, pas encore d'une réservation confirmée — nous vous recontacterons pour tout finaliser.</span>`)}
+      ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! I just requested ${b.place_name} for ${fmtDate(b.start_date)}.`, "💬 WhatsApp")}</div>` : ""}`;
     result.customer = await send(
       b.email,
-      `Your ${b.place_name} reservation request 🌴`,
-      shell({ preheader: "We've received your reservation — confirmation to follow.", eyebrow: "Reservation received", title: "Thanks for your reservation!", body }),
+      `Your ${b.place_name} reservation · Votre réservation 🌴`,
+      shell({ preheader: "We've received your reservation · Réservation bien reçue.", eyebrow: "Reservation received · Réservation reçue", title: "Thanks for your reservation!", body, logo }),
     );
   }
 
@@ -599,7 +730,7 @@ export async function sendPlaceBookingEmails(b: PlaceBookingEmailData): Promise<
     result.owner = await send(
       owner,
       `New reservation: ${b.name} — ${b.place_name}`,
-      shell({ eyebrow: "New reservation request", title: b.name, body }),
+      shell({ eyebrow: "New reservation request", title: b.name, body, logo }),
     );
   }
 
@@ -609,31 +740,37 @@ export async function sendPlaceBookingEmails(b: PlaceBookingEmailData): Promise<
 /** Customer reminder the day before a Stay·Eat·Do reservation. */
 export async function sendPlaceReminder(b: PlaceBookingEmailData): Promise<boolean> {
   if (!b.email) return false;
-  const wa = await getOwnerWa();
+  const { wa, logo } = await getBrand();
   const body = `
     ${paragraph(`Hi ${b.name}, a friendly reminder — your reservation at <strong>${b.place_name}</strong> is <strong>tomorrow</strong> (${fmtDate(b.start_date)}). 🌴`)}
     ${detailCard(placeRows(b))}
-    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi! About my ${b.place_name} reservation tomorrow — `, "💬 Message us on WhatsApp")}</div>` : ""}`;
+    ${sepFr()}
+    ${frHeading("À demain !")}
+    ${paragraph(`Bonjour ${b.name}, petit rappel — votre réservation à <strong>${b.place_name}</strong> est <strong>demain</strong> (${fmtDate(b.start_date)}). 🌴`)}
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi! About my ${b.place_name} reservation tomorrow — `, "💬 WhatsApp")}</div>` : ""}`;
   return send(
     b.email,
-    `Reminder: your ${b.place_name} reservation is tomorrow 🌴`,
-    shell({ preheader: "Your reservation is tomorrow — see you soon!", eyebrow: "Reservation reminder", title: "See you tomorrow!", body }),
+    `Reservation tomorrow · Réservation demain — ${b.place_name} 🌴`,
+    shell({ preheader: "Your reservation is tomorrow · Votre réservation, c'est demain.", eyebrow: "Reservation reminder · Rappel", title: "See you tomorrow!", body, logo }),
   );
 }
 
 /** Customer feedback request the day after a Stay·Eat·Do reservation. */
 export async function sendPlaceFeedbackRequest(b: PlaceBookingEmailData): Promise<boolean> {
   if (!b.email) return false;
-  const wa = await getOwnerWa();
+  const { wa, logo } = await getBrand();
   const reviewUrl = process.env.GOOGLE_REVIEW_URL || `${SITE_URL}/#reviews`;
   const body = `
     ${paragraph(`Hi ${b.name}, how was <strong>${b.place_name}</strong>? We'd love to hear about it — a quick review helps other travellers and the local business. 💛`)}
-    <div style="text-align:center">${primaryButton(reviewUrl, "⭐ Leave a review")}</div>
-    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! Here's my feedback on ${b.place_name}: `, "💬 Send feedback on WhatsApp")}</div>` : ""}`;
+    ${sepFr()}
+    ${frHeading("Merci de votre visite !")}
+    ${paragraph(`Bonjour ${b.name}, comment s'est passé <strong>${b.place_name}</strong> ? Nous serions ravis d'avoir votre retour — un petit avis aide d'autres voyageurs et l'entreprise locale. 💛`)}
+    <div style="text-align:center">${primaryButton(reviewUrl, "⭐ Leave a review · Laisser un avis")}</div>
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! Here's my feedback on ${b.place_name}: `, "💬 WhatsApp")}</div>` : ""}`;
   return send(
     b.email,
-    `How was ${b.place_name}? 🌴 We'd love your feedback`,
-    shell({ preheader: "A quick review helps other travellers.", eyebrow: "Your feedback", title: "Thanks for visiting!", body }),
+    `How was ${b.place_name}? · Votre avis ? 🌴`,
+    shell({ preheader: "A quick review helps other travellers · Votre avis compte.", eyebrow: "Your feedback · Votre avis", title: "Thanks for visiting!", body, logo }),
   );
 }
 
@@ -641,47 +778,60 @@ export async function sendPlaceFeedbackRequest(b: PlaceBookingEmailData): Promis
 export async function sendAdminPlaceReminder(b: PlaceBookingEmailData): Promise<boolean> {
   const owner = process.env.OWNER_EMAIL;
   if (!owner) return false;
+  const { logo } = await getBrand();
   const body = `
     ${paragraph(`<strong style="color:${C.ink}">Reservation tomorrow</strong> (${fmtDate(b.start_date)}) — <strong>${b.name}</strong> at <strong>${b.place_name}</strong>.`)}
     ${detailCard(placeRows(b) + rows(b.phone ? ([["Phone", b.phone]] as [string, string][]) : []))}
     ${b.phone ? `<div style="text-align:center">${waButton(b.phone, `Hi ${b.name}, this is Roule Rodrigues about your ${b.place_name} reservation tomorrow — `, "💬 Message " + b.name)}</div>` : ""}`;
-  return send(owner, `🌴 Reservation tomorrow: ${b.name} — ${b.place_name}`, shell({ eyebrow: "Reservation reminder", title: "Reservation tomorrow", body }));
+  return send(owner, `🌴 Reservation tomorrow: ${b.name} — ${b.place_name}`, shell({ eyebrow: "Reservation reminder", title: "Reservation tomorrow", body, logo }));
 }
 
-// ── Instant enquiry auto-reply ───────────────────────────────────────────
+// ── Instant enquiry auto-reply (bilingual) ───────────────────────────────
 export async function sendEnquiryAck(to: string, name: string | null): Promise<boolean> {
-  const wa = await getOwnerWa();
-  const hi = name ? `Hi ${name},` : "Hi there,";
+  const { wa, logo } = await getBrand();
+  const hiEn = name ? `Hi ${name},` : "Hi there,";
+  const hiFr = name ? `Bonjour ${name},` : "Bonjour,";
   const body = `
-    ${paragraph(`${hi} thanks for reaching out to Roule Rodrigues! 🛵 We've received your message and a real person will get back to you within a few hours (we're on island time, UTC+4).`)}
+    ${paragraph(`${hiEn} thanks for reaching out to Roule Rodrigues! 🛵 We've received your message and a real person will get back to you within a few hours (we're on island time, UTC+4).`)}
     ${paragraph(`Need a faster answer? Message us directly on WhatsApp — we usually reply within minutes.`)}
-    ${wa ? `<div style="text-align:center">${waButton(wa, "Hi Roule Rodrigues! I just sent an enquiry through your website. ", "💬 Chat on WhatsApp")}</div>` : ""}`;
+    ${sepFr()}
+    ${frHeading("Merci de nous avoir contactés !")}
+    ${paragraph(`${hiFr} merci d'avoir contacté Roule Rodrigues ! 🛵 Nous avons bien reçu votre message et une vraie personne vous répondra sous quelques heures (nous sommes à l'heure de l'île, UTC+4).`)}
+    ${paragraph(`Besoin d'une réponse plus rapide ? Écrivez-nous directement sur WhatsApp — nous répondons généralement en quelques minutes.`)}
+    ${wa ? `<div style="text-align:center">${waButton(wa, "Hi Roule Rodrigues! I just sent an enquiry through your website. ", "💬 WhatsApp")}</div>` : ""}`;
   return send(
     to,
-    "We've got your message 🛵 — Roule Rodrigues",
-    shell({ preheader: "We've received your message — we'll reply shortly.", eyebrow: "Message received", title: "Thanks for getting in touch!", body }),
+    "We've got your message · Message bien reçu 🛵",
+    shell({ preheader: "We've received your message · Nous avons bien reçu votre message.", eyebrow: "Message received · Message reçu", title: "Thanks for getting in touch!", body, logo }),
   );
 }
 
-// ── Waitlist / saved-list welcome (lifecycle remarketing) ────────────────
+// ── Waitlist / saved-list welcome (lifecycle remarketing, bilingual) ─────
 export async function sendWaitlistWelcome(to: string, source?: string): Promise<boolean> {
-  const wa = await getOwnerWa();
+  const { wa, logo } = await getBrand();
   const savedList = source === "saved-list";
-  const intro = savedList
+  const introEn = savedList
     ? "Thanks for saving your favourites on Roule Rodrigues! Your list is ready whenever you are — come back any time to pick up where you left off and book."
     : "Thanks for joining Roule Rodrigues! 🌴 We'll send you the best island tips, scooter deals and hidden spots from Rodrigues — no spam, ever.";
+  const introFr = savedList
+    ? "Merci d'avoir enregistré vos favoris sur Roule Rodrigues ! Votre liste est prête quand vous le souhaitez — revenez à tout moment pour reprendre là où vous vous êtes arrêté et réserver."
+    : "Merci d'avoir rejoint Roule Rodrigues ! 🌴 Nous vous enverrons les meilleurs conseils, offres scooters et coins secrets de Rodrigues — jamais de spam.";
   const body = `
-    ${paragraph(intro)}
-    <div style="text-align:center">${primaryButton(SITE_URL, "Plan your Rodrigues trip →")}</div>
-    ${wa ? `<div style="text-align:center">${waButton(wa, "Hi Roule Rodrigues! I'd love some help planning my trip. ", "💬 Chat on WhatsApp")}</div>` : ""}`;
+    ${paragraph(introEn)}
+    ${sepFr()}
+    ${frHeading(savedList ? "Votre liste est enregistrée" : "Bienvenue à bord !")}
+    ${paragraph(introFr)}
+    <div style="text-align:center">${primaryButton(SITE_URL, "Plan your trip · Planifiez votre voyage →")}</div>
+    ${wa ? `<div style="text-align:center">${waButton(wa, "Hi Roule Rodrigues! I'd love some help planning my trip. ", "💬 WhatsApp")}</div>` : ""}`;
   return send(
     to,
-    savedList ? "Your Roule Rodrigues list is saved 🛵" : "Welcome to Roule Rodrigues 🛵🌴",
+    savedList ? "Your list is saved · Votre liste est enregistrée 🛵" : "Welcome to Roule Rodrigues · Bienvenue 🛵🌴",
     shell({
-      preheader: savedList ? "Your saved list is waiting whenever you're ready." : "Island tips, deals and hidden spots from Rodrigues.",
-      eyebrow: savedList ? "Your saved list" : "Welcome aboard",
+      preheader: savedList ? "Your saved list is waiting · Votre liste vous attend." : "Island tips, deals and hidden spots · Conseils et offres de Rodrigues.",
+      eyebrow: savedList ? "Your saved list · Votre liste" : "Welcome aboard · Bienvenue",
       title: savedList ? "Your saved list is waiting" : "Welcome aboard!",
       body,
+      logo,
     }),
   );
 }
