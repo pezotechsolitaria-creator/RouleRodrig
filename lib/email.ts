@@ -18,7 +18,22 @@ interface BookingEmailData {
   return_time?: string | null;
 }
 
-const BRAND = "#F5C842";
+// ── Brand system ─────────────────────────────────────────────────────────
+// A small, consistent design language shared by every email so the whole
+// lifecycle (confirmation → reminders → feedback) looks like one premium brand.
+const C = {
+  gold: "#F5C842",
+  ink: "#0F0F0F",
+  text: "#4A4A4A",
+  muted: "#8C8C8C",
+  line: "#ECECEC",
+  soft: "#F7F6F2",
+  card: "#FFFFFF",
+  green: "#25D366",
+};
+const FONT =
+  "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+const BRAND = C.gold; // kept for backwards-compat references
 
 // ── WhatsApp one-tap buttons ─────────────────────────────────────────────
 // We don't auto-send over WhatsApp (no paid API) — instead every email carries
@@ -30,11 +45,34 @@ function waButton(phone: string | null | undefined, text: string, label: string)
   const d = waDigits(phone);
   if (!d) return "";
   const href = `https://wa.me/${d}?text=${encodeURIComponent(text)}`;
-  return `<a href="${href}" style="display:inline-block;background:#25D366;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:10px;margin-top:10px">${label}</a>`;
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:12px auto 2px"><tr><td style="border-radius:12px;background:${C.green}">
+    <a href="${href}" style="display:inline-block;font-family:${FONT};font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;padding:13px 26px;border-radius:12px">${label}</a>
+  </td></tr></table>`;
 }
-// Business WhatsApp number used in customer-facing buttons.
-function ownerWa(): string {
-  return process.env.OWNER_WHATSAPP || process.env.OWNER_PHONE || "";
+
+// Business WhatsApp number for customer-facing buttons. Env first, then the
+// number the owner saved for alerts (app_secrets.callmebot_phone) so the
+// buttons light up without any extra configuration.
+let ownerWaCache: { wa: string; at: number } | null = null;
+async function getOwnerWa(): Promise<string> {
+  const env = process.env.OWNER_WHATSAPP || process.env.OWNER_PHONE || "";
+  if (env) return env;
+  if (ownerWaCache && Date.now() - ownerWaCache.at < EMAIL_CFG_TTL) return ownerWaCache.wa;
+  let wa = "";
+  try {
+    const { getPrivileged } = await import("./supabase/admin");
+    const supabase = await getPrivileged();
+    const { data } = await supabase
+      .from("app_secrets")
+      .select("value")
+      .eq("key", "callmebot_phone")
+      .maybeSingle();
+    wa = (data?.value ?? "").toString().trim();
+  } catch {
+    /* best-effort */
+  }
+  ownerWaCache = { wa, at: Date.now() };
+  return wa;
 }
 
 function fmtTime(t?: string | null): string {
@@ -61,6 +99,97 @@ function parseFrom(raw: string): { email: string; name: string } {
   return { name: "Roule Rodrigues", email: raw.trim() };
 }
 
+// ── Reusable, email-client-safe building blocks ──────────────────────────
+// Hidden preview text shown in the inbox list next to the subject.
+function preheader(text: string): string {
+  return `<div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all">${text}${"&#8199;&#8203;".repeat(60)}</div>`;
+}
+
+function paragraph(html: string): string {
+  return `<p style="font-family:${FONT};font-size:15px;line-height:1.65;color:${C.text};margin:0 0 16px">${html}</p>`;
+}
+
+function sectionLabel(text: string): string {
+  return `<div style="font-family:${FONT};font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:${C.ink};margin:2px 0 10px">${text}</div>`;
+}
+
+// Renders label/value pairs as tidy rows with hairline dividers.
+function rows(pairs: [string, string][]): string {
+  return pairs
+    .map(
+      ([k, v], i) =>
+        `<tr>
+          <td style="font-family:${FONT};padding:11px 0;color:${C.muted};font-size:13px;vertical-align:top;white-space:nowrap;${i ? `border-top:1px solid ${C.line};` : ""}">${k}</td>
+          <td style="font-family:${FONT};padding:11px 0 11px 14px;color:${C.ink};font-weight:600;font-size:14px;text-align:right;${i ? `border-top:1px solid ${C.line};` : ""}">${v}</td>
+        </tr>`,
+    )
+    .join("");
+}
+
+// Wraps a set of rows in a soft, rounded detail card.
+function detailCard(rowsHtml: string): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.soft};border:1px solid ${C.line};border-radius:14px;margin:0 0 22px">
+    <tr><td style="padding:6px 20px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rowsHtml}</table>
+    </td></tr>
+  </table>`;
+}
+
+function checkList(items: string[]): string {
+  return (
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px">` +
+    items
+      .map(
+        (it) =>
+          `<tr><td style="font-family:${FONT};padding:5px 0;color:${C.text};font-size:14px;line-height:1.55;vertical-align:top"><span style="color:${C.gold};font-weight:800;margin-right:9px">›</span>${it}</td></tr>`,
+      )
+      .join("") +
+    `</table>`
+  );
+}
+
+function primaryButton(href: string, label: string): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px auto 4px"><tr><td style="border-radius:12px;background:${C.gold}">
+    <a href="${href}" style="display:inline-block;font-family:${FONT};font-size:15px;font-weight:700;color:${C.ink};text-decoration:none;padding:14px 32px;border-radius:12px">${label}</a>
+  </td></tr></table>`;
+}
+
+/**
+ * The master shell every email is built with: soft canvas, rounded white card,
+ * dark branded header with tagline + gold rule, content area, and a footer with
+ * the business identity. `eyebrow` is a small gold kicker above the title.
+ */
+function shell(opts: { preheader?: string; eyebrow?: string; title: string; body: string }): string {
+  const { preheader: pre = "", eyebrow = "", title, body } = opts;
+  return `${pre ? preheader(pre) : ""}
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.soft};margin:0;padding:26px 12px">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:${C.card};border-radius:18px;overflow:hidden;border:1px solid ${C.line}">
+        <tr><td style="background:${C.ink};padding:28px 32px;text-align:center">
+          <div style="font-family:${FONT};font-size:22px;font-weight:800;letter-spacing:2px;color:${C.gold}">ROULE&nbsp;RODRIGUES</div>
+          <div style="font-family:${FONT};font-size:11px;font-weight:600;letter-spacing:3px;color:#9a9a9a;margin-top:7px">SCOOTER RENTALS · RODRIGUES ISLAND</div>
+        </td></tr>
+        <tr><td style="height:4px;line-height:4px;font-size:0;background:${C.gold}">&nbsp;</td></tr>
+        <tr><td style="padding:34px 32px 28px">
+          ${eyebrow ? `<div style="font-family:${FONT};font-size:12px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#b8912b;margin:0 0 12px">${eyebrow}</div>` : ""}
+          <h1 style="font-family:${FONT};font-size:23px;line-height:1.3;font-weight:800;color:${C.ink};margin:0 0 18px">${title}</h1>
+          ${body}
+        </td></tr>
+        <tr><td style="background:${C.soft};border-top:1px solid ${C.line};padding:24px 32px;text-align:center">
+          <div style="font-family:${FONT};font-size:13px;font-weight:700;color:${C.ink}">Roule Rodrigues</div>
+          <div style="font-family:${FONT};font-size:12px;color:${C.muted};margin-top:5px;line-height:1.7">
+            Port Mathurin · Rodrigues Island, Mauritius<br>
+            <a href="${SITE_URL}" style="color:#b8912b;text-decoration:none;font-weight:600">Visit our website →</a>
+          </div>
+        </td></tr>
+      </table>
+      <div style="font-family:${FONT};font-size:11px;color:#b6b6b6;margin-top:16px;line-height:1.6;max-width:600px">
+        You received this email because you contacted or booked with Roule Rodrigues.
+      </div>
+    </td></tr>
+  </table>`;
+}
+
 // ── Brevo config: admin-saved values (app_secrets) first, env fallback ──
 // Same pattern as the WhatsApp alerts — the owner can paste the API key and
 // sender in Admin → Alerts & Email with no redeploy.
@@ -70,6 +199,7 @@ const EMAIL_CFG_TTL = 5 * 60 * 1000;
 /** Drop the cached email config (called after the admin saves new settings). */
 export function invalidateEmailConfig(): void {
   emailCfg = null;
+  ownerWaCache = null;
 }
 
 /**
@@ -248,22 +378,15 @@ async function send(to: string, subject: string, html: string): Promise<boolean>
 }
 
 function summaryRows(b: BookingEmailData): string {
-  const rows: [string, string][] = [
-    ["Scooter", b.scooter],
-  ];
-  if (b.asset_label) rows.push(["Unit", b.asset_label]);
-  rows.push(
+  const pairs: [string, string][] = [["Vehicle", b.scooter]];
+  if (b.asset_label) pairs.push(["Unit", b.asset_label]);
+  pairs.push(
     ["Pickup", fmtDate(b.start_date) + (b.pickup_time ? ` · ${fmtTime(b.pickup_time)}` : "")],
     ["Return", fmtDate(b.end_date) + (b.return_time ? ` · ${fmtTime(b.return_time)}` : "")],
     ["Duration", `${b.days} day${b.days !== 1 ? "s" : ""}`],
   );
-  if (b.total_price) rows.push(["Estimated total", b.total_price]);
-  return rows
-    .map(
-      ([k, v]) =>
-        `<tr><td style="padding:6px 0;color:#888;font-size:14px">${k}</td><td style="padding:6px 0;color:#0a0a0a;font-weight:600;font-size:14px;text-align:right">${v}</td></tr>`
-    )
-    .join("");
+  if (b.total_price) pairs.push(["Estimated total", b.total_price]);
+  return rows(pairs);
 }
 
 /**
@@ -273,153 +396,126 @@ function summaryRows(b: BookingEmailData): string {
  */
 export async function sendBookingEmails(b: BookingEmailData): Promise<{ customer: boolean; owner: boolean }> {
   const result = { customer: false, owner: false };
+  const wa = await getOwnerWa();
 
   // ── Customer confirmation ──
   if (b.email) {
-    const html = `
-      <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #eee">
-        <div style="background:#0a0a0a;padding:24px;text-align:center">
-          <span style="color:${BRAND};font-size:22px;font-weight:800;letter-spacing:1px">ROULE RODRIGUES</span>
-        </div>
-        <div style="padding:28px">
-          <h1 style="font-size:20px;color:#0a0a0a;margin:0 0 8px">Thank you, ${b.name}! 🎉</h1>
-          <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 20px">
-            Thank you for choosing Roule Rodrigues! We've received your booking and will confirm
-            availability and payment details shortly — usually within a few hours, often via WhatsApp.
-          </p>
-          <p style="color:#0a0a0a;font-weight:700;font-size:13px;margin:0 0 6px">Booking details</p>
-          <table style="width:100%;border-collapse:collapse;border-top:1px solid #eee;border-bottom:1px solid #eee;margin-bottom:20px">${summaryRows(b)}</table>
-          <p style="color:#0a0a0a;font-weight:700;font-size:13px;margin:0 0 6px">Before your pickup, please bring</p>
-          <ul style="color:#555;font-size:13px;line-height:1.7;margin:0 0 18px;padding-left:18px">
-            <li>A valid driver's licence</li>
-            <li>Your booking confirmation</li>
-            <li>A valid ID or passport if requested</li>
-          </ul>
-          <p style="color:#555;font-size:13px;line-height:1.6;margin:0 0 14px">
-            Arrive 10–15 minutes early and inspect the scooter with our team before leaving.
-            Any questions? Just reply to this email — we look forward to welcoming you!
-          </p>
-          ${ownerWa() ? `<div style="text-align:center">${waButton(ownerWa(), `Hi Roule Rodrigues! I just booked ${b.scooter} for ${fmtDate(b.start_date)} – ${fmtDate(b.end_date)}.`, "💬 Message us on WhatsApp")}</div>` : ""}
-        </div>
-        <div style="background:#f5f5f0;padding:16px;text-align:center;color:#888;font-size:12px">
-          Roule Rodrigues · Rodrigues Island, Mauritius
-        </div>
-      </div>`;
-    result.customer = await send(b.email, "Your Roule Rodrigues booking request 🛵", html);
+    const body = `
+      ${paragraph(
+        `Thank you for choosing Roule Rodrigues. We've received your booking request and our team will confirm availability and payment details shortly — usually within a few hours, often via WhatsApp.`,
+      )}
+      ${sectionLabel("Your booking")}
+      ${detailCard(summaryRows(b))}
+      ${sectionLabel("Before your pickup, please bring")}
+      ${checkList(["A valid driver's licence", "Your booking confirmation", "A valid ID or passport if requested"])}
+      ${paragraph(
+        `Please arrive 10–15 minutes early so we can walk you through the vehicle together before you set off. Have a question in the meantime? Simply reply to this email — we look forward to welcoming you!`,
+      )}
+      ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! I just booked the ${b.scooter} for ${fmtDate(b.start_date)} – ${fmtDate(b.end_date)}.`, "💬 Message us on WhatsApp")}</div>` : ""}`;
+    result.customer = await send(
+      b.email,
+      "Your Roule Rodrigues booking request 🛵",
+      shell({
+        preheader: "We've received your booking — we'll confirm availability shortly.",
+        eyebrow: "Booking received",
+        title: `Thank you, ${b.name}!`,
+        body,
+      }),
+    );
   }
 
   // ── Owner notification ──
   const owner = process.env.OWNER_EMAIL;
   if (owner) {
-    const html = `
-      <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #eee">
-        <div style="background:${BRAND};padding:18px;text-align:center">
-          <span style="color:#0a0a0a;font-size:18px;font-weight:800">NEW BOOKING REQUEST</span>
-        </div>
-        <div style="padding:28px">
-          <h1 style="font-size:18px;color:#0a0a0a;margin:0 0 16px">${b.name}</h1>
-          <table style="width:100%;border-collapse:collapse;border-top:1px solid #eee;border-bottom:1px solid #eee;margin-bottom:16px">
-            ${summaryRows(b)}
-            ${b.phone ? `<tr><td style="padding:6px 0;color:#888;font-size:14px">Phone</td><td style="padding:6px 0;color:#0a0a0a;font-weight:600;font-size:14px;text-align:right">${b.phone}</td></tr>` : ""}
-            ${b.email ? `<tr><td style="padding:6px 0;color:#888;font-size:14px">Email</td><td style="padding:6px 0;color:#0a0a0a;font-weight:600;font-size:14px;text-align:right">${b.email}</td></tr>` : ""}
-          </table>
-          ${b.message ? `<p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 8px"><strong>Note:</strong> ${b.message}</p>` : ""}
-          ${b.phone ? `<div style="margin:6px 0 4px">${waButton(b.phone, `Hi ${b.name}, thanks for your Roule Rodrigues booking request for ${b.scooter}! `, "💬 Message " + b.name + " on WhatsApp")}</div>` : ""}
-          <p style="color:#888;font-size:12px;margin:12px 0 0">Manage this in your admin dashboard → Bookings.</p>
-        </div>
-      </div>`;
-    result.owner = await send(owner, `New booking: ${b.name} — ${b.scooter}`, html);
+    const ownerRows: [string, string][] = [];
+    const body = `
+      ${paragraph(`You have a new booking request. Details below — manage it in your admin dashboard under <strong>Bookings</strong>.`)}
+      ${detailCard(
+        summaryRows(b) +
+          rows([
+            ...(b.phone ? ([["Phone", b.phone]] as [string, string][]) : []),
+            ...(b.email ? ([["Email", b.email]] as [string, string][]) : []),
+            ...ownerRows,
+          ]),
+      )}
+      ${b.message ? paragraph(`<strong style="color:${C.ink}">Customer note:</strong> ${b.message}`) : ""}
+      ${b.phone ? `<div style="text-align:center">${waButton(b.phone, `Hi ${b.name}, thanks for your Roule Rodrigues booking request for the ${b.scooter}! `, "💬 Message " + b.name)}</div>` : ""}`;
+    result.owner = await send(
+      owner,
+      `New booking: ${b.name} — ${b.scooter}`,
+      shell({ eyebrow: "New booking request", title: b.name, body }),
+    );
   }
 
   return result;
 }
 
-// ── Reminder emails (sent by the daily cron) ─────────────────────────
-
-function reminderShell(title: string, body: string): string {
-  return `
-    <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #eee">
-      <div style="background:#0a0a0a;padding:22px;text-align:center">
-        <span style="color:${BRAND};font-size:20px;font-weight:800;letter-spacing:1px">ROULE RODRIGUES</span>
-      </div>
-      <div style="padding:28px">
-        <h1 style="font-size:19px;color:#0a0a0a;margin:0 0 12px">${title}</h1>
-        ${body}
-      </div>
-      <div style="background:#f5f5f0;padding:16px;text-align:center;color:#888;font-size:12px">
-        Roule Rodrigues · Rodrigues Island, Mauritius
-      </div>
-    </div>`;
-}
+// ── Reminder / feedback emails (sent by the daily cron) ──────────────────
 
 /** Reminder sent the day before pickup. */
 export async function sendPickupReminder(b: BookingEmailData): Promise<boolean> {
   if (!b.email) return false;
+  const wa = await getOwnerWa();
   const body = `
-    <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px">
-      Hi ${b.name}, this is a friendly reminder that your scooter rental is <strong>tomorrow</strong>. 🛵
-    </p>
-    <table style="width:100%;border-collapse:collapse;border-top:1px solid #eee;border-bottom:1px solid #eee">${summaryRows(b)}</table>
-    <p style="color:#555;font-size:13px;line-height:1.6;margin:16px 0 8px">
-      Please bring your driver's licence and arrive a few minutes early. We can't wait to help you
-      discover Rodrigues Island — see you tomorrow!
-    </p>
-    ${ownerWa() ? `<div style="text-align:center">${waButton(ownerWa(), `Hi! About my Roule Rodrigues pickup tomorrow (${b.scooter}) — `, "💬 Message us on WhatsApp")}</div>` : ""}`;
-  return send(b.email, "Your Roule Rodrigues rental is tomorrow 🛵", reminderShell("See you tomorrow!", body));
+    ${paragraph(`Hi ${b.name}, this is a friendly reminder that your rental starts <strong>tomorrow</strong>. 🛵`)}
+    ${detailCard(summaryRows(b))}
+    ${paragraph(`Please bring your driver's licence and arrive a few minutes early. We can't wait to help you discover Rodrigues Island — see you tomorrow!`)}
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi! About my Roule Rodrigues pickup tomorrow (${b.scooter}) — `, "💬 Message us on WhatsApp")}</div>` : ""}`;
+  return send(
+    b.email,
+    "Your Roule Rodrigues rental is tomorrow 🛵",
+    shell({ preheader: "Pickup is tomorrow — here's everything you need.", eyebrow: "Pickup reminder", title: "See you tomorrow!", body }),
+  );
 }
 
 /** Reminder sent the day before the return is due. */
 export async function sendReturnReminder(b: BookingEmailData): Promise<boolean> {
   if (!b.email) return false;
+  const wa = await getOwnerWa();
   const body = `
-    <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px">
-      Hi ${b.name}, a friendly reminder that your scooter is due back <strong>tomorrow</strong> (${fmtDate(b.end_date)}).
-    </p>
-    <table style="width:100%;border-collapse:collapse;border-top:1px solid #eee;border-bottom:1px solid #eee">${summaryRows(b)}</table>
-    <p style="color:#0a0a0a;font-weight:700;font-size:13px;margin:16px 0 6px">Before returning the scooter, please</p>
-    <ul style="color:#555;font-size:13px;line-height:1.7;margin:0 0 16px;padding-left:18px">
-      <li>Return it with the agreed fuel level</li>
-      <li>Bring back the keys and any accessories provided</li>
-      <li>Let us know immediately if you had any issue during your rental</li>
-    </ul>
-    <p style="color:#555;font-size:13px;line-height:1.6;margin:0 0 8px">
-      Thank you for choosing Roule Rodrigues — we hope you had an amazing time exploring Rodrigues,
-      and we'd love to welcome you again on your next visit! 💛
-    </p>
-    ${ownerWa() ? `<div style="text-align:center">${waButton(ownerWa(), `Hi! About my Roule Rodrigues return (${b.scooter}) — `, "💬 Message us on WhatsApp")}</div>` : ""}`;
-  return send(b.email, "Reminder: your scooter return is tomorrow", reminderShell("Return reminder", body));
+    ${paragraph(`Hi ${b.name}, a friendly reminder that your vehicle is due back <strong>tomorrow</strong> (${fmtDate(b.end_date)}).`)}
+    ${detailCard(summaryRows(b))}
+    ${sectionLabel("Before returning, please")}
+    ${checkList([
+      "Return it with the agreed fuel level",
+      "Bring back the keys and any accessories provided",
+      "Let us know right away if you had any issue during your rental",
+    ])}
+    ${paragraph(`Thank you for choosing Roule Rodrigues — we hope you had an amazing time exploring the island, and we'd love to welcome you again on your next visit! 💛`)}
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi! About my Roule Rodrigues return (${b.scooter}) — `, "💬 Message us on WhatsApp")}</div>` : ""}`;
+  return send(
+    b.email,
+    "Reminder: your return is tomorrow",
+    shell({ preheader: "Your vehicle is due back tomorrow — a quick checklist inside.", eyebrow: "Return reminder", title: "Return reminder", body }),
+  );
 }
 
 // ── Post-rental feedback request (sent the day after return) ──────────────
 export async function sendFeedbackRequest(b: BookingEmailData): Promise<boolean> {
   if (!b.email) return false;
+  const wa = await getOwnerWa();
   const reviewUrl = process.env.GOOGLE_REVIEW_URL || `${SITE_URL}/#reviews`;
   const body = `
-    <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px">
-      Hi ${b.name}, we hope you loved exploring Rodrigues! 🌴 How was your ride with the ${b.scooter}?
-    </p>
-    <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 18px">
-      A quick review means the world to a small island business — it takes 30 seconds and helps other travellers find us.
-    </p>
-    <div style="text-align:center;margin-bottom:6px">
-      <a href="${reviewUrl}" style="display:inline-block;background:${BRAND};color:#0a0a0a;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:10px">⭐ Leave a review</a>
-    </div>
-    ${ownerWa() ? `<div style="text-align:center">${waButton(ownerWa(), `Hi Roule Rodrigues! Here's my feedback on the ${b.scooter}: `, "💬 Send feedback on WhatsApp")}</div>` : ""}`;
-  return send(b.email, "How was your ride? 🛵 We'd love your feedback", reminderShell("Thanks for riding with us!", body));
+    ${paragraph(`Hi ${b.name}, we hope you loved exploring Rodrigues! 🌴 How was your ride with the ${b.scooter}?`)}
+    ${paragraph(`A quick review means the world to a small island business — it takes about 30 seconds and helps other travellers discover us.`)}
+    <div style="text-align:center">${primaryButton(reviewUrl, "⭐ Leave a review")}</div>
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! Here's my feedback on the ${b.scooter}: `, "💬 Send feedback on WhatsApp")}</div>` : ""}`;
+  return send(
+    b.email,
+    "How was your ride? 🛵 We'd love your feedback",
+    shell({ preheader: "A 30-second review helps other travellers find us.", eyebrow: "Your feedback", title: "Thanks for riding with us!", body }),
+  );
 }
 
 // ── Owner / admin reminders (sent the day before) ────────────────────────
 function ownerActionEmail(b: BookingEmailData, kind: "deliver" | "collect"): string {
   const verb = kind === "deliver" ? "Deliver" : "Collect";
   const when = kind === "deliver" ? fmtDate(b.start_date) : fmtDate(b.end_date);
-  const rows = `${summaryRows(b)}${b.phone ? `<tr><td style="padding:6px 0;color:#888;font-size:14px">Phone</td><td style="padding:6px 0;color:#0a0a0a;font-weight:600;font-size:14px;text-align:right">${b.phone}</td></tr>` : ""}`;
   const body = `
-    <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 14px">
-      <strong>${verb} tomorrow</strong> (${when}) for <strong>${b.name}</strong>.
-    </p>
-    <table style="width:100%;border-collapse:collapse;border-top:1px solid #eee;border-bottom:1px solid #eee">${rows}</table>
-    ${b.phone ? `<div style="margin-top:10px;text-align:center">${waButton(b.phone, `Hi ${b.name}, this is Roule Rodrigues about your ${b.scooter} ${kind === "deliver" ? "pickup" : "return"} tomorrow — `, "💬 Message " + b.name + " on WhatsApp")}</div>` : ""}`;
-  return reminderShell(`${verb} reminder`, body);
+    ${paragraph(`<strong style="color:${C.ink}">${verb} tomorrow</strong> (${when}) for <strong>${b.name}</strong>.`)}
+    ${detailCard(summaryRows(b) + rows(b.phone ? ([["Phone", b.phone]] as [string, string][]) : []))}
+    ${b.phone ? `<div style="text-align:center">${waButton(b.phone, `Hi ${b.name}, this is Roule Rodrigues about your ${b.scooter} ${kind === "deliver" ? "pickup" : "return"} tomorrow — `, "💬 Message " + b.name)}</div>` : ""}`;
+  return shell({ eyebrow: `${verb} reminder`, title: `${verb} tomorrow`, body });
 }
 
 /** Owner reminder: a scooter needs delivering tomorrow. */
@@ -453,59 +549,58 @@ interface PlaceBookingEmailData {
 
 function placeRows(b: PlaceBookingEmailData): string {
   const sameDay = b.start_date === b.end_date;
-  const rows: [string, string][] = [
+  const pairs: [string, string][] = [
     ["Place", b.place_name],
     [sameDay ? "Date" : "Check-in", fmtDate(b.start_date)],
   ];
-  if (!sameDay) rows.push(["Check-out", fmtDate(b.end_date)]);
-  if (b.time_slot) rows.push(["Time", b.time_slot]);
+  if (!sameDay) pairs.push(["Check-out", fmtDate(b.end_date)]);
+  if (b.time_slot) pairs.push(["Time", b.time_slot]);
   const qty = b.quantity ?? 0;
   if (qty > 0) {
     const unit = b.category === "hotel" ? "Rooms" : b.category === "restaurant" ? "Party size" : "People";
-    rows.push([unit, String(qty)]);
+    pairs.push([unit, String(qty)]);
   }
-  if (b.guests) rows.push(["Guests", String(b.guests)]);
-  return rows
-    .map(
-      ([k, v]) =>
-        `<tr><td style="padding:6px 0;color:#888;font-size:14px">${k}</td><td style="padding:6px 0;color:#0a0a0a;font-weight:600;font-size:14px;text-align:right">${v}</td></tr>`,
-    )
-    .join("");
+  if (b.guests) pairs.push(["Guests", String(b.guests)]);
+  return rows(pairs);
 }
 
 /** Customer confirmation + owner notification for a Stay·Eat·Do reservation. */
 export async function sendPlaceBookingEmails(b: PlaceBookingEmailData): Promise<{ customer: boolean; owner: boolean }> {
   const result = { customer: false, owner: false };
+  const wa = await getOwnerWa();
 
   if (b.email) {
     const body = `
-      <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 18px">
-        Hi ${b.name}, we've received your reservation request for <strong>${b.place_name}</strong>.
-        Our team will confirm availability with the venue and get back to you shortly.
-      </p>
-      <table style="width:100%;border-collapse:collapse;border-top:1px solid #eee;border-bottom:1px solid #eee;margin-bottom:16px">${placeRows(b)}</table>
-      <p style="color:#888;font-size:12px;line-height:1.6;margin:0 0 14px">
-        This is a request, not a confirmed reservation — we'll be in touch to finalise everything.
-      </p>
-      ${ownerWa() ? `<div style="text-align:center">${waButton(ownerWa(), `Hi Roule Rodrigues! I just requested ${b.place_name} for ${fmtDate(b.start_date)}.`, "💬 Message us on WhatsApp")}</div>` : ""}`;
-    result.customer = await send(b.email, `Your ${b.place_name} reservation request 🌴`, reminderShell("Thanks for your reservation!", body));
+      ${paragraph(`Hi ${b.name}, we've received your reservation request for <strong>${b.place_name}</strong>. Our team will confirm availability with the venue and get back to you shortly.`)}
+      ${detailCard(placeRows(b))}
+      ${paragraph(`<span style="color:${C.muted};font-size:13px">This is a request, not yet a confirmed reservation — we'll be in touch to finalise everything.</span>`)}
+      ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! I just requested ${b.place_name} for ${fmtDate(b.start_date)}.`, "💬 Message us on WhatsApp")}</div>` : ""}`;
+    result.customer = await send(
+      b.email,
+      `Your ${b.place_name} reservation request 🌴`,
+      shell({ preheader: "We've received your reservation — confirmation to follow.", eyebrow: "Reservation received", title: "Thanks for your reservation!", body }),
+    );
   }
 
   const owner = process.env.OWNER_EMAIL;
   if (owner) {
     const body = `
-      <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 12px">
-        New <strong>Stay·Eat·Do</strong> reservation request from <strong>${b.name}</strong>.
-      </p>
-      <table style="width:100%;border-collapse:collapse;border-top:1px solid #eee;border-bottom:1px solid #eee;margin-bottom:12px">
-        ${placeRows(b)}
-        ${b.phone ? `<tr><td style="padding:6px 0;color:#888;font-size:14px">Phone</td><td style="padding:6px 0;color:#0a0a0a;font-weight:600;font-size:14px;text-align:right">${b.phone}</td></tr>` : ""}
-        ${b.email ? `<tr><td style="padding:6px 0;color:#888;font-size:14px">Email</td><td style="padding:6px 0;color:#0a0a0a;font-weight:600;font-size:14px;text-align:right">${b.email}</td></tr>` : ""}
-      </table>
-      ${b.message ? `<p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 8px"><strong>Note:</strong> ${b.message}</p>` : ""}
-      ${b.phone ? `<div style="margin:6px 0 4px">${waButton(b.phone, `Hi ${b.name}, this is Roule Rodrigues about your ${b.place_name} reservation — `, "💬 Message " + b.name + " on WhatsApp")}</div>` : ""}
-      <p style="color:#888;font-size:12px;margin:12px 0 0">Manage this in your admin dashboard → Stay·Eat·Do Bookings.</p>`;
-    result.owner = await send(owner, `New reservation: ${b.name} — ${b.place_name}`, reminderShell("New reservation request", body));
+      ${paragraph(`New <strong>Stay·Eat·Do</strong> reservation request from <strong>${b.name}</strong>.`)}
+      ${detailCard(
+        placeRows(b) +
+          rows([
+            ...(b.phone ? ([["Phone", b.phone]] as [string, string][]) : []),
+            ...(b.email ? ([["Email", b.email]] as [string, string][]) : []),
+          ]),
+      )}
+      ${b.message ? paragraph(`<strong style="color:${C.ink}">Note:</strong> ${b.message}`) : ""}
+      ${b.phone ? `<div style="text-align:center">${waButton(b.phone, `Hi ${b.name}, this is Roule Rodrigues about your ${b.place_name} reservation — `, "💬 Message " + b.name)}</div>` : ""}
+      ${paragraph(`<span style="color:${C.muted};font-size:12px">Manage this in your admin dashboard → Stay·Eat·Do Bookings.</span>`)}`;
+    result.owner = await send(
+      owner,
+      `New reservation: ${b.name} — ${b.place_name}`,
+      shell({ eyebrow: "New reservation request", title: b.name, body }),
+    );
   }
 
   return result;
@@ -514,74 +609,79 @@ export async function sendPlaceBookingEmails(b: PlaceBookingEmailData): Promise<
 /** Customer reminder the day before a Stay·Eat·Do reservation. */
 export async function sendPlaceReminder(b: PlaceBookingEmailData): Promise<boolean> {
   if (!b.email) return false;
+  const wa = await getOwnerWa();
   const body = `
-    <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px">
-      Hi ${b.name}, a friendly reminder — your reservation at <strong>${b.place_name}</strong> is <strong>tomorrow</strong> (${fmtDate(b.start_date)}). 🌴
-    </p>
-    <table style="width:100%;border-collapse:collapse;border-top:1px solid #eee;border-bottom:1px solid #eee">${placeRows(b)}</table>
-    ${ownerWa() ? `<div style="text-align:center;margin-top:12px">${waButton(ownerWa(), `Hi! About my ${b.place_name} reservation tomorrow — `, "💬 Message us on WhatsApp")}</div>` : ""}`;
-  return send(b.email, `Reminder: your ${b.place_name} reservation is tomorrow 🌴`, reminderShell("See you tomorrow!", body));
+    ${paragraph(`Hi ${b.name}, a friendly reminder — your reservation at <strong>${b.place_name}</strong> is <strong>tomorrow</strong> (${fmtDate(b.start_date)}). 🌴`)}
+    ${detailCard(placeRows(b))}
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi! About my ${b.place_name} reservation tomorrow — `, "💬 Message us on WhatsApp")}</div>` : ""}`;
+  return send(
+    b.email,
+    `Reminder: your ${b.place_name} reservation is tomorrow 🌴`,
+    shell({ preheader: "Your reservation is tomorrow — see you soon!", eyebrow: "Reservation reminder", title: "See you tomorrow!", body }),
+  );
 }
 
 /** Customer feedback request the day after a Stay·Eat·Do reservation. */
 export async function sendPlaceFeedbackRequest(b: PlaceBookingEmailData): Promise<boolean> {
   if (!b.email) return false;
+  const wa = await getOwnerWa();
   const reviewUrl = process.env.GOOGLE_REVIEW_URL || `${SITE_URL}/#reviews`;
   const body = `
-    <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px">
-      Hi ${b.name}, how was <strong>${b.place_name}</strong>? We'd love to hear about it — a quick review helps other travellers and the local business. 💛
-    </p>
-    <div style="text-align:center;margin-bottom:6px">
-      <a href="${reviewUrl}" style="display:inline-block;background:${BRAND};color:#0a0a0a;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:10px">⭐ Leave a review</a>
-    </div>
-    ${ownerWa() ? `<div style="text-align:center">${waButton(ownerWa(), `Hi Roule Rodrigues! Here's my feedback on ${b.place_name}: `, "💬 Send feedback on WhatsApp")}</div>` : ""}`;
-  return send(b.email, `How was ${b.place_name}? 🌴 We'd love your feedback`, reminderShell("Thanks for visiting!", body));
+    ${paragraph(`Hi ${b.name}, how was <strong>${b.place_name}</strong>? We'd love to hear about it — a quick review helps other travellers and the local business. 💛`)}
+    <div style="text-align:center">${primaryButton(reviewUrl, "⭐ Leave a review")}</div>
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! Here's my feedback on ${b.place_name}: `, "💬 Send feedback on WhatsApp")}</div>` : ""}`;
+  return send(
+    b.email,
+    `How was ${b.place_name}? 🌴 We'd love your feedback`,
+    shell({ preheader: "A quick review helps other travellers.", eyebrow: "Your feedback", title: "Thanks for visiting!", body }),
+  );
 }
 
 /** Owner reminder: a Stay·Eat·Do reservation is happening tomorrow. */
 export async function sendAdminPlaceReminder(b: PlaceBookingEmailData): Promise<boolean> {
   const owner = process.env.OWNER_EMAIL;
   if (!owner) return false;
-  const rows = `${placeRows(b)}${b.phone ? `<tr><td style="padding:6px 0;color:#888;font-size:14px">Phone</td><td style="padding:6px 0;color:#0a0a0a;font-weight:600;font-size:14px;text-align:right">${b.phone}</td></tr>` : ""}`;
   const body = `
-    <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 14px">
-      <strong>Reservation tomorrow</strong> (${fmtDate(b.start_date)}) — <strong>${b.name}</strong> at <strong>${b.place_name}</strong>.
-    </p>
-    <table style="width:100%;border-collapse:collapse;border-top:1px solid #eee;border-bottom:1px solid #eee">${rows}</table>
-    ${b.phone ? `<div style="margin-top:10px;text-align:center">${waButton(b.phone, `Hi ${b.name}, this is Roule Rodrigues about your ${b.place_name} reservation tomorrow — `, "💬 Message " + b.name + " on WhatsApp")}</div>` : ""}`;
-  return send(owner, `🌴 Reservation tomorrow: ${b.name} — ${b.place_name}`, reminderShell("Reservation reminder", body));
+    ${paragraph(`<strong style="color:${C.ink}">Reservation tomorrow</strong> (${fmtDate(b.start_date)}) — <strong>${b.name}</strong> at <strong>${b.place_name}</strong>.`)}
+    ${detailCard(placeRows(b) + rows(b.phone ? ([["Phone", b.phone]] as [string, string][]) : []))}
+    ${b.phone ? `<div style="text-align:center">${waButton(b.phone, `Hi ${b.name}, this is Roule Rodrigues about your ${b.place_name} reservation tomorrow — `, "💬 Message " + b.name)}</div>` : ""}`;
+  return send(owner, `🌴 Reservation tomorrow: ${b.name} — ${b.place_name}`, shell({ eyebrow: "Reservation reminder", title: "Reservation tomorrow", body }));
 }
 
 // ── Instant enquiry auto-reply ───────────────────────────────────────────
 export async function sendEnquiryAck(to: string, name: string | null): Promise<boolean> {
+  const wa = await getOwnerWa();
   const hi = name ? `Hi ${name},` : "Hi there,";
   const body = `
-    <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px">
-      ${hi} thanks for reaching out to Roule Rodrigues! 🛵 We've received your message and a real
-      person will get back to you within a few hours (we're on island time, UTC+4).
-    </p>
-    <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 18px">
-      Need a faster answer? Message us directly on WhatsApp — we usually reply in minutes.
-    </p>
-    ${ownerWa() ? `<div style="text-align:center">${waButton(ownerWa(), "Hi Roule Rodrigues! I just sent an enquiry through your website. ", "💬 Chat on WhatsApp")}</div>` : ""}`;
-  return send(to, "We've got your message 🛵 — Roule Rodrigues", reminderShell("Thanks for getting in touch!", body));
+    ${paragraph(`${hi} thanks for reaching out to Roule Rodrigues! 🛵 We've received your message and a real person will get back to you within a few hours (we're on island time, UTC+4).`)}
+    ${paragraph(`Need a faster answer? Message us directly on WhatsApp — we usually reply within minutes.`)}
+    ${wa ? `<div style="text-align:center">${waButton(wa, "Hi Roule Rodrigues! I just sent an enquiry through your website. ", "💬 Chat on WhatsApp")}</div>` : ""}`;
+  return send(
+    to,
+    "We've got your message 🛵 — Roule Rodrigues",
+    shell({ preheader: "We've received your message — we'll reply shortly.", eyebrow: "Message received", title: "Thanks for getting in touch!", body }),
+  );
 }
 
 // ── Waitlist / saved-list welcome (lifecycle remarketing) ────────────────
 export async function sendWaitlistWelcome(to: string, source?: string): Promise<boolean> {
+  const wa = await getOwnerWa();
   const savedList = source === "saved-list";
   const intro = savedList
     ? "Thanks for saving your favourites on Roule Rodrigues! Your list is ready whenever you are — come back any time to pick up where you left off and book."
     : "Thanks for joining Roule Rodrigues! 🌴 We'll send you the best island tips, scooter deals and hidden spots from Rodrigues — no spam, ever.";
   const body = `
-    <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 18px">${intro}</p>
-    <div style="text-align:center;margin:18px 0 6px">
-      <a href="${SITE_URL}" style="display:inline-block;background:${BRAND};color:#0a0a0a;text-decoration:none;font-weight:700;font-size:14px;padding:12px 26px;border-radius:10px">Plan your Rodrigues trip →</a>
-    </div>
-    ${ownerWa() ? `<div style="text-align:center;margin-top:8px">${waButton(ownerWa(), "Hi Roule Rodrigues! I'd love some help planning my trip. ", "💬 Chat on WhatsApp")}</div>` : ""}`;
+    ${paragraph(intro)}
+    <div style="text-align:center">${primaryButton(SITE_URL, "Plan your Rodrigues trip →")}</div>
+    ${wa ? `<div style="text-align:center">${waButton(wa, "Hi Roule Rodrigues! I'd love some help planning my trip. ", "💬 Chat on WhatsApp")}</div>` : ""}`;
   return send(
     to,
     savedList ? "Your Roule Rodrigues list is saved 🛵" : "Welcome to Roule Rodrigues 🛵🌴",
-    reminderShell(savedList ? "Your saved list is waiting" : "Welcome aboard!", body),
+    shell({
+      preheader: savedList ? "Your saved list is waiting whenever you're ready." : "Island tips, deals and hidden spots from Rodrigues.",
+      eyebrow: savedList ? "Your saved list" : "Welcome aboard",
+      title: savedList ? "Your saved list is waiting" : "Welcome aboard!",
+      body,
+    }),
   );
 }
