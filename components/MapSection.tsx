@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { motion } from "framer-motion";
-import { Navigation } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Navigation, ChevronDown, X, ChevronLeft, ChevronRight, ZoomIn } from "lucide-react";
 import type { MapLocation } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -32,6 +32,53 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
   const { t } = useLanguage();
   const locs = locations ?? [];
   const [filter, setFilter] = useState<string>("all");
+
+  // ── Scroll affordance for the location list ──
+  const listRef = useRef<HTMLDivElement>(null);
+  const [canScroll, setCanScroll] = useState(false);
+  const checkScroll = useCallback(() => {
+    const el = listRef.current;
+    if (!el) return;
+    setCanScroll(el.scrollHeight - el.scrollTop - el.clientHeight > 12);
+  }, []);
+  useEffect(() => {
+    checkScroll();
+    const el = listRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", checkScroll, { passive: true });
+    window.addEventListener("resize", checkScroll);
+    return () => {
+      el.removeEventListener("scroll", checkScroll);
+      window.removeEventListener("resize", checkScroll);
+    };
+  }, [checkScroll, filter]);
+
+  // ── Photo lightbox (zoom) ──
+  const [lightbox, setLightbox] = useState<{ images: string[]; index: number; name: string } | null>(null);
+  const [zoomed, setZoomed] = useState(false);
+  const openLightbox = (images: string[], name: string) => {
+    if (!images.length) return;
+    setZoomed(false);
+    setLightbox({ images, index: 0, name });
+  };
+  const step = useCallback((dir: number) => {
+    setZoomed(false);
+    setLightbox((lb) => (lb ? { ...lb, index: (lb.index + dir + lb.images.length) % lb.images.length } : lb));
+  }, []);
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox(null);
+      else if (e.key === "ArrowRight") step(1);
+      else if (e.key === "ArrowLeft") step(-1);
+    };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [lightbox, step]);
 
   // Only offer filter chips for categories that actually have locations.
   const presentCats = Object.keys(CATEGORY_LABEL).filter((k) =>
@@ -109,45 +156,143 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
             <IslandMap locations={shown} />
           </div>
 
-          {/* Location list — tap any place for live directions */}
-          <div className="space-y-3 overflow-y-auto max-h-[460px] pr-1">
-            {shown.map((loc) => (
-              <a
-                key={loc.id}
-                href={`https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex items-start gap-3 bg-dark-card border border-dark-border rounded-xl p-4 hover:border-yellow/40 transition-colors"
-                aria-label={`Get directions to ${loc.name}`}
-              >
-                {(loc.images?.[0] || loc.image) ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={loc.images?.[0] || loc.image}
-                    alt={loc.name}
-                    className="w-14 h-14 rounded-lg object-cover shrink-0"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1.5 ${CATEGORY_COLOR[loc.category] ?? "bg-yellow"}`} />
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <p className="font-syne font-bold text-offwhite text-sm">{loc.name}</p>
-                    <span className="font-bebas text-[9px] tracking-[0.15em] text-muted uppercase">
-                      {CATEGORY_LABEL[loc.category]}
-                    </span>
+          {/* Location list — tap a photo to zoom, tap "directions" for the map */}
+          <div className="relative">
+            <div ref={listRef} className="space-y-3 overflow-y-auto max-h-[460px] pr-1 scroll-smooth">
+              {shown.map((loc) => {
+                const imgs = (loc.images && loc.images.length ? loc.images : loc.image ? [loc.image] : []).filter(
+                  Boolean,
+                ) as string[];
+                return (
+                  <div
+                    key={loc.id}
+                    className="group flex items-start gap-3 bg-dark-card border border-dark-border rounded-xl p-4 hover:border-yellow/40 transition-colors"
+                  >
+                    {imgs.length ? (
+                      <button
+                        type="button"
+                        onClick={() => openLightbox(imgs, loc.name)}
+                        className="relative w-16 h-16 rounded-lg overflow-hidden shrink-0 focus:outline-none focus:ring-2 focus:ring-yellow/60"
+                        aria-label={`View photos of ${loc.name}`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={imgs[0]} alt={loc.name} className="w-full h-full object-cover" loading="lazy" />
+                        <span className="absolute inset-0 flex items-center justify-center bg-dark/45 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <ZoomIn size={18} className="text-white" />
+                        </span>
+                        {imgs.length > 1 && (
+                          <span className="absolute bottom-0.5 right-0.5 bg-dark/80 text-white text-[9px] font-dm px-1 rounded">
+                            {imgs.length}
+                          </span>
+                        )}
+                      </button>
+                    ) : (
+                      <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1.5 ${CATEGORY_COLOR[loc.category] ?? "bg-yellow"}`} />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <p className="font-syne font-bold text-offwhite text-sm">{loc.name}</p>
+                        <span className="font-bebas text-[9px] tracking-[0.15em] text-muted uppercase">
+                          {CATEGORY_LABEL[loc.category]}
+                        </span>
+                      </div>
+                      <p className="text-muted font-dm text-xs leading-relaxed">{loc.description}</p>
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 mt-2 text-[11px] font-dm text-yellow/70 hover:text-yellow transition-colors"
+                        aria-label={`Get directions to ${loc.name}`}
+                      >
+                        <Navigation size={11} /> {t.map.directions}
+                      </a>
+                    </div>
                   </div>
-                  <p className="text-muted font-dm text-xs leading-relaxed">{loc.description}</p>
-                  <span className="inline-flex items-center gap-1 mt-2 text-[11px] font-dm text-yellow/70 group-hover:text-yellow transition-colors">
-                    <Navigation size={11} /> {t.map.directions}
-                  </span>
-                </div>
-              </a>
-            ))}
+                );
+              })}
+            </div>
+
+            {/* Scroll cue — so every visitor knows the list continues */}
+            <div
+              className={`pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-dark to-transparent rounded-b-xl transition-opacity duration-300 ${
+                canScroll ? "opacity-100" : "opacity-0"
+              }`}
+            />
+            <div
+              className={`pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-yellow text-dark text-[11px] font-dm font-semibold px-3 py-1 rounded-full shadow-lg transition-all duration-300 ${
+                canScroll ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+              }`}
+            >
+              {t.map.scrollMore ?? "Scroll for more"} <ChevronDown size={13} className="animate-bounce" />
+            </div>
           </div>
         </motion.div>
       </div>
+
+      {/* ── Photo lightbox ── */}
+      <AnimatePresence>
+        {lightbox && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] bg-black/92 flex items-center justify-center p-4"
+            onClick={() => setLightbox(null)}
+          >
+            <button
+              type="button"
+              onClick={() => setLightbox(null)}
+              className="absolute top-4 right-4 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+              aria-label="Close"
+            >
+              <X size={22} />
+            </button>
+
+            <div className="absolute top-5 left-5 font-syne font-bold text-white text-sm max-w-[60%] truncate">
+              {lightbox.name}
+            </div>
+
+            {lightbox.images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); step(-1); }}
+                  className="absolute left-3 md:left-6 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+                  aria-label="Previous photo"
+                >
+                  <ChevronLeft size={24} />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); step(1); }}
+                  className="absolute right-3 md:right-6 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+                  aria-label="Next photo"
+                >
+                  <ChevronRight size={24} />
+                </button>
+              </>
+            )}
+
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={lightbox.images[lightbox.index]}
+              alt={lightbox.name}
+              onClick={(e) => { e.stopPropagation(); setZoomed((z) => !z); }}
+              className={`max-h-[86vh] max-w-[94vw] object-contain rounded-lg select-none transition-transform duration-300 ${
+                zoomed ? "scale-[1.9] cursor-zoom-out" : "cursor-zoom-in"
+              }`}
+              draggable={false}
+            />
+
+            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-2 text-white/70 text-xs font-dm">
+              <ZoomIn size={13} /> Tap photo to zoom
+              {lightbox.images.length > 1 && (
+                <span className="ml-2">{lightbox.index + 1} / {lightbox.images.length}</span>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
