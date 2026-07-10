@@ -24,7 +24,7 @@ const PLACE_SLUGS: Record<string, { label: string; cat: "restaurant" | "activity
 export default async function BrowsePage({ params }: { params: Promise<{ category: string }> }) {
   const { category } = await params;
   const { content, fleet, ratings, recentBookings, businessWhatsApp } = await getFleetView();
-  const cats = buildBrowseCategories(content, fleet);
+  const cats = buildBrowseCategories(content, fleet, recentBookings);
 
   const nav = (
     <Navbar

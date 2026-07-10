@@ -33,6 +33,26 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
   const locs = locations ?? [];
   const [filter, setFilter] = useState<string>("all");
 
+  // ── Lazy-load the Leaflet map only once it's scrolled near ──
+  // Leaflet + its tiles are heavy; deferring keeps the initial page fast.
+  const mapWrapRef = useRef<HTMLDivElement>(null);
+  const [showMap, setShowMap] = useState(false);
+  useEffect(() => {
+    const el = mapWrapRef.current;
+    if (!el || showMap) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setShowMap(true);
+          obs.disconnect();
+        }
+      },
+      { rootMargin: "500px 0px" },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [showMap]);
+
   // ── Scroll affordance for the location list ──
   const listRef = useRef<HTMLDivElement>(null);
   const [canScroll, setCanScroll] = useState(false);
@@ -151,9 +171,19 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
           className="grid grid-cols-1 lg:grid-cols-3 gap-8"
         >
           {/* Map */}
-          <div className="lg:col-span-2 rounded-2xl overflow-hidden border border-dark-border" style={{ minHeight: 460 }}>
-            {/* Leaflet CSS is imported locally inside IslandMap (CSP-safe) */}
-            <IslandMap locations={shown} />
+          <div ref={mapWrapRef} className="lg:col-span-2 rounded-2xl overflow-hidden border border-dark-border" style={{ minHeight: 460 }}>
+            {/* Leaflet CSS is imported locally inside IslandMap (CSP-safe).
+                Only mounted once scrolled near — keeps the initial load light. */}
+            {showMap ? (
+              <IslandMap locations={shown} />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-dark-card" style={{ minHeight: 460 }}>
+                <div className="flex flex-col items-center gap-3 text-muted">
+                  <div className="w-8 h-8 rounded-full border-2 border-yellow/30 border-t-yellow animate-spin" />
+                  <span className="font-dm text-xs">{t.map.title}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Location list — tap a photo to zoom, tap "directions" for the map */}

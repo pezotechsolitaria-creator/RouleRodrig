@@ -14,6 +14,7 @@ import {
   PartyPopper,
   Navigation,
   Compass,
+  Flame,
   type LucideIcon,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
@@ -25,6 +26,7 @@ export interface BrowseCategory {
   emoji?: string;
   count: number;
   priceFrom?: string; // e.g. "From Rs 599/day" — shown on vehicle tiles
+  popular?: boolean;  // most-booked category → "Popular" badge
 }
 
 // Pick a recognisable icon per category so the hub is scannable at a glance.
@@ -132,6 +134,13 @@ function HubCard({ c }: { c: BrowseCategory }) {
         <div className="absolute top-5 left-5 w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center text-white shadow-lg" style={{ transform: "translateZ(40px)" }}>
           <Icon size={22} />
         </div>
+
+        {/* Popular badge */}
+        {c.popular && (
+          <div className="absolute top-6 right-5 inline-flex items-center gap-1.5 bg-yellow text-dark font-bebas text-[11px] tracking-[0.15em] px-3 py-1.5 rounded-full shadow-lg" style={{ transform: "translateZ(40px)" }}>
+            <Flame size={12} className="fill-dark" /> {t.explore.popular}
+          </div>
+        )}
 
         {/* Content */}
         <div className="absolute inset-x-0 bottom-0 p-6 md:p-7" style={{ transform: "translateZ(30px)" }}>

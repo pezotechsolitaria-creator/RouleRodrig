@@ -220,6 +220,7 @@ const translations = {
       option:   "option",
       options:  "options",
       back:     "What are you looking for?",
+      popular:  "Popular",
     },
 
     // Ride Routes
@@ -591,6 +592,7 @@ const translations = {
       option:   "option",
       options:  "options",
       back:     "Que recherchez-vous ?",
+      popular:  "Populaire",
     },
     routes: {
       eyebrow:  "ITINÉRAIRES",
@@ -936,6 +938,7 @@ const translations = {
       option:   "opsion",
       options:  "opsion",
       back:     "Ki ou pe rode ?",
+      popular:  "Popiler",
     },
     routes: {
       eyebrow:  "BANN PARKOUR",

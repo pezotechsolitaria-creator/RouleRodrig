@@ -29,10 +29,10 @@ function priceNumber(price: string): number | null {
 }
 
 export default async function Home() {
-  const { content, fleet, reviews } = await getFleetView();
+  const { content, fleet, reviews, recentBookings } = await getFleetView();
 
   // "What are you looking for?" categories (shared with the /browse pages).
-  const browseCats = buildBrowseCategories(content, fleet);
+  const browseCats = buildBrowseCategories(content, fleet, recentBookings);
 
   // ── SEO structured data (JSON-LD): LocalBusiness + Products ──
   const sameAs = [content.social.instagram, content.social.facebook, content.social.tiktok].filter((u) => u && u.trim());

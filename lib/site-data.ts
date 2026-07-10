@@ -108,13 +108,19 @@ function firstImage(items: { image?: string; images?: string[] }[]): string | un
   return undefined;
 }
 
-export function buildBrowseCategories(content: SiteContent, fleet: FleetView[]): BrowseCategory[] {
+export function buildBrowseCategories(
+  content: SiteContent,
+  fleet: FleetView[],
+  recentBookings: Record<string, number> = {},
+): BrowseCategory[] {
   const cats: BrowseCategory[] = [];
+  const vehicleBookings: Record<string, number> = {}; // slug → total recent bookings
   for (const vc of content.vehicleCategories.filter((c) => c.enabled)) {
     const items = fleet.filter((f) => (f.category ?? "scooter") === vc.id);
     if (!items.length) continue;
     const prices = items.map((it) => priceNumber(it.price)).filter((n): n is number => n != null);
     const min = prices.length ? Math.min(...prices) : null;
+    vehicleBookings[vc.id] = items.reduce((n, it) => n + (recentBookings[it.id] ?? 0), 0);
     cats.push({
       slug: vc.id,
       label: vc.label,
@@ -122,6 +128,15 @@ export function buildBrowseCategories(content: SiteContent, fleet: FleetView[]):
       count: items.length,
       ...(min != null ? { priceFrom: `From Rs ${min.toLocaleString()}/day` } : {}),
     });
+  }
+  // "Popular" = the most-booked vehicle category (real data). With no bookings
+  // yet, fall back to the first/flagship vehicle category (editorial pick).
+  const vehicleSlugs = Object.keys(vehicleBookings);
+  if (vehicleSlugs.length) {
+    let top = vehicleSlugs[0];
+    for (const s of vehicleSlugs) if (vehicleBookings[s] > vehicleBookings[top]) top = s;
+    const winner = cats.find((c) => c.slug === top);
+    if (winner) winner.popular = true;
   }
   if (content.recommended.enabled) {
     const rest = content.recommended.items.filter((p) => p.category === "restaurant");
