@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { getFleetView } from "@/lib/site-data";
+import { getFleetView, buildBrowseCategories } from "@/lib/site-data";
 import Navbar from "@/components/Navbar";
+import BrowseTabs from "@/components/BrowseTabs";
 import Footer from "@/components/Footer";
 import Fleet from "@/components/Fleet";
 import BookingSection from "@/components/BookingSection";
@@ -23,6 +24,7 @@ const PLACE_SLUGS: Record<string, { label: string; cat: "restaurant" | "activity
 export default async function BrowsePage({ params }: { params: Promise<{ category: string }> }) {
   const { category } = await params;
   const { content, fleet, ratings, recentBookings, businessWhatsApp } = await getFleetView();
+  const cats = buildBrowseCategories(content, fleet);
 
   const nav = (
     <Navbar
@@ -55,6 +57,7 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
         {nav}
         <main>
           <BrowseBackBar title={vcat.label} />
+          <BrowseTabs categories={cats} active={category} />
           <Fleet
             fleet={items}
             categories={content.vehicleCategories}
@@ -82,6 +85,7 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
         {nav}
         <main>
           <BrowseBackBar title={place.label} />
+          <BrowseTabs categories={cats} active={category} />
           <RecommendedPlaces
             content={{ enabled: true, title: place.label, subtitle: content.recommended.subtitle, items }}
             whatsapp={businessWhatsApp}
@@ -101,6 +105,7 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
         {nav}
         <main>
           <BrowseBackBar title="Getting around" />
+          <BrowseTabs categories={cats} active={category} />
           <GettingAround content={{ ...ga, options: (ga.options ?? []).filter((o) => o.icon !== "bus") }} />
         </main>
         {footer}
@@ -117,6 +122,7 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
         {nav}
         <main>
           <BrowseBackBar title="What's on" />
+          <BrowseTabs categories={cats} active={category} />
           <Events events={content.events} />
         </main>
         {footer}

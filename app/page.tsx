@@ -1,17 +1,19 @@
 import { SITE_URL } from "@/lib/site";
-import { getFleetView } from "@/lib/site-data";
+import { getFleetView, buildBrowseCategories } from "@/lib/site-data";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
-import WhatLookingFor, { type BrowseCategory } from "@/components/WhatLookingFor";
+import WhatLookingFor from "@/components/WhatLookingFor";
 import TripPlanner from "@/components/TripPlanner";
 import MapSection from "@/components/MapSection";
 import RideRoutes from "@/components/RideRoutes";
 import UsefulNumbers from "@/components/UsefulNumbers";
+import ReviewsMarquee from "@/components/ReviewsMarquee";
 import ReviewsSection from "@/components/ReviewsSection";
 import Faq from "@/components/Faq";
 import WaitlistSection from "@/components/WaitlistSection";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
+import Reveal from "@/components/Reveal";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import ScrollProgress from "@/components/ScrollProgress";
 import ScrollToTop from "@/components/ScrollToTop";
@@ -26,52 +28,11 @@ function priceNumber(price: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-// First usable photo from a list of items (fleet / places / events).
-function firstImage(items: { image?: string; images?: string[] }[]): string | undefined {
-  for (const it of items) {
-    const img = it.images?.[0] || it.image;
-    if (img) return img;
-  }
-  return undefined;
-}
-
 export default async function Home() {
-  const { content, fleet, ratings, recentBookings, businessWhatsApp } = await getFleetView();
+  const { content, fleet, reviews } = await getFleetView();
 
-  // ── "What are you looking for?" categories ──────────────────────────────
-  // Vehicles (by enabled category) → places (restaurants/activities/stays) →
-  // getting around → what's on. Only categories that actually have items show.
-  const browseCats: BrowseCategory[] = [];
-  for (const vc of content.vehicleCategories.filter((c) => c.enabled)) {
-    const items = fleet.filter((f) => (f.category ?? "scooter") === vc.id);
-    if (!items.length) continue;
-    // Price transparency: show the cheapest daily rate right on the tile.
-    const prices = items.map((it) => priceNumber(it.price)).filter((n): n is number => n != null);
-    const min = prices.length ? Math.min(...prices) : null;
-    browseCats.push({
-      slug: vc.id,
-      label: vc.label,
-      image: firstImage(items),
-      count: items.length,
-      ...(min != null ? { priceFrom: `From Rs ${min.toLocaleString()}/day` } : {}),
-    });
-  }
-  if (content.recommended.enabled) {
-    const rest = content.recommended.items.filter((p) => p.category === "restaurant");
-    if (rest.length) browseCats.push({ slug: "restaurants", label: "Restaurants", image: firstImage(rest), emoji: "🍽️", count: rest.length });
-    const act = content.recommended.items.filter((p) => p.category === "activity");
-    if (act.length) browseCats.push({ slug: "activities", label: "Activities", image: firstImage(act), emoji: "🤿", count: act.length });
-    const stays = content.recommended.items.filter((p) => p.category === "hotel");
-    if (stays.length) browseCats.push({ slug: "stays", label: "Stays", image: firstImage(stays), emoji: "🏝️", count: stays.length });
-  }
-  const gaOptions = (content.gettingAround?.options ?? []).filter((o) => o.icon !== "bus");
-  if (content.gettingAround?.enabled && gaOptions.length) {
-    browseCats.push({ slug: "getting-around", label: "Getting around", emoji: "🚕", count: gaOptions.length });
-  }
-  const events = content.events.filter((e) => e.title);
-  if (events.length) {
-    browseCats.push({ slug: "events", label: "What's on", image: firstImage(events), emoji: "🎉", count: events.length });
-  }
+  // "What are you looking for?" categories (shared with the /browse pages).
+  const browseCats = buildBrowseCategories(content, fleet);
 
   // ── SEO structured data (JSON-LD): LocalBusiness + Products ──
   const sameAs = [content.social.instagram, content.social.facebook, content.social.tiktok].filter((u) => u && u.trim());
@@ -153,12 +114,13 @@ export default async function Home() {
         <WhatLookingFor categories={browseCats} />
         <TripPlanner />
         <MapSection locations={content.mapLocations} />
-        <RideRoutes routes={content.rideRoutes} />
-        <UsefulNumbers contacts={content.usefulContacts} />
-        <ReviewsSection fleet={fleet} />
-        <Faq content={content.faq} />
-        <WaitlistSection />
-        <Contact contact={content.contact} fleet={fleet} />
+        <Reveal><RideRoutes routes={content.rideRoutes} /></Reveal>
+        <Reveal><UsefulNumbers contacts={content.usefulContacts} /></Reveal>
+        <ReviewsMarquee reviews={reviews} />
+        <Reveal><ReviewsSection fleet={fleet} /></Reveal>
+        <Reveal><Faq content={content.faq} /></Reveal>
+        <Reveal><WaitlistSection /></Reveal>
+        <Reveal><Contact contact={content.contact} fleet={fleet} /></Reveal>
         <Footer social={content.social} branding={content.branding} />
       </main>
       <WhatsAppButton

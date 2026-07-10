@@ -119,7 +119,7 @@ function FleetImageCarousel({ scooter }: { scooter: FleetItem }) {
           } ${dim ? "brightness-50" : ""}`}
           sizes="(max-width: 768px) 100vw, 50vw"
           loading={i === 0 ? "eager" : "lazy"}
-          unoptimized={src.startsWith("/uploads/") || src.startsWith("http")}
+          unoptimized={src.startsWith("/uploads/") || (src.startsWith("http") && !src.includes("supabase.co"))}
         />
       ))}
       <div className="absolute inset-0 bg-gradient-to-t from-dark-card via-dark-card/20 to-transparent pointer-events-none" />

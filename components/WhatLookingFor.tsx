@@ -76,6 +76,21 @@ function HubCard({ c }: { c: BrowseCategory }) {
     setHover(false);
   };
 
+  // Gyroscope tilt on touch devices — the cards lean with the phone (the wow
+  // works without a mouse). Android fires this freely; iOS 13+ needs a
+  // permission gesture, so it simply stays flat there (no crash).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(pointer: coarse)").matches) return;
+    const clamp = (n: number) => Math.max(-7, Math.min(7, n));
+    const onOrient = (e: DeviceOrientationEvent) => {
+      ry.set(clamp((e.gamma ?? 0) / 6));
+      rx.set(clamp(((e.beta ?? 0) - 45) / 6));
+    };
+    window.addEventListener("deviceorientation", onOrient);
+    return () => window.removeEventListener("deviceorientation", onOrient);
+  }, [rx, ry]);
+
   return (
     <Link
       ref={ref}
@@ -96,7 +111,7 @@ function HubCard({ c }: { c: BrowseCategory }) {
             fill
             className="object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.08]"
             sizes="(max-width: 640px) 80vw, 320px"
-            unoptimized={c.image.startsWith("/uploads/") || c.image.startsWith("http")}
+            unoptimized={c.image.startsWith("/uploads/") || (c.image.startsWith("http") && !c.image.includes("supabase.co"))}
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-[#1c1c18] to-dark-card flex items-center justify-center text-7xl">

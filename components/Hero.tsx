@@ -116,7 +116,7 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
             className="object-cover object-center rr-kenburns"
             priority
             sizes="100vw"
-            unoptimized={h.backgroundImage.startsWith("/uploads/") || h.backgroundImage.startsWith("http")}
+            unoptimized={h.backgroundImage.startsWith("/uploads/") || (h.backgroundImage.startsWith("http") && !h.backgroundImage.includes("supabase.co"))}
           />
         )}
         {/* Layered cinematic darkening for depth + legibility */}
