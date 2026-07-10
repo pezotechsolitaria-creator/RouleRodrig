@@ -45,7 +45,16 @@ export default async function Home() {
   for (const vc of content.vehicleCategories.filter((c) => c.enabled)) {
     const items = fleet.filter((f) => (f.category ?? "scooter") === vc.id);
     if (!items.length) continue;
-    browseCats.push({ slug: vc.id, label: vc.label, image: firstImage(items), count: items.length });
+    // Price transparency: show the cheapest daily rate right on the tile.
+    const prices = items.map((it) => priceNumber(it.price)).filter((n): n is number => n != null);
+    const min = prices.length ? Math.min(...prices) : null;
+    browseCats.push({
+      slug: vc.id,
+      label: vc.label,
+      image: firstImage(items),
+      count: items.length,
+      ...(min != null ? { priceFrom: `From Rs ${min.toLocaleString()}/day` } : {}),
+    });
   }
   if (content.recommended.enabled) {
     const rest = content.recommended.items.filter((p) => p.category === "restaurant");

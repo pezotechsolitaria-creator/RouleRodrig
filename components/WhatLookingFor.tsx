@@ -13,6 +13,7 @@ export interface BrowseCategory {
   image?: string;
   emoji?: string;
   count: number;
+  priceFrom?: string; // e.g. "From Rs 599/day" — shown on vehicle tiles
 }
 
 /**
@@ -101,7 +102,11 @@ export default function WhatLookingFor({ categories }: { categories: BrowseCateg
 
                 <div className="absolute inset-x-0 bottom-0 p-7">
                   <p className="font-bebas text-yellow text-[11px] tracking-[0.3em] mb-2">
-                    {c.count} {c.count === 1 ? t.explore.option : t.explore.options}
+                    {c.priceFrom ? (
+                      <>{c.priceFrom} <span className="text-white/50">· {c.count} {c.count === 1 ? t.explore.option : t.explore.options}</span></>
+                    ) : (
+                      <>{c.count} {c.count === 1 ? t.explore.option : t.explore.options}</>
+                    )}
                   </p>
                   <h3 className="font-syne font-extrabold text-offwhite uppercase leading-[0.95] mb-4" style={{ fontSize: "clamp(30px, 6vw, 44px)" }}>
                     {c.label}
