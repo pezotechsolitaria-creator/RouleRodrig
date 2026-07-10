@@ -30,7 +30,7 @@ export interface BrowseCategory {
 }
 
 // Pick a recognisable icon per category so the hub is scannable at a glance.
-function iconFor(slug: string, label: string): LucideIcon {
+export function iconFor(slug: string, label: string): LucideIcon {
   const s = `${slug} ${label}`.toLowerCase();
   if (/scooter|moto|bike|moped|deux|two.?wheel/.test(s)) return Bike;
   if (/car|voiture|auto|4x4|suv|jeep/.test(s)) return Car;

@@ -5,21 +5,23 @@ import { ArrowLeft } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 
 /**
- * WhatsApp-style back bar shown at the top of every /browse category page:
- * a one-tap return to the "What are you looking for?" hub, plus a breadcrumb
- * so visitors always know where they are.
+ * Compact, premium back control at the top of every /browse page: a circular
+ * back button + a breadcrumb (Explore / current category). One tap returns to
+ * the "What are you looking for?" hub.
  */
 export default function BrowseBackBar({ title }: { title: string }) {
   const { t } = useLanguage();
   return (
-    <div className="max-w-7xl mx-auto px-6 pt-28 md:pt-32">
-      <Link
-        href="/#explore"
-        className="inline-flex items-center gap-2 font-syne font-bold text-sm text-muted hover:text-yellow transition-colors"
-      >
-        <ArrowLeft size={16} /> {t.explore.back}
-        <span className="text-muted/30 mx-1">/</span>
-        <span className="text-offwhite">{title}</span>
+    <div className="max-w-7xl mx-auto px-6 pt-28 md:pt-32 pb-1">
+      <Link href="/#explore" className="group inline-flex items-center gap-3">
+        <span className="w-9 h-9 rounded-full border border-dark-border bg-dark-card text-muted flex items-center justify-center transition-colors group-hover:border-yellow/50 group-hover:text-yellow">
+          <ArrowLeft size={16} />
+        </span>
+        <span className="font-dm text-sm">
+          <span className="text-muted transition-colors group-hover:text-offwhite">{t.explore.back}</span>
+          <span className="text-muted/30 mx-2">/</span>
+          <span className="text-offwhite font-semibold">{title}</span>
+        </span>
       </Link>
     </div>
   );
