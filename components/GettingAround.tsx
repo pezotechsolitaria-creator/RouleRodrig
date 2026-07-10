@@ -54,10 +54,11 @@ export default function GettingAround({ content }: { content?: GettingAroundCont
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-60px" }}
                 transition={{ duration: 0.5, delay: i * 0.1 }}
-                className={`relative flex flex-col rounded-2xl p-7 transition-colors ${
+                whileHover={{ y: -6 }}
+                className={`group relative flex flex-col rounded-[24px] p-7 transition-all duration-300 ${
                   opt.highlight
-                    ? "bg-yellow/[0.06] border-2 border-yellow/50 hover:border-yellow shadow-[0_0_28px_rgba(245,200,66,0.1)]"
-                    : "bg-dark-card border border-dark-border hover:border-yellow/40"
+                    ? "bg-gradient-to-b from-yellow/[0.08] to-transparent ring-1 ring-yellow/50 hover:ring-yellow shadow-[0_0_44px_-14px_rgba(245,200,66,0.35)]"
+                    : "bg-dark-card ring-1 ring-white/10 hover:ring-yellow/40"
                 }`}
               >
                 {opt.highlight && (
@@ -66,13 +67,15 @@ export default function GettingAround({ content }: { content?: GettingAroundCont
                   </span>
                 )}
                 <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center mb-5 ${
-                    opt.highlight ? "bg-yellow text-dark" : "bg-yellow/10 text-yellow"
+                  className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 border transition-colors ${
+                    opt.highlight
+                      ? "bg-yellow text-dark border-yellow"
+                      : "bg-white/[0.06] text-yellow border-white/10 backdrop-blur-md group-hover:border-yellow/40"
                   }`}
                 >
-                  <Icon size={22} />
+                  <Icon size={24} />
                 </div>
-                <h3 className="font-syne font-extrabold text-offwhite text-lg uppercase mb-2">{opt.title}</h3>
+                <h3 className="font-syne font-extrabold text-offwhite text-xl uppercase mb-2.5">{opt.title}</h3>
                 <p className="text-muted/85 font-dm text-sm leading-relaxed flex-1">{opt.text}</p>
 
                 {opt.link && opt.linkText && (
@@ -82,24 +85,24 @@ export default function GettingAround({ content }: { content?: GettingAroundCont
                         href={opt.link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`inline-flex items-center gap-2 font-syne font-bold text-sm px-5 py-2.5 rounded-full transition-colors ${
+                        className={`group/btn inline-flex items-center gap-2 font-syne font-bold text-sm px-5 py-2.5 rounded-full transition-all ${
                           opt.highlight
                             ? "bg-yellow text-dark hover:bg-yellow-dark"
-                            : "border border-dark-border text-muted hover:text-yellow hover:border-yellow/40"
+                            : "border border-white/15 text-offwhite/80 hover:text-yellow hover:border-yellow/40"
                         }`}
                       >
-                        {opt.linkText} <ArrowRight size={14} />
+                        {opt.linkText} <ArrowRight size={14} className="transition-transform group-hover/btn:translate-x-0.5" />
                       </a>
                     ) : (
                       <Link
                         href={opt.link}
-                        className={`inline-flex items-center gap-2 font-syne font-bold text-sm px-5 py-2.5 rounded-full transition-colors ${
+                        className={`group/btn inline-flex items-center gap-2 font-syne font-bold text-sm px-5 py-2.5 rounded-full transition-all ${
                           opt.highlight
                             ? "bg-yellow text-dark hover:bg-yellow-dark"
-                            : "border border-dark-border text-muted hover:text-yellow hover:border-yellow/40"
+                            : "border border-white/15 text-offwhite/80 hover:text-yellow hover:border-yellow/40"
                         }`}
                       >
-                        {opt.linkText} <ArrowRight size={14} />
+                        {opt.linkText} <ArrowRight size={14} className="transition-transform group-hover/btn:translate-x-0.5" />
                       </Link>
                     )}
                   </div>

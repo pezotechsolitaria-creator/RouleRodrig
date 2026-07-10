@@ -93,6 +93,21 @@ export const viewport: Viewport = {
   themeColor: "#0a0a0a",
 };
 
+// iOS launch images (apple-touch-startup-image) — dark splash with the logo so
+// an installed iPhone PWA never shows a blank/black launch screen. Generated for
+// the common iPhone portrait resolutions.
+const IOS_SPLASH: { m: string; h: string }[] = [
+  { m: "(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)", h: "/splash/apple-splash-1290-2796.png" },
+  { m: "(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)", h: "/splash/apple-splash-1179-2556.png" },
+  { m: "(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)", h: "/splash/apple-splash-1284-2778.png" },
+  { m: "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)", h: "/splash/apple-splash-1170-2532.png" },
+  { m: "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)", h: "/splash/apple-splash-1242-2688.png" },
+  { m: "(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)", h: "/splash/apple-splash-1125-2436.png" },
+  { m: "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)", h: "/splash/apple-splash-828-1792.png" },
+  { m: "(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)", h: "/splash/apple-splash-750-1334.png" },
+  { m: "(device-width: 360px) and (device-height: 780px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)", h: "/splash/apple-splash-1080-2340.png" },
+];
+
 export default function RootLayout({
   children,
 }: {
@@ -104,6 +119,10 @@ export default function RootLayout({
       className={`${syne.variable} ${bebasNeue.variable} ${dmSans.variable} antialiased`}
     >
       <body className="bg-dark text-offwhite font-dm overflow-x-hidden">
+        {/* iOS PWA launch images (hoisted to <head> by React) */}
+        {IOS_SPLASH.map((s) => (
+          <link key={s.h} rel="apple-touch-startup-image" media={s.m} href={s.h} />
+        ))}
         {/* ── Installed-app splash ─────────────────────────────────────
             Gate script runs before first paint: shows the splash only when
             launched as an installed app (Android standalone / iOS A2HS),

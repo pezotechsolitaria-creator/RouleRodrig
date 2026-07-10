@@ -44,6 +44,27 @@
   .rr-kenburns { animation: none; }
 }
 
+/* Skeleton shimmer for loading states (classier than a plain pulse) */
+@keyframes rr-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.rr-shimmer {
+  background-color: rgba(255, 255, 255, 0.04);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 20%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0) 80%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: rr-shimmer 1.5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rr-shimmer { animation: none; }
+}
+
 /* ── Base ───────────────────────────────────────────── */
 html {
   scroll-behavior: smooth;
