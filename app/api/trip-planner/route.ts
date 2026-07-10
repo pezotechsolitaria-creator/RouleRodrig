@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getContent } from '@/lib/content';
-import { DEFAULT_CONTENT, type PlannerActivity } from '@/lib/defaults';
+import { DEFAULT_CONTENT, type PlannerActivity, type MapLocation } from '@/lib/defaults';
 
 // ── Rodrigues activity knowledge base ───────────────────────────────────────
 // The pool of places is now editable from the admin dashboard (Trip Planner
@@ -43,6 +43,50 @@ const FALLBACK_ACTIVITIES: Activity[] = [
   { id: 'rum-tasting', name: 'Local Rhum Arrangé Tasting', emoji: '🍹', type: 'food', slot: 'evening', duration: '1 hr', description: 'Sample Rodrigues\' famous fruit-infused rums — passion fruit, vanilla, ginger, and seasonal island fruits.', tip: 'Look for small home-producers who blend their own — far more interesting than shop bottles. Your host may have some.' },
   { id: 'sunset-drink', name: 'Sunset Drinks by the Lagoon', emoji: '🌅', type: 'food', slot: 'evening', duration: '1 hr', description: 'Find a quiet spot by the lagoon with a cold Dodo beer or local fruit punch as the sun sets over the Indian Ocean.', tip: 'The lagoon at Saint-François changes colour spectacularly at dusk. Pack drinks from the local shop.' },
 ];
+
+// ── Island-guide locations → planner activities ─────────────────────────────
+// Fold the map/island-guide places (which carry real photos + coordinates) into
+// the activity pool so itineraries are richer, photo-rich and less repetitive.
+const LOC_TYPE: Record<MapLocation["category"], Activity["type"] | null> = {
+  beach: "beach",
+  viewpoint: "viewpoint",
+  restaurant: "food",
+  landmark: "culture",
+  activity: "adventure",
+  gas: null, // petrol stations aren't attractions
+};
+const LOC_SLOT: Record<Activity["type"], Activity["slot"]> = {
+  beach: "morning",
+  culture: "morning",
+  adventure: "afternoon",
+  viewpoint: "afternoon",
+  food: "lunch",
+};
+const LOC_EMOJI: Record<MapLocation["category"], string> = {
+  beach: "🏖️", viewpoint: "🌅", restaurant: "🍽️", landmark: "🏛️", activity: "🤿", gas: "⛽",
+};
+
+function mapLocationsToActivities(locs: MapLocation[]): Activity[] {
+  const out: Activity[] = [];
+  for (const l of locs) {
+    const type = LOC_TYPE[l.category];
+    if (!type) continue;
+    const image = l.images?.[0] || l.image;
+    out.push({
+      id: `loc-${l.id}`,
+      name: l.name,
+      emoji: LOC_EMOJI[l.category] ?? "📍",
+      type,
+      slot: LOC_SLOT[type],
+      duration: type === "food" ? "1 hr" : "1–2 hrs",
+      description: l.description || "A beautiful Rodrigues spot worth discovering.",
+      tip: "Tap the map link for live directions and distance from where you are.",
+      ...(image ? { image } : {}),
+      mapsUrl: `https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}`,
+    });
+  }
+  return out;
+}
 
 // Day themes based on itinerary composition
 const DAY_THEMES = [
@@ -198,14 +242,28 @@ export async function POST(req: NextRequest) {
     const safePace: Pace = pace === 'relaxed' || pace === 'packed' ? pace : 'balanced';
 
     // Pull the admin-managed places (real info + photos); fall back to built-ins
-    let activities: Activity[] = FALLBACK_ACTIVITIES;
+    let base: Activity[] = FALLBACK_ACTIVITIES;
+    let fromMap: Activity[] = [];
     try {
       const content = await getContent();
       if (content.plannerActivities && content.plannerActivities.length > 0) {
-        activities = content.plannerActivities;
+        base = content.plannerActivities;
       }
+      // Enrich with the island-guide locations (real photos + coordinates).
+      fromMap = mapLocationsToActivities(content.mapLocations || []);
     } catch {
-      activities = FALLBACK_ACTIVITIES.length ? FALLBACK_ACTIVITIES : DEFAULT_CONTENT.plannerActivities;
+      base = FALLBACK_ACTIVITIES.length ? FALLBACK_ACTIVITIES : DEFAULT_CONTENT.plannerActivities;
+    }
+
+    // Merge, de-duped by name (copy first — never mutate the shared const pool).
+    const activities: Activity[] = [...base];
+    const seen = new Set(activities.map((a) => a.name.trim().toLowerCase()));
+    for (const la of fromMap) {
+      const key = la.name.trim().toLowerCase();
+      if (!seen.has(key)) {
+        activities.push(la);
+        seen.add(key);
+      }
     }
 
     const itinerary = buildItinerary(clampedDays, interests, activities, safePace);

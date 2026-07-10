@@ -107,36 +107,31 @@ type Section =
   | "notifications";
 
 const NAV: { id: Section; label: string; icon: React.ElementType; group?: string }[] = [
+  // ── Daily business (operational inboxes) ──
   { id: "dashboard",    label: "Dashboard",       icon: LayoutDashboard, group: "overview" },
   { id: "bookings",     label: "Bookings",         icon: BookOpen,        group: "overview" },
   { id: "place_bookings", label: "Stay·Eat·Do Bookings", icon: BedDouble,  group: "overview" },
   { id: "submissions",  label: "Enquiries",        icon: Inbox,           group: "overview" },
   { id: "reviews",      label: "Customer Reviews", icon: MessageSquare,   group: "overview" },
   { id: "waitlist",     label: "Waitlist",         icon: Mail,            group: "overview" },
-  { id: "leads",        label: "Listing Leads",    icon: TrendingUp,      group: "overview" },
-  { id: "owners",       label: "Owner Applications", icon: UserPlus,      group: "overview" },
   { id: "notifications", label: "Alerts & Email",   icon: MessageSquare,   group: "overview" },
-  { id: "partners",     label: "Partners",         icon: Handshake,       group: "business" },
-  { id: "marketplace",  label: "Marketplace",      icon: Store,           group: "business" },
-  { id: "taxi",         label: "Taxi & Transport",  icon: Car,             group: "business" },
+
+  // ── "What are you looking for?" — the homepage hub categories ──
+  { id: "fleet",        label: "Vehicles",         icon: Bike,            group: "explore" },
+  { id: "recommended",  label: "Stay · Eat · Do",  icon: BedDouble,       group: "explore" },
+  { id: "gettingAround",label: "Getting Around",   icon: Bus,             group: "explore" },
+  { id: "events",       label: "Events",           icon: Calendar,        group: "explore" },
+  { id: "taxi",         label: "Taxi & Transport",  icon: Car,             group: "explore" },
+
+  // ── Homepage content ──
   { id: "hero",         label: "Hero",             icon: Sparkles,        group: "content" },
-  { id: "promo",        label: "Promo Carousel",   icon: Images,          group: "content" },
-  { id: "experience",   label: "Experience Photos", icon: Images,         group: "content" },
-  { id: "fleet",        label: "Fleet",            icon: Bike,            group: "content" },
-  { id: "pricing",      label: "Pricing",          icon: DollarSign,      group: "content" },
-  { id: "contact",      label: "Contact Info",     icon: Phone,           group: "content" },
-  { id: "gallery",      label: "Gallery",          icon: Images,          group: "content" },
-  { id: "testimonials", label: "Featured Reviews", icon: Star,            group: "content" },
-  { id: "branding",     label: "Branding & Social",icon: Share2,          group: "content" },
-  { id: "map",          label: "Island Map",       icon: MapPin,          group: "content" },
+  { id: "map",          label: "Island Guide",     icon: MapPin,          group: "content" },
   { id: "planner",      label: "Trip Planner",     icon: Sparkles,        group: "content" },
   { id: "routes",       label: "Ride Routes",      icon: MapPin,          group: "content" },
-  { id: "gettingAround",label: "Getting Around",   icon: Bus,             group: "content" },
-  { id: "recommended",  label: "Stay · Eat · Do",  icon: BedDouble,       group: "content" },
-  { id: "faq",          label: "FAQ",              icon: HelpCircle,      group: "content" },
-  { id: "events",       label: "Events",           icon: Calendar,        group: "content" },
   { id: "useful",       label: "Useful Numbers",   icon: Phone,           group: "content" },
-  { id: "sponsors",     label: "Sponsors / Ads",   icon: Megaphone,       group: "content" },
+  { id: "faq",          label: "FAQ",              icon: HelpCircle,      group: "content" },
+  { id: "contact",      label: "Contact Info",     icon: Phone,           group: "content" },
+  { id: "branding",     label: "Branding & Social",icon: Share2,          group: "content" },
 ];
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
@@ -648,10 +643,10 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
             { label: "Manage Bookings",   desc: "View & update booking status",      section: "bookings" as Section,     icon: BookOpen },
-            { label: "Edit Fleet",        desc: "Toggle availability, update photos", section: "fleet" as Section,       icon: Bike },
+            { label: "Edit Vehicles",     desc: "Toggle availability, update photos", section: "fleet" as Section,       icon: Bike },
             { label: "Read Enquiries",    desc: "Customer contact form messages",    section: "submissions" as Section,  icon: Inbox },
-            { label: "Edit Island Map",   desc: "Add / remove map locations",        section: "map" as Section,          icon: MapPin },
-            { label: "Upload Photos",     desc: "Add to the website gallery",        section: "gallery" as Section,      icon: Images },
+            { label: "Edit Island Guide", desc: "Add / remove map locations",        section: "map" as Section,          icon: MapPin },
+            { label: "Trip Planner",      desc: "Edit day-by-day itinerary places",  section: "planner" as Section,      icon: Sparkles },
           ].map((q) => {
             const Icon = q.icon;
             return (
@@ -5523,9 +5518,9 @@ export default function AdminDashboard({
   const q = navQuery.trim().toLowerCase();
   const matches = (n: (typeof NAV)[number]) => !q || n.label.toLowerCase().includes(q);
   const overviewNav = NAV.filter((n) => n.group === "overview" && matches(n));
-  const businessNav = NAV.filter((n) => n.group === "business" && matches(n));
+  const exploreNav  = NAV.filter((n) => n.group === "explore" && matches(n));
   const contentNav  = NAV.filter((n) => n.group === "content" && matches(n));
-  const nothingMatches = overviewNav.length + businessNav.length + contentNav.length === 0;
+  const nothingMatches = overviewNav.length + exploreNav.length + contentNav.length === 0;
 
   // Reusable nav-group renderer (shared by drawer)
   const renderNavGroup = (label: string, items: typeof NAV) => (
@@ -5596,7 +5591,7 @@ export default function AdminDashboard({
 
       <nav className="flex-1 py-4 px-3 space-y-4 overflow-y-auto">
         {overviewNav.length > 0 && renderNavGroup("DAILY BUSINESS", overviewNav)}
-        {businessNav.length > 0 && renderNavGroup("PARTNERS & SERVICES", businessNav)}
+        {exploreNav.length > 0 && renderNavGroup("WHAT ARE YOU LOOKING FOR?", exploreNav)}
         {contentNav.length > 0 && renderNavGroup("WEBSITE CONTENT", contentNav)}
         {nothingMatches && (
           <p className="px-3 py-4 text-muted/40 text-xs font-dm">No section matches &ldquo;{navQuery}&rdquo;</p>
