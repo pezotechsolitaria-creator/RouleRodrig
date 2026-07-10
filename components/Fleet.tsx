@@ -301,7 +301,7 @@ export default function Fleet({
                       type: "scooter",
                       name: scooter.name,
                       image: scooter.images?.[0] || scooter.image,
-                      href: "#fleet",
+                      href: `/browse/${scooter.category ?? "scooter"}`,
                       meta: `${convert(scooter.price)} ${scooter.unit}`,
                     }}
                   />

@@ -90,10 +90,12 @@ export default function TripPlanner() {
     );
   }
 
-  // Send the planned trip length to the booking form, then scroll to it
+  // Booking is now per-vehicle (on the /browse pages). Remember the planned
+  // trip length and send the visitor to the hub to pick a vehicle — the booking
+  // form there reads this and pre-fills the dates.
   function bookThisTrip() {
-    window.dispatchEvent(new CustomEvent("rr:prefill-booking", { detail: { days } }));
-    document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" });
+    try { localStorage.setItem("rr_trip_days", String(days)); } catch { /* ignore */ }
+    window.location.href = "/#explore";
   }
 
   async function generate() {

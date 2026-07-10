@@ -176,7 +176,7 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
                   )}
                   <div className="absolute bottom-3 right-3 z-10">
                     <SaveButton
-                      item={{ id: p.id, type: "place", name: p.name, image: p.image, href: "#recommended", meta: CATLABEL[p.category] }}
+                      item={{ id: p.id, type: "place", name: p.name, image: p.image, href: `/browse/${p.category === "hotel" ? "stays" : p.category === "activity" ? "activities" : "restaurants"}`, meta: CATLABEL[p.category] }}
                       className="flex items-center justify-center w-8 h-8 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-white hover:bg-black/65 transition-colors"
                       size={15}
                     />

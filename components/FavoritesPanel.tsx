@@ -217,10 +217,10 @@ export default function FavoritesPanel() {
                 </div>
 
                 <div className="flex gap-2 pt-1">
-                  <Link href="#trip-planner" onClick={() => setOpen(false)} className="flex-1 flex items-center justify-center gap-1.5 border border-white/20 text-offwhite font-syne font-bold text-sm py-3 rounded-full hover:bg-white/5 transition-colors">
+                  <Link href="/#trip-planner" onClick={() => setOpen(false)} className="flex-1 flex items-center justify-center gap-1.5 border border-white/20 text-offwhite font-syne font-bold text-sm py-3 rounded-full hover:bg-white/5 transition-colors">
                     {c.plan}
                   </Link>
-                  <Link href="#booking" onClick={() => setOpen(false)} className="flex-1 flex items-center justify-center gap-1.5 bg-yellow text-dark font-syne font-bold text-sm py-3 rounded-full hover:bg-yellow-dark transition-colors">
+                  <Link href="/#explore" onClick={() => setOpen(false)} className="flex-1 flex items-center justify-center gap-1.5 bg-yellow text-dark font-syne font-bold text-sm py-3 rounded-full hover:bg-yellow-dark transition-colors">
                     {c.book} <ArrowRight size={14} />
                   </Link>
                 </div>

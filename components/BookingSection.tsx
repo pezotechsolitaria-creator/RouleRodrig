@@ -129,6 +129,25 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
     return () => window.removeEventListener("rr:prefill-booking", onPrefill);
   }, []);
 
+  // Trip Planner → Booking across pages: it stores the planned length in
+  // localStorage, so pre-fill the dates when the booking form loads here.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("rr_trip_days");
+      if (!raw) return;
+      localStorage.removeItem("rr_trip_days");
+      const n = parseInt(raw, 10);
+      if (!Number.isFinite(n) || n <= 0) return;
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const start = tomorrow.toISOString().split("T")[0];
+      setForm((f) => ({ ...f, start_date: start, end_date: isoAddDays(start, n) }));
+      setDesiredDays(n);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   // ── Referral auto-attribution: pull the hotel/partner code captured from
   //    the ?ref= link and pre-fill it so the guest never has to type a code. ──
   const [referredBy, setReferredBy] = useState<string | null>(null);
