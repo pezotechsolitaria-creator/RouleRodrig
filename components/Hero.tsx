@@ -113,7 +113,7 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
             src={h.backgroundImage}
             alt="Exploring Rodrigues Island at golden hour"
             fill
-            className="object-cover object-center"
+            className="object-cover object-center rr-kenburns"
             priority
             sizes="100vw"
             unoptimized={h.backgroundImage.startsWith("/uploads/") || h.backgroundImage.startsWith("http")}

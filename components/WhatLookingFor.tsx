@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRef, useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
+import { motion, useMotionValue, useSpring, useMotionTemplate } from "framer-motion";
 import {
   ArrowRight,
   Bike,
@@ -41,10 +41,112 @@ function iconFor(slug: string, label: string): LucideIcon {
 }
 
 /**
+ * A single hub card with an award-site-style 3D tilt toward the cursor and a
+ * soft spotlight that follows the mouse (desktop only — touch never fires the
+ * move handlers, so it degrades gracefully).
+ */
+function HubCard({ c }: { c: BrowseCategory }) {
+  const { t } = useLanguage();
+  const Icon = iconFor(c.slug, c.label);
+  const ref = useRef<HTMLAnchorElement>(null);
+  const [hover, setHover] = useState(false);
+
+  const rx = useMotionValue(0);
+  const ry = useMotionValue(0);
+  const srx = useSpring(rx, { stiffness: 170, damping: 18 });
+  const sry = useSpring(ry, { stiffness: 170, damping: 18 });
+  const gx = useMotionValue(50);
+  const gy = useMotionValue(50);
+  const spotlight = useMotionTemplate`radial-gradient(340px circle at ${gx}% ${gy}%, rgba(255,255,255,0.16), transparent 55%)`;
+
+  const onMove = (e: React.MouseEvent) => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width;
+    const py = (e.clientY - r.top) / r.height;
+    ry.set((px - 0.5) * 9);
+    rx.set(-(py - 0.5) * 9);
+    gx.set(px * 100);
+    gy.set(py * 100);
+  };
+  const onLeave = () => {
+    rx.set(0);
+    ry.set(0);
+    setHover(false);
+  };
+
+  return (
+    <Link
+      ref={ref}
+      href={`/browse/${c.slug}`}
+      onMouseEnter={() => setHover(true)}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+      className="group block [perspective:1100px]"
+    >
+      <motion.div
+        style={{ rotateX: srx, rotateY: sry, transformStyle: "preserve-3d" }}
+        className="relative h-[430px] rounded-[28px] overflow-hidden bg-dark-card ring-1 ring-white/10 group-hover:ring-yellow/50 transition-[box-shadow,border-color] duration-300 shadow-[0_12px_40px_-16px_rgba(0,0,0,0.8)] group-hover:shadow-[0_28px_70px_-18px_rgba(0,0,0,0.95)]"
+      >
+        {c.image ? (
+          <Image
+            src={c.image}
+            alt={c.label}
+            fill
+            className="object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.08]"
+            sizes="(max-width: 640px) 80vw, 320px"
+            unoptimized={c.image.startsWith("/uploads/") || c.image.startsWith("http")}
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1c1c18] to-dark-card flex items-center justify-center text-7xl">
+            {c.emoji ?? "📍"}
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-dark via-dark/35 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-dark/40 via-transparent to-transparent" />
+
+        {/* Cursor spotlight (desktop) */}
+        <motion.div
+          className="pointer-events-none absolute inset-0 mix-blend-soft-light transition-opacity duration-300"
+          style={{ background: spotlight, opacity: hover ? 1 : 0 }}
+          aria-hidden="true"
+        />
+
+        {/* Category icon — glass badge */}
+        <div className="absolute top-5 left-5 w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center text-white shadow-lg" style={{ transform: "translateZ(40px)" }}>
+          <Icon size={22} />
+        </div>
+
+        {/* Content */}
+        <div className="absolute inset-x-0 bottom-0 p-6 md:p-7" style={{ transform: "translateZ(30px)" }}>
+          <p className="font-bebas text-[11px] tracking-[0.28em] mb-2">
+            {c.priceFrom ? (
+              <>
+                <span className="text-yellow">{c.priceFrom}</span>{" "}
+                <span className="text-white/45">· {c.count} {c.count === 1 ? t.explore.option : t.explore.options}</span>
+              </>
+            ) : (
+              <span className="text-white/60">{c.count} {c.count === 1 ? t.explore.option : t.explore.options}</span>
+            )}
+          </p>
+          <h3 className="font-syne font-extrabold text-offwhite uppercase leading-[0.95] mb-4" style={{ fontSize: "clamp(28px, 5.5vw, 40px)" }}>
+            {c.label}
+          </h3>
+          <span className="inline-flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-5 py-2.5 rounded-full transition-all group-hover:pl-6">
+            {t.explore.cta}
+            <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+          </span>
+        </div>
+      </motion.div>
+    </Link>
+  );
+}
+
+/**
  * "What are you looking for?" — the homepage's main entry point. A premium,
- * swipeable carousel of category cards: each has a glass category icon, a
- * cinematic photo, price/count, and an always-visible "Explore" action. A peek
- * of the next card + dot indicators signal that it scrolls (no arrow buttons).
+ * swipeable carousel of category cards with 3D tilt + spotlight micro-
+ * interactions, glass icons, price transparency and dot indicators (no arrows).
  */
 export default function WhatLookingFor({ categories }: { categories: BrowseCategory[] }) {
   const scroller = useRef<HTMLDivElement>(null);
@@ -110,66 +212,19 @@ export default function WhatLookingFor({ categories }: { categories: BrowseCateg
         ref={scroller}
         className="relative flex gap-5 overflow-x-auto pb-2 px-6 lg:px-[max(1.5rem,calc((100vw-80rem)/2+1.5rem))] snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {categories.map((c, i) => {
-          const Icon = iconFor(c.slug, c.label);
-          return (
-            <motion.div
-              key={c.slug}
-              data-card
-              initial={{ opacity: 0, y: 26 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-40px" }}
-              transition={{ duration: 0.5, delay: Math.min(i * 0.05, 0.3) }}
-              whileHover={{ y: -6 }}
-              className="snap-center shrink-0 w-[80vw] max-w-[360px] sm:w-[320px]"
-            >
-              <Link
-                href={`/browse/${c.slug}`}
-                className="group relative block h-[430px] rounded-[28px] overflow-hidden bg-dark-card ring-1 ring-white/10 hover:ring-yellow/50 transition-all duration-300 shadow-[0_12px_40px_-16px_rgba(0,0,0,0.8)] hover:shadow-[0_24px_60px_-18px_rgba(0,0,0,0.9)]"
-              >
-                {c.image ? (
-                  <Image
-                    src={c.image}
-                    alt={c.label}
-                    fill
-                    className="object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.07]"
-                    sizes="(max-width: 640px) 80vw, 320px"
-                    unoptimized={c.image.startsWith("/uploads/") || c.image.startsWith("http")}
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#1c1c18] to-dark-card flex items-center justify-center text-7xl">
-                    {c.emoji ?? "📍"}
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-dark via-dark/35 to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-b from-dark/40 via-transparent to-transparent" />
-
-                {/* Category icon — glass badge */}
-                <div className="absolute top-5 left-5 w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center text-white shadow-lg">
-                  <Icon size={22} />
-                </div>
-
-                {/* Content */}
-                <div className="absolute inset-x-0 bottom-0 p-6 md:p-7">
-                  <p className="font-bebas text-[11px] tracking-[0.28em] mb-2">
-                    {c.priceFrom ? (
-                      <><span className="text-yellow">{c.priceFrom}</span> <span className="text-white/45">· {c.count} {c.count === 1 ? t.explore.option : t.explore.options}</span></>
-                    ) : (
-                      <span className="text-white/60">{c.count} {c.count === 1 ? t.explore.option : t.explore.options}</span>
-                    )}
-                  </p>
-                  <h3 className="font-syne font-extrabold text-offwhite uppercase leading-[0.95] mb-4" style={{ fontSize: "clamp(28px, 5.5vw, 40px)" }}>
-                    {c.label}
-                  </h3>
-                  <span className="inline-flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-5 py-2.5 rounded-full transition-all group-hover:pl-6">
-                    {t.explore.cta}
-                    <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
-                  </span>
-                </div>
-              </Link>
-            </motion.div>
-          );
-        })}
+        {categories.map((c, i) => (
+          <motion.div
+            key={c.slug}
+            data-card
+            initial={{ opacity: 0, y: 26 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-40px" }}
+            transition={{ duration: 0.5, delay: Math.min(i * 0.05, 0.3) }}
+            className="snap-center shrink-0 w-[80vw] max-w-[360px] sm:w-[320px]"
+          >
+            <HubCard c={c} />
+          </motion.div>
+        ))}
         {/* trailing spacer so the last card can snap centre on wide screens */}
         <div className="shrink-0 w-px" aria-hidden="true" />
       </div>

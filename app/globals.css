@@ -30,6 +30,20 @@
   50%       { transform: translateY(8px); }
 }
 
+/* Cinematic slow zoom for hero imagery (premium travel-site feel) */
+@keyframes rr-kenburns {
+  from { transform: scale(1.02); }
+  to   { transform: scale(1.13); }
+}
+.rr-kenburns {
+  animation: rr-kenburns 26s ease-in-out infinite alternate;
+  transform-origin: 55% 45%;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rr-kenburns { animation: none; }
+}
+
 /* ── Base ───────────────────────────────────────────── */
 html {
   scroll-behavior: smooth;
