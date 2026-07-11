@@ -17,7 +17,10 @@ export async function PUT(req: NextRequest) {
   try {
     const body = (await req.json()) as SiteContent;
     await saveContent(body);
+    // Bust the ISR cache so edits show immediately on the homepage + all
+    // /browse category pages (instead of waiting for the 60s revalidation).
     revalidatePath('/');
+    revalidatePath('/browse/[category]', 'page');
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: 'Failed to save content' }, { status: 500 });

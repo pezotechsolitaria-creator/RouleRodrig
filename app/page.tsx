@@ -19,7 +19,10 @@ import ScrollProgress from "@/components/ScrollProgress";
 import ScrollToTop from "@/components/ScrollToTop";
 import BackToExplore from "@/components/BackToExplore";
 
-export const dynamic = "force-dynamic";
+// ISR: serve a cached page for instant repeat loads, regenerate every 60s.
+// Live booking-calendar availability is fetched client-side, so it stays fresh;
+// only the "sold out today" card badge can be up to ~60s behind.
+export const revalidate = 60;
 
 function priceNumber(price: string): number | null {
   const m = price.match(/[\d,]+/);

@@ -1,6 +1,18 @@
 import 'server-only';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { DEFAULT_CONTENT, type SiteContent } from './defaults';
-import { createClient } from './supabase/server';
+
+// Cookie-free public read client. site_content ('main') is public-readable, so
+// reading it without cookies lets every page that calls getContent be cached
+// (ISR) instead of being forced dynamic by the cookie-based SSR client.
+function publicReadClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const key =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    '';
+  return createSupabaseClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+}
 
 export { DEFAULT_CONTENT };
 export type { SiteContent };
@@ -69,7 +81,7 @@ function mergeWithDefaults(parsed: Partial<SiteContent>): SiteContent {
 
 export async function getContent(): Promise<SiteContent> {
   try {
-    const supabase = await createClient();
+    const supabase = publicReadClient();
     const { data } = await supabase
       .from('site_content')
       .select('data')

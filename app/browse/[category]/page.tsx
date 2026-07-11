@@ -12,7 +12,9 @@ import WhatsAppButton from "@/components/WhatsAppButton";
 import ScrollToTop from "@/components/ScrollToTop";
 import BrowseBackBar from "@/components/BrowseBackBar";
 
-export const dynamic = "force-dynamic";
+// ISR (see app/page.tsx). The per-vehicle booking calendar is client-fetched,
+// so availability there stays live; card badges can be up to ~60s behind.
+export const revalidate = 60;
 
 // Special (non-vehicle) place categories → which items render on each page.
 // Activities and Guided Tours share the "activity" category, split by isTour.
