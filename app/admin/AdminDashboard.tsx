@@ -146,7 +146,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const inputCls =
-  "w-full bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none transition-colors";
+  "w-full bg-[#0e0e0e] border border-[#2a2a2a] rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 hover:border-[#3a3a3a] focus:border-yellow focus:ring-2 focus:ring-yellow/15 focus:outline-none transition-all";
 
 function TextInput({
   value,
