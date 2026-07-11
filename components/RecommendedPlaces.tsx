@@ -167,7 +167,7 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
                     </div>
                   )}
                   <span className={`absolute top-3 left-3 flex items-center gap-1.5 font-bebas text-[9px] tracking-[0.2em] border px-2.5 py-1 rounded-full backdrop-blur-sm ${cfg.color}`}>
-                    <cfg.icon size={10} /> {CATLABEL[p.category]}
+                    <cfg.icon size={10} /> {p.isTour ? "Tour" : CATLABEL[p.category]}
                   </span>
                   {p.featured && (
                     <span className="absolute top-3 right-3 flex items-center gap-1 font-bebas text-[9px] tracking-[0.15em] bg-yellow text-dark px-2.5 py-1 rounded-full">
@@ -176,7 +176,7 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
                   )}
                   <div className="absolute bottom-3 right-3 z-10">
                     <SaveButton
-                      item={{ id: p.id, type: "place", name: p.name, image: p.image, href: `/browse/${p.category === "hotel" ? "stays" : p.category === "activity" ? "activities" : "restaurants"}`, meta: CATLABEL[p.category] }}
+                      item={{ id: p.id, type: "place", name: p.name, image: p.image, href: `/browse/${p.isTour ? "tours" : p.category === "hotel" ? "stays" : p.category === "activity" ? "activities" : "restaurants"}`, meta: p.isTour ? "Tour" : CATLABEL[p.category] }}
                       className="flex items-center justify-center w-8 h-8 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-white hover:bg-black/65 transition-colors"
                       size={15}
                     />

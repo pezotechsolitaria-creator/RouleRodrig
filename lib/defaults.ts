@@ -192,6 +192,7 @@ export interface RecommendedPlace {
   priceNote?: string;  // optional price hint shown in the booking form, e.g. "from Rs 2500/night"
   highlights?: string[]; // bullet highlights/amenities shown in the detail view
   images?: string[];   // optional extra photos for the detail gallery
+  isTour?: boolean;    // an activity that's a guided tour/excursion → shown under "Guided Tours"
 }
 
 export interface RecommendedContent {

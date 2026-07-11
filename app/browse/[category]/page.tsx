@@ -14,11 +14,14 @@ import BrowseBackBar from "@/components/BrowseBackBar";
 
 export const dynamic = "force-dynamic";
 
-// Special (non-vehicle) categories → which section renders them.
-const PLACE_SLUGS: Record<string, { label: string; cat: "restaurant" | "activity" | "hotel" }> = {
-  restaurants: { label: "Restaurants", cat: "restaurant" },
-  activities: { label: "Activities", cat: "activity" },
-  stays: { label: "Stays", cat: "hotel" },
+// Special (non-vehicle) place categories → which items render on each page.
+// Activities and Guided Tours share the "activity" category, split by isTour.
+type Place = { category: string; isTour?: boolean };
+const PLACE_SLUGS: Record<string, { label: string; filter: (p: Place) => boolean }> = {
+  restaurants: { label: "Restaurants", filter: (p) => p.category === "restaurant" },
+  activities: { label: "Activities", filter: (p) => p.category === "activity" && !p.isTour },
+  tours: { label: "Guided Tours", filter: (p) => p.category === "activity" && !!p.isTour },
+  stays: { label: "Stays", filter: (p) => p.category === "hotel" },
 };
 
 export default async function BrowsePage({ params }: { params: Promise<{ category: string }> }) {
@@ -75,10 +78,10 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
     );
   }
 
-  // ── Places (restaurants / activities / stays) ──
+  // ── Places (restaurants / activities / tours / stays) ──
   const place = PLACE_SLUGS[category];
   if (place) {
-    const items = content.recommended.items.filter((p) => p.category === place.cat);
+    const items = content.recommended.items.filter(place.filter);
     if (items.length === 0) notFound();
     return (
       <>

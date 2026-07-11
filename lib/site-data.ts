@@ -141,8 +141,10 @@ export function buildBrowseCategories(
   if (content.recommended.enabled) {
     const rest = content.recommended.items.filter((p) => p.category === "restaurant");
     if (rest.length) cats.push({ slug: "restaurants", label: "Restaurants", image: firstImage(rest), emoji: "🍽️", count: rest.length });
-    const act = content.recommended.items.filter((p) => p.category === "activity");
+    const act = content.recommended.items.filter((p) => p.category === "activity" && !p.isTour);
     if (act.length) cats.push({ slug: "activities", label: "Activities", image: firstImage(act), emoji: "🤿", count: act.length });
+    const tours = content.recommended.items.filter((p) => p.category === "activity" && p.isTour);
+    if (tours.length) cats.push({ slug: "tours", label: "Guided Tours", image: firstImage(tours), emoji: "🧭", count: tours.length });
     const stays = content.recommended.items.filter((p) => p.category === "hotel");
     if (stays.length) cats.push({ slug: "stays", label: "Stays", image: firstImage(stays), emoji: "🏝️", count: stays.length });
   }

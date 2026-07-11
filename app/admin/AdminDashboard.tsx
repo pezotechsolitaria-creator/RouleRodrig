@@ -3075,6 +3075,22 @@ function RecommendedEditor({
               </Field>
             )}
           </div>
+          {it.category === "activity" && (
+            <div className="flex items-center justify-between gap-3 bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl px-4 py-3">
+              <div>
+                <p className="font-dm text-offwhite text-sm">Guided tour</p>
+                <p className="text-muted/50 text-[11px] font-dm">Show under &ldquo;Guided Tours&rdquo; in the hub instead of Activities</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => updateItem(i, { isTour: !it.isTour })}
+                className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${it.isTour ? "bg-yellow" : "bg-[#2a2a2a]"}`}
+                aria-label="Toggle guided tour"
+              >
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${it.isTour ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+            </div>
+          )}
           {it.bookable && it.category !== "hotel" && (
             <Field label="TIME SLOTS (comma-separated — leave blank for whole-day)">
               <TextInput
