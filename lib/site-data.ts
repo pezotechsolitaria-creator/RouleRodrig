@@ -138,7 +138,9 @@ export function buildBrowseCategories(
     const winner = cats.find((c) => c.slug === top);
     if (winner) winner.popular = true;
   }
-  if (content.recommended.enabled) {
+  {
+    // Stay·Eat·Do live in the hub as their own tiles — show each whenever it has
+    // items (no longer gated on the old homepage-section "enabled" flag).
     const rest = content.recommended.items.filter((p) => p.category === "restaurant");
     if (rest.length) cats.push({ slug: "restaurants", label: "Restaurants", image: firstImage(rest), emoji: "🍽️", count: rest.length });
     const act = content.recommended.items.filter((p) => p.category === "activity" && !p.isTour);

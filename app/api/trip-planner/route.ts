@@ -25,10 +25,9 @@ const FALLBACK_ACTIVITIES: Activity[] = [
   { id: 'port-mathurin', name: 'Port Mathurin Town Walk', emoji: '🏛️', type: 'culture', slot: 'morning', duration: '1.5 hrs', description: 'Stroll the colourful capital, visit St Gabriel Church, the market hall, and waterfront. Feel the island\'s French Creole character.', tip: 'The waterfront at sunrise is serene. Stop at a local bakery for a pain beurre before exploring.' },
 
   // Adventure
-  { id: 'coastal-ride', name: 'East Coast Scenic Scooter Ride', emoji: '🛵', type: 'adventure', slot: 'afternoon', duration: '2–3 hrs', description: 'The most spectacular road on the island — ride from Pointe Cotton south to Saint-François along dramatic cliffs and open lagoons.', tip: 'This is why you rented the scooter. Stop wherever looks good. You will not regret it.' },
-  { id: 'grand-montagne', name: 'Grand Montagne Nature Reserve', emoji: '🦜', type: 'adventure', slot: 'morning', duration: '2–3 hrs', description: 'Hike through endemic forest with incredible birdlife. Home to the rare Rodrigues warbler and fody.', tip: 'Start at 7am before the heat builds. The trail markers are clear and the birdlife is extraordinary in the early morning.' },
-  { id: 'gombrani', name: 'Île Gombrani Snorkel Trip', emoji: '🤿', type: 'adventure', slot: 'morning', duration: '3–4 hrs', description: 'Boat trip to a small uninhabited islet surrounded by pristine coral reef. Some of the best snorkelling in Rodrigues.', tip: 'Book from Port Mathurin waterfront. Bring your own mask for a better fit — and sunscreen.' },
-  { id: 'southern-ride', name: 'Southern Coastal Ride', emoji: '🏍️', type: 'adventure', slot: 'afternoon', duration: '2 hrs', description: 'Explore the wild southern coast by scooter — dramatic cliffs, isolated bays, and barely any other tourists.', tip: 'Start from Port Mathurin heading south. The road through Baie Malgache is particularly beautiful.' },
+  { id: 'grand-montagne', name: 'Grande Montagne Nature Reserve', emoji: '🦜', type: 'adventure', slot: 'morning', duration: '2–3 hrs', description: 'Hike through endemic forest with incredible birdlife. Home to the rare Rodrigues warbler and fody.', tip: 'Start at 7am before the heat builds. The trail markers are clear and the birdlife is extraordinary in the early morning.' },
+  { id: 'gombrani', name: 'Île Gombrani', emoji: '🤿', type: 'adventure', slot: 'morning', duration: '3–4 hrs', description: 'Boat trip to a small uninhabited islet surrounded by pristine coral reef. Some of the best snorkelling in Rodrigues.', tip: 'Book from Port Mathurin waterfront. Bring your own mask for a better fit — and sunscreen.' },
+  { id: 'saint-francois-pt', name: 'Pointe Cotton to Saint-François', emoji: '🌊', type: 'adventure', slot: 'afternoon', duration: '2–3 hrs', description: 'The most spectacular coastal stretch on the island — dramatic cliffs and open lagoons between Pointe Cotton and Saint-François.', tip: 'Stop wherever looks good along the eastern road — the views are unforgettable.' },
 
   // Viewpoints
   { id: 'pointe-cotton', name: 'Pointe Cotton Cliffs', emoji: '🌅', type: 'viewpoint', slot: 'afternoon', duration: '1 hr', description: 'The most dramatic cliffs on the island. Sheer drops into the Indian Ocean with 180-degree views.', tip: 'Go in the afternoon for golden light on the cliffs. Wind can be strong — hold on to your hat.' },
@@ -108,8 +107,11 @@ function pickUnused(pool: Activity[], used: Set<string>): Activity | undefined {
 type Pace = "relaxed" | "balanced" | "packed";
 
 // Google Maps helpers — one-tap navigation for every stop and the whole day.
+// IMPORTANT: use a DIRECTIONS link (routes to the place), never a search link.
+// A `/maps/search/?query=<name>` lists nearby *businesses* — which for names
+// like "…Scooter Ride" surfaces competitor rental shops. Directions don't.
 const mapsQuery = (name: string) =>
-  `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name + ", Rodrigues")}`;
+  `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(name + ", Rodrigues, Mauritius")}`;
 function dayRouteUrl(names: string[]): string {
   if (names.length === 0) return "";
   if (names.length === 1) return mapsQuery(names[0]);
