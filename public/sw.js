@@ -1,14 +1,14 @@
-// Service worker tuned for a fast, splash-free launch.
+// Service worker — correctness first.
 //
-// The native OS/PWA launch screen (Android's manifest splash, iOS's blank) is
-// shown until the web app paints its first frame. On a cold start the cache may
-// be gone, so a network-first strategy makes that first paint wait on the
-// network — which is exactly the long black/native screen users see.
+// Pages (HTML) are fetched NETWORK-FIRST so the served HTML always matches the
+// currently-deployed JS bundles. (A stale-cached HTML that points at old
+// /_next hashes fails to hydrate → every onClick button goes dead. Never do
+// that.) The homepage is ISR-cached at the edge, so network-first is still
+// fast, and iOS launch images cover the cold-start gap.
 //
-// Fix: serve the app shell (and hashed static assets) CACHE-FIRST so the very
-// first paint is instant and hands straight to the in-page animated intro, then
-// refresh the cache in the background (stale-while-revalidate).
-const CACHE = "rr-cache-v12";
+// Immutable hashed build assets are cache-first (safe — their URL changes when
+// they change). Everything else is network-first with an offline fallback.
+const CACHE = "rr-cache-v13";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
@@ -31,33 +31,31 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
-
-  // Admin + API must always be fresh (and never cached).
   if (url.pathname.startsWith("/admin") || url.pathname.startsWith("/api")) return;
 
   const sameOrigin = url.origin === self.location.origin;
 
-  // ── App shell (page navigations): stale-while-revalidate ──
-  // Paint instantly from cache (kills the cold-start black screen), then update.
+  // ── Page navigations: NETWORK-FIRST (fresh HTML matches current JS) ──
   if (request.mode === "navigate") {
     event.respondWith(
       (async () => {
-        const cache = await caches.open(CACHE);
-        const cached = (await cache.match(request)) || (await cache.match(SHELL));
-        const network = fetch(request)
-          .then((res) => {
-            if (res && res.ok && sameOrigin) cache.put(request, res.clone()).catch(() => {});
-            return res;
-          })
-          .catch(() => null);
-        // Serve cache immediately if we have it; otherwise wait on the network.
-        return cached || (await network) || (await cache.match(SHELL)) || Response.error();
+        try {
+          const fresh = await fetch(request);
+          if (fresh && fresh.ok && sameOrigin) {
+            const cache = await caches.open(CACHE);
+            cache.put(request, fresh.clone()).catch(() => {});
+          }
+          return fresh;
+        } catch {
+          const cache = await caches.open(CACHE);
+          return (await cache.match(request)) || (await cache.match(SHELL)) || Response.error();
+        }
       })(),
     );
     return;
   }
 
-  // ── Immutable hashed build assets: cache-first (instant, never change) ──
+  // ── Immutable hashed build assets: cache-first ──
   if (sameOrigin && url.pathname.startsWith("/_next/static/")) {
     event.respondWith(
       (async () => {
