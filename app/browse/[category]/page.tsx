@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getFleetView, buildBrowseCategories } from "@/lib/site-data";
 import Navbar from "@/components/Navbar";
 import BrowseTabs from "@/components/BrowseTabs";
@@ -28,6 +28,8 @@ const PLACE_SLUGS: Record<string, { label: string; filter: (p: Place) => boolean
 
 export default async function BrowsePage({ params }: { params: Promise<{ category: string }> }) {
   const { category } = await params;
+  // Restaurants are handled by the WhatsApp food concierge, not a listing.
+  if (category === "restaurants") redirect("/food");
   const { content, fleet, ratings, recentBookings, businessWhatsApp } = await getFleetView();
   const cats = buildBrowseCategories(content, fleet, recentBookings);
 
