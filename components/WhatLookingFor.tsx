@@ -27,6 +27,8 @@ export interface BrowseCategory {
   count: number;
   priceFrom?: string; // e.g. "From Rs 599/day" — shown on vehicle tiles
   popular?: boolean;  // most-booked category → "Popular" badge
+  href?: string;      // override destination (default /browse/<slug>)
+  tagline?: string;   // replaces the "N options" line (e.g. concierge tiles)
 }
 
 // Pick a recognisable icon per category so the hub is scannable at a glance.
@@ -78,25 +80,16 @@ function HubCard({ c }: { c: BrowseCategory }) {
     setHover(false);
   };
 
-  // Gyroscope tilt on touch devices — the cards lean with the phone (the wow
-  // works without a mouse). Android fires this freely; iOS 13+ needs a
-  // permission gesture, so it simply stays flat there (no crash).
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!window.matchMedia("(pointer: coarse)").matches) return;
-    const clamp = (n: number) => Math.max(-7, Math.min(7, n));
-    const onOrient = (e: DeviceOrientationEvent) => {
-      ry.set(clamp((e.gamma ?? 0) / 6));
-      rx.set(clamp(((e.beta ?? 0) - 45) / 6));
-    };
-    window.addEventListener("deviceorientation", onOrient);
-    return () => window.removeEventListener("deviceorientation", onOrient);
-  }, [rx, ry]);
+  // NOTE: the 3D tilt is intentionally DESKTOP-ONLY (driven by the mouse-move
+  // handlers below). We do NOT attach a `deviceorientation` listener on touch
+  // devices — with ~8-10 cards mounted, that fired 60+×/sec each and drove a
+  // spring loop per card, saturating the mobile main thread and making every
+  // tap laggy. On phones the cards stay flat and buttons stay instant.
 
   return (
     <Link
       ref={ref}
-      href={`/browse/${c.slug}`}
+      href={c.href ?? `/browse/${c.slug}`}
       onMouseEnter={() => setHover(true)}
       onMouseMove={onMove}
       onMouseLeave={onLeave}
@@ -145,7 +138,9 @@ function HubCard({ c }: { c: BrowseCategory }) {
         {/* Content */}
         <div className="absolute inset-x-0 bottom-0 p-6 md:p-7" style={{ transform: "translateZ(30px)" }}>
           <p className="font-bebas text-[11px] tracking-[0.28em] mb-2">
-            {c.priceFrom ? (
+            {c.tagline ? (
+              <span className="text-yellow">{c.tagline}</span>
+            ) : c.priceFrom ? (
               <>
                 <span className="text-yellow">{c.priceFrom}</span>{" "}
                 <span className="text-white/45">· {c.count} {c.count === 1 ? t.explore.option : t.explore.options}</span>

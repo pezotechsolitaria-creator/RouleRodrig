@@ -141,8 +141,21 @@ export function buildBrowseCategories(
   {
     // Stay·Eat·Do live in the hub as their own tiles — show each whenever it has
     // items (no longer gated on the old homepage-section "enabled" flag).
+    // Food is different: instead of a restaurant LISTING, the tile opens the
+    // WhatsApp food concierge (/food) — a human recommends & books the table.
+    const fc = content.foodConcierge;
     const rest = content.recommended.items.filter((p) => p.category === "restaurant");
-    if (rest.length) cats.push({ slug: "restaurants", label: "Restaurants", image: firstImage(rest), emoji: "🍽️", count: rest.length });
+    if (fc?.enabled) {
+      cats.push({
+        slug: "food",
+        href: "/food",
+        label: "Food & Dining",
+        image: firstImage(rest),
+        emoji: "🍽️",
+        count: 0,
+        tagline: "Free concierge · we book your table",
+      });
+    }
     const act = content.recommended.items.filter((p) => p.category === "activity" && !p.isTour);
     if (act.length) cats.push({ slug: "activities", label: "Activities", image: firstImage(act), emoji: "🤿", count: act.length });
     const tours = content.recommended.items.filter((p) => p.category === "activity" && p.isTour);

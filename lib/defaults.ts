@@ -137,7 +137,8 @@ export interface RideRoute {
   duration: string;   // e.g. "2–3 hrs"
   difficulty: "Easy" | "Moderate" | "Advanced";
   stops: string;      // newline-separated list of stops
-  mapsUrl: string;    // Google Maps link
+  mapsUrl: string;    // Google Maps link (rides) or Wikiloc GPS track (trails)
+  linkLabel?: string; // custom CTA label, e.g. "View trail on Wikiloc"
   image?: string;
   featured?: boolean; // pinned to top + gold border
   kind?: "ride" | "hike"; // scooter ride (default) vs hiking/adventure trail
@@ -200,6 +201,26 @@ export interface RecommendedContent {
   title: string;
   subtitle: string;
   items: RecommendedPlace[];
+}
+
+// Food Concierge — instead of listing restaurants, the "Food & Dining" hub tile
+// opens a premium WhatsApp concierge: the visitor tells us what they fancy and a
+// local expert points them to (and books) the right table. The number is
+// admin-editable; commission is arranged directly with partner restaurants.
+export interface FoodConciergeStep {
+  id: string;
+  title: string;
+  text: string;
+}
+export interface FoodConciergeContent {
+  enabled: boolean;
+  whatsapp: string;      // digits or wa.me link — where enquiries land
+  title: string;         // hero headline on /food
+  subtitle: string;      // hero sub-line
+  intro: string;         // short paragraph explaining the free service
+  buttonText: string;    // WhatsApp CTA label
+  prefill: string;       // pre-filled WhatsApp message
+  steps: FoodConciergeStep[]; // "how it works" cards
 }
 
 export interface FaqItem {
@@ -268,6 +289,7 @@ export interface SiteContent {
   gettingAround: GettingAroundContent;
   faq: FaqContent;
   recommended: RecommendedContent;
+  foodConcierge: FoodConciergeContent;
   experience: ExperienceContent;
 }
 
@@ -695,6 +717,20 @@ export const DEFAULT_CONTENT: SiteContent = {
     title: 'Where to Stay, Eat & Do',
     subtitle: 'Our hand-picked places to make the most of your Rodrigues trip.',
     items: [],
+  },
+  foodConcierge: {
+    enabled: true,
+    whatsapp: '',
+    title: 'Your personal food concierge',
+    subtitle: 'Tell us what you fancy — we find the table.',
+    intro: 'Rodrigues hides some incredible tables: fresh octopus curry, hidden beach grills, home cooking you would never find on a map. Instead of scrolling endless listings, just message our local food concierge on WhatsApp. Tell us your cravings, your budget and your location, and we\'ll recommend the perfect spot — and book it for you. It\'s free for you to use.',
+    buttonText: 'Chat with our food concierge',
+    prefill: 'Hi Roule Rodrigues! I\'d love a food recommendation on Rodrigues. Here\'s what I\'m looking for:',
+    steps: [
+      { id: 'tell', title: 'Tell us your craving', text: 'Message us on WhatsApp — seafood, Creole home cooking, a sunset drink, a birthday dinner. Add your area, group size and budget.' },
+      { id: 'match', title: 'We match you', text: 'A local expert replies with 2–3 hand-picked spots that fit, with honest tips on what to order and when to go.' },
+      { id: 'book', title: 'We book your table', text: 'Say the word and we reserve it for you and pass on your details — no app, no account, no fee.' },
+    ],
   },
   experience: {
     image1: '/images/burgman-sunset.jpeg',

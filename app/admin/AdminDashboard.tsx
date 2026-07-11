@@ -6,6 +6,7 @@ import Image from "next/image";
 import {
   Sparkles,
   Bike,
+  UtensilsCrossed,
   DollarSign,
   Phone,
   Images,
@@ -103,6 +104,7 @@ type Section =
   | "gettingAround"
   | "faq"
   | "recommended"
+  | "foodConcierge"
   | "experience"
   | "notifications";
 
@@ -118,6 +120,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
 
   // ── "What are you looking for?" — the homepage hub categories ──
   { id: "fleet",        label: "Vehicles",         icon: Bike,            group: "explore" },
+  { id: "foodConcierge",label: "Food Concierge",   icon: UtensilsCrossed, group: "explore" },
   { id: "recommended",  label: "Stay · Eat · Do",  icon: BedDouble,       group: "explore" },
   { id: "gettingAround",label: "Getting Around",   icon: Bus,             group: "explore" },
   { id: "events",       label: "Events",           icon: Calendar,        group: "explore" },
@@ -3207,6 +3210,120 @@ function FaqEditor({
   );
 }
 
+// ── Food Concierge editor ─────────────────────────────────────────────────────────
+
+function FoodConciergeEditor({
+  content,
+  onChange,
+}: {
+  content: SiteContent;
+  onChange: (c: SiteContent) => void;
+}) {
+  const fc = content.foodConcierge;
+  const set = (patch: Partial<typeof fc>) => onChange({ ...content, foodConcierge: { ...fc, ...patch } });
+  const updateStep = (i: number, patch: Partial<(typeof fc.steps)[number]>) =>
+    set({ steps: fc.steps.map((s, idx) => (idx === i ? { ...s, ...patch } : s)) });
+  const addStep = () => set({ steps: [...fc.steps, { id: `step-${Date.now()}`, title: "", text: "" }] });
+  const removeStep = (i: number) => set({ steps: fc.steps.filter((_, idx) => idx !== i) });
+
+  return (
+    <div className="space-y-6">
+      {/* How it works note */}
+      <div className="bg-yellow/5 border border-yellow/20 rounded-2xl p-5">
+        <p className="font-syne font-bold text-yellow text-sm mb-1">How this works</p>
+        <p className="text-muted/80 text-xs font-dm leading-relaxed">
+          On the homepage “What are you looking for?” hub, the <b>Food &amp; Dining</b> tile opens a
+          premium page (<b>/food</b>) instead of a restaurant list. Visitors tell you what they want to
+          eat on WhatsApp, and you recommend &amp; book a table — earning a commission from partner
+          restaurants. Just set the WhatsApp number below; everything else has sensible defaults you can tweak.
+        </p>
+      </div>
+
+      {/* Enable toggle */}
+      <div className="flex items-center justify-between bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
+        <div>
+          <p className="font-syne font-bold text-offwhite text-sm">Show the Food Concierge tile</p>
+          <p className="text-muted/60 text-xs font-dm mt-0.5">Turn the “Food &amp; Dining” hub tile on or off.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => set({ enabled: !fc.enabled })}
+          className="text-muted/60 hover:text-yellow transition-colors"
+          title={fc.enabled ? "Visible" : "Hidden"}
+        >
+          {fc.enabled ? <ToggleRight size={26} className="text-green-400" /> : <ToggleLeft size={26} />}
+        </button>
+      </div>
+
+      {/* WhatsApp number — the key field */}
+      <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
+        <Field label="WHATSAPP NUMBER FOR FOOD ENQUIRIES">
+          <TextInput
+            value={fc.whatsapp}
+            onChange={(v) => set({ whatsapp: v })}
+            placeholder="e.g. 23052501234 (country code, no + or spaces)"
+          />
+        </Field>
+        <p className="text-muted/50 text-xs font-dm -mt-1">
+          Include the country code (Mauritius = 230). Leave empty to fall back to your main business WhatsApp number.
+        </p>
+      </div>
+
+      {/* Copy */}
+      <div className="grid grid-cols-1 gap-4">
+        <Field label="HEADLINE">
+          <TextInput value={fc.title} onChange={(v) => set({ title: v })} />
+        </Field>
+        <Field label="SUB-LINE">
+          <TextInput value={fc.subtitle} onChange={(v) => set({ subtitle: v })} />
+        </Field>
+        <Field label="INTRO PARAGRAPH">
+          <Textarea value={fc.intro} onChange={(v) => set({ intro: v })} rows={4} />
+        </Field>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="BUTTON TEXT">
+            <TextInput value={fc.buttonText} onChange={(v) => set({ buttonText: v })} />
+          </Field>
+          <Field label="PRE-FILLED WHATSAPP MESSAGE">
+            <TextInput value={fc.prefill} onChange={(v) => set({ prefill: v })} />
+          </Field>
+        </div>
+      </div>
+
+      {/* Steps */}
+      <div>
+        <p className="font-bebas text-yellow text-xs tracking-[0.3em] mb-3">“HOW IT WORKS” STEPS</p>
+        <div className="space-y-4">
+          {fc.steps.map((s, i) => (
+            <div key={s.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="font-bebas text-yellow text-xs tracking-[0.3em]">STEP {i + 1}</p>
+                <button type="button" onClick={() => removeStep(i)} className="flex items-center gap-1.5 text-xs font-dm text-muted/60 hover:text-red-400 transition-colors">
+                  <Trash2 size={12} /> Remove
+                </button>
+              </div>
+              <Field label="TITLE">
+                <TextInput value={s.title} onChange={(v) => updateStep(i, { title: v })} />
+              </Field>
+              <Field label="TEXT">
+                <Textarea value={s.text} onChange={(v) => updateStep(i, { text: v })} rows={2} />
+              </Field>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={addStep}
+          className="mt-4 w-full flex items-center justify-center gap-2 border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 text-muted/60 hover:text-yellow rounded-2xl py-5 text-sm font-dm transition-colors"
+        >
+          <Plus size={16} /> Add Step
+        </button>
+      </div>
+      <p className="text-muted/50 text-xs font-dm">Click Save Changes to publish.</p>
+    </div>
+  );
+}
+
 // ── Getting Around editor ─────────────────────────────────────────────────────────
 
 const TRANSPORT_ICONS: TransportOption["icon"][] = ["bus", "taxi", "scooter", "car", "bike", "walk"];
@@ -5513,6 +5630,7 @@ export default function AdminDashboard({
     routes:       { title: "Ride Routes",         desc: "Curated scenic scooter routes shown on the website with a Google Maps link." },
     gettingAround:{ title: "Getting Around",      desc: "The transport-options card (bus / taxi / scooter) shown in the island guide." },
     recommended:  { title: "Stay · Eat · Do",     desc: "Curated hotels, restaurants & activities. Toggle the whole section on or off." },
+    foodConcierge:{ title: "Food Concierge",       desc: "The WhatsApp food-recommendation service behind the “Food & Dining” hub tile. Set the WhatsApp number that food enquiries go to." },
     faq:          { title: "FAQ",                 desc: "Frequently asked questions shown on the site (also boosts SEO)." },
     events:       { title: "Island Events",       desc: "Festivals, markets and happenings shown to visitors." },
     useful:       { title: "Useful Numbers",      desc: "Emergency, taxi and key local contacts — shown as tap-to-call." },
@@ -5776,6 +5894,9 @@ export default function AdminDashboard({
           )}
           {section === "recommended" && (
             <RecommendedEditor content={content} onChange={setContent} />
+          )}
+          {section === "foodConcierge" && (
+            <FoodConciergeEditor content={content} onChange={setContent} />
           )}
           {section === "events" && (
             <EventsEditor content={content} onChange={setContent} />

@@ -20,7 +20,7 @@ export default function BrowseTabs({ categories, active }: { categories: BrowseC
           return (
             <Link
               key={c.slug}
-              href={`/browse/${c.slug}`}
+              href={c.href ?? `/browse/${c.slug}`}
               aria-current={isActive ? "page" : undefined}
               className={`group shrink-0 inline-flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full text-sm font-syne font-bold transition-all duration-200 ${
                 isActive

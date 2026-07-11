@@ -170,7 +170,7 @@ export default function RideRoutes({ routes = [] }: { routes?: RideRoute[] }) {
                       rel="noopener noreferrer"
                       className="mt-auto inline-flex items-center justify-center gap-2 bg-yellow/10 hover:bg-yellow text-yellow hover:text-dark border border-yellow/30 font-syne font-bold text-xs px-4 py-3 rounded-full transition-colors"
                     >
-                      {tr.openMaps} <ArrowUpRight size={14} />
+                      {r.linkLabel ?? tr.openMaps} <ArrowUpRight size={14} />
                     </a>
                   )}
                 </div>
