@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRef, useState, useEffect, useCallback } from "react";
-import { motion, useMotionValue, useSpring, useMotionTemplate } from "framer-motion";
+import { motion, useMotionValue, useSpring, useMotionTemplate, useTransform, type MotionValue } from "framer-motion";
 import {
   ArrowRight,
   Bike,
@@ -49,7 +49,15 @@ export function iconFor(slug: string, label: string): LucideIcon {
  * soft spotlight that follows the mouse (desktop only — touch never fires the
  * move handlers, so it degrades gracefully).
  */
-function HubCard({ c }: { c: BrowseCategory }) {
+function HubCard({
+  c,
+  gyroRX,
+  gyroRY,
+}: {
+  c: BrowseCategory;
+  gyroRX?: MotionValue<number>;
+  gyroRY?: MotionValue<number>;
+}) {
   const { t } = useLanguage();
   const Icon = iconFor(c.slug, c.label);
   const ref = useRef<HTMLAnchorElement>(null);
@@ -62,6 +70,12 @@ function HubCard({ c }: { c: BrowseCategory }) {
   const gx = useMotionValue(50);
   const gy = useMotionValue(50);
   const spotlight = useMotionTemplate`radial-gradient(340px circle at ${gx}% ${gy}%, rgba(255,255,255,0.16), transparent 55%)`;
+
+  // Final tilt = desktop mouse tilt (srx/sry, local) + shared phone gyro tilt
+  // (gyroRX/gyroRY, one listener for the whole section — see parent). Mouse and
+  // gyro are mutually exclusive (fine vs coarse pointer) so they never fight.
+  const rotateX = useTransform(() => srx.get() + (gyroRX ? gyroRX.get() : 0));
+  const rotateY = useTransform(() => sry.get() + (gyroRY ? gyroRY.get() : 0));
 
   const onMove = (e: React.MouseEvent) => {
     const el = ref.current;
@@ -80,12 +94,6 @@ function HubCard({ c }: { c: BrowseCategory }) {
     setHover(false);
   };
 
-  // NOTE: the 3D tilt is intentionally DESKTOP-ONLY (driven by the mouse-move
-  // handlers below). We do NOT attach a `deviceorientation` listener on touch
-  // devices — with ~8-10 cards mounted, that fired 60+×/sec each and drove a
-  // spring loop per card, saturating the mobile main thread and making every
-  // tap laggy. On phones the cards stay flat and buttons stay instant.
-
   return (
     <Link
       ref={ref}
@@ -96,7 +104,7 @@ function HubCard({ c }: { c: BrowseCategory }) {
       className="group block [perspective:1100px]"
     >
       <motion.div
-        style={{ rotateX: srx, rotateY: sry, transformStyle: "preserve-3d" }}
+        style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
         className="relative h-[430px] rounded-[28px] overflow-hidden bg-dark-card ring-1 ring-white/10 group-hover:ring-yellow/50 transition-[box-shadow,border-color] duration-300 shadow-[0_12px_40px_-16px_rgba(0,0,0,0.8)] group-hover:shadow-[0_28px_70px_-18px_rgba(0,0,0,0.95)]"
       >
         {c.image ? (
@@ -172,6 +180,35 @@ export default function WhatLookingFor({ categories }: { categories: BrowseCateg
   const [active, setActive] = useState(0);
   const { t } = useLanguage();
 
+  // ── Shared gyro tilt for the whole section (ONE listener, not one per card) ──
+  // All cards lean together with the phone. rAF-throttled + coarse-pointer only,
+  // so it's smooth on mobile without the per-card listener storm that used to
+  // starve the main thread.
+  const gyroX = useMotionValue(0);
+  const gyroY = useMotionValue(0);
+  const gyroRX = useSpring(gyroX, { stiffness: 90, damping: 20 });
+  const gyroRY = useSpring(gyroY, { stiffness: 90, damping: 20 });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(pointer: coarse)").matches) return;
+    const clamp = (n: number) => Math.max(-6, Math.min(6, n));
+    let frame = 0;
+    const onOrient = (e: DeviceOrientationEvent) => {
+      if (frame) return; // coalesce to one update per animation frame
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        gyroY.set(clamp((e.gamma ?? 0) / 7));         // left/right tilt → rotateY
+        gyroX.set(clamp(((e.beta ?? 0) - 45) / 7));   // front/back tilt → rotateX
+      });
+    };
+    window.addEventListener("deviceorientation", onOrient);
+    return () => {
+      window.removeEventListener("deviceorientation", onOrient);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [gyroX, gyroY]);
+
   const cardStep = useCallback(() => {
     const el = scroller.current;
     const card = el?.querySelector<HTMLElement>("[data-card]");
@@ -192,8 +229,9 @@ export default function WhatLookingFor({ categories }: { categories: BrowseCateg
 
   return (
     <section id="explore" className="relative bg-dark py-20 md:py-28 scroll-mt-24 overflow-hidden" aria-label="What are you looking for">
-      {/* Ambient glow for depth */}
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+      {/* Ambient glow for depth — desktop only (large blurred layers are
+          expensive to composite on mobile scroll, so we skip them on phones). */}
+      <div className="pointer-events-none absolute inset-0 hidden md:block" aria-hidden="true">
         <div
           className="absolute -top-24 right-[-10%] w-[55vw] h-[55vw] rounded-full blur-3xl"
           style={{ background: "radial-gradient(circle, rgba(245,200,66,0.08), transparent 65%)" }}
@@ -241,7 +279,7 @@ export default function WhatLookingFor({ categories }: { categories: BrowseCateg
             transition={{ duration: 0.5, delay: Math.min(i * 0.05, 0.3) }}
             className="snap-center shrink-0 w-[80vw] max-w-[360px] sm:w-[320px]"
           >
-            <HubCard c={c} />
+            <HubCard c={c} gyroRX={gyroRX} gyroRY={gyroRY} />
           </motion.div>
         ))}
         {/* trailing spacer so the last card can snap centre on wide screens */}
