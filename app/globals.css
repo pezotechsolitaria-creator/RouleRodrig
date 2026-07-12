@@ -66,9 +66,11 @@
 }
 
 /* ── Base ───────────────────────────────────────────── */
-html {
-  scroll-behavior: smooth;
-}
+/* NOTE: no `scroll-behavior: smooth` here. With this long, animation-heavy page
+   (many whileInView sections), the browser's native smooth scroll to a hash/
+   anchor was repeatedly interrupted and never completed — which made every
+   in-page nav link look "dead" (only /taxi, a real route, worked). In-page
+   navigation now scrolls explicitly in JS (see Navbar.handleNavClick). */
 
 /* Anchor jumps (nav links, "back to Explore") land below the fixed navbar */
 section[id],

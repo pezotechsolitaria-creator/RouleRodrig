@@ -51,9 +51,13 @@ export default function Navbar({
     const el = typeof document !== "undefined" ? document.getElementById(id) : null;
     if (!el) return; // section isn't on this page — let <Link> go to /#id
     e.preventDefault();
-    document.body.style.overflowY = "";
+    document.body.style.overflowY = ""; // release the menu's scroll-lock
+    const NAV_OFFSET = 88; // clear the fixed navbar
+    // Instant, single-shot scroll — reliable on this long animated page where
+    // native/smooth scrolling was being interrupted mid-animation.
     requestAnimationFrame(() => {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      const y = Math.max(0, el.getBoundingClientRect().top + window.scrollY - NAV_OFFSET);
+      window.scrollTo(0, y);
       try { history.replaceState(null, "", `#${id}`); } catch {}
     });
   }
