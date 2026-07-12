@@ -254,7 +254,11 @@ export interface TransportOption {
   id: string;
   icon: "bus" | "taxi" | "scooter" | "walk" | "bike" | "car";
   title: string;
+  titleFr?: string;
+  titleCr?: string;
   text: string;
+  textFr?: string;
+  textCr?: string;
   highlight?: boolean;  // gold-accented "recommended" card
   link?: string;        // optional CTA, e.g. "#booking" or "/taxi"
   linkText?: string;
@@ -263,7 +267,11 @@ export interface TransportOption {
 export interface GettingAroundContent {
   enabled: boolean;
   title: string;
+  titleFr?: string;
+  titleCr?: string;
   subtitle: string;
+  subtitleFr?: string;
+  subtitleCr?: string;
   options: TransportOption[];
 }
 

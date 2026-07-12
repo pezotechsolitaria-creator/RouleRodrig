@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ShieldCheck, MapPin, Clock, Check } from "lucide-react";
+import { ShieldCheck, MapPin, Clock, Check, Users, Sparkles, X } from "lucide-react";
 import type { FoodConciergeContent } from "@/lib/defaults";
+import { useLanguage } from "@/context/LanguageContext";
 
 /** Build a wa.me link from a raw number/link + a message (mirrors WhatsAppButton). */
 function waLink(raw: string, message: string): string | null {
@@ -26,25 +27,26 @@ const WhatsAppGlyph = ({ size = 22 }: { size?: number }) => (
   </svg>
 );
 
-// Real, widely-available Rodriguan dishes/occasions. The concierge (a human) then
-// matches you to what's actually cooking that day — so nothing is ever promised
-// that the island doesn't serve.
+// Real, widely-available Rodriguan dishes/occasions (labels come from i18n).
 const CRAVINGS = [
-  { emoji: "🐙", label: "Ourite (octopus)" },
-  { emoji: "🐟", label: "Fresh fish of the day" },
-  { emoji: "🦐", label: "Seafood platter" },
-  { emoji: "🍛", label: "Creole home cooking" },
-  { emoji: "🌶️", label: "Local snacks & street food" },
-  { emoji: "🍰", label: "Rodriguan desserts" },
-  { emoji: "🌅", label: "Table by the sea" },
-  { emoji: "🎉", label: "Special occasion" },
-];
-
-// Two tiers only — no "high / luxury" tier, to avoid friction in the local market.
+  { key: "ourite", emoji: "🐙" },
+  { key: "fish", emoji: "🐟" },
+  { key: "seafood", emoji: "🦐" },
+  { key: "creole", emoji: "🍛" },
+  { key: "snacks", emoji: "🌶️" },
+  { key: "desserts", emoji: "🍰" },
+  { key: "seaview", emoji: "🌅" },
+  { key: "occasion", emoji: "🎉" },
+] as const;
 const BUDGETS = [
-  { emoji: "💸", label: "Budget-friendly" },
-  { emoji: "💛", label: "Moderate" },
-];
+  { key: "budget", emoji: "💸" },
+  { key: "moderate", emoji: "💛" },
+] as const;
+const PARTY = [
+  { key: "two", emoji: "👤" },
+  { key: "small", emoji: "👥" },
+  { key: "group", emoji: "🎉" },
+] as const;
 
 export default function FoodConcierge({
   content,
@@ -53,24 +55,36 @@ export default function FoodConcierge({
   content: FoodConciergeContent;
   fallbackWhatsApp?: string;
 }) {
+  const { t } = useLanguage();
+  const f = t.food;
   const number = content.whatsapp?.trim() || fallbackWhatsApp;
-  const [craving, setCraving] = useState<string | null>(null);
+
+  const [cravings, setCravings] = useState<string[]>([]);
   const [budget, setBudget] = useState<string | null>(null);
+  const [party, setParty] = useState<string | null>(null);
+
+  const cravingLabel = (k: string) => (f.cravings as Record<string, string>)[k] ?? k;
+  const budgetLabel = (k: string) => (f.budgets as Record<string, string>)[k] ?? k;
+  const partyLabel = (k: string) => (f.party as Record<string, string>)[k] ?? k;
+
+  const toggleCraving = (k: string) =>
+    setCravings((c) => (c.includes(k) ? c.filter((x) => x !== k) : [...c, k]));
+  const clearAll = () => { setCravings([]); setBudget(null); setParty(null); };
+  const hasSelection = cravings.length > 0 || !!budget || !!party;
 
   const message = useMemo(() => {
-    let m = content.prefill;
+    let m = f.prefill;
     const lines: string[] = [];
-    if (craving) lines.push(`• Craving: ${craving}`);
-    if (budget) lines.push(`• Budget: ${budget}`);
+    if (cravings.length) lines.push(`• ${f.labelCraving}: ${cravings.map(cravingLabel).join(", ")}`);
+    if (budget) lines.push(`• ${f.labelBudget}: ${budgetLabel(budget)}`);
+    if (party) lines.push(`• ${f.labelParty}: ${partyLabel(party)}`);
     if (lines.length) m += `\n\n${lines.join("\n")}`;
     return m;
-  }, [content.prefill, craving, budget]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [f, cravings, budget, party]);
 
   const link = waLink(number, message) ?? "/#contact";
 
-  // Log every concierge request (craving + budget) so the admin "Listing Leads"
-  // inbox can track demand and commission follow-ups. Fire-and-forget; never
-  // blocks opening WhatsApp.
   const logLead = () => {
     try {
       fetch("/api/leads", {
@@ -79,34 +93,22 @@ export default function FoodConcierge({
         keepalive: true,
         body: JSON.stringify({
           kind: "food_concierge",
-          target_name: craving || "Any craving",
+          target_name: cravings.length ? cravings.map(cravingLabel).join(", ").slice(0, 150) : "Any craving",
           category: "food",
           type: "whatsapp",
-          ref: budget || "Any budget",
+          ref: [budget && budgetLabel(budget), party && partyLabel(party)].filter(Boolean).join(" · ") || "—",
         }),
       }).catch(() => {});
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   };
 
   const reassurance = [
-    { icon: ShieldCheck, label: "Free for you" },
-    { icon: MapPin, label: "Local experts" },
-    { icon: Clock, label: "Fast reply" },
+    { icon: ShieldCheck, label: f.free },
+    { icon: MapPin, label: f.local },
+    { icon: Clock, label: f.fast },
   ];
 
-  const Chip = ({
-    active,
-    emoji,
-    label,
-    onClick,
-  }: {
-    active: boolean;
-    emoji: string;
-    label: string;
-    onClick: () => void;
-  }) => (
+  const Chip = ({ active, emoji, label, onClick }: { active: boolean; emoji: string; label: string; onClick: () => void }) => (
     <button
       type="button"
       onClick={onClick}
@@ -120,32 +122,39 @@ export default function FoodConcierge({
       <span className="text-lg leading-none">{emoji}</span>
       <span className="leading-tight">{label}</span>
       {active && (
-        <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-[#25D366] text-white">
+        <span className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white">
           <Check size={13} />
         </span>
       )}
     </button>
   );
 
+  const SectionHead = ({ title, hint, count }: { title: string; hint: string; count?: number }) => (
+    <div className="mb-3 flex items-baseline justify-between gap-3">
+      <h2 className="flex items-center gap-2 font-syne text-lg font-bold text-offwhite">
+        {title}
+        {count ? <span className="rounded-full bg-[#25D366] px-2 py-0.5 text-xs font-bold text-white">{count}</span> : null}
+      </h2>
+      <span className="font-dm text-xs text-muted">{hint}</span>
+    </div>
+  );
+
   return (
     <div className="bg-dark">
       <section className="relative overflow-hidden">
-        {/* Ambient glow — desktop only (cheap on mobile) */}
         <div className="pointer-events-none absolute inset-0 hidden md:block" aria-hidden="true">
           <div className="absolute -top-24 right-[-10%] h-[45vw] w-[45vw] rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(37,211,102,0.10), transparent 65%)" }} />
         </div>
-
-        <div className="relative mx-auto max-w-3xl px-6 pt-14 pb-10 md:pt-20 text-center">
+        <div className="relative mx-auto max-w-3xl px-6 pt-14 pb-8 md:pt-20 text-center">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-[#25D366]" />
-              <span className="font-bebas text-[11px] tracking-[0.3em] text-[#25D366]">FOOD CONCIERGE</span>
+              <span className="font-bebas text-[11px] tracking-[0.3em] text-[#25D366]">{f.eyebrow}</span>
             </div>
             <h1 className="font-syne font-extrabold leading-[0.95] tracking-tight text-offwhite" style={{ fontSize: "clamp(36px, 8vw, 68px)" }}>
-              {content.title}
+              {f.title}
             </h1>
-            <p className="mx-auto mt-4 max-w-md font-dm text-base text-muted">{content.subtitle}</p>
-
+            <p className="mx-auto mt-4 max-w-md font-dm text-base text-muted">{f.subtitle}</p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
               {reassurance.map((r) => (
                 <span key={r.label} className="flex items-center gap-1.5 font-dm text-xs text-offwhite/55">
@@ -157,27 +166,55 @@ export default function FoodConcierge({
         </div>
       </section>
 
-      {/* Interactive request builder — the whole feature in one tap-friendly card */}
       <section className="px-6 pb-20">
         <div className="mx-auto max-w-2xl rounded-[28px] border border-white/10 bg-dark-card/60 p-5 sm:p-8 shadow-[0_20px_60px_-24px_rgba(0,0,0,0.9)]">
-          <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="font-syne text-lg font-bold text-offwhite">Craving?</h2>
-            <span className="font-dm text-xs text-muted">Tap one</span>
-          </div>
+          {/* Cravings — multi-select */}
+          <SectionHead title={f.cravingHeading} hint={f.cravingHint} count={cravings.length} />
           <div className="grid grid-cols-2 gap-2.5">
             {CRAVINGS.map((c) => (
-              <Chip key={c.label} active={craving === c.label} emoji={c.emoji} label={c.label} onClick={() => setCraving(craving === c.label ? null : c.label)} />
+              <Chip key={c.key} active={cravings.includes(c.key)} emoji={c.emoji} label={cravingLabel(c.key)} onClick={() => toggleCraving(c.key)} />
             ))}
           </div>
 
-          <div className="mt-6 mb-3 flex items-baseline justify-between">
-            <h2 className="font-syne text-lg font-bold text-offwhite">Budget</h2>
-            <span className="font-dm text-xs text-muted">Optional</span>
-          </div>
+          {/* Budget — single */}
+          <div className="mt-6"><SectionHead title={f.budgetHeading} hint={f.budgetHint} /></div>
           <div className="grid grid-cols-2 gap-2.5">
             {BUDGETS.map((b) => (
-              <Chip key={b.label} active={budget === b.label} emoji={b.emoji} label={b.label} onClick={() => setBudget(budget === b.label ? null : b.label)} />
+              <Chip key={b.key} active={budget === b.key} emoji={b.emoji} label={budgetLabel(b.key)} onClick={() => setBudget(budget === b.key ? null : b.key)} />
             ))}
+          </div>
+
+          {/* Party size — single */}
+          <div className="mt-6"><SectionHead title={f.partyHeading} hint={f.partyHint} /></div>
+          <div className="grid grid-cols-3 gap-2.5">
+            {PARTY.map((p) => (
+              <Chip key={p.key} active={party === p.key} emoji={p.emoji} label={partyLabel(p.key)} onClick={() => setParty(party === p.key ? null : p.key)} />
+            ))}
+          </div>
+
+          {/* Live request preview */}
+          <div className="mt-7 rounded-2xl border border-white/8 bg-black/20 p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="flex items-center gap-2 font-bebas text-[11px] tracking-[0.25em] text-yellow">
+                <Sparkles size={13} /> {f.previewTitle}
+              </span>
+              {hasSelection && (
+                <button type="button" onClick={clearAll} className="flex items-center gap-1 font-dm text-xs text-muted hover:text-offwhite transition-colors">
+                  <X size={12} /> {f.clear}
+                </button>
+              )}
+            </div>
+            {hasSelection ? (
+              <div className="flex flex-wrap gap-1.5">
+                {cravings.map((k) => (
+                  <span key={k} className="rounded-full bg-[#25D366]/15 border border-[#25D366]/40 px-2.5 py-1 font-dm text-xs text-offwhite">{cravingLabel(k)}</span>
+                ))}
+                {budget && <span className="rounded-full bg-white/5 border border-white/15 px-2.5 py-1 font-dm text-xs text-offwhite/80">💛 {budgetLabel(budget)}</span>}
+                {party && <span className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-white/15 px-2.5 py-1 font-dm text-xs text-offwhite/80"><Users size={11} /> {partyLabel(party)}</span>}
+              </div>
+            ) : (
+              <p className="font-dm text-xs leading-relaxed text-muted">{f.previewEmpty}</p>
+            )}
           </div>
 
           <a
@@ -185,21 +222,19 @@ export default function FoodConcierge({
             target="_blank"
             rel="noopener noreferrer"
             onClick={logLead}
-            className="group mt-7 flex w-full items-center justify-center gap-3 rounded-full bg-[#25D366] px-8 py-4 font-syne text-base font-bold text-white shadow-[0_10px_36px_rgba(37,211,102,0.4)] transition-all duration-200 hover:scale-[1.02] hover:bg-[#20c05c]"
+            className="group mt-5 flex w-full items-center justify-center gap-3 rounded-full bg-[#25D366] px-8 py-4 font-syne text-base font-bold text-white shadow-[0_10px_36px_rgba(37,211,102,0.4)] transition-all duration-200 hover:scale-[1.02] hover:bg-[#20c05c]"
           >
-            <WhatsAppGlyph /> {content.buttonText}
+            <WhatsAppGlyph /> {f.cta}
           </a>
-          <p className="mt-3 text-center font-dm text-xs text-muted">
-            Not on the list? Just message us — we&apos;ll match you to what&apos;s cooking today.
-          </p>
+          <p className="mt-3 text-center font-dm text-xs text-muted">{f.tip}</p>
         </div>
 
-        {/* How it works — 3 micro-steps, almost no reading */}
+        {/* How it works — 3 micro-steps */}
         <div className="mx-auto mt-10 grid max-w-2xl grid-cols-3 gap-3">
-          {content.steps.slice(0, 3).map((s, i) => (
-            <div key={s.id} className="rounded-2xl border border-white/8 bg-white/[0.02] p-4 text-center">
+          {[f.steps.tell, f.steps.match, f.steps.book].map((label, i) => (
+            <div key={i} className="rounded-2xl border border-white/8 bg-white/[0.02] p-4 text-center">
               <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-yellow font-syne text-sm font-extrabold text-dark">{i + 1}</div>
-              <p className="font-syne text-sm font-bold leading-tight text-offwhite">{s.title}</p>
+              <p className="font-syne text-sm font-bold leading-tight text-offwhite">{label}</p>
             </div>
           ))}
         </div>

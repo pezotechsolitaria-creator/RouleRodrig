@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Bus, Car, Bike, Footprints, ArrowRight, Star } from "lucide-react";
 import type { GettingAroundContent, TransportOption } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
+import { loc } from "@/lib/localize";
 
 const ICONS: Record<TransportOption["icon"], React.ElementType> = {
   bus: Bus,
@@ -16,7 +17,7 @@ const ICONS: Record<TransportOption["icon"], React.ElementType> = {
 };
 
 export default function GettingAround({ content }: { content?: GettingAroundContent }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   if (!content || !content.enabled) return null;
   const options = content.options ?? [];
   if (options.length === 0) return null;
@@ -36,10 +37,10 @@ export default function GettingAround({ content }: { content?: GettingAroundCont
             className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]"
             style={{ fontSize: "clamp(34px, 8vw, 80px)" }}
           >
-            {content.title}
+            {loc(language, content.title, content.titleFr, content.titleCr)}
           </h2>
           {content.subtitle && (
-            <p className="text-muted font-dm text-sm md:text-base mt-3 max-w-lg">{content.subtitle}</p>
+            <p className="text-muted font-dm text-sm md:text-base mt-3 max-w-lg">{loc(language, content.subtitle, content.subtitleFr, content.subtitleCr)}</p>
           )}
         </motion.div>
 
@@ -75,8 +76,8 @@ export default function GettingAround({ content }: { content?: GettingAroundCont
                 >
                   <Icon size={24} />
                 </div>
-                <h3 className="font-syne font-extrabold text-offwhite text-xl uppercase mb-2.5">{opt.title}</h3>
-                <p className="text-muted/85 font-dm text-sm leading-relaxed flex-1">{opt.text}</p>
+                <h3 className="font-syne font-extrabold text-offwhite text-xl uppercase mb-2.5">{loc(language, opt.title, opt.titleFr, opt.titleCr)}</h3>
+                <p className="text-muted/85 font-dm text-sm leading-relaxed flex-1">{loc(language, opt.text, opt.textFr, opt.textCr)}</p>
 
                 {opt.link && opt.linkText && (
                   <div className="mt-6">

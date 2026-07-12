@@ -3436,9 +3436,15 @@ function GettingAroundEditor({
       <div className="grid grid-cols-1 gap-4">
         <Field label="SECTION TITLE">
           <TextInput value={ga.title} onChange={(v) => set({ title: v })} placeholder="e.g. Getting Around Rodrigues" />
+          <div className="mt-2">
+            <TransFields base={ga.title} fr={ga.titleFr} cr={ga.titleCr} onFr={(v) => set({ titleFr: v })} onCr={(v) => set({ titleCr: v })} />
+          </div>
         </Field>
         <Field label="SUBTITLE">
           <TextInput value={ga.subtitle} onChange={(v) => set({ subtitle: v })} />
+          <div className="mt-2">
+            <TransFields base={ga.subtitle} fr={ga.subtitleFr} cr={ga.subtitleCr} onFr={(v) => set({ subtitleFr: v })} onCr={(v) => set({ subtitleCr: v })} />
+          </div>
         </Field>
       </div>
 
@@ -3484,6 +3490,10 @@ function GettingAroundEditor({
           </div>
           <Field label="DESCRIPTION">
             <Textarea value={o.text} onChange={(v) => updateOpt(i, { text: v })} rows={3} />
+            <div className="mt-2 space-y-2">
+              <TransFields base={o.title} fr={o.titleFr} cr={o.titleCr} onFr={(v) => updateOpt(i, { titleFr: v })} onCr={(v) => updateOpt(i, { titleCr: v })} />
+              <TransFields base={o.text} fr={o.textFr} cr={o.textCr} onFr={(v) => updateOpt(i, { textFr: v })} onCr={(v) => updateOpt(i, { textCr: v })} textarea rows={3} />
+            </div>
           </Field>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="BUTTON LINK (optional)">
