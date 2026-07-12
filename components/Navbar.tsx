@@ -43,23 +43,14 @@ export default function Navbar({
   // when the browser tries to jump to the hash, so the scroll is swallowed.
   // We close the menu, release the lock, then scroll to the target ourselves.
   // Off-page hashes (target not on this page) fall back to the normal <Link>.
-  function handleNavClick(href: string, e: React.MouseEvent) {
+  // The nav items are plain <a> tags, so the browser's native fragment
+  // navigation does the scroll (reliable again now that scroll-behavior:smooth
+  // is gone and the section scroll-margin clears the fixed navbar). All we do on
+  // click is close the mobile menu and release its scroll-lock — deliberately
+  // NO preventDefault, so we never block the native scroll.
+  function handleNavClick() {
     setMenuOpen(false);
-    const hashIndex = href.indexOf("#");
-    if (hashIndex === -1) return; // e.g. /taxi — let <Link> navigate
-    const id = href.slice(hashIndex + 1);
-    const el = typeof document !== "undefined" ? document.getElementById(id) : null;
-    if (!el) return; // section isn't on this page — let <Link> go to /#id
-    e.preventDefault();
-    document.body.style.overflowY = ""; // release the menu's scroll-lock
-    const NAV_OFFSET = 88; // clear the fixed navbar
-    // Instant, single-shot scroll — reliable on this long animated page where
-    // native/smooth scrolling was being interrupted mid-animation.
-    requestAnimationFrame(() => {
-      const y = Math.max(0, el.getBoundingClientRect().top + window.scrollY - NAV_OFFSET);
-      window.scrollTo(0, y);
-      try { history.replaceState(null, "", `#${id}`); } catch {}
-    });
+    document.body.style.overflowY = "";
   }
 
   function cycleLanguage() {
@@ -160,7 +151,7 @@ export default function Navbar({
                 <a
                   key={link.href}
                   href={link.href}
-                  onClick={(e) => handleNavClick(link.href, e)}
+                  onClick={handleNavClick}
                   className={`relative pb-1 transition-colors text-sm font-dm font-medium tracking-wide ${
                     isActive ? "text-offwhite" : "text-muted hover:text-offwhite"
                   }`}
@@ -219,7 +210,7 @@ export default function Navbar({
 
             <a
               href="/#explore"
-              onClick={(e) => handleNavClick("/#explore", e)}
+              onClick={handleNavClick}
               className="flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-5 py-2.5 rounded-full hover:bg-yellow-dark transition-all duration-200 hover:scale-105"
             >
               {t.nav.bookNow} <ArrowRight size={14} />
@@ -283,7 +274,7 @@ export default function Navbar({
                 >
                   <a
                     href={link.href}
-                    onClick={(e) => handleNavClick(link.href, e)}
+                    onClick={handleNavClick}
                     className="font-syne font-extrabold text-4xl text-offwhite hover:text-yellow transition-colors uppercase block w-full text-center"
                   >
                     {link.label}
@@ -299,7 +290,7 @@ export default function Navbar({
               >
                 <a
                   href="/#explore"
-                  onClick={(e) => handleNavClick("/#explore", e)}
+                  onClick={handleNavClick}
                   className="flex items-center gap-3 bg-yellow text-dark font-syne font-bold text-xl px-10 py-5 rounded-full"
                 >
                   {t.nav.bookNow} <ArrowRight size={20} />
