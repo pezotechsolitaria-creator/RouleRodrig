@@ -2,7 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ShieldCheck, MapPin, Clock, Check, Users, Sparkles, X } from "lucide-react";
+import {
+  ShieldCheck, MapPin, Clock, Check, Users, Sparkles, X,
+  Shell, Fish, Utensils, CookingPot, Sandwich, CakeSlice, Sunset, PartyPopper,
+  Wallet, Coins, type LucideIcon,
+} from "lucide-react";
 import type { FoodConciergeContent } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -28,25 +32,25 @@ const WhatsAppGlyph = ({ size = 22 }: { size?: number }) => (
 );
 
 // Real, widely-available Rodriguan dishes/occasions (labels come from i18n).
-const CRAVINGS = [
-  { key: "ourite", emoji: "🐙" },
-  { key: "fish", emoji: "🐟" },
-  { key: "seafood", emoji: "🦐" },
-  { key: "creole", emoji: "🍛" },
-  { key: "snacks", emoji: "🌶️" },
-  { key: "desserts", emoji: "🍰" },
-  { key: "seaview", emoji: "🌅" },
-  { key: "occasion", emoji: "🎉" },
-] as const;
-const BUDGETS = [
-  { key: "budget", emoji: "💸" },
-  { key: "moderate", emoji: "💛" },
-] as const;
-const PARTY = [
-  { key: "two", emoji: "👤" },
-  { key: "small", emoji: "👥" },
-  { key: "group", emoji: "🎉" },
-] as const;
+const CRAVINGS: { key: string; Icon: LucideIcon }[] = [
+  { key: "ourite", Icon: Shell },
+  { key: "fish", Icon: Fish },
+  { key: "seafood", Icon: Utensils },
+  { key: "creole", Icon: CookingPot },
+  { key: "snacks", Icon: Sandwich },
+  { key: "desserts", Icon: CakeSlice },
+  { key: "seaview", Icon: Sunset },
+  { key: "occasion", Icon: PartyPopper },
+];
+const BUDGETS: { key: string; Icon: LucideIcon }[] = [
+  { key: "budget", Icon: Wallet },
+  { key: "moderate", Icon: Coins },
+];
+const PARTY: { key: string; Icon: LucideIcon }[] = [
+  { key: "two", Icon: Users },
+  { key: "small", Icon: Users },
+  { key: "group", Icon: Users },
+];
 
 export default function FoodConcierge({
   content,
@@ -108,18 +112,18 @@ export default function FoodConcierge({
     { icon: Clock, label: f.fast },
   ];
 
-  const Chip = ({ active, emoji, label, onClick }: { active: boolean; emoji: string; label: string; onClick: () => void }) => (
+  const Chip = ({ active, Icon, label, onClick }: { active: boolean; Icon: LucideIcon; label: string; onClick: () => void }) => (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`relative flex items-center gap-2 rounded-2xl border px-4 py-3 text-left font-dm text-sm transition-all ${
+      className={`relative flex items-center gap-2.5 rounded-2xl border px-4 py-3 text-left font-dm text-sm transition-all ${
         active
           ? "border-[#25D366] bg-[#25D366]/12 text-offwhite"
           : "border-white/10 bg-white/[0.03] text-offwhite/80 hover:border-white/25 hover:bg-white/[0.06]"
       }`}
     >
-      <span className="text-lg leading-none">{emoji}</span>
+      <Icon size={18} className={active ? "text-[#25D366]" : "text-yellow"} strokeWidth={1.75} />
       <span className="leading-tight">{label}</span>
       {active && (
         <span className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white">
@@ -172,7 +176,7 @@ export default function FoodConcierge({
           <SectionHead title={f.cravingHeading} hint={f.cravingHint} count={cravings.length} />
           <div className="grid grid-cols-2 gap-2.5">
             {CRAVINGS.map((c) => (
-              <Chip key={c.key} active={cravings.includes(c.key)} emoji={c.emoji} label={cravingLabel(c.key)} onClick={() => toggleCraving(c.key)} />
+              <Chip key={c.key} active={cravings.includes(c.key)} Icon={c.Icon} label={cravingLabel(c.key)} onClick={() => toggleCraving(c.key)} />
             ))}
           </div>
 
@@ -180,7 +184,7 @@ export default function FoodConcierge({
           <div className="mt-6"><SectionHead title={f.budgetHeading} hint={f.budgetHint} /></div>
           <div className="grid grid-cols-2 gap-2.5">
             {BUDGETS.map((b) => (
-              <Chip key={b.key} active={budget === b.key} emoji={b.emoji} label={budgetLabel(b.key)} onClick={() => setBudget(budget === b.key ? null : b.key)} />
+              <Chip key={b.key} active={budget === b.key} Icon={b.Icon} label={budgetLabel(b.key)} onClick={() => setBudget(budget === b.key ? null : b.key)} />
             ))}
           </div>
 
@@ -188,7 +192,7 @@ export default function FoodConcierge({
           <div className="mt-6"><SectionHead title={f.partyHeading} hint={f.partyHint} /></div>
           <div className="grid grid-cols-3 gap-2.5">
             {PARTY.map((p) => (
-              <Chip key={p.key} active={party === p.key} emoji={p.emoji} label={partyLabel(p.key)} onClick={() => setParty(party === p.key ? null : p.key)} />
+              <Chip key={p.key} active={party === p.key} Icon={p.Icon} label={partyLabel(p.key)} onClick={() => setParty(party === p.key ? null : p.key)} />
             ))}
           </div>
 
@@ -209,7 +213,7 @@ export default function FoodConcierge({
                 {cravings.map((k) => (
                   <span key={k} className="rounded-full bg-[#25D366]/15 border border-[#25D366]/40 px-2.5 py-1 font-dm text-xs text-offwhite">{cravingLabel(k)}</span>
                 ))}
-                {budget && <span className="rounded-full bg-white/5 border border-white/15 px-2.5 py-1 font-dm text-xs text-offwhite/80">💛 {budgetLabel(budget)}</span>}
+                {budget && <span className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-white/15 px-2.5 py-1 font-dm text-xs text-offwhite/80"><Coins size={11} /> {budgetLabel(budget)}</span>}
                 {party && <span className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-white/15 px-2.5 py-1 font-dm text-xs text-offwhite/80"><Users size={11} /> {partyLabel(party)}</span>}
               </div>
             ) : (
