@@ -148,28 +148,28 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
                   <>
                     <Step n={1}>Tap the <Share size={14} className="inline align-text-bottom text-yellow mx-0.5" /> <b className="text-offwhite">Share</b> button (bottom of Safari).</Step>
                     <Step n={2}>Scroll down and tap <b className="text-offwhite">&ldquo;Add to Home Screen&rdquo;</b> <Plus size={13} className="inline align-text-bottom text-yellow" />.</Step>
-                    <Step n={3}>Tap <b className="text-offwhite">Add</b> — done! 🛵</Step>
+                    <Step n={3}>Tap <b className="text-offwhite">Add</b> — done!</Step>
                   </>
                 )}
                 {platform === "ios-other" && (
                   <>
                     <Step n={1}>Open <b className="text-offwhite">roule-rodrig.vercel.app</b> in <b className="text-offwhite">Safari</b> (iPhone only installs from Safari).</Step>
                     <Step n={2}>Tap <Share size={14} className="inline align-text-bottom text-yellow mx-0.5" /> <b className="text-offwhite">Share</b> → <b className="text-offwhite">&ldquo;Add to Home Screen&rdquo;</b>.</Step>
-                    <Step n={3}>Tap <b className="text-offwhite">Add</b> — done! 🛵</Step>
+                    <Step n={3}>Tap <b className="text-offwhite">Add</b> — done!</Step>
                   </>
                 )}
                 {platform === "android" && (
                   <>
                     <Step n={1}>Tap the <MoreVertical size={14} className="inline align-text-bottom text-yellow" /> <b className="text-offwhite">menu</b> (top-right of Chrome).</Step>
                     <Step n={2}>Tap <b className="text-offwhite">&ldquo;Install app&rdquo;</b> or <b className="text-offwhite">&ldquo;Add to Home screen&rdquo;</b>.</Step>
-                    <Step n={3}>Confirm <b className="text-offwhite">Install</b> — done! 🛵</Step>
+                    <Step n={3}>Confirm <b className="text-offwhite">Install</b> — done!</Step>
                   </>
                 )}
                 {platform === "desktop" && (
                   <>
                     <Step n={1}>Click the <Download size={14} className="inline align-text-bottom text-yellow" /> <b className="text-offwhite">install icon</b> in the address bar.</Step>
                     <Step n={2}>Or open the browser menu → <b className="text-offwhite">&ldquo;Install Roule Rodrigues&rdquo;</b>.</Step>
-                    <Step n={3}>Confirm <b className="text-offwhite">Install</b> — done! 🛵</Step>
+                    <Step n={3}>Confirm <b className="text-offwhite">Install</b> — done!</Step>
                   </>
                 )}
               </ol>

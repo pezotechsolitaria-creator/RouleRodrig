@@ -117,8 +117,8 @@ function HubCard({
             unoptimized={c.image.startsWith("/uploads/") || (c.image.startsWith("http") && !c.image.includes("supabase.co"))}
           />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#1c1c18] to-dark-card flex items-center justify-center text-7xl">
-            {c.emoji ?? "📍"}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1c1c18] to-dark-card flex items-center justify-center">
+            <Icon size={72} strokeWidth={1.1} className="text-yellow/40" />
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-dark via-dark/35 to-transparent" />

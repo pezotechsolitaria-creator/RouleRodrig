@@ -119,8 +119,9 @@ export default function ReviewsSection({ fleet = [] }: { fleet?: FleetItem[] }) 
             {avg && (
               <div className="flex items-center gap-3 mt-4">
                 <Stars value={Math.round(Number(avg))} size={16} />
-                <span className="font-syne font-bold text-offwhite text-sm">
-                  {avg} · {reviews.length}★
+                <span className="inline-flex items-center gap-1 font-syne font-bold text-offwhite text-sm">
+                  {avg} · {reviews.length}
+                  <Star size={13} className="fill-yellow text-yellow" />
                 </span>
               </div>
             )}

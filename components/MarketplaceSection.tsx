@@ -2,19 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ExternalLink, Phone, Tag, Star, Loader2, Truck, ShoppingBag, UtensilsCrossed, MessageCircle, Navigation, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { ExternalLink, Phone, Tag, Star, Loader2, Truck, ShoppingBag, UtensilsCrossed, MessageCircle, Navigation, Clock, ChevronLeft, ChevronRight, Compass, Waves, BedDouble, Store, type LucideIcon } from "lucide-react";
 import type { MarketplaceListing } from "@/lib/supabase/types";
 import { useLanguage } from "@/context/LanguageContext";
 
 const CATEGORY_CONFIG: Record<
   string,
-  { label: string; emoji: string; color: string }
+  { label: string; Icon: LucideIcon; color: string }
 > = {
-  restaurant:    { label: "Restaurant",   emoji: "🍽️", color: "bg-green-500/10 text-green-400 border-green-500/30" },
-  tour:          { label: "Tour",         emoji: "🧭", color: "bg-blue-500/10   text-blue-400  border-blue-500/30" },
-  activity:      { label: "Activity",     emoji: "🤿", color: "bg-purple-500/10 text-purple-400 border-purple-500/30" },
-  accommodation: { label: "Accommodation",emoji: "🏡", color: "bg-amber-400/10  text-amber-400 border-amber-400/30" },
-  shopping:      { label: "Shopping",     emoji: "🛍️", color: "bg-pink-500/10   text-pink-400  border-pink-500/30" },
+  restaurant:    { label: "Restaurant",   Icon: UtensilsCrossed, color: "bg-green-500/10 text-green-400 border-green-500/30" },
+  tour:          { label: "Tour",         Icon: Compass,         color: "bg-blue-500/10   text-blue-400  border-blue-500/30" },
+  activity:      { label: "Activity",     Icon: Waves,           color: "bg-purple-500/10 text-purple-400 border-purple-500/30" },
+  accommodation: { label: "Accommodation",Icon: BedDouble,       color: "bg-amber-400/10  text-amber-400 border-amber-400/30" },
+  shopping:      { label: "Shopping",     Icon: ShoppingBag,     color: "bg-pink-500/10   text-pink-400  border-pink-500/30" },
 };
 
 function ListingCarousel({ listing }: { listing: MarketplaceListing }) {
@@ -142,7 +142,7 @@ export default function MarketplaceSection() {
                           : "border-dark-border text-muted hover:border-yellow/40 hover:text-offwhite"
                       }`}
                     >
-                      {cfg ? <span>{cfg.emoji}</span> : null}
+                      {cfg ? <cfg.Icon size={13} className="shrink-0" /> : null}
                       {cat === "all" ? "All" : cfg?.label ?? cat}
                     </button>
                   );
@@ -154,7 +154,7 @@ export default function MarketplaceSection() {
               {filtered.map((listing, i) => {
                 const cfg = CATEGORY_CONFIG[listing.category] ?? {
                   label: listing.category,
-                  emoji: "🏪",
+                  Icon: Store,
                   color: "bg-muted/10 text-muted border-muted/20",
                 };
                 return (
@@ -174,7 +174,7 @@ export default function MarketplaceSection() {
                       <div>
                         <div className="flex items-center gap-2 mb-1.5">
                           <span className={`flex items-center gap-1.5 font-bebas text-[9px] tracking-[0.2em] border px-2.5 py-1 rounded-full ${cfg.color}`}>
-                            <span>{cfg.emoji}</span>
+                            <cfg.Icon size={11} className="shrink-0" />
                             {cfg.label.toUpperCase()}
                           </span>
                           {listing.featured && (

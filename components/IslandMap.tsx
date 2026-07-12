@@ -112,11 +112,15 @@ export default function IslandMapInner({ locations }: Props) {
       const RODRIGUES_BOUNDS = { minLat: -19.78, maxLat: -19.61, minLng: 63.33, maxLng: 63.50 };
       let youMarker: ReturnType<typeof L.circleMarker> | null = null;
 
+      // Lucide-style "locate" crosshair (SVG string — Leaflet controls take HTML).
+      const LOCATE_SVG =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><circle cx="12" cy="12" r="7"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>';
+
       const LocateControl = L.Control.extend({
         options: { position: "topleft" as const },
         onAdd: function () {
           const btn = L.DomUtil.create("button", "");
-          btn.innerHTML = "📍";
+          btn.innerHTML = LOCATE_SVG;
           btn.title = "Show my location (Rodrigues only)";
           btn.setAttribute("type", "button");
           Object.assign(btn.style, {
@@ -127,10 +131,10 @@ export default function IslandMapInner({ locations }: Props) {
           L.DomEvent.on(btn, "click", (e: Event) => {
             L.DomEvent.stop(e);
             if (!navigator.geolocation) return;
-            btn.innerHTML = "⏳";
+            btn.innerHTML = "…";
             navigator.geolocation.getCurrentPosition(
               (pos) => {
-                btn.innerHTML = "📍";
+                btn.innerHTML = LOCATE_SVG;
                 const { latitude: lat, longitude: lng } = pos.coords;
                 const inRodrigues =
                   lat >= RODRIGUES_BOUNDS.minLat && lat <= RODRIGUES_BOUNDS.maxLat &&
@@ -138,7 +142,7 @@ export default function IslandMapInner({ locations }: Props) {
                 if (!inRodrigues) {
                   L.popup()
                     .setLatLng([-19.7024, 63.4105])
-                    .setContent('<div style="font-family:sans-serif;font-size:12px;max-width:200px;">📍 Live location only works while you are on Rodrigues Island.</div>')
+                    .setContent('<div style="font-family:sans-serif;font-size:12px;max-width:200px;">Live location only works while you are on Rodrigues Island.</div>')
                     .openOn(map);
                   return;
                 }
@@ -146,10 +150,10 @@ export default function IslandMapInner({ locations }: Props) {
                 youMarker = L.circleMarker([lat, lng], {
                   radius: 8, fillColor: "#2563EB", color: "#fff", weight: 3, fillOpacity: 1,
                 }).addTo(map);
-                youMarker.bindPopup('<div style="font-family:sans-serif;font-size:12px;font-weight:700;">You are here 🛵</div>').openPopup();
+                youMarker.bindPopup('<div style="font-family:sans-serif;font-size:12px;font-weight:700;">You are here</div>').openPopup();
                 map.setView([lat, lng], 14);
               },
-              () => { btn.innerHTML = "📍"; },
+              () => { btn.innerHTML = LOCATE_SVG; },
               { enableHighAccuracy: true, timeout: 8000 }
             );
           });

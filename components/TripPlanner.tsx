@@ -15,8 +15,27 @@ import {
   Copy,
   Check,
   X,
+  Umbrella,
+  Landmark,
+  Mountain,
+  UtensilsCrossed,
+  Camera,
+  TreePine,
+  type LucideIcon,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
+
+// Map an activity/interest type to a Lucide icon (no emojis anywhere).
+function typeIcon(type: string): LucideIcon {
+  const s = (type || "").toLowerCase();
+  if (/beach|coast|sea|swim|snorkel|lagoon|island|kayak/.test(s)) return Umbrella;
+  if (/food|eat|restaurant|cuisine|market|taste/.test(s)) return UtensilsCrossed;
+  if (/culture|museum|history|church|heritage|craft/.test(s)) return Landmark;
+  if (/adventure|hike|trek|mountain|zip|climb|trail/.test(s)) return Mountain;
+  if (/view|photo|scenic|lookout|sunset/.test(s)) return Camera;
+  if (/nature|forest|park|reserve|wildlife|cave|garden/.test(s)) return TreePine;
+  return MapPin;
+}
 
 interface Activity {
   slot: string;
@@ -77,11 +96,11 @@ export default function TripPlanner() {
   }, []);
 
   // Build translated interests list
-  const INTERESTS = [
-    { id: "beach",     label: t.planner.interests.beach,     emoji: "🏖️" },
-    { id: "culture",   label: t.planner.interests.culture,   emoji: "🏛️" },
-    { id: "adventure", label: t.planner.interests.adventure, emoji: "🛵" },
-    { id: "food",      label: t.planner.interests.food,      emoji: "🍛" },
+  const INTERESTS: { id: string; label: string; Icon: LucideIcon }[] = [
+    { id: "beach",     label: t.planner.interests.beach,     Icon: Umbrella },
+    { id: "culture",   label: t.planner.interests.culture,   Icon: Landmark },
+    { id: "adventure", label: t.planner.interests.adventure, Icon: Mountain },
+    { id: "food",      label: t.planner.interests.food,      Icon: UtensilsCrossed },
   ];
 
   function toggleInterest(id: string) {
@@ -220,7 +239,7 @@ export default function TripPlanner() {
                             : "bg-[#0d0d0d] border-[#2a2a2a] text-muted hover:border-yellow/30 hover:text-offwhite"
                         }`}
                       >
-                        <span className="text-base">{interest.emoji}</span>
+                        <interest.Icon size={16} className="shrink-0 text-yellow" strokeWidth={1.75} />
                         <span className="text-xs leading-tight flex-1">{interest.label}</span>
                         {active && <Check size={15} className="text-green-400 shrink-0" />}
                       </button>
@@ -406,7 +425,14 @@ export default function TripPlanner() {
                                 />
                               )}
                               <div className="flex items-start gap-4">
-                                <span className="text-2xl mt-0.5 shrink-0">{act.emoji}</span>
+                                {(() => {
+                                  const ActIcon = typeIcon(act.type);
+                                  return (
+                                    <span className="mt-0.5 shrink-0 flex h-9 w-9 items-center justify-center rounded-xl bg-yellow/10 text-yellow">
+                                      <ActIcon size={18} strokeWidth={1.75} />
+                                    </span>
+                                  );
+                                })()}
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                                     <span className={`font-bebas text-[9px] tracking-[0.2em] border px-2 py-0.5 rounded-full ${SLOT_COLOR[act.slot] ?? "bg-muted/10 text-muted border-muted/20"}`}>
