@@ -157,7 +157,7 @@ export default function Navbar({
             {navLinks.map((link) => {
               const isActive = activeSection !== "" && link.href.replace("/#", "#") === `#${activeSection}`;
               return (
-                <Link
+                <a
                   key={link.href}
                   href={link.href}
                   onClick={(e) => handleNavClick(link.href, e)}
@@ -173,7 +173,7 @@ export default function Navbar({
                       transition={{ type: "spring", stiffness: 380, damping: 32 }}
                     />
                   )}
-                </Link>
+                </a>
               );
             })}
 
@@ -217,13 +217,13 @@ export default function Navbar({
               )}
             </button>
 
-            <Link
+            <a
               href="/#explore"
               onClick={(e) => handleNavClick("/#explore", e)}
               className="flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-5 py-2.5 rounded-full hover:bg-yellow-dark transition-all duration-200 hover:scale-105"
             >
               {t.nav.bookNow} <ArrowRight size={14} />
-            </Link>
+            </a>
           </div>
 
           {/* Mobile: saved heart + menu */}
@@ -281,13 +281,13 @@ export default function Navbar({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.15 + i * 0.07 }}
                 >
-                  <Link
+                  <a
                     href={link.href}
                     onClick={(e) => handleNavClick(link.href, e)}
                     className="font-syne font-extrabold text-4xl text-offwhite hover:text-yellow transition-colors uppercase block w-full text-center"
                   >
                     {link.label}
-                  </Link>
+                  </a>
                 </motion.div>
               ))}
 
@@ -297,13 +297,13 @@ export default function Navbar({
                 transition={{ delay: 0.45 }}
                 className="mt-4 flex flex-col items-center gap-4"
               >
-                <Link
+                <a
                   href="/#explore"
                   onClick={(e) => handleNavClick("/#explore", e)}
                   className="flex items-center gap-3 bg-yellow text-dark font-syne font-bold text-xl px-10 py-5 rounded-full"
                 >
                   {t.nav.bookNow} <ArrowRight size={20} />
-                </Link>
+                </a>
 
                 {/* Install app — always available on phones */}
                 <div onClick={() => setMenuOpen(false)}>
