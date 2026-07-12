@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { X, ChevronLeft, ChevronRight, BedDouble, UtensilsCrossed, Compass, CalendarCheck, MessageCircle, ArrowUpRight, MapPin, CheckCircle } from "lucide-react";
 import type { RecommendedPlace } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
+import { loc } from "@/lib/localize";
 
 const CAT: Record<RecommendedPlace["category"], { icon: React.ElementType; color: string }> = {
   hotel: { icon: BedDouble, color: "bg-amber-400/10 text-amber-400 border-amber-400/30" },
@@ -23,7 +24,7 @@ export default function PlaceDetailModal({
   onBook: () => void;
   onClose: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const ts = t.stayEatDo;
   const catLabel = { hotel: ts.catHotel, restaurant: ts.catRestaurant, activity: ts.catActivity }[place.category];
   const cfg = CAT[place.category];
@@ -90,7 +91,7 @@ export default function PlaceDetailModal({
           <h3 className="font-syne font-extrabold text-offwhite text-2xl sm:text-3xl leading-tight">{place.name}</h3>
           {place.priceNote && <p className="text-yellow/90 font-dm text-sm mt-1">{place.priceNote}</p>}
 
-          <p className="text-muted/85 font-dm text-sm leading-relaxed mt-4">{place.description}</p>
+          <p className="text-muted/85 font-dm text-sm leading-relaxed mt-4">{loc(language, place.description, place.descriptionFr, place.descriptionCr)}</p>
 
           {highlights.length > 0 && (
             <div className="mt-6">

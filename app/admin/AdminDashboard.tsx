@@ -192,6 +192,65 @@ function Textarea({
   );
 }
 
+// ── Translation fields (French / Creole) ────────────────────────────────────────
+// A collapsible block that sits under any base (English) text field and lets the
+// admin add optional French + Rodriguan Creole versions. When left empty, the site
+// falls back to the English text — so nothing ever goes blank.
+function TransFields({
+  base,
+  fr,
+  cr,
+  onFr,
+  onCr,
+  textarea = false,
+  rows = 2,
+}: {
+  base?: string;
+  fr?: string;
+  cr?: string;
+  onFr: (v: string) => void;
+  onCr: (v: string) => void;
+  textarea?: boolean;
+  rows?: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const has = !!((fr && fr.trim()) || (cr && cr.trim()));
+  return (
+    <div className="rounded-xl border border-dashed border-[#2a2a2a] bg-[#0b0b0b] overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-white/[0.02] transition-colors"
+      >
+        <span className="flex items-center gap-2 font-dm text-xs text-muted/70">
+          <Globe size={12} className="text-yellow" />
+          Translations · French &amp; Creole
+          <span className={`text-[10px] ${has ? "text-green-400" : "text-muted/40"}`}>{has ? "· added" : "· optional"}</span>
+        </span>
+        {open ? <ChevronUp size={14} className="text-muted/60" /> : <ChevronDown size={14} className="text-muted/60" />}
+      </button>
+      {open && (
+        <div className="px-3 pb-3 space-y-3">
+          <Field label="🇫🇷 FRENCH">
+            {textarea ? (
+              <Textarea value={fr ?? ""} onChange={onFr} rows={rows} />
+            ) : (
+              <TextInput value={fr ?? ""} onChange={onFr} placeholder={base ? `EN: ${base}` : "French version"} />
+            )}
+          </Field>
+          <Field label="🇲🇺 CREOLE (KREOL RODRIGÉ)">
+            {textarea ? (
+              <Textarea value={cr ?? ""} onChange={onCr} rows={rows} />
+            ) : (
+              <TextInput value={cr ?? ""} onChange={onCr} placeholder={base ? `EN: ${base}` : "Creole version"} />
+            )}
+          </Field>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Image picker ───────────────────────────────────────────────────────────────
 
 function ImagePicker({
@@ -1066,6 +1125,10 @@ function FleetEditor({
               onChange={(v) => updateScooter(idx, { description: v })}
               rows={3}
             />
+            <div className="mt-2 space-y-2">
+              <TransFields base={scooter.tagline} fr={scooter.taglineFr} cr={scooter.taglineCr} onFr={(v) => updateScooter(idx, { taglineFr: v })} onCr={(v) => updateScooter(idx, { taglineCr: v })} />
+              <TransFields base={scooter.description} fr={scooter.descriptionFr} cr={scooter.descriptionCr} onFr={(v) => updateScooter(idx, { descriptionFr: v })} onCr={(v) => updateScooter(idx, { descriptionCr: v })} textarea rows={3} />
+            </div>
           </Field>
 
           {/* Category-appropriate spec chips + included items */}
@@ -2803,6 +2866,9 @@ function RideRoutesEditor({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="NAME">
               <TextInput value={r.name} onChange={(v) => update(idx, { name: v })} placeholder="e.g. Sunset Coastal Loop" />
+              <div className="mt-2">
+                <TransFields base={r.name} fr={r.nameFr} cr={r.nameCr} onFr={(v) => update(idx, { nameFr: v })} onCr={(v) => update(idx, { nameCr: v })} />
+              </div>
             </Field>
             <Field label="TYPE">
               <select
@@ -2835,6 +2901,9 @@ function RideRoutesEditor({
 
           <Field label="DESCRIPTION">
             <Textarea value={r.description} onChange={(v) => update(idx, { description: v })} rows={2} />
+            <div className="mt-2">
+              <TransFields base={r.description} fr={r.descriptionFr} cr={r.descriptionCr} onFr={(v) => update(idx, { descriptionFr: v })} onCr={(v) => update(idx, { descriptionCr: v })} textarea rows={2} />
+            </div>
           </Field>
           <Field label="STOPS (one per line)">
             <Textarea value={r.stops} onChange={(v) => update(idx, { stops: v })} rows={4} />
@@ -3018,6 +3087,9 @@ function RecommendedEditor({
           </div>
           <Field label="DESCRIPTION">
             <Textarea value={it.description} onChange={(v) => updateItem(i, { description: v })} rows={2} />
+            <div className="mt-2">
+              <TransFields base={it.description} fr={it.descriptionFr} cr={it.descriptionCr} onFr={(v) => updateItem(i, { descriptionFr: v })} onCr={(v) => updateItem(i, { descriptionCr: v })} textarea rows={2} />
+            </div>
           </Field>
           <Field label="HIGHLIGHTS (comma-separated — shown in the detail view)">
             <TextInput
@@ -3496,6 +3568,10 @@ function EventsEditor({
           </div>
           <Field label="DESCRIPTION">
             <Textarea value={ev.description} onChange={(v) => update(i, { description: v })} rows={2} />
+            <div className="mt-2 space-y-2">
+              <TransFields base={ev.title} fr={ev.titleFr} cr={ev.titleCr} onFr={(v) => update(i, { titleFr: v })} onCr={(v) => update(i, { titleCr: v })} />
+              <TransFields base={ev.description} fr={ev.descriptionFr} cr={ev.descriptionCr} onFr={(v) => update(i, { descriptionFr: v })} onCr={(v) => update(i, { descriptionCr: v })} textarea rows={2} />
+            </div>
           </Field>
           <ImagePicker label="EVENT PHOTO" src={ev.image ?? ""} onUpload={(p) => update(i, { image: p })} />
         </div>

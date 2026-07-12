@@ -6,6 +6,7 @@ import { track } from "@vercel/analytics";
 import { BedDouble, UtensilsCrossed, Compass, ArrowUpRight, MapPin, MessageCircle, Star, CalendarCheck, Maximize2 } from "lucide-react";
 import type { RecommendedContent, RecommendedPlace } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
+import { loc } from "@/lib/localize";
 import PlaceBookingModal from "@/components/PlaceBookingModal";
 import PlaceDetailModal from "@/components/PlaceDetailModal";
 import SaveButton from "@/components/SaveButton";
@@ -23,7 +24,7 @@ const CATEGORY: Record<
 const SOURCE = "roulerodrigues";
 
 export default function RecommendedPlaces({ content, whatsapp }: { content?: RecommendedContent; whatsapp?: string }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const ts = t.stayEatDo;
   const [filter, setFilter] = useState<string>("all");
   const [bookingPlace, setBookingPlace] = useState<RecommendedPlace | null>(null);
@@ -186,7 +187,7 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
                 {/* Content */}
                 <div className="p-5 flex flex-col flex-1">
                   <h3 className="font-syne font-bold text-offwhite text-base mb-1.5">{p.name}</h3>
-                  <p className="text-muted/85 font-dm text-sm leading-relaxed flex-1">{p.description}</p>
+                  <p className="text-muted/85 font-dm text-sm leading-relaxed flex-1">{loc(language, p.description, p.descriptionFr, p.descriptionCr)}</p>
 
                   <div className="flex items-center gap-2 flex-wrap mt-4">
                     <button

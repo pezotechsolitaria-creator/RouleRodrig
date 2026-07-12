@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { MapPin, Clock, Route as RouteIcon, ArrowUpRight, WifiOff, Star, Footprints, Bike } from "lucide-react";
 import type { RideRoute } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
+import { loc } from "@/lib/localize";
 import SaveButton from "@/components/SaveButton";
 
 const DIFFICULTY_CLS: Record<string, string> = {
@@ -16,7 +17,7 @@ const DIFFICULTY_CLS: Record<string, string> = {
 const kindOf = (r: RideRoute) => r.kind ?? "ride";
 
 export default function RideRoutes({ routes = [] }: { routes?: RideRoute[] }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const tr = t.routes;
   const [filter, setFilter] = useState<"all" | "ride" | "hike">("all");
   if (!routes || routes.length === 0) return null;
@@ -141,8 +142,8 @@ export default function RideRoutes({ routes = [] }: { routes?: RideRoute[] }) {
 
                 {/* Body */}
                 <div className="p-6 flex flex-col flex-1">
-                  <h3 className="font-syne font-extrabold text-offwhite text-xl uppercase leading-tight mb-2">{r.name}</h3>
-                  <p className="text-muted font-dm text-sm leading-relaxed mb-4">{r.description}</p>
+                  <h3 className="font-syne font-extrabold text-offwhite text-xl uppercase leading-tight mb-2">{loc(language, r.name, r.nameFr, r.nameCr)}</h3>
+                  <p className="text-muted font-dm text-sm leading-relaxed mb-4">{loc(language, r.description, r.descriptionFr, r.descriptionCr)}</p>
 
                   <div className="flex items-center gap-5 mb-4">
                     <span className="flex items-center gap-1.5 text-offwhite/80 font-dm text-xs">

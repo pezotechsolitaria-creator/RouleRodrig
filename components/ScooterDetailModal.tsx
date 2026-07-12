@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { X, ChevronLeft, ChevronRight, Star, ArrowRight, BadgeCheck, Ban, CheckCircle, MessageCircle } from "lucide-react";
 import type { FleetItem } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
+import { loc } from "@/lib/localize";
 import { useCurrency } from "@/context/CurrencyContext";
 
 interface Spec {
@@ -42,7 +43,7 @@ export default function ScooterDetailModal({
   whatsapp?: string;
   onClose: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { convert } = useCurrency();
   const photos = scooter.images && scooter.images.length > 0 ? scooter.images : scooter.image ? [scooter.image] : [];
   const [idx, setIdx] = useState(0);
@@ -122,7 +123,7 @@ export default function ScooterDetailModal({
 
         {/* Info */}
         <div className="p-6 sm:p-8">
-          <p className="font-bebas text-muted text-xs tracking-[0.2em] uppercase mb-1">{scooter.tagline}</p>
+          <p className="font-bebas text-muted text-xs tracking-[0.2em] uppercase mb-1">{loc(language, scooter.tagline, scooter.taglineFr, scooter.taglineCr)}</p>
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <h3 className="font-syne font-extrabold text-offwhite uppercase leading-none" style={{ fontSize: "clamp(30px, 6vw, 44px)" }}>{scooter.name}</h3>
             <div className="text-right">
@@ -139,7 +140,7 @@ export default function ScooterDetailModal({
             </div>
           )}
 
-          <p className="text-muted/85 font-dm text-sm leading-relaxed mt-4">{scooter.description}</p>
+          <p className="text-muted/85 font-dm text-sm leading-relaxed mt-4">{loc(language, scooter.description, scooter.descriptionFr, scooter.descriptionCr)}</p>
 
           {/* Spec grid */}
           {specs.length > 0 && (

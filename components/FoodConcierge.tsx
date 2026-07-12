@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { UtensilsCrossed, MessageCircle, Sparkles, Clock, ShieldCheck, MapPin } from "lucide-react";
+import { ShieldCheck, MapPin, Clock, Check } from "lucide-react";
 import type { FoodConciergeContent } from "@/lib/defaults";
 
 /** Build a wa.me link from a raw number/link + a message (mirrors WhatsAppButton). */
@@ -26,17 +26,24 @@ const WhatsAppGlyph = ({ size = 22 }: { size?: number }) => (
   </svg>
 );
 
-// Popular things to ask — each opens WhatsApp with the craving pre-typed, so a
-// first-time visitor instantly understands what the concierge is for.
+// Real, widely-available Rodriguan dishes/occasions. The concierge (a human) then
+// matches you to what's actually cooking that day — so nothing is ever promised
+// that the island doesn't serve.
 const CRAVINGS = [
-  "🦑 Fresh seafood & octopus curry",
-  "🍛 Authentic Creole home cooking",
-  "🌅 Sunset dinner with a view",
-  "💑 Romantic table for two",
-  "🥗 Vegetarian / vegan options",
-  "💸 Great food on a budget",
-  "🎂 A special celebration",
-  "🏝️ Beach shack / street food",
+  { emoji: "🐙", label: "Ourite (octopus)" },
+  { emoji: "🐟", label: "Fresh fish of the day" },
+  { emoji: "🦐", label: "Seafood platter" },
+  { emoji: "🍛", label: "Creole home cooking" },
+  { emoji: "🌶️", label: "Local snacks & street food" },
+  { emoji: "🍰", label: "Rodriguan desserts" },
+  { emoji: "🌅", label: "Table by the sea" },
+  { emoji: "🎉", label: "Special occasion" },
+];
+
+// Two tiers only — no "high / luxury" tier, to avoid friction in the local market.
+const BUDGETS = [
+  { emoji: "💸", label: "Budget-friendly" },
+  { emoji: "💛", label: "Moderate" },
 ];
 
 export default function FoodConcierge({
@@ -47,186 +54,131 @@ export default function FoodConcierge({
   fallbackWhatsApp?: string;
 }) {
   const number = content.whatsapp?.trim() || fallbackWhatsApp;
-  const mainLink = useMemo(() => waLink(number, content.prefill) ?? "", [number, content.prefill]);
-  const cravingLink = (c: string) =>
-    waLink(number, `${content.prefill} ${c.replace(/^[^\p{L}]+/u, "").trim()}`) ?? mainLink;
+  const [craving, setCraving] = useState<string | null>(null);
+  const [budget, setBudget] = useState<string | null>(null);
 
-  const CTA = ({ block = false }: { block?: boolean }) =>
-    mainLink ? (
-      <a
-        href={mainLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`group inline-flex items-center justify-center gap-3 bg-[#25D366] hover:bg-[#20c05c] text-white font-syne font-bold text-base px-8 py-4 rounded-full shadow-[0_10px_36px_rgba(37,211,102,0.4)] transition-all duration-200 hover:scale-[1.03] ${block ? "w-full sm:w-auto" : ""}`}
-      >
-        <WhatsAppGlyph /> {content.buttonText}
-      </a>
-    ) : (
-      <a
-        href="/#contact"
-        className="inline-flex items-center justify-center gap-3 bg-yellow text-dark font-syne font-bold text-base px-8 py-4 rounded-full"
-      >
-        <MessageCircle size={20} /> Contact us
-      </a>
-    );
+  const message = useMemo(() => {
+    let m = content.prefill;
+    const lines: string[] = [];
+    if (craving) lines.push(`• Craving: ${craving}`);
+    if (budget) lines.push(`• Budget: ${budget}`);
+    if (lines.length) m += `\n\n${lines.join("\n")}`;
+    return m;
+  }, [content.prefill, craving, budget]);
+
+  const link = waLink(number, message) ?? "/#contact";
 
   const reassurance = [
-    { icon: ShieldCheck, label: "100% free for you" },
+    { icon: ShieldCheck, label: "Free for you" },
     { icon: MapPin, label: "Local experts" },
-    { icon: Clock, label: "Fast replies" },
+    { icon: Clock, label: "Fast reply" },
   ];
+
+  const Chip = ({
+    active,
+    emoji,
+    label,
+    onClick,
+  }: {
+    active: boolean;
+    emoji: string;
+    label: string;
+    onClick: () => void;
+  }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`relative flex items-center gap-2 rounded-2xl border px-4 py-3 text-left font-dm text-sm transition-all ${
+        active
+          ? "border-[#25D366] bg-[#25D366]/12 text-offwhite"
+          : "border-white/10 bg-white/[0.03] text-offwhite/80 hover:border-white/25 hover:bg-white/[0.06]"
+      }`}
+    >
+      <span className="text-lg leading-none">{emoji}</span>
+      <span className="leading-tight">{label}</span>
+      {active && (
+        <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-[#25D366] text-white">
+          <Check size={13} />
+        </span>
+      )}
+    </button>
+  );
 
   return (
     <div className="bg-dark">
-      {/* ── Hero ── */}
       <section className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-          <div className="absolute -top-24 right-[-10%] w-[55vw] h-[55vw] rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(37,211,102,0.10), transparent 65%)" }} />
-          <div className="absolute bottom-[-25%] left-[-10%] w-[50vw] h-[50vw] rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(245,200,66,0.08), transparent 65%)" }} />
+        {/* Ambient glow — desktop only (cheap on mobile) */}
+        <div className="pointer-events-none absolute inset-0 hidden md:block" aria-hidden="true">
+          <div className="absolute -top-24 right-[-10%] h-[45vw] w-[45vw] rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(37,211,102,0.10), transparent 65%)" }} />
         </div>
 
-        <div className="relative max-w-4xl mx-auto px-6 pt-16 pb-14 md:pt-24 md:pb-20 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-6">
-              <UtensilsCrossed size={13} className="text-yellow" />
-              <span className="font-bebas text-yellow text-[11px] tracking-[0.3em]">FOOD CONCIERGE</span>
+        <div className="relative mx-auto max-w-3xl px-6 pt-14 pb-10 md:pt-20 text-center">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#25D366]" />
+              <span className="font-bebas text-[11px] tracking-[0.3em] text-[#25D366]">FOOD CONCIERGE</span>
             </div>
-            <h1
-              className="font-syne font-extrabold text-offwhite leading-[0.95] tracking-tight"
-              style={{ fontSize: "clamp(38px, 8vw, 76px)" }}
-            >
+            <h1 className="font-syne font-extrabold leading-[0.95] tracking-tight text-offwhite" style={{ fontSize: "clamp(36px, 8vw, 68px)" }}>
               {content.title}
             </h1>
-            <p className="text-yellow font-syne font-bold text-lg md:text-2xl mt-4">{content.subtitle}</p>
-            <p className="text-muted font-dm text-sm md:text-base mt-6 max-w-2xl mx-auto leading-relaxed">
-              {content.intro}
-            </p>
+            <p className="mx-auto mt-4 max-w-md font-dm text-base text-muted">{content.subtitle}</p>
 
-            <div className="mt-9 flex flex-col items-center gap-5">
-              <CTA />
-              <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-                {reassurance.map((r) => (
-                  <span key={r.label} className="flex items-center gap-1.5 text-offwhite/60 font-dm text-xs">
-                    <r.icon size={14} className="text-[#25D366]" /> {r.label}
-                  </span>
-                ))}
-              </div>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+              {reassurance.map((r) => (
+                <span key={r.label} className="flex items-center gap-1.5 font-dm text-xs text-offwhite/55">
+                  <r.icon size={14} className="text-[#25D366]" /> {r.label}
+                </span>
+              ))}
             </div>
           </motion.div>
         </div>
       </section>
 
-      {/* ── How it works ── */}
-      <section className="border-t border-dark-border bg-dark-card/40">
-        <div className="max-w-6xl mx-auto px-6 py-16 md:py-20">
-          <div className="text-center mb-12">
-            <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">HOW IT WORKS</p>
-            <h2 className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]" style={{ fontSize: "clamp(28px, 5vw, 46px)" }}>
-              Three easy steps
-            </h2>
+      {/* Interactive request builder — the whole feature in one tap-friendly card */}
+      <section className="px-6 pb-20">
+        <div className="mx-auto max-w-2xl rounded-[28px] border border-white/10 bg-dark-card/60 p-5 sm:p-8 shadow-[0_20px_60px_-24px_rgba(0,0,0,0.9)]">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="font-syne text-lg font-bold text-offwhite">Craving?</h2>
+            <span className="font-dm text-xs text-muted">Tap one</span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
-            {content.steps.map((s, i) => (
-              <motion.div
-                key={s.id}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-60px" }}
-                transition={{ duration: 0.5, delay: i * 0.08 }}
-                className="relative bg-dark border border-dark-border rounded-2xl p-7 hover:border-yellow/40 transition-colors"
-              >
-                <span className="absolute -top-4 left-7 w-9 h-9 rounded-full bg-yellow text-dark font-syne font-extrabold text-sm flex items-center justify-center shadow-lg">
-                  {i + 1}
-                </span>
-                <h3 className="font-syne font-bold text-offwhite text-lg mt-3 mb-2">{s.title}</h3>
-                <p className="text-muted font-dm text-sm leading-relaxed">{s.text}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── What you can ask (craving chips → WhatsApp) ── */}
-      <section className="border-t border-dark-border">
-        <div className="max-w-5xl mx-auto px-6 py-16 md:py-20 text-center">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <Sparkles size={16} className="text-yellow" />
-            <p className="font-bebas text-yellow text-xs tracking-[0.35em]">TAP A CRAVING TO START</p>
-          </div>
-          <h2 className="font-syne font-extrabold text-offwhite uppercase leading-[0.95] mb-3" style={{ fontSize: "clamp(26px, 5vw, 44px)" }}>
-            What are you in the mood for?
-          </h2>
-          <p className="text-muted font-dm text-sm md:text-base max-w-xl mx-auto mb-9">
-            Pick one to open WhatsApp with your request ready to send — or just message us and describe your own.
-          </p>
-          <div className="flex flex-wrap justify-center gap-2.5">
+          <div className="grid grid-cols-2 gap-2.5">
             {CRAVINGS.map((c) => (
-              <a
-                key={c}
-                href={cravingLink(c)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-dark-card border border-dark-border hover:border-[#25D366] hover:bg-[#25D366]/10 text-offwhite/85 font-dm text-sm px-4 py-2.5 rounded-full transition-colors"
-              >
-                {c}
-              </a>
+              <Chip key={c.label} active={craving === c.label} emoji={c.emoji} label={c.label} onClick={() => setCraving(craving === c.label ? null : c.label)} />
             ))}
           </div>
+
+          <div className="mt-6 mb-3 flex items-baseline justify-between">
+            <h2 className="font-syne text-lg font-bold text-offwhite">Budget</h2>
+            <span className="font-dm text-xs text-muted">Optional</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            {BUDGETS.map((b) => (
+              <Chip key={b.label} active={budget === b.label} emoji={b.emoji} label={b.label} onClick={() => setBudget(budget === b.label ? null : b.label)} />
+            ))}
+          </div>
+
+          <a
+            href={link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group mt-7 flex w-full items-center justify-center gap-3 rounded-full bg-[#25D366] px-8 py-4 font-syne text-base font-bold text-white shadow-[0_10px_36px_rgba(37,211,102,0.4)] transition-all duration-200 hover:scale-[1.02] hover:bg-[#20c05c]"
+          >
+            <WhatsAppGlyph /> {content.buttonText}
+          </a>
+          <p className="mt-3 text-center font-dm text-xs text-muted">
+            Not on the list? Just message us — we&apos;ll match you to what&apos;s cooking today.
+          </p>
         </div>
-      </section>
 
-      {/* ── Example conversation (shows visitors exactly how it feels) ── */}
-      <section className="border-t border-dark-border bg-dark-card/40">
-        <div className="max-w-2xl mx-auto px-6 py-16 md:py-20">
-          <div className="text-center mb-10">
-            <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">A REAL EXAMPLE</p>
-            <h2 className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]" style={{ fontSize: "clamp(26px, 5vw, 44px)" }}>
-              How a chat looks
-            </h2>
-          </div>
-
-          <div className="bg-[#0b141a] border border-white/10 rounded-3xl p-4 sm:p-6 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.9)]">
-            <div className="flex items-center gap-3 pb-4 border-b border-white/5 mb-4">
-              <span className="flex items-center justify-center w-10 h-10 rounded-full bg-[#25D366] text-white">
-                <WhatsAppGlyph size={20} />
-              </span>
-              <div className="text-left">
-                <p className="font-syne font-bold text-offwhite text-sm leading-tight">Roule Rodrigues — Food Concierge</p>
-                <p className="text-[#25D366] font-dm text-xs">online</p>
-              </div>
+        {/* How it works — 3 micro-steps, almost no reading */}
+        <div className="mx-auto mt-10 grid max-w-2xl grid-cols-3 gap-3">
+          {content.steps.slice(0, 3).map((s, i) => (
+            <div key={s.id} className="rounded-2xl border border-white/8 bg-white/[0.02] p-4 text-center">
+              <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-yellow font-syne text-sm font-extrabold text-dark">{i + 1}</div>
+              <p className="font-syne text-sm font-bold leading-tight text-offwhite">{s.title}</p>
             </div>
-
-            <div className="space-y-3">
-              <div className="flex justify-end">
-                <p className="max-w-[80%] bg-[#005c4b] text-white font-dm text-sm px-4 py-2.5 rounded-2xl rounded-tr-sm">
-                  Hi! We&apos;re 2 near Anse aux Anglais tonight, would love fresh seafood, budget ~Rs 800pp 🦞
-                </p>
-              </div>
-              <div className="flex justify-start">
-                <p className="max-w-[85%] bg-[#202c33] text-offwhite font-dm text-sm px-4 py-2.5 rounded-2xl rounded-tl-sm">
-                  Perfect 😍 I&apos;ve got two spots you&apos;ll love near you — a family kitchen famous for its octopus curry with a sea view, and a little grill doing the fresh catch of the day. Both in your budget. Want me to book a table for 2 at 7pm?
-                </p>
-              </div>
-              <div className="flex justify-end">
-                <p className="max-w-[80%] bg-[#005c4b] text-white font-dm text-sm px-4 py-2.5 rounded-2xl rounded-tr-sm">
-                  Yes please, the octopus one! 🙏
-                </p>
-              </div>
-              <div className="flex justify-start">
-                <p className="max-w-[85%] bg-[#202c33] text-offwhite font-dm text-sm px-4 py-2.5 rounded-2xl rounded-tl-sm">
-                  Done ✅ Table for 2 booked at 7pm — I&apos;ll send you the location and the name to ask for. Enjoy! 🛵
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-10 text-center">
-            <CTA />
-          </div>
+          ))}
         </div>
       </section>
     </div>

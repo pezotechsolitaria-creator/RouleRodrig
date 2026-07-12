@@ -7,6 +7,7 @@ import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban, ChevronLeft, Ch
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type FleetItem, type VehicleCategory } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
+import { loc } from "@/lib/localize";
 import { useCurrency } from "@/context/CurrencyContext";
 import ScooterDetailModal from "@/components/ScooterDetailModal";
 import SaveButton from "@/components/SaveButton";
@@ -185,7 +186,7 @@ export default function Fleet({
 }) {
   const allItems = fleet ?? DEFAULT_CONTENT.fleet;
   const cats = categories ?? [];
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { convert } = useCurrency();
   const [activeCat, setActiveCat] = useState<string>("all");
   const [detail, setDetail] = useState<{ scooter: FleetItem; specs: Spec[]; included: string[] } | null>(null);
@@ -326,7 +327,7 @@ export default function Fleet({
                 {/* Content */}
                 <div className="p-6 md:p-8">
                   <p className="font-bebas text-muted text-xs tracking-[0.2em] mb-1 uppercase">
-                    {scooter.tagline}
+                    {loc(language, scooter.tagline, scooter.taglineFr, scooter.taglineCr)}
                   </p>
                   <h3
                     className="font-syne font-extrabold text-offwhite uppercase leading-none mb-3"
@@ -359,7 +360,7 @@ export default function Fleet({
                     </div>
                   )}
                   <p className="text-muted/80 font-dm text-sm leading-relaxed mb-7">
-                    {scooter.description}
+                    {loc(language, scooter.description, scooter.descriptionFr, scooter.descriptionCr)}
                   </p>
 
                   {specs.length > 0 && (

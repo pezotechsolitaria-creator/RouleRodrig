@@ -26,7 +26,11 @@ export interface FleetItem {
   badge: string;
   name: string;
   tagline: string;
+  taglineFr?: string;     // optional French / Creole translations (admin-filled)
+  taglineCr?: string;
   description: string;
+  descriptionFr?: string;
+  descriptionCr?: string;
   image: string;          // legacy cover image (kept for backward compat)
   images?: string[];      // optional gallery — multiple photos/angles
   price: string;
@@ -132,7 +136,11 @@ export interface PlannerActivity {
 export interface RideRoute {
   id: string;
   name: string;
+  nameFr?: string;
+  nameCr?: string;
   description: string;
+  descriptionFr?: string;
+  descriptionCr?: string;
   distance: string;   // e.g. "32 km"
   duration: string;   // e.g. "2–3 hrs"
   difficulty: "Easy" | "Moderate" | "Advanced";
@@ -163,8 +171,12 @@ export interface UsefulContact {
 export interface EventItem {
   id: string;
   title: string;
+  titleFr?: string;
+  titleCr?: string;
   date: string;        // free text, e.g. "Every Saturday" or "15 Aug 2026"
   description: string;
+  descriptionFr?: string;
+  descriptionCr?: string;
   location?: string;
   image?: string;
   featured?: boolean;  // pinned to top + gold border
@@ -182,6 +194,8 @@ export interface RecommendedPlace {
   category: "hotel" | "restaurant" | "activity";
   name: string;
   description: string;
+  descriptionFr?: string;
+  descriptionCr?: string;
   image: string;
   link?: string;       // website, booking page or Google Maps link
   linkText?: string;
@@ -721,15 +735,15 @@ export const DEFAULT_CONTENT: SiteContent = {
   foodConcierge: {
     enabled: true,
     whatsapp: '',
-    title: 'Your personal food concierge',
-    subtitle: 'Tell us what you fancy — we find the table.',
-    intro: 'Rodrigues hides some incredible tables: fresh octopus curry, hidden beach grills, home cooking you would never find on a map. Instead of scrolling endless listings, just message our local food concierge on WhatsApp. Tell us your cravings, your budget and your location, and we\'ll recommend the perfect spot — and book it for you. It\'s free for you to use.',
-    buttonText: 'Chat with our food concierge',
-    prefill: 'Hi Roule Rodrigues! I\'d love a food recommendation on Rodrigues. Here\'s what I\'m looking for:',
+    title: 'Your food concierge',
+    subtitle: 'Tell us what you fancy — we find and book the table.',
+    intro: 'Skip the endless searching. Message our local team on WhatsApp, tell us your craving and budget, and we\'ll recommend — and reserve — the perfect table. Free for you to use.',
+    buttonText: 'Chat on WhatsApp',
+    prefill: 'Hello Roule Rodrigues 👋 I\'d love your help finding a great place to eat on Rodrigues.',
     steps: [
-      { id: 'tell', title: 'Tell us your craving', text: 'Message us on WhatsApp — seafood, Creole home cooking, a sunset drink, a birthday dinner. Add your area, group size and budget.' },
-      { id: 'match', title: 'We match you', text: 'A local expert replies with 2–3 hand-picked spots that fit, with honest tips on what to order and when to go.' },
-      { id: 'book', title: 'We book your table', text: 'Say the word and we reserve it for you and pass on your details — no app, no account, no fee.' },
+      { id: 'tell', title: 'Tell us your craving', text: 'Message us on WhatsApp with what you fancy, your budget and your area.' },
+      { id: 'match', title: 'We match you', text: 'A local expert replies with the perfect spot for today.' },
+      { id: 'book', title: 'We book your table', text: 'Say the word and we reserve it — no app, no fee.' },
     ],
   },
   experience: {

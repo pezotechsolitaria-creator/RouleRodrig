@@ -4,9 +4,10 @@ import { motion } from "framer-motion";
 import { Calendar, MapPin, Star } from "lucide-react";
 import type { EventItem } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
+import { loc } from "@/lib/localize";
 
 export default function Events({ events = [] }: { events?: EventItem[] }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const e = t.events;
 
   // Featured first, then the rest in original order
@@ -71,8 +72,8 @@ export default function Events({ events = [] }: { events?: EventItem[] }) {
                     </span>
                   )}
                 </div>
-                <h3 className="font-syne font-extrabold text-offwhite text-lg uppercase leading-tight mb-2">{ev.title}</h3>
-                <p className="text-muted font-dm text-sm leading-relaxed flex-1">{ev.description}</p>
+                <h3 className="font-syne font-extrabold text-offwhite text-lg uppercase leading-tight mb-2">{loc(language, ev.title, ev.titleFr, ev.titleCr)}</h3>
+                <p className="text-muted font-dm text-sm leading-relaxed flex-1">{loc(language, ev.description, ev.descriptionFr, ev.descriptionCr)}</p>
                 {ev.location && (
                   <p className="flex items-center gap-1.5 text-offwhite/60 font-dm text-xs mt-4 pt-4 border-t border-dark-border">
                     <MapPin size={12} className="text-yellow" /> {ev.location}
