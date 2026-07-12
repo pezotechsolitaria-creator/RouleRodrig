@@ -5120,7 +5120,7 @@ function OwnerApplicationsViewer() {
 interface LeadSummary { target: string; kind: string; category: string | null; total: number; last30: number; }
 interface LeadRecent { kind: string; target_name: string; category: string | null; type: string | null; ref: string | null; created_at: string; }
 interface LeadData {
-  totals: { all: number; last30: number; stayEatDo: number; taxi: number };
+  totals: { all: number; last30: number; stayEatDo: number; taxi: number; food: number };
   summary: LeadSummary[];
   recent: LeadRecent[];
 }
@@ -5137,7 +5137,8 @@ function LeadsViewer() {
       .finally(() => setLoading(false));
   }, []);
 
-  const kindLabel = (k: string) => (k === "taxi" ? "Taxi" : "Stay·Eat·Do");
+  const kindLabel = (k: string) =>
+    k === "taxi" ? "Taxi" : k === "food_concierge" ? "🍽️ Food concierge" : "Stay·Eat·Do";
   const fmt = (s: string) => {
     try { return new Date(s).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); } catch { return s; }
   };
@@ -5153,7 +5154,7 @@ function LeadsViewer() {
     return (
       <div className="bg-dark-card border border-dark-border rounded-2xl p-10 text-center">
         <TrendingUp size={36} className="text-muted/20 mx-auto mb-3" />
-        <p className="text-muted font-dm text-sm">No leads yet. When visitors tap “Book / Enquire” on a Stay·Eat·Do listing or contact a taxi driver, it shows up here.</p>
+        <p className="text-muted font-dm text-sm">No leads yet. When visitors tap the Food Concierge, “Book / Enquire” on a Stay·Eat·Do listing, or contact a taxi driver, it shows up here — with the craving &amp; budget they chose.</p>
       </div>
     );
   }
@@ -5161,10 +5162,11 @@ function LeadsViewer() {
   return (
     <div className="space-y-6">
       {/* Totals */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           { label: "Leads (last 30 days)", value: data.totals.last30 },
           { label: "Leads (all time)", value: data.totals.all },
+          { label: "🍽️ Food concierge", value: data.totals.food ?? 0 },
           { label: "Stay·Eat·Do", value: data.totals.stayEatDo },
           { label: "Taxi", value: data.totals.taxi },
         ].map((s) => (
@@ -5205,7 +5207,10 @@ function LeadsViewer() {
             <div key={i} className="flex items-center justify-between gap-3 px-5 py-2.5">
               <div className="min-w-0">
                 <span className="text-offwhite/90 text-sm">{r.target_name}</span>
-                <span className="text-muted/50 text-xs ml-2">{kindLabel(r.kind)}{r.type ? ` · ${r.type}` : ""}</span>
+                <span className="text-muted/50 text-xs ml-2">
+                  {kindLabel(r.kind)}
+                  {r.kind === "food_concierge" && r.ref ? ` · ${r.ref}` : r.type ? ` · ${r.type}` : ""}
+                </span>
               </div>
               <span className="text-muted/50 text-xs font-dm shrink-0">{fmt(r.created_at)}</span>
             </div>
@@ -5698,7 +5703,7 @@ export default function AdminDashboard({
     submissions:  { title: "Enquiries",           desc: "Contact form submissions from customers." },
     bookings:     { title: "Bookings",            desc: "Booking requests from the website booking form." },
     place_bookings: { title: "Stay·Eat·Do Bookings", desc: "Reservation requests for hotels, restaurants & activities." },
-    leads:        { title: "Listing Leads",       desc: "Clicks & enquiries on your Stay·Eat·Do and Taxi listings — for billing featured / pay-per-lead." },
+    leads:        { title: "Listing Leads",       desc: "Food Concierge requests (with craving & budget), plus clicks & enquiries on your Stay·Eat·Do and Taxi listings — for demand tracking & commission follow-up." },
     owners:       { title: "Owner Applications",  desc: "Scooter owners applying to list their vehicles via /list-your-scooter." },
     map:          { title: "Island Map Locations",desc: "Manage the points of interest shown on the island guide map." },
     waitlist:     { title: "Waitlist",            desc: "People who signed up for deals and island tips." },

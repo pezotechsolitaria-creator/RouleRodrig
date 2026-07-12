@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
       last30: rows.filter((r) => new Date(r.created_at).getTime() >= cutoff).length,
       stayEatDo: rows.filter((r) => r.kind === "stay_eat_do").length,
       taxi: rows.filter((r) => r.kind === "taxi").length,
+      food: rows.filter((r) => r.kind === "food_concierge").length,
     },
     summary,
     recent: rows.slice(0, 50),

@@ -68,6 +68,28 @@ export default function FoodConcierge({
 
   const link = waLink(number, message) ?? "/#contact";
 
+  // Log every concierge request (craving + budget) so the admin "Listing Leads"
+  // inbox can track demand and commission follow-ups. Fire-and-forget; never
+  // blocks opening WhatsApp.
+  const logLead = () => {
+    try {
+      fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({
+          kind: "food_concierge",
+          target_name: craving || "Any craving",
+          category: "food",
+          type: "whatsapp",
+          ref: budget || "Any budget",
+        }),
+      }).catch(() => {});
+    } catch {
+      /* ignore */
+    }
+  };
+
   const reassurance = [
     { icon: ShieldCheck, label: "Free for you" },
     { icon: MapPin, label: "Local experts" },
@@ -162,6 +184,7 @@ export default function FoodConcierge({
             href={link}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={logLead}
             className="group mt-7 flex w-full items-center justify-center gap-3 rounded-full bg-[#25D366] px-8 py-4 font-syne text-base font-bold text-white shadow-[0_10px_36px_rgba(37,211,102,0.4)] transition-all duration-200 hover:scale-[1.02] hover:bg-[#20c05c]"
           >
             <WhatsAppGlyph /> {content.buttonText}

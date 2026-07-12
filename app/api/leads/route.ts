@@ -4,7 +4,7 @@ import { guard } from "@/lib/rate-limit";
 
 // ── Public: log a lead event (a click/enquiry on a directory listing) ────────
 // Used to measure demand and bill featured/pay-per-lead. Insert-only; no PII.
-const KINDS = ["stay_eat_do", "taxi"];
+const KINDS = ["stay_eat_do", "taxi", "food_concierge"];
 const TYPES = ["whatsapp", "call", "link"];
 
 export async function POST(req: NextRequest) {
