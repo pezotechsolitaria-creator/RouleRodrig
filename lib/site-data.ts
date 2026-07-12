@@ -151,25 +151,25 @@ export function buildBrowseCategories(
         href: "/food",
         label: "Food & Dining",
         image: firstImage(rest),
-        emoji: "🍽️",
+       
         count: 0,
         tagline: "Free concierge · we book your table",
       });
     }
     const act = content.recommended.items.filter((p) => p.category === "activity" && !p.isTour);
-    if (act.length) cats.push({ slug: "activities", label: "Activities", image: firstImage(act), emoji: "🤿", count: act.length });
+    if (act.length) cats.push({ slug: "activities", label: "Activities", image: firstImage(act), count: act.length });
     const tours = content.recommended.items.filter((p) => p.category === "activity" && p.isTour);
-    if (tours.length) cats.push({ slug: "tours", label: "Guided Tours", image: firstImage(tours), emoji: "🧭", count: tours.length });
+    if (tours.length) cats.push({ slug: "tours", label: "Guided Tours", image: firstImage(tours), count: tours.length });
     const stays = content.recommended.items.filter((p) => p.category === "hotel");
-    if (stays.length) cats.push({ slug: "stays", label: "Stays", image: firstImage(stays), emoji: "🏝️", count: stays.length });
+    if (stays.length) cats.push({ slug: "stays", label: "Stays", image: firstImage(stays), count: stays.length });
   }
   const ga = (content.gettingAround?.options ?? []).filter((o) => o.icon !== "bus");
   if (content.gettingAround?.enabled && ga.length) {
-    cats.push({ slug: "getting-around", label: "Getting around", emoji: "🚕", count: ga.length });
+    cats.push({ slug: "getting-around", label: "Getting around", count: ga.length });
   }
   const events = content.events.filter((e) => e.title);
   if (events.length) {
-    cats.push({ slug: "events", label: "What's on", image: firstImage(events), emoji: "🎉", count: events.length });
+    cats.push({ slug: "events", label: "What's on", image: firstImage(events), count: events.length });
   }
   return cats;
 }
