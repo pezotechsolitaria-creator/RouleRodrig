@@ -7,6 +7,9 @@ import {
   Sparkles,
   Bike,
   UtensilsCrossed,
+  Compass,
+  Waves,
+  ShoppingBag,
   DollarSign,
   Phone,
   Images,
@@ -231,14 +234,14 @@ function TransFields({
       </button>
       {open && (
         <div className="px-3 pb-3 space-y-3">
-          <Field label="🇫🇷 FRENCH">
+          <Field label="FRENCH">
             {textarea ? (
               <Textarea value={fr ?? ""} onChange={onFr} rows={rows} />
             ) : (
               <TextInput value={fr ?? ""} onChange={onFr} placeholder={base ? `EN: ${base}` : "French version"} />
             )}
           </Field>
-          <Field label="🇲🇺 CREOLE (KREOL RODRIGÉ)">
+          <Field label="CREOLE (KREOL RODRIGÉ)">
             {textarea ? (
               <Textarea value={cr ?? ""} onChange={onCr} rows={rows} />
             ) : (
@@ -2199,7 +2202,7 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
                 </span>
                 {b.asset_label && (
                   <span className="font-bebas text-[10px] tracking-[0.15em] bg-green-500/10 text-green-400 px-2.5 py-1 rounded-full">
-                    🛵 {b.asset_label}
+                    {b.asset_label}
                   </span>
                 )}
               </div>
@@ -2876,8 +2879,8 @@ function RideRoutesEditor({
                 onChange={(e) => update(idx, { kind: e.target.value as RideRoute["kind"] })}
                 className={`${inputCls} appearance-none`}
               >
-                <option value="ride">🛵 Scooter ride</option>
-                <option value="hike">🥾 Hiking / adventure trail</option>
+                <option value="ride">Scooter ride</option>
+                <option value="hike">Hiking / adventure trail</option>
               </select>
             </Field>
             <Field label="DIFFICULTY">
@@ -2998,9 +3001,9 @@ function UsefulContactsEditor({
 
 const RECOMMENDED_CATEGORIES: RecommendedPlace["category"][] = ["hotel", "restaurant", "activity"];
 const RECOMMENDED_LABEL: Record<RecommendedPlace["category"], string> = {
-  hotel: "🏨 Hotel / Guesthouse",
-  restaurant: "🍽️ Restaurant",
-  activity: "🤿 Activity",
+  hotel: "Hotel / Guesthouse",
+  restaurant: "Restaurant",
+  activity: "Activity",
 };
 
 function RecommendedEditor({
@@ -3664,7 +3667,7 @@ function SponsorsEditor({
       </button>
 
       <div className="bg-yellow/5 border border-yellow/20 rounded-2xl p-5">
-        <p className="font-syne font-bold text-offwhite text-sm mb-1">💡 Monetisation tip</p>
+        <p className="font-syne font-bold text-offwhite text-sm mb-1">Monetisation tip</p>
         <p className="font-dm text-muted/70 text-xs leading-relaxed">
           Charge businesses a monthly fee (e.g. Rs 1,000–3,000) to display their logo here. Toggle the
           strip off in low season. Click Save Changes to publish.
@@ -3941,7 +3944,7 @@ function PartnersManager() {
             onClick={() => window.print()}
             className="mt-4 flex items-center gap-2 border border-[#2a2a2a] hover:border-yellow text-offwhite/70 hover:text-yellow px-4 py-2 rounded-lg text-xs font-dm transition-colors"
           >
-            🖨️ Print Report
+            Print Report
           </button>
         </div>
       </div>
@@ -4235,8 +4238,8 @@ function MarketplaceManager() {
     setShowForm(true);
   }
 
-  const CATEGORY_EMOJI: Record<string, string> = {
-    restaurant: "🍽️", tour: "🧭", activity: "🤿", accommodation: "🏡", shopping: "🛍️",
+  const CATEGORY_ICON: Record<string, React.ElementType> = {
+    restaurant: UtensilsCrossed, tour: Compass, activity: Waves, accommodation: BedDouble, shopping: ShoppingBag,
   };
 
   return (
@@ -4275,7 +4278,7 @@ function MarketplaceManager() {
               >
                 {MARKETPLACE_CATEGORIES.map((c) => (
                   <option key={c} value={c}>
-                    {CATEGORY_EMOJI[c]} {c.charAt(0).toUpperCase() + c.slice(1)}
+                    {c.charAt(0).toUpperCase() + c.slice(1)}
                   </option>
                 ))}
               </select>
@@ -4377,7 +4380,7 @@ function MarketplaceManager() {
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="text-base">{CATEGORY_EMOJI[l.category] ?? "🏪"}</span>
+                    {(() => { const CatIcon = CATEGORY_ICON[l.category] ?? Store; return <CatIcon size={16} className="text-yellow shrink-0" />; })()}
                     <p className="font-syne font-bold text-offwhite text-sm">{l.business_name}</p>
                     {l.featured && (
                       <span className="font-bebas text-[9px] tracking-[0.15em] bg-yellow/10 text-yellow border border-yellow/20 px-2 py-0.5 rounded-full">
@@ -5148,7 +5151,7 @@ function LeadsViewer() {
   }, []);
 
   const kindLabel = (k: string) =>
-    k === "taxi" ? "Taxi" : k === "food_concierge" ? "🍽️ Food concierge" : "Stay·Eat·Do";
+    k === "taxi" ? "Taxi" : k === "food_concierge" ? "Food concierge" : "Stay·Eat·Do";
   const fmt = (s: string) => {
     try { return new Date(s).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); } catch { return s; }
   };
@@ -5176,7 +5179,7 @@ function LeadsViewer() {
         {[
           { label: "Leads (last 30 days)", value: data.totals.last30 },
           { label: "Leads (all time)", value: data.totals.all },
-          { label: "🍽️ Food concierge", value: data.totals.food ?? 0 },
+          { label: "Food concierge", value: data.totals.food ?? 0 },
           { label: "Stay·Eat·Do", value: data.totals.stayEatDo },
           { label: "Taxi", value: data.totals.taxi },
         ].map((s) => (
