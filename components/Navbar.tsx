@@ -37,6 +37,27 @@ export default function Navbar({
 
   const openSaved = () => window.dispatchEvent(new CustomEvent("rr:open-saved"));
 
+  // Robust in-page navigation. Hash links (/#explore, /#map…) previously did
+  // nothing from the burger — only /taxi (a real route) worked — because the
+  // open menu locks `body { overflow:hidden }`, and that lock is still active
+  // when the browser tries to jump to the hash, so the scroll is swallowed.
+  // We close the menu, release the lock, then scroll to the target ourselves.
+  // Off-page hashes (target not on this page) fall back to the normal <Link>.
+  function handleNavClick(href: string, e: React.MouseEvent) {
+    setMenuOpen(false);
+    const hashIndex = href.indexOf("#");
+    if (hashIndex === -1) return; // e.g. /taxi — let <Link> navigate
+    const id = href.slice(hashIndex + 1);
+    const el = typeof document !== "undefined" ? document.getElementById(id) : null;
+    if (!el) return; // section isn't on this page — let <Link> go to /#id
+    e.preventDefault();
+    document.body.style.overflowY = "";
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      try { history.replaceState(null, "", `#${id}`); } catch {}
+    });
+  }
+
   function cycleLanguage() {
     const idx = LANG_CYCLE.indexOf(language);
     setLanguage(LANG_CYCLE[(idx + 1) % LANG_CYCLE.length]);
@@ -135,6 +156,7 @@ export default function Navbar({
                 <Link
                   key={link.href}
                   href={link.href}
+                  onClick={(e) => handleNavClick(link.href, e)}
                   className={`relative pb-1 transition-colors text-sm font-dm font-medium tracking-wide ${
                     isActive ? "text-offwhite" : "text-muted hover:text-offwhite"
                   }`}
@@ -193,6 +215,7 @@ export default function Navbar({
 
             <Link
               href="/#explore"
+              onClick={(e) => handleNavClick("/#explore", e)}
               className="flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-5 py-2.5 rounded-full hover:bg-yellow-dark transition-all duration-200 hover:scale-105"
             >
               {t.nav.bookNow} <ArrowRight size={14} />
@@ -256,7 +279,7 @@ export default function Navbar({
                 >
                   <Link
                     href={link.href}
-                    onClick={() => setMenuOpen(false)}
+                    onClick={(e) => handleNavClick(link.href, e)}
                     className="font-syne font-extrabold text-4xl text-offwhite hover:text-yellow transition-colors uppercase block w-full text-center"
                   >
                     {link.label}
@@ -272,7 +295,7 @@ export default function Navbar({
               >
                 <Link
                   href="/#explore"
-                  onClick={() => setMenuOpen(false)}
+                  onClick={(e) => handleNavClick("/#explore", e)}
                   className="flex items-center gap-3 bg-yellow text-dark font-syne font-bold text-xl px-10 py-5 rounded-full"
                 >
                   {t.nav.bookNow} <ArrowRight size={20} />
