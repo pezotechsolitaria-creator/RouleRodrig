@@ -12,26 +12,26 @@ const TRIP_KEY = "rr-trip-planner-v1";
 
 const COPY = {
   en: {
-    savedTitle: "Welcome back",
+    savedTitle: "Welcome back 👋",
     savedBody: (n: number) => `You have ${n} saved ${n === 1 ? "favourite" : "favourites"} — pick up where you left off.`,
     view: "View saved",
-    tripTitle: "Welcome back",
+    tripTitle: "Welcome back 👋",
     tripBody: "Your trip plan is saved and ready.",
     continue: "Continue planning",
   },
   fr: {
-    savedTitle: "Bon retour",
+    savedTitle: "Bon retour 👋",
     savedBody: (n: number) => `Vous avez ${n} favori${n === 1 ? "" : "s"} enregistré${n === 1 ? "" : "s"} — reprenez où vous en étiez.`,
     view: "Voir mes favoris",
-    tripTitle: "Bon retour",
+    tripTitle: "Bon retour 👋",
     tripBody: "Votre plan de séjour est enregistré.",
     continue: "Continuer",
   },
   cr: {
-    savedTitle: "Bienvenu ankor",
+    savedTitle: "Bienvenu ankor 👋",
     savedBody: (n: number) => `Ou ena ${n} favori anrezistre — kontinye kot ou ti arete.`,
     view: "Get mo favori",
-    tripTitle: "Bienvenu ankor",
+    tripTitle: "Bienvenu ankor 👋",
     tripBody: "Ou plan vwayaz finn anrezistre.",
     continue: "Kontinye",
   },

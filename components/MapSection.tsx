@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Navigation, ChevronDown, X, ChevronLeft, ChevronRight, ZoomIn } from "lucide-react";
 import type { MapLocation } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
+import { loc as localize } from "@/lib/localize";
+import type { Language } from "@/lib/i18n";
 
 // Load Leaflet map only on client (no SSR — window required)
 const IslandMap = dynamic(() => import("./IslandMap"), { ssr: false });
@@ -19,17 +21,16 @@ const CATEGORY_COLOR: Record<string, string> = {
   gas:       "bg-orange-500",
 };
 
-const CATEGORY_LABEL: Record<string, string> = {
-  beach:     "Beach",
-  viewpoint: "Viewpoint",
-  restaurant:"Restaurant",
-  landmark:  "Landmark",
-  activity:  "Activity",
-  gas:       "Petrol",
+const CATEGORY_KEYS = ["beach", "viewpoint", "restaurant", "landmark", "activity", "gas"] as const;
+const CATEGORY_LABEL_I18N: Record<Language, Record<string, string>> = {
+  en: { beach: "Beach",  viewpoint: "Viewpoint",    restaurant: "Restaurant", landmark: "Landmark", activity: "Activity", gas: "Petrol" },
+  fr: { beach: "Plage",  viewpoint: "Point de vue", restaurant: "Restaurant", landmark: "Site",     activity: "Activité", gas: "Essence" },
+  cr: { beach: "Laplaz", viewpoint: "Pwin vi",      restaurant: "Restoran",   landmark: "Landmark", activity: "Aktivite", gas: "Lesans" },
 };
 
 export default function MapSection({ locations }: { locations?: MapLocation[] }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const catLabel = (k: string) => CATEGORY_LABEL_I18N[language]?.[k] ?? k;
   const locs = locations ?? [];
   const [filter, setFilter] = useState<string>("all");
 
@@ -101,7 +102,7 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
   }, [lightbox, step]);
 
   // Only offer filter chips for categories that actually have locations.
-  const presentCats = Object.keys(CATEGORY_LABEL).filter((k) =>
+  const presentCats = CATEGORY_KEYS.filter((k) =>
     locs.some((l) => l.category === k),
   );
   const shown = filter === "all" ? locs : locs.filter((l) => l.category === filter);
@@ -157,7 +158,7 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
                 }`}
               >
                 <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${CATEGORY_COLOR[key]}`} />
-                {CATEGORY_LABEL[key]} ({n})
+                {catLabel(key)} ({n})
               </button>
             );
           })}
@@ -221,12 +222,12 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <p className="font-syne font-bold text-offwhite text-sm">{loc.name}</p>
+                        <p className="font-syne font-bold text-offwhite text-sm">{localize(language, loc.name, loc.nameFr, loc.nameCr)}</p>
                         <span className="font-bebas text-[9px] tracking-[0.15em] text-muted uppercase">
-                          {CATEGORY_LABEL[loc.category]}
+                          {catLabel(loc.category)}
                         </span>
                       </div>
-                      <p className="text-muted font-dm text-xs leading-relaxed">{loc.description}</p>
+                      <p className="text-muted font-dm text-xs leading-relaxed">{localize(language, loc.description, loc.descriptionFr, loc.descriptionCr)}</p>
                       <a
                         href={`https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`}
                         target="_blank"

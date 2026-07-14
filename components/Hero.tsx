@@ -6,6 +6,7 @@ import { ArrowRight, Compass } from "lucide-react";
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type HeroContent } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
+import { loc } from "@/lib/localize";
 
 // Fixed positions so SSR and client render identically (no hydration mismatch).
 const PARTICLES = [
@@ -101,8 +102,11 @@ function HeroBackdrop() {
 
 export default function Hero({ hero }: { hero?: HeroContent }) {
   const h = hero ?? DEFAULT_CONTENT.hero;
-  const headlineLines = h.headline;
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const headlineLines =
+    language === "fr" && h.headlineFr?.length ? h.headlineFr :
+    language === "cr" && h.headlineCr?.length ? h.headlineCr :
+    h.headline;
 
   return (
     <section className="relative min-h-screen w-full overflow-hidden flex flex-col" aria-label="Hero section">
@@ -139,7 +143,7 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
           className="inline-flex items-center gap-2 self-start bg-white/5 backdrop-blur-md border border-white/10 rounded-full px-4 py-1.5 mb-7"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-yellow animate-pulse" />
-          <span className="font-bebas text-yellow text-[11px] md:text-xs tracking-[0.3em]">{h.eyebrow}</span>
+          <span className="font-bebas text-yellow text-[11px] md:text-xs tracking-[0.3em]">{loc(language, h.eyebrow, h.eyebrowFr, h.eyebrowCr)}</span>
         </motion.div>
 
         {/* Staggered headline */}
@@ -166,7 +170,7 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
           transition={{ duration: 0.7, delay: 0.85 }}
           className="mt-8 text-white/70 text-base md:text-xl max-w-xl font-dm leading-relaxed"
         >
-          {h.subheadline}
+          {loc(language, h.subheadline, h.subheadlineFr, h.subheadlineCr)}
         </motion.p>
 
         {/* CTAs */}

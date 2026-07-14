@@ -3,6 +3,9 @@
 import "leaflet/dist/leaflet.css"; // bundled locally — no external CDN (CSP-safe)
 import { useEffect, useRef } from "react";
 import type { MapLocation } from "@/lib/defaults";
+import { useLanguage } from "@/context/LanguageContext";
+import { loc as localize } from "@/lib/localize";
+import type { Language } from "@/lib/i18n";
 
 const CATEGORY_COLOR: Record<string, string> = {
   beach:     "#3B82F6",
@@ -13,13 +16,15 @@ const CATEGORY_COLOR: Record<string, string> = {
   gas:       "#F97316",
 };
 
-const CATEGORY_LABEL: Record<string, string> = {
-  beach:     "Beach",
-  viewpoint: "Viewpoint",
-  restaurant:"Restaurant",
-  landmark:  "Landmark",
-  activity:  "Activity",
-  gas:       "Petrol station",
+const CATEGORY_LABEL_I18N: Record<Language, Record<string, string>> = {
+  en: { beach: "Beach",   viewpoint: "Viewpoint",     restaurant: "Restaurant", landmark: "Landmark", activity: "Activity",  gas: "Petrol station" },
+  fr: { beach: "Plage",   viewpoint: "Point de vue",  restaurant: "Restaurant", landmark: "Site",     activity: "Activité",  gas: "Station-service" },
+  cr: { beach: "Laplaz",  viewpoint: "Pwin vi",       restaurant: "Restoran",   landmark: "Landmark", activity: "Aktivite",  gas: "Stasion lesans" },
+};
+const DIRECTIONS_LABEL: Record<Language, string> = {
+  en: "Get directions",
+  fr: "Itinéraire",
+  cr: "Gagn direksion",
 };
 
 type Props = {
@@ -29,6 +34,7 @@ type Props = {
 export default function IslandMapInner({ locations }: Props) {
   const mapRef  = useRef<HTMLDivElement>(null);
   const mapInst = useRef<unknown>(null);
+  const { language } = useLanguage();
 
   useEffect(() => {
     if (!mapRef.current || mapInst.current) return;
@@ -93,14 +99,18 @@ export default function IslandMapInner({ locations }: Props) {
             : pics.length === 1
             ? `<img src="${esc(pics[0])}" alt="${esc(loc.name)}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:8px;display:block;" />`
             : "";
-        const directions = `<a href="https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:11px;font-weight:700;color:#0a0a0a;background:#F5C842;padding:6px 12px;border-radius:20px;text-decoration:none;">Get directions →</a>`;
+        const directions = `<a href="https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:11px;font-weight:700;color:#0a0a0a;background:#F5C842;padding:6px 12px;border-radius:20px;text-decoration:none;">${DIRECTIONS_LABEL[language]} →</a>`;
+
+        const locName = localize(language, loc.name, loc.nameFr, loc.nameCr);
+        const locDesc = localize(language, loc.description, loc.descriptionFr, loc.descriptionCr);
+        const catLabel = CATEGORY_LABEL_I18N[language][loc.category] ?? loc.category;
 
         marker.bindPopup(
           `<div style="font-family: sans-serif; width:220px;">
             ${photo}
-            <p style="font-weight:700;margin:0 0 3px;font-size:14px;color:#111;">${esc(loc.name)}</p>
-            <p style="margin:0 0 6px;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:${color};font-weight:700;">${esc(CATEGORY_LABEL[loc.category] ?? loc.category)}</p>
-            <p style="margin:0;font-size:12px;line-height:1.45;color:#374151;">${esc(loc.description)}</p>
+            <p style="font-weight:700;margin:0 0 3px;font-size:14px;color:#111;">${esc(locName)}</p>
+            <p style="margin:0 0 6px;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:${color};font-weight:700;">${esc(catLabel)}</p>
+            <p style="margin:0;font-size:12px;line-height:1.45;color:#374151;">${esc(locDesc)}</p>
             ${directions}
           </div>`,
           { maxWidth: 260 }
@@ -171,7 +181,7 @@ export default function IslandMapInner({ locations }: Props) {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [language]);
 
   return (
     <div

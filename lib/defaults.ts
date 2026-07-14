@@ -2,8 +2,14 @@
 
 export interface HeroContent {
   eyebrow: string;
+  eyebrowFr?: string;
+  eyebrowCr?: string;
   headline: [string, string, string];
+  headlineFr?: [string, string, string];
+  headlineCr?: [string, string, string];
   subheadline: string;
+  subheadlineFr?: string;
+  subheadlineCr?: string;
   backgroundImage: string;
 }
 
@@ -112,7 +118,11 @@ export interface AnnouncementContent {
 export interface MapLocation {
   id: string;
   name: string;
+  nameFr?: string;
+  nameCr?: string;
   description: string;
+  descriptionFr?: string;
+  descriptionCr?: string;
   category: "beach" | "viewpoint" | "restaurant" | "landmark" | "activity" | "gas";
   lat: number;
   lng: number;
