@@ -5,7 +5,8 @@ import { motion } from "framer-motion";
 import {
   ShieldCheck, MapPin, Clock, Check, Users, Sparkles, X,
   Shell, Fish, Utensils, CookingPot, Sandwich, CakeSlice, Sunset, PartyPopper,
-  Wallet, Coins, type LucideIcon,
+  Wallet, Coins, Building2, Sunrise, Mountain, Globe, Moon, Sun, CalendarDays,
+  type LucideIcon,
 } from "lucide-react";
 import type { FoodConciergeContent } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
@@ -51,6 +52,20 @@ const PARTY: { key: string; Icon: LucideIcon }[] = [
   { key: "small", Icon: Users },
   { key: "group", Icon: Users },
 ];
+const AREAS: { key: string; Icon: LucideIcon }[] = [
+  { key: "north", Icon: Building2 },
+  { key: "east", Icon: Sunrise },
+  { key: "south", Icon: Mountain },
+  { key: "west", Icon: Sunset },
+  { key: "anywhere", Icon: Globe },
+];
+const WHEN: { key: string; Icon: LucideIcon }[] = [
+  { key: "tonight", Icon: Moon },
+  { key: "tomorrow", Icon: Sunrise },
+  { key: "thisweek", Icon: CalendarDays },
+  { key: "lunch", Icon: Sun },
+  { key: "flexible", Icon: Clock },
+];
 
 export default function FoodConcierge({
   content,
@@ -66,26 +81,32 @@ export default function FoodConcierge({
   const [cravings, setCravings] = useState<string[]>([]);
   const [budget, setBudget] = useState<string | null>(null);
   const [party, setParty] = useState<string | null>(null);
+  const [area, setArea] = useState<string | null>(null);
+  const [when, setWhen] = useState<string | null>(null);
 
   const cravingLabel = (k: string) => (f.cravings as Record<string, string>)[k] ?? k;
   const budgetLabel = (k: string) => (f.budgets as Record<string, string>)[k] ?? k;
   const partyLabel = (k: string) => (f.party as Record<string, string>)[k] ?? k;
+  const areaLabel = (k: string) => (f.areas as Record<string, string>)[k] ?? k;
+  const whenLabel = (k: string) => (f.when as Record<string, string>)[k] ?? k;
 
   const toggleCraving = (k: string) =>
     setCravings((c) => (c.includes(k) ? c.filter((x) => x !== k) : [...c, k]));
-  const clearAll = () => { setCravings([]); setBudget(null); setParty(null); };
-  const hasSelection = cravings.length > 0 || !!budget || !!party;
+  const clearAll = () => { setCravings([]); setBudget(null); setParty(null); setArea(null); setWhen(null); };
+  const hasSelection = cravings.length > 0 || !!budget || !!party || !!area || !!when;
 
   const message = useMemo(() => {
     let m = f.prefill;
     const lines: string[] = [];
     if (cravings.length) lines.push(`• ${f.labelCraving}: ${cravings.map(cravingLabel).join(", ")}`);
-    if (budget) lines.push(`• ${f.labelBudget}: ${budgetLabel(budget)}`);
+    if (area) lines.push(`• ${f.labelArea}: ${areaLabel(area)}`);
+    if (when) lines.push(`• ${f.labelWhen}: ${whenLabel(when)}`);
     if (party) lines.push(`• ${f.labelParty}: ${partyLabel(party)}`);
+    if (budget) lines.push(`• ${f.labelBudget}: ${budgetLabel(budget)}`);
     if (lines.length) m += `\n\n${lines.join("\n")}`;
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [f, cravings, budget, party]);
+  }, [f, cravings, budget, party, area, when]);
 
   const link = waLink(number, message) ?? "/#contact";
 
@@ -100,7 +121,7 @@ export default function FoodConcierge({
           target_name: cravings.length ? cravings.map(cravingLabel).join(", ").slice(0, 150) : "Any craving",
           category: "food",
           type: "whatsapp",
-          ref: [budget && budgetLabel(budget), party && partyLabel(party)].filter(Boolean).join(" · ") || "—",
+          ref: [area && areaLabel(area), when && whenLabel(when), budget && budgetLabel(budget), party && partyLabel(party)].filter(Boolean).join(" · ").slice(0, 80) || "—",
         }),
       }).catch(() => {});
     } catch { /* ignore */ }
@@ -188,6 +209,22 @@ export default function FoodConcierge({
             ))}
           </div>
 
+          {/* Area — single */}
+          <div className="mt-6"><SectionHead title={f.areaHeading} hint={f.budgetHint} /></div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            {AREAS.map((a) => (
+              <Chip key={a.key} active={area === a.key} Icon={a.Icon} label={areaLabel(a.key)} onClick={() => setArea(area === a.key ? null : a.key)} />
+            ))}
+          </div>
+
+          {/* When — single */}
+          <div className="mt-6"><SectionHead title={f.whenHeading} hint={f.budgetHint} /></div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            {WHEN.map((w) => (
+              <Chip key={w.key} active={when === w.key} Icon={w.Icon} label={whenLabel(w.key)} onClick={() => setWhen(when === w.key ? null : w.key)} />
+            ))}
+          </div>
+
           {/* Party size — single */}
           <div className="mt-6"><SectionHead title={f.partyHeading} hint={f.partyHint} /></div>
           <div className="grid grid-cols-3 gap-2.5">
@@ -213,8 +250,10 @@ export default function FoodConcierge({
                 {cravings.map((k) => (
                   <span key={k} className="rounded-full bg-[#25D366]/15 border border-[#25D366]/40 px-2.5 py-1 font-dm text-xs text-offwhite">{cravingLabel(k)}</span>
                 ))}
-                {budget && <span className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-white/15 px-2.5 py-1 font-dm text-xs text-offwhite/80"><Coins size={11} /> {budgetLabel(budget)}</span>}
+                {area && <span className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-white/15 px-2.5 py-1 font-dm text-xs text-offwhite/80"><MapPin size={11} /> {areaLabel(area)}</span>}
+                {when && <span className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-white/15 px-2.5 py-1 font-dm text-xs text-offwhite/80"><Clock size={11} /> {whenLabel(when)}</span>}
                 {party && <span className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-white/15 px-2.5 py-1 font-dm text-xs text-offwhite/80"><Users size={11} /> {partyLabel(party)}</span>}
+                {budget && <span className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-white/15 px-2.5 py-1 font-dm text-xs text-offwhite/80"><Coins size={11} /> {budgetLabel(budget)}</span>}
               </div>
             ) : (
               <p className="font-dm text-xs leading-relaxed text-muted">{f.previewEmpty}</p>
@@ -242,7 +281,25 @@ export default function FoodConcierge({
             </div>
           ))}
         </div>
+        {/* keeps the sticky mobile CTA from covering the last content */}
+        {hasSelection && <div className="h-20 md:hidden" aria-hidden="true" />}
       </section>
+
+      {/* Sticky mobile CTA — appears once the guest has chosen something, so the
+          composed request is always one tap away without scrolling back up. */}
+      {hasSelection && (
+        <div className="fixed inset-x-0 bottom-0 z-[80] border-t border-white/10 bg-dark/95 backdrop-blur-md px-4 pt-3 md:hidden" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+          <a
+            href={link}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={logLead}
+            className="flex w-full items-center justify-center gap-2.5 rounded-full bg-[#25D366] px-6 py-3.5 font-syne text-base font-bold text-white shadow-[0_8px_30px_rgba(37,211,102,0.45)]"
+          >
+            <WhatsAppGlyph size={20} /> {f.cta}
+          </a>
+        </div>
+      )}
     </div>
   );
 }

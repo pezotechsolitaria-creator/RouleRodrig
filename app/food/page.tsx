@@ -5,7 +5,6 @@ import BrowseTabs from "@/components/BrowseTabs";
 import BrowseBackBar from "@/components/BrowseBackBar";
 import FoodConcierge from "@/components/FoodConcierge";
 import Footer from "@/components/Footer";
-import WhatsAppButton from "@/components/WhatsAppButton";
 import ScrollToTop from "@/components/ScrollToTop";
 
 export const revalidate = 60;
@@ -36,11 +35,6 @@ export default async function FoodPage() {
         <FoodConcierge content={content.foodConcierge} fallbackWhatsApp={businessWhatsApp} />
       </main>
       <Footer social={content.social} branding={content.branding} />
-      <WhatsAppButton
-        phone={content.contact.phone}
-        whatsapp={content.social.whatsapp}
-        numbers={content.contact.whatsappNumbers}
-      />
       <ScrollToTop />
     </>
   );
