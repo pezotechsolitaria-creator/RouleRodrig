@@ -133,12 +133,18 @@ export interface MapLocation {
 export interface PlannerActivity {
   id: string;
   name: string;
+  nameFr?: string;
+  nameCr?: string;
   emoji: string;
   type: "beach" | "culture" | "adventure" | "viewpoint" | "food";
   slot: "morning" | "afternoon" | "evening" | "lunch";
   duration: string;
   description: string;
+  descriptionFr?: string;
+  descriptionCr?: string;
   tip: string;
+  tipFr?: string;
+  tipCr?: string;
   image?: string;   // optional photo shown in the itinerary card
   mapsUrl?: string; // precise Google Maps link (else the planner searches by name)
 }

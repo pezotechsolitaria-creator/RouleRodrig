@@ -70,7 +70,7 @@ const SLOT_COLOR: Record<string, string> = {
 const STORE_KEY = "rr-trip-planner-v1";
 
 export default function TripPlanner() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [days, setDays] = useState(3);
   const [interests, setInterests] = useState<string[]>(["beach", "culture", "adventure", "food"]);
   const [pace, setPace] = useState<Pace>("balanced");
@@ -124,7 +124,7 @@ export default function TripPlanner() {
       const res = await fetch("/api/trip-planner", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ days, interests: interests.length ? interests : ["all"], pace }),
+        body: JSON.stringify({ days, interests: interests.length ? interests : ["all"], pace, language }),
       });
       if (!res.ok) throw new Error();
       const data = (await res.json()) as { itinerary: Day[] };

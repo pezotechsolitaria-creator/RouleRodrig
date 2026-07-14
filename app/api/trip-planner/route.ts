@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getContent } from '@/lib/content';
 import { DEFAULT_CONTENT, type PlannerActivity, type MapLocation } from '@/lib/defaults';
+import { loc } from '@/lib/localize';
+import type { Language } from '@/lib/i18n';
+
+// Day themes, translated so the generated itinerary reads in the visitor's language.
+const DAY_THEME_I18N: Record<Language, string[]> = {
+  en: ['Coastal Discovery', 'Island Explorer', 'Hidden Rodrigues', 'Culture & Coast', 'Wild & Wonderful', 'Southern Adventure', 'Perfect Last Day'],
+  fr: ['Découverte côtière', "Explorateur de l'île", 'Rodrigues secrète', 'Culture & côte', 'Sauvage & merveilleux', 'Aventure du sud', 'Une dernière journée parfaite'],
+  cr: ['Dekouver bor lamer', 'Explorater lil', 'Rodrigues kache', 'Kiltir & lakot', 'Sovaz & merveye', 'Lavantir dan sid', 'Enn dernie zour parfe'],
+};
 
 // ── Rodrigues activity knowledge base ───────────────────────────────────────
 // The pool of places is now editable from the admin dashboard (Trip Planner
@@ -74,29 +83,24 @@ function mapLocationsToActivities(locs: MapLocation[]): Activity[] {
     out.push({
       id: `loc-${l.id}`,
       name: l.name,
+      nameFr: l.nameFr,
+      nameCr: l.nameCr,
       emoji: LOC_EMOJI[l.category] ?? "📍",
       type,
       slot: LOC_SLOT[type],
       duration: type === "food" ? "1 hr" : "1–2 hrs",
       description: l.description || "A beautiful Rodrigues spot worth discovering.",
+      descriptionFr: l.descriptionFr,
+      descriptionCr: l.descriptionCr,
       tip: "Tap the map link for live directions and distance from where you are.",
+      tipFr: "Touchez le lien de la carte pour l'itinéraire et la distance en direct.",
+      tipCr: "Tous lor lien kart pou gagn direksion ek distans an direk.",
       ...(image ? { image } : {}),
       mapsUrl: `https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}`,
     });
   }
   return out;
 }
-
-// Day themes based on itinerary composition
-const DAY_THEMES = [
-  'Coastal Discovery',
-  'Island Explorer',
-  'Hidden Rodrigues',
-  'Culture & Coast',
-  'Wild & Wonderful',
-  'Southern Adventure',
-  'Perfect Last Day',
-];
 
 function pickUnused(pool: Activity[], used: Set<string>): Activity | undefined {
   const available = pool.filter((a) => !used.has(a.id));
@@ -121,7 +125,7 @@ function dayRouteUrl(names: string[]): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${destination}&waypoints=${waypoints}`;
 }
 
-function buildItinerary(days: number, interests: string[], ACTIVITIES: Activity[], pace: Pace = "balanced") {
+function buildItinerary(days: number, interests: string[], ACTIVITIES: Activity[], pace: Pace = "balanced", lang: Language = "en") {
   const used = new Set<string>();
   const wantBeach = interests.includes('beach') || interests.includes('all');
   const wantCulture = interests.includes('culture') || interests.includes('all');
@@ -218,13 +222,22 @@ function buildItinerary(days: number, interests: string[], ACTIVITIES: Activity[
     ].filter(Boolean) as Activity[];
 
     // Attach one-tap navigation to each stop (prefer the place's own precise
-    // Google reference) + a full-day route link.
-    const activities = slotted.map((a) => ({ ...a, mapsUrl: a.mapsUrl || mapsQuery(a.name) }));
+    // Google reference) + a full-day route link. Google Maps links use the
+    // ORIGINAL (English) place names — proper nouns resolve best — while the
+    // visible name/description/tip are localized to the visitor's language.
+    const withMaps = slotted.map((a) => ({ ...a, mapsUrl: a.mapsUrl || mapsQuery(a.name) }));
+    const originalNames = withMaps.map((a) => a.name);
+    const activities = withMaps.map((a) => ({
+      ...a,
+      name: loc(lang, a.name, a.nameFr, a.nameCr),
+      description: loc(lang, a.description, a.descriptionFr, a.descriptionCr),
+      tip: loc(lang, a.tip, a.tipFr, a.tipCr),
+    }));
 
     itinerary.push({
       day: d + 1,
-      theme: DAY_THEMES[d % DAY_THEMES.length],
-      mapsUrl: dayRouteUrl(activities.map((a) => a.name)),
+      theme: (DAY_THEME_I18N[lang] ?? DAY_THEME_I18N.en)[d % DAY_THEME_I18N.en.length],
+      mapsUrl: dayRouteUrl(originalNames),
       activities,
     });
   }
@@ -234,14 +247,16 @@ function buildItinerary(days: number, interests: string[], ACTIVITIES: Activity[
 
 export async function POST(req: NextRequest) {
   try {
-    const { days = 3, interests = ['all'], pace = 'balanced' } = await req.json() as {
+    const { days = 3, interests = ['all'], pace = 'balanced', language = 'en' } = await req.json() as {
       days: number;
       interests: string[];
       pace?: Pace;
+      language?: Language;
     };
 
     const clampedDays = Math.max(1, Math.min(7, days));
     const safePace: Pace = pace === 'relaxed' || pace === 'packed' ? pace : 'balanced';
+    const lang: Language = language === 'fr' || language === 'cr' ? language : 'en';
 
     // Pull the admin-managed places (real info + photos); fall back to built-ins
     let base: Activity[] = FALLBACK_ACTIVITIES;
@@ -268,7 +283,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const itinerary = buildItinerary(clampedDays, interests, activities, safePace);
+    const itinerary = buildItinerary(clampedDays, interests, activities, safePace, lang);
 
     return NextResponse.json({ itinerary });
   } catch {
