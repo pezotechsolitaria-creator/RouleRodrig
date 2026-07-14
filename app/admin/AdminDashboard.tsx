@@ -808,6 +808,8 @@ function HeroEditor({
   const h = content.hero;
   const set = (patch: Partial<typeof h>) =>
     onChange({ ...content, hero: { ...h, ...patch } });
+  const triple = (arr: [string, string, string] | undefined, i: number, v: string): [string, string, string] =>
+    [0, 1, 2].map((j) => (j === i ? v : arr?.[j] ?? "")) as [string, string, string];
 
   return (
     <div className="space-y-5">
@@ -818,27 +820,25 @@ function HeroEditor({
       />
       <Field label="EYEBROW TEXT">
         <TextInput value={h.eyebrow} onChange={(v) => set({ eyebrow: v })} />
+        <div className="mt-2"><TransFields base={h.eyebrow} fr={h.eyebrowFr} cr={h.eyebrowCr} onFr={(v) => set({ eyebrowFr: v })} onCr={(v) => set({ eyebrowCr: v })} /></div>
       </Field>
-      <Field label="HEADLINE LINE 1">
-        <TextInput
-          value={h.headline[0]}
-          onChange={(v) => set({ headline: [v, h.headline[1], h.headline[2]] })}
-        />
-      </Field>
-      <Field label="HEADLINE LINE 2">
-        <TextInput
-          value={h.headline[1]}
-          onChange={(v) => set({ headline: [h.headline[0], v, h.headline[2]] })}
-        />
-      </Field>
-      <Field label="HEADLINE LINE 3">
-        <TextInput
-          value={h.headline[2]}
-          onChange={(v) => set({ headline: [h.headline[0], h.headline[1], v] })}
-        />
-      </Field>
+      {[0, 1, 2].map((i) => (
+        <Field key={i} label={`HEADLINE LINE ${i + 1}`}>
+          <TextInput value={h.headline[i]} onChange={(v) => set({ headline: triple(h.headline, i, v) })} />
+          <div className="mt-2">
+            <TransFields
+              base={h.headline[i]}
+              fr={h.headlineFr?.[i]}
+              cr={h.headlineCr?.[i]}
+              onFr={(v) => set({ headlineFr: triple(h.headlineFr, i, v) })}
+              onCr={(v) => set({ headlineCr: triple(h.headlineCr, i, v) })}
+            />
+          </div>
+        </Field>
+      ))}
       <Field label="SUBHEADLINE">
         <Textarea value={h.subheadline} onChange={(v) => set({ subheadline: v })} rows={2} />
+        <div className="mt-2"><TransFields base={h.subheadline} fr={h.subheadlineFr} cr={h.subheadlineCr} onFr={(v) => set({ subheadlineFr: v })} onCr={(v) => set({ subheadlineCr: v })} textarea rows={2} /></div>
       </Field>
     </div>
   );
@@ -2610,6 +2610,7 @@ function MapEditor({
                 onChange={(v) => updateLoc(idx, { name: v })}
                 placeholder="e.g. Pointe Cotton"
               />
+              <div className="mt-2"><TransFields base={loc.name} fr={loc.nameFr} cr={loc.nameCr} onFr={(v) => updateLoc(idx, { nameFr: v })} onCr={(v) => updateLoc(idx, { nameCr: v })} /></div>
             </Field>
             <Field label="CATEGORY">
               <select
@@ -2648,6 +2649,7 @@ function MapEditor({
               onChange={(v) => updateLoc(idx, { description: v })}
               rows={2}
             />
+            <div className="mt-2"><TransFields base={loc.description} fr={loc.descriptionFr} cr={loc.descriptionCr} onFr={(v) => updateLoc(idx, { descriptionFr: v })} onCr={(v) => updateLoc(idx, { descriptionCr: v })} textarea rows={2} /></div>
           </Field>
 
           <MultiImagePicker
@@ -2734,9 +2736,7 @@ function PlannerEditor({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="NAME">
               <TextInput value={act.name} onChange={(v) => update(idx, { name: v })} placeholder="e.g. Trou d'Argent Beach" />
-            </Field>
-            <Field label="EMOJI">
-              <TextInput value={act.emoji} onChange={(v) => update(idx, { emoji: v })} placeholder="🏖️" />
+              <div className="mt-2"><TransFields base={act.name} fr={act.nameFr} cr={act.nameCr} onFr={(v) => update(idx, { nameFr: v })} onCr={(v) => update(idx, { nameCr: v })} /></div>
             </Field>
             <Field label="CATEGORY">
               <select
@@ -2767,9 +2767,11 @@ function PlannerEditor({
 
           <Field label="DESCRIPTION">
             <Textarea value={act.description} onChange={(v) => update(idx, { description: v })} rows={2} />
+            <div className="mt-2"><TransFields base={act.description} fr={act.descriptionFr} cr={act.descriptionCr} onFr={(v) => update(idx, { descriptionFr: v })} onCr={(v) => update(idx, { descriptionCr: v })} textarea rows={2} /></div>
           </Field>
           <Field label="INSIDER TIP">
             <Textarea value={act.tip} onChange={(v) => update(idx, { tip: v })} rows={2} />
+            <div className="mt-2"><TransFields base={act.tip} fr={act.tipFr} cr={act.tipCr} onFr={(v) => update(idx, { tipFr: v })} onCr={(v) => update(idx, { tipCr: v })} textarea rows={2} /></div>
           </Field>
 
           <ImagePicker
