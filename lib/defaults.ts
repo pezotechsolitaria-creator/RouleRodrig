@@ -98,7 +98,8 @@ export interface SocialLinks {
 
 export interface BrandingContent {
   logo: string;
-  mascotImage?: string; // Ti Roulé mascot — a transparent-background character PNG
+  mascotImage?: string; // Ti Roulé mascot — a transparent-background character PNG (default pose)
+  mascotPoses?: Record<string, string>; // pose key (see lib/mascot.ts) -> image URL
 }
 
 export interface AnnouncementItem {

@@ -136,7 +136,20 @@ export default async function Home() {
       />
       <ScrollToTop />
       <BackToExplore />
-      <TiRouleGuide image={content.branding.mascotImage} />
+      <TiRouleGuide
+        image={content.branding.mascotImage}
+        poses={content.branding.mascotPoses}
+        data={{
+          beaches: content.mapLocations
+            .filter((l) => l.category === "beach")
+            .slice(0, 3)
+            .map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
+          viewpoints: content.mapLocations
+            .filter((l) => l.category === "viewpoint")
+            .slice(0, 3)
+            .map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
+        }}
+      />
     </>
   );
 }

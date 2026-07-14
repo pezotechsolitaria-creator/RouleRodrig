@@ -77,6 +77,7 @@ import type {
 } from "@/lib/defaults";
 import type { ContactSubmission, Booking, PlaceBooking, Partner, MarketplaceListing, ProductReview, WaitlistEntry } from "@/lib/supabase/types";
 import { SITE_URL } from "@/lib/site";
+import { MASCOT_POSES } from "@/lib/mascot";
 
 type Section =
   | "dashboard"
@@ -1779,9 +1780,46 @@ function BrandingEditor({
         )}
         <p className="text-muted/50 text-xs font-dm">
           Upload your Ti Roulé character (a single character cut out on a transparent background works best).
-          It becomes the floating island-guide button that greets visitors and points them to the trip
-          planner, food concierge, island guide, vehicles and taxis.
+          This is his <span className="text-offwhite/70">default</span> pose — he becomes the floating
+          island-guide chat that greets visitors and points them to the trip planner, food concierge,
+          island guide, vehicles and taxis.
         </p>
+
+        {/* Expression poses — the chat assistant swaps between these as it talks */}
+        <div className="pt-2 border-t border-[#2a2a2a] space-y-4">
+          <p className="font-bebas text-yellow/80 text-[11px] tracking-[0.25em]">TI ROULÉ POSES (OPTIONAL)</p>
+          <p className="text-muted/50 text-xs font-dm -mt-2">
+            Upload the expressions you generated. The assistant animates between them — e.g. “thinking”
+            while typing, “pointing” when giving directions, “excited” when it finds you something. Any
+            pose you skip falls back to the default above, so add as many or as few as you like.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {MASCOT_POSES.map((pose) => {
+              const poses = b.mascotPoses ?? {};
+              const setPose = (url: string) =>
+                setBranding({ mascotPoses: { ...poses, [pose.key]: url } });
+              const clearPose = () => {
+                const next = { ...poses };
+                delete next[pose.key];
+                setBranding({ mascotPoses: next });
+              };
+              return (
+                <div key={pose.key} className="space-y-1.5">
+                  <ImagePicker label={pose.label} src={poses[pose.key] ?? ""} onUpload={setPose} />
+                  {poses[pose.key] && (
+                    <button
+                      type="button"
+                      onClick={clearPose}
+                      className="text-[10px] font-dm text-muted/50 hover:text-red-400 transition-colors flex items-center gap-1"
+                    >
+                      <Trash2 size={10} /> Remove
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Social links */}
