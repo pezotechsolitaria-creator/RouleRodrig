@@ -134,9 +134,13 @@ export default function FavoritesPanel() {
               <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
                 {count === 0 && (
                   <div className="flex flex-col items-center justify-center text-center py-16 px-4">
-                    <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-yellow/10 border border-yellow/20 mb-4">
-                      <Heart size={24} className="text-yellow" />
-                    </span>
+                    <svg viewBox="0 0 160 118" className="w-40 h-auto mb-5" fill="none" aria-hidden="true">
+                      <rect x="22" y="24" width="24" height="17" rx="4" fill="rgba(245,200,66,0.12)" stroke="rgba(245,200,66,0.3)" strokeWidth="1" />
+                      <rect x="112" y="32" width="24" height="17" rx="4" fill="rgba(245,200,66,0.08)" stroke="rgba(245,200,66,0.25)" strokeWidth="1" />
+                      <circle cx="130" cy="16" r="3" fill="rgba(245,200,66,0.4)" />
+                      <circle cx="28" cy="12" r="2.5" fill="rgba(245,200,66,0.3)" />
+                      <path d="M80 104 C 40 78, 44 48, 66 48 C 76 48, 80 58, 80 62 C 80 58, 84 48, 94 48 C 116 48, 120 78, 80 104 Z" fill="rgba(245,200,66,0.10)" stroke="#F5C842" strokeWidth="2" strokeLinejoin="round" />
+                    </svg>
                     <p className="font-dm text-muted text-sm leading-relaxed max-w-[16rem]">{c.empty}</p>
                   </div>
                 )}
