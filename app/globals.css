@@ -91,6 +91,16 @@ html, body {
   overflow-x: hidden;
 }
 
+/* Ti Roulé mascot — gentle idle bob (transform-only, GPU-composited) */
+@keyframes rr-mascot-bob {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50%      { transform: translateY(-5px) rotate(1.5deg); }
+}
+.rr-mascot-bob { animation: rr-mascot-bob 3.2s ease-in-out infinite; will-change: transform; }
+@media (prefers-reduced-motion: reduce) {
+  .rr-mascot-bob { animation: none; }
+}
+
 /* ── Headings: never split a word across lines ──────────
    Words wrap as whole units (keep-all) with no hyphenation.
    Combined with responsive clamp() sizes, this guarantees

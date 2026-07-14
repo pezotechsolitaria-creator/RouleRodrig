@@ -19,6 +19,7 @@ import WhatsAppButton from "@/components/WhatsAppButton";
 import ScrollProgress from "@/components/ScrollProgress";
 import ScrollToTop from "@/components/ScrollToTop";
 import BackToExplore from "@/components/BackToExplore";
+import TiRouleGuide from "@/components/TiRouleGuide";
 
 // ISR: serve a cached page for instant repeat loads, regenerate every 60s.
 // Live booking-calendar availability is fetched client-side, so it stays fresh;
@@ -135,6 +136,7 @@ export default async function Home() {
       />
       <ScrollToTop />
       <BackToExplore />
+      <TiRouleGuide image={content.branding.mascotImage} />
     </>
   );
 }

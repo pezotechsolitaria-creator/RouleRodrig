@@ -1760,6 +1760,30 @@ function BrandingEditor({
         </p>
       </div>
 
+      {/* Mascot — Ti Roulé */}
+      <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
+        <p className="font-bebas text-yellow text-xs tracking-[0.3em]">MASCOT — TI ROULÉ</p>
+        <ImagePicker
+          label="MASCOT IMAGE"
+          src={b.mascotImage ?? ""}
+          onUpload={(p) => setBranding({ mascotImage: p })}
+        />
+        {b.mascotImage && (
+          <button
+            type="button"
+            onClick={() => setBranding({ mascotImage: "" })}
+            className="text-xs font-dm text-muted/50 hover:text-red-400 transition-colors flex items-center gap-1"
+          >
+            <Trash2 size={11} /> Remove mascot
+          </button>
+        )}
+        <p className="text-muted/50 text-xs font-dm">
+          Upload your Ti Roulé character (a single character cut out on a transparent background works best).
+          It becomes the floating island-guide button that greets visitors and points them to the trip
+          planner, food concierge, island guide, vehicles and taxis.
+        </p>
+      </div>
+
       {/* Social links */}
       <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-5">
         <p className="font-bebas text-yellow text-xs tracking-[0.3em]">SOCIAL MEDIA LINKS</p>

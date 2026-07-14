@@ -11,6 +11,7 @@ import Events from "@/components/Events";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import ScrollToTop from "@/components/ScrollToTop";
 import BrowseBackBar from "@/components/BrowseBackBar";
+import TiRouleGuide from "@/components/TiRouleGuide";
 
 // ISR (see app/page.tsx). The per-vehicle booking calendar is client-fetched,
 // so availability there stays live; card badges can be up to ~60s behind.
@@ -51,6 +52,7 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
         numbers={content.contact.whatsappNumbers}
       />
       <ScrollToTop />
+      <TiRouleGuide image={content.branding.mascotImage} />
     </>
   );
 

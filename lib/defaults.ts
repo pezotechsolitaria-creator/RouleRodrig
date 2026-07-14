@@ -98,6 +98,7 @@ export interface SocialLinks {
 
 export interface BrandingContent {
   logo: string;
+  mascotImage?: string; // Ti Roulé mascot — a transparent-background character PNG
 }
 
 export interface AnnouncementItem {
