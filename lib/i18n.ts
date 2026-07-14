@@ -263,7 +263,7 @@ const translations = {
     },
 
     // Sponsors
-    sponsors: { title: "PROUDLY SUPPORTED BY" },
+    sponsors: { title: "PROUDLY SUPPORTED BY", heading: "Our Partners", subtitle: "The local businesses and friends who help us keep Rodrigues moving." },
 
     // Experience / About
     experience: {
@@ -663,7 +663,7 @@ const translations = {
       title:    "ÉVÉNEMENTS",
       subtitle: "Festivals, marchés et animations à Rodrigues pendant votre séjour.",
     },
-    sponsors: { title: "FIÈREMENT SOUTENU PAR" },
+    sponsors: { title: "FIÈREMENT SOUTENU PAR", heading: "Nos Partenaires", subtitle: "Les entreprises locales et amis qui nous aident à faire vivre Rodrigues." },
     experience: {
       eyebrow1: "L'ÎLE VOUS ATTEND",
       title1:   "RODRIGUES COMME JAMAIS",
@@ -1047,7 +1047,7 @@ const translations = {
       title:    "EVENMAN",
       subtitle: "Festival, bazar ek lanimasion dan Rodrig pandan ou sezour.",
     },
-    sponsors: { title: "SOUTENI PAR" },
+    sponsors: { title: "SOUTENI PAR", heading: "Nou Partener", subtitle: "Bann biznes lokal ek kamarad ki ed nou fer Rodrigues bouze." },
     experience: {
       eyebrow1: "ZIL LA PE ATAN OU",
       title1:   "RODRIG KOUMA OU PANKOR TROUVE",

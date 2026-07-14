@@ -115,7 +115,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   // ── Daily business (operational inboxes) ──
   { id: "dashboard",    label: "Dashboard",       icon: LayoutDashboard, group: "overview" },
   { id: "bookings",     label: "Bookings",         icon: BookOpen,        group: "overview" },
-  { id: "place_bookings", label: "Stay·Eat·Do Bookings", icon: BedDouble,  group: "overview" },
+  { id: "place_bookings", label: "Stay & Activity Bookings", icon: BedDouble,  group: "overview" },
   { id: "submissions",  label: "Enquiries",        icon: Inbox,           group: "overview" },
   { id: "reviews",      label: "Customer Reviews", icon: MessageSquare,   group: "overview" },
   { id: "waitlist",     label: "Waitlist",         icon: Mail,            group: "overview" },
@@ -124,7 +124,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   // ── "What are you looking for?" — the homepage hub categories ──
   { id: "fleet",        label: "Vehicles",         icon: Bike,            group: "explore" },
   { id: "foodConcierge",label: "Food Concierge",   icon: UtensilsCrossed, group: "explore" },
-  { id: "recommended",  label: "Stay · Eat · Do",  icon: BedDouble,       group: "explore" },
+  { id: "recommended",  label: "Accommodations & Activities",  icon: BedDouble,       group: "explore" },
   { id: "gettingAround",label: "Getting Around",   icon: Bus,             group: "explore" },
   { id: "events",       label: "Events",           icon: Calendar,        group: "explore" },
   { id: "taxi",         label: "Taxi & Transport",  icon: Car,             group: "explore" },
@@ -3025,8 +3025,8 @@ function RecommendedEditor({
     <div className="space-y-6">
       <div className="flex items-center justify-between bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5">
         <div>
-          <p className="font-syne font-bold text-offwhite text-sm">Show the “Stay · Eat · Do” section</p>
-          <p className="text-muted/60 text-xs font-dm mt-0.5">Curated hotels, restaurants & activities on the homepage.</p>
+          <p className="font-syne font-bold text-offwhite text-sm">Show Accommodations &amp; Activities</p>
+          <p className="text-muted/60 text-xs font-dm mt-0.5">Individual Accommodation and Activity tiles on the homepage hub. (Restaurants are handled by the Food Concierge.)</p>
         </div>
         <button
           type="button"
@@ -5151,7 +5151,7 @@ function LeadsViewer() {
   }, []);
 
   const kindLabel = (k: string) =>
-    k === "taxi" ? "Taxi" : k === "food_concierge" ? "Food concierge" : "Stay·Eat·Do";
+    k === "taxi" ? "Taxi" : k === "food_concierge" ? "Food concierge" : "Accommodation & Activity";
   const fmt = (s: string) => {
     try { return new Date(s).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); } catch { return s; }
   };
@@ -5180,7 +5180,7 @@ function LeadsViewer() {
           { label: "Leads (last 30 days)", value: data.totals.last30 },
           { label: "Leads (all time)", value: data.totals.all },
           { label: "Food concierge", value: data.totals.food ?? 0 },
-          { label: "Stay·Eat·Do", value: data.totals.stayEatDo },
+          { label: "Stay & Activity", value: data.totals.stayEatDo },
           { label: "Taxi", value: data.totals.taxi },
         ].map((s) => (
           <div key={s.label} className="bg-dark-card border border-dark-border rounded-2xl p-5">
@@ -5715,7 +5715,7 @@ export default function AdminDashboard({
     branding:     { title: "Branding & Social",   desc: "Upload your logo and link your social media pages." },
     submissions:  { title: "Enquiries",           desc: "Contact form submissions from customers." },
     bookings:     { title: "Bookings",            desc: "Booking requests from the website booking form." },
-    place_bookings: { title: "Stay·Eat·Do Bookings", desc: "Reservation requests for hotels, restaurants & activities." },
+    place_bookings: { title: "Stay & Activity Bookings", desc: "Reservation requests for hotels, restaurants & activities." },
     leads:        { title: "Listing Leads",       desc: "Food Concierge requests (with craving & budget), plus clicks & enquiries on your Stay·Eat·Do and Taxi listings — for demand tracking & commission follow-up." },
     owners:       { title: "Owner Applications",  desc: "Scooter owners applying to list their vehicles via /list-your-scooter." },
     map:          { title: "Island Map Locations",desc: "Manage the points of interest shown on the island guide map." },
@@ -5723,7 +5723,7 @@ export default function AdminDashboard({
     planner:      { title: "AI Trip Planner",     desc: "Edit the real places, photos and tips the planner uses to build itineraries." },
     routes:       { title: "Ride Routes",         desc: "Curated scenic scooter routes shown on the website with a Google Maps link." },
     gettingAround:{ title: "Getting Around",      desc: "The transport-options card (bus / taxi / scooter) shown in the island guide." },
-    recommended:  { title: "Stay · Eat · Do",     desc: "Curated hotels, restaurants & activities. Toggle the whole section on or off." },
+    recommended:  { title: "Accommodations & Activities",     desc: "Curated hotels, restaurants & activities. Toggle the whole section on or off." },
     foodConcierge:{ title: "Food Concierge",       desc: "The WhatsApp food-recommendation service behind the “Food & Dining” hub tile. Set the WhatsApp number that food enquiries go to." },
     faq:          { title: "FAQ",                 desc: "Frequently asked questions shown on the site (also boosts SEO)." },
     events:       { title: "Island Events",       desc: "Festivals, markets and happenings shown to visitors." },

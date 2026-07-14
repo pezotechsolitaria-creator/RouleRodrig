@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { Handshake, ArrowUpRight } from "lucide-react";
 import type { Sponsor } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -17,42 +18,69 @@ export default function Sponsors({
   if (!enabled || items.length === 0) return null;
 
   return (
-    <section className="bg-dark py-16 md:py-20" aria-label="Sponsors">
-      <div className="max-w-6xl mx-auto px-6 text-center">
-        <motion.p
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="font-bebas text-muted/60 text-[11px] tracking-[0.4em] mb-8"
+    <section className="relative bg-dark py-20 md:py-28 overflow-hidden" aria-label="Our partners">
+      {/* soft ambient accent (desktop only) */}
+      <div className="pointer-events-none absolute inset-0 hidden md:block" aria-hidden="true">
+        <div
+          className="absolute left-1/2 top-0 -translate-x-1/2 h-[40vw] w-[70vw] rounded-full blur-3xl"
+          style={{ background: "radial-gradient(circle, rgba(245,200,66,0.06), transparent 65%)" }}
+        />
+      </div>
+
+      <div className="relative max-w-6xl mx-auto px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-12"
         >
-          {s.title}
-        </motion.p>
-        <div className="flex flex-wrap items-center justify-center gap-6 md:gap-10">
+          <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-5">
+            <Handshake size={13} className="text-yellow" />
+            <span className="font-bebas text-yellow text-[11px] tracking-[0.3em]">{s.title}</span>
+          </div>
+          <h2
+            className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]"
+            style={{ fontSize: "clamp(28px, 5.5vw, 52px)" }}
+          >
+            {s.heading}
+          </h2>
+          <p className="text-muted font-dm text-sm md:text-base mt-4 max-w-lg mx-auto">{s.subtitle}</p>
+        </motion.div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
           {items.map((sp, i) => {
-            const inner = (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={sp.image}
-                alt={sp.name}
-                className="h-12 md:h-16 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity"
-                loading="lazy"
-              />
+            const card = (
+              <div className="group relative flex h-full flex-col items-center justify-center gap-4 rounded-2xl bg-white p-6 ring-1 ring-white/10 shadow-[0_12px_40px_-18px_rgba(0,0,0,0.7)] transition-all duration-300 hover:-translate-y-1 hover:ring-yellow/50">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={sp.image}
+                  alt={sp.name}
+                  className="h-14 md:h-16 w-auto max-w-full object-contain"
+                  loading="lazy"
+                />
+                <p className="font-dm text-xs font-medium text-dark/70 text-center leading-tight">{sp.name}</p>
+                {sp.link && (
+                  <span className="absolute top-3 right-3 flex h-6 w-6 items-center justify-center rounded-full bg-dark/5 text-dark/40 opacity-0 transition-opacity group-hover:opacity-100">
+                    <ArrowUpRight size={13} />
+                  </span>
+                )}
+              </div>
             );
             return (
               <motion.div
                 key={sp.id}
-                initial={{ opacity: 0, y: 15 }}
+                initial={{ opacity: 0, y: 18 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.06 }}
+                viewport={{ once: true, margin: "-40px" }}
+                transition={{ duration: 0.45, delay: Math.min(i * 0.05, 0.3) }}
               >
                 {sp.link ? (
-                  <a href={sp.link} target="_blank" rel="noopener noreferrer" aria-label={sp.name}>
-                    {inner}
+                  <a href={sp.link} target="_blank" rel="noopener noreferrer" aria-label={sp.name} className="block h-full">
+                    {card}
                   </a>
                 ) : (
-                  inner
+                  card
                 )}
               </motion.div>
             );

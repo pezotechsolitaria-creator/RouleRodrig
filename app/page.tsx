@@ -10,6 +10,7 @@ import UsefulNumbers from "@/components/UsefulNumbers";
 import ReviewsMarquee from "@/components/ReviewsMarquee";
 import ReviewsSection from "@/components/ReviewsSection";
 import Faq from "@/components/Faq";
+import Sponsors from "@/components/Sponsors";
 import WaitlistSection from "@/components/WaitlistSection";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
@@ -121,6 +122,7 @@ export default async function Home() {
         <Reveal><UsefulNumbers contacts={content.usefulContacts} /></Reveal>
         <ReviewsMarquee reviews={reviews} />
         <Reveal><ReviewsSection fleet={fleet} /></Reveal>
+        <Reveal><Sponsors enabled={content.sponsorsEnabled} sponsors={content.sponsors} /></Reveal>
         <Reveal><Faq content={content.faq} /></Reveal>
         <Reveal><WaitlistSection /></Reveal>
         <Reveal><Contact contact={content.contact} fleet={fleet} /></Reveal>

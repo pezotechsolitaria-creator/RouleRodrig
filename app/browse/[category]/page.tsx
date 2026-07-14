@@ -23,7 +23,7 @@ const PLACE_SLUGS: Record<string, { label: string; filter: (p: Place) => boolean
   restaurants: { label: "Restaurants", filter: (p) => p.category === "restaurant" },
   activities: { label: "Activities", filter: (p) => p.category === "activity" && !p.isTour },
   tours: { label: "Guided Tours", filter: (p) => p.category === "activity" && !!p.isTour },
-  stays: { label: "Stays", filter: (p) => p.category === "hotel" },
+  stays: { label: "Accommodations", filter: (p) => p.category === "hotel" },
 };
 
 export default async function BrowsePage({ params }: { params: Promise<{ category: string }> }) {
