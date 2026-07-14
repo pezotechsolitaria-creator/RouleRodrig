@@ -18,7 +18,7 @@ const CATEGORY_COLOR: Record<string, string> = {
   restaurant:"bg-emerald-500",
   landmark:  "bg-violet-500",
   activity:  "bg-red-500",
-  gas:       "bg-orange-500",
+  gas:       "bg-fuchsia-500",
 };
 
 const CATEGORY_KEYS = ["beach", "viewpoint", "restaurant", "landmark", "activity", "gas"] as const;

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  X, Compass, UtensilsCrossed, Waves, Mountain, Bike, Footprints, Car, Languages,
+  X, Send, Compass, UtensilsCrossed, Waves, Mountain, Bike, Footprints, Car, Languages,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Language } from "@/lib/i18n";
@@ -12,17 +12,22 @@ import { loc } from "@/lib/localize";
 
 /**
  * Ti Roulé — the Roule Rodrigues mascot as an animated island-guide chat.
- * He greets visitors, "types", swaps expression pose-by-pose, answers common
- * questions from the site's own island data, teaches a Creole word, and routes
- * people into the real tools (trip planner, food concierge, map, routes, taxi).
- * Scripted + free — no LLM cost, no hallucinations. Renders nothing until at
- * least one mascot image (default or a pose) is uploaded in admin.
+ * He greets, "types", swaps expression pose-by-pose, answers common questions
+ * from the site's own island data, and routes people into the real tools.
+ *
+ * "Costless text superpowers": visitors can also TYPE anything — a local,
+ * multilingual intent matcher (matchIntent) maps free text to the right answer
+ * with zero LLM/API cost, so there's nothing to bill and nothing to hallucinate.
+ * Renders nothing until at least one mascot image is uploaded in admin.
  */
 
 type LocName = { name: string; nameFr?: string; nameCr?: string };
 export type MascotData = { beaches: LocName[]; viewpoints: LocName[] };
 
 type TopicKey = "plan" | "eat" | "beaches" | "viewpoints" | "rent" | "hike" | "taxi" | "creole";
+type SpecialKey = "hello" | "thanks" | "help" | "contact" | "weather";
+type IntentKey = TopicKey | SpecialKey;
+type Answer = { text: string; pose: string; cta?: { label: string; href: string } };
 type Msg =
   | { id: number; who: "bot"; text: string; pose?: string; cta?: { label: string; href: string } }
   | { id: number; who: "user"; text: string };
@@ -43,9 +48,57 @@ const CREOLE: { p: string; en: string; fr: string }[] = [
   { p: "Ale dousman", en: "Take it easy / drive safe", fr: "Vas-y doucement" },
 ];
 
+// Multilingual keyword → intent. Order matters (first match wins). Keywords are
+// accent-stripped and lower-cased before comparison (see normalize()).
+const INTENTS: { key: IntentKey; kw: string[] }[] = [
+  { key: "thanks", kw: ["thank", "thanks", "thx", "merci", "mersi", "gramersi"] },
+  { key: "hello", kw: ["hello", "hi", "hey", "yo", "bonjour", "bonzur", "bonzour", "salut", "koman ou le", "good morning", "good evening", "good afternoon"] },
+  { key: "help", kw: ["help", "what can you do", "what do you do", "who are you", "aide", "aider", "ki ou kapav", "options", "menu"] },
+  { key: "plan", kw: ["plan", "itinerary", "itineraire", "schedule", "program", "days", "day trip", "what to do", "things to do", "quoi faire", "ki pou fer", "organise", "organize", "3 days", "week"] },
+  { key: "eat", kw: ["eat", "food", "restaurant", "resto", "hungry", "dinner", "lunch", "breakfast", "manger", "manze", "table", "cuisine", "snack", "drink", "bar", "cafe", "coffee", "seafood"] },
+  { key: "beaches", kw: ["beach", "beaches", "plage", "laplaz", "swim", "swimming", "lagoon", "lagon", "sand", "snorkel", "snorkeling", "baignade", "naze", "sea", "mer", "lamer", "island guide", "kayak"] },
+  { key: "viewpoints", kw: ["view", "viewpoint", "viewpoints", "vue", "point de vue", "pwin vi", "panorama", "scenic", "scenery", "photo spot", "sunset", "coucher", "landscape", "paysage", "lookout"] },
+  { key: "rent", kw: ["rent", "rental", "hire", "scooter", "scoot", "moto", "motorbike", "bike", "car", "cars", "voiture", "loue", "louer", "loto", "veikil", "vehicle", "price", "prices", "cost", "how much", "prix", "combien", "konbien", "tarif", "rate", "rates", "booking", "reserve"] },
+  { key: "hike", kw: ["hike", "hiking", "trail", "trails", "trek", "trekking", "walk", "walking", "randonnee", "rando", "marche", "santie", "mountain", "montagne"] },
+  { key: "taxi", kw: ["taxi", "cab", "driver", "chauffeur", "sofer", "lift", "transport", "transpor", "transfer", "pickup", "pick up", "airport", "aeroport"] },
+  { key: "creole", kw: ["creole", "kreol", "language", "langue", "word", "phrase", "speak", "parler", "aprann", "translate", "traduire"] },
+  { key: "contact", kw: ["contact", "phone", "call", "whatsapp", "number", "numero", "telephone", "tel", "email", "reach", "message", "hours", "open", "opening", "heures", "horaires", "ouvert", "address", "adresse", "location"] },
+  { key: "weather", kw: ["weather", "forecast", "rain", "raining", "meteo", "temps", "pluie", "lapli", "climate", "climat", "windy", "cyclone"] },
+];
+
+const DIACRITICS = new RegExp("[\\u0300-\\u036f]", "g");
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(DIACRITICS, "") // strip accents in place so "métro" → "metro"
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function matchIntent(text: string): IntentKey | null {
+  const norm = normalize(text);
+  if (!norm) return null;
+  const tokens = new Set(norm.split(" "));
+  for (const intent of INTENTS) {
+    for (const kwRaw of intent.kw) {
+      const kw = normalize(kwRaw);
+      if (kw.includes(" ")) {
+        if (norm.includes(kw)) return intent.key;
+      } else if (kw.length < 4) {
+        if (tokens.has(kw)) return intent.key; // short words need an exact token
+      } else if (tokens.has(kw) || norm.includes(kw)) {
+        return intent.key;
+      }
+    }
+  }
+  return null;
+}
+
 type Copy = {
   role: string; online: string; bubble: string; open: string; close: string;
-  greet: string; hint: string;
+  greet: string; placeholder: string; send: string;
   topics: Record<TopicKey, string>;
   plan: string; planCta: string;
   eat: string; eatCta: string;
@@ -54,14 +107,16 @@ type Copy = {
   hike: string; hikeCta: string;
   taxi: string; taxiCta: string;
   creoleLead: string; means: string;
+  hello: string; thanks: string; help: string;
+  contact: string; contactCta: string; weather: string; fallback: string;
 };
 
 const COPY: Record<Language, Copy> = {
   en: {
     role: "Island guide", online: "online", bubble: "Koman ou lé?",
     open: "Chat with Ti Roulé", close: "Close chat",
-    greet: "Bonzur! 👋 I'm Ti Roulé, your Rodrigues guide. What can I help you with?",
-    hint: "Tap a topic 👇",
+    greet: "Bonzur! 👋 I'm Ti Roulé, your Rodrigues guide. Ask me anything, or tap a topic below.",
+    placeholder: "Ask me anything…", send: "Send",
     topics: {
       plan: "Plan my trip", eat: "Where should I eat?", beaches: "Best beaches",
       viewpoints: "Best viewpoints", rent: "Rent a scooter or car", hike: "Hiking trails",
@@ -75,7 +130,7 @@ const COPY: Record<Language, Copy> = {
     viewpointsLead: "For the best views on the island, head to:",
     mapCta: "See them on the map",
     guideFallback: "Explore every beach and viewpoint in the island guide.",
-    rent: "Scooter to feel the breeze, or a car for the family — pick your dates and you're ready to roll.",
+    rent: "Scooter to feel the breeze, or a car for the family — pick your dates and you'll see live prices for each one.",
     rentCta: "Browse the vehicles",
     hike: "Lace up! Rodrigues has gorgeous trails with big ocean views.",
     hikeCta: "See the trails",
@@ -83,12 +138,19 @@ const COPY: Record<Language, Copy> = {
     taxiCta: "Find a taxi",
     creoleLead: "Here's a Creole word to sound like a local:",
     means: "means",
+    hello: "Bonzur! 😄 Lovely to see you. What are you dreaming of — beaches, food, a scooter, a plan for the day?",
+    thanks: "Anytime — mo la pou ou! 🐢 Anything else I can help with?",
+    help: "I'm your island guide 🗺️ I can plan your trip, find you food, suggest beaches and viewpoints, sort a scooter or car, point you to trails and taxis, and even teach you Creole. What would you like?",
+    contact: "Happy to connect you with the Roule Rodrigues team — they'll sort you out personally.",
+    contactCta: "Contact the team",
+    weather: "Rodrigues stays warm and breezy most of the year 🌴. Check your weather app for today's forecast — and if it rains, the food concierge and island spots make great backups.",
+    fallback: "Hmm, I didn't quite catch that 🤔 — but I can help with trips, food, beaches, viewpoints, rentals, trails, taxis, or a Creole word. Pick one below 👇",
   },
   fr: {
     role: "Guide de l'île", online: "en ligne", bubble: "Koman ou lé ?",
     open: "Discuter avec Ti Roulé", close: "Fermer le chat",
-    greet: "Bonzur ! 👋 Moi c'est Ti Roulé, votre guide de Rodrigues. Comment puis-je vous aider ?",
-    hint: "Choisissez un sujet 👇",
+    greet: "Bonzur ! 👋 Moi c'est Ti Roulé, votre guide de Rodrigues. Demandez-moi ce que vous voulez, ou choisissez un sujet.",
+    placeholder: "Demandez-moi…", send: "Envoyer",
     topics: {
       plan: "Planifier mon séjour", eat: "Où manger ?", beaches: "Plus belles plages",
       viewpoints: "Plus beaux points de vue", rent: "Louer un scooter ou une voiture", hike: "Sentiers de randonnée",
@@ -102,7 +164,7 @@ const COPY: Record<Language, Copy> = {
     viewpointsLead: "Pour les plus belles vues de l'île, rendez-vous à :",
     mapCta: "Voir sur la carte",
     guideFallback: "Découvrez toutes les plages et points de vue dans le guide de l'île.",
-    rent: "Un scooter pour sentir la brise, ou une voiture pour la famille — choisissez vos dates et c'est parti.",
+    rent: "Un scooter pour sentir la brise, ou une voiture pour la famille — choisissez vos dates et vous verrez les prix en direct.",
     rentCta: "Voir les véhicules",
     hike: "En route ! Rodrigues a de superbes sentiers avec vue sur l'océan.",
     hikeCta: "Voir les sentiers",
@@ -110,12 +172,19 @@ const COPY: Record<Language, Copy> = {
     taxiCta: "Trouver un taxi",
     creoleLead: "Voici un mot créole pour parler comme un local :",
     means: "veut dire",
+    hello: "Bonzur ! 😄 Ravi de vous voir. De quoi rêvez-vous — plages, restos, un scooter, un programme pour la journée ?",
+    thanks: "Avec plaisir — mo la pou ou ! 🐢 Puis-je vous aider avec autre chose ?",
+    help: "Je suis votre guide de l'île 🗺️ Je peux planifier votre séjour, vous trouver un resto, suggérer plages et points de vue, réserver un scooter ou une voiture, indiquer sentiers et taxis, et même vous apprendre le créole. Que souhaitez-vous ?",
+    contact: "Je vous mets volontiers en relation avec l'équipe Roule Rodrigues — ils s'occuperont de vous personnellement.",
+    contactCta: "Contacter l'équipe",
+    weather: "Rodrigues reste chaude et venteuse presque toute l'année 🌴. Consultez votre app météo pour aujourd'hui — et s'il pleut, le concierge culinaire et les sites de l'île sont de bonnes options.",
+    fallback: "Hmm, je n'ai pas bien saisi 🤔 — mais je peux aider avec les séjours, la nourriture, les plages, les points de vue, la location, les sentiers, les taxis, ou un mot créole. Choisissez ci-dessous 👇",
   },
   cr: {
     role: "Gid lil", online: "online", bubble: "Koman ou lé?",
     open: "Koz ek Ti Roulé", close: "Ferm chat la",
-    greet: "Bonzur! 👋 Mo Ti Roulé, ou gid Rodrigues. Ki mo kapav fer pou ou?",
-    hint: "Swazir enn size 👇",
+    greet: "Bonzur! 👋 Mo Ti Roulé, ou gid Rodrigues. Demann mwa nenport, ou swazir enn size.",
+    placeholder: "Demann mwa…", send: "Avoye",
     topics: {
       plan: "Plann mo vwayaz", eat: "Kot pou manze?", beaches: "Pli zoli laplaz",
       viewpoints: "Pli zoli pwin vi", rent: "Loue enn skooter ou loto", hike: "Santie rando",
@@ -129,7 +198,7 @@ const COPY: Record<Language, Copy> = {
     viewpointsLead: "Pou pli zoli vi lor lil, al:",
     mapCta: "Get lor lakart",
     guideFallback: "Explor tou laplaz ek pwin vi dan gid lil la.",
-    rent: "Enn skooter pou santi labriz, ou enn loto pou fami — swazir ou bann dat ek ou paré.",
+    rent: "Enn skooter pou santi labriz, ou enn loto pou fami — swazir ou bann dat ek ou pou trouv pri an direk.",
     rentCta: "Get bann veikil",
     hike: "Met ou soulie! Rodrigues ena bann zoli santie ek gran vi lor lamer.",
     hikeCta: "Get bann santie",
@@ -137,6 +206,13 @@ const COPY: Record<Language, Copy> = {
     taxiCta: "Trouv enn taxi",
     creoleLead: "Ala enn mo kreol pou koz kouma enn lokal:",
     means: "vedir",
+    hello: "Bonzur! 😄 Kontan trouv ou. Ki ou anvi — laplaz, manze, enn skooter, enn program pou lazourne?",
+    thanks: "Nanye — mo la pou ou! 🐢 Ena lezot kitsoz mo kapav ed ou?",
+    help: "Mo ou gid lil 🗺️ Mo kapav plann ou vwayaz, trouv ou manze, propoz laplaz ek pwin vi, aranz enn skooter ou loto, montre ou santie ek taxi, ek mem aprann ou kreol. Ki ou anvi?",
+    contact: "Mo kontan konekt ou ek lekip Roule Rodrigues — zot pou okip ou personelman.",
+    contactCta: "Kontakt lekip la",
+    weather: "Rodrigues res so ek ena divan preske tou lane 🌴. Get ou app meteo pou zordi — ek si lapli tonbe, konsierz manze ek bann plas lil bon losion.",
+    fallback: "Hmm, mo pa finn byen konpran 🤔 — me mo kapav ed ou ek vwayaz, manze, laplaz, pwin vi, lokasion, santie, taxi, ou enn mo kreol. Swazir enba 👇",
   },
 };
 
@@ -152,17 +228,36 @@ export default function TiRouleGuide({
   const { language } = useLanguage();
   const c = COPY[language] ?? COPY.en;
   const [open, setOpen] = useState(false);
+  const [revealed, setRevealed] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [typing, setTyping] = useState(false);
   const [pose, setPose] = useState("welcome");
+  const [input, setInput] = useState("");
   const idRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const avatar = (key?: string) => resolvePose(key, poses, image);
   const hasMascot = !!avatar("welcome");
-
   const nextId = () => (idRef.current += 1);
+
+  // Reveal on scroll — stay out of the way of the hero, glide in as you explore.
+  // Short pages that barely scroll show him right away.
+  useEffect(() => {
+    const check = () => {
+      const scrolled = window.scrollY > 320;
+      const barelyScrollable =
+        document.documentElement.scrollHeight - window.innerHeight < 500;
+      setRevealed(scrolled || barelyScrollable);
+    };
+    check();
+    window.addEventListener("scroll", check, { passive: true });
+    window.addEventListener("resize", check, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", check);
+      window.removeEventListener("resize", check);
+    };
+  }, []);
 
   // Seed the greeting the first time the chat opens.
   useEffect(() => {
@@ -173,7 +268,6 @@ export default function TiRouleGuide({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Keep the conversation scrolled to the newest line.
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, typing]);
@@ -187,7 +281,7 @@ export default function TiRouleGuide({
   );
 
   const buildAnswer = useCallback(
-    (topic: TopicKey): { text: string; pose: string; cta?: { label: string; href: string } } => {
+    (topic: TopicKey): Answer => {
       switch (topic) {
         case "plan":
           return { text: c.plan, pose: "holdingMap", cta: { label: c.planCta, href: "/#trip-planner" } };
@@ -225,47 +319,82 @@ export default function TiRouleGuide({
     [c, data, language, names],
   );
 
-  const ask = (topic: TopicKey) => {
+  const answerFor = useCallback(
+    (key: IntentKey | null): Answer => {
+      switch (key) {
+        case "plan": case "eat": case "beaches": case "viewpoints":
+        case "rent": case "hike": case "taxi": case "creole":
+          return buildAnswer(key);
+        case "hello": return { text: c.hello, pose: "welcome" };
+        case "thanks": return { text: c.thanks, pose: "happy" };
+        case "help": return { text: c.help, pose: "pointing" };
+        case "contact": return { text: c.contact, pose: "happy", cta: { label: c.contactCta, href: "/#contact" } };
+        case "weather": return { text: c.weather, pose: "lookingAround" };
+        default: return { text: c.fallback, pose: "surprised" };
+      }
+    },
+    [buildAnswer, c],
+  );
+
+  const deliver = (userText: string, getAnswer: () => Answer) => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    setMessages((m) => [...m, { id: nextId(), who: "user", text: c.topics[topic] }]);
+    setMessages((m) => [...m, { id: nextId(), who: "user", text: userText }]);
     setTyping(true);
     setPose("thinking");
     timerRef.current = setTimeout(() => {
-      const a = buildAnswer(topic);
+      const a = getAnswer();
       setTyping(false);
       setPose(a.pose);
       setMessages((m) => [...m, { id: nextId(), who: "bot", text: a.text, pose: a.pose, cta: a.cta }]);
     }, 850);
   };
 
+  const askTopic = (topic: TopicKey) => deliver(c.topics[topic], () => buildAnswer(topic));
+
+  const submitText = (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text || typing) return;
+    setInput("");
+    deliver(text, () => answerFor(matchIntent(text)));
+  };
+
   if (!hasMascot) return null;
 
   return (
     <>
-      {/* Floating mascot button — bottom-left (WhatsApp FAB owns bottom-right) */}
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label={c.open}
-        className={`fixed bottom-4 left-4 z-[85] transition-opacity duration-300 ${open ? "opacity-0 pointer-events-none" : "opacity-100"}`}
-      >
-        <span className="relative block rr-mascot-bob">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={avatar("welcome")}
-            alt=""
-            className="h-20 w-20 object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.45)]"
-            loading="lazy"
-          />
-          <span className="absolute -top-1 left-14 whitespace-nowrap rounded-full rounded-bl-sm bg-white px-2.5 py-1 font-dm text-[11px] font-medium text-dark shadow-lg">
-            {c.bubble}
-          </span>
-          <span className="absolute top-1 right-2 flex h-3 w-3">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-            <span className="relative inline-flex h-3 w-3 rounded-full bg-green-500 border-2 border-dark" />
-          </span>
-        </span>
-      </button>
+      {/* Floating mascot button — reveals on scroll, bottom-left (WhatsApp owns bottom-right) */}
+      <AnimatePresence>
+        {revealed && !open && (
+          <motion.button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label={c.open}
+            initial={{ opacity: 0, y: 24, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 24, scale: 0.8 }}
+            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed bottom-4 left-4 z-[85]"
+          >
+            <span className="relative block rr-mascot-bob">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={avatar("welcome")}
+                alt=""
+                className="h-20 w-20 object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.45)]"
+                loading="lazy"
+              />
+              <span className="absolute -top-1 left-14 whitespace-nowrap rounded-full rounded-bl-sm bg-white px-2.5 py-1 font-dm text-[11px] font-medium text-dark shadow-lg">
+                {c.bubble}
+              </span>
+              <span className="absolute top-1 right-2 flex h-3 w-3">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex h-3 w-3 rounded-full bg-green-500 border-2 border-dark" />
+              </span>
+            </span>
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Chat panel */}
       <AnimatePresence>
@@ -287,7 +416,7 @@ export default function TiRouleGuide({
               transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
               role="dialog"
               aria-label={`Ti Roulé — ${c.role}`}
-              className="fixed bottom-4 left-4 right-4 sm:right-auto sm:w-[380px] z-[87] flex max-h-[78vh] flex-col overflow-hidden rounded-3xl border border-white/10 bg-dark-card shadow-[0_24px_80px_-20px_rgba(0,0,0,0.9)]"
+              className="fixed bottom-4 left-4 right-4 sm:right-auto sm:w-[380px] z-[87] flex max-h-[80vh] flex-col overflow-hidden rounded-3xl border border-white/10 bg-dark-card shadow-[0_24px_80px_-20px_rgba(0,0,0,0.9)]"
             >
               {/* Header */}
               <div className="flex items-center gap-3 border-b border-white/10 bg-gradient-to-b from-yellow/[0.08] to-transparent p-4">
@@ -314,12 +443,7 @@ export default function TiRouleGuide({
               <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
                 {messages.map((m) =>
                   m.who === "bot" ? (
-                    <motion.div
-                      key={m.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex items-end gap-2"
-                    >
+                    <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-end gap-2">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={avatar(m.pose)} alt="" className="h-7 w-7 shrink-0 object-contain" />
                       <div className="max-w-[80%]">
@@ -338,12 +462,7 @@ export default function TiRouleGuide({
                       </div>
                     </motion.div>
                   ) : (
-                    <motion.div
-                      key={m.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex justify-end"
-                    >
+                    <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex justify-end">
                       <div className="max-w-[80%] rounded-2xl rounded-br-md bg-yellow px-3.5 py-2.5 font-dm text-sm font-medium leading-relaxed text-dark">
                         {m.text}
                       </div>
@@ -363,19 +482,18 @@ export default function TiRouleGuide({
                 )}
               </div>
 
-              {/* Quick-reply chips */}
-              <div className="border-t border-white/10 p-3">
-                <p className="mb-2 px-1 font-dm text-[11px] text-muted">{c.hint}</p>
-                <div className="flex flex-wrap gap-2">
+              {/* Quick-reply chips + free-text input */}
+              <div className="space-y-2.5 border-t border-white/10 p-3">
+                <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {TOPIC_ORDER.map((topic) => {
                     const Icon = TOPIC_ICON[topic];
                     return (
                       <button
                         key={topic}
                         type="button"
-                        onClick={() => ask(topic)}
+                        onClick={() => askTopic(topic)}
                         disabled={typing}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 font-dm text-xs text-offwhite/85 transition-colors hover:border-yellow/40 hover:bg-yellow/10 hover:text-offwhite disabled:opacity-40"
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 font-dm text-xs text-offwhite/85 transition-colors hover:border-yellow/40 hover:bg-yellow/10 hover:text-offwhite disabled:opacity-40"
                       >
                         <Icon size={13} className="text-yellow" strokeWidth={2} />
                         {c.topics[topic]}
@@ -383,6 +501,24 @@ export default function TiRouleGuide({
                     );
                   })}
                 </div>
+                <form onSubmit={submitText} className="flex items-center gap-2">
+                  <input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder={c.placeholder}
+                    aria-label={c.placeholder}
+                    enterKeyHint="send"
+                    className="flex-1 rounded-full border border-white/10 bg-white/[0.06] px-4 py-2.5 font-dm text-sm text-offwhite placeholder:text-muted/60 focus:border-yellow/40 focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    aria-label={c.send}
+                    disabled={typing || !input.trim()}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-yellow text-dark transition-transform hover:scale-105 disabled:opacity-40 disabled:hover:scale-100"
+                  >
+                    <Send size={16} />
+                  </button>
+                </form>
               </div>
             </motion.div>
           </>
