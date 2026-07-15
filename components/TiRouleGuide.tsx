@@ -9,6 +9,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import type { Language } from "@/lib/i18n";
 import { resolvePose } from "@/lib/mascot";
 import { loc } from "@/lib/localize";
+import { matchKnowledge, type KnowledgeCta } from "@/lib/rodrigues-knowledge";
 
 /**
  * Ti Roulé — the Roule Rodrigues mascot as an animated island-guide chat.
@@ -395,12 +396,32 @@ export default function TiRouleGuide({
 
   const askTopic = (topic: TopicKey) => deliver(c.topics[topic], () => buildAnswer(topic));
 
+  // Free text: try a core intent first, then the Rodrigues knowledge base, then
+  // the human hand-off fallback. All local — no API, nothing to bill.
+  const resolveAnswer = (text: string): Answer => {
+    const key = matchIntent(text);
+    if (key) return answerFor(key);
+    const k = matchKnowledge(text);
+    if (k) {
+      const kt = language === "fr" ? k.fr : language === "cr" ? k.cr : k.en;
+      const CTA: Record<KnowledgeCta, { label: string; href: string }> = {
+        plan: { label: c.planCta, href: "/#trip-planner" },
+        map: { label: c.mapCta, href: "/#map" },
+        rent: { label: c.rentCta, href: "/#explore" },
+        taxi: { label: c.taxiCta, href: "/taxi" },
+        eat: { label: c.eatCta, href: "/food" },
+      };
+      return { text: kt, pose: k.pose, cta: k.cta ? CTA[k.cta] : undefined };
+    }
+    return answerFor(null);
+  };
+
   const submitText = (e: React.FormEvent) => {
     e.preventDefault();
     const text = input.trim();
     if (!text || typing) return;
     setInput("");
-    deliver(text, () => answerFor(matchIntent(text)));
+    deliver(text, () => resolveAnswer(text));
   };
 
   if (!hasMascot) return null;
