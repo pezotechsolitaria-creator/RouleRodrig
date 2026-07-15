@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  X, Send, Compass, UtensilsCrossed, Waves, Mountain, Bike, Footprints, Car, Languages,
+  X, Send, Compass, UtensilsCrossed, Waves, Mountain, Bike, Footprints, Car, Languages, Volume2, Square,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Language } from "@/lib/i18n";
@@ -275,11 +275,13 @@ export default function TiRouleGuide({
   poses,
   data,
   whatsapp,
+  scooterDailyMur,
 }: {
   image?: string;
   poses?: Record<string, string>;
   data?: MascotData;
   whatsapp?: string;
+  scooterDailyMur?: number;
 }) {
   const { language } = useLanguage();
   const c = COPY[language] ?? COPY.en;
@@ -289,6 +291,7 @@ export default function TiRouleGuide({
   const [typing, setTyping] = useState(false);
   const [pose, setPose] = useState("welcome");
   const [input, setInput] = useState("");
+  const [speakingId, setSpeakingId] = useState<number | null>(null);
   const idRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -456,6 +459,34 @@ export default function TiRouleGuide({
     return { text: kt, pose: k.pose, cta };
   };
 
+  // Read a message aloud with the browser's built-in speech (free, on-device).
+  const speak = (id: number, text: string) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    const synth = window.speechSynthesis;
+    if (speakingId === id) {
+      synth.cancel();
+      setSpeakingId(null);
+      return;
+    }
+    synth.cancel();
+    const clean = text.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/gu, "").replace(/\s+/g, " ").trim();
+    const u = new SpeechSynthesisUtterance(clean);
+    u.lang = language === "fr" ? "fr-FR" : language === "cr" ? "fr-FR" : "en-US";
+    u.onend = () => setSpeakingId((cur) => (cur === id ? null : cur));
+    u.onerror = () => setSpeakingId((cur) => (cur === id ? null : cur));
+    setSpeakingId(id);
+    synth.speak(u);
+  };
+
+  // Stop any narration when the chat closes / unmounts.
+  useEffect(() => {
+    if (!open && typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      setSpeakingId(null);
+    }
+  }, [open]);
+  useEffect(() => () => { if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel(); }, []);
+
   // Currency question → fetch live rates (with an honest estimate fallback).
   const handleCurrency = async (userText: string, q: ReturnType<typeof parseCurrencyQuery>) => {
     if (!q) return;
@@ -470,7 +501,7 @@ export default function TiRouleGuide({
       const rates: Record<string, number> | undefined = data?.rates;
       if (rates?.[q.from] && rates?.[q.to]) {
         const rate = rates[q.to] / rates[q.from];
-        const text = formatConversion(q, q.amount * rate, rate, language, true);
+        const text = formatConversion(q, q.amount * rate, rate, language, { live: true, scooterDailyMur, updated: data?.updated });
         answer = { text, pose: "happy", cta: q.to === "MUR" ? { label: c.rentCta, href: "/#explore" } : undefined };
       } else {
         throw new Error("no rate");
@@ -478,7 +509,7 @@ export default function TiRouleGuide({
     } catch {
       const est = estimateConvert(q);
       answer = est
-        ? { text: formatConversion(q, est.converted, est.rate, language, false), pose: "lookingAround" }
+        ? { text: formatConversion(q, est.converted, est.rate, language, { live: false }), pose: "lookingAround" }
         : { text: c.curError, pose: "surprised" };
     }
     setTyping(false);
@@ -616,6 +647,14 @@ export default function TiRouleGuide({
                             {m.cta.label}
                           </a>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => speak(m.id, m.text)}
+                          aria-label={language === "fr" ? "Écouter" : language === "cr" ? "Ekoute" : "Read aloud"}
+                          className="mt-1.5 flex items-center gap-1 font-dm text-[10px] text-muted/50 transition-colors hover:text-yellow"
+                        >
+                          {speakingId === m.id ? <Square size={11} /> : <Volume2 size={12} />}
+                        </button>
                       </div>
                     </motion.div>
                   ) : (

@@ -20,7 +20,7 @@ export default function Footer({
   social?: SocialLinks;
   branding?: BrandingContent;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const year = new Date().getFullYear();
   const activeSocial = SOCIAL_CONFIG.filter(({ key }) => social?.[key]);
 
@@ -123,8 +123,20 @@ export default function Footer({
           </div>
         </div>
 
+        {/* Conservation badge — Rodrigues is proudly eco-conscious */}
+        <div className="pt-6 border-t border-dark-border flex justify-center mb-5">
+          <span className="inline-flex items-center gap-2 rounded-full border border-green-500/25 bg-green-500/[0.07] px-4 py-2 font-dm text-xs text-green-300/90">
+            <span aria-hidden="true">🌱</span>
+            {language === "fr"
+              ? "Nous aimons un Rodrigues sans plastique — remportez vos déchets."
+              : language === "cr"
+                ? "Nou kontan enn Rodrigues san plastik — ramas ou salte."
+                : "We love a plastic-free Rodrigues — please take your litter home."}
+          </span>
+        </div>
+
         {/* Legal links */}
-        <div className="pt-6 border-t border-dark-border flex flex-wrap items-center justify-center gap-x-5 gap-y-2 mb-5">
+        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 mb-5">
           {[
             { label: t.footer.terms,      href: "/legal/terms" },
             { label: t.footer.privacy,    href: "/legal/privacy" },

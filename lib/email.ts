@@ -835,3 +835,33 @@ export async function sendWaitlistWelcome(to: string, source?: string): Promise<
     }),
   );
 }
+
+/**
+ * Weekly digest of questions Ti Roulé couldn't answer, so the owner can grow the
+ * knowledge base (and SEO). Sent from the daily cron, once a week.
+ */
+export async function sendTiRouleMissesDigest(to: string, rows: { question: string; count: number }[]): Promise<boolean> {
+  if (!to || !rows.length) return false;
+  const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+  const items = rows
+    .slice(0, 25)
+    .map(
+      (r) =>
+        `<tr><td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:14px;color:#111">${esc(r.question)}</td><td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:14px;color:#888;text-align:right;white-space:nowrap">${r.count}×</td></tr>`,
+    )
+    .join("");
+  const body = `
+    ${paragraph("Here are the questions visitors asked Ti Roulé this week that he couldn't quite answer yet. Each one is a chance to grow his knowledge — and a free SEO idea.")}
+    <table style="width:100%;border-collapse:collapse;margin-top:8px">${items}</table>
+    <div style="text-align:center;margin-top:18px">${primaryButton(`${SITE_URL}/admin`, "Open the admin dashboard →")}</div>`;
+  return send(
+    to,
+    `Ti Roulé — ${rows.length} question${rows.length === 1 ? "" : "s"} to answer this week 🐢`,
+    shell({
+      preheader: "Top questions Ti Roulé couldn't answer this week.",
+      eyebrow: "Ti Roulé · weekly",
+      title: "This week's unanswered questions",
+      body,
+    }),
+  );
+}

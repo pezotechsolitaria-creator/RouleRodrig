@@ -9,6 +9,7 @@ import {
   sendPlaceReminder,
   sendPlaceFeedbackRequest,
   sendAdminPlaceReminder,
+  sendTiRouleMissesDigest,
 } from "@/lib/email";
 import type { Booking, PlaceBooking } from "@/lib/supabase/types";
 import { holdCutoffMs } from "@/lib/holds";
@@ -163,6 +164,33 @@ export async function GET(req: NextRequest) {
     /* ignore */
   }
 
+  // ── Weekly (Mondays): email the owner the questions Ti Roulé couldn't answer ──
+  let missesEmailed = 0;
+  try {
+    if (new Date().getUTCDay() === 1) {
+      const ownerEmail = process.env.OWNER_EMAIL;
+      if (ownerEmail) {
+        const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+        const { data: misses } = await supabase
+          .from("lead_events")
+          .select("target_name")
+          .eq("kind", "tiroule_miss")
+          .gte("created_at", weekAgo);
+        const counts = new Map<string, number>();
+        for (const m of (misses ?? []) as { target_name: string }[]) {
+          const q = (m.target_name ?? "").trim();
+          if (q) counts.set(q, (counts.get(q) ?? 0) + 1);
+        }
+        const rows = [...counts.entries()]
+          .map(([question, count]) => ({ question, count }))
+          .sort((a, b) => b.count - a.count);
+        if (rows.length && (await sendTiRouleMissesDigest(ownerEmail, rows))) missesEmailed = rows.length;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
   return NextResponse.json({
     ok: true,
     date: today,
@@ -172,5 +200,6 @@ export async function GET(req: NextRequest) {
     placeRemindersSent,
     placeFeedbackSent,
     holdsReleased,
+    missesEmailed,
   });
 }

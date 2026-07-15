@@ -48,6 +48,15 @@ export const RODRIGUES_KNOWLEDGE: KnowledgeEntry[] = [
     cr: "Larzan se roupi morisien (Rs). Amenn kas — boukou ti laboutik, bazar ek stand pa pran kart.",
   },
   {
+    id: "budget",
+    kw: ["budget", "daily budget", "how expensive", "expensive", "affordable", "travel budget", "spending money", "cost of a trip", "how much for a trip", "budget per day", "daily spend"],
+    pose: "thinking",
+    cta: "plan",
+    en: "Rodrigues is gentle on the wallet. As a rough mid-range guide, plan for around $70–120 (about Rs 3,000–5,500) a day covering a room, food, a scooter and a few activities — less if you keep it simple. Bring cash for small shops and markets.",
+    fr: "Rodrigues est douce pour le portefeuille. À titre indicatif (gamme moyenne), comptez environ 70–120 $ (env. Rs 3 000–5 500) par jour avec logement, repas, scooter et quelques activités — moins en restant simple. Prévoyez du liquide pour les petits commerces et marchés.",
+    cr: "Rodrigues pa tro ser. Kouma enn gid apepre (mwayen), plann apepre 70–120 $ (apepre Rs 3,000–5,500) par zour ek lozman, manze, skooter ek detrwa aktivite — mwins si ou res senp. Amenn kas pou ti laboutik ek bazar.",
+  },
+  {
     id: "gettingAround",
     kw: ["road", "roads", "drive", "driving", "bus", "buses", "public transport", "how to move around", "move around", "getting around the island"],
     pose: "onScooter",

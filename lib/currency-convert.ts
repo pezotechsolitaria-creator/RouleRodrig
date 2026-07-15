@@ -94,16 +94,34 @@ export function estimateConvert(q: CurrencyQuery): { converted: number; rate: nu
 }
 
 const L = {
-  en: { rate: "Exchange rate", tip: "🛵 That's a handy daily budget for exploring Rodrigues by scooter.", est: "≈ Estimate — I couldn't reach live rates, so treat this as approximate." },
-  fr: { rate: "Taux de change", tip: "🛵 De quoi explorer Rodrigues à scooter pendant une journée.", est: "≈ Estimation — je n'ai pas pu obtenir les taux en direct, à prendre comme approximatif." },
-  cr: { rate: "To de sanz", tip: "🛵 Enn bon bidze pou explor Rodrigues an skooter enn zourne.", est: "≈ Estimasion — mo pa finn kapav gagn to an direk, alor pran li kouma apepre." },
+  en: {
+    rate: "Exchange rate", live: "Live rate", updated: "updated", locale: "en-GB",
+    tip: "🛵 That's a handy daily budget for exploring Rodrigues by scooter.",
+    est: "≈ Estimate — I couldn't reach live rates, so treat this as approximate.",
+    days: (d: number, p: string) => `🛵 That's about ${d} ${d === 1 ? "day" : "days"} of scooter rental (from Rs ${p}/day).`,
+  },
+  fr: {
+    rate: "Taux de change", live: "Taux en direct", updated: "mis à jour", locale: "fr-FR",
+    tip: "🛵 De quoi explorer Rodrigues à scooter pendant une journée.",
+    est: "≈ Estimation — je n'ai pas pu obtenir les taux en direct, à prendre comme approximatif.",
+    days: (d: number, p: string) => `🛵 Environ ${d} ${d === 1 ? "jour" : "jours"} de location de scooter (à partir de Rs ${p}/jour).`,
+  },
+  cr: {
+    rate: "To de sanz", live: "To an direk", updated: "met azour", locale: "en-GB",
+    tip: "🛵 Enn bon bidze pou explor Rodrigues an skooter enn zourne.",
+    est: "≈ Estimasion — mo pa finn kapav gagn to an direk, alor pran li kouma apepre.",
+    days: (d: number, p: string) => `🛵 Apepre ${d} ${d === 1 ? "zour" : "zour"} lokasion skooter (depi Rs ${p}/zour).`,
+  },
 };
 
 function num(n: number, dp: number): string {
   return new Intl.NumberFormat("en-US", { minimumFractionDigits: dp, maximumFractionDigits: dp }).format(n);
 }
 
-export function formatConversion(q: CurrencyQuery, converted: number, rate: number, lang: Language, live = true): string {
+export type ConversionOpts = { live?: boolean; scooterDailyMur?: number; updated?: string | null };
+
+export function formatConversion(q: CurrencyQuery, converted: number, rate: number, lang: Language, opts: ConversionOpts = {}): string {
+  const { live = true, scooterDailyMur, updated } = opts;
   const l = L[lang] ?? L.en;
   const amtDp = Number.isInteger(q.amount) ? 0 : 2;
   const outDp = ZERO_DECIMAL.has(q.to) ? 0 : 2;
@@ -113,7 +131,22 @@ export function formatConversion(q: CurrencyQuery, converted: number, rate: numb
     "",
     `${l.rate}: 1 ${q.from} = ${num(rate, rateDp)} ${q.to}`,
   ];
-  if (!live) lines.push("", l.est);
-  else if (q.to === "MUR") lines.push("", l.tip);
+  if (live) {
+    let stamp = l.live;
+    if (updated) {
+      const d = new Date(updated);
+      if (!isNaN(d.getTime())) stamp += ` · ${l.updated} ${d.toLocaleDateString(l.locale, { day: "numeric", month: "short", year: "numeric" })}`;
+    }
+    lines.push(stamp);
+  }
+  if (!live) {
+    lines.push("", l.est);
+  } else if (q.to === "MUR") {
+    if (scooterDailyMur && scooterDailyMur > 0 && converted >= scooterDailyMur) {
+      lines.push("", l.days(Math.floor(converted / scooterDailyMur), Math.round(scooterDailyMur).toLocaleString("en-US")));
+    } else {
+      lines.push("", l.tip);
+    }
+  }
   return lines.join("\n");
 }

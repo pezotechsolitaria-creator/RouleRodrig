@@ -38,6 +38,13 @@ export default async function Home() {
   // "What are you looking for?" categories (shared with the /browse pages).
   const browseCats = buildBrowseCategories(content, fleet, recentBookings);
 
+  // Cheapest scooter/day (MUR) — lets Ti Roulé relate a budget to real rental days.
+  const scooterPrices = fleet
+    .filter((f) => (f.category ?? "scooter") === "scooter")
+    .map((f) => priceNumber(f.price))
+    .filter((n): n is number => n != null && n > 0);
+  const scooterDailyMur = scooterPrices.length ? Math.min(...scooterPrices) : undefined;
+
   // ── SEO structured data (JSON-LD): LocalBusiness + Products ──
   const sameAs = [content.social.instagram, content.social.facebook, content.social.tiktok].filter((u) => u && u.trim());
   const jsonLd = {
@@ -138,6 +145,7 @@ export default async function Home() {
         image={content.branding.mascotImage}
         poses={content.branding.mascotPoses}
         whatsapp={content.contact.whatsappNumbers?.[0]?.number || content.social.whatsapp || content.contact.phone}
+        scooterDailyMur={scooterDailyMur}
         data={{
           beaches: content.mapLocations
             .filter((l) => l.category === "beach")
