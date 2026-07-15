@@ -150,6 +150,9 @@ export interface PlannerActivity {
   tip: string;
   tipFr?: string;
   tipCr?: string;
+  story?: string;   // Ti Roulé's story (from the linked map location)
+  storyFr?: string;
+  storyCr?: string;
   image?: string;   // optional photo shown in the itinerary card
   mapsUrl?: string; // precise Google Maps link (else the planner searches by name)
 }

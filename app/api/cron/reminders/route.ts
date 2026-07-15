@@ -191,6 +191,30 @@ export async function GET(req: NextRequest) {
     /* ignore */
   }
 
+  // ── Nightly content backup — snapshot site_content when it has changed ──
+  let backupSaved = false;
+  try {
+    const { data: cur } = await supabase.from("site_content").select("data").eq("id", "main").maybeSingle();
+    if (cur?.data) {
+      const { data: last } = await supabase
+        .from("site_content_history")
+        .select("data")
+        .eq("content_id", "main")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (JSON.stringify(last?.data) !== JSON.stringify(cur.data)) {
+        await supabase.from("site_content_history").insert({ content_id: "main", data: cur.data });
+        backupSaved = true;
+      }
+      // Keep ~90 days of history
+      const cutoff90 = new Date(Date.now() - 90 * 86400000).toISOString();
+      await supabase.from("site_content_history").delete().lt("created_at", cutoff90);
+    }
+  } catch {
+    /* ignore */
+  }
+
   return NextResponse.json({
     ok: true,
     date: today,
@@ -201,5 +225,6 @@ export async function GET(req: NextRequest) {
     placeFeedbackSent,
     holdsReleased,
     missesEmailed,
+    backupSaved,
   });
 }

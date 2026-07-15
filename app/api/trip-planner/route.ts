@@ -95,6 +95,7 @@ function mapLocationsToActivities(locs: MapLocation[]): Activity[] {
       tip: "Tap the map link for live directions and distance from where you are.",
       tipFr: "Touchez le lien de la carte pour l'itinéraire et la distance en direct.",
       tipCr: "Tous lor lien kart pou gagn direksion ek distans an direk.",
+      ...(l.story ? { story: l.story, storyFr: l.storyFr, storyCr: l.storyCr } : {}),
       ...(image ? { image } : {}),
       mapsUrl: `https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}`,
     });
@@ -232,6 +233,7 @@ function buildItinerary(days: number, interests: string[], ACTIVITIES: Activity[
       name: loc(lang, a.name, a.nameFr, a.nameCr),
       description: loc(lang, a.description, a.descriptionFr, a.descriptionCr),
       tip: loc(lang, a.tip, a.tipFr, a.tipCr),
+      ...(a.story ? { story: loc(lang, a.story, a.storyFr, a.storyCr) } : {}),
     }));
 
     itinerary.push({

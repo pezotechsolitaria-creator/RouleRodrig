@@ -359,6 +359,7 @@ export default function TiRouleGuide({
   const [pose, setPose] = useState("welcome");
   const [input, setInput] = useState("");
   const [speakingId, setSpeakingId] = useState<number | null>(null);
+  const [firstTime, setFirstTime] = useState(false);
   const idRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -386,11 +387,21 @@ export default function TiRouleGuide({
     };
   }, []);
 
+  // Show a one-time "New" nudge until the visitor first opens the chat.
+  useEffect(() => {
+    try { if (!localStorage.getItem("rr_tiroule_seen")) setFirstTime(true); } catch { /* ignore */ }
+  }, []);
+  const markSeen = () => {
+    setFirstTime(false);
+    try { localStorage.setItem("rr_tiroule_seen", "1"); } catch { /* ignore */ }
+  };
+  const openChat = () => { setRevealed(true); setOpen(true); markSeen(); };
+
   // Let other parts of the site open Ti Roulé (e.g. the hero "Ask Ti Roulé" button).
   useEffect(() => {
-    const openChat = () => { setRevealed(true); setOpen(true); };
     window.addEventListener("tiroule:open", openChat);
     return () => window.removeEventListener("tiroule:open", openChat);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Broadcast open/close so the WhatsApp FAB can step aside while the chat is up.
@@ -695,7 +706,7 @@ export default function TiRouleGuide({
         {revealed && !open && (
           <motion.button
             type="button"
-            onClick={() => setOpen(true)}
+            onClick={openChat}
             aria-label={c.open}
             initial={{ opacity: 0, y: 24, scale: 0.8 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -703,6 +714,14 @@ export default function TiRouleGuide({
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             className="fixed bottom-4 left-4 z-[85]"
           >
+            {firstTime && (
+              <span className="absolute -top-2 right-0 z-10 flex">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-yellow/60" />
+                <span className="relative inline-flex rounded-full bg-yellow px-2 py-0.5 font-syne text-[10px] font-bold text-dark shadow-lg">
+                  {language === "fr" ? "Nouveau" : language === "cr" ? "Nouvo" : "New"}
+                </span>
+              </span>
+            )}
             <span className="relative block rr-mascot-bob">
               <span className="block h-16 w-16 overflow-hidden rounded-full bg-dark-card ring-2 ring-yellow ring-offset-2 ring-offset-dark shadow-[0_10px_24px_rgba(0,0,0,0.5)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}

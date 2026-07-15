@@ -23,8 +23,12 @@ import {
   TreePine,
   ShieldCheck,
   Leaf,
+  BookOpen,
+  Volume2,
+  Square,
   type LucideIcon,
 } from "lucide-react";
+import { speakText, stopSpeaking, primeVoices } from "@/lib/speak";
 import { useLanguage } from "@/context/LanguageContext";
 
 // Map an activity/interest type to a Lucide icon (no emojis anywhere).
@@ -48,6 +52,7 @@ interface Activity {
   duration: string;
   description: string;
   tip: string;
+  story?: string;
   image?: string;
   mapsUrl?: string;
 }
@@ -81,6 +86,16 @@ export default function TripPlanner() {
   const [activeDay, setActiveDay] = useState(0);
   const [lightbox, setLightbox] = useState<{ src: string; name: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [openStory, setOpenStory] = useState<string | null>(null);
+  const [speakingStory, setSpeakingStory] = useState<string | null>(null);
+  useEffect(() => { primeVoices(); return () => stopSpeaking(); }, []);
+  const speakStory = (key: string, text: string) => {
+    if (speakingStory === key) { stopSpeaking(); setSpeakingStory(null); return; }
+    setSpeakingStory(key);
+    speakText(text, language, () => setSpeakingStory((c) => (c === key ? null : c)));
+  };
+  const storyLabel = language === "fr" ? "L'histoire de Ti Roulé" : language === "cr" ? "Zistwar Ti Roulé" : "Ti Roulé's story";
+  const listenLabel = language === "fr" ? "Écouter" : language === "cr" ? "Ekoute" : "Listen";
 
   // Restore the last plan so it survives a reload / coming back to the page.
   useEffect(() => {
@@ -459,16 +474,49 @@ export default function TripPlanner() {
                                       <p className="text-yellow/80 font-dm text-xs leading-relaxed">{act.tip}</p>
                                     </div>
                                   )}
-                                  {act.mapsUrl && (
-                                    <a
-                                      href={act.mapsUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1.5 mt-2.5 text-[11px] font-dm text-yellow/70 hover:text-yellow transition-colors"
-                                    >
-                                      <Navigation size={11} /> {t.planner.directions}
-                                    </a>
-                                  )}
+                                  <div className="flex flex-wrap items-center gap-x-4">
+                                    {act.mapsUrl && (
+                                      <a
+                                        href={act.mapsUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 mt-2.5 text-[11px] font-dm text-yellow/70 hover:text-yellow transition-colors"
+                                      >
+                                        <Navigation size={11} /> {t.planner.directions}
+                                      </a>
+                                    )}
+                                    {act.story && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setOpenStory(openStory === `${activeDay}-${idx}` ? null : `${activeDay}-${idx}`)}
+                                        className="inline-flex items-center gap-1.5 mt-2.5 text-[11px] font-dm text-yellow/70 hover:text-yellow transition-colors"
+                                      >
+                                        <BookOpen size={11} /> {storyLabel}
+                                      </button>
+                                    )}
+                                  </div>
+                                  <AnimatePresence>
+                                    {act.story && openStory === `${activeDay}-${idx}` && (
+                                      <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: "auto" }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        transition={{ duration: 0.25 }}
+                                        className="overflow-hidden"
+                                      >
+                                        <div className="mt-2 rounded-xl border border-yellow/15 bg-yellow/[0.05] p-3">
+                                          <p className="font-dm text-xs leading-relaxed text-offwhite/80">{act.story}</p>
+                                          <button
+                                            type="button"
+                                            onClick={() => speakStory(`${activeDay}-${idx}`, act.story!)}
+                                            className="mt-2 inline-flex items-center gap-1 text-[10px] font-dm text-muted/70 hover:text-yellow transition-colors"
+                                          >
+                                            {speakingStory === `${activeDay}-${idx}` ? <><Square size={10} /> Stop</> : <><Volume2 size={11} /> {listenLabel}</>}
+                                          </button>
+                                        </div>
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
                                 </div>
                               </div>
                             </motion.div>

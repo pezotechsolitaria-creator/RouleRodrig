@@ -104,16 +104,25 @@ export default function IslandMapInner({ locations }: Props) {
         const locName = localize(language, loc.name, loc.nameFr, loc.nameCr);
         const locDesc = localize(language, loc.description, loc.descriptionFr, loc.descriptionCr);
         const catLabel = CATEGORY_LABEL_I18N[language][loc.category] ?? loc.category;
+        const locStory = localize(language, loc.story, loc.storyFr, loc.storyCr);
+        const storyLabel = language === "fr" ? "L'histoire de Ti Roulé" : language === "cr" ? "Zistwar Ti Roulé" : "Ti Roulé's story";
+        const story = locStory
+          ? `<div style="margin-top:8px;padding:8px 10px;background:#FBF3D9;border:1px solid #F0D68A;border-radius:8px;">
+              <p style="margin:0 0 3px;font-size:10px;font-weight:700;letter-spacing:.04em;color:#8a6d1e;">🐢 ${esc(storyLabel)}</p>
+              <p style="margin:0;font-size:12px;line-height:1.5;color:#4b463a;">${esc(locStory)}</p>
+            </div>`
+          : "";
 
         marker.bindPopup(
-          `<div style="font-family: sans-serif; width:220px;">
+          `<div style="font-family: sans-serif; width:230px;">
             ${photo}
             <p style="font-weight:700;margin:0 0 3px;font-size:14px;color:#111;">${esc(locName)}</p>
             <p style="margin:0 0 6px;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:${color};font-weight:700;">${esc(catLabel)}</p>
             <p style="margin:0;font-size:12px;line-height:1.45;color:#374151;">${esc(locDesc)}</p>
+            ${story}
             ${directions}
           </div>`,
-          { maxWidth: 260 }
+          { maxWidth: 270 }
         );
       });
 
