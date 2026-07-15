@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  X, Send, Compass, UtensilsCrossed, Waves, Mountain, Bike, Footprints, Car, Languages, Volume2, Square,
+  X, Send, Compass, UtensilsCrossed, Waves, Mountain, Bike, Footprints, Car, Languages, Volume2, Square, Wallet,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Language } from "@/lib/i18n";
@@ -95,6 +95,47 @@ function waLink(raw: string | undefined, message: string): string | null {
   return href.includes("?") ? href : `${href}?text=${encodeURIComponent(message)}`;
 }
 
+// Live rates with a browser cache: instant on repeat, and still works offline
+// (falls back to the last saved rates, labelled with their date).
+async function getRatesCached(): Promise<{ rates: Record<string, number>; updated: string | null } | null> {
+  const KEY = "rr_rates_v1";
+  const now = Date.now();
+  const read = () => {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) {
+        const c = JSON.parse(raw);
+        if (c?.rates) return c as { rates: Record<string, number>; updated: string | null; cachedAt: number };
+      }
+    } catch { /* ignore */ }
+    return null;
+  };
+  const cached = read();
+  if (cached?.cachedAt && now - cached.cachedAt < 6 * 3600 * 1000) return { rates: cached.rates, updated: cached.updated };
+  try {
+    const res = await fetch("/api/rates");
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.rates) {
+        try { localStorage.setItem(KEY, JSON.stringify({ rates: data.rates, updated: data.updated ?? null, cachedAt: now })); } catch { /* ignore */ }
+        return { rates: data.rates, updated: data.updated ?? null };
+      }
+    }
+  } catch { /* ignore */ }
+  return cached?.rates ? { rates: cached.rates, updated: cached.updated } : null;
+}
+
+// A budget question = a money amount + a number of days ("€500 for 4 days").
+function parseBudget(text: string): { cur: NonNullable<ReturnType<typeof parseCurrencyQuery>>; days: number } | null {
+  const dm = text.match(/(\d+)\s*(?:days?|jours?|zour|nights?|nuits?)/i);
+  if (!dm) return null;
+  const days = parseInt(dm[1], 10);
+  if (!days || days < 1 || days > 60) return null;
+  const cur = parseCurrencyQuery(text.replace(dm[0], " "));
+  if (!cur) return null;
+  return { cur, days };
+}
+
 function matchIntent(text: string): IntentKey | null {
   const norm = normalize(text);
   if (!norm) return null;
@@ -128,6 +169,8 @@ type Copy = {
   hello: string; thanks: string; help: string;
   contact: string; contactCta: string; weather: string; fallback: string;
   waCta: string; waPrefill: string; openMap: string; curError: string;
+  budgetChip: string; budgetPrompt: string; budgetDay: string; budgetScooter: string; budgetRest: string; budgetCta: string;
+  curChip: string; curPrompt: string;
 };
 
 // Proactive seasonal tip, based on the visitor's current month (client-side).
@@ -182,7 +225,7 @@ const COPY: Record<Language, Copy> = {
     means: "means",
     hello: "Bonzur! 😄 Lovely to see you. What are you dreaming of — beaches, food, a scooter, a plan for the day?",
     thanks: "Anytime — mo la pou ou! 🐢 Anything else I can help with?",
-    help: "I'm your island guide 🗺️ I can plan your trip, find you food, suggest beaches and viewpoints, sort a scooter or car, point you to trails and taxis, and even teach you Creole. What would you like?",
+    help: "I'm your island guide 🗺️ I can plan your trip, find you food, suggest beaches and viewpoints, sort a scooter or car, point you to trails and taxis, convert money & size your budget 💱, and even teach you Creole. What would you like?",
     contact: "Happy to connect you with the Roule Rodrigues team — they'll sort you out personally.",
     contactCta: "Contact the team",
     weather: "Rodrigues stays warm and breezy most of the year 🌴. Check your weather app for today's forecast — and if it rains, the food concierge and island spots make great backups.",
@@ -191,6 +234,14 @@ const COPY: Record<Language, Copy> = {
     waPrefill: "Hi! I have a question about visiting Rodrigues 🐢",
     openMap: "See it on Google Maps",
     curError: "I couldn't fetch the exchange rate just now 🤔 — please try again in a moment.",
+    budgetChip: "Plan by budget",
+    budgetPrompt: "Tell me your budget and how many days and I'll do the maths — e.g. “€500 for 4 days” 💰",
+    budgetDay: "a day",
+    budgetScooter: "A scooter for {days} days is about Rs {total} (from Rs {price}/day)",
+    budgetRest: ", leaving roughly Rs {rest} for food, fuel and activities — comfortable! 👍",
+    budgetCta: "Plan my days",
+    curChip: "Convert money",
+    curPrompt: "I'm your pocket currency converter too 💱 Type any amount and I'll give you the live rate — e.g. “100 EUR”, “50 GBP to MUR” or “2500 MUR to USD”.",
   },
   fr: {
     role: "Guide de l'île", online: "en ligne", bubble: "Koman ou lé ?",
@@ -220,7 +271,7 @@ const COPY: Record<Language, Copy> = {
     means: "veut dire",
     hello: "Bonzur ! 😄 Ravi de vous voir. De quoi rêvez-vous — plages, restos, un scooter, un programme pour la journée ?",
     thanks: "Avec plaisir — mo la pou ou ! 🐢 Puis-je vous aider avec autre chose ?",
-    help: "Je suis votre guide de l'île 🗺️ Je peux planifier votre séjour, vous trouver un resto, suggérer plages et points de vue, réserver un scooter ou une voiture, indiquer sentiers et taxis, et même vous apprendre le créole. Que souhaitez-vous ?",
+    help: "Je suis votre guide de l'île 🗺️ Je peux planifier votre séjour, vous trouver un resto, suggérer plages et points de vue, réserver un scooter ou une voiture, indiquer sentiers et taxis, convertir vos devises & calculer votre budget 💱, et même vous apprendre le créole. Que souhaitez-vous ?",
     contact: "Je vous mets volontiers en relation avec l'équipe Roule Rodrigues — ils s'occuperont de vous personnellement.",
     contactCta: "Contacter l'équipe",
     weather: "Rodrigues reste chaude et venteuse presque toute l'année 🌴. Consultez votre app météo pour aujourd'hui — et s'il pleut, le concierge culinaire et les sites de l'île sont de bonnes options.",
@@ -229,6 +280,14 @@ const COPY: Record<Language, Copy> = {
     waPrefill: "Bonjour ! J'ai une question sur Rodrigues 🐢",
     openMap: "Voir sur Google Maps",
     curError: "Je n'ai pas pu récupérer le taux de change à l'instant 🤔 — réessayez dans un moment.",
+    budgetChip: "Planifier par budget",
+    budgetPrompt: "Dites-moi votre budget et le nombre de jours et je fais le calcul — ex. « 500 € pour 4 jours » 💰",
+    budgetDay: "par jour",
+    budgetScooter: "Un scooter pour {days} jours coûte environ Rs {total} (à partir de Rs {price}/jour)",
+    budgetRest: ", il vous reste environ Rs {rest} pour la nourriture, l'essence et les activités — confortable ! 👍",
+    budgetCta: "Planifier mes journées",
+    curChip: "Convertir une devise",
+    curPrompt: "Je suis aussi votre convertisseur de poche 💱 Tapez un montant et je vous donne le taux en direct — ex. « 100 EUR », « 50 GBP to MUR » ou « 2500 MUR to USD ».",
   },
   cr: {
     role: "Gid lil", online: "online", bubble: "Koman ou lé?",
@@ -258,7 +317,7 @@ const COPY: Record<Language, Copy> = {
     means: "vedir",
     hello: "Bonzur! 😄 Kontan trouv ou. Ki ou anvi — laplaz, manze, enn skooter, enn program pou lazourne?",
     thanks: "Nanye — mo la pou ou! 🐢 Ena lezot kitsoz mo kapav ed ou?",
-    help: "Mo ou gid lil 🗺️ Mo kapav plann ou vwayaz, trouv ou manze, propoz laplaz ek pwin vi, aranz enn skooter ou loto, montre ou santie ek taxi, ek mem aprann ou kreol. Ki ou anvi?",
+    help: "Mo ou gid lil 🗺️ Mo kapav plann ou vwayaz, trouv ou manze, propoz laplaz ek pwin vi, aranz enn skooter ou loto, montre ou santie ek taxi, konverti larzan & kalkil ou bidze 💱, ek mem aprann ou kreol. Ki ou anvi?",
     contact: "Mo kontan konekt ou ek lekip Roule Rodrigues — zot pou okip ou personelman.",
     contactCta: "Kontakt lekip la",
     weather: "Rodrigues res so ek ena divan preske tou lane 🌴. Get ou app meteo pou zordi — ek si lapli tonbe, konsierz manze ek bann plas lil bon losion.",
@@ -267,6 +326,14 @@ const COPY: Record<Language, Copy> = {
     waPrefill: "Bonzur! Mo ena enn kestion lor Rodrigues 🐢",
     openMap: "Get lor Google Maps",
     curError: "Mo pa finn kapav gagn to de sanz la aster 🤔 — sey ankor dan enn ti moman.",
+    budgetChip: "Plann par bidze",
+    budgetPrompt: "Dir mwa ou bidze ek konbien zour ek mo fer kalkil — par ex. « 500 € pou 4 zour » 💰",
+    budgetDay: "par zour",
+    budgetScooter: "Enn skooter pou {days} zour koute apepre Rs {total} (depi Rs {price}/zour)",
+    budgetRest: ", res apepre Rs {rest} pou manze, karbiran ek aktivite — konfortab! 👍",
+    budgetCta: "Plann mo bann zour",
+    curChip: "Konverti larzan",
+    curPrompt: "Mo osi ou konvertiser larzan 💱 Tap enn montan ek mo donn ou to an direk — par ex. « 100 EUR », « 50 GBP to MUR » ou « 2500 MUR to USD ».",
   },
 };
 
@@ -295,6 +362,7 @@ export default function TiRouleGuide({
   const idRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
 
   const avatar = (key?: string) => resolvePose(key, poses, image);
   const hasMascot = !!avatar("welcome");
@@ -472,6 +540,10 @@ export default function TiRouleGuide({
     const clean = text.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/gu, "").replace(/\s+/g, " ").trim();
     const u = new SpeechSynthesisUtterance(clean);
     u.lang = language === "fr" ? "fr-FR" : language === "cr" ? "fr-FR" : "en-US";
+    const voice = pickVoice(language);
+    if (voice) u.voice = voice;
+    u.rate = 0.98;
+    u.pitch = 1.05;
     u.onend = () => setSpeakingId((cur) => (cur === id ? null : cur));
     u.onerror = () => setSpeakingId((cur) => (cur === id ? null : cur));
     setSpeakingId(id);
@@ -487,6 +559,27 @@ export default function TiRouleGuide({
   }, [open]);
   useEffect(() => () => { if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel(); }, []);
 
+  // Load available speech voices (populated asynchronously in most browsers).
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    const load = () => { voicesRef.current = window.speechSynthesis.getVoices(); };
+    load();
+    window.speechSynthesis.addEventListener?.("voiceschanged", load);
+    return () => window.speechSynthesis.removeEventListener?.("voiceschanged", load);
+  }, []);
+
+  // Pick the warmest available voice for the language (prefer named/natural ones).
+  const pickVoice = (lang: Language): SpeechSynthesisVoice | null => {
+    const want = lang === "en" ? "en" : "fr";
+    const vs = voicesRef.current.filter((v) => v.lang.toLowerCase().startsWith(want));
+    if (!vs.length) return null;
+    return (
+      vs.find((v) => /google|natural|enhanced|siri|samantha|amelie|amélie|aurélie|aurelie|thomas|sonia|libby|female/i.test(v.name)) ||
+      vs.find((v) => !/male/i.test(v.name)) ||
+      vs[0]
+    );
+  };
+
   // Currency question → fetch live rates (with an honest estimate fallback).
   const handleCurrency = async (userText: string, q: ReturnType<typeof parseCurrencyQuery>) => {
     if (!q) return;
@@ -496,9 +589,8 @@ export default function TiRouleGuide({
     setPose("thinking");
     let answer: Answer;
     try {
-      const res = await fetch("/api/rates");
-      const data = res.ok ? await res.json() : null;
-      const rates: Record<string, number> | undefined = data?.rates;
+      const data = await getRatesCached();
+      const rates = data?.rates;
       if (rates?.[q.from] && rates?.[q.to]) {
         const rate = rates[q.to] / rates[q.from];
         const text = formatConversion(q, q.amount * rate, rate, language, { live: true, scooterDailyMur, updated: data?.updated });
@@ -517,13 +609,71 @@ export default function TiRouleGuide({
     setMessages((m) => [...m, { id: nextId(), who: "bot", text: answer.text, pose: answer.pose, cta: answer.cta }]);
   };
 
-  // Free text: currency → core intent → knowledge base → human hand-off. Log the
-  // misses. All local (except the live rate lookup) — no LLM, nothing to bill.
+  // "€500 for 4 days" → a grounded budget breakdown (real scooter cost, no
+  // fabricated food prices).
+  const handleBudget = async (userText: string, cur: NonNullable<ReturnType<typeof parseCurrencyQuery>>, days: number) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setMessages((m) => [...m, { id: nextId(), who: "user", text: userText }]);
+    setTyping(true);
+    setPose("thinking");
+    let totalMur: number | null = null;
+    if (cur.from === "MUR") {
+      totalMur = cur.amount;
+    } else {
+      const data = await getRatesCached();
+      if (data?.rates?.[cur.from] && data.rates.MUR) totalMur = cur.amount * (data.rates.MUR / data.rates[cur.from]);
+      else { const est = estimateConvert({ amount: cur.amount, from: cur.from, to: "MUR" }); if (est) totalMur = est.converted; }
+    }
+    let answer: Answer;
+    if (totalMur == null) {
+      answer = { text: c.curError, pose: "surprised" };
+    } else {
+      const rs = (n: number) => Math.round(n).toLocaleString("en-US");
+      const lines = [
+        `${cur.amount.toLocaleString("en-US")} ${cur.from} ≈ Rs ${rs(totalMur)}`,
+        "",
+        `≈ Rs ${rs(totalMur / days)} ${c.budgetDay}`,
+      ];
+      if (scooterDailyMur && scooterDailyMur > 0) {
+        const scoot = days * scooterDailyMur;
+        const rest = totalMur - scoot;
+        let s = c.budgetScooter.replace("{days}", String(days)).replace("{total}", rs(scoot)).replace("{price}", rs(scooterDailyMur));
+        s += rest > 0 ? c.budgetRest.replace("{rest}", rs(rest)) : ".";
+        lines.push("", s);
+      }
+      answer = { text: lines.join("\n"), pose: "holdingMap", cta: { label: c.budgetCta, href: "/#trip-planner" } };
+    }
+    setTyping(false);
+    setPose(answer.pose);
+    setMessages((m) => [...m, { id: nextId(), who: "bot", text: answer.text, pose: answer.pose, cta: answer.cta }]);
+  };
+
+  // A prompt-style bot message (used by the budget & convert chips).
+  const prompt = (text: string, pose = "holdingMap") => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setTyping(true);
+    setPose("thinking");
+    timerRef.current = setTimeout(() => {
+      setTyping(false);
+      setPose(pose);
+      setMessages((m) => [...m, { id: nextId(), who: "bot", text, pose }]);
+    }, 500);
+  };
+  const askBudget = () => prompt(c.budgetPrompt);
+  const askConvert = () => prompt(c.curPrompt, "excited");
+
+  // Free text: budget → currency → core intent → knowledge base → human hand-off.
+  // Log the misses. All local (except the live rate lookup) — no LLM, nothing to bill.
   const submitText = (e: React.FormEvent) => {
     e.preventDefault();
     const text = input.trim();
     if (!text || typing) return;
     setInput("");
+    const budget = parseBudget(text);
+    if (budget) {
+      void handleBudget(text, budget.cur, budget.days);
+      return;
+    }
     const money = parseCurrencyQuery(text);
     if (money) {
       void handleCurrency(text, money);
@@ -683,6 +833,24 @@ export default function TiRouleGuide({
               {/* Quick-reply chips + free-text input */}
               <div className="space-y-2.5 border-t border-white/10 p-3">
                 <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <button
+                    type="button"
+                    onClick={askConvert}
+                    disabled={typing}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 font-dm text-xs text-offwhite/85 transition-colors hover:border-yellow/40 hover:bg-yellow/10 hover:text-offwhite disabled:opacity-40"
+                  >
+                    <span className="text-yellow" aria-hidden="true">💱</span>
+                    {c.curChip}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={askBudget}
+                    disabled={typing}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 font-dm text-xs text-offwhite/85 transition-colors hover:border-yellow/40 hover:bg-yellow/10 hover:text-offwhite disabled:opacity-40"
+                  >
+                    <Wallet size={13} className="text-yellow" strokeWidth={2} />
+                    {c.budgetChip}
+                  </button>
                   {TOPIC_ORDER.map((topic) => {
                     const Icon = TOPIC_ICON[topic];
                     return (

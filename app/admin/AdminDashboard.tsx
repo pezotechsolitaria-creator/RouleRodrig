@@ -2714,6 +2714,16 @@ function MapEditor({
             <div className="mt-2"><TransFields base={loc.description} fr={loc.descriptionFr} cr={loc.descriptionCr} onFr={(v) => updateLoc(idx, { descriptionFr: v })} onCr={(v) => updateLoc(idx, { descriptionCr: v })} textarea rows={2} /></div>
           </Field>
 
+          <Field label="TI ROULÉ'S STORY (optional)">
+            <Textarea
+              value={loc.story ?? ""}
+              onChange={(v) => updateLoc(idx, { story: v })}
+              rows={3}
+            />
+            <p className="text-muted/50 text-[11px] font-dm mt-1">A short, warm story or history for this place — shown as a “Ti Roulé's story” you can expand and hear read aloud on the Island Guide.</p>
+            <div className="mt-2"><TransFields base={loc.story ?? ""} fr={loc.storyFr} cr={loc.storyCr} onFr={(v) => updateLoc(idx, { storyFr: v })} onCr={(v) => updateLoc(idx, { storyCr: v })} textarea rows={3} /></div>
+          </Field>
+
           <MultiImagePicker
             label="PHOTOS (gallery shown when the dot is clicked)"
             hint="Add as many angles as you like — the first photo is the cover shown in the location list."
@@ -5200,19 +5210,26 @@ interface LeadData {
   totals: { all: number; last30: number; stayEatDo: number; taxi: number; food: number };
   summary: LeadSummary[];
   recent: LeadRecent[];
+  misses?: { question: string; count: number; last: string }[];
 }
 
 function LeadsViewer() {
   const [data, setData] = useState<LeadData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [missList, setMissList] = useState<{ question: string; count: number; last: string }[]>([]);
 
   useEffect(() => {
     fetch("/api/admin/leads")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setData(d))
+      .then((d) => { setData(d); if (d?.misses) setMissList(d.misses); })
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, []);
+
+  const markAnswered = (q: string) => {
+    setMissList((l) => l.filter((m) => m.question !== q));
+    fetch("/api/admin/leads", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q }) }).catch(() => {});
+  };
 
   const kindLabel = (k: string) =>
     k === "taxi" ? "Taxi" : k === "food_concierge" ? "Food concierge" : "Accommodation & Activity";
@@ -5227,7 +5244,7 @@ function LeadsViewer() {
       </div>
     );
   }
-  if (!data || data.totals.all === 0) {
+  if (!data || (data.totals.all === 0 && missList.length === 0)) {
     return (
       <div className="bg-dark-card border border-dark-border rounded-2xl p-10 text-center">
         <TrendingUp size={36} className="text-muted/20 mx-auto mb-3" />
@@ -5238,6 +5255,35 @@ function LeadsViewer() {
 
   return (
     <div className="space-y-6">
+      {/* Ti Roulé — questions he couldn't answer (grow the knowledge base) */}
+      {missList.length > 0 && (
+        <div className="bg-dark-card border border-yellow/20 rounded-2xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-dark-border flex items-center gap-2">
+            <Sparkles size={13} className="text-yellow" />
+            <p className="font-bebas text-yellow text-[10px] tracking-[0.3em]">TI ROULÉ — QUESTIONS TO ANSWER</p>
+          </div>
+          <div className="divide-y divide-dark-border">
+            {missList.map((m) => (
+              <div key={m.question} className="flex items-center justify-between gap-3 px-5 py-3">
+                <div className="min-w-0">
+                  <p className="text-offwhite text-sm break-words">{m.question}</p>
+                  <p className="text-muted text-xs">{m.count}× · {fmt(m.last)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => markAnswered(m.question)}
+                  className="shrink-0 inline-flex items-center gap-1 text-xs font-dm text-green-400/90 hover:text-green-400 border border-green-500/30 hover:border-green-500/60 rounded-full px-3 py-1.5 transition-colors"
+                >
+                  <CheckCircle size={12} /> Answered
+                </button>
+              </div>
+            ))}
+          </div>
+          <p className="px-5 py-2.5 text-muted/50 text-xs font-dm border-t border-dark-border">
+            Questions visitors typed that Ti Roulé couldn&apos;t answer. Add them to his knowledge, then mark them Answered. (You also get this as a weekly email.)
+          </p>
+        </div>
+      )}
       {/* Totals */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[

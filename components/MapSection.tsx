@@ -3,10 +3,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
-import { Navigation, ChevronDown, X, ChevronLeft, ChevronRight, ZoomIn } from "lucide-react";
+import { Navigation, ChevronDown, X, ChevronLeft, ChevronRight, ZoomIn, BookOpen, Volume2, Square } from "lucide-react";
 import type { MapLocation } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc as localize } from "@/lib/localize";
+import { speakText, stopSpeaking, primeVoices } from "@/lib/speak";
 import type { Language } from "@/lib/i18n";
 
 // Load Leaflet map only on client (no SSR — window required)
@@ -33,6 +34,18 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
   const catLabel = (k: string) => CATEGORY_LABEL_I18N[language]?.[k] ?? k;
   const locs = locations ?? [];
   const [filter, setFilter] = useState<string>("all");
+
+  // Ti Roulé's place stories (expand + read aloud).
+  const [openStory, setOpenStory] = useState<string | null>(null);
+  const [speakingStory, setSpeakingStory] = useState<string | null>(null);
+  useEffect(() => { primeVoices(); return () => stopSpeaking(); }, []);
+  const speakStory = (id: string, text: string) => {
+    if (speakingStory === id) { stopSpeaking(); setSpeakingStory(null); return; }
+    setSpeakingStory(id);
+    speakText(text, language, () => setSpeakingStory((c) => (c === id ? null : c)));
+  };
+  const storyLabel = language === "fr" ? "L'histoire de Ti Roulé" : language === "cr" ? "Zistwar Ti Roulé" : "Ti Roulé's story";
+  const listenLabel = language === "fr" ? "Écouter" : language === "cr" ? "Ekoute" : "Listen";
 
   // ── Lazy-load the Leaflet map only once it's scrolled near ──
   // Leaflet + its tiles are heavy; deferring keeps the initial page fast.
@@ -228,15 +241,57 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
                         </span>
                       </div>
                       <p className="text-muted font-dm text-xs leading-relaxed">{localize(language, loc.description, loc.descriptionFr, loc.descriptionCr)}</p>
-                      <a
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 mt-2 text-[11px] font-dm text-yellow/70 hover:text-yellow transition-colors"
-                        aria-label={`Get directions to ${loc.name}`}
-                      >
-                        <Navigation size={11} /> {t.map.directions}
-                      </a>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 mt-2 text-[11px] font-dm text-yellow/70 hover:text-yellow transition-colors"
+                          aria-label={`Get directions to ${loc.name}`}
+                        >
+                          <Navigation size={11} /> {t.map.directions}
+                        </a>
+                        {(() => {
+                          const story = localize(language, loc.story, loc.storyFr, loc.storyCr);
+                          if (!story) return null;
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => setOpenStory(openStory === loc.id ? null : loc.id)}
+                              className="inline-flex items-center gap-1 mt-2 text-[11px] font-dm text-yellow/70 hover:text-yellow transition-colors"
+                            >
+                              <BookOpen size={11} /> {storyLabel}
+                              <ChevronDown size={11} className={`transition-transform ${openStory === loc.id ? "rotate-180" : ""}`} />
+                            </button>
+                          );
+                        })()}
+                      </div>
+                      <AnimatePresence>
+                        {openStory === loc.id && (() => {
+                          const story = localize(language, loc.story, loc.storyFr, loc.storyCr);
+                          if (!story) return null;
+                          return (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.25 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="mt-2 rounded-lg border border-yellow/15 bg-yellow/[0.04] p-3">
+                                <p className="font-dm text-xs leading-relaxed text-offwhite/80">{story}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => speakStory(loc.id, story)}
+                                  className="mt-2 inline-flex items-center gap-1 text-[10px] font-dm text-muted/70 hover:text-yellow transition-colors"
+                                >
+                                  {speakingStory === loc.id ? <><Square size={10} /> Stop</> : <><Volume2 size={11} /> {listenLabel}</>}
+                                </button>
+                              </div>
+                            </motion.div>
+                          );
+                        })()}
+                      </AnimatePresence>
                     </div>
                   </div>
                 );

@@ -130,6 +130,9 @@ export interface MapLocation {
   lng: number;
   image?: string;    // cover photo (kept in sync with images[0])
   images?: string[]; // photo gallery shown in the map popup + location list
+  story?: string;    // Ti Roulé's short researched story about the place
+  storyFr?: string;
+  storyCr?: string;
 }
 
 export interface PlannerActivity {

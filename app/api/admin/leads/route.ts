@@ -20,8 +20,22 @@ export async function GET(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const rows = data ?? [];
+  const all = data ?? [];
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+  // Questions Ti Roulé couldn't answer — kept separate from lead analytics.
+  const missMap = new Map<string, { question: string; count: number; last: string }>();
+  for (const r of all.filter((r) => r.kind === "tiroule_miss")) {
+    const q = (r.target_name ?? "").trim();
+    if (!q) continue;
+    const m = missMap.get(q) ?? { question: q, count: 0, last: r.created_at };
+    m.count += 1;
+    if (new Date(r.created_at) > new Date(m.last)) m.last = r.created_at;
+    missMap.set(q, m);
+  }
+  const misses = Array.from(missMap.values()).sort((a, b) => b.count - a.count).slice(0, 40);
+
+  const rows = all.filter((r) => r.kind !== "tiroule_miss");
 
   type Agg = { target: string; kind: string; category: string | null; total: number; last30: number };
   const map = new Map<string, Agg>();
@@ -44,5 +58,19 @@ export async function GET(req: NextRequest) {
     },
     summary,
     recent: rows.slice(0, 50),
+    misses,
   });
+}
+
+// Mark a Ti Roulé question as answered — clears its logged rows.
+export async function DELETE(req: NextRequest) {
+  if (!isAuthed(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let body: { question?: string };
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid" }, { status: 400 }); }
+  const question = (body.question ?? "").trim();
+  if (!question) return NextResponse.json({ error: "Missing question" }, { status: 400 });
+  const supabase = await getPrivileged();
+  const { error } = await supabase.from("lead_events").delete().eq("kind", "tiroule_miss").eq("target_name", question);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }
