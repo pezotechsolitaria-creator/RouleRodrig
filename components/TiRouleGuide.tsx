@@ -9,7 +9,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import type { Language } from "@/lib/i18n";
 import { resolvePose } from "@/lib/mascot";
 import { loc } from "@/lib/localize";
-import { matchKnowledge, type KnowledgeCta } from "@/lib/rodrigues-knowledge";
+import { matchKnowledge, type KnowledgeCta, type KnowledgeEntry } from "@/lib/rodrigues-knowledge";
 
 /**
  * Ti Roulé — the Roule Rodrigues mascot as an animated island-guide chat.
@@ -126,8 +126,31 @@ type Copy = {
   creoleLead: string; means: string;
   hello: string; thanks: string; help: string;
   contact: string; contactCta: string; weather: string; fallback: string;
-  waCta: string; waPrefill: string;
+  waCta: string; waPrefill: string; openMap: string;
 };
+
+// Proactive seasonal tip, based on the visitor's current month (client-side).
+function seasonNote(lang: Language): string {
+  const m = new Date().getMonth() + 1; // 1–12
+  const pick = (en: string, fr: string, cr: string) => (lang === "fr" ? fr : lang === "cr" ? cr : en);
+  if (m >= 6 && m <= 9)
+    return pick(
+      "🪁 It's windy season right now — perfect for kitesurfing and windsurfing!",
+      "🪁 C'est la saison du vent en ce moment — parfait pour le kitesurf et la planche à voile !",
+      "🪁 Se sezon divan la — top pou kitesurf ek windsurf!",
+    );
+  if (m >= 12 || m <= 3)
+    return pick(
+      "🌴 It's the warm, greener season — just keep an eye on the forecast during the cyclone months.",
+      "🌴 C'est la saison chaude et verdoyante — surveillez simplement la météo pendant la période cyclonique.",
+      "🌴 Se sezon so ek pli ver — zis get meteo pandan bann mwa siklonn.",
+    );
+  return pick(
+    "☀️ Lovely time to visit — cooler, drier and calm seas.",
+    "☀️ Belle période pour visiter — plus frais, sec et mer calme.",
+    "☀️ Zoli moman pou vizite — pli fre, sek ek lamer kalm.",
+  );
+}
 
 const COPY: Record<Language, Copy> = {
   en: {
@@ -165,6 +188,7 @@ const COPY: Record<Language, Copy> = {
     fallback: "Hmm, I didn't quite catch that one 🤔 — I'm best with trips, food, beaches, viewpoints, rentals, trails and taxis. Tap a topic below, or let a real person help:",
     waCta: "Chat with a human on WhatsApp",
     waPrefill: "Hi! I have a question about visiting Rodrigues 🐢",
+    openMap: "See it on Google Maps",
   },
   fr: {
     role: "Guide de l'île", online: "en ligne", bubble: "Koman ou lé ?",
@@ -201,6 +225,7 @@ const COPY: Record<Language, Copy> = {
     fallback: "Hmm, je n'ai pas bien saisi 🤔 — je suis meilleur pour les séjours, la nourriture, les plages, les points de vue, la location, les sentiers et les taxis. Choisissez un sujet, ou parlez à une vraie personne :",
     waCta: "Parler à un humain sur WhatsApp",
     waPrefill: "Bonjour ! J'ai une question sur Rodrigues 🐢",
+    openMap: "Voir sur Google Maps",
   },
   cr: {
     role: "Gid lil", online: "online", bubble: "Koman ou lé?",
@@ -237,6 +262,7 @@ const COPY: Record<Language, Copy> = {
     fallback: "Hmm, mo pa finn byen konpran 🤔 — mo pli bon ek vwayaz, manze, laplaz, pwin vi, lokasion, santie ek taxi. Swazir enn size, ou koz ek enn vre dimoun:",
     waCta: "Koz ek enn dimoun lor WhatsApp",
     waPrefill: "Bonzur! Mo ena enn kestion lor Rodrigues 🐢",
+    openMap: "Get lor Google Maps",
   },
 };
 
@@ -297,11 +323,11 @@ export default function TiRouleGuide({
     window.dispatchEvent(new CustomEvent("tiroule:visibility", { detail: { open } }));
   }, [open]);
 
-  // Seed the greeting the first time the chat opens.
+  // Seed the greeting (+ a proactive seasonal tip) the first time the chat opens.
   useEffect(() => {
     if (open && messages.length === 0) {
       setPose("welcome");
-      setMessages([{ id: nextId(), who: "bot", text: c.greet, pose: "welcome" }]);
+      setMessages([{ id: nextId(), who: "bot", text: `${c.greet}\n\n${seasonNote(language)}`, pose: "welcome" }]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -396,32 +422,48 @@ export default function TiRouleGuide({
 
   const askTopic = (topic: TopicKey) => deliver(c.topics[topic], () => buildAnswer(topic));
 
-  // Free text: try a core intent first, then the Rodrigues knowledge base, then
-  // the human hand-off fallback. All local — no API, nothing to bill.
-  const resolveAnswer = (text: string): Answer => {
-    const key = matchIntent(text);
-    if (key) return answerFor(key);
-    const k = matchKnowledge(text);
-    if (k) {
-      const kt = language === "fr" ? k.fr : language === "cr" ? k.cr : k.en;
-      const CTA: Record<KnowledgeCta, { label: string; href: string }> = {
-        plan: { label: c.planCta, href: "/#trip-planner" },
-        map: { label: c.mapCta, href: "/#map" },
-        rent: { label: c.rentCta, href: "/#explore" },
-        taxi: { label: c.taxiCta, href: "/taxi" },
-        eat: { label: c.eatCta, href: "/food" },
-      };
-      return { text: kt, pose: k.pose, cta: k.cta ? CTA[k.cta] : undefined };
-    }
-    return answerFor(null);
+  // Quietly log a question Ti Roulé couldn't answer, so the owner can see the
+  // gaps and grow the knowledge base. Fire-and-forget, no PII.
+  const logMiss = (q: string) => {
+    try {
+      fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "tiroule_miss", target_name: q.slice(0, 160), category: "tiroule", type: "link" }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch { /* ignore */ }
   };
 
+  const knowledgeAnswer = (k: KnowledgeEntry): Answer => {
+    const kt = language === "fr" ? k.fr : language === "cr" ? k.cr : k.en;
+    const CTA: Record<KnowledgeCta, { label: string; href: string }> = {
+      plan: { label: c.planCta, href: "/#trip-planner" },
+      map: { label: c.mapCta, href: "/#map" },
+      rent: { label: c.rentCta, href: "/#explore" },
+      taxi: { label: c.taxiCta, href: "/taxi" },
+      eat: { label: c.eatCta, href: "/food" },
+    };
+    const cta = k.place
+      ? { label: c.openMap, href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(k.place)}` }
+      : k.cta
+        ? CTA[k.cta]
+        : undefined;
+    return { text: kt, pose: k.pose, cta };
+  };
+
+  // Free text: core intent → Rodrigues knowledge base → human hand-off. Log the
+  // misses. All local — no API, nothing to bill.
   const submitText = (e: React.FormEvent) => {
     e.preventDefault();
     const text = input.trim();
     if (!text || typing) return;
     setInput("");
-    deliver(text, () => resolveAnswer(text));
+    const key = matchIntent(text);
+    const k = key ? null : matchKnowledge(text);
+    if (!key && !k) logMiss(text);
+    const answer: Answer = key ? answerFor(key) : k ? knowledgeAnswer(k) : answerFor(null);
+    deliver(text, () => answer);
   };
 
   if (!hasMascot) return null;
@@ -527,7 +569,7 @@ export default function TiRouleGuide({
                             {...(m.cta.href.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                             onClick={() => setOpen(false)}
                             className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 font-dm text-xs font-semibold transition-transform hover:scale-[1.03] ${
-                              m.cta.href.startsWith("http")
+                              m.cta.href.includes("wa.me")
                                 ? "bg-[#25D366] text-white"
                                 : "bg-yellow text-dark"
                             }`}

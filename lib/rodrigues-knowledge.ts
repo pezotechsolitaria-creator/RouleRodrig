@@ -12,6 +12,9 @@ export type KnowledgeEntry = {
   kw: string[];
   pose: string;
   cta?: KnowledgeCta;
+  // A named place → deep-links the answer to Google Maps (accurately geocoded,
+  // so no risk of a wrong custom pin). Takes precedence over `cta`.
+  place?: string;
   en: string;
   fr: string;
   cr: string;
@@ -57,7 +60,7 @@ export const RODRIGUES_KNOWLEDGE: KnowledgeEntry[] = [
     id: "tortoises",
     kw: ["tortoise", "tortoises", "turtle reserve", "giant tortoise", "francois leguat", "leguat", "aldabra", "turtles"],
     pose: "excited",
-    cta: "plan",
+    place: "Francois Leguat Reserve, Rodrigues",
     en: "Head to the François Leguat Reserve at Anse Quitor — you can walk among hundreds of giant tortoises and tour the Grande Caverne cave with a guide.",
     fr: "Rendez-vous à la Réserve François Leguat à Anse Quitor — vous marcherez parmi des centaines de tortues géantes et visiterez la grotte Grande Caverne avec un guide.",
     cr: "Al Rezerv François Leguat dan Anse Quitor — ou pou mars parmi santenn torti zean ek vizit lagrot Grande Caverne ek enn gid.",
@@ -66,7 +69,7 @@ export const RODRIGUES_KNOWLEDGE: KnowledgeEntry[] = [
     id: "cocos",
     kw: ["ile aux cocos", "cocos", "coco island", "bird island", "bird sanctuary", "islet", "boat trip", "island hopping", "ile aux chats", "hermitage"],
     pose: "atViewpoint",
-    cta: "plan",
+    place: "Ile aux Cocos, Rodrigues",
     en: "Île aux Cocos is a protected bird-sanctuary islet reached by boat with a licensed guide — pure white sand and thousands of seabirds. Book the excursion ahead.",
     fr: "L'Île aux Cocos est un îlot-réserve d'oiseaux qu'on rejoint en bateau avec un guide agréé — sable blanc et milliers d'oiseaux marins. Réservez l'excursion à l'avance.",
     cr: "Île aux Cocos se enn ti lil rezerv zwazo ki ou al an bato ek enn gid — disab blan ek milye zwazo lamer. Rezerv exkursion la davans.",
@@ -75,7 +78,7 @@ export const RODRIGUES_KNOWLEDGE: KnowledgeEntry[] = [
     id: "caves",
     kw: ["cave", "caves", "caverne", "patate", "stalactite", "stalagmite", "grande caverne", "underground"],
     pose: "lookingAround",
-    cta: "plan",
+    place: "Caverne Patate, Rodrigues",
     en: "Caverne Patate is a ~600m limestone cave — a guided, torch-lit walk past dramatic stalactites and stalagmites. Wear comfy shoes.",
     fr: "La Caverne Patate est une grotte calcaire d'environ 600 m — une visite guidée à la lampe torche parmi stalactites et stalagmites. Prévoyez de bonnes chaussures.",
     cr: "Caverne Patate se enn lagrot ~600m — enn vizit gide ek latorse parmi stalactit ek stalagmit. Met bon soulie.",
@@ -84,7 +87,7 @@ export const RODRIGUES_KNOWLEDGE: KnowledgeEntry[] = [
     id: "trouDArgent",
     kw: ["trou d argent", "trou dargent", "secret beach", "hidden beach", "graviers", "saint francois beach", "st francois"],
     pose: "atBeach",
-    cta: "plan",
+    place: "Trou d'Argent, Rodrigues",
     en: "Trou d'Argent is the island's most famous hidden beach — tucked between cliffs and reachable only on foot, hiking from Graviers or Saint-François. Bring water and good shoes.",
     fr: "Trou d'Argent est la plage cachée la plus célèbre de l'île — nichée entre les falaises et accessible uniquement à pied, depuis Graviers ou Saint-François. Emportez de l'eau et de bonnes chaussures.",
     cr: "Trou d'Argent se pli fame laplaz kachiet lor lil — ant falez ek zis aksesib apie, depi Graviers ou Saint-François. Amenn delo ek bon soulie.",
@@ -93,7 +96,7 @@ export const RODRIGUES_KNOWLEDGE: KnowledgeEntry[] = [
     id: "montLimon",
     kw: ["mont limon", "highest point", "highest peak", "summit", "limon", "highest mountain"],
     pose: "atViewpoint",
-    cta: "plan",
+    place: "Mont Limon, Rodrigues",
     en: "Mont Limon is the highest point (~398m) with a sweeping view over the island — an easy stop just south of Port Mathurin.",
     fr: "Le Mont Limon est le point culminant (~398 m) avec une vue panoramique sur l'île — un arrêt facile juste au sud de Port Mathurin.",
     cr: "Mont Limon se pwin pli o (~398m) ek enn zoli vi lor lil — enn are fasil zis dan sid Port Mathurin.",

@@ -510,6 +510,34 @@ export default function TripPlanner() {
                       </button>
                     </div>
                   </div>
+
+                  {/* Ti Roulé's hidden gems — costless nudge to lesser-known spots */}
+                  <div className="mt-4 rounded-2xl border border-yellow/15 bg-gradient-to-br from-yellow/[0.06] to-transparent p-5">
+                    <p className="flex items-center gap-2 font-syne font-bold text-offwhite text-sm">
+                      <Sparkles size={15} className="text-yellow" />
+                      {language === "fr" ? "Les coins secrets de Ti Roulé" : language === "cr" ? "Bann landrwa sekre Ti Roulé" : "Ti Roulé's hidden gems"}
+                    </p>
+                    <p className="font-dm text-muted/70 text-xs mt-1">
+                      {language === "fr"
+                        ? "Moins de monde, Rodrigues authentique — ouvrez dans Google Maps."
+                        : language === "cr"
+                          ? "Mwins dimoun, vre Rodrigues — ouver dan Google Maps."
+                          : "Fewer crowds, pure Rodrigues — tap to open in Google Maps."}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {["Trou d'Argent", "Anse Bouteille", "Île aux Chats", "Graviers"].map((g) => (
+                        <a
+                          key={g}
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(g + ", Rodrigues")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-yellow/25 bg-yellow/10 px-3 py-1.5 font-dm text-xs text-yellow hover:bg-yellow hover:text-dark transition-colors"
+                        >
+                          <MapPin size={12} /> {g}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

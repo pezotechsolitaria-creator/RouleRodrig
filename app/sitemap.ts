@@ -16,6 +16,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 0.7,
     },
+    {
+      url: `${SITE_URL}/guide/rodrigues`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
     ...["terms", "privacy", "refunds", "disclaimer"].map((slug) => ({
       url: `${SITE_URL}/legal/${slug}`,
       lastModified: now,

@@ -29,6 +29,7 @@ export default function Footer({
     { label: t.nav.map,           href: "/#map"     },
     { label: t.nav.routes,        href: "/#routes"  },
     { label: t.nav.taxi,          href: "/taxi"     },
+    { label: "Rodrigues guide",   href: "/guide/rodrigues" },
     { label: t.nav.contact,       href: "/#contact" },
     { label: t.footer.listScooter, href: "/list-your-scooter" },
   ];
