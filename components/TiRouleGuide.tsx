@@ -10,6 +10,7 @@ import type { Language } from "@/lib/i18n";
 import { resolvePose } from "@/lib/mascot";
 import { loc } from "@/lib/localize";
 import { matchKnowledge, type KnowledgeCta, type KnowledgeEntry } from "@/lib/rodrigues-knowledge";
+import { parseCurrencyQuery, estimateConvert, formatConversion } from "@/lib/currency-convert";
 
 /**
  * Ti Roulé — the Roule Rodrigues mascot as an animated island-guide chat.
@@ -126,7 +127,7 @@ type Copy = {
   creoleLead: string; means: string;
   hello: string; thanks: string; help: string;
   contact: string; contactCta: string; weather: string; fallback: string;
-  waCta: string; waPrefill: string; openMap: string;
+  waCta: string; waPrefill: string; openMap: string; curError: string;
 };
 
 // Proactive seasonal tip, based on the visitor's current month (client-side).
@@ -189,6 +190,7 @@ const COPY: Record<Language, Copy> = {
     waCta: "Chat with a human on WhatsApp",
     waPrefill: "Hi! I have a question about visiting Rodrigues 🐢",
     openMap: "See it on Google Maps",
+    curError: "I couldn't fetch the exchange rate just now 🤔 — please try again in a moment.",
   },
   fr: {
     role: "Guide de l'île", online: "en ligne", bubble: "Koman ou lé ?",
@@ -226,6 +228,7 @@ const COPY: Record<Language, Copy> = {
     waCta: "Parler à un humain sur WhatsApp",
     waPrefill: "Bonjour ! J'ai une question sur Rodrigues 🐢",
     openMap: "Voir sur Google Maps",
+    curError: "Je n'ai pas pu récupérer le taux de change à l'instant 🤔 — réessayez dans un moment.",
   },
   cr: {
     role: "Gid lil", online: "online", bubble: "Koman ou lé?",
@@ -263,6 +266,7 @@ const COPY: Record<Language, Copy> = {
     waCta: "Koz ek enn dimoun lor WhatsApp",
     waPrefill: "Bonzur! Mo ena enn kestion lor Rodrigues 🐢",
     openMap: "Get lor Google Maps",
+    curError: "Mo pa finn kapav gagn to de sanz la aster 🤔 — sey ankor dan enn ti moman.",
   },
 };
 
@@ -452,13 +456,48 @@ export default function TiRouleGuide({
     return { text: kt, pose: k.pose, cta };
   };
 
-  // Free text: core intent → Rodrigues knowledge base → human hand-off. Log the
-  // misses. All local — no API, nothing to bill.
+  // Currency question → fetch live rates (with an honest estimate fallback).
+  const handleCurrency = async (userText: string, q: ReturnType<typeof parseCurrencyQuery>) => {
+    if (!q) return;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setMessages((m) => [...m, { id: nextId(), who: "user", text: userText }]);
+    setTyping(true);
+    setPose("thinking");
+    let answer: Answer;
+    try {
+      const res = await fetch("/api/rates");
+      const data = res.ok ? await res.json() : null;
+      const rates: Record<string, number> | undefined = data?.rates;
+      if (rates?.[q.from] && rates?.[q.to]) {
+        const rate = rates[q.to] / rates[q.from];
+        const text = formatConversion(q, q.amount * rate, rate, language, true);
+        answer = { text, pose: "happy", cta: q.to === "MUR" ? { label: c.rentCta, href: "/#explore" } : undefined };
+      } else {
+        throw new Error("no rate");
+      }
+    } catch {
+      const est = estimateConvert(q);
+      answer = est
+        ? { text: formatConversion(q, est.converted, est.rate, language, false), pose: "lookingAround" }
+        : { text: c.curError, pose: "surprised" };
+    }
+    setTyping(false);
+    setPose(answer.pose);
+    setMessages((m) => [...m, { id: nextId(), who: "bot", text: answer.text, pose: answer.pose, cta: answer.cta }]);
+  };
+
+  // Free text: currency → core intent → knowledge base → human hand-off. Log the
+  // misses. All local (except the live rate lookup) — no LLM, nothing to bill.
   const submitText = (e: React.FormEvent) => {
     e.preventDefault();
     const text = input.trim();
     if (!text || typing) return;
     setInput("");
+    const money = parseCurrencyQuery(text);
+    if (money) {
+      void handleCurrency(text, money);
+      return;
+    }
     const key = matchIntent(text);
     const k = key ? null : matchKnowledge(text);
     if (!key && !k) logMiss(text);

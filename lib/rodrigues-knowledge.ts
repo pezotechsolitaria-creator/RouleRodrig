@@ -129,11 +129,11 @@ export const RODRIGUES_KNOWLEDGE: KnowledgeEntry[] = [
   },
   {
     id: "safety",
-    kw: ["safe", "safety", "dangerous", "danger", "crime", "currents", "reef shoes", "sunburn", "precaution", "is it safe"],
+    kw: ["safe", "safety", "dangerous", "danger", "crime", "currents", "reef shoes", "sunburn", "precaution", "is it safe", "stonefish", "stone fish", "jellyfish", "pollution", "litter", "rubbish", "conservation", "sustainable", "eco", "protect"],
     pose: "pointing",
-    en: "Rodrigues is very safe and laid-back. The main things to watch are strong currents and sharp coral (reef shoes help) and the strong sun — and please treat the reef and wildlife gently.",
-    fr: "Rodrigues est très sûre et paisible. Attention surtout aux courants forts et au corail coupant (des chaussures d'eau aident) et au soleil fort — et merci de respecter le récif et la faune.",
-    cr: "Rodrigues bien sekirize ek trankil. Fer atansion ar bann kouran for ek koray koupan (soulie delo ede) ek soley for — ek silvouple respe resif ek bann zanimo.",
+    en: "Rodrigues is very safe and laid-back. In the water, watch for strong currents and stonefish — wear reef shoes and never step on the coral. Bring good sun protection. And please take your litter home and keep your distance from the wildlife, so the island stays beautiful for everyone. 🌱",
+    fr: "Rodrigues est très sûre et paisible. Dans l'eau, méfiez-vous des courants forts et des poissons-pierres — portez des chaussures d'eau et ne marchez jamais sur le corail. Protégez-vous bien du soleil. Et merci de remporter vos déchets et de garder vos distances avec la faune, pour préserver la beauté de l'île. 🌱",
+    cr: "Rodrigues bien sekirize ek trankil. Dan dilo, fer atansion ar bann kouran for ek pwason ros (stonefish) — met soulie delo ek zame pil lor koray. Protez ou byen ar soley. Ek silvouple ramas ou salte ek res lwin ar bann zanimo, pou lil res zoli pou tou dimoun. 🌱",
   },
   {
     id: "hiddenGems",

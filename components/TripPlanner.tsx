@@ -21,6 +21,8 @@ import {
   UtensilsCrossed,
   Camera,
   TreePine,
+  ShieldCheck,
+  Leaf,
   type LucideIcon,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
@@ -537,6 +539,42 @@ export default function TripPlanner() {
                         </a>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Stay safe & keep Rodrigues beautiful — shown, never asked for */}
+                  <div className="mt-4 rounded-2xl border border-green-500/20 bg-green-500/[0.05] p-5">
+                    <p className="flex items-center gap-2 font-syne font-bold text-offwhite text-sm">
+                      <ShieldCheck size={15} className="text-green-400" />
+                      {language === "fr" ? "Restez en sécurité & préservez Rodrigues" : language === "cr" ? "Res an sekirite & protez Rodrigues" : "Stay safe & keep Rodrigues beautiful"}
+                    </p>
+                    <ul className="mt-2.5 space-y-1.5 font-dm text-muted/85 text-xs">
+                      {(language === "fr"
+                        ? [
+                            "Dans l'eau : méfiez-vous des courants forts et des poissons-pierres — portez des chaussures d'eau.",
+                            "Ne marchez jamais sur le corail et gardez vos distances avec la faune.",
+                            "Protégez-vous du soleil et roulez prudemment sur les routes sinueuses.",
+                          ]
+                        : language === "cr"
+                          ? [
+                              "Dan dilo: fer atansion ar kouran for ek pwason ros — met soulie delo.",
+                              "Zame pil lor koray ek res lwin ar bann zanimo.",
+                              "Protez ou ar soley ek kondir dousman lor bann sime sinye.",
+                            ]
+                          : [
+                              "In the water: watch for strong currents and stonefish — wear reef shoes.",
+                              "Never step on the coral and keep your distance from wildlife.",
+                              "Protect yourself from the sun and ride carefully on winding roads.",
+                            ]
+                      ).map((line) => (
+                        <li key={line} className="flex items-start gap-2">
+                          <Leaf size={12} className="mt-0.5 shrink-0 text-green-400/80" />
+                          <span>{line}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2.5 font-dm text-green-400/80 text-[11px]">
+                      {language === "fr" ? "Remportez vos déchets — merci de garder l'île propre. 🌱" : language === "cr" ? "Ramas ou salte — mersi pou gard lil prop. 🌱" : "Take your litter home — thank you for keeping the island clean. 🌱"}
+                    </p>
                   </div>
                 </motion.div>
               )}
