@@ -55,6 +55,7 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
       <TiRouleGuide
         image={content.branding.mascotImage}
         poses={content.branding.mascotPoses}
+        whatsapp={businessWhatsApp}
         data={{
           beaches: content.mapLocations
             .filter((l) => l.category === "beach")

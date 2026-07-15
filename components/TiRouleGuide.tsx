@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Send, Compass, UtensilsCrossed, Waves, Mountain, Bike, Footprints, Car, Languages,
@@ -77,6 +77,22 @@ function normalize(s: string): string {
     .trim();
 }
 
+// Build a wa.me link for the "talk to a human" escalation. Returns null for a
+// missing or placeholder (5XXX) number so we can fall back to the contact page.
+function waLink(raw: string | undefined, message: string): string | null {
+  if (!raw) return null;
+  if (!raw.includes("http") && /x/i.test(raw)) return null;
+  let href: string;
+  if (raw.includes("http")) {
+    href = raw;
+  } else {
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length < 7) return null;
+    href = `https://wa.me/${digits}`;
+  }
+  return href.includes("?") ? href : `${href}?text=${encodeURIComponent(message)}`;
+}
+
 function matchIntent(text: string): IntentKey | null {
   const norm = normalize(text);
   if (!norm) return null;
@@ -109,6 +125,7 @@ type Copy = {
   creoleLead: string; means: string;
   hello: string; thanks: string; help: string;
   contact: string; contactCta: string; weather: string; fallback: string;
+  waCta: string; waPrefill: string;
 };
 
 const COPY: Record<Language, Copy> = {
@@ -144,7 +161,9 @@ const COPY: Record<Language, Copy> = {
     contact: "Happy to connect you with the Roule Rodrigues team — they'll sort you out personally.",
     contactCta: "Contact the team",
     weather: "Rodrigues stays warm and breezy most of the year 🌴. Check your weather app for today's forecast — and if it rains, the food concierge and island spots make great backups.",
-    fallback: "Hmm, I didn't quite catch that 🤔 — but I can help with trips, food, beaches, viewpoints, rentals, trails, taxis, or a Creole word. Pick one below 👇",
+    fallback: "Hmm, I didn't quite catch that one 🤔 — I'm best with trips, food, beaches, viewpoints, rentals, trails and taxis. Tap a topic below, or let a real person help:",
+    waCta: "Chat with a human on WhatsApp",
+    waPrefill: "Hi! I have a question about visiting Rodrigues 🐢",
   },
   fr: {
     role: "Guide de l'île", online: "en ligne", bubble: "Koman ou lé ?",
@@ -178,7 +197,9 @@ const COPY: Record<Language, Copy> = {
     contact: "Je vous mets volontiers en relation avec l'équipe Roule Rodrigues — ils s'occuperont de vous personnellement.",
     contactCta: "Contacter l'équipe",
     weather: "Rodrigues reste chaude et venteuse presque toute l'année 🌴. Consultez votre app météo pour aujourd'hui — et s'il pleut, le concierge culinaire et les sites de l'île sont de bonnes options.",
-    fallback: "Hmm, je n'ai pas bien saisi 🤔 — mais je peux aider avec les séjours, la nourriture, les plages, les points de vue, la location, les sentiers, les taxis, ou un mot créole. Choisissez ci-dessous 👇",
+    fallback: "Hmm, je n'ai pas bien saisi 🤔 — je suis meilleur pour les séjours, la nourriture, les plages, les points de vue, la location, les sentiers et les taxis. Choisissez un sujet, ou parlez à une vraie personne :",
+    waCta: "Parler à un humain sur WhatsApp",
+    waPrefill: "Bonjour ! J'ai une question sur Rodrigues 🐢",
   },
   cr: {
     role: "Gid lil", online: "online", bubble: "Koman ou lé?",
@@ -212,7 +233,9 @@ const COPY: Record<Language, Copy> = {
     contact: "Mo kontan konekt ou ek lekip Roule Rodrigues — zot pou okip ou personelman.",
     contactCta: "Kontakt lekip la",
     weather: "Rodrigues res so ek ena divan preske tou lane 🌴. Get ou app meteo pou zordi — ek si lapli tonbe, konsierz manze ek bann plas lil bon losion.",
-    fallback: "Hmm, mo pa finn byen konpran 🤔 — me mo kapav ed ou ek vwayaz, manze, laplaz, pwin vi, lokasion, santie, taxi, ou enn mo kreol. Swazir enba 👇",
+    fallback: "Hmm, mo pa finn byen konpran 🤔 — mo pli bon ek vwayaz, manze, laplaz, pwin vi, lokasion, santie ek taxi. Swazir enn size, ou koz ek enn vre dimoun:",
+    waCta: "Koz ek enn dimoun lor WhatsApp",
+    waPrefill: "Bonzur! Mo ena enn kestion lor Rodrigues 🐢",
   },
 };
 
@@ -220,10 +243,12 @@ export default function TiRouleGuide({
   image,
   poses,
   data,
+  whatsapp,
 }: {
   image?: string;
   poses?: Record<string, string>;
   data?: MascotData;
+  whatsapp?: string;
 }) {
   const { language } = useLanguage();
   const c = COPY[language] ?? COPY.en;
@@ -258,6 +283,18 @@ export default function TiRouleGuide({
       window.removeEventListener("resize", check);
     };
   }, []);
+
+  // Let other parts of the site open Ti Roulé (e.g. the hero "Ask Ti Roulé" button).
+  useEffect(() => {
+    const openChat = () => { setRevealed(true); setOpen(true); };
+    window.addEventListener("tiroule:open", openChat);
+    return () => window.removeEventListener("tiroule:open", openChat);
+  }, []);
+
+  // Broadcast open/close so the WhatsApp FAB can step aside while the chat is up.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("tiroule:visibility", { detail: { open } }));
+  }, [open]);
 
   // Seed the greeting the first time the chat opens.
   useEffect(() => {
@@ -319,6 +356,13 @@ export default function TiRouleGuide({
     [c, data, language, names],
   );
 
+  // When Ti Roulé is stuck, hand off to a real human — WhatsApp if a number is
+  // configured, otherwise the contact page.
+  const escalationCta = useMemo(() => {
+    const link = waLink(whatsapp, c.waPrefill);
+    return link ? { label: c.waCta, href: link } : { label: c.contactCta, href: "/#contact" };
+  }, [whatsapp, c]);
+
   const answerFor = useCallback(
     (key: IntentKey | null): Answer => {
       switch (key) {
@@ -328,12 +372,12 @@ export default function TiRouleGuide({
         case "hello": return { text: c.hello, pose: "welcome" };
         case "thanks": return { text: c.thanks, pose: "happy" };
         case "help": return { text: c.help, pose: "pointing" };
-        case "contact": return { text: c.contact, pose: "happy", cta: { label: c.contactCta, href: "/#contact" } };
+        case "contact": return { text: c.contact, pose: "happy", cta: escalationCta };
         case "weather": return { text: c.weather, pose: "lookingAround" };
-        default: return { text: c.fallback, pose: "surprised" };
+        default: return { text: c.fallback, pose: "surprised", cta: escalationCta };
       }
     },
-    [buildAnswer, c],
+    [buildAnswer, c, escalationCta],
   );
 
   const deliver = (userText: string, getAnswer: () => Answer) => {
@@ -377,14 +421,16 @@ export default function TiRouleGuide({
             className="fixed bottom-4 left-4 z-[85]"
           >
             <span className="relative block rr-mascot-bob">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={avatar("welcome")}
-                alt=""
-                className="h-20 w-20 object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.45)]"
-                loading="lazy"
-              />
-              <span className="absolute -top-1 left-14 whitespace-nowrap rounded-full rounded-bl-sm bg-white px-2.5 py-1 font-dm text-[11px] font-medium text-dark shadow-lg">
+              <span className="block h-16 w-16 overflow-hidden rounded-full bg-dark-card ring-2 ring-yellow ring-offset-2 ring-offset-dark shadow-[0_10px_24px_rgba(0,0,0,0.5)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={avatar("welcome")}
+                  alt=""
+                  className="h-full w-full object-cover object-top"
+                  loading="lazy"
+                />
+              </span>
+              <span className="absolute -top-1 left-[3.25rem] whitespace-nowrap rounded-full rounded-bl-sm bg-white px-2.5 py-1 font-dm text-[11px] font-medium text-dark shadow-lg">
                 {c.bubble}
               </span>
               <span className="absolute top-1 right-2 flex h-3 w-3">
@@ -421,8 +467,10 @@ export default function TiRouleGuide({
               {/* Header */}
               <div className="flex items-center gap-3 border-b border-white/10 bg-gradient-to-b from-yellow/[0.08] to-transparent p-4">
                 <span className="relative shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={avatar(typing ? "thinking" : pose)} alt="" className="h-12 w-12 object-contain" />
+                  <span className="block h-12 w-12 overflow-hidden rounded-full bg-black/20 ring-2 ring-yellow/70">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={avatar(typing ? "thinking" : pose)} alt="" className="h-full w-full object-cover object-top" />
+                  </span>
                   <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-dark-card" />
                 </span>
                 <div className="min-w-0">
@@ -444,8 +492,10 @@ export default function TiRouleGuide({
                 {messages.map((m) =>
                   m.who === "bot" ? (
                     <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-end gap-2">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={avatar(m.pose)} alt="" className="h-7 w-7 shrink-0 object-contain" />
+                      <span className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-black/20">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={avatar(m.pose)} alt="" className="h-full w-full object-cover object-top" />
+                      </span>
                       <div className="max-w-[80%]">
                         <div className="whitespace-pre-line rounded-2xl rounded-bl-md bg-white/[0.06] px-3.5 py-2.5 font-dm text-sm leading-relaxed text-offwhite/90">
                           {m.text}
@@ -453,8 +503,13 @@ export default function TiRouleGuide({
                         {m.cta && (
                           <a
                             href={m.cta.href}
+                            {...(m.cta.href.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                             onClick={() => setOpen(false)}
-                            className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-yellow px-3.5 py-2 font-dm text-xs font-semibold text-dark transition-transform hover:scale-[1.03]"
+                            className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 font-dm text-xs font-semibold transition-transform hover:scale-[1.03] ${
+                              m.cta.href.startsWith("http")
+                                ? "bg-[#25D366] text-white"
+                                : "bg-yellow text-dark"
+                            }`}
                           >
                             {m.cta.label}
                           </a>
@@ -471,8 +526,10 @@ export default function TiRouleGuide({
                 )}
                 {typing && (
                   <div className="flex items-end gap-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={avatar("thinking")} alt="" className="h-7 w-7 shrink-0 object-contain" />
+                    <span className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-black/20">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={avatar("thinking")} alt="" className="h-full w-full object-cover object-top" />
+                    </span>
                     <div className="flex items-center gap-1 rounded-2xl rounded-bl-md bg-white/[0.06] px-4 py-3.5">
                       <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted [animation-delay:-0.3s]" />
                       <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted [animation-delay:-0.15s]" />

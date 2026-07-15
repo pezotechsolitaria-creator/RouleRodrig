@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Compass } from "lucide-react";
+import { ArrowRight, MessageCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type HeroContent } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
@@ -186,12 +186,14 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
           >
             {t.explore.title} <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
           </Link>
-          <Link
-            href="/#map"
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("tiroule:open"))}
             className="flex items-center gap-2 border border-white/25 text-white px-8 py-4 rounded-full text-sm md:text-base hover:bg-white/10 hover:border-white/45 transition-colors backdrop-blur-sm"
           >
-            {t.map.title} <Compass size={18} />
-          </Link>
+            {language === "fr" ? "Demander à Ti Roulé" : language === "cr" ? "Demann Ti Roulé" : "Ask Ti Roulé"}
+            <MessageCircle size={18} />
+          </button>
         </motion.div>
       </div>
 

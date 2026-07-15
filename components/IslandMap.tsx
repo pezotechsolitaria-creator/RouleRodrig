@@ -13,7 +13,7 @@ const CATEGORY_COLOR: Record<string, string> = {
   restaurant:"#10B981",
   landmark:  "#8B5CF6",
   activity:  "#EF4444",
-  gas:       "#F97316",
+  gas:       "#D946EF",
 };
 
 const CATEGORY_LABEL_I18N: Record<Language, Record<string, string>> = {

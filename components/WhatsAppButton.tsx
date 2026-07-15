@@ -39,12 +39,20 @@ export default function WhatsAppButton({
 }) {
   const [show, setShow] = useState(false);
   const [open, setOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setShow(window.scrollY > 400);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Step aside while the Ti Roulé chat is open so we never cover its input.
+  useEffect(() => {
+    const onVis = (e: Event) => setChatOpen(!!(e as CustomEvent<{ open: boolean }>).detail?.open);
+    window.addEventListener("tiroule:visibility", onVis);
+    return () => window.removeEventListener("tiroule:visibility", onVis);
   }, []);
 
   // Build the list of valid WhatsApp targets
@@ -68,7 +76,7 @@ export default function WhatsAppButton({
     </svg>
   );
 
-  const wrapVisibility = show
+  const wrapVisibility = show && !chatOpen
     ? "opacity-100 translate-y-0 pointer-events-auto"
     : "opacity-0 translate-y-4 pointer-events-none";
 

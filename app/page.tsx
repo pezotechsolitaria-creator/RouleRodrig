@@ -18,7 +18,6 @@ import Reveal from "@/components/Reveal";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import ScrollProgress from "@/components/ScrollProgress";
 import ScrollToTop from "@/components/ScrollToTop";
-import BackToExplore from "@/components/BackToExplore";
 import TiRouleGuide from "@/components/TiRouleGuide";
 
 // ISR: serve a cached page for instant repeat loads, regenerate every 60s.
@@ -135,10 +134,10 @@ export default async function Home() {
         numbers={content.contact.whatsappNumbers}
       />
       <ScrollToTop />
-      <BackToExplore />
       <TiRouleGuide
         image={content.branding.mascotImage}
         poses={content.branding.mascotPoses}
+        whatsapp={content.contact.whatsappNumbers?.[0]?.number || content.social.whatsapp || content.contact.phone}
         data={{
           beaches: content.mapLocations
             .filter((l) => l.category === "beach")
