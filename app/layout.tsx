@@ -81,12 +81,17 @@ export const metadata: Metadata = {
     title: "Roule Rodrigues",
     statusBarStyle: "black-translucent",
   },
-  // Google Search Console ownership verification (keep this in place permanently)
-  verification: {
-    google:
-      process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION ||
-      "4bcg4HagAw5bOiZ3ktjkB3hxi1cbO2-MJ53krSzv2Pg",
-  },
+  // Search Console ownership is verified by DNS TXT record on roulerodrig.com
+  // (a Domain property, which covers www, non-www, http, https and every
+  // subdomain at once). The hardcoded meta tag that used to live here belonged
+  // to a Google account that isn't the owner's — it's what made the earlier
+  // verification attempt fail. Removed rather than left as a decoy.
+  //
+  // Only set NEXT_PUBLIC_GOOGLE_VERIFICATION if a URL-prefix property is ever
+  // needed alongside the DNS one; leave it unset otherwise.
+  ...(process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION
+    ? { verification: { google: process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION } }
+    : {}),
 };
 
 export const viewport: Viewport = {
@@ -117,6 +122,15 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${syne.variable} ${bebasNeue.variable} ${dmSans.variable} antialiased`}
+      // The splash gate below is an inline script that runs BEFORE React
+      // hydrates and stamps data-splash / data-show-lang straight onto <html>
+      // (it has to — waiting for React would flash the unstyled page). React
+      // then sees attributes the server never rendered and logs a hydration
+      // mismatch on every single page load. The script is correct; the warning
+      // is noise, and noise in the console is how real errors get missed.
+      // This is the documented escape hatch for exactly this pattern, and it
+      // only silences <html>'s own attributes — nothing inside it.
+      suppressHydrationWarning
     >
       <body className="bg-dark text-offwhite font-dm overflow-x-hidden">
         {/* iOS PWA launch images (hoisted to <head> by React) */}

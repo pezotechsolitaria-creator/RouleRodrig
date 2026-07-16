@@ -109,7 +109,9 @@ export default async function Home() {
           showRoutes={content.rideRoutes.length > 0}
           showEvents={content.events.some((e) => e.title)}
         />
-        <Hero hero={content.hero} />
+        {/* scooterDailyMur = cheapest scooter/day from the live fleet; the hero
+            shows it so our price beats the island's Rs 800 story above the fold. */}
+        <Hero hero={content.hero} fromPrice={scooterDailyMur} />
         <WhatLookingFor categories={browseCats} />
         <TripPlanner />
         <MapSection locations={content.mapLocations} />
