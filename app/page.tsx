@@ -46,6 +46,15 @@ export default async function Home() {
   // Per-vehicle Product markup lives on /browse/[category], where the vehicles
   // are really rendered — marking up off-page content gets it ignored.
   const sameAs = [content.social.instagram, content.social.facebook, content.social.tiktok].filter((u) => u && u.trim());
+
+  // Real daily rates, straight from the fleet. Google's AI Overview was quoting
+  // a competitor's "Rs 800/day" for us because we never stated our own price in
+  // a machine-readable way — "Rs" as a priceRange says nothing. The hub tiles
+  // already show "From Rs 599/day" on this page, so this matches what's visible.
+  const dayRates = fleet.map((f) => priceNumber(f.price)).filter((n): n is number => n != null && n > 0);
+  const priceRange = dayRates.length
+    ? `Rs ${Math.min(...dayRates).toLocaleString("en-US")}–${Math.max(...dayRates).toLocaleString("en-US")} per day`
+    : undefined;
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -59,7 +68,8 @@ export default async function Home() {
           "Vehicle rentals and island experiences on Rodrigues — scooters, cars, restaurants, activities and local transport. Helmet included, flexible hours, local support.",
         url: SITE_URL,
         image: `${SITE_URL}/og-image.jpg`,
-        priceRange: "Rs",
+        ...(priceRange ? { priceRange } : {}),
+        currenciesAccepted: "MUR",
         ...(content.contact.phone ? { telephone: content.contact.phone } : {}),
         address: {
           "@type": "PostalAddress",
