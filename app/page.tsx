@@ -1,6 +1,6 @@
 import { SITE_URL } from "@/lib/site";
 import { getFleetView, buildBrowseCategories, priceNumber } from "@/lib/site-data";
-import { organizationLd, touristDestinationLd } from "@/lib/schema";
+import { organizationLd, touristDestinationLd, websiteLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
@@ -26,6 +26,31 @@ import TiRouleGuide from "@/components/TiRouleGuide";
 // Live booking-calendar availability is fetched client-side, so it stays fresh;
 // only the "sold out today" card badge can be up to ~60s behind.
 export const revalidate = 60;
+
+// Hub slug → the service name Google should understand. The tile label alone
+// ("Scooters", "Stay") reads as a noun, not a service, in a search result.
+// Anything not listed falls back to its own label, so a category the owner adds
+// in admin still appears rather than vanishing.
+const SERVICE_NAME: Record<string, string> = {
+  scooter: "Scooter rental",
+  car: "Car rental",
+  food: "WhatsApp food concierge",
+  stays: "Places to stay",
+  activities: "Activities & experiences",
+  tours: "Guided island tours",
+  "getting-around": "Taxis & island transport",
+  events: "Local events guide",
+};
+
+// The free tools that live on this page but aren't hub tiles, so they'd
+// otherwise be invisible to Google — which is exactly why its AI Overview
+// described us as nothing but a scooter platform.
+const FREE_TOOLS = [
+  { name: "Rodrigues Island travel guide", href: "/guide/rodrigues" },
+  { name: "Rodrigues trip planner", href: "/#trip-planner" },
+  { name: "Interactive island map — beaches & viewpoints", href: "/guide/beaches" },
+  { name: "Ti Roulé — AI island guide (English, French, Creole)", href: "/guide/rodrigues" },
+];
 
 export default async function Home() {
   const { content, fleet, reviews, recentBookings } = await getFleetView();
@@ -59,13 +84,22 @@ export default async function Home() {
     "@context": "https://schema.org",
     "@graph": [
       organizationLd({ logo: `${SITE_URL}/icon-192.png`, sameAs: sameAs as string[] }),
+      // Names the site "Roule Rodrigues" in results instead of falling back to
+      // the domain (which is why it used to read "Vercel").
+      websiteLd(),
       touristDestinationLd(),
       {
         "@type": "LocalBusiness",
         "@id": `${SITE_URL}/#business`,
         name: "Roule Rodrigues",
+        // This sentence is what Google's AI Overview paraphrases when someone
+        // asks "what is Roule Rodrigues". The old one said scooters, cars and
+        // restaurants — so the AI called us "une plateforme de location de
+        // scooters" and stopped there. Everything named here is real and
+        // reachable from this page's hub.
         description:
-          "Vehicle rentals and island experiences on Rodrigues — scooters, cars, restaurants, activities and local transport. Helmet included, flexible hours, local support.",
+          "Roule Rodrigues rents scooters and cars on Rodrigues Island, direct from local owners, from Rs 599 a day with no minimum rental. It is also a free island guide: a trip planner, an interactive map of beaches and viewpoints, recommended places to stay and things to do, a WhatsApp food concierge that books your table, and Ti Roulé — an AI island guide answering in English, French and Creole.",
+        knowsLanguage: ["en", "fr", "mfe"],
         url: SITE_URL,
         image: `${SITE_URL}/og-image.jpg`,
         ...(priceRange ? { priceRange } : {}),
@@ -80,6 +114,30 @@ export default async function Home() {
         geo: { "@type": "GeoCoordinates", latitude: -19.6833, longitude: 63.4167 },
         areaServed: { "@type": "Place", name: "Rodrigues Island, Mauritius" },
         ...(sameAs.length ? { sameAs } : {}),
+        // Built from the live hub tiles + the free tools that are actually on
+        // this page, so it can never claim a service we don't offer — and a
+        // category the owner adds in admin shows up here on its own.
+        hasOfferCatalog: {
+          "@type": "OfferCatalog",
+          name: "Roule Rodrigues services",
+          itemListElement: [
+            ...browseCats.map((c) => ({
+              "@type": "Offer",
+              itemOffered: {
+                "@type": "Service",
+                name: SERVICE_NAME[c.slug] ?? c.label,
+                url: `${SITE_URL}${c.href ?? `/browse/${c.slug}`}`,
+                areaServed: { "@type": "Place", name: "Rodrigues Island, Mauritius" },
+              },
+            })),
+            ...FREE_TOOLS.map((s) => ({
+              "@type": "Offer",
+              price: 0,
+              priceCurrency: "MUR",
+              itemOffered: { "@type": "Service", name: s.name, url: `${SITE_URL}${s.href}` },
+            })),
+          ],
+        },
       },
       ...(content.faq.enabled && content.faq.items.length
         ? [

@@ -37,17 +37,26 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   alternates: { canonical: "/" },
-  title: "Roule Rodrigues | Vehicle Rentals & Island Experiences on Rodrigues",
+  // 56 chars / 159 — the old pair was 67/186 and Google truncated BOTH, so the
+  // half that got cut never reached anyone.
+  //
+  // The old description named only scooters, cars and restaurants. That's why
+  // Google's AI Overview calls this "une plateforme de location de scooters":
+  // it can only describe what we tell it, and we never mentioned the trip
+  // planner, the island guide or the food concierge anywhere it could read.
+  // Everything claimed here is real and reachable from the homepage hub.
+  title: "Roule Rodrigues | Scooter & Car Rental, Rodrigues Island",
   description:
-    "Explore Rodrigues Island your way — rent scooters and cars, and discover the best restaurants, activities and local transport. Flexible hours, local support, helmet included on scooters.",
+    "Scooter and car rental in Rodrigues from Rs 599/day, no minimum. Plus a free island guide, trip planner and WhatsApp food concierge. Booked direct with locals.",
   keywords: [
     "scooter rental Rodrigues",
     "car rental Rodrigues",
+    "location scooter Rodrigues",
+    "location voiture Rodrigues",
+    "Rodrigues Island travel guide",
+    "things to do in Rodrigues",
     "Rodrigues Island",
     "Mauritius",
-    "vehicle rental Rodrigues",
-    "location voiture Rodrigues",
-    "moto location Rodrigues",
   ],
   openGraph: {
     title: "Roule Rodrigues | Vehicle Rentals & Island Experiences",

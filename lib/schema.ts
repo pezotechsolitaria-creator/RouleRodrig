@@ -9,6 +9,22 @@ import { SITE_URL } from "./site";
 
 const BRAND = "Roule Rodrigues";
 
+// Google picks the site name shown above a search result from WebSite schema.
+// Without it, it falls back to the domain — which is why results read "Vercel"
+// instead of "Roule Rodrigues". Homepage only; Google ignores it elsewhere.
+export function websiteLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": `${SITE_URL}/#website`,
+    name: BRAND,
+    alternateName: ["Roule Rodrig", "roulerodrig"],
+    url: SITE_URL,
+    inLanguage: ["en", "fr"],
+    publisher: { "@id": `${SITE_URL}/#organization` },
+  };
+}
+
 export function breadcrumbLd(trail: { name: string; url: string }[]) {
   return {
     "@context": "https://schema.org",
