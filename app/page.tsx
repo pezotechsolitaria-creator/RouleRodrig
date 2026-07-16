@@ -1,5 +1,7 @@
 import { SITE_URL } from "@/lib/site";
-import { getFleetView, buildBrowseCategories } from "@/lib/site-data";
+import { getFleetView, buildBrowseCategories, priceNumber } from "@/lib/site-data";
+import { organizationLd, touristDestinationLd } from "@/lib/schema";
+import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import WhatLookingFor from "@/components/WhatLookingFor";
@@ -25,13 +27,6 @@ import TiRouleGuide from "@/components/TiRouleGuide";
 // only the "sold out today" card badge can be up to ~60s behind.
 export const revalidate = 60;
 
-function priceNumber(price: string): number | null {
-  const m = price.match(/[\d,]+/);
-  if (!m) return null;
-  const n = parseInt(m[0].replace(/,/g, ""), 10);
-  return Number.isFinite(n) ? n : null;
-}
-
 export default async function Home() {
   const { content, fleet, reviews, recentBookings } = await getFleetView();
 
@@ -45,11 +40,17 @@ export default async function Home() {
     .filter((n): n is number => n != null && n > 0);
   const scooterDailyMur = scooterPrices.length ? Math.min(...scooterPrices) : undefined;
 
-  // ── SEO structured data (JSON-LD): LocalBusiness + Products ──
+  // ── SEO structured data (JSON-LD) ──
+  // Only describes what this page actually SHOWS: the business, the island
+  // (the hub + map + planner are all about Rodrigues) and the visible FAQ.
+  // Per-vehicle Product markup lives on /browse/[category], where the vehicles
+  // are really rendered — marking up off-page content gets it ignored.
   const sameAs = [content.social.instagram, content.social.facebook, content.social.tiktok].filter((u) => u && u.trim());
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
+      organizationLd({ logo: `${SITE_URL}/icon-192.png`, sameAs: sameAs as string[] }),
+      touristDestinationLd(),
       {
         "@type": "LocalBusiness",
         "@id": `${SITE_URL}/#business`,
@@ -70,29 +71,6 @@ export default async function Home() {
         areaServed: { "@type": "Place", name: "Rodrigues Island, Mauritius" },
         ...(sameAs.length ? { sameAs } : {}),
       },
-      ...fleet.map((s) => {
-        const price = priceNumber(s.price);
-        return {
-          "@type": "Product",
-          name: s.name,
-          description: s.description,
-          ...(s.image ? { image: s.image.startsWith("http") ? s.image : `${SITE_URL}${s.image}` } : {}),
-          ...(price
-            ? {
-                offers: {
-                  "@type": "Offer",
-                  price,
-                  priceCurrency: "MUR",
-                  availability:
-                    s.available === false || s.soldOutToday
-                      ? "https://schema.org/OutOfStock"
-                      : "https://schema.org/InStock",
-                  url: `${SITE_URL}/browse/${s.category ?? "scooter"}`,
-                },
-              }
-            : {}),
-        };
-      }),
       ...(content.faq.enabled && content.faq.items.length
         ? [
             {
@@ -111,7 +89,7 @@ export default async function Home() {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <JsonLd data={jsonLd} />
       <ScrollProgress />
       <main>
         <Navbar

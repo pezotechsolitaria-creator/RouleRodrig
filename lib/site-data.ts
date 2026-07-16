@@ -94,7 +94,8 @@ export async function getFleetView() {
 }
 
 // ── Shared category builder (homepage hub + browse pages + sticky tabs) ──────
-function priceNumber(price: string): number | null {
+// "Rs 1,200/day" → 1200. Used by the hub, the browse pages and JSON-LD offers.
+export function priceNumber(price: string): number | null {
   const m = price.match(/[\d,]+/);
   if (!m) return null;
   const n = parseInt(m[0].replace(/,/g, ""), 10);

@@ -4,6 +4,8 @@ import { ArrowRight, Compass, MessageCircle } from "lucide-react";
 import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
 import { RODRIGUES_KNOWLEDGE } from "@/lib/rodrigues-knowledge";
+import { breadcrumbLd, touristDestinationLd } from "@/lib/schema";
+import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
@@ -52,6 +54,8 @@ export const metadata: Metadata = {
 export default async function RodriguesGuidePage() {
   const content = await getContent();
 
+  // Every Q&A below is rendered on the page, so FAQPage markup is legitimate
+  // here — this is what feeds Google's "People also ask" and AI answers.
   const faqLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -64,7 +68,16 @@ export default async function RodriguesGuidePage() {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
+      <JsonLd
+        data={[
+          faqLd,
+          touristDestinationLd(),
+          breadcrumbLd([
+            { name: "Home", url: SITE_URL },
+            { name: "Rodrigues Island guide", url: `${SITE_URL}/guide/rodrigues` },
+          ]),
+        ]}
+      />
       <Navbar
         branding={content.branding}
         announcementActive={false}

@@ -1,5 +1,9 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { getFleetView, buildBrowseCategories } from "@/lib/site-data";
+import { SITE_URL } from "@/lib/site";
+import { breadcrumbLd, itemListLd, productLd } from "@/lib/schema";
+import JsonLd from "@/components/JsonLd";
+import { getFleetView, buildBrowseCategories, priceNumber } from "@/lib/site-data";
 import Navbar from "@/components/Navbar";
 import BrowseTabs from "@/components/BrowseTabs";
 import Footer from "@/components/Footer";
@@ -27,12 +31,112 @@ const PLACE_SLUGS: Record<string, { label: string; filter: (p: Place) => boolean
   stays: { label: "Accommodations", filter: (p) => p.category === "hotel" },
 };
 
+// ── SEO ──────────────────────────────────────────────────────────────
+// Each browse page targets a distinct search intent. Without this they all
+// inherit the root layout's title and read to Google as duplicates of the
+// homepage. Titles stay under ~60 chars and descriptions under ~155 so they
+// aren't truncated in results. No prices here — they'd go stale silently.
+const META: Record<string, { title: string; description: string }> = {
+  scooter: {
+    title: "Scooter Rental in Rodrigues Island",
+    description:
+      "Rent a scooter in Rodrigues from local owners. Helmets included, island-wide pickup and real WhatsApp support. Compare models and book your dates online.",
+  },
+  car: {
+    title: "Car Rental in Rodrigues Island",
+    description:
+      "Hire a car in Rodrigues for the family or a longer stay. Local owners, clear daily rates and island-wide pickup. Compare vehicles and book online.",
+  },
+  stays: {
+    title: "Where to Stay in Rodrigues Island",
+    description:
+      "Guesthouses, lodges and hotels across Rodrigues, recommended by locals. See photos and prices, then book directly with the owner — no booking fees.",
+  },
+  activities: {
+    title: "Things to Do in Rodrigues Island",
+    description:
+      "Kitesurfing, snorkelling, hiking, island tours and more. Real activities in Rodrigues with photos and prices — book directly with the people who run them.",
+  },
+  tours: {
+    title: "Guided Tours in Rodrigues Island",
+    description:
+      "Guided island tours in Rodrigues led by locals who know it best. See what's included, compare prices and book directly — no middleman, no booking fees.",
+  },
+  "getting-around": {
+    title: "Getting Around Rodrigues Island",
+    description:
+      "How to get around Rodrigues: taxis, airport transfers, scooter and car hire. Local options with real prices and direct contacts.",
+  },
+  events: {
+    title: "Events & Festivals in Rodrigues",
+    description:
+      "What's on in Rodrigues — festivals, markets, music and local events with dates and locations, kept up to date by locals on the island.",
+  },
+};
+
+function pageMeta(title: string, description: string, category: string): Metadata {
+  const url = `${SITE_URL}/browse/${category}`;
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: { title, description, url, siteName: "Roule Rodrigues", type: "website" },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ category: string }>;
+}): Promise<Metadata> {
+  const { category } = await params;
+
+  const m = META[category];
+  if (m) return pageMeta(`${m.title} | Roule Rodrigues`, m.description, category);
+
+  // Not in the curated map — it may still be a real category the owner added in
+  // admin (e.g. "Kayaks"). Use its live label so it gets a unique title rather
+  // than colliding with every other page on a generic one.
+  try {
+    const { content, fleet, recentBookings } = await getFleetView();
+    const cat = buildBrowseCategories(content, fleet, recentBookings).find((c) => c.slug === category);
+    if (cat) {
+      return pageMeta(
+        `${cat.label} in Rodrigues Island | Roule Rodrigues`,
+        `${cat.label} in Rodrigues, available to book directly with local owners. See photos, prices and availability on Roule Rodrigues.`,
+        category,
+      );
+    }
+  } catch {
+    /* fall through to the noindex default */
+  }
+
+  // Genuinely unknown slug → this renders the not-found page, so don't hand
+  // Google a canonical for a URL that isn't a real page.
+  return { title: "Page not found | Roule Rodrigues", robots: { index: false, follow: false } };
+}
+
 export default async function BrowsePage({ params }: { params: Promise<{ category: string }> }) {
   const { category } = await params;
   // Restaurants are handled by the WhatsApp food concierge, not a listing.
   if (category === "restaurants") redirect("/food");
   const { content, fleet, ratings, recentBookings, businessWhatsApp } = await getFleetView();
   const cats = buildBrowseCategories(content, fleet, recentBookings);
+
+  // Breadcrumb trail (Home › This page) + the listing itself, so Google shows
+  // a real trail under the result instead of a bare URL.
+  const seo = (label: string, items: { name: string }[]) => (
+    <JsonLd
+      data={[
+        breadcrumbLd([
+          { name: "Home", url: SITE_URL },
+          { name: label, url: `${SITE_URL}/browse/${category}` },
+        ]),
+        itemListLd(label, items),
+      ]}
+    />
+  );
 
   const nav = (
     <Navbar
@@ -77,6 +181,29 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
     if (items.length === 0) notFound();
     return (
       <>
+        {seo(vcat.label, items.map((i) => ({ name: i.name })))}
+        {/* The vehicles are rendered on THIS page, so this is where their
+            Product markup belongs — with real ratings where reviews exist. */}
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@graph": items.map((s) =>
+              productLd({
+                name: s.name,
+                description: s.description,
+                image: s.image
+                  ? s.image.startsWith("http")
+                    ? s.image
+                    : `${SITE_URL}${s.image}`
+                  : undefined,
+                price: priceNumber(s.price),
+                available: !(s.available === false || s.soldOutToday),
+                url: `${SITE_URL}/browse/${category}`,
+                rating: ratings[s.id],
+              }),
+            ),
+          }}
+        />
         {nav}
         <main>
           <BrowseBackBar title={vcat.label} />
@@ -105,6 +232,7 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
     if (items.length === 0) notFound();
     return (
       <>
+        {seo(place.label, items.map((i) => ({ name: i.name })))}
         {nav}
         <main>
           <BrowseBackBar title={place.label} />
@@ -123,13 +251,15 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
   if (category === "getting-around") {
     const ga = content.gettingAround;
     if (!ga?.enabled || (ga.options ?? []).length === 0) notFound();
+    const opts = (ga.options ?? []).filter((o) => o.icon !== "bus");
     return (
       <>
+        {seo("Getting around", opts.map((o) => ({ name: o.title })))}
         {nav}
         <main>
           <BrowseBackBar title="Getting around" />
           <BrowseTabs categories={cats} active={category} />
-          <GettingAround content={{ ...ga, options: (ga.options ?? []).filter((o) => o.icon !== "bus") }} />
+          <GettingAround content={{ ...ga, options: opts }} />
         </main>
         {footer}
       </>
@@ -142,6 +272,7 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
     if (events.length === 0) notFound();
     return (
       <>
+        {seo("What's on", events.map((e) => ({ name: e.title })))}
         {nav}
         <main>
           <BrowseBackBar title="What's on" />
