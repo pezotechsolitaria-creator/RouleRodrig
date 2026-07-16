@@ -169,7 +169,11 @@ export async function POST(req: NextRequest) {
         (record.asset_label ? ` (${record.asset_label})` : "") +
         `\n${record.start_date} → ${record.end_date}` +
         (record.pickup_time ? ` · pickup ${record.pickup_time}` : "") +
-        (record.total_price ? `\n💰 ${record.total_price}` : "") +
+        (typeof record.total_amount === "number"
+          ? `\n💰 Rs ${Math.round(record.total_amount).toLocaleString("en-US")}`
+          : record.total_price
+            ? `\n💰 ${record.total_price}`
+            : "") +
         (record.phone ? `\n📞 ${record.phone}` : ""),
     );
   } catch {

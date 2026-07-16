@@ -2,10 +2,21 @@
 // (place stories). Free, on-device. Picks a DIFFERENT voice per language:
 // English → an English voice, French & Creole → a French voice (there is no
 // Creole TTS, so French is the closest natural fit).
+//
+// Robustness: keeps a live reference to the current utterance (browsers GC it
+// mid-speech otherwise, which cuts the audio off), and nudges Chrome to resume
+// (it silently pauses long utterances after ~15s).
 
 export type SpeechLang = "en" | "fr" | "cr";
 
 const EMOJI = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/gu;
+
+let current: SpeechSynthesisUtterance | null = null;
+let keepAlive: ReturnType<typeof setInterval> | null = null;
+
+function clearKeepAlive() {
+  if (keepAlive) { clearInterval(keepAlive); keepAlive = null; }
+}
 
 export function pickVoice(lang: SpeechLang): SpeechSynthesisVoice | null {
   if (typeof window === "undefined" || !window.speechSynthesis) return null;
@@ -20,31 +31,46 @@ export function pickVoice(lang: SpeechLang): SpeechSynthesisVoice | null {
   );
 }
 
-// Warm the voice list (populated asynchronously in most browsers).
+// Warm the voice list (populated asynchronously in most browsers, incl. iOS).
 export function primeVoices(): void {
-  if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.getVoices();
+  if (typeof window === "undefined" || !window.speechSynthesis) return;
+  window.speechSynthesis.getVoices();
 }
 
 export function speakText(text: string, lang: SpeechLang, onEnd?: () => void): boolean {
   if (typeof window === "undefined" || !window.speechSynthesis) return false;
   const synth = window.speechSynthesis;
+  clearKeepAlive();
+  current = null;
   synth.cancel();
+
   const clean = text.replace(EMOJI, "").replace(/\s+/g, " ").trim();
   if (!clean) return false;
+
   const u = new SpeechSynthesisUtterance(clean);
   u.lang = lang === "en" ? "en-US" : "fr-FR";
   const v = pickVoice(lang);
   if (v) u.voice = v;
   u.rate = 0.98;
   u.pitch = 1.05;
-  if (onEnd) {
-    u.onend = onEnd;
-    u.onerror = onEnd;
-  }
+  const finish = () => { clearKeepAlive(); current = null; onEnd?.(); };
+  u.onend = finish;
+  u.onerror = finish;
+
+  current = u; // keep a live reference so the browser doesn't GC it mid-speech
   synth.speak(u);
+
+  // Chrome pauses long speech after ~15s — a periodic resume keeps it going.
+  keepAlive = setInterval(() => {
+    if (synth.speaking) synth.resume();
+    else clearKeepAlive();
+  }, 8000);
+
   return true;
 }
 
 export function stopSpeaking(): void {
   if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
+  clearKeepAlive();
+  current = null;
 }

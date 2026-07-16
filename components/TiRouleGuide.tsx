@@ -11,6 +11,7 @@ import { resolvePose } from "@/lib/mascot";
 import { loc } from "@/lib/localize";
 import { matchKnowledge, type KnowledgeCta, type KnowledgeEntry } from "@/lib/rodrigues-knowledge";
 import { parseCurrencyQuery, estimateConvert, formatConversion } from "@/lib/currency-convert";
+import { speakText, stopSpeaking, primeVoices } from "@/lib/speak";
 
 /**
  * Ti Roulé — the Roule Rodrigues mascot as an animated island-guide chat.
@@ -363,7 +364,6 @@ export default function TiRouleGuide({
   const idRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
 
   const avatar = (key?: string) => resolvePose(key, poses, image);
   const hasMascot = !!avatar("welcome");
@@ -538,58 +538,17 @@ export default function TiRouleGuide({
     return { text: kt, pose: k.pose, cta };
   };
 
-  // Read a message aloud with the browser's built-in speech (free, on-device).
+  // Read a message aloud — shared robust engine (per-language voice, no cut-off).
   const speak = (id: number, text: string) => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    const synth = window.speechSynthesis;
-    if (speakingId === id) {
-      synth.cancel();
-      setSpeakingId(null);
-      return;
-    }
-    synth.cancel();
-    const clean = text.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/gu, "").replace(/\s+/g, " ").trim();
-    const u = new SpeechSynthesisUtterance(clean);
-    u.lang = language === "fr" ? "fr-FR" : language === "cr" ? "fr-FR" : "en-US";
-    const voice = pickVoice(language);
-    if (voice) u.voice = voice;
-    u.rate = 0.98;
-    u.pitch = 1.05;
-    u.onend = () => setSpeakingId((cur) => (cur === id ? null : cur));
-    u.onerror = () => setSpeakingId((cur) => (cur === id ? null : cur));
+    if (speakingId === id) { stopSpeaking(); setSpeakingId(null); return; }
     setSpeakingId(id);
-    synth.speak(u);
+    speakText(text, language, () => setSpeakingId((cur) => (cur === id ? null : cur)));
   };
 
-  // Stop any narration when the chat closes / unmounts.
-  useEffect(() => {
-    if (!open && typeof window !== "undefined" && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      setSpeakingId(null);
-    }
-  }, [open]);
-  useEffect(() => () => { if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel(); }, []);
-
-  // Load available speech voices (populated asynchronously in most browsers).
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    const load = () => { voicesRef.current = window.speechSynthesis.getVoices(); };
-    load();
-    window.speechSynthesis.addEventListener?.("voiceschanged", load);
-    return () => window.speechSynthesis.removeEventListener?.("voiceschanged", load);
-  }, []);
-
-  // Pick the warmest available voice for the language (prefer named/natural ones).
-  const pickVoice = (lang: Language): SpeechSynthesisVoice | null => {
-    const want = lang === "en" ? "en" : "fr";
-    const vs = voicesRef.current.filter((v) => v.lang.toLowerCase().startsWith(want));
-    if (!vs.length) return null;
-    return (
-      vs.find((v) => /google|natural|enhanced|siri|samantha|amelie|amélie|aurélie|aurelie|thomas|sonia|libby|female/i.test(v.name)) ||
-      vs.find((v) => !/male/i.test(v.name)) ||
-      vs[0]
-    );
-  };
+  // Prime voices once; stop narration when the chat closes / unmounts.
+  useEffect(() => { primeVoices(); }, []);
+  useEffect(() => { if (!open) { stopSpeaking(); setSpeakingId(null); } }, [open]);
+  useEffect(() => () => stopSpeaking(), []);
 
   // Currency question → fetch live rates (with an honest estimate fallback).
   const handleCurrency = async (userText: string, q: ReturnType<typeof parseCurrencyQuery>) => {

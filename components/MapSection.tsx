@@ -105,6 +105,14 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
     setZoomed(false);
     setLightbox((lb) => (lb ? { ...lb, index: (lb.index + dir + lb.images.length) % lb.images.length } : lb));
   }, []);
+  // Lock background scroll while the photo lightbox is open.
+  const lightboxOpen = !!lightbox;
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [lightboxOpen]);
   useEffect(() => {
     if (!lightbox) return;
     const onKey = (e: KeyboardEvent) => {
