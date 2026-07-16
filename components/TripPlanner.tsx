@@ -96,6 +96,7 @@ export default function TripPlanner() {
   };
   const storyLabel = language === "fr" ? "L'histoire de Ti Roulé" : language === "cr" ? "Zistwar Ti Roulé" : "Ti Roulé's story";
   const listenLabel = language === "fr" ? "Écouter" : language === "cr" ? "Ekoute" : "Listen";
+  const stopLabel = language === "fr" ? "Arrêter" : language === "cr" ? "Aret" : "Stop";
 
   // Restore the last plan so it survives a reload / coming back to the page.
   useEffect(() => {
@@ -511,7 +512,7 @@ export default function TripPlanner() {
                                             onClick={() => speakStory(`${activeDay}-${idx}`, act.story!)}
                                             className="mt-2 inline-flex items-center gap-1 text-[10px] font-dm text-muted/70 hover:text-yellow transition-colors"
                                           >
-                                            {speakingStory === `${activeDay}-${idx}` ? <><Square size={10} /> Stop</> : <><Volume2 size={11} /> {listenLabel}</>}
+                                            {speakingStory === `${activeDay}-${idx}` ? <><Square size={10} /> {stopLabel}</> : <><Volume2 size={11} /> {listenLabel}</>}
                                           </button>
                                         </div>
                                       </motion.div>

@@ -44,6 +44,22 @@ export function iconFor(slug: string, label: string): LucideIcon {
   return Compass;
 }
 
+// Trilingual labels for the hub tiles (server builds them in English). Vehicle
+// categories fall back to the admin-set label when their slug isn't listed.
+const CAT_LABEL: Record<string, Record<string, string>> = {
+  scooter:         { en: "Scooters",       fr: "Scooters",        cr: "Skooter" },
+  scooters:        { en: "Scooters",       fr: "Scooters",        cr: "Skooter" },
+  car:             { en: "Cars",           fr: "Voitures",        cr: "Loto" },
+  cars:            { en: "Cars",           fr: "Voitures",        cr: "Loto" },
+  food:            { en: "Food & Dining",  fr: "Restauration",    cr: "Manze" },
+  restaurants:     { en: "Food & Dining",  fr: "Restauration",    cr: "Manze" },
+  activities:      { en: "Activities",     fr: "Activités",       cr: "Aktivite" },
+  tours:           { en: "Guided Tours",   fr: "Visites guidées", cr: "Tour gide" },
+  stays:           { en: "Stay",           fr: "Hébergement",     cr: "Lozman" },
+  "getting-around":{ en: "Getting around", fr: "Se déplacer",     cr: "Deplasman" },
+  events:          { en: "What's on",      fr: "Événements",      cr: "Levennman" },
+};
+
 /**
  * A single hub card with an award-site-style 3D tilt toward the cursor and a
  * soft spotlight that follows the mouse (desktop only — touch never fires the
@@ -58,8 +74,9 @@ function HubCard({
   gyroRX?: MotionValue<number>;
   gyroRY?: MotionValue<number>;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const Icon = iconFor(c.slug, c.label);
+  const label = CAT_LABEL[c.slug]?.[language] ?? c.label;
   const ref = useRef<HTMLAnchorElement>(null);
   const [hover, setHover] = useState(false);
 
@@ -157,8 +174,15 @@ function HubCard({
               <span className="text-white/60">{c.count} {c.count === 1 ? t.explore.option : t.explore.options}</span>
             )}
           </p>
-          <h3 className="font-syne font-extrabold text-offwhite uppercase leading-[0.95] mb-4" style={{ fontSize: "clamp(28px, 5.5vw, 40px)" }}>
-            {c.label}
+          <h3
+            className="font-syne font-extrabold text-offwhite uppercase leading-[0.95] mb-4"
+            style={{
+              fontSize: `clamp(19px, ${label.length > 11 ? 4.2 : 5}vw, ${!label.includes(" ") && label.length > 6 ? 25 : 32}px)`,
+              wordBreak: "normal",
+              overflowWrap: "anywhere",
+            }}
+          >
+            {label}
           </h3>
           <span className="inline-flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-5 py-2.5 rounded-full transition-all group-hover:pl-6">
             {t.explore.cta}

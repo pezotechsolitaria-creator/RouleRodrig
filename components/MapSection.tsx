@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { Navigation, ChevronDown, X, ChevronLeft, ChevronRight, ZoomIn, BookOpen, Volume2, Square } from "lucide-react";
@@ -35,6 +36,10 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
   const locs = locations ?? [];
   const [filter, setFilter] = useState<string>("all");
 
+  // Portal target for the photo lightbox (escapes Leaflet's stacking context).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   // Ti Roulé's place stories (expand + read aloud).
   const [openStory, setOpenStory] = useState<string | null>(null);
   const [speakingStory, setSpeakingStory] = useState<string | null>(null);
@@ -46,6 +51,7 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
   };
   const storyLabel = language === "fr" ? "L'histoire de Ti Roulé" : language === "cr" ? "Zistwar Ti Roulé" : "Ti Roulé's story";
   const listenLabel = language === "fr" ? "Écouter" : language === "cr" ? "Ekoute" : "Listen";
+  const stopLabel = language === "fr" ? "Arrêter" : language === "cr" ? "Aret" : "Stop";
 
   // ── Lazy-load the Leaflet map only once it's scrolled near ──
   // Leaflet + its tiles are heavy; deferring keeps the initial page fast.
@@ -285,7 +291,7 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
                                   onClick={() => speakStory(loc.id, story)}
                                   className="mt-2 inline-flex items-center gap-1 text-[10px] font-dm text-muted/70 hover:text-yellow transition-colors"
                                 >
-                                  {speakingStory === loc.id ? <><Square size={10} /> Stop</> : <><Volume2 size={11} /> {listenLabel}</>}
+                                  {speakingStory === loc.id ? <><Square size={10} /> {stopLabel}</> : <><Volume2 size={11} /> {listenLabel}</>}
                                 </button>
                               </div>
                             </motion.div>
@@ -315,14 +321,15 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
         </motion.div>
       </div>
 
-      {/* ── Photo lightbox ── */}
+      {/* ── Photo lightbox (portalled to <body> so Leaflet's panes can't cover it) ── */}
+      {mounted && createPortal(
       <AnimatePresence>
         {lightbox && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[120] bg-black/92 flex items-center justify-center p-4"
+            className="fixed inset-0 z-[2000] bg-black flex items-center justify-center p-4"
             onClick={() => setLightbox(null)}
           >
             <button
@@ -371,14 +378,16 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
             />
 
             <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-2 text-white/70 text-xs font-dm">
-              <ZoomIn size={13} /> Tap photo to zoom
+              <ZoomIn size={13} /> {language === "fr" ? "Touchez pour zoomer" : language === "cr" ? "Tap pou zoome" : "Tap photo to zoom"}
               {lightbox.images.length > 1 && (
                 <span className="ml-2">{lightbox.index + 1} / {lightbox.images.length}</span>
               )}
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body,
+      )}
     </section>
   );
 }

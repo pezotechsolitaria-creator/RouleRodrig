@@ -95,7 +95,7 @@ export default function IslandMapInner({ locations }: Props) {
                   (p) =>
                     `<img src="${esc(p)}" alt="${esc(loc.name)}" loading="lazy" style="width:186px;height:120px;object-fit:cover;border-radius:8px;flex-shrink:0;scroll-snap-align:start;display:block;" />`,
                 )
-                .join("")}</div><p style="margin:0 0 6px;font-size:10px;color:#9ca3af;">◂ ${pics.length} photos — swipe ▸</p>`
+                .join("")}</div><p style="margin:0 0 6px;font-size:10px;color:#9ca3af;">◂ ${pics.length} ${language === "fr" ? "photos — glissez" : language === "cr" ? "foto — glise" : "photos — swipe"} ▸</p>`
             : pics.length === 1
             ? `<img src="${esc(pics[0])}" alt="${esc(loc.name)}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:8px;display:block;" />`
             : "";

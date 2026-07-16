@@ -161,7 +161,7 @@ export function buildBrowseCategories(
     const tours = content.recommended.items.filter((p) => p.category === "activity" && p.isTour);
     if (tours.length) cats.push({ slug: "tours", label: "Guided Tours", image: firstImage(tours), count: tours.length });
     const stays = content.recommended.items.filter((p) => p.category === "hotel");
-    if (stays.length) cats.push({ slug: "stays", label: "Accommodations", image: firstImage(stays), count: stays.length });
+    if (stays.length) cats.push({ slug: "stays", label: "Stay", image: firstImage(stays), count: stays.length });
   }
   const ga = (content.gettingAround?.options ?? []).filter((o) => o.icon !== "bus");
   if (content.gettingAround?.enabled && ga.length) {
