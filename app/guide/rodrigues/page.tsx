@@ -132,6 +132,31 @@ export default async function RodriguesGuidePage() {
             ))}
           </article>
 
+          {/* Deep-dive pages. The guide answers each topic briefly and links out
+              — these pages own the "rodrigues beaches"/"viewpoints" intent, so
+              the two don't compete for the same query. */}
+          <nav className="mt-14 rounded-3xl border border-dark-border bg-white/[0.02] p-8">
+            <p className="font-syne text-lg font-bold text-offwhite">Go deeper</p>
+            <ul className="mt-4 space-y-3">
+              <li>
+                <Link
+                  href="/guide/beaches"
+                  className="inline-flex items-center gap-2 font-dm text-sm text-yellow/80 hover:text-yellow transition-colors"
+                >
+                  Every beach in Rodrigues, mapped by locals <ArrowRight size={14} />
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/guide/viewpoints"
+                  className="inline-flex items-center gap-2 font-dm text-sm text-yellow/80 hover:text-yellow transition-colors"
+                >
+                  Viewpoints &amp; landmarks worth the ride <ArrowRight size={14} />
+                </Link>
+              </li>
+            </ul>
+          </nav>
+
           {/* Closing CTA — Ti Roulé */}
           <div className="mt-14 rounded-3xl border border-yellow/20 bg-gradient-to-br from-yellow/[0.08] to-transparent p-8 text-center">
             <MessageCircle size={28} className="mx-auto text-yellow" />

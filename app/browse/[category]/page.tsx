@@ -43,9 +43,9 @@ const META: Record<string, { title: string; description: string }> = {
       "Rent a scooter in Rodrigues from local owners. Helmets included, island-wide pickup and real WhatsApp support. Compare models and book your dates online.",
   },
   car: {
-    title: "Car Rental in Rodrigues Island",
+    title: "Car Rental in Rodrigues Island, Mauritius",
     description:
-      "Hire a car in Rodrigues for the family or a longer stay. Local owners, clear daily rates and island-wide pickup. Compare vehicles and book online.",
+      "Hire a car in Rodrigues for the family or a longer stay. Local owners, clear daily rates, island-wide pickup. Compare vehicles and book yours online today.",
   },
   stays: {
     title: "Where to Stay in Rodrigues Island",
@@ -63,14 +63,14 @@ const META: Record<string, { title: string; description: string }> = {
       "Guided island tours in Rodrigues led by locals who know it best. See what's included, compare prices and book directly — no middleman, no booking fees.",
   },
   "getting-around": {
-    title: "Getting Around Rodrigues Island",
+    title: "How to Get Around Rodrigues Island",
     description:
-      "How to get around Rodrigues: taxis, airport transfers, scooter and car hire. Local options with real prices and direct contacts.",
+      "Getting around Rodrigues: taxis, airport transfers, scooter and car hire. Compare real local prices and contact drivers direct — no agency, no booking fees.",
   },
   events: {
-    title: "Events & Festivals in Rodrigues",
+    title: "Events & Festivals in Rodrigues Island",
     description:
-      "What's on in Rodrigues — festivals, markets, music and local events with dates and locations, kept up to date by locals on the island.",
+      "What's on in Rodrigues right now: festivals, markets, live sega and local events, with dates and places. Updated by locals — plan your trip around them.",
   },
 };
 
