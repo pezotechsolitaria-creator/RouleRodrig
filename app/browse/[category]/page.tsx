@@ -36,11 +36,15 @@ const PLACE_SLUGS: Record<string, { label: string; filter: (p: Place) => boolean
 // inherit the root layout's title and read to Google as duplicates of the
 // homepage. Titles stay under ~60 chars and descriptions under ~155 so they
 // aren't truncated in results. No prices here — they'd go stale silently.
-const META: Record<string, { title: string; description: string }> = {
+// `fr` = the URL of this page's French equivalent. hreflang only works if BOTH
+// pages point at each other — a one-way annotation is silently ignored, so this
+// must stay in sync with the `languages` block on the French page.
+const META: Record<string, { title: string; description: string; fr?: string }> = {
   scooter: {
     title: "Scooter Rental in Rodrigues Island",
     description:
       "Rent a scooter in Rodrigues from local owners. Helmets included, island-wide pickup and real WhatsApp support. Compare models and book your dates online.",
+    fr: "/fr/location-scooter-rodrigues",
   },
   car: {
     title: "Car Rental in Rodrigues Island, Mauritius",
@@ -74,12 +78,23 @@ const META: Record<string, { title: string; description: string }> = {
   },
 };
 
-function pageMeta(title: string, description: string, category: string): Metadata {
+function pageMeta(title: string, description: string, category: string, fr?: string): Metadata {
   const url = `${SITE_URL}/browse/${category}`;
   return {
     title,
     description,
-    alternates: { canonical: url },
+    alternates: {
+      canonical: url,
+      ...(fr
+        ? {
+            languages: {
+              "en-US": url,
+              "fr-FR": `${SITE_URL}${fr}`,
+              "x-default": url,
+            },
+          }
+        : {}),
+    },
     openGraph: { title, description, url, siteName: "Roule Rodrigues", type: "website" },
     twitter: { card: "summary_large_image", title, description },
   };
@@ -93,7 +108,7 @@ export async function generateMetadata({
   const { category } = await params;
 
   const m = META[category];
-  if (m) return pageMeta(`${m.title} | Roule Rodrigues`, m.description, category);
+  if (m) return pageMeta(`${m.title} | Roule Rodrigues`, m.description, category, m.fr);
 
   // Not in the curated map — it may still be a real category the owner added in
   // admin (e.g. "Kayaks"). Use its live label so it gets a unique title rather
