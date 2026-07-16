@@ -187,6 +187,21 @@ function primaryButton(href: string, label: string): string {
   </td></tr></table>`;
 }
 
+// ── Payment details shown on the booking confirmation ────────────────────────
+// Kept here (not in the CMS) so they can't be changed by accident. If the bank
+// or PayPal address ever changes, edit these two constants.
+const PAY_BANK = "MCB (Mauritius Commercial Bank)";
+const PAY_ACCOUNT = "000447902350";
+const PAY_PAYPAL = "roulerodrig@gmail.com";
+function PAYMENT_ROWS(b: BookingEmailData): string {
+  return rows([
+    ["Bank", PAY_BANK],
+    ["Account number", PAY_ACCOUNT],
+    ["PayPal", PAY_PAYPAL],
+    ["Payment reference", `${b.name} — ${b.scooter}`],
+  ]);
+}
+
 /**
  * The master shell every email is built with: soft canvas, rounded white card,
  * dark branded header (logo lockup when available, else wordmark) with tagline
@@ -511,12 +526,17 @@ export async function sendBookingEmails(b: BookingEmailData): Promise<{ customer
       ${sectionLabel("Your booking · Votre réservation")}
       ${detailCard(summaryRows(b))}
       <div style="text-align:center;margin-bottom:6px">${primaryButton(cal.gcal, "📅 Add to calendar · Ajouter au calendrier")}</div>
+      ${sectionLabel("How to pay")}
+      ${detailCard(PAYMENT_ROWS(b))}
+      ${paragraph(`No payment is due yet. We'll confirm availability first — once confirmed, you can settle by bank transfer or PayPal using the details above. Please quote your name as the payment reference so we can match it to your booking, and keep the receipt to show at pickup.`)}
       ${sectionLabel("Before your pickup, please bring")}
       ${checkList(["A valid driver's licence", "Your booking confirmation", "A valid ID or passport if requested"])}
       ${paragraph(`Please arrive 10–15 minutes early so we can walk you through the vehicle together. Any question? Just reply to this email — we look forward to welcoming you!`)}
       ${sepFr()}
       ${frHeading(`Merci, ${b.name} !`)}
       ${paragraph(`Merci d'avoir choisi Roule Rodrigues. Nous avons bien reçu votre demande de réservation — notre équipe confirmera la disponibilité et les modalités de paiement très bientôt, généralement sous quelques heures (souvent via WhatsApp).`)}
+      ${sectionLabel("Comment payer")}
+      ${paragraph(`Aucun paiement n'est dû pour l'instant. Nous confirmons d'abord la disponibilité — une fois confirmée, vous pourrez régler par virement bancaire ou PayPal avec les coordonnées ci-dessus. Merci d'indiquer votre nom en référence du paiement et de conserver le reçu à présenter lors du retrait.`)}
       ${sectionLabel("À apporter le jour du retrait")}
       ${checkList(["Un permis de conduire valide", "Votre confirmation de réservation", "Une pièce d'identité ou un passeport si demandé"])}
       ${paragraph(`Merci d'arriver 10 à 15 minutes en avance afin que nous puissions vérifier le véhicule ensemble. Une question ? Répondez simplement à cet e-mail — au plaisir de vous accueillir !`)}

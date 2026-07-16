@@ -21,9 +21,16 @@ function clearKeepAlive() {
 export function pickVoice(lang: SpeechLang): SpeechSynthesisVoice | null {
   if (typeof window === "undefined" || !window.speechSynthesis) return null;
   const voices = window.speechSynthesis.getVoices();
-  const want = lang === "en" ? "en" : "fr";
-  const vs = voices.filter((v) => v.lang.toLowerCase().startsWith(want));
-  if (!vs.length) return null;
+  if (!voices.length) return null;
+  const norm = (v: SpeechSynthesisVoice) => v.lang.toLowerCase().replace("_", "-");
+  // English → an English voice. French AND Creole → a French voice (no browser
+  // or OS ships a Mauritian Creole voice; French is by far the closest match).
+  const prefix = lang === "en" ? "en" : "fr";
+  const exact = lang === "en" ? "en-us" : "fr-fr";
+  const all = voices.filter((v) => norm(v).startsWith(prefix));
+  if (!all.length) return null;
+  const pool = all.filter((v) => norm(v).startsWith(exact));
+  const vs = pool.length ? pool : all;
   return (
     vs.find((v) => /google|natural|enhanced|siri|samantha|amelie|amélie|aurélie|aurelie|thomas|sonia|libby|female/i.test(v.name)) ||
     vs.find((v) => !/male/i.test(v.name)) ||

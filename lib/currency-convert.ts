@@ -50,11 +50,37 @@ function detect(text: string): { code: string; pos: number }[] {
   return hits;
 }
 
+// Parse a written amount in either convention:
+//   US/UK  → "1,234.56" (comma = thousands, dot = decimal)
+//   EU/FR  → "1.234,56" (dot = thousands, comma = decimal)
+// A separator followed by exactly 1–2 digits is a DECIMAL point; exactly 3 is a
+// thousands group. So "0,67" → 0.67 and "14.252" → 14252.
+export function parseAmount(raw: string): number {
+  const s = raw.replace(/\s/g, "").replace(/[^\d.,]/g, "");
+  const lastComma = s.lastIndexOf(",");
+  const lastDot = s.lastIndexOf(".");
+  if (lastComma >= 0 && lastDot >= 0) {
+    // Both present: whichever comes last is the decimal separator.
+    return lastComma > lastDot
+      ? parseFloat(s.replace(/\./g, "").replace(",", "."))
+      : parseFloat(s.replace(/,/g, ""));
+  }
+  const sep = lastComma >= 0 ? "," : lastDot >= 0 ? "." : "";
+  if (!sep) return parseFloat(s);
+  const tail = s.slice(s.lastIndexOf(sep) + 1);
+  const onlyOne = s.indexOf(sep) === s.lastIndexOf(sep);
+  // 1–2 trailing digits (and a single separator) → decimal; otherwise thousands.
+  if (onlyOne && tail.length > 0 && tail.length <= 2) {
+    return parseFloat(s.replace(sep, "."));
+  }
+  return parseFloat(s.split(sep).join(""));
+}
+
 export function parseCurrencyQuery(text: string): CurrencyQuery | null {
   const t = ` ${text.toLowerCase()} `;
-  const numMatch = t.match(/(\d[\d,]*(?:\.\d+)?)/);
+  const numMatch = t.match(/(\d[\d.,]*\d|\d)/);
   if (!numMatch) return null;
-  const amount = parseFloat(numMatch[1].replace(/,/g, ""));
+  const amount = parseAmount(numMatch[1]);
   if (!isFinite(amount) || amount <= 0) return null;
 
   const seen = new Map<string, number>();

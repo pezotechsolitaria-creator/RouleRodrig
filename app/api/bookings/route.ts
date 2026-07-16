@@ -8,6 +8,23 @@ import { guard } from "@/lib/rate-limit";
 import { isActiveHold } from "@/lib/holds";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
 
+// Owner-friendly date for the WhatsApp alert: 2026-01-01 → 01/JAN/2026.
+const WA_MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+function waDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (isNaN(d.getTime())) return iso;
+  return `${String(d.getUTCDate()).padStart(2, "0")}/${WA_MONTHS[d.getUTCMonth()]}/${d.getUTCFullYear()}`;
+}
+// Days booked between two ISO dates (same-day pickup/return counts as 1).
+function bookedDays(start?: string | null, end?: string | null): number {
+  if (!start || !end) return 0;
+  const a = new Date(`${start}T00:00:00Z`).getTime();
+  const b = new Date(`${end}T00:00:00Z`).getTime();
+  if (isNaN(a) || isNaN(b) || b < a) return 0;
+  return Math.max(1, Math.round((b - a) / 86400000));
+}
+
 // ── Public: create a booking request + send confirmation emails ─────
 export async function POST(req: NextRequest) {
   // 8 booking requests per minute per IP
@@ -164,11 +181,13 @@ export async function POST(req: NextRequest) {
 
   // Free owner WhatsApp alert (CallMeBot) — owner only, best-effort
   try {
+    const nights = bookedDays(record.start_date, record.end_date);
     await sendOwnerWhatsApp(
       `🛵 New booking\n${record.name} — ${record.scooter}` +
         (record.asset_label ? ` (${record.asset_label})` : "") +
-        `\n${record.start_date} → ${record.end_date}` +
-        (record.pickup_time ? ` · pickup ${record.pickup_time}` : "") +
+        `\n${waDate(record.start_date)} → ${waDate(record.end_date)}` +
+        (nights ? ` (${nights} ${nights === 1 ? "day" : "days"})` : "") +
+        (record.pickup_time ? `\n🕘 Pickup ${record.pickup_time}` : "") +
         (typeof record.total_amount === "number"
           ? `\n💰 Rs ${Math.round(record.total_amount).toLocaleString("en-US")}`
           : record.total_price
