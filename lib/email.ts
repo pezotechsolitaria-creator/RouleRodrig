@@ -2,6 +2,8 @@
 // Gracefully no-ops when RESEND_API_KEY is not configured, so bookings never
 // break just because email isn't set up yet.
 import { SITE_URL } from "./site";
+// Emails must show "BURGMAN 125cc", never the "burgman" ID the DB stores.
+import { withVehicleName } from "./vehicle-name";
 
 interface BookingEmailData {
   name: string;
@@ -514,7 +516,8 @@ function summaryRows(b: BookingEmailData): string {
  * notification to the business owner (if OWNER_EMAIL is set).
  * Never throws — returns a small status object.
  */
-export async function sendBookingEmails(b: BookingEmailData): Promise<{ customer: boolean; owner: boolean }> {
+export async function sendBookingEmails(raw: BookingEmailData): Promise<{ customer: boolean; owner: boolean }> {
+  const b = await withVehicleName(raw);
   const result = { customer: false, owner: false };
   const { wa, logo } = await getBrand();
 
@@ -582,8 +585,10 @@ export async function sendBookingEmails(b: BookingEmailData): Promise<{ customer
 // ── Reminder / feedback emails (sent by the daily cron) ──────────────────
 
 /** Reminder sent the day before pickup. */
-export async function sendPickupReminder(b: BookingEmailData): Promise<boolean> {
-  if (!b.email) return false;
+export async function sendPickupReminder(raw: BookingEmailData): Promise<boolean> {
+  const to = raw.email;
+  if (!to) return false;
+  const b = await withVehicleName(raw);
   const { wa, logo } = await getBrand();
   const body = `
     ${paragraph(`Hi ${b.name}, this is a friendly reminder that your rental starts <strong>tomorrow</strong>. 🛵`)}
@@ -594,15 +599,17 @@ export async function sendPickupReminder(b: BookingEmailData): Promise<boolean> 
     ${paragraph(`Bonjour ${b.name}, petit rappel : votre location commence <strong>demain</strong>. 🛵 Merci d'apporter votre permis de conduire et d'arriver quelques minutes en avance. Nous avons hâte de vous aider à découvrir l'île Rodrigues — à demain !`)}
     ${wa ? `<div style="text-align:center">${waButton(wa, `Hi! About my Roule Rodrigues pickup tomorrow (${b.scooter}) — `, "💬 WhatsApp")}</div>` : ""}`;
   return send(
-    b.email,
+    to,
     "Your rental is tomorrow · Votre location, c'est demain 🛵",
     shell({ preheader: "Pickup is tomorrow · Le retrait, c'est demain.", eyebrow: "Pickup reminder · Rappel de retrait", title: "See you tomorrow!", body, logo }),
   );
 }
 
 /** Reminder sent the day before the return is due. */
-export async function sendReturnReminder(b: BookingEmailData): Promise<boolean> {
-  if (!b.email) return false;
+export async function sendReturnReminder(raw: BookingEmailData): Promise<boolean> {
+  const to = raw.email;
+  if (!to) return false;
+  const b = await withVehicleName(raw);
   const { wa, logo } = await getBrand();
   const body = `
     ${paragraph(`Hi ${b.name}, a friendly reminder that your vehicle is due back <strong>tomorrow</strong> (${fmtDate(b.end_date)}).`)}
@@ -626,15 +633,17 @@ export async function sendReturnReminder(b: BookingEmailData): Promise<boolean> 
     ${paragraph(`Merci d'avoir choisi Roule Rodrigues — nous espérons que vous avez passé un moment inoubliable à Rodrigues, et au plaisir de vous revoir lors de votre prochaine visite ! 💛`)}
     ${wa ? `<div style="text-align:center">${waButton(wa, `Hi! About my Roule Rodrigues return (${b.scooter}) — `, "💬 WhatsApp")}</div>` : ""}`;
   return send(
-    b.email,
+    to,
     "Your return is tomorrow · Votre retour, c'est demain",
     shell({ preheader: "Your vehicle is due back tomorrow · Retour du véhicule demain.", eyebrow: "Return reminder · Rappel de retour", title: "Return reminder", body, logo }),
   );
 }
 
 // ── Post-rental feedback request (sent the day after return) ──────────────
-export async function sendFeedbackRequest(b: BookingEmailData): Promise<boolean> {
-  if (!b.email) return false;
+export async function sendFeedbackRequest(raw: BookingEmailData): Promise<boolean> {
+  const to = raw.email;
+  if (!to) return false;
+  const b = await withVehicleName(raw);
   const { wa, logo } = await getBrand();
   const reviewUrl = process.env.GOOGLE_REVIEW_URL || `${SITE_URL}/#reviews`;
   const body = `
@@ -646,7 +655,7 @@ export async function sendFeedbackRequest(b: BookingEmailData): Promise<boolean>
     <div style="text-align:center">${primaryButton(reviewUrl, "⭐ Leave a review · Laisser un avis")}</div>
     ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! Here's my feedback on the ${b.scooter}: `, "💬 WhatsApp")}</div>` : ""}`;
   return send(
-    b.email,
+    to,
     "How was your ride? · Votre avis ? 🛵",
     shell({ preheader: "A 30-second review helps other travellers · Votre avis compte.", eyebrow: "Your feedback · Votre avis", title: "Thanks for riding with us!", body, logo }),
   );
@@ -664,17 +673,19 @@ function ownerActionEmail(b: BookingEmailData, kind: "deliver" | "collect", logo
 }
 
 /** Owner reminder: a scooter needs delivering tomorrow. */
-export async function sendAdminPickupReminder(b: BookingEmailData): Promise<boolean> {
+export async function sendAdminPickupReminder(raw: BookingEmailData): Promise<boolean> {
   const owner = process.env.OWNER_EMAIL;
   if (!owner) return false;
+  const b = await withVehicleName(raw);
   const { logo } = await getBrand();
   return send(owner, `🛵 Deliver tomorrow: ${b.name} — ${b.scooter}`, ownerActionEmail(b, "deliver", logo));
 }
 
 /** Owner reminder: a scooter is due back tomorrow. */
-export async function sendAdminReturnReminder(b: BookingEmailData): Promise<boolean> {
+export async function sendAdminReturnReminder(raw: BookingEmailData): Promise<boolean> {
   const owner = process.env.OWNER_EMAIL;
   if (!owner) return false;
+  const b = await withVehicleName(raw);
   const { logo } = await getBrand();
   return send(owner, `↩️ Collect tomorrow: ${b.name} — ${b.scooter}`, ownerActionEmail(b, "collect", logo));
 }

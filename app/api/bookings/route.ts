@@ -76,9 +76,14 @@ export async function POST(req: NextRequest) {
   // ── Resolve the fleet model for capacity + asset tracking ──
   let units = 1;
   let activeAssets: { id: string; label: string; color?: string }[] = [];
+  // The booking form posts the fleet ID ("burgman"), and the DB column must keep
+  // it — availability and asset assignment match on it. But customers must never
+  // see an internal slug, so emails/WhatsApp use the display name instead.
+  let scooterName = scooter;
   try {
     const content = await getContent();
     const item = content.fleet.find((f) => f.id === scooter || f.name === scooter);
+    if (item?.name) scooterName = item.name;
     activeAssets = (item?.assets ?? [])
       .filter((a) => a.active !== false)
       .map((a) => ({ id: a.id, label: a.label, color: a.color }));
@@ -152,7 +157,7 @@ export async function POST(req: NextRequest) {
 
   // Fire emails — never block or fail the booking on email errors
   try {
-    await sendBookingEmails(record);
+    await sendBookingEmails({ ...record, scooter: scooterName });
   } catch {
     /* ignore email failures */
   }
@@ -167,7 +172,7 @@ export async function POST(req: NextRequest) {
         email: record.email,
         firstName: record.name.split(/\s+/)[0],
         phone: record.phone,
-        vehicle: record.scooter,
+        vehicle: scooterName,
         bookingId: bookingRef,
         pickupDate: record.start_date,
         pickupTime: record.pickup_time,
@@ -183,7 +188,7 @@ export async function POST(req: NextRequest) {
   try {
     const nights = bookedDays(record.start_date, record.end_date);
     await sendOwnerWhatsApp(
-      `🛵 New booking\n${record.name} — ${record.scooter}` +
+      `🛵 New booking\n${record.name} — ${scooterName}` +
         (record.asset_label ? ` (${record.asset_label})` : "") +
         `\n${waDate(record.start_date)} → ${waDate(record.end_date)}` +
         (nights ? ` (${nights} ${nights === 1 ? "day" : "days"})` : "") +

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPrivileged } from "@/lib/supabase/admin";
+import { vehicleName } from "@/lib/vehicle-name";
 import {
   sendPickupReminder,
   sendReturnReminder,
@@ -149,11 +150,11 @@ export async function GET(req: NextRequest) {
     const ci = (placeSoon ?? []) as PlaceBooking[];
     if (pk.length) {
       lines.push(`🛵 Deliver tomorrow (${pk.length}):`);
-      for (const b of pk) lines.push(`• ${b.name} — ${b.scooter}${b.asset_label ? ` (${b.asset_label})` : ""}${b.pickup_time ? ` at ${b.pickup_time}` : ""}${b.phone ? ` — ${b.phone}` : ""}`);
+      for (const b of pk) lines.push(`• ${b.name} — ${await vehicleName(b.scooter)}${b.asset_label ? ` (${b.asset_label})` : ""}${b.pickup_time ? ` at ${b.pickup_time}` : ""}${b.phone ? ` — ${b.phone}` : ""}`);
     }
     if (rt.length) {
       lines.push(`↩️ Collect tomorrow (${rt.length}):`);
-      for (const b of rt) lines.push(`• ${b.name} — ${b.scooter}${b.return_time ? ` at ${b.return_time}` : ""}${b.phone ? ` — ${b.phone}` : ""}`);
+      for (const b of rt) lines.push(`• ${b.name} — ${await vehicleName(b.scooter)}${b.return_time ? ` at ${b.return_time}` : ""}${b.phone ? ` — ${b.phone}` : ""}`);
     }
     if (ci.length) {
       lines.push(`🌴 Stay·Eat·Do tomorrow (${ci.length}):`);
