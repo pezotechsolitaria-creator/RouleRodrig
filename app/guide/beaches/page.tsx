@@ -76,6 +76,7 @@ export default async function BeachesPage() {
         places={places}
         related={[
           { href: "/guide/viewpoints", label: "Viewpoints & landmarks in Rodrigues" },
+          { href: "/guide/routes", label: "Scooter routes & hiking trails" },
           { href: "/guide/rodrigues", label: "The full local's guide to Rodrigues" },
           { href: "/browse/scooter", label: "Rent a scooter to reach them" },
           { href: "/browse/stays", label: "Where to stay in Rodrigues" },

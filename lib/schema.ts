@@ -124,17 +124,49 @@ type ProductInput = {
   available?: boolean;
   url: string;
   rating?: { avg: number; count: number };
+  /** Fleet category slug — picks the schema type (Motorcycle vs Car). */
+  category?: string;
 };
+
+// Model → manufacturer. Every entry is a real, checkable fact: Burgman and
+// Avenis are Suzuki scooters, Swift is a Suzuki car. An unknown model gets NO
+// brand rather than a guessed one — Google warns about a missing brand, but a
+// wrong brand is a lie about the product.
+const BRAND_BY_MODEL: [RegExp, string][] = [
+  [/burgman/i, "Suzuki"],
+  [/avenis/i, "Suzuki"],
+  [/swift/i, "Suzuki"],
+  [/vespa/i, "Piaggio"],
+  [/honda/i, "Honda"],
+  [/yamaha/i, "Yamaha"],
+  [/kia/i, "Kia"],
+  [/toyota/i, "Toyota"],
+];
+
+function brandOf(name: string): string | null {
+  for (const [re, brand] of BRAND_BY_MODEL) if (re.test(name)) return brand;
+  return null;
+}
 
 // A rentable vehicle. Only emit this on a page where the vehicle is actually
 // rendered — Google ignores (and can penalise) markup for invisible content.
 //
+// Typed Motorcycle/Car rather than bare Product. Both are Product subtypes, so
+// offers still work, but they describe what these actually are — a scooter is
+// not a boxed good. This is also why Google's "missing shippingDetails" and
+// "missing hasMerchantReturnPolicy" warnings don't apply: they're requirements
+// for retail merchant listings, and you cannot ship or return a rental. Google
+// files them as non-critical because it can't tell retail from rental.
+//
 // aggregateRating is included ONLY when real approved reviews exist. Never
 // invent a rating: fake stars are the fastest way to lose rich results.
 export function productLd(p: ProductInput) {
+  const brand = brandOf(p.name);
+  const type = p.category === "car" ? "Car" : p.category === "scooter" ? "Motorcycle" : "Product";
   return {
-    "@type": "Product",
+    "@type": type,
     name: p.name,
+    ...(brand ? { brand: { "@type": "Brand", name: brand } } : {}),
     ...(p.description ? { description: p.description } : {}),
     ...(p.image ? { image: p.image } : {}),
     ...(p.rating && p.rating.count > 0

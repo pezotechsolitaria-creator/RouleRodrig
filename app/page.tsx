@@ -89,7 +89,11 @@ export default async function Home() {
       websiteLd(),
       touristDestinationLd(),
       {
-        "@type": "LocalBusiness",
+        // AutoRental, not bare LocalBusiness: it's the schema.org type that
+        // literally means "vehicle rental company", and it inherits everything
+        // LocalBusiness gives us. Being specific is how Google resolves what
+        // kind of entity this is instead of inferring it from prose.
+        "@type": "AutoRental",
         "@id": `${SITE_URL}/#business`,
         name: "Roule Rodrigues",
         // This sentence is what Google's AI Overview paraphrases when someone
@@ -167,9 +171,7 @@ export default async function Home() {
           showRoutes={content.rideRoutes.length > 0}
           showEvents={content.events.some((e) => e.title)}
         />
-        {/* scooterDailyMur = cheapest scooter/day from the live fleet; the hero
-            shows it so our price beats the island's Rs 800 story above the fold. */}
-        <Hero hero={content.hero} fromPrice={scooterDailyMur} />
+        <Hero hero={content.hero} />
         <WhatLookingFor categories={browseCats} />
         <TripPlanner />
         <MapSection locations={content.mapLocations} />

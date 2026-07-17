@@ -100,14 +100,7 @@ function HeroBackdrop() {
   );
 }
 
-export default function Hero({
-  hero,
-  fromPrice,
-}: {
-  hero?: HeroContent;
-  /** Cheapest scooter/day in MUR, from the live fleet. Omitted → badge hidden. */
-  fromPrice?: number | null;
-}) {
+export default function Hero({ hero }: { hero?: HeroContent }) {
   const h = hero ?? DEFAULT_CONTENT.hero;
   const { t, language } = useLanguage();
   const headlineLines =
@@ -179,42 +172,6 @@ export default function Hero({
         >
           {loc(language, h.subheadline, h.subheadlineFr, h.subheadlineCr)}
         </motion.p>
-
-        {/* ── Price + no-minimum badge ────────────────────────────────────────
-            Our two strongest commercial facts, and they were buried in the FAQ.
-            The island's market rate is Rs 800–1,000/day and every competitor
-            pushes a 3-day minimum — Google's AI Overview repeats both AT us.
-            Rs 599 with no minimum is the whole pitch, so it belongs above the
-            fold, not eight sections down.
-            Price comes from the live fleet (never hardcoded), and the badge
-            hides entirely if there's no price to show rather than render an
-            empty promise. */}
-        {fromPrice != null && (
-          <motion.div
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.92 }}
-            className="mt-6 inline-flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-full border border-yellow/25 bg-yellow/[0.07] px-5 py-2.5 backdrop-blur-sm"
-          >
-            <span className="font-syne text-sm md:text-base font-bold text-yellow">
-              {language === "fr"
-                ? `Dès Rs ${fromPrice.toLocaleString("en-US")}/jour`
-                : language === "cr"
-                  ? `Depi Rs ${fromPrice.toLocaleString("en-US")}/zour`
-                  : `From Rs ${fromPrice.toLocaleString("en-US")}/day`}
-            </span>
-            <span aria-hidden="true" className="text-white/25">
-              ·
-            </span>
-            <span className="font-dm text-xs md:text-sm text-white/75">
-              {language === "fr"
-                ? "Aucune durée minimale · casque inclus"
-                : language === "cr"
-                  ? "Pena minimum zour · kask inklir"
-                  : "No minimum rental · helmet included"}
-            </span>
-          </motion.div>
-        )}
 
         {/* CTAs */}
         <motion.div

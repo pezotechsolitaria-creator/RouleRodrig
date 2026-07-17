@@ -215,6 +215,7 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
                 available: !(s.available === false || s.soldOutToday),
                 url: `${SITE_URL}/browse/${category}`,
                 rating: ratings[s.id],
+                category: s.category ?? "scooter",
               }),
             ),
           }}
