@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getContent } from "@/lib/content";
+import { CONTACT_EMAIL } from "@/lib/site";
 import LegalDoc, { Section, P, UL } from "@/components/LegalDoc";
 
 export const metadata: Metadata = {
@@ -10,7 +11,10 @@ export const metadata: Metadata = {
 
 export default async function OwnerAgreementPage() {
   const content = await getContent();
-  const email = content.contact.email || "hello@roulerodrigues.mu";
+  // Fallback must be an address we actually own and that actually receives
+  // mail — a privacy policy legally needs a working contact. The old fallback
+  // was hello@roulerodrigues.mu, a domain nobody here owns.
+  const email = content.contact.email || CONTACT_EMAIL;
 
   return (
     <LegalDoc

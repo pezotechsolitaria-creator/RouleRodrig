@@ -1,7 +1,7 @@
 // Lightweight email sender using the Resend REST API (no SDK dependency).
 // Gracefully no-ops when RESEND_API_KEY is not configured, so bookings never
 // break just because email isn't set up yet.
-import { SITE_URL } from "./site";
+import { SITE_URL, CONTACT_EMAIL } from "./site";
 // Emails must show "BURGMAN 125cc", never the "burgman" ID the DB stores.
 import { withVehicleName } from "./vehicle-name";
 
@@ -191,16 +191,23 @@ function primaryButton(href: string, label: string): string {
 
 // ── Payment details shown on the booking confirmation ────────────────────────
 // Kept here (not in the CMS) so they can't be changed by accident. If the bank
-// or PayPal address ever changes, edit these two constants.
+// or PayPal address ever changes, edit these constants.
 const PAY_BANK = "MCB (Mauritius Commercial Bank)";
 const PAY_ACCOUNT = "000447902350";
+
+// DO NOT "upgrade" this to a @roulerodrig.com address. It is not a contact
+// address — it's the identity of the actual PayPal ACCOUNT. Payments sent to an
+// address PayPal doesn't recognise don't arrive. It only changes once the owner
+// has added the new address inside PayPal itself.
 const PAY_PAYPAL = "roulerodrig@gmail.com";
+
 function PAYMENT_ROWS(b: BookingEmailData): string {
   return rows([
     ["Bank", PAY_BANK],
     ["Account number", PAY_ACCOUNT],
     ["PayPal", PAY_PAYPAL],
     ["Payment reference", `${b.name} — ${b.scooter}`],
+    ["Questions", CONTACT_EMAIL],
   ]);
 }
 
@@ -464,9 +471,15 @@ async function send(to: string, subject: string, html: string, attachments?: Att
     }
     const sender = parseFrom(fromRaw);
     // Because unauthenticated Gmail senders get their from-domain rewritten to
-    // @brevosend.com, set Reply-To to the real address so replies reach the
-    // owner's inbox (falls back to OWNER_EMAIL).
-    const replyEmail = process.env.OWNER_EMAIL || sender.email;
+    // @brevosend.com, set Reply-To to a real address so replies reach the
+    // owner's inbox.
+    //
+    // Order matters: OWNER_EMAIL first (an explicit env override always wins),
+    // then the routed domain alias, then the Brevo sender. CONTACT_EMAIL sits
+    // above sender.email because both land in the same inbox but the domain
+    // address is the one that looks like a business — and it's routed through
+    // Cloudflare, so it works even if the Brevo sender is swapped later.
+    const replyEmail = process.env.OWNER_EMAIL || CONTACT_EMAIL || sender.email;
     try {
       const res = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
@@ -531,7 +544,7 @@ export async function sendBookingEmails(raw: BookingEmailData): Promise<{ custom
       <div style="text-align:center;margin-bottom:6px">${primaryButton(cal.gcal, "📅 Add to calendar · Ajouter au calendrier")}</div>
       ${sectionLabel("How to pay")}
       ${detailCard(PAYMENT_ROWS(b))}
-      ${paragraph(`No payment is due yet. We'll confirm availability first — once confirmed, you can settle by bank transfer or PayPal using the details above. Please quote your name as the payment reference so we can match it to your booking, and keep the receipt to show at pickup.`)}
+      ${paragraph(`No payment is due yet. We'll confirm availability first — once confirmed, you can settle by bank transfer or PayPal using the details above. Please quote your name as the payment reference so we can match it to your booking, and keep the receipt to show at pickup. If anything about payment is unclear, email <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a> and a real person will answer.`)}
       ${sectionLabel("Before your pickup, please bring")}
       ${checkList(["A valid driver's licence", "Your booking confirmation", "A valid ID or passport if requested"])}
       ${paragraph(`Please arrive 10–15 minutes early so we can walk you through the vehicle together. Any question? Just reply to this email — we look forward to welcoming you!`)}
@@ -539,7 +552,7 @@ export async function sendBookingEmails(raw: BookingEmailData): Promise<{ custom
       ${frHeading(`Merci, ${b.name} !`)}
       ${paragraph(`Merci d'avoir choisi Roule Rodrigues. Nous avons bien reçu votre demande de réservation — notre équipe confirmera la disponibilité et les modalités de paiement très bientôt, généralement sous quelques heures (souvent via WhatsApp).`)}
       ${sectionLabel("Comment payer")}
-      ${paragraph(`Aucun paiement n'est dû pour l'instant. Nous confirmons d'abord la disponibilité — une fois confirmée, vous pourrez régler par virement bancaire ou PayPal avec les coordonnées ci-dessus. Merci d'indiquer votre nom en référence du paiement et de conserver le reçu à présenter lors du retrait.`)}
+      ${paragraph(`Aucun paiement n'est dû pour l'instant. Nous confirmons d'abord la disponibilité — une fois confirmée, vous pourrez régler par virement bancaire ou PayPal avec les coordonnées ci-dessus. Merci d'indiquer votre nom en référence du paiement et de conserver le reçu à présenter lors du retrait. La moindre question sur le paiement : écrivez à <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a>, une vraie personne vous répondra.`)}
       ${sectionLabel("À apporter le jour du retrait")}
       ${checkList(["Un permis de conduire valide", "Votre confirmation de réservation", "Une pièce d'identité ou un passeport si demandé"])}
       ${paragraph(`Merci d'arriver 10 à 15 minutes en avance afin que nous puissions vérifier le véhicule ensemble. Une question ? Répondez simplement à cet e-mail — au plaisir de vous accueillir !`)}
