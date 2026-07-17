@@ -13,10 +13,14 @@ import Footer from "@/components/Footer";
 export const revalidate = 3600;
 
 // Human-readable section titles for the knowledge entries (English, for SEO).
+// MUST cover every id in RODRIGUES_KNOWLEDGE — a missing key falls back to the
+// raw slug, which then renders as a heading AND ships inside the FAQPage schema.
+// That's how "budget" went live as a question Google could index.
 const TITLES: Record<string, string> = {
   getThere: "How to get to Rodrigues",
   bestTime: "Best time to visit Rodrigues",
   money: "Money & currency",
+  budget: "How much does a trip to Rodrigues cost?",
   gettingAround: "Getting around the island",
   tortoises: "Giant tortoises — François Leguat Reserve",
   cocos: "Île aux Cocos bird sanctuary",
@@ -30,6 +34,16 @@ const TITLES: Record<string, string> = {
   hiddenGems: "Hidden gems",
 };
 
+// Last-resort fallback for a knowledge id with no TITLES entry. The old
+// fallback was the raw id, so a missing key rendered "budget" as a heading and
+// shipped it into the FAQPage schema as a question Google could index. A key
+// should always exist — but if one is ever forgotten again, this degrades to
+// something readable instead of leaking a slug.
+function humanize(id: string): string {
+  const words = id.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 const DESCRIPTION =
   "A local's guide to Rodrigues Island: how to get there, the best time to visit, beaches, viewpoints, giant tortoises, food, culture and safety — plus scooter & car rental and a free AI island guide.";
 
@@ -41,7 +55,15 @@ export const metadata: Metadata = {
     "Trou d'Argent", "François Leguat tortoises", "Île aux Cocos", "Caverne Patate", "Mont Limon",
     "Rodrigues beaches", "Rodrigues scooter rental",
   ],
-  alternates: { canonical: `${SITE_URL}/guide/rodrigues` },
+  alternates: {
+    canonical: `${SITE_URL}/guide/rodrigues`,
+    // Mirrors /fr/guide-rodrigues. hreflang is ignored unless both sides agree.
+    languages: {
+      "en-US": `${SITE_URL}/guide/rodrigues`,
+      "fr-FR": `${SITE_URL}/fr/guide-rodrigues`,
+      "x-default": `${SITE_URL}/guide/rodrigues`,
+    },
+  },
   openGraph: {
     title: "Rodrigues Island travel guide | Roule Rodrigues",
     description: DESCRIPTION,
@@ -61,7 +83,7 @@ export default async function RodriguesGuidePage() {
     "@type": "FAQPage",
     mainEntity: RODRIGUES_KNOWLEDGE.map((k) => ({
       "@type": "Question",
-      name: TITLES[k.id] ?? k.id,
+      name: TITLES[k.id] ?? humanize(k.id),
       acceptedAnswer: { "@type": "Answer", text: k.en },
     })),
   };
@@ -116,7 +138,7 @@ export default async function RodriguesGuidePage() {
           <article className="space-y-10">
             {RODRIGUES_KNOWLEDGE.map((k) => (
               <section key={k.id} id={k.id} className="scroll-mt-24">
-                <h2 className="font-syne text-xl md:text-2xl font-bold text-offwhite">{TITLES[k.id] ?? k.id}</h2>
+                <h2 className="font-syne text-xl md:text-2xl font-bold text-offwhite">{TITLES[k.id] ?? humanize(k.id)}</h2>
                 <p className="mt-3 font-dm text-muted leading-relaxed">{k.en}</p>
                 {k.place && (
                   <a
