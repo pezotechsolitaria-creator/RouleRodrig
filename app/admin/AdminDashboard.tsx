@@ -5078,6 +5078,9 @@ interface OwnerApplication {
   owner_name: string;
   phone: string;
   email: string | null;
+  listing_type?: string | null;
+  business_name?: string | null;
+  details?: string | null;
   location: string | null;
   scooters: string | null;
   message: string | null;
@@ -5087,6 +5090,15 @@ interface OwnerApplication {
   insurance_url?: string | null;
   vehicle_photo_urls?: string[];
 }
+
+// Human label + colour for the listing category (matches the public form).
+const LISTING_BADGE: Record<string, { label: string; cls: string }> = {
+  vehicle:    { label: "VEHICLE",    cls: "bg-sky-500/10 text-sky-400" },
+  restaurant: { label: "RESTAURANT", cls: "bg-orange-500/10 text-orange-400" },
+  stay:       { label: "STAY",       cls: "bg-violet-500/10 text-violet-400" },
+  activity:   { label: "ACTIVITY",   cls: "bg-emerald-500/10 text-emerald-400" },
+  experience: { label: "EXPERIENCE", cls: "bg-pink-500/10 text-pink-400" },
+};
 
 function OwnerApplicationsViewer() {
   const [list, setList] = useState<OwnerApplication[]>([]);
@@ -5130,7 +5142,7 @@ function OwnerApplicationsViewer() {
     return (
       <div className="bg-dark-card border border-dark-border rounded-2xl p-10 text-center">
         <UserPlus size={36} className="text-muted/20 mx-auto mb-3" />
-        <p className="text-muted font-dm text-sm">No applications yet. They arrive via the <span className="font-mono text-offwhite/40">/list-your-scooter</span> page.</p>
+        <p className="text-muted font-dm text-sm">No applications yet. Partners apply via the <span className="font-mono text-offwhite/40">/list-your-scooter</span> page — vehicles, restaurants, stays, activities and experiences.</p>
       </div>
     );
   }
@@ -5142,13 +5154,18 @@ function OwnerApplicationsViewer() {
           <div className="flex items-start justify-between gap-3 mb-2">
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-syne font-bold text-offwhite text-sm">{a.owner_name}</p>
+                <p className="font-syne font-bold text-offwhite text-sm">{a.business_name || a.owner_name}</p>
+                {(() => {
+                  const b = LISTING_BADGE[a.listing_type ?? "vehicle"] ?? LISTING_BADGE.vehicle;
+                  return <span className={`font-bebas text-[8px] tracking-[0.15em] px-2 py-0.5 rounded-full ${b.cls}`}>{b.label}</span>;
+                })()}
                 <span className={`font-bebas text-[8px] tracking-[0.15em] px-2 py-0.5 rounded-full ${
                   a.status === "approved" ? "bg-green-500/10 text-green-400"
                   : a.status === "rejected" ? "bg-red-500/10 text-red-400/70"
                   : "bg-yellow/10 text-yellow"
                 }`}>{a.status.toUpperCase()}</span>
               </div>
+              {a.business_name && <p className="text-muted/70 text-xs font-dm mt-0.5">Contact: {a.owner_name}</p>}
               <p className="text-muted text-xs font-dm mt-0.5">{fmt(a.created_at)}</p>
             </div>
             <button onClick={() => remove(a.id)} className="text-muted/30 hover:text-red-400 transition-colors shrink-0" title="Delete">
@@ -5160,7 +5177,7 @@ function OwnerApplicationsViewer() {
             <p><span className="text-muted">Phone:</span> <a href={`https://wa.me/${a.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="text-yellow hover:underline">{a.phone}</a></p>
             {a.email && <p><span className="text-muted">Email:</span> <a href={`mailto:${a.email}`} className="text-yellow hover:underline">{a.email}</a></p>}
             {a.location && <p><span className="text-muted">Area:</span> {a.location}</p>}
-            {a.scooters && <p><span className="text-muted">Scooters:</span> {a.scooters}</p>}
+            {(a.details || a.scooters) && <p><span className="text-muted">Details:</span> {a.details || a.scooters}</p>}
           </div>
           {a.message && <p className="text-muted/80 text-sm font-dm italic mb-3">“{a.message}”</p>}
 
@@ -5827,7 +5844,7 @@ export default function AdminDashboard({
     bookings:     { title: "Bookings",            desc: "Booking requests from the website booking form." },
     place_bookings: { title: "Stay & Activity Bookings", desc: "Reservation requests for hotels, restaurants & activities." },
     leads:        { title: "Listing Leads",       desc: "Food Concierge requests (with craving & budget), plus clicks & enquiries on your Stay·Eat·Do and Taxi listings — for demand tracking & commission follow-up." },
-    owners:       { title: "Owner Applications",  desc: "Scooter owners applying to list their vehicles via /list-your-scooter." },
+    owners:       { title: "Partner Applications",  desc: "Partners applying to list a vehicle, restaurant, stay, activity or experience via /list-your-scooter." },
     map:          { title: "Island Map Locations",desc: "Manage the points of interest shown on the island guide map." },
     waitlist:     { title: "Waitlist",            desc: "People who signed up for deals and island tips." },
     planner:      { title: "AI Trip Planner",     desc: "Edit the real places, photos and tips the planner uses to build itineraries." },

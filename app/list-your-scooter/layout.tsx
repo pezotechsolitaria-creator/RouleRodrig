@@ -1,18 +1,24 @@
 import type { Metadata } from "next";
 
+// The URL stays /list-your-scooter — it's indexed and linked, so changing it
+// would break inbound links for no gain. The metadata now reflects the broader
+// partner directory (vehicle / restaurant / stay / activity / experience).
+const TITLE = "List Your Business on Rodrigues | Roule Rodrigues";
+const DESCRIPTION =
+  "Run a scooter, car, restaurant, guesthouse or activity on Rodrigues? List it with Roule Rodrigues and reach tourists planning their trip. We handle enquiries; you stay in control.";
+
 export const metadata: Metadata = {
-  title: "List Your Scooter — Earn with Roule Rodrigues",
-  description:
-    "Own a scooter on Rodrigues? List it with Roule Rodrigues and earn money. We handle bookings, payments and customers — you keep your scooter busy.",
+  title: TITLE,
+  description: DESCRIPTION,
   alternates: { canonical: "/list-your-scooter" },
   openGraph: {
-    title: "List Your Scooter — Earn with Roule Rodrigues",
-    description: "Turn your scooter into income. We handle the bookings; you earn.",
+    title: TITLE,
+    description: "Get your Rodrigues business in front of tourists actively planning their trip.",
     url: "/list-your-scooter",
     type: "website",
   },
 };
 
-export default function ListScooterLayout({ children }: { children: React.ReactNode }) {
+export default function ListPartnerLayout({ children }: { children: React.ReactNode }) {
   return children;
 }

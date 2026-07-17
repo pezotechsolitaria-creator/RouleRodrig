@@ -6,9 +6,41 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft, Wallet, CalendarCheck, ShieldCheck, Headphones,
   Send, Loader2, CheckCircle, AlertCircle, Upload, FileCheck, X,
+  Bike, UtensilsCrossed, BedDouble, Compass, Sparkles,
 } from "lucide-react";
 
 type FormState = "idle" | "loading" | "success" | "error";
+type ListingType = "vehicle" | "restaurant" | "stay" | "activity" | "experience";
+
+// Per-category config drives the whole form: which copy shows, what the "what
+// are you listing" field asks, and whether vehicle-only fields (licence,
+// insurance) appear. This is why the page is one component, not five — the flow
+// is identical, only the words and two optional fields change.
+const CATEGORIES: Record<ListingType, {
+  label: string; icon: typeof Bike; noun: string;
+  detailPlaceholder: string; needsVehicleDocs: boolean;
+}> = {
+  vehicle:    { label: "Vehicle",    icon: Bike,            noun: "vehicle",
+                detailPlaceholder: "Which vehicle(s) & how many? (e.g. 2× Burgman 125, 1× Swift car)", needsVehicleDocs: true },
+  restaurant: { label: "Restaurant", icon: UtensilsCrossed, noun: "restaurant",
+                detailPlaceholder: "Tell us about your place — cuisine, seats, opening hours", needsVehicleDocs: false },
+  stay:       { label: "Stay",       icon: BedDouble,       noun: "stay",
+                detailPlaceholder: "Guesthouse / room / villa — how many guests, what's included", needsVehicleDocs: false },
+  activity:   { label: "Activity",   icon: Compass,         noun: "activity",
+                detailPlaceholder: "What activity? (e.g. kitesurfing lessons, snorkelling trips)", needsVehicleDocs: false },
+  experience: { label: "Experience", icon: Sparkles,        noun: "experience",
+                detailPlaceholder: "Tell us about your experience or guided tour", needsVehicleDocs: false },
+};
+
+const ORDER: ListingType[] = ["vehicle", "restaurant", "stay", "activity", "experience"];
+
+// Benefits are phrased so they read true for ANY category, not just scooters.
+const BENEFITS = [
+  { icon: Wallet,        title: "Earn more from what you have", text: "Reach tourists actively planning their Rodrigues trip. You set the price; we bring the customers." },
+  { icon: CalendarCheck, title: "We handle the enquiries",      text: "Bookings, availability and confirmations are managed for you — no missed messages." },
+  { icon: ShieldCheck,   title: "You stay in control",          text: "You confirm each booking and deal with the guest directly. No commission taken upfront." },
+  { icon: Headphones,    title: "Local support, 3 languages",   text: "We promote your listing and support customers in English, French & Kreol." },
+];
 
 // Uploads one file to the private applications bucket, returns its storage path.
 async function uploadDoc(file: File): Promise<string> {
@@ -64,32 +96,28 @@ function DocSlot({ label, hint, value, onChange, disabled }: {
   );
 }
 
-const BENEFITS = [
-  { icon: Wallet,        title: "Earn from your scooter", text: "Put an idle scooter to work. You set the price; we bring the riders." },
-  { icon: CalendarCheck, title: "We handle bookings",     text: "Online booking, availability and confirmations are all managed for you." },
-  { icon: ShieldCheck,   title: "You stay in control",    text: "You verify the rider, hand over the scooter, and hold a deposit at pickup." },
-  { icon: Headphones,    title: "Local support",          text: "We promote your scooter and support customers in English, French & Kreol." },
-];
-
-export default function ListYourScooterPage() {
+export default function ListYourBusinessPage() {
+  const [type, setType] = useState<ListingType>("vehicle");
   const [state, setState] = useState<FormState>("idle");
   const [agreed, setAgreed] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [form, setForm] = useState({
-    owner_name: "", phone: "", email: "", location: "", scooters: "", message: "",
+    owner_name: "", phone: "", email: "", business_name: "", location: "", details: "", message: "",
   });
   const [idCard, setIdCard] = useState<string | null>(null);
   const [insurance, setInsurance] = useState<string | null>(null);
-  const [vehiclePhotos, setVehiclePhotos] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<string[]>([]);
   const [photosBusy, setPhotosBusy] = useState(false);
   const photosRef = useRef<HTMLInputElement>(null);
+
+  const cat = CATEGORIES[type];
 
   async function addPhotos(files: FileList) {
     setPhotosBusy(true); setErr(null);
     try {
       const uploaded: string[] = [];
       for (const f of Array.from(files).slice(0, 12)) uploaded.push(await uploadDoc(f));
-      setVehiclePhotos((prev) => [...prev, ...uploaded].slice(0, 12));
+      setPhotos((prev) => [...prev, ...uploaded].slice(0, 12));
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Upload failed");
     } finally {
@@ -104,22 +132,31 @@ export default function ListYourScooterPage() {
     e.preventDefault();
     setErr(null);
     if (!form.owner_name.trim() || !form.phone.trim()) return setErr("Please enter your name and phone number.");
-    if (!agreed) return setErr("Please accept the Scooter Owner Agreement to continue.");
+    if (!agreed) return setErr("Please accept the Partner Agreement to continue.");
 
     setState("loading");
     try {
       const res = await fetch("/api/owner-apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, id_card: idCard, insurance, vehicle_photos: vehiclePhotos }),
+        body: JSON.stringify({
+          ...form,
+          listing_type: type,
+          // Keep the legacy `scooters` field mirrored for vehicle listings so
+          // nothing downstream that still reads it breaks.
+          scooters: type === "vehicle" ? form.details : null,
+          id_card: idCard,
+          insurance,
+          vehicle_photos: photos,
+        }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || "Something went wrong.");
       }
       setState("success");
-      setForm({ owner_name: "", phone: "", email: "", location: "", scooters: "", message: "" });
-      setIdCard(null); setInsurance(null); setVehiclePhotos([]);
+      setForm({ owner_name: "", phone: "", email: "", business_name: "", location: "", details: "", message: "" });
+      setIdCard(null); setInsurance(null); setPhotos([]);
       setAgreed(false);
     } catch (e2) {
       setErr(e2 instanceof Error ? e2.message : "Something went wrong.");
@@ -135,16 +172,40 @@ export default function ListYourScooterPage() {
         </Link>
 
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="mb-12">
+        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="mb-10">
           <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">PARTNER WITH US</p>
           <h1 className="font-syne font-extrabold uppercase leading-[0.95] mb-4" style={{ fontSize: "clamp(34px, 8vw, 72px)" }}>
-            List your vehicle.<br />Earn money.
+            List it.<br />Get discovered.
           </h1>
           <p className="text-muted font-dm text-sm md:text-base max-w-xl leading-relaxed">
-            Own a scooter or car on Rodrigues? Let it earn when you&rsquo;re not using it. We handle the bookings,
-            payments and customers — you keep your vehicle busy and get paid.
+            Run something worth visiting on Rodrigues — a scooter, a car, a table, a room, an experience?
+            Get it in front of tourists actively planning their trip. We handle the enquiries; you stay in control.
           </p>
         </motion.div>
+
+        {/* Category picker — this is the "rework": one flow, five things you can list */}
+        <div className="flex flex-wrap gap-2.5 mb-12" role="tablist" aria-label="What do you want to list?">
+          {ORDER.map((t) => {
+            const C = CATEGORIES[t];
+            const active = t === type;
+            return (
+              <button
+                key={t}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => { setType(t); setErr(null); }}
+                className={`flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-syne font-bold transition-colors ${
+                  active
+                    ? "bg-yellow text-dark"
+                    : "bg-dark-card border border-dark-border text-muted hover:text-yellow hover:border-yellow/40"
+                }`}
+              >
+                <C.icon size={16} /> {C.label}
+              </button>
+            );
+          })}
+        </div>
 
         {/* Benefits */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-14">
@@ -167,15 +228,17 @@ export default function ListYourScooterPage() {
 
         {/* Application form */}
         <div className="max-w-xl">
-          <h2 className="font-syne font-extrabold text-offwhite text-2xl mb-1">Apply to list</h2>
-          <p className="text-muted text-sm mb-7">Tell us about your vehicle(s) and we&rsquo;ll be in touch to get you set up.</p>
+          <h2 className="font-syne font-extrabold text-offwhite text-2xl mb-1">
+            List your {cat.noun}
+          </h2>
+          <p className="text-muted text-sm mb-7">Tell us the essentials and we&rsquo;ll be in touch to get you set up.</p>
 
           {state === "success" ? (
             <div className="flex items-start gap-3 bg-green-500/10 border border-green-500/30 rounded-2xl px-5 py-5">
               <CheckCircle size={20} className="text-green-400 shrink-0 mt-0.5" />
               <div>
                 <p className="font-syne font-bold text-green-400">Application received!</p>
-                <p className="text-green-400/70 text-sm mt-1">Thank you — we&rsquo;ll contact you shortly to verify your vehicle and get your listing live.</p>
+                <p className="text-green-400/70 text-sm mt-1">Thank you — we&rsquo;ll contact you shortly to verify your {cat.noun} and get your listing live.</p>
               </div>
             </div>
           ) : (
@@ -186,17 +249,25 @@ export default function ListYourScooterPage() {
                 <input className={input} placeholder="Email (optional)" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} disabled={state === "loading"} />
                 <input className={input} placeholder="Your area (e.g. Port Mathurin)" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} disabled={state === "loading"} />
               </div>
-              <input className={input} placeholder="Which vehicle(s) & how many? (e.g. 2× Burgman 125, 1× Swift car)" value={form.scooters} onChange={(e) => setForm({ ...form, scooters: e.target.value })} disabled={state === "loading"} />
+
+              {/* Business name matters for a place/restaurant/stay; optional for vehicles */}
+              {type !== "vehicle" && (
+                <input className={input} placeholder={`${cat.label} name`} value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} disabled={state === "loading"} />
+              )}
+
+              <input className={input} placeholder={cat.detailPlaceholder} value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} disabled={state === "loading"} />
               <textarea className={`${input} resize-none`} rows={3} placeholder="Anything else we should know?" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} disabled={state === "loading"} />
 
-              {/* Vehicle photos */}
+              {/* Photos — useful for every category */}
               <div>
-                <p className="font-bebas text-muted text-[10px] tracking-[0.25em] mb-2">VEHICLE PHOTOS</p>
+                <p className="font-bebas text-muted text-[10px] tracking-[0.25em] mb-2">
+                  {type === "vehicle" ? "VEHICLE PHOTOS" : "PHOTOS"}
+                </p>
                 <div className="flex flex-wrap gap-3">
-                  {vehiclePhotos.map((_, i) => (
+                  {photos.map((_, i) => (
                     <div key={i} className="relative w-20 h-20 rounded-xl bg-dark-card border border-green-500/30 flex items-center justify-center">
                       <FileCheck size={20} className="text-green-400" />
-                      <button type="button" onClick={() => setVehiclePhotos((p) => p.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-dark border border-dark-border rounded-full p-0.5 text-muted hover:text-red-400" aria-label="Remove">
+                      <button type="button" onClick={() => setPhotos((p) => p.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-dark border border-dark-border rounded-full p-0.5 text-muted hover:text-red-400" aria-label="Remove">
                         <X size={12} />
                       </button>
                     </div>
@@ -211,20 +282,24 @@ export default function ListYourScooterPage() {
                   onChange={(e) => { if (e.target.files?.length) addPhotos(e.target.files); e.target.value = ""; }} />
               </div>
 
-              {/* Sensitive documents */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <DocSlot label="DRIVING LICENCE / ID (optional)" hint="Upload ID" value={idCard} onChange={setIdCard} disabled={state === "loading"} />
-                <DocSlot label="INSURANCE PAPERS (optional)" hint="Upload insurance" value={insurance} onChange={setInsurance} disabled={state === "loading"} />
-              </div>
-              <p className="text-muted/40 text-[11px] font-dm -mt-1">
-                Documents are stored privately and only visible to the Roule Rodrigues team.
-              </p>
+              {/* Vehicle-only documents — irrelevant for a restaurant or a room */}
+              {cat.needsVehicleDocs && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <DocSlot label="DRIVING LICENCE / ID (optional)" hint="Upload ID" value={idCard} onChange={setIdCard} disabled={state === "loading"} />
+                    <DocSlot label="INSURANCE PAPERS (optional)" hint="Upload insurance" value={insurance} onChange={setInsurance} disabled={state === "loading"} />
+                  </div>
+                  <p className="text-muted/40 text-[11px] font-dm -mt-1">
+                    Documents are stored privately and only visible to the Roule Rodrigues team.
+                  </p>
+                </>
+              )}
 
               <label className="flex items-start gap-2.5 cursor-pointer select-none">
                 <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 w-4 h-4 accent-yellow shrink-0" disabled={state === "loading"} />
                 <span className="font-dm text-xs leading-snug text-muted">
                   I agree to the{" "}
-                  <Link href="/legal/owner-agreement" target="_blank" className="text-yellow hover:underline">Scooter Owner Agreement</Link>.
+                  <Link href="/legal/owner-agreement" target="_blank" className="text-yellow hover:underline">Partner Agreement</Link>.
                 </span>
               </label>
 

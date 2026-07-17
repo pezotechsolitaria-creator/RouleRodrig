@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { guard } from "@/lib/rate-limit";
 
-// ── Public: a scooter owner applies to list their vehicles ───────────────────
+// The categories a partner can apply to list. Kept in sync with the DB CHECK
+// constraint (owner_applications_listing_type_check) — a value outside this set
+// is rejected here AND by the database, so a crafted request can't store junk.
+const LISTING_TYPES = ["vehicle", "restaurant", "stay", "activity", "experience"] as const;
+type ListingType = (typeof LISTING_TYPES)[number];
+
+// ── Public: a partner applies to list a vehicle / restaurant / stay / … ──────
 export async function POST(req: NextRequest) {
   const limited = guard(req, "owner-apply", 4, 60_000);
   if (limited) return limited;
@@ -11,6 +17,7 @@ export async function POST(req: NextRequest) {
     owner_name?: string; phone?: string; email?: string;
     location?: string; scooters?: string; message?: string;
     id_card?: string; insurance?: string; vehicle_photos?: unknown;
+    listing_type?: string; business_name?: string; details?: string;
   };
   try {
     body = await req.json();
@@ -32,7 +39,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Please enter a valid email." }, { status: 400 });
   }
 
-  // Only accept storage paths (no URLs) for documents, capped at 12 photos.
+  // Default to 'vehicle' so an old scooter-only client (or a missing field)
+  // still behaves exactly as before.
+  const listing_type: ListingType = LISTING_TYPES.includes(body.listing_type as ListingType)
+    ? (body.listing_type as ListingType)
+    : "vehicle";
+
+  // Only accept storage paths (no URLs) for documents/photos, capped at 12.
   const isPath = (s: unknown): s is string =>
     typeof s === "string" && s.length > 0 && s.length < 200 && !/[:/\\]/.test(s);
   const vehicle_photos = Array.isArray(body.vehicle_photos)
@@ -43,7 +56,12 @@ export async function POST(req: NextRequest) {
     owner_name,
     phone,
     email,
+    listing_type,
+    business_name: clean(body.business_name, 160),
     location: clean(body.location, 120),
+    // `details` is the generic "what you're listing" field; `scooters` is kept
+    // for backward-compat and mirrors it when a vehicle listing fills it in.
+    details: clean(body.details, 600) ?? clean(body.scooters, 600),
     scooters: clean(body.scooters, 400),
     message: clean(body.message, 1000),
     id_card: isPath(body.id_card) ? body.id_card : null,

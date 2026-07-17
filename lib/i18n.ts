@@ -162,7 +162,7 @@ const translations = {
       privacy:    "Privacy",
       refunds:    "Refunds",
       disclaimer: "Disclaimer",
-      listScooter: "List your scooter",
+      listScooter: "List your business",
     },
 
     // Trip planner
@@ -582,7 +582,7 @@ const translations = {
       privacy:    "Confidentialité",
       refunds:    "Remboursements",
       disclaimer: "Avertissement",
-      listScooter: "Référencez votre scooter",
+      listScooter: "Référencez votre activité",
     },
     planner: {
       eyebrow:    "PERSONNALISÉ POUR VOUS",
@@ -972,7 +972,7 @@ const translations = {
       privacy:    "Konfidansialite",
       refunds:    "Ranbourseman",
       disclaimer: "Avertisman",
-      listScooter: "Met ou skooter lor sit",
+      listScooter: "Met ou biznes lor sit",
     },
     planner: {
       eyebrow:    "PERSONALIZE POU OU",
