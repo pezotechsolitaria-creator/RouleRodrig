@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, MessageCircle } from "lucide-react";
+import { ArrowRight, MessageCircle, ShieldCheck, MapPin, Languages } from "lucide-react";
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type HeroContent } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
@@ -100,6 +100,30 @@ function HeroBackdrop() {
   );
 }
 
+// Trust cues shown under the hero CTAs. Not a price promo (the owner rightly
+// cut that) — these are the reassurances a first-time visitor needs before they
+// trust a small island rental with a booking. Every claim is verified: helmet
+// + third-party insurance are included (FAQ), the fleet is local owners booked
+// direct, and support runs in all three languages. Trilingual, kept subtle so
+// it reads as premium, not salesy ("clean, not TOO MUCH").
+const TRUST_SIGNALS: Record<"en" | "fr" | "cr", { icon: typeof ShieldCheck; label: string }[]> = {
+  en: [
+    { icon: ShieldCheck, label: "Helmet & insurance included" },
+    { icon: MapPin, label: "Local owners · book direct" },
+    { icon: Languages, label: "Support in EN · FR · Kreol" },
+  ],
+  fr: [
+    { icon: ShieldCheck, label: "Casque & assurance inclus" },
+    { icon: MapPin, label: "Propriétaires locaux · sans intermédiaire" },
+    { icon: Languages, label: "Assistance EN · FR · Kreol" },
+  ],
+  cr: [
+    { icon: ShieldCheck, label: "Kask & lasirans inklir" },
+    { icon: MapPin, label: "Propriyeter lokal · direk" },
+    { icon: Languages, label: "Sipor EN · FR · Kreol" },
+  ],
+};
+
 export default function Hero({ hero }: { hero?: HeroContent }) {
   const h = hero ?? DEFAULT_CONTENT.hero;
   const { t, language } = useLanguage();
@@ -107,6 +131,7 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
     language === "fr" && h.headlineFr?.length ? h.headlineFr :
     language === "cr" && h.headlineCr?.length ? h.headlineCr :
     h.headline;
+  const trust = TRUST_SIGNALS[language] ?? TRUST_SIGNALS.en;
 
   return (
     <section className="relative min-h-screen w-full overflow-hidden flex flex-col" aria-label="Hero section">
@@ -195,6 +220,29 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
             <MessageCircle size={18} />
           </button>
         </motion.div>
+
+        {/* Trust signals — fills the space below the CTAs with credibility */}
+        <motion.ul
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 1.18 }}
+          className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-2.5"
+        >
+          {trust.map(({ icon: Icon, label }) => (
+            // Colour is inline rgba, not a Tailwind opacity class: the arbitrary
+            // white/55 utility wasn't generated and fell back to full offwhite,
+            // which made the row compete with the CTAs. rgba guarantees the
+            // subtle, muted look over the hero photo.
+            <li
+              key={label}
+              className="flex items-center gap-2 text-xs md:text-sm font-dm"
+              style={{ color: "rgba(255,255,255,0.62)" }}
+            >
+              <Icon size={15} className="text-yellow/70 shrink-0" aria-hidden="true" />
+              {label}
+            </li>
+          ))}
+        </motion.ul>
       </div>
 
       {/* ── Refined scroll cue ─────────────────────────── */}
