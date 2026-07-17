@@ -25,7 +25,16 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title,
     description: DESCRIPTION,
-    alternates: { canonical: `${SITE_URL}/guide/beaches` },
+    alternates: {
+      canonical: `${SITE_URL}/guide/beaches`,
+      // Must mirror the `languages` block on /fr/plages-rodrigues — a one-way
+      // hreflang is silently ignored by Google.
+      languages: {
+        "en-US": `${SITE_URL}/guide/beaches`,
+        "fr-FR": `${SITE_URL}/fr/plages-rodrigues`,
+        "x-default": `${SITE_URL}/guide/beaches`,
+      },
+    },
     openGraph: {
       title,
       description: DESCRIPTION,
