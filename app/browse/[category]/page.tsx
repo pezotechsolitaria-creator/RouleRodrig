@@ -78,8 +78,15 @@ const META: Record<string, { title: string; description: string; fr?: string }> 
   },
 };
 
-function pageMeta(title: string, description: string, category: string, fr?: string): Metadata {
+function pageMeta(
+  title: string,
+  description: string,
+  category: string,
+  fr?: string,
+  image?: string,
+): Metadata {
   const url = `${SITE_URL}/browse/${category}`;
+  const images = [image ?? `${SITE_URL}/og-image.jpg`];
   return {
     title,
     description,
@@ -95,8 +102,8 @@ function pageMeta(title: string, description: string, category: string, fr?: str
           }
         : {}),
     },
-    openGraph: { title, description, url, siteName: "Roule Rodrigues", type: "website" },
-    twitter: { card: "summary_large_image", title, description },
+    openGraph: { title, description, url, siteName: "Roule Rodrigues", type: "website", images },
+    twitter: { card: "summary_large_image", title, description, images },
   };
 }
 
@@ -107,24 +114,35 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { category } = await params;
 
+  // Category-specific preview image, from the live fleet: a shared /browse/scooter
+  // shows a scooter and /browse/car shows the Suzuki Swift — not one generic
+  // photo for both. Non-vehicle categories fall back to the site OG image.
+  let ogImage: string | undefined;
+  let cats: ReturnType<typeof buildBrowseCategories> | null = null;
+  try {
+    const { content, fleet, recentBookings } = await getFleetView();
+    cats = buildBrowseCategories(content, fleet, recentBookings);
+    const first = fleet.find((f) => (f.category ?? "scooter") === category && f.image);
+    if (first?.image) ogImage = first.image.startsWith("http") ? first.image : `${SITE_URL}${first.image}`;
+  } catch {
+    /* fall back to default image / no live cats */
+  }
+
   const m = META[category];
-  if (m) return pageMeta(`${m.title} | Roule Rodrigues`, m.description, category, m.fr);
+  if (m) return pageMeta(`${m.title} | Roule Rodrigues`, m.description, category, m.fr, ogImage);
 
   // Not in the curated map — it may still be a real category the owner added in
   // admin (e.g. "Kayaks"). Use its live label so it gets a unique title rather
   // than colliding with every other page on a generic one.
-  try {
-    const { content, fleet, recentBookings } = await getFleetView();
-    const cat = buildBrowseCategories(content, fleet, recentBookings).find((c) => c.slug === category);
-    if (cat) {
-      return pageMeta(
-        `${cat.label} in Rodrigues Island | Roule Rodrigues`,
-        `${cat.label} in Rodrigues, available to book directly with local owners. See photos, prices and availability on Roule Rodrigues.`,
-        category,
-      );
-    }
-  } catch {
-    /* fall through to the noindex default */
+  const cat = cats?.find((c) => c.slug === category);
+  if (cat) {
+    return pageMeta(
+      `${cat.label} in Rodrigues Island | Roule Rodrigues`,
+      `${cat.label} in Rodrigues, available to book directly with local owners. See photos, prices and availability on Roule Rodrigues.`,
+      category,
+      undefined,
+      ogImage,
+    );
   }
 
   // Genuinely unknown slug → this renders the not-found page, so don't hand

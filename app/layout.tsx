@@ -81,9 +81,19 @@ export const metadata: Metadata = {
       "Discover Rodrigues on your own terms — scooters, cars, restaurants, activities and local transport. Flexible hours, local support.",
     images: ["/og-image.jpg"],
   },
+  // Explicit icon set so Google shows the Roule Rodrigues logo beside the
+  // search result, not a generic globe. app/favicon.ico was the default Next.js
+  // "N" (25931 bytes) — now regenerated from the real logo at 16/32/48px. The
+  // .ico is listed first because Google's favicon crawler probes /favicon.ico
+  // before reading <link>. icon-192/512 cover higher-DPI and PWA use.
   icons: {
-    icon: "/icon-192.png",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
+    ],
     apple: "/apple-icon.png",
+    shortcut: "/favicon.ico",
   },
   appleWebApp: {
     capable: true,
