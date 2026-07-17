@@ -14,12 +14,13 @@ const CATEGORY_COLOR: Record<string, string> = {
   landmark:  "#8B5CF6",
   activity:  "#EF4444",
   gas:       "#D946EF",
+  shop:      "#2DD4BF",
 };
 
 const CATEGORY_LABEL_I18N: Record<Language, Record<string, string>> = {
-  en: { beach: "Beach",   viewpoint: "Viewpoint",     restaurant: "Restaurant", landmark: "Landmark", activity: "Activity",  gas: "Petrol station" },
-  fr: { beach: "Plage",   viewpoint: "Point de vue",  restaurant: "Restaurant", landmark: "Site",     activity: "Activité",  gas: "Station-service" },
-  cr: { beach: "Laplaz",  viewpoint: "Pwin vi",       restaurant: "Restoran",   landmark: "Landmark", activity: "Aktivite",  gas: "Stasion lesans" },
+  en: { beach: "Beach",   viewpoint: "Viewpoint",     restaurant: "Restaurant", landmark: "Landmark", activity: "Activity",  gas: "Petrol station",  shop: "Shop" },
+  fr: { beach: "Plage",   viewpoint: "Point de vue",  restaurant: "Restaurant", landmark: "Site",     activity: "Activité",  gas: "Station-service", shop: "Boutique" },
+  cr: { beach: "Laplaz",  viewpoint: "Pwin vi",       restaurant: "Restoran",   landmark: "Landmark", activity: "Aktivite",  gas: "Stasion lesans",  shop: "Laboutik" },
 };
 const DIRECTIONS_LABEL: Record<Language, string> = {
   en: "Get directions",

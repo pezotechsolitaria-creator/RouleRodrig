@@ -96,6 +96,7 @@ const PLACE_TYPE: Record<string, string> = {
   activity: "TouristAttraction",
   gas: "GasStation",
   landmark: "LandmarksOrHistoricalBuildings",
+  shop: "Store",
 };
 
 export function placeLd(p: PlaceInput) {

@@ -11,6 +11,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Browse pages are the commercial entry points — highest priority after home.
   let browse: MetadataRoute.Sitemap = [];
+  // /guide/shops only exists once the owner has pinned a shop — including it
+  // before that would list a 404, so it's data-gated like the browse pages.
+  const extra: MetadataRoute.Sitemap = [];
   try {
     const { content, fleet, recentBookings } = await getFleetView();
     browse = buildBrowseCategories(content, fleet, recentBookings).map((c) => ({
@@ -19,6 +22,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly" as const,
       priority: 0.9,
     }));
+    if (content.mapLocations.some((l) => l.category === "shop")) {
+      extra.push({ url: `${SITE_URL}/guide/shops`, lastModified: now, changeFrequency: "monthly", priority: 0.7 });
+    }
   } catch {
     // Never let a DB hiccup produce a broken sitemap — ship the static routes.
   }
@@ -30,6 +36,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/guide/beaches`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/guide/viewpoints`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/guide/routes`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    ...extra,
     // French landing page — the market searches in French ("location scooter
     // Rodrigues"), so this is a commercial page, not a translation afterthought.
     { url: `${SITE_URL}/fr/location-scooter-rodrigues`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },

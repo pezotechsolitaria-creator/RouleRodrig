@@ -125,7 +125,7 @@ export interface MapLocation {
   description: string;
   descriptionFr?: string;
   descriptionCr?: string;
-  category: "beach" | "viewpoint" | "restaurant" | "landmark" | "activity" | "gas";
+  category: "beach" | "viewpoint" | "restaurant" | "landmark" | "activity" | "gas" | "shop";
   lat: number;
   lng: number;
   image?: string;    // cover photo (kept in sync with images[0])

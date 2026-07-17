@@ -62,6 +62,7 @@ const LOC_TYPE: Record<MapLocation["category"], Activity["type"] | null> = {
   landmark: "culture",
   activity: "adventure",
   gas: null, // petrol stations aren't attractions
+  shop: "culture", // markets & craft shops are a cultural stop in an itinerary
 };
 const LOC_SLOT: Record<Activity["type"], Activity["slot"]> = {
   beach: "morning",
@@ -71,7 +72,7 @@ const LOC_SLOT: Record<Activity["type"], Activity["slot"]> = {
   food: "lunch",
 };
 const LOC_EMOJI: Record<MapLocation["category"], string> = {
-  beach: "🏖️", viewpoint: "🌅", restaurant: "🍽️", landmark: "🏛️", activity: "🤿", gas: "⛽",
+  beach: "🏖️", viewpoint: "🌅", restaurant: "🍽️", landmark: "🏛️", activity: "🤿", gas: "⛽", shop: "🛍️",
 };
 
 function mapLocationsToActivities(locs: MapLocation[]): Activity[] {

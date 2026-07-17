@@ -2603,7 +2603,7 @@ function PlaceBookingsManager() {
 // ── Map locations editor ───────────────────────────────────────────────────────
 
 const CATEGORIES: MapLocation["category"][] = [
-  "beach", "viewpoint", "restaurant", "landmark", "activity", "gas",
+  "beach", "viewpoint", "restaurant", "landmark", "activity", "gas", "shop",
 ];
 
 function MapEditor({

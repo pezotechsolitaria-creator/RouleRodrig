@@ -21,13 +21,14 @@ const CATEGORY_COLOR: Record<string, string> = {
   landmark:  "bg-violet-500",
   activity:  "bg-red-500",
   gas:       "bg-fuchsia-500",
+  shop:      "bg-teal-400",
 };
 
-const CATEGORY_KEYS = ["beach", "viewpoint", "restaurant", "landmark", "activity", "gas"] as const;
+const CATEGORY_KEYS = ["beach", "viewpoint", "restaurant", "landmark", "activity", "gas", "shop"] as const;
 const CATEGORY_LABEL_I18N: Record<Language, Record<string, string>> = {
-  en: { beach: "Beach",  viewpoint: "Viewpoint",    restaurant: "Restaurant", landmark: "Landmark", activity: "Activity", gas: "Petrol" },
-  fr: { beach: "Plage",  viewpoint: "Point de vue", restaurant: "Restaurant", landmark: "Site",     activity: "Activité", gas: "Essence" },
-  cr: { beach: "Laplaz", viewpoint: "Pwin vi",      restaurant: "Restoran",   landmark: "Landmark", activity: "Aktivite", gas: "Lesans" },
+  en: { beach: "Beach",  viewpoint: "Viewpoint",    restaurant: "Restaurant", landmark: "Landmark", activity: "Activity", gas: "Petrol",  shop: "Shop" },
+  fr: { beach: "Plage",  viewpoint: "Point de vue", restaurant: "Restaurant", landmark: "Site",     activity: "Activité", gas: "Essence", shop: "Boutique" },
+  cr: { beach: "Laplaz", viewpoint: "Pwin vi",      restaurant: "Restoran",   landmark: "Landmark", activity: "Aktivite", gas: "Lesans",  shop: "Laboutik" },
 };
 
 export default function MapSection({ locations }: { locations?: MapLocation[] }) {
