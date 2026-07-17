@@ -131,6 +131,18 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${syne.variable} ${bebasNeue.variable} ${dmSans.variable} antialiased`}
+      // LANGUAGE: auto-detected from navigator.language before React mounts,
+      // written to the same localStorage key LanguageContext reads, so the app
+      // boots straight into the visitor's language. The full-screen picker used
+      // to block here instead — PageSpeed proved it: Lighthouse's screenshot of
+      // the homepage was the "CHOOSE YOUR LANGUAGE" wall, not the site, because
+      // that wall WAS the Largest Contentful Paint. Every first-time visitor and
+      // every crawler met 1.8s of splash and then a decision before seeing a
+      // single scooter. No serious travel site does this — Booking and Airbnb
+      // detect and offer a switcher. The Navbar switcher (LANG_CYCLE) still
+      // changes language any time, so nothing is lost.
+      // To bring the wall back: restore `revealLang()` setting data-show-lang.
+      //
       // The splash gate below is an inline script that runs BEFORE React
       // hydrates and stamps data-splash / data-show-lang straight onto <html>
       // (it has to — waiting for React would flash the unstyled page). React
@@ -160,7 +172,7 @@ export default function RootLayout({
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var d=document.documentElement;var lang=null;try{lang=localStorage.getItem('rr_language');}catch(e){}var hasLang=lang==='en'||lang==='fr'||lang==='cr';var sa=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;var force=location.search.indexOf('splash=1')>-1;var seen=false;try{seen=localStorage.getItem('rr-splash-seen')==='1';}catch(e){}var ss=false;try{ss=sessionStorage.getItem('rr-splash-ses')==='1';}catch(e){}var showSplash=force||(!ss&&(sa||!seen));if(showSplash&&!force){try{localStorage.setItem('rr-splash-seen','1');sessionStorage.setItem('rr-splash-ses','1');}catch(e){}}var revealLang=function(){if(!hasLang)d.setAttribute('data-show-lang','1');};if(showSplash){d.setAttribute('data-splash','on');var pv=function(){try{document.querySelectorAll('video').forEach(function(v){try{if(!v.paused)v.pause();}catch(e){}});}catch(e){}};var iv=setInterval(pv,180);pv();var done=function(){clearInterval(iv);var el=document.getElementById('rr-splash');if(el)el.remove();d.removeAttribute('data-splash');revealLang();try{document.querySelectorAll('video').forEach(function(v){if(v.autoplay||v.hasAttribute('autoplay')){try{var p=v.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}});}catch(e){}};setTimeout(done,1800);document.addEventListener('DOMContentLoaded',function(){var el=document.getElementById('rr-splash');if(el)el.addEventListener('click',function(){el.classList.add('rr-skip');setTimeout(done,420);},{once:true});});}else{revealLang();}}catch(e){}})();`,
+            __html: `(function(){try{var d=document.documentElement;var lang=null;try{lang=localStorage.getItem('rr_language');}catch(e){}var hasLang=lang==='en'||lang==='fr'||lang==='cr';if(!hasLang){var nl=(navigator.language||'').toLowerCase();try{localStorage.setItem('rr_language',nl.indexOf('fr')===0?'fr':'en');}catch(e){}}var sa=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;var force=location.search.indexOf('splash=1')>-1;var seen=false;try{seen=localStorage.getItem('rr-splash-seen')==='1';}catch(e){}var ss=false;try{ss=sessionStorage.getItem('rr-splash-ses')==='1';}catch(e){}var showSplash=force||(!ss&&(sa||!seen));if(showSplash&&!force){try{localStorage.setItem('rr-splash-seen','1');sessionStorage.setItem('rr-splash-ses','1');}catch(e){}}if(showSplash){d.setAttribute('data-splash','on');var pv=function(){try{document.querySelectorAll('video').forEach(function(v){try{if(!v.paused)v.pause();}catch(e){}});}catch(e){}};var iv=setInterval(pv,180);pv();var done=function(){clearInterval(iv);var el=document.getElementById('rr-splash');if(el)el.remove();d.removeAttribute('data-splash');try{document.querySelectorAll('video').forEach(function(v){if(v.autoplay||v.hasAttribute('autoplay')){try{var p=v.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}});}catch(e){}};setTimeout(done,1800);document.addEventListener('DOMContentLoaded',function(){var el=document.getElementById('rr-splash');if(el)el.addEventListener('click',function(){el.classList.add('rr-skip');setTimeout(done,420);},{once:true});});}}catch(e){}})();`,
           }}
         />
         <div id="rr-splash" aria-hidden="true">
