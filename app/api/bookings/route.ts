@@ -171,7 +171,13 @@ export async function POST(req: NextRequest) {
   };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("bookings").insert([record]);
+  // Return the new id so the client can offer online deposit payment (PayPal)
+  // for exactly this booking.
+  const { data: inserted, error } = await supabase
+    .from("bookings")
+    .insert([record])
+    .select("id")
+    .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Fire emails — never block or fail the booking on email errors
@@ -223,5 +229,5 @@ export async function POST(req: NextRequest) {
     /* ignore */
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, bookingId: inserted?.id ?? null, depositAmount: deposit_amount });
 }

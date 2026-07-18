@@ -22,6 +22,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import PhoneInput from "@/components/PhoneInput";
+import PayPalDeposit from "@/components/PayPalDeposit";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
 
 type FormState = "idle" | "loading" | "success" | "error";
@@ -97,7 +98,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
   const [formState, setFormState] = useState<FormState>("idle");
   const [showPartnerCode, setShowPartnerCode] = useState(false);
   const [lastBooking, setLastBooking] = useState<
-    { scooter: string; range: string; days: number; name: string; total: string } | null
+    { scooter: string; range: string; days: number; name: string; total: string; bookingId?: string; deposit?: number } | null
   >(null);
   const [agreed, setAgreed] = useState(false);
   const [agreeError, setAgreeError] = useState(false);
@@ -271,19 +272,25 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
         }),
       });
       if (!res.ok) throw new Error("Booking failed");
+      const resData = (await res.json().catch(() => ({}))) as { bookingId?: string; depositAmount?: number };
       // Capture a summary (the form is cleared next) for the WhatsApp confirm link
+      // and the deposit payment. Keep the deposit MUR from the breakdown before
+      // the form clears it.
       setLastBooking({
         scooter: selectedScooter?.name ?? form.scooter,
         range: fmtRange(form.start_date, effectiveEnd),
         days,
         name: form.name,
         total: estimatedTotal,
+        bookingId: resData.bookingId,
+        deposit: breakdown?.deposit ?? resData.depositAmount ?? 0,
       });
       setFormState("success");
       setForm({ name: "", email: "", phone: "", scooter: "", start_date: "", end_date: "", pickup_time: "10:00", return_time: "10:00", message: "", partner_code: "" });
       setShowPartnerCode(false);
       setAgreed(false);
-      setTimeout(() => setFormState("idle"), 12000);
+      // Note: no auto-reset here — the success card holds the deposit-payment
+      // button, which the customer needs time to use.
     } catch {
       setFormState("error");
       setTimeout(() => setFormState("idle"), 5000);
@@ -353,6 +360,16 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                   >
                     <MessageSquare size={16} /> {t.booking.confirmWhatsApp}
                   </a>
+                )}
+                {/* Pay the deposit online to confirm instantly. Renders nothing
+                    unless PayPal is configured (NEXT_PUBLIC_PAYPAL_CLIENT_ID). */}
+                {lastBooking?.bookingId && (lastBooking.deposit ?? 0) > 0 && (
+                  <div className="mt-4 border-t border-green-500/20 pt-4">
+                    <PayPalDeposit
+                      bookingId={lastBooking.bookingId}
+                      depositLabel={`Rs ${(lastBooking.deposit ?? 0).toLocaleString()}`}
+                    />
+                  </div>
                 )}
               </motion.div>
             )}
