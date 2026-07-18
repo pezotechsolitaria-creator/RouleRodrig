@@ -148,7 +148,14 @@ export async function POST(req: NextRequest) {
   // Deposit rounded to the nearest rupee. Only computable when we know the total.
   const deposit_amount = total_amount != null ? Math.round((total_amount * depositPct) / 100) : null;
 
+  // Generate the id here so we KNOW it without reading the row back. The public
+  // client can INSERT bookings but RLS forbids it from SELECTing them, so an
+  // `.insert().select()` (INSERT ... RETURNING) fails the SELECT policy and
+  // breaks the whole booking. Providing the id up-front avoids the read entirely
+  // and still lets us hand it to the PayPal deposit flow.
+  const id = crypto.randomUUID();
   const record = {
+    id,
     name: name.slice(0, 120),
     email: email || null,
     phone,
@@ -171,13 +178,7 @@ export async function POST(req: NextRequest) {
   };
 
   const supabase = await createClient();
-  // Return the new id so the client can offer online deposit payment (PayPal)
-  // for exactly this booking.
-  const { data: inserted, error } = await supabase
-    .from("bookings")
-    .insert([record])
-    .select("id")
-    .single();
+  const { error } = await supabase.from("bookings").insert([record]);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Fire emails — never block or fail the booking on email errors
@@ -229,5 +230,5 @@ export async function POST(req: NextRequest) {
     /* ignore */
   }
 
-  return NextResponse.json({ ok: true, bookingId: inserted?.id ?? null, depositAmount: deposit_amount });
+  return NextResponse.json({ ok: true, bookingId: id, depositAmount: deposit_amount });
 }
