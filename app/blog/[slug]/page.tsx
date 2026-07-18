@@ -9,6 +9,9 @@ import { blogPostingLd, breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import ScrollProgress from "@/components/ScrollProgress";
+import AskTiRouleButton from "@/components/AskTiRouleButton";
+import TiRouleGuide from "@/components/TiRouleGuide";
 
 export const revalidate = 3600;
 
@@ -56,9 +59,15 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const post = getPost(slug);
   if (!post) notFound();
   const content = await getContent();
+  const businessWhatsApp =
+    content.social.whatsapp ||
+    content.contact.whatsappNumbers?.[0]?.number ||
+    content.contact.phone ||
+    "";
 
   return (
     <>
+      <ScrollProgress />
       <JsonLd
         data={[
           blogPostingLd({
@@ -116,18 +125,24 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             </section>
           ))}
 
-          {/* CTA — this is why the article exists commercially */}
+          {/* CTA — the article's commercial purpose: continue the journey either
+              to booking, or to Ti Roulé for a personalised plan (Google → blog →
+              Ti Roulé → booking). */}
           <div className="mt-12 rounded-2xl border border-yellow/20 bg-gradient-to-br from-yellow/[0.08] to-transparent p-6">
             <p className="font-syne text-lg font-bold text-offwhite">Ready to explore Rodrigues?</p>
             <p className="mt-1.5 font-dm text-sm text-muted">
-              Rent a scooter or car directly from local owners and see the island at your own pace.
+              Rent a scooter or car directly from local owners — or let Ti Roulé, our free island
+              guide, build a plan around your dates.
             </p>
-            <Link
-              href="/browse/scooter"
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-yellow px-6 py-3 font-syne font-bold text-dark text-sm transition-transform hover:scale-[1.03]"
-            >
-              See scooters &amp; book <ArrowRight size={16} />
-            </Link>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link
+                href="/browse/scooter"
+                className="inline-flex items-center gap-2 rounded-full bg-yellow px-6 py-3 font-syne font-bold text-dark text-sm transition-transform hover:scale-[1.03]"
+              >
+                See scooters &amp; book <ArrowRight size={16} />
+              </Link>
+              <AskTiRouleButton />
+            </div>
           </div>
 
           <nav className="mt-12 border-t border-dark-border pt-8">
@@ -148,6 +163,22 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         </article>
       </main>
       <Footer social={content.social} branding={content.branding} />
+      {/* Mounts the chat so the "Ask Ti Roulé" button on this page has a listener. */}
+      <TiRouleGuide
+        image={content.branding.mascotImage}
+        poses={content.branding.mascotPoses}
+        whatsapp={businessWhatsApp}
+        data={{
+          beaches: content.mapLocations
+            .filter((l) => l.category === "beach")
+            .slice(0, 3)
+            .map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
+          viewpoints: content.mapLocations
+            .filter((l) => l.category === "viewpoint")
+            .slice(0, 3)
+            .map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
+        }}
+      />
     </>
   );
 }
