@@ -55,15 +55,29 @@ function extractDailyPrice(priceStr: string): number {
   return parseInt(match[0].replace(/,/g, ""), 10);
 }
 
-function estimateTotal(scooter: FleetItem | undefined, days: number): string {
-  if (!scooter || days <= 0) return "";
-  const daily = extractDailyPrice(scooter.price);
-  if (!daily) return "";
+// Delivery: scooters are delivered and collected for Rs 200 each way (Rs 400
+// total); cars are delivered free. Category-driven so it stays correct even if
+// the booking form is reused for a mixed fleet.
+const DELIVERY_EACH_WAY = 200;
+function deliveryFee(vehicle: FleetItem | undefined): number {
+  if (!vehicle) return 0;
+  return (vehicle.category ?? "scooter") === "car" ? 0 : DELIVERY_EACH_WAY * 2;
+}
+
+// Full price breakdown as numbers, so the UI, the charge and the email all agree.
+function priceBreakdown(
+  vehicle: FleetItem | undefined,
+  days: number,
+): { rental: number; delivery: number; total: number } | null {
+  if (!vehicle || days <= 0) return null;
+  const daily = extractDailyPrice(vehicle.price);
+  if (!daily) return null;
   let rate = daily;
-  if (days >= 7)      rate = Math.round(daily * 0.85);
-  else if (days >= 3) rate = Math.round(daily * 0.90);
-  const total = rate * days;
-  return `Rs ${total.toLocaleString()}`;
+  if (days >= 7) rate = Math.round(daily * 0.85);
+  else if (days >= 3) rate = Math.round(daily * 0.9);
+  const rental = rate * days;
+  const delivery = deliveryFee(vehicle);
+  return { rental, delivery, total: rental + delivery };
 }
 
 export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[]; whatsapp?: string }) {
@@ -96,7 +110,8 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
   // next day so the customer isn't forced to pick two days for one day's hire.
   const effectiveEnd = form.end_date || (form.start_date ? isoAddDays(form.start_date, 1) : "");
   const days = daysBetween(form.start_date, effectiveEnd);
-  const estimatedTotal = estimateTotal(selectedScooter, days);
+  const breakdown = priceBreakdown(selectedScooter, days);
+  const estimatedTotal = breakdown ? `Rs ${breakdown.total.toLocaleString()}` : "";
   const activeUnits = (selectedScooter?.assets ?? []).filter((a) => a.active !== false).length;
   const capacity = activeUnits > 0 ? activeUnits : Math.max(1, selectedScooter?.units ?? 1);
 
@@ -240,7 +255,8 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
           return_time: form.return_time || null,
           days,
           total_price: estimatedTotal || null,
-          total_amount: estimatedTotal ? parseInt(estimatedTotal.replace(/\D/g, ""), 10) || null : null,
+          total_amount: breakdown ? breakdown.total : null,
+          delivery_fee: breakdown ? breakdown.delivery : null,
           message: form.message || null,
           partner_code: form.partner_code.trim().toUpperCase() || null,
         }),
@@ -639,8 +655,25 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                       {days > 0 ? t.booking.days(days) : "—"}
                     </dd>
                   </div>
-                  {estimatedTotal && (
+                  {breakdown && (
                     <>
+                      <div className="border-t border-dark-border pt-3 flex justify-between items-start">
+                        <dt className="text-muted font-dm text-xs">{t.booking.summaryRental}</dt>
+                        <dd className="text-offwhite font-dm text-xs">{convert(`Rs ${breakdown.rental.toLocaleString()}`)}</dd>
+                      </div>
+                      <div className="flex justify-between items-start">
+                        <dt className="text-muted font-dm text-xs">
+                          {t.booking.summaryDelivery}
+                          <span className="block text-muted/60 text-[10px]">{t.booking.deliveryNote}</span>
+                        </dt>
+                        <dd className="font-dm text-xs">
+                          {breakdown.delivery > 0 ? (
+                            <span className="text-offwhite">{convert(`Rs ${breakdown.delivery.toLocaleString()}`)}</span>
+                          ) : (
+                            <span className="text-green-400">{t.booking.deliveryFree}</span>
+                          )}
+                        </dd>
+                      </div>
                       <div className="border-t border-dark-border pt-3 flex justify-between items-center">
                         <dt className="text-muted font-dm text-xs">{t.booking.summaryTotal}</dt>
                         <dd className="text-yellow font-syne font-bold text-base">{convert(estimatedTotal)}</dd>

@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
     days?: number;
     total_price?: string | null;
     total_amount?: number | null;
+    delivery_fee?: number | null;
     message?: string | null;
     partner_code?: string | null;
   };
@@ -144,6 +145,12 @@ export async function POST(req: NextRequest) {
     days,
     total_price: body.total_price ?? null,
     total_amount: body.total_amount ?? null,
+    // Delivery fee (scooter = Rs 400, car = 0). Trust it only if it's a sane
+    // non-negative integer; otherwise store null rather than a bad value.
+    delivery_fee:
+      typeof body.delivery_fee === "number" && Number.isFinite(body.delivery_fee) && body.delivery_fee >= 0
+        ? Math.round(body.delivery_fee)
+        : null,
     message: (body.message ?? "")?.toString().trim() || null,
     status: "pending" as const,
     partner_code: (body.partner_code ?? "")?.toString().trim().toUpperCase() || null,

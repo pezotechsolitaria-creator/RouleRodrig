@@ -14,6 +14,7 @@ interface BookingEmailData {
   end_date: string;
   days: number;
   total_price: string | null;
+  delivery_fee?: number | null;
   message: string | null;
   asset_label?: string | null;
   pickup_time?: string | null;
@@ -520,6 +521,16 @@ function summaryRows(b: BookingEmailData): string {
     ["Return · Retour", fmtDate(b.end_date) + (b.return_time ? ` · ${fmtTime(b.return_time)}` : "")],
     ["Duration · Durée", `${b.days} day${b.days !== 1 ? "s" : ""}`],
   );
+  // Delivery line: scooters carry a Rs 400 drop-off + pickup fee; cars are
+  // delivered free. Only shown when we know the value (null = older booking).
+  if (typeof b.delivery_fee === "number") {
+    pairs.push([
+      "Delivery · Livraison",
+      b.delivery_fee > 0
+        ? `Rs ${b.delivery_fee.toLocaleString("en-US")} (drop-off + pickup · livraison + récupération)`
+        : "Free · Gratuite",
+    ]);
+  }
   if (b.total_price) pairs.push(["Estimated total · Total estimé", b.total_price]);
   return rows(pairs);
 }
