@@ -14,12 +14,18 @@ interface BookingEmailData {
   end_date: string;
   days: number;
   total_price: string | null;
+  total_amount?: number | null;
   delivery_fee?: number | null;
+  deposit_amount?: number | null;
+  deposit_pct?: number | null;
   message: string | null;
   asset_label?: string | null;
   pickup_time?: string | null;
   return_time?: string | null;
 }
+
+// "1617" → "Rs 1,617"
+const rs = (n: number) => `Rs ${Math.round(n).toLocaleString("en-US")}`;
 
 interface Attachment {
   name: string;
@@ -521,17 +527,30 @@ function summaryRows(b: BookingEmailData): string {
     ["Return · Retour", fmtDate(b.end_date) + (b.return_time ? ` · ${fmtTime(b.return_time)}` : "")],
     ["Duration · Durée", `${b.days} day${b.days !== 1 ? "s" : ""}`],
   );
-  // Delivery line: scooters carry a Rs 400 drop-off + pickup fee; cars are
-  // delivered free. Only shown when we know the value (null = older booking).
-  if (typeof b.delivery_fee === "number") {
+
+  // Full, itemised cost so the customer sees exactly what the booking costs for
+  // their dates — rental for N days, delivery, total, then the deposit that
+  // confirms it and the balance due at pickup.
+  const total = typeof b.total_amount === "number" ? b.total_amount : null;
+  const delivery = typeof b.delivery_fee === "number" ? b.delivery_fee : null;
+
+  if (total != null && delivery != null) {
+    const rental = total - delivery;
+    pairs.push([`Rental · Location (${b.days} day${b.days !== 1 ? "s" : ""})`, rs(rental)]);
     pairs.push([
       "Delivery · Livraison",
-      b.delivery_fee > 0
-        ? `Rs ${b.delivery_fee.toLocaleString("en-US")} (drop-off + pickup · livraison + récupération)`
-        : "Free · Gratuite",
+      delivery > 0 ? `${rs(delivery)} (drop-off + pickup)` : "Free · Gratuite",
     ]);
+    pairs.push(["Total · Total", rs(total)]);
+    if (typeof b.deposit_amount === "number" && b.deposit_amount > 0) {
+      const pct = b.deposit_pct ?? 0;
+      pairs.push([`Deposit to confirm · Acompte (${pct}%)`, rs(b.deposit_amount)]);
+      pairs.push(["Balance at pickup · Solde au retrait", rs(total - b.deposit_amount)]);
+    }
+  } else if (b.total_price) {
+    // Fallback for older/edge bookings without the numeric breakdown.
+    pairs.push(["Estimated total · Total estimé", b.total_price]);
   }
-  if (b.total_price) pairs.push(["Estimated total · Total estimé", b.total_price]);
   return rows(pairs);
 }
 
@@ -548,6 +567,20 @@ export async function sendBookingEmails(raw: BookingEmailData): Promise<{ custom
   // ── Customer confirmation (bilingual EN + FR, with add-to-calendar) ──
   if (b.email) {
     const cal = buildCalendar(b);
+
+    // Deposit-aware payment copy: a booking is confirmed once the deposit is
+    // paid (scooters 25%, cars 50%), balance at pickup. Falls back to the old
+    // "no payment due yet" wording when there's no numeric deposit.
+    const hasDeposit =
+      typeof b.deposit_amount === "number" && b.deposit_amount > 0 && typeof b.total_amount === "number";
+    const balance = hasDeposit ? (b.total_amount as number) - (b.deposit_amount as number) : 0;
+    const payEn = hasDeposit
+      ? `To confirm your booking, please pay a ${b.deposit_pct}% deposit of <b>${rs(b.deposit_amount as number)}</b> by bank transfer or PayPal using the details above. The remaining <b>${rs(balance)}</b> is paid at pickup. Quote your name as the payment reference so we can match it, and keep the receipt to show on the day. Any question about payment? Email <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a> and a real person will answer.`
+      : `No payment is due yet. We'll confirm availability first — once confirmed, you can settle by bank transfer or PayPal using the details above. Please quote your name as the payment reference, and keep the receipt to show at pickup. Any question about payment? Email <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a>.`;
+    const payFr = hasDeposit
+      ? `Pour confirmer votre réservation, merci de régler un acompte de ${b.deposit_pct}% soit <b>${rs(b.deposit_amount as number)}</b> par virement bancaire ou PayPal avec les coordonnées ci-dessus. Le solde de <b>${rs(balance)}</b> se règle lors du retrait. Indiquez votre nom en référence du paiement et conservez le reçu à présenter le jour même. Une question sur le paiement ? Écrivez à <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a>.`
+      : `Aucun paiement n'est dû pour l'instant. Nous confirmons d'abord la disponibilité — une fois confirmée, vous pourrez régler par virement bancaire ou PayPal. Merci d'indiquer votre nom en référence et de conserver le reçu. Une question ? Écrivez à <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a>.`;
+
     const body = `
       ${paragraph(`Thank you for choosing Roule Rodrigues. We've received your booking request — our team will confirm availability and payment details shortly, usually within a few hours (often via WhatsApp).`)}
       ${sectionLabel("Your booking · Votre réservation")}
@@ -555,7 +588,7 @@ export async function sendBookingEmails(raw: BookingEmailData): Promise<{ custom
       <div style="text-align:center;margin-bottom:6px">${primaryButton(cal.gcal, "📅 Add to calendar · Ajouter au calendrier")}</div>
       ${sectionLabel("How to pay")}
       ${detailCard(PAYMENT_ROWS(b))}
-      ${paragraph(`No payment is due yet. We'll confirm availability first — once confirmed, you can settle by bank transfer or PayPal using the details above. Please quote your name as the payment reference so we can match it to your booking, and keep the receipt to show at pickup. If anything about payment is unclear, email <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a> and a real person will answer.`)}
+      ${paragraph(payEn)}
       ${sectionLabel("Before your pickup, please bring")}
       ${checkList(["A valid driver's licence", "Your booking confirmation", "A valid ID or passport if requested"])}
       ${paragraph(`Please arrive 10–15 minutes early so we can walk you through the vehicle together. Any question? Just reply to this email — we look forward to welcoming you!`)}
@@ -563,7 +596,7 @@ export async function sendBookingEmails(raw: BookingEmailData): Promise<{ custom
       ${frHeading(`Merci, ${b.name} !`)}
       ${paragraph(`Merci d'avoir choisi Roule Rodrigues. Nous avons bien reçu votre demande de réservation — notre équipe confirmera la disponibilité et les modalités de paiement très bientôt, généralement sous quelques heures (souvent via WhatsApp).`)}
       ${sectionLabel("Comment payer")}
-      ${paragraph(`Aucun paiement n'est dû pour l'instant. Nous confirmons d'abord la disponibilité — une fois confirmée, vous pourrez régler par virement bancaire ou PayPal avec les coordonnées ci-dessus. Merci d'indiquer votre nom en référence du paiement et de conserver le reçu à présenter lors du retrait. La moindre question sur le paiement : écrivez à <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a>, une vraie personne vous répondra.`)}
+      ${paragraph(payFr)}
       ${sectionLabel("À apporter le jour du retrait")}
       ${checkList(["Un permis de conduire valide", "Votre confirmation de réservation", "Une pièce d'identité ou un passeport si demandé"])}
       ${paragraph(`Merci d'arriver 10 à 15 minutes en avance afin que nous puissions vérifier le véhicule ensemble. Une question ? Répondez simplement à cet e-mail — au plaisir de vous accueillir !`)}

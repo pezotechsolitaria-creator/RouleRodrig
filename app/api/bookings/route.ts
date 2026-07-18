@@ -81,10 +81,15 @@ export async function POST(req: NextRequest) {
   // it — availability and asset assignment match on it. But customers must never
   // see an internal slug, so emails/WhatsApp use the display name instead.
   let scooterName = scooter;
+  // Deposit to confirm: cars 50%, scooters (default) 25%. Computed SERVER-side
+  // from the resolved vehicle category — never trusted from the client, since
+  // it decides how much money the customer must pay to hold the booking.
+  let depositPct = 25;
   try {
     const content = await getContent();
     const item = content.fleet.find((f) => f.id === scooter || f.name === scooter);
     if (item?.name) scooterName = item.name;
+    if ((item?.category ?? "scooter") === "car") depositPct = 50;
     activeAssets = (item?.assets ?? [])
       .filter((a) => a.active !== false)
       .map((a) => ({ id: a.id, label: a.label, color: a.color }));
@@ -133,6 +138,16 @@ export async function POST(req: NextRequest) {
     /* if the check fails, don't block the booking */
   }
 
+  const total_amount = typeof body.total_amount === "number" ? body.total_amount : null;
+  // Delivery fee (scooter = Rs 400, car = 0). Trust it only if it's a sane
+  // non-negative integer; otherwise store null rather than a bad value.
+  const delivery_fee =
+    typeof body.delivery_fee === "number" && Number.isFinite(body.delivery_fee) && body.delivery_fee >= 0
+      ? Math.round(body.delivery_fee)
+      : null;
+  // Deposit rounded to the nearest rupee. Only computable when we know the total.
+  const deposit_amount = total_amount != null ? Math.round((total_amount * depositPct) / 100) : null;
+
   const record = {
     name: name.slice(0, 120),
     email: email || null,
@@ -144,13 +159,10 @@ export async function POST(req: NextRequest) {
     return_time: (body.return_time ?? "")?.toString().trim().slice(0, 10) || null,
     days,
     total_price: body.total_price ?? null,
-    total_amount: body.total_amount ?? null,
-    // Delivery fee (scooter = Rs 400, car = 0). Trust it only if it's a sane
-    // non-negative integer; otherwise store null rather than a bad value.
-    delivery_fee:
-      typeof body.delivery_fee === "number" && Number.isFinite(body.delivery_fee) && body.delivery_fee >= 0
-        ? Math.round(body.delivery_fee)
-        : null,
+    total_amount,
+    delivery_fee,
+    deposit_amount,
+    deposit_pct: total_amount != null ? depositPct : null,
     message: (body.message ?? "")?.toString().trim() || null,
     status: "pending" as const,
     partner_code: (body.partner_code ?? "")?.toString().trim().toUpperCase() || null,

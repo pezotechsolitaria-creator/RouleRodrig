@@ -64,11 +64,17 @@ function deliveryFee(vehicle: FleetItem | undefined): number {
   return (vehicle.category ?? "scooter") === "car" ? 0 : DELIVERY_EACH_WAY * 2;
 }
 
+// Deposit to confirm a booking: cars 50%, scooters 25%. Kept in sync with the
+// server, which recomputes it authoritatively (the client value is display-only).
+function depositPct(vehicle: FleetItem | undefined): number {
+  return (vehicle?.category ?? "scooter") === "car" ? 50 : 25;
+}
+
 // Full price breakdown as numbers, so the UI, the charge and the email all agree.
 function priceBreakdown(
   vehicle: FleetItem | undefined,
   days: number,
-): { rental: number; delivery: number; total: number } | null {
+): { rental: number; delivery: number; total: number; deposit: number; balance: number; pct: number } | null {
   if (!vehicle || days <= 0) return null;
   const daily = extractDailyPrice(vehicle.price);
   if (!daily) return null;
@@ -77,7 +83,10 @@ function priceBreakdown(
   else if (days >= 3) rate = Math.round(daily * 0.9);
   const rental = rate * days;
   const delivery = deliveryFee(vehicle);
-  return { rental, delivery, total: rental + delivery };
+  const total = rental + delivery;
+  const pct = depositPct(vehicle);
+  const deposit = Math.round((total * pct) / 100);
+  return { rental, delivery, total, deposit, balance: total - deposit, pct };
 }
 
 export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[]; whatsapp?: string }) {
@@ -677,6 +686,21 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                       <div className="border-t border-dark-border pt-3 flex justify-between items-center">
                         <dt className="text-muted font-dm text-xs">{t.booking.summaryTotal}</dt>
                         <dd className="text-yellow font-syne font-bold text-base">{convert(estimatedTotal)}</dd>
+                      </div>
+                      {/* Deposit model: pay a % to confirm, balance at pickup */}
+                      <div className="flex justify-between items-start">
+                        <dt className="text-muted font-dm text-xs">
+                          {t.booking.depositToConfirm(breakdown.pct)}
+                        </dt>
+                        <dd className="text-offwhite font-syne font-bold text-xs">
+                          {convert(`Rs ${breakdown.deposit.toLocaleString()}`)}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between items-start">
+                        <dt className="text-muted/70 font-dm text-[11px]">{t.booking.balanceAtPickup}</dt>
+                        <dd className="text-muted font-dm text-[11px]">
+                          {convert(`Rs ${breakdown.balance.toLocaleString()}`)}
+                        </dd>
                       </div>
                       {days >= 3 && (
                         <p className="text-green-400/80 text-xs font-dm">{t.booking.discountNote}</p>
