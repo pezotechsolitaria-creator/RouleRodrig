@@ -25,6 +25,34 @@ export function websiteLd() {
   };
 }
 
+// A blog article. drives the "Article" rich result and helps AI answers cite
+// the piece. author/publisher point at the same Organization @id so Google
+// links the article to the business entity.
+export function blogPostingLd(p: {
+  slug: string;
+  title: string;
+  description: string;
+  published: string;
+  updated: string;
+  image?: string;
+}) {
+  const url = `${SITE_URL}/blog/${p.slug}`;
+  return {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "@id": `${url}#article`,
+    headline: p.title,
+    description: p.description,
+    datePublished: p.published,
+    dateModified: p.updated,
+    inLanguage: "en",
+    image: p.image ?? `${SITE_URL}/og-image.jpg`,
+    mainEntityOfPage: url,
+    author: { "@id": `${SITE_URL}/#organization`, name: BRAND },
+    publisher: { "@id": `${SITE_URL}/#organization` },
+  };
+}
+
 export function breadcrumbLd(trail: { name: string; url: string }[]) {
   return {
     "@context": "https://schema.org",

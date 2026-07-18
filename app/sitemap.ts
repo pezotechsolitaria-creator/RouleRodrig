@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/site";
 import { getFleetView, buildBrowseCategories } from "@/lib/site-data";
+import { BLOG_POSTS } from "@/lib/blog";
 
 // Built from live content, so a category the owner adds (or empties) in admin
 // appears in / drops out of the sitemap on its own. Regenerated hourly.
@@ -42,6 +43,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/fr/location-scooter-rodrigues`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
     { url: `${SITE_URL}/fr/plages-rodrigues`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/fr/guide-rodrigues`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${SITE_URL}/blog`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
+    ...BLOG_POSTS.map((p) => ({
+      url: `${SITE_URL}/blog/${p.slug}`,
+      lastModified: new Date(p.updated),
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
     { url: `${SITE_URL}/taxi`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
     { url: `${SITE_URL}/list-your-scooter`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
     ...["terms", "privacy", "refunds", "disclaimer"].map((slug) => ({
