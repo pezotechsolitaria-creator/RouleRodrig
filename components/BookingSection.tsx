@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -23,6 +23,7 @@ import { useCurrency } from "@/context/CurrencyContext";
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import PhoneInput from "@/components/PhoneInput";
 import PayPalDeposit from "@/components/PayPalDeposit";
+import BankTransferDetails from "@/components/BankTransferDetails";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
 
 type FormState = "idle" | "loading" | "success" | "error";
@@ -91,7 +92,7 @@ function priceBreakdown(
 }
 
 export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[]; whatsapp?: string }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { convert } = useCurrency();
   const scooters = (fleet ?? []).filter((s) => s.available !== false && !s.soldOutToday);
 
@@ -102,6 +103,12 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
   >(null);
   const [agreed, setAgreed] = useState(false);
   const [agreeError, setAgreeError] = useState(false);
+  // Inline validation: which fields are wrong + the message to show. Set on a
+  // submit attempt so the customer instantly sees WHAT to fix instead of a
+  // silently-disabled button (the reported "took 5 minutes to figure out" pain).
+  const [fieldErr, setFieldErr] = useState<{ vehicle?: boolean; date?: boolean }>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const formTopRef = useRef<HTMLFormElement | null>(null);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -241,13 +248,40 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
   const phoneOk = isValidPhone(form.phone);
   const emailOk = !form.email || isValidEmail(form.email);
 
+  // Trilingual, specific error messages — one clear problem at a time.
+  const ERR = {
+    en: { vehicle: "Please choose a vehicle.", date: "Please choose your pickup date.", dates: "Return must be after pickup.", name: "Please enter your name.", phone: "Please enter a valid phone number.", email: "Please enter a valid email address.", overlap: "Those dates are already taken — please pick another range.", agree: "Please accept the terms to continue." },
+    fr: { vehicle: "Veuillez choisir un véhicule.", date: "Veuillez choisir votre date de retrait.", dates: "Le retour doit être après le retrait.", name: "Veuillez indiquer votre nom.", phone: "Veuillez saisir un numéro de téléphone valide.", email: "Veuillez saisir une adresse e-mail valide.", overlap: "Ces dates sont déjà prises — choisissez une autre période.", agree: "Veuillez accepter les conditions pour continuer." },
+    cr: { vehicle: "Swazir enn veikil.", date: "Swazir ou dat retre.", dates: "Retour bizin apre retre.", name: "Met ou nom.", phone: "Met enn nimero telefonn valab.", email: "Met enn adres email valab.", overlap: "Sa bann dat la fini pran — swazir enn lot peryod.", agree: "Aksepte bann kondision pou kontinie." },
+  }[language] ?? { vehicle: "Please choose a vehicle.", date: "Please choose your pickup date.", dates: "Return must be after pickup.", name: "Please enter your name.", phone: "Please enter a valid phone number.", email: "Please enter a valid email address.", overlap: "Those dates are already taken.", agree: "Please accept the terms." };
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name || !form.scooter || !form.start_date) return;
-    if (days <= 0) return;
-    if (!phoneOk || !emailOk) return; // valid phone required; email valid if given
-    if (hasOverlap) return; // selected dates clash with a confirmed booking
-    if (!agreed) { setAgreeError(true); return; } // must accept terms
+    // Validate top-to-bottom; show the FIRST problem clearly + highlight its
+    // field, then scroll the form into view. No silent no-ops.
+    const fe: { vehicle?: boolean; date?: boolean } = {};
+    let firstError: string | null = null;
+    const flag = (cond: boolean, msg: string, field?: "vehicle" | "date") => {
+      if (cond && !firstError) { firstError = msg; if (field) fe[field] = true; }
+    };
+    flag(!form.scooter, ERR.vehicle, "vehicle");
+    flag(!form.start_date, ERR.date, "date");
+    flag(!!form.start_date && days <= 0, ERR.dates, "date");
+    flag(!form.name.trim(), ERR.name);
+    flag(!phoneOk, ERR.phone);
+    flag(!emailOk, ERR.email);
+    flag(hasOverlap, ERR.overlap, "date");
+    flag(!agreed, ERR.agree);
+
+    if (firstError) {
+      setFieldErr(fe);
+      setSubmitError(firstError);
+      setAgreeError(!agreed);
+      formTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    setFieldErr({});
+    setSubmitError(null);
 
     setFormState("loading");
     try {
@@ -343,26 +377,8 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                     <p className="font-dm text-green-400/70 text-xs mt-0.5">{t.booking.successDesc}</p>
                   </div>
                 </div>
-                {/* One-tap WhatsApp confirmation to the business */}
-                {lastBooking && whatsapp && (
-                  <a
-                    href={`https://wa.me/${whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(
-                      `Hi Roule Rodrigues! I'd like to confirm my booking:\n\n` +
-                      `🛵 Scooter: ${lastBooking.scooter}\n` +
-                      `📅 Dates: ${lastBooking.range} (${lastBooking.days} day${lastBooking.days !== 1 ? "s" : ""})\n` +
-                      `👤 Name: ${lastBooking.name}\n` +
-                      (lastBooking.total ? `💰 Est. total: ${lastBooking.total}\n` : "") +
-                      `\nThank you!`
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-4 w-full flex items-center justify-center gap-2 bg-green-500 text-white font-syne font-bold text-sm py-3 rounded-xl hover:bg-green-600 transition-colors"
-                  >
-                    <MessageSquare size={16} /> {t.booking.confirmWhatsApp}
-                  </a>
-                )}
-                {/* Pay the deposit online to confirm instantly. Renders nothing
-                    unless PayPal is configured (NEXT_PUBLIC_PAYPAL_CLIENT_ID). */}
+                {/* PAY FIRST: pay the deposit online to confirm instantly.
+                    Renders nothing unless PayPal is configured. */}
                 {lastBooking?.bookingId && (lastBooking.deposit ?? 0) > 0 && (
                   <div className="mt-4 border-t border-green-500/20 pt-4">
                     <PayPalDeposit
@@ -371,6 +387,26 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                     />
                   </div>
                 )}
+                {/* Then: pay another way — WhatsApp us / bank transfer details */}
+                {lastBooking && whatsapp && (
+                  <a
+                    href={`https://wa.me/${whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(
+                      `Hi Roule Rodrigues! I'd like to confirm my booking:\n\n` +
+                      `🛵 Vehicle: ${lastBooking.scooter}\n` +
+                      `📅 Dates: ${lastBooking.range} (${lastBooking.days} day${lastBooking.days !== 1 ? "s" : ""})\n` +
+                      `👤 Name: ${lastBooking.name}\n` +
+                      (lastBooking.total ? `💰 Est. total: ${lastBooking.total}\n` : "") +
+                      `\nI'd like to pay the deposit by bank transfer — could you send me the bank details? Thank you!`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 w-full flex items-center justify-center gap-2 bg-green-500 text-white font-syne font-bold text-sm py-3 rounded-xl hover:bg-green-600 transition-colors"
+                  >
+                    <MessageSquare size={16} /> {t.booking.confirmWhatsApp}
+                  </a>
+                )}
+                {/* Local bank transfer — reveal the account details on demand */}
+                {lastBooking && <BankTransferDetails name={lastBooking.name} vehicle={lastBooking.scooter} />}
               </motion.div>
             )}
 
@@ -388,7 +424,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
               </motion.div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+            <form ref={formTopRef} onSubmit={handleSubmit} className="space-y-5" noValidate>
               {/* Trip Planner pre-fill banner */}
               {desiredDays && (
                 <motion.div
@@ -424,8 +460,8 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                 </label>
                 <select
                   value={form.scooter}
-                  onChange={(e) => setForm({ ...form, scooter: e.target.value })}
-                  className={`${inputCls} appearance-none`}
+                  onChange={(e) => { setForm({ ...form, scooter: e.target.value }); setFieldErr((p) => ({ ...p, vehicle: false })); setSubmitError(null); }}
+                  className={`${inputCls} appearance-none${fieldErr.vehicle ? " !border-red-500/70" : ""}`}
                   disabled={formState === "loading"}
                   required
                 >
@@ -444,6 +480,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                   <CalendarDays size={12} className="text-yellow" />
                   {t.booking.datesLabel} <span className="text-yellow">*</span>
                 </label>
+                <div className={fieldErr.date ? "rounded-2xl ring-1 ring-red-500/60" : ""}>
                 <AvailabilityCalendar
                   startDate={form.start_date}
                   endDate={form.end_date}
@@ -453,6 +490,8 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                   onChange={(start, end) => {
                     setForm((f) => ({ ...f, start_date: start, end_date: end }));
                     setDesiredDays(null); // visual pick = manual control
+                    setFieldErr((p) => ({ ...p, date: false }));
+                    setSubmitError(null);
                   }}
                   labels={{
                     booked: t.booking.calBooked,
@@ -461,6 +500,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                     hint: t.booking.calHint,
                   }}
                 />
+                </div>
                 {/* Selected range readout */}
                 {form.start_date && (
                   <div className="flex items-center gap-2 mt-3 text-sm font-dm">
@@ -624,9 +664,17 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
               </label>
               {agreeError && <p className="text-red-400 font-dm text-xs -mt-2">{t.booking.agreeError}</p>}
 
+              {/* First unmet requirement, shown in plain language. The button
+                  stays clickable (only loading/success disable it) so a tap
+                  always tells the customer what to fix — never a dead button. */}
+              {submitError && (
+                <p className="flex items-start gap-2 text-red-400 font-dm text-sm -mb-1" role="alert">
+                  <AlertCircle size={15} className="shrink-0 mt-0.5" /> {submitError}
+                </p>
+              )}
               <button
                 type="submit"
-                disabled={formState === "loading" || formState === "success" || hasOverlap || !agreed || !phoneOk || !emailOk}
+                disabled={formState === "loading" || formState === "success"}
                 className="w-full flex items-center justify-center gap-2.5 bg-yellow text-dark font-syne font-bold text-base py-4 rounded-xl hover:bg-yellow-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {formState === "loading" ? (
@@ -727,8 +775,10 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                 </dl>
               </div>
 
-              {/* Available scooters */}
-              <div className="bg-dark-card border border-dark-border rounded-2xl p-6">
+              {/* Available fleet — desktop only. On mobile the customer has
+                  already seen availability while browsing, so it's hidden to
+                  keep the mobile booking view focused on the summary (owner req). */}
+              <div className="hidden lg:block bg-dark-card border border-dark-border rounded-2xl p-6">
                 <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-4">{t.booking.availabilityTitle}</p>
                 <div className="space-y-2.5">
                   {(fleet ?? []).map((s) => (
