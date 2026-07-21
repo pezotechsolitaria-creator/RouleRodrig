@@ -37,7 +37,7 @@ export async function getFleetView() {
     const [todayRes, recentRes, ratingRes, reviewRes] = await Promise.all([
       supabase
         .from("bookings")
-        .select("scooter, status, created_at")
+        .select("scooter, status, created_at, deposit_paid_at")
         .in("status", ["pending", "confirmed"])
         .lte("start_date", todayIsland)
         .gte("end_date", todayIsland),

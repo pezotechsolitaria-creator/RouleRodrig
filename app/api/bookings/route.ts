@@ -107,12 +107,12 @@ export async function POST(req: NextRequest) {
     const priv = await getPrivileged();
     const { data: active } = await priv
       .from("bookings")
-      .select("start_date, end_date, status, created_at, asset_id")
+      .select("start_date, end_date, status, created_at, asset_id, deposit_paid_at")
       .eq("scooter", scooter)
       .in("status", ["pending", "confirmed"])
       .gte("end_date", start_date)
       .lte("start_date", end_date);
-    const ranges = ((active ?? []) as { start_date: string; end_date: string; status: string; created_at: string; asset_id: string | null }[])
+    const ranges = ((active ?? []) as { start_date: string; end_date: string; status: string; created_at: string; asset_id: string | null; deposit_paid_at: string | null }[])
       .filter((r) => isActiveHold(r));
     const heldOn = (day: string) =>
       ranges.reduce((n, r) => (day >= r.start_date && day <= r.end_date ? n + 1 : n), 0);
