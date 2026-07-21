@@ -44,7 +44,13 @@ export async function POST(req: NextRequest) {
       referenceId: booking.id,
       description: `Deposit — ${booking.scooter} · ${booking.days} day(s)`,
     });
-    return NextResponse.json({ orderID: order.id, eur: order.eur });
+    return NextResponse.json({
+      orderID: order.id,
+      eur: order.eur,
+      depositMur: order.depositMur,
+      feeMur: order.feeMur,
+      totalMur: order.totalMur,
+    });
   } catch (e) {
     console.error("[paypal] create-order", e);
     return NextResponse.json({ error: "Could not start the payment. Please try again." }, { status: 502 });

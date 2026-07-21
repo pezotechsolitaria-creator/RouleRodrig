@@ -10,12 +10,20 @@
 // untouched. Set NEXT_PUBLIC_PAYPAL_CLIENT_ID + PAYPAL_SECRET (+ PAYPAL_ENV) in
 // Vercel to activate. PAYPAL_ENV=sandbox uses PayPal's test servers.
 
+import { PAYPAL_FEE_PERCENT } from "./site";
+
 const CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "";
 const SECRET = process.env.PAYPAL_SECRET || "";
 const ENV = (process.env.PAYPAL_ENV || "sandbox").toLowerCase();
 const BASE = ENV === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
 
 export const PAYPAL_CURRENCY = "EUR";
+
+// The customer bears the PayPal fee, so it's added to the deposit at checkout.
+export function withPayPalFee(depositMur: number): { fee: number; total: number } {
+  const fee = Math.round((depositMur * PAYPAL_FEE_PERCENT) / 100);
+  return { fee, total: depositMur + fee };
+}
 
 export function paypalConfigured(): boolean {
   return !!CLIENT_ID && !!SECRET;
@@ -59,8 +67,10 @@ export async function createDepositOrder(opts: {
   depositMur: number;
   referenceId: string; // our booking id
   description: string; // e.g. "Deposit — BURGMAN 125cc, 3 days"
-}): Promise<{ id: string; eur: string }> {
-  const eur = await murToEur(opts.depositMur);
+}): Promise<{ id: string; eur: string; depositMur: number; feeMur: number; totalMur: number }> {
+  // Customer pays the deposit + PayPal fee. Charge the fee-inclusive total.
+  const { fee: feeMur, total: totalMur } = withPayPalFee(opts.depositMur);
+  const eur = await murToEur(totalMur);
   const token = await accessToken();
   const res = await fetch(`${BASE}/v2/checkout/orders`, {
     method: "POST",
@@ -78,7 +88,7 @@ export async function createDepositOrder(opts: {
   });
   if (!res.ok) throw new Error(`PayPal create-order failed: ${res.status} ${await res.text()}`);
   const j = (await res.json()) as { id: string };
-  return { id: j.id, eur };
+  return { id: j.id, eur, depositMur: opts.depositMur, feeMur, totalMur };
 }
 
 // ── Capture an approved order; returns the verified status ───────────────────

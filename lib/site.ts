@@ -5,6 +5,13 @@
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://roule-rodrig.vercel.app";
 
+// PayPal processing fee passed on to the customer when they pay by PayPal (bank
+// transfer has no fee). Shown clearly on the site and in the email — never a
+// hidden charge. Default 4% is a reasonable estimate for a cross-border EUR
+// payment received in Mauritius; set NEXT_PUBLIC_PAYPAL_FEE_PERCENT to your
+// account's ACTUAL rate once you see it on a real payout.
+export const PAYPAL_FEE_PERCENT = Number(process.env.NEXT_PUBLIC_PAYPAL_FEE_PERCENT) || 4;
+
 // The owner's real, routed contact address (Cloudflare Email Routing →
 // their inbox). Verified live before being published anywhere: MX =
 // route1/2/3.mx.cloudflare.net, SPF present.

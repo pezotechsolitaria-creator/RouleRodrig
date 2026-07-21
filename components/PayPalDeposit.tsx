@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle, Loader2, ShieldCheck } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
+import { PAYPAL_FEE_PERCENT } from "@/lib/site";
 
 // PayPal deposit button, shown after a booking is created. Renders nothing
 // unless NEXT_PUBLIC_PAYPAL_CLIENT_ID is set, so the site is unaffected until
@@ -20,25 +21,30 @@ const CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "";
 
 export default function PayPalDeposit({
   bookingId,
-  depositLabel,
+  depositMur,
   onPaid,
 }: {
   bookingId: string;
-  depositLabel: string; // e.g. "Rs 504 (~€9.35)"
+  depositMur: number; // the deposit in Rs (fee added on top for PayPal)
   onPaid?: () => void;
 }) {
   const { language } = useLanguage();
+  // The customer bears the PayPal fee, so it's added to the deposit here for a
+  // fully transparent "deposit + fee = total" line (matches the server charge).
+  const feeMur = Math.round((depositMur * PAYPAL_FEE_PERCENT) / 100);
+  const totalMur = depositMur + feeMur;
+  const rs = (n: number) => `Rs ${n.toLocaleString()}`;
   const containerRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<"idle" | "paid" | "error">("idle");
   const [msg, setMsg] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
   const T = {
-    en: { pay: "Pay deposit to confirm", paid: "Deposit paid — booking confirmed! 🎉", secure: "Secure payment via PayPal", err: "Payment could not be completed. Please try again or pay by bank transfer." },
-    fr: { pay: "Payer l'acompte pour confirmer", paid: "Acompte payé — réservation confirmée ! 🎉", secure: "Paiement sécurisé via PayPal", err: "Le paiement n'a pas pu aboutir. Réessayez ou payez par virement." },
-    cr: { pay: "Pey depo pou konfirmen", paid: "Depo peye — rezervasion konfirmen! 🎉", secure: "Peyman sekirize ar PayPal", err: "Peyman pa finn pas. Reisi ankor ouswa pey par bank." },
+    en: { pay: "Pay deposit to confirm", fee: `incl. ${PAYPAL_FEE_PERCENT}% PayPal fee`, paid: "Deposit paid — booking confirmed! 🎉", secure: "Secure payment via PayPal", err: "Payment could not be completed. Please try again or pay by bank transfer." },
+    fr: { pay: "Payer l'acompte pour confirmer", fee: `frais PayPal ${PAYPAL_FEE_PERCENT}% inclus`, paid: "Acompte payé — réservation confirmée ! 🎉", secure: "Paiement sécurisé via PayPal", err: "Le paiement n'a pas pu aboutir. Réessayez ou payez par virement." },
+    cr: { pay: "Pey depo pou konfirmen", fee: `avek ${PAYPAL_FEE_PERCENT}% fre PayPal`, paid: "Depo peye — rezervasion konfirmen! 🎉", secure: "Peyman sekirize ar PayPal", err: "Peyman pa finn pas. Reisi ankor ouswa pey par bank." },
   }[language] ?? {
-    pay: "Pay deposit to confirm", paid: "Deposit paid — booking confirmed!", secure: "Secure payment via PayPal", err: "Payment could not be completed.",
+    pay: "Pay deposit to confirm", fee: `incl. ${PAYPAL_FEE_PERCENT}% PayPal fee`, paid: "Deposit paid — booking confirmed!", secure: "Secure payment via PayPal", err: "Payment could not be completed.",
   };
 
   // Load the PayPal SDK once.
@@ -103,8 +109,11 @@ export default function PayPalDeposit({
 
   return (
     <div>
-      <p className="mb-2 font-dm text-sm text-offwhite">
-        {T.pay}: <span className="font-syne font-bold text-yellow">{depositLabel}</span>
+      <p className="mb-1 font-dm text-sm text-offwhite">
+        {T.pay}: <span className="font-syne font-bold text-yellow">{rs(totalMur)}</span>
+      </p>
+      <p className="mb-2 font-dm text-[11px] text-muted/80">
+        {rs(depositMur)} + {rs(feeMur)} {T.fee}
       </p>
       {!ready && (
         <div className="flex items-center gap-2 text-muted text-xs font-dm">

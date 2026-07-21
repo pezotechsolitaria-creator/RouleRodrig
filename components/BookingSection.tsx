@@ -383,7 +383,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                   <div className="mt-4 border-t border-green-500/20 pt-4">
                     <PayPalDeposit
                       bookingId={lastBooking.bookingId}
-                      depositLabel={`Rs ${(lastBooking.deposit ?? 0).toLocaleString()}`}
+                      depositMur={lastBooking.deposit ?? 0}
                     />
                   </div>
                 )}

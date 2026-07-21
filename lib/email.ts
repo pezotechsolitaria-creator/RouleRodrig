@@ -1,7 +1,7 @@
 // Lightweight email sender using the Resend REST API (no SDK dependency).
 // Gracefully no-ops when RESEND_API_KEY is not configured, so bookings never
 // break just because email isn't set up yet.
-import { SITE_URL, CONTACT_EMAIL } from "./site";
+import { SITE_URL, CONTACT_EMAIL, PAYPAL_FEE_PERCENT } from "./site";
 // Emails must show "BURGMAN 125cc", never the "burgman" ID the DB stores.
 import { withVehicleName } from "./vehicle-name";
 
@@ -574,11 +574,20 @@ export async function sendBookingEmails(raw: BookingEmailData): Promise<{ custom
     const hasDeposit =
       typeof b.deposit_amount === "number" && b.deposit_amount > 0 && typeof b.total_amount === "number";
     const balance = hasDeposit ? (b.total_amount as number) - (b.deposit_amount as number) : 0;
+    // PayPal fee, passed to the customer — stated plainly, never hidden.
+    const payPalFeeNote =
+      hasDeposit && b.deposit_amount
+        ? ` <b>By bank transfer the deposit is exactly ${rs(b.deposit_amount)}. If you pay by PayPal a ${PAYPAL_FEE_PERCENT}% processing fee is added (≈ ${rs(Math.round((b.deposit_amount * PAYPAL_FEE_PERCENT) / 100))}).</b>`
+        : "";
+    const payPalFeeNoteFr =
+      hasDeposit && b.deposit_amount
+        ? ` <b>Par virement bancaire, l'acompte est exactement de ${rs(b.deposit_amount)}. Par PayPal, des frais de traitement de ${PAYPAL_FEE_PERCENT}% s'ajoutent (≈ ${rs(Math.round((b.deposit_amount * PAYPAL_FEE_PERCENT) / 100))}).</b>`
+        : "";
     const payEn = hasDeposit
-      ? `To confirm your booking, please pay a ${b.deposit_pct}% deposit of <b>${rs(b.deposit_amount as number)}</b> by bank transfer or PayPal using the details above. The remaining <b>${rs(balance)}</b> is paid at pickup. Quote your name as the payment reference so we can match it, and keep the receipt to show on the day. Any question about payment? Email <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a> and a real person will answer.`
+      ? `To confirm your booking, please pay a ${b.deposit_pct}% deposit of <b>${rs(b.deposit_amount as number)}</b> by bank transfer or PayPal using the details above.${payPalFeeNote} The remaining <b>${rs(balance)}</b> is paid at pickup. Quote your name as the payment reference so we can match it, and keep the receipt to show on the day. Any question about payment? Email <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a> and a real person will answer.`
       : `No payment is due yet. We'll confirm availability first — once confirmed, you can settle by bank transfer or PayPal using the details above. Please quote your name as the payment reference, and keep the receipt to show at pickup. Any question about payment? Email <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a>.`;
     const payFr = hasDeposit
-      ? `Pour confirmer votre réservation, merci de régler un acompte de ${b.deposit_pct}% soit <b>${rs(b.deposit_amount as number)}</b> par virement bancaire ou PayPal avec les coordonnées ci-dessus. Le solde de <b>${rs(balance)}</b> se règle lors du retrait. Indiquez votre nom en référence du paiement et conservez le reçu à présenter le jour même. Une question sur le paiement ? Écrivez à <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a>.`
+      ? `Pour confirmer votre réservation, merci de régler un acompte de ${b.deposit_pct}% soit <b>${rs(b.deposit_amount as number)}</b> par virement bancaire ou PayPal avec les coordonnées ci-dessus.${payPalFeeNoteFr} Le solde de <b>${rs(balance)}</b> se règle lors du retrait. Indiquez votre nom en référence du paiement et conservez le reçu à présenter le jour même. Une question sur le paiement ? Écrivez à <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a>.`
       : `Aucun paiement n'est dû pour l'instant. Nous confirmons d'abord la disponibilité — une fois confirmée, vous pourrez régler par virement bancaire ou PayPal. Merci d'indiquer votre nom en référence et de conserver le reçu. Une question ? Écrivez à <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a>.`;
 
     const body = `
