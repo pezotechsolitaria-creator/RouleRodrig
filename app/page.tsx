@@ -5,6 +5,7 @@ import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import WhatLookingFor from "@/components/WhatLookingFor";
+import QuickActions from "@/components/QuickActions";
 import TripPlanner from "@/components/TripPlanner";
 import MapSection from "@/components/MapSection";
 import RideRoutes from "@/components/RideRoutes";
@@ -172,6 +173,9 @@ export default async function Home() {
           showEvents={content.events.some((e) => e.title)}
         />
         <Hero hero={content.hero} />
+        {/* Section 1 of the app-dashboard redesign: quick access to the free
+            tools & guides, complementing the browse hub below. */}
+        <QuickActions />
         <WhatLookingFor categories={browseCats} />
         <TripPlanner />
         <MapSection locations={content.mapLocations} />
