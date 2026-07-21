@@ -122,7 +122,7 @@ function HubCard({
     >
       <motion.div
         style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-        className="relative h-[430px] rounded-[28px] overflow-hidden bg-dark-card ring-1 ring-white/10 group-hover:ring-yellow/50 transition-[box-shadow,border-color] duration-300 shadow-[0_12px_40px_-16px_rgba(0,0,0,0.8)] group-hover:shadow-[0_28px_70px_-18px_rgba(0,0,0,0.95)]"
+        className="relative h-[214px] sm:h-[320px] md:h-[420px] rounded-[22px] md:rounded-[28px] overflow-hidden bg-dark-card ring-1 ring-white/10 group-hover:ring-yellow/50 transition-[box-shadow,border-color] duration-300 shadow-[0_12px_40px_-16px_rgba(0,0,0,0.8)] group-hover:shadow-[0_28px_70px_-18px_rgba(0,0,0,0.95)]"
       >
         {c.image ? (
           <Image
@@ -149,8 +149,9 @@ function HubCard({
         />
 
         {/* Category icon — glass badge */}
-        <div className="absolute top-5 left-5 w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center text-white shadow-lg" style={{ transform: "translateZ(40px)" }}>
-          <Icon size={22} />
+        <div className="absolute top-4 left-4 md:top-5 md:left-5 w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center text-white shadow-lg" style={{ transform: "translateZ(40px)" }}>
+          <Icon size={20} className="md:hidden" />
+          <Icon size={22} className="hidden md:block" />
         </div>
 
         {/* Popular badge */}
@@ -161,8 +162,8 @@ function HubCard({
         )}
 
         {/* Content */}
-        <div className="absolute inset-x-0 bottom-0 p-6 md:p-7" style={{ transform: "translateZ(30px)" }}>
-          <p className="font-bebas text-[11px] tracking-[0.28em] mb-2">
+        <div className="absolute inset-x-0 bottom-0 p-4 md:p-7" style={{ transform: "translateZ(30px)" }}>
+          <p className="font-bebas text-[11px] tracking-[0.28em] mb-1.5">
             {c.tagline ? (
               <span className="text-yellow">{c.tagline}</span>
             ) : c.priceFrom ? (
@@ -175,18 +176,18 @@ function HubCard({
             )}
           </p>
           <h3
-            className="font-syne font-extrabold text-offwhite uppercase leading-[0.95] mb-4"
+            className="font-syne font-extrabold text-offwhite uppercase leading-[0.95] mb-2.5 md:mb-4"
             style={{
-              fontSize: `clamp(19px, ${label.length > 11 ? 4.2 : 5}vw, ${!label.includes(" ") && label.length > 6 ? 25 : 32}px)`,
+              fontSize: `clamp(18px, ${label.length > 11 ? 4.2 : 5}vw, ${!label.includes(" ") && label.length > 6 ? 25 : 32}px)`,
               wordBreak: "normal",
               overflowWrap: "anywhere",
             }}
           >
             {label}
           </h3>
-          <span className="inline-flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-5 py-2.5 rounded-full transition-all group-hover:pl-6">
+          <span className="inline-flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-xs px-4 py-2 md:text-sm md:px-5 md:py-2.5 rounded-full transition-all group-hover:pl-6">
             {t.explore.cta}
-            <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+            <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
           </span>
         </div>
       </motion.div>
@@ -202,7 +203,6 @@ function HubCard({
 export default function WhatLookingFor({ categories }: { categories: BrowseCategory[] }) {
   const scroller = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
-  const { t } = useLanguage();
 
   // ── Shared gyro tilt for the whole section (ONE listener, not one per card) ──
   // All cards lean together with the phone. rAF-throttled + coarse-pointer only,
@@ -252,7 +252,7 @@ export default function WhatLookingFor({ categories }: { categories: BrowseCateg
   const goTo = (i: number) => scroller.current?.scrollTo({ left: i * cardStep(), behavior: "smooth" });
 
   return (
-    <section id="explore" className="relative bg-dark py-20 md:py-28 scroll-mt-24 overflow-hidden" aria-label="What are you looking for">
+    <section id="explore" className="relative bg-dark pt-6 pb-6 md:pt-12 md:pb-20 scroll-mt-24 overflow-hidden" aria-label="What are you looking for">
       {/* Ambient glow for depth — desktop only (large blurred layers are
           expensive to composite on mobile scroll, so we skip them on phones). */}
       <div className="pointer-events-none absolute inset-0 hidden md:block" aria-hidden="true">
@@ -266,32 +266,15 @@ export default function WhatLookingFor({ categories }: { categories: BrowseCateg
         />
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.6 }}
-          className="mb-10"
-        >
-          <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-3.5 py-1.5 mb-5">
-            <span className="w-1.5 h-1.5 rounded-full bg-yellow animate-pulse" />
-            <span className="font-bebas text-yellow text-[11px] tracking-[0.3em]">{t.explore.eyebrow}</span>
-          </div>
-          <h2
-            className="font-syne font-extrabold text-offwhite leading-[0.92] tracking-tight"
-            style={{ fontSize: "clamp(34px, 7vw, 72px)" }}
-          >
-            {t.explore.title}
-          </h2>
-          <p className="text-muted font-dm text-sm md:text-base mt-4 max-w-xl">{t.explore.subtitle}</p>
-        </motion.div>
-      </div>
+      {/* Header intentionally omitted — the category cards (Scooters, Cars,
+          Food…) are self-explanatory, so a "What are you looking for?" heading
+          and blurb were just clutter. The section keeps its aria-label + #explore
+          id for the nav/anchor and screen readers. */}
 
       {/* Full-bleed scroller, padded to align with the container */}
       <div
         ref={scroller}
-        className="relative flex gap-5 overflow-x-auto pb-2 px-6 lg:px-[max(1.5rem,calc((100vw-80rem)/2+1.5rem))] snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="relative flex gap-4 md:gap-5 overflow-x-auto pb-2 px-6 lg:px-[max(1.5rem,calc((100vw-80rem)/2+1.5rem))] snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {categories.map((c, i) => (
           <motion.div
@@ -301,7 +284,7 @@ export default function WhatLookingFor({ categories }: { categories: BrowseCateg
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-40px" }}
             transition={{ duration: 0.5, delay: Math.min(i * 0.05, 0.3) }}
-            className="snap-center shrink-0 w-[80vw] max-w-[360px] sm:w-[320px]"
+            className="snap-center shrink-0 w-[74vw] max-w-[340px] sm:w-[300px]"
           >
             <HubCard c={c} gyroRX={gyroRX} gyroRY={gyroRY} />
           </motion.div>
@@ -311,7 +294,7 @@ export default function WhatLookingFor({ categories }: { categories: BrowseCateg
       </div>
 
       {categories.length > 1 && (
-        <div className="relative flex justify-center gap-2 mt-7">
+        <div className="relative flex justify-center gap-2 mt-4 md:mt-6">
           {categories.map((_, i) => (
             <button
               key={i}

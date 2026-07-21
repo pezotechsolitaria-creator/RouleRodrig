@@ -434,7 +434,7 @@ export default function TiRouleGuide({
     (topic: TopicKey): Answer => {
       switch (topic) {
         case "plan":
-          return { text: c.plan, pose: "holdingMap", cta: { label: c.planCta, href: "/#trip-planner" } };
+          return { text: c.plan, pose: "holdingMap", cta: { label: c.planCta, href: "/trip-planner" } };
         case "eat":
           return { text: c.eat, pose: "happy", cta: { label: c.eatCta, href: "/food" } };
         case "beaches": {
@@ -524,7 +524,7 @@ export default function TiRouleGuide({
   const knowledgeAnswer = (k: KnowledgeEntry): Answer => {
     const kt = language === "fr" ? k.fr : language === "cr" ? k.cr : k.en;
     const CTA: Record<KnowledgeCta, { label: string; href: string }> = {
-      plan: { label: c.planCta, href: "/#trip-planner" },
+      plan: { label: c.planCta, href: "/trip-planner" },
       map: { label: c.mapCta, href: "/#map" },
       rent: { label: c.rentCta, href: "/#explore" },
       taxi: { label: c.taxiCta, href: "/taxi" },
@@ -611,7 +611,7 @@ export default function TiRouleGuide({
         s += rest > 0 ? c.budgetRest.replace("{rest}", rs(rest)) : ".";
         lines.push("", s);
       }
-      answer = { text: lines.join("\n"), pose: "holdingMap", cta: { label: c.budgetCta, href: "/#trip-planner" } };
+      answer = { text: lines.join("\n"), pose: "holdingMap", cta: { label: c.budgetCta, href: "/trip-planner" } };
     }
     setTyping(false);
     setPose(answer.pose);

@@ -63,13 +63,16 @@ export default function Navbar({
     setCurrency(CURRENCIES[(idx + 1) % CURRENCIES.length]);
   }
 
-  // Stay·Eat·Do and Events now live inside the "What are you looking for?" hub,
-  // so the nav stays lean: Explore → Island guide → Routes → Taxi → Contact.
+  // Stay·Eat·Do and Events now live inside the "What are you looking for?" hub.
+  // The island guide, scenic routes and FAQ moved off the homepage to their own
+  // pages (the homepage is now a lean action dashboard), so the nav points there
+  // directly: Explore → Island guide → Routes → Taxi → FAQ → Contact.
   const navLinks = [
     { label: t.explore.nav, href: "/#explore" },
-    { label: t.nav.map,      href: "/#map" },
-    ...(showRoutes ? [{ label: t.nav.routes, href: "/#routes" }] : []),
+    { label: t.nav.map,      href: "/guide/rodrigues" },
+    ...(showRoutes ? [{ label: t.nav.routes, href: "/guide/routes" }] : []),
     { label: t.nav.taxi,     href: "/taxi" },
+    { label: "FAQ",          href: "/faq" },
     { label: t.nav.contact,  href: "/#contact" },
   ];
 
@@ -81,7 +84,7 @@ export default function Navbar({
 
   // Scrollspy: highlight the nav link of the section currently in view.
   useEffect(() => {
-    const ids = ["explore", "map", "routes", "contact"];
+    const ids = ["explore", "contact"];
     const els = ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
     if (els.length === 0) return;
     const obs = new IntersectionObserver(

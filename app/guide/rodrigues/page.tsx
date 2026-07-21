@@ -124,7 +124,7 @@ export default async function RodriguesGuidePage() {
                 Rent a scooter or car <ArrowRight size={16} />
               </Link>
               <Link
-                href="/#trip-planner"
+                href="/trip-planner"
                 className="inline-flex items-center gap-2 rounded-full border border-white/20 px-6 py-3 font-syne font-bold text-white text-sm transition-colors hover:bg-white/10"
               >
                 Plan my trip <Compass size={16} />

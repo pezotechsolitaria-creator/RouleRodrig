@@ -6,15 +6,9 @@ import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import WhatLookingFor from "@/components/WhatLookingFor";
 import QuickActions from "@/components/QuickActions";
-import TripPlanner from "@/components/TripPlanner";
-import MapSection from "@/components/MapSection";
-import RideRoutes from "@/components/RideRoutes";
 import UsefulNumbers from "@/components/UsefulNumbers";
-import ReviewsMarquee from "@/components/ReviewsMarquee";
 import ReviewsSection from "@/components/ReviewsSection";
-import Faq from "@/components/Faq";
 import Sponsors from "@/components/Sponsors";
-import WaitlistSection from "@/components/WaitlistSection";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
 import Reveal from "@/components/Reveal";
@@ -48,13 +42,13 @@ const SERVICE_NAME: Record<string, string> = {
 // described us as nothing but a scooter platform.
 const FREE_TOOLS = [
   { name: "Rodrigues Island travel guide", href: "/guide/rodrigues" },
-  { name: "Rodrigues trip planner", href: "/#trip-planner" },
+  { name: "Rodrigues trip planner", href: "/trip-planner" },
   { name: "Interactive island map — beaches & viewpoints", href: "/guide/beaches" },
   { name: "Ti Roulé — AI island guide (English, French, Creole)", href: "/guide/rodrigues" },
 ];
 
 export default async function Home() {
-  const { content, fleet, reviews, recentBookings } = await getFleetView();
+  const { content, fleet, recentBookings } = await getFleetView();
 
   // "What are you looking for?" categories (shared with the /browse pages).
   const browseCats = buildBrowseCategories(content, fleet, recentBookings);
@@ -144,19 +138,6 @@ export default async function Home() {
           ],
         },
       },
-      ...(content.faq.enabled && content.faq.items.length
-        ? [
-            {
-              "@type": "FAQPage",
-              "@id": `${SITE_URL}/#faq`,
-              mainEntity: content.faq.items.map((f) => ({
-                "@type": "Question",
-                name: f.question,
-                acceptedAnswer: { "@type": "Answer", text: f.answer },
-              })),
-            },
-          ]
-        : []),
     ],
   };
 
@@ -172,20 +153,16 @@ export default async function Home() {
           showRoutes={content.rideRoutes.length > 0}
           showEvents={content.events.some((e) => e.title)}
         />
+        {/* Air-Mauritius-style action dashboard: a compact hero, then the browse
+            hub and a quick-access strip up top so the first screen is all action.
+            The island guide, scenic routes and FAQ now live on their own pages
+            (linked from the quick-access strip and the nav) to keep this lean. */}
         <Hero hero={content.hero} />
-        {/* Section 1 of the app-dashboard redesign: quick access to the free
-            tools & guides, complementing the browse hub below. */}
-        <QuickActions />
         <WhatLookingFor categories={browseCats} />
-        <TripPlanner />
-        <MapSection locations={content.mapLocations} />
-        <Reveal><RideRoutes routes={content.rideRoutes} /></Reveal>
+        <QuickActions />
         <Reveal><UsefulNumbers contacts={content.usefulContacts} /></Reveal>
-        <ReviewsMarquee reviews={reviews} />
-        <Reveal><ReviewsSection fleet={fleet} /></Reveal>
         <Reveal><Sponsors enabled={content.sponsorsEnabled} sponsors={content.sponsors} /></Reveal>
-        <Reveal><Faq content={content.faq} /></Reveal>
-        <Reveal><WaitlistSection /></Reveal>
+        <Reveal><ReviewsSection fleet={fleet} /></Reveal>
         <Reveal><Contact contact={content.contact} fleet={fleet} /></Reveal>
         <Footer social={content.social} branding={content.branding} />
       </main>

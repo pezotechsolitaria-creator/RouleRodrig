@@ -1,8 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { ArrowRight, MessageCircle } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type HeroContent } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
@@ -102,14 +101,14 @@ function HeroBackdrop() {
 
 export default function Hero({ hero }: { hero?: HeroContent }) {
   const h = hero ?? DEFAULT_CONTENT.hero;
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
   const headlineLines =
     language === "fr" && h.headlineFr?.length ? h.headlineFr :
     language === "cr" && h.headlineCr?.length ? h.headlineCr :
     h.headline;
 
   return (
-    <section className="relative min-h-screen w-full overflow-hidden flex flex-col" aria-label="Hero section">
+    <section className="relative min-h-[40vh] md:min-h-[62vh] w-full overflow-hidden flex flex-col" aria-label="Hero section">
       {/* ── Background image (owner's brand photo) ──────── */}
       <div className="absolute inset-0">
         {h.backgroundImage && (
@@ -134,13 +133,13 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
       <HeroBackdrop />
 
       {/* ── Main content ──────────────────────────────── */}
-      <div className="relative z-10 flex flex-col justify-center flex-1 max-w-7xl mx-auto w-full px-6 pt-28 pb-24">
+      <div className="relative z-10 flex flex-col justify-center flex-1 max-w-7xl mx-auto w-full px-6 pt-20 pb-5">
         {/* Eyebrow pill */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.15 }}
-          className="inline-flex items-center gap-2 self-start bg-white/5 backdrop-blur-md border border-white/10 rounded-full px-4 py-1.5 mb-7"
+          className="inline-flex items-center gap-2 self-start bg-white/5 backdrop-blur-md border border-white/10 rounded-full px-4 py-1.5 mb-4"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-yellow animate-pulse" />
           <span className="font-bebas text-yellow text-[11px] md:text-xs tracking-[0.3em]">{loc(language, h.eyebrow, h.eyebrowFr, h.eyebrowCr)}</span>
@@ -155,7 +154,7 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 0.95, delay: 0.25 + i * 0.12, ease: [0.22, 1, 0.36, 1] }}
                 className="block font-syne font-extrabold text-offwhite leading-[0.9] uppercase tracking-tight [text-shadow:0_2px_40px_rgba(0,0,0,0.45)]"
-                style={{ fontSize: "clamp(2.1rem, 7.5vw, 7.5rem)" }}
+                style={{ fontSize: "clamp(1.85rem, 6.6vw, 7rem)" }}
               >
                 {line}
               </motion.h1>
@@ -168,7 +167,7 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.85 }}
-          className="mt-8 text-white/70 text-base md:text-xl max-w-xl font-dm leading-relaxed"
+          className="mt-3.5 text-white/70 text-sm md:text-xl max-w-xl font-dm leading-relaxed line-clamp-1 md:line-clamp-none"
         >
           {loc(language, h.subheadline, h.subheadlineFr, h.subheadlineCr)}
         </motion.p>
@@ -178,18 +177,12 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 1 }}
-          className="mt-10 flex flex-wrap gap-4"
+          className="mt-5 hidden md:flex flex-wrap gap-3"
         >
-          <Link
-            href="/#explore"
-            className="group relative flex items-center gap-2 bg-yellow text-dark font-syne font-bold px-8 py-4 rounded-full text-sm md:text-base transition-all duration-200 hover:scale-[1.04] shadow-[0_0_0_rgba(245,200,66,0)] hover:shadow-[0_8px_44px_rgba(245,200,66,0.4)]"
-          >
-            {t.explore.title} <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
-          </Link>
           <button
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent("tiroule:open"))}
-            className="flex items-center gap-2 border border-white/25 text-white px-8 py-4 rounded-full text-sm md:text-base hover:bg-white/10 hover:border-white/45 transition-colors backdrop-blur-sm"
+            className="hidden md:flex items-center gap-2 border border-white/25 text-white px-6 py-3 md:px-8 md:py-4 rounded-full text-sm md:text-base hover:bg-white/10 hover:border-white/45 transition-colors backdrop-blur-sm"
           >
             {language === "fr" ? "Demander à Ti Roulé" : language === "cr" ? "Demann Ti Roulé" : "Ask Ti Roulé"}
             <MessageCircle size={18} />
@@ -219,7 +212,7 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1.5, duration: 0.6 }}
-        className="relative z-10 border-t border-white/10 bg-black/40 backdrop-blur-sm py-3 overflow-hidden"
+        className="relative z-10 hidden md:block border-t border-white/10 bg-black/40 backdrop-blur-sm py-3 overflow-hidden"
         aria-hidden="true"
       >
         <div className="flex animate-marquee whitespace-nowrap will-change-transform">
