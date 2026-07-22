@@ -24,6 +24,7 @@ import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import PhoneInput from "@/components/PhoneInput";
 import PayPalDeposit from "@/components/PayPalDeposit";
 import BankTransferDetails from "@/components/BankTransferDetails";
+import SuccessBurst from "@/components/SuccessBurst";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
 
 type FormState = "idle" | "loading" | "success" | "error";
@@ -368,45 +369,49 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-6 bg-green-500/10 border border-green-500/30 rounded-xl px-5 py-4"
+                className="mb-6 rounded-xl border border-green-500/30 bg-green-500/[0.07] px-5 py-6"
               >
-                <div className="flex items-start gap-3">
-                  <CheckCircle size={18} className="text-green-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-syne font-bold text-green-400 text-sm">{t.booking.successTitle}</p>
-                    <p className="font-dm text-green-400/70 text-xs mt-0.5">{t.booking.successDesc}</p>
-                  </div>
+                {/* Success moment first — a premium confirmation before any payment. */}
+                <div className="text-center">
+                  <SuccessBurst />
+                  <p className="mt-4 font-syne font-extrabold text-offwhite text-lg">{t.booking.successTitle}</p>
+                  <p className="mt-1 font-dm text-muted text-sm">{t.booking.successDesc}</p>
                 </div>
-                {/* PAY FIRST: pay the deposit online to confirm instantly.
-                    Renders nothing unless PayPal is configured. */}
-                {lastBooking?.bookingId && (lastBooking.deposit ?? 0) > 0 && (
-                  <div className="mt-4 border-t border-green-500/20 pt-4">
+
+                {/* Payment step — revealed a beat AFTER the success moment, so it
+                    never overwhelms before the booking is acknowledged. */}
+                <motion.div
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.55 }}
+                  className="mt-6 border-t border-green-500/20 pt-5"
+                >
+                  {lastBooking?.bookingId && (lastBooking.deposit ?? 0) > 0 && (
                     <PayPalDeposit
                       bookingId={lastBooking.bookingId}
                       depositMur={lastBooking.deposit ?? 0}
                     />
-                  </div>
-                )}
-                {/* Then: pay another way — WhatsApp us / bank transfer details */}
-                {lastBooking && whatsapp && (
-                  <a
-                    href={`https://wa.me/${whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(
-                      `Hi Roule Rodrigues! I'd like to confirm my booking:\n\n` +
-                      `🛵 Vehicle: ${lastBooking.scooter}\n` +
-                      `📅 Dates: ${lastBooking.range} (${lastBooking.days} day${lastBooking.days !== 1 ? "s" : ""})\n` +
-                      `👤 Name: ${lastBooking.name}\n` +
-                      (lastBooking.total ? `💰 Est. total: ${lastBooking.total}\n` : "") +
-                      `\nI'd like to pay the deposit by bank transfer — could you send me the bank details? Thank you!`
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 w-full flex items-center justify-center gap-2 bg-green-500 text-white font-syne font-bold text-sm py-3 rounded-xl hover:bg-green-600 transition-colors"
-                  >
-                    <MessageSquare size={16} /> {t.booking.confirmWhatsApp}
-                  </a>
-                )}
-                {/* Local bank transfer — reveal the account details on demand */}
-                {lastBooking && <BankTransferDetails name={lastBooking.name} vehicle={lastBooking.scooter} />}
+                  )}
+                  {lastBooking && whatsapp && (
+                    <a
+                      href={`https://wa.me/${whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(
+                        `Hi Roule Rodrigues! I'd like to confirm my booking:\n\n` +
+                        `🛵 Vehicle: ${lastBooking.scooter}\n` +
+                        `📅 Dates: ${lastBooking.range} (${lastBooking.days} day${lastBooking.days !== 1 ? "s" : ""})\n` +
+                        `👤 Name: ${lastBooking.name}\n` +
+                        (lastBooking.total ? `💰 Est. total: ${lastBooking.total}\n` : "") +
+                        `\nI'd like to pay the deposit by bank transfer — could you send me the bank details? Thank you!`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 w-full flex items-center justify-center gap-2 bg-green-500 text-white font-syne font-bold text-sm py-3 rounded-xl hover:bg-green-600 transition-colors"
+                    >
+                      <MessageSquare size={16} /> {t.booking.confirmWhatsApp}
+                    </a>
+                  )}
+                  {/* Local bank transfer — reveal the account details on demand */}
+                  {lastBooking && <BankTransferDetails name={lastBooking.name} vehicle={lastBooking.scooter} />}
+                </motion.div>
               </motion.div>
             )}
 

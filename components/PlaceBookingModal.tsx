@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { X, Loader2, CheckCircle, AlertCircle, Send, User, Mail, Users, MessageSquare, Clock, BedDouble, CalendarCheck } from "lucide-react";
+import { X, Loader2, AlertCircle, Send, User, Mail, Users, MessageSquare, Clock, BedDouble } from "lucide-react";
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import PhoneInput from "@/components/PhoneInput";
 import PayPalDeposit from "@/components/PayPalDeposit";
 import BankTransferDetails from "@/components/BankTransferDetails";
+import SuccessBurst from "@/components/SuccessBurst";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
 import { useLanguage } from "@/context/LanguageContext";
 import type { RecommendedPlace } from "@/lib/defaults";
@@ -174,10 +175,8 @@ export default function PlaceBookingModal({
         {formState === "success" && paid ? (
           /* ── Deposit paid → confirmed celebration ── */
           <div className="py-6 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/15">
-              <CheckCircle size={34} className="text-green-400" />
-            </div>
-            <p className="font-syne font-extrabold text-offwhite text-xl mb-1">Reservation confirmed! 🎉</p>
+            <SuccessBurst size={84} />
+            <p className="mt-4 font-syne font-extrabold text-offwhite text-xl mb-1">Reservation confirmed! 🎉</p>
             <p className="text-muted font-dm text-sm mb-5">Your deposit is in — see you at {place.name}. We&apos;ll be in touch with the details.</p>
             {whatsapp && (
               <a href={waLink("I just paid my deposit")} target="_blank" rel="noopener noreferrer"
@@ -188,51 +187,57 @@ export default function PlaceBookingModal({
             <button onClick={onClose} className="block mx-auto mt-4 text-muted hover:text-yellow text-sm font-dm transition-colors">Done</button>
           </div>
         ) : formState === "success" && result?.depositAmount && result.depositAmount > 0 ? (
-          /* ── Held → pay the deposit to confirm (like the vehicle flow) ── */
-          <div className="py-1">
-            <div className="mb-4 flex items-center gap-3 rounded-xl border border-yellow/25 bg-yellow/[0.06] px-4 py-3">
-              <CalendarCheck size={20} className="text-yellow shrink-0" />
-              <div>
-                <p className="font-syne font-bold text-offwhite text-sm leading-tight">Held for you — pay the deposit to confirm</p>
-                <p className="text-muted font-dm text-[12px]">We hold your spot for a few minutes while you pay.</p>
-              </div>
+          /* ── Request received → success animation first, THEN the payment step
+                (so PayPal never overwhelms before the booking is acknowledged) ── */
+          <div className="py-2">
+            <div className="text-center">
+              <SuccessBurst />
+              <p className="mt-4 font-syne font-extrabold text-offwhite text-xl">Booking request received!</p>
+              <p className="mt-1 text-muted font-dm text-sm">One quick step to lock it in — pay your deposit below.</p>
             </div>
 
-            <dl className="mb-5 space-y-2 rounded-xl border border-dark-border bg-dark/40 p-4 text-sm font-dm">
-              <div className="flex justify-between gap-3">
-                <dt className="text-muted">{isStay ? "Stay" : place.category === "restaurant" ? "Table" : "Booking"}</dt>
-                <dd className="text-offwhite text-right">{place.name}</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-muted">When</dt>
-                <dd className="text-offwhite text-right">{summaryWhen}</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-muted">{unitLabel}</dt>
-                <dd className="text-offwhite text-right">{qty}</dd>
-              </div>
-              <div className="flex justify-between gap-3 border-t border-dark-border pt-2">
-                <dt className="text-muted">Deposit to reserve</dt>
-                <dd className="text-yellow font-syne font-bold text-right">Rs {result.depositAmount.toLocaleString()}</dd>
-              </div>
-            </dl>
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.55 }}
+              className="mt-6"
+            >
+              <dl className="mb-5 space-y-2 rounded-xl border border-dark-border bg-dark/40 p-4 text-sm font-dm">
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted">{isStay ? "Stay" : place.category === "restaurant" ? "Table" : "Booking"}</dt>
+                  <dd className="text-offwhite text-right">{place.name}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted">When</dt>
+                  <dd className="text-offwhite text-right">{summaryWhen}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted">{unitLabel}</dt>
+                  <dd className="text-offwhite text-right">{qty}</dd>
+                </div>
+                <div className="flex justify-between gap-3 border-t border-dark-border pt-2">
+                  <dt className="text-muted">Deposit to reserve</dt>
+                  <dd className="text-yellow font-syne font-bold text-right">Rs {result.depositAmount.toLocaleString()}</dd>
+                </div>
+              </dl>
 
-            <PayPalDeposit bookingId={result.bookingId} depositMur={result.depositAmount} kind="place" onPaid={() => setPaid(true)} />
-            <BankTransferDetails name={form.name} vehicle={place.name} />
+              <PayPalDeposit bookingId={result.bookingId} depositMur={result.depositAmount} kind="place" onPaid={() => setPaid(true)} />
+              <BankTransferDetails name={form.name} vehicle={place.name} />
 
-            {whatsapp && (
-              <a href={waLink("about my reservation")} target="_blank" rel="noopener noreferrer"
-                 className="mt-3 w-full flex items-center justify-center gap-2 text-muted hover:text-yellow font-dm text-sm py-2 transition-colors">
-                <MessageSquare size={15} /> Prefer to chat? Message us on WhatsApp
-              </a>
-            )}
-            <p className="mt-3 text-muted/50 font-dm text-[11px] text-center">The balance is settled with {place.name} — the deposit just secures your spot.</p>
+              {whatsapp && (
+                <a href={waLink("about my reservation")} target="_blank" rel="noopener noreferrer"
+                   className="mt-3 w-full flex items-center justify-center gap-2 text-muted hover:text-yellow font-dm text-sm py-2 transition-colors">
+                  <MessageSquare size={15} /> Prefer to chat? Message us on WhatsApp
+                </a>
+              )}
+              <p className="mt-3 text-muted/50 font-dm text-[11px] text-center">The balance is settled with {place.name} — the deposit just secures your spot.</p>
+            </motion.div>
           </div>
         ) : formState === "success" ? (
           /* ── Request-only listing (no deposit) → request received ── */
           <div className="py-8 text-center">
-            <CheckCircle size={40} className="text-green-400 mx-auto mb-4" />
-            <p className="font-syne font-bold text-offwhite text-lg mb-1">Request sent!</p>
+            <SuccessBurst />
+            <p className="mt-4 font-syne font-bold text-offwhite text-lg mb-1">Request sent!</p>
             <p className="text-muted font-dm text-sm mb-5">We&apos;ll confirm your reservation at {place.name} shortly.</p>
             {whatsapp && (
               <a
