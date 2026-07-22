@@ -18,7 +18,7 @@ export default function UsefulNumbers({ contacts = [] }: { contacts?: UsefulCont
   if (valid.length === 0) return null;
 
   return (
-    <section id="useful" className="bg-dark py-12 md:py-16" aria-label="Useful numbers">
+    <section id="useful" className="bg-dark py-8 md:py-12" aria-label="Useful numbers">
       <div className="max-w-7xl mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 30 }}

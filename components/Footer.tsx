@@ -37,7 +37,7 @@ export default function Footer({
 
   return (
     <footer className="bg-dark-card border-t border-dark-border" aria-label="Site footer">
-      <div className="max-w-7xl mx-auto px-6 pt-14 pb-8">
+      <div className="max-w-7xl mx-auto px-6 pt-8 pb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-16 mb-14">
           {/* Brand */}
           <div>

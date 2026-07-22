@@ -42,7 +42,7 @@ export default function PlaceBookingModal({
 
   const [formState, setFormState] = useState<FormState>("idle");
   const [ranges, setRanges] = useState<Range[]>([]);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", start: "", end: "", slot: "", qty: 1, guests: "", message: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", start: "", end: "", slot: "", qty: 1, guests: "", message: "", arrival: "" });
   // After a successful request: the created booking + whether a deposit is due,
   // and whether that deposit has been paid (→ confirmed celebration).
   const [result, setResult] = useState<{ bookingId: string; depositAmount: number | null } | null>(null);
@@ -100,7 +100,8 @@ export default function PlaceBookingModal({
   const dateChosen = isStay ? !!(form.start && form.end) : !!form.start;
   const slotOk = isStay || slots.length === 0 || !!form.slot;
   const capacityOk = isStay ? minRoomsLeft >= qty : seatsLeft >= qty;
-  const emailOk = !form.email || isValidEmail(form.email);
+  const emailOk = isValidEmail(form.email); // email now required (confirmation + receipt)
+  const emailInvalid = !!form.email && !isValidEmail(form.email);
   const canSubmit = !!form.name && isValidPhone(form.phone) && emailOk && dateChosen && slotOk && capacityOk && formState !== "loading";
 
   const inputCls =
@@ -126,6 +127,7 @@ export default function PlaceBookingModal({
           time_slot: !isStay && slots.length > 0 ? form.slot : null,
           guests: isStay && form.guests ? Number(form.guests) : null,
           message: form.message || null,
+          arrival: isStay && form.arrival.trim() ? form.arrival.trim() : null,
         }),
       });
       const j = await res.json().catch(() => ({}));
@@ -352,12 +354,12 @@ export default function PlaceBookingModal({
               <div className="relative">
                 <Mail size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" />
                 <input
-                  type="email" placeholder="your@email.com" value={form.email}
+                  type="email" placeholder="your@email.com (required)" value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className={`${inputCls} pl-10${!emailOk ? " !border-red-500/60" : ""}`} disabled={formState === "loading"}
+                  className={`${inputCls} pl-10${emailInvalid ? " !border-red-500/60" : ""}`} required disabled={formState === "loading"}
                 />
               </div>
-              {!emailOk && <p className="text-red-400 font-dm text-[11px] mt-1.5">Please enter a valid email address.</p>}
+              {emailInvalid && <p className="text-red-400 font-dm text-[11px] mt-1.5">Please enter a valid email address.</p>}
             </div>
             <PhoneInput
               value={form.phone}
@@ -365,6 +367,21 @@ export default function PlaceBookingModal({
               disabled={formState === "loading"}
               inputClassName={`${inputCls} pl-10`}
             />
+            {isStay && (
+              <div>
+                <label className="font-bebas text-muted text-[10px] tracking-[0.25em] flex items-center gap-1.5 mb-2">
+                  <Clock size={12} className="text-yellow" /> ARRIVAL DETAILS
+                </label>
+                <input
+                  type="text"
+                  placeholder="Arrival time, flight or ferry — so we know when you land"
+                  value={form.arrival}
+                  onChange={(e) => setForm({ ...form, arrival: e.target.value })}
+                  className={inputCls}
+                  disabled={formState === "loading"}
+                />
+              </div>
+            )}
             <textarea
               rows={2} placeholder="Anything we should know? (optional)" value={form.message}
               onChange={(e) => setForm({ ...form, message: e.target.value })}

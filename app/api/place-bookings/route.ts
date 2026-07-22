@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
     quantity?: number | null;
     time_slot?: string | null;
     message?: string | null;
+    arrival?: string | null;
   };
   try {
     body = await req.json();
@@ -101,6 +102,12 @@ export async function POST(req: NextRequest) {
       ? Math.min(99, Math.round(Number(body.guests)))
       : null;
 
+  // Stays: capture when/how the guest arrives (there was no way to know before).
+  // Folded into the stored message so the owner email + record both carry it.
+  const arrival = (body.arrival ?? "").toString().trim().slice(0, 200);
+  const message =
+    [arrival ? `Arrival: ${arrival}` : "", (body.message ?? "").toString().trim()].filter(Boolean).join("\n") || null;
+
   // Generate the id server-side (anon can't SELECT rows, so INSERT…RETURNING
   // would trip the RLS SELECT policy — same lesson as vehicle bookings). This
   // lets us hand the id straight back for the PayPal deposit.
@@ -119,7 +126,7 @@ export async function POST(req: NextRequest) {
     guests,
     quantity,
     time_slot,
-    message: (body.message ?? "")?.toString().trim() || null,
+    message,
     deposit_amount,
     status: "pending" as const,
   };
@@ -204,6 +211,7 @@ export async function POST(req: NextRequest) {
         `\n${record.start_date}` +
         (record.time_slot ? ` · ${record.time_slot}` : "") +
         (record.guests ? ` · ${record.guests} guests` : "") +
+        (arrival ? `\n🛬 Arrival: ${arrival}` : "") +
         (record.phone ? `\n📞 ${record.phone}` : ""),
     );
   } catch {

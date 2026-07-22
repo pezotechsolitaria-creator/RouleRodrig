@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   CalendarDays,
   Clock,
@@ -16,6 +16,9 @@ import {
   BadgeCheck,
   Ban,
   Sparkles,
+  X,
+  Download,
+  ArrowRight,
 } from "lucide-react";
 import type { FleetItem } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
@@ -25,6 +28,8 @@ import PhoneInput from "@/components/PhoneInput";
 import PayPalDeposit from "@/components/PayPalDeposit";
 import BankTransferDetails from "@/components/BankTransferDetails";
 import SuccessBurst from "@/components/SuccessBurst";
+import BookingTimeline from "@/components/BookingTimeline";
+import { printReceipt } from "@/lib/receipt";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
 
 type FormState = "idle" | "loading" | "success" | "error";
@@ -104,6 +109,8 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
   >(null);
   const [agreed, setAgreed] = useState(false);
   const [agreeError, setAgreeError] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
+  const [depositPaid, setDepositPaid] = useState(false);
   // Inline validation: which fields are wrong + the message to show. Set on a
   // submit attempt so the customer instantly sees WHAT to fix instead of a
   // silently-disabled button (the reported "took 5 minutes to figure out" pain).
@@ -247,7 +254,30 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
     "w-full bg-dark-card border border-dark-border rounded-xl px-4 py-3.5 text-offwhite text-sm font-dm placeholder:text-muted/50 focus:border-yellow focus:outline-none transition-colors";
 
   const phoneOk = isValidPhone(form.phone);
-  const emailOk = !form.email || isValidEmail(form.email);
+  const emailOk = isValidEmail(form.email); // email is now required for confirmations/receipts
+  const emailInvalid = !!form.email && !isValidEmail(form.email); // only flag inline once they've typed something wrong
+
+  function downloadReceipt() {
+    if (!lastBooking) return;
+    const short = (lastBooking.bookingId || "").replace(/-/g, "").slice(0, 6).toUpperCase() || Date.now().toString(36).toUpperCase().slice(-6);
+    printReceipt({
+      ref: `RR-${short}`,
+      heading: depositPaid ? "Deposit receipt" : "Booking receipt",
+      customer: lastBooking.name,
+      itemLabel: "Vehicle",
+      item: lastBooking.scooter,
+      rows: [
+        { label: "Dates", value: `${lastBooking.range} (${lastBooking.days} day${lastBooking.days !== 1 ? "s" : ""})` },
+        ...(lastBooking.total ? [{ label: "Estimated total", value: lastBooking.total }] : []),
+        ...((lastBooking.deposit ?? 0) > 0
+          ? [{ label: depositPaid ? "Deposit paid" : "Deposit due", value: `Rs ${(lastBooking.deposit ?? 0).toLocaleString()}`, strong: true }]
+          : []),
+      ],
+      note: depositPaid
+        ? "Your deposit is received and your booking is confirmed. The balance is settled at pickup. Keep this receipt for your records."
+        : "This confirms your booking request. Pay the deposit to lock it in — the balance is settled at pickup.",
+    });
+  }
 
   // Trilingual, specific error messages — one clear problem at a time.
   const ERR = {
@@ -371,49 +401,105 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                 animate={{ opacity: 1, y: 0 }}
                 className="mb-6 rounded-xl border border-green-500/30 bg-green-500/[0.07] px-5 py-6"
               >
-                {/* Success moment first — a premium confirmation before any payment. */}
+                {/* Premium confirmation first — payment lives behind a button so it
+                    never overwhelms the moment the request is acknowledged. */}
                 <div className="text-center">
                   <SuccessBurst />
-                  <p className="mt-4 font-syne font-extrabold text-offwhite text-lg">{t.booking.successTitle}</p>
-                  <p className="mt-1 font-dm text-muted text-sm">{t.booking.successDesc}</p>
+                  <p className="mt-4 font-syne font-extrabold text-offwhite text-lg">
+                    {depositPaid
+                      ? language === "fr" ? "Acompte payé — confirmé !" : language === "cr" ? "Depo peye — konfirmen!" : "Deposit paid — booking confirmed!"
+                      : t.booking.successTitle}
+                  </p>
+                  <p className="mt-1 font-dm text-muted text-sm">
+                    {depositPaid
+                      ? language === "fr" ? "À très bientôt — nous vous contactons avec les détails." : language === "cr" ? "Nou trouv ou byento — nou pou kontakte ou." : "See you soon — we'll be in touch with the details."
+                      : t.booking.successDesc}
+                  </p>
                 </div>
 
-                {/* Payment step — revealed a beat AFTER the success moment, so it
-                    never overwhelms before the booking is acknowledged. */}
-                <motion.div
-                  initial={{ opacity: 0, y: 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.55 }}
-                  className="mt-6 border-t border-green-500/20 pt-5"
-                >
-                  {lastBooking?.bookingId && (lastBooking.deposit ?? 0) > 0 && (
-                    <PayPalDeposit
-                      bookingId={lastBooking.bookingId}
-                      depositMur={lastBooking.deposit ?? 0}
-                    />
-                  )}
-                  {lastBooking && whatsapp && (
-                    <a
-                      href={`https://wa.me/${whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(
-                        `Hi Roule Rodrigues! I'd like to confirm my booking:\n\n` +
-                        `🛵 Vehicle: ${lastBooking.scooter}\n` +
-                        `📅 Dates: ${lastBooking.range} (${lastBooking.days} day${lastBooking.days !== 1 ? "s" : ""})\n` +
-                        `👤 Name: ${lastBooking.name}\n` +
-                        (lastBooking.total ? `💰 Est. total: ${lastBooking.total}\n` : "") +
-                        `\nI'd like to pay the deposit by bank transfer — could you send me the bank details? Thank you!`
-                      )}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-3 w-full flex items-center justify-center gap-2 bg-green-500 text-white font-syne font-bold text-sm py-3 rounded-xl hover:bg-green-600 transition-colors"
+                <div className="mt-5">
+                  <BookingTimeline completed={depositPaid ? 3 : 1} />
+                </div>
+
+                <div className="mt-6 flex flex-col gap-2.5">
+                  {lastBooking?.bookingId && (lastBooking.deposit ?? 0) > 0 && !depositPaid && (
+                    <button
+                      type="button"
+                      onClick={() => setPayOpen(true)}
+                      className="w-full flex items-center justify-center gap-2 bg-yellow text-dark font-syne font-bold text-sm py-3.5 rounded-xl hover:bg-yellow-dark transition-colors"
                     >
-                      <MessageSquare size={16} /> {t.booking.confirmWhatsApp}
-                    </a>
+                      Pay deposit to confirm <ArrowRight size={16} />
+                    </button>
                   )}
-                  {/* Local bank transfer — reveal the account details on demand */}
-                  {lastBooking && <BankTransferDetails name={lastBooking.name} vehicle={lastBooking.scooter} />}
-                </motion.div>
+                  <button
+                    type="button"
+                    onClick={downloadReceipt}
+                    className="w-full flex items-center justify-center gap-2 border border-white/15 text-offwhite/80 font-syne font-bold text-sm py-3 rounded-xl hover:border-yellow/40 hover:text-yellow transition-colors"
+                  >
+                    <Download size={15} /> Download receipt
+                  </button>
+                </div>
               </motion.div>
             )}
+
+            {/* Secure-payment popup (bottom sheet on mobile, modal on desktop) */}
+            <AnimatePresence>
+              {payOpen && lastBooking && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setPayOpen(false)}
+                  className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4"
+                >
+                  <motion.div
+                    initial={{ y: 40, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 40, opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="relative w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-dark-border bg-dark-card p-6"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setPayOpen(false)}
+                      className="absolute top-4 right-4 text-muted hover:text-offwhite transition-colors"
+                      aria-label="Close"
+                    >
+                      <X size={20} />
+                    </button>
+                    <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-1">SECURE PAYMENT</p>
+                    <h3 className="font-syne font-extrabold text-offwhite text-xl mb-1">Pay your deposit</h3>
+                    <p className="text-muted font-dm text-sm mb-5">{lastBooking.scooter} · {lastBooking.range}</p>
+                    {lastBooking.bookingId && (lastBooking.deposit ?? 0) > 0 && (
+                      <PayPalDeposit
+                        bookingId={lastBooking.bookingId}
+                        depositMur={lastBooking.deposit ?? 0}
+                        onPaid={() => { setDepositPaid(true); setPayOpen(false); }}
+                      />
+                    )}
+                    {whatsapp && (
+                      <a
+                        href={`https://wa.me/${whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(
+                          `Hi Roule Rodrigues! I'd like to pay my deposit:\n\n` +
+                          `🛵 Vehicle: ${lastBooking.scooter}\n` +
+                          `📅 Dates: ${lastBooking.range} (${lastBooking.days} day${lastBooking.days !== 1 ? "s" : ""})\n` +
+                          `👤 Name: ${lastBooking.name}\n` +
+                          (lastBooking.total ? `💰 Est. total: ${lastBooking.total}\n` : "") +
+                          `\nCould you send me the bank details? Thank you!`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 w-full flex items-center justify-center gap-2 bg-green-500 text-white font-syne font-bold text-sm py-3 rounded-xl hover:bg-green-600 transition-colors"
+                      >
+                        <MessageSquare size={16} /> {t.booking.confirmWhatsApp}
+                      </a>
+                    )}
+                    <BankTransferDetails name={lastBooking.name} vehicle={lastBooking.scooter} />
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {formState === "error" && (
               <motion.div
@@ -582,11 +668,11 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                       placeholder="your@email.com"
                       value={form.email}
                       onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      className={`${inputCls} pl-10${!emailOk ? " !border-red-500/60" : ""}`}
+                      className={`${inputCls} pl-10${emailInvalid ? " !border-red-500/60" : ""}`}
                       disabled={formState === "loading"}
                     />
                   </div>
-                  {!emailOk && <p className="text-red-400 font-dm text-[11px] mt-1.5">Please enter a valid email address.</p>}
+                  {emailInvalid && <p className="text-red-400 font-dm text-[11px] mt-1.5">Please enter a valid email address.</p>}
                 </div>
               </div>
 
