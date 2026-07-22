@@ -105,7 +105,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
   const [formState, setFormState] = useState<FormState>("idle");
   const [showPartnerCode, setShowPartnerCode] = useState(false);
   const [lastBooking, setLastBooking] = useState<
-    { scooter: string; range: string; days: number; name: string; total: string; bookingId?: string; deposit?: number } | null
+    { scooter: string; range: string; days: number; name: string; total: string; bookingId?: string; deposit?: number; totalMur?: number } | null
   >(null);
   const [agreed, setAgreed] = useState(false);
   const [agreeError, setAgreeError] = useState(false);
@@ -349,6 +349,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
         total: estimatedTotal,
         bookingId: resData.bookingId,
         deposit: breakdown?.deposit ?? resData.depositAmount ?? 0,
+        totalMur: breakdown?.total,
       });
       setFormState("success");
       setForm({ name: "", email: "", phone: "", scooter: "", start_date: "", end_date: "", pickup_time: "10:00", return_time: "10:00", message: "", partner_code: "" });
@@ -475,6 +476,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                       <PayPalDeposit
                         bookingId={lastBooking.bookingId}
                         depositMur={lastBooking.deposit ?? 0}
+                        fullMur={lastBooking.totalMur}
                         onPaid={() => { setDepositPaid(true); setPayOpen(false); }}
                       />
                     )}

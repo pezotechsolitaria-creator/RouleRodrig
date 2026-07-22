@@ -22,19 +22,25 @@ const CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "";
 export default function PayPalDeposit({
   bookingId,
   depositMur,
+  fullMur,
   kind = "vehicle",
   onPaid,
 }: {
   bookingId: string;
   depositMur: number; // the deposit in Rs (fee added on top for PayPal)
+  fullMur?: number; // if set and > deposit, the customer can choose to pay the full total
   kind?: "vehicle" | "place"; // which table the booking lives in
   onPaid?: () => void;
 }) {
   const { language } = useLanguage();
-  // The customer bears the PayPal fee, so it's added to the deposit here for a
-  // fully transparent "deposit + fee = total" line (matches the server charge).
-  const feeMur = Math.round((depositMur * PAYPAL_FEE_PERCENT) / 100);
-  const totalMur = depositMur + feeMur;
+  // Vehicles may let the customer pay the deposit OR the full total.
+  const canPayFull = typeof fullMur === "number" && fullMur > depositMur;
+  const [mode, setMode] = useState<"deposit" | "full">("deposit");
+  const amountMur = mode === "full" && canPayFull ? (fullMur as number) : depositMur;
+  // The customer bears the PayPal fee, so it's added on top for a transparent
+  // "amount + fee = total" line (matches the server charge).
+  const feeMur = Math.round((amountMur * PAYPAL_FEE_PERCENT) / 100);
+  const totalMur = amountMur + feeMur;
   const rs = (n: number) => `Rs ${n.toLocaleString()}`;
   const containerRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<"idle" | "paid" | "error">("idle");
@@ -42,11 +48,11 @@ export default function PayPalDeposit({
   const [ready, setReady] = useState(false);
 
   const T = {
-    en: { pay: "Pay deposit to confirm", fee: `incl. ${PAYPAL_FEE_PERCENT}% PayPal fee`, paid: "Deposit paid — booking confirmed! 🎉", secure: "Secure payment via PayPal", err: "Payment could not be completed. Please try again or pay by bank transfer." },
-    fr: { pay: "Payer l'acompte pour confirmer", fee: `frais PayPal ${PAYPAL_FEE_PERCENT}% inclus`, paid: "Acompte payé — réservation confirmée ! 🎉", secure: "Paiement sécurisé via PayPal", err: "Le paiement n'a pas pu aboutir. Réessayez ou payez par virement." },
-    cr: { pay: "Pey depo pou konfirmen", fee: `avek ${PAYPAL_FEE_PERCENT}% fre PayPal`, paid: "Depo peye — rezervasion konfirmen! 🎉", secure: "Peyman sekirize ar PayPal", err: "Peyman pa finn pas. Reisi ankor ouswa pey par bank." },
+    en: { pay: "Pay deposit to confirm", payFull: "Pay in full", deposit: "Deposit", full: "Full", fee: `incl. ${PAYPAL_FEE_PERCENT}% PayPal fee`, paid: "Payment received — booking confirmed! 🎉", secure: "Secure payment via PayPal", err: "Payment could not be completed. Please try again or pay by bank transfer." },
+    fr: { pay: "Payer l'acompte pour confirmer", payFull: "Payer la totalité", deposit: "Acompte", full: "Total", fee: `frais PayPal ${PAYPAL_FEE_PERCENT}% inclus`, paid: "Paiement reçu — réservation confirmée ! 🎉", secure: "Paiement sécurisé via PayPal", err: "Le paiement n'a pas pu aboutir. Réessayez ou payez par virement." },
+    cr: { pay: "Pey depo pou konfirmen", payFull: "Pey tou", deposit: "Depo", full: "Tou", fee: `avek ${PAYPAL_FEE_PERCENT}% fre PayPal`, paid: "Peyman resevwar — rezervasion konfirmen! 🎉", secure: "Peyman sekirize ar PayPal", err: "Peyman pa finn pas. Reisi ankor ouswa pey par bank." },
   }[language] ?? {
-    pay: "Pay deposit to confirm", fee: `incl. ${PAYPAL_FEE_PERCENT}% PayPal fee`, paid: "Deposit paid — booking confirmed!", secure: "Secure payment via PayPal", err: "Payment could not be completed.",
+    pay: "Pay deposit to confirm", payFull: "Pay in full", deposit: "Deposit", full: "Full", fee: `incl. ${PAYPAL_FEE_PERCENT}% PayPal fee`, paid: "Payment received — booking confirmed!", secure: "Secure payment via PayPal", err: "Payment could not be completed.",
   };
 
   // Load the PayPal SDK once.
@@ -75,7 +81,7 @@ export default function PayPalDeposit({
           const res = await fetch("/api/paypal/create-order", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ bookingId, kind }),
+            body: JSON.stringify({ bookingId, kind, mode }),
           });
           const j = await res.json();
           if (!res.ok) throw new Error(j.error || "create failed");
@@ -96,7 +102,7 @@ export default function PayPalDeposit({
       })
       .render(containerRef.current)
       .catch(() => { setState("error"); setMsg(T.err); });
-  }, [ready, bookingId, kind, state, onPaid, T.err]);
+  }, [ready, bookingId, kind, mode, state, onPaid, T.err]);
 
   if (!CLIENT_ID) return null;
 
@@ -111,11 +117,29 @@ export default function PayPalDeposit({
 
   return (
     <div>
+      {canPayFull && (
+        <div className="mb-3 grid grid-cols-2 gap-1.5 rounded-xl bg-white/5 p-1">
+          <button
+            type="button"
+            onClick={() => setMode("deposit")}
+            className={`rounded-lg px-2 py-2 text-center text-[11px] font-syne font-bold leading-tight transition-colors ${mode === "deposit" ? "bg-yellow text-dark" : "text-muted hover:text-offwhite"}`}
+          >
+            {T.deposit}<br />{rs(depositMur)}
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("full")}
+            className={`rounded-lg px-2 py-2 text-center text-[11px] font-syne font-bold leading-tight transition-colors ${mode === "full" ? "bg-yellow text-dark" : "text-muted hover:text-offwhite"}`}
+          >
+            {T.full}<br />{rs(fullMur as number)}
+          </button>
+        </div>
+      )}
       <p className="mb-1 font-dm text-sm text-offwhite">
-        {T.pay}: <span className="font-syne font-bold text-yellow">{rs(totalMur)}</span>
+        {mode === "full" ? T.payFull : T.pay}: <span className="font-syne font-bold text-yellow">{rs(totalMur)}</span>
       </p>
       <p className="mb-2 font-dm text-[11px] text-muted/80">
-        {rs(depositMur)} + {rs(feeMur)} {T.fee}
+        {rs(amountMur)} + {rs(feeMur)} {T.fee}
       </p>
       {!ready && (
         <div className="flex items-center gap-2 text-muted text-xs font-dm">

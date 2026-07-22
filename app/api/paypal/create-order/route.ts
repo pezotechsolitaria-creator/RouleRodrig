@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   const limited = guard(req, "paypal-create", 12, 60_000);
   if (limited) return limited;
 
-  let body: { bookingId?: string; kind?: string };
+  let body: { bookingId?: string; kind?: string; mode?: string };
   try {
     body = await req.json();
   } catch {
@@ -22,6 +22,8 @@ export async function POST(req: NextRequest) {
   const bookingId = (body.bookingId ?? "").toString().trim();
   // "place" = a Stay·Eat·Do reservation; anything else = a vehicle booking.
   const kind = body.kind === "place" ? "place" : "vehicle";
+  // Vehicles may pay the deposit OR the full total; places are deposit-only.
+  const mode = body.mode === "full" ? "full" : "deposit";
   if (!bookingId) return NextResponse.json({ error: "Missing booking." }, { status: 400 });
 
   const supabase = await getPrivileged();
@@ -44,13 +46,19 @@ export async function POST(req: NextRequest) {
   } else {
     const { data } = await supabase
       .from("bookings")
-      .select("id, scooter, days, deposit_amount, deposit_paid_at")
+      .select("id, scooter, days, deposit_amount, total_amount, deposit_paid_at")
       .eq("id", bookingId)
       .maybeSingle();
     if (!data) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
-    depositMur = Number(data.deposit_amount);
     depositPaidAt = data.deposit_paid_at;
-    description = `Deposit — ${data.scooter} · ${data.days} day(s)`;
+    const full = Number(data.total_amount);
+    if (mode === "full" && Number.isFinite(full) && full > 0) {
+      depositMur = full;
+      description = `Full payment — ${data.scooter} · ${data.days} day(s)`;
+    } else {
+      depositMur = Number(data.deposit_amount);
+      description = `Deposit — ${data.scooter} · ${data.days} day(s)`;
+    }
   }
 
   if (depositPaidAt) {
@@ -72,6 +80,7 @@ export async function POST(req: NextRequest) {
       depositMur: order.depositMur,
       feeMur: order.feeMur,
       totalMur: order.totalMur,
+      mode,
     });
   } catch (e) {
     console.error("[paypal] create-order", e);

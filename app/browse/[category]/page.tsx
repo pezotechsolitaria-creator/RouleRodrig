@@ -3,7 +3,6 @@ import { notFound, redirect } from "next/navigation";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, itemListLd, productLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
-import PriceValueBanner from "@/components/PriceValueBanner";
 import { getFleetView, buildBrowseCategories, priceNumber } from "@/lib/site-data";
 import Navbar from "@/components/Navbar";
 import BrowseTabs from "@/components/BrowseTabs";
@@ -243,19 +242,9 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
         <main>
           <BrowseBackBar title={vcat.label} />
           <BrowseTabs categories={cats} active={category} />
-          {/* Honest price anchor — scooters only, where the Rs 800–1,000 island
-              rate is researched market data. Cars have a different market, so no
-              claim there until it's verified too. */}
-          {category === "scooter" && (
-            <div className="pt-6">
-              <PriceValueBanner
-                fromPrice={(() => {
-                  const p = items.map((i) => priceNumber(i.price)).filter((n): n is number => n != null && n > 0);
-                  return p.length ? Math.min(...p) : null;
-                })()}
-              />
-            </div>
-          )}
+          {/* The scooter price-value banner was removed from this booking page to
+              keep it focused on the fleet. Its content lives, server-rendered in
+              French for SEO, on /fr/location-scooter-rodrigues (hreflang-paired). */}
           <Fleet
             fleet={items}
             categories={content.vehicleCategories}
