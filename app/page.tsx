@@ -7,9 +7,8 @@ import Hero from "@/components/Hero";
 import WhatLookingFor from "@/components/WhatLookingFor";
 import QuickActions from "@/components/QuickActions";
 import UsefulNumbers from "@/components/UsefulNumbers";
-import ReviewsSection from "@/components/ReviewsSection";
+import ReviewsContact from "@/components/ReviewsContact";
 import Sponsors from "@/components/Sponsors";
-import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
 import Reveal from "@/components/Reveal";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -162,8 +161,7 @@ export default async function Home() {
         <QuickActions />
         <Reveal><UsefulNumbers contacts={content.usefulContacts} /></Reveal>
         <Reveal><Sponsors enabled={content.sponsorsEnabled} sponsors={content.sponsors} /></Reveal>
-        <Reveal><ReviewsSection fleet={fleet} /></Reveal>
-        <Reveal><Contact contact={content.contact} fleet={fleet} /></Reveal>
+        <Reveal><ReviewsContact contact={content.contact} fleet={fleet} /></Reveal>
         <Footer social={content.social} branding={content.branding} />
       </main>
       <WhatsAppButton
