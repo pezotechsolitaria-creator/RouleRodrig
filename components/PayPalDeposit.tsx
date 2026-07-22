@@ -22,10 +22,12 @@ const CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "";
 export default function PayPalDeposit({
   bookingId,
   depositMur,
+  kind = "vehicle",
   onPaid,
 }: {
   bookingId: string;
   depositMur: number; // the deposit in Rs (fee added on top for PayPal)
+  kind?: "vehicle" | "place"; // which table the booking lives in
   onPaid?: () => void;
 }) {
   const { language } = useLanguage();
@@ -73,7 +75,7 @@ export default function PayPalDeposit({
           const res = await fetch("/api/paypal/create-order", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ bookingId }),
+            body: JSON.stringify({ bookingId, kind }),
           });
           const j = await res.json();
           if (!res.ok) throw new Error(j.error || "create failed");
@@ -84,7 +86,7 @@ export default function PayPalDeposit({
           const res = await fetch("/api/paypal/capture-order", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderID: data.orderID, bookingId }),
+            body: JSON.stringify({ orderID: data.orderID, bookingId, kind }),
           });
           const j = await res.json();
           if (res.ok && j.ok) { setState("paid"); onPaid?.(); }
@@ -94,7 +96,7 @@ export default function PayPalDeposit({
       })
       .render(containerRef.current)
       .catch(() => { setState("error"); setMsg(T.err); });
-  }, [ready, bookingId, state, onPaid, T.err]);
+  }, [ready, bookingId, kind, state, onPaid, T.err]);
 
   if (!CLIENT_ID) return null;
 

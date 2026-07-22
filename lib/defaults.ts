@@ -229,6 +229,7 @@ export interface RecommendedPlace {
   capacity?: number;   // hotel = total rooms · restaurant = seats per slot · activity = spots per date (default 1)
   timeSlots?: string[]; // restaurants & activities: bookable times, e.g. ["12:30","19:00","20:30"]
   priceNote?: string;  // optional price hint shown in the booking form, e.g. "from Rs 2500/night"
+  depositAmount?: number; // deposit in Rs to reserve. >0 → deposit-to-confirm (PayPal + bank), like vehicles; 0/unset → request-only
   highlights?: string[]; // bullet highlights/amenities shown in the detail view
   images?: string[];   // optional extra photos for the detail gallery
   isTour?: boolean;    // an activity that's a guided tour/excursion → shown under "Guided Tours"
@@ -252,6 +253,7 @@ export interface FoodConciergeStep {
 }
 export interface FoodConciergeContent {
   enabled: boolean;
+  coverImage?: string;   // hub-tile cover photo for the "Food & Dining" tile
   whatsapp: string;      // digits or wa.me link — where enquiries land
   title: string;         // hero headline on /food
   subtitle: string;      // hero sub-line
@@ -290,6 +292,7 @@ export interface TransportOption {
 
 export interface GettingAroundContent {
   enabled: boolean;
+  coverImage?: string;   // hub-tile cover photo for the "Getting around" tile
   title: string;
   titleFr?: string;
   titleCr?: string;

@@ -3257,6 +3257,16 @@ function RecommendedEditor({
               <TextInput value={it.priceNote ?? ""} onChange={(v) => updateItem(i, { priceNote: v })} placeholder="e.g. from Rs 2,500 / night" />
             </Field>
           )}
+          {it.bookable && (
+            <Field label="DEPOSIT TO RESERVE (Rs — 0 or blank = request only, no online payment)">
+              <TextInput
+                value={it.depositAmount != null ? String(it.depositAmount) : ""}
+                onChange={(v) => updateItem(i, { depositAmount: parseInt(v) || undefined })}
+                placeholder="0"
+                type="number"
+              />
+            </Field>
+          )}
         </div>
       ))}
 
@@ -3404,6 +3414,16 @@ function FoodConciergeEditor({
         </button>
       </div>
 
+      {/* Hub-tile cover photo */}
+      <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6">
+        <ImagePicker
+          src={fc.coverImage ?? ""}
+          onUpload={(p) => set({ coverImage: p })}
+          label="COVER PHOTO (Food &amp; Dining hub tile)"
+        />
+        <p className="text-muted/50 text-xs font-dm mt-2">Shown on the “Food &amp; Dining” tile on the homepage hub. A tasty local dish photo works well.</p>
+      </div>
+
       {/* WhatsApp number — the key field */}
       <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
         <Field label="WHATSAPP NUMBER FOR FOOD ENQUIRIES">
@@ -3508,6 +3528,16 @@ function GettingAroundEditor({
         >
           {ga.enabled ? <ToggleRight size={26} className="text-green-400" /> : <ToggleLeft size={26} />}
         </button>
+      </div>
+
+      {/* Hub-tile cover photo */}
+      <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6">
+        <ImagePicker
+          src={ga.coverImage ?? ""}
+          onUpload={(p) => set({ coverImage: p })}
+          label="COVER PHOTO (Getting around hub tile)"
+        />
+        <p className="text-muted/50 text-xs font-dm mt-2">Shown on the “Getting around” tile on the homepage hub — e.g. a scooter on a coastal road.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4">

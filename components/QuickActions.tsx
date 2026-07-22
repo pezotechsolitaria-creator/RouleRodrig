@@ -12,10 +12,10 @@ import { useLanguage } from "@/context/LanguageContext";
 type Action = { key: string; icon: typeof Map; href: string; en: string; fr: string; cr: string };
 
 const ACTIONS: Action[] = [
-  { key: "guide", icon: Map, href: "/guide/rodrigues", en: "Guide", fr: "Guide", cr: "Gid" },
+  { key: "guide", icon: BookOpen, href: "/guide/rodrigues", en: "Guide", fr: "Guide", cr: "Gid" },
   { key: "planner", icon: Compass, href: "/trip-planner", en: "Planner", fr: "Planifier", cr: "Plan" },
   { key: "routes", icon: Route, href: "/guide/routes", en: "Routes", fr: "Routes", cr: "Semin" },
-  { key: "blog", icon: BookOpen, href: "/blog", en: "Blog", fr: "Blog", cr: "Blog" },
+  { key: "map", icon: Map, href: "/map", en: "Map", fr: "Carte", cr: "Kart" },
 ];
 
 export default function QuickActions() {

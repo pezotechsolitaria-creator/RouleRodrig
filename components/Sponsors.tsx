@@ -18,7 +18,7 @@ export default function Sponsors({
   if (!enabled || items.length === 0) return null;
 
   return (
-    <section className="relative bg-dark py-20 md:py-28 overflow-hidden" aria-label="Our partners">
+    <section className="relative bg-dark py-12 md:py-16 overflow-hidden" aria-label="Our partners">
       {/* soft ambient accent (desktop only) */}
       <div className="pointer-events-none absolute inset-0 hidden md:block" aria-hidden="true">
         <div

@@ -34,30 +34,39 @@ function pendingPaymentCutoffMs(): number {
 /**
  * True when a booking row still reserves its dates.
  *
- * Vehicle bookings (rows that carry `deposit_paid_at`): a paid deposit or a
- * confirmed status always holds; an unpaid pending request holds only within
- * the short payment window. This fixes unpaid bookings blocking scooters.
+ * Payment-gated rows (a deposit is due): a paid deposit or a confirmed status
+ * always holds; an unpaid pending request holds only within the short payment
+ * window. This covers ALL vehicle bookings and any place booking whose listing
+ * has a deposit set. It's what stops an unpaid request blocking the calendar.
  *
- * Place bookings (no `deposit_paid_at`, no online payment): unchanged — a
- * pending hold counts until the longer 48h window passes, since the owner
- * confirms those manually.
+ * Request-only rows (no deposit — the owner confirms manually): a pending hold
+ * counts until the longer 48h window passes.
+ *
+ * The distinction is additive & backwards-compatible: vehicle selects carry
+ * `deposit_paid_at` but NOT `deposit_amount`, so they stay payment-gated exactly
+ * as before. Place selects carry both, so a deposit >0 gates them the same way
+ * while a 0/absent deposit keeps the 48h manual window.
  */
 export function isActiveHold(row: {
   status: string;
   created_at?: string | null;
   deposit_paid_at?: string | null;
+  deposit_amount?: number | null;
 }): boolean {
   if (row.status === "confirmed") return true;
   if (row.status !== "pending") return false;
 
-  // Payment-gated vehicle booking.
-  if ("deposit_paid_at" in row) {
+  const paymentGated =
+    "deposit_paid_at" in row &&
+    (!("deposit_amount" in row) || Number(row.deposit_amount ?? 0) > 0);
+
+  if (paymentGated) {
     if (row.deposit_paid_at) return true; // deposit paid → held
     if (!row.created_at) return false; // no timestamp → don't block an unpaid row
     return new Date(row.created_at).getTime() >= pendingPaymentCutoffMs();
   }
 
-  // Place booking — longer manual-confirmation window.
+  // Request-only place booking — longer manual-confirmation window.
   if (!row.created_at) return true;
   return new Date(row.created_at).getTime() >= holdCutoffMs();
 }

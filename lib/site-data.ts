@@ -151,8 +151,7 @@ export function buildBrowseCategories(
         slug: "food",
         href: "/food",
         label: "Food & Dining",
-        image: firstImage(rest),
-       
+        image: content.foodConcierge.coverImage || firstImage(rest),
         count: 0,
         tagline: "Free concierge · we book your table",
       });
@@ -166,7 +165,7 @@ export function buildBrowseCategories(
   }
   const ga = (content.gettingAround?.options ?? []).filter((o) => o.icon !== "bus");
   if (content.gettingAround?.enabled && ga.length) {
-    cats.push({ slug: "getting-around", label: "Getting around", count: ga.length });
+    cats.push({ slug: "getting-around", label: "Getting around", image: content.gettingAround?.coverImage, count: ga.length });
   }
   const events = content.events.filter((e) => e.title);
   if (events.length) {

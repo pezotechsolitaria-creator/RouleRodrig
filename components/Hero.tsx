@@ -162,15 +162,8 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
           ))}
         </div>
 
-        {/* Subheadline */}
-        <motion.p
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.85 }}
-          className="mt-3.5 text-white/70 text-sm md:text-xl max-w-xl font-dm leading-relaxed line-clamp-1 md:line-clamp-none"
-        >
-          {loc(language, h.subheadline, h.subheadlineFr, h.subheadlineCr)}
-        </motion.p>
+        {/* Subheadline removed — the cinematic headline + imagery carry the hero
+            (cleaner, more premium, shorter). Copy still lives in the CMS. */}
 
         {/* CTAs */}
         <motion.div

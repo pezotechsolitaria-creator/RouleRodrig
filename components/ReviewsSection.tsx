@@ -98,7 +98,7 @@ export default function ReviewsSection({ fleet = [] }: { fleet?: FleetItem[] }) 
       : null;
 
   return (
-    <section id="reviews" className="bg-dark py-24 md:py-36" aria-label="Rider reviews">
+    <section id="reviews" className="bg-dark py-14 md:py-20" aria-label="Rider reviews">
       <div className="max-w-7xl mx-auto px-6">
         {/* Header */}
         <motion.div

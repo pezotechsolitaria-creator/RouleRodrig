@@ -13,27 +13,49 @@ export async function POST(req: NextRequest) {
   const limited = guard(req, "paypal-create", 12, 60_000);
   if (limited) return limited;
 
-  let body: { bookingId?: string };
+  let body: { bookingId?: string; kind?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
   const bookingId = (body.bookingId ?? "").toString().trim();
+  // "place" = a Stay·Eat·Do reservation; anything else = a vehicle booking.
+  const kind = body.kind === "place" ? "place" : "vehicle";
   if (!bookingId) return NextResponse.json({ error: "Missing booking." }, { status: 400 });
 
   const supabase = await getPrivileged();
-  const { data: booking } = await supabase
-    .from("bookings")
-    .select("id, scooter, days, deposit_amount, deposit_paid_at")
-    .eq("id", bookingId)
-    .maybeSingle();
 
-  if (!booking) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
-  if (booking.deposit_paid_at) {
+  // The deposit is always read from the STORED booking, converted to EUR
+  // server-side — the client only sends an id (+ kind), never a price.
+  let depositMur = NaN;
+  let depositPaidAt: string | null = null;
+  let description = "Deposit";
+  if (kind === "place") {
+    const { data } = await supabase
+      .from("place_bookings")
+      .select("id, place_name, deposit_amount, deposit_paid_at")
+      .eq("id", bookingId)
+      .maybeSingle();
+    if (!data) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
+    depositMur = Number(data.deposit_amount);
+    depositPaidAt = data.deposit_paid_at;
+    description = `Deposit — ${data.place_name}`;
+  } else {
+    const { data } = await supabase
+      .from("bookings")
+      .select("id, scooter, days, deposit_amount, deposit_paid_at")
+      .eq("id", bookingId)
+      .maybeSingle();
+    if (!data) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
+    depositMur = Number(data.deposit_amount);
+    depositPaidAt = data.deposit_paid_at;
+    description = `Deposit — ${data.scooter} · ${data.days} day(s)`;
+  }
+
+  if (depositPaidAt) {
     return NextResponse.json({ error: "This deposit has already been paid." }, { status: 409 });
   }
-  const depositMur = Number(booking.deposit_amount);
   if (!Number.isFinite(depositMur) || depositMur <= 0) {
     return NextResponse.json({ error: "No deposit is due for this booking." }, { status: 400 });
   }
@@ -41,8 +63,8 @@ export async function POST(req: NextRequest) {
   try {
     const order = await createDepositOrder({
       depositMur,
-      referenceId: booking.id,
-      description: `Deposit — ${booking.scooter} · ${booking.days} day(s)`,
+      referenceId: bookingId,
+      description,
     });
     return NextResponse.json({
       orderID: order.id,

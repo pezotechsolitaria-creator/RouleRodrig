@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   const limited = guard(req, "paypal-capture", 12, 60_000);
   if (limited) return limited;
 
-  let body: { orderID?: string; bookingId?: string };
+  let body: { orderID?: string; bookingId?: string; kind?: string };
   try {
     body = await req.json();
   } catch {
@@ -21,16 +21,18 @@ export async function POST(req: NextRequest) {
   }
   const orderID = (body.orderID ?? "").toString().trim();
   const bookingId = (body.bookingId ?? "").toString().trim();
+  const kind = body.kind === "place" ? "place" : "vehicle";
   if (!orderID || !bookingId) return NextResponse.json({ error: "Missing details." }, { status: 400 });
 
   const supabase = await getPrivileged();
-  const { data: booking } = await supabase
-    .from("bookings")
-    .select("id, deposit_paid_at")
-    .eq("id", bookingId)
-    .maybeSingle();
-  if (!booking) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
-  if (booking.deposit_paid_at) {
+  // Idempotency pre-check — an already-paid deposit returns success without
+  // re-capturing. Both tables share the id + deposit_paid_at shape.
+  const existing =
+    kind === "place"
+      ? await supabase.from("place_bookings").select("id, deposit_paid_at").eq("id", bookingId).maybeSingle()
+      : await supabase.from("bookings").select("id, deposit_paid_at").eq("id", bookingId).maybeSingle();
+  if (!existing.data) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
+  if (existing.data.deposit_paid_at) {
     // Idempotent: already captured on a previous attempt.
     return NextResponse.json({ ok: true, alreadyPaid: true });
   }
@@ -48,14 +50,13 @@ export async function POST(req: NextRequest) {
   }
 
   // Payment verified by PayPal → record it and confirm the booking.
-  await supabase
-    .from("bookings")
-    .update({
-      deposit_paid_at: new Date().toISOString(),
-      paypal_capture_id: result.captureId,
-      status: "confirmed",
-    })
-    .eq("id", bookingId);
+  const patch = {
+    deposit_paid_at: new Date().toISOString(),
+    paypal_capture_id: result.captureId,
+    status: "confirmed",
+  };
+  if (kind === "place") await supabase.from("place_bookings").update(patch).eq("id", bookingId);
+  else await supabase.from("bookings").update(patch).eq("id", bookingId);
 
   return NextResponse.json({ ok: true });
 }

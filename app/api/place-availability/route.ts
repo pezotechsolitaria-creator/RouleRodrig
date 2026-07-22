@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from("place_bookings")
-    .select("place_id, start_date, end_date, status, created_at, quantity, time_slot")
+    .select("place_id, start_date, end_date, status, created_at, quantity, time_slot, deposit_paid_at, deposit_amount")
     .in("status", ["pending", "confirmed"])
     .gte("end_date", new Date().toISOString().split("T")[0]);
 

@@ -57,6 +57,10 @@ export async function POST(req: NextRequest) {
   let category: string | null = null;
   let capacity = 1;
   let slots: string[] = [];
+  // Owner-set deposit (Rs) to reserve. Resolved server-side from the listing so
+  // the client can never lower it. >0 → deposit-to-confirm (PayPal/bank); 0 →
+  // request-only (unchanged behaviour). Flat per reservation, like a hold fee.
+  let depositAmount = 0;
   try {
     const content = await getContent();
     const item = content.recommended.items.find((p) => p.id === place_id);
@@ -65,6 +69,9 @@ export async function POST(req: NextRequest) {
       category = item.category;
       capacity = Math.max(1, item.capacity ?? 1);
       slots = Array.isArray(item.timeSlots) ? item.timeSlots : [];
+      depositAmount = Number.isFinite(Number(item.depositAmount))
+        ? Math.max(0, Math.round(Number(item.depositAmount)))
+        : 0;
     }
   } catch {
     /* fall back to provided name */
@@ -94,7 +101,13 @@ export async function POST(req: NextRequest) {
       ? Math.min(99, Math.round(Number(body.guests)))
       : null;
 
+  // Generate the id server-side (anon can't SELECT rows, so INSERT…RETURNING
+  // would trip the RLS SELECT policy — same lesson as vehicle bookings). This
+  // lets us hand the id straight back for the PayPal deposit.
+  const id = crypto.randomUUID();
+  const deposit_amount = depositAmount > 0 ? depositAmount : null;
   const record = {
+    id,
     place_id: place_id.slice(0, 80),
     place_name,
     category,
@@ -107,6 +120,7 @@ export async function POST(req: NextRequest) {
     quantity,
     time_slot,
     message: (body.message ?? "")?.toString().trim() || null,
+    deposit_amount,
     status: "pending" as const,
   };
 
@@ -116,13 +130,13 @@ export async function POST(req: NextRequest) {
   try {
     const { data: active } = await supabase
       .from("place_bookings")
-      .select("start_date, end_date, status, created_at, quantity, time_slot")
+      .select("start_date, end_date, status, created_at, quantity, time_slot, deposit_paid_at, deposit_amount")
       .eq("place_id", place_id)
       .in("status", ["pending", "confirmed"])
       .gte("end_date", start_date)
       .lte("start_date", end_date);
     const rows = ((active ?? []) as {
-      start_date: string; end_date: string; status: string; created_at: string; quantity: number; time_slot: string | null;
+      start_date: string; end_date: string; status: string; created_at: string; quantity: number; time_slot: string | null; deposit_paid_at: string | null; deposit_amount: number | null;
     }[]).filter((r) => isActiveHold(r));
 
     if (isStay) {
@@ -196,5 +210,5 @@ export async function POST(req: NextRequest) {
     /* ignore */
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, bookingId: id, depositAmount: deposit_amount, placeName: record.place_name });
 }
