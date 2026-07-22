@@ -25,19 +25,19 @@ export default function UsefulNumbers({ contacts = [] }: { contacts?: UsefulCont
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.6 }}
-          className="mb-10"
+          className="mb-4 md:mb-8"
         >
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{u.eyebrow}</p>
+          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-1.5">{u.eyebrow}</p>
           <h2
             className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]"
-            style={{ fontSize: "clamp(30px, 7vw, 64px)" }}
+            style={{ fontSize: "clamp(22px, 5vw, 44px)" }}
           >
             {u.title}
           </h2>
-          <p className="text-muted font-dm text-sm md:text-base mt-3 max-w-lg">{u.subtitle}</p>
+          <p className="hidden md:block text-muted font-dm text-sm md:text-base mt-3 max-w-lg">{u.subtitle}</p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
           {GROUPS.map(({ key, icon: Icon, accent }) => {
             const items = valid.filter((c) => c.category === key);
             if (items.length === 0) return null;
@@ -48,18 +48,18 @@ export default function UsefulNumbers({ contacts = [] }: { contacts?: UsefulCont
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-60px" }}
                 transition={{ duration: 0.5 }}
-                className={`rounded-2xl border p-5 ${accent.split(" ").slice(1).join(" ")} border-dark-border`}
+                className={`rounded-2xl border p-3.5 md:p-4 ${accent.split(" ").slice(1).join(" ")} border-dark-border`}
               >
-                <div className="flex items-center gap-2 mb-4">
-                  <Icon size={16} className={accent.split(" ")[0]} />
+                <div className="flex items-center gap-2 mb-2.5">
+                  <Icon size={15} className={accent.split(" ")[0]} />
                   <p className="font-bebas tracking-[0.25em] text-[11px] text-muted">{u.groups[key]}</p>
                 </div>
-                <div className="space-y-2.5">
+                <div className="space-y-2">
                   {items.map((c) => (
                     <a
                       key={c.id}
                       href={`tel:${c.number.replace(/\s+/g, "")}`}
-                      className="flex items-center justify-between gap-3 bg-dark-card border border-dark-border rounded-xl px-4 py-3 hover:border-yellow/40 transition-colors group"
+                      className="flex items-center justify-between gap-3 bg-dark-card border border-dark-border rounded-xl px-3.5 py-2.5 hover:border-yellow/40 transition-colors group"
                     >
                       <div className="min-w-0">
                         <p className="font-dm text-offwhite text-sm truncate">{c.label}</p>

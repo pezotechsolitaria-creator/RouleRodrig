@@ -515,6 +515,10 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
               </motion.div>
             )}
 
+            {/* The form disappears once the request is sent — the confirmation
+                (with the Pay-deposit button) replaces it, so payment never sits
+                below a now-irrelevant calendar. */}
+            {formState !== "success" && (
             <form ref={formTopRef} onSubmit={handleSubmit} className="space-y-5" noValidate>
               {/* Trip Planner pre-fill banner */}
               {desiredDays && (
@@ -659,7 +663,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                 </div>
                 <div>
                   <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                    {t.booking.emailLabel}
+                    {t.booking.emailLabel} <span className="text-yellow">*</span>
                   </label>
                   <div className="relative">
                     <Mail size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" />
@@ -765,18 +769,17 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
               )}
               <button
                 type="submit"
-                disabled={formState === "loading" || formState === "success"}
+                disabled={formState === "loading"}
                 className="w-full flex items-center justify-center gap-2.5 bg-yellow text-dark font-syne font-bold text-base py-4 rounded-xl hover:bg-yellow-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {formState === "loading" ? (
                   <><Loader2 size={16} className="animate-spin" /> {t.booking.sending}</>
-                ) : formState === "success" ? (
-                  <><CheckCircle size={16} /> {t.booking.sent}</>
                 ) : (
                   <>{t.booking.submit} <Send size={16} /></>
                 )}
               </button>
             </form>
+            )}
           </motion.div>
 
           {/* Summary panel */}

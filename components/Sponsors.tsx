@@ -33,30 +33,30 @@ export default function Sponsors({
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-12"
+          className="text-center mb-5 md:mb-8"
         >
-          <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-5">
+          <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-3">
             <Handshake size={13} className="text-yellow" />
             <span className="font-bebas text-yellow text-[11px] tracking-[0.3em]">{s.title}</span>
           </div>
           <h2
             className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]"
-            style={{ fontSize: "clamp(28px, 5.5vw, 52px)" }}
+            style={{ fontSize: "clamp(22px, 5vw, 42px)" }}
           >
             {s.heading}
           </h2>
-          <p className="text-muted font-dm text-sm md:text-base mt-4 max-w-lg mx-auto">{s.subtitle}</p>
+          <p className="hidden md:block text-muted font-dm text-sm md:text-base mt-3 max-w-lg mx-auto">{s.subtitle}</p>
         </motion.div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
           {items.map((sp, i) => {
             const card = (
-              <div className="group relative flex h-full flex-col items-center justify-center gap-4 rounded-2xl bg-white p-6 ring-1 ring-white/10 shadow-[0_12px_40px_-18px_rgba(0,0,0,0.7)] transition-all duration-300 hover:-translate-y-1 hover:ring-yellow/50">
+              <div className="group relative flex h-full flex-col items-center justify-center gap-2.5 rounded-2xl bg-white p-4 md:p-5 ring-1 ring-white/10 shadow-[0_12px_40px_-18px_rgba(0,0,0,0.7)] transition-all duration-300 hover:-translate-y-1 hover:ring-yellow/50">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={sp.image}
                   alt={sp.name}
-                  className="h-14 md:h-16 w-auto max-w-full object-contain"
+                  className="h-10 md:h-14 w-auto max-w-full object-contain"
                   loading="lazy"
                 />
                 <p className="font-dm text-xs font-medium text-dark/70 text-center leading-tight">{sp.name}</p>

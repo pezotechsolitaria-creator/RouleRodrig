@@ -30,10 +30,15 @@ export function convertPrice(text: string, currency: Currency): string {
   if (!text || currency === "MUR") return text;
   const sym = CURRENCY_SYMBOL[currency];
   const rate = MUR_PER[currency];
-  return text.replace(/Rs\s*([\d.,]+)/gi, (match, num: string) => {
-    const rs = parseFloat(String(num).replace(/,/g, ""));
+  // The number after "Rs" may be grouped with commas OR spaces / non-breaking
+  // spaces (a French locale renders 21475 as "21 475"). Capture the whole run of
+  // digits + separators, then strip every non-digit before parsing — otherwise
+  // "Rs 21 475" was read as just "21" and rendered a broken "~$0 475".
+  return text.replace(/Rs\s*([\d][\d.,\s]*)/gi, (match, num: string) => {
+    const cleaned = String(num).replace(/[^\d.]/g, "");
+    const rs = parseFloat(cleaned);
     if (!Number.isFinite(rs)) return match;
     const value = Math.round(rs / rate);
-    return `~${sym}${value.toLocaleString()}`;
+    return `~${sym}${value.toLocaleString("en-US")}`;
   });
 }
