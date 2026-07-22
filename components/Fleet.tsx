@@ -364,14 +364,16 @@ export default function Fleet({
                   </p>
 
                   {specs.length > 0 && (
-                    <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-8">
+                    <div className="flex flex-wrap gap-2 mb-8">
                       {specs.map((spec) => {
                         const Icon = spec.icon;
                         return (
-                          <div key={spec.label} className="flex items-center gap-2.5 text-sm">
-                            <Icon size={14} className="text-yellow shrink-0" />
-                            <span className="font-dm text-offwhite/80">{spec.label}</span>
-                          </div>
+                          <span
+                            key={spec.label}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-dm text-offwhite/85"
+                          >
+                            <Icon size={13} className="text-yellow shrink-0" /> {spec.label}
+                          </span>
                         );
                       })}
                     </div>

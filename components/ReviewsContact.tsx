@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  Star, MessageCircle, Phone, Mail, MapPin, Clock,
+  Star, Phone, Mail, MapPin, Clock, Sparkles,
   ChevronLeft, ChevronRight, PenLine, X, Loader2, CheckCircle, ArrowRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -37,9 +37,9 @@ function Stars({ value, size = 12 }: { value: number; size?: number }) {
 }
 
 const COPY = {
-  en: { travellers: "happy travellers", all: "View all", write: "Write a review", replies: "Usually replies within minutes", trust: "Trusted by riders across Rodrigues", wa: "WhatsApp", call: "Call", email: "Email", maps: "Open in Maps", beFirst: "Be the first to leave a review", post: "Post review", posting: "Posting…", thanks: "Thank you — your review is in!", ratingL: "Your rating", nameL: "Name", originL: "Where from", reviewL: "Your review", namePh: "Your name", originPh: "e.g. France", reviewPh: "How was your ride?", errRate: "Please pick a rating.", errName: "Please enter your name.", errText: "Please write a short review.", done: "Done", reviewsTitle: "Rider reviews" },
-  fr: { travellers: "voyageurs ravis", all: "Voir tout", write: "Laisser un avis", replies: "Répond en quelques minutes", trust: "La confiance des voyageurs à Rodrigues", wa: "WhatsApp", call: "Appeler", email: "E-mail", maps: "Ouvrir Maps", beFirst: "Soyez le premier à laisser un avis", post: "Publier", posting: "Envoi…", thanks: "Merci — votre avis est publié !", ratingL: "Votre note", nameL: "Nom", originL: "D'où", reviewL: "Votre avis", namePh: "Votre nom", originPh: "ex. France", reviewPh: "Comment était votre balade ?", errRate: "Choisissez une note.", errName: "Entrez votre nom.", errText: "Écrivez un court avis.", done: "Fermer", reviewsTitle: "Avis clients" },
-  cr: { travellers: "vwayazer kontan", all: "Get tou", write: "Kit enn komanter", replies: "Reponn dan detrwa minit", trust: "Bann rider Rodrig fer nou konfyans", wa: "WhatsApp", call: "Apele", email: "Email", maps: "Ouver Maps", beFirst: "Vinn premie pou kit enn komanter", post: "Poste", posting: "Pe poste…", thanks: "Mersi — ou komanter finn poste!", ratingL: "Ou not", nameL: "Nom", originL: "Kotsa", reviewL: "Ou komanter", namePh: "Ou nom", originPh: "ex. Frans", reviewPh: "Kouma ti ou balad?", errRate: "Swazir enn not.", errName: "Met ou nom.", errText: "Ekrir enn ti komanter.", done: "Ferm", reviewsTitle: "Komanter" },
+  en: { travellers: "happy travellers", all: "View all", write: "Write a review", replies: "Usually replies within minutes", trust: "Trusted by riders across Rodrigues", wa: "WhatsApp", call: "Call", email: "Email", maps: "Open in Maps", beFirst: "Be the first to leave a review", post: "Post review", posting: "Posting…", thanks: "Thank you — your review is in!", ratingL: "Your rating", nameL: "Name", originL: "Where from", reviewL: "Your review", namePh: "Your name", originPh: "e.g. France", reviewPh: "How was your ride?", errRate: "Please pick a rating.", errName: "Please enter your name.", errText: "Please write a short review.", done: "Done", reviewsTitle: "Rider reviews", reviewsHeading: "Customer reviews", trustedBy: "Trusted by travellers exploring Rodrigues.", aiTitle: "Ask Ti Roulé", aiDesc: "Need travel advice? Our island AI suggests beaches, food, routes & hidden gems — instantly.", aiCta: "Ask", availability: "Available now" },
+  fr: { travellers: "voyageurs ravis", all: "Voir tout", write: "Laisser un avis", replies: "Répond en quelques minutes", trust: "La confiance des voyageurs à Rodrigues", wa: "WhatsApp", call: "Appeler", email: "E-mail", maps: "Ouvrir Maps", beFirst: "Soyez le premier à laisser un avis", post: "Publier", posting: "Envoi…", thanks: "Merci — votre avis est publié !", ratingL: "Votre note", nameL: "Nom", originL: "D'où", reviewL: "Votre avis", namePh: "Votre nom", originPh: "ex. France", reviewPh: "Comment était votre balade ?", errRate: "Choisissez une note.", errName: "Entrez votre nom.", errText: "Écrivez un court avis.", done: "Fermer", reviewsTitle: "Avis clients", reviewsHeading: "Avis clients", trustedBy: "La confiance des voyageurs à Rodrigues.", aiTitle: "Demander à Ti Roulé", aiDesc: "Besoin de conseils ? Notre IA locale suggère plages, restos, itinéraires et coins secrets — en direct.", aiCta: "Demander", availability: "Disponible" },
+  cr: { travellers: "vwayazer kontan", all: "Get tou", write: "Kit enn komanter", replies: "Reponn dan detrwa minit", trust: "Bann rider Rodrig fer nou konfyans", wa: "WhatsApp", call: "Apele", email: "Email", maps: "Ouver Maps", beFirst: "Vinn premie pou kit enn komanter", post: "Poste", posting: "Pe poste…", thanks: "Mersi — ou komanter finn poste!", ratingL: "Ou not", nameL: "Nom", originL: "Kotsa", reviewL: "Ou komanter", namePh: "Ou nom", originPh: "ex. Frans", reviewPh: "Kouma ti ou balad?", errRate: "Swazir enn not.", errName: "Met ou nom.", errText: "Ekrir enn ti komanter.", done: "Ferm", reviewsTitle: "Komanter", reviewsHeading: "Komanter kliyan", trustedBy: "Bann vwayazer Rodrig fer nou konfyans.", aiTitle: "Demann Ti Roulé", aiDesc: "Bizin konsey? Nou IA lokal propoz laplaz, manze, semin ek bann landrwa sekre — deswit.", aiCta: "Demann", availability: "Disponib" },
 };
 
 export default function ReviewsContact({ contact }: { contact?: ContactContent; fleet?: FleetItem[] }) {
@@ -69,8 +69,6 @@ export default function ReviewsContact({ contact }: { contact?: ContactContent; 
   }, []);
 
   const avg = reviews.length ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : null;
-  const waNum = (c.phone || "").replace(/\D/g, "");
-  const wa = `https://wa.me/${waNum}`;
   const tel = `tel:${(c.phone || "").replace(/\s/g, "")}`;
   const maps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.location || "Port Mathurin, Rodrigues")}`;
 
@@ -109,20 +107,15 @@ export default function ReviewsContact({ contact }: { contact?: ContactContent; 
   }
 
   const contactBtns = (
-    <div className="flex flex-wrap items-center gap-2.5">
-      <a href={wa} target="_blank" rel="noopener noreferrer"
-         className="flex-1 min-w-[128px] inline-flex items-center justify-center gap-2 bg-green-500 text-white font-syne font-bold text-sm py-3 rounded-xl hover:bg-green-600 transition-colors">
-        <MessageCircle size={16} /> {L.wa}
+    <div className="grid grid-cols-3 gap-2.5">
+      <a href={tel} className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-white/12 bg-white/[0.03] py-4 font-syne font-bold text-sm text-offwhite transition-all hover:-translate-y-0.5 hover:border-yellow/40 hover:text-yellow">
+        <Phone size={18} /> {L.call}
       </a>
-      <a href={tel} className="inline-flex items-center justify-center gap-1.5 border border-white/12 text-offwhite font-syne font-bold text-sm px-4 py-3 rounded-xl hover:border-yellow/40 hover:text-yellow transition-colors">
-        <Phone size={15} /> {L.call}
+      <a href={`mailto:${c.email}`} className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-white/12 bg-white/[0.03] py-4 font-syne font-bold text-sm text-offwhite transition-all hover:-translate-y-0.5 hover:border-yellow/40 hover:text-yellow">
+        <Mail size={18} /> {L.email}
       </a>
-      <a href={`mailto:${c.email}`} className="inline-flex items-center justify-center gap-1.5 border border-white/12 text-offwhite font-syne font-bold text-sm px-4 py-3 rounded-xl hover:border-yellow/40 hover:text-yellow transition-colors">
-        <Mail size={15} /> {L.email}
-      </a>
-      <a href={maps} target="_blank" rel="noopener noreferrer"
-         className="inline-flex items-center justify-center gap-1.5 border border-white/12 text-offwhite font-syne font-bold text-sm px-4 py-3 rounded-xl hover:border-yellow/40 hover:text-yellow transition-colors">
-        <MapPin size={15} /> {L.maps}
+      <a href={maps} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-white/12 bg-white/[0.03] py-4 font-syne font-bold text-sm text-offwhite transition-all hover:-translate-y-0.5 hover:border-yellow/40 hover:text-yellow">
+        <MapPin size={18} /> {L.maps}
       </a>
     </div>
   );
@@ -132,6 +125,15 @@ export default function ReviewsContact({ contact }: { contact?: ContactContent; 
       <h2 className="sr-only">Reviews &amp; contact — Roule Rodrigues</h2>
       <div className="max-w-4xl mx-auto px-5">
         <div className="rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.055] to-white/[0.01] backdrop-blur-sm p-5 md:p-7 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.9)]">
+          {/* Header — instantly reads as customer reviews */}
+          <div className="mb-3">
+            <div className="flex items-center gap-2">
+              <Stars value={avg ? Math.round(Number(avg)) : 5} size={13} />
+              <span className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{L.reviewsHeading}</span>
+            </div>
+            <p className="mt-1 font-dm text-xs text-muted">{L.trustedBy}</p>
+          </div>
+
           {/* Rating + view all */}
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -201,6 +203,24 @@ export default function ReviewsContact({ contact }: { contact?: ContactContent; 
           )}
 
           <div className="my-5 h-px bg-white/[0.08]" />
+
+          {/* AI concierge — nudges users into Ti Roulé, between reviews and contact */}
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("tiroule:open"))}
+            className="group mb-5 flex w-full items-center gap-3 rounded-2xl border border-yellow/20 bg-gradient-to-r from-yellow/[0.08] to-transparent p-4 text-left transition-colors hover:border-yellow/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow/50"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-yellow/15 text-yellow ring-1 ring-inset ring-yellow/25">
+              <Sparkles size={20} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-syne font-bold text-offwhite text-sm">{L.aiTitle}</span>
+              <span className="mt-0.5 block font-dm text-xs text-muted line-clamp-2">{L.aiDesc}</span>
+            </span>
+            <span className="shrink-0 inline-flex items-center gap-1 font-syne text-xs font-bold text-yellow transition-all group-hover:gap-1.5">
+              {L.aiCta} <ArrowRight size={13} />
+            </span>
+          </button>
 
           {/* Contact — one tap to a local */}
           {contactBtns}
