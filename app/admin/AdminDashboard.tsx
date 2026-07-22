@@ -3715,8 +3715,15 @@ function SponsorsEditor({
   const update = (i: number, patch: Partial<Sponsor>) =>
     setList(list.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
   const add = () =>
-    setList([...list, { id: `sp-${Date.now()}`, name: "", image: "", link: "", enabled: true }]);
+    setList([...list, { id: `sp-${Date.now()}`, name: "", image: "", link: "", enabled: true, featured: false }]);
   const remove = (i: number) => setList(list.filter((_, idx) => idx !== i));
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= list.length) return;
+    const next = [...list];
+    [next[i], next[j]] = [next[j], next[i]];
+    setList(next);
+  };
 
   return (
     <div className="space-y-6">
@@ -3739,9 +3746,23 @@ function SponsorsEditor({
 
       {list.map((sp, i) => (
         <div key={sp.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="font-bebas text-yellow text-xs tracking-[0.3em]">{sp.name || `SPONSOR ${i + 1}`}</p>
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="font-bebas text-yellow text-xs tracking-[0.3em] truncate">{sp.name || `SPONSOR ${i + 1}`}</p>
+            <div className="flex items-center gap-2 shrink-0">
+              <button type="button" onClick={() => move(i, -1)} disabled={i === 0} title="Move up" className="text-muted/50 hover:text-yellow disabled:opacity-25 transition-colors">
+                <ChevronUp size={16} />
+              </button>
+              <button type="button" onClick={() => move(i, 1)} disabled={i === list.length - 1} title="Move down" className="text-muted/50 hover:text-yellow disabled:opacity-25 transition-colors">
+                <ChevronDown size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={() => update(i, { featured: !sp.featured })}
+                title="Official Partner badge"
+                className={`inline-flex items-center gap-1 text-[11px] font-dm px-2.5 py-1 rounded-full border transition-colors ${sp.featured ? "border-yellow/50 text-yellow bg-yellow/10" : "border-[#2a2a2a] text-muted/50"}`}
+              >
+                <Star size={10} className={sp.featured ? "fill-yellow" : ""} /> {sp.featured ? "Official" : "Feature"}
+              </button>
               <button
                 type="button"
                 onClick={() => update(i, { enabled: !sp.enabled })}
@@ -3756,13 +3777,22 @@ function SponsorsEditor({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="SPONSOR NAME">
-              <TextInput value={sp.name} onChange={(v) => update(i, { name: v })} placeholder="e.g. Banque XYZ" />
+              <TextInput value={sp.name} onChange={(v) => update(i, { name: v })} placeholder="e.g. Cotton Bay Hotel" />
             </Field>
-            <Field label="LINK (optional)">
-              <TextInput value={sp.link} onChange={(v) => update(i, { link: v })} placeholder="https://..." />
+            <Field label="CATEGORY (optional)">
+              <TextInput value={sp.category ?? ""} onChange={(v) => update(i, { category: v })} placeholder="e.g. Hotel, Bank, Restaurant" />
             </Field>
           </div>
-          <ImagePicker label="LOGO" src={sp.image} onUpload={(p) => update(i, { image: p })} />
+          <Field label="DESCRIPTION (optional)">
+            <TextInput value={sp.description ?? ""} onChange={(v) => update(i, { description: v })} placeholder="One line about this partner" />
+          </Field>
+          <Field label="WEBSITE (optional)">
+            <TextInput value={sp.link} onChange={(v) => update(i, { link: v })} placeholder="https://..." />
+          </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <ImagePicker label="LOGO" src={sp.image} onUpload={(p) => update(i, { image: p })} />
+            <ImagePicker label="BANNER (optional)" src={sp.banner ?? ""} onUpload={(p) => update(i, { banner: p })} />
+          </div>
         </div>
       ))}
 

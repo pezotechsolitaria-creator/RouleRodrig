@@ -179,9 +179,13 @@ export interface RideRoute {
 export interface Sponsor {
   id: string;
   name: string;
-  image: string;   // logo / banner
-  link: string;    // where it links to
+  image: string;   // logo
+  link: string;    // website
   enabled: boolean;
+  description?: string; // short one-liner shown on the card
+  category?: string;    // e.g. "Hotel", "Bank", "Restaurant" — shown as a chip
+  featured?: boolean;   // → "Official Partner" badge (else "Trusted Partner")
+  banner?: string;      // optional wide banner image
 }
 
 export interface UsefulContact {
