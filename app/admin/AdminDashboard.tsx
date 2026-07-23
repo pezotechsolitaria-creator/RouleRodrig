@@ -137,6 +137,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "routes",       label: "Ride Routes",      icon: MapPin,          group: "content" },
   { id: "useful",       label: "Useful Numbers",   icon: Phone,           group: "content" },
   { id: "faq",          label: "FAQ",              icon: HelpCircle,      group: "content" },
+  { id: "sponsors",     label: "Sponsors / Partners", icon: Handshake,    group: "content" },
   { id: "contact",      label: "Contact Info",     icon: Phone,           group: "content" },
   { id: "branding",     label: "Branding & Social",icon: Share2,          group: "content" },
 ];

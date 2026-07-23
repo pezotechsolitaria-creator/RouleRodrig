@@ -24,21 +24,10 @@ export default function Footer({
   const year = new Date().getFullYear();
   const activeSocial = SOCIAL_CONFIG.filter(({ key }) => social?.[key]);
 
-  const navLinks = [
-    { label: t.explore.nav,       href: "/#explore" },
-    { label: t.nav.map,           href: "/#map"     },
-    { label: t.nav.routes,        href: "/#routes"  },
-    { label: t.nav.taxi,          href: "/taxi"     },
-    { label: "Rodrigues guide",   href: "/guide/rodrigues" },
-    { label: "Travel blog",       href: "/blog" },
-    { label: t.nav.contact,       href: "/#contact" },
-    { label: t.footer.listScooter, href: "/list-your-scooter" },
-  ];
-
   return (
     <footer className="bg-dark-card border-t border-dark-border" aria-label="Site footer">
       <div className="max-w-7xl mx-auto px-6 pt-8 pb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-16 mb-14">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 md:gap-14 mb-8">
           {/* Brand */}
           <div>
             <Link href="/" className="flex items-center gap-2.5 mb-5" aria-label="Roule Rodrigues home">
@@ -68,23 +57,6 @@ export default function Footer({
               {t.footer.tagline}
             </p>
           </div>
-
-          {/* Navigate */}
-          <nav aria-label="Footer navigation">
-            <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-5">{t.footer.navigate}</p>
-            <ul className="flex flex-col gap-3">
-              {navLinks.map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className="text-muted hover:text-offwhite transition-colors text-sm font-dm"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
 
           {/* Social */}
           <div>

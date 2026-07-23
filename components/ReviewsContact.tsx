@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  Star, Phone, Mail, MapPin, Clock, Sparkles,
+  Star, Phone, Mail, MapPin, Clock, BadgeCheck,
   ChevronLeft, ChevronRight, PenLine, X, Loader2, CheckCircle, ArrowRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -34,6 +34,27 @@ function Stars({ value, size = 12 }: { value: number; size?: number }) {
       ))}
     </div>
   );
+}
+
+const FLAGS: Record<string, string> = {
+  france: "🇫🇷", "united kingdom": "🇬🇧", uk: "🇬🇧", england: "🇬🇧", britain: "🇬🇧", "royaume-uni": "🇬🇧",
+  germany: "🇩🇪", allemagne: "🇩🇪", italy: "🇮🇹", italie: "🇮🇹", spain: "🇪🇸", espagne: "🇪🇸",
+  mauritius: "🇲🇺", maurice: "🇲🇺", rodrigues: "🇲🇺", "united states": "🇺🇸", usa: "🇺🇸", us: "🇺🇸",
+  canada: "🇨🇦", switzerland: "🇨🇭", suisse: "🇨🇭", belgium: "🇧🇪", belgique: "🇧🇪",
+  netherlands: "🇳🇱", "south africa": "🇿🇦", australia: "🇦🇺", india: "🇮🇳", china: "🇨🇳",
+  japan: "🇯🇵", reunion: "🇷🇪", "la reunion": "🇷🇪", "réunion": "🇷🇪", portugal: "🇵🇹", austria: "🇦🇹", ireland: "🇮🇪",
+};
+function flagFor(origin?: string | null): string {
+  if (!origin) return "";
+  return FLAGS[origin.trim().toLowerCase()] ?? "";
+}
+function fmtDate(s?: string): string {
+  if (!s) return "";
+  try {
+    return new Date(s).toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  } catch {
+    return "";
+  }
 }
 
 const COPY = {
@@ -144,7 +165,7 @@ export default function ReviewsContact({ contact }: { contact?: ContactContent; 
                     <b className="font-syne text-offwhite text-sm">{avg}</b>
                     <span className="text-muted text-xs">/5</span>
                   </span>
-                  <span className="font-dm text-sm text-muted truncate">{reviews.length} {L.travellers}</span>
+                  <span className="font-dm text-sm text-muted truncate">{language === "fr" ? "d'avis vérifiés" : language === "cr" ? "avis verifie" : "from verified riders"}</span>
                 </>
               ) : (
                 <span className="font-syne font-bold text-offwhite text-sm">{L.trust}</span>
@@ -168,18 +189,21 @@ export default function ReviewsContact({ contact }: { contact?: ContactContent; 
                 {reviews.map((r) => {
                   const a = avatarFor(r.name);
                   return (
-                    <article key={r.id} data-rcard className="snap-start shrink-0 w-[86%] sm:w-[300px] rounded-2xl border border-white/[0.08] bg-dark/40 p-4">
-                      <div className="flex items-center gap-3 mb-2.5">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-syne font-bold text-[13px] text-dark" style={{ background: a.color }}>{a.init}</span>
-                        <div className="min-w-0">
-                          <p className="font-syne font-bold text-offwhite text-sm truncate">{r.name}</p>
+                    <article key={r.id} data-rcard className="snap-start shrink-0 w-[80%] sm:w-[280px] rounded-2xl border border-white/[0.08] bg-dark/40 p-3.5">
+                      <div className="mb-2 flex items-center gap-2.5">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-syne text-[12px] font-bold text-dark" style={{ background: a.color }}>{a.init}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="flex items-center gap-1.5 font-syne text-[13px] font-bold text-offwhite">
+                            <span className="truncate">{r.name}</span>
+                            {flagFor(r.origin) && <span className="shrink-0 text-sm leading-none">{flagFor(r.origin)}</span>}
+                          </p>
                           <div className="flex items-center gap-1.5">
-                            <Stars value={r.rating} size={11} />
-                            {r.origin && <span className="text-muted/60 text-[11px] font-dm truncate">· {r.origin}</span>}
+                            <Stars value={r.rating} size={10} />
+                            <BadgeCheck size={11} className="shrink-0 text-green-400/80" />
                           </div>
                         </div>
                       </div>
-                      <p className="font-dm text-[13px] text-offwhite/70 leading-snug line-clamp-3">{r.text}</p>
+                      <p className="font-dm text-xs leading-snug text-offwhite/70 line-clamp-2">{r.text}</p>
                     </article>
                   );
                 })}
@@ -203,24 +227,6 @@ export default function ReviewsContact({ contact }: { contact?: ContactContent; 
           )}
 
           <div className="my-5 h-px bg-white/[0.08]" />
-
-          {/* AI concierge — nudges users into Ti Roulé, between reviews and contact */}
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent("tiroule:open"))}
-            className="group mb-5 flex w-full items-center gap-3 rounded-2xl border border-yellow/20 bg-gradient-to-r from-yellow/[0.08] to-transparent p-4 text-left transition-colors hover:border-yellow/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow/50"
-          >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-yellow/15 text-yellow ring-1 ring-inset ring-yellow/25">
-              <Sparkles size={20} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block font-syne font-bold text-offwhite text-sm">{L.aiTitle}</span>
-              <span className="mt-0.5 block font-dm text-xs text-muted line-clamp-2">{L.aiDesc}</span>
-            </span>
-            <span className="shrink-0 inline-flex items-center gap-1 font-syne text-xs font-bold text-yellow transition-all group-hover:gap-1.5">
-              {L.aiCta} <ArrowRight size={13} />
-            </span>
-          </button>
 
           {/* Contact — one tap to a local */}
           {contactBtns}
@@ -296,9 +302,16 @@ export default function ReviewsContact({ contact }: { contact?: ContactContent; 
                     <div key={r.id} className="rounded-xl border border-dark-border bg-dark p-4">
                       <div className="flex items-center gap-3 mb-2">
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-syne font-bold text-xs text-dark" style={{ background: a.color }}>{a.init}</span>
-                        <div className="min-w-0">
-                          <p className="font-syne font-bold text-offwhite text-sm truncate">{r.name}{r.origin ? <span className="text-muted/60 font-dm font-normal"> · {r.origin}</span> : null}</p>
-                          <Stars value={r.rating} size={11} />
+                        <div className="min-w-0 flex-1">
+                          <p className="flex items-center gap-1.5 font-syne font-bold text-offwhite text-sm">
+                            <span className="truncate">{r.name}</span>
+                            {flagFor(r.origin) ? <span className="shrink-0">{flagFor(r.origin)}</span> : r.origin ? <span className="truncate font-dm text-[11px] font-normal text-muted/60">· {r.origin}</span> : null}
+                          </p>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                            <Stars value={r.rating} size={11} />
+                            <span className="inline-flex items-center gap-1 font-dm text-[11px] text-green-400/80"><BadgeCheck size={11} /> Verified</span>
+                            {fmtDate(r.created_at) && <span className="font-dm text-[11px] text-muted/50">{fmtDate(r.created_at)}</span>}
+                          </div>
                         </div>
                       </div>
                       <p className="font-dm text-[13px] text-offwhite/75 leading-relaxed">{r.text}</p>

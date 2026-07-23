@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Phone, ShieldAlert, Car, Info, ChevronDown } from "lucide-react";
+import { Phone, ShieldAlert, Car, Info, ChevronDown, Siren } from "lucide-react";
 import type { UsefulContact } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -55,7 +55,7 @@ export default function UsefulNumbers({ contacts = [] }: { contacts?: UsefulCont
             aria-controls="sos-panel"
             className="group flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-white/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow/50"
           >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-500/12 text-lg ring-1 ring-inset ring-red-500/25">🚨</span>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-500/12 text-red-400 ring-1 ring-inset ring-red-500/25"><Siren size={20} /></span>
             <span className="min-w-0 flex-1">
               <span className="block font-syne font-extrabold text-offwhite leading-tight">SOS · {u.title}</span>
               <span className="mt-0.5 block font-dm text-xs text-muted">{u.subtitle}</span>
