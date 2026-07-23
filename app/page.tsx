@@ -180,15 +180,15 @@ export default async function Home() {
             The island guide, scenic routes and FAQ now live on their own pages
             (linked from the quick-access strip and the nav) to keep this lean. */}
         <Hero hero={content.hero} />
-        {discoverRail.length > 0 && (
-          <WhatLookingFor categories={discoverRail} heading={DISCOVER_HEADING} anchorId="explore" compact />
+        {rentRail.length > 0 && (
+          <WhatLookingFor categories={rentRail} heading={RENT_HEADING} anchorId="explore" compact />
         )}
         <QuickActions />
-        {rentRail.length > 0 && (
+        {discoverRail.length > 0 && (
           <WhatLookingFor
-            categories={rentRail}
-            heading={RENT_HEADING}
-            anchorId={discoverRail.length === 0 ? "explore" : undefined}
+            categories={discoverRail}
+            heading={DISCOVER_HEADING}
+            anchorId={rentRail.length === 0 ? "explore" : undefined}
             compact
           />
         )}
