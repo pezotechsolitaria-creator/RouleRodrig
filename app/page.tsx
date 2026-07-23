@@ -52,6 +52,29 @@ export default async function Home() {
   // "What are you looking for?" categories (shared with the /browse pages).
   const browseCats = buildBrowseCategories(content, fleet, recentBookings);
 
+  // Two homepage discovery rails around the Quick Actions strip:
+  //   • "Discover" (before): guided tours, activities, local stores
+  //   • "Rent & stay" (after): scooters, cars, stay
+  // Food lives in Explore, events moved to Explore, Getting Around retired in
+  // favour of the Taxi quick action — so none of them appear here.
+  const railPick = (slugs: string[]) =>
+    slugs.flatMap((s) => {
+      const c = browseCats.find((x) => x.slug === s);
+      return c ? [c] : [];
+    });
+  const vehicleSlugs = new Set(content.vehicleCategories.filter((c) => c.enabled).map((c) => c.id));
+  const discoverRail = railPick(["tours", "activities", "stores"]);
+  const rentRail = [...browseCats.filter((c) => vehicleSlugs.has(c.slug)), ...railPick(["stays"])];
+
+  const DISCOVER_HEADING = {
+    eyebrow: ["Discover Rodrigues", "Découvrir Rodrigues", "Dekouver Rodrig"] as [string, string, string],
+    title: ["Tours, activities & local finds", "Excursions, activités & adresses", "Tour, aktivite & bann adres"] as [string, string, string],
+  };
+  const RENT_HEADING = {
+    eyebrow: ["Rent & stay", "Louer & séjourner", "Loue & reste"] as [string, string, string],
+    title: ["Wheels & a place to stay", "Un véhicule & un toit", "Loto & enn plas pou reste"] as [string, string, string],
+  };
+
   // Cheapest scooter/day (MUR) — lets Ti Roulé relate a budget to real rental days.
   const scooterPrices = fleet
     .filter((f) => (f.category ?? "scooter") === "scooter")
@@ -157,8 +180,18 @@ export default async function Home() {
             The island guide, scenic routes and FAQ now live on their own pages
             (linked from the quick-access strip and the nav) to keep this lean. */}
         <Hero hero={content.hero} />
-        <WhatLookingFor categories={browseCats} />
+        {discoverRail.length > 0 && (
+          <WhatLookingFor categories={discoverRail} heading={DISCOVER_HEADING} anchorId="explore" compact />
+        )}
         <QuickActions />
+        {rentRail.length > 0 && (
+          <WhatLookingFor
+            categories={rentRail}
+            heading={RENT_HEADING}
+            anchorId={discoverRail.length === 0 ? "explore" : undefined}
+            compact
+          />
+        )}
         <Reveal><UsefulNumbers contacts={content.usefulContacts} /></Reveal>
         <Reveal><Sponsors enabled={content.sponsorsEnabled} sponsors={content.sponsors} /></Reveal>
         <Reveal><ReviewsContact contact={content.contact} fleet={fleet} /></Reveal>

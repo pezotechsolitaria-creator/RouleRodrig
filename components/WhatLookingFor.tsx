@@ -69,10 +69,12 @@ function HubCard({
   c,
   gyroRX,
   gyroRY,
+  compact,
 }: {
   c: BrowseCategory;
   gyroRX?: MotionValue<number>;
   gyroRY?: MotionValue<number>;
+  compact?: boolean;
 }) {
   const { t, language } = useLanguage();
   const Icon = iconFor(c.slug, c.label);
@@ -122,7 +124,7 @@ function HubCard({
     >
       <motion.div
         style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-        className="relative h-[214px] sm:h-[320px] md:h-[420px] rounded-[22px] md:rounded-[28px] overflow-hidden bg-dark-card ring-1 ring-white/10 group-hover:ring-yellow/50 transition-[box-shadow,border-color] duration-300 shadow-[0_12px_40px_-16px_rgba(0,0,0,0.8)] group-hover:shadow-[0_28px_70px_-18px_rgba(0,0,0,0.95)]"
+        className={`relative ${compact ? "h-[190px] sm:h-[264px] md:h-[320px]" : "h-[214px] sm:h-[320px] md:h-[420px]"} rounded-[22px] md:rounded-[28px] overflow-hidden bg-dark-card ring-1 ring-white/10 group-hover:ring-yellow/50 transition-[box-shadow,border-color] duration-300 shadow-[0_12px_40px_-16px_rgba(0,0,0,0.8)] group-hover:shadow-[0_28px_70px_-18px_rgba(0,0,0,0.95)]`}
       >
         {c.image ? (
           <Image
@@ -200,7 +202,21 @@ function HubCard({
  * swipeable carousel of category cards with 3D tilt + spotlight micro-
  * interactions, glass icons, price transparency and dot indicators (no arrows).
  */
-export default function WhatLookingFor({ categories }: { categories: BrowseCategory[] }) {
+type Tri = [string, string, string];
+
+export default function WhatLookingFor({
+  categories,
+  heading,
+  anchorId,
+  compact,
+}: {
+  categories: BrowseCategory[];
+  heading?: { eyebrow: Tri; title: Tri };
+  anchorId?: string;
+  compact?: boolean;
+}) {
+  const { language } = useLanguage();
+  const tri = (t: Tri) => (language === "fr" ? t[1] : language === "cr" ? t[2] : t[0]);
   const scroller = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
 
@@ -252,7 +268,7 @@ export default function WhatLookingFor({ categories }: { categories: BrowseCateg
   const goTo = (i: number) => scroller.current?.scrollTo({ left: i * cardStep(), behavior: "smooth" });
 
   return (
-    <section id="explore" className="relative bg-dark pt-6 pb-6 md:pt-12 md:pb-20 scroll-mt-24 overflow-hidden" aria-label="What are you looking for">
+    <section id={anchorId} className="relative bg-dark pt-6 pb-6 md:pt-12 md:pb-20 scroll-mt-24 overflow-hidden" aria-label={heading ? tri(heading.title) : "What are you looking for"}>
       {/* Ambient glow for depth — desktop only (large blurred layers are
           expensive to composite on mobile scroll, so we skip them on phones). */}
       <div className="pointer-events-none absolute inset-0 hidden md:block" aria-hidden="true">
@@ -266,10 +282,15 @@ export default function WhatLookingFor({ categories }: { categories: BrowseCateg
         />
       </div>
 
-      {/* Header intentionally omitted — the category cards (Scooters, Cars,
-          Food…) are self-explanatory, so a "What are you looking for?" heading
-          and blurb were just clutter. The section keeps its aria-label + #explore
-          id for the nav/anchor and screen readers. */}
+      {/* Optional themed heading (the homepage renders two rails — "Discover"
+          and "Rent & stay" — each with its own eyebrow + title). When omitted
+          the cards speak for themselves. */}
+      {heading && (
+        <div className="relative mx-auto mb-3 w-full max-w-[80rem] px-6 md:mb-5 lg:px-[max(1.5rem,calc((100vw-80rem)/2+1.5rem))]">
+          <p className="font-bebas text-[11px] tracking-[0.35em] text-yellow/90">{tri(heading.eyebrow)}</p>
+          <h2 className="mt-1 font-syne text-xl font-extrabold uppercase leading-tight text-offwhite md:text-3xl">{tri(heading.title)}</h2>
+        </div>
+      )}
 
       {/* Full-bleed scroller, padded to align with the container */}
       <div
@@ -286,7 +307,7 @@ export default function WhatLookingFor({ categories }: { categories: BrowseCateg
             transition={{ duration: 0.5, delay: Math.min(i * 0.05, 0.3) }}
             className="snap-center shrink-0 w-[74vw] max-w-[340px] sm:w-[300px]"
           >
-            <HubCard c={c} gyroRX={gyroRX} gyroRY={gyroRY} />
+            <HubCard c={c} gyroRX={gyroRX} gyroRY={gyroRY} compact={compact} />
           </motion.div>
         ))}
         {/* trailing spacer so the last card can snap centre on wide screens */}

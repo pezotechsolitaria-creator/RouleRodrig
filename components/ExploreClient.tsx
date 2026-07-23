@@ -19,7 +19,7 @@ export type ExploreItem = {
   image?: string;
   href: string;
   external?: boolean;
-  filterKey: "beach" | "viewpoint" | "landmark" | "hike" | "ride" | "tour" | "activity";
+  filterKey: "beach" | "viewpoint" | "landmark" | "hike" | "ride" | "tour" | "activity" | "event";
   tags: string[];      // real meta chips, e.g. ["12 km", "Moderate"] or ["Guided tour"]
   price?: string;      // owner-set price hint only
   featured?: boolean;
@@ -33,7 +33,7 @@ const TILES: { key: string; label: [string, string, string]; href: string; icon:
   { key: "beaches",   label: ["Beaches", "Plages", "Laplaz"],            href: "/guide/beaches",    icon: Waves,        countKey: "beach" },
   { key: "viewpoints",label: ["Viewpoints", "Points de vue", "Vue"],     href: "/guide/viewpoints", icon: Mountain,     countKey: "viewpoint" },
   { key: "routes",    label: ["Routes & hikes", "Routes & rando", "Rout"], href: "/guide/routes",   icon: RouteIcon,    countKey: "route" },
-  { key: "eat",       label: ["Eat & drink", "Manger", "Manze"],          href: "/browse/restaurants", icon: Utensils,  countKey: "restaurant" },
+  { key: "eat",       label: ["Eat & drink", "Manger", "Manze"],          href: "/food",             icon: Utensils },
   { key: "stay",      label: ["Places to stay", "Hébergement", "Reste"],  href: "/browse/stays",     icon: BedDouble,    countKey: "hotel" },
   { key: "tours",     label: ["Guided tours", "Excursions", "Tour"],      href: "/browse/tours",     icon: Sparkles,     countKey: "tour" },
   { key: "map",       label: ["Island map", "Carte", "Kart"],             href: "/map",              icon: MapIcon },
@@ -42,11 +42,13 @@ const TILES: { key: string; label: [string, string, string]; href: string; icon:
 ];
 
 export default function ExploreClient({
-  featured, experiences, counts,
+  featured, experiences, counts, foodEnabled, foodImage,
 }: {
   featured: ExploreItem | null;
   experiences: ExploreItem[];
   counts: Counts;
+  foodEnabled?: boolean;
+  foodImage?: string | null;
 }) {
   const { language } = useLanguage();
   const L = (en: string, fr: string, cr: string) => (language === "fr" ? fr : language === "cr" ? cr : en);
@@ -66,6 +68,7 @@ export default function ExploreClient({
       { key: "tour", label: L("Tours", "Excursions", "Tour") },
       { key: "activity", label: L("Activities", "Activités", "Aktivite") },
       { key: "landmark", label: L("Landmarks", "Sites", "Landmark") },
+      { key: "event", label: L("What's on", "Événements", "Levennman") },
     ];
     return [{ key: "all", label: L("All", "Tout", "Tou") }, ...defs.filter((d) => present.has(d.key))];
   }, [experiences, language]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -129,7 +132,28 @@ export default function ExploreClient({
 
         {/* Featured — top attraction */}
         {featured && chip === "all" && !query && (
-          <FeaturedCard item={featured} language={language} label={L("Top attraction", "À ne pas manquer", "Top atraksion")} />
+          <FeaturedCard item={featured} language={language} label={L("Top attractions", "À ne pas manquer", "Top atraksion")} />
+        )}
+
+        {/* Food concierge — Eat & Drink (free table booking on WhatsApp) */}
+        {foodEnabled && chip === "all" && !query && (
+          <Link
+            href="/food"
+            className="group mt-4 flex items-center gap-3 overflow-hidden rounded-2xl border border-yellow/25 bg-gradient-to-r from-yellow/[0.12] via-yellow/[0.04] to-transparent p-2.5 transition-colors hover:border-yellow/50"
+          >
+            {foodImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={foodImage} alt="" className="h-14 w-14 shrink-0 rounded-xl object-cover" loading="lazy" />
+            ) : (
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-yellow/15 text-2xl">🍽️</span>
+            )}
+            <span className="min-w-0 flex-1">
+              <span className="block font-bebas text-[10px] tracking-[0.28em] text-yellow">{L("EAT & DRINK", "MANGER", "MANZE")}</span>
+              <span className="block font-syne text-sm font-bold text-offwhite">{L("Free food concierge", "Concierge resto gratuit", "Konsyerj manze gratis")}</span>
+              <span className="block font-dm text-[11.5px] leading-snug text-muted">{L("We suggest the best spots and book your table on WhatsApp.", "On conseille les meilleures tables et on réserve sur WhatsApp.", "Nou rekomann meyer plas ek rezerv ou latab lor WhatsApp.")}</span>
+            </span>
+            <span className="shrink-0 rounded-full bg-yellow px-3.5 py-2 font-syne text-xs font-bold text-dark transition-transform group-hover:translate-x-0.5">{L("Chat", "Discuter", "Kozé")} →</span>
+          </Link>
         )}
 
         {/* Browse by category tiles */}
@@ -217,7 +241,7 @@ function FeaturedCard({ item, language, label }: { item: ExploreItem; language: 
           <h3 className="font-syne text-xl font-extrabold text-white drop-shadow sm:text-2xl">{name}</h3>
           <p className="mt-1 line-clamp-2 font-dm text-sm text-white/85">{desc}</p>
           <span className="mt-3 inline-flex items-center gap-1.5 font-dm text-sm font-semibold text-yellow">
-            {item.price || " "} <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
+            {item.price || (language === "fr" ? "Explorer la carte" : language === "cr" ? "Get lakart" : "Open the map")} <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
           </span>
         </div>
       </Wrap>
@@ -233,6 +257,7 @@ const TYPE_LABELS: Record<ExploreItem["filterKey"], [string, string, string]> = 
   ride: ["Scenic ride", "Balade", "Balad"],
   tour: ["Guided tour", "Excursion", "Tour"],
   activity: ["Activity", "Activité", "Aktivite"],
+  event: ["What's on", "Événement", "Levennman"],
 };
 
 function ExperienceRow({ item, language }: { item: ExploreItem; language: Language }) {

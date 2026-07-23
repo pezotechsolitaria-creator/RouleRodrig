@@ -82,16 +82,47 @@ export default async function ExplorePage() {
       tags: [],
     }));
 
-  // Featured first, then a balanced mix (tours → attractions → routes) so the
-  // list opens with the most "bookable" intent but still shows the free stuff.
-  const all: ExploreItem[] = [...activities, ...attractions, ...routes];
-  const featured =
-    all.find((e) => e.featured && e.image) ??
-    attractions.find((e) => e.image) ??
-    activities.find((e) => e.image) ??
-    all[0] ??
-    null;
-  const experiences = all.filter((e) => e.id !== featured?.id);
+  // Local events — "What's on" moved here from the homepage.
+  const events: ExploreItem[] = content.events
+    .filter((e) => e.title)
+    .map((e) => ({
+      id: `event-${e.id}`,
+      name: e.title,
+      nameFr: e.titleFr,
+      nameCr: e.titleCr,
+      description: e.description,
+      descriptionFr: e.descriptionFr,
+      descriptionCr: e.descriptionCr,
+      image: e.image,
+      href: "/browse/events",
+      filterKey: "event",
+      tags: [e.date].filter(Boolean) as string[],
+      featured: e.featured,
+    }));
+
+  const all: ExploreItem[] = [...activities, ...attractions, ...routes, ...events];
+
+  // "Top Attractions" hero card → opens the interactive island map. Photo falls
+  // back through the hero shot → a scenic viewpoint/beach → any attraction.
+  const topPhoto =
+    content.hero.backgroundImage ||
+    content.mapLocations.find((l) => (l.image || l.images?.[0]) && (l.category === "viewpoint" || l.category === "beach"))?.image ||
+    attractions.find((a) => a.image)?.image ||
+    undefined;
+  const featured: ExploreItem = {
+    id: "top-attractions",
+    name: "Top Attractions",
+    nameFr: "Attractions phares",
+    nameCr: "Bann atraksion",
+    description: "Discover the must-see places in Rodrigues.",
+    descriptionFr: "Découvrez les lieux incontournables de Rodrigues.",
+    descriptionCr: "Dekouver bann pli zoli landrwa Rodrig.",
+    image: topPhoto,
+    href: "/map",
+    filterKey: "landmark",
+    tags: [],
+  };
+  const experiences = all;
 
   const counts: Record<string, number> = {
     beach: content.mapLocations.filter((l) => l.category === "beach" && l.story).length,
@@ -123,7 +154,13 @@ export default async function ExplorePage() {
         showRoutes={content.rideRoutes.length > 0}
         showEvents={content.events.some((e) => e.title)}
       />
-      <ExploreClient featured={featured} experiences={experiences} counts={counts} />
+      <ExploreClient
+        featured={featured}
+        experiences={experiences}
+        counts={counts}
+        foodEnabled={content.foodConcierge?.enabled}
+        foodImage={content.foodConcierge?.coverImage}
+      />
     </>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Map, Compass, Route, BookOpen } from "lucide-react";
+import { Map, Compass, Route, BookOpen, CarTaxiFront } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 
 // "Quick Access" strip — the Air-Mauritius-style action row that sits right
@@ -14,6 +14,7 @@ type Action = { key: string; icon: typeof Map; href: string; en: string; fr: str
 const ACTIONS: Action[] = [
   { key: "map", icon: Map, href: "/map", en: "Map", fr: "Carte", cr: "Kart" },
   { key: "planner", icon: Compass, href: "/trip-planner", en: "Planner", fr: "Planifier", cr: "Plan" },
+  { key: "taxi", icon: CarTaxiFront, href: "/taxi", en: "Taxi", fr: "Taxi", cr: "Taksi" },
   { key: "guide", icon: BookOpen, href: "/guide/rodrigues", en: "Guide", fr: "Guide", cr: "Gid" },
   { key: "routes", icon: Route, href: "/guide/routes", en: "Routes", fr: "Routes", cr: "Semin" },
 ];
@@ -27,7 +28,7 @@ export default function QuickActions() {
     <section className="bg-dark px-5 pb-9 pt-0.5" aria-label="Quick access">
       <div className="mx-auto max-w-4xl">
         <p className="mb-1.5 font-bebas text-[11px] tracking-[0.35em] text-yellow/90">{eyebrow}</p>
-        <div className="grid grid-cols-4 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-5 gap-2 sm:gap-3">
           {ACTIONS.map((a) => (
             <Link
               key={a.key}

@@ -163,9 +163,12 @@ export function buildBrowseCategories(
     const stays = content.recommended.items.filter((p) => p.category === "hotel");
     if (stays.length) cats.push({ slug: "stays", label: "Stay", image: firstImage(stays), count: stays.length });
   }
-  const ga = (content.gettingAround?.options ?? []).filter((o) => o.icon !== "bus");
-  if (content.gettingAround?.enabled && ga.length) {
-    cats.push({ slug: "getting-around", label: "Getting around", image: content.gettingAround?.coverImage, count: ga.length });
+  // Local stores — the shops the owner maintains as map locations (category
+  // "shop"). Opens the shops guide. (The old "Getting around" tile was retired
+  // in favour of a Taxi quick action.)
+  const shops = content.mapLocations.filter((l) => l.category === "shop");
+  if (shops.length) {
+    cats.push({ slug: "stores", href: "/guide/shops", label: "Local stores", image: firstImage(shops), count: shops.length });
   }
   const events = content.events.filter((e) => e.title);
   if (events.length) {
