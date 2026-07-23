@@ -7,7 +7,6 @@ import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import Faq from "@/components/Faq";
-import Footer from "@/components/Footer";
 
 // The FAQ moved off the homepage (now a lean action dashboard) to its own page,
 // reachable from the nav/hamburger. Static-ish: refresh hourly.
@@ -82,7 +81,6 @@ export default async function FaqPage() {
           </div>
         )}
       </main>
-      <Footer social={content.social} branding={content.branding} />
     </>
   );
 }

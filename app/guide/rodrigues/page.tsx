@@ -7,7 +7,6 @@ import { RODRIGUES_KNOWLEDGE } from "@/lib/rodrigues-knowledge";
 import { breadcrumbLd, touristDestinationLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 
 // Static-ish content page: refresh hourly (nav/footer come from the CMS).
 export const revalidate = 3600;
@@ -204,7 +203,6 @@ export default async function RodriguesGuidePage() {
           </div>
         </div>
       </main>
-      <Footer social={content.social} branding={content.branding} />
     </>
   );
 }

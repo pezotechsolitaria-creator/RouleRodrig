@@ -7,7 +7,6 @@ import { BLOG_POSTS } from "@/lib/blog";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 
 export const revalidate = 3600;
 
@@ -82,7 +81,6 @@ export default async function BlogIndexPage() {
           </ul>
         </div>
       </main>
-      <Footer social={content.social} branding={content.branding} />
     </>
   );
 }

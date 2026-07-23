@@ -9,6 +9,7 @@ interface BookingEmailData {
   name: string;
   email: string | null;
   phone: string | null;
+  ref?: string | null; // RR-XXXXXX booking reference (for Manage Booking lookup)
   scooter: string;
   start_date: string;
   end_date: string;
@@ -520,7 +521,9 @@ async function send(to: string, subject: string, html: string, attachments?: Att
 // Bilingual "Label EN · Label FR" rows so a single detail card serves both
 // languages without duplicating the whole table.
 function summaryRows(b: BookingEmailData): string {
-  const pairs: [string, string][] = [["Vehicle · Véhicule", b.scooter]];
+  const pairs: [string, string][] = [];
+  if (b.ref) pairs.push(["Booking reference · Référence", `<b>${b.ref}</b> — manage at roulerodrig.com/manage-booking`]);
+  pairs.push(["Vehicle · Véhicule", b.scooter]);
   if (b.asset_label) pairs.push(["Unit · Unité", b.asset_label]);
   pairs.push(
     ["Pickup · Retrait", fmtDate(b.start_date) + (b.pickup_time ? ` · ${fmtTime(b.pickup_time)}` : "")],
@@ -763,6 +766,7 @@ interface PlaceBookingEmailData {
   name: string;
   email: string | null;
   phone: string | null;
+  ref?: string | null; // RR-XXXXXX booking reference (for Manage Booking lookup)
   start_date: string;
   end_date: string;
   guests: number | null;
@@ -773,10 +777,10 @@ interface PlaceBookingEmailData {
 
 function placeRows(b: PlaceBookingEmailData): string {
   const sameDay = b.start_date === b.end_date;
-  const pairs: [string, string][] = [
-    ["Place · Lieu", b.place_name],
-    [sameDay ? "Date" : "Check-in · Arrivée", fmtDate(b.start_date)],
-  ];
+  const pairs: [string, string][] = [];
+  if (b.ref) pairs.push(["Booking reference · Référence", `<b>${b.ref}</b> — manage at roulerodrig.com/manage-booking`]);
+  pairs.push(["Place · Lieu", b.place_name]);
+  pairs.push([sameDay ? "Date" : "Check-in · Arrivée", fmtDate(b.start_date)]);
   if (!sameDay) pairs.push(["Check-out · Départ", fmtDate(b.end_date)]);
   if (b.time_slot) pairs.push(["Time · Heure", b.time_slot]);
   const qty = b.quantity ?? 0;

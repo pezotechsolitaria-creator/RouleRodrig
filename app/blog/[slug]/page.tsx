@@ -8,7 +8,6 @@ import { BLOG_POSTS, getPost } from "@/lib/blog";
 import { blogPostingLd, breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 import ScrollProgress from "@/components/ScrollProgress";
 import AskTiRouleButton from "@/components/AskTiRouleButton";
 import TiRouleGuide from "@/components/TiRouleGuide";
@@ -162,7 +161,6 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           </nav>
         </article>
       </main>
-      <Footer social={content.social} branding={content.branding} />
       {/* Mounts the chat so the "Ask Ti Roulé" button on this page has a listener. */}
       <TiRouleGuide
         image={content.branding.mascotImage}

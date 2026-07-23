@@ -6,7 +6,6 @@ import JsonLd from "@/components/JsonLd";
 import { getFleetView, buildBrowseCategories, priceNumber } from "@/lib/site-data";
 import Navbar from "@/components/Navbar";
 import BrowseTabs from "@/components/BrowseTabs";
-import Footer from "@/components/Footer";
 import Fleet from "@/components/Fleet";
 import BookingSection from "@/components/BookingSection";
 import RecommendedPlaces from "@/components/RecommendedPlaces";
@@ -182,7 +181,6 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
   );
   const footer = (
     <>
-      <Footer social={content.social} branding={content.branding} />
       <WhatsAppButton
         phone={content.contact.phone}
         whatsapp={content.social.whatsapp}

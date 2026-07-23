@@ -2076,6 +2076,11 @@ const STATUS_CONFIG: Record<
   completed: { label: "Completed", cls: "bg-blue-500/10  text-blue-400  border-blue-500/30",    dot: "bg-blue-400"    },
 };
 
+// Booking reference (RR-XXXXXX = first 6 hex of the id). Same format the guest
+// gets in their confirmation email + Manage-Booking lookup, so the owner can
+// match someone who calls in quoting their code.
+const bookingRef = (id: string) => "RR-" + id.replace(/-/g, "").slice(0, 6).toUpperCase();
+
 function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2192,6 +2197,7 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
     if (!query) return true;
     return (
       b.name.toLowerCase().includes(query) ||
+      bookingRef(b.id).toLowerCase().includes(query) ||
       b.scooter.toLowerCase().includes(query) ||
       (b.email ?? "").toLowerCase().includes(query) ||
       (b.phone ?? "").toLowerCase().includes(query) ||
@@ -2228,7 +2234,7 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
         type="text"
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Search by name, scooter, email, phone…"
+        placeholder="Search by reference (RR-…), name, scooter, email, phone…"
         className="w-full bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-offwhite font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none transition-colors"
       />
 
@@ -2244,7 +2250,17 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
             {/* Header row */}
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
-                <p className="font-syne font-bold text-offwhite text-sm">{b.name}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-syne font-bold text-offwhite text-sm">{b.name}</p>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard?.writeText(bookingRef(b.id))}
+                    title="Copy booking reference"
+                    className="font-mono text-[10px] text-yellow/90 bg-yellow/10 hover:bg-yellow/20 px-1.5 py-0.5 rounded transition-colors"
+                  >
+                    {bookingRef(b.id)}
+                  </button>
+                </div>
                 <p className="font-bebas text-muted text-[10px] tracking-[0.2em] mt-0.5">
                   {new Date(b.created_at).toLocaleDateString("en-GB", {
                     day: "numeric",

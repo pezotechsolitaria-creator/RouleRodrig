@@ -4,7 +4,6 @@ import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, itemListLd, placeLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 import PlaceGuide from "@/components/PlaceGuide";
 
 export const revalidate = 3600;
@@ -91,7 +90,6 @@ export default async function BeachesPage() {
           { href: "/browse/stays", label: "Where to stay in Rodrigues" },
         ]}
       />
-      <Footer social={content.social} branding={content.branding} />
     </>
   );
 }

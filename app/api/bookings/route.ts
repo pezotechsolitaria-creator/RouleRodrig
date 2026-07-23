@@ -181,9 +181,14 @@ export async function POST(req: NextRequest) {
   const { error } = await supabase.from("bookings").insert([record]);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Booking reference (RR-XXXXXX, derived from the id) — shown in the
+  // confirmation email and used by the guest Manage-Booking lookup. One format
+  // everywhere so the customer can always find their booking.
+  const bookingRef = "RR-" + id.replace(/-/g, "").slice(0, 6).toUpperCase();
+
   // Fire emails — never block or fail the booking on email errors
   try {
-    await sendBookingEmails({ ...record, scooter: scooterName });
+    await sendBookingEmails({ ...record, scooter: scooterName, ref: bookingRef });
   } catch {
     /* ignore email failures */
   }
@@ -193,7 +198,6 @@ export async function POST(req: NextRequest) {
   // reminder, return reminder — render real data. Best-effort.
   if (record.email) {
     try {
-      const bookingRef = "RR-" + Date.now().toString(36).toUpperCase().slice(-6);
       await upsertBrevoContact({
         email: record.email,
         firstName: record.name.split(/\s+/)[0],

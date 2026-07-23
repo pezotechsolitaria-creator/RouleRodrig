@@ -7,7 +7,6 @@ import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import TripPlanner from "@/components/TripPlanner";
-import Footer from "@/components/Footer";
 
 // The AI trip planner moved off the homepage (now a lean action dashboard) to
 // its own page, reached from the Quick Access strip and Ti Roulé.
@@ -58,7 +57,6 @@ export default async function TripPlannerPage() {
         </div>
         <TripPlanner />
       </main>
-      <Footer social={content.social} branding={content.branding} />
     </>
   );
 }

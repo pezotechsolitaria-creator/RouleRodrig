@@ -6,7 +6,6 @@ import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 
 export const revalidate = 3600;
 
@@ -213,7 +212,6 @@ export default async function LocationScooterPage() {
           </nav>
         </div>
       </main>
-      <Footer social={content.social} branding={content.branding} />
     </>
   );
 }

@@ -4,7 +4,6 @@ import Navbar from "@/components/Navbar";
 import BrowseTabs from "@/components/BrowseTabs";
 import BrowseBackBar from "@/components/BrowseBackBar";
 import FoodConcierge from "@/components/FoodConcierge";
-import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
 
 export const revalidate = 60;
@@ -34,7 +33,6 @@ export default async function FoodPage() {
         <BrowseTabs categories={cats} active="food" />
         <FoodConcierge content={content.foodConcierge} fallbackWhatsApp={businessWhatsApp} />
       </main>
-      <Footer social={content.social} branding={content.branding} />
       <ScrollToTop />
     </>
   );

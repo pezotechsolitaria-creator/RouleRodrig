@@ -179,8 +179,12 @@ export async function POST(req: NextRequest) {
   const { error } = await supabase.from("place_bookings").insert([record]);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Booking reference (RR-XXXXXX, derived from the id) — one format everywhere,
+  // shown in the confirmation email and used by the guest Manage-Booking lookup.
+  const bookingRef = "RR-" + id.replace(/-/g, "").slice(0, 6).toUpperCase();
+
   try {
-    await sendPlaceBookingEmails(record);
+    await sendPlaceBookingEmails({ ...record, ref: bookingRef });
   } catch {
     /* ignore email failures */
   }
@@ -188,7 +192,6 @@ export async function POST(req: NextRequest) {
   // Sync into Brevo (contact + list) so the owner's automations can fire.
   if (record.email) {
     try {
-      const bookingRef = "RR-" + Date.now().toString(36).toUpperCase().slice(-6);
       await upsertBrevoContact({
         email: record.email,
         firstName: record.name.split(/\s+/)[0],

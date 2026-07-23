@@ -7,7 +7,6 @@ import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import MapSection from "@/components/MapSection";
-import Footer from "@/components/Footer";
 
 // The interactive island map now has its own flagship page (a Quick Access tile
 // links here), instead of being a homepage section. Static-ish: refresh hourly.
@@ -58,7 +57,6 @@ export default async function MapPage() {
         </div>
         <MapSection locations={content.mapLocations} />
       </main>
-      <Footer social={content.social} branding={content.branding} />
     </>
   );
 }
