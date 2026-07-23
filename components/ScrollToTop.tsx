@@ -29,7 +29,7 @@ export default function ScrollToTop() {
       type="button"
       aria-label="Back to top"
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-      className={`fixed z-[70] bottom-24 right-5 w-12 h-12 rounded-full bg-dark-card/95 backdrop-blur border border-white/15 text-offwhite flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.5)] hover:border-yellow/60 hover:text-yellow transition-all duration-300 ${
+      className={`fixed z-[70] bottom-[140px] right-5 md:bottom-24 w-12 h-12 rounded-full bg-dark-card/95 backdrop-blur border border-white/15 text-offwhite flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.5)] hover:border-yellow/60 hover:text-yellow transition-all duration-300 ${
         show ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-4 pointer-events-none"
       }`}
     >

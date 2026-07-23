@@ -9,6 +9,7 @@ import FavoritesPanel from "@/components/FavoritesPanel";
 import ReturnWelcome from "@/components/ReturnWelcome";
 import PWARegister from "@/components/PWARegister";
 import RefCapture from "@/components/RefCapture";
+import BottomNav from "@/components/BottomNav";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SITE_URL } from "@/lib/site";
@@ -163,7 +164,7 @@ export default function RootLayout({
       // only silences <html>'s own attributes — nothing inside it.
       suppressHydrationWarning
     >
-      <body className="bg-dark text-offwhite font-dm overflow-x-hidden">
+      <body className="bg-dark text-offwhite font-dm overflow-x-hidden pb-16 md:pb-0">
         {/* iOS PWA launch images (hoisted to <head> by React) */}
         {IOS_SPLASH.map((s) => (
           <link key={s.h} rel="apple-touch-startup-image" media={s.m} href={s.h} />
@@ -236,6 +237,7 @@ export default function RootLayout({
               {children}
               <ReturnWelcome />
               <FavoritesPanel />
+              <BottomNav />
               <PWARegister />
             </FavoritesProvider>
           </CurrencyProvider>

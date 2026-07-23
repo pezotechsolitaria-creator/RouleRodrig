@@ -671,7 +671,7 @@ export default function TiRouleGuide({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.8 }}
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed bottom-4 left-4 z-[85]"
+            className="fixed bottom-[76px] left-4 z-[85] md:bottom-4"
           >
             {firstTime && (
               <span className="absolute -top-2 right-0 z-10 flex">
