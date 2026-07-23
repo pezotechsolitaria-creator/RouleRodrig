@@ -322,8 +322,15 @@ export default function PlaceBookingModal({
                     {unitLabel.toUpperCase()}
                   </label>
                   <input
-                    type="number" min={1} max={maxQty} value={qty}
-                    onChange={(e) => setForm({ ...form, qty: Math.min(maxQty, Math.max(1, Number(e.target.value) || 1)) })}
+                    type="number" min={1} max={maxQty} inputMode="numeric" value={form.qty === 0 ? "" : form.qty}
+                    // Let the field be freely typed (incl. cleared) so any
+                    // multi-digit value is reachable on mobile; we only clamp to
+                    // 1..maxQty when the field loses focus, not on each keystroke.
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      setForm({ ...form, qty: raw === "" ? 0 : Math.max(0, Math.floor(Number(raw) || 0)) });
+                    }}
+                    onBlur={() => setForm((f) => ({ ...f, qty: Math.min(maxQty, Math.max(1, f.qty || 1)) }))}
                     className={inputCls} disabled={formState === "loading"}
                   />
                   <p className="text-muted/50 font-dm text-[11px] mt-1">{maxQty} {unitLeftLabel} available</p>

@@ -17,7 +17,7 @@ export default function BottomNav() {
 
   const links = [
     { key: "home", icon: Home, href: "/", label: L("Home", "Accueil", "Lakaz"), active: pathname === "/" },
-    { key: "explore", icon: Compass, href: "/explore", label: L("Explore", "Explorer", "Explor"), active: /^\/(explore|browse|map|guide)/.test(pathname) },
+    { key: "explore", icon: Compass, href: "/explore", label: L("Explore", "Explorer", "Explor"), active: pathname.startsWith("/explore") },
   ];
   const rightLinks = [
     { key: "bookings", icon: CalendarCheck, href: "/manage-booking", label: L("Bookings", "Réservations", "Rezervasion"), active: pathname.startsWith("/manage-booking") },

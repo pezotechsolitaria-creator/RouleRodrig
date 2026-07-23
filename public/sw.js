@@ -8,7 +8,7 @@
 //
 // Immutable hashed build assets are cache-first (safe — their URL changes when
 // they change). Everything else is network-first with an offline fallback.
-const CACHE = "rr-cache-v67";
+const CACHE = "rr-cache-v68";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
