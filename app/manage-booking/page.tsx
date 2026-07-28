@@ -4,9 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Search, Loader2, RotateCcw } from "lucide-react";
 import BookingTimeline from "@/components/BookingTimeline";
+import PayPalDeposit from "@/components/PayPalDeposit";
 
 type Booking = {
   kind: "vehicle" | "place";
+  id: string;
   ref: string;
   item: string;
   start: string;
@@ -17,6 +19,13 @@ type Booking = {
   depositPaid: boolean;
   status: string;
 };
+
+// dd/mm/yyyy — the format guests expect (not the ISO the API returns).
+function fmtD(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(`${iso}T00:00:00`);
+  return isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-GB");
+}
 
 const inputCls =
   "w-full bg-dark-card border border-dark-border rounded-xl px-4 py-3.5 text-offwhite text-sm font-dm placeholder:text-muted/50 focus:border-yellow focus:outline-none transition-colors";
@@ -106,12 +115,26 @@ export default function ManageBookingPage() {
             <BookingTimeline completed={completed} />
             <dl className="mt-5 space-y-2 border-t border-white/[0.08] pt-4 text-sm">
               <Row k={booking.kind === "vehicle" ? "Vehicle" : "Reservation"} v={booking.item} />
-              <Row k="When" v={`${booking.start}${booking.end && booking.end !== booking.start ? " → " + booking.end : ""}`} />
+              <Row k="When" v={`${fmtD(booking.start)}${booking.end && booking.end !== booking.start ? " → " + fmtD(booking.end) : ""}`} />
               {booking.total != null && <Row k="Estimated total" v={`Rs ${Number(booking.total).toLocaleString()}`} />}
               {booking.deposit != null && booking.deposit > 0 && (
                 <Row k={booking.depositPaid ? "Deposit paid" : "Deposit to confirm"} v={`Rs ${Number(booking.deposit).toLocaleString()}`} strong />
               )}
             </dl>
+
+            {/* Still pending & unpaid → let the guest pay the deposit right here to lock it in. */}
+            {booking.status === "pending" && !booking.depositPaid && booking.deposit != null && booking.deposit > 0 && (
+              <div className="mt-5 border-t border-white/[0.08] pt-5">
+                <PayPalDeposit
+                  bookingId={booking.id}
+                  depositMur={booking.deposit}
+                  fullMur={booking.kind === "vehicle" && booking.total ? booking.total : undefined}
+                  kind={booking.kind}
+                  onPaid={() => setBooking((b) => (b ? { ...b, depositPaid: true, status: "confirmed" } : b))}
+                />
+              </div>
+            )}
+
             <button onClick={() => { setBooking(null); setRef(""); setEmail(""); }} className="mt-5 inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-yellow">
               <RotateCcw size={13} /> Look up another
             </button>

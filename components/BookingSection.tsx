@@ -117,6 +117,15 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
   const [fieldErr, setFieldErr] = useState<{ vehicle?: boolean; date?: boolean }>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const formTopRef = useRef<HTMLFormElement | null>(null);
+  const successRef = useRef<HTMLDivElement | null>(null);
+  // When the booking succeeds the form unmounts and the confirmation card takes
+  // its place — bring it into view so the customer sees "Booking request sent"
+  // (and the Pay-deposit button) immediately, without hunting for it.
+  useEffect(() => {
+    if (formState === "success") {
+      requestAnimationFrame(() => successRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
+  }, [formState]);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -398,9 +407,10 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
           >
             {formState === "success" && (
               <motion.div
+                ref={successRef}
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-6 rounded-xl border border-green-500/30 bg-green-500/[0.07] px-5 py-6"
+                className="mb-6 scroll-mt-24 rounded-xl border border-green-500/30 bg-green-500/[0.07] px-5 py-6"
               >
                 {/* Premium confirmation first — payment lives behind a button so it
                     never overwhelms the moment the request is acknowledged. */}

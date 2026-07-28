@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       booking: {
         kind: "vehicle",
+        id: v.id,
         ref: refOf(v.id),
         item: v.scooter,
         start: v.start_date,
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       booking: {
         kind: "place",
+        id: p.id,
         ref: refOf(p.id),
         item: p.place_name,
         start: p.start_date,
