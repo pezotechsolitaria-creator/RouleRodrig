@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPrivileged } from "@/lib/supabase/admin";
 import { paypalConfigured, createDepositOrder } from "@/lib/paypal";
 import { guard } from "@/lib/rate-limit";
+import { isVehicleFree } from "@/lib/availability";
 
 // Creates a PayPal order for a booking's deposit. The amount is read from the
 // STORED booking (deposit_amount, in MUR) and converted to EUR server-side —
@@ -46,10 +47,15 @@ export async function POST(req: NextRequest) {
   } else {
     const { data } = await supabase
       .from("bookings")
-      .select("id, scooter, days, deposit_amount, total_amount, deposit_paid_at")
+      .select("id, scooter, days, deposit_amount, total_amount, deposit_paid_at, start_date, end_date")
       .eq("id", bookingId)
       .maybeSingle();
     if (!data) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
+    // First-to-pay-wins: don't let someone start a payment for a vehicle that was
+    // already secured (paid) by another customer for these dates.
+    if (!data.deposit_paid_at && !(await isVehicleFree(data.scooter, data.start_date, data.end_date, bookingId))) {
+      return NextResponse.json({ error: "Sorry — this vehicle was just booked by someone else for these dates." }, { status: 409 });
+    }
     depositPaidAt = data.deposit_paid_at;
     const full = Number(data.total_amount);
     if (mode === "full" && Number.isFinite(full) && full > 0) {

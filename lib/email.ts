@@ -966,3 +966,35 @@ export async function sendTiRouleMissesDigest(to: string, rows: { question: stri
     }),
   );
 }
+
+/**
+ * Tell a customer their pending vehicle request was released because someone
+ * else paid the deposit first (first-to-pay-wins). No charge was ever made.
+ */
+export async function sendVehicleUnavailableEmail(o: {
+  to: string;
+  name?: string | null;
+  vehicle: string;
+  start: string;
+  end: string;
+  ref?: string | null;
+}): Promise<boolean> {
+  const first = (o.name ?? "").trim().split(/\s+/)[0] || "there";
+  const dates = o.start === o.end ? fmtDate(o.start) : `${fmtDate(o.start)} → ${fmtDate(o.end)}`;
+  const html = shell({
+    eyebrow: "Booking update · Mise à jour",
+    title: "That vehicle was just booked",
+    preheader: "The vehicle you requested has been taken — you were not charged.",
+    body: `
+      <p>Hi ${first},</p>
+      <p>The <b>${o.vehicle}</b> you requested for <b>${dates}</b> has just been secured by another
+      customer who paid the deposit first, so your request${o.ref ? ` (<b>${o.ref}</b>)` : ""} has been released.</p>
+      <p><b>You were not charged.</b> Plenty of other vehicles are available for your dates —</p>
+      <p><a href="https://roulerodrig.com/browse/scooter" style="color:#F5C842;font-weight:700">Browse &amp; book another →</a></p>
+      <hr style="border:none;border-top:1px solid #2a2a2a;margin:20px 0" />
+      <p style="color:#888;font-size:13px">La voiture / le scooter que vous aviez demandé pour ${dates}
+      vient d'être réservé par un autre client. Aucun montant ne vous a été débité —
+      <a href="https://roulerodrig.com/browse/scooter" style="color:#F5C842">réservez-en un autre</a>.</p>`,
+  });
+  return send(o.to, "Update on your Roule Rodrigues booking", html);
+}
