@@ -4,7 +4,7 @@ import { useState, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Heart, MapPin, ChevronDown, User, Bot, Bike, Car, BedDouble, TreePalm, Gift,
+  Heart, MapPin, ChevronDown, User, Bot, Bike, Car, BedDouble, TreePalm,
   Utensils, Umbrella, Footprints, Fish, Sailboat, Plane, CarTaxiFront, Mountain,
   ShoppingBag, PartyPopper, ArrowRight, Map as MapIcon, CalendarRange, BookOpen,
   Siren, Home, Compass, CalendarCheck, Menu,
@@ -14,7 +14,7 @@ import { useFavorites } from "@/context/FavoritesContext";
 
 type Tri = [string, string, string];
 type Card = { id: string; name: string; image?: string; price?: string | null; href: string; tag?: string };
-type CardImages = { scooter: string[]; car: string[]; stays: string[]; exp: string[] };
+type CardImages = { scooter: string[]; car: string[]; stays: string[]; exp: string[]; stores: string[] };
 
 // Colour tints for the six primary cards (icon badge + gradient fallback).
 const TINT: Record<string, { icon: string; grad: string }> = {
@@ -29,11 +29,12 @@ const TINT: Record<string, { icon: string; grad: string }> = {
 // Reviews → Footer, with a FIXED bottom (Travel Tools strip + app nav where
 // Ti Roulé lives). Real content only. `hero`, `reviews`, `footer` are passed in.
 export default function AppHome({
-  hero, reviews, footer, experiences, stays, discover, cardImages, mascot, logo,
+  hero, reviews, footer, usefulNumbers, experiences, stays, discover, cardImages, mascot, logo,
 }: {
   hero: ReactNode;
   reviews?: ReactNode;
   footer?: ReactNode;
+  usefulNumbers?: ReactNode;
   experiences: Card[];
   stays: Card[];
   discover: Card[];
@@ -59,7 +60,7 @@ export default function AppHome({
     { key: "stay", icon: BedDouble, tint: "amber", label: ["Stays", "Séjours", "Lozman"], href: "/browse/stays", images: cardImages.stays },
     { key: "exp", icon: TreePalm, tint: "teal", label: ["Experiences", "Expériences", "Eksperyans"], href: "/explore", images: cardImages.exp },
     { key: "tiroule", icon: Bot, tint: "indigo", label: ["Ask Ti Roulé", "Demander Ti Roulé", "Demann Ti Roulé"], onClick: () => window.dispatchEvent(new CustomEvent("tiroule:open")), images: [], centerImage: mascot },
-    { key: "offers", icon: Gift, tint: "rose", label: ["Special Offers", "Offres spéciales", "Bann Ofer"], href: "/explore", images: [] },
+    { key: "stores", icon: ShoppingBag, tint: "amber", label: ["Local Stores", "Boutiques", "Laboutik"], href: "/guide/shops", images: cardImages.stores },
   ];
 
   const LOOKING: { icon: React.ElementType; label: Tri; href: string }[] = [
@@ -72,7 +73,7 @@ export default function AppHome({
     { icon: CarTaxiFront, label: ["Taxi", "Taxi", "Taksi"], href: "/taxi" },
     { icon: Mountain, label: ["Viewpoints", "Points de vue", "Vue"], href: "/guide/viewpoints" },
     { icon: ShoppingBag, label: ["Local Store", "Boutiques", "Laboutik"], href: "/guide/shops" },
-    { icon: PartyPopper, label: ["What's on", "Événements", "Levennman"], href: "/browse/events" },
+    { icon: PartyPopper, label: ["What's on", "Événements", "Levennman"], href: "/explore" },
   ];
 
   const TOOLS: { icon: React.ElementType; label: Tri; href: string }[] = [
@@ -131,7 +132,7 @@ export default function AppHome({
       {hero}
 
       {/* pb clears the fixed bottom bar (tools strip + nav). */}
-      <main className="mx-auto max-w-5xl px-4 pb-[150px]">
+      <main className="mx-auto max-w-5xl px-4 pb-[116px]">
         {/* Six primary cards — v1 photo-card design, auto-cycling images. */}
         <section className="pt-3">
           <div className="grid grid-cols-3 gap-2.5">
@@ -184,6 +185,8 @@ export default function AppHome({
           </Rail>
         )}
 
+        {/* Emergency & useful numbers (anchor #useful for the Travel Tools link) */}
+        {usefulNumbers}
         {/* Reviews + Footer (from v1) */}
         {reviews}
         {footer}

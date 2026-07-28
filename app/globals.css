@@ -427,49 +427,48 @@ html[data-splash="on"] #rr-splash.rr-skip {
   to { opacity: 0; transform: scale(1.05); visibility: hidden; pointer-events: none; }
 }
 
-/* ── App-header logo — a premium 3D identity: a flip-in reveal on load, a slow
-   floating 3D tilt, a periodic gloss sheen, and a 3D lift on hover. The tilt +
-   sheen run on an inner element so they never fight the entrance. Reduced-motion
-   safe. ─────────────────────────────────────────────────────────────────────── */
-@keyframes rr-logo-in {
-  0%   { opacity: 0; transform: perspective(600px) rotateY(-95deg) rotateX(12deg) scale(0.8); }
-  55%  { opacity: 1; transform: perspective(600px) rotateY(14deg) rotateX(-4deg) scale(1.06); }
-  100% { opacity: 1; transform: perspective(600px) rotateY(0deg) rotateX(0deg) scale(1); }
+/* ── App-header logo — elegant & premium without distracting from booking.
+   Gentle float at all times, a soft golden glow pulse, a golden light sweep
+   every 12s, and a subtle 3D tilt + 1.05× scale on hover/tap. GPU-only props
+   (transform/opacity/filter) for 60fps; fully off under reduced-motion. ────── */
+@keyframes rr-logo-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
 }
-@keyframes rr-logo-tilt {
-  0%, 100% { transform: perspective(600px) rotateY(-9deg) rotateX(4deg) translateZ(0); }
-  50%      { transform: perspective(600px) rotateY(9deg) rotateX(-4deg) translateZ(6px); }
+@keyframes rr-logo-glow {
+  0%, 100% { filter: drop-shadow(0 0 0 rgba(245, 200, 66, 0)); }
+  50%      { filter: drop-shadow(0 0 7px rgba(245, 200, 66, 0.45)); }
 }
-@keyframes rr-logo-sheen {
-  0%   { opacity: 0; transform: translateX(-130%) skewX(-18deg); }
-  16%  { opacity: 0.6; }
-  38%  { opacity: 0; transform: translateX(240%) skewX(-18deg); }
-  100% { opacity: 0; transform: translateX(240%) skewX(-18deg); }
+@keyframes rr-logo-sweep {
+  0%   { opacity: 0; transform: translateX(-130%) skewX(-20deg); }
+  4%   { opacity: 0.7; }
+  12%  { opacity: 0; transform: translateX(250%) skewX(-20deg); }
+  100% { opacity: 0; transform: translateX(250%) skewX(-20deg); }
 }
 .rr-logo-anim {
-  animation: rr-logo-in 0.95s cubic-bezier(0.22, 1, 0.36, 1) backwards;
   transform-style: preserve-3d;
   transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
 }
-.rr-logo-anim:hover { transform: perspective(600px) rotateY(0) rotateX(0) scale(1.1) translateZ(14px); }
+.rr-logo-anim:hover, .rr-logo-anim:active {
+  transform: perspective(600px) rotateY(9deg) rotateX(-5deg) scale(1.05);
+}
 .rr-logo-bob {
   position: relative;
   display: inline-flex;
-  transform-style: preserve-3d;
-  animation: rr-logo-tilt 6.5s ease-in-out 1s infinite;
+  animation: rr-logo-float 4s ease-in-out infinite, rr-logo-glow 5.5s ease-in-out infinite;
 }
 .rr-logo-bob::after {
   content: "";
   position: absolute;
-  inset: 0;
-  border-radius: 8px;
-  background: linear-gradient(100deg, transparent 36%, rgba(255, 255, 255, 0.55) 50%, transparent 64%);
+  inset: -1px;
+  border-radius: 9px;
+  background: linear-gradient(100deg, transparent 40%, rgba(245, 200, 66, 0.6) 50%, transparent 60%);
   mix-blend-mode: screen;
   pointer-events: none;
-  animation: rr-logo-sheen 6s ease-in-out 1.4s infinite;
+  animation: rr-logo-sweep 12s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .rr-logo-anim, .rr-logo-bob { animation: none; }
+  .rr-logo-anim, .rr-logo-bob, .rr-logo-bob::after { animation: none; }
   .rr-logo-bob::after { display: none; }
 }
