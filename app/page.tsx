@@ -5,7 +5,6 @@ import JsonLd from "@/components/JsonLd";
 import Hero from "@/components/Hero";
 import AppHome from "@/components/AppHome";
 import ReviewsContact from "@/components/ReviewsContact";
-import UsefulNumbers from "@/components/UsefulNumbers";
 import Footer from "@/components/Footer";
 import TiRouleGuide from "@/components/TiRouleGuide";
 
@@ -169,8 +168,8 @@ export default async function Home() {
       <AppHome
         hero={<Hero hero={content.hero} compact />}
         reviews={<ReviewsContact contact={content.contact} fleet={fleet} />}
-        usefulNumbers={<UsefulNumbers contacts={content.usefulContacts} />}
         footer={<Footer social={content.social} branding={content.branding} />}
+        lookingFor={content.quickAccess}
         experiences={experiences}
         stays={stays}
         discover={discover}

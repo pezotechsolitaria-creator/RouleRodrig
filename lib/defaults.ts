@@ -344,7 +344,33 @@ export interface SiteContent {
   recommended: RecommendedContent;
   foodConcierge: FoodConciergeContent;
   experience: ExperienceContent;
+  quickAccess?: QuickAccessItem[];
 }
+
+// "What are you looking for?" tiles on the homepage — admin-editable.
+export interface QuickAccessItem {
+  id: string;
+  label: string;
+  labelFr?: string;
+  labelCr?: string;
+  href: string;
+  icon: string;      // icon key, mapped to a lucide icon on the homepage
+  enabled?: boolean; // default true
+}
+
+// Default tiles (used until the owner customises them in admin).
+export const DEFAULT_QUICK_ACCESS: QuickAccessItem[] = [
+  { id: "qa-restaurants", label: "Restaurants", labelFr: "Restaurants", labelCr: "Restoran", href: "/food", icon: "restaurant", enabled: true },
+  { id: "qa-beaches", label: "Beaches", labelFr: "Plages", labelCr: "Laplaz", href: "/guide/beaches", icon: "beach", enabled: true },
+  { id: "qa-hiking", label: "Hiking", labelFr: "Randonnée", labelCr: "Rando", href: "/guide/routes", icon: "hiking", enabled: true },
+  { id: "qa-fishing", label: "Fishing", labelFr: "Pêche", labelCr: "Lapes", href: "/browse/tours", icon: "fishing", enabled: true },
+  { id: "qa-boat", label: "Boat Trips", labelFr: "Sorties mer", labelCr: "Sorti lamer", href: "/browse/tours", icon: "boat", enabled: true },
+  { id: "qa-airport", label: "Airport Transfer", labelFr: "Transfert", labelCr: "Transfer", href: "/taxi", icon: "plane", enabled: true },
+  { id: "qa-taxi", label: "Taxi", labelFr: "Taxi", labelCr: "Taksi", href: "/taxi", icon: "taxi", enabled: true },
+  { id: "qa-viewpoints", label: "Viewpoints", labelFr: "Points de vue", labelCr: "Vue", href: "/guide/viewpoints", icon: "viewpoint", enabled: true },
+  { id: "qa-store", label: "Local Store", labelFr: "Boutiques", labelCr: "Laboutik", href: "/guide/shops", icon: "store", enabled: true },
+  { id: "qa-events", label: "What's on", labelFr: "Événements", labelCr: "Levennman", href: "/explore", icon: "event", enabled: true },
+];
 
 export const DEFAULT_CONTENT: SiteContent = {
   hero: {

@@ -4,13 +4,24 @@ import { useState, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Heart, MapPin, ChevronDown, User, Bot, Bike, Car, BedDouble, TreePalm,
+  Heart, MapPin, ChevronDown, Bot, Bike, Car, BedDouble, TreePalm,
   Utensils, Umbrella, Footprints, Fish, Sailboat, Plane, CarTaxiFront, Mountain,
   ShoppingBag, PartyPopper, ArrowRight, Map as MapIcon, CalendarRange, BookOpen,
   Siren, Home, Compass, CalendarCheck, Menu,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useFavorites } from "@/context/FavoritesContext";
+import { loc } from "@/lib/localize";
+import { DEFAULT_QUICK_ACCESS } from "@/lib/defaults";
+import type { QuickAccessItem } from "@/lib/defaults";
+
+// Icon keys (admin-selectable) → lucide icons for the "What are you looking for?" tiles.
+const LOOKING_ICON: Record<string, React.ElementType> = {
+  restaurant: Utensils, beach: Umbrella, hiking: Footprints, fishing: Fish,
+  boat: Sailboat, plane: Plane, taxi: CarTaxiFront, viewpoint: Mountain,
+  store: ShoppingBag, event: PartyPopper, map: MapIcon, planner: CalendarRange,
+  guide: BookOpen, scooter: Bike, car: Car, stay: BedDouble, compass: Compass,
+};
 
 type Tri = [string, string, string];
 type Card = { id: string; name: string; image?: string; price?: string | null; href: string; tag?: string };
@@ -29,12 +40,12 @@ const TINT: Record<string, { icon: string; grad: string }> = {
 // Reviews → Footer, with a FIXED bottom (Travel Tools strip + app nav where
 // Ti Roulé lives). Real content only. `hero`, `reviews`, `footer` are passed in.
 export default function AppHome({
-  hero, reviews, footer, usefulNumbers, experiences, stays, discover, cardImages, mascot, logo,
+  hero, reviews, footer, lookingFor, experiences, stays, discover, cardImages, mascot, logo,
 }: {
   hero: ReactNode;
   reviews?: ReactNode;
   footer?: ReactNode;
-  usefulNumbers?: ReactNode;
+  lookingFor?: QuickAccessItem[];
   experiences: Card[];
   stays: Card[];
   discover: Card[];
@@ -63,25 +74,16 @@ export default function AppHome({
     { key: "stores", icon: ShoppingBag, tint: "amber", label: ["Local Stores", "Boutiques", "Laboutik"], href: "/guide/shops", images: cardImages.stores },
   ];
 
-  const LOOKING: { icon: React.ElementType; label: Tri; href: string }[] = [
-    { icon: Utensils, label: ["Restaurants", "Restaurants", "Restoran"], href: "/food" },
-    { icon: Umbrella, label: ["Beaches", "Plages", "Laplaz"], href: "/guide/beaches" },
-    { icon: Footprints, label: ["Hiking", "Randonnée", "Rando"], href: "/guide/routes" },
-    { icon: Fish, label: ["Fishing", "Pêche", "Lapes"], href: "/browse/tours" },
-    { icon: Sailboat, label: ["Boat Trips", "Sorties mer", "Sorti lamer"], href: "/browse/tours" },
-    { icon: Plane, label: ["Airport Transfer", "Transfert", "Transfer"], href: "/taxi" },
-    { icon: CarTaxiFront, label: ["Taxi", "Taxi", "Taksi"], href: "/taxi" },
-    { icon: Mountain, label: ["Viewpoints", "Points de vue", "Vue"], href: "/guide/viewpoints" },
-    { icon: ShoppingBag, label: ["Local Store", "Boutiques", "Laboutik"], href: "/guide/shops" },
-    { icon: PartyPopper, label: ["What's on", "Événements", "Levennman"], href: "/explore" },
-  ];
+  // "What are you looking for?" tiles — admin-editable (falls back to defaults).
+  const lookItems = (lookingFor && lookingFor.length ? lookingFor : DEFAULT_QUICK_ACCESS).filter((x) => x.enabled !== false);
 
+  // Travel Tools — utilities only (no duplicates of the tiles above; Emergency
+  // opens its own page rather than a section on the home).
   const TOOLS: { icon: React.ElementType; label: Tri; href: string }[] = [
     { icon: MapIcon, label: ["Map", "Carte", "Kart"], href: "/map" },
     { icon: CalendarRange, label: ["Planner", "Planifier", "Plan"], href: "/trip-planner" },
     { icon: BookOpen, label: ["Guide", "Guide", "Gid"], href: "/guide/rodrigues" },
-    { icon: Siren, label: ["Emergency", "Urgences", "Irzans"], href: "/#useful" },
-    { icon: Utensils, label: ["Food", "Manger", "Manze"], href: "/food" },
+    { icon: Siren, label: ["Emergency", "Urgences", "Irzans"], href: "/emergency" },
   ];
 
   const NAV: { key: string; icon: React.ElementType; label: Tri; href?: string; onClick?: () => void }[] = [
@@ -122,9 +124,6 @@ export default function AppHome({
             <Heart size={17} className={count > 0 ? "fill-red-500 text-red-500" : ""} />
             {count > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-yellow px-1 font-syne text-[10px] font-bold text-dark">{count}</span>}
           </button>
-          <Link href="/manage-booking" aria-label="Your trips" className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-muted transition-colors hover:text-yellow">
-            <User size={17} />
-          </Link>
         </div>
       </header>
 
@@ -149,12 +148,15 @@ export default function AppHome({
             <Link href="/explore" className="inline-flex items-center gap-1 font-dm text-xs text-yellow hover:underline">{L(["See all", "Voir tout", "Get tou"])} <ArrowRight size={13} /></Link>
           </div>
           <div className="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {LOOKING.map((c) => (
-              <Link key={c.href + c.label[0]} href={c.href} className="group flex w-[74px] shrink-0 flex-col items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] px-2 py-3 text-center transition-all hover:-translate-y-0.5 hover:border-yellow/40">
-                <c.icon size={19} className="text-yellow" />
-                <span className="font-dm text-[10.5px] font-medium leading-tight text-offwhite/90">{L(c.label)}</span>
-              </Link>
-            ))}
+            {lookItems.map((c) => {
+              const Icon = LOOKING_ICON[c.icon] ?? Compass;
+              return (
+                <Link key={c.id} href={c.href} className="group flex w-[74px] shrink-0 flex-col items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] px-2 py-3 text-center transition-all hover:-translate-y-0.5 hover:border-yellow/40">
+                  <Icon size={19} className="text-yellow" />
+                  <span className="font-dm text-[10.5px] font-medium leading-tight text-offwhite/90">{loc(language, c.label, c.labelFr, c.labelCr)}</span>
+                </Link>
+              );
+            })}
           </div>
         </section>
 
@@ -185,8 +187,6 @@ export default function AppHome({
           </Rail>
         )}
 
-        {/* Emergency & useful numbers (anchor #useful for the Travel Tools link) */}
-        {usefulNumbers}
         {/* Reviews + Footer (from v1) */}
         {reviews}
         {footer}

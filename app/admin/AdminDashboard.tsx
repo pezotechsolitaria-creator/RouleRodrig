@@ -74,7 +74,9 @@ import type {
   TransportOption,
   FaqItem,
   RecommendedPlace,
+  QuickAccessItem,
 } from "@/lib/defaults";
+import { DEFAULT_QUICK_ACCESS } from "@/lib/defaults";
 import type { ContactSubmission, Booking, PlaceBooking, Partner, MarketplaceListing, ProductReview, WaitlistEntry } from "@/lib/supabase/types";
 import { SITE_URL } from "@/lib/site";
 import { MASCOT_POSES } from "@/lib/mascot";
@@ -94,6 +96,7 @@ type Section =
   | "routes"
   | "events"
   | "useful"
+  | "quickAccess"
   | "sponsors"
   | "branding"
   | "submissions"
@@ -135,6 +138,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "map",          label: "Island Guide",     icon: MapPin,          group: "content" },
   { id: "planner",      label: "Trip Planner",     icon: Sparkles,        group: "content" },
   { id: "routes",       label: "Ride Routes",      icon: MapPin,          group: "content" },
+  { id: "quickAccess",  label: "Home Tiles",       icon: Compass,         group: "content" },
   { id: "useful",       label: "Useful Numbers",   icon: Phone,           group: "content" },
   { id: "faq",          label: "FAQ",              icon: HelpCircle,      group: "content" },
   { id: "sponsors",     label: "Sponsors / Partners", icon: Handshake,    group: "content" },
@@ -3644,6 +3648,73 @@ function GettingAroundEditor({
 
 // ── Events editor ────────────────────────────────────────────────────────────────
 
+// ── Home "What are you looking for?" tiles editor ────────────────────────────
+const QA_ICONS = ["restaurant", "beach", "hiking", "fishing", "boat", "plane", "taxi", "viewpoint", "store", "event", "map", "planner", "guide", "scooter", "car", "stay", "compass"];
+
+function QuickAccessEditor({
+  content,
+  onChange,
+}: {
+  content: SiteContent;
+  onChange: (c: SiteContent) => void;
+}) {
+  const list = content.quickAccess ?? DEFAULT_QUICK_ACCESS;
+  const set = (next: QuickAccessItem[]) => onChange({ ...content, quickAccess: next });
+  const update = (i: number, patch: Partial<QuickAccessItem>) =>
+    set(list.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+  const add = () => set([...list, { id: `qa-${Date.now()}`, label: "", href: "/", icon: "compass", enabled: true }]);
+  const remove = (i: number) => set(list.filter((_, idx) => idx !== i));
+  const move = (i: number, dir: number) => {
+    const j = i + dir;
+    if (j < 0 || j >= list.length) return;
+    const next = [...list];
+    [next[i], next[j]] = [next[j], next[i]];
+    set(next);
+  };
+
+  return (
+    <div className="space-y-6">
+      <p className="text-muted/70 font-dm text-xs leading-relaxed">
+        The horizontal “What are you looking for?” tiles on the homepage. Add or remove tiles, rename them,
+        pick an icon, and set where each one links. Reorder with the arrows; hide one without deleting it.
+      </p>
+      {list.map((it, i) => (
+        <div key={it.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <p className="font-bebas text-yellow text-xs tracking-[0.3em]">{it.label || `TILE ${i + 1}`}</p>
+            <div className="flex items-center gap-1.5">
+              <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="px-2 py-1 rounded-lg border border-[#2a2a2a] text-muted/70 hover:text-yellow disabled:opacity-30 text-xs">↑</button>
+              <button type="button" onClick={() => move(i, 1)} disabled={i === list.length - 1} className="px-2 py-1 rounded-lg border border-[#2a2a2a] text-muted/70 hover:text-yellow disabled:opacity-30 text-xs">↓</button>
+              <button type="button" onClick={() => update(i, { enabled: it.enabled === false })} className={`px-3 py-1 rounded-full border text-xs font-dm transition-colors ${it.enabled === false ? "border-[#2a2a2a] text-muted/50" : "border-green-500/30 text-green-400 bg-green-500/10"}`}>{it.enabled === false ? "Hidden" : "Shown"}</button>
+              <button type="button" onClick={() => remove(i)} className="flex items-center gap-1.5 text-xs font-dm text-muted/60 hover:text-red-400 transition-colors"><Trash2 size={12} /> Remove</button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Field label="LABEL">
+              <TextInput value={it.label} onChange={(v) => update(i, { label: v })} placeholder="e.g. Restaurants" />
+            </Field>
+            <Field label="LINK (URL)">
+              <TextInput value={it.href} onChange={(v) => update(i, { href: v })} placeholder="e.g. /food" />
+            </Field>
+            <Field label="ICON">
+              <select value={it.icon} onChange={(e) => update(i, { icon: e.target.value })} className={inputCls}>
+                {QA_ICONS.map((k) => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <TransFields base={it.label} fr={it.labelFr} cr={it.labelCr} onFr={(v) => update(i, { labelFr: v })} onCr={(v) => update(i, { labelCr: v })} />
+        </div>
+      ))}
+      <button type="button" onClick={add} className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 text-muted/60 hover:text-yellow rounded-2xl py-5 text-sm font-dm transition-colors">
+        <Plus size={16} /> Add Tile
+      </button>
+      <p className="text-muted/50 text-xs font-dm">Click Save Changes to publish.</p>
+    </div>
+  );
+}
+
 function EventsEditor({
   content,
   onChange,
@@ -5931,6 +6002,7 @@ export default function AdminDashboard({
     foodConcierge:{ title: "Food Concierge",       desc: "The WhatsApp food-recommendation service behind the “Food & Dining” hub tile. Set the WhatsApp number that food enquiries go to." },
     faq:          { title: "FAQ",                 desc: "Frequently asked questions shown on the site (also boosts SEO)." },
     events:       { title: "Island Events",       desc: "Festivals, markets and happenings shown to visitors." },
+    quickAccess:  { title: "Home Tiles",          desc: "The “What are you looking for?” tiles on the homepage — add, remove, reorder and re-point them." },
     useful:       { title: "Useful Numbers",      desc: "Emergency, taxi and key local contacts — shown as tap-to-call." },
     sponsors:     { title: "Sponsors / Ads",      desc: "Paid sponsor logos shown near the footer. Toggle the whole strip on/off." },
     partners:     { title: "Hotel Partners",      desc: "Manage referral partners and track referrals." },
@@ -6201,6 +6273,9 @@ export default function AdminDashboard({
           )}
           {section === "useful" && (
             <UsefulContactsEditor content={content} onChange={setContent} />
+          )}
+          {section === "quickAccess" && (
+            <QuickAccessEditor content={content} onChange={setContent} />
           )}
           {section === "sponsors" && (
             <SponsorsEditor content={content} onChange={setContent} />

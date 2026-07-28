@@ -1,6 +1,6 @@
 import 'server-only';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { DEFAULT_CONTENT, type SiteContent } from './defaults';
+import { DEFAULT_CONTENT, DEFAULT_QUICK_ACCESS, type SiteContent } from './defaults';
 
 // Cookie-free public read client. site_content ('main') is public-readable, so
 // reading it without cookies lets every page that calls getContent be cached
@@ -80,6 +80,7 @@ function mergeWithDefaults(parsed: Partial<SiteContent>): SiteContent {
           : DEFAULT_CONTENT.foodConcierge.steps,
     },
     experience: { ...DEFAULT_CONTENT.experience, ...(parsed.experience ?? {}) },
+    quickAccess: parsed.quickAccess ?? DEFAULT_QUICK_ACCESS,
   };
 }
 
