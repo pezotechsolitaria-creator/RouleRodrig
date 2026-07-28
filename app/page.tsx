@@ -2,18 +2,10 @@ import { SITE_URL } from "@/lib/site";
 import { getFleetView, buildBrowseCategories, priceNumber } from "@/lib/site-data";
 import { organizationLd, touristDestinationLd, websiteLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
-import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
-import WhatLookingFor from "@/components/WhatLookingFor";
-import QuickActions from "@/components/QuickActions";
-import UsefulNumbers from "@/components/UsefulNumbers";
+import AppHome from "@/components/AppHome";
 import ReviewsContact from "@/components/ReviewsContact";
-import Sponsors from "@/components/Sponsors";
 import Footer from "@/components/Footer";
-import Reveal from "@/components/Reveal";
-import WhatsAppButton from "@/components/WhatsAppButton";
-import ScrollProgress from "@/components/ScrollProgress";
-import ScrollToTop from "@/components/ScrollToTop";
 import TiRouleGuide from "@/components/TiRouleGuide";
 
 // ISR: serve a cached page for instant repeat loads, regenerate every 60s.
@@ -52,28 +44,23 @@ export default async function Home() {
   // "What are you looking for?" categories (shared with the /browse pages).
   const browseCats = buildBrowseCategories(content, fleet, recentBookings);
 
-  // Two homepage discovery rails around the Quick Actions strip:
-  //   • "Discover" (before): guided tours, activities, local stores
-  //   • "Rent & stay" (after): scooters, cars, stay
-  // Food lives in Explore, events moved to Explore, Getting Around retired in
-  // favour of the Taxi quick action — so none of them appear here.
-  const railPick = (slugs: string[]) =>
-    slugs.flatMap((s) => {
-      const c = browseCats.find((x) => x.slug === s);
-      return c ? [c] : [];
-    });
-  const vehicleSlugs = new Set(content.vehicleCategories.filter((c) => c.enabled).map((c) => c.id));
-  const discoverRail = railPick(["tours", "activities", "stores"]);
-  const rentRail = [...browseCats.filter((c) => vehicleSlugs.has(c.slug)), ...railPick(["stays"])];
-
-  const DISCOVER_HEADING = {
-    eyebrow: ["Discover Rodrigues", "Découvrir Rodrigues", "Dekouver Rodrig"] as [string, string, string],
-    title: ["Tours, activities & local finds", "Excursions, activités & adresses", "Tour, aktivite & bann adres"] as [string, string, string],
-  };
-  const RENT_HEADING = {
-    eyebrow: ["Rent & stay", "Louer & séjourner", "Loue & reste"] as [string, string, string],
-    title: ["Wheels & a place to stay", "Un véhicule & un toit", "Loto & enn plas pou reste"] as [string, string, string],
-  };
+  // App-home rails, built from real content only (no invented ratings/prices).
+  const experiences = content.recommended.items
+    .filter((p) => p.category === "activity" && (p.image || ""))
+    .map((p) => ({ id: p.id, name: p.name, image: p.image, price: p.priceNote ?? null, href: p.isTour ? "/browse/tours" : "/browse/activities" }));
+  const stays = content.recommended.items
+    .filter((p) => p.category === "hotel" && (p.image || ""))
+    .map((p) => ({ id: p.id, name: p.name, image: p.image, price: p.priceNote ?? null, href: "/browse/stays" }));
+  const discover = content.mapLocations
+    .filter((l) => (l.image || l.images?.[0]) && l.story && ["beach", "viewpoint", "landmark"].includes(l.category))
+    .slice(0, 10)
+    .map((l) => ({
+      id: l.id,
+      name: l.name,
+      image: l.image ?? l.images?.[0],
+      href: l.category === "beach" ? `/guide/beaches#${l.id}` : l.category === "viewpoint" ? `/guide/viewpoints#${l.id}` : "/map",
+      tag: l.category,
+    }));
 
   // Cheapest scooter/day (MUR) — lets Ti Roulé relate a budget to real rental days.
   const scooterPrices = fleet
@@ -166,44 +153,20 @@ export default async function Home() {
   return (
     <>
       <JsonLd data={jsonLd} />
-      <ScrollProgress />
-      <main>
-        <Navbar
-          branding={content.branding}
-          announcementActive={false}
-          showStayEatDo={content.recommended.enabled && content.recommended.items.length > 0}
-          showRoutes={content.rideRoutes.length > 0}
-          showEvents={content.events.some((e) => e.title)}
-        />
-        {/* Air-Mauritius-style action dashboard: a compact hero, then the browse
-            hub and a quick-access strip up top so the first screen is all action.
-            The island guide, scenic routes and FAQ now live on their own pages
-            (linked from the quick-access strip and the nav) to keep this lean. */}
-        <Hero hero={content.hero} />
-        {rentRail.length > 0 && (
-          <WhatLookingFor categories={rentRail} heading={RENT_HEADING} anchorId="explore" compact />
-        )}
-        <QuickActions />
-        {discoverRail.length > 0 && (
-          <WhatLookingFor
-            categories={discoverRail}
-            heading={DISCOVER_HEADING}
-            anchorId={rentRail.length === 0 ? "explore" : undefined}
-            compact
-          />
-        )}
-        <Reveal><UsefulNumbers contacts={content.usefulContacts} /></Reveal>
-        <Reveal><Sponsors enabled={content.sponsorsEnabled} sponsors={content.sponsors} /></Reveal>
-        <Reveal><ReviewsContact contact={content.contact} fleet={fleet} /></Reveal>
-        <Footer social={content.social} branding={content.branding} />
-      </main>
-      <WhatsAppButton
-        phone={content.contact.phone}
-        whatsapp={content.social.whatsapp}
-        numbers={content.contact.whatsappNumbers}
+      <AppHome
+        hero={<Hero hero={content.hero} compact />}
+        reviews={<ReviewsContact contact={content.contact} fleet={fleet} />}
+        footer={<Footer social={content.social} branding={content.branding} />}
+        cats={browseCats}
+        experiences={experiences}
+        stays={stays}
+        discover={discover}
+        mascot={content.branding.mascotImage}
+        logo={content.branding.logo}
       />
-      <ScrollToTop />
+      {/* Ti Roulé lives in the app nav, so hide its floating orb. */}
       <TiRouleGuide
+        hideFab
         image={content.branding.mascotImage}
         poses={content.branding.mascotPoses}
         whatsapp={content.contact.whatsappNumbers?.[0]?.number || content.social.whatsapp || content.contact.phone}

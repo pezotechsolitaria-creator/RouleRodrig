@@ -15,9 +15,9 @@ export default function BottomNav() {
   const { language } = useLanguage();
   const L = (en: string, fr: string, cr: string) => (language === "fr" ? fr : language === "cr" ? cr : en);
 
-  // The /v2 app preview renders its own bottom bar (travel tools + nav with
+  // The app-style homepage renders its own bottom bar (travel tools + nav with
   // Ti Roulé), so the global floating nav steps aside there.
-  if (pathname.startsWith("/v2")) return null;
+  if (pathname === "/" || pathname.startsWith("/v2")) return null;
 
   const links = [
     { key: "home", icon: Home, href: "/", label: L("Home", "Accueil", "Lakaz"), active: pathname === "/" },
