@@ -42,6 +42,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# playwright
+/test-results
+/playwright-report
+/blob-report
+/playwright/.cache
+
 # agent tooling / local dev (not part of the website build)
 /.claude
 /.agents
