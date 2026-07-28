@@ -125,7 +125,7 @@ export default function AppHome({
       {/* pb clears the fixed bottom bar (tools strip + nav). */}
       <main className="mx-auto max-w-5xl px-4 pb-[150px]">
         {/* Six primary cards */}
-        <section className="pt-4">
+        <section className="pt-3">
           <div className="grid grid-cols-3 gap-2.5">
             {BIG.map((a) => {
               const n = a.countSlug ? countFor(a.countSlug) : 0;
@@ -140,7 +140,7 @@ export default function AppHome({
                   <span className="mt-0.5 block font-dm text-[10.5px] leading-tight text-muted">{L(a.sub)}</span>
                 </>
               );
-              const cls = "group relative flex min-h-[118px] flex-col rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.015] p-3 transition-all hover:-translate-y-0.5 hover:border-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow/50";
+              const cls = "group relative flex min-h-[104px] flex-col rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.015] p-3 transition-all hover:-translate-y-0.5 hover:border-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow/50";
               return a.href ? <Link key={a.key} href={a.href} className={cls}>{inner}</Link> : <button key={a.key} type="button" onClick={a.onClick} className={`${cls} text-left`}>{inner}</button>;
             })}
           </div>

@@ -51,7 +51,7 @@ export default async function V2Page() {
   return (
     <>
       <AppHome
-        hero={<Hero hero={content.hero} />}
+        hero={<Hero hero={content.hero} compact />}
         reviews={<ReviewsContact contact={content.contact} fleet={fleet} />}
         footer={<Footer social={content.social} branding={content.branding} />}
         cats={browseCats}

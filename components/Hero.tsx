@@ -99,7 +99,7 @@ function HeroBackdrop() {
   );
 }
 
-export default function Hero({ hero }: { hero?: HeroContent }) {
+export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: boolean }) {
   const h = hero ?? DEFAULT_CONTENT.hero;
   const { language } = useLanguage();
   const headlineLines =
@@ -108,7 +108,7 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
     h.headline;
 
   return (
-    <section className="relative min-h-[40vh] md:min-h-[62vh] w-full overflow-hidden flex flex-col" aria-label="Hero section">
+    <section className={`relative w-full overflow-hidden flex flex-col ${compact ? "min-h-[220px] md:min-h-[42vh]" : "min-h-[40vh] md:min-h-[62vh]"}`} aria-label="Hero section">
       {/* ── Background image (owner's brand photo) ──────── */}
       <div className="absolute inset-0">
         {h.backgroundImage && (
@@ -133,7 +133,7 @@ export default function Hero({ hero }: { hero?: HeroContent }) {
       <HeroBackdrop />
 
       {/* ── Main content ──────────────────────────────── */}
-      <div className="relative z-10 flex flex-col justify-center flex-1 max-w-7xl mx-auto w-full px-6 pt-20 pb-5">
+      <div className={`relative z-10 flex flex-col justify-center flex-1 max-w-7xl mx-auto w-full px-6 pb-5 ${compact ? "pt-12" : "pt-20"}`}>
         {/* Eyebrow pill */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
