@@ -1,35 +1,43 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Heart, MapPin, ChevronDown, User, Bot,
+  Heart, MapPin, ChevronDown, User, Bot, Bike, Car, BedDouble, TreePalm, Gift,
   Utensils, Umbrella, Footprints, Fish, Sailboat, Plane, CarTaxiFront, Mountain,
   ShoppingBag, PartyPopper, ArrowRight, Map as MapIcon, CalendarRange, BookOpen,
   Siren, Home, Compass, CalendarCheck, Menu,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useFavorites } from "@/context/FavoritesContext";
-import WhatLookingFor, { type BrowseCategory } from "@/components/WhatLookingFor";
 
 type Tri = [string, string, string];
 type Card = { id: string; name: string; image?: string; price?: string | null; href: string; tag?: string };
+type CardImages = { scooter: string[]; car: string[]; stays: string[]; exp: string[] };
+
+// Colour tints for the six primary cards (icon badge + gradient fallback).
+const TINT: Record<string, { icon: string; grad: string }> = {
+  amber: { icon: "text-amber-300", grad: "bg-gradient-to-br from-amber-500/25 to-dark" },
+  teal: { icon: "text-teal-200", grad: "bg-gradient-to-br from-teal-500/25 to-dark" },
+  indigo: { icon: "text-indigo-200", grad: "bg-gradient-to-br from-indigo-500/30 to-dark" },
+  rose: { icon: "text-rose-200", grad: "bg-gradient-to-br from-rose-500/30 to-dark" },
+};
 
 // Roulé Rodrigues 2.0 — app-style homepage (preview). Header → hero → six cards
 // → "What are you looking for?" → Discover → Featured Experiences → Top Stays →
 // Reviews → Footer, with a FIXED bottom (Travel Tools strip + app nav where
 // Ti Roulé lives). Real content only. `hero`, `reviews`, `footer` are passed in.
 export default function AppHome({
-  hero, reviews, footer, cats, experiences, stays, discover, mascot, logo,
+  hero, reviews, footer, experiences, stays, discover, cardImages, mascot, logo,
 }: {
   hero: ReactNode;
   reviews?: ReactNode;
   footer?: ReactNode;
-  cats: BrowseCategory[];
   experiences: Card[];
   stays: Card[];
   discover: Card[];
+  cardImages: CardImages;
   mascot?: string;
   logo?: string;
 }) {
@@ -40,11 +48,19 @@ export default function AppHome({
   const cycle = () => setLanguage(language === "en" ? "fr" : language === "fr" ? "cr" : "en");
   const openSaved = () => window.dispatchEvent(new CustomEvent("rr:open-saved"));
 
-  // Heading for the primary photo carousel (reuses WhatLookingFor).
-  const PRIMARY_HEADING = {
-    eyebrow: ["Explore & book", "Explorer & réserver", "Explor & rezerv"] as Tri,
-    title: ["Everything for your trip", "Tout pour votre séjour", "Tou pou ou vwayaz"] as Tri,
-  };
+  // The six primary cards — v1 photo-card design, each auto-cycling through the
+  // real photos of that category's contents (all scooters, all cars, …).
+  const BIG: {
+    key: string; icon: React.ElementType; tint: keyof typeof TINT; label: Tri;
+    href?: string; onClick?: () => void; images: string[]; popular?: boolean; centerImage?: string;
+  }[] = [
+    { key: "scooter", icon: Bike, tint: "amber", label: ["Scooters", "Scooters", "Skooter"], href: "/browse/scooter", images: cardImages.scooter, popular: true },
+    { key: "car", icon: Car, tint: "amber", label: ["Cars", "Voitures", "Loto"], href: "/browse/car", images: cardImages.car },
+    { key: "stay", icon: BedDouble, tint: "amber", label: ["Stays", "Séjours", "Lozman"], href: "/browse/stays", images: cardImages.stays },
+    { key: "exp", icon: TreePalm, tint: "teal", label: ["Experiences", "Expériences", "Eksperyans"], href: "/explore", images: cardImages.exp },
+    { key: "tiroule", icon: Bot, tint: "indigo", label: ["Ask Ti Roulé", "Demander Ti Roulé", "Demann Ti Roulé"], onClick: () => window.dispatchEvent(new CustomEvent("tiroule:open")), images: [], centerImage: mascot },
+    { key: "offers", icon: Gift, tint: "rose", label: ["Special Offers", "Offres spéciales", "Bann Ofer"], href: "/explore", images: [] },
+  ];
 
   const LOOKING: { icon: React.ElementType; label: Tri; href: string }[] = [
     { icon: Utensils, label: ["Restaurants", "Restaurants", "Restoran"], href: "/food" },
@@ -116,11 +132,14 @@ export default function AppHome({
 
       {/* pb clears the fixed bottom bar (tools strip + nav). */}
       <main className="mx-auto max-w-5xl px-4 pb-[150px]">
-        {/* Primary categories — photo carousel (reuses the WhatLookingFor
-            swipeable cards: real photos, "Popular" badge, dots). */}
-        <div className="-mx-4">
-          <WhatLookingFor categories={cats} heading={PRIMARY_HEADING} compact />
-        </div>
+        {/* Six primary cards — v1 photo-card design, auto-cycling images. */}
+        <section className="pt-3">
+          <div className="grid grid-cols-3 gap-2.5">
+            {BIG.map((c) => (
+              <AutoImageCard key={c.key} card={c} L={L} />
+            ))}
+          </div>
+        </section>
 
         {/* What are you looking for? */}
         <section className="mt-6">
@@ -206,6 +225,59 @@ export default function AppHome({
         </nav>
       </div>
     </>
+  );
+}
+
+// A v1-style photo card whose background auto-cycles through the real photos of
+// that category's contents. Falls back to a tinted gradient (Ti Roulé / Offers).
+function AutoImageCard({
+  card, L,
+}: {
+  card: { key: string; icon: React.ElementType; tint: keyof typeof TINT; label: Tri; href?: string; onClick?: () => void; images: string[]; popular?: boolean; centerImage?: string };
+  L: (t: Tri) => string;
+}) {
+  const [idx, setIdx] = useState(0);
+  const imgs = card.images;
+  useEffect(() => {
+    if (imgs.length <= 1) return;
+    const t = setInterval(() => setIdx((x) => (x + 1) % imgs.length), 3400);
+    return () => clearInterval(t);
+  }, [imgs.length]);
+  const tint = TINT[card.tint];
+  const body = (
+    <>
+      {imgs.length > 0 ? (
+        imgs.map((src, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={src + i} src={src} alt="" loading="lazy" className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[900ms] ${i === idx ? "opacity-100" : "opacity-0"}`} />
+        ))
+      ) : (
+        <span className={`absolute inset-0 ${tint.grad}`} />
+      )}
+      {card.centerImage && imgs.length === 0 && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={card.centerImage} alt="" loading="lazy" className="absolute inset-x-0 bottom-0 mx-auto h-[80%] w-auto object-contain drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]" />
+      )}
+      <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+      <span className={`absolute left-2 top-2 flex h-8 w-8 items-center justify-center rounded-xl border border-white/15 bg-white/10 backdrop-blur-md ${tint.icon}`}>
+        <card.icon size={16} />
+      </span>
+      {card.popular && (
+        <span className="absolute right-2 top-2 rounded-full bg-yellow px-2 py-0.5 font-bebas text-[8px] tracking-[0.12em] text-dark">POPULAR</span>
+      )}
+      <span className="absolute inset-x-0 bottom-0 p-2.5">
+        <span className="block font-syne text-[13px] font-bold leading-tight text-white drop-shadow">{L(card.label)}</span>
+        <span className="mt-0.5 inline-flex items-center gap-1 font-dm text-[10px] font-semibold text-yellow">
+          {L(["Explore", "Explorer", "Explor"])} <ArrowRight size={11} className="transition-transform group-hover:translate-x-0.5" />
+        </span>
+      </span>
+    </>
+  );
+  const cls = "group relative block aspect-[4/5] overflow-hidden rounded-2xl border border-white/10 transition-all hover:-translate-y-0.5 hover:border-yellow/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow/50";
+  return card.href ? (
+    <Link href={card.href} className={cls}>{body}</Link>
+  ) : (
+    <button type="button" onClick={card.onClick} className={`${cls} w-full text-left`}>{body}</button>
   );
 }
 

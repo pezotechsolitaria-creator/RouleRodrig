@@ -69,6 +69,17 @@ export default async function Home() {
     .filter((n): n is number => n != null && n > 0);
   const scooterDailyMur = scooterPrices.length ? Math.min(...scooterPrices) : undefined;
 
+  // Per-card image galleries so the homepage cards auto-cycle through the real
+  // photos of each category's contents (all scooters, all cars, all stays…).
+  const galleryOf = (items: { image?: string; images?: string[] }[]) =>
+    items.flatMap((it) => (it.images?.length ? it.images : it.image ? [it.image] : [])).filter((s): s is string => !!s).slice(0, 6);
+  const cardImages = {
+    scooter: galleryOf(fleet.filter((f) => (f.category ?? "scooter") === "scooter")),
+    car: galleryOf(fleet.filter((f) => f.category === "car")),
+    stays: galleryOf(content.recommended.items.filter((p) => p.category === "hotel")),
+    exp: galleryOf(content.recommended.items.filter((p) => p.category === "activity")),
+  };
+
   // ── SEO structured data (JSON-LD) ──
   // Only describes what this page actually SHOWS: the business, the island
   // (the hub + map + planner are all about Rodrigues) and the visible FAQ.
@@ -157,10 +168,10 @@ export default async function Home() {
         hero={<Hero hero={content.hero} compact />}
         reviews={<ReviewsContact contact={content.contact} fleet={fleet} />}
         footer={<Footer social={content.social} branding={content.branding} />}
-        cats={browseCats}
         experiences={experiences}
         stays={stays}
         discover={discover}
+        cardImages={cardImages}
         mascot={content.branding.mascotImage}
         logo={content.branding.logo}
       />
