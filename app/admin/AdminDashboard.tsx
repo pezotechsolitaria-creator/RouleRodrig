@@ -8,6 +8,7 @@ import {
   Bike,
   UtensilsCrossed,
   Compass,
+  LayoutGrid,
   Waves,
   ShoppingBag,
   DollarSign,
@@ -75,8 +76,9 @@ import type {
   FaqItem,
   RecommendedPlace,
   QuickAccessItem,
+  HomeCard,
 } from "@/lib/defaults";
-import { DEFAULT_QUICK_ACCESS } from "@/lib/defaults";
+import { DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS } from "@/lib/defaults";
 import type { ContactSubmission, Booking, PlaceBooking, Partner, MarketplaceListing, ProductReview, WaitlistEntry } from "@/lib/supabase/types";
 import { SITE_URL } from "@/lib/site";
 import { MASCOT_POSES } from "@/lib/mascot";
@@ -97,6 +99,7 @@ type Section =
   | "events"
   | "useful"
   | "quickAccess"
+  | "homeCards"
   | "sponsors"
   | "branding"
   | "submissions"
@@ -138,6 +141,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "map",          label: "Island Guide",     icon: MapPin,          group: "content" },
   { id: "planner",      label: "Trip Planner",     icon: Sparkles,        group: "content" },
   { id: "routes",       label: "Ride Routes",      icon: MapPin,          group: "content" },
+  { id: "homeCards",    label: "Home Cards",       icon: LayoutGrid,      group: "content" },
   { id: "quickAccess",  label: "Home Tiles",       icon: Compass,         group: "content" },
   { id: "useful",       label: "Useful Numbers",   icon: Phone,           group: "content" },
   { id: "faq",          label: "FAQ",              icon: HelpCircle,      group: "content" },
@@ -3715,6 +3719,93 @@ function QuickAccessEditor({
   );
 }
 
+// ── Home cards editor (the big photo cards) ──────────────────────────────────
+const HC_ICONS = ["scooter", "car", "stay", "experience", "store", "tiroule", "restaurant", "beach", "compass"];
+const HC_SOURCES = ["scooter", "car", "stays", "exp", "stores", "none"];
+const HC_TINTS = ["amber", "teal", "indigo", "rose"];
+
+function HomeCardsEditor({
+  content,
+  onChange,
+}: {
+  content: SiteContent;
+  onChange: (c: SiteContent) => void;
+}) {
+  const list = content.homeCards ?? DEFAULT_HOME_CARDS;
+  const set = (next: HomeCard[]) => onChange({ ...content, homeCards: next });
+  const update = (i: number, patch: Partial<HomeCard>) =>
+    set(list.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+  const add = () => set([...list, { id: `hc-${Date.now()}`, label: "", icon: "compass", imageSource: "none", action: "link", href: "/", tint: "amber", enabled: true }]);
+  const remove = (i: number) => set(list.filter((_, idx) => idx !== i));
+  const move = (i: number, dir: number) => {
+    const j = i + dir;
+    if (j < 0 || j >= list.length) return;
+    const next = [...list];
+    [next[i], next[j]] = [next[j], next[i]];
+    set(next);
+  };
+
+  return (
+    <div className="space-y-6">
+      <p className="text-muted/70 font-dm text-xs leading-relaxed">
+        The big photo cards at the top of the homepage. Each card&apos;s photos auto-cycle through the real
+        images of its “Photos from” category (managed in your Fleet / Places editors). Add, remove, reorder,
+        rename, pick an icon &amp; colour, and set where it links — or make one open the Ti Roulé chat.
+      </p>
+      {list.map((it, i) => (
+        <div key={it.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <p className="font-bebas text-yellow text-xs tracking-[0.3em]">{it.label || `CARD ${i + 1}`}</p>
+            <div className="flex items-center gap-1.5">
+              <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="px-2 py-1 rounded-lg border border-[#2a2a2a] text-muted/70 hover:text-yellow disabled:opacity-30 text-xs">↑</button>
+              <button type="button" onClick={() => move(i, 1)} disabled={i === list.length - 1} className="px-2 py-1 rounded-lg border border-[#2a2a2a] text-muted/70 hover:text-yellow disabled:opacity-30 text-xs">↓</button>
+              <button type="button" onClick={() => update(i, { popular: !it.popular })} className={`px-3 py-1 rounded-full border text-xs font-dm transition-colors ${it.popular ? "border-yellow/40 text-yellow bg-yellow/10" : "border-[#2a2a2a] text-muted/60"}`}>Popular</button>
+              <button type="button" onClick={() => update(i, { enabled: it.enabled === false })} className={`px-3 py-1 rounded-full border text-xs font-dm transition-colors ${it.enabled === false ? "border-[#2a2a2a] text-muted/50" : "border-green-500/30 text-green-400 bg-green-500/10"}`}>{it.enabled === false ? "Hidden" : "Shown"}</button>
+              <button type="button" onClick={() => remove(i)} className="flex items-center gap-1.5 text-xs font-dm text-muted/60 hover:text-red-400 transition-colors"><Trash2 size={12} /> Remove</button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Field label="LABEL">
+              <TextInput value={it.label} onChange={(v) => update(i, { label: v })} placeholder="e.g. Scooters" />
+            </Field>
+            <Field label="ACTION">
+              <select value={it.action ?? "link"} onChange={(e) => update(i, { action: e.target.value as HomeCard["action"] })} className={inputCls}>
+                <option value="link">Open a link</option>
+                <option value="tiroule">Open Ti Roulé chat</option>
+              </select>
+            </Field>
+            {(it.action ?? "link") === "link" && (
+              <Field label="LINK (URL)">
+                <TextInput value={it.href ?? ""} onChange={(v) => update(i, { href: v })} placeholder="e.g. /browse/scooter" />
+              </Field>
+            )}
+            <Field label="ICON">
+              <select value={it.icon} onChange={(e) => update(i, { icon: e.target.value })} className={inputCls}>
+                {HC_ICONS.map((k) => <option key={k} value={k}>{k}</option>)}
+              </select>
+            </Field>
+            <Field label="PHOTOS FROM">
+              <select value={it.imageSource} onChange={(e) => update(i, { imageSource: e.target.value })} className={inputCls}>
+                {HC_SOURCES.map((k) => <option key={k} value={k}>{k === "exp" ? "experiences" : k}</option>)}
+              </select>
+            </Field>
+            <Field label="COLOUR">
+              <select value={it.tint ?? "amber"} onChange={(e) => update(i, { tint: e.target.value })} className={inputCls}>
+                {HC_TINTS.map((k) => <option key={k} value={k}>{k}</option>)}
+              </select>
+            </Field>
+          </div>
+          <TransFields base={it.label} fr={it.labelFr} cr={it.labelCr} onFr={(v) => update(i, { labelFr: v })} onCr={(v) => update(i, { labelCr: v })} />
+        </div>
+      ))}
+      <button type="button" onClick={add} className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 text-muted/60 hover:text-yellow rounded-2xl py-5 text-sm font-dm transition-colors">
+        <Plus size={16} /> Add Card
+      </button>
+      <p className="text-muted/50 text-xs font-dm">Click Save Changes to publish.</p>
+    </div>
+  );
+}
+
 function EventsEditor({
   content,
   onChange,
@@ -6002,6 +6093,7 @@ export default function AdminDashboard({
     foodConcierge:{ title: "Food Concierge",       desc: "The WhatsApp food-recommendation service behind the “Food & Dining” hub tile. Set the WhatsApp number that food enquiries go to." },
     faq:          { title: "FAQ",                 desc: "Frequently asked questions shown on the site (also boosts SEO)." },
     events:       { title: "Island Events",       desc: "Festivals, markets and happenings shown to visitors." },
+    homeCards:    { title: "Home Cards",          desc: "The big photo cards at the top of the homepage — add, remove, reorder, rename and re-point them (photos come from each card's category)." },
     quickAccess:  { title: "Home Tiles",          desc: "The “What are you looking for?” tiles on the homepage — add, remove, reorder and re-point them." },
     useful:       { title: "Useful Numbers",      desc: "Emergency, taxi and key local contacts — shown as tap-to-call." },
     sponsors:     { title: "Sponsors / Ads",      desc: "Paid sponsor logos shown near the footer. Toggle the whole strip on/off." },
@@ -6276,6 +6368,9 @@ export default function AdminDashboard({
           )}
           {section === "quickAccess" && (
             <QuickAccessEditor content={content} onChange={setContent} />
+          )}
+          {section === "homeCards" && (
+            <HomeCardsEditor content={content} onChange={setContent} />
           )}
           {section === "sponsors" && (
             <SponsorsEditor content={content} onChange={setContent} />

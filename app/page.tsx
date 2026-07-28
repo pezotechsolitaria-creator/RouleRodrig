@@ -170,6 +170,7 @@ export default async function Home() {
         reviews={<ReviewsContact contact={content.contact} fleet={fleet} />}
         footer={<Footer social={content.social} branding={content.branding} />}
         lookingFor={content.quickAccess}
+        homeCards={content.homeCards}
         experiences={experiences}
         stays={stays}
         discover={discover}

@@ -345,6 +345,22 @@ export interface SiteContent {
   foodConcierge: FoodConciergeContent;
   experience: ExperienceContent;
   quickAccess?: QuickAccessItem[];
+  homeCards?: HomeCard[];
+}
+
+// The six large photo cards at the top of the homepage — admin-editable.
+export interface HomeCard {
+  id: string;
+  label: string;
+  labelFr?: string;
+  labelCr?: string;
+  icon: string;         // icon key → lucide icon (glass badge)
+  imageSource: string;  // "scooter" | "car" | "stays" | "exp" | "stores" | "none"
+  action?: "link" | "tiroule"; // link to href, or open the Ti Roulé chat
+  href?: string;
+  tint?: string;        // "amber" | "teal" | "indigo" | "rose"
+  popular?: boolean;
+  enabled?: boolean;    // default true
 }
 
 // "What are you looking for?" tiles on the homepage — admin-editable.
@@ -370,6 +386,17 @@ export const DEFAULT_QUICK_ACCESS: QuickAccessItem[] = [
   { id: "qa-viewpoints", label: "Viewpoints", labelFr: "Points de vue", labelCr: "Vue", href: "/guide/viewpoints", icon: "viewpoint", enabled: true },
   { id: "qa-store", label: "Local Store", labelFr: "Boutiques", labelCr: "Laboutik", href: "/guide/shops", icon: "store", enabled: true },
   { id: "qa-events", label: "What's on", labelFr: "Événements", labelCr: "Levennman", href: "/explore", icon: "event", enabled: true },
+];
+
+// Default home cards (used until the owner customises them in admin). Images are
+// pulled from each card's imageSource category (the owner's real photos).
+export const DEFAULT_HOME_CARDS: HomeCard[] = [
+  { id: "hc-scooter", label: "Scooters", labelFr: "Scooters", labelCr: "Skooter", icon: "scooter", imageSource: "scooter", action: "link", href: "/browse/scooter", tint: "amber", popular: true, enabled: true },
+  { id: "hc-car", label: "Cars", labelFr: "Voitures", labelCr: "Loto", icon: "car", imageSource: "car", action: "link", href: "/browse/car", tint: "amber", enabled: true },
+  { id: "hc-stay", label: "Stays", labelFr: "Séjours", labelCr: "Lozman", icon: "stay", imageSource: "stays", action: "link", href: "/browse/stays", tint: "amber", enabled: true },
+  { id: "hc-exp", label: "Experiences", labelFr: "Expériences", labelCr: "Eksperyans", icon: "experience", imageSource: "exp", action: "link", href: "/explore", tint: "teal", enabled: true },
+  { id: "hc-tiroule", label: "Ask Ti Roulé", labelFr: "Demander Ti Roulé", labelCr: "Demann Ti Roulé", icon: "tiroule", imageSource: "none", action: "tiroule", tint: "indigo", enabled: true },
+  { id: "hc-stores", label: "Local Stores", labelFr: "Boutiques", labelCr: "Laboutik", icon: "store", imageSource: "stores", action: "link", href: "/guide/shops", tint: "amber", enabled: true },
 ];
 
 export const DEFAULT_CONTENT: SiteContent = {

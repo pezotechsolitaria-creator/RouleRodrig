@@ -12,8 +12,8 @@ import {
 import { useLanguage } from "@/context/LanguageContext";
 import { useFavorites } from "@/context/FavoritesContext";
 import { loc } from "@/lib/localize";
-import { DEFAULT_QUICK_ACCESS } from "@/lib/defaults";
-import type { QuickAccessItem } from "@/lib/defaults";
+import { DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS } from "@/lib/defaults";
+import type { QuickAccessItem, HomeCard } from "@/lib/defaults";
 
 // Icon keys (admin-selectable) → lucide icons for the "What are you looking for?" tiles.
 const LOOKING_ICON: Record<string, React.ElementType> = {
@@ -21,6 +21,11 @@ const LOOKING_ICON: Record<string, React.ElementType> = {
   boat: Sailboat, plane: Plane, taxi: CarTaxiFront, viewpoint: Mountain,
   store: ShoppingBag, event: PartyPopper, map: MapIcon, planner: CalendarRange,
   guide: BookOpen, scooter: Bike, car: Car, stay: BedDouble, compass: Compass,
+};
+// Icon keys for the six home cards.
+const HOME_ICON: Record<string, React.ElementType> = {
+  scooter: Bike, car: Car, stay: BedDouble, experience: TreePalm, tiroule: Bot,
+  store: ShoppingBag, restaurant: Utensils, beach: Umbrella, compass: Compass,
 };
 
 type Tri = [string, string, string];
@@ -40,12 +45,13 @@ const TINT: Record<string, { icon: string; grad: string }> = {
 // Reviews → Footer, with a FIXED bottom (Travel Tools strip + app nav where
 // Ti Roulé lives). Real content only. `hero`, `reviews`, `footer` are passed in.
 export default function AppHome({
-  hero, reviews, footer, lookingFor, experiences, stays, discover, cardImages, mascot, logo,
+  hero, reviews, footer, lookingFor, homeCards, experiences, stays, discover, cardImages, mascot, logo,
 }: {
   hero: ReactNode;
   reviews?: ReactNode;
   footer?: ReactNode;
   lookingFor?: QuickAccessItem[];
+  homeCards?: HomeCard[];
   experiences: Card[];
   stays: Card[];
   discover: Card[];
@@ -60,19 +66,26 @@ export default function AppHome({
   const cycle = () => setLanguage(language === "en" ? "fr" : language === "fr" ? "cr" : "en");
   const openSaved = () => window.dispatchEvent(new CustomEvent("rr:open-saved"));
 
-  // The six primary cards — v1 photo-card design, each auto-cycling through the
-  // real photos of that category's contents (all scooters, all cars, …).
-  const BIG: {
-    key: string; icon: React.ElementType; tint: keyof typeof TINT; label: Tri;
-    href?: string; onClick?: () => void; images: string[]; popular?: boolean; centerImage?: string;
-  }[] = [
-    { key: "scooter", icon: Bike, tint: "amber", label: ["Scooters", "Scooters", "Skooter"], href: "/browse/scooter", images: cardImages.scooter, popular: true },
-    { key: "car", icon: Car, tint: "amber", label: ["Cars", "Voitures", "Loto"], href: "/browse/car", images: cardImages.car },
-    { key: "stay", icon: BedDouble, tint: "amber", label: ["Stays", "Séjours", "Lozman"], href: "/browse/stays", images: cardImages.stays },
-    { key: "exp", icon: TreePalm, tint: "teal", label: ["Experiences", "Expériences", "Eksperyans"], href: "/explore", images: cardImages.exp },
-    { key: "tiroule", icon: Bot, tint: "indigo", label: ["Ask Ti Roulé", "Demander Ti Roulé", "Demann Ti Roulé"], onClick: () => window.dispatchEvent(new CustomEvent("tiroule:open")), images: [], centerImage: mascot },
-    { key: "stores", icon: ShoppingBag, tint: "amber", label: ["Local Stores", "Boutiques", "Laboutik"], href: "/guide/shops", images: cardImages.stores },
-  ];
+  // The primary photo cards — admin-editable (content.homeCards). Each card's
+  // auto-cycling photos come from its imageSource category (the owner's real
+  // photos). Falls back to sensible defaults.
+  const cardGallery: Record<string, string[]> = {
+    scooter: cardImages.scooter, car: cardImages.car, stays: cardImages.stays,
+    exp: cardImages.exp, stores: cardImages.stores, none: [],
+  };
+  const BIG = (homeCards && homeCards.length ? homeCards : DEFAULT_HOME_CARDS)
+    .filter((c) => c.enabled !== false)
+    .map((c) => ({
+      key: c.id,
+      icon: HOME_ICON[c.icon] ?? Compass,
+      tint: (c.tint ?? "amber") as keyof typeof TINT,
+      label: [c.label, c.labelFr ?? c.label, c.labelCr ?? c.label] as Tri,
+      href: c.action === "tiroule" ? undefined : c.href,
+      onClick: c.action === "tiroule" ? () => window.dispatchEvent(new CustomEvent("tiroule:open")) : undefined,
+      images: cardGallery[c.imageSource] ?? [],
+      popular: c.popular,
+      centerImage: c.action === "tiroule" ? mascot : undefined,
+    }));
 
   // "What are you looking for?" tiles — admin-editable (falls back to defaults).
   const lookItems = (lookingFor && lookingFor.length ? lookingFor : DEFAULT_QUICK_ACCESS).filter((x) => x.enabled !== false);
@@ -246,7 +259,7 @@ function AutoImageCard({
     const t = setInterval(() => setIdx((x) => (x + 1) % imgs.length), 3400);
     return () => clearInterval(t);
   }, [imgs.length]);
-  const tint = TINT[card.tint];
+  const tint = TINT[card.tint] ?? TINT.amber;
   const body = (
     <>
       {imgs.length > 0 ? (
