@@ -81,7 +81,7 @@ export default function PlaceGuide({
             const description = loc(lang, p.description, p.descriptionFr, p.descriptionCr).trim();
             const story = loc(lang, p.story, p.storyFr, p.storyCr).trim();
             return (
-              <article key={p.id} className="scroll-mt-24">
+              <article key={p.id} id={p.id} className="scroll-mt-24">
                 <h2 className="font-syne text-2xl md:text-3xl font-bold text-offwhite">{name}</h2>
                 <p className="mt-2 flex items-center gap-1.5 font-dm text-xs text-muted">
                   <MapPin size={13} className="text-yellow/70 shrink-0" />

@@ -50,7 +50,7 @@ export default async function RoutesPage() {
         <h2 className="font-syne text-2xl md:text-3xl font-bold text-offwhite">{heading}</h2>
         <div className="mt-6 space-y-8">
           {list.map((r) => (
-            <article key={r.id} className="rounded-2xl border border-dark-border bg-white/[0.02] p-6">
+            <article key={r.id} id={r.id} className="scroll-mt-24 rounded-2xl border border-dark-border bg-white/[0.02] p-6">
               <h3 className="font-syne text-lg md:text-xl font-bold text-offwhite">{r.name.trim()}</h3>
 
               <div className="mt-3 flex flex-wrap items-center gap-2">

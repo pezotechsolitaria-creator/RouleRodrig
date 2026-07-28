@@ -59,7 +59,7 @@ export default async function ExplorePage() {
     descriptionFr: r.descriptionFr,
     descriptionCr: r.descriptionCr,
     image: r.image,
-    href: "/guide/routes",
+    href: `/guide/routes#${r.id}`,
     filterKey: r.kind === "hike" ? "hike" : "ride",
     tags: [r.distance, r.difficulty].filter(Boolean) as string[],
     featured: r.featured,
@@ -77,7 +77,7 @@ export default async function ExplorePage() {
       descriptionFr: l.descriptionFr,
       descriptionCr: l.descriptionCr,
       image: l.image ?? l.images?.[0],
-      href: l.category === "beach" ? "/guide/beaches" : l.category === "viewpoint" ? "/guide/viewpoints" : "/map",
+      href: l.category === "beach" ? `/guide/beaches#${l.id}` : l.category === "viewpoint" ? `/guide/viewpoints#${l.id}` : "/map",
       filterKey: l.category as "beach" | "viewpoint" | "landmark",
       tags: [],
     }));
