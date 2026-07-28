@@ -2,15 +2,15 @@ import type { Metadata } from "next";
 import { getFleetView, buildBrowseCategories, priceNumber } from "@/lib/site-data";
 import { SITE_URL } from "@/lib/site";
 import AppHome from "@/components/AppHome";
+import Hero from "@/components/Hero";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import TiRouleGuide from "@/components/TiRouleGuide";
 import ScrollToTop from "@/components/ScrollToTop";
 
 export const revalidate = 60;
 
-// PREVIEW of the app-style "Roulé Rodrigues 2.0" homepage. Kept out of the index
-// so it never competes with the live homepage — when it's approved we swap this
-// layout onto `/` and drop the noindex.
+// PREVIEW of the app-style "Roulé Rodrigues 2.0" homepage. noindex so it never
+// competes with the live homepage — swap this layout onto `/` once approved.
 export const metadata: Metadata = {
   title: "Roulé Rodrigues 2.0 — app homepage preview",
   description: "Preview of the new app-style Roulé Rodrigues homepage.",
@@ -28,9 +28,36 @@ export default async function V2Page() {
     .filter((n): n is number => n != null && n > 0);
   const scooterDailyMur = scooterPrices.length ? Math.min(...scooterPrices) : undefined;
 
+  // ── Real content for the app rails (no invented ratings/prices) ──
+  const experiences = content.recommended.items
+    .filter((p) => p.category === "activity" && (p.image || ""))
+    .map((p) => ({ id: p.id, name: p.name, image: p.image, price: p.priceNote ?? null, href: p.isTour ? "/browse/tours" : "/browse/activities" }));
+
+  const stays = content.recommended.items
+    .filter((p) => p.category === "hotel" && (p.image || ""))
+    .map((p) => ({ id: p.id, name: p.name, image: p.image, price: p.priceNote ?? null, href: "/browse/stays" }));
+
+  const discover = content.mapLocations
+    .filter((l) => (l.image || l.images?.[0]) && l.story && ["beach", "viewpoint", "landmark"].includes(l.category))
+    .slice(0, 10)
+    .map((l) => ({
+      id: l.id,
+      name: l.name,
+      image: l.image ?? l.images?.[0],
+      href: l.category === "beach" ? `/guide/beaches#${l.id}` : l.category === "viewpoint" ? `/guide/viewpoints#${l.id}` : "/map",
+      tag: l.category,
+    }));
+
   return (
     <>
-      <AppHome cats={browseCats} />
+      <AppHome
+        hero={<Hero hero={content.hero} />}
+        cats={browseCats}
+        experiences={experiences}
+        stays={stays}
+        discover={discover}
+        mascot={content.branding.mascotImage}
+      />
 
       <WhatsAppButton
         phone={content.contact.phone}
