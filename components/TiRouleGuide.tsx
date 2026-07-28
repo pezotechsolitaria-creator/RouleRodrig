@@ -344,12 +344,14 @@ export default function TiRouleGuide({
   data,
   whatsapp,
   scooterDailyMur,
+  hideFab,
 }: {
   image?: string;
   poses?: Record<string, string>;
   data?: MascotData;
   whatsapp?: string;
   scooterDailyMur?: number;
+  hideFab?: boolean; // hide the floating orb (e.g. when Ti Roulé is in a nav bar)
 }) {
   const { language } = useLanguage();
   const c = COPY[language] ?? COPY.en;
@@ -662,7 +664,7 @@ export default function TiRouleGuide({
     <>
       {/* Floating mascot button — reveals on scroll, bottom-left (WhatsApp owns bottom-right) */}
       <AnimatePresence>
-        {revealed && !open && (
+        {revealed && !open && !hideFab && (
           <motion.button
             type="button"
             onClick={openChat}

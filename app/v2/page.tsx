@@ -3,9 +3,9 @@ import { getFleetView, buildBrowseCategories, priceNumber } from "@/lib/site-dat
 import { SITE_URL } from "@/lib/site";
 import AppHome from "@/components/AppHome";
 import Hero from "@/components/Hero";
-import WhatsAppButton from "@/components/WhatsAppButton";
+import ReviewsContact from "@/components/ReviewsContact";
+import Footer from "@/components/Footer";
 import TiRouleGuide from "@/components/TiRouleGuide";
-import ScrollToTop from "@/components/ScrollToTop";
 
 export const revalidate = 60;
 
@@ -52,33 +52,27 @@ export default async function V2Page() {
     <>
       <AppHome
         hero={<Hero hero={content.hero} />}
+        reviews={<ReviewsContact contact={content.contact} fleet={fleet} />}
+        footer={<Footer social={content.social} branding={content.branding} />}
         cats={browseCats}
         experiences={experiences}
         stays={stays}
         discover={discover}
         mascot={content.branding.mascotImage}
+        logo={content.branding.logo}
       />
 
-      <WhatsAppButton
-        phone={content.contact.phone}
-        whatsapp={content.social.whatsapp}
-        numbers={content.contact.whatsappNumbers}
-      />
-      <ScrollToTop />
+      {/* Ti Roulé lives in the app nav here, so hide its floating orb.
+          WhatsApp + scroll-to-top floats are intentionally dropped on /v2. */}
       <TiRouleGuide
+        hideFab
         image={content.branding.mascotImage}
         poses={content.branding.mascotPoses}
         whatsapp={content.contact.whatsappNumbers?.[0]?.number || content.social.whatsapp || content.contact.phone}
         scooterDailyMur={scooterDailyMur}
         data={{
-          beaches: content.mapLocations
-            .filter((l) => l.category === "beach")
-            .slice(0, 3)
-            .map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
-          viewpoints: content.mapLocations
-            .filter((l) => l.category === "viewpoint")
-            .slice(0, 3)
-            .map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
+          beaches: content.mapLocations.filter((l) => l.category === "beach").slice(0, 3).map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
+          viewpoints: content.mapLocations.filter((l) => l.category === "viewpoint").slice(0, 3).map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
         }}
       />
     </>
