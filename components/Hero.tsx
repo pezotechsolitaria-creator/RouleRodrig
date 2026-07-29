@@ -108,7 +108,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
     h.headline;
 
   return (
-    <section className={`relative w-full overflow-hidden flex flex-col ${compact ? "min-h-[220px] md:min-h-[42vh]" : "min-h-[40vh] md:min-h-[62vh]"}`} aria-label="Hero section">
+    <section className={`relative w-full overflow-hidden flex flex-col ${compact ? "min-h-[172px] md:min-h-[36vh]" : "min-h-[40vh] md:min-h-[62vh]"}`} aria-label="Hero section">
       {/* ── Background image (owner's brand photo) ──────── */}
       <div className="absolute inset-0">
         {h.backgroundImage && (
@@ -133,13 +133,13 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
       <HeroBackdrop />
 
       {/* ── Main content ──────────────────────────────── */}
-      <div className={`relative z-10 flex flex-col justify-center flex-1 max-w-7xl mx-auto w-full px-6 pb-5 ${compact ? "pt-12" : "pt-20"}`}>
+      <div className={`relative z-10 flex flex-col justify-center flex-1 max-w-5xl mx-auto w-full px-4 md:px-6 pb-4 ${compact ? "pt-6" : "pt-20"}`}>
         {/* Eyebrow pill */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.15 }}
-          className="inline-flex items-center gap-2 self-start bg-white/5 backdrop-blur-md border border-white/10 rounded-full px-4 py-1.5 mb-4"
+          className="inline-flex items-center gap-2 self-start bg-white/5 backdrop-blur-md border border-white/10 rounded-full px-4 py-1.5 mb-3"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-yellow animate-pulse" />
           <span className="font-bebas text-yellow text-[11px] md:text-xs tracking-[0.3em]">{loc(language, h.eyebrow, h.eyebrowFr, h.eyebrowCr)}</span>

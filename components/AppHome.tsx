@@ -155,7 +155,7 @@ export default function AppHome({
         </section>
 
         {/* What are you looking for? */}
-        <section className="mt-6">
+        <section className="mt-4">
           <div className="mb-2.5 flex items-center justify-between">
             <h2 className="font-syne text-base font-bold text-offwhite">{L(["What are you looking for?", "Que cherchez-vous ?", "Ki ou pe rode?"])}</h2>
             <Link href="/explore" className="inline-flex items-center gap-1 font-dm text-xs text-yellow hover:underline">{L(["See all", "Voir tout", "Get tou"])} <ArrowRight size={13} /></Link>
