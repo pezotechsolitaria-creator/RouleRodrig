@@ -17,37 +17,28 @@ export default function Events({ events = [] }: { events?: EventItem[] }) {
   if (items.length === 0) return null;
 
   return (
-    <section id="events" className="bg-dark-card py-24 md:py-32 border-y border-dark-border" aria-label="Island events">
-      <div className="max-w-7xl mx-auto px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.6 }}
-          className="mb-12"
-        >
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{e.eyebrow}</p>
-          <h2
-            className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]"
-            style={{ fontSize: "clamp(34px, 8vw, 80px)" }}
-          >
+    <section id="events" className="bg-dark pt-5 pb-14" aria-label="Island events">
+      <div className="max-w-5xl mx-auto px-4 md:px-6">
+        <div className="mb-6">
+          <p className="font-bebas text-yellow text-[11px] tracking-[0.3em] mb-1.5 uppercase">{e.eyebrow}</p>
+          <h2 className="font-syne font-extrabold text-offwhite uppercase leading-tight text-2xl md:text-3xl">
             {e.title}
           </h2>
-          <p className="text-muted font-dm text-sm md:text-base mt-3 max-w-lg">{e.subtitle}</p>
-        </motion.div>
+          <p className="text-muted font-dm text-sm mt-2 max-w-xl leading-relaxed">{e.subtitle}</p>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {items.map((ev, i) => (
             <motion.article
               key={ev.id}
-              initial={{ opacity: 0, y: 40 }}
+              initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-60px" }}
-              transition={{ duration: 0.5, delay: (i % 3) * 0.1 }}
-              className={`flex flex-col bg-dark rounded-2xl overflow-hidden transition-colors ${
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ duration: 0.35, delay: Math.min(i, 3) * 0.05 }}
+              className={`flex flex-col bg-dark-card rounded-2xl overflow-hidden transition-colors ${
                 ev.featured
                   ? "border-2 border-yellow/50 hover:border-yellow shadow-[0_0_24px_rgba(245,200,66,0.08)]"
-                  : "border border-dark-border hover:border-yellow/40"
+                  : "border border-white/10 hover:border-yellow/40"
               }`}
             >
               {ev.image ? (
@@ -58,7 +49,7 @@ export default function Events({ events = [] }: { events?: EventItem[] }) {
                   <Calendar size={36} className="text-yellow/40" />
                 </div>
               )}
-              <div className="p-6 flex flex-col flex-1">
+              <div className="p-5 flex flex-col flex-1">
                 {/* Featured badge + date */}
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                   {ev.featured && (
@@ -75,7 +66,7 @@ export default function Events({ events = [] }: { events?: EventItem[] }) {
                 <h3 className="font-syne font-extrabold text-offwhite text-lg uppercase leading-tight mb-2">{loc(language, ev.title, ev.titleFr, ev.titleCr)}</h3>
                 <p className="text-muted font-dm text-sm leading-relaxed flex-1">{loc(language, ev.description, ev.descriptionFr, ev.descriptionCr)}</p>
                 {ev.location && (
-                  <p className="flex items-center gap-1.5 text-offwhite/60 font-dm text-xs mt-4 pt-4 border-t border-dark-border">
+                  <p className="flex items-center gap-1.5 text-offwhite/60 font-dm text-xs mt-4 pt-4 border-t border-white/10">
                     <MapPin size={12} className="text-yellow" /> {ev.location}
                   </p>
                 )}

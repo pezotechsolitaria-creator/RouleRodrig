@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { track } from "@vercel/analytics";
 import { useLanguage } from "@/context/LanguageContext";
@@ -11,7 +10,6 @@ import {
   MessageCircle,
   Star,
   Loader2,
-  ArrowLeft,
   MapPin,
   Languages,
   DollarSign,
@@ -21,6 +19,7 @@ import {
   X,
   CheckCircle,
 } from "lucide-react";
+import AppPageHeader from "@/components/AppPageHeader";
 import type { TaxiDriver, TaxiDriverReview } from "@/lib/supabase/taxi-types";
 
 const VEHICLE_EMOJI: Record<string, string> = {
@@ -129,7 +128,7 @@ function DriverReviewsModal({ driver, onClose }: { driver: TaxiDriver; onClose: 
         exit={{ opacity: 0, scale: 0.94, y: 20 }}
         transition={{ duration: 0.25 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-dark-card border border-dark-border rounded-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-lg bg-dark-card border border-white/10 rounded-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto"
       >
         <div className="flex items-start justify-between mb-5">
           <div>
@@ -160,7 +159,7 @@ function DriverReviewsModal({ driver, onClose }: { driver: TaxiDriver; onClose: 
           ) : (
             <div className="space-y-3 max-h-52 overflow-y-auto pr-1">
               {reviews.map((r) => (
-                <div key={r.id} className="bg-dark border border-dark-border rounded-xl p-4">
+                <div key={r.id} className="bg-dark border border-white/10 rounded-xl p-4">
                   <div className="flex items-center justify-between mb-1.5">
                     <Stars value={r.rating} size={12} />
                     <span className="text-muted/50 text-[11px] font-dm">{fmtDate(r.created_at)}</span>
@@ -176,7 +175,7 @@ function DriverReviewsModal({ driver, onClose }: { driver: TaxiDriver; onClose: 
         </div>
 
         {/* Submit form */}
-        <div className="border-t border-dark-border pt-5">
+        <div className="border-t border-white/10 pt-5">
           {done ? (
             <div className="text-center py-4">
               <CheckCircle size={36} className="text-green-400 mx-auto mb-3" />
@@ -214,13 +213,13 @@ function DriverReviewsModal({ driver, onClose }: { driver: TaxiDriver; onClose: 
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder={tx.yourName}
-                  className="w-full bg-dark border border-dark-border rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none"
+                  className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none"
                 />
                 <input
                   value={origin}
                   onChange={(e) => setOrigin(e.target.value)}
                   placeholder={tx.fromPh}
-                  className="w-full bg-dark border border-dark-border rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none"
+                  className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none"
                 />
               </div>
               <textarea
@@ -228,7 +227,7 @@ function DriverReviewsModal({ driver, onClose }: { driver: TaxiDriver; onClose: 
                 onChange={(e) => setText(e.target.value)}
                 rows={3}
                 placeholder={tx.reviewPh}
-                className="w-full bg-dark border border-dark-border rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none resize-none"
+                className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none resize-none"
               />
               {error && <p className="text-red-400 text-sm font-dm">{error}</p>}
               <button
@@ -289,32 +288,15 @@ export default function TaxiPage() {
 
   return (
     <main className="min-h-screen bg-dark text-offwhite font-dm">
-      <div className="max-w-6xl mx-auto px-6 py-10 md:py-16">
-        {/* Back */}
-        <div className="mb-10">
-          <Link href="/" className="inline-flex items-center gap-2 text-muted hover:text-yellow text-sm transition-colors">
-            <ArrowLeft size={15} /> Roule Rodrigues
-          </Link>
-        </div>
-
+      <AppPageHeader title={`${tx.title1} ${tx.title2}`} backHref="/" />
+      <div className="max-w-5xl mx-auto px-4 md:px-6 pt-5 pb-24">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="mb-14"
-        >
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{tx.eyebrow}</p>
-          <h1
-            className="font-syne font-extrabold uppercase leading-[0.95] mb-4"
-            style={{ fontSize: "clamp(38px, 9vw, 80px)" }}
-          >
-            {tx.title1}<br />{tx.title2}
-          </h1>
-          <p className="text-muted font-dm text-sm md:text-base max-w-xl leading-relaxed">
+        <div className="mb-6">
+          <p className="font-bebas text-yellow text-[11px] tracking-[0.3em] mb-1.5 uppercase">{tx.eyebrow}</p>
+          <p className="text-muted font-dm text-sm max-w-xl leading-relaxed">
             {tx.subtitle}
           </p>
-        </motion.div>
+        </div>
 
         {/* Driver grid */}
         {loading ? (
@@ -335,13 +317,13 @@ export default function TaxiPage() {
               return (
                 <motion.div
                   key={d.id}
-                  initial={{ opacity: 0, y: 40 }}
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: i * 0.07 }}
+                  transition={{ duration: 0.35, delay: Math.min(i, 3) * 0.05 }}
                   className={`bg-dark-card rounded-2xl overflow-hidden flex flex-col transition-colors ${
                     d.featured
                       ? "border-2 border-yellow/50 hover:border-yellow shadow-[0_0_24px_rgba(245,200,66,0.08)]"
-                      : "border border-dark-border hover:border-yellow/40"
+                      : "border border-white/10 hover:border-yellow/40"
                   }`}
                 >
                   {/* Photo or placeholder */}
@@ -407,7 +389,7 @@ export default function TaxiPage() {
                     {d.notes && <p className="text-muted/60 text-xs font-dm italic">{d.notes}</p>}
 
                     {/* CTA row */}
-                    <div className="flex items-center gap-2 mt-auto pt-3 border-t border-dark-border">
+                    <div className="flex items-center gap-2 mt-auto pt-3 border-t border-white/10">
                       <a
                         href={waLink}
                         target="_blank"
@@ -420,7 +402,7 @@ export default function TaxiPage() {
                       <a
                         href={`tel:${d.phone.replace(/\s/g, "")}`}
                         onClick={() => logContact(d, "call")}
-                        className="flex items-center justify-center gap-1.5 bg-dark border border-dark-border hover:border-yellow/40 text-muted hover:text-yellow text-xs font-syne font-bold px-3 py-2.5 rounded-full transition-colors"
+                        className="flex items-center justify-center gap-1.5 bg-dark border border-white/10 hover:border-yellow/40 text-muted hover:text-yellow text-xs font-syne font-bold px-3 py-2.5 rounded-full transition-colors"
                       >
                         <Phone size={13} /> {tx.call}
                       </a>
@@ -429,7 +411,7 @@ export default function TaxiPage() {
                     {/* Rate / reviews button */}
                     <button
                       onClick={() => setReviewDriver(d)}
-                      className="flex items-center justify-center gap-1.5 text-xs font-dm text-muted hover:text-yellow border border-dark-border hover:border-yellow/40 px-3 py-2 rounded-full transition-colors"
+                      className="flex items-center justify-center gap-1.5 text-xs font-dm text-muted hover:text-yellow border border-white/10 hover:border-yellow/40 px-3 py-2 rounded-full transition-colors"
                     >
                       <Star size={12} /> {d.rating_count ? tx.reviewsRate : tx.rate}
                     </button>

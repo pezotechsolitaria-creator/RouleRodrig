@@ -3,7 +3,7 @@ import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
-import Navbar from "@/components/Navbar";
+import AppPageHeader from "@/components/AppPageHeader";
 import ExploreClient, { type ExploreItem } from "@/components/ExploreClient";
 
 export const revalidate = 3600;
@@ -147,13 +147,7 @@ export default async function ExplorePage() {
   return (
     <>
       <JsonLd data={jsonLd} />
-      <Navbar
-        branding={content.branding}
-        announcementActive={false}
-        showStayEatDo={content.recommended.enabled && content.recommended.items.length > 0}
-        showRoutes={content.rideRoutes.length > 0}
-        showEvents={content.events.some((e) => e.title)}
-      />
+      <AppPageHeader logo={content.branding.logo} />
       <ExploreClient
         featured={featured}
         experiences={experiences}

@@ -86,7 +86,7 @@ export default function ExploreClient({
 
   return (
     <main className="min-h-screen bg-dark pb-24">
-      <div className="mx-auto max-w-3xl px-5 pt-24 md:pt-28">
+      <div className="mx-auto max-w-3xl px-5 pt-5">
         {/* Header */}
         <header>
           <p className="font-bebas text-[11px] tracking-[0.35em] text-yellow">RODRIGUES · CURATED BY LOCALS</p>

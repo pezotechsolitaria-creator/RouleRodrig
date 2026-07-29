@@ -78,30 +78,21 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
   }
 
   return (
-    <section id="recommended" className="bg-dark py-24 md:py-32 scroll-mt-24" aria-label="Recommended places">
-      <div className="max-w-7xl mx-auto px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.6 }}
-          className="mb-10"
-        >
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{ts.eyebrow}</p>
-          <h2
-            className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]"
-            style={{ fontSize: "clamp(32px, 7vw, 72px)" }}
-          >
+    <section id="recommended" className="bg-dark pt-5 pb-14 scroll-mt-24" aria-label="Recommended places">
+      <div className="max-w-5xl mx-auto px-4 md:px-6">
+        <div className="mb-6">
+          <p className="font-bebas text-yellow text-[11px] tracking-[0.3em] mb-1.5 uppercase">{ts.eyebrow}</p>
+          <h2 className="font-syne font-extrabold text-offwhite uppercase leading-tight text-2xl md:text-3xl">
             {content.title}
           </h2>
           {content.subtitle && (
-            <p className="text-muted font-dm text-sm md:text-base mt-3 max-w-lg">{content.subtitle}</p>
+            <p className="text-muted font-dm text-sm mt-2 max-w-xl leading-relaxed">{content.subtitle}</p>
           )}
-        </motion.div>
+        </div>
 
         {/* Category filter */}
         {showTabs && (
-          <div className="flex flex-wrap gap-2 mb-8">
+          <div className="flex flex-wrap gap-2 mb-5">
             <button
               onClick={() => setFilter("all")}
               className={`px-4 py-2 rounded-full text-xs font-dm border transition-colors ${
@@ -139,14 +130,14 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
             return (
               <motion.div
                 key={p.id}
-                initial={{ opacity: 0, y: 30 }}
+                initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-40px" }}
-                transition={{ duration: 0.5, delay: (i % 3) * 0.08 }}
+                transition={{ duration: 0.35, delay: Math.min(i, 3) * 0.05 }}
                 className={`bg-dark-card rounded-2xl overflow-hidden flex flex-col transition-colors group ${
                   p.featured
                     ? "border-2 border-yellow/50 hover:border-yellow shadow-[0_0_24px_rgba(245,200,66,0.08)]"
-                    : "border border-dark-border hover:border-yellow/40"
+                    : "border border-white/10 hover:border-yellow/40"
                 }`}
               >
                 {/* Image — opens the detail view */}
