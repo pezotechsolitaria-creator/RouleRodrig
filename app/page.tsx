@@ -6,7 +6,6 @@ import Hero from "@/components/Hero";
 import AppHome from "@/components/AppHome";
 import ReviewsContact from "@/components/ReviewsContact";
 import Footer from "@/components/Footer";
-import TiRouleGuide from "@/components/TiRouleGuide";
 
 // ISR: serve a cached page for instant repeat loads, regenerate every 60s.
 // Live booking-calendar availability is fetched client-side, so it stays fresh;
@@ -61,13 +60,6 @@ export default async function Home() {
       href: l.category === "beach" ? `/guide/beaches#${l.id}` : l.category === "viewpoint" ? `/guide/viewpoints#${l.id}` : "/map",
       tag: l.category,
     }));
-
-  // Cheapest scooter/day (MUR) — lets Ti Roulé relate a budget to real rental days.
-  const scooterPrices = fleet
-    .filter((f) => (f.category ?? "scooter") === "scooter")
-    .map((f) => priceNumber(f.price))
-    .filter((n): n is number => n != null && n > 0);
-  const scooterDailyMur = scooterPrices.length ? Math.min(...scooterPrices) : undefined;
 
   // Per-card image galleries so the homepage cards auto-cycle through the real
   // photos of each category's contents (all scooters, all cars, all stays…).
@@ -177,24 +169,6 @@ export default async function Home() {
         cardImages={cardImages}
         mascot={content.branding.mascotImage}
         logo={content.branding.logo}
-      />
-      {/* Ti Roulé lives in the app nav, so hide its floating orb. */}
-      <TiRouleGuide
-        hideFab
-        image={content.branding.mascotImage}
-        poses={content.branding.mascotPoses}
-        whatsapp={content.contact.whatsappNumbers?.[0]?.number || content.social.whatsapp || content.contact.phone}
-        scooterDailyMur={scooterDailyMur}
-        data={{
-          beaches: content.mapLocations
-            .filter((l) => l.category === "beach")
-            .slice(0, 3)
-            .map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
-          viewpoints: content.mapLocations
-            .filter((l) => l.category === "viewpoint")
-            .slice(0, 3)
-            .map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
-        }}
       />
     </>
   );

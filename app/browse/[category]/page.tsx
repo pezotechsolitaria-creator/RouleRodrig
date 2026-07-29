@@ -14,7 +14,6 @@ import Events from "@/components/Events";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import ScrollToTop from "@/components/ScrollToTop";
 import BrowseBackBar from "@/components/BrowseBackBar";
-import TiRouleGuide from "@/components/TiRouleGuide";
 
 // ISR (see app/page.tsx). The per-vehicle booking calendar is client-fetched,
 // so availability there stays live; card badges can be up to ~60s behind.
@@ -187,21 +186,6 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
         numbers={content.contact.whatsappNumbers}
       />
       <ScrollToTop />
-      <TiRouleGuide
-        image={content.branding.mascotImage}
-        poses={content.branding.mascotPoses}
-        whatsapp={businessWhatsApp}
-        data={{
-          beaches: content.mapLocations
-            .filter((l) => l.category === "beach")
-            .slice(0, 3)
-            .map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
-          viewpoints: content.mapLocations
-            .filter((l) => l.category === "viewpoint")
-            .slice(0, 3)
-            .map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
-        }}
-      />
     </>
   );
 

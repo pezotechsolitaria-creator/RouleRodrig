@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Compass, CalendarCheck, Menu } from "lucide-react";
+import { Home, Compass, Bot, CalendarCheck, Menu } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 
 // Premium floating bottom navigation (mobile only). A rounded glass pill with a
 // blurred background, soft shadow and safe-area padding; the active tab gets an
-// orange pill and its icon enlarges. Ti Roulé keeps its own floating chat
-// button, so it isn't duplicated here; Saved lives in the top-right heart; Quick
-// Actions stay on Home — this never duplicates any of them.
+// orange pill and its icon enlarges. Ti Roulé sits in the centre (gold), opening
+// the site-wide chat; Saved lives in the top-right heart. Matches the homepage
+// app bar so navigation is consistent everywhere.
 export default function BottomNav() {
   const pathname = usePathname() || "/";
   const { language } = useLanguage();
@@ -51,6 +51,15 @@ export default function BottomNav() {
         className="pointer-events-auto flex w-full max-w-sm items-center justify-around rounded-2xl border border-white/12 bg-dark/80 px-1.5 py-1.5 shadow-[0_16px_44px_-12px_rgba(0,0,0,0.75)] backdrop-blur-xl"
       >
         {links.map(item)}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent("tiroule:open"))}
+          aria-label="Ti Roulé"
+          className="flex min-w-[52px] flex-col items-center gap-1 rounded-2xl bg-gradient-to-b from-yellow to-yellow-dark px-2 py-1.5 shadow-[0_6px_18px_-4px_rgba(245,200,66,0.55)]"
+        >
+          <Bot size={22} className="text-dark" />
+          <span className="font-dm text-[10px] font-medium leading-none text-dark">Ti Roulé</span>
+        </button>
         {rightLinks.map(item)}
       </nav>
     </div>

@@ -10,7 +10,6 @@ import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import ScrollProgress from "@/components/ScrollProgress";
 import AskTiRouleButton from "@/components/AskTiRouleButton";
-import TiRouleGuide from "@/components/TiRouleGuide";
 
 export const revalidate = 3600;
 
@@ -161,22 +160,6 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           </nav>
         </article>
       </main>
-      {/* Mounts the chat so the "Ask Ti Roulé" button on this page has a listener. */}
-      <TiRouleGuide
-        image={content.branding.mascotImage}
-        poses={content.branding.mascotPoses}
-        whatsapp={businessWhatsApp}
-        data={{
-          beaches: content.mapLocations
-            .filter((l) => l.category === "beach")
-            .slice(0, 3)
-            .map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
-          viewpoints: content.mapLocations
-            .filter((l) => l.category === "viewpoint")
-            .slice(0, 3)
-            .map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
-        }}
-      />
     </>
   );
 }

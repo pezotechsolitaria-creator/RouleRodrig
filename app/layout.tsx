@@ -10,6 +10,9 @@ import ReturnWelcome from "@/components/ReturnWelcome";
 import PWARegister from "@/components/PWARegister";
 import RefCapture from "@/components/RefCapture";
 import BottomNav from "@/components/BottomNav";
+import GlobalTiRoule from "@/components/GlobalTiRoule";
+import { getContent } from "@/lib/content";
+import { priceNumber } from "@/lib/site-data";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SITE_URL } from "@/lib/site";
@@ -133,11 +136,24 @@ const IOS_SPLASH: { m: string; h: string }[] = [
   { m: "(device-width: 360px) and (device-height: 780px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)", h: "/splash/apple-splash-1080-2340.png" },
 ];
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Content for the site-wide Ti Roulé (getContent is cookie-free + ISR-safe and
+  // never throws — it falls back to defaults — so it's safe in the root layout).
+  const content = await getContent();
+  const scooterPrices = content.fleet
+    .filter((f) => (f.category ?? "scooter") === "scooter")
+    .map((f) => priceNumber(f.price))
+    .filter((n): n is number => n != null && n > 0);
+  const scooterDailyMur = scooterPrices.length ? Math.min(...scooterPrices) : undefined;
+  const tiData = {
+    beaches: content.mapLocations.filter((l) => l.category === "beach").slice(0, 3).map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
+    viewpoints: content.mapLocations.filter((l) => l.category === "viewpoint").slice(0, 3).map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
+  };
+
   return (
     <html
       lang="en"
@@ -238,6 +254,13 @@ export default function RootLayout({
               <ReturnWelcome />
               <FavoritesPanel />
               <BottomNav />
+              <GlobalTiRoule
+                image={content.branding.mascotImage}
+                poses={content.branding.mascotPoses}
+                whatsapp={content.contact.whatsappNumbers?.[0]?.number || content.social.whatsapp || content.contact.phone}
+                scooterDailyMur={scooterDailyMur}
+                data={tiData}
+              />
               <PWARegister />
             </FavoritesProvider>
           </CurrencyProvider>
