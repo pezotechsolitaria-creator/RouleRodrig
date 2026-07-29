@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-29T00:00:00Z",
+  "title": "Design System: Roule Rodrigues",
+  "extensions": {
+    "colorMeta": {
+      "gold": {
+        "role": "primary",
+        "displayName": "Rodrigues Gold",
+        "canonical": "#F5C842",
+        "tonalRamp": ["oklch(0.20 0.05 92)", "oklch(0.32 0.08 92)", "oklch(0.45 0.11 92)", "oklch(0.58 0.13 92)", "oklch(0.70 0.14 92)", "oklch(0.82 0.15 92)", "oklch(0.90 0.10 92)", "oklch(0.96 0.04 92)"]
+      },
+      "gold-deep": {
+        "role": "primary",
+        "displayName": "Deep Brass",
+        "canonical": "#d4a800",
+        "tonalRamp": ["oklch(0.18 0.05 92)", "oklch(0.28 0.08 92)", "oklch(0.40 0.11 92)", "oklch(0.52 0.13 92)", "oklch(0.63 0.14 92)", "oklch(0.73 0.14 92)", "oklch(0.85 0.10 92)", "oklch(0.94 0.04 92)"]
+      },
+      "ember": {
+        "role": "secondary",
+        "displayName": "Ember",
+        "canonical": "#f97316",
+        "tonalRamp": ["oklch(0.22 0.06 50)", "oklch(0.34 0.10 50)", "oklch(0.46 0.14 50)", "oklch(0.58 0.17 50)", "oklch(0.68 0.19 50)", "oklch(0.76 0.18 50)", "oklch(0.86 0.12 50)", "oklch(0.94 0.05 50)"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Island Ink",
+        "canonical": "#0a0a0a",
+        "tonalRamp": ["oklch(0.12 0 0)", "oklch(0.18 0 0)", "oklch(0.26 0 0)", "oklch(0.36 0 0)", "oklch(0.48 0 0)", "oklch(0.62 0 0)", "oklch(0.78 0 0)", "oklch(0.94 0 0)"]
+      },
+      "ink-card": {
+        "role": "neutral",
+        "displayName": "Ink Card",
+        "canonical": "#111111",
+        "tonalRamp": ["oklch(0.14 0 0)", "oklch(0.20 0 0)", "oklch(0.28 0 0)", "oklch(0.38 0 0)", "oklch(0.50 0 0)", "oklch(0.64 0 0)", "oklch(0.80 0 0)", "oklch(0.95 0 0)"]
+      },
+      "ink-border": {
+        "role": "neutral",
+        "displayName": "Ink Border",
+        "canonical": "#222222",
+        "tonalRamp": ["oklch(0.16 0 0)", "oklch(0.22 0 0)", "oklch(0.30 0 0)", "oklch(0.40 0 0)", "oklch(0.52 0 0)", "oklch(0.66 0 0)", "oklch(0.80 0 0)", "oklch(0.95 0 0)"]
+      },
+      "offwhite": {
+        "role": "neutral",
+        "displayName": "Offwhite",
+        "canonical": "#F5F5F0",
+        "tonalRamp": ["oklch(0.20 0.005 90)", "oklch(0.32 0.006 90)", "oklch(0.45 0.007 90)", "oklch(0.58 0.008 90)", "oklch(0.70 0.009 90)", "oklch(0.82 0.010 90)", "oklch(0.90 0.010 90)", "oklch(0.97 0.008 90)"]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "#888888",
+        "tonalRamp": ["oklch(0.15 0 0)", "oklch(0.25 0 0)", "oklch(0.35 0 0)", "oklch(0.45 0 0)", "oklch(0.55 0 0)", "oklch(0.63 0 0)", "oklch(0.78 0 0)", "oklch(0.92 0 0)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero wordmark and splash only; monumental, stacked, uppercase Syne 800." },
+      "headline": { "displayName": "Headline", "purpose": "Page titles (h1); one per screen." },
+      "title": { "displayName": "Title", "purpose": "Section and card headings; the label on a photo card." },
+      "body": { "displayName": "Body", "purpose": "All running copy, descriptions, form values; DM Sans." },
+      "label": { "displayName": "Label", "purpose": "Tracked Bebas eyebrows, field labels, badges, nav captions; often gold." }
+    },
+    "shadows": [
+      { "name": "floating-nav", "value": "0 16px 44px -12px rgba(0,0,0,0.75)", "purpose": "The one heavy drop shadow: lifts the glass bottom tab bar off the content." },
+      { "name": "gold-glow-active", "value": "0 6px 18px -4px rgba(245,200,66,0.55)", "purpose": "Under the active gold tab and the Ti Roulé button." },
+      { "name": "gold-glow-hover", "value": "0 10px 36px rgba(245,200,66,0.4)", "purpose": "Blooms under primary buttons on hover, paired with a slight scale." }
+    ],
+    "motion": [
+      { "name": "ease-premium", "value": "cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "Default premium ease-out for logo, splash pops, and hover transforms." },
+      { "name": "ease-standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Loading bar and neutral state transitions." },
+      { "name": "logo-float", "value": "translateY(-3px) over 4s ease-in-out infinite", "purpose": "Gentle idle float on the app-header logo." },
+      { "name": "kenburns", "value": "scale(1.02 -> 1.13) over 26s ease-in-out alternate", "purpose": "Cinematic slow zoom on hero imagery." },
+      { "name": "reduced-motion", "value": "all of the above disabled under prefers-reduced-motion: reduce", "purpose": "Accessibility invariant: every animation turns off." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single most important action on a view: solid gold, ink text, gold glow on hover.",
+      "html": "<button class=\"ds-btn-primary\">Book now</button>",
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; gap:.5rem; background:#F5C842; color:#0a0a0a; font-family:'Syne',sans-serif; font-weight:700; font-size:1rem; padding:1rem 2.5rem; border:none; border-radius:9999px; cursor:pointer; transition:background .2s, transform .2s, box-shadow .2s; } .ds-btn-primary:hover { background:#d4a800; transform:scale(1.04); box-shadow:0 10px 36px rgba(245,200,66,.4); } .ds-btn-primary:focus-visible { outline:2px solid #F5C842; outline-offset:2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action: transparent gold wash with a gold hairline, so it never competes with the one primary gold CTA.",
+      "html": "<button class=\"ds-btn-ghost\">Install app</button>",
+      "css": ".ds-btn-ghost { display:inline-flex; align-items:center; gap:.5rem; background:rgba(245,200,66,.10); color:#F5C842; font-family:'Syne',sans-serif; font-weight:700; font-size:1rem; padding:1rem 2rem; border:1px solid rgba(245,200,66,.3); border-radius:9999px; cursor:pointer; transition:background .2s; } .ds-btn-ghost:hover { background:rgba(245,200,66,.15); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Field on ink-card with a solid hairline; the stroke itself lights up gold on focus. Bebas label with a gold required asterisk.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Full name <em>*</em></span><input class=\"ds-input\" type=\"text\" placeholder=\"Your name\" /></label>",
+      "css": ".ds-field { display:block; } .ds-field-label { display:block; margin-bottom:.5rem; font-family:'Bebas Neue',sans-serif; font-size:.625rem; letter-spacing:.25em; text-transform:uppercase; color:#888; } .ds-field-label em { color:#F5C842; font-style:normal; } .ds-input { width:100%; box-sizing:border-box; background:#111; color:#F5F5F0; font-family:'DM Sans',sans-serif; font-size:.875rem; padding:.875rem 1rem; border:1px solid #222; border-radius:.75rem; transition:border-color .2s; } .ds-input::placeholder { color:rgba(136,136,136,.5); } .ds-input:focus { border-color:#F5C842; outline:none; }"
+    },
+    {
+      "name": "Photo Card",
+      "kind": "card",
+      "refersTo": "card-photo",
+      "description": "Signature portrait card: full-bleed island photo, bottom scrim, hairline border that warms to gold and lifts on hover.",
+      "html": "<a class=\"ds-card-photo\" href=\"#\"><span class=\"ds-card-img\"></span><span class=\"ds-card-scrim\"></span><span class=\"ds-card-chip\">POPULAR</span><span class=\"ds-card-title\">Scooters</span></a>",
+      "css": ".ds-card-photo { position:relative; display:block; aspect-ratio:4/5; width:11rem; overflow:hidden; border-radius:1rem; border:1px solid rgba(255,255,255,.1); text-decoration:none; transition:transform .2s, border-color .2s; } .ds-card-photo:hover { transform:translateY(-2px); border-color:rgba(245,200,66,.4); } .ds-card-photo:focus-visible { outline:none; box-shadow:0 0 0 2px rgba(245,200,66,.5); } .ds-card-img { position:absolute; inset:0; background:linear-gradient(135deg, rgba(245,200,66,.25), #0a0a0a); } .ds-card-scrim { position:absolute; inset:0; background:linear-gradient(to top, rgba(10,10,10,.85), transparent 55%); } .ds-card-chip { position:absolute; top:.5rem; right:.5rem; background:#F5C842; color:#0a0a0a; font-family:'Bebas Neue',sans-serif; font-size:.5rem; letter-spacing:.12em; padding:.15rem .5rem; border-radius:9999px; } .ds-card-title { position:absolute; left:.75rem; bottom:.75rem; color:#F5F5F0; font-family:'Syne',sans-serif; font-weight:700; font-size:1.125rem; }"
+    },
+    {
+      "name": "Floating Bottom Nav",
+      "kind": "nav",
+      "refersTo": "nav-pill",
+      "description": "Signature app chrome: a frosted glass pill floating above the content. Active tab gets a solid gold pill; the center Ti Roulé button is always gold with a glow.",
+      "html": "<nav class=\"ds-nav\"><button class=\"ds-nav-item active\"><svg viewBox=\"0 0 24 24\"><path d=\"M3 9.5 12 3l9 6.5\"/><path d=\"M5 10v10h14V10\"/></svg><span>Home</span></button><button class=\"ds-nav-item\"><svg viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"m15 9-3.5 5.5L8 12\"/></svg><span>Explore</span></button><button class=\"ds-nav-ti\"><svg viewBox=\"0 0 24 24\"><rect x=\"3\" y=\"11\" width=\"18\" height=\"10\" rx=\"2\"/><circle cx=\"12\" cy=\"5\" r=\"2\"/><path d=\"M12 7v4\"/></svg><span>Ti Roulé</span></button><button class=\"ds-nav-item\"><svg viewBox=\"0 0 24 24\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M16 2v4M8 2v4M3 10h18\"/></svg><span>Bookings</span></button></nav>",
+      "css": ".ds-nav { display:inline-flex; align-items:center; gap:.25rem; background:rgba(10,10,10,.8); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,.12); border-radius:1rem; padding:.375rem; box-shadow:0 16px 44px -12px rgba(0,0,0,.75); } .ds-nav svg { width:20px; height:20px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; } .ds-nav-item { display:flex; flex-direction:column; align-items:center; gap:.25rem; min-width:52px; padding:.375rem .5rem; border-radius:.75rem; color:#888; background:none; border:none; cursor:pointer; } .ds-nav-item span { font-family:'DM Sans',sans-serif; font-size:10px; } .ds-nav-item:hover { color:#F5F5F0; } .ds-nav-item.active { color:#0a0a0a; background:linear-gradient(#F5C842,#d4a800); box-shadow:0 4px 14px -3px rgba(245,200,66,.55); } .ds-nav-ti { display:flex; flex-direction:column; align-items:center; gap:.25rem; min-width:52px; padding:.375rem .5rem; border-radius:1rem; color:#0a0a0a; background:linear-gradient(#F5C842,#d4a800); border:none; cursor:pointer; box-shadow:0 6px 18px -4px rgba(245,200,66,.55); } .ds-nav-ti span { font-family:'DM Sans',sans-serif; font-size:10px; font-weight:500; }"
+    },
+    {
+      "name": "Section Eyebrow",
+      "kind": "custom",
+      "refersTo": "label",
+      "description": "The tracked Bebas micro-label that titles every section and rail, usually gold.",
+      "html": "<span class=\"ds-eyebrow\">Our Fleet</span>",
+      "css": ".ds-eyebrow { display:inline-block; font-family:'Bebas Neue',sans-serif; font-size:.6875rem; letter-spacing:.3em; text-transform:uppercase; color:#F5C842; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Golden Hour on Rodrigues",
+    "overview": "The interface is the last hour of island daylight rendered as software: a deep, near-black canvas lit by warm marigold gold. It is app-first, not brochure-first: the primary scene is a traveler holding a phone, so every surface behaves like a native app the moment it loads. Warmth carries the emotion — golden glows, a slow Ken Burns drift on hero imagery, an ember-orange bloom low in the frame — while structure keeps it trustworthy enough to take a payment. Density is calm and generous: full-bleed photography, one clear action per view, hairline-bordered cards floating on ink. Gold is never decoration; it is wayfinding — it marks the next action, the active tab, the required field, the price that matters. Because the canvas is so dark, a single gold element reads as light in a room.",
+    "keyCharacteristics": [
+      "Near-black canvas (#0a0a0a) with warm marigold gold (#F5C842) as the only true accent.",
+      "App-first: floating glass bottom nav, PWA splash, native-feeling motion — never a static webpage.",
+      "Full-bleed island photography inside hairline-bordered, gently-rounded cards.",
+      "Gold is structural wayfinding, not decoration.",
+      "Three-typeface system: geometric display (Syne), humanist body (DM Sans), condensed tracked labels (Bebas Neue).",
+      "60fps transform/opacity/filter motion, fully disabled under prefers-reduced-motion."
+    ],
+    "rules": [
+      { "name": "The Gold-Is-Information Rule", "body": "Gold is structural, never ornamental. If a gold element is not the next action, the active state, a required marker, or the price that matters, it is wrong — recolor it offwhite or muted. A screen should have exactly one primary-gold call to action.", "section": "colors" },
+      { "name": "The Warm-Black Rule", "body": "Backgrounds are warm near-black (#0a0a0a), text is warm off-white (#F5F5F0). Never pure #000 or pure #fff — the whole world sits at golden hour, and clinical black-on-white breaks the spell.", "section": "colors" },
+      { "name": "The Three-Voice Rule", "body": "Syne for display/headings, DM Sans for body, Bebas for tracked labels — never substitute one for another's job. A body paragraph in Syne or a heading in Bebas is a system violation.", "section": "typography" },
+      { "name": "The Whole-Word Rule", "body": "Headings never hyphenate or break a word across lines (word-break: keep-all; hyphens: none). On small phones, whole words stay intact — readability outranks a tidy right edge.", "section": "typography" },
+      { "name": "The Light-Not-Shadow Rule", "body": "Separate surfaces with a hairline of light (border-white/10) and a top-lit gradient, not a drop shadow. Shadows appear only under the floating nav and as a gold glow on the active/primary element.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep exactly one primary-gold action per view; everything else is offwhite, muted, or ghost. Gold marks the next step (the Gold-Is-Information Rule).",
+      "Do separate surfaces with a hairline of light (border-white/10) and a top-lit gradient — not a drop shadow (the Light-Not-Shadow Rule).",
+      "Do use warm near-black (#0a0a0a) and warm off-white (#F5F5F0), never pure black or white.",
+      "Do assign type by voice: Syne for display/headings, DM Sans for body, Bebas for tracked labels — and keep each in its tier.",
+      "Do lead with full-bleed island photography inside rounded-2xl hairline cards; overlay text on a bottom scrim.",
+      "Do author motion with transform/opacity/filter only, and disable it under prefers-reduced-motion.",
+      "Do warm borders toward gold on hover (hover:border-yellow/40) and lift cards -translate-y-0.5.",
+      "Do reserve bottom padding (pb-[116px]) so content never hides under the floating tab bar."
+    ],
+    "donts": [
+      "Don't use gold as decoration, large fills, or on more than the one primary action — its scarcity is what makes it read as premium.",
+      "Don't introduce a second saturated accent. Ember (#f97316) is atmospheric glow only, never a fill, border, or text color.",
+      "Don't add heavy drop shadows or hard elevation steps to cards; depth is light, not weight.",
+      "Don't ship a bright/white surface or a clinical dashboard grid of equal-weight cards — that is the explicit anti-reference.",
+      "Don't hyphenate or break headings across a word; keep whole words intact.",
+      "Don't substitute typefaces across tiers (no body copy in Syne, no headings in Bebas).",
+      "Don't duplicate the Ti Roulé chat per page — it is mounted once, globally."
+    ]
+  }
+}
