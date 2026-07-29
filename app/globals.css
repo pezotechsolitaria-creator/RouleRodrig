@@ -472,3 +472,25 @@ html[data-splash="on"] #rr-splash.rr-skip {
   .rr-logo-anim, .rr-logo-bob, .rr-logo-bob::after { animation: none; }
   .rr-logo-bob::after { display: none; }
 }
+
+/* ── Short-viewport home (iPhone Safari & small phones) ─────────────────────
+   On tall screens (most Android, desktop) the hero + six cards + the "What are
+   you looking for?" tiles all sit above the fixed bottom bar. iOS Safari's URL
+   bar and toolbar leave roughly one tile-row less usable height, which pushed
+   that row behind the bar. On short viewports ONLY, compact the above-the-fold
+   so the same content fits the way it does on Android — taller screens are
+   untouched. Height-keyed so it never fires on desktop/tablet. */
+@media (max-height: 745px) {
+  .rr-home-hero { min-height: 116px !important; }
+  .rr-home-cards > * { aspect-ratio: 1 / 1 !important; }
+  .rr-home-cards-sec { padding-top: 0.5rem !important; }
+  .rr-home-tiles-sec { margin-top: 0.625rem !important; }
+}
+
+/* Very short viewports (iPhone SE / mini in Safari): go further — a shorter
+   hero and a tighter bottom bar so the tiles still clear it. */
+@media (max-height: 620px) {
+  .rr-home-hero { min-height: 84px !important; }
+  .rr-tools-row { padding-top: 0.3rem !important; padding-bottom: 0.3rem !important; }
+  .rr-nav-row { padding-top: 0.25rem !important; padding-bottom: 0.25rem !important; }
+}

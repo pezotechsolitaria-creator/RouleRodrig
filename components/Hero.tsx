@@ -108,7 +108,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
     h.headline;
 
   return (
-    <section className={`relative w-full overflow-hidden flex flex-col ${compact ? "min-h-[172px] md:min-h-[36vh]" : "min-h-[40vh] md:min-h-[62vh]"}`} aria-label="Hero section">
+    <section className={`relative w-full overflow-hidden flex flex-col ${compact ? "rr-home-hero min-h-[172px] md:min-h-[36vh]" : "min-h-[40vh] md:min-h-[62vh]"}`} aria-label="Hero section">
       {/* ── Background image (owner's brand photo) ──────── */}
       <div className="absolute inset-0">
         {h.backgroundImage && (

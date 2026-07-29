@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, Fragment, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -141,13 +141,17 @@ export default function AppHome({
       </header>
 
       {/* ── Hero (kept — passed in) ────────────────────────── */}
-      {hero}
+      {/* Keyed: hero/reviews/footer are server-component elements created in
+          Home. Crossing the RSC boundary strips React's dev "validated" flag,
+          so rendered bare among siblings the reconciler flags them as keyless
+          list children ("a child from Home"). A stable key silences it. */}
+      <Fragment key="hero">{hero}</Fragment>
 
       {/* pb clears the fixed bottom bar (tools strip + nav). */}
       <main className="mx-auto max-w-5xl px-4 pb-[116px]">
         {/* Six primary cards — v1 photo-card design, auto-cycling images. */}
-        <section className="pt-3">
-          <div className="grid grid-cols-3 gap-2.5">
+        <section className="rr-home-cards-sec pt-3">
+          <div className="rr-home-cards grid grid-cols-3 gap-2.5">
             {BIG.map((c) => (
               <AutoImageCard key={c.key} card={c} L={L} />
             ))}
@@ -155,7 +159,7 @@ export default function AppHome({
         </section>
 
         {/* What are you looking for? */}
-        <section className="mt-4">
+        <section className="rr-home-tiles-sec mt-4">
           <div className="mb-2.5 flex items-center justify-between">
             <h2 className="font-syne text-base font-bold text-offwhite">{L(["What are you looking for?", "Que cherchez-vous ?", "Ki ou pe rode?"])}</h2>
             <Link href="/explore" className="inline-flex items-center gap-1 font-dm text-xs text-yellow hover:underline">{L(["See all", "Voir tout", "Get tou"])} <ArrowRight size={13} /></Link>
@@ -200,15 +204,16 @@ export default function AppHome({
           </Rail>
         )}
 
-        {/* Reviews + Footer (from v1) */}
-        {reviews}
-        {footer}
+        {/* Reviews + Footer (from v1) — keyed for the same RSC-boundary reason
+            as hero above (server elements from Home, rendered among siblings). */}
+        <Fragment key="reviews">{reviews}</Fragment>
+        <Fragment key="footer">{footer}</Fragment>
       </main>
 
       {/* ── Fixed bottom: Travel Tools strip + app nav ─────── */}
       <div className="fixed inset-x-0 bottom-0 z-40">
         <div className="border-t border-white/10 bg-dark/90 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-5xl items-stretch gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="rr-tools-row mx-auto flex max-w-5xl items-stretch gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <span className="flex shrink-0 items-center pr-1 font-bebas text-[9px] tracking-[0.2em] text-muted/60">{L(["TOOLS", "OUTILS", "ZOUTI"])}</span>
             {TOOLS.map((t) => (
               <Link key={t.href + t.label[0]} href={t.href} className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 transition-colors hover:border-yellow/40">
@@ -219,7 +224,7 @@ export default function AppHome({
           </div>
         </div>
         <nav aria-label="Primary" className="border-t border-white/10 bg-dark/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]">
-          <div className="mx-auto flex max-w-5xl items-center justify-around px-2 py-1.5">
+          <div className="rr-nav-row mx-auto flex max-w-5xl items-center justify-around px-2 py-1.5">
             {NAV.map((it) => {
               const active = it.href ? (it.href === "/" ? false : pathname.startsWith(it.href)) : false;
               const isTi = it.key === "tiroule";
