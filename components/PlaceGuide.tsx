@@ -45,7 +45,7 @@ export default function PlaceGuide({
     // Scoped to the content, since the root layout owns <html lang>. Fixes
     // screen-reader pronunciation; Google reads the content itself.
     <main className="bg-dark min-h-screen" lang={lang === "cr" ? "mfe" : lang}>
-      <header className="border-b border-dark-border bg-gradient-to-b from-yellow/[0.06] to-transparent px-5 py-16 md:py-24">
+      <header className="border-b border-white/10 bg-gradient-to-b from-yellow/[0.06] to-transparent px-5 py-10 md:py-14">
         <div className="mx-auto max-w-3xl">
           <p className="font-bebas text-yellow text-xs tracking-[0.3em]">{eyebrow}</p>
           <h1 className="mt-3 font-syne text-4xl md:text-5xl font-extrabold text-offwhite leading-tight">
@@ -98,7 +98,7 @@ export default function PlaceGuide({
                     {photos.map((src, n) => (
                       <div
                         key={src}
-                        className="relative aspect-square overflow-hidden rounded-xl border border-dark-border"
+                        className="relative aspect-square overflow-hidden rounded-xl border border-white/10"
                       >
                         <Image
                           src={src}
@@ -128,7 +128,7 @@ export default function PlaceGuide({
           })}
         </div>
 
-        <nav className="mt-16 border-t border-dark-border pt-8">
+        <nav className="mt-16 border-t border-white/10 pt-8">
           <p className="font-syne text-sm font-bold text-offwhite">{L.keepExploring}</p>
           <ul className="mt-3 space-y-2">
             {related.map((r) => (

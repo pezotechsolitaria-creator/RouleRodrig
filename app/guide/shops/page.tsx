@@ -4,7 +4,7 @@ import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, itemListLd, placeLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
-import Navbar from "@/components/Navbar";
+import AppPageHeader from "@/components/AppPageHeader";
 import PlaceGuide from "@/components/PlaceGuide";
 
 export const revalidate = 3600;
@@ -67,13 +67,7 @@ export default async function ShopsPage() {
           ),
         ]}
       />
-      <Navbar
-        branding={content.branding}
-        announcementActive={false}
-        showStayEatDo={content.recommended.enabled && content.recommended.items.length > 0}
-        showRoutes={content.rideRoutes.length > 0}
-        showEvents={content.events.some((e) => e.title)}
-      />
+      <AppPageHeader logo={content.branding.logo} />
       <PlaceGuide
         eyebrow="ISLAND GUIDE"
         title="Where to shop in Rodrigues"

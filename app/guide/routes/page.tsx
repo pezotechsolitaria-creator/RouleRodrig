@@ -5,7 +5,7 @@ import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
-import Navbar from "@/components/Navbar";
+import AppPageHeader from "@/components/AppPageHeader";
 
 export const revalidate = 3600;
 
@@ -126,16 +126,10 @@ export default async function RoutesPage() {
           ),
         ]}
       />
-      <Navbar
-        branding={content.branding}
-        announcementActive={false}
-        showStayEatDo={content.recommended.enabled && content.recommended.items.length > 0}
-        showRoutes={content.rideRoutes.length > 0}
-        showEvents={content.events.some((e) => e.title)}
-      />
+      <AppPageHeader logo={content.branding.logo} />
 
       <main className="bg-dark min-h-screen">
-        <header className="border-b border-dark-border bg-gradient-to-b from-yellow/[0.06] to-transparent px-5 py-16 md:py-24">
+        <header className="border-b border-white/10 bg-gradient-to-b from-yellow/[0.06] to-transparent px-5 py-10 md:py-14">
           <div className="mx-auto max-w-3xl">
             <p className="font-bebas text-yellow text-xs tracking-[0.3em]">ISLAND GUIDE</p>
             <h1 className="mt-3 font-syne text-4xl md:text-5xl font-extrabold text-offwhite leading-tight">
