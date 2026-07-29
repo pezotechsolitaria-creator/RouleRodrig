@@ -35,7 +35,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
       { icon: CalendarCheck, label: "Manage a booking", href: "/manage-booking", note: "No account needed" },
       { icon: HelpCircle, label: "FAQ", href: "/faq" },
       { icon: Phone, label: "Contact us", href: "/#contact" },
-      { icon: Siren, label: "Emergency numbers", href: "/#useful" },
+      { icon: Siren, label: "Emergency numbers", href: "/emergency" },
     ],
   },
   {
