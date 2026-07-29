@@ -4,7 +4,7 @@ import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, itemListLd, productLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import { getFleetView, buildBrowseCategories, priceNumber } from "@/lib/site-data";
-import Navbar from "@/components/Navbar";
+import AppPageHeader from "@/components/AppPageHeader";
 import BrowseTabs from "@/components/BrowseTabs";
 import Fleet from "@/components/Fleet";
 import BookingSection from "@/components/BookingSection";
@@ -13,7 +13,6 @@ import GettingAround from "@/components/GettingAround";
 import Events from "@/components/Events";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import ScrollToTop from "@/components/ScrollToTop";
-import BrowseBackBar from "@/components/BrowseBackBar";
 
 // ISR (see app/page.tsx). The per-vehicle booking calendar is client-fetched,
 // so availability there stays live; card badges can be up to ~60s behind.
@@ -169,15 +168,9 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
     />
   );
 
-  const nav = (
-    <Navbar
-      branding={content.branding}
-      announcementActive={false}
-      showStayEatDo={content.recommended.enabled && content.recommended.items.length > 0}
-      showRoutes={content.rideRoutes.length > 0}
-      showEvents={content.events.some((e) => e.title)}
-    />
-  );
+  // App-style top bar (back to Explore + page title + language). Replaces the
+  // marketing navbar on this redesigned surface; the global BottomNav does the rest.
+  const header = (title: string) => <AppPageHeader title={title} backHref="/#explore" />;
   const footer = (
     <>
       <WhatsAppButton
@@ -220,10 +213,9 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
             ),
           }}
         />
-        {nav}
+        {header(vcat.label)}
         <main>
-          <BrowseBackBar title={vcat.label} />
-          <BrowseTabs categories={cats} active={category} />
+          <BrowseTabs categories={cats} active={category} stickyTop="top-[56px]" />
           {/* The scooter price-value banner was removed from this booking page to
               keep it focused on the fleet. Its content lives, server-rendered in
               French for SEO, on /fr/location-scooter-rodrigues (hreflang-paired). */}
@@ -252,10 +244,9 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
     return (
       <>
         {seo(place.label, items.map((i) => ({ name: i.name })))}
-        {nav}
+        {header(place.label)}
         <main>
-          <BrowseBackBar title={place.label} />
-          <BrowseTabs categories={cats} active={category} />
+          <BrowseTabs categories={cats} active={category} stickyTop="top-[56px]" />
           <RecommendedPlaces
             content={{ enabled: true, title: place.label, subtitle: content.recommended.subtitle, items }}
             whatsapp={businessWhatsApp}
@@ -274,10 +265,9 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
     return (
       <>
         {seo("Getting around", opts.map((o) => ({ name: o.title })))}
-        {nav}
+        {header("Getting around")}
         <main>
-          <BrowseBackBar title="Getting around" />
-          <BrowseTabs categories={cats} active={category} />
+          <BrowseTabs categories={cats} active={category} stickyTop="top-[56px]" />
           <GettingAround content={{ ...ga, options: opts }} />
         </main>
         {footer}
@@ -292,10 +282,9 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
     return (
       <>
         {seo("What's on", events.map((e) => ({ name: e.title })))}
-        {nav}
+        {header("What's on")}
         <main>
-          <BrowseBackBar title="What's on" />
-          <BrowseTabs categories={cats} active={category} />
+          <BrowseTabs categories={cats} active={category} stickyTop="top-[56px]" />
           <Events events={content.events} />
         </main>
         {footer}

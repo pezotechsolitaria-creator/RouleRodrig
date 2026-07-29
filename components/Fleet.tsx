@@ -82,7 +82,7 @@ function FleetImageCarousel({ scooter }: { scooter: FleetItem }) {
   };
 
   if (photos.length === 0) return (
-    <div className="relative h-[340px] md:h-[420px] bg-dark-card flex items-center justify-center">
+    <div className="relative h-[240px] md:h-[300px] bg-dark-card flex items-center justify-center">
       <Gauge size={48} className="text-muted/20" />
     </div>
   );
@@ -92,7 +92,7 @@ function FleetImageCarousel({ scooter }: { scooter: FleetItem }) {
   return (
     <div
       ref={wrapRef}
-      className="relative h-[340px] md:h-[420px] overflow-hidden group/carousel"
+      className="relative h-[240px] md:h-[300px] overflow-hidden group/carousel"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onTouchStart={(e) => { setPaused(true); touchX.current = e.touches[0].clientX; }}
@@ -219,28 +219,17 @@ export default function Fleet({
   if (visibleItems.length === 0) return null;
 
   return (
-    <section id="fleet" className="bg-dark py-24 md:py-36" aria-label="Scooter fleet">
-      <div className="max-w-7xl mx-auto px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.7 }}
-          className="mb-16 flex flex-col md:flex-row md:items-end md:justify-between gap-4"
-        >
-          <div>
-            <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{eyebrow ?? t.fleet.sectionEyebrow}</p>
-            <h2
-              className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]"
-              style={{ fontSize: "clamp(38px, 8vw, 80px)" }}
-            >
-              {title ?? t.fleet.sectionTitle}
-            </h2>
-          </div>
-          <p className="text-muted font-dm text-sm max-w-xs leading-relaxed md:text-right">
+    <section id="fleet" className="bg-dark pt-5 pb-14" aria-label="Vehicle fleet">
+      <div className="max-w-5xl mx-auto px-4 md:px-6">
+        <div className="mb-6">
+          <p className="font-bebas text-yellow text-[11px] tracking-[0.3em] mb-1.5 uppercase">{eyebrow ?? t.fleet.sectionEyebrow}</p>
+          <h2 className="font-syne font-extrabold text-offwhite uppercase leading-tight text-2xl md:text-3xl">
+            {title ?? t.fleet.sectionTitle}
+          </h2>
+          <p className="mt-2 max-w-xl font-dm text-sm leading-relaxed text-muted">
             {subtitle ?? t.fleet.sectionSub}
           </p>
-        </motion.div>
+        </div>
 
         {showTabs && (
           <div className="flex flex-wrap gap-2.5 mb-10">
@@ -284,12 +273,11 @@ export default function Fleet({
             return (
               <motion.div
                 key={`${scooter.id}-${i}`}
-                initial={{ opacity: 0, y: 50 }}
+                initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-60px" }}
-                transition={{ duration: 0.8, delay: i * 0.12 }}
-                whileHover={{ scale: 1.015 }}
-                className="group relative bg-dark-card rounded-2xl overflow-hidden border border-dark-border hover:border-yellow/60 transition-all duration-400"
+                viewport={{ once: true, margin: "-40px" }}
+                transition={{ duration: 0.35, delay: Math.min(i, 3) * 0.05 }}
+                className="group relative bg-dark-card rounded-2xl overflow-hidden border border-white/10 transition-colors duration-300 hover:border-yellow/50"
               >
                 {/* Photo carousel */}
                 <FleetImageCarousel scooter={scooter} />
@@ -325,14 +313,11 @@ export default function Fleet({
                 </div>
 
                 {/* Content */}
-                <div className="p-6 md:p-8">
-                  <p className="font-bebas text-muted text-xs tracking-[0.2em] mb-1 uppercase">
+                <div className="p-5">
+                  <p className="font-bebas text-muted text-[11px] tracking-[0.2em] mb-1 uppercase">
                     {loc(language, scooter.tagline, scooter.taglineFr, scooter.taglineCr)}
                   </p>
-                  <h3
-                    className="font-syne font-extrabold text-offwhite uppercase leading-none mb-3"
-                    style={{ fontSize: "clamp(32px, 5vw, 44px)" }}
-                  >
+                  <h3 className="font-syne font-extrabold text-offwhite uppercase leading-none mb-2 text-xl md:text-2xl">
                     {scooter.name}
                   </h3>
                   {(() => {
@@ -359,12 +344,12 @@ export default function Fleet({
                       </span>
                     </div>
                   )}
-                  <p className="text-muted/80 font-dm text-sm leading-relaxed mb-7">
+                  <p className="text-muted/80 font-dm text-sm leading-relaxed mb-4">
                     {loc(language, scooter.description, scooter.descriptionFr, scooter.descriptionCr)}
                   </p>
 
                   {specs.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-8">
+                    <div className="flex flex-wrap gap-2 mb-5">
                       {specs.map((spec) => {
                         const Icon = spec.icon;
                         return (
@@ -379,7 +364,7 @@ export default function Fleet({
                     </div>
                   )}
 
-                  <div className="pt-5 border-t border-dark-border space-y-3">
+                  <div className="pt-4 border-t border-white/10 space-y-3">
                     <div>
                       <span className="font-syne font-extrabold text-yellow text-2xl">{convert(scooter.price)}</span>
                       <span className="font-dm text-muted text-sm ml-1">{scooter.unit}</span>

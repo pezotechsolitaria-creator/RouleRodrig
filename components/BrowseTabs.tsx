@@ -9,10 +9,19 @@ import { iconFor, type BrowseCategory } from "@/components/WhatLookingFor";
  * category icon; the current one is highlighted in gold. Sticks under the fixed
  * navbar and scrolls horizontally.
  */
-export default function BrowseTabs({ categories, active }: { categories: BrowseCategory[]; active: string }) {
+export default function BrowseTabs({
+  categories,
+  active,
+  stickyTop = "top-[72px]",
+}: {
+  categories: BrowseCategory[];
+  active: string;
+  /** Tailwind top-offset class so the pills tuck under whatever header the page uses. */
+  stickyTop?: string;
+}) {
   if (categories.length < 2) return null;
   return (
-    <div className="sticky top-[72px] z-40 bg-dark/80 backdrop-blur-xl border-b border-white/5">
+    <div className={`sticky ${stickyTop} z-40 bg-dark/80 backdrop-blur-xl border-b border-white/5`}>
       <div className="max-w-7xl mx-auto px-6 py-3 flex gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {categories.map((c) => {
           const Icon = iconFor(c.slug, c.label);
