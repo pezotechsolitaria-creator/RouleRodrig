@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
+import InstallAppButton from "@/components/InstallAppButton";
 
 /**
  * Slim app-style top bar for inner pages — the v2 replacement for the marketing
@@ -64,6 +65,7 @@ export default function AppPageHeader({
           <span className="flex-1" />
         )}
 
+        <InstallAppButton variant="icon" />
         <button
           onClick={cycle}
           aria-label="Change language"

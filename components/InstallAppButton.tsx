@@ -30,7 +30,7 @@ function detectPlatform(): Platform {
  * offers one, and otherwise opens clear per-platform instructions — so every
  * visitor on every phone can always install the app.
  */
-export default function InstallAppButton({ variant = "chip" }: { variant?: "chip" | "menu" }) {
+export default function InstallAppButton({ variant = "chip" }: { variant?: "chip" | "menu" | "icon" }) {
   const [installed, setInstalled] = useState(false);
   const [hasNative, setHasNative] = useState(false);
   const [platform, setPlatform] = useState<Platform>("desktop");
@@ -85,6 +85,14 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
         className="flex items-center gap-3 bg-yellow/10 text-yellow border border-yellow/30 font-syne font-bold text-lg px-8 py-4 rounded-full hover:bg-yellow/15 transition-colors"
       >
         <Download size={20} /> Install app
+      </button>
+    ) : variant === "icon" ? (
+      <button
+        onClick={handleClick}
+        aria-label="Install the app"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-muted transition-colors hover:border-yellow/50 hover:text-yellow"
+      >
+        <Download size={16} />
       </button>
     ) : (
       <button
