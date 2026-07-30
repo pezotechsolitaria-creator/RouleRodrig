@@ -150,7 +150,7 @@ export default function AppHome({
       <Fragment key="hero">{hero}</Fragment>
 
       {/* pb clears the fixed bottom bar (tools strip + nav). */}
-      <main className="mx-auto max-w-5xl px-4 pb-[116px]">
+      <main className="mx-auto max-w-5xl px-4 pb-[128px]">
         {/* Six primary cards — v1 photo-card design, auto-cycling images. */}
         <section className="rr-home-cards-sec pt-3">
           <div className="rr-home-cards grid grid-cols-3 gap-2.5">
@@ -212,10 +212,12 @@ export default function AppHome({
         <Fragment key="footer">{footer}</Fragment>
       </main>
 
-      {/* ── Fixed bottom: Travel Tools strip + app nav ─────── */}
-      <div className="fixed inset-x-0 bottom-0 z-40">
-        <div className="border-t border-white/10 bg-dark/90 backdrop-blur-xl">
-          <div className="rr-tools-row mx-auto flex max-w-5xl items-stretch gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {/* ── Floating bottom: Travel Tools strip + app nav ─────
+          Detached from the screen edge — a floating rounded panel with a small
+          gap on the sides and below (respecting the safe area). */}
+      <div className="fixed inset-x-0 bottom-0 z-40 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <div className="mx-auto max-w-5xl overflow-hidden rounded-2xl border border-white/12 bg-dark/90 backdrop-blur-xl shadow-[0_16px_44px_-12px_rgba(0,0,0,0.75)]">
+          <div className="rr-tools-row flex items-stretch gap-2 overflow-x-auto border-b border-white/10 px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <span className="flex shrink-0 items-center pr-1 font-bebas text-[9px] tracking-[0.2em] text-muted/60">{L(["TOOLS", "OUTILS", "ZOUTI"])}</span>
             {TOOLS.map((t) => (
               <Link key={t.href + t.label[0]} href={t.href} className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 transition-colors hover:border-yellow/40">
@@ -224,9 +226,8 @@ export default function AppHome({
               </Link>
             ))}
           </div>
-        </div>
-        <nav aria-label="Primary" className="border-t border-white/10 bg-dark/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]">
-          <div className="rr-nav-row mx-auto flex max-w-5xl items-center justify-around px-2 py-1.5">
+          <nav aria-label="Primary" className="bg-dark/95">
+            <div className="rr-nav-row flex items-center justify-around px-2 py-1.5">
             {NAV.map((it) => {
               const active = it.href ? (it.href === "/" ? false : pathname.startsWith(it.href)) : false;
               const isTi = it.key === "tiroule";
@@ -246,6 +247,7 @@ export default function AppHome({
             })}
           </div>
         </nav>
+        </div>
       </div>
     </>
   );
