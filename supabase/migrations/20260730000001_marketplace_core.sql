@@ -177,14 +177,21 @@ create table products (
   tax_rate      numeric(5,4),                          -- null → inherit store default
   attributes    jsonb not null default '{}',           -- {axes:["color","size"], ...}
   seo           jsonb not null default '{}',
+  -- Stored FTS vector (Postgres-recommended over a functional index: computed
+  -- once on write, indexed directly, never recomputed per query).
+  search_vector tsvector generated always as (
+    to_tsvector('simple', coalesce(name,'') || ' ' || coalesce(brand,'') || ' ' || coalesce(description,''))
+  ) stored,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),
   unique (store_id, slug)
 );
-create index on products (store_id);
-create index on products (category_id);
-create index on products (status);
-create index on products using gin (to_tsvector('simple', coalesce(name,'') || ' ' || coalesce(brand,'') || ' ' || coalesce(description,'')));
+-- Composite + partial indexes for the real hot paths (catalog at millions of rows):
+create index products_store_status_idx    on products (store_id, status);
+create index products_category_status_idx on products (category_id, status);
+create index products_store_active_idx    on products (store_id) where status = 'active';
+create index products_created_idx         on products (created_at desc);
+create index products_search_idx          on products using gin (search_vector);
 create trigger t_products_updated before update on products for each row execute function set_updated_at();
 
 -- Every product has ≥1 variant (a "default" variant when has_variants = false).
@@ -210,6 +217,8 @@ create table product_variants (
 );
 create index on product_variants (product_id);
 create index on product_variants (barcode);
+-- Merchant "low stock" view: partial index covering only currently-low rows.
+create index variants_low_stock_idx on product_variants (product_id) where stock_quantity <= low_stock_threshold;
 create trigger t_variants_updated before update on product_variants for each row execute function set_updated_at();
 
 create table product_media (
@@ -223,6 +232,7 @@ create table product_media (
   created_at timestamptz not null default now()
 );
 create index on product_media (product_id);
+create index on product_media (variant_id);
 
 -- ── Inventory ledger — the source of truth for stock ────────────────────────
 create table inventory_movements (
@@ -237,6 +247,8 @@ create table inventory_movements (
 );
 create index on inventory_movements (variant_id);
 create index on inventory_movements (order_id);
+create index on inventory_movements (created_by);
+create index on inventory_movements (created_at desc);
 
 -- Keep the variant's cached stock_quantity in sync with the ledger.
 create or replace function apply_inventory_movement() returns trigger
@@ -275,10 +287,12 @@ create table orders (
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now()
 );
-create index on orders (store_id);
 create index on orders (customer_id);
-create index on orders (status);
-create index on orders (created_at desc);
+-- Merchant dashboard lists a store's orders by status, newest first — one
+-- composite serves it and store-only listings (store_id is the left prefix).
+create index orders_store_status_created_idx on orders (store_id, status, created_at desc);
+-- Admin cross-store views filter by status over time.
+create index orders_status_created_idx on orders (status, created_at desc);
 create trigger t_orders_updated before update on orders for each row execute function set_updated_at();
 
 -- Now that orders exists, wire the inventory ledger FK.
@@ -300,6 +314,7 @@ create table order_items (
   created_at    timestamptz not null default now()
 );
 create index on order_items (order_id);
+create index on order_items (variant_id);
 
 create table payments (
   id            uuid primary key default gen_random_uuid(),
@@ -350,8 +365,14 @@ create table coupons (
   expires_at      timestamptz,
   is_active       boolean not null default true,
   created_at      timestamptz not null default now(),
-  unique (store_id, code)
+  unique (store_id, code),
+  check (discount_type <> 'percent' or value <= 100)      -- percent coupons cap at 100
 );
+
+-- Wire the orders.coupon_id FK now that coupons exists, and index it.
+alter table orders add constraint orders_coupon_fk
+  foreign key (coupon_id) references coupons(id) on delete set null;
+create index on orders (coupon_id);
 
 create table reviews (
   id          uuid primary key default gen_random_uuid(),
@@ -367,6 +388,11 @@ create table reviews (
 );
 create index on reviews (store_id);
 create index on reviews (product_id);
+create index on reviews (order_id);
+create index on reviews (customer_id);
+-- One review per customer per product.
+create unique index reviews_one_per_customer_product on reviews (customer_id, product_id)
+  where customer_id is not null and product_id is not null;
 
 -- ============================================================================
 -- AUDIT
@@ -384,6 +410,40 @@ create table audit_logs (
 );
 create index on audit_logs (entity_type, entity_id);
 create index on audit_logs (created_at desc);
+
+-- ============================================================================
+-- DENORMALISATION TRIGGERS — keep cached aggregates trustworthy
+-- ============================================================================
+-- products.min_price = cheapest active variant (0 if none). Storefront sorts and
+-- filters on this instead of a per-query MIN() over variants.
+create or replace function sync_product_min_price() returns trigger
+language plpgsql as $$
+declare _pid uuid := coalesce(new.product_id, old.product_id);
+begin
+  update products p set min_price = coalesce(
+    (select min(v.price) from product_variants v where v.product_id = _pid and v.is_active), 0)
+  where p.id = _pid;
+  return null;
+end $$;
+create trigger t_variant_min_price
+  after insert or delete or update of price, is_active on product_variants
+  for each row execute function sync_product_min_price();
+
+-- stores.rating_avg / rating_count from PUBLISHED reviews only.
+create or replace function sync_store_rating() returns trigger
+language plpgsql as $$
+declare _sid uuid := coalesce(new.store_id, old.store_id);
+begin
+  update stores s set
+    rating_count = (select count(*) from reviews r where r.store_id = _sid and r.status = 'published'),
+    rating_avg   = coalesce((select round(avg(r.rating)::numeric, 2) from reviews r
+                             where r.store_id = _sid and r.status = 'published'), 0)
+  where s.id = _sid;
+  return null;
+end $$;
+create trigger t_review_store_rating
+  after insert or delete or update of rating, status on reviews
+  for each row execute function sync_store_rating();
 
 -- ── RLS helper functions (defined here, after their tables exist) ───────────
 -- SECURITY DEFINER so they bypass RLS internally — this both prevents policy
@@ -470,7 +530,9 @@ create policy stores_staff_write on stores for all
   using (is_store_staff(id) or is_platform_admin())
   with check (is_store_staff(id) or is_platform_admin());
 
-create policy store_hours_read on store_hours for select using (true);
+create policy store_hours_read on store_hours for select using (
+  store_is_visible(store_id) or is_store_staff(store_id) or is_platform_admin()
+);
 create policy store_hours_write on store_hours for all
   using (is_store_staff(store_id) or is_platform_admin())
   with check (is_store_staff(store_id) or is_platform_admin());
@@ -493,7 +555,11 @@ create policy variants_write on product_variants for all
   using (exists (select 1 from products p where p.id = product_variants.product_id and (is_store_staff(p.store_id) or is_platform_admin())))
   with check (exists (select 1 from products p where p.id = product_variants.product_id and (is_store_staff(p.store_id) or is_platform_admin())));
 
-create policy media_read on product_media for select using (true);
+-- Media inherits the parent product's visibility (the subquery runs under the
+-- caller's RLS on products), so draft/unapproved images never leak.
+create policy media_read on product_media for select using (
+  exists (select 1 from products p where p.id = product_media.product_id)
+);
 create policy media_write on product_media for all
   using (exists (select 1 from products p where p.id = product_media.product_id and (is_store_staff(p.store_id) or is_platform_admin())))
   with check (exists (select 1 from products p where p.id = product_media.product_id and (is_store_staff(p.store_id) or is_platform_admin())));
@@ -503,6 +569,14 @@ create policy media_write on product_media for all
 create policy inventory_read on inventory_movements for select using (
   exists (select 1 from product_variants v join products p on p.id = v.product_id
           where v.id = inventory_movements.variant_id and (is_store_staff(p.store_id) or is_platform_admin()))
+);
+-- Staff may record restocks/adjustments/returns from the dashboard, but NEVER a
+-- 'sale' — sale movements are written only by the server (service role) inside
+-- the order flow, so stock can't be faked down from the client.
+create policy inventory_staff_insert on inventory_movements for insert with check (
+  reason <> 'sale'
+  and exists (select 1 from product_variants v join products p on p.id = v.product_id
+              where v.id = inventory_movements.variant_id and (is_store_staff(p.store_id) or is_platform_admin()))
 );
 
 -- orders: the customer sees their own; store staff see their store's; admin all.
@@ -526,8 +600,10 @@ create policy qr_read on qr_pickup_tokens for select using (
   exists (select 1 from orders o where o.id = qr_pickup_tokens.order_id and (is_store_staff(o.store_id) or is_platform_admin()))
 );
 
--- coupons: public can read active ones (to validate at checkout); staff manage theirs.
-create policy coupons_public_read on coupons for select using (is_active or is_store_staff(store_id) or is_platform_admin());
+-- coupons: NO public read — a public policy would let anyone enumerate every
+-- active code. Customers validate a code they TYPE via a SECURITY DEFINER RPC
+-- (added with checkout in 0002). Only store staff / admin list their own coupons.
+create policy coupons_staff_read on coupons for select using (is_store_staff(store_id) or is_platform_admin());
 create policy coupons_write on coupons for all
   using (is_store_staff(store_id) or is_platform_admin())
   with check (is_store_staff(store_id) or is_platform_admin());
