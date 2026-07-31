@@ -7,7 +7,7 @@ import {
   Heart, MapPin, ChevronDown, Bot, Bike, Car, BedDouble, TreePalm,
   Utensils, Umbrella, Footprints, Fish, Sailboat, Plane, CarTaxiFront, Mountain,
   ShoppingBag, PartyPopper, ArrowRight, Map as MapIcon, CalendarRange, BookOpen,
-  Home, Compass, CalendarCheck, Menu,
+  Siren, Home, Compass, CalendarCheck, Menu,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useFavorites } from "@/context/FavoritesContext";
@@ -91,6 +91,15 @@ export default function AppHome({
   // "What are you looking for?" tiles — admin-editable (falls back to defaults).
   const lookItems = (lookingFor && lookingFor.length ? lookingFor : DEFAULT_QUICK_ACCESS).filter((x) => x.enabled !== false);
 
+  // Travel Tools strip (utilities). No "TOOLS" label — the chips speak for
+  // themselves and dropping it frees room so Emergency shows fully.
+  const TOOLS: { icon: React.ElementType; label: Tri; href: string }[] = [
+    { icon: MapIcon, label: ["Map", "Carte", "Kart"], href: "/map" },
+    { icon: CalendarRange, label: ["Planner", "Planifier", "Plan"], href: "/trip-planner" },
+    { icon: BookOpen, label: ["Guide", "Guide", "Gid"], href: "/guide/rodrigues" },
+    { icon: Siren, label: ["Emergency", "Urgences", "Irzans"], href: "/emergency" },
+  ];
+
   const NAV: { key: string; icon: React.ElementType; label: Tri; href?: string; onClick?: () => void }[] = [
     { key: "home", icon: Home, label: ["Home", "Accueil", "Lakaz"], href: "/" },
     { key: "explore", icon: Compass, label: ["Explore", "Explorer", "Explor"], href: "/explore" },
@@ -141,7 +150,7 @@ export default function AppHome({
       <Fragment key="hero">{hero}</Fragment>
 
       {/* pb clears the fixed bottom bar (tools strip + nav). */}
-      <main className="mx-auto max-w-5xl px-4 pb-[92px]">
+      <main className="mx-auto max-w-5xl px-4 pb-[124px]">
         {/* Six primary cards — v1 photo-card design, auto-cycling images. */}
         <section className="rr-home-cards-sec pt-3">
           <div className="rr-home-cards grid grid-cols-3 gap-2.5">
@@ -208,6 +217,14 @@ export default function AppHome({
           (respecting the safe area). */}
       <div className="fixed inset-x-0 bottom-0 z-40 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <div className="mx-auto max-w-5xl overflow-hidden rounded-2xl border border-white/12 bg-dark/90 backdrop-blur-xl shadow-[0_16px_44px_-12px_rgba(0,0,0,0.75)]">
+          <div className="rr-tools-row flex items-stretch gap-2 overflow-x-auto border-b border-white/10 px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {TOOLS.map((t) => (
+              <Link key={t.href + t.label[0]} href={t.href} className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 transition-colors hover:border-yellow/40">
+                <t.icon size={14} className="text-yellow" />
+                <span className="font-dm text-[11px] font-medium text-offwhite/90">{L(t.label)}</span>
+              </Link>
+            ))}
+          </div>
           <nav aria-label="Primary">
             <div className="rr-nav-row flex items-center justify-around px-2 py-1.5">
             {NAV.map((it) => {
