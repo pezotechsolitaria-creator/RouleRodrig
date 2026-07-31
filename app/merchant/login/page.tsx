@@ -4,15 +4,19 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, Mail, ArrowRight } from "lucide-react";
 
-// Merchant sign-in. Google (Android-native, one tap) + email magic-link fallback
-// so the flow works today without any provider setup. Both funnel through
-// /auth/callback. Trilingual copy comes with the wider merchant UI; kept simple here.
+// Merchant sign-in. Free + reliable: email + password (no external service, no
+// delivery dependency) plus Google one-tap (free, when the provider is enabled).
+// A merchant starts as 'pending' and is gated by admin approval, so an
+// unconfirmed email can't do anything public — email confirmation can safely be
+// off in Supabase for a zero-friction signup.
 export default function MerchantLoginPage() {
   const supabase = createClient();
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState<"google" | "email" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [checkEmail, setCheckEmail] = useState(false);
 
   const callback = () =>
     typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined;
@@ -25,22 +29,37 @@ export default function MerchantLoginPage() {
       options: { redirectTo: callback() },
     });
     if (error) {
-      setError("Google sign-in isn't set up yet — use your email below.");
+      setError("Google sign-in isn't set up yet — use your email and password.");
       setBusy(null);
     }
   }
 
-  async function emailLink(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy("email");
     setError(null);
-    const { error } = await supabase.auth.signInWithOtp({
+
+    if (mode === "signup") {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { emailRedirectTo: callback() },
+      });
+      setBusy(null);
+      if (error) return setError(error.message);
+      // If email confirmation is OFF, a session is returned → go straight in.
+      if (data.session) window.location.href = "/merchant";
+      else setCheckEmail(true); // confirmation ON → they must click the email
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
-      options: { emailRedirectTo: callback() },
+      password,
     });
     setBusy(null);
     if (error) setError(error.message);
-    else setSent(true);
+    else window.location.href = "/merchant";
   }
 
   return (
@@ -55,25 +74,32 @@ export default function MerchantLoginPage() {
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-6">
-          <h1 className="font-syne text-xl font-bold text-offwhite">Sell on Roulé Rodrigues</h1>
-          <p className="mt-1 font-dm text-sm text-muted">Sign in to your producer account.</p>
-
-          {sent ? (
-            <div className="mt-6 rounded-xl border border-yellow/25 bg-yellow/[0.06] p-5 text-center">
+          {checkEmail ? (
+            <div className="rounded-xl border border-yellow/25 bg-yellow/[0.06] p-5 text-center">
               <Mail className="mx-auto mb-2 text-yellow" size={22} />
-              <p className="font-syne text-sm font-bold text-offwhite">Check your inbox</p>
+              <p className="font-syne text-sm font-bold text-offwhite">Confirm your email</p>
               <p className="mt-1 font-dm text-xs leading-relaxed text-muted">
-                We sent a sign-in link to <b className="text-offwhite/90">{email}</b>. Open it on this phone.
+                We sent a confirmation link to <b className="text-offwhite/90">{email}</b>. Open it, then sign in.
               </p>
               <button
-                onClick={() => setSent(false)}
+                onClick={() => {
+                  setCheckEmail(false);
+                  setMode("signin");
+                }}
                 className="mt-4 font-dm text-xs text-yellow hover:underline"
               >
-                Use a different email
+                Back to sign in
               </button>
             </div>
           ) : (
             <>
+              <h1 className="font-syne text-xl font-bold text-offwhite">
+                {mode === "signin" ? "Sign in" : "Create your shop account"}
+              </h1>
+              <p className="mt-1 font-dm text-sm text-muted">
+                {mode === "signin" ? "Welcome back." : "Free to join. Sell in minutes."}
+              </p>
+
               <button
                 onClick={google}
                 disabled={!!busy}
@@ -85,17 +111,28 @@ export default function MerchantLoginPage() {
 
               <div className="my-5 flex items-center gap-3">
                 <span className="h-px flex-1 bg-white/10" />
-                <span className="font-dm text-[11px] text-muted">or</span>
+                <span className="font-dm text-[11px] text-muted">or with email</span>
                 <span className="h-px flex-1 bg-white/10" />
               </div>
 
-              <form onSubmit={emailLink} className="space-y-3">
+              <form onSubmit={submit} className="space-y-3">
                 <input
                   type="email"
                   required
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@email.com"
+                  className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 font-dm text-sm text-offwhite placeholder:text-muted/50 transition-colors focus:border-yellow focus:outline-none"
+                />
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
                   className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 font-dm text-sm text-offwhite placeholder:text-muted/50 transition-colors focus:border-yellow focus:outline-none"
                 />
                 <button
@@ -107,15 +144,25 @@ export default function MerchantLoginPage() {
                     <Loader2 size={16} className="animate-spin" />
                   ) : (
                     <>
-                      Email me a sign-in link <ArrowRight size={15} />
+                      {mode === "signin" ? "Sign in" : "Create account"} <ArrowRight size={15} />
                     </>
                   )}
                 </button>
               </form>
+
+              {error && <p className="mt-4 font-dm text-xs text-red-400">{error}</p>}
+
+              <button
+                onClick={() => {
+                  setMode(mode === "signin" ? "signup" : "signin");
+                  setError(null);
+                }}
+                className="mt-5 w-full text-center font-dm text-xs text-muted transition-colors hover:text-yellow"
+              >
+                {mode === "signin" ? "New here? Create an account" : "Already have an account? Sign in"}
+              </button>
             </>
           )}
-
-          {error && <p className="mt-4 font-dm text-xs text-red-400">{error}</p>}
         </div>
 
         <p className="mx-auto mt-5 max-w-xs text-center font-dm text-[11px] leading-relaxed text-muted/60">
