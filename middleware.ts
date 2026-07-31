@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SITE_URL } from '@/lib/site';
+import { updateSession } from '@/lib/supabase/middleware';
 
 // Canonical host, derived from NEXT_PUBLIC_SITE_URL so this can never disagree
 // with the canonical tags, the sitemap or the JSON-LD — they all read the same
@@ -24,7 +25,7 @@ const CANONICAL_HOST = (() => {
 // redirecting those would make every preview test the production site instead.
 const RETIRED_HOSTS = new Set(['roule-rodrig.vercel.app']);
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const host = (req.headers.get('host') ?? '').toLowerCase();
 
   if (CANONICAL_HOST && host !== CANONICAL_HOST && RETIRED_HOSTS.has(host)) {
@@ -43,6 +44,17 @@ export function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL('/admin/login', req.url));
     }
   }
+
+  // Marketplace merchant area — Supabase Auth. Session refresh is scoped here so
+  // the tourism site keeps its account-less behaviour and pays no auth cost.
+  if (pathname.startsWith('/merchant')) {
+    const { response, user } = await updateSession(req);
+    if (!user && !pathname.startsWith('/merchant/login')) {
+      return NextResponse.redirect(new URL('/merchant/login', req.url));
+    }
+    return response;
+  }
+
   return NextResponse.next();
 }
 

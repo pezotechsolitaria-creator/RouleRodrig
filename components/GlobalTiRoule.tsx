@@ -9,6 +9,6 @@ type TiProps = React.ComponentProps<typeof TiRouleGuide>;
 // floating orb). Excluded from the admin area and the /v2 alias.
 export default function GlobalTiRoule(props: TiProps) {
   const pathname = usePathname() || "/";
-  if (pathname.startsWith("/admin") || pathname.startsWith("/v2")) return null;
+  if (pathname.startsWith("/admin") || pathname.startsWith("/v2") || pathname.startsWith("/merchant")) return null;
   return <TiRouleGuide hideFab {...props} />;
 }

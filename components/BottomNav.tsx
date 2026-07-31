@@ -17,7 +17,7 @@ export default function BottomNav() {
 
   // The app-style homepage renders its own bottom bar (travel tools + nav with
   // Ti Roulé), so the global floating nav steps aside there.
-  if (pathname === "/" || pathname.startsWith("/v2")) return null;
+  if (pathname === "/" || pathname.startsWith("/v2") || pathname.startsWith("/merchant")) return null;
 
   const links = [
     { key: "home", icon: Home, href: "/", label: L("Home", "Accueil", "Lakaz"), active: pathname === "/" },
