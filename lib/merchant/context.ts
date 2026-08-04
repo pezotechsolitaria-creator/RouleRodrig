@@ -55,3 +55,24 @@ export async function hasShop(supabase: SupabaseClient): Promise<boolean> {
   const { data } = await supabase.from("merchant_staff").select("merchant_id").limit(1);
   return (data?.length ?? 0) > 0;
 }
+
+/**
+ * The signed-in user's own store id, resolved server-side from their staff
+ * membership — never from a client-supplied value. This is the ownership
+ * anchor every product API route filters by; RLS is the real backstop, but
+ * resolving store_id this way means a query is scoped to "my store" by
+ * construction, not by trusting anything the request body claims.
+ */
+export async function getOwnStoreId(supabase: SupabaseClient): Promise<string | null> {
+  const { data } = await supabase
+    .from("merchant_staff")
+    .select("merchant_id, merchants(stores(id))")
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+
+  const merchant = Array.isArray(data.merchants) ? data.merchants[0] : data.merchants;
+  const storesRaw = merchant?.stores as unknown;
+  const storeRow = Array.isArray(storesRaw) ? storesRaw[0] : storesRaw;
+  return (storeRow as { id?: string } | undefined)?.id ?? null;
+}

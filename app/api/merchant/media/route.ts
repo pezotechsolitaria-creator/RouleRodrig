@@ -75,15 +75,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Uploaded, but failed to save it to your shop." }, { status: 500 });
     }
   } else {
-    // productId is attached to whatever store_id the client sent us; RLS
-    // (media_write) already refuses this if the product doesn't belong to a
-    // store the caller staffs, but a merchant who owns multiple stores could
-    // still attach a photo to the wrong one of their own products by mistake
-    // — worth an explicit ownership check once multi-store support ships.
+    // add_product_media() re-verifies productId belongs to storeId (closing
+    // the M2-flagged gap: "worth an explicit ownership check once
+    // multi-store support ships") AND assigns the gallery position under a
+    // row lock — a plain "count existing rows, then insert" here raced under
+    // concurrent uploads (verified: two photos uploaded in parallel both
+    // landed on position 0, no error, just silently wrong ordering).
     const { error } = await supabase
-      .from("product_media")
-      .insert({ product_id: productId, url: publicUrl, kind: "image", position: 0 });
+      .rpc("add_product_media", { p_product_id: productId, p_store_id: storeId, p_url: publicUrl })
+      .single();
     if (error) {
+      if (error.code === "RR002") return NextResponse.json({ error: error.message }, { status: 400 });
       console.error("merchant-media product_photo attach failed", error);
       return NextResponse.json({ error: "Uploaded, but failed to save it to your product." }, { status: 500 });
     }
