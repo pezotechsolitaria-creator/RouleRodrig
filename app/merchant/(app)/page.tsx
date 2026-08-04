@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Store, Package, Clock, AlertTriangle, XCircle, Plus, List, ShoppingBag, ImageOff, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getMerchantDashboard, getDashboardStats } from "@/lib/merchant/context";
+import { getMerchantDashboard, getDashboardStats, getOrderCount } from "@/lib/merchant/context";
 import { centsToDecimalString } from "@/lib/money";
 
 export default async function MerchantHome() {
@@ -17,6 +17,7 @@ export default async function MerchantHome() {
   if (!dashboard) redirect("/merchant/onboarding");
 
   const stats = dashboard.store ? await getDashboardStats(supabase, dashboard.store.id) : null;
+  const orderCount = dashboard.store ? await getOrderCount(supabase, dashboard.store.id) : 0;
   const greetName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "there";
 
   return (
@@ -59,11 +60,13 @@ export default async function MerchantHome() {
         <StatCard icon={Package} label="Products" value={dashboard.productCount} />
         <StatCard icon={AlertTriangle} label="Low stock" value={stats?.lowStockCount ?? 0} tone={stats && stats.lowStockCount > 0 ? "warn" : undefined} />
         <StatCard icon={XCircle} label="Out of stock" value={stats?.outOfStockCount ?? 0} tone={stats && stats.outOfStockCount > 0 ? "danger" : undefined} />
-        <StatCard icon={ShoppingBag} label="Orders" value={0} hint="Coming soon" />
+        <Link href="/merchant/orders">
+          <StatCard icon={ShoppingBag} label="Orders" value={orderCount} />
+        </Link>
       </div>
 
       {/* Quick actions */}
-      <div className="mt-6 grid grid-cols-2 gap-3">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Link
           href="/merchant/products/new"
           className="flex items-center justify-center gap-2 rounded-full bg-yellow px-5 py-3 font-syne text-sm font-bold text-dark transition-colors hover:bg-yellow-dark"
@@ -75,6 +78,12 @@ export default async function MerchantHome() {
           className="flex items-center justify-center gap-2 rounded-full border border-white/15 px-5 py-3 font-syne text-sm font-bold text-offwhite transition-colors hover:bg-white/[0.06]"
         >
           <List size={15} /> View products
+        </Link>
+        <Link
+          href="/merchant/orders"
+          className="col-span-2 flex items-center justify-center gap-2 rounded-full border border-white/15 px-5 py-3 font-syne text-sm font-bold text-offwhite transition-colors hover:bg-white/[0.06] sm:col-span-1"
+        >
+          <ShoppingBag size={15} /> View orders
         </Link>
       </div>
 

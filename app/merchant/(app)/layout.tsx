@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, ClipboardList } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "./actions";
 import QueryProvider from "@/components/merchant/QueryProvider";
+import NotificationBell from "@/components/merchant/NotificationBell";
 import { Toaster } from "@/components/ui/sonner";
 
 // Private area — keep it out of search indexes.
@@ -30,15 +32,24 @@ export default async function MerchantAppLayout({ children }: { children: React.
             <span className="rounded-full border border-yellow/30 bg-yellow/10 px-2 py-0.5 font-bebas text-[9px] tracking-[0.2em] text-yellow">
               MERCHANT
             </span>
-            <form action={signOut} className="ml-auto">
-              <button
-                type="submit"
-                aria-label="Sign out"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-muted transition-colors hover:border-yellow/50 hover:text-yellow"
-              >
-                <LogOut size={16} />
-              </button>
-            </form>
+            <Link
+              href="/merchant/orders"
+              className="ml-4 hidden items-center gap-1.5 font-dm text-sm text-muted transition-colors hover:text-yellow sm:flex"
+            >
+              <ClipboardList size={14} /> Orders
+            </Link>
+            <div className="ml-auto flex items-center gap-2">
+              <NotificationBell />
+              <form action={signOut}>
+                <button
+                  type="submit"
+                  aria-label="Sign out"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-muted transition-colors hover:border-yellow/50 hover:text-yellow"
+                >
+                  <LogOut size={16} />
+                </button>
+              </form>
+            </div>
           </div>
         </header>
         <main className="mx-auto max-w-6xl px-4 pb-16">{children}</main>

@@ -998,3 +998,26 @@ export async function sendVehicleUnavailableEmail(o: {
   });
   return send(o.to, "Update on your Roule Rodrigues booking", html);
 }
+
+// ── Marketplace order notifications (Milestone 4) ────────────────────────
+// One generic template for order-lifecycle emails (status changed, etc.) —
+// reuses the same shell/paragraph/detailCard building blocks as every other
+// email so it looks like the same product, and the same best-effort send()
+// (never throws, no-ops without a configured provider) as everything else.
+export async function sendOrderNotificationEmail(o: {
+  to: string;
+  subject: string;
+  heading: string;
+  message: string;
+  orderNumber?: string | null;
+}): Promise<boolean> {
+  const { logo } = await getBrand();
+  const body = `
+    ${paragraph(o.message)}
+    ${o.orderNumber ? detailCard(rows([["Order", o.orderNumber]])) : ""}`;
+  return send(
+    o.to,
+    o.subject,
+    shell({ eyebrow: "Order update", title: o.heading, body, logo }),
+  );
+}

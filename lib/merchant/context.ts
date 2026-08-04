@@ -105,6 +105,15 @@ export async function getDashboardStats(supabase: SupabaseClient, storeId: strin
   return { recentProducts, lowStockCount, outOfStockCount };
 }
 
+/** Cheap headline count for the dashboard's Orders stat card. */
+export async function getOrderCount(supabase: SupabaseClient, storeId: string): Promise<number> {
+  const { count } = await supabase
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("store_id", storeId);
+  return count ?? 0;
+}
+
 /** Cheap existence check for pages that only need to gate on "has a shop yet". */
 export async function hasShop(supabase: SupabaseClient): Promise<boolean> {
   const { data } = await supabase.from("merchant_staff").select("merchant_id").limit(1);
