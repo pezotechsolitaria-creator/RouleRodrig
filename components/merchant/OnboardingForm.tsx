@@ -196,7 +196,7 @@ export default function OnboardingForm({ categories }: { categories: Category[] 
   const busy = phase === "submitting";
 
   return (
-    <div className="py-8">
+    <div className="mx-auto max-w-md py-8">
       {/* Announces step changes to screen readers; the focused heading below
           covers this too, but an explicit live region is more reliable across
           assistive tech than relying solely on focus-triggered reading. */}

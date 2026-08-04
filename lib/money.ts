@@ -5,6 +5,15 @@
 // 999.4999999999999, rounding DOWN to 999 instead of 1000). toCents() works
 // on the decimal string directly so it never enters floating-point space.
 
+// products.min_price / product_variants.price are Postgres `integer` (int4),
+// max 2,147,483,647 — a price whose cents exceed that overflows the column.
+// Found by testing an absurd price ("99999999999999.99") end-to-end: it
+// reached the RPC and failed as a raw Postgres integer-overflow error,
+// surfaced to the client as a generic 500 rather than a clean validation
+// message. Rejecting it here catches it before any network round trip, for
+// every caller (onboarding, product create, product edit) at once.
+const MAX_CENTS = 2_147_483_647;
+
 /**
  * Converts a decimal string (e.g. "9.99", "9.995", "1,234.5") into an integer
  * number of minor units (cents), using round-half-up on the third decimal
@@ -18,6 +27,10 @@ export function toCents(input: string): number | null {
 
   const [wholeRaw, fracRaw = ""] = trimmed.split(".");
   const whole = wholeRaw === "" ? "0" : wholeRaw;
+  // A whole part this long would overflow MAX_CENTS regardless of cents —
+  // reject up front rather than let it through to the arithmetic below,
+  // where parseInt on a huge digit string can itself misbehave.
+  if (whole.length > 10) return null;
 
   // Round the fractional part to 2 digits using ordinary decimal rounding
   // (half-up on the 3rd digit), entirely in string/integer space.
@@ -25,12 +38,14 @@ export function toCents(input: string): number | null {
   if (fracRaw.length > 2 && fracRaw.charCodeAt(2) >= "5".charCodeAt(0)) {
     const bumped = parseInt(cents, 10) + 1;
     if (bumped === 100) {
-      return (parseInt(whole, 10) + 1) * 100;
+      const result = (parseInt(whole, 10) + 1) * 100;
+      return result > MAX_CENTS ? null : result;
     }
     cents = String(bumped).padStart(2, "0");
   }
 
-  return parseInt(whole, 10) * 100 + parseInt(cents, 10);
+  const result = parseInt(whole, 10) * 100 + parseInt(cents, 10);
+  return result > MAX_CENTS ? null : result;
 }
 
 /** Formats an integer cent amount back into a "1234.56"-style decimal string. */

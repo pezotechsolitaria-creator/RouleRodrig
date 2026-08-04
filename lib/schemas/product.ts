@@ -15,7 +15,12 @@ export const productSchema = z.object({
   price: z.string().refine((v) => toCents(v) !== null, "Enter a valid price."),
   categoryId: z.union([z.string().uuid(), z.literal(""), z.null()]).optional(),
   sku: z.string().trim().max(64, "Keep it under 64 characters.").optional().or(z.literal("")),
-  stockQuantity: z.coerce
+  // A real number, not a coerced string — the form delivers one via RHF's
+  // `valueAsNumber` on the input's register() call. z.coerce.number() would
+  // also accept a JSON *string* posted directly to the API (bypassing the
+  // form), which is more permissive than "validate all inputs server-side"
+  // should be — a malformed type gets a clean rejection, not a silent coerce.
+  stockQuantity: z
     .number({ error: "Enter a valid quantity." })
     .int("Quantity must be a whole number.")
     .min(0, "Quantity must be zero or greater."),

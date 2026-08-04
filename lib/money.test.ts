@@ -43,6 +43,15 @@ describe("toCents", () => {
     expect(toCents("NaN")).toBeNull();
     expect(toCents("Infinity")).toBeNull();
   });
+
+  // Found live during M3 adversarial testing: this exact value reached the
+  // create_product() RPC and overflowed the `integer` price column,
+  // surfacing to the client as a raw 500 instead of a clean 400.
+  it("rejects amounts that would overflow the integer price column", () => {
+    expect(toCents("99999999999999.99")).toBeNull();
+    expect(toCents("21474836.48")).toBeNull(); // one cent over int4 max
+    expect(toCents("21474836.47")).toBe(2147483647); // exactly int4 max — still valid
+  });
 });
 
 describe("centsToDecimalString", () => {

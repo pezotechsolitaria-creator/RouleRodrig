@@ -20,7 +20,11 @@ export async function getMerchantDashboard(supabase: SupabaseClient): Promise<Me
   const { data } = await supabase
     .from("merchant_staff")
     .select(
-      "merchant_id, merchants(display_name, status, stores(id, name, products(count)))",
+      // Fetch each product's status (not a count(*) embed) so the dashboard
+      // can exclude archived (soft-deleted) products from the headline
+      // count — a plain products(count) embed counts every row regardless
+      // of status, which double-counts a merchant's deleted history.
+      "merchant_id, merchants(display_name, status, stores(id, name, products(status)))",
     )
     .limit(1)
     .maybeSingle();
@@ -37,9 +41,8 @@ export async function getMerchantDashboard(supabase: SupabaseClient): Promise<Me
   const storeRow = Array.isArray(storesRaw) ? storesRaw[0] : storesRaw;
   const store = storeRow ? { id: storeRow.id as string, name: storeRow.name as string } : null;
 
-  const productsRaw = storeRow?.products as unknown;
-  const productCountRow = Array.isArray(productsRaw) ? productsRaw[0] : productsRaw;
-  const productCount = (productCountRow as { count?: number } | undefined)?.count ?? 0;
+  const productRows = (storeRow?.products as { status?: string }[] | undefined) ?? [];
+  const productCount = productRows.filter((p) => p.status !== "archived").length;
 
   return {
     merchantId: data.merchant_id as string,
@@ -48,6 +51,58 @@ export async function getMerchantDashboard(supabase: SupabaseClient): Promise<Me
     store,
     productCount,
   };
+}
+
+export type DashboardStats = {
+  recentProducts: {
+    id: string;
+    name: string;
+    status: string;
+    price: number;
+    stockQuantity: number;
+    imageUrl: string | null;
+  }[];
+  lowStockCount: number;
+  outOfStockCount: number;
+};
+
+const LOW_STOCK_THRESHOLD = 5;
+
+/** Recent products + a lightweight inventory summary for the dashboard home. */
+export async function getDashboardStats(supabase: SupabaseClient, storeId: string): Promise<DashboardStats> {
+  const { data } = await supabase
+    .from("products")
+    .select("id, name, status, created_at, product_variants(price, stock_quantity), product_media(url, position)")
+    .eq("store_id", storeId)
+    .neq("status", "archived")
+    .order("created_at", { ascending: false });
+
+  const rows = data ?? [];
+  let lowStockCount = 0;
+  let outOfStockCount = 0;
+
+  const recentProducts = rows.slice(0, 5).map((p) => {
+    const variant = Array.isArray(p.product_variants) ? p.product_variants[0] : p.product_variants;
+    const media = (Array.isArray(p.product_media) ? p.product_media : []) as { url: string; position: number }[];
+    const cover = media.slice().sort((a, b) => a.position - b.position)[0];
+    return {
+      id: p.id as string,
+      name: p.name as string,
+      status: p.status as string,
+      price: (variant as { price?: number } | undefined)?.price ?? 0,
+      stockQuantity: (variant as { stock_quantity?: number } | undefined)?.stock_quantity ?? 0,
+      imageUrl: cover?.url ?? null,
+    };
+  });
+
+  for (const p of rows) {
+    const variant = Array.isArray(p.product_variants) ? p.product_variants[0] : p.product_variants;
+    const qty = (variant as { stock_quantity?: number } | undefined)?.stock_quantity ?? 0;
+    if (qty === 0) outOfStockCount += 1;
+    else if (qty <= LOW_STOCK_THRESHOLD) lowStockCount += 1;
+  }
+
+  return { recentProducts, lowStockCount, outOfStockCount };
 }
 
 /** Cheap existence check for pages that only need to gate on "has a shop yet". */
