@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { hasShop } from "@/lib/merchant/context";
 import OnboardingForm from "@/components/merchant/OnboardingForm";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -10,8 +11,9 @@ export default async function MerchantOnboardingPage() {
 
   // A merchant who already has a shop has nothing to onboard — send them to
   // the dashboard instead of letting them create a second one from this form.
-  const { data: staff } = await supabase.from("merchant_staff").select("merchant_id").limit(1);
-  if ((staff?.length ?? 0) > 0) redirect("/merchant");
+  // (This is a page-load check, not the real race guard — that's the partial
+  // unique index on merchants(owner_id); see onboard_merchant().)
+  if (await hasShop(supabase)) redirect("/merchant");
 
   const { data: categories } = await supabase
     .from("categories")

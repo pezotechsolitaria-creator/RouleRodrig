@@ -165,7 +165,7 @@ export default function MerchantLoginPage() {
           )}
         </div>
 
-        <p className="mx-auto mt-5 max-w-xs text-center font-dm text-[11px] leading-relaxed text-muted/60">
+        <p className="mx-auto mt-5 max-w-xs text-center font-dm text-[11px] leading-relaxed text-muted">
           Listing is free. We only verify your business before your first payout.
         </p>
       </div>

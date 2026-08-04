@@ -1,0 +1,57 @@
+import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+export type MerchantDashboard = {
+  merchantId: string;
+  displayName: string;
+  status: string;
+  store: { id: string; name: string } | null;
+  productCount: number;
+};
+
+/**
+ * Whether the signed-in user already has a shop, and if so, everything the
+ * dashboard needs to render — in one round trip via nested PostgREST embeds
+ * instead of four sequential queries. RLS (staff_read / stores_public_read /
+ * products_public_read) still applies per-table exactly as it would for
+ * separate queries; embedding doesn't bypass row security.
+ */
+export async function getMerchantDashboard(supabase: SupabaseClient): Promise<MerchantDashboard | null> {
+  const { data } = await supabase
+    .from("merchant_staff")
+    .select(
+      "merchant_id, merchants(display_name, status, stores(id, name, products(count)))",
+    )
+    .limit(1)
+    .maybeSingle();
+
+  if (!data) return null;
+
+  // Supabase types this as an array via the FK relationship name even though
+  // it's a single row per staff membership (merchant_id is not-null unique
+  // per row) — narrow it defensively rather than assume the shape.
+  const merchant = Array.isArray(data.merchants) ? data.merchants[0] : data.merchants;
+  if (!merchant) return null;
+
+  const storesRaw = merchant.stores as unknown;
+  const storeRow = Array.isArray(storesRaw) ? storesRaw[0] : storesRaw;
+  const store = storeRow ? { id: storeRow.id as string, name: storeRow.name as string } : null;
+
+  const productsRaw = storeRow?.products as unknown;
+  const productCountRow = Array.isArray(productsRaw) ? productsRaw[0] : productsRaw;
+  const productCount = (productCountRow as { count?: number } | undefined)?.count ?? 0;
+
+  return {
+    merchantId: data.merchant_id as string,
+    displayName: merchant.display_name as string,
+    status: merchant.status as string,
+    store,
+    productCount,
+  };
+}
+
+/** Cheap existence check for pages that only need to gate on "has a shop yet". */
+export async function hasShop(supabase: SupabaseClient): Promise<boolean> {
+  const { data } = await supabase.from("merchant_staff").select("merchant_id").limit(1);
+  return (data?.length ?? 0) > 0;
+}

@@ -1,10 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Store, Package, ImagePlus, X, Loader2, ArrowRight, ArrowLeft, AlertCircle, CheckCircle2,
 } from "lucide-react";
+import { toCents } from "@/lib/money";
 
 type Category = { id: string; name: string };
 
@@ -16,6 +18,10 @@ const BUSINESS_CATEGORIES = [
 
 type Step = "shop" | "product";
 type Phase = "idle" | "submitting" | "error";
+const STEP_LABEL: Record<Step, string> = {
+  shop: "Step 1 of 2: Set up your shop",
+  product: "Step 2 of 2: Add your first product",
+};
 
 const inputCls =
   "w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 font-dm text-sm text-offwhite placeholder:text-muted/50 transition-colors focus:border-yellow focus:outline-none";
@@ -24,12 +30,17 @@ const labelCls = "mb-1.5 block font-dm text-xs font-medium text-muted";
 // Square image picker with preview — used for both the shop logo and the
 // first product photo. Upload itself happens later (after the shop/product
 // rows exist, since the storage path needs their id), so this only holds the
-// File + a local object-URL preview until final submit.
+// File + a local object-URL preview until final submit. The object URL is
+// memoized per-File and explicitly revoked on change/unmount — without this,
+// every unrelated keystroke elsewhere in the form re-renders ImagePicker and
+// leaks a fresh blob URL.
 function ImagePicker({ label, file, onChange, disabled }: {
   label: string; file: File | null; onChange: (f: File | null) => void; disabled?: boolean;
 }) {
   const ref = useRef<HTMLInputElement>(null);
-  const preview = file ? URL.createObjectURL(file) : null;
+  const preview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+
   return (
     <div>
       <p className={labelCls}>{label}</p>
@@ -41,7 +52,7 @@ function ImagePicker({ label, file, onChange, disabled }: {
             type="button"
             onClick={() => onChange(null)}
             aria-label="Remove photo"
-            className="absolute right-1.5 top-1.5 rounded-full bg-dark/80 p-1 text-offwhite hover:text-red-400"
+            className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-dark/80 text-offwhite hover:text-red-400"
           >
             <X size={13} />
           </button>
@@ -87,7 +98,9 @@ export default function OnboardingForm({ categories }: { categories: Category[] 
   const [step, setStep] = useState<Step>("shop");
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   const [logo, setLogo] = useState<File | null>(null);
   const [shopName, setShopName] = useState("");
@@ -104,6 +117,14 @@ export default function OnboardingForm({ categories }: { categories: Category[] 
   const [sku, setSku] = useState("");
   const [categoryId, setCategoryId] = useState("");
 
+  // Move focus to the new step's heading on every step change so screen
+  // reader users get an announcement (the heading's accessible name is read
+  // on focus) instead of a silent panel swap, and keyboard users don't have
+  // to tab back up from wherever the "Continue"/"Back" button happened to be.
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, [step]);
+
   function validateShop() {
     const errs: Record<string, string> = {};
     if (!shopName.trim()) errs.shopName = "Shop name is required.";
@@ -116,8 +137,9 @@ export default function OnboardingForm({ categories }: { categories: Category[] 
   function validateProduct() {
     const errs: Record<string, string> = {};
     if (!productName.trim()) errs.productName = "Product name is required.";
-    const priceNum = Number(price);
-    if (!price || !Number.isFinite(priceNum) || priceNum < 0) errs.price = "Enter a valid price.";
+    // Same toCents() the server uses — client validation must reject exactly
+    // what the server would reject, not an approximation of it.
+    if (toCents(price) === null) errs.price = "Enter a valid price.";
     const qtyNum = Number(quantity);
     if (quantity === "" || !Number.isInteger(qtyNum) || qtyNum < 0) errs.quantity = "Enter a valid quantity.";
     setFieldErrors(errs);
@@ -126,12 +148,14 @@ export default function OnboardingForm({ categories }: { categories: Category[] 
 
   function continueToProduct() {
     setError(null);
+    setErrorCode(null);
     if (validateShop()) setStep("product");
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setErrorCode(null);
     if (!validateProduct()) return;
 
     setPhase("submitting");
@@ -146,7 +170,10 @@ export default function OnboardingForm({ categories }: { categories: Category[] 
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      if (!res.ok) {
+        setErrorCode(typeof data.code === "string" ? data.code : null);
+        throw new Error(data.error || "Something went wrong.");
+      }
 
       const { store_id, product_id } = data as { store_id: string; product_id: string };
 
@@ -170,15 +197,22 @@ export default function OnboardingForm({ categories }: { categories: Category[] 
 
   return (
     <div className="py-8">
-      <div className="mb-6 flex items-center gap-2">
-        <StepDot active={step === "shop"} done={step === "product"} icon={Store} label="Shop" />
-        <span className="h-px flex-1 bg-white/10" />
-        <StepDot active={step === "product"} done={false} icon={Package} label="Product" />
-      </div>
+      {/* Announces step changes to screen readers; the focused heading below
+          covers this too, but an explicit live region is more reliable across
+          assistive tech than relying solely on focus-triggered reading. */}
+      <div aria-live="polite" className="sr-only">{STEP_LABEL[step]}</div>
+
+      <ol className="mb-6 flex items-center gap-2" aria-label="Onboarding steps">
+        <StepDot step={1} active={step === "shop"} done={step === "product"} icon={Store} label="Shop" />
+        <span aria-hidden="true" className="h-px flex-1 bg-white/10" />
+        <StepDot step={2} active={step === "product"} done={false} icon={Package} label="Product" />
+      </ol>
 
       {step === "shop" ? (
         <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-6">
-          <h1 className="font-syne text-xl font-bold text-offwhite">Set up your shop</h1>
+          <h1 ref={headingRef} tabIndex={-1} className="font-syne text-xl font-bold text-offwhite outline-none">
+            Set up your shop
+          </h1>
           <p className="mt-1 font-dm text-sm text-muted">Just the essentials — you can add more later.</p>
 
           <div className="mt-6 space-y-4">
@@ -229,7 +263,9 @@ export default function OnboardingForm({ categories }: { categories: Category[] 
         </div>
       ) : (
         <form onSubmit={submit} className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-6">
-          <h1 className="font-syne text-xl font-bold text-offwhite">Add your first product</h1>
+          <h1 ref={headingRef} tabIndex={-1} className="font-syne text-xl font-bold text-offwhite outline-none">
+            Add your first product
+          </h1>
           <p className="mt-1 font-dm text-sm text-muted">List one thing to go live — add the rest anytime.</p>
 
           <div className="mt-6 space-y-4">
@@ -278,15 +314,22 @@ export default function OnboardingForm({ categories }: { categories: Category[] 
           </div>
 
           {error && (
-            <p className="mt-4 flex items-center gap-2 font-dm text-xs text-red-400">
-              <AlertCircle size={14} /> {error}
-            </p>
+            <div role="alert" className="mt-4 rounded-xl border border-red-500/25 bg-red-500/[0.06] px-4 py-3">
+              <p className="flex items-center gap-2 font-dm text-xs text-red-400">
+                <AlertCircle size={14} /> {error}
+              </p>
+              {errorCode === "RR001" && (
+                <Link href="/merchant" className="mt-2 inline-block font-dm text-xs font-semibold text-yellow hover:underline">
+                  Go to your dashboard →
+                </Link>
+              )}
+            </div>
           )}
 
           <div className="mt-6 flex gap-3">
             <button
               type="button"
-              onClick={() => { setStep("shop"); setError(null); }}
+              onClick={() => { setStep("shop"); setError(null); setErrorCode(null); }}
               disabled={busy}
               className="flex items-center justify-center gap-2 rounded-full border border-white/15 px-5 py-3 font-syne text-sm font-bold text-offwhite transition-colors hover:bg-white/[0.06] disabled:opacity-60"
             >
@@ -310,17 +353,20 @@ function FieldError({ id, text }: { id?: string; text: string }) {
   return <p id={id} role="alert" className="mt-1 font-dm text-[11px] text-red-400">{text}</p>;
 }
 
-function StepDot({ active, done, icon: Icon, label }: {
-  active: boolean; done: boolean; icon: typeof Store; label: string;
+function StepDot({ step, active, done, icon: Icon, label }: {
+  step: number; active: boolean; done: boolean; icon: typeof Store; label: string;
 }) {
   return (
-    <div className={`flex items-center gap-2 font-dm text-xs font-medium ${active || done ? "text-yellow" : "text-muted/50"}`}>
+    <li
+      aria-current={active ? "step" : undefined}
+      className={`flex items-center gap-2 font-dm text-xs font-medium ${active || done ? "text-yellow" : "text-muted/50"}`}
+    >
       <span className={`flex h-7 w-7 items-center justify-center rounded-full border ${
         active || done ? "border-yellow/40 bg-yellow/10" : "border-white/10"
       }`}>
-        <Icon size={14} />
+        <Icon size={14} aria-hidden="true" />
       </span>
-      {label}
-    </div>
+      <span className="sr-only">Step {step}: </span>{label}
+    </li>
   );
 }
