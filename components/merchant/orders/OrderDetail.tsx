@@ -20,6 +20,7 @@ import {
 // always the destructive/secondary action and always asks for confirmation
 // first — an accidental tap can't cancel a real order.
 const ACTION_LABEL: Partial<Record<OrderStatus, string>> = {
+  paid: "Confirm payment received",
   preparing: "Accept order",
   ready_for_pickup: "Mark ready for pickup",
   collected: "Mark collected",

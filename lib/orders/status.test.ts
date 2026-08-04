@@ -3,16 +3,18 @@ import { legalNextStatuses, timelineIndex, LEGAL_TRANSITIONS, STATUS_ORDER } fro
 
 describe("legalNextStatuses", () => {
   it("returns the forward + cancel options for each actionable status", () => {
+    // pending_payment is actionable as of M5 — a cash/manual order needs the
+    // merchant to confirm payment received (or reject it) directly from here.
+    expect(legalNextStatuses("pending_payment")).toEqual(["paid", "cancelled"]);
     expect(legalNextStatuses("paid")).toEqual(["preparing", "cancelled"]);
     expect(legalNextStatuses("preparing")).toEqual(["ready_for_pickup", "cancelled"]);
     expect(legalNextStatuses("ready_for_pickup")).toEqual(["collected", "cancelled"]);
   });
 
-  it("returns no actions for terminal or non-merchant-actionable statuses", () => {
+  it("returns no actions for terminal statuses", () => {
     expect(legalNextStatuses("collected")).toEqual([]);
     expect(legalNextStatuses("cancelled")).toEqual([]);
     expect(legalNextStatuses("refunded")).toEqual([]);
-    expect(legalNextStatuses("pending_payment")).toEqual([]);
   });
 
   // Mirrors the RPC's own state machine (update_order_status()) — this table
@@ -32,10 +34,11 @@ describe("legalNextStatuses", () => {
 
 describe("timelineIndex", () => {
   it("maps each forward status to its position", () => {
-    expect(timelineIndex("paid")).toBe(0);
-    expect(timelineIndex("preparing")).toBe(1);
-    expect(timelineIndex("ready_for_pickup")).toBe(2);
-    expect(timelineIndex("collected")).toBe(3);
+    expect(timelineIndex("pending_payment")).toBe(0);
+    expect(timelineIndex("paid")).toBe(1);
+    expect(timelineIndex("preparing")).toBe(2);
+    expect(timelineIndex("ready_for_pickup")).toBe(3);
+    expect(timelineIndex("collected")).toBe(4);
   });
 
   it("returns -1 for cancelled/refunded so the timeline renders the terminal state instead", () => {

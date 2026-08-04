@@ -4,6 +4,7 @@ import "./globals.css";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { CurrencyProvider } from "@/context/CurrencyContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
+import { CartProvider } from "@/lib/cart/CartContext";
 import LanguagePicker from "@/components/LanguagePicker";
 import FavoritesPanel from "@/components/FavoritesPanel";
 import ReturnWelcome from "@/components/ReturnWelcome";
@@ -248,6 +249,7 @@ export default async function RootLayout({
         <LanguageProvider>
           <CurrencyProvider>
             <FavoritesProvider>
+            <CartProvider>
               <LanguagePicker />
               <RefCapture />
               {children}
@@ -262,6 +264,7 @@ export default async function RootLayout({
                 data={tiData}
               />
               <PWARegister />
+            </CartProvider>
             </FavoritesProvider>
           </CurrencyProvider>
         </LanguageProvider>

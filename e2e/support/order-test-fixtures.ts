@@ -13,6 +13,11 @@ export type OrderFixture = {
   merchant: { id: string; email: string; password: string; userId: string };
   customer: { id: string; email: string; password: string };
   storeId: string;
+  storeSlug: string;
+  productId: string;
+  productSlug: string;
+  /** Seeded with 5 units in stock — the oversell race test depends on this. */
+  variantId: string;
   orderId: string;
   orderNumber: string;
 };
@@ -58,14 +63,39 @@ export async function seedOrderFixture(label: string): Promise<OrderFixture> {
     .single();
   if (mErr || !merchant) throw new Error(`merchant row: ${mErr?.message}`);
 
+  const storeSlug = `e2e-orders-${suffix}`;
   const { data: store, error: sErr } = await client
     .from("stores")
-    .insert({ merchant_id: merchant.id, name: `E2E Orders Shop ${suffix}`, slug: `e2e-orders-${suffix}`, currency: "MUR" })
+    .insert({
+      merchant_id: merchant.id, name: `E2E Orders Shop ${suffix}`, slug: storeSlug, currency: "MUR",
+      // Must be active for store_is_visible() — checkout and the public shop
+      // pages both refuse a store that isn't publicly visible.
+      status: "active",
+      fulfillment: { pickup: true, delivery: false },
+    })
     .select("id")
     .single();
   if (sErr || !store) throw new Error(`store row: ${sErr?.message}`);
 
   await client.from("merchant_staff").insert({ merchant_id: merchant.id, user_id: merchantAuth.user.id, role: "owner" });
+
+  // A real purchasable product: 5 units in stock, Rs 25.00 each. The
+  // oversell race test fires 8 concurrent single-unit checkouts against it
+  // and asserts exactly 5 succeed.
+  const productSlug = `e2e-product-${suffix}`;
+  const { data: product, error: pErr } = await client
+    .from("products")
+    .insert({ store_id: store.id, name: "E2E Test Product", slug: productSlug, status: "active", currency: "MUR" })
+    .select("id")
+    .single();
+  if (pErr || !product) throw new Error(`product row: ${pErr?.message}`);
+
+  const { data: variant, error: vErr } = await client
+    .from("product_variants")
+    .insert({ product_id: product.id, price: 2500, stock_quantity: 5, is_active: true })
+    .select("id")
+    .single();
+  if (vErr || !variant) throw new Error(`variant row: ${vErr?.message}`);
 
   const orderNumber = `E2E-${suffix.slice(0, 8).toUpperCase()}`;
   const { data: order, error: oErr } = await client
@@ -87,7 +117,8 @@ export async function seedOrderFixture(label: string): Promise<OrderFixture> {
   if (oErr || !order) throw new Error(`order row: ${oErr?.message}`);
 
   await client.from("order_items").insert({
-    order_id: order.id, product_name: "E2E Test Product", unit_price: 2500, quantity: 2, line_total: 5000,
+    order_id: order.id, variant_id: variant.id, product_name: "E2E Test Product",
+    unit_price: 2500, quantity: 2, line_total: 5000,
   });
   await client.from("payments").insert({
     order_id: order.id, provider: "paypal", amount: 5000, currency: "MUR", status: "captured",
@@ -97,6 +128,10 @@ export async function seedOrderFixture(label: string): Promise<OrderFixture> {
     merchant: { id: merchant.id, email: merchantAuth.user.email!, password, userId: merchantAuth.user.id },
     customer: { id: customerAuth.user.id, email: customerAuth.user.email!, password },
     storeId: store.id,
+    storeSlug,
+    productId: product.id,
+    productSlug,
+    variantId: variant.id,
     orderId: order.id,
     orderNumber,
   };

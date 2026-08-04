@@ -21,13 +21,44 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
   const bookingId = (body.bookingId ?? "").toString().trim();
-  // "place" = a Stay·Eat·Do reservation; anything else = a vehicle booking.
-  const kind = body.kind === "place" ? "place" : "vehicle";
+  // "place" = a Stay·Eat·Do reservation; "order" = a marketplace order;
+  // anything else = a vehicle booking.
+  const kind = body.kind === "place" ? "place" : body.kind === "order" ? "order" : "vehicle";
   // Vehicles may pay the deposit OR the full total; places are deposit-only.
   const mode = body.mode === "full" ? "full" : "deposit";
   if (!bookingId) return NextResponse.json({ error: "Missing booking." }, { status: 400 });
 
   const supabase = await getPrivileged();
+
+  // Marketplace orders: the amount is always read from the order's own
+  // `total` + its payment row, never trusted from the client — same rule as
+  // the booking flow below, just against a different table.
+  if (kind === "order") {
+    const { data: order } = await supabase
+      .from("orders")
+      .select("id, order_number, total, status, payments(status)")
+      .eq("id", bookingId)
+      .maybeSingle();
+    if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
+    const paymentStatus = Array.isArray(order.payments) ? order.payments[0]?.status : (order.payments as { status?: string } | null)?.status;
+    if (paymentStatus !== "pending" || order.status !== "pending_payment") {
+      return NextResponse.json({ error: "This order has already been paid or is no longer payable." }, { status: 409 });
+    }
+    try {
+      const result = await createDepositOrder({
+        depositMur: order.total,
+        referenceId: order.id,
+        description: `Order ${order.order_number}`,
+      });
+      return NextResponse.json({
+        orderID: result.id, eur: result.eur, depositMur: result.depositMur,
+        feeMur: result.feeMur, totalMur: result.totalMur, mode: "full",
+      });
+    } catch (e) {
+      console.error("[paypal] create-order (marketplace)", e);
+      return NextResponse.json({ error: "Could not start the payment. Please try again." }, { status: 502 });
+    }
+  }
 
   // The deposit is always read from the STORED booking, converted to EUR
   // server-side — the client only sends an id (+ kind), never a price.

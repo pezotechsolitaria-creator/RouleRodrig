@@ -22,9 +22,13 @@ export const STATUS_LABEL: Record<OrderStatus, string> = {
   refunded: "Refunded",
 };
 
-// pending_payment and refunded are deliberately absent as keys — they're not
-// merchant-actionable via a status button (payment-flow-set / refund-flow-set).
+// refunded is deliberately absent as a key — nothing transitions INTO it
+// through update_order_status() yet (no refund flow exists), so it's never
+// merchant-actionable via a status button. pending_payment IS actionable as
+// of M5: a cash/manual order (no online capture step) needs the merchant to
+// confirm payment received, or reject it, directly from that state.
 export const LEGAL_TRANSITIONS: Partial<Record<OrderStatus, OrderStatus[]>> = {
+  pending_payment: ["paid", "cancelled"],
   paid: ["preparing", "cancelled"],
   preparing: ["ready_for_pickup", "cancelled"],
   ready_for_pickup: ["collected", "cancelled"],
@@ -34,7 +38,7 @@ export function legalNextStatuses(current: OrderStatus): OrderStatus[] {
   return LEGAL_TRANSITIONS[current] ?? [];
 }
 
-export const STATUS_ORDER: OrderStatus[] = ["paid", "preparing", "ready_for_pickup", "collected"];
+export const STATUS_ORDER: OrderStatus[] = ["pending_payment", "paid", "preparing", "ready_for_pickup", "collected"];
 
 export function timelineIndex(status: OrderStatus): number {
   if (status === "cancelled" || status === "refunded") return -1;

@@ -13,7 +13,11 @@ const ILLEGAL_TRANSITION_CODE = "RR004";
 const SAFE_RPC_ERROR_CODE = "P0001";
 
 const patchSchema = z.object({
-  status: z.enum(["preparing", "ready_for_pickup", "collected", "cancelled"]).optional(),
+  // "paid" is reachable from "pending_payment" as of M5 — confirming a
+  // cash/manual order that has no online capture step. The RPC's own state
+  // machine is still the real enforcement; this only gates which buttons a
+  // request can even attempt.
+  status: z.enum(["paid", "preparing", "ready_for_pickup", "collected", "cancelled"]).optional(),
   internalNote: z.string().trim().max(2000).optional(),
 });
 
