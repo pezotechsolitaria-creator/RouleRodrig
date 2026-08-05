@@ -7,13 +7,16 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart/CartContext";
 import { centsToDecimalString } from "@/lib/money";
-import PayPalPay from "@/components/PayPalPay";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 
-type Provider = "paypal" | "cash" | "mcb_juice";
+// Marketplace orders are cash / bank transfer / merchant QR only — PayPal and
+// cards belong to the vehicle-rental and place-booking flows, which are a
+// deliberately separate system. Bank transfer and per-merchant payment settings
+// land in the next milestone; today this ships cash-only.
+type Provider = "cash" | "mcb_juice";
 type Fulfillment = "pickup" | "delivery";
 
 export default function CheckoutForm({
@@ -33,7 +36,6 @@ export default function CheckoutForm({
   const [provider, setProvider] = useState<Provider>("cash");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [placedOrder, setPlacedOrder] = useState<{ orderId: string; total: number } | null>(null);
 
   // Gated on `hydrated`, not just `cart` — CartProvider always renders
   // cart=null on the very first client render (localStorage isn't read
@@ -124,40 +126,14 @@ export default function CheckoutForm({
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || "Checkout failed.");
 
-      if (provider === "paypal") {
-        // Don't clear the cart yet — PayPalPay still needs to run; the cart
-        // clears once payment is actually confirmed (onPaid below).
-        setPlacedOrder({ orderId: body.order_id, total: body.total });
-      } else {
-        clear();
-        toast.success("Order placed!");
-        router.push(`/orders/${body.order_id}`);
-      }
+      clear();
+      toast.success("Order placed!");
+      router.push(`/orders/${body.order_id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Checkout failed.");
     } finally {
       setSubmitting(false);
     }
-  }
-
-  if (placedOrder) {
-    return (
-      <div className="rounded-2xl border border-white/10 bg-dark-card p-5">
-        <h2 className="font-syne text-lg font-bold text-offwhite">Complete payment</h2>
-        <p className="mt-1 font-dm text-sm text-muted">Your order is reserved — pay now to confirm it.</p>
-        <div className="mt-4">
-          <PayPalPay
-            referenceId={placedOrder.orderId}
-            amountMur={placedOrder.total}
-            kind="order"
-            onPaid={() => {
-              clear();
-              setTimeout(() => router.push(`/orders/${placedOrder.orderId}`), 1200);
-            }}
-          />
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -241,25 +217,20 @@ export default function CheckoutForm({
 
       <div>
         <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">PAYMENT</p>
-        <div className="mt-2 grid grid-cols-2 gap-2">
+        <div className="mt-2">
           <button
             type="button"
             onClick={() => setProvider("cash")}
-            className={`rounded-xl border px-4 py-3 text-center font-dm text-sm transition-colors ${
+            aria-pressed={provider === "cash"}
+            className={`w-full rounded-xl border px-4 py-3 text-center font-dm text-sm transition-colors ${
               provider === "cash" ? "border-yellow bg-yellow/10 text-yellow" : "border-white/15 text-offwhite hover:bg-white/[0.04]"
             }`}
           >
             Cash on {fulfillment === "delivery" ? "delivery" : "pickup"}
           </button>
-          <button
-            type="button"
-            onClick={() => setProvider("paypal")}
-            className={`rounded-xl border px-4 py-3 text-center font-dm text-sm transition-colors ${
-              provider === "paypal" ? "border-yellow bg-yellow/10 text-yellow" : "border-white/15 text-offwhite hover:bg-white/[0.04]"
-            }`}
-          >
-            Card (PayPal)
-          </button>
+          <p className="mt-2 font-dm text-xs text-muted">
+            Bank transfer and QR payment are coming soon — each shop will choose which it accepts.
+          </p>
         </div>
       </div>
 

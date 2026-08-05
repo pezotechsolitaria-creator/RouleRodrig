@@ -12,7 +12,13 @@ export const checkoutSchema = z.object({
   customerPhone: z.string().trim().min(1, "A phone number is required.").max(40),
   fulfillment: z.enum(["pickup", "delivery"]),
   notes: z.string().trim().max(1000).optional(),
-  provider: z.enum(["paypal", "cash", "mcb_juice", "manual"]),
+  // Marketplace orders are cash / bank transfer / merchant QR only. PayPal and
+  // cards are reserved for vehicle rentals and place bookings and must never be
+  // accepted here — dropping the button alone would not be enough, since this
+  // schema and the create_order() RPC's own whitelist are what a hand-crafted
+  // POST actually has to get past. `manual` stays for merchant-recorded
+  // offline settlement; `mcb_juice` is the QR rail.
+  provider: z.enum(["cash", "mcb_juice", "manual"]),
 });
 
 export const cartResolveSchema = z.object({

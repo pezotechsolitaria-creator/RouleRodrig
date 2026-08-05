@@ -39,6 +39,27 @@ describe("checkoutSchema", () => {
     expect(checkoutSchema.safeParse({ ...base, fulfillment: "teleport" }).success).toBe(false);
   });
 
+  // Regression guard for the M5.1 P0. Marketplace orders take cash / bank
+  // transfer / merchant QR only — PayPal and cards belong exclusively to the
+  // vehicle-rental and place-booking flows. This is enforced in three places
+  // (this schema, the create_order() RPC whitelist, and the checkout UI);
+  // dropping the button alone would leave a hand-crafted POST working, which is
+  // exactly the hole this test exists to keep closed.
+  it("rejects card/PayPal providers — marketplace is cash/bank/QR only", () => {
+    for (const provider of ["paypal", "card", "credit_card", "stripe"]) {
+      expect(
+        checkoutSchema.safeParse({ ...base, provider }).success,
+        `provider "${provider}" must never be accepted for a marketplace order`,
+      ).toBe(false);
+    }
+  });
+
+  it("accepts the three permitted marketplace providers", () => {
+    for (const provider of ["cash", "mcb_juice", "manual"]) {
+      expect(checkoutSchema.safeParse({ ...base, provider }).success, provider).toBe(true);
+    }
+  });
+
   it("requires a name and phone", () => {
     expect(checkoutSchema.safeParse({ ...base, customerName: "" }).success).toBe(false);
     expect(checkoutSchema.safeParse({ ...base, customerPhone: "   " }).success).toBe(false);

@@ -24,49 +24,23 @@ export async function POST(req: NextRequest) {
   }
   const orderID = (body.orderID ?? "").toString().trim();
   const bookingId = (body.bookingId ?? "").toString().trim();
-  const kind = body.kind === "place" ? "place" : body.kind === "order" ? "order" : "vehicle";
+  // VEHICLE RENTALS AND PLACE BOOKINGS ONLY. Marketplace product orders are
+  // never settled here — per the marketplace business rules they are paid by
+  // cash, bank transfer or merchant QR and confirmed manually by the merchant.
+  //
+  // A kind:"order" branch used to live here and was a P0: this route is
+  // deliberately unauthenticated (PayPal's approval is the only credential),
+  // and it holds a service-role client, so any anonymous caller who knew an
+  // order UUID from an /orders/[id] URL could POST a junk orderID, force
+  // captureOrder() to throw, and have the catch call
+  // mark_order_payment_failed() on someone else's order — cancelling it and
+  // dumping its reserved stock. The branch is removed rather than patched
+  // because marketplace orders must not reach PayPal at all.
+  const kind = body.kind === "place" ? "place" : "vehicle";
   if (!orderID || !bookingId) return NextResponse.json({ error: "Missing details." }, { status: 400 });
 
   const supabase = await getPrivileged();
 
-  // Marketplace orders settle through mark_order_paid()/mark_order_payment_failed()
-  // — neither is callable by any client role (see their migration), only by
-  // this service-role connection, and only after PayPal's own capture
-  // response is the thing that decided success or failure, never the browser.
-  if (kind === "order") {
-    const { data: existing } = await supabase
-      .from("orders")
-      .select("id, status, payments(status)")
-      .eq("id", bookingId)
-      .maybeSingle();
-    if (!existing) return NextResponse.json({ error: "Order not found." }, { status: 404 });
-    const payStatus = Array.isArray(existing.payments) ? existing.payments[0]?.status : (existing.payments as { status?: string } | null)?.status;
-    if (payStatus === "captured") return NextResponse.json({ ok: true, alreadyPaid: true });
-
-    let result;
-    try {
-      result = await captureOrder(orderID);
-    } catch (e) {
-      console.error("[paypal] capture (marketplace)", e);
-      await supabase.rpc("mark_order_payment_failed", { p_order_id: bookingId });
-      return NextResponse.json({ error: "Payment could not be confirmed. You have not been charged twice — please contact us." }, { status: 502 });
-    }
-
-    if (result.status !== "COMPLETED") {
-      await supabase.rpc("mark_order_payment_failed", { p_order_id: bookingId });
-      return NextResponse.json({ error: `Payment not completed (${result.status}).` }, { status: 402 });
-    }
-
-    const { error: settleError } = await supabase.rpc("mark_order_paid", {
-      p_order_id: bookingId,
-      p_provider_ref: result.captureId,
-    });
-    if (settleError) {
-      console.error("[paypal] mark_order_paid failed after a real PayPal capture", settleError, { bookingId, captureId: result.captureId });
-      return NextResponse.json({ error: "Payment was received but we couldn't finalize your order. Please contact us." }, { status: 500 });
-    }
-    return NextResponse.json({ ok: true });
-  }
   // Idempotency pre-check — an already-paid deposit returns success without
   // re-capturing. Both tables share the id + deposit_paid_at shape.
   const existing =
