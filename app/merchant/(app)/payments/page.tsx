@@ -10,13 +10,22 @@ export default async function MerchantPaymentSettingsPage() {
   const supabase = await createClient();
   if (!(await hasShop(supabase))) redirect("/merchant/onboarding");
 
-  // Platform-owned delivery pricing, shown read-only: the fee belongs to the
-  // Roulé Rodrigues delivery network, so a merchant sees it but cannot set it.
-  const { data: settings } = await supabase
-    .from("marketplace_settings")
-    .select("delivery_enabled, delivery_base_fee, delivery_eta_minutes")
-    .eq("id", "main")
-    .maybeSingle();
+  // Platform-owned delivery pricing, shown read-only: the fees belong to the
+  // Roulé Rodrigues delivery network, so a merchant sees them but cannot set
+  // them. Since M7 the price depends on the customer's region, so the merchant
+  // is shown the actual per-zone table rather than one island-wide figure.
+  const [{ data: settings }, { data: zones }] = await Promise.all([
+    supabase
+      .from("marketplace_settings")
+      .select("delivery_enabled, delivery_max_minutes")
+      .eq("id", "main")
+      .maybeSingle(),
+    supabase
+      .from("delivery_zones")
+      .select("id, name, fee")
+      .eq("is_active", true)
+      .order("position"),
+  ]);
 
   return (
     <div className="py-8">
@@ -28,8 +37,8 @@ export default async function MerchantPaymentSettingsPage() {
 
       <div className="mt-6 max-w-lg">
         <PaymentSettingsForm
-          deliveryFee={settings?.delivery_base_fee ?? 0}
-          deliveryEtaMinutes={settings?.delivery_eta_minutes ?? 60}
+          zones={zones ?? []}
+          maxMinutes={settings?.delivery_max_minutes ?? 120}
           deliveryEnabled={settings?.delivery_enabled ?? false}
         />
       </div>

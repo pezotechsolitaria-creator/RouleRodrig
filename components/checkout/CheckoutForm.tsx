@@ -17,10 +17,12 @@ type Fulfillment = "pickup" | "customer_delivery" | "rr_delivery";
 type Quote = { subtotal: number; tax: number; delivery_fee: number; total: number; currency: string };
 type Coords = { lat: number; lng: number };
 
+type Zone = { id: string; name: string; covers: string | null; fee: number };
+
 const FULFILLMENT_COPY: Record<Fulfillment, { label: string; hint: string }> = {
   pickup: { label: "Pickup", hint: "Collect from the shop. No delivery fee." },
   customer_delivery: { label: "My own delivery", hint: "You arrange a driver. No delivery fee." },
-  rr_delivery: { label: "Roulé Rodrigues delivery", hint: "Our team delivers to you." },
+  rr_delivery: { label: "Roulé Rodrigues delivery", hint: "Our team delivers. The fee depends on your area." },
 };
 
 export default function CheckoutForm({
@@ -35,6 +37,9 @@ export default function CheckoutForm({
   const [cartError, setCartError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [storeOffersDelivery, setStoreOffersDelivery] = useState(true);
+  // Only Roulé Rodrigues delivery is opt-in per shop; a customer's own driver
+  // is a collection, so it is offered whenever the shop is open at all.
+  const [offersRrDelivery, setOffersRrDelivery] = useState(true);
 
   // Bug 1: the payable amount comes from the server, never from arithmetic here.
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -44,6 +49,9 @@ export default function CheckoutForm({
   const [name, setName] = useState(defaultName);
   const [phone, setPhone] = useState(defaultPhone);
   const [fulfillment, setFulfillment] = useState<Fulfillment>("pickup");
+  const [zones, setZones] = useState<Zone[] | null>(null);
+  const [zoneId, setZoneId] = useState<string>("");
+  const [maxMinutes, setMaxMinutes] = useState(120);
   const [coords, setCoords] = useState<Coords | null>(null);
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -80,6 +88,7 @@ export default function CheckoutForm({
         if (cancelled) return;
         setResolved(body.items ?? []);
         if (body.fulfillment) setStoreOffersDelivery(!!body.fulfillment.delivery);
+        setOffersRrDelivery(!!body.offersRrDelivery);
       })
       .catch((e) => {
         if (cancelled) return;
@@ -94,6 +103,21 @@ export default function CheckoutForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, cartKey, reloadKey]);
 
+  // Delivery regions and their prices. Loaded once; the fee shown is only a
+  // preview — order_amounts() re-reads it server-side when pricing the order.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/delivery-zones")
+      .then(async (r) => (r.ok ? r.json() : null))
+      .then((b) => {
+        if (cancelled || !b) return;
+        setZones(b.zones ?? []);
+        if (typeof b.maxMinutes === "number") setMaxMinutes(b.maxMinutes);
+      })
+      .catch(() => { if (!cancelled) setZones([]); });
+    return () => { cancelled = true; };
+  }, []);
+
   // ── Price it, server-side ────────────────────────────────────────────────
   const fetchQuote = useCallback(async () => {
     if (!cart || cart.items.length === 0) return;
@@ -103,7 +127,7 @@ export default function CheckoutForm({
       const r = await fetch("/api/checkout/quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ storeId: cart.storeId, items: cart.items, fulfillment }),
+        body: JSON.stringify({ storeId: cart.storeId, items: cart.items, fulfillment, deliveryZoneId: zoneId || undefined }),
       });
       const body = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(body.error || "We couldn't price your order.");
@@ -114,13 +138,13 @@ export default function CheckoutForm({
     } finally {
       setQuoting(false);
     }
-  }, [cart, fulfillment]);
+  }, [cart, fulfillment, zoneId]);
 
   useEffect(() => {
     if (!hydrated || cartError || !resolved || resolved.length === 0) return;
     void fetchQuote();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, cartKey, fulfillment, resolved, cartError]);
+  }, [hydrated, cartKey, fulfillment, zoneId, resolved, cartError]);
 
   function shareLocation() {
     if (!navigator.geolocation) {
@@ -182,8 +206,10 @@ export default function CheckoutForm({
   const hasIssue = items.some((i) => !i.isActive || i.productStatus !== "active" || i.stockQuantity < i.requestedQuantity);
   const needsLocation = fulfillment !== "pickup";
   const locationReady = !needsLocation || coords !== null;
+  // rr_delivery has no price until an area is chosen, so it cannot be submitted.
+  const zoneReady = fulfillment !== "rr_delivery" || !!zoneId;
   // Never allow submission on a price we could not obtain from the server.
-  const canSubmit = !submitting && !hasIssue && !!quote && !quoting && locationReady && !!name.trim() && !!phone.trim();
+  const canSubmit = !submitting && !hasIssue && !!quote && !quoting && locationReady && zoneReady && !!name.trim() && !!phone.trim();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -205,6 +231,7 @@ export default function CheckoutForm({
           deliveryLat: coords?.lat,
           deliveryLng: coords?.lng,
           deliveryInstructions: deliveryInstructions || undefined,
+          deliveryZoneId: fulfillment === "rr_delivery" ? zoneId : undefined,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -244,7 +271,8 @@ export default function CheckoutForm({
         <legend className="font-bebas text-[11px] tracking-[0.3em] text-yellow">DELIVERY METHOD</legend>
         <div className="mt-2 space-y-2">
           {(Object.keys(FULFILLMENT_COPY) as Fulfillment[]).map((f) => {
-            const disabled = f !== "pickup" && !storeOffersDelivery;
+            const disabled =
+              f === "rr_delivery" ? !offersRrDelivery : f !== "pickup" && !storeOffersDelivery;
             return (
               <label
                 key={f}
@@ -272,6 +300,47 @@ export default function CheckoutForm({
           })}
         </div>
       </fieldset>
+
+      {/* Region — decides the delivery fee */}
+      {fulfillment === "rr_delivery" && (
+        <section aria-labelledby="zone-h">
+          <h2 id="zone-h" className="font-bebas text-[11px] tracking-[0.3em] text-yellow">DELIVERY AREA</h2>
+          <div className="mt-2 rounded-xl border border-white/10 bg-dark-card p-4">
+            <label htmlFor="zone" className="mb-1.5 block font-dm text-xs text-muted">
+              Which part of Rodrigues are we delivering to?
+            </label>
+            <select
+              id="zone"
+              value={zoneId}
+              onChange={(e) => setZoneId(e.target.value)}
+              className="w-full rounded-xl border border-dark-border bg-dark px-4 py-3 font-dm text-sm text-offwhite focus:border-yellow focus:outline-none"
+            >
+              <option value="">Choose your area…</option>
+              {(zones ?? []).map((z) => (
+                <option key={z.id} value={z.id}>
+                  {z.name} — Rs {centsToDecimalString(z.fee)}
+                </option>
+              ))}
+            </select>
+            {zones?.find((z) => z.id === zoneId)?.covers && (
+              <p className="mt-2 font-dm text-xs text-muted">
+                Covers: {zones.find((z) => z.id === zoneId)!.covers}
+              </p>
+            )}
+            {zones && zones.length === 0 && (
+              <p role="alert" className="mt-2 font-dm text-xs text-red-400">
+                No delivery areas are set up yet. Choose pickup or your own delivery.
+              </p>
+            )}
+            {/* Roulé Rodrigues does not promise a time — this is an upper bound,
+                and the customer settles the exact timing with the driver. */}
+            <p className="mt-3 font-dm text-xs text-muted">
+              Usually within {Math.round(maxMinutes / 60)} hours. You and the driver agree the exact time —
+              we don&apos;t guarantee a slot.
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* GPS — the delivery address */}
       {needsLocation && (

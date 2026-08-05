@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import {
   Sparkles,
@@ -38,6 +39,7 @@ import {
   Eye,
   Handshake,
   Store,
+  Truck,
   Tag,
   ToggleLeft,
   ToggleRight,
@@ -148,6 +150,15 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "sponsors",     label: "Sponsors / Partners", icon: Handshake,    group: "content" },
   { id: "contact",      label: "Contact Info",     icon: Phone,           group: "content" },
   { id: "branding",     label: "Branding & Social",icon: Share2,          group: "content" },
+];
+
+// The merchant marketplace is administered on dedicated routes (they hold their
+// own data and RPCs), so it cannot be a `Section` of this page. Listing the
+// links here keeps them discoverable — previously /admin/subscriptions could
+// only be reached by typing the URL.
+const MARKETPLACE_LINKS: { href: string; label: string; icon: React.ElementType }[] = [
+  { href: "/admin/subscriptions",  label: "Merchants & Subscriptions", icon: Store },
+  { href: "/admin/delivery-zones", label: "Delivery Areas & Fees",     icon: Truck },
 ];
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
@@ -6116,6 +6127,7 @@ export default function AdminDashboard({
   const overviewNav = NAV.filter((n) => n.group === "overview" && matches(n));
   const exploreNav  = NAV.filter((n) => n.group === "explore" && matches(n));
   const contentNav  = NAV.filter((n) => n.group === "content" && matches(n));
+  const marketplaceLinks = MARKETPLACE_LINKS.filter((l) => !q || l.label.toLowerCase().includes(q));
   const nothingMatches = overviewNav.length + exploreNav.length + contentNav.length === 0;
 
   // Reusable nav-group renderer (shared by drawer)
@@ -6189,7 +6201,26 @@ export default function AdminDashboard({
         {overviewNav.length > 0 && renderNavGroup("DAILY BUSINESS", overviewNav)}
         {exploreNav.length > 0 && renderNavGroup("WHAT ARE YOU LOOKING FOR?", exploreNav)}
         {contentNav.length > 0 && renderNavGroup("WEBSITE CONTENT", contentNav)}
-        {nothingMatches && (
+        {/* The marketplace admin lives on its own routes rather than as sections
+            of this page, so these are real links, not selectSection() calls. */}
+        {marketplaceLinks.length > 0 && (
+          <div>
+            <p className="font-bebas text-muted/40 text-[8px] tracking-[0.3em] px-3 mb-1">MARKETPLACE</p>
+            <div className="space-y-0.5">
+              {marketplaceLinks.map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left text-muted hover:text-offwhite hover:bg-white/5"
+                >
+                  <Icon size={16} className="shrink-0" />
+                  <span className="flex-1 truncate">{label}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+        {nothingMatches && marketplaceLinks.length === 0 && (
           <p className="px-3 py-4 text-muted/40 text-xs font-dm">No section matches &ldquo;{navQuery}&rdquo;</p>
         )}
       </nav>

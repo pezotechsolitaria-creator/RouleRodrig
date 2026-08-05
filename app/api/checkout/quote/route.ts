@@ -12,6 +12,7 @@ const quoteSchema = z.object({
   storeId: z.string().uuid(),
   items: z.array(cartItemSchema).min(1).max(50),
   fulfillment: z.enum(FULFILLMENT_METHODS),
+  deliveryZoneId: z.string().uuid().optional(),
 });
 
 // The authoritative price the customer will be charged, computed by the same
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
       p_store_id: parsed.data.storeId,
       p_items: parsed.data.items.map((i) => ({ variant_id: i.variantId, quantity: i.quantity })),
       p_fulfillment: parsed.data.fulfillment,
+      p_zone_id: parsed.data.deliveryZoneId ?? null,
     })
     .single();
 

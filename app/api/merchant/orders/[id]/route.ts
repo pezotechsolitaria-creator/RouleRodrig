@@ -25,6 +25,12 @@ const patchSchema = z.object({
 // (merchant-only; app/api/customer/orders/[id]/route.ts is a SEPARATE
 // handler that never selects this column, rather than one handler trying to
 // remember to strip it per caller).
+//
+// internal_notes is fetched through order_internal_notes() rather than as a
+// column, because M7 revoked the column grant: `authenticated` held a
+// table-level SELECT on orders, which meant a customer could read the shop's
+// private note about their own order straight through PostgREST. The accessor
+// is SECURITY DEFINER and checks store staff membership itself.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!isUuid(id)) return NextResponse.json({ error: "Not found." }, { status: 404 });
@@ -41,8 +47,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { data: order, error } = await supabase
     .from("orders")
     .select(
-      "id, order_number, status, customer_id, customer_name, customer_phone, notes, internal_notes, subtotal, discount, tax, total, currency, commission_amount, placed_at, created_at, updated_at, " +
+      "id, order_number, status, customer_id, customer_name, customer_phone, notes, subtotal, discount, tax, total, currency, commission_amount, placed_at, created_at, updated_at, " +
         "fulfillment_method, delivery_fee, delivery_lat, delivery_lng, delivery_instructions, payment_receipt_path, receipt_submitted_at, " +
+        "delivery_zones(name), " +
         "order_items(id, product_name, variant_name, sku, unit_price, quantity, line_total), " +
         "payments(id, provider, provider_ref, amount, currency, status, created_at), " +
         "qr_pickup_tokens(id, issued_at, expires_at, redeemed_at)",
@@ -57,7 +64,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
   if (!order) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
-  return NextResponse.json({ order });
+  // Ownership was already proven by the .eq("store_id", storeId) above; the RPC
+  // re-checks it independently anyway. A failure here is not fatal to the page.
+  const { data: internalNotes, error: notesError } = await supabase.rpc("order_internal_notes", {
+    p_order_id: id,
+  });
+  if (notesError) console.error("order_internal_notes failed", notesError);
+
+  return NextResponse.json({
+    order: Object.assign({}, order, { internal_notes: (internalNotes as string | null) ?? null }),
+  });
 }
 
 // Status transitions + internal notes both go through update_order_status()

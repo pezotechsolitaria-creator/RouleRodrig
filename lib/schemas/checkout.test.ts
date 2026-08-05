@@ -68,26 +68,55 @@ describe("checkoutSchema", () => {
 
   // Rule 5: three delivery choices, and GPS is mandatory for both delivery
   // modes because the RR team and a customer's own driver both need it.
+  // Since M7 rr_delivery additionally needs a zone, because the zone is what
+  // sets the fee.
+  const ZONE = "d23dd12a-a1fc-40be-832f-e38d9df88868";
+  const gps = { deliveryLat: -19.7, deliveryLng: 63.4 };
+
   it("requires GPS for both delivery modes but not for pickup", () => {
     expect(checkoutSchema.safeParse({ ...base, fulfillment: "pickup" }).success).toBe(true);
     for (const fulfillment of ["customer_delivery", "rr_delivery"]) {
-      expect(checkoutSchema.safeParse({ ...base, fulfillment }).success, `${fulfillment} without GPS`).toBe(false);
+      const zone = fulfillment === "rr_delivery" ? { deliveryZoneId: ZONE } : {};
       expect(
-        checkoutSchema.safeParse({ ...base, fulfillment, deliveryLat: -19.7, deliveryLng: 63.4 }).success,
+        checkoutSchema.safeParse({ ...base, fulfillment, ...zone }).success,
+        `${fulfillment} without GPS`,
+      ).toBe(false);
+      expect(
+        checkoutSchema.safeParse({ ...base, fulfillment, ...zone, ...gps }).success,
         `${fulfillment} with GPS`,
       ).toBe(true);
     }
   });
 
+  // A customer who never picks an area must not reach create_order at all: the
+  // RPC would reject it anyway (RR005), but failing here gives a usable message
+  // instead of a round-trip.
+  it("requires a delivery zone for rr_delivery, and only for rr_delivery", () => {
+    expect(checkoutSchema.safeParse({ ...base, fulfillment: "rr_delivery", ...gps }).success).toBe(false);
+    expect(
+      checkoutSchema.safeParse({ ...base, fulfillment: "rr_delivery", ...gps, deliveryZoneId: ZONE }).success,
+    ).toBe(true);
+    // Own driver and pickup are free, so no zone is needed.
+    expect(checkoutSchema.safeParse({ ...base, fulfillment: "customer_delivery", ...gps }).success).toBe(true);
+    expect(checkoutSchema.safeParse({ ...base, fulfillment: "pickup" }).success).toBe(true);
+  });
+
+  it("rejects a delivery zone that is not a uuid", () => {
+    expect(
+      checkoutSchema.safeParse({ ...base, fulfillment: "rr_delivery", ...gps, deliveryZoneId: "'; drop table--" })
+        .success,
+    ).toBe(false);
+  });
+
   it("rejects out-of-range coordinates", () => {
-    const d = { fulfillment: "rr_delivery" as const };
+    const d = { fulfillment: "rr_delivery" as const, deliveryZoneId: ZONE };
     expect(checkoutSchema.safeParse({ ...base, ...d, deliveryLat: 91, deliveryLng: 0 }).success).toBe(false);
     expect(checkoutSchema.safeParse({ ...base, ...d, deliveryLat: 0, deliveryLng: 181 }).success).toBe(false);
   });
 
   it("strips a client-supplied delivery fee — the server derives it", () => {
     const parsed = checkoutSchema.parse({
-      ...base, fulfillment: "rr_delivery", deliveryLat: -19.7, deliveryLng: 63.4,
+      ...base, fulfillment: "rr_delivery", ...gps, deliveryZoneId: ZONE,
       deliveryFee: 0, delivery_fee: 0, total: 1,
     });
     expect(parsed).not.toHaveProperty("deliveryFee");

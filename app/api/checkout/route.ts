@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   }
   const {
     storeId, items, customerName, customerPhone, fulfillment, notes, provider,
-    deliveryLat, deliveryLng, deliveryInstructions,
+    deliveryLat, deliveryLng, deliveryInstructions, deliveryZoneId,
   } = parsed.data;
 
   const { data, error } = await supabase
@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
       p_delivery_lat: deliveryLat ?? null,
       p_delivery_lng: deliveryLng ?? null,
       p_delivery_instructions: deliveryInstructions ?? null,
+      p_delivery_zone_id: deliveryZoneId ?? null,
     })
     .single();
 

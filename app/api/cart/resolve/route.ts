@@ -75,16 +75,19 @@ export async function POST(req: NextRequest) {
   const rows = (data ?? []) as unknown as VariantRow[];
   const byId = new Map(rows.map((v) => [v.id, v]));
   const items: ResolvedCartItem[] = [];
-  let fulfillment: { pickup: boolean; delivery: boolean } = { pickup: true, delivery: false };
+  // What the checkout may offer. This deliberately does NOT come from
+  // stores.fulfillment: nothing in the product ever writes that column, so its
+  // default left every real shop pickup-only. create_order() gates rr_delivery
+  // on store_payment_settings.offers_rr_delivery, and this mirrors that so the
+  // UI and the RPC agree. Pickup and a customer's own driver are always allowed
+  // — both are collections as far as the shop is concerned.
+  let fulfillment: { pickup: boolean; delivery: boolean } = { pickup: true, delivery: true };
   for (const line of parsed.data.items) {
     const v = byId.get(line.variantId);
     // Silently drop items that no longer exist (deleted product) — the cart
     // UI shows the remaining valid items rather than erroring the whole cart.
     if (!v || !v.products) continue;
     const store = Array.isArray(v.products.stores) ? v.products.stores[0] : v.products.stores;
-    if (store?.fulfillment) {
-      fulfillment = { pickup: !!store.fulfillment.pickup, delivery: !!store.fulfillment.delivery };
-    }
     const media = (v.products.product_media ?? []).slice().sort((a, b) => a.position - b.position)[0];
     items.push({
       variantId: v.id,
@@ -103,5 +106,19 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({ items, fulfillment });
+  // Whether the Roulé Rodrigues delivery network is available for this cart:
+  // the shop must take part, and the platform must not have paused delivery.
+  // Mirrors create_order()'s gate exactly so the UI never offers an option the
+  // RPC will reject.
+  const storeId = items[0]?.storeId;
+  let offersRrDelivery = false;
+  if (storeId) {
+    const [{ data: pay }, { data: settings }] = await Promise.all([
+      supabase.from("store_payment_settings").select("offers_rr_delivery").eq("store_id", storeId).maybeSingle(),
+      supabase.from("marketplace_settings").select("delivery_enabled").eq("id", "main").maybeSingle(),
+    ]);
+    offersRrDelivery = (pay?.offers_rr_delivery ?? true) && (settings?.delivery_enabled ?? false);
+  }
+
+  return NextResponse.json({ items, fulfillment, offersRrDelivery });
 }

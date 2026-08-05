@@ -33,7 +33,7 @@ function serviceRoleMissing() {
 
 const patchSchema = z.object({
   merchantId: z.string().uuid(),
-  action: z.enum(["suspend", "reactivate", "approve_renewal", "set_plan"]),
+  action: z.enum(["approve_merchant", "reject_merchant", "suspend", "reactivate", "approve_renewal", "set_plan"]),
   plan: z.enum(["starter", "standard", "premium"]).optional(),
   // Renewal length in days; bounded so a slip can't grant a decade.
   periodDays: z.number().int().min(1).max(366).optional(),
@@ -93,6 +93,41 @@ export async function PATCH(req: NextRequest) {
     .maybeSingle();
 
   const nowIso = new Date().toISOString();
+
+  // Merchant approval. onboard_merchant() creates every shop as 'pending', and
+  // store_is_visible() requires 'approved' — but until M7 nothing anywhere
+  // could write merchants.status, so a self-onboarded shop stayed invisible to
+  // customers forever. No column grant exists for it either, which is correct:
+  // only the service-role client behind this cookie-gated route may set it.
+  if (action === "approve_merchant" || action === "reject_merchant") {
+    const newStatus = action === "approve_merchant" ? "approved" : "rejected";
+    const { error } = await supabase
+      .from("merchants")
+      .update({ status: newStatus })
+      .eq("id", merchantId);
+    if (error) {
+      console.error(`${action} failed`, error);
+      return NextResponse.json({ error: "Could not update that merchant." }, { status: 500 });
+    }
+
+    // A newly approved shop needs a subscription window, or it would be
+    // approved and still blocked by merchant_subscription_active().
+    if (newStatus === "approved" && !existing) {
+      const days = periodDays ?? 30;
+      await supabase.from("merchant_subscriptions").upsert(
+        {
+          merchant_id: merchantId,
+          status: "trialing",
+          plan: plan ?? "starter",
+          current_period_end: new Date(Date.now() + days * 86_400_000).toISOString(),
+          note: note ?? "Trial opened on approval",
+          updated_at: nowIso,
+        },
+        { onConflict: "merchant_id" },
+      );
+    }
+    return NextResponse.json({ ok: true, status: newStatus });
+  }
 
   if (action === "suspend") {
     const { error } = await supabase

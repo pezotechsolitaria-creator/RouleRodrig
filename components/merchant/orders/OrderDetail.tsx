@@ -233,6 +233,7 @@ export default function OrderDetail({ id }: { id: string }) {
             customerName={order.customer_name}
             instructions={order.delivery_instructions}
             deliveryFee={order.delivery_fee}
+            zoneName={order.delivery_zones?.name ?? null}
           />
 
           {order.qr_pickup_tokens.length > 0 && (

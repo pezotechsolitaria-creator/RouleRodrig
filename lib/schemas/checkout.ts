@@ -32,11 +32,18 @@ export const checkoutSchema = z
     deliveryLat: z.number().min(-90).max(90).optional(),
     deliveryLng: z.number().min(-180).max(180).optional(),
     deliveryInstructions: z.string().trim().max(500).optional(),
+    // Which region we are delivering to. Only the ID travels — the FEE is read
+    // from delivery_zones server-side, so the client cannot price its own delivery.
+    deliveryZoneId: z.string().uuid().optional(),
   })
   .refine(
     (v) => v.fulfillment === "pickup" || (v.deliveryLat !== undefined && v.deliveryLng !== undefined),
     { message: "Share your location so the order can be delivered.", path: ["deliveryLat"] },
-  );
+  )
+  .refine((v) => v.fulfillment !== "rr_delivery" || !!v.deliveryZoneId, {
+    message: "Choose the area we are delivering to.",
+    path: ["deliveryZoneId"],
+  });
 
 export const cartResolveSchema = z.object({
   items: z.array(cartItemSchema).min(1).max(50),

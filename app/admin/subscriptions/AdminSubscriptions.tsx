@@ -137,8 +137,37 @@ export default function AdminSubscriptions() {
                   <p className="font-dm text-xs text-muted">
                     {s ? `${s.plan} · ends ${new Date(s.current_period_end).toLocaleDateString()}` : "no subscription row"}
                   </p>
+                  <p className={`font-dm text-xs ${m.status === "approved" ? "text-green-400" : m.status === "pending" ? "text-orange-300" : "text-red-400"}`}>
+                    {m.status}
+                  </p>
                 </div>
               </div>
+
+              {/* A shop stays invisible to customers until it is approved —
+                  store_is_visible() requires merchants.status = 'approved'. */}
+              {m.status !== "approved" && (
+                <div className="mt-3 rounded-lg border border-orange-400/25 bg-orange-400/[0.05] px-3 py-2">
+                  <p className="font-dm text-xs text-orange-200">
+                    This shop is <strong>{m.status}</strong> — customers cannot see it or order from it.
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button type="button" disabled={!!busy}
+                      onClick={() => act(m.id, "approve_merchant", { periodDays: 30 })}
+                      className="rounded-full bg-green-500/20 px-3 py-1.5 font-dm text-xs font-medium text-green-300 hover:bg-green-500/30 disabled:opacity-50">
+                      {busy === m.id + "approve_merchant"
+                        ? <Loader2 size={12} className="animate-spin" />
+                        : "Approve shop (opens 30-day trial)"}
+                    </button>
+                    {m.status !== "rejected" && (
+                      <button type="button" disabled={!!busy}
+                        onClick={() => act(m.id, "reject_merchant")}
+                        className="rounded-full border border-white/15 px-3 py-1.5 font-dm text-xs text-muted hover:border-red-500/50 hover:text-red-400 disabled:opacity-50">
+                        Reject
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" disabled={!!busy}

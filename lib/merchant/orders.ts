@@ -60,6 +60,9 @@ export type OrderDetail = {
   delivery_lat: number | null;
   delivery_lng: number | null;
   delivery_instructions: string | null;
+  // The zone the customer picked, embedded from delivery_zones. Null on older
+  // orders placed before region pricing, and on pickup orders.
+  delivery_zones: { name: string } | null;
   payment_receipt_path: string | null;
   receipt_submitted_at: string | null;
   order_items: OrderItem[];

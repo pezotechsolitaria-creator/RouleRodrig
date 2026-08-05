@@ -8,7 +8,7 @@ import { formatCoords, googleMapsLink, openStreetMapLink, whatsappShareLink, FUL
 // to get a merchant (or, later, a driver) from "an order exists" to "navigation
 // is open" in one tap.
 export default function DeliveryLocationCard({
-  fulfillmentMethod, lat, lng, orderNumber, customerName, instructions, deliveryFee,
+  fulfillmentMethod, lat, lng, orderNumber, customerName, instructions, deliveryFee, zoneName,
 }: {
   fulfillmentMethod: string | null;
   lat: number | null;
@@ -17,6 +17,7 @@ export default function DeliveryLocationCard({
   customerName: string | null;
   instructions: string | null;
   deliveryFee: number;
+  zoneName: string | null;
 }) {
   const [copied, setCopied] = useState(false);
   if (!fulfillmentMethod) return null;
@@ -32,6 +33,14 @@ export default function DeliveryLocationCard({
       <p className="mt-2 font-dm text-sm text-offwhite">
         {FULFILLMENT_LABEL[fulfillmentMethod] ?? fulfillmentMethod}
       </p>
+      {/* The zone the customer picked is what set the fee. Showing it next to
+          the GPS pin is deliberate: if the pin is nowhere near the zone, the
+          order was under-priced and the merchant can see that before driving. */}
+      {zoneName && (
+        <p className="font-dm text-xs text-muted">
+          Area chosen: <span className="text-offwhite">{zoneName}</span>
+        </p>
+      )}
       {deliveryFee > 0 && (
         <p className="font-dm text-xs text-muted">Delivery fee collected: Rs {(deliveryFee / 100).toFixed(2)}</p>
       )}

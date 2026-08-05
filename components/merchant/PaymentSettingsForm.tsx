@@ -19,9 +19,11 @@ type Settings = {
   offers_rr_delivery: boolean;
 };
 
+type Zone = { id: string; name: string; fee: number };
+
 export default function PaymentSettingsForm({
-  deliveryFee, deliveryEtaMinutes, deliveryEnabled,
-}: { deliveryFee: number; deliveryEtaMinutes: number; deliveryEnabled: boolean }) {
+  zones, maxMinutes, deliveryEnabled,
+}: { zones: Zone[]; maxMinutes: number; deliveryEnabled: boolean }) {
   const [s, setS] = useState<Settings | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -166,16 +168,33 @@ export default function PaymentSettingsForm({
         </label>
         <div className="mt-3 flex items-start gap-2 rounded-xl bg-white/[0.03] px-4 py-3">
           <Truck size={15} className="mt-0.5 shrink-0 text-muted" />
-          <p className="font-dm text-xs text-muted">
+          <div className="font-dm text-xs text-muted">
             {deliveryEnabled ? (
-              <>The delivery fee is set by Roulé Rodrigues, not by your shop — currently{" "}
-              <span className="text-offwhite">Rs {centsToDecimalString(deliveryFee)}</span>, about{" "}
-              <span className="text-offwhite">{deliveryEtaMinutes} min</span>. Customers can always choose pickup
-              or arrange their own driver.</>
+              <>
+                <p>
+                  Delivery fees are set by Roulé Rodrigues, not by your shop, and depend on where the
+                  customer is. The customer picks their area at checkout and pays that fee.
+                </p>
+                {zones.length > 0 && (
+                  <ul className="mt-2 space-y-0.5">
+                    {zones.map((z) => (
+                      <li key={z.id} className="flex justify-between gap-3">
+                        <span>{z.name}</span>
+                        <span className="shrink-0 text-offwhite">Rs {centsToDecimalString(z.fee)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="mt-2">
+                  Deliveries usually happen within {Math.round(maxMinutes / 60)} hours — the customer and the
+                  driver agree the exact time between themselves, so it is not a guarantee your shop makes.
+                  Customers can always choose pickup or arrange their own driver.
+                </p>
+              </>
             ) : (
-              <>Roulé Rodrigues delivery is paused platform-wide at the moment.</>
+              <p>Roulé Rodrigues delivery is paused platform-wide at the moment.</p>
             )}
-          </p>
+          </div>
         </div>
       </fieldset>
 

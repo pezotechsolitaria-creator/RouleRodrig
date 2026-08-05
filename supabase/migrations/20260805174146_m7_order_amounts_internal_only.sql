@@ -1,0 +1,14 @@
+-- order_amounts() is an internal pricing helper, not a public API. M6 granted
+-- execute to `authenticated`, and `create or replace function` preserves an
+-- existing ACL, so the m7_order_amounts_by_zone revoke — which only named
+-- public and anon — left that explicit grant in place.
+--
+-- Not a vulnerability: the function is STABLE, writes nothing, and returns only
+-- figures a customer can already obtain from quote_order(). But an internal
+-- helper should not be directly callable, so this closes the gap the earlier
+-- migration evidently intended to close.
+--
+-- Safe for the callers: quote_order() and create_order() are both SECURITY
+-- DEFINER, so their nested call to order_amounts() is checked against the
+-- function owner (postgres), not against the end user.
+revoke execute on function order_amounts(uuid, integer, text, uuid) from authenticated;
