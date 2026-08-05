@@ -112,13 +112,18 @@ export async function POST(req: NextRequest) {
   // RPC will reject.
   const storeId = items[0]?.storeId;
   let offersRrDelivery = false;
+  let schedule = null;
   if (storeId) {
-    const [{ data: pay }, { data: settings }] = await Promise.all([
+    const [{ data: pay }, { data: settings }, { data: status }] = await Promise.all([
       supabase.from("store_payment_settings").select("offers_rr_delivery").eq("store_id", storeId).maybeSingle(),
       supabase.from("marketplace_settings").select("delivery_enabled").eq("id", "main").maybeSingle(),
+      // The SAME function create_order() and quote_order() gate on, so the UI
+      // can never offer an option the RPC is about to refuse.
+      supabase.rpc("store_schedule_status", { p_store_id: storeId }).single(),
     ]);
     offersRrDelivery = (pay?.offers_rr_delivery ?? true) && (settings?.delivery_enabled ?? false);
+    schedule = status ?? null;
   }
 
-  return NextResponse.json({ items, fulfillment, offersRrDelivery });
+  return NextResponse.json({ items, fulfillment, offersRrDelivery, schedule });
 }

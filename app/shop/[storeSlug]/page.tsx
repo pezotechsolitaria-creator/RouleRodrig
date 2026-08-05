@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Store as StoreIcon, Phone } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import ProductCard, { type ShopProductCard } from "@/components/shop/ProductCard";
+import StoreHoursCard from "@/components/shop/StoreHoursCard";
 
 export const revalidate = 60;
 
@@ -37,12 +38,24 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
   const supabase = await createClient();
   // products_public_read already restricts to status='active' + a visible
   // store, so this doesn't need its own status filter beyond store_id.
-  const { data: products } = await supabase
-    .from("products")
-    .select("id, name, slug, product_variants(price, stock_quantity), product_media(url, position)")
-    .eq("store_id", store.id)
-    .eq("status", "active")
-    .order("created_at", { ascending: false });
+  // The weekly rules are static enough to cache with the page; the live
+  // open/closed verdict is derived in the browser by StoreHoursCard, because
+  // this page is ISR (revalidate = 60) and a server-rendered badge would be
+  // baked into the cached HTML and wrong right at the opening/closing minute.
+  const [{ data: products }, { data: hours }] = await Promise.all([
+    supabase
+      .from("products")
+      .select("id, name, slug, product_variants(price, stock_quantity), product_media(url, position)")
+      .eq("store_id", store.id)
+      .eq("status", "active")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("store_hours")
+      .select("weekday, opens_at, closes_at, delivery_opens_at, delivery_closes_at, delivery_closed, is_closed")
+      .eq("store_id", store.id)
+      .is("date", null)
+      .order("weekday"),
+  ]);
 
   const cards: ShopProductCard[] = (products ?? []).map((p) => {
     const variants = (p.product_variants ?? []) as { price: number; stock_quantity: number }[];
@@ -82,6 +95,12 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
 
         {store.description && (
           <p className="mt-5 max-w-2xl font-dm text-sm leading-relaxed text-muted">{store.description}</p>
+        )}
+
+        {(hours ?? []).length > 0 && (
+          <div className="mt-5 max-w-md">
+            <StoreHoursCard days={hours ?? []} initialStatus={null} />
+          </div>
         )}
 
         <div className="mt-8">

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
+import { todayLine, deliveryLine, nextOpenLabel, type ScheduleStatus } from "@/lib/schedule";
 
 type Provider = "cash" | "bank_transfer";
 type Fulfillment = "pickup" | "customer_delivery" | "rr_delivery";
@@ -40,6 +41,9 @@ export default function CheckoutForm({
   // Only Roulé Rodrigues delivery is opt-in per shop; a customer's own driver
   // is a collection, so it is offered whenever the shop is open at all.
   const [offersRrDelivery, setOffersRrDelivery] = useState(true);
+  // Opening hours, straight from store_schedule_status() — the same function
+  // create_order() enforces. Null until the cart resolves.
+  const [schedule, setSchedule] = useState<ScheduleStatus | null>(null);
 
   // Bug 1: the payable amount comes from the server, never from arithmetic here.
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -89,6 +93,7 @@ export default function CheckoutForm({
         setResolved(body.items ?? []);
         if (body.fulfillment) setStoreOffersDelivery(!!body.fulfillment.delivery);
         setOffersRrDelivery(!!body.offersRrDelivery);
+        setSchedule(body.schedule ?? null);
       })
       .catch((e) => {
         if (cancelled) return;
@@ -208,8 +213,15 @@ export default function CheckoutForm({
   const locationReady = !needsLocation || coords !== null;
   // rr_delivery has no price until an area is chosen, so it cannot be submitted.
   const zoneReady = fulfillment !== "rr_delivery" || !!zoneId;
+  // Opening hours. create_order() refuses a closed shop (RR010) and refuses
+  // rr_delivery outside the delivery window (RR011); these mirror that so the
+  // customer is stopped before filling the form, not after submitting it.
+  const shopClosed = !!schedule && schedule.has_schedule && !schedule.is_open;
+  const deliveryOffNow = !!schedule && schedule.has_schedule && !schedule.delivery_available;
+  const scheduleReady = !shopClosed && !(fulfillment === "rr_delivery" && deliveryOffNow);
   // Never allow submission on a price we could not obtain from the server.
-  const canSubmit = !submitting && !hasIssue && !!quote && !quoting && locationReady && zoneReady && !!name.trim() && !!phone.trim();
+  const canSubmit = !submitting && !hasIssue && !!quote && !quoting && locationReady && zoneReady
+    && scheduleReady && !!name.trim() && !!phone.trim();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -266,13 +278,41 @@ export default function CheckoutForm({
         )}
       </section>
 
+      {/* Opening hours — stated up front, because a closed shop blocks everything. */}
+      {shopClosed && (
+        <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/[0.06] px-4 py-3">
+          <p className="font-dm text-sm text-red-300">This shop is closed right now.</p>
+          <p className="mt-0.5 font-dm text-xs text-muted">
+            {nextOpenLabel(schedule) || "Please try again during opening hours."}
+            {todayLine(schedule) !== "Closed today" && ` · Today ${todayLine(schedule)}`}
+          </p>
+        </div>
+      )}
+      {!shopClosed && schedule?.has_schedule && (
+        <p className="font-dm text-xs text-muted">
+          <span className="text-green-400">Open now</span> · today {todayLine(schedule)}
+        </p>
+      )}
+
       {/* Delivery method */}
       <fieldset>
         <legend className="font-bebas text-[11px] tracking-[0.3em] text-yellow">DELIVERY METHOD</legend>
         <div className="mt-2 space-y-2">
           {(Object.keys(FULFILLMENT_COPY) as Fulfillment[]).map((f) => {
+            // A shut delivery window disables ONLY rr_delivery — pickup and a
+            // customer's own driver still work, which is exactly what the RPC
+            // allows, so the UI never blocks something the server would accept.
             const disabled =
-              f === "rr_delivery" ? !offersRrDelivery : f !== "pickup" && !storeOffersDelivery;
+              shopClosed
+                ? true
+                : f === "rr_delivery"
+                  ? !offersRrDelivery || deliveryOffNow
+                  : f !== "pickup" && !storeOffersDelivery;
+            const reason =
+              shopClosed ? "The shop is closed right now."
+                : f === "rr_delivery" && !offersRrDelivery ? "This shop doesn't use our delivery team."
+                : f === "rr_delivery" && deliveryOffNow ? "Delivery isn't running right now."
+                : null;
             return (
               <label
                 key={f}
@@ -294,6 +334,8 @@ export default function CheckoutForm({
                     {FULFILLMENT_COPY[f].label}
                   </span>
                   <span className="block font-dm text-xs text-muted">{FULFILLMENT_COPY[f].hint}</span>
+                  {/* Never disable a control without saying why. */}
+                  {reason && <span className="mt-0.5 block font-dm text-xs text-orange-300">{reason}</span>}
                 </span>
               </label>
             );
@@ -335,9 +377,16 @@ export default function CheckoutForm({
             {/* Roulé Rodrigues does not promise a time — this is an upper bound,
                 and the customer settles the exact timing with the driver. */}
             <p className="mt-3 font-dm text-xs text-muted">
-              Usually within {Math.round(maxMinutes / 60)} hours. You and the driver agree the exact time —
-              we don&apos;t guarantee a slot.
+              Usually delivered within {Math.round(maxMinutes / 60)} hours.
             </p>
+            <p className="font-dm text-xs text-muted">
+              The exact delivery time is agreed between you and the driver.
+            </p>
+            {deliveryLine(schedule) && (
+              <p className="mt-1 font-dm text-xs text-muted">
+                Delivery today: {deliveryLine(schedule)}
+              </p>
+            )}
           </div>
         </section>
       )}

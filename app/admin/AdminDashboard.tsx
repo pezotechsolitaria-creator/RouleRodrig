@@ -40,6 +40,7 @@ import {
   Handshake,
   Store,
   Truck,
+  Clock,
   Tag,
   ToggleLeft,
   ToggleRight,
@@ -158,6 +159,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
 // only be reached by typing the URL.
 const MARKETPLACE_LINKS: { href: string; label: string; icon: React.ElementType }[] = [
   { href: "/admin/subscriptions",  label: "Merchants & Subscriptions", icon: Store },
+  { href: "/admin/stores",         label: "Shops & Opening Hours",     icon: Clock },
   { href: "/admin/delivery-zones", label: "Delivery Areas & Fees",     icon: Truck },
 ];
 

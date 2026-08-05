@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LogOut, ClipboardList, Wallet, BadgeCheck } from "lucide-react";
+import { LogOut, ClipboardList, Wallet, BadgeCheck, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getMerchantDashboard } from "@/lib/merchant/context";
 import { getMerchantSubscription } from "@/lib/merchant/subscription";
@@ -51,6 +51,12 @@ export default async function MerchantAppLayout({ children }: { children: React.
               className="ml-3 hidden items-center gap-1.5 font-dm text-sm text-muted transition-colors hover:text-yellow sm:flex"
             >
               <Wallet size={14} /> Payments
+            </Link>
+            <Link
+              href="/merchant/hours"
+              className="ml-3 hidden items-center gap-1.5 font-dm text-sm text-muted transition-colors hover:text-yellow sm:flex"
+            >
+              <Clock size={14} /> Hours
             </Link>
             <Link
               href="/merchant/subscription"
