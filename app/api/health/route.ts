@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { hasServiceRole } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,12 @@ export async function GET(req: Request) {
     {
       status: healthy ? "ok" : "degraded",
       probe: "readiness",
-      checks: { database: db, dbLatencyMs },
+      // Boolean only — never the key, never any part of it. Admin subscription
+      // routes return 503 without it, and getPrivileged() otherwise degrades
+      // silently to a non-privileged client, so this is the quickest way to
+      // confirm a deploy is fully configured. Knowing that a secret IS set
+      // gives an attacker nothing they could use to obtain it.
+      checks: { database: db, dbLatencyMs, adminBackend: hasServiceRole() ? "configured" : "unconfigured" },
       uptimeMs: Math.round(process.uptime() * 1000),
       totalMs: Date.now() - started,
       at: new Date().toISOString(),
