@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, User, Phone, CreditCard, QrCode } from "lucide-react";
+import { ArrowLeft, User, Phone, CreditCard, QrCode, MapPin, Truck, Receipt } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/file-signature";
 import { centsToDecimalString } from "@/lib/money";
 import OrderTimeline from "@/components/orders/OrderTimeline";
-import type { OrderStatus } from "@/lib/orders/status";
+import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
+import { FULFILLMENT_LABEL, googleMapsLink, formatCoords } from "@/lib/orders/location";
+import BankTransferPanel from "@/components/orders/BankTransferPanel";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -25,6 +27,14 @@ type CustomerOrderDetail = {
   currency: string;
   placed_at: string | null;
   created_at: string;
+  fulfillment_method: string | null;
+  delivery_fee: number;
+  delivery_lat: number | null;
+  delivery_lng: number | null;
+  delivery_instructions: string | null;
+  payment_receipt_path: string | null;
+  receipt_submitted_at: string | null;
+  store_id: string;
   stores: { name: string; phone: string | null } | { name: string; phone: string | null }[] | null;
   order_items: {
     id: string; product_name: string; variant_name: string | null; sku: string | null;
@@ -50,7 +60,8 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
   const { data: order } = await supabase
     .from("orders")
     .select(
-      "id, order_number, status, notes, subtotal, discount, tax, total, currency, placed_at, created_at, " +
+      "id, order_number, status, notes, subtotal, discount, tax, total, currency, placed_at, created_at, store_id, " +
+        "fulfillment_method, delivery_fee, delivery_lat, delivery_lng, delivery_instructions, payment_receipt_path, receipt_submitted_at, " +
         "stores(name, phone), " +
         "order_items(id, product_name, variant_name, sku, unit_price, quantity, line_total), " +
         "payments(id, provider, amount, currency, status, created_at), " +
@@ -64,6 +75,27 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
   const typedOrder = order as unknown as CustomerOrderDetail;
 
   const store = Array.isArray(typedOrder.stores) ? typedOrder.stores[0] : typedOrder.stores;
+  const payment = typedOrder.payments[0];
+  const isBankTransfer = payment?.provider === "bank_transfer";
+  const awaitingConfirmation = typedOrder.status === "awaiting_payment_confirmation";
+  // Show payment instructions only while money is still owed. Once the merchant
+  // confirms, the bank panel disappears rather than inviting a second transfer.
+  const showBankPanel = isBankTransfer && (typedOrder.status === "pending_payment" || awaitingConfirmation);
+
+  // Bank details are read separately: RLS (store_payment_settings_customer_read)
+  // lets any signed-in user see a visible shop's details, so this cannot leak
+  // another merchant's account — and the customer needs them to pay.
+  let bank = null;
+  if (showBankPanel) {
+    const { data } = await supabase
+      .from("store_payment_settings")
+      .select("bank_name, account_holder, account_number, payment_instructions, require_receipt")
+      .eq("store_id", typedOrder.store_id)
+      .maybeSingle();
+    bank = data;
+  }
+
+  const hasGps = typedOrder.delivery_lat != null && typedOrder.delivery_lng != null;
 
   return (
     <main className="min-h-screen bg-dark px-4 pb-16 pt-10 text-offwhite">
@@ -80,7 +112,22 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
 
         <div className="mt-6 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-5">
           <OrderTimeline status={typedOrder.status as OrderStatus} />
+          <p className="mt-3 text-center font-dm text-xs text-muted">
+            Status: <span className="text-offwhite">{STATUS_LABEL[typedOrder.status as OrderStatus]}</span>
+          </p>
         </div>
+
+        {showBankPanel && (
+          <div className="mt-4">
+            <BankTransferPanel
+              orderId={typedOrder.id}
+              orderNumber={typedOrder.order_number}
+              amount={typedOrder.total}
+              bank={bank}
+              awaitingConfirmation={awaitingConfirmation}
+            />
+          </div>
+        )}
 
         <div className="mt-4 rounded-2xl border border-white/10 bg-dark-card">
           <div className="border-b border-white/10 px-4 py-3">
@@ -108,6 +155,9 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
             )}
             {typedOrder.tax > 0 && (
               <div className="flex justify-between text-muted"><span>Tax</span><span>Rs {centsToDecimalString(typedOrder.tax)}</span></div>
+            )}
+            {typedOrder.delivery_fee > 0 && (
+              <div className="flex justify-between text-muted"><span>Delivery</span><span>Rs {centsToDecimalString(typedOrder.delivery_fee)}</span></div>
             )}
             <div className="flex justify-between pt-1 font-bold text-offwhite"><span>Total</span><span>Rs {centsToDecimalString(typedOrder.total)}</span></div>
           </div>
@@ -140,12 +190,49 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
               {typedOrder.payments.length === 0 && <p className="font-dm text-sm text-muted">No payment recorded.</p>}
               {typedOrder.payments.map((p) => (
                 <div key={p.id} className="flex items-center justify-between font-dm text-sm">
-                  <span className="text-muted">{p.provider}</span>
+                  <span className="capitalize text-muted">{p.provider.replace("_", " ")}</span>
                   <span className="text-offwhite">{p.status} · Rs {centsToDecimalString(p.amount)}</span>
                 </div>
               ))}
+              {isBankTransfer && (
+                <p className="flex items-center gap-1.5 border-t border-white/10 pt-2 font-dm text-xs text-muted">
+                  <Receipt size={12} />
+                  {typedOrder.receipt_submitted_at
+                    ? `Receipt sent ${new Date(typedOrder.receipt_submitted_at).toLocaleDateString()}`
+                    : "No receipt sent yet"}
+                </p>
+              )}
             </div>
           </div>
+
+          {typedOrder.fulfillment_method && (
+            <div className="rounded-2xl border border-white/10 bg-dark-card p-4 sm:col-span-2">
+              <h2 className="flex items-center gap-1.5 font-syne text-sm font-bold text-offwhite">
+                <Truck size={14} className="text-yellow" /> Delivery
+              </h2>
+              <p className="mt-2 font-dm text-sm text-offwhite">
+                {FULFILLMENT_LABEL[typedOrder.fulfillment_method] ?? typedOrder.fulfillment_method}
+              </p>
+              {hasGps && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="flex items-center gap-1.5 font-dm text-xs text-muted">
+                    <MapPin size={12} /> {formatCoords(typedOrder.delivery_lat!, typedOrder.delivery_lng!)}
+                  </span>
+                  <a
+                    href={googleMapsLink(typedOrder.delivery_lat!, typedOrder.delivery_lng!)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-full border border-white/15 px-3 py-1 font-dm text-xs text-offwhite transition-colors hover:border-yellow/50 hover:text-yellow"
+                  >
+                    View on map
+                  </a>
+                </div>
+              )}
+              {typedOrder.delivery_instructions && (
+                <p className="mt-2 font-dm text-xs text-muted">{typedOrder.delivery_instructions}</p>
+              )}
+            </div>
+          )}
 
           {typedOrder.qr_pickup_tokens.length > 0 && (
             <div className="rounded-2xl border border-white/10 bg-dark-card p-4 sm:col-span-2">

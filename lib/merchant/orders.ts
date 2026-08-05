@@ -55,6 +55,13 @@ export type OrderDetail = {
   placed_at: string | null;
   created_at: string;
   updated_at: string;
+  fulfillment_method: string | null;
+  delivery_fee: number;
+  delivery_lat: number | null;
+  delivery_lng: number | null;
+  delivery_instructions: string | null;
+  payment_receipt_path: string | null;
+  receipt_submitted_at: string | null;
   order_items: OrderItem[];
   payments: OrderPayment[];
   qr_pickup_tokens: { id: string; issued_at: string; expires_at: string; redeemed_at: string | null }[];

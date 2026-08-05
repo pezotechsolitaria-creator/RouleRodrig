@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 const STATUS_BADGE: Record<OrderStatus, string> = {
   pending_payment: "bg-white/10 text-muted border-white/15",
+  awaiting_payment_confirmation: "bg-yellow/15 text-yellow border-yellow/30",
   paid: "bg-blue-500/15 text-blue-400 border-blue-500/30",
   preparing: "bg-yellow/15 text-yellow border-yellow/30",
   ready_for_pickup: "bg-purple-500/15 text-purple-400 border-purple-500/30",

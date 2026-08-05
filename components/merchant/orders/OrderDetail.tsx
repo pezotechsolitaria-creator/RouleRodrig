@@ -4,7 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ArrowLeft, User, Phone, CreditCard, QrCode, StickyNote } from "lucide-react";
-import { useOrder, useUpdateOrder } from "@/lib/merchant/orders";
+import { useQueryClient } from "@tanstack/react-query";
+import { useOrder, useUpdateOrder, orderKeys } from "@/lib/merchant/orders";
+import PaymentConfirmCard from "./PaymentConfirmCard";
+import DeliveryLocationCard from "./DeliveryLocationCard";
 import { STATUS_LABEL, legalNextStatuses, type OrderStatus } from "@/lib/orders/status";
 import { centsToDecimalString } from "@/lib/money";
 import { Button } from "@/components/ui/button";
@@ -29,6 +32,7 @@ const ACTION_LABEL: Partial<Record<OrderStatus, string>> = {
 
 export default function OrderDetail({ id }: { id: string }) {
   const { data: order, isLoading, isError, error } = useOrder(id);
+  const queryClient = useQueryClient();
   const updateOrder = useUpdateOrder(id);
   const [note, setNote] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -146,6 +150,9 @@ export default function OrderDetail({ id }: { id: string }) {
               {order.tax > 0 && (
                 <div className="flex justify-between text-muted"><span>Tax</span><span>Rs {centsToDecimalString(order.tax)}</span></div>
               )}
+              {order.delivery_fee > 0 && (
+                <div className="flex justify-between text-muted"><span>Delivery</span><span>Rs {centsToDecimalString(order.delivery_fee)}</span></div>
+              )}
               <div className="flex justify-between pt-1 font-bold text-offwhite"><span>Total</span><span>Rs {centsToDecimalString(order.total)}</span></div>
             </div>
           </div>
@@ -198,20 +205,35 @@ export default function OrderDetail({ id }: { id: string }) {
             )}
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-dark-card p-4">
-            <h2 className="flex items-center gap-1.5 font-syne text-sm font-bold text-offwhite">
-              <CreditCard size={14} className="text-yellow" /> Payment
-            </h2>
-            <div className="mt-3 space-y-2">
-              {order.payments.length === 0 && <p className="font-dm text-sm text-muted">No payment recorded.</p>}
-              {order.payments.map((p) => (
-                <div key={p.id} className="flex items-center justify-between font-dm text-sm">
-                  <span className="text-muted">{p.provider}</span>
-                  <span className="text-offwhite">{p.status} · Rs {centsToDecimalString(p.amount)}</span>
-                </div>
-              ))}
+          {order.payments.length > 0 ? (
+            <PaymentConfirmCard
+              orderId={order.id}
+              provider={order.payments[0].provider}
+              paymentStatus={order.payments[0].status}
+              orderStatus={order.status}
+              amount={order.payments[0].amount}
+              hasReceipt={!!order.payment_receipt_path}
+              receiptSubmittedAt={order.receipt_submitted_at}
+              onConfirmed={() => queryClient.invalidateQueries({ queryKey: orderKeys.detail(order.id) })}
+            />
+          ) : (
+            <div className="rounded-2xl border border-white/10 bg-dark-card p-4">
+              <h2 className="flex items-center gap-1.5 font-syne text-sm font-bold text-offwhite">
+                <CreditCard size={14} className="text-yellow" /> Payment
+              </h2>
+              <p className="mt-3 font-dm text-sm text-muted">No payment recorded.</p>
             </div>
-          </div>
+          )}
+
+          <DeliveryLocationCard
+            fulfillmentMethod={order.fulfillment_method}
+            lat={order.delivery_lat}
+            lng={order.delivery_lng}
+            orderNumber={order.order_number}
+            customerName={order.customer_name}
+            instructions={order.delivery_instructions}
+            deliveryFee={order.delivery_fee}
+          />
 
           {order.qr_pickup_tokens.length > 0 && (
             <div className="rounded-2xl border border-white/10 bg-dark-card p-4">
