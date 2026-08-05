@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LogOut, ClipboardList, Wallet, BadgeCheck, Clock } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getMerchantDashboard } from "@/lib/merchant/context";
 import { getMerchantSubscription } from "@/lib/merchant/subscription";
@@ -9,6 +8,7 @@ import SubscriptionBanner from "@/components/merchant/SubscriptionBanner";
 import { signOut } from "./actions";
 import QueryProvider from "@/components/merchant/QueryProvider";
 import NotificationBell from "@/components/merchant/NotificationBell";
+import { MerchantNavDesktop, MerchantNavMobile } from "@/components/merchant/MerchantNav";
 import { Toaster } from "@/components/ui/sonner";
 
 // Private area — keep it out of search indexes.
@@ -40,30 +40,7 @@ export default async function MerchantAppLayout({ children }: { children: React.
             <span className="rounded-full border border-yellow/30 bg-yellow/10 px-2 py-0.5 font-bebas text-[9px] tracking-[0.2em] text-yellow">
               MERCHANT
             </span>
-            <Link
-              href="/merchant/orders"
-              className="ml-4 hidden items-center gap-1.5 font-dm text-sm text-muted transition-colors hover:text-yellow sm:flex"
-            >
-              <ClipboardList size={14} /> Orders
-            </Link>
-            <Link
-              href="/merchant/payments"
-              className="ml-3 hidden items-center gap-1.5 font-dm text-sm text-muted transition-colors hover:text-yellow sm:flex"
-            >
-              <Wallet size={14} /> Payments
-            </Link>
-            <Link
-              href="/merchant/hours"
-              className="ml-3 hidden items-center gap-1.5 font-dm text-sm text-muted transition-colors hover:text-yellow sm:flex"
-            >
-              <Clock size={14} /> Hours
-            </Link>
-            <Link
-              href="/merchant/subscription"
-              className="ml-3 hidden items-center gap-1.5 font-dm text-sm text-muted transition-colors hover:text-yellow sm:flex"
-            >
-              <BadgeCheck size={14} /> Plan
-            </Link>
+            <MerchantNavDesktop />
             <div className="ml-auto flex items-center gap-2">
               <NotificationBell />
               <form action={signOut}>
@@ -78,10 +55,13 @@ export default async function MerchantAppLayout({ children }: { children: React.
             </div>
           </div>
         </header>
-        <main className="mx-auto max-w-6xl px-4 pb-16">
+        {/* Extra bottom padding on phones so the fixed tab bar never covers
+            the last control on a page (typically a Save button). */}
+        <main className="mx-auto max-w-6xl px-4 pb-28 sm:pb-16">
           <div className="pt-4"><SubscriptionBanner sub={subscription} /></div>
           {children}
         </main>
+        <MerchantNavMobile />
       </div>
       <Toaster
         theme="dark"
