@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LogOut, ClipboardList, Wallet } from "lucide-react";
+import { LogOut, ClipboardList, Wallet, BadgeCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getMerchantDashboard } from "@/lib/merchant/context";
+import { getMerchantSubscription } from "@/lib/merchant/subscription";
+import SubscriptionBanner from "@/components/merchant/SubscriptionBanner";
 import { signOut } from "./actions";
 import QueryProvider from "@/components/merchant/QueryProvider";
 import NotificationBell from "@/components/merchant/NotificationBell";
@@ -19,6 +22,11 @@ export default async function MerchantAppLayout({ children }: { children: React.
 
   // Authoritative server-side guard (middleware also redirects, this is the backstop).
   if (!user) redirect("/merchant/login");
+
+  // Surfaced on every merchant page: the server-side block is otherwise a bare
+  // RR008 at the worst moment, with no explanation of what stopped or why.
+  const dashboard = await getMerchantDashboard(supabase);
+  const subscription = dashboard ? await getMerchantSubscription(supabase, dashboard.merchantId) : null;
 
   return (
     <QueryProvider>
@@ -44,6 +52,12 @@ export default async function MerchantAppLayout({ children }: { children: React.
             >
               <Wallet size={14} /> Payments
             </Link>
+            <Link
+              href="/merchant/subscription"
+              className="ml-3 hidden items-center gap-1.5 font-dm text-sm text-muted transition-colors hover:text-yellow sm:flex"
+            >
+              <BadgeCheck size={14} /> Plan
+            </Link>
             <div className="ml-auto flex items-center gap-2">
               <NotificationBell />
               <form action={signOut}>
@@ -58,7 +72,10 @@ export default async function MerchantAppLayout({ children }: { children: React.
             </div>
           </div>
         </header>
-        <main className="mx-auto max-w-6xl px-4 pb-16">{children}</main>
+        <main className="mx-auto max-w-6xl px-4 pb-16">
+          <div className="pt-4"><SubscriptionBanner sub={subscription} /></div>
+          {children}
+        </main>
       </div>
       <Toaster
         theme="dark"
