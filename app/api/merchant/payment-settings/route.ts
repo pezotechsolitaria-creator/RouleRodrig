@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabase
     .from("store_payment_settings")
-    .select("accepts_cash, accepts_bank_transfer, bank_name, account_holder, account_number, payment_instructions, require_receipt")
+    .select("accepts_cash, accepts_bank_transfer, bank_name, account_holder, account_number, payment_instructions, require_receipt, offers_rr_delivery")
     .eq("store_id", storeId)
     .maybeSingle();
 
@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
       account_number: null,
       payment_instructions: null,
       require_receipt: false,
+      offers_rr_delivery: true,
     },
   });
 }
@@ -84,6 +85,7 @@ export async function PUT(req: NextRequest) {
       account_number: blank(v.accountNumber),
       payment_instructions: blank(v.paymentInstructions),
       require_receipt: v.requireReceipt,
+      offers_rr_delivery: v.offersRrDelivery,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "store_id" },

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LogOut, ClipboardList } from "lucide-react";
+import { LogOut, ClipboardList, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "./actions";
 import QueryProvider from "@/components/merchant/QueryProvider";
@@ -37,6 +37,12 @@ export default async function MerchantAppLayout({ children }: { children: React.
               className="ml-4 hidden items-center gap-1.5 font-dm text-sm text-muted transition-colors hover:text-yellow sm:flex"
             >
               <ClipboardList size={14} /> Orders
+            </Link>
+            <Link
+              href="/merchant/payments"
+              className="ml-3 hidden items-center gap-1.5 font-dm text-sm text-muted transition-colors hover:text-yellow sm:flex"
+            >
+              <Wallet size={14} /> Payments
             </Link>
             <div className="ml-auto flex items-center gap-2">
               <NotificationBell />

@@ -55,6 +55,9 @@ export const paymentSettingsSchema = z
     accountNumber: z.string().trim().max(64).optional().or(z.literal("")),
     paymentInstructions: z.string().trim().max(1000).optional().or(z.literal("")),
     requireReceipt: z.boolean(),
+    // The platform owns the delivery FEE and ETA; a shop only chooses whether
+    // it takes part in the Roulé Rodrigues delivery network at all.
+    offersRrDelivery: z.boolean(),
   })
   .refine((v) => v.acceptsCash || v.acceptsBankTransfer, {
     message: "Enable at least one payment method.",
