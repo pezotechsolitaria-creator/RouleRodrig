@@ -1,3 +1,4 @@
+import "server-only";
 import { sendOrderNotificationEmail } from "@/lib/email";
 import { sendOwnerWhatsApp } from "@/lib/whatsapp";
 
