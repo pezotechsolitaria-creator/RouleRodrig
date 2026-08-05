@@ -45,7 +45,7 @@ describe("checkoutSchema", () => {
   // (this schema, the create_order() RPC whitelist, and the checkout UI);
   // dropping the button alone would leave a hand-crafted POST working, which is
   // exactly the hole this test exists to keep closed.
-  it("rejects card/PayPal providers — marketplace is cash/bank/QR only", () => {
+  it("rejects card/PayPal providers — cards belong to vehicle rentals only", () => {
     for (const provider of ["paypal", "card", "credit_card", "stripe"]) {
       expect(
         checkoutSchema.safeParse({ ...base, provider }).success,
@@ -54,10 +54,45 @@ describe("checkoutSchema", () => {
     }
   });
 
-  it("accepts the three permitted marketplace providers", () => {
-    for (const provider of ["cash", "mcb_juice", "manual"]) {
+  // MCB Juice was removed as a merchant payment method by a later architecture
+  // update; marketplace payments are Cash and Direct Bank Transfer only.
+  it("rejects mcb_juice — removed as a merchant payment method", () => {
+    expect(checkoutSchema.safeParse({ ...base, provider: "mcb_juice" }).success).toBe(false);
+  });
+
+  it("accepts the permitted marketplace providers", () => {
+    for (const provider of ["cash", "bank_transfer", "manual"]) {
       expect(checkoutSchema.safeParse({ ...base, provider }).success, provider).toBe(true);
     }
+  });
+
+  // Rule 5: three delivery choices, and GPS is mandatory for both delivery
+  // modes because the RR team and a customer's own driver both need it.
+  it("requires GPS for both delivery modes but not for pickup", () => {
+    expect(checkoutSchema.safeParse({ ...base, fulfillment: "pickup" }).success).toBe(true);
+    for (const fulfillment of ["customer_delivery", "rr_delivery"]) {
+      expect(checkoutSchema.safeParse({ ...base, fulfillment }).success, `${fulfillment} without GPS`).toBe(false);
+      expect(
+        checkoutSchema.safeParse({ ...base, fulfillment, deliveryLat: -19.7, deliveryLng: 63.4 }).success,
+        `${fulfillment} with GPS`,
+      ).toBe(true);
+    }
+  });
+
+  it("rejects out-of-range coordinates", () => {
+    const d = { fulfillment: "rr_delivery" as const };
+    expect(checkoutSchema.safeParse({ ...base, ...d, deliveryLat: 91, deliveryLng: 0 }).success).toBe(false);
+    expect(checkoutSchema.safeParse({ ...base, ...d, deliveryLat: 0, deliveryLng: 181 }).success).toBe(false);
+  });
+
+  it("strips a client-supplied delivery fee — the server derives it", () => {
+    const parsed = checkoutSchema.parse({
+      ...base, fulfillment: "rr_delivery", deliveryLat: -19.7, deliveryLng: 63.4,
+      deliveryFee: 0, delivery_fee: 0, total: 1,
+    });
+    expect(parsed).not.toHaveProperty("deliveryFee");
+    expect(parsed).not.toHaveProperty("delivery_fee");
+    expect(parsed).not.toHaveProperty("total");
   });
 
   it("requires a name and phone", () => {

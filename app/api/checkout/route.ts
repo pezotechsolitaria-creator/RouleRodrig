@@ -7,6 +7,8 @@ const NOT_FOUND_CODE = "RR003";
 const VALIDATION_CODE = "RR005";
 const UNAVAILABLE_CODE = "RR006";
 const STOCK_CODE = "RR007";
+const SUBSCRIPTION_CODE = "RR008";
+const METHOD_NOT_ACCEPTED_CODE = "RR009";
 const SAFE_RPC_ERROR_CODE = "P0001";
 
 // The only thing trusted from the client here is "which variants, how many,
@@ -34,7 +36,10 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input." }, { status: 400 });
   }
-  const { storeId, items, customerName, customerPhone, fulfillment, notes, provider } = parsed.data;
+  const {
+    storeId, items, customerName, customerPhone, fulfillment, notes, provider,
+    deliveryLat, deliveryLng, deliveryInstructions,
+  } = parsed.data;
 
   const { data, error } = await supabase
     .rpc("create_order", {
@@ -45,12 +50,20 @@ export async function POST(req: NextRequest) {
       p_fulfillment: fulfillment,
       p_notes: notes ?? null,
       p_provider: provider,
+      // GPS is passed through but never trusted for pricing — the RPC decides
+      // the delivery fee from marketplace_settings, not from anything here.
+      p_delivery_lat: deliveryLat ?? null,
+      p_delivery_lng: deliveryLng ?? null,
+      p_delivery_instructions: deliveryInstructions ?? null,
     })
     .single();
 
   if (error) {
     if (error.code === NOT_FOUND_CODE) return NextResponse.json({ error: error.message }, { status: 404 });
     if (error.code === VALIDATION_CODE) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error.code === SUBSCRIPTION_CODE || error.code === METHOD_NOT_ACCEPTED_CODE) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     if (error.code === UNAVAILABLE_CODE || error.code === STOCK_CODE) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }
