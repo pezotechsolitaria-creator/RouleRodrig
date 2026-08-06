@@ -237,7 +237,14 @@ function shell(opts: { preheader?: string; eyebrow?: string; title: string; body
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:${C.card};border-radius:18px;overflow:hidden;border:1px solid ${C.line}">
         <tr><td style="background:${C.ink};padding:26px 32px;text-align:center">
           ${lockup}
-          <div style="font-family:${FONT};font-size:11px;font-weight:600;letter-spacing:3px;color:#9a9a9a;margin-top:12px">SCOOTER RENTALS · RODRIGUES ISLAND</div>
+          <!-- Deliberately NOT "SCOOTER RENTALS": this shell wraps every email
+               the platform sends — vehicle rentals, Stay·Eat·Do bookings and
+               marketplace orders alike. A customer buying honey from a local
+               shop was receiving an order confirmation badged as a scooter
+               rental, which reads as the wrong company at the exact moment the
+               platform is asking to be trusted. The place name stays; the
+               product category goes. -->
+          <div style="font-family:${FONT};font-size:11px;font-weight:600;letter-spacing:3px;color:#9a9a9a;margin-top:12px">RODRIGUES ISLAND</div>
         </td></tr>
         <tr><td style="height:4px;line-height:4px;font-size:0;background:${C.gold}">&nbsp;</td></tr>
         <tr><td style="padding:34px 32px 28px">
