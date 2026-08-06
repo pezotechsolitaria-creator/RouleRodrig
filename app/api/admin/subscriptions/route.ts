@@ -72,7 +72,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Failed to load merchants." }, { status: 500 });
   }
 
-  return NextResponse.json({ merchants: data ?? [] });
+  // Plan prices travel with the list so the renewal control can pre-fill the
+  // amount and warn when a plan is still unpriced — which is why every invoice
+  // used to read Rs 0.00.
+  const { data: settings } = await supabase
+    .from("marketplace_settings")
+    .select("plan_prices")
+    .eq("id", "main")
+    .maybeSingle();
+
+  return NextResponse.json({
+    merchants: data ?? [],
+    planPrices: settings?.plan_prices ?? { starter: 0, standard: 0, premium: 0 },
+  });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -264,10 +276,26 @@ export async function PATCH(req: NextRequest) {
   }
 
   // Record it in billing history so the merchant can see what was renewed.
+  //
+  // The amount used to default to 0 with nothing to fall back to, so every
+  // renewal invoice read "Rs 0.00" for a subscription the merchant had actually
+  // paid for. It now falls back to the configured price for that plan; an
+  // explicit `amount` still wins, for the case where a merchant paid something
+  // different (pro-rata, a discount, a partial payment).
+  const renewedPlan = plan ?? existing?.plan ?? "starter";
+  const { data: priceSettings } = await supabase
+    .from("marketplace_settings")
+    .select("plan_prices")
+    .eq("id", "main")
+    .maybeSingle();
+  const planPrice = Number(
+    (priceSettings?.plan_prices as Record<string, number> | null)?.[renewedPlan] ?? 0,
+  );
+
   await supabase.from("subscription_invoices").insert({
     merchant_id: merchantId,
-    plan: plan ?? existing?.plan ?? "starter",
-    amount: amount ?? 0,
+    plan: renewedPlan,
+    amount: amount ?? planPrice,
     currency: "MUR",
     period_start: periodStart,
     period_end: newEnd,

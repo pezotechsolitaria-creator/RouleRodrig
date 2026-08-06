@@ -3,6 +3,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, RefreshCw, AlertTriangle, Search } from "lucide-react";
+import { centsToDecimalString, toCents } from "@/lib/money";
+
+// Rupees in, minor units out. toCents parses the string without touching a
+// float, so "750.05" cannot land as 75004.999999.
+function feeToCents(input: string): number | null {
+  try {
+    return toCents(input.trim());
+  } catch {
+    return null;
+  }
+}
 
 type Sub = { plan: string; status: string; current_period_end: string; grace_days: number; started_at: string };
 type Merchant = {
@@ -36,6 +47,11 @@ export default function AdminSubscriptions() {
   const [filter, setFilter] = useState("all");
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  // Monthly price per plan, in minor units. Renewals default to these; a plan
+  // left at 0 is why billing history used to read "Rs 0.00" for every renewal.
+  const [planPrices, setPlanPrices] = useState<Record<string, number>>({
+    starter: 0, standard: 0, premium: 0,
+  });
 
   const load = useCallback(async () => {
     setError(null);
@@ -44,6 +60,7 @@ export default function AdminSubscriptions() {
       const b = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(b.error || "Failed to load merchants.");
       setMerchants(b.merchants);
+      setPlanPrices(b.planPrices ?? { starter: 0, standard: 0, premium: 0 });
     } catch (e) {
       setMerchants(null);
       setError(e instanceof Error ? e.message : "Failed to load merchants.");
@@ -171,7 +188,24 @@ export default function AdminSubscriptions() {
 
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" disabled={!!busy}
-                  onClick={() => act(m.id, "approve_renewal", { periodDays: 30 })}
+                  onClick={() => {
+                    // Pre-filled from the configured plan price so the invoice
+                    // records what was actually charged, but overridable for a
+                    // pro-rata, discounted or partial payment.
+                    const plan = s?.plan ?? "starter";
+                    const suggested = planPrices[plan] ?? 0;
+                    const entered = prompt(
+                      `Amount received for this ${plan} renewal, in rupees.\n` +
+                        (suggested > 0
+                          ? `Leave as-is to record the standard ${plan} price.`
+                          : `No price is configured for ${plan} yet — enter what was paid.`),
+                      centsToDecimalString(suggested),
+                    );
+                    if (entered === null) return; // cancelled
+                    const cents = feeToCents(entered);
+                    if (cents === null) return toast.error("Enter an amount like 750 or 750.50.");
+                    act(m.id, "approve_renewal", { periodDays: 30, amount: cents });
+                  }}
                   className="rounded-full bg-yellow px-3 py-1.5 font-dm text-xs font-medium text-dark hover:bg-yellow-dark disabled:opacity-50">
                   {busy === m.id + "approve_renewal" ? <Loader2 size={12} className="animate-spin" /> : "Approve renewal (+30d)"}
                 </button>

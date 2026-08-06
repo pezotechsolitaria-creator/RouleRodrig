@@ -59,3 +59,6 @@ next-env.d.ts
 # stray uploads / images kept out of the repo (managed at runtime)
 /public/uploads
 /WhatsApp Image*.jpeg
+
+# Playwright JSON report used by the CI skip gate
+playwright-report.json

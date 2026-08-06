@@ -1,0 +1,89 @@
+name: CI
+
+# Tests that only run on one laptop are not a gate. This runs the full suite on
+# every push and PR, and — importantly — FAILS if the end-to-end tests silently
+# skip for want of a service-role key, so "27 skipped" can never again be
+# mistaken for "27 passing".
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    name: Typecheck · lint · unit · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.json
+
+      # Lint is reported but does not fail the build: the repo carries known
+      # react-hooks/set-state-in-effect errors in three pre-existing admin
+      # components. Tighten to `npx eslint .` once those are refactored.
+      - name: Lint (advisory)
+        run: npx eslint . || true
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+        env:
+          # Build-time public vars. Real values are not secret, but the build
+          # needs them present or Next fails resolving the Supabase client.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      # POINT THIS AT A TEST SUPABASE PROJECT, NOT PRODUCTION.
+      # The fixtures create merchants, stores and orders with the service-role
+      # key and clean up after themselves, but a failed run can leave rows
+      # behind — which you do not want in a live marketplace.
+      - name: Run Playwright
+        run: npx playwright test --reporter=list,json
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+          ADMIN_PASSWORD: ${{ secrets.TEST_ADMIN_PASSWORD }}
+          SESSION_SECRET: ${{ secrets.TEST_SESSION_SECRET }}
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-report.json
+
+      # The point of this job. Every skip is listed, and any skip caused by a
+      # missing service-role key fails the build rather than passing quietly.
+      - name: Fail on security-critical skips
+        if: always()
+        run: node scripts/assert-no-blocked-skips.mjs
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report.json
+          retention-days: 7

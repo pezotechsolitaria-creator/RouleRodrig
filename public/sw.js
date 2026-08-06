@@ -8,7 +8,10 @@
 //
 // Immutable hashed build assets are cache-first (safe — their URL changes when
 // they change). Everything else is network-first with an offline fallback.
-const CACHE = "rr-cache-v94";
+// v95 — M9/M10 release: stale-quote guard (RR012), payment-ledger fix and
+// checkout idempotency. Bumping evicts every older cache on activate, so no
+// client can keep running a checkout bundle that predates those fixes.
+const CACHE = "rr-cache-v95";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
