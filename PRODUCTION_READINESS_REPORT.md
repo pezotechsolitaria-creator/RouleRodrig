@@ -136,12 +136,19 @@ away.
 
 | Suite | Result |
 |---|---|
-| Unit | **94 / 94** |
-| E2E runnable | **29 / 29** |
-| E2E skipped | **27 — assert nothing. Not counted as passing.** |
+| Unit | **101 / 101** |
+| E2E runnable | **26 / 26** |
+| E2E skipped | **30 — assert nothing. Not counted as passing.** |
 | Typecheck | clean |
 | Build | clean |
-| Migration ledger | every M7–M10 migration (27) has a local file, each hash-verified |
+| Migration ledger | 95 local files, 95 ledger entries, each hash-verified |
+
+> Counts updated after the M11 security pass. Unit rose 94 → 101 (`cron-auth`).
+> E2E moved 29/27 → 26/30 because hiding the M4 test shop correctly skips its
+> three storefront specs — a skip caused by intended data state, not by a
+> regression. Superseded by
+> [RELEASE_CANDIDATE_REPORT.md](./RELEASE_CANDIDATE_REPORT.md), which is the
+> current authority.
 
 ### CI — new
 
@@ -149,7 +156,7 @@ There was **no CI at all**; tests ran on one laptop, which is not a gate.
 `.github/workflows/ci.yml` now runs typecheck, lint (advisory), unit, build and
 E2E on every push and PR, and `scripts/assert-no-blocked-skips.mjs` **fails the
 build** when a test skips for a configuration reason. Verified: exit code 1
-against the current 27 skips. A green tick over untested money paths is now
+against the current 30 skips. A green tick over untested money paths is now
 impossible.
 
 `TESTING.md` documents every environment variable, what breaks without it, and
@@ -159,7 +166,7 @@ how to point E2E at a *test* Supabase project rather than production.
 
 ## Remaining risks
 
-1. **27 E2E tests still do not execute** locally or in CI until
+1. **30 E2E tests still do not execute** locally or in CI until
    `TEST_SUPABASE_SERVICE_ROLE_KEY` is set. They cover price tampering, the
    oversell race, cross-tenant IDOR and the order state machine. This is the
    largest remaining confidence gap and it is configuration, not code.
@@ -186,7 +193,7 @@ and covered by a regression test. The blockers are configuration:
 **Flip to GO when:**
 
 1. `TEST_SUPABASE_SERVICE_ROLE_KEY` (and the other `TEST_*` secrets) are set so
-   the 27 security-critical tests actually run — and pass.
+   the 30 security-critical tests actually run — and pass.
 2. Real per-zone delivery fees are configured. The stale-quote bug's blast radius
    is proportional to how wrong these are.
 3. Subscription plan prices are set, or renewals are knowingly recorded at 0.

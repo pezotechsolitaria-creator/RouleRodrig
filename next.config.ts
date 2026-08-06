@@ -14,7 +14,9 @@ import { loadEnvConfig } from "@next/env";
 // WARNED   = a feature degrades, which is a deliberate choice, so it must not
 //            block a deploy — but it should be stated out loud rather than
 //            discovered later. CRON_SECRET is here on purpose: without it the
-//            cron endpoints are callable by anyone, which is worth a shout.
+//            daily reminder job refuses to run, so reminders stop silently
+//            unless someone is told. (It used to fail OPEN — see
+//            lib/cron-auth.ts — which was worse and is why this line exists.)
 function validateEnv() {
   // Skip during `next lint`/type-only runs and in test environments, where the
   // real values are legitimately absent.
@@ -42,7 +44,7 @@ function validateEnv() {
     ["SUPABASE_SERVICE_ROLE_KEY", "admin routes will return 503 and E2E fixtures cannot run"],
     ["SESSION_SECRET", "admin login cannot issue a session"],
     ["ADMIN_PASSWORD", "nobody can sign in to /admin"],
-    ["CRON_SECRET", "cron endpoints are callable by anyone"],
+    ["CRON_SECRET", "the daily reminder job will refuse to run (503) — it fails closed"],
     ["NEXT_PUBLIC_SITE_URL", "absolute links in emails and SEO metadata may be wrong"],
   ] as const;
 

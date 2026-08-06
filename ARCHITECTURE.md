@@ -300,7 +300,7 @@ This is the single most important architectural decision to understand before ed
 
 | Path | Methods | Purpose | Auth / gate |
 |---|---|---|---|
-| `/api/cron/reminders` | GET | Daily booking "bots" + housekeeping (see §8) | `Authorization: Bearer ${CRON_SECRET}` when `CRON_SECRET` set; `getPrivileged()` |
+| `/api/cron/reminders` | GET | Daily booking "bots" + housekeeping (see §8) | `Authorization: Bearer ${CRON_SECRET}` — **required**, fails closed (503) if unset; `getPrivileged()` |
 
 ### Admin routes — `rr_admin` cookie (`verifySession`) + `getPrivileged()`
 
@@ -436,7 +436,7 @@ Server-computed money (never trusted from client): deposit % (scooter 25 %, car 
 
 ## 8. Daily cron
 
-`/api/cron/reminders` (`vercel.json`: `0 6 * * *` = 06:00 UTC). Auth: if `CRON_SECRET` is set, requires `Authorization: Bearer ${CRON_SECRET}` (Vercel Cron sends it automatically); else open. Uses `getPrivileged()`. Dates computed in island local time (UTC+4). Idempotent via per-row flags. Responsibilities:
+`/api/cron/reminders` (`vercel.json`: `0 6 * * *` = 06:00 UTC). Auth: **requires** `Authorization: Bearer ${CRON_SECRET}` (Vercel Cron sends it automatically), via `authorizeCron()` in `lib/cron-auth.ts`. It **fails closed** — an unset `CRON_SECRET` returns 503 and the job does not run. It previously fell through to *open* when the variable was absent, leaving a publicly-scheduled endpoint that emails customers, WhatsApps the owner customer names and phone numbers, and cancels bookings callable by anyone. Also returns 503 without `SUPABASE_SERVICE_ROLE_KEY` rather than silently no-opping behind RLS. Uses `getPrivileged()`. Dates computed in island local time (UTC+4). Idempotent via per-row flags, which are now written **only when the send actually succeeded** (or there is no address), so a mail outage no longer buries a reminder permanently; failures are counted and turn the run non-2xx. Responsibilities:
 
 - **Pickups tomorrow** (`start_date=tomorrow`, `pickup_reminded=false`): customer `sendPickupReminder` + owner `sendAdminPickupReminder`; set `pickup_reminded=true`.
 - **Returns tomorrow** (`end_date=tomorrow`, `return_reminded=false`): `sendReturnReminder` + `sendAdminReturnReminder`; set `return_reminded=true`.

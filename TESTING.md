@@ -8,9 +8,9 @@ npm run build      # production build
 npx playwright test
 ```
 
-Unit tests need nothing. **End-to-end tests need a Supabase service-role key**, and
-without it 27 of 56 silently skip. A skipped test asserts nothing — see
-[Why skips matter](#why-skips-matter).
+Unit tests need nothing (101 pass with no configuration). **End-to-end tests need
+a Supabase service-role key**, and without it 30 of 56 silently skip. A skipped
+test asserts nothing — see [Why skips matter](#why-skips-matter).
 
 ---
 
@@ -19,12 +19,12 @@ without it 27 of 56 silently skip. A skipped test asserts nothing — see
 Running `npx playwright test` on a machine with no service-role key prints:
 
 ```
-27 skipped
-29 passed
+30 skipped
+26 passed
 ```
 
-That reads like a green build. It is not. The 29 that ran are almost all
-`401`-and-redirect checks. The 27 that skipped are the ones that matter:
+That reads like a green build. It is not. The 26 that ran are almost all
+`401`-and-redirect checks. The 30 that skipped are the ones that matter:
 
 | Skipped area | What goes unverified |
 |---|---|
@@ -56,11 +56,24 @@ untested money paths.
 
 | Variable | Used for | If missing |
 |---|---|---|
-| `SUPABASE_SERVICE_ROLE_KEY` | every `/api/admin/*` write; all E2E fixtures | admin routes return an honest **503**; 27 E2E tests skip |
+| `SUPABASE_SERVICE_ROLE_KEY` | every `/api/admin/*` write; all E2E fixtures | 5 of 23 admin routes return an honest **503**, the rest degrade confusingly (see below); 30 E2E tests skip |
 
-`getPrivileged()` used to fall back silently to the anon client when this was
-unset, which produced confusing half-working behaviour. It now fails loudly with
-a 503 — see `lib/supabase/admin.ts`.
+**Correction to an earlier version of this file**, which claimed
+`getPrivileged()` "now fails loudly with a 503". It does not.
+`lib/supabase/admin.ts` still falls back to the cookie/anon SSR client when the
+key is absent. What is true is narrower: **5 of the 23 `/api/admin/*` routes**
+(`stores`, `stores/[id]`, `stores/[id]/hours`, `delivery-zones`,
+`subscriptions`) check `hasServiceRole()` and return an honest 503. The other 18
+— the older tourism-side admin routes — silently degrade to the anon client, so
+their writes fail against RLS with a confusing 500 rather than a clear "not
+configured".
+
+That is a clarity problem, not a security one: RLS still governs what the anon
+role may do, so the fallback cannot escalate privilege. Making `getPrivileged()`
+itself fail closed would fix it in one place, but it changes the behaviour of
+every caller — including read paths like the guest booking lookup, which would
+start 500ing locally instead of returning "not found" — so it is deliberately
+left as follow-up rather than done during a release-candidate pass.
 
 ### Required for the rentals flow (separate from the marketplace)
 
@@ -77,10 +90,34 @@ a 503 — see `lib/supabase/admin.ts`.
 | `BREVO_API_KEY`, `BREVO_FROM`, `BREVO_LIST_ID` | newsletter | signup no-ops |
 | `CALLMEBOT_APIKEY`, `CALLMEBOT_PHONE` | WhatsApp alerts | no alert |
 | `OWNER_EMAIL`, `OWNER_PHONE`, `OWNER_WHATSAPP` | owner notifications | no notification |
-| `CRON_SECRET` | guards `/api/cron/*` | **cron endpoints become callable by anyone — set this in production** |
+| `CRON_SECRET` | guards `/api/cron/*` | **the reminder job refuses to run (503).** It fails *closed* — see below |
 | `HOLD_EXPIRY_HOURS` | booking hold window | defaults apply |
 | `NEXT_PUBLIC_SITE_URL` | absolute links, SEO, emails | links may be relative |
 | `NEXT_PUBLIC_GOOGLE_VERIFICATION`, `GOOGLE_REVIEW_URL`, `EMAIL_LOGO_URL` | SEO / branding | omitted |
+
+#### `CRON_SECRET` is effectively required in production
+
+It sits in the table above because the *site* runs fine without it, but the
+daily reminder job does not: `/api/cron/reminders` now returns **503** when it
+is unset, rather than running unauthenticated.
+
+It used to fail **open**. The guard was
+`if (secret && header !== \`Bearer ${secret}\`) → 401`, so an unset variable
+skipped authentication altogether — on a route published in `vercel.json`, which
+emails customers, sends the owner a WhatsApp digest containing customer names
+and phone numbers, and cancels pending bookings. Anyone who read `vercel.json`
+could fire it at will.
+
+Consequence to be aware of: **if `CRON_SECRET` is not set in Vercel, reminders
+stop.** That is the intended trade — a visibly failing cron run is recoverable,
+an endpoint anyone can trigger is not. Check it without opening the dashboard:
+
+```bash
+curl -s https://roulerodrig.com/api/health | grep -o '"cron":"[a-z]*"'
+```
+
+`"cron":"configured"` means the job can run. Logic is in `lib/cron-auth.ts`,
+covered by `lib/cron-auth.test.ts`.
 
 ---
 
@@ -166,6 +203,7 @@ and order per test, then removes them. Two known limitations:
 | `customer-orders.spec.ts` | partly | redirect; **cross-customer isolation needs the key** |
 | `merchant-*.spec.ts` | partly | 401s; **IDOR, state machine, onboarding race need the key** |
 
-Unit tests (`lib/*.test.ts`, 94) cover money parsing, file signatures, the
-checkout schema, and the scheduling engine including timezone and boundary
-behaviour.
+Unit tests (`lib/*.test.ts`, 101) cover money parsing, file signatures, the
+checkout schema, the scheduling engine including timezone and boundary
+behaviour, and cron authorisation (`cron-auth.test.ts` — the fail-open
+regression).
