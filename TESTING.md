@@ -47,8 +47,8 @@ untested money paths.
 
 | Variable | Used for | If missing |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | every database call | build fails |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | browser/SSR client | build fails |
+| `NEXT_PUBLIC_SUPABASE_URL` | every database call | **build fails** (validated in `next.config.ts`) |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | browser/SSR client — this is the name `lib/supabase/{client,server,middleware}.ts` actually read. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is accepted as an alias for older tooling. | **build fails** if neither is set |
 | `SESSION_SECRET` | signs the `/admin` cookie | admin login cannot issue a session |
 | `ADMIN_PASSWORD` | `/admin` login | nobody can reach the admin dashboard |
 
@@ -90,7 +90,7 @@ Create `.env.local`:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable key>
 SUPABASE_SERVICE_ROLE_KEY=<service role key>
 SESSION_SECRET=<any long random string>
 ADMIN_PASSWORD=<your admin password>
@@ -128,9 +128,9 @@ Set these in **GitHub → Settings → Secrets and variables → Actions**:
 | Secret | Value |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | production URL (build only) |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | production anon key (build only) |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | production publishable key (build only) |
 | `TEST_SUPABASE_URL` | **test** project URL |
-| `TEST_SUPABASE_ANON_KEY` | test anon key |
+| `TEST_SUPABASE_PUBLISHABLE_KEY` | test publishable key |
 | `TEST_SUPABASE_SERVICE_ROLE_KEY` | test service-role key |
 | `TEST_ADMIN_PASSWORD` | any value |
 | `TEST_SESSION_SECRET` | any long random string |

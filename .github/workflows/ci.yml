@@ -45,7 +45,7 @@ jobs:
           # Build-time public vars. Real values are not secret, but the build
           # needs them present or Next fails resolving the Supabase client.
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
 
   e2e:
@@ -68,7 +68,7 @@ jobs:
         run: npx playwright test --reporter=list,json
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.TEST_SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
           ADMIN_PASSWORD: ${{ secrets.TEST_ADMIN_PASSWORD }}
           SESSION_SECRET: ${{ secrets.TEST_SESSION_SECRET }}

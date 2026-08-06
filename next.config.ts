@@ -1,4 +1,74 @@
 import type { NextConfig } from "next";
+import { loadEnvConfig } from "@next/env";
+
+// ── Environment validation ───────────────────────────────────────────────────
+// Fail the BUILD, not a customer's checkout.
+//
+// Without this, a deploy missing NEXT_PUBLIC_SUPABASE_URL succeeds, goes live,
+// and then throws on the first database call — so the first person to discover
+// the misconfiguration is a customer, and the symptom ("Something went wrong")
+// says nothing about the cause. A build that refuses to finish is far cheaper
+// than a site that half-works.
+//
+// REQUIRED = the app cannot function at all without it.
+// WARNED   = a feature degrades, which is a deliberate choice, so it must not
+//            block a deploy — but it should be stated out loud rather than
+//            discovered later. CRON_SECRET is here on purpose: without it the
+//            cron endpoints are callable by anyone, which is worth a shout.
+function validateEnv() {
+  // Skip during `next lint`/type-only runs and in test environments, where the
+  // real values are legitimately absent.
+  if (process.env.NODE_ENV === "test") return;
+
+  // next.config is evaluated BEFORE Next loads .env.local, so process.env is
+  // still bare here — the first version of this check failed every local build
+  // even with a correctly populated .env.local. loadEnvConfig performs the same
+  // file resolution Next itself uses, so validation sees exactly what the app
+  // will see. On Vercel the vars are already in the environment and this is a
+  // no-op.
+  loadEnvConfig(process.cwd(), process.env.NODE_ENV !== "production", {
+    info: () => {},
+    error: () => {},
+  });
+
+  // The browser key: lib/supabase/{client,server,middleware}.ts all read
+  // PUBLISHABLE_KEY (Supabase's newer name). ANON_KEY is accepted as an alias
+  // because older tooling and the E2E fixtures still use that name — requiring
+  // the wrong one of the two is exactly the mistake this check exists to stop,
+  // and it is the mistake the first version of this check made.
+  const REQUIRED = ["NEXT_PUBLIC_SUPABASE_URL"];
+  const BROWSER_KEYS = ["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY"];
+  const WARNED = [
+    ["SUPABASE_SERVICE_ROLE_KEY", "admin routes will return 503 and E2E fixtures cannot run"],
+    ["SESSION_SECRET", "admin login cannot issue a session"],
+    ["ADMIN_PASSWORD", "nobody can sign in to /admin"],
+    ["CRON_SECRET", "cron endpoints are callable by anyone"],
+    ["NEXT_PUBLIC_SITE_URL", "absolute links in emails and SEO metadata may be wrong"],
+  ] as const;
+
+  const missing = REQUIRED.filter((k) => !process.env[k]?.trim());
+  if (!BROWSER_KEYS.some((k) => process.env[k]?.trim())) {
+    missing.push(`${BROWSER_KEYS[0]} (or ${BROWSER_KEYS[1]})`);
+  }
+  if (missing.length) {
+    throw new Error(
+      `\n\n  Missing required environment variable(s):\n` +
+        missing.map((k) => `    - ${k}`).join("\n") +
+        `\n\n  The application cannot start without these. See TESTING.md for the full list.\n`,
+    );
+  }
+
+  const warn = WARNED.filter(([k]) => !process.env[k]?.trim());
+  if (warn.length && process.env.NODE_ENV === "production") {
+    console.warn(
+      `\n  Building without:\n` +
+        warn.map(([k, why]) => `    - ${k} → ${why}`).join("\n") +
+        `\n  Deliberate? Fine. Unintentional? Fix before deploying.\n`,
+    );
+  }
+}
+
+validateEnv();
 
 // ── Content Security Policy ──────────────────────────────────────────────────
 // Pragmatic, breakage-safe policy: it locks down the high-risk vectors
