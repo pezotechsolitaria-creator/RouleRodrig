@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 // there is no single source of truth available to both. Keep them in step when
 // bumping — CLAUDE.md already requires the bump on every deploy, and surfacing
 // it here is what makes a mismatch visible instead of mysterious.
-const SW_CACHE_VERSION = "rr-cache-v95";
+const SW_CACHE_VERSION = "rr-cache-v96";
 
 // ── Health / readiness / liveness ────────────────────────────────────────────
 // GET /api/health           → readiness (checks the database dependency)
