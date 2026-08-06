@@ -22,8 +22,16 @@ import {
 // Forward transitions get the primary (gold) treatment; "cancelled" is
 // always the destructive/secondary action and always asks for confirmation
 // first — an accidental tap can't cancel a real order.
+//
+// "paid" is deliberately ABSENT. It used to render a gold header button reading
+// "Confirm payment received" — visually identical to, and more prominent than,
+// the one inside PaymentConfirmCard, but wired to update_order_status instead of
+// confirm_order_payment. Merchants naturally hit the bigger one. Payment
+// confirmation now happens in exactly one place, the card that also shows the
+// receipt and the amount, so there is no ambiguity about which control settles
+// the money. (The database no longer lets the two diverge either — see
+// m9_status_paid_captures_payment — but one button is still the right UI.)
 const ACTION_LABEL: Partial<Record<OrderStatus, string>> = {
-  paid: "Confirm payment received",
   preparing: "Accept order",
   ready_for_pickup: "Mark ready for pickup",
   collected: "Mark collected",
@@ -82,7 +90,12 @@ export default function OrderDetail({ id }: { id: string }) {
   }
 
   const nextStatuses = legalNextStatuses(order.status).filter((s) => s !== order.status);
-  const forward = nextStatuses.filter((s) => s !== "cancelled");
+  // "paid" is excluded here, not just from ACTION_LABEL — the label lookup falls
+  // back to `Mark ${STATUS_LABEL[s]}`, so leaving it in would simply render
+  // "Mark Paid" and reintroduce the duplicate confirmation control. Settling a
+  // payment belongs to PaymentConfirmCard alone, which shows the receipt and the
+  // amount alongside the button.
+  const forward = nextStatuses.filter((s) => s !== "cancelled" && s !== "paid");
   const canCancel = nextStatuses.includes("cancelled");
 
   return (
