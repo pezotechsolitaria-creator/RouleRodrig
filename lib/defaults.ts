@@ -384,7 +384,7 @@ export const DEFAULT_QUICK_ACCESS: QuickAccessItem[] = [
   { id: "qa-airport", label: "Airport Transfer", labelFr: "Transfert", labelCr: "Transfer", href: "/taxi", icon: "plane", enabled: true },
   { id: "qa-taxi", label: "Taxi", labelFr: "Taxi", labelCr: "Taksi", href: "/taxi", icon: "taxi", enabled: true },
   { id: "qa-viewpoints", label: "Viewpoints", labelFr: "Points de vue", labelCr: "Vue", href: "/guide/viewpoints", icon: "viewpoint", enabled: true },
-  { id: "qa-store", label: "Local Store", labelFr: "Boutiques", labelCr: "Laboutik", href: "/guide/shops", icon: "store", enabled: true },
+  { id: "qa-store", label: "Local Store", labelFr: "Boutiques", labelCr: "Laboutik", href: "/shop", icon: "store", enabled: true },
   { id: "qa-events", label: "What's on", labelFr: "Événements", labelCr: "Levennman", href: "/explore", icon: "event", enabled: true },
 ];
 
@@ -396,7 +396,7 @@ export const DEFAULT_HOME_CARDS: HomeCard[] = [
   { id: "hc-stay", label: "Stays", labelFr: "Séjours", labelCr: "Lozman", icon: "stay", imageSource: "stays", action: "link", href: "/browse/stays", tint: "amber", enabled: true },
   { id: "hc-exp", label: "Experiences", labelFr: "Expériences", labelCr: "Eksperyans", icon: "experience", imageSource: "exp", action: "link", href: "/explore", tint: "teal", enabled: true },
   { id: "hc-tiroule", label: "Ask Ti Roulé", labelFr: "Demander Ti Roulé", labelCr: "Demann Ti Roulé", icon: "tiroule", imageSource: "none", action: "tiroule", tint: "indigo", enabled: true },
-  { id: "hc-stores", label: "Local Stores", labelFr: "Boutiques", labelCr: "Laboutik", icon: "store", imageSource: "stores", action: "link", href: "/guide/shops", tint: "amber", enabled: true },
+  { id: "hc-stores", label: "Local Stores", labelFr: "Boutiques", labelCr: "Laboutik", icon: "store", imageSource: "stores", action: "link", href: "/shop", tint: "amber", enabled: true },
 ];
 
 export const DEFAULT_CONTENT: SiteContent = {
