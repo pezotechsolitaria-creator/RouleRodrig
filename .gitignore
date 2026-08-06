@@ -62,3 +62,7 @@ next-env.d.ts
 
 # Playwright JSON report used by the CI skip gate
 playwright-report.json
+
+# Database backups — contain REAL customer names, emails and phone numbers.
+rr-backup-*.json
+rr-*.sql
