@@ -8,7 +8,7 @@ import { centsToDecimalString } from "@/lib/money";
 import OrderTimeline from "@/components/orders/OrderTimeline";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { FULFILLMENT_LABEL, googleMapsLink, formatCoords } from "@/lib/orders/location";
-import BankTransferPanel from "@/components/orders/BankTransferPanel";
+import BankTransferPanel, { type BankDetails } from "@/components/orders/BankTransferPanel";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -82,17 +82,22 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
   // confirms, the bank panel disappears rather than inviting a second transfer.
   const showBankPanel = isBankTransfer && (typedOrder.status === "pending_payment" || awaitingConfirmation);
 
-  // Bank details are read separately: RLS (store_payment_settings_customer_read)
-  // lets any signed-in user see a visible shop's details, so this cannot leak
-  // another merchant's account — and the customer needs them to pay.
-  let bank = null;
+  // Bank details come from store_bank_details(), not from the table.
+  //
+  // The RLS policy is visibility-based, so before M8 any signed-in user could
+  // read bank_name / account_holder / account_number for every live shop
+  // without ordering anything — marketplace-wide harvesting of exactly the
+  // fields an impersonation scam needs. The columns are now withheld and the
+  // accessor releases them only to store staff, a platform admin, or a customer
+  // who actually has an order with that shop. This page qualifies on the last
+  // count, which is the only moment the details are needed anyway.
+  let bank: BankDetails | null = null;
   if (showBankPanel) {
-    const { data } = await supabase
-      .from("store_payment_settings")
-      .select("bank_name, account_holder, account_number, payment_instructions, require_receipt")
-      .eq("store_id", typedOrder.store_id)
+    const { data, error } = await supabase
+      .rpc("store_bank_details", { p_store_id: typedOrder.store_id })
       .maybeSingle();
-    bank = data;
+    if (error) console.error("store_bank_details failed", error);
+    bank = (data as BankDetails | null) ?? null;
   }
 
   const hasGps = typedOrder.delivery_lat != null && typedOrder.delivery_lng != null;

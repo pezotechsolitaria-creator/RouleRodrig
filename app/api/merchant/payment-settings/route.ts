@@ -22,16 +22,34 @@ export async function GET(req: NextRequest) {
   const storeId = await getOwnStoreId(supabase);
   if (!storeId) return NextResponse.json({ error: "No shop found for this account." }, { status: 404 });
 
-  const { data, error } = await supabase
-    .from("store_payment_settings")
-    .select("accepts_cash, accepts_bank_transfer, bank_name, account_holder, account_number, payment_instructions, require_receipt, offers_rr_delivery")
-    .eq("store_id", storeId)
-    .maybeSingle();
+  // Two reads, because the bank columns are no longer selectable from the table:
+  // M8 withheld them so a signed-in customer could not enumerate every shop's
+  // account details. The flags stay on the row (checkout needs them); the
+  // sensitive fields come from store_bank_details(), which releases them to
+  // store staff, a platform admin, or a customer who has an order there.
+  const [{ data: flags, error }, { data: bank }] = await Promise.all([
+    supabase
+      .from("store_payment_settings")
+      .select("accepts_cash, accepts_bank_transfer, require_receipt, offers_rr_delivery, offers_pickup, offers_customer_delivery")
+      .eq("store_id", storeId)
+      .maybeSingle(),
+    supabase.rpc("store_bank_details", { p_store_id: storeId }).maybeSingle(),
+  ]);
 
   if (error) {
     console.error("read payment settings failed", error);
     return NextResponse.json({ error: "Failed to load payment settings." }, { status: 500 });
   }
+
+  const data = flags
+    ? {
+        ...flags,
+        bank_name: (bank as { bank_name?: string | null } | null)?.bank_name ?? null,
+        account_holder: (bank as { account_holder?: string | null } | null)?.account_holder ?? null,
+        account_number: (bank as { account_number?: string | null } | null)?.account_number ?? null,
+        payment_instructions: (bank as { payment_instructions?: string | null } | null)?.payment_instructions ?? null,
+      }
+    : null;
 
   // A shop that has never saved settings takes cash only — the same default the
   // create_order() RPC assumes when no row exists.
@@ -74,10 +92,13 @@ export async function PUT(req: NextRequest) {
   }
   const v = parsed.data;
 
+  // Written through set_store_payment_settings() rather than a direct upsert:
+  // the bank columns are no longer writable from a user session, and this shares
+  // ONE validated implementation with the admin's door so the two cannot drift.
   const blank = (s?: string) => (s && s.trim() ? s.trim() : null);
-  const { error } = await supabase.from("store_payment_settings").upsert(
-    {
-      store_id: storeId,
+  const { error } = await supabase.rpc("set_store_payment_settings", {
+    p_store_id: storeId,
+    p_patch: {
       accepts_cash: v.acceptsCash,
       accepts_bank_transfer: v.acceptsBankTransfer,
       bank_name: blank(v.bankName),
@@ -86,10 +107,8 @@ export async function PUT(req: NextRequest) {
       payment_instructions: blank(v.paymentInstructions),
       require_receipt: v.requireReceipt,
       offers_rr_delivery: v.offersRrDelivery,
-      updated_at: new Date().toISOString(),
     },
-    { onConflict: "store_id" },
-  );
+  });
 
   if (error) {
     // An expired subscription blocks shop edits (trigger, errcode RR008).
