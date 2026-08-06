@@ -1,0 +1,1 @@
+ALTER TABLE public.bookings ADD COLUMN IF NOT EXISTS feedback_reminded boolean NOT NULL DEFAULT false;
