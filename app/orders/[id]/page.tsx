@@ -8,6 +8,7 @@ import { centsToDecimalString } from "@/lib/money";
 import OrderTimeline from "@/components/orders/OrderTimeline";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { FULFILLMENT_LABEL, googleMapsLink, formatCoords } from "@/lib/orders/location";
+import { holdInfo, customerHoldCopy, holdRemaining, type PaymentProvider } from "@/lib/orders/hold";
 import BankTransferPanel, { type BankDetails } from "@/components/orders/BankTransferPanel";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -34,6 +35,10 @@ type CustomerOrderDetail = {
   delivery_instructions: string | null;
   payment_receipt_path: string | null;
   receipt_submitted_at: string | null;
+  // The reservation deadline. Selected — and shown — as of M13: this column has
+  // always governed whether the order survives, and until now no customer-facing
+  // file referenced it at all.
+  auto_release_at: string | null;
   store_id: string;
   stores: { name: string; phone: string | null } | { name: string; phone: string | null }[] | null;
   order_items: {
@@ -61,7 +66,7 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
     .from("orders")
     .select(
       "id, order_number, status, notes, subtotal, discount, tax, total, currency, placed_at, created_at, store_id, " +
-        "fulfillment_method, delivery_fee, delivery_lat, delivery_lng, delivery_instructions, payment_receipt_path, receipt_submitted_at, " +
+        "fulfillment_method, delivery_fee, delivery_lat, delivery_lng, delivery_instructions, payment_receipt_path, receipt_submitted_at, auto_release_at, " +
         "stores(name, phone), " +
         "order_items(id, product_name, variant_name, sku, unit_price, quantity, line_total), " +
         "payments(id, provider, amount, currency, status, created_at), " +
@@ -92,6 +97,14 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
   // Show payment instructions only while money is still owed. Once the merchant
   // confirms, the bank panel disappears rather than inviting a second transfer.
   const showBankPanel = isBankTransfer && (typedOrder.status === "pending_payment" || awaitingConfirmation);
+
+  // The reservation window, disclosed for EVERY provider — not just the one
+  // with a receipt to upload. Before M13 the bank panel was the only "what
+  // happens next" surface on this page, so a cash customer (cash is the
+  // checkout default) saw a timeline, a status word, and nothing else, while a
+  // clock they could not see decided whether their order survived.
+  const hold = holdInfo(typedOrder.auto_release_at);
+  const showHold = hold !== null && typedOrder.status === "pending_payment";
 
   // Bank details come from store_bank_details(), not from the table.
   //
@@ -132,6 +145,23 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
             Status: <span className="text-offwhite">{STATUS_LABEL[typedOrder.status as OrderStatus]}</span>
           </p>
         </div>
+
+        {showHold && hold && (
+          <section
+            aria-labelledby="hold-heading"
+            className="mt-4 rounded-2xl border border-yellow/25 bg-yellow/[0.06] p-5"
+          >
+            <h2 id="hold-heading" className="font-syne text-sm font-bold text-yellow">
+              {isBankTransfer ? "Payment needed to keep your items" : "Your items are reserved"}
+            </h2>
+            <p className="mt-2 font-dm text-sm leading-relaxed text-offwhite/85">
+              {customerHoldCopy(payment?.provider as PaymentProvider | undefined, hold)}
+            </p>
+            <p className="mt-3 font-dm text-xs text-muted">
+              Time remaining: <span className="text-offwhite">{holdRemaining(hold)}</span>
+            </p>
+          </section>
+        )}
 
         {showBankPanel && (
           <div className="mt-4">
