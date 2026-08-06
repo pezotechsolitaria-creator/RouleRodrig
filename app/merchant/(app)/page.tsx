@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import { Store, Package, Clock, AlertTriangle, XCircle, Plus, List, ShoppingBag, ImageOff, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getMerchantDashboard, getDashboardStats, getOrderCount } from "@/lib/merchant/context";
+import { getMerchantSubscription } from "@/lib/merchant/subscription";
 import { centsToDecimalString } from "@/lib/money";
+import { todayLine, deliveryLine, nextOpenLabel, type ScheduleStatus } from "@/lib/schedule";
 
 export default async function MerchantHome() {
   const supabase = await createClient();
@@ -19,6 +21,34 @@ export default async function MerchantHome() {
   const stats = dashboard.store ? await getDashboardStats(supabase, dashboard.store.id) : null;
   const orderCount = dashboard.store ? await getOrderCount(supabase, dashboard.store.id) : 0;
   const greetName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "there";
+
+  // Live trading state, in one batch. The open/closed verdict comes from
+  // store_schedule_status() — the SAME function create_order() gates on — so
+  // this badge can never claim the shop is open while checkout refuses orders.
+  const storeId = dashboard.store?.id ?? null;
+  const [schedule, payment, subscription] = storeId
+    ? await Promise.all([
+        supabase.rpc("store_schedule_status", { p_store_id: storeId }).single()
+          .then((r) => (r.data as ScheduleStatus | null) ?? null),
+        supabase
+          .from("store_payment_settings")
+          .select("accepts_cash, accepts_bank_transfer, offers_rr_delivery, offers_pickup, offers_customer_delivery")
+          .eq("store_id", storeId)
+          .maybeSingle()
+          .then((r) => r.data),
+        getMerchantSubscription(supabase, dashboard.merchantId),
+      ])
+    : [null, null, null];
+
+  // Column defaults, so an unconfigured shop reads here exactly as it behaves
+  // in create_order().
+  const pay = {
+    acceptsCash: payment?.accepts_cash ?? true,
+    acceptsBankTransfer: payment?.accepts_bank_transfer ?? false,
+    offersRrDelivery: payment?.offers_rr_delivery ?? true,
+    offersPickup: payment?.offers_pickup ?? true,
+    offersCustomerDelivery: payment?.offers_customer_delivery ?? true,
+  };
 
   return (
     <div className="py-8">
@@ -53,7 +83,101 @@ export default async function MerchantHome() {
             )}
           </div>
         </div>
+
+        {/* Am I trading right now? The single question a shop owner opens this
+            page to answer. */}
+        {schedule && (
+          <div className="mt-5 border-t border-white/10 pt-4">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-dm text-xs font-medium ${
+                  !schedule.has_schedule
+                    ? "bg-white/10 text-muted"
+                    : schedule.is_open
+                      ? "bg-green-500/15 text-green-400"
+                      : "bg-red-500/15 text-red-400"
+                }`}
+              >
+                <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${
+                  !schedule.has_schedule ? "bg-muted" : schedule.is_open ? "bg-green-400" : "bg-red-400"
+                }`} />
+                {!schedule.has_schedule ? "Hours not set" : schedule.is_open ? "Open now" : "Closed"}
+              </span>
+              <span className="font-dm text-xs text-muted">Today {todayLine(schedule)}</span>
+              {!schedule.is_open && nextOpenLabel(schedule) && (
+                <span className="font-dm text-xs text-muted">{nextOpenLabel(schedule)}</span>
+              )}
+            </div>
+
+            {pay.offersRrDelivery && (
+              <p className="mt-1.5 font-dm text-xs text-muted">
+                Delivery{" "}
+                <span className={schedule.delivery_available ? "text-green-400" : "text-muted"}>
+                  {schedule.delivery_available ? "running now" : "not running"}
+                </span>
+                {deliveryLine(schedule) && ` · ${deliveryLine(schedule)}`}
+              </p>
+            )}
+
+            <p className="mt-1 font-dm text-xs text-muted">
+              Taking{" "}
+              {[pay.acceptsCash && "cash", pay.acceptsBankTransfer && "bank transfer"]
+                .filter(Boolean).join(" and ") || <span className="text-red-400">no payment method</span>}
+              {" · "}
+              {[pay.offersPickup && "pickup", pay.offersCustomerDelivery && "own driver", pay.offersRrDelivery && "RR delivery"]
+                .filter(Boolean).join(", ") || <span className="text-red-400">no fulfillment method</span>}
+            </p>
+
+            {!schedule.has_schedule && (
+              <p className="mt-2 font-dm text-xs text-orange-300">
+                You haven&apos;t set opening hours yet, so your shop is treated as always open.{" "}
+                <Link href="/merchant/hours" className="underline hover:text-yellow">Set them now</Link>.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Subscription — expiry is the thing that silently stops orders. */}
+        {subscription && (
+          <div className="mt-4 border-t border-white/10 pt-4">
+            <p className="font-dm text-xs text-muted">
+              Plan <span className="text-offwhite">{subscription.plan}</span>
+              {" · "}
+              <span className={subscription.isActive ? "text-green-400" : "text-red-400"}>
+                {subscription.status}
+              </span>
+              {subscription.currentPeriodEnd && (
+                <> · renews {new Date(subscription.currentPeriodEnd).toLocaleDateString("en-GB", {
+                  day: "2-digit", month: "short", year: "numeric",
+                })}</>
+              )}
+            </p>
+            <Link href="/merchant/subscription" className="font-dm text-xs text-yellow hover:underline">
+              Manage plan
+            </Link>
+          </div>
+        )}
       </div>
+
+      {/* Quick actions — the five places a merchant actually goes. */}
+      <nav aria-label="Quick actions" className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {([
+          { href: "/merchant/orders", label: "Orders", icon: ShoppingBag },
+          { href: "/merchant/products", label: "Products", icon: Package },
+          { href: "/merchant/hours", label: "Hours", icon: Clock },
+          { href: "/merchant/payments", label: "Payments", icon: Store },
+          { href: "/merchant/subscription", label: "Plan", icon: CheckCircle2 },
+        ] as const).map(({ href, label, icon: Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            className="flex min-h-[64px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-dark-card px-3 py-3 font-dm text-xs text-offwhite transition-colors hover:border-yellow/40 hover:text-yellow"
+          >
+            <Icon size={17} aria-hidden="true" />
+            {label}
+          </Link>
+        ))}
+      </nav>
 
       {/* Quick stats */}
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">

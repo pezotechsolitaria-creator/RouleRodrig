@@ -193,6 +193,34 @@ export default function AdminSubscriptions() {
                 >
                   {["starter", "standard", "premium"].map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
+                {/* Trial controls. merchant_subscription_active() already counts
+                    'trialing' as selling, so these only move status + window. */}
+                {s?.status !== "trialing" ? (
+                  <button type="button" disabled={!!busy}
+                    onClick={() => act(m.id, "start_trial", { periodDays: 30 })}
+                    className="rounded-full border border-white/15 px-3 py-1.5 font-dm text-xs text-offwhite hover:border-yellow/50 hover:text-yellow disabled:opacity-50">
+                    Start trial
+                  </button>
+                ) : (
+                  <button type="button" disabled={!!busy}
+                    onClick={() => act(m.id, "end_trial")}
+                    className="rounded-full border border-white/15 px-3 py-1.5 font-dm text-xs text-offwhite hover:border-yellow/50 hover:text-yellow disabled:opacity-50">
+                    End trial
+                  </button>
+                )}
+                {/* Cancel is the merchant leaving, not a platform sanction —
+                    hence the confirm and the separate wording from Suspend. */}
+                {s?.status !== "cancelled" && (
+                  <button type="button" disabled={!!busy}
+                    onClick={() => {
+                      if (confirm(`Cancel ${m.display_name}'s subscription? Their shop stops selling once the current period ends.`)) {
+                        act(m.id, "cancel");
+                      }
+                    }}
+                    className="rounded-full border border-white/15 px-3 py-1.5 font-dm text-xs text-muted hover:border-red-500/50 hover:text-red-400 disabled:opacity-50">
+                    Cancel
+                  </button>
+                )}
               </div>
             </div>
           );

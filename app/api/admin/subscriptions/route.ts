@@ -33,7 +33,13 @@ function serviceRoleMissing() {
 
 const patchSchema = z.object({
   merchantId: z.string().uuid(),
-  action: z.enum(["approve_merchant", "reject_merchant", "suspend", "reactivate", "approve_renewal", "set_plan"]),
+  action: z.enum([
+    "approve_merchant", "reject_merchant",
+    "suspend", "reactivate", "approve_renewal", "set_plan",
+    // Cancel is distinct from suspend: suspend is a platform sanction that can
+    // be lifted; cancel is the merchant leaving, and is stamped with a date.
+    "cancel", "start_trial", "end_trial",
+  ]),
   plan: z.enum(["starter", "standard", "premium"]).optional(),
   // Renewal length in days; bounded so a slip can't grant a decade.
   periodDays: z.number().int().min(1).max(366).optional(),
@@ -127,6 +133,61 @@ export async function PATCH(req: NextRequest) {
       );
     }
     return NextResponse.json({ ok: true, status: newStatus });
+  }
+
+  // Cancel — the merchant is leaving. cancelled_at is stamped so the merchant
+  // page can say WHEN, rather than showing the generic "expired" copy.
+  if (action === "cancel") {
+    const { error } = await supabase
+      .from("merchant_subscriptions")
+      .upsert(
+        { merchant_id: merchantId, status: "cancelled", plan: existing?.plan ?? "starter",
+          current_period_end: existing?.current_period_end ?? nowIso,
+          cancelled_at: nowIso, note: note ?? null, updated_at: nowIso },
+        { onConflict: "merchant_id" },
+      );
+    if (error) {
+      console.error("cancel failed", error);
+      return NextResponse.json({ error: "Could not cancel that subscription." }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, status: "cancelled" });
+  }
+
+  // Trial start / end. merchant_subscription_active() already treats 'trialing'
+  // as selling, so these only move the status and the window — no new rules.
+  if (action === "start_trial") {
+    const days = periodDays ?? 30;
+    const { error } = await supabase
+      .from("merchant_subscriptions")
+      .upsert(
+        { merchant_id: merchantId, status: "trialing", plan: plan ?? existing?.plan ?? "starter",
+          current_period_end: new Date(Date.now() + days * 86_400_000).toISOString(),
+          cancelled_at: null, note: note ?? "Trial started by platform admin", updated_at: nowIso },
+        { onConflict: "merchant_id" },
+      );
+    if (error) {
+      console.error("start_trial failed", error);
+      return NextResponse.json({ error: "Could not start that trial." }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, status: "trialing" });
+  }
+
+  // Ending a trial converts to active without extending the window — the
+  // merchant keeps whatever time was left and is now billable.
+  if (action === "end_trial") {
+    const { error } = await supabase
+      .from("merchant_subscriptions")
+      .upsert(
+        { merchant_id: merchantId, status: "active", plan: plan ?? existing?.plan ?? "starter",
+          current_period_end: existing?.current_period_end ?? nowIso,
+          note: note ?? "Trial ended by platform admin", updated_at: nowIso },
+        { onConflict: "merchant_id" },
+      );
+    if (error) {
+      console.error("end_trial failed", error);
+      return NextResponse.json({ error: "Could not end that trial." }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, status: "active" });
   }
 
   if (action === "suspend") {

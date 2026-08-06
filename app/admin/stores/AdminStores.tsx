@@ -2,16 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, RefreshCw, AlertTriangle, Search, Clock, Check } from "lucide-react";
-import { WEEK_ORDER, WEEKDAYS, hhmm, validateWeek, defaultWeek, type DaySchedule } from "@/lib/schedule";
+import { Loader2, RefreshCw, AlertTriangle, Search, Pencil } from "lucide-react";
+import { hhmm } from "@/lib/schedule";
+import StoreEditor from "./StoreEditor";
 
 type StoreRow = {
   store_id: string; store_name: string; slug: string; store_status: string;
-  merchant_name: string; merchant_status: string; offers_rr_delivery: boolean;
+  merchant_id: string; merchant_name: string; merchant_status: string;
+  offers_rr_delivery: boolean; offers_pickup: boolean; offers_customer_delivery: boolean;
+  accepts_cash: boolean; accepts_bank_transfer: boolean; has_bank_details: boolean;
   has_schedule: boolean; is_open: boolean; delivery_available: boolean;
   opens_at: string | null; closes_at: string | null; is_closed: boolean;
   delivery_opens_at: string | null; delivery_closes_at: string | null; delivery_closed: boolean;
   weekday: number; next_open_at: string | null;
+  sub_plan: string | null; sub_status: string | null; sub_period_end: string | null;
+  sub_grace_days: number | null; sub_started_at: string | null; sub_cancelled_at: string | null;
+  selling: boolean;
+  last_paid_at: string | null; last_paid_amount: number | null;
 };
 
 type Filter = "all" | "open" | "closed" | "no-schedule";
@@ -22,8 +29,6 @@ export default function AdminStores() {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [editing, setEditing] = useState<string | null>(null);
-  const [week, setWeek] = useState<DaySchedule[]>([]);
-  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     // The error is cleared on success (and by the retry button), not
@@ -52,56 +57,6 @@ export default function AdminStores() {
       return true;
     });
   }, [stores, q, filter]);
-
-  async function openEditor(storeId: string) {
-    setEditing(storeId);
-    setWeek(defaultWeek());
-    try {
-      // Read the shop's real week. The admin list only carries TODAY's row, so
-      // opening the editor fetches the full schedule rather than guessing.
-      const r = await fetch(`/api/admin/stores/${storeId}/hours`);
-      const b = await r.json().catch(() => ({}));
-      if (r.ok && Array.isArray(b.days) && b.days.length) {
-        const byDay = new Map<number, DaySchedule>(b.days.map((d: DaySchedule) => [d.weekday, d]));
-        setWeek(WEEK_ORDER.map((wd) => {
-          const d = byDay.get(wd);
-          return d
-            ? { ...d, opens_at: hhmm(d.opens_at) || null, closes_at: hhmm(d.closes_at) || null,
-                delivery_opens_at: hhmm(d.delivery_opens_at) || null,
-                delivery_closes_at: hhmm(d.delivery_closes_at) || null }
-            : { weekday: wd, is_closed: true, opens_at: null, closes_at: null,
-                delivery_opens_at: null, delivery_closes_at: null, delivery_closed: false };
-        }));
-      }
-    } catch { /* editor opens on the default week; saving still validates */ }
-  }
-
-  const weekError = useMemo(() => (week.length ? validateWeek(week) : null), [week]);
-
-  function patchDay(weekday: number, next: Partial<DaySchedule>) {
-    setWeek((w) => w.map((d) => (d.weekday === weekday ? { ...d, ...next } : d)));
-  }
-
-  async function saveWeek(storeId: string) {
-    if (weekError) return;
-    setBusy(true);
-    try {
-      const r = await fetch("/api/admin/stores", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ storeId, days: week }),
-      });
-      const b = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(b.error || "Couldn't save.");
-      toast.success("Hours updated.");
-      setEditing(null);
-      await load();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Couldn't save.");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   if (error) {
     return (
@@ -150,7 +105,36 @@ export default function AdminStores() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-syne text-sm font-bold text-offwhite">{s.store_name}</p>
-                <p className="font-dm text-xs text-muted">{s.merchant_name} · {s.store_status}</p>
+                <p className="font-dm text-xs text-muted">
+                  {s.merchant_name}
+                  {/* Merchant approval and shop visibility are DIFFERENT axes —
+                      an approved merchant can still have a paused shop. */}
+                  <span className={s.merchant_status === "approved" ? "text-muted" : " text-orange-300"}>
+                    {" "}· merchant {s.merchant_status}
+                  </span>
+                  <span className={s.store_status === "active" ? "text-muted" : " text-orange-300"}>
+                    {" "}· shop {s.store_status}
+                  </span>
+                </p>
+                <p className="mt-0.5 font-dm text-[11px] text-muted/80">
+                  {s.sub_plan ? `${s.sub_plan} · ${s.sub_status}` : "no subscription"}
+                  {s.sub_period_end && ` · ends ${new Date(s.sub_period_end).toLocaleDateString("en-GB")}`}
+                  {" · "}
+                  {/* merchant_subscription_active() — the same predicate checkout
+                      gates on, so this can never disagree with reality. */}
+                  <span className={s.selling ? "text-green-400" : "text-red-400"}>
+                    {s.selling ? "selling" : "blocked"}
+                  </span>
+                </p>
+                <p className="font-dm text-[11px] text-muted/70">
+                  {[s.offers_pickup && "pickup", s.offers_customer_delivery && "own driver", s.offers_rr_delivery && "RR delivery"]
+                    .filter(Boolean).join(" · ") || "no fulfillment methods"}
+                  {" · "}
+                  {[s.accepts_cash && "cash", s.accepts_bank_transfer && "bank"].filter(Boolean).join(" + ") || "no payment method"}
+                  {s.accepts_bank_transfer && !s.has_bank_details && (
+                    <span className="text-red-400"> · bank details missing</span>
+                  )}
+                </p>
               </div>
               <div className="text-right">
                 <p className={`font-dm text-sm ${!s.has_schedule ? "text-muted" : s.is_open ? "text-green-400" : "text-red-400"}`}>
@@ -171,73 +155,18 @@ export default function AdminStores() {
 
             <div className="mt-3">
               {editing === s.store_id ? (
-                <div className="rounded-lg border border-white/10 bg-dark/50 p-3">
-                  <ul className="space-y-2">
-                    {week.map((d) => (
-                      <li key={d.weekday} className="flex flex-wrap items-center gap-2">
-                        <span className="w-20 shrink-0 font-dm text-xs text-offwhite">{WEEKDAYS[d.weekday]}</span>
-                        <label className="flex cursor-pointer items-center gap-1.5">
-                          <input
-                            type="checkbox" checked={!d.is_closed}
-                            onChange={(e) => patchDay(d.weekday, {
-                              is_closed: !e.target.checked,
-                              opens_at: e.target.checked ? (d.opens_at ?? "08:00") : d.opens_at,
-                              closes_at: e.target.checked ? (d.closes_at ?? "17:00") : d.closes_at,
-                            })}
-                            className="accent-yellow"
-                          />
-                          <span className="font-dm text-xs text-muted">Open</span>
-                        </label>
-                        {!d.is_closed && (
-                          <>
-                            <input
-                              type="time" value={d.opens_at ?? ""} aria-label={`${WEEKDAYS[d.weekday]} opening time`}
-                              onChange={(e) => patchDay(d.weekday, { opens_at: e.target.value || null })}
-                              className="rounded border border-dark-border bg-dark px-2 py-1 font-dm text-xs text-offwhite focus:border-yellow focus:outline-none"
-                            />
-                            <span className="font-dm text-xs text-muted">–</span>
-                            <input
-                              type="time" value={d.closes_at ?? ""} aria-label={`${WEEKDAYS[d.weekday]} closing time`}
-                              onChange={(e) => patchDay(d.weekday, { closes_at: e.target.value || null })}
-                              className="rounded border border-dark-border bg-dark px-2 py-1 font-dm text-xs text-offwhite focus:border-yellow focus:outline-none"
-                            />
-                            {s.offers_rr_delivery && (
-                              <label className="flex cursor-pointer items-center gap-1.5">
-                                <input
-                                  type="checkbox" checked={!d.delivery_closed}
-                                  onChange={(e) => patchDay(d.weekday, { delivery_closed: !e.target.checked })}
-                                  className="accent-yellow"
-                                />
-                                <span className="font-dm text-xs text-muted">Delivers</span>
-                              </label>
-                            )}
-                          </>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                  {weekError && <p role="alert" className="mt-2 font-dm text-xs text-red-400">{weekError}</p>}
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      type="button" disabled={busy || !!weekError} onClick={() => void saveWeek(s.store_id)}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-yellow px-3 py-1.5 font-dm text-xs font-medium text-dark hover:bg-yellow-dark disabled:opacity-50"
-                    >
-                      {busy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Save hours
-                    </button>
-                    <button
-                      type="button" onClick={() => setEditing(null)}
-                      className="rounded-full border border-white/15 px-3 py-1.5 font-dm text-xs text-muted hover:text-offwhite"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
+                <StoreEditor
+                  storeId={s.store_id}
+                  storeName={s.store_name}
+                  onClose={() => setEditing(null)}
+                  onSaved={() => void load()}
+                />
               ) : (
                 <button
-                  type="button" onClick={() => void openEditor(s.store_id)}
+                  type="button" onClick={() => setEditing(s.store_id)}
                   className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 font-dm text-xs text-offwhite hover:border-yellow/50 hover:text-yellow"
                 >
-                  <Clock size={12} /> {s.has_schedule ? "Edit hours" : "Set hours"}
+                  <Pencil size={12} /> Manage shop
                 </button>
               )}
             </div>
