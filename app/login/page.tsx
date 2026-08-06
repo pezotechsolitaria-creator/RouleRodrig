@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, Mail, ArrowRight, ArrowLeft } from "lucide-react";
+import { Loader2, Mail, ArrowRight, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 
 // Customer sign-in — shares the exact same Supabase Auth session/cookie
@@ -28,6 +28,9 @@ function LoginForm() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  // Resets to hidden on every mount, so a revealed password never survives a
+  // navigation back to this page.
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState<"google" | "email" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checkEmail, setCheckEmail] = useState(false);
@@ -141,16 +144,37 @@ function LoginForm() {
                   placeholder="you@email.com"
                   className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 font-dm text-sm text-offwhite placeholder:text-muted/50 transition-colors focus:border-yellow focus:outline-none"
                 />
+                <div className="relative">
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   required
                   minLength={6}
                   autoComplete={mode === "signin" ? "current-password" : "new-password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Password"
-                  className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 font-dm text-sm text-offwhite placeholder:text-muted/50 transition-colors focus:border-yellow focus:outline-none"
+                  className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 pr-12 font-dm text-sm text-offwhite placeholder:text-muted/50 transition-colors focus:border-yellow focus:outline-none"
                 />
+                {/* Reveal toggle. Typing a password blind on a phone keyboard is
+                    a common cause of failed sign-ins and of people abandoning
+                    account creation — and on a 6-character minimum, a single
+                    mistyped character is invisible until the request fails.
+                    Deliberately a <button type="button">: inside a form, the
+                    default type is "submit", so omitting it would make the eye
+                    icon submit the login form.
+                    h-11 w-11 = 44px, the WCAG 2.5.5 / Apple minimum. Measured
+                    at 28px with icon padding alone — a real mistap risk on a
+                    mobile-first site where the cost is a failed login. */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-muted transition-colors hover:text-offwhite focus:text-yellow focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow/60"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+                </div>
                 <button
                   type="submit"
                   disabled={!!busy}
