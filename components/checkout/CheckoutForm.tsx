@@ -10,6 +10,7 @@ import { centsToDecimalString } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import PhoneInput from "@/components/PhoneInput";
 import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 import { todayLine, deliveryLine, nextOpenLabel, type ScheduleStatus } from "@/lib/schedule";
 
@@ -249,6 +250,21 @@ export default function CheckoutForm({
   const canSubmit = !submitting && !hasIssue && !!quote && !quoting && locationReady && zoneReady
     && scheduleReady && paymentReady && !!name.trim() && !!phone.trim();
 
+  // A disabled button with no explanation is a dead end: the customer has filled
+  // in what they can see and the only affordance left is dark. Name and phone
+  // are the common cases — they are required by create_order() but nothing on
+  // the page said so. Ordered so the first thing the customer can actually act
+  // on is named, rather than reporting a server-side condition they cannot fix.
+  const blockedReason = submitting || quoting || hasIssue ? null
+    : !name.trim() ? "Enter your full name to continue."
+    : !phone.trim() ? "Enter your phone number so the shop can reach you."
+    : !locationReady ? "Share your delivery location to continue."
+    : !zoneReady ? "Choose your delivery area to continue."
+    : !paymentReady ? "This shop does not accept the selected payment method."
+    : !scheduleReady ? "The shop is closed for this fulfilment method right now."
+    : !quote ? "Waiting for the shop to confirm your price…"
+    : null;
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!cart || !canSubmit) return;
@@ -466,16 +482,36 @@ export default function CheckoutForm({
       <section aria-labelledby="you-h">
         <h2 id="you-h" className="font-bebas text-[11px] tracking-[0.3em] text-yellow">YOUR DETAILS</h2>
         <div className="mt-2 space-y-3">
-          <input
-            required value={name} onChange={(e) => setName(e.target.value)}
-            placeholder="Full name" aria-label="Full name"
-            className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 font-dm text-sm text-offwhite placeholder:text-muted/50 focus:border-yellow focus:outline-none"
-          />
-          <input
-            required type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-            placeholder="Phone number" aria-label="Phone number"
-            className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 font-dm text-sm text-offwhite placeholder:text-muted/50 focus:border-yellow focus:outline-none"
-          />
+          {/* Both fields gate canSubmit, but nothing said so — the Place order
+              button simply stayed dark with no explanation. Labelling them
+              Required is the cheapest possible fix for "why can't I order?". */}
+          <div>
+            <label htmlFor="co-name" className="mb-1 block font-dm text-xs text-muted">
+              Full name <span className="text-yellow">*</span>
+            </label>
+            <input
+              id="co-name" required value={name} onChange={(e) => setName(e.target.value)}
+              placeholder="Full name" autoComplete="name"
+              className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 font-dm text-sm text-offwhite placeholder:text-muted/50 focus:border-yellow focus:outline-none"
+            />
+          </div>
+          <div>
+            <label htmlFor="co-phone" className="mb-1 block font-dm text-xs text-muted">
+              Phone number <span className="text-yellow">*</span>
+            </label>
+            {/* The same PhoneInput the vehicle-rental flow uses, so the country
+                picker (+230 Mauritius first) and libphonenumber validation are
+                shared rather than reimplemented. The shop phones this number to
+                arrange handover, so a number missing its country code is a real
+                failure, not a formatting nicety. */}
+            <PhoneInput
+              value={phone}
+              onChange={setPhone}
+              disabled={submitting}
+              placeholder="Phone number"
+              inputClassName="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 pl-10 font-dm text-sm text-offwhite placeholder:text-muted/50 focus:border-yellow focus:outline-none"
+            />
+          </div>
           <Textarea
             value={notes} onChange={(e) => setNotes(e.target.value)}
             placeholder="Anything the shop should know? (optional)" aria-label="Order notes"
@@ -565,6 +601,11 @@ export default function CheckoutForm({
         <p className="font-dm text-xs text-muted">Share your location to continue.</p>
       )}
 
+      {blockedReason && (
+        <p role="status" className="mb-2 text-center font-dm text-xs text-yellow/90">
+          {blockedReason}
+        </p>
+      )}
       <Button type="submit" className="w-full" disabled={!canSubmit}>
         {submitting ? <Loader2 size={16} className="animate-spin" /> : quote ? `Place order — Rs ${centsToDecimalString(quote.total)}` : "Place order"}
       </Button>
