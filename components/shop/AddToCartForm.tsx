@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { Minus, Plus, ShoppingCart, AlertTriangle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, Minus, Plus, ShoppingCart, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart/CartContext";
 import { centsToDecimalString } from "@/lib/money";
@@ -24,10 +23,24 @@ export default function AddToCartForm({
   const [variantId, setVariantId] = useState(purchasable[0]?.id ?? "");
   const [quantity, setQuantity] = useState(1);
   const [conflict, setConflict] = useState(false);
+  // Brief "Added ✓" state on the button itself — the confirmation lives where
+  // the tap happened, on top of the toast and the cart badge/bar updating.
+  const [justAdded, setJustAdded] = useState(false);
+  const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (addedTimer.current) clearTimeout(addedTimer.current);
+  }, []);
 
   const variant = purchasable.find((v) => v.id === variantId) ?? purchasable[0];
   const outOfStock = !variant || variant.stockQuantity <= 0;
   const maxQty = variant ? Math.min(variant.stockQuantity, 100) : 0;
+
+  function confirmAdded() {
+    toast.success(`Added ${quantity} × ${productName} to cart.`);
+    setJustAdded(true);
+    if (addedTimer.current) clearTimeout(addedTimer.current);
+    addedTimer.current = setTimeout(() => setJustAdded(false), 1600);
+  }
 
   function commitAdd() {
     if (!variant) return;
@@ -36,7 +49,7 @@ export default function AddToCartForm({
       setConflict(true);
       return;
     }
-    toast.success(`Added ${quantity} × ${productName} to cart.`);
+    confirmAdded();
   }
 
   if (purchasable.length === 0) {
@@ -100,8 +113,16 @@ export default function AddToCartForm({
             <span className="font-dm text-xs text-muted">{variant?.stockQuantity} in stock</span>
           </div>
 
-          <Button onClick={commitAdd} className="w-full">
-            <ShoppingCart size={15} className="mr-1.5" /> Add to cart
+          <Button onClick={commitAdd} className="w-full" aria-live="polite">
+            {justAdded ? (
+              <>
+                <Check size={15} className="mr-1.5" /> Added
+              </>
+            ) : (
+              <>
+                <ShoppingCart size={15} className="mr-1.5" /> Add to cart
+              </>
+            )}
           </Button>
         </>
       )}
@@ -123,7 +144,7 @@ export default function AddToCartForm({
                 if (!variant) return;
                 clear();
                 addItem({ storeId, storeName, variantId: variant.id, quantity });
-                toast.success(`Added ${quantity} × ${productName} to cart.`);
+                confirmAdded();
               }}
             >
               Clear cart &amp; add
@@ -131,10 +152,6 @@ export default function AddToCartForm({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Link href="/cart" className="mt-3 block text-center font-dm text-xs text-muted hover:text-yellow">
-        View cart
-      </Link>
     </div>
   );
 }

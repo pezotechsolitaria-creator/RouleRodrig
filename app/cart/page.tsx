@@ -54,9 +54,11 @@ export default function CartPage() {
   );
 
   return (
-    <main className="min-h-screen bg-dark px-4 pb-16 pt-10 text-offwhite">
+    <main className="min-h-screen bg-dark px-4 pb-32 pt-10 text-offwhite">
       <div className="mx-auto max-w-2xl">
-        <Link href="/" className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow">
+        {/* Back to the marketplace, not the homepage — leaving the cart should
+            land you among the shops so browsing can continue in one tap. */}
+        <Link href="/shop" className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow">
           <ArrowLeft size={14} /> Continue shopping
         </Link>
 

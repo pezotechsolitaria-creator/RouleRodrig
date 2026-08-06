@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ImageOff } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
+import QuickAdd, { type QuickAddVariant } from "./QuickAdd";
 
 export type ShopProductCard = {
   slug: string;
@@ -8,9 +9,22 @@ export type ShopProductCard = {
   minPrice: number;
   imageUrl: string | null;
   inStock: boolean;
+  /** Present only when the product has exactly ONE purchasable variant — that
+   * is the case quick-add can serve without a variant choice. */
+  quickAddVariant?: QuickAddVariant | null;
+  /** >1 → the card shows "options" and the tap opens the product page. */
+  variantCount?: number;
 };
 
-export default function ProductCard({ storeSlug, product }: { storeSlug: string; product: ShopProductCard }) {
+export default function ProductCard({
+  storeSlug, storeId, storeName, product,
+}: {
+  storeSlug: string;
+  storeId?: string;
+  storeName?: string;
+  product: ShopProductCard;
+}) {
+  const canQuickAdd = Boolean(product.inStock && product.quickAddVariant && storeId && storeName);
   return (
     <Link
       href={`/shop/${storeSlug}/${product.slug}`}
@@ -34,10 +48,23 @@ export default function ProductCard({ storeSlug, product }: { storeSlug: string;
             Out of stock
           </span>
         )}
+        {canQuickAdd && (
+          <div className="absolute bottom-2 right-2">
+            <QuickAdd
+              storeId={storeId!}
+              storeName={storeName!}
+              productName={product.name}
+              variant={product.quickAddVariant!}
+            />
+          </div>
+        )}
       </div>
       <div className="p-3">
         <p className="truncate font-dm text-sm font-medium text-offwhite">{product.name}</p>
-        <p className="mt-0.5 font-dm text-sm text-yellow">Rs {centsToDecimalString(product.minPrice)}</p>
+        <p className="mt-0.5 font-dm text-sm text-yellow">
+          {(product.variantCount ?? 1) > 1 && <span className="text-muted">from </span>}
+          Rs {centsToDecimalString(product.minPrice)}
+        </p>
       </div>
     </Link>
   );

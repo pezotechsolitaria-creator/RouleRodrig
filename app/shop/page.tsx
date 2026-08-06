@@ -7,6 +7,7 @@ import { centsToDecimalString } from "@/lib/money";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import StoreCard, { type BrowseStoreCard } from "@/components/shop/StoreCard";
+import { ShopHeader } from "@/components/shop/ShopChrome";
 
 // Deliberately dynamic, NOT ISR: browse_stores() computes each shop's
 // open/closed verdict inside the query, and an "Open now" badge cached for
@@ -159,7 +160,8 @@ export default async function ShopDirectoryPage({
   const totalPages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
 
   return (
-    <main className="min-h-screen bg-dark px-4 pb-16 pt-10 text-offwhite">
+    <main className="min-h-screen bg-dark px-4 pb-44 pt-0 text-offwhite md:pb-28">
+      <ShopHeader backHref="/" backLabel="Home" />
       {result.stores.length > 0 && (
         <JsonLd
           data={[

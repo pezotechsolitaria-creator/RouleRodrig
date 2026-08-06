@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ImageOff } from "lucide-react";
+import { ImageOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import AddToCartForm, { type CartableVariant } from "@/components/shop/AddToCartForm";
+import { ShopHeader } from "@/components/shop/ShopChrome";
 
 export const revalidate = 60;
 
@@ -66,13 +66,10 @@ export default async function ProductPage({
   }[]).map((v) => ({ id: v.id, name: v.name, price: v.price, stockQuantity: v.stock_quantity, isActive: v.is_active }));
 
   return (
-    <main className="min-h-screen bg-dark px-4 pb-16 pt-10 text-offwhite">
+    <main className="min-h-screen bg-dark px-4 pb-44 pt-0 text-offwhite md:pb-28">
+      <ShopHeader backHref={`/shop/${store.slug}`} backLabel={store.name} />
       <div className="mx-auto max-w-4xl">
-        <Link href={`/shop/${store.slug}`} className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow">
-          <ArrowLeft size={14} /> {store.name}
-        </Link>
-
-        <div className="mt-4 grid gap-6 sm:grid-cols-2">
+        <div className="grid gap-6 sm:grid-cols-2">
           <div>
             <div className="aspect-square w-full overflow-hidden rounded-2xl bg-white/5">
               {media[0] ? (
