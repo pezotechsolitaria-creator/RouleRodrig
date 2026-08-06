@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { guard } from "@/lib/rate-limit";
 import { checkoutSchema } from "@/lib/schemas/checkout";
+import { claimAndNotifyOrderPlaced } from "@/lib/notifications/order-placed";
 
 const NOT_FOUND_CODE = "RR003";
 const VALIDATION_CODE = "RR005";
@@ -97,6 +98,30 @@ export async function POST(req: NextRequest) {
     if (error.code === SAFE_RPC_ERROR_CODE) return NextResponse.json({ error: error.message }, { status: 400 });
     console.error("create_order unexpected error", error);
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+  }
+
+  // M17: exactly-once placement notifications. claim_order_notification()
+  // returns true to a single caller per order — an idempotent retry or a
+  // concurrent duplicate submit claims false and sends nothing; a failed send
+  // releases the claim so the order stays visible as "owed a notification".
+  // Best-effort by construction (same shape as the try/catch in
+  // app/api/merchant/orders/[id]/route.ts): the order is already committed,
+  // and no email failure may ever fail or roll back this response.
+  const order = data as { order_id: string; order_number: string; total: number };
+  try {
+    await claimAndNotifyOrderPlaced(supabase, {
+      orderId: order.order_id,
+      orderNumber: order.order_number,
+      storeId,
+      total: order.total,
+      provider,
+      fulfillment,
+      customerName,
+      customerPhone,
+      customerEmail: user.email ?? null,
+    });
+  } catch (err) {
+    console.error("claimAndNotifyOrderPlaced failed", err);
   }
 
   return NextResponse.json(data);

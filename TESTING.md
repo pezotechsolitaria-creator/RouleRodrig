@@ -86,14 +86,48 @@ left as follow-up rather than done during a release-candidate pass.
 
 | Variable | Feature | Behaviour when unset |
 |---|---|---|
-| `RESEND_API_KEY`, `RESEND_FROM` | transactional email | email silently not sent |
-| `BREVO_API_KEY`, `BREVO_FROM`, `BREVO_LIST_ID` | newsletter | signup no-ops |
+| `RESEND_API_KEY`, `RESEND_FROM` | transactional email — **optional, and NOT what production uses** | Brevo is used instead (see below) |
+| `BREVO_API_KEY`, `BREVO_FROM`, `BREVO_LIST_ID` | transactional email **and** newsletter — env is only a *fallback*, see below | email silently not sent |
 | `CALLMEBOT_APIKEY`, `CALLMEBOT_PHONE` | WhatsApp alerts | no alert |
 | `OWNER_EMAIL`, `OWNER_PHONE`, `OWNER_WHATSAPP` | owner notifications | no notification |
 | `CRON_SECRET` | guards `/api/cron/*` | **the reminder job refuses to run (503).** It fails *closed* — see below |
 | `HOLD_EXPIRY_HOURS` | booking hold window | defaults apply |
 | `NEXT_PUBLIC_SITE_URL` | absolute links, SEO, emails | links may be relative |
 | `NEXT_PUBLIC_GOOGLE_VERIFICATION`, `GOOGLE_REVIEW_URL`, `EMAIL_LOGO_URL` | SEO / branding | omitted |
+
+#### Email: Brevo, configured in the DATABASE — not in Vercel
+
+**Correction to earlier versions of this file, which said transactional email
+needs `RESEND_API_KEY`. It does not, and production has no such variable.**
+
+`send()` in `lib/email.ts:447` tries providers in priority order:
+
+1. **Resend** — only if `process.env.RESEND_API_KEY` is set → `api.resend.com/emails`
+2. **Brevo** — otherwise → `api.brevo.com/v3/smtp/email`
+3. No-ops cleanly if neither is configured, so a missing key never breaks a booking
+
+**Production uses Brevo**, because no `RESEND_API_KEY` exists in Vercel. That is
+deliberate: Brevo needs only a *verified sender address* (a Gmail is fine),
+whereas Resend requires a verified domain.
+
+The keys are **not environment variables**. They live in the `app_secrets`
+table, editable from **Admin → Alerts & Email** with no deploy:
+
+| `app_secrets.key` | Purpose |
+|---|---|
+| `brevo_api_key` | transactional + newsletter |
+| `email_from` | sender, `"Name <address>"` |
+| `brevo_list_id` | newsletter list |
+| `callmebot_apikey`, `callmebot_phone` | owner WhatsApp alerts |
+
+Resolution order is **database first, env as fallback**
+(`lib/email.ts:363-373`): `dbKey || process.env.BREVO_API_KEY`, and
+`dbFrom || BREVO_FROM || RESEND_FROM`.
+
+One subtlety worth keeping: Brevo rewrites the from-domain of unauthenticated
+Gmail senders to `@brevosend.com`, so `replyTo` is set explicitly
+(`OWNER_EMAIL` → `CONTACT_EMAIL` → sender) to keep replies reaching a real
+inbox.
 
 #### `CRON_SECRET` is effectively required in production
 

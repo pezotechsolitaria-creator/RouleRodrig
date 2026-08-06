@@ -65,7 +65,7 @@ describe("dispatchNotification", () => {
     expect(sendOrderNotificationEmail).not.toHaveBeenCalled();
   });
 
-  it("never throws even if every channel rejects", async () => {
+  it("never throws even if every channel rejects — and reports nothing delivered", async () => {
     sendOrderNotificationEmail.mockRejectedValue(new Error("smtp down"));
     sendOwnerWhatsApp.mockRejectedValue(new Error("callmebot down"));
     await expect(
@@ -77,6 +77,70 @@ describe("dispatchNotification", () => {
         title: "t",
         body: "b",
       }),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(false);
+  });
+
+  it("returns true when at least one channel delivers", async () => {
+    sendOrderNotificationEmail.mockRejectedValue(new Error("smtp down"));
+    sendOwnerWhatsApp.mockResolvedValue(true);
+    await expect(
+      dispatchNotification({
+        recipientType: "merchant",
+        recipientEmail: "shop@example.com",
+        orderNumber: "ORD-5",
+        type: "order_created",
+        title: "t",
+        body: "b",
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it("returns false when every channel merely skips (no address, wrong recipient type)", async () => {
+    await expect(
+      dispatchNotification({
+        recipientType: "customer",
+        orderNumber: "ORD-6",
+        type: "order_created",
+        title: "t",
+        body: "b",
+      }),
+    ).resolves.toBe(false);
+  });
+
+  it("honours the channels filter — an email-only merchant event never reaches WhatsApp", async () => {
+    sendOrderNotificationEmail.mockResolvedValue(true);
+    sendOwnerWhatsApp.mockResolvedValue(true);
+    await dispatchNotification({
+      recipientType: "merchant",
+      recipientEmail: "staff@example.com",
+      orderNumber: "ORD-7",
+      type: "order_created",
+      title: "t",
+      body: "b",
+      channels: ["email"],
+    });
+    expect(sendOrderNotificationEmail).toHaveBeenCalledTimes(1);
+    expect(sendOwnerWhatsApp).not.toHaveBeenCalled();
+  });
+
+  it("forwards details and cta to the email channel", async () => {
+    sendOrderNotificationEmail.mockResolvedValue(true);
+    await dispatchNotification({
+      recipientType: "customer",
+      recipientEmail: "customer@example.com",
+      orderNumber: "ORD-8",
+      type: "order_created",
+      title: "t",
+      body: "b",
+      details: [["Total", "Rs 100.00"]],
+      cta: { url: "https://example.com/orders/x", label: "Track your order →" },
+      channels: ["email"],
+    });
+    expect(sendOrderNotificationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: [["Total", "Rs 100.00"]],
+        cta: { url: "https://example.com/orders/x", label: "Track your order →" },
+      }),
+    );
   });
 });

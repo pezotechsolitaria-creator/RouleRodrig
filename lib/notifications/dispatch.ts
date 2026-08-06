@@ -20,10 +20,22 @@ export interface NotificationEvent {
   type: "order_status_changed" | "order_created";
   title: string;
   body: string;
+  /** Extra key/value rows for the email's detail card (items, totals, deadlines). */
+  details?: [string, string][];
+  /** Action button for the email (dashboard / tracking link). */
+  cta?: { url: string; label: string };
+  /**
+   * Restrict this event to specific channels. Needed by the order-placed
+   * fan-out: one email event PER staff member, but the WhatsApp owner ping
+   * must fire exactly once per order — not once per staff member.
+   */
+  channels?: ChannelName[];
 }
 
+export type ChannelName = "email" | "whatsapp" | "web-push" | "mobile-push";
+
 interface NotificationChannel {
-  name: string;
+  name: ChannelName;
   send(event: NotificationEvent): Promise<boolean>;
 }
 
@@ -37,6 +49,8 @@ const emailChannel: NotificationChannel = {
       heading: event.title,
       message: event.body,
       orderNumber: event.orderNumber,
+      details: event.details,
+      cta: event.cta,
     });
   },
 };
@@ -74,14 +88,21 @@ const mobilePushChannel: NotificationChannel = {
 
 const CHANNELS: NotificationChannel[] = [emailChannel, whatsappChannel, webPushChannel, mobilePushChannel];
 
-/** Fire-and-forget fan-out across every channel. Never throws. */
-export async function dispatchNotification(event: NotificationEvent): Promise<void> {
-  await Promise.allSettled(
-    CHANNELS.map((channel) =>
+/**
+ * Best-effort fan-out across every (or the event's chosen) channel. Never
+ * throws. Returns true when at least one channel actually delivered — M17's
+ * order-placed claim uses this to decide whether to keep or release the claim;
+ * every earlier caller ignores the return value, exactly as before.
+ */
+export async function dispatchNotification(event: NotificationEvent): Promise<boolean> {
+  const channels = event.channels ? CHANNELS.filter((c) => event.channels!.includes(c.name)) : CHANNELS;
+  const results = await Promise.allSettled(
+    channels.map((channel) =>
       channel.send(event).catch((err) => {
         console.error(`notification channel "${channel.name}" failed`, err);
         return false;
       }),
     ),
   );
+  return results.some((r) => r.status === "fulfilled" && r.value === true);
 }

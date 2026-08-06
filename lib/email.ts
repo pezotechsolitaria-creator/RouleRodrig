@@ -1017,11 +1017,20 @@ export async function sendOrderNotificationEmail(o: {
   heading: string;
   message: string;
   orderNumber?: string | null;
+  /** Extra key/value rows under the message — items, totals, deadlines (M17). */
+  details?: [string, string][];
+  /** Action button — merchant dashboard or customer tracking link (M17). */
+  cta?: { url: string; label: string };
 }): Promise<boolean> {
   const { logo } = await getBrand();
+  const pairs: [string, string][] = [
+    ...(o.orderNumber ? ([["Order", o.orderNumber]] as [string, string][]) : []),
+    ...(o.details ?? []),
+  ];
   const body = `
     ${paragraph(o.message)}
-    ${o.orderNumber ? detailCard(rows([["Order", o.orderNumber]])) : ""}`;
+    ${pairs.length ? detailCard(rows(pairs)) : ""}
+    ${o.cta ? `<div style="text-align:center">${primaryButton(o.cta.url, o.cta.label)}</div>` : ""}`;
   return send(
     o.to,
     o.subject,
