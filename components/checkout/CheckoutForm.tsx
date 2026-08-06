@@ -262,10 +262,22 @@ export default function CheckoutForm({
           deliveryLng: coords?.lng,
           deliveryInstructions: deliveryInstructions || undefined,
           deliveryZoneId: fulfillment === "rr_delivery" ? zoneId : undefined,
+          // The figure on the button. create_order() still derives the real
+          // price itself; sending this only lets it refuse (RR012) rather than
+          // charge a total the customer never saw.
+          expectedTotal: quote?.total,
         }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || "Checkout failed.");
+      if (!res.ok) {
+        // A price moved mid-checkout. Re-price so the customer sees the new
+        // figure and can decide, instead of being left on a dead number.
+        if (body.code === "RR012") {
+          await fetchQuote();
+          throw new Error(body.error || "The price changed. Please review the new total.");
+        }
+        throw new Error(body.error || "Checkout failed.");
+      }
       clear();
       toast.success("Order placed!");
       router.push(`/orders/${body.order_id}`);

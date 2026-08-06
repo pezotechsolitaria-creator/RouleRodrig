@@ -101,6 +101,23 @@ describe("checkoutSchema", () => {
     expect(checkoutSchema.safeParse({ ...base, fulfillment: "pickup" }).success).toBe(true);
   });
 
+  // The expected total is what the customer was LOOKING AT, not a price they
+  // get to set — create_order() still derives every amount and refuses (RR012)
+  // when the two disagree. Proven live: without this, a zone re-priced between
+  // quote and submit charged Rs 520 for an order quoted at Rs 170.
+  it("accepts an expected total and keeps it optional", () => {
+    expect(checkoutSchema.safeParse({ ...base, expectedTotal: 17000 }).success).toBe(true);
+    expect(checkoutSchema.safeParse({ ...base }).success).toBe(true);
+    expect(checkoutSchema.safeParse({ ...base, expectedTotal: 0 }).success).toBe(true);
+  });
+
+  it("rejects an expected total that could not be a real amount", () => {
+    expect(checkoutSchema.safeParse({ ...base, expectedTotal: -1 }).success).toBe(false);
+    expect(checkoutSchema.safeParse({ ...base, expectedTotal: 1.5 }).success).toBe(false);
+    expect(checkoutSchema.safeParse({ ...base, expectedTotal: 2_147_483_648 }).success).toBe(false);
+    expect(checkoutSchema.safeParse({ ...base, expectedTotal: "17000" }).success).toBe(false);
+  });
+
   it("rejects a delivery zone that is not a uuid", () => {
     expect(
       checkoutSchema.safeParse({ ...base, fulfillment: "rr_delivery", ...gps, deliveryZoneId: "'; drop table--" })

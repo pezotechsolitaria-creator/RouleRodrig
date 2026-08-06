@@ -35,6 +35,12 @@ export const checkoutSchema = z
     // Which region we are delivering to. Only the ID travels — the FEE is read
     // from delivery_zones server-side, so the client cannot price its own delivery.
     deliveryZoneId: z.string().uuid().optional(),
+    // The total the customer was actually looking at when they pressed the
+    // button, in minor units. This does NOT set the price — create_order()
+    // derives every amount itself — it only lets the RPC refuse (RR012) when a
+    // price moved mid-checkout, so nobody is charged a figure they never saw.
+    // Bounded by int4, which is what orders.total is.
+    expectedTotal: z.number().int().min(0).max(2_147_483_647).optional(),
   })
   .refine(
     (v) => v.fulfillment === "pickup" || (v.deliveryLat !== undefined && v.deliveryLng !== undefined),

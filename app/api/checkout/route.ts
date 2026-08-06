@@ -15,6 +15,9 @@ const METHOD_NOT_ACCEPTED_CODE = "RR009";
 // simply shut — the enforcement worked, the explanation did not.
 const SHOP_CLOSED_CODE = "RR010";
 const DELIVERY_WINDOW_CODE = "RR011";
+// The derived total no longer matches what the customer was shown — a price
+// moved between the quote and the button. Never charge it silently.
+const PRICE_CHANGED_CODE = "RR012";
 const SAFE_RPC_ERROR_CODE = "P0001";
 
 // The only thing trusted from the client here is "which variants, how many,
@@ -44,7 +47,7 @@ export async function POST(req: NextRequest) {
   }
   const {
     storeId, items, customerName, customerPhone, fulfillment, notes, provider,
-    deliveryLat, deliveryLng, deliveryInstructions, deliveryZoneId,
+    deliveryLat, deliveryLng, deliveryInstructions, deliveryZoneId, expectedTotal,
   } = parsed.data;
 
   const { data, error } = await supabase
@@ -62,6 +65,10 @@ export async function POST(req: NextRequest) {
       p_delivery_lng: deliveryLng ?? null,
       p_delivery_instructions: deliveryInstructions ?? null,
       p_delivery_zone_id: deliveryZoneId ?? null,
+      // NOT a price the client dictates — create_order still derives every
+      // amount itself. This is the total the customer was looking at, and the
+      // RPC refuses (RR012) if what it derives disagrees.
+      p_expected_total: expectedTotal ?? null,
     })
     .single();
 
@@ -77,6 +84,11 @@ export async function POST(req: NextRequest) {
     // 409, not 400: the request was well formed, the shop's state refused it.
     // The message already names the reason and, for delivery, the alternatives.
     if (error.code === SHOP_CLOSED_CODE || error.code === DELIVERY_WINDOW_CODE) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 409 });
+    }
+    // 409 with the code so the form can re-quote and show the new figure rather
+    // than leaving the customer staring at a price that no longer exists.
+    if (error.code === PRICE_CHANGED_CODE) {
       return NextResponse.json({ error: error.message, code: error.code }, { status: 409 });
     }
     if (error.code === SAFE_RPC_ERROR_CODE) return NextResponse.json({ error: error.message }, { status: 400 });
