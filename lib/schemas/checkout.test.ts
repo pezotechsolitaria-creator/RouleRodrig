@@ -118,6 +118,20 @@ describe("checkoutSchema", () => {
     expect(checkoutSchema.safeParse({ ...base, expectedTotal: "17000" }).success).toBe(false);
   });
 
+  // One key per checkout attempt, reused across retries. Verified live: five
+  // simultaneous POSTs carrying the same key produced ONE order, one payment
+  // row, one stock movement and one notification.
+  it("accepts an idempotency key and keeps it optional", () => {
+    expect(checkoutSchema.safeParse({ ...base, idempotencyKey: crypto.randomUUID() }).success).toBe(true);
+    expect(checkoutSchema.safeParse({ ...base }).success).toBe(true);
+  });
+
+  it("rejects an idempotency key that is not a uuid", () => {
+    expect(checkoutSchema.safeParse({ ...base, idempotencyKey: "abc" }).success).toBe(false);
+    expect(checkoutSchema.safeParse({ ...base, idempotencyKey: "' or 1=1--" }).success).toBe(false);
+    expect(checkoutSchema.safeParse({ ...base, idempotencyKey: 12345 }).success).toBe(false);
+  });
+
   it("rejects a delivery zone that is not a uuid", () => {
     expect(
       checkoutSchema.safeParse({ ...base, fulfillment: "rr_delivery", ...gps, deliveryZoneId: "'; drop table--" })

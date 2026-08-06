@@ -48,6 +48,14 @@ export default function CheckoutForm({
   // unconfigured shop behaves identically here and in create_order().
   const [acceptsCash, setAcceptsCash] = useState(true);
   const [acceptsBankTransfer, setAcceptsBankTransfer] = useState(false);
+  // One key per checkout attempt, minted once when this form mounts and kept
+  // stable across retries — that is what makes a retry idempotent rather than a
+  // second order. A lazy useState initialiser, not useEffect, so it exists
+  // before the first possible submit. A fresh mount (after a completed order,
+  // or a new visit) mints a new one, which is correct: that IS a new checkout.
+  const [idempotencyKey] = useState(() =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : undefined,
+  );
 
   // Bug 1: the payable amount comes from the server, never from arithmetic here.
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -266,6 +274,7 @@ export default function CheckoutForm({
           // price itself; sending this only lets it refuse (RR012) rather than
           // charge a total the customer never saw.
           expectedTotal: quote?.total,
+          idempotencyKey,
         }),
       });
       const body = await res.json().catch(() => ({}));

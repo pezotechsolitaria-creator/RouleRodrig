@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   }
   const {
     storeId, items, customerName, customerPhone, fulfillment, notes, provider,
-    deliveryLat, deliveryLng, deliveryInstructions, deliveryZoneId, expectedTotal,
+    deliveryLat, deliveryLng, deliveryInstructions, deliveryZoneId, expectedTotal, idempotencyKey,
   } = parsed.data;
 
   const { data, error } = await supabase
@@ -69,6 +69,9 @@ export async function POST(req: NextRequest) {
       // amount itself. This is the total the customer was looking at, and the
       // RPC refuses (RR012) if what it derives disagrees.
       p_expected_total: expectedTotal ?? null,
+      // Retries and double-taps carry the same key; create_order returns the
+      // order that already exists rather than reserving stock a second time.
+      p_idempotency_key: idempotencyKey ?? null,
     })
     .single();
 

@@ -41,6 +41,12 @@ export const checkoutSchema = z
     // price moved mid-checkout, so nobody is charged a figure they never saw.
     // Bounded by int4, which is what orders.total is.
     expectedTotal: z.number().int().min(0).max(2_147_483_647).optional(),
+    // One UUID per checkout attempt, generated when the form mounts and REUSED
+    // across retries. A dropped response on a mobile network otherwise produces
+    // a second real order holding a second stock reservation for 48h.
+    // create_order() returns the existing order for a repeated key rather than
+    // creating a twin; it never influences pricing.
+    idempotencyKey: z.string().uuid().optional(),
   })
   .refine(
     (v) => v.fulfillment === "pickup" || (v.deliveryLat !== undefined && v.deliveryLng !== undefined),
