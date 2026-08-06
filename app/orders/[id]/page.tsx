@@ -57,7 +57,7 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
   // Scoped to the caller's own orders by construction (same pattern as the
   // merchant detail page and the /api/customer/orders/[id] route) — a
   // mismatched id renders notFound(), never another customer's order.
-  const { data: order } = await supabase
+  const { data: order, error } = await supabase
     .from("orders")
     .select(
       "id, order_number, status, notes, subtotal, discount, tax, total, currency, placed_at, created_at, store_id, " +
@@ -71,6 +71,17 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
     .eq("customer_id", user.id)
     .maybeSingle();
 
+  // A query FAILURE and a genuinely missing order are different answers and the
+  // customer must not be given the wrong one. Discarding `error` here meant a
+  // transient database fault told someone their real, paid order did not exist
+  // — and this page is where a bank-transfer customer reads the payment
+  // instructions, so they would lose both the order and the ability to pay it.
+  // Throwing renders app/error.tsx ("something went wrong, try again"), which
+  // is recoverable; notFound() is not.
+  if (error) {
+    console.error("load customer order failed", { orderId: id, error });
+    throw new Error("Could not load this order.");
+  }
   if (!order) notFound();
   const typedOrder = order as unknown as CustomerOrderDetail;
 

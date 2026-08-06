@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPrivileged } from "@/lib/supabase/admin";
+import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
+import { authorizeCron } from "@/lib/cron-auth";
 import { vehicleName } from "@/lib/vehicle-name";
 import {
   sendPickupReminder,
@@ -31,10 +32,22 @@ function islandDate(offsetDays = 0): string {
 }
 
 export async function GET(req: NextRequest) {
-  // If CRON_SECRET is configured, require it (Vercel Cron sends it automatically)
-  const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Requires CRON_SECRET (Vercel Cron sends it automatically). Fails CLOSED when
+  // it is unset — see lib/cron-auth.ts for why that matters here specifically.
+  const auth = authorizeCron(req);
+  if (!auth.ok) {
+    return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
+  }
+
+  // Without a service-role key getPrivileged() quietly degrades to the anon
+  // client, RLS then hides every booking, and this job reports a cheerful
+  // "0 reminders sent" while doing nothing at all — the worst kind of failure,
+  // because the dashboard looks healthy. Refuse instead.
+  if (!hasServiceRole()) {
+    return NextResponse.json(
+      { ok: false, error: "Not configured: SUPABASE_SERVICE_ROLE_KEY is required for the reminder job." },
+      { status: 503 },
+    );
   }
 
   const today = islandDate(0);
@@ -46,6 +59,10 @@ export async function GET(req: NextRequest) {
   let returnSent = 0;
   let feedbackSent = 0;
   let holdsReleased = 0;
+  // Sends that were attempted and failed. Reported, and turns the run red — a
+  // job that silently swallows delivery failures is indistinguishable from one
+  // with nothing to do.
+  let emailFailures = 0;
 
   // ── Pickups tomorrow → remind the customer and the owner ──
   const { data: pickups } = await supabase
@@ -56,9 +73,18 @@ export async function GET(req: NextRequest) {
     .eq("pickup_reminded", false);
 
   for (const b of (pickups ?? []) as Booking[]) {
-    if (b.email && (await sendPickupReminder(b))) pickupSent++;
+    const sent = b.email ? await sendPickupReminder(b) : false;
+    if (sent) pickupSent++;
     await sendAdminPickupReminder(b);
-    await supabase.from("bookings").update({ pickup_reminded: true }).eq("id", b.id);
+    // Only record "reminded" when we actually reminded them. Flagging a failed
+    // send buries it for good: the row drops out of tomorrow's query and that
+    // customer simply never hears from us. Having no address on file is a real
+    // end state, so that still flags.
+    if (sent || !b.email) {
+      await supabase.from("bookings").update({ pickup_reminded: true }).eq("id", b.id);
+    } else {
+      emailFailures++;
+    }
   }
 
   // ── Returns tomorrow → remind the customer and the owner (day before) ──
@@ -70,9 +96,14 @@ export async function GET(req: NextRequest) {
     .eq("return_reminded", false);
 
   for (const b of (returns ?? []) as Booking[]) {
-    if (b.email && (await sendReturnReminder(b))) returnSent++;
+    const sent = b.email ? await sendReturnReminder(b) : false;
+    if (sent) returnSent++;
     await sendAdminReturnReminder(b);
-    await supabase.from("bookings").update({ return_reminded: true }).eq("id", b.id);
+    if (sent || !b.email) {
+      await supabase.from("bookings").update({ return_reminded: true }).eq("id", b.id);
+    } else {
+      emailFailures++;
+    }
   }
 
   // ── Feedback request the day after the return ──
@@ -84,8 +115,13 @@ export async function GET(req: NextRequest) {
     .eq("feedback_reminded", false);
 
   for (const b of (feedbacks ?? []) as Booking[]) {
-    if (b.email && (await sendFeedbackRequest(b))) feedbackSent++;
-    await supabase.from("bookings").update({ feedback_reminded: true }).eq("id", b.id);
+    const sent = b.email ? await sendFeedbackRequest(b) : false;
+    if (sent) feedbackSent++;
+    if (sent || !b.email) {
+      await supabase.from("bookings").update({ feedback_reminded: true }).eq("id", b.id);
+    } else {
+      emailFailures++;
+    }
   }
 
   // ── Release abandoned holds ──
@@ -115,9 +151,14 @@ export async function GET(req: NextRequest) {
     .in("status", ["pending", "confirmed"])
     .eq("reminded", false);
   for (const b of (placeSoon ?? []) as PlaceBooking[]) {
-    if (b.email && (await sendPlaceReminder(b))) placeRemindersSent++;
+    const sent = b.email ? await sendPlaceReminder(b) : false;
+    if (sent) placeRemindersSent++;
     await sendAdminPlaceReminder(b);
-    await supabase.from("place_bookings").update({ reminded: true }).eq("id", b.id);
+    if (sent || !b.email) {
+      await supabase.from("place_bookings").update({ reminded: true }).eq("id", b.id);
+    } else {
+      emailFailures++;
+    }
   }
 
   const { data: placeDone } = await supabase
@@ -127,8 +168,13 @@ export async function GET(req: NextRequest) {
     .in("status", ["confirmed", "completed"])
     .eq("feedback_reminded", false);
   for (const b of (placeDone ?? []) as PlaceBooking[]) {
-    if (b.email && (await sendPlaceFeedbackRequest(b))) placeFeedbackSent++;
-    await supabase.from("place_bookings").update({ feedback_reminded: true }).eq("id", b.id);
+    const sent = b.email ? await sendPlaceFeedbackRequest(b) : false;
+    if (sent) placeFeedbackSent++;
+    if (sent || !b.email) {
+      await supabase.from("place_bookings").update({ feedback_reminded: true }).eq("id", b.id);
+    } else {
+      emailFailures++;
+    }
   }
 
   const { data: placeStale } = await supabase
@@ -216,16 +262,24 @@ export async function GET(req: NextRequest) {
     /* ignore */
   }
 
-  return NextResponse.json({
-    ok: true,
-    date: today,
-    pickupEmailsSent: pickupSent,
-    returnEmailsSent: returnSent,
-    feedbackEmailsSent: feedbackSent,
-    placeRemindersSent,
-    placeFeedbackSent,
-    holdsReleased,
-    missesEmailed,
-    backupSaved,
-  });
+  const ok = emailFailures === 0;
+  return NextResponse.json(
+    {
+      ok,
+      date: today,
+      pickupEmailsSent: pickupSent,
+      returnEmailsSent: returnSent,
+      feedbackEmailsSent: feedbackSent,
+      placeRemindersSent,
+      placeFeedbackSent,
+      holdsReleased,
+      missesEmailed,
+      backupSaved,
+      emailFailures,
+    },
+    // Non-2xx when mail went undelivered, so the run shows up red in Vercel's
+    // cron log. `ok: true` regardless of outcome meant the only signal that
+    // customers had stopped receiving reminders was a customer complaining.
+    { status: ok ? 200 : 500 },
+  );
 }

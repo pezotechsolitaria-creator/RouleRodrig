@@ -72,7 +72,16 @@ export async function GET(req: Request) {
       // confirm a deploy is fully configured. Knowing that a secret IS set
       // gives an attacker nothing they could use to obtain it.
       build: buildInfo(),
-      checks: { database: db, dbLatencyMs, adminBackend: hasServiceRole() ? "configured" : "unconfigured" },
+      checks: {
+        database: db,
+        dbLatencyMs,
+        adminBackend: hasServiceRole() ? "configured" : "unconfigured",
+        // Booleans only, never the values. The cron guard fails closed on an
+        // unset CRON_SECRET (lib/cron-auth.ts), which means the daily reminder
+        // job stops rather than running unauthenticated — so "is it set?" is a
+        // question an operator needs answerable without the Vercel dashboard.
+        cron: process.env.CRON_SECRET?.trim() ? "configured" : "unconfigured",
+      },
       uptimeMs: Math.round(process.uptime() * 1000),
       totalMs: Date.now() - started,
       at: new Date().toISOString(),

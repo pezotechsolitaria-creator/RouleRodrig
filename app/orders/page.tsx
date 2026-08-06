@@ -58,7 +58,13 @@ export default async function CustomerOrdersPage({
     if (safe) query = query.ilike("order_number", `%${safe}%`);
   }
 
-  const { data, count } = await query;
+  const { data, count, error } = await query;
+  // Same reasoning as the detail page: without this, a database fault renders
+  // the "no orders yet" empty state to a customer who does have orders.
+  if (error) {
+    console.error("list customer orders failed", error);
+    throw new Error("Could not load your orders.");
+  }
   const orders = data ?? [];
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
 

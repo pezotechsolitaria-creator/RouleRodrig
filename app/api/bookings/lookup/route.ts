@@ -5,8 +5,20 @@ import { guard } from "@/lib/rate-limit";
 // Guest booking lookup — no account. A visitor enters the reference from their
 // confirmation (RR-XXXXXX = the first 6 hex of the booking id) plus the email
 // they booked with; we match both and return a safe summary + status.
+//
+// SECURITY (M11): the matching happens inside the `lookup_booking` RPC, and the
+// caller's email is compared with exact case-insensitive equality — never with
+// ILIKE. The previous version passed the email straight into .ilike(), where
+// '%' is a wildcard, so email='%' matched every row and the sole authenticator
+// on this anonymous endpoint could be skipped entirely with a guessed
+// reference. Escaping '%' alone would have been incomplete: PostgREST also
+// rewrites '*' to '%' for like/ilike. Keep caller input away from pattern
+// operators rather than trying to sanitise it into them.
 const refOf = (id: string) => "RR-" + id.replace(/-/g, "").slice(0, 6).toUpperCase();
-const norm = (ref: string) => ref.trim().replace(/^rr-/i, "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+// Hex only — a reference is UUID hex, so this drops '%', '_', '*' and backslash
+// by construction. The RPC repeats the same reduction; neither layer trusts the
+// other.
+const norm = (ref: string) => ref.trim().replace(/^rr-/i, "").replace(/[^0-9a-f]/gi, "").toLowerCase();
 
 export async function POST(req: NextRequest) {
   const limited = guard(req, "booking-lookup", 10, 60_000);
@@ -20,59 +32,43 @@ export async function POST(req: NextRequest) {
   }
   const ref = norm((body.ref ?? "").toString());
   const email = (body.email ?? "").toString().trim();
-  if (ref.length < 4 || !email) {
-    return NextResponse.json({ error: "Enter your booking reference and the email you used." }, { status: 400 });
+  // The reference is always exactly 6 hex characters. Requiring all six rather
+  // than a 4-character prefix shrinks the guessable space from 65,536 to
+  // 16,777,216, and costs nothing: the customer copies the whole code.
+  if (ref.length < 6 || !email) {
+    return NextResponse.json(
+      { error: "Enter your full booking reference (RR-XXXXXX) and the email you used." },
+      { status: 400 },
+    );
   }
-  const matches = (id: string) => id.replace(/-/g, "").toLowerCase().startsWith(ref);
 
   const supabase = await getPrivileged();
 
-  const { data: vrows } = await supabase
-    .from("bookings")
-    .select("id, scooter, start_date, end_date, days, total_amount, deposit_amount, deposit_paid_at, status")
-    .ilike("email", email);
-  const v = (vrows ?? []).find((b) => matches(b.id || ""));
-  if (v) {
-    return NextResponse.json({
-      ok: true,
-      booking: {
-        kind: "vehicle",
-        id: v.id,
-        ref: refOf(v.id),
-        item: v.scooter,
-        start: v.start_date,
-        end: v.end_date,
-        days: v.days,
-        total: v.total_amount,
-        deposit: v.deposit_amount,
-        depositPaid: !!v.deposit_paid_at,
-        status: v.status,
-      },
-    });
+  const { data, error } = await supabase.rpc("lookup_booking", { p_ref: ref, p_email: email });
+
+  if (error) {
+    // Don't report a database fault as "no booking found" — that would tell a
+    // customer their real booking does not exist.
+    console.error("booking lookup failed", error);
+    return NextResponse.json({ error: "Could not check that booking right now. Please try again." }, { status: 503 });
   }
 
-  const { data: prows } = await supabase
-    .from("place_bookings")
-    .select("id, place_name, start_date, end_date, deposit_amount, deposit_paid_at, status")
-    .ilike("email", email);
-  const p = (prows ?? []).find((b) => matches(b.id || ""));
-  if (p) {
-    return NextResponse.json({
-      ok: true,
-      booking: {
-        kind: "place",
-        id: p.id,
-        ref: refOf(p.id),
-        item: p.place_name,
-        start: p.start_date,
-        end: p.end_date,
-        total: null,
-        deposit: p.deposit_amount,
-        depositPaid: !!p.deposit_paid_at,
-        status: p.status,
-      },
-    });
+  const b = data as {
+    kind: "vehicle" | "place";
+    id: string;
+    item: string | null;
+    start: string | null;
+    end: string | null;
+    days: number | null;
+    total: number | null;
+    deposit: number | null;
+    depositPaid: boolean;
+    status: string | null;
+  } | null;
+
+  if (!b) {
+    return NextResponse.json({ error: "No booking found for that reference and email." }, { status: 404 });
   }
 
-  return NextResponse.json({ error: "No booking found for that reference and email." }, { status: 404 });
+  return NextResponse.json({ ok: true, booking: { ...b, ref: refOf(b.id) } });
 }
