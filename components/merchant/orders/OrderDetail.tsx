@@ -3,13 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, User, Phone, CreditCard, QrCode, StickyNote } from "lucide-react";
+import { ArrowLeft, User, Phone, CreditCard, QrCode, StickyNote, Check, Loader2, Clock } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useOrder, useUpdateOrder, orderKeys } from "@/lib/merchant/orders";
 import PaymentConfirmCard from "./PaymentConfirmCard";
 import DeliveryLocationCard from "./DeliveryLocationCard";
 import { STATUS_LABEL, legalNextStatuses, type OrderStatus } from "@/lib/orders/status";
 import { centsToDecimalString } from "@/lib/money";
+import { holdInfo, merchantHoldCopy, type PaymentProvider } from "@/lib/orders/hold";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,6 +45,29 @@ export default function OrderDetail({ id }: { id: string }) {
   const updateOrder = useUpdateOrder(id);
   const [note, setNote] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+
+  // Accepting an order is NOT a status change — accepted_at is metadata, so this
+  // deliberately does not go through useUpdateOrder. It commits the shop to
+  // fulfilling the order and stops the reservation clock without asserting that
+  // any money arrived (M14). No optimistic update: the server owns accepted_at
+  // and the countdown is derived from it, so showing a guessed value would mean
+  // rendering a deadline that does not exist. The RPC is idempotent, so a
+  // double-tap or a retry is harmless.
+  async function acceptOrder() {
+    setAccepting(true);
+    try {
+      const r = await fetch(`/api/merchant/orders/${id}/accept`, { method: "POST" });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body?.error ?? "Failed to accept order.");
+      await queryClient.invalidateQueries({ queryKey: orderKeys.detail(id) });
+      toast.success("Order accepted. The customer has been told.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to accept order.");
+    } finally {
+      setAccepting(false);
+    }
+  }
 
   async function applyStatus(status: OrderStatus) {
     try {
@@ -97,6 +121,13 @@ export default function OrderDetail({ id }: { id: string }) {
   // amount alongside the button.
   const forward = nextStatuses.filter((s) => s !== "cancelled" && s !== "paid");
   const canCancel = nextStatuses.includes("cancelled");
+  // Acceptance is available while the order is still holding stock and has not
+  // already been accepted. Reading accepted_at from the server rather than
+  // inferring it from status keeps this honest — the two are independent.
+  const canAccept =
+    !order.accepted_at &&
+    (order.status === "pending_payment" || order.status === "awaiting_payment_confirmation");
+  const hold = holdInfo(order.auto_release_at);
 
   return (
     <div className="py-8">
@@ -110,6 +141,16 @@ export default function OrderDetail({ id }: { id: string }) {
           <h1 className="mt-0.5 font-syne text-2xl font-extrabold text-offwhite">{order.order_number}</h1>
         </div>
         <div className="flex gap-2">
+          {/* The primary action on a new order. Before M15 this row could be
+              completely EMPTY: legalNextStatuses('pending_payment') returns
+              exactly ['paid','cancelled'] and `forward` filters out both, so a
+              merchant opening a brand-new order was offered nothing to do. */}
+          {canAccept && (
+            <Button onClick={acceptOrder} disabled={accepting}>
+              {accepting ? <Loader2 size={15} className="mr-1.5 animate-spin" /> : <Check size={15} className="mr-1.5" />}
+              Accept order
+            </Button>
+          )}
           {forward.map((s) => (
             <Button key={s} onClick={() => applyStatus(s)} disabled={updateOrder.isPending}>
               {ACTION_LABEL[s] ?? `Mark ${STATUS_LABEL[s]}`}
@@ -127,6 +168,44 @@ export default function OrderDetail({ id }: { id: string }) {
           )}
         </div>
       </div>
+
+      {/* Reservation clock. Derived from the server's auto_release_at, never
+          from browser time — a merchant with a skewed device clock would
+          otherwise be told they had longer than they do, which is the one
+          direction that costs them the sale. Disappears once accepted, because
+          accept_order() nulls auto_release_at and there is nothing left to
+          count down. */}
+      {hold && !order.accepted_at && (
+        <div
+          role="status"
+          className={`mt-4 flex items-start gap-2.5 rounded-2xl border p-4 ${
+            hold.expired
+              ? "border-red-500/30 bg-red-500/[0.07]"
+              : hold.urgent
+                ? "border-red-500/25 bg-red-500/[0.05]"
+                : "border-yellow/25 bg-yellow/[0.06]"
+          }`}
+        >
+          <Clock size={16} className={hold.expired || hold.urgent ? "mt-0.5 text-red-400" : "mt-0.5 text-yellow"} />
+          <p className="font-dm text-sm leading-relaxed text-offwhite/85">
+            {merchantHoldCopy(order.payments[0]?.provider as PaymentProvider | undefined, hold)}
+          </p>
+        </div>
+      )}
+
+      {order.accepted_at && (
+        <div role="status" className="mt-4 flex items-center gap-2.5 rounded-2xl border border-green-500/25 bg-green-500/[0.06] p-4">
+          <Check size={16} className="text-green-400" />
+          <p className="font-dm text-sm text-offwhite/85">
+            Accepted{" "}
+            {new Date(order.accepted_at).toLocaleString("en-GB", {
+              timeZone: "Indian/Mauritius",
+              day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+            })}
+            . The stock is yours to hold — this order will not expire.
+          </p>
+        </div>
+      )}
 
       {/* Timeline */}
       <div className="mt-6 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-5">

@@ -65,6 +65,12 @@ export type OrderDetail = {
   delivery_zones: { name: string } | null;
   payment_receipt_path: string | null;
   receipt_submitted_at: string | null;
+  // M14/M15. accepted_at is the merchant's commitment to fulfil; auto_release_at
+  // is the reservation deadline the sweep enforces. Both were previously
+  // invisible to every TypeScript file in the repo, so the merchant could not
+  // see the clock that was about to cancel their order.
+  accepted_at: string | null;
+  auto_release_at: string | null;
   order_items: OrderItem[];
   payments: OrderPayment[];
   qr_pickup_tokens: { id: string; issued_at: string; expires_at: string; redeemed_at: string | null }[];
