@@ -90,6 +90,34 @@ have it removed. Now `patch ? 'field'` distinguishes the two.
 
 ---
 
+### Migration recovery — a correction to an earlier finding
+
+I originally recorded the 27-file gap between the ledger (93) and the repo (66)
+as *"pre-M7 filenames use rounded timestamps… acceptable post-launch debt."*
+**That was wrong.** The files were not misnamed. They were absent.
+
+The 27 were the entire pre-marketplace foundation: `create_bookings_table`,
+`create_place_bookings`, `create_taxi_drivers`, `create_partners_and_marketplace`,
+`site_content_and_uploads_storage`, `app_secrets_table`, `create_lead_events`,
+`create_owner_applications` — and critically
+**`rls_lockdown_anon_least_privilege`** and **`lockdown_storage_uploads_bucket`**.
+
+A fresh clone plus `supabase db reset` would have rebuilt the platform with no
+bookings, no taxi, no site content — and **without the two migrations that take
+the browser-shipped anon key down to least privilege**. The restored database
+would have let the anon role read every booking, every contact submission and
+every partner record, and upload into storage. That is the live rentals/tourism
+half of the business, not the marketplace.
+
+All 27 were reconstructed from the ledger's own `statements` array and verified
+byte-for-byte under the normalised hash: **27/27 match, 0 mismatches.** Local
+count is now 93, exactly matching the ledger. The repo can rebuild production
+from scratch again.
+
+The lesson worth keeping: "pre-existing" is not a synonym for "safe", and a
+count that does not reconcile deserves to be reconciled rather than explained
+away.
+
 ## Security validation
 
 | Area | Status |
@@ -140,9 +168,8 @@ how to point E2E at a *test* Supabase project rather than production.
    It is covered by SQL-level verification and unit tests.
 3. **Plan prices are all 0.** Renewals will record Rs 0.00 until set.
 4. **Delivery zone fees are all placeholder Rs 150.**
-5. **Pre-M7 migration filenames** use rounded timestamps that do not match ledger
-   versions (27-file gap). Pre-existing; every migration from M7 onward is exact.
-   `supabase db push` would treat the older ones as unapplied.
+5. ~~Pre-M7 migration filenames use rounded timestamps~~ — **this was wrong, and
+   it was worse than described. See "Migration recovery" below. Now resolved.**
 6. **Three lint errors** (`react-hooks/set-state-in-effect`) in pre-existing
    admin components. Lint is advisory in CI for this reason.
 7. **No automated coverage of the admin store editor** — verified manually only.
