@@ -1,0 +1,107 @@
+<!--
+  Supabase Auth email templates — Roulé Rodrigues
+  ================================================
+  Auth emails (password reset, email confirmation, magic link) are sent by
+  SUPABASE, not by lib/email.ts. They bypass Brevo entirely and use Supabase's
+  own sender and templates — which is why they arrive unbranded by default.
+
+  Paste each block below into:
+    Supabase Dashboard -> Authentication -> Email Templates -> (pick the type)
+
+  Colours, fonts and structure deliberately mirror lib/email.ts so an auth email
+  is indistinguishable from a booking confirmation. Table-based layout with
+  inline styles: Outlook and Gmail strip <style> blocks and ignore flexbox.
+
+  Supabase variables: {{ .ConfirmationURL }} {{ .Token }} {{ .SiteURL }} {{ .Email }}
+-->
+
+
+<!-- ============================================================ -->
+<!-- 1. RESET PASSWORD   Subject: Reset your Roulé Rodrigues password -->
+<!-- ============================================================ -->
+
+<div style="display:none;max-height:0;overflow:hidden;opacity:0">Reset your password — this link expires in 1 hour.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7F6F2;margin:0;padding:26px 12px">
+  <tr><td align="center">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#FFFFFF;border-radius:18px;overflow:hidden;border:1px solid #ECECEC">
+
+      <tr><td style="background:#0F0F0F;padding:26px 32px;text-align:center">
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:22px;font-weight:800;letter-spacing:2px;color:#F5C842">ROULE&nbsp;RODRIGUES</div>
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;font-weight:600;letter-spacing:3px;color:#9a9a9a;margin-top:12px">RODRIGUES ISLAND</div>
+      </td></tr>
+      <tr><td style="height:4px;line-height:4px;font-size:0;background:#F5C842">&nbsp;</td></tr>
+
+      <tr><td style="padding:34px 32px 28px">
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#b8912b;margin:0 0 12px">ACCOUNT</div>
+        <h1 style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:23px;line-height:1.3;font-weight:800;color:#0F0F0F;margin:0 0 18px">Reset your password</h1>
+
+        <p style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#4A4A4A;margin:0 0 16px">
+          Someone asked to reset the password for <strong style="color:#0F0F0F">{{ .Email }}</strong>. Tap the button below to choose a new one.
+        </p>
+
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px auto 6px">
+          <tr><td style="border-radius:12px;background:#F5C842">
+            <a href="{{ .ConfirmationURL }}" style="display:inline-block;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:#0F0F0F;text-decoration:none;padding:14px 34px;border-radius:12px">Choose a new password</a>
+          </td></tr>
+        </table>
+
+        <p style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:#8C8C8C;margin:18px 0 0;text-align:center">
+          This link expires in 1 hour and can only be used once.
+        </p>
+
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7F6F2;border:1px solid #ECECEC;border-radius:14px;margin:24px 0 0">
+          <tr><td style="padding:16px 20px">
+            <p style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:#4A4A4A;margin:0">
+              <strong style="color:#0F0F0F">Didn't ask for this?</strong> Ignore this email — your password stays exactly as it is. Nobody can change it without this link.
+            </p>
+          </td></tr>
+        </table>
+
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 22px"><tr>
+          <td style="width:42%;border-bottom:1px solid #ECECEC;font-size:0;line-height:0">&nbsp;</td>
+          <td style="padding:0 12px;text-align:center;white-space:nowrap;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;color:#8C8C8C">FRANÇAIS</td>
+          <td style="width:42%;border-bottom:1px solid #ECECEC;font-size:0;line-height:0">&nbsp;</td>
+        </tr></table>
+
+        <h2 style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:19px;line-height:1.3;font-weight:800;color:#0F0F0F;margin:0 0 16px">Réinitialiser votre mot de passe</h2>
+        <p style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#4A4A4A;margin:0 0 16px">
+          Cliquez sur le bouton ci-dessus pour choisir un nouveau mot de passe. Le lien expire dans 1 heure. Si vous n'avez rien demandé, ignorez cet e-mail — votre mot de passe reste inchangé.
+        </p>
+      </td></tr>
+
+      <tr><td style="background:#F7F6F2;border-top:1px solid #ECECEC;padding:20px 32px;text-align:center">
+        <p style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#8C8C8C;margin:0">
+          Roulé Rodrigues · Port Mathurin, Rodrigues Island, Mauritius
+        </p>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+
+
+<!-- ============================================================ -->
+<!-- 2. CONFIRM SIGNUP   Subject: Confirm your Roulé Rodrigues account -->
+<!--    Same shell — swap the three marked lines.                  -->
+<!--    eyebrow : WELCOME                                          -->
+<!--    h1      : Confirm your email                               -->
+<!--    body    : Welcome to Roulé Rodrigues. Confirm              -->
+<!--              {{ .Email }} to finish setting up your account.  -->
+<!--    button  : Confirm my email                                 -->
+<!--    note    : Didn't sign up? Ignore this email — no account   -->
+<!--              is created without this confirmation.            -->
+<!--    FR h2   : Confirmez votre e-mail                           -->
+<!-- ============================================================ -->
+
+
+<!--
+  AFTER PASTING
+  -------------
+  1. Send yourself a real reset from /forgot-password and read it on a PHONE —
+     that is where most merchants will open it.
+  2. Check the sender address under Authentication -> Emails. Supabase's default
+     shows as noreply@mail.app.supabase.io, which looks like phishing next to a
+     branded body. Set a custom SMTP sender if you want it to read as yours.
+  3. Supabase's default auth rate limit is ~4 emails/hour per address. Fine in
+     production, but it will block you while testing.
+-->
