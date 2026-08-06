@@ -7,6 +7,11 @@ import { cartItemSchema, FULFILLMENT_METHODS } from "@/lib/schemas/checkout";
 const NOT_FOUND_CODE = "RR003";
 const VALIDATION_CODE = "RR005";
 const SUBSCRIPTION_CODE = "RR008";
+// Opening hours. quote_order() refuses a closed shop and a shut delivery window
+// with these; mapping them lets the checkout form say WHY the price is missing
+// instead of showing a bare "Could not price your cart."
+const SHOP_CLOSED_CODE = "RR010";
+const DELIVERY_WINDOW_CODE = "RR011";
 
 const quoteSchema = z.object({
   storeId: z.string().uuid(),
@@ -54,6 +59,9 @@ export async function POST(req: NextRequest) {
     if (error.code === NOT_FOUND_CODE) return NextResponse.json({ error: error.message }, { status: 404 });
     if (error.code === VALIDATION_CODE) return NextResponse.json({ error: error.message }, { status: 400 });
     if (error.code === SUBSCRIPTION_CODE) return NextResponse.json({ error: error.message }, { status: 409 });
+    if (error.code === SHOP_CLOSED_CODE || error.code === DELIVERY_WINDOW_CODE) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 409 });
+    }
     console.error("quote_order failed", error);
     return NextResponse.json({ error: "Could not price your cart." }, { status: 500 });
   }

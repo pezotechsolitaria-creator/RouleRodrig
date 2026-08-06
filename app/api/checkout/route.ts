@@ -9,6 +9,12 @@ const UNAVAILABLE_CODE = "RR006";
 const STOCK_CODE = "RR007";
 const SUBSCRIPTION_CODE = "RR008";
 const METHOD_NOT_ACCEPTED_CODE = "RR009";
+// Opening hours, raised by store_schedule_status() inside create_order().
+// Without these two the RPC's precise refusal fell through to the generic
+// handler and the customer was told "Something went wrong" while the shop was
+// simply shut — the enforcement worked, the explanation did not.
+const SHOP_CLOSED_CODE = "RR010";
+const DELIVERY_WINDOW_CODE = "RR011";
 const SAFE_RPC_ERROR_CODE = "P0001";
 
 // The only thing trusted from the client here is "which variants, how many,
@@ -67,6 +73,11 @@ export async function POST(req: NextRequest) {
     }
     if (error.code === UNAVAILABLE_CODE || error.code === STOCK_CODE) {
       return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    // 409, not 400: the request was well formed, the shop's state refused it.
+    // The message already names the reason and, for delivery, the alternatives.
+    if (error.code === SHOP_CLOSED_CODE || error.code === DELIVERY_WINDOW_CODE) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 409 });
     }
     if (error.code === SAFE_RPC_ERROR_CODE) return NextResponse.json({ error: error.message }, { status: 400 });
     console.error("create_order unexpected error", error);

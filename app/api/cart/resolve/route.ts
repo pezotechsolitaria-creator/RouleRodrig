@@ -113,9 +113,14 @@ export async function POST(req: NextRequest) {
   const storeId = items[0]?.storeId;
   let offersRrDelivery = false;
   let schedule = null;
+  let payment = { acceptsCash: true, acceptsBankTransfer: false };
   if (storeId) {
     const [{ data: pay }, { data: settings }, { data: status }] = await Promise.all([
-      supabase.from("store_payment_settings").select("offers_rr_delivery").eq("store_id", storeId).maybeSingle(),
+      supabase
+        .from("store_payment_settings")
+        .select("offers_rr_delivery, accepts_cash, accepts_bank_transfer")
+        .eq("store_id", storeId)
+        .maybeSingle(),
       supabase.from("marketplace_settings").select("delivery_enabled").eq("id", "main").maybeSingle(),
       // The SAME function create_order() and quote_order() gate on, so the UI
       // can never offer an option the RPC is about to refuse.
@@ -123,7 +128,16 @@ export async function POST(req: NextRequest) {
     ]);
     offersRrDelivery = (pay?.offers_rr_delivery ?? true) && (settings?.delivery_enabled ?? false);
     schedule = status ?? null;
+    // Which payment methods this shop actually takes. create_order() rejects an
+    // unaccepted method with RR009, so without these the form was happily
+    // offering Bank transfer — which DEFAULTS TO OFF — at shops that would
+    // refuse it. The defaults here mirror the column defaults, so a shop with no
+    // settings row behaves the same in the UI as it does in the RPC.
+    payment = {
+      acceptsCash: pay?.accepts_cash ?? true,
+      acceptsBankTransfer: pay?.accepts_bank_transfer ?? false,
+    };
   }
 
-  return NextResponse.json({ items, fulfillment, offersRrDelivery, schedule });
+  return NextResponse.json({ items, fulfillment, offersRrDelivery, schedule, payment });
 }

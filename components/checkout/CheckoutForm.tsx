@@ -44,6 +44,10 @@ export default function CheckoutForm({
   // Opening hours, straight from store_schedule_status() — the same function
   // create_order() enforces. Null until the cart resolves.
   const [schedule, setSchedule] = useState<ScheduleStatus | null>(null);
+  // Which payment methods this shop accepts. Mirrors the column defaults so an
+  // unconfigured shop behaves identically here and in create_order().
+  const [acceptsCash, setAcceptsCash] = useState(true);
+  const [acceptsBankTransfer, setAcceptsBankTransfer] = useState(false);
 
   // Bug 1: the payable amount comes from the server, never from arithmetic here.
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -94,6 +98,17 @@ export default function CheckoutForm({
         if (body.fulfillment) setStoreOffersDelivery(!!body.fulfillment.delivery);
         setOffersRrDelivery(!!body.offersRrDelivery);
         setSchedule(body.schedule ?? null);
+        if (body.payment) {
+          setAcceptsCash(!!body.payment.acceptsCash);
+          setAcceptsBankTransfer(!!body.payment.acceptsBankTransfer);
+          // Land on a method the shop actually takes rather than leaving the
+          // default selected and letting the RPC refuse it at the last step.
+          if (!body.payment.acceptsCash && body.payment.acceptsBankTransfer) {
+            setProvider("bank_transfer");
+          } else if (body.payment.acceptsCash) {
+            setProvider("cash");
+          }
+        }
       })
       .catch((e) => {
         if (cancelled) return;
@@ -219,9 +234,12 @@ export default function CheckoutForm({
   const shopClosed = !!schedule && schedule.has_schedule && !schedule.is_open;
   const deliveryOffNow = !!schedule && schedule.has_schedule && !schedule.delivery_available;
   const scheduleReady = !shopClosed && !(fulfillment === "rr_delivery" && deliveryOffNow);
+  // A shop with no payment method configured cannot be ordered from at all;
+  // create_order() would refuse whatever we sent.
+  const paymentReady = (provider === "cash" && acceptsCash) || (provider === "bank_transfer" && acceptsBankTransfer);
   // Never allow submission on a price we could not obtain from the server.
   const canSubmit = !submitting && !hasIssue && !!quote && !quoting && locationReady && zoneReady
-    && scheduleReady && !!name.trim() && !!phone.trim();
+    && scheduleReady && paymentReady && !!name.trim() && !!phone.trim();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -449,22 +467,40 @@ export default function CheckoutForm({
       <fieldset>
         <legend className="font-bebas text-[11px] tracking-[0.3em] text-yellow">PAYMENT</legend>
         <div className="mt-2 grid grid-cols-2 gap-2">
-          {([["cash", "Cash"], ["bank_transfer", "Bank transfer"]] as const).map(([value, label]) => (
-            <label
-              key={value}
-              className={`cursor-pointer rounded-xl border px-4 py-3 text-center font-dm text-sm transition-colors ${
-                provider === value ? "border-yellow bg-yellow/10 text-yellow" : "border-white/15 text-offwhite hover:bg-white/[0.04]"
-              }`}
-            >
-              <input
-                type="radio" name="provider" value={value} checked={provider === value}
-                onChange={() => setProvider(value)} className="sr-only"
-              />
-              {label}
-            </label>
-          ))}
+          {([["cash", "Cash"], ["bank_transfer", "Bank transfer"]] as const).map(([value, label]) => {
+            // Each shop chooses which methods it takes, and create_order()
+            // refuses the rest with RR009. Offering an ungated choice meant a
+            // customer could pick Bank transfer — which defaults to OFF — and
+            // only discover the shop refuses it after pressing Place order.
+            const accepted = value === "cash" ? acceptsCash : acceptsBankTransfer;
+            return (
+              <label
+                key={value}
+                className={`rounded-xl border px-4 py-3 text-center font-dm text-sm transition-colors ${
+                  provider === value ? "border-yellow bg-yellow/10 text-yellow" : "border-white/15 text-offwhite hover:bg-white/[0.04]"
+                } ${accepted ? "cursor-pointer" : "cursor-not-allowed opacity-40"}`}
+              >
+                <input
+                  type="radio" name="provider" value={value} checked={provider === value}
+                  disabled={!accepted}
+                  onChange={() => setProvider(value)} className="sr-only"
+                />
+                {label}
+              </label>
+            );
+          })}
         </div>
-        {provider === "bank_transfer" && (
+        {!acceptsCash && !acceptsBankTransfer && (
+          <p role="alert" className="mt-2 font-dm text-xs text-red-400">
+            This shop hasn&apos;t set up a payment method yet, so it can&apos;t take orders.
+          </p>
+        )}
+        {acceptsCash !== acceptsBankTransfer && (
+          <p className="mt-2 font-dm text-xs text-muted">
+            This shop only takes {acceptsCash ? "cash" : "bank transfer"}.
+          </p>
+        )}
+        {provider === "bank_transfer" && acceptsBankTransfer && (
           <p className="mt-2 font-dm text-xs text-muted">
             You&apos;ll see the shop&apos;s bank details and upload your transfer receipt after placing the order.
           </p>
