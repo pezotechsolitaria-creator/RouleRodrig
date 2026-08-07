@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
@@ -44,8 +45,7 @@ export default function AppPageHeader({
             <span className="rr-logo-anim inline-flex">
               <span className="rr-logo-bob inline-flex">
                 {logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logo} alt="Roule Rodrigues" className="h-8 w-auto object-contain" />
+                  <Image src={logo} alt="Roule Rodrigues" width={120} height={32} priority sizes="120px" className="h-8 w-auto object-contain" unoptimized={logo.startsWith("/uploads/") || (logo.startsWith("http") && !logo.includes("supabase.co"))} />
                 ) : (
                   <span className="flex items-baseline gap-1.5 font-syne font-extrabold leading-none">
                     <span className="text-lg text-offwhite">Roulé</span>

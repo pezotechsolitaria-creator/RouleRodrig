@@ -312,8 +312,18 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
           partner_code: form.partner_code.trim().toUpperCase() || null,
         }),
       });
-      if (!res.ok) throw new Error("Booking failed");
-      const resData = (await res.json().catch(() => ({}))) as { bookingId?: string; depositAmount?: number };
+      // The server sends genuinely actionable refusals — "Those dates were just
+      // taken. Please pick another range.", "The pickup date has already
+      // passed.", "For rentals longer than 60 days, contact us on WhatsApp" —
+      // and every one of them used to be thrown away and replaced with
+      // "Something went wrong. Please try again", which then erased itself
+      // after 5 seconds. The one failure a customer can trivially recover from
+      // (pick different dates) was presented as an unexplained system fault at
+      // the final click.
+      const resData = (await res.json().catch(() => ({}))) as {
+        bookingId?: string; depositAmount?: number; error?: string;
+      };
+      if (!res.ok) throw new Error(resData.error || "");
       // Capture a summary (the form is cleared next) for the WhatsApp confirm link
       // and the deposit payment. Keep the deposit MUR from the breakdown before
       // the form clears it.
@@ -333,9 +343,20 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
       setAgreed(false);
       // Note: no auto-reset here — the success card holds the deposit-payment
       // button, which the customer needs time to use.
-    } catch {
-      setFormState("error");
-      setTimeout(() => setFormState("idle"), 5000);
+    } catch (err) {
+      // A specific, fixable reason goes in the inline slot right above the
+      // button (where the field errors already appear) and STAYS there — the
+      // customer has to be able to read it while editing. Only a genuinely
+      // unknown failure falls back to the generic banner.
+      const message = err instanceof Error ? err.message : "";
+      if (message) {
+        setSubmitError(message);
+        setFormState("idle");
+        formTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        setFormState("error");
+        setTimeout(() => setFormState("idle"), 5000);
+      }
     }
   }
 
@@ -531,10 +552,11 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
 
               {/* Scooter */}
               <div>
-                <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                <label htmlFor="bk-vehicle" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
                   {t.booking.scooterLabel} <span className="text-yellow">*</span>
                 </label>
                 <select
+                  id="bk-vehicle"
                   value={form.scooter}
                   onChange={(e) => { setForm({ ...form, scooter: e.target.value }); setFieldErr((p) => ({ ...p, vehicle: false })); setSubmitError(null); }}
                   className={`${inputCls} appearance-none${fieldErr.vehicle ? " !border-red-500/70" : ""}`}
@@ -592,10 +614,11 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
               {/* Pickup & return times */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="font-bebas text-muted text-[10px] tracking-[0.25em] flex items-center gap-1.5 mb-2">
+                  <label htmlFor="bk-pickup-time" className="font-bebas text-muted text-[10px] tracking-[0.25em] flex items-center gap-1.5 mb-2">
                     <Clock size={12} className="text-yellow" /> {t.booking.pickupLabel} time
                   </label>
                   <select
+                    id="bk-pickup-time"
                     value={form.pickup_time}
                     onChange={(e) => setForm({ ...form, pickup_time: e.target.value })}
                     className={`${inputCls} appearance-none`}
@@ -607,10 +630,11 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                   </select>
                 </div>
                 <div>
-                  <label className="font-bebas text-muted text-[10px] tracking-[0.25em] flex items-center gap-1.5 mb-2">
+                  <label htmlFor="bk-return-time" className="font-bebas text-muted text-[10px] tracking-[0.25em] flex items-center gap-1.5 mb-2">
                     <Clock size={12} className="text-yellow" /> {t.booking.returnLabel} time
                   </label>
                   <select
+                    id="bk-return-time"
                     value={form.return_time}
                     onChange={(e) => setForm({ ...form, return_time: e.target.value })}
                     className={`${inputCls} appearance-none`}
@@ -626,12 +650,13 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
               {/* Name + Email */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                  <label htmlFor="bk-name" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
                     {t.booking.nameLabel} <span className="text-yellow">*</span>
                   </label>
                   <div className="relative">
                     <User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" />
                     <input
+                      id="bk-name"
                       type="text"
                       placeholder={t.booking.namePlaceholder}
                       value={form.name}
@@ -643,12 +668,13 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                   </div>
                 </div>
                 <div>
-                  <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                  <label htmlFor="bk-email" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
                     {t.booking.emailLabel} <span className="text-yellow">*</span>
                   </label>
                   <div className="relative">
                     <Mail size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" />
                     <input
+                      id="bk-email"
                       type="email"
                       placeholder="your@email.com"
                       value={form.email}
@@ -677,12 +703,13 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
 
               {/* Message */}
               <div>
-                <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                <label htmlFor="bk-message" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
                   {t.booking.messageLabel}
                 </label>
                 <div className="relative">
                   <MessageSquare size={14} className="absolute left-4 top-4 text-muted/50" />
                   <textarea
+                    id="bk-message"
                     rows={3}
                     placeholder={t.booking.messagePlaceholder}
                     value={form.message}
@@ -704,10 +731,11 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                 </button>
                 {showPartnerCode && (
                   <div className="mt-3">
-                    <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                    <label htmlFor="bk-partner" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
                       {t.booking.partnerLabel}
                     </label>
                     <input
+                      id="bk-partner"
                       type="text"
                       placeholder={t.booking.partnerPlaceholder}
                       value={form.partner_code}

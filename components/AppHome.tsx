@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Fragment, type ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Heart, MapPin, ChevronDown, Bot, Bike, Car, BedDouble, TreePalm,
@@ -127,9 +128,15 @@ export default function AppHome({
           <Link href="/" className="mr-2 flex items-center" aria-label="Roule Rodrigues home">
             <span className="rr-logo-anim inline-flex">
               <span className="rr-logo-bob inline-flex">
+                {/* next/image, not a raw <img>: the owner-uploaded logo is a
+                    1.24 MB PNG rendered at 32px, on EVERY page, and it was also
+                    being preloaded — the single largest byte saving on the site.
+                    Explicit width/height reserve the box so it cannot shift
+                    layout. Supabase-hosted URLs are excluded from `unoptimized`
+                    so the optimizer actually runs on them (remotePatterns
+                    already allows *.supabase.co). */}
                 {logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logo} alt="Roule Rodrigues" className="h-8 w-auto object-contain" />
+                  <Image src={logo} alt="Roule Rodrigues" width={120} height={32} priority sizes="120px" className="h-8 w-auto object-contain" unoptimized={logo.startsWith("/uploads/") || (logo.startsWith("http") && !logo.includes("supabase.co"))} />
                 ) : (
                   <span className="flex items-baseline gap-1.5 font-syne font-extrabold leading-none">
                     <span className="text-lg text-offwhite">Roulé</span>
@@ -195,8 +202,7 @@ export default function AppHome({
             {discover.map((d) => (
               <Link key={d.id} href={d.href} className="group relative flex h-36 w-36 shrink-0 snap-start flex-col justify-end overflow-hidden rounded-2xl border border-white/10">
                 {d.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={d.image} alt={d.name} className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+                  <Image src={d.image} alt={d.name} fill sizes="(max-width:768px) 45vw, 220px" className="object-cover transition-transform duration-500 group-hover:scale-105" unoptimized={d.image.startsWith("/uploads/") || (d.image.startsWith("http") && !d.image.includes("supabase.co"))} />
                 ) : <span className="absolute inset-0 bg-gradient-to-br from-yellow/20 to-dark" />}
                 <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
                 <span className="relative p-2.5 font-syne text-sm font-bold leading-tight text-white">{d.name}</span>
@@ -282,16 +288,28 @@ function AutoImageCard({
   const body = (
     <>
       {imgs.length > 0 ? (
+        // Only the visible frame of the crossfade is fetched eagerly; the rest
+        // stay lazy. Previously every image of every card mounted at once with
+        // loading="lazy" — so N×6 images competed for bandwidth while the one
+        // actually on screen, directly under a compact hero, was deprioritised.
         imgs.map((src, i) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img key={src + i} src={src} alt="" loading="lazy" className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[900ms] ${i === idx ? "opacity-100" : "opacity-0"}`} />
+          <Image
+            key={src + i}
+            src={src}
+            alt=""
+            fill
+            sizes="(max-width:768px) 50vw, 320px"
+            priority={i === 0}
+            loading={i === 0 ? undefined : "lazy"}
+            className={`object-cover transition-opacity duration-[900ms] ${i === idx ? "opacity-100" : "opacity-0"}`}
+            unoptimized={src.startsWith("/uploads/") || (src.startsWith("http") && !src.includes("supabase.co"))}
+          />
         ))
       ) : (
         <span className={`absolute inset-0 ${tint.grad}`} />
       )}
       {card.centerImage && imgs.length === 0 && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={card.centerImage} alt="" loading="lazy" className="absolute inset-x-0 bottom-0 mx-auto h-[80%] w-auto object-contain drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]" />
+        <Image src={card.centerImage} alt="" width={200} height={160} sizes="200px" className="absolute inset-x-0 bottom-0 mx-auto h-[80%] w-auto object-contain drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]" unoptimized={card.centerImage.startsWith("/uploads/") || (card.centerImage.startsWith("http") && !card.centerImage.includes("supabase.co"))} />
       )}
       <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
       <span className={`absolute left-2 top-2 flex h-8 w-8 items-center justify-center rounded-xl border border-white/15 bg-white/10 backdrop-blur-md ${tint.icon}`}>
@@ -338,8 +356,7 @@ function PriceCard({ card }: { card: Card }) {
     <Link href={card.href} className="group flex w-40 shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] transition-all hover:-translate-y-0.5 hover:border-yellow/40">
       <div className="relative h-24 w-full overflow-hidden">
         {card.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={card.image} alt={card.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+          <Image src={card.image} alt={card.name} fill sizes="(max-width:768px) 45vw, 240px" className="object-cover transition-transform duration-500 group-hover:scale-105" unoptimized={card.image.startsWith("/uploads/") || (card.image.startsWith("http") && !card.image.includes("supabase.co"))} />
         ) : <span className="block h-full w-full bg-gradient-to-br from-yellow/20 to-dark" />}
       </div>
       <div className="flex flex-1 flex-col p-2.5">

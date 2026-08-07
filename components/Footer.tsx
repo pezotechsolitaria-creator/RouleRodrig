@@ -38,7 +38,7 @@ export default function Footer({
                   width={140}
                   height={40}
                   className="h-9 w-auto object-contain"
-                  unoptimized={branding.logo.startsWith("/uploads/") || branding.logo.startsWith("http")}
+                  unoptimized={branding.logo.startsWith("/uploads/") || (branding.logo.startsWith("http") && !branding.logo.includes("supabase.co"))}
                 />
               ) : (
                 <>

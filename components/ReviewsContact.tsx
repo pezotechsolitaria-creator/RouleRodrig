@@ -149,7 +149,14 @@ export default function ReviewsContact({ contact }: { contact?: ContactContent; 
           {/* Header — instantly reads as customer reviews */}
           <div className="mb-3">
             <div className="flex items-center gap-2">
-              <Stars value={avg ? Math.round(Number(avg)) : 5} size={13} />
+              {/* Only ever render stars backed by real approved reviews. This
+                  used to fall back to `5` when `avg` was null, painting five
+                  filled gold stars directly above "Be the first to leave a
+                  review" — an invented rating, which is worse than no rating:
+                  it is the one thing on the page a visitor is asked to trust,
+                  and PRODUCT.md's own rule is "no invented ratings, prices,
+                  reviews or testimonials". */}
+              {avg && <Stars value={Math.round(Number(avg))} size={13} />}
               <span className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{L.reviewsHeading}</span>
             </div>
             <p className="mt-1 font-dm text-xs text-muted">{L.trustedBy}</p>

@@ -15,6 +15,10 @@ export default function CartPage() {
   const router = useRouter();
   const [resolved, setResolved] = useState<ResolvedCartItem[] | null>(null);
   const [loading, setLoading] = useState(true);
+  /** Set when the resolve call FAILED — distinct from "the cart is empty". */
+  const [cartError, setCartError] = useState<string | null>(null);
+  /** Bumped by "Try again" to re-run the resolve effect. */
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Gated on `hydrated`, not just `cart` — see CheckoutForm for the live-
   // verified bug this avoids: cart is always null on the very first client
@@ -30,14 +34,30 @@ export default function CartPage() {
     }
     let cancelled = false;
     setLoading(true);
+    setCartError(null);
+    // A FAILED load must never look like an empty cart. This had no r.ok check
+    // and no .catch(), so a 500, a 429 or a dropped connection set resolved=[]
+    // and rendered "Your cart is empty" — while the header badge still showed
+    // the real count and the items were still sitting in localStorage. To the
+    // customer their basket had silently vanished, and almost nobody re-adds.
+    // CheckoutForm already carries this exact guard ("Bug 2"); the cart page
+    // was the outlier.
     fetch("/api/cart/resolve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ items: cart.items }),
     })
-      .then((r) => r.json())
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`resolve failed (${r.status})`);
+        return r.json();
+      })
       .then((body) => {
         if (!cancelled) setResolved(body.items ?? []);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("cart resolve failed", err);
+        setCartError("We couldn't load your cart just now. Your items are safe — please try again.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -46,7 +66,7 @@ export default function CartPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, cart?.items.map((i) => `${i.variantId}:${i.quantity}`).join(",")]);
+  }, [hydrated, reloadKey, cart?.items.map((i) => `${i.variantId}:${i.quantity}`).join(",")]);
 
   const subtotal = (resolved ?? []).reduce((sum, i) => sum + i.price * i.requestedQuantity, 0);
   const hasIssue = (resolved ?? []).some(
@@ -69,6 +89,19 @@ export default function CartPage() {
           <div className="mt-6 space-y-2">
             {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-xl bg-white/[0.04]" />)}
           </div>
+        ) : cartError ? (
+          /* A load FAILURE, told honestly and recoverably — never dressed up
+             as an empty cart. */
+          <div className="mt-8 rounded-2xl border border-red-500/25 bg-red-500/[0.05] p-8 text-center">
+            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/10 text-red-400 ring-1 ring-inset ring-red-500/20">
+              <AlertTriangle size={22} />
+            </span>
+            <h2 className="mt-4 font-syne text-lg font-bold text-offwhite">We couldn&apos;t load your cart</h2>
+            <p className="mx-auto mt-1 max-w-xs font-dm text-sm text-muted">{cartError}</p>
+            <Button size="xl" className="mt-5" onClick={() => setReloadKey((k) => k + 1)}>
+              Try again
+            </Button>
+          </div>
         ) : !resolved || resolved.length === 0 ? (
           <div className="mt-8 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-10 text-center">
             <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow/10 text-yellow ring-1 ring-inset ring-yellow/20">
@@ -76,6 +109,12 @@ export default function CartPage() {
             </span>
             <h2 className="mt-4 font-syne text-lg font-bold text-offwhite">Your cart is empty</h2>
             <p className="mx-auto mt-1 max-w-xs font-dm text-sm text-muted">Browse a shop and add something you like.</p>
+            <Link
+              href="/shop"
+              className="mt-5 inline-flex items-center gap-1.5 font-dm text-sm font-bold text-yellow hover:underline"
+            >
+              Browse shops →
+            </Link>
           </div>
         ) : (
           <>
