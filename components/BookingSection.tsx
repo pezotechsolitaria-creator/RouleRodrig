@@ -31,6 +31,9 @@ import SuccessBurst from "@/components/SuccessBurst";
 import BookingTimeline from "@/components/BookingTimeline";
 import { printReceipt } from "@/lib/receipt";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
+// Pricing is SHARED with /api/bookings — the summary the customer sees here
+// and the figures the server stores are the same arithmetic by construction.
+import { priceBreakdown, todayInRodrigues } from "@/lib/booking-pricing";
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -55,46 +58,6 @@ function daysBetween(a: string, b: string): number {
   if (!a || !b) return 0;
   const diff = new Date(b).getTime() - new Date(a).getTime();
   return Math.max(0, Math.round(diff / 86_400_000));
-}
-
-function extractDailyPrice(priceStr: string): number {
-  const match = priceStr.match(/[\d,]+/);
-  if (!match) return 0;
-  return parseInt(match[0].replace(/,/g, ""), 10);
-}
-
-// Delivery: scooters are delivered and collected for Rs 200 each way (Rs 400
-// total); cars are delivered free. Category-driven so it stays correct even if
-// the booking form is reused for a mixed fleet.
-const DELIVERY_EACH_WAY = 200;
-function deliveryFee(vehicle: FleetItem | undefined): number {
-  if (!vehicle) return 0;
-  return (vehicle.category ?? "scooter") === "car" ? 0 : DELIVERY_EACH_WAY * 2;
-}
-
-// Deposit to confirm a booking: cars 50%, scooters 25%. Kept in sync with the
-// server, which recomputes it authoritatively (the client value is display-only).
-function depositPct(vehicle: FleetItem | undefined): number {
-  return (vehicle?.category ?? "scooter") === "car" ? 50 : 25;
-}
-
-// Full price breakdown as numbers, so the UI, the charge and the email all agree.
-function priceBreakdown(
-  vehicle: FleetItem | undefined,
-  days: number,
-): { rental: number; delivery: number; total: number; deposit: number; balance: number; pct: number } | null {
-  if (!vehicle || days <= 0) return null;
-  const daily = extractDailyPrice(vehicle.price);
-  if (!daily) return null;
-  let rate = daily;
-  if (days >= 7) rate = Math.round(daily * 0.85);
-  else if (days >= 3) rate = Math.round(daily * 0.9);
-  const rental = rate * days;
-  const delivery = deliveryFee(vehicle);
-  const total = rental + delivery;
-  const pct = depositPct(vehicle);
-  const deposit = Math.round((total * pct) / 100);
-  return { rental, delivery, total, deposit, balance: total - deposit, pct };
 }
 
 export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[]; whatsapp?: string }) {
@@ -372,7 +335,9 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
     }
   }
 
-  const today = new Date().toISOString().split("T")[0];
+  // Rodrigues' calendar day, not the device's — a traveler booking from the
+  // Americas (or anyone after midnight) must not be offered the wrong "today".
+  const today = todayInRodrigues();
 
   return (
     <section id="booking" className="bg-[#0a0a0a] py-24 md:py-36 overflow-x-hidden" aria-label="Book a scooter">

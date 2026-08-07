@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { guard } from "@/lib/rate-limit";
 import { isUuid } from "@/lib/file-signature";
+import { notifyOrderCustomer } from "@/lib/notifications/order-events";
 
 const NOT_FOUND_CODE = "RR003";
 const ILLEGAL_STATE_CODE = "RR004";
@@ -38,6 +39,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (error.code === ILLEGAL_STATE_CODE) return NextResponse.json({ error: error.message }, { status: 409 });
     console.error("accept_order failed", error);
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+  }
+
+  // The merchant UI says "The customer has been told" — until now that was
+  // false, because the RPC's in-app notification row has no customer-side
+  // reader. Best-effort and never able to fail an acceptance that has already
+  // committed, same pattern as the M17 placement notice.
+  try {
+    await notifyOrderCustomer(id, "accepted");
+  } catch (err) {
+    console.error("accept notification failed", err);
   }
 
   return NextResponse.json(data);

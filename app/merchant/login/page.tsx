@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, Mail, ArrowRight } from "lucide-react";
+import { Loader2, Mail, ArrowRight, ArrowLeft } from "lucide-react";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 // Merchant sign-in. Free + reliable: email + password (no external service, no
 // delivery dependency) plus Google one-tap (free, when the provider is enabled).
@@ -14,25 +16,12 @@ export default function MerchantLoginPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState<"google" | "email" | null>(null);
+  const [busy, setBusy] = useState<"email" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checkEmail, setCheckEmail] = useState(false);
 
   const callback = () =>
     typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined;
-
-  async function google() {
-    setBusy("google");
-    setError(null);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: callback() },
-    });
-    if (error) {
-      setError("Google sign-in isn't set up yet — use your email and password.");
-      setBusy(null);
-    }
-  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -65,6 +54,14 @@ export default function MerchantLoginPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-dark px-5 text-offwhite">
       <div className="w-full max-w-sm">
+        {/* This page had NO way back — a merchant who tapped through from the
+            marketplace was stuck behind the browser's own controls. */}
+        <Link
+          href="/"
+          className="mb-6 inline-flex items-center gap-2 font-dm text-sm text-muted transition-colors hover:text-yellow"
+        >
+          <ArrowLeft size={15} /> Roule Rodrigues
+        </Link>
         <div className="mb-8 text-center">
           <span className="flex items-baseline justify-center gap-1.5 font-syne font-extrabold leading-none">
             <span className="text-2xl text-offwhite">Roulé</span>
@@ -100,22 +97,11 @@ export default function MerchantLoginPage() {
                 {mode === "signin" ? "Welcome back." : "Free to join. Sell in minutes."}
               </p>
 
-              <button
-                onClick={google}
-                disabled={!!busy}
-                className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-white/[0.04] px-5 py-3 font-syne text-sm font-bold text-offwhite transition-colors hover:bg-white/[0.08] disabled:opacity-60"
-              >
-                {busy === "google" ? <Loader2 size={16} className="animate-spin" /> : <GoogleGlyph />}
-                Continue with Google
-              </button>
+              {/* Renders only when the provider is actually enabled in
+                  Supabase — see components/auth/GoogleSignInButton.tsx. */}
+              <GoogleSignInButton next="/merchant" />
 
-              <div className="my-5 flex items-center gap-3">
-                <span className="h-px flex-1 bg-white/10" />
-                <span className="font-dm text-[11px] text-muted">or with email</span>
-                <span className="h-px flex-1 bg-white/10" />
-              </div>
-
-              <form onSubmit={submit} className="space-y-3">
+              <form onSubmit={submit} className="mt-6 space-y-3">
                 <input
                   type="email"
                   required
@@ -173,13 +159,3 @@ export default function MerchantLoginPage() {
   );
 }
 
-function GoogleGlyph() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09Z" />
-      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.24 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z" />
-      <path fill="#FBBC05" d="M5.84 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.66-2.84Z" />
-      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51Z" />
-    </svg>
-  );
-}

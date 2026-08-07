@@ -90,18 +90,37 @@ function mergeWithDefaults(parsed: Partial<SiteContent>): SiteContent {
 // reliably on the deployed site, consistent with every other table.
 
 export async function getContent(): Promise<SiteContent> {
+  return (await getContentWithStatus()).content;
+}
+
+/**
+ * Same read, but says whether the stored row was actually reached.
+ *
+ * WHY THIS EXISTS: getContent() swallows every failure and returns
+ * DEFAULT_CONTENT, which is right for the public site (a DB blip shows the
+ * seed copy instead of a broken page) and CATASTROPHIC for /admin — the editor
+ * would render the defaults as if they were the owner's real content, and the
+ * next "Save Changes" would write those defaults over the live site, silently
+ * destroying every customisation. /admin must therefore refuse to save when
+ * `loaded` is false.
+ */
+export async function getContentWithStatus(): Promise<{ content: SiteContent; loaded: boolean }> {
   try {
     const supabase = publicReadClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('site_content')
       .select('data')
       .eq('id', 'main')
       .maybeSingle();
-    if (data?.data) return mergeWithDefaults(data.data as Partial<SiteContent>);
+    if (error) throw error;
+    if (data?.data) {
+      return { content: mergeWithDefaults(data.data as Partial<SiteContent>), loaded: true };
+    }
+    // No row yet — a genuine first run, not a failure.
+    return { content: JSON.parse(JSON.stringify(DEFAULT_CONTENT)) as SiteContent, loaded: true };
   } catch {
-    /* fall through to defaults */
+    return { content: JSON.parse(JSON.stringify(DEFAULT_CONTENT)) as SiteContent, loaded: false };
   }
-  return JSON.parse(JSON.stringify(DEFAULT_CONTENT)) as SiteContent;
 }
 
 export async function saveContent(content: SiteContent): Promise<void> {

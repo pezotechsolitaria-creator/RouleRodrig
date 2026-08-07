@@ -91,10 +91,51 @@ export async function createDepositOrder(opts: {
   return { id: j.id, eur, depositMur: opts.depositMur, feeMur, totalMur };
 }
 
+/**
+ * Decides whether a completed PayPal capture may settle a given booking.
+ *
+ * Pure so it can be tested exhaustively — this is the check that stands between
+ * "someone paid something" and "this booking is confirmed". Returns null when
+ * the capture is acceptable, else a customer-safe refusal reason.
+ *
+ * `expectedEur` is the fee-inclusive EUR price of the booking's DEPOSIT (the
+ * floor — a vehicle may legitimately pay the full total instead), or null when
+ * it could not be derived, in which case the amount check is skipped rather
+ * than blocking a payment PayPal already reference-matched.
+ */
+export function captureRefusalReason(capture: {
+  referenceId: string | null;
+  amount: string | null;
+  currency: string | null;
+}, bookingId: string, expectedEur: number | null): "reference" | "currency" | "amount" | null {
+  if (capture.referenceId !== bookingId) return "reference";
+  if (capture.currency && capture.currency !== PAYPAL_CURRENCY) return "currency";
+  if (expectedEur !== null && Number.isFinite(expectedEur) && expectedEur > 0 && capture.amount) {
+    const paid = Number(capture.amount);
+    // 10% band absorbs FX drift between order creation and capture.
+    if (Number.isFinite(paid) && paid < expectedEur * 0.9) return "amount";
+  }
+  return null;
+}
+
 // ── Capture an approved order; returns the verified status ───────────────────
-export async function captureOrder(
-  orderId: string,
-): Promise<{ status: string; captureId: string | null; amount: string | null; currency: string | null }> {
+//
+// SECURITY: `referenceId` is what binds a PayPal payment to OUR booking. It is
+// set at creation (createDepositOrder above) and echoed back here, and the
+// capture route REFUSES any capture whose reference_id is not the booking being
+// settled. Without that check, an approved order for a Rs 400 scooter deposit
+// could be replayed against a Rs 30,000 car booking — or a stranger's booking —
+// because the route is deliberately unauthenticated (PayPal's approval is the
+// only credential) and holds a service-role client. Returning amount/currency
+// serves the same purpose for the *value*: the route re-derives what the
+// booking should cost and rejects an underpayment.
+export async function captureOrder(orderId: string): Promise<{
+  status: string;
+  captureId: string | null;
+  amount: string | null;
+  currency: string | null;
+  referenceId: string | null;
+}> {
   const token = await accessToken();
   const res = await fetch(`${BASE}/v2/checkout/orders/${orderId}/capture`, {
     method: "POST",
@@ -104,14 +145,17 @@ export async function captureOrder(
   const j = (await res.json()) as {
     status?: string;
     purchase_units?: {
+      reference_id?: string;
       payments?: { captures?: { id: string; amount?: { value: string; currency_code: string } }[] };
     }[];
   };
-  const cap = j.purchase_units?.[0]?.payments?.captures?.[0];
+  const unit = j.purchase_units?.[0];
+  const cap = unit?.payments?.captures?.[0];
   return {
     status: j.status ?? "UNKNOWN",
     captureId: cap?.id ?? null,
     amount: cap?.amount?.value ?? null,
     currency: cap?.amount?.currency_code ?? null,
+    referenceId: unit?.reference_id ?? null,
   };
 }

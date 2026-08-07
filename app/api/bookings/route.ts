@@ -7,6 +7,7 @@ import { sendOwnerWhatsApp } from "@/lib/whatsapp";
 import { guard } from "@/lib/rate-limit";
 import { isActiveHold } from "@/lib/holds";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
+import { priceBreakdown, rentalDays, validateRentalWindow } from "@/lib/booking-pricing";
 
 // Owner-friendly date for the WhatsApp alert: 2026-01-01 → 01/JAN/2026.
 const WA_MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
@@ -58,11 +59,18 @@ export async function POST(req: NextRequest) {
   const scooter = (body.scooter ?? "").trim();
   const start_date = (body.start_date ?? "").trim();
   const end_date = (body.end_date ?? "").trim();
-  const days = Number(body.days);
 
-  if (!name || !scooter || !start_date || !end_date || !Number.isFinite(days) || days <= 0) {
+  if (!name || !scooter || !start_date || !end_date) {
     return NextResponse.json({ error: "Missing required booking details." }, { status: 400 });
   }
+  // The window is validated and the day count derived HERE — a client cannot
+  // book the past, a malformed string, or a year-long hold, and cannot lie
+  // about the rental length the price is computed from.
+  const windowError = validateRentalWindow(start_date, end_date);
+  if (windowError) {
+    return NextResponse.json({ error: windowError }, { status: 400 });
+  }
+  const days = rentalDays(start_date, end_date);
 
   // A valid, reachable phone is required (blocks typos + fake/troll numbers)
   const phone = (body.phone ?? "").toString().trim();
@@ -81,15 +89,14 @@ export async function POST(req: NextRequest) {
   // it — availability and asset assignment match on it. But customers must never
   // see an internal slug, so emails/WhatsApp use the display name instead.
   let scooterName = scooter;
-  // Deposit to confirm: cars 50%, scooters (default) 25%. Computed SERVER-side
-  // from the resolved vehicle category — never trusted from the client, since
-  // it decides how much money the customer must pay to hold the booking.
-  let depositPct = 25;
+  // The resolved fleet item is ALSO the price authority: every rupee stored on
+  // this booking is recomputed from it below, never taken from the client.
+  let fleetItem: { price: string; category?: string } | undefined;
   try {
     const content = await getContent();
     const item = content.fleet.find((f) => f.id === scooter || f.name === scooter);
     if (item?.name) scooterName = item.name;
-    if ((item?.category ?? "scooter") === "car") depositPct = 50;
+    fleetItem = item;
     activeAssets = (item?.assets ?? [])
       .filter((a) => a.active !== false)
       .map((a) => ({ id: a.id, label: a.label, color: a.color }));
@@ -138,15 +145,38 @@ export async function POST(req: NextRequest) {
     /* if the check fails, don't block the booking */
   }
 
-  const total_amount = typeof body.total_amount === "number" ? body.total_amount : null;
-  // Delivery fee (scooter = Rs 400, car = 0). Trust it only if it's a sane
-  // non-negative integer; otherwise store null rather than a bad value.
-  const delivery_fee =
-    typeof body.delivery_fee === "number" && Number.isFinite(body.delivery_fee) && body.delivery_fee >= 0
+  // ── Server-authoritative money ──
+  // Recomputed from the owner's own fleet content + the server-derived day
+  // count. The client's posted total_amount used to be the base the DEPOSIT was
+  // computed from — i.e. attacker-controlled. Now it is only a cross-check:
+  // a mismatch is logged, the server figure always wins. If the vehicle can't
+  // be priced (content miss / unparseable price), fall back to the sanitized
+  // client figures rather than refusing a real customer — the owner still
+  // reviews every request before confirming.
+  const serverBreakdown = priceBreakdown(fleetItem, days);
+  const clientTotal =
+    typeof body.total_amount === "number" && Number.isFinite(body.total_amount) && body.total_amount >= 0
+      ? Math.round(body.total_amount)
+      : null;
+  if (serverBreakdown && clientTotal !== null && clientTotal !== serverBreakdown.total) {
+    console.warn(
+      `booking price mismatch for ${scooter}: client sent Rs ${clientTotal}, server derived Rs ${serverBreakdown.total} — server figure stored`,
+    );
+  }
+  const total_amount = serverBreakdown ? serverBreakdown.total : clientTotal;
+  const delivery_fee = serverBreakdown
+    ? serverBreakdown.delivery
+    : typeof body.delivery_fee === "number" && Number.isFinite(body.delivery_fee) && body.delivery_fee >= 0
       ? Math.round(body.delivery_fee)
       : null;
-  // Deposit rounded to the nearest rupee. Only computable when we know the total.
-  const deposit_amount = total_amount != null ? Math.round((total_amount * depositPct) / 100) : null;
+  const depositPct = serverBreakdown
+    ? serverBreakdown.pct
+    : (fleetItem?.category ?? "scooter") === "car" ? 50 : 25;
+  const deposit_amount = serverBreakdown
+    ? serverBreakdown.deposit
+    : total_amount != null
+      ? Math.round((total_amount * depositPct) / 100)
+      : null;
 
   // Generate the id here so we KNOW it without reading the row back. The public
   // client can INSERT bookings but RLS forbids it from SELECTing them, so an
@@ -165,7 +195,8 @@ export async function POST(req: NextRequest) {
     pickup_time: (body.pickup_time ?? "")?.toString().trim().slice(0, 10) || null,
     return_time: (body.return_time ?? "")?.toString().trim().slice(0, 10) || null,
     days,
-    total_price: body.total_price ?? null,
+    // Display string kept consistent with the authoritative number.
+    total_price: total_amount != null ? `Rs ${total_amount.toLocaleString("en-US")}` : (body.total_price ?? null),
     total_amount,
     delivery_fee,
     deposit_amount,

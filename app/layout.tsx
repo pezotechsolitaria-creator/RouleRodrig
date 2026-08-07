@@ -5,6 +5,7 @@ import { LanguageProvider } from "@/context/LanguageContext";
 import { CurrencyProvider } from "@/context/CurrencyContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 import { CartProvider } from "@/lib/cart/CartContext";
+import { Toaster } from "@/components/ui/sonner";
 import LanguagePicker from "@/components/LanguagePicker";
 import FavoritesPanel from "@/components/FavoritesPanel";
 import ReturnWelcome from "@/components/ReturnWelcome";
@@ -264,6 +265,25 @@ export default async function RootLayout({
                 data={tiData}
               />
               <PWARegister />
+              {/* Mounted ONCE, globally. Every toast outside /shop, /admin and
+                  /merchant was a silent no-op: checkout's "Order placed!", the
+                  receipt uploader's confirmation and the cart conflict notices
+                  all called toast() on routes where no Toaster existed. The
+                  app/shop/layout.tsx copy documents fixing this for one
+                  segment; this fixes it for the whole site. */}
+              <Toaster
+                position="top-center"
+                theme="dark"
+                toastOptions={{
+                  classNames: {
+                    toast: "bg-dark-card! border-white/10! text-offwhite! font-dm!",
+                    title: "text-offwhite!",
+                    description: "text-muted!",
+                    actionButton: "bg-yellow! text-dark!",
+                    cancelButton: "bg-white/10! text-offwhite!",
+                  },
+                }}
+              />
             </CartProvider>
             </FavoritesProvider>
           </CurrencyProvider>

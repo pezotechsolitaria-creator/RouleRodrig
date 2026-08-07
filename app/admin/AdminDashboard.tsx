@@ -130,6 +130,15 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "reviews",      label: "Customer Reviews", icon: MessageSquare,   group: "overview" },
   { id: "waitlist",     label: "Waitlist",         icon: Mail,            group: "overview" },
   { id: "notifications", label: "Alerts & Email",   icon: MessageSquare,   group: "overview" },
+  // These four editors were fully built and rendered but had NO nav entry, so
+  // they were unreachable — including two LIVE customer inboxes: "owners"
+  // receives /list-your-scooter applications (with ID and insurance documents)
+  // and "leads" logs every Food Concierge / Stay·Eat·Do / Taxi enquiry. The
+  // sidebar search filters this same array, so they could not be found either.
+  { id: "owners",       label: "Listing Applications", icon: FileCheck,   group: "overview" },
+  { id: "leads",        label: "Concierge Leads",  icon: TrendingUp,      group: "overview" },
+  { id: "marketplace",  label: "Marketplace",      icon: Store,           group: "overview" },
+  { id: "partners",     label: "Partner Accounts", icon: UserPlus,        group: "overview" },
 
   // ── "What are you looking for?" — the homepage hub categories ──
   { id: "fleet",        label: "Vehicles",         icon: Bike,            group: "explore" },
@@ -164,6 +173,32 @@ const MARKETPLACE_LINKS: { href: string; label: string; icon: React.ElementType 
 ];
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
+
+// ── Admin writes must never be assumed to have landed ───────────────────────
+// Most mutations in this file were `await fetch(...)` with no response check,
+// followed by an unconditional optimistic state update — so a 500, or a 401
+// from the 30-day session quietly expiring, left the UI showing "confirmed" /
+// "approved" / "active" while the database was untouched. The owner would then
+// tell a customer their booking was confirmed on the strength of a write that
+// never happened. This returns false (and says so) instead of lying, so call
+// sites can skip or revert their optimistic update.
+async function adminWrite(input: string, init?: RequestInit): Promise<boolean> {
+  try {
+    const res = await fetch(input, init);
+    if (res.ok) return true;
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    const detail = body?.error ? `\n\n${body.error}` : "";
+    alert(
+      res.status === 401
+        ? "Your admin session has expired — please sign in again. Nothing was saved."
+        : `That change could NOT be saved (error ${res.status}).${detail}`,
+    );
+    return false;
+  } catch {
+    alert("That change could NOT be saved — you appear to be offline. Nothing was changed.");
+    return false;
+  }
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -1894,11 +1929,13 @@ function SubmissionsViewer() {
 
   async function setHandled(id: string, handled: boolean) {
     setSubmissions((prev) => prev.map((s) => (s.id === id ? { ...s, handled } : s)));
-    await fetch("/api/admin/submissions", {
+    const ok = await adminWrite("/api/admin/submissions", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, handled }),
     });
+    // Revert — an enquiry wrongly shown as handled is one nobody answers.
+    if (!ok) setSubmissions((prev) => prev.map((s) => (s.id === id ? { ...s, handled: !handled } : s)));
   }
 
   async function remove(id: string) {
@@ -2121,11 +2158,12 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
     const asset_label = unit ? (unit.color ? `${unit.label} · ${unit.color}` : unit.label) : null;
     setUpdating(id);
     try {
-      await fetch("/api/admin/bookings", {
+      const ok = await adminWrite("/api/admin/bookings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, asset_id: assetId || null, asset_label }),
       });
+      if (!ok) return;
       setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, asset_id: assetId || null, asset_label } : b)));
     } finally {
       setUpdating(null);
@@ -2149,11 +2187,14 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
   async function updateStatus(id: string, status: string) {
     setUpdating(id);
     try {
-      await fetch("/api/admin/bookings", {
+      // Only reflect the new status once the server actually accepted it —
+      // this is the value the owner reads back to a customer on the phone.
+      const ok = await adminWrite("/api/admin/bookings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, status }),
       });
+      if (!ok) return;
       setBookings((prev) =>
         prev.map((b) => (b.id === id ? { ...b, status: status as Booking["status"] } : b))
       );
@@ -2449,11 +2490,12 @@ function PlaceBookingsManager() {
   async function updateStatus(id: string, status: string) {
     setUpdating(id);
     try {
-      await fetch("/api/admin/place-bookings", {
+      const ok = await adminWrite("/api/admin/place-bookings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, status }),
       });
+      if (!ok) return;
       setRows((prev) => prev.map((b) => (b.id === id ? { ...b, status: status as PlaceBooking["status"] } : b)));
     } finally {
       setUpdating(null);
@@ -4093,16 +4135,17 @@ function PartnersManager() {
 
   async function handleDelete(id: string) {
     if (!confirm("Remove this partner?")) return;
-    await fetch(`/api/admin/partners?id=${id}`, { method: "DELETE" });
+    if (!(await adminWrite(`/api/admin/partners?id=${id}`, { method: "DELETE" }))) return;
     setPartners((prev) => prev.filter((p) => p.id !== id));
   }
 
   async function toggleActive(p: Partner) {
-    await fetch("/api/admin/partners", {
+    const ok = await adminWrite("/api/admin/partners", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: p.id, active: !p.active }),
     });
+    if (!ok) return;
     setPartners((prev) => prev.map((x) => x.id === p.id ? { ...x, active: !x.active } : x));
   }
 
@@ -4537,12 +4580,12 @@ function MarketplaceManager() {
 
   async function handleDelete(id: string) {
     if (!confirm("Remove this listing?")) return;
-    await fetch(`/api/admin/marketplace?id=${id}`, { method: "DELETE" });
+    if (!(await adminWrite(`/api/admin/marketplace?id=${id}`, { method: "DELETE" }))) return;
     setListings((prev) => prev.filter((l) => l.id !== id));
   }
 
   async function toggleField(l: MarketplaceListing, field: "active" | "featured") {
-    await fetch("/api/admin/marketplace", {
+    const ok = await adminWrite("/api/admin/marketplace", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: l.id, [field]: !l[field] }),
@@ -4804,11 +4847,12 @@ function ReviewsModeration() {
   async function setStatus(id: string, status: ProductReview["status"]) {
     setBusy(id);
     try {
-      await fetch("/api/admin/reviews", {
+      const ok = await adminWrite("/api/admin/reviews", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, status }),
       });
+      if (!ok) return;
       setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
     } finally {
       setBusy(null);

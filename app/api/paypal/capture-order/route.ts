@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPrivileged } from "@/lib/supabase/admin";
-import { paypalConfigured, captureOrder } from "@/lib/paypal";
+import { paypalConfigured, captureOrder, captureRefusalReason, murToEur, withPayPalFee } from "@/lib/paypal";
 import { guard } from "@/lib/rate-limit";
 import { isVehicleFree } from "@/lib/availability";
 import { sendVehicleUnavailableEmail } from "@/lib/email";
@@ -45,8 +45,12 @@ export async function POST(req: NextRequest) {
   // re-capturing. Both tables share the id + deposit_paid_at shape.
   const existing =
     kind === "place"
-      ? await supabase.from("place_bookings").select("id, deposit_paid_at").eq("id", bookingId).maybeSingle()
-      : await supabase.from("bookings").select("id, deposit_paid_at, scooter, start_date, end_date").eq("id", bookingId).maybeSingle();
+      ? await supabase.from("place_bookings").select("id, deposit_paid_at, deposit_amount").eq("id", bookingId).maybeSingle()
+      : await supabase
+          .from("bookings")
+          .select("id, deposit_paid_at, deposit_amount, total_amount, scooter, start_date, end_date")
+          .eq("id", bookingId)
+          .maybeSingle();
   if (!existing.data) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
   if (existing.data.deposit_paid_at) {
     // Idempotent: already captured on a previous attempt.
@@ -63,6 +67,37 @@ export async function POST(req: NextRequest) {
 
   if (result.status !== "COMPLETED") {
     return NextResponse.json({ error: `Payment not completed (${result.status}).` }, { status: 402 });
+  }
+
+  // ── The payment must belong to THIS booking, and cover what is owed ────────
+  // Without this, an approved order was just a bearer token for "some money
+  // changed hands": a customer could pay the smallest deposit on a cheap
+  // booking, then replay that same orderID against an expensive booking — or a
+  // stranger's, whose UUID leaks from a shared confirmation link — and have it
+  // confirmed for free. This route is deliberately unauthenticated and holds a
+  // service-role client, so PayPal's own reference_id is the ONLY thing that
+  // can tie the money to the row we are about to mark paid.
+  const owedMur = Number((existing.data as { deposit_amount?: number | null }).deposit_amount);
+  let expectedEur: number | null = null;
+  if (Number.isFinite(owedMur) && owedMur > 0) {
+    try {
+      expectedEur = Number(await murToEur(withPayPalFee(owedMur).total));
+    } catch (e) {
+      // An FX outage must not block a payment PayPal already reference-matched.
+      console.error("[paypal] capture amount check skipped (FX unavailable)", e);
+    }
+  }
+  const refusal = captureRefusalReason(result, bookingId, expectedEur);
+  if (refusal) {
+    console.error(
+      `[paypal] capture REFUSED (${refusal}) — order ${orderID} references ${result.referenceId ?? "nothing"}, ` +
+        `booking ${bookingId}, captured ${result.amount ?? "?"} ${result.currency ?? "?"}, expected ~€${expectedEur ?? "?"}`,
+    );
+    const message =
+      refusal === "amount"
+        ? "The amount paid does not cover this booking's deposit — please contact us."
+        : "This payment does not match this booking. It has not been applied — please contact us.";
+    return NextResponse.json({ error: message }, { status: 409 });
   }
 
   // Payment verified by PayPal → record it and confirm the booking.

@@ -16,6 +16,7 @@ import {
 import type { Booking, PlaceBooking } from "@/lib/supabase/types";
 import { holdCutoffMs } from "@/lib/holds";
 import { sendOwnerWhatsApp } from "@/lib/whatsapp";
+import { notifyOrderCustomer } from "@/lib/notifications/order-events";
 
 // Runs once a day (Vercel Cron). Drives the booking "bots":
 //  • Customer: pickup reminder (day before), return reminder (day before),
@@ -138,6 +139,46 @@ export async function GET(req: NextRequest) {
     if (!expired) continue;
     await supabase.from("bookings").update({ status: "cancelled" }).eq("id", b.id);
     holdsReleased++;
+  }
+
+  // ── Release expired MARKETPLACE orders ────────────────────────────────
+  // Both parties are shown a hard deadline — the customer reads "your items
+  // are reserved until X" (lib/orders/hold.ts) and the merchant "confirm
+  // within X or the stock returns to your shelf". Nothing enforced it: the
+  // only sweep lived inside create_order() and covered only the variants
+  // somebody else happened to be buying right now, so a lapsed reservation on
+  // an unpopular item held its stock indefinitely and the deadline was a
+  // promise the system could not keep. This makes it real, once a day.
+  let ordersExpired = 0;
+  try {
+    const { data: lapsed } = await supabase
+      .from("orders")
+      .select("id")
+      .eq("status", "pending_payment")
+      .is("accepted_at", null)
+      .not("auto_release_at", "is", null)
+      .lt("auto_release_at", new Date().toISOString())
+      .limit(200);
+
+    for (const o of (lapsed ?? []) as { id: string }[]) {
+      // expire_order() cancels the order and returns its reserved stock in one
+      // transaction; the route only decides WHICH orders are due.
+      const { error } = await supabase.rpc("expire_order", { p_order_id: o.id });
+      if (error) {
+        console.error("expire_order failed", o.id, error);
+        continue;
+      }
+      ordersExpired++;
+      // Expiry was the one lifecycle event that reached the customer through
+      // no channel at all. Best-effort — a failed email must not stop the sweep.
+      try {
+        await notifyOrderCustomer(o.id, "expired");
+      } catch (err) {
+        console.error("expiry notification failed", o.id, err);
+      }
+    }
+  } catch (err) {
+    console.error("orders expiry sweep failed", err);
   }
 
   // ── Stay·Eat·Do reservations: same bot treatment ──────────────────────
@@ -273,6 +314,7 @@ export async function GET(req: NextRequest) {
       placeRemindersSent,
       placeFeedbackSent,
       holdsReleased,
+      ordersExpired,
       missesEmailed,
       backupSaved,
       emailFailures,
