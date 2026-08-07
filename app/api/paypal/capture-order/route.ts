@@ -134,8 +134,34 @@ export async function POST(req: NextRequest) {
     status: "confirmed",
     ...(amountPaidMur !== null ? { amount_paid: amountPaidMur } : {}),
   };
-  if (kind === "place") await supabase.from("place_bookings").update(patch).eq("id", bookingId);
-  else await supabase.from("bookings").update(patch).eq("id", bookingId);
+  // The money is ALREADY captured at this point, so this write is the only
+  // record that it happened. Discarding its error (as this did until
+  // 2026-08-08) meant a failed write left the booking `pending` with
+  // deposit_paid_at null while the customer had genuinely been charged — and
+  // the nightly sweep in /api/cron/reminders then cancelled it as an expired
+  // unpaid hold. The customer paid and lost the booking, and the route still
+  // returned { ok: true } so the UI showed the green "paid" card.
+  const { error: writeError } = kind === "place"
+    ? await supabase.from("place_bookings").update(patch).eq("id", bookingId)
+    : await supabase.from("bookings").update(patch).eq("id", bookingId);
+
+  if (writeError) {
+    // Loud, and with everything needed to reconcile by hand: the capture id is
+    // the only link back to the money once this response is gone.
+    console.error(
+      `[paypal] CAPTURED BUT NOT RECORDED — booking ${bookingId} (${kind}), capture ${result.captureId}, ` +
+        `amount ${result.amount} ${result.currency}. Customer HAS been charged. Error:`,
+      writeError,
+    );
+    return NextResponse.json(
+      {
+        error:
+          "Your payment went through, but we could not update your booking. Please contact us with your booking reference — do NOT pay again.",
+        captureId: result.captureId,
+      },
+      { status: 500 },
+    );
+  }
 
   // First-to-pay-wins: this deposit just secured the vehicle, so release any
   // OTHER pending, unpaid requests for the same vehicle whose dates are now

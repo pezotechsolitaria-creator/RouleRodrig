@@ -19,10 +19,36 @@ export type PriceableVehicle = { price: string; category?: string };
 
 export const DELIVERY_EACH_WAY = 200;
 
+/**
+ * Reads the number out of an owner-typed price string.
+ *
+ * THE ONE PARSER. Until 2026-08-08 there were three — this one (what the
+ * customer is CHARGED), priceNumber() in lib/site-data.ts (what is DISPLAYED
+ * and published in JSON-LD offers), and the currency converter — and they
+ * disagreed on real input:
+ *
+ *   "Rs 21 475"          → 21    (charged)  vs  21475 (converted)
+ *   "From Rs 1 200/day"  → 1     (charged)  vs  1200  (converted)
+ *
+ * A price grouped with spaces instead of commas — which is exactly how a
+ * French-locale keyboard renders 21 475, and this is a trilingual product —
+ * made the site advertise and CHARGE Rs 21 for a Rs 21,475 vehicle. The
+ * currency converter had already been fixed for this (see lib/currency.ts,
+ * which documents the same bug); the fix never reached the two parsers that
+ * decide money.
+ *
+ * Matches a leading run of digits with comma / space / non-breaking-space
+ * grouping, then strips everything that is not a digit before parsing. A
+ * decimal part is deliberately ignored: every price in this product is whole
+ * rupees, and "1.200" is grouping in half of Europe, not a fraction.
+ */
 export function extractDailyPrice(priceStr: string): number {
-  const match = priceStr.match(/[\d,]+/);
+  const match = priceStr.match(/\d[\d.,\s  ]*/);
   if (!match) return 0;
-  return parseInt(match[0].replace(/,/g, ""), 10);
+  const digits = match[0].replace(/[^\d]/g, "");
+  if (!digits) return 0;
+  const n = parseInt(digits, 10);
+  return Number.isFinite(n) ? n : 0;
 }
 
 export function deliveryFee(vehicle: PriceableVehicle | undefined): number {

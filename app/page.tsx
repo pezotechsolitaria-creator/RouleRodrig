@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { SITE_URL } from "@/lib/site";
 import { getFleetView, buildBrowseCategories, priceNumber } from "@/lib/site-data";
 import { organizationLd, touristDestinationLd, websiteLd } from "@/lib/schema";
@@ -6,6 +7,11 @@ import Hero from "@/components/Hero";
 import AppHome from "@/components/AppHome";
 import ReviewsContact from "@/components/ReviewsContact";
 import Footer from "@/components/Footer";
+
+// The homepage's own canonical. This used to live on the root layout, where
+// Next's metadata merging silently applied it to every page that didn't set one
+// — pointing the whole marketplace at "/". It belongs here.
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 // ISR: serve a cached page for instant repeat loads, regenerate every 60s.
 // Live booking-calendar availability is fetched client-side, so it stays fresh;

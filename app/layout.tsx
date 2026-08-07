@@ -43,7 +43,14 @@ const dmSans = DM_Sans({
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  alternates: { canonical: "/" },
+  // NO `alternates.canonical` here. Next MERGES metadata down the tree, so a
+  // canonical set on the root layout is inherited by every page that does not
+  // override it — and most don't. Verified live before removal: /shop/<store>,
+  // /cart, /login and /manage-booking all emitted
+  // <link rel="canonical" href="https://roulerodrig.com">, i.e. every
+  // marketplace store and product page was telling Google it was a duplicate
+  // of the homepage and should be dropped from the index. The homepage now
+  // declares its own canonical in app/page.tsx; each page owns its own.
   // 56 chars / 159 — the old pair was 67/186 and Google truncated BOTH, so the
   // half that got cut never reached anyone.
   //

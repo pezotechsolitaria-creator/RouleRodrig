@@ -18,6 +18,33 @@ describe("extractDailyPrice", () => {
   it("returns 0 for garbage — the caller must not price the unpriceable", () => {
     expect(extractDailyPrice("call us")).toBe(0);
   });
+
+  // These are the inputs that made the site CHARGE Rs 21 for a Rs 21,475
+  // vehicle. A French-locale keyboard groups thousands with a space, and this
+  // is a trilingual product, so the owner typing "Rs 21 475" in /admin is
+  // ordinary — not an edge case. The old /[\d,]+/ regex stopped at the space.
+  it("handles space-grouped thousands (French locale) — was read as 21", () => {
+    expect(extractDailyPrice("Rs 21 475")).toBe(21475);
+  });
+  it("handles a non-breaking space, which is what Intl actually emits", () => {
+    expect(extractDailyPrice("Rs 21 475")).toBe(21475);
+    expect(extractDailyPrice("Rs 21 475")).toBe(21475);
+  });
+  it('handles a "From " prefix — was read as 1', () => {
+    expect(extractDailyPrice("From Rs 1 200/day")).toBe(1200);
+  });
+  it("ignores a trailing unit and any text after the number", () => {
+    expect(extractDailyPrice("Rs 1,200 / day incl. helmet")).toBe(1200);
+  });
+
+  it("agrees with priceNumber for every realistic owner input", async () => {
+    // The display parser and the charge parser MUST be the same function now;
+    // they disagreed on two of these five before 2026-08-08.
+    const { priceNumber } = await import("./site-data");
+    for (const p of ["Rs 1,200/day", "Rs 21 475", "From Rs 1 200/day", "Rs 599", "Rs 2 000"]) {
+      expect(priceNumber(p)).toBe(extractDailyPrice(p));
+    }
+  });
 });
 
 describe("priceBreakdown", () => {

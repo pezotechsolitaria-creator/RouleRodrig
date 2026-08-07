@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Store as StoreIcon, Phone, MapPin } from "lucide-react";
+import { SITE_URL } from "@/lib/site";
 import { createClient } from "@/lib/supabase/server";
 import ProductCard, { type ShopProductCard } from "@/components/shop/ProductCard";
 import StoreHoursCard from "@/components/shop/StoreHoursCard";
@@ -26,9 +27,22 @@ export async function generateMetadata({ params }: { params: Promise<{ storeSlug
   const { storeSlug } = await params;
   const store = await getStore(storeSlug);
   if (!store) return {};
+  const description = store.tagline || store.description || `Shop ${store.name} on Roulé Rodrigues.`;
+  const url = `${SITE_URL}/shop/${store.slug}`;
   return {
     title: `${store.name} | Roulé Rodrigues Marketplace`,
-    description: store.tagline || store.description || `Shop ${store.name} on Roulé Rodrigues.`,
+    description,
+    // Its OWN canonical. Without this the root layout's canonical was inherited,
+    // so every storefront declared itself a duplicate of the homepage — which
+    // de-indexes the entire marketplace.
+    alternates: { canonical: url },
+    openGraph: {
+      title: store.name,
+      description,
+      url,
+      type: "website",
+      images: [store.cover_url || store.logo_url || `${SITE_URL}/og-image.jpg`],
+    },
   };
 }
 

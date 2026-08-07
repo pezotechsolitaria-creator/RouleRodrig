@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ImageOff } from "lucide-react";
+import { SITE_URL } from "@/lib/site";
 import { createClient } from "@/lib/supabase/server";
 import AddToCartForm, { type CartableVariant } from "@/components/shop/AddToCartForm";
 import { ShopHeader } from "@/components/shop/ShopChrome";
@@ -44,9 +45,24 @@ export async function generateMetadata({
   const { storeSlug, productSlug } = await params;
   const found = await getProduct(storeSlug, productSlug);
   if (!found) return {};
+  const description = found.product.description || `${found.product.name} from ${found.store.name}.`;
+  const url = `${SITE_URL}/shop/${found.store.slug}/${found.product.slug}`;
+  const image = ((found.product.product_media ?? []) as { url: string; position: number }[])
+    .slice()
+    .sort((a, b) => a.position - b.position)[0]?.url;
   return {
     title: `${found.product.name} | ${found.store.name} | Roulé Rodrigues`,
-    description: found.product.description || `${found.product.name} from ${found.store.name}.`,
+    description,
+    // Own canonical — see the storefront page for why inheriting the root one
+    // was de-indexing every product in the marketplace.
+    alternates: { canonical: url },
+    openGraph: {
+      title: found.product.name,
+      description,
+      url,
+      type: "website",
+      images: [image || `${SITE_URL}/og-image.jpg`],
+    },
   };
 }
 

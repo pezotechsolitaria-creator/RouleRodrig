@@ -1,6 +1,7 @@
 import { getContent } from "@/lib/content";
 import { getPrivileged } from "@/lib/supabase/admin";
 import { isActiveHold } from "@/lib/holds";
+import { extractDailyPrice } from "@/lib/booking-pricing";
 import type { FleetItem, SiteContent } from "@/lib/defaults";
 import type { BrowseCategory } from "@/components/WhatLookingFor";
 
@@ -94,12 +95,19 @@ export async function getFleetView() {
 }
 
 // ── Shared category builder (homepage hub + browse pages + sticky tabs) ──────
-// "Rs 1,200/day" → 1200. Used by the hub, the browse pages and JSON-LD offers.
+/**
+ * "Rs 1,200/day" → 1200. Used by the hub, the browse pages and JSON-LD offers.
+ *
+ * Delegates to extractDailyPrice so the DISPLAYED price and the CHARGED price
+ * can never diverge again. This function used to carry its own `/[\d,]+/`
+ * regex, which read "Rs 21 475" as 21 — so a space-grouped price was published
+ * to Google as Rs 21 while the booking charged the same wrong figure.
+ * Null (rather than 0) is preserved for callers that distinguish
+ * "no price set" from "free".
+ */
 export function priceNumber(price: string): number | null {
-  const m = price.match(/[\d,]+/);
-  if (!m) return null;
-  const n = parseInt(m[0].replace(/,/g, ""), 10);
-  return Number.isFinite(n) ? n : null;
+  const n = extractDailyPrice(price);
+  return n > 0 ? n : null;
 }
 function firstImage(items: { image?: string; images?: string[] }[]): string | undefined {
   for (const it of items) {
