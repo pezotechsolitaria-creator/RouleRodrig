@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { speakText, stopSpeaking, primeVoices } from "@/lib/speak";
 import { useLanguage } from "@/context/LanguageContext";
+import { SITE_URL } from "@/lib/site";
 
 // Map an activity/interest type to a Lucide icon (no emojis anywhere).
 function typeIcon(type: string): LucideIcon {
@@ -82,6 +83,7 @@ export default function TripPlanner() {
   const [interests, setInterests] = useState<string[]>(["beach", "culture", "adventure", "food"]);
   const [pace, setPace] = useState<Pace>("balanced");
   const [generating, setGenerating] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
   const [itinerary, setItinerary] = useState<Day[] | null>(null);
   const [activeDay, setActiveDay] = useState(0);
   const [lightbox, setLightbox] = useState<{ src: string; name: string } | null>(null);
@@ -132,11 +134,19 @@ export default function TripPlanner() {
   // form there reads this and pre-fills the dates.
   function bookThisTrip() {
     try { localStorage.setItem("rr_trip_days", String(days)); } catch { /* ignore */ }
-    window.location.href = "/#explore";
+    // Straight to the booking form, not the homepage hub. This is the
+    // planner's highest-intent action — someone who just designed an itinerary
+    // and asked to book it — and it used to land on "/#explore", which had no
+    // target element at all. Worse, the trip length it just saved
+    // (rr_trip_days) is only consumed by BookingSection, which renders solely
+    // on /browse/[category]; the visitor had to find their own way two levels
+    // deeper before the pre-fill could fire.
+    window.location.href = "/browse/scooter#booking";
   }
 
   async function generate() {
     setGenerating(true);
+    setPlanError(null);
     setItinerary(null);
     try {
       const res = await fetch("/api/trip-planner", {
@@ -152,7 +162,17 @@ export default function TripPlanner() {
         localStorage.setItem(STORE_KEY, JSON.stringify({ days, interests, pace, itinerary: data.itinerary }));
       } catch { /* ignore */ }
     } catch {
-      // silently fall through — keep form visible
+      // The planner is the top-of-funnel acquisition tool that feeds bookings,
+      // and this used to swallow every failure: the spinner stopped, the form
+      // came back unchanged, and nothing told the visitor the request had
+      // failed or that retrying was worth it.
+      setPlanError(
+        language === "fr"
+          ? "Nous n'avons pas pu créer votre itinéraire. Réessayez."
+          : language === "cr"
+            ? "Nou pa ti kapav kre ou plan. Reeseye."
+            : "We couldn't build your itinerary just now. Please try again.",
+      );
     } finally {
       setGenerating(false);
     }
@@ -161,7 +181,11 @@ export default function TripPlanner() {
   // Render the full plan as shareable plain text.
   function planToText(): string {
     if (!itinerary) return "";
-    const lines = [`My ${days}-day Rodrigues trip — roule-rodrig.vercel.app`, ""];
+    // SITE_URL, not a hardcoded host: this line goes out in every copied
+    // and WhatsApp-shared itinerary — the product's best organic channel — and
+    // it was advertising the old vercel.app domain, which reads as a staging
+    // link to anyone who receives it.
+    const lines = [`My ${days}-day Rodrigues trip — ${SITE_URL.replace(/^https?:\/\//, "")}`, ""];
     for (const day of itinerary) {
       lines.push(`Day ${day.day} — ${day.theme}`);
       for (const a of day.activities) {
@@ -297,6 +321,12 @@ export default function TripPlanner() {
                   <><Sparkles size={18} /> {t.planner.plan}</>
                 )}
               </button>
+
+              {planError && (
+                <p role="alert" className="flex items-start gap-2 font-dm text-sm text-red-400">
+                  <X size={15} className="mt-0.5 shrink-0" /> {planError}
+                </p>
+              )}
 
               {itinerary && (
                 <button

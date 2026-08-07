@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Download, X, Share, MoreVertical, Plus } from "lucide-react";
+import { SITE_URL } from "@/lib/site";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -161,7 +162,7 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
                 )}
                 {platform === "ios-other" && (
                   <>
-                    <Step n={1}>Open <b className="text-offwhite">roule-rodrig.vercel.app</b> in <b className="text-offwhite">Safari</b> (iPhone only installs from Safari).</Step>
+                    <Step n={1}>Open <b className="text-offwhite">{SITE_URL.replace(/^https?:\/\//, "")}</b> in <b className="text-offwhite">Safari</b> (iPhone only installs from Safari).</Step>
                     <Step n={2}>Tap <Share size={14} className="inline align-text-bottom text-yellow mx-0.5" /> <b className="text-offwhite">Share</b> → <b className="text-offwhite">&ldquo;Add to Home Screen&rdquo;</b>.</Step>
                     <Step n={3}>Tap <b className="text-offwhite">Add</b> — done!</Step>
                   </>

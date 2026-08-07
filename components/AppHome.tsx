@@ -178,8 +178,15 @@ export default function AppHome({
           </div>
         </section>
 
-        {/* What are you looking for? */}
-        <section className="rr-home-tiles-sec mt-4">
+        {/* What are you looking for?
+            id="explore" is the anchor 11 links across the site point at —
+            BrowseBackBar, the Navbar (desktop + mobile drawer), FavoritesPanel,
+            three Ti Roulé CTAs, both /browse back arrows and two guide-page
+            CTAs all use "/#explore". The element carrying it was removed with
+            the old homepage and never re-added, so every one of those silently
+            dumped the visitor at the top of the page instead of at the hub.
+            app/globals.css:125 still reserves its scroll-margin. */}
+        <section id="explore" className="rr-home-tiles-sec mt-4">
           <div className="mb-2.5 flex items-center justify-between">
             <h2 className="font-syne text-base font-bold text-offwhite">{L(["What are you looking for?", "Que cherchez-vous ?", "Ki ou pe rode?"])}</h2>
             <Link href="/explore" className="inline-flex items-center gap-1 font-dm text-xs text-yellow hover:underline">{L(["See all", "Voir tout", "Get tou"])} <ArrowRight size={13} /></Link>
