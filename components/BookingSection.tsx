@@ -20,6 +20,7 @@ import {
   X,
   Download,
   ArrowRight,
+  ShieldCheck,
 } from "lucide-react";
 import type { FleetItem } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
@@ -874,6 +875,26 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                       {days >= 3 && (
                         <p className="text-green-400/80 text-xs font-dm">{t.booking.discountNote}</p>
                       )}
+                      {/* The refund policy is genuinely generous — a full
+                          refund more than 48h before pickup, and 100% if we or
+                          the owner cancel (/legal/refunds) — and it appeared
+                          NOWHERE in the booking flow. This is the cheapest
+                          reassurance available: the promise already exists,
+                          it was simply never shown at the moment money is
+                          asked for. */}
+                      <div className="flex items-start gap-2 border-t border-dark-border pt-3">
+                        <ShieldCheck size={13} className="mt-0.5 shrink-0 text-green-400" />
+                        <p className="font-dm text-[11px] leading-snug text-muted">
+                          {language === "fr"
+                            ? "Annulation gratuite jusqu'à 48 h avant le retrait."
+                            : language === "cr"
+                              ? "Anilasion gratis ziska 48 er avan retre."
+                              : "Free cancellation up to 48h before pickup."}{" "}
+                          <Link href="/legal/refunds" target="_blank" className="text-yellow hover:underline">
+                            {language === "fr" ? "Détails" : language === "cr" ? "Detay" : "Details"}
+                          </Link>
+                        </p>
+                      </div>
                     </>
                   )}
                 </dl>

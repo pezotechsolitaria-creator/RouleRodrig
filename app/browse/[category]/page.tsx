@@ -7,6 +7,7 @@ import { getFleetView, buildBrowseCategories, priceNumber } from "@/lib/site-dat
 import AppPageHeader from "@/components/AppPageHeader";
 import BrowseTabs from "@/components/BrowseTabs";
 import Fleet from "@/components/Fleet";
+import TrustBar from "@/components/TrustBar";
 import BookingSection from "@/components/BookingSection";
 import RecommendedPlaces from "@/components/RecommendedPlaces";
 import GettingAround from "@/components/GettingAround";
@@ -229,6 +230,14 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
             title={vcat.label}
             subtitle={`Browse our ${vcat.label.toLowerCase()}, then tap Book to choose your dates.`}
           />
+          {/* Trust signals immediately before the form that asks for money.
+              This page previously carried NONE — no guarantee, no support
+              promise, no reason to believe the transaction is safe — while
+              TrustBar sat in the codebase with zero importers. Every claim
+              here is already true elsewhere on the site (a free helmet is in
+              t.booking.included; the 3+/7+ day discounts are in
+              lib/booking-pricing), so nothing new is being promised. */}
+          <TrustBar />
           <BookingSection fleet={items} whatsapp={businessWhatsApp} />
         </main>
         {footer}
