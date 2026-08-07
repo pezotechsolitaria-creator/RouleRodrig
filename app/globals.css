@@ -595,3 +595,64 @@ html[data-splash="on"] #rr-splash.rr-skip {
     @apply font-sans;
   }
 }
+/* ── Golden-hour atmosphere ──────────────────────────────────────────────────
+   DESIGN.md's north star is "the last hour of island daylight rendered as
+   software" — a warm near-black lit by low gold, with an ember bloom near the
+   horizon. Until now the ONLY screen that actually had that light was the
+   splash, which is dismissed after 1.8 seconds; the app you actually use was a
+   mathematically flat #0a0a0a (an audit for `noise|grain|texture|feTurbulence`
+   across app/ and components/ returned zero hits).
+
+   Two layers, both on <body>::before/::after so every route inherits them, both
+   `position: fixed` so they never scroll or reflow, and both pointer-events:
+   none so they can never intercept a tap:
+
+     1. an ember bloom low in the frame + a gold wash high in it — the same two
+        radial gradients the splash uses, at lower opacity so they read as
+        ambient light rather than decoration;
+     2. a fine grain, which is what stops a large dark surface from looking
+        like flat paint and hides the banding that wide, low-contrast dark
+        gradients produce on 8-bit displays.
+
+   The grain is an inline SVG turbulence — no network request, no image asset,
+   ~200 bytes gzipped. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 90% 50% at 50% -15%, rgba(245, 200, 66, 0.055), transparent 62%),
+    radial-gradient(ellipse 75% 45% at 85% 112%, rgba(249, 115, 22, 0.045), transparent 60%);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.032;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Content sits above the atmosphere. Anything that establishes its own stacking
+   context (the nav, modals, the splash) already carries a higher z-index. */
+body > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Photography is the other half of the world DESIGN.md describes, and a flat
+   scrim over a photo reads as a grey box. This warms the shadow end so images
+   sit in the same light as everything around them. */
+.rr-warm-scrim {
+  background-image: linear-gradient(
+    to top,
+    rgba(10, 10, 10, 0.92) 0%,
+    rgba(14, 11, 8, 0.55) 38%,
+    rgba(20, 14, 6, 0.12) 68%,
+    transparent 100%
+  );
+}

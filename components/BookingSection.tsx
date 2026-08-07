@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -66,6 +67,9 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
   const scooters = (fleet ?? []).filter((s) => s.available !== false && !s.soldOutToday);
 
   const [formState, setFormState] = useState<FormState>("idle");
+  // createPortal needs document.body, which does not exist during SSR.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [showPartnerCode, setShowPartnerCode] = useState(false);
   const [lastBooking, setLastBooking] = useState<
     { scooter: string; range: string; days: number; name: string; total: string; bookingId?: string; deposit?: number; totalMur?: number } | null
@@ -755,6 +759,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                   <>{t.booking.submit} <Send size={16} /></>
                 )}
               </button>
+
             </form>
             )}
           </motion.div>
@@ -892,6 +897,51 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
           </motion.div>
         </div>
       </div>
+
+      {/* ── Mobile price bar ──────────────────────────────────────────────────
+          The summary panel is `lg:col-span-2`, so on a phone the total, the
+          deposit and the balance all render BELOW the submit button — the
+          customer decides while the deciding number is off screen. This pins
+          the two figures that matter above the tab bar as soon as a vehicle and
+          dates exist, and disappears on desktop where the sticky panel already
+          does the job.
+
+          Rendered through a PORTAL to document.body. Both grid columns are
+          framer-motion elements, and any transformed ancestor makes
+          `position: fixed` resolve against that ancestor instead of the
+          viewport — which parked this bar ~3000px down the page (measured).
+          Moving it out of the form was not enough, because `whileInView`
+          leaves a transform on the column until it animates; the portal takes
+          it out of the transformed subtree entirely, which is the only
+          placement that cannot regress when someone adds another motion
+          wrapper later.
+          Only formState !== "success" so it vanishes with the form it prices.
+          aria-hidden: the same figures are in the summary <dl>, which screen
+          readers already reach; announcing them twice would be noise. */}
+      {breakdown && formState !== "success" && mounted && createPortal(
+        <div
+          aria-hidden="true"
+          /* 7rem clears the floating nav pill (~74px tall, ~12px above the safe
+             area); measured overlapping it by 45px at 5.5rem. */
+          className="pointer-events-none fixed inset-x-0 bottom-[calc(7rem+env(safe-area-inset-bottom))] z-30 flex justify-center px-4 lg:hidden"
+        >
+          <div className="flex w-full max-w-md items-center justify-between gap-3 rounded-2xl border border-white/10 bg-dark/90 px-4 py-2.5 shadow-[0_16px_44px_-12px_rgba(0,0,0,0.75)] backdrop-blur-xl">
+            <div>
+              <p className="font-bebas text-[9px] tracking-[0.25em] text-muted">{t.booking.summaryTotal}</p>
+              <p className="font-syne text-base font-extrabold text-offwhite">{convert(estimatedTotal)}</p>
+            </div>
+            <div className="text-right">
+              <p className="font-bebas text-[9px] tracking-[0.25em] text-muted">
+                {t.booking.depositToConfirm(breakdown.pct)}
+              </p>
+              <p className="font-syne text-base font-extrabold text-yellow">
+                {convert(`Rs ${breakdown.deposit.toLocaleString()}`)}
+              </p>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </section>
   );
 }

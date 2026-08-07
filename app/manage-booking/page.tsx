@@ -17,6 +17,8 @@ type Booking = {
   days?: number;
   total: number | null;
   deposit: number | null;
+  /** What was ACTUALLY captured (M19). null on pre-M19 or non-card bookings. */
+  amountPaid?: number | null;
   depositPaid: boolean;
   status: string;
 };
@@ -80,6 +82,12 @@ export default function ManageBookingPage() {
   // pay it and no explanation.
   const isCancelled = booking?.status === "cancelled";
   const isCompleted = booking?.status === "completed";
+  // What the customer actually paid. Falls back to the deposit for rows that
+  // predate M19 (or were not paid by card), which is exactly how those rows
+  // behaved before — no existing booking changes meaning.
+  const paidAmount = booking?.depositPaid ? (booking.amountPaid ?? booking.deposit ?? 0) : 0;
+  const paidInFull = Boolean(booking?.total != null && paidAmount >= Number(booking.total));
+  const balanceDue = Math.max(0, Number(booking?.total ?? 0) - paidAmount);
 
   return (
     <main className="min-h-screen bg-dark font-dm text-offwhite">
@@ -170,7 +178,21 @@ export default function ManageBookingPage() {
               {/* Never show a deposit as still owed on a booking that can no
                   longer be paid — that was the core of the same lie. */}
               {booking.deposit != null && booking.deposit > 0 && !isCancelled && (
-                <Row k={booking.depositPaid ? "Deposit paid" : "Deposit to confirm"} v={`Rs ${Number(booking.deposit).toLocaleString()}`} strong />
+                <Row
+                  k={booking.depositPaid ? (paidInFull ? "Paid in full" : "Deposit paid") : "Deposit to confirm"}
+                  v={`Rs ${Number(paidAmount ?? booking.deposit).toLocaleString()}`}
+                  strong
+                />
+              )}
+              {/* The balance line only appears when one is genuinely owed. A
+                  customer who chose "pay in full" used to be shown a deposit
+                  and an implied balance, and was asked for it again at pickup —
+                  the booking row simply had nowhere to record what they paid. */}
+              {booking.depositPaid && !isCancelled && booking.total != null && (
+                <Row
+                  k={balanceDue > 0 ? "Balance at pickup" : "Balance"}
+                  v={balanceDue > 0 ? `Rs ${balanceDue.toLocaleString()}` : "Nothing further to pay"}
+                />
               )}
             </dl>
 

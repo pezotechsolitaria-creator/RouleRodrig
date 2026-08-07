@@ -118,6 +118,41 @@ export function captureRefusalReason(capture: {
   return null;
 }
 
+/**
+ * Works out which of the two legitimate amounts a capture actually settled.
+ *
+ * PayPalDeposit lets a vehicle customer pay EITHER the deposit or the full
+ * total, and both used to write an identical row — so a customer who paid 100%
+ * was still recorded as having paid a deposit, and was asked for the balance
+ * again at pickup. The client is not asked which it paid (it could lie in the
+ * cheap direction); instead the captured EUR is matched against the EUR we
+ * would have charged for each option.
+ *
+ * Returns the MUR figure to store, or null when neither matches closely enough
+ * to be sure — in which case the caller stores nothing and readers fall back to
+ * the old deposit-based display rather than inventing a number.
+ */
+export function resolvePaidAmountMur(
+  capturedEur: number,
+  options: { depositMur: number; fullMur?: number | null },
+  eurFor: (mur: number) => number,
+): number | null {
+  const candidates: { mur: number; eur: number }[] = [
+    { mur: options.depositMur, eur: eurFor(withPayPalFee(options.depositMur).total) },
+  ];
+  if (options.fullMur && options.fullMur > options.depositMur) {
+    candidates.push({ mur: options.fullMur, eur: eurFor(withPayPalFee(options.fullMur).total) });
+  }
+  let best: { mur: number; delta: number } | null = null;
+  for (const c of candidates) {
+    if (!Number.isFinite(c.eur) || c.eur <= 0) continue;
+    const delta = Math.abs(capturedEur - c.eur) / c.eur;
+    if (best === null || delta < best.delta) best = { mur: c.mur, delta };
+  }
+  // 10% band, matching the capture guard's FX tolerance.
+  return best && best.delta <= 0.1 ? best.mur : null;
+}
+
 // ── Capture an approved order; returns the verified status ───────────────────
 //
 // SECURITY: `referenceId` is what binds a PayPal payment to OUR booking. It is

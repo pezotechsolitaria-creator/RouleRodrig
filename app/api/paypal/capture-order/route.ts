@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPrivileged } from "@/lib/supabase/admin";
-import { paypalConfigured, captureOrder, captureRefusalReason, murToEur, withPayPalFee } from "@/lib/paypal";
+import {
+  paypalConfigured, captureOrder, captureRefusalReason, resolvePaidAmountMur, murToEur, withPayPalFee,
+} from "@/lib/paypal";
 import { guard } from "@/lib/rate-limit";
 import { isVehicleFree } from "@/lib/availability";
 import { sendVehicleUnavailableEmail } from "@/lib/email";
@@ -100,11 +102,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 409 });
   }
 
+  // ── Record WHAT WAS PAID, not merely that something was ───────────────────
+  // "Pay in full" and "pay the deposit" used to write an identical row, so a
+  // customer who paid 100% was still shown a balance due at pickup — and the
+  // owner, reading the same row, would ask for it. The amount is derived from
+  // the capture itself (see resolvePaidAmountMur): the client never states how
+  // much it paid. null means "couldn't be sure", and every reader then falls
+  // back to the old deposit display rather than inventing a figure.
+  let amountPaidMur: number | null = null;
+  const capturedEur = Number(result.amount);
+  if (Number.isFinite(capturedEur) && Number.isFinite(owedMur) && owedMur > 0) {
+    try {
+      const rateEurPerMur = Number(await murToEur(10_000)) / 10_000;
+      amountPaidMur = resolvePaidAmountMur(
+        capturedEur,
+        {
+          depositMur: owedMur,
+          fullMur: Number((existing.data as { total_amount?: number | null }).total_amount) || null,
+        },
+        (mur) => mur * rateEurPerMur,
+      );
+    } catch (e) {
+      console.error("[paypal] could not resolve amount paid", e);
+    }
+  }
+
   // Payment verified by PayPal → record it and confirm the booking.
   const patch = {
     deposit_paid_at: new Date().toISOString(),
     paypal_capture_id: result.captureId,
     status: "confirmed",
+    ...(amountPaidMur !== null ? { amount_paid: amountPaidMur } : {}),
   };
   if (kind === "place") await supabase.from("place_bookings").update(patch).eq("id", bookingId);
   else await supabase.from("bookings").update(patch).eq("id", bookingId);
