@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Search, Loader2, RotateCcw } from "lucide-react";
 import BookingTimeline from "@/components/BookingTimeline";
 import PayPalDeposit from "@/components/PayPalDeposit";
+import { Field } from "@/components/ui/field";
 
 type Booking = {
   kind: "vehicle" | "place";
@@ -27,8 +28,6 @@ function fmtD(iso: string): string {
   return isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-GB");
 }
 
-const inputCls =
-  "w-full bg-dark-card border border-dark-border rounded-xl px-4 py-3.5 text-offwhite text-sm font-dm placeholder:text-muted/50 focus:border-yellow focus:outline-none transition-colors";
 
 function Row({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
   return (
@@ -73,6 +72,14 @@ export default function ManageBookingPage() {
 
   const completed = booking ? (booking.depositPaid || booking.status === "confirmed" ? 3 : 1) : 1;
   const confirmed = booking?.status === "confirmed" || booking?.depositPaid;
+  // Anything not confirmed used to fall through to a hopeful yellow "Awaiting
+  // deposit" badge — including CANCELLED, which is exactly what the guests most
+  // likely to check back are looking at: the nightly cron cancels every expired
+  // unpaid hold, and the PayPal capture cancels bumped rivals. They were being
+  // told they still owed a deposit they could no longer pay, with no button to
+  // pay it and no explanation.
+  const isCancelled = booking?.status === "cancelled";
+  const isCompleted = booking?.status === "completed";
 
   return (
     <main className="min-h-screen bg-dark font-dm text-offwhite">
@@ -86,15 +93,32 @@ export default function ManageBookingPage() {
 
         {!booking ? (
           <form onSubmit={submit} className="mt-8 space-y-4">
-            <div>
-              <label className="mb-2 block font-bebas text-[10px] tracking-[0.25em] text-muted">BOOKING REFERENCE</label>
-              <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="RR-A1B2C3" className={inputCls} autoCapitalize="characters" />
-            </div>
-            <div>
-              <label className="mb-2 block font-bebas text-[10px] tracking-[0.25em] text-muted">EMAIL</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" className={inputCls} />
-            </div>
-            {error && <p className="text-sm text-red-400">{error}</p>}
+            {/* These were bare <label>s with no htmlFor over inputs with no id,
+                so both fields announced as unnamed textboxes and tapping a
+                label did not focus its control. <Field> generates the id and
+                the aria wiring, so that cannot recur. */}
+            <Field label="Booking reference" required>
+              {(p) => (
+                <input
+                  {...p}
+                  value={ref}
+                  onChange={(e) => setRef(e.target.value)}
+                  placeholder="RR-A1B2C3"
+                  autoCapitalize="characters"
+                />
+              )}
+            </Field>
+            <Field label="Email" required error={error}>
+              {(p) => (
+                <input
+                  {...p}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your@email.com"
+                />
+              )}
+            </Field>
             <button
               type="submit"
               disabled={loading}
@@ -108,16 +132,44 @@ export default function ManageBookingPage() {
           <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
               <span className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{booking.ref}</span>
-              <span className={`rounded-full px-3 py-1 font-syne text-[11px] font-bold ${confirmed ? "bg-green-500/15 text-green-400" : "bg-yellow/15 text-yellow"}`}>
-                {confirmed ? "Confirmed" : "Awaiting deposit"}
+              <span
+                className={`rounded-full px-3 py-1 font-syne text-[11px] font-bold ${
+                  isCancelled
+                    ? "bg-red-500/15 text-red-400"
+                    : isCompleted
+                      ? "bg-white/10 text-muted"
+                      : confirmed
+                        ? "bg-green-500/15 text-green-400"
+                        : "bg-yellow/15 text-yellow"
+                }`}
+              >
+                {isCancelled ? "Cancelled" : isCompleted ? "Completed" : confirmed ? "Confirmed" : "Awaiting deposit"}
               </span>
             </div>
-            <BookingTimeline completed={completed} />
+            {isCancelled ? (
+              <div className="rounded-xl border border-red-500/25 bg-red-500/[0.05] p-4">
+                <p className="font-dm text-sm text-offwhite">
+                  This booking was cancelled — either the reservation window passed before it was confirmed, or the
+                  vehicle was secured by someone else first.
+                </p>
+                <p className="mt-1.5 font-dm text-sm text-muted">You have not been charged.</p>
+                <Link
+                  href="/browse/scooter"
+                  className="mt-3 inline-flex items-center gap-1.5 font-dm text-sm font-bold text-yellow hover:underline"
+                >
+                  Book again →
+                </Link>
+              </div>
+            ) : (
+              <BookingTimeline completed={completed} />
+            )}
             <dl className="mt-5 space-y-2 border-t border-white/[0.08] pt-4 text-sm">
               <Row k={booking.kind === "vehicle" ? "Vehicle" : "Reservation"} v={booking.item} />
               <Row k="When" v={`${fmtD(booking.start)}${booking.end && booking.end !== booking.start ? " → " + fmtD(booking.end) : ""}`} />
               {booking.total != null && <Row k="Estimated total" v={`Rs ${Number(booking.total).toLocaleString()}`} />}
-              {booking.deposit != null && booking.deposit > 0 && (
+              {/* Never show a deposit as still owed on a booking that can no
+                  longer be paid — that was the core of the same lie. */}
+              {booking.deposit != null && booking.deposit > 0 && !isCancelled && (
                 <Row k={booking.depositPaid ? "Deposit paid" : "Deposit to confirm"} v={`Rs ${Number(booking.deposit).toLocaleString()}`} strong />
               )}
             </dl>
