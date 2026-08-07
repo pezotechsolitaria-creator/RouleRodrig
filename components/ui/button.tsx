@@ -28,6 +28,14 @@ const buttonVariants = cva(
         xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
+        // The funnel size. shadcn's scale tops out at 36px, which is a desktop
+        // dashboard control — but every button in this app's money path (add to
+        // cart, checkout, place order) is a primary CTA on a phone, where 32px
+        // is below the 44px WCAG 2.5.5 / Apple minimum and reads as unfinished
+        // next to the hand-rolled py-4 pills elsewhere on the site. `xl` is
+        // 48px and speaks the brand's voice: Syne bold, per DESIGN.md's button
+        // spec, rather than the DM Sans medium the other sizes inherit.
+        xl: "h-12 gap-2 px-6 text-[15px] font-syne font-bold has-data-[icon=inline-end]:pr-5 has-data-[icon=inline-start]:pl-5 [&_svg:not([class*='size-'])]:size-4",
         icon: "size-8",
         "icon-xs":
           "size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",

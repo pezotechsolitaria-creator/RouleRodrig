@@ -59,7 +59,7 @@ export default function StoreCard({ store }: { store: BrowseStoreCard }) {
   return (
     <Link
       href={`/shop/${store.slug}`}
-      className="group overflow-hidden rounded-2xl border border-white/10 bg-dark-card transition-colors hover:border-yellow/30"
+      className="group overflow-hidden rounded-2xl border border-white/10 bg-dark-card transition-all hover:border-yellow/30 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow"
     >
       <div className="relative aspect-[16/8] w-full overflow-hidden bg-white/5">
         {store.coverUrl ? (

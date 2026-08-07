@@ -14,8 +14,12 @@ export default async function CheckoutPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/checkout");
 
+  // pb-32: the fixed BottomNav pill occupies ~75px of the mobile viewport (more
+  // on iPhones with a home indicator), and pb-16 left the full-width "Place
+  // order" button — the last element of the form — partly underneath it, so
+  // taps on the covered strip hit the nav instead of submitting the order.
   return (
-    <main className="min-h-screen bg-dark px-4 pb-16 pt-10 text-offwhite">
+    <main className="min-h-screen bg-dark px-4 pb-32 pt-10 text-offwhite md:pb-16">
       <div className="mx-auto max-w-lg">
         <Link href="/cart" className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow">
           <ArrowLeft size={14} /> Back to cart

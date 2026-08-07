@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { centsToDecimalString } from "@/lib/money";
@@ -69,8 +69,18 @@ export default async function CustomerOrdersPage({
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
 
   return (
-    <main className="min-h-screen bg-dark px-4 pb-16 pt-10 text-offwhite">
+    <main className="min-h-screen bg-dark px-4 pb-28 pt-10 text-offwhite md:pb-16">
       <div className="mx-auto max-w-3xl">
+        {/* This page was a complete dead end: the root layout renders no header
+            and BottomNav is md:hidden, so on desktop there was literally no way
+            out. Its own child (/orders/[id]) and both siblings (/login,
+            /manage-booking) all carry this exact affordance. */}
+        <Link
+          href="/"
+          className="mb-4 inline-flex items-center gap-1.5 font-dm text-sm text-muted transition-colors hover:text-yellow"
+        >
+          <ArrowLeft size={14} /> Roule Rodrigues
+        </Link>
         <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">MY ACCOUNT</p>
         <h1 className="mt-1 font-syne text-2xl font-extrabold text-offwhite">Orders</h1>
         <p className="mt-1.5 font-dm text-sm text-muted">Everything you&apos;ve bought from shops on Roulé Rodrigues.</p>

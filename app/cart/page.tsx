@@ -104,37 +104,48 @@ export default function CartPage() {
                       )}
                       {insufficientStock && (
                         <p className="mt-1 flex items-center gap-1 font-dm text-xs text-red-400">
-                          <AlertTriangle size={11} /> Only {item.stockQuantity} left
+                          {/* "Only 0 left" is not a quantity, it's a sold-out
+                              item — say so rather than asking the customer to
+                              decode a number. */}
+                          <AlertTriangle size={11} />
+                          {item.stockQuantity === 0 ? "Out of stock" : `Only ${item.stockQuantity} left`}
                         </p>
                       )}
                     </div>
                     <div className="flex flex-col items-end gap-2">
+                      {/* 44px targets throughout — these were 28px steppers and
+                          a bare 15px icon, the smallest controls on the site at
+                          the point where mistapping costs a sale (or silently
+                          deletes an item). Padding does the work so the visual
+                          weight is unchanged. */}
                       <button
                         type="button"
                         aria-label={`Remove ${item.productName} from cart`}
                         onClick={() => removeItem(item.variantId)}
-                        className="text-muted transition-colors hover:text-red-400"
+                        className="-m-2 flex h-11 w-11 items-center justify-center rounded-lg text-muted transition-colors hover:text-red-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow"
                       >
-                        <Trash2 size={15} />
+                        <Trash2 size={16} />
                       </button>
                       <div className="flex items-center rounded-full border border-white/15">
                         <button
                           type="button"
                           aria-label="Decrease quantity"
                           onClick={() => updateQuantity(item.variantId, item.requestedQuantity - 1)}
-                          className="flex h-7 w-7 items-center justify-center text-offwhite hover:text-yellow"
+                          className="flex h-11 w-10 items-center justify-center rounded-l-full text-offwhite transition-transform hover:text-yellow active:scale-90"
                         >
-                          <Minus size={12} />
+                          <Minus size={14} />
                         </button>
-                        <span className="w-6 text-center font-dm text-xs text-offwhite">{item.requestedQuantity}</span>
+                        <span className="w-6 text-center font-dm text-sm text-offwhite" aria-live="polite">
+                          {item.requestedQuantity}
+                        </span>
                         <button
                           type="button"
                           aria-label="Increase quantity"
                           onClick={() => updateQuantity(item.variantId, item.requestedQuantity + 1)}
                           disabled={item.requestedQuantity >= item.stockQuantity}
-                          className="flex h-7 w-7 items-center justify-center text-offwhite hover:text-yellow disabled:opacity-30"
+                          className="flex h-11 w-10 items-center justify-center rounded-r-full text-offwhite transition-transform hover:text-yellow active:scale-90 disabled:opacity-30"
                         >
-                          <Plus size={12} />
+                          <Plus size={14} />
                         </button>
                       </div>
                     </div>
@@ -158,6 +169,7 @@ export default function CartPage() {
             )}
 
             <Button
+              size="xl"
               className="mt-4 w-full"
               disabled={hasIssue}
               onClick={() => router.push("/checkout")}

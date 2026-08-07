@@ -33,7 +33,7 @@ export function ShopHeader({ backHref, backLabel }: { backHref: string; backLabe
           href={backHref}
           className="group inline-flex items-center gap-2 font-dm text-sm font-medium text-muted transition-colors hover:text-offwhite"
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 transition-colors group-hover:border-white/30">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 transition-colors group-hover:border-white/30">
             <ChevronLeft size={17} className="-ml-0.5" />
           </span>
           {backLabel}
@@ -42,7 +42,7 @@ export function ShopHeader({ backHref, backLabel }: { backHref: string; backLabe
         <Link
           href="/cart"
           aria-label={hydrated && itemCount > 0 ? `Cart, ${itemCount} item${itemCount === 1 ? "" : "s"}` : "Cart, empty"}
-          className="relative flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-offwhite transition-colors hover:border-yellow/50 hover:text-yellow"
+          className="relative flex h-11 w-11 items-center justify-center rounded-full border border-white/15 text-offwhite transition-colors hover:border-yellow/50 hover:text-yellow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow"
         >
           <ShoppingCart size={16} />
           <AnimatePresence>

@@ -113,7 +113,7 @@ export default function AddToCartForm({
             <span className="font-dm text-xs text-muted">{variant?.stockQuantity} in stock</span>
           </div>
 
-          <Button onClick={commitAdd} className="w-full" aria-live="polite">
+          <Button onClick={commitAdd} size="xl" className="w-full" aria-live="polite">
             {justAdded ? (
               <>
                 <Check size={15} className="mr-1.5" /> Added

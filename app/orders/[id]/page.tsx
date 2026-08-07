@@ -127,7 +127,7 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
   const hasGps = typedOrder.delivery_lat != null && typedOrder.delivery_lng != null;
 
   return (
-    <main className="min-h-screen bg-dark px-4 pb-16 pt-10 text-offwhite">
+    <main className="min-h-screen bg-dark px-4 pb-28 pt-10 text-offwhite md:pb-16">
       <div className="mx-auto max-w-3xl">
         <Link href="/orders" className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow">
           <ArrowLeft size={14} /> Back to orders

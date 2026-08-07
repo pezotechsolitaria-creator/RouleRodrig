@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { LogOut } from "lucide-react";
@@ -33,10 +34,17 @@ export default async function MerchantAppLayout({ children }: { children: React.
       <div className="min-h-screen bg-dark text-offwhite">
         <header className="sticky top-0 z-40 border-b border-white/10 bg-dark/85 backdrop-blur-xl">
           <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-2.5">
-            <span className="flex items-baseline gap-1.5 font-syne font-extrabold leading-none">
+            {/* A link, not a <span>: the wordmark is the conventional way back
+                to a dashboard home, and it was inert — one of two reasons
+                /merchant was unreachable from every section page. */}
+            <Link
+              href="/merchant"
+              aria-label="Merchant dashboard home"
+              className="flex items-baseline gap-1.5 font-syne font-extrabold leading-none transition-opacity hover:opacity-80"
+            >
               <span className="text-base text-offwhite">Roulé</span>
               <span className="text-base text-yellow">Rodrigues</span>
-            </span>
+            </Link>
             <span className="rounded-full border border-yellow/30 bg-yellow/10 px-2 py-0.5 font-bebas text-[9px] tracking-[0.2em] text-yellow">
               MERCHANT
             </span>

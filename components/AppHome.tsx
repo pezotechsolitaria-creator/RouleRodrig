@@ -33,12 +33,23 @@ type Tri = [string, string, string];
 type Card = { id: string; name: string; image?: string; price?: string | null; href: string; tag?: string };
 type CardImages = { scooter: string[]; car: string[]; stays: string[]; exp: string[]; stores: string[] };
 
-// Colour tints for the six primary cards (icon badge + gradient fallback).
+// Depth tints for the six primary cards (icon badge + gradient fallback).
+//
+// These were four saturated accent hues — amber, teal, indigo, rose — on the
+// six cards above the fold, which DESIGN.md forbids by name ("Don't introduce a
+// second saturated accent"). More practically: with four competing colours
+// shouting at once, gold stopped meaning anything, so the eye had nothing to
+// follow and the page read as a template grid rather than a designed system.
+//
+// The tints now vary by DEPTH, not hue — one warm gold ramp, each card sitting
+// a little further into the dark. The admin's existing tint keys are preserved
+// so no content needs re-saving; they simply now select a position in the ramp
+// rather than a different colour. Gold is reserved for wayfinding again.
 const TINT: Record<string, { icon: string; grad: string }> = {
-  amber: { icon: "text-amber-300", grad: "bg-gradient-to-br from-amber-500/25 to-dark" },
-  teal: { icon: "text-teal-200", grad: "bg-gradient-to-br from-teal-500/25 to-dark" },
-  indigo: { icon: "text-indigo-200", grad: "bg-gradient-to-br from-indigo-500/30 to-dark" },
-  rose: { icon: "text-rose-200", grad: "bg-gradient-to-br from-rose-500/30 to-dark" },
+  amber:  { icon: "text-yellow",      grad: "bg-gradient-to-br from-yellow/25 to-dark" },
+  teal:   { icon: "text-yellow/80",   grad: "bg-gradient-to-br from-yellow/[0.14] to-dark" },
+  indigo: { icon: "text-offwhite/75", grad: "bg-gradient-to-br from-white/[0.10] to-dark" },
+  rose:   { icon: "text-offwhite/60", grad: "bg-gradient-to-br from-white/[0.06] to-dark" },
 };
 
 // Roulé Rodrigues 2.0 — app-style homepage (preview). Header → hero → six cards

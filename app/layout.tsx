@@ -6,6 +6,7 @@ import { CurrencyProvider } from "@/context/CurrencyContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 import { CartProvider } from "@/lib/cart/CartContext";
 import { Toaster } from "@/components/ui/sonner";
+import MotionProvider from "@/components/MotionProvider";
 import LanguagePicker from "@/components/LanguagePicker";
 import FavoritesPanel from "@/components/FavoritesPanel";
 import ReturnWelcome from "@/components/ReturnWelcome";
@@ -247,6 +248,13 @@ export default async function RootLayout({
           <span className="rr-sp-skip">TAP TO SKIP</span>
         </div>
 
+        {/* One line, 42 components. DESIGN.md requires motion to be "fully
+            disabled under prefers-reduced-motion", but only 3 of the 45 files
+            using framer-motion called useReducedMotion() — and a CSS media
+            query cannot help, because framer-motion writes inline styles the
+            query never sees. reducedMotion="user" makes every motion component
+            in the tree honour the OS setting without touching a single one. */}
+        <MotionProvider>
         <LanguageProvider>
           <CurrencyProvider>
             <FavoritesProvider>
@@ -288,6 +296,7 @@ export default async function RootLayout({
             </FavoritesProvider>
           </CurrencyProvider>
         </LanguageProvider>
+        </MotionProvider>
         <Analytics />
         <SpeedInsights />
       </body>

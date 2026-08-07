@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Wallet, Clock, BadgeCheck } from "lucide-react";
+import { ClipboardList, Wallet, Clock, BadgeCheck, LayoutDashboard, Package } from "lucide-react";
 
 // The merchant dashboard's navigation, defined ONCE and rendered at both
 // breakpoints from the same list.
@@ -16,8 +16,16 @@ import { ClipboardList, Wallet, Clock, BadgeCheck } from "lucide-react";
 // Mobile gets a bottom tab bar because that is where a thumb is, and it matches
 // the app-like feel the rest of the product goes for. Desktop keeps the inline
 // header links it already had.
+// A second dead end, of the same shape as the one above: this list had no Home
+// and no Products entry, and the header wordmark was a plain <span>. So once a
+// merchant tapped any tab, /merchant (the dashboard) and /merchant/products
+// (their entire catalogue, reachable only from dashboard tiles) were both
+// unreachable in-page — and in the installed PWA there is no browser chrome to
+// fall back on. Products also never showed an active state.
 const LINKS = [
+  { href: "/merchant", label: "Home", icon: LayoutDashboard, exact: true },
   { href: "/merchant/orders", label: "Orders", icon: ClipboardList },
+  { href: "/merchant/products", label: "Products", icon: Package },
   { href: "/merchant/payments", label: "Payments", icon: Wallet },
   { href: "/merchant/hours", label: "Hours", icon: Clock },
   { href: "/merchant/subscription", label: "Plan", icon: BadgeCheck },
@@ -25,7 +33,10 @@ const LINKS = [
 
 function useActive() {
   const pathname = usePathname();
-  return (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  // "Home" is /merchant, a prefix of every other route, so it must match
+  // exactly or it would light up on every page at once.
+  return (href: string, exact = false) =>
+    exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 }
 
 /** Inline links inside the header. Hidden on phones, where the tab bar takes over. */
@@ -33,8 +44,8 @@ export function MerchantNavDesktop() {
   const isActive = useActive();
   return (
     <nav aria-label="Merchant sections" className="ml-4 hidden items-center gap-3 sm:flex">
-      {LINKS.map(({ href, label, icon: Icon }) => {
-        const active = isActive(href);
+      {LINKS.map(({ href, label, icon: Icon, ...rest }) => {
+        const active = isActive(href, "exact" in rest && rest.exact);
         return (
           <Link
             key={href}
@@ -65,8 +76,8 @@ export function MerchantNavMobile() {
       className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-dark/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)] sm:hidden"
     >
       <ul className="mx-auto flex max-w-md">
-        {LINKS.map(({ href, label, icon: Icon }) => {
-          const active = isActive(href);
+        {LINKS.map(({ href, label, icon: Icon, ...rest }) => {
+          const active = isActive(href, "exact" in rest && rest.exact);
           return (
             <li key={href} className="flex-1">
               <Link

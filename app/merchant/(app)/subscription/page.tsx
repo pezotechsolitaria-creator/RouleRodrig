@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/server";
 import { getMerchantDashboard } from "@/lib/merchant/context";
 import { getMerchantSubscription, getBillingHistory, PLAN_LABEL, type SubscriptionStatus } from "@/lib/merchant/subscription";
 import { centsToDecimalString } from "@/lib/money";
-import SubscriptionBanner from "@/components/merchant/SubscriptionBanner";
 import { Badge } from "@/components/ui/badge";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -61,9 +60,11 @@ export default async function MerchantSubscriptionPage({
         Selling on Roulé Rodrigues is a monthly membership — we never take a commission on your sales.
       </p>
 
-      <div className="mt-6">
-        <SubscriptionBanner sub={sub} />
-      </div>
+      {/* The layout already renders <SubscriptionBanner> on every merchant
+          route, including this one. Rendering it again stacked two identical
+          alerts, each with a solid-gold "Renew subscription" CTA pointing at
+          /merchant/subscription — the page the merchant is already on. The
+          plan card below is the real renewal surface. */}
 
       {!sub ? (
         <div className="rounded-2xl border border-white/10 bg-dark-card p-6">

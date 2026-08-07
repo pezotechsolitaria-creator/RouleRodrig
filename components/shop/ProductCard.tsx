@@ -28,7 +28,7 @@ export default function ProductCard({
   return (
     <Link
       href={`/shop/${storeSlug}/${product.slug}`}
-      className="group overflow-hidden rounded-2xl border border-white/10 bg-dark-card transition-colors hover:border-yellow/30"
+      className="group overflow-hidden rounded-2xl border border-white/10 bg-dark-card transition-all hover:border-yellow/30 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow"
     >
       <div className="relative aspect-square w-full overflow-hidden bg-white/5">
         {product.imageUrl ? (

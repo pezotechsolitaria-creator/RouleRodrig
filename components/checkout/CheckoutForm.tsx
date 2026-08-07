@@ -224,7 +224,10 @@ export default function CheckoutForm({
       <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-10 text-center">
         <h2 className="font-syne text-lg font-bold text-offwhite">Your cart is empty</h2>
         <p className="mx-auto mt-1 max-w-xs font-dm text-sm text-muted">Add something to your cart before checking out.</p>
-        <Link href="/" className="mt-4 inline-flex items-center gap-1.5 font-dm text-sm text-yellow hover:underline">
+        {/* Was "/" — a link labelled "Browse shops" that went to the homepage,
+            contradicting itself and the cart page, which correctly returns to
+            the marketplace directory. */}
+        <Link href="/shop" className="mt-4 inline-flex items-center gap-1.5 font-dm text-sm text-yellow hover:underline">
           Browse shops
         </Link>
       </div>
@@ -606,7 +609,7 @@ export default function CheckoutForm({
           {blockedReason}
         </p>
       )}
-      <Button type="submit" className="w-full" disabled={!canSubmit}>
+      <Button type="submit" size="xl" className="w-full" disabled={!canSubmit}>
         {submitting ? <Loader2 size={16} className="animate-spin" /> : quote ? `Place order — Rs ${centsToDecimalString(quote.total)}` : "Place order"}
       </Button>
     </form>
