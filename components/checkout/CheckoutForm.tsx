@@ -28,8 +28,8 @@ const FULFILLMENT_COPY: Record<Fulfillment, { label: string; hint: string }> = {
 };
 
 export default function CheckoutForm({
-  defaultName, defaultPhone,
-}: { defaultName: string; defaultPhone: string }) {
+  defaultName, defaultPhone, signedInEmail,
+}: { defaultName: string; defaultPhone: string; signedInEmail: string | null }) {
   const { cart, hydrated, clear } = useCart();
   const router = useRouter();
 
@@ -65,6 +65,11 @@ export default function CheckoutForm({
 
   const [name, setName] = useState(defaultName);
   const [phone, setPhone] = useState(defaultPhone);
+  // GUEST CHECKOUT (M20). When signed in the address comes from the session and
+  // the server ignores anything sent here, so the field is not even rendered.
+  const isGuest = !signedInEmail;
+  const [guestEmail, setGuestEmail] = useState("");
+  const guestEmailValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(guestEmail.trim());
   const [fulfillment, setFulfillment] = useState<Fulfillment>("pickup");
   const [zones, setZones] = useState<Zone[] | null>(null);
   const [zoneId, setZoneId] = useState<string>("");
@@ -250,8 +255,11 @@ export default function CheckoutForm({
   // create_order() would refuse whatever we sent.
   const paymentReady = (provider === "cash" && acceptsCash) || (provider === "bank_transfer" && acceptsBankTransfer);
   // Never allow submission on a price we could not obtain from the server.
+  // A guest must supply a valid email — it is the ONLY way they can be sent a
+  // confirmation or find this order again, since they have no account.
+  const identityReady = !isGuest || guestEmailValid;
   const canSubmit = !submitting && !hasIssue && !!quote && !quoting && locationReady && zoneReady
-    && scheduleReady && paymentReady && !!name.trim() && !!phone.trim();
+    && scheduleReady && paymentReady && !!name.trim() && !!phone.trim() && identityReady;
 
   // A disabled button with no explanation is a dead end: the customer has filled
   // in what they can see and the only affordance left is dark. Name and phone
@@ -259,6 +267,7 @@ export default function CheckoutForm({
   // the page said so. Ordered so the first thing the customer can actually act
   // on is named, rather than reporting a server-side condition they cannot fix.
   const blockedReason = submitting || quoting || hasIssue ? null
+    : !identityReady ? "Enter a valid email so we can send your order confirmation."
     : !name.trim() ? "Enter your full name to continue."
     : !phone.trim() ? "Enter your phone number so the shop can reach you."
     : !locationReady ? "Share your delivery location to continue."
@@ -294,6 +303,9 @@ export default function CheckoutForm({
           // charge a total the customer never saw.
           expectedTotal: quote?.total,
           idempotencyKey,
+          // Only meaningful for a guest; the server ignores it when a session
+          // exists and reads the address from auth.users instead.
+          guestEmail: isGuest ? guestEmail.trim().toLowerCase() : undefined,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -308,7 +320,25 @@ export default function CheckoutForm({
       }
       clear();
       toast.success("Order placed!");
-      router.push(`/orders/${body.order_id}`);
+      // A GUEST has no session, so /orders/[id] — which filters on
+      // customer_id = auth.uid() — would bounce them straight to /login after
+      // they had just paid. They go to the account-free tracking page instead,
+      // with the order handed over in sessionStorage rather than the URL:
+      // an order number plus an email in a query string would live on in
+      // browser history, shared links and server logs.
+      if (isGuest) {
+        try {
+          sessionStorage.setItem(
+            "rr-just-ordered",
+            JSON.stringify({ orderNumber: body.order_number, email: guestEmail.trim().toLowerCase() }),
+          );
+        } catch {
+          /* private mode — the tracking page falls back to its manual form */
+        }
+        router.push("/orders/track");
+      } else {
+        router.push(`/orders/${body.order_id}`);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Checkout failed.");
     } finally {
@@ -482,6 +512,70 @@ export default function CheckoutForm({
       )}
 
       {/* Details */}
+      {/* ── Who is buying (M20) ────────────────────────────────────────────
+          Guest is the DEFAULT and the recommended path — it is simply the form
+          below, already open. Signing in is offered as a quiet alternative
+          rather than a gate, because the gate is what was costing the sale.
+          A signed-in buyer sees their address confirmed instead of a field. */}
+      {isGuest ? (
+        <section
+          aria-labelledby="who-h"
+          className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-4"
+        >
+          <h2 id="who-h" className="font-bebas text-[11px] tracking-[0.3em] text-yellow">
+            CHECKING OUT AS A GUEST
+          </h2>
+          <p className="mt-1.5 font-dm text-sm text-muted">
+            No account needed. We&apos;ll email your confirmation and a link to track this order.
+          </p>
+          <div className="mt-3">
+            <label htmlFor="co-email" className="mb-1 block font-dm text-xs text-muted">
+              Email <span className="text-yellow">*</span>
+            </label>
+            <input
+              id="co-email"
+              type="email"
+              required
+              value={guestEmail}
+              onChange={(e) => setGuestEmail(e.target.value)}
+              placeholder="you@email.com"
+              autoComplete="email"
+              inputMode="email"
+              aria-invalid={guestEmail.length > 0 && !guestEmailValid}
+              aria-describedby="co-email-hint"
+              className={`w-full rounded-xl border bg-dark-card px-4 py-3 font-dm text-sm text-offwhite placeholder:text-muted/60 focus:outline-none ${
+                guestEmail.length > 0 && !guestEmailValid
+                  ? "border-red-500/60 focus:border-red-500"
+                  : "border-dark-border focus:border-yellow"
+              }`}
+            />
+            <p id="co-email-hint" className="mt-1.5 font-dm text-[11px] text-muted">
+              {guestEmail.length > 0 && !guestEmailValid
+                ? "That email address doesn't look right."
+                : "Your order confirmation goes here — please check it's correct."}
+            </p>
+          </div>
+          <p className="mt-3 font-dm text-xs text-muted">
+            Already have an account?{" "}
+            <Link href="/login?next=/checkout" className="font-semibold text-yellow hover:underline">
+              Sign in
+            </Link>{" "}
+            to save this order to your history.
+          </p>
+        </section>
+      ) : (
+        <section
+          aria-labelledby="who-h"
+          className="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
+        >
+          <Check size={15} className="shrink-0 text-green-400" />
+          <p className="min-w-0 font-dm text-sm text-muted">
+            <span className="sr-only" id="who-h">Signed in</span>
+            Ordering as <span className="truncate font-medium text-offwhite">{signedInEmail}</span>
+          </p>
+        </section>
+      )}
+
       <section aria-labelledby="you-h">
         <h2 id="you-h" className="font-bebas text-[11px] tracking-[0.3em] text-yellow">YOUR DETAILS</h2>
         <div className="mt-2 space-y-3">

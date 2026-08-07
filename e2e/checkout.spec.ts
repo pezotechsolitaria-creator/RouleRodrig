@@ -2,21 +2,88 @@ import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { seedOrderFixture, deleteOrderFixture, hasServiceRole, type OrderFixture } from "./support/order-test-fixtures";
 
-test.describe("checkout — unauthenticated", () => {
-  test("checkout page redirects to login", async ({ page }) => {
+// GUEST CHECKOUT (M20). These two cases previously asserted the OPPOSITE — that
+// /checkout redirected to /login and the API answered 401. That login wall was
+// the largest drop in the marketplace funnel and has been removed deliberately,
+// so the tests now pin the replacement contract: a guest may reach checkout and
+// may order, but ONLY with a valid email.
+test.describe("checkout — guest (no session)", () => {
+  // The identity panel only renders once there is something to buy — an empty
+  // cart correctly shows the empty state instead — so seed a cart first, which
+  // is the state any real shopper arrives in.
+  async function seedCart(page: import("@playwright/test").Page) {
+    await page.goto("/shop");
+    await page.evaluate(() => {
+      localStorage.setItem(
+        "rr-marketplace-cart",
+        JSON.stringify({
+          storeId: "5a92bdf0-17c8-4181-886b-aa7cd5d1c353",
+          storeName: "M4 Test Shop",
+          items: [{ variantId: "06469e6e-5b9a-4444-bddc-250685197e85", quantity: 1 }],
+        }),
+      );
+    });
+  }
+
+  test("checkout page is reachable without an account", async ({ page }) => {
+    await seedCart(page);
     await page.goto("/checkout");
-    await page.waitForURL(/\/login\?next=(%2F|\/)checkout/);
+    await expect(page).toHaveURL(/\/checkout$/);
+    await expect(page.getByText(/CHECKING OUT AS A GUEST/i)).toBeVisible();
+    await expect(page.locator("#co-email")).toBeVisible();
   });
 
-  test("checkout API rejects with 401", async ({ request }) => {
+  test("the guest panel still offers signing in as an alternative", async ({ page }) => {
+    await seedCart(page);
+    await page.goto("/checkout");
+    await expect(page.locator('a[href^="/login"]').first()).toBeVisible();
+  });
+
+  test("checkout API refuses a guest order with NO email", async ({ request }) => {
     const res = await request.post("/api/checkout", {
       data: {
-        storeId: "00000000-0000-0000-0000-000000000000",
-        items: [{ variantId: "00000000-0000-0000-0000-000000000000", quantity: 1 }],
-        customerName: "X", customerPhone: "1", fulfillment: "pickup", provider: "cash",
+        storeId: "5a92bdf0-17c8-4181-886b-aa7cd5d1c353",
+        items: [{ variantId: "06469e6e-5b9a-4444-bddc-250685197e85", quantity: 1 }],
+        customerName: "X", customerPhone: "+23057123456", fulfillment: "pickup", provider: "cash",
       },
     });
-    expect(res.status()).toBe(401);
+    expect(res.status()).toBe(400);
+    expect(((await res.json()) as { error?: string }).error ?? "").toMatch(/email/i);
+  });
+
+  test("checkout API refuses a malformed guest email", async ({ request }) => {
+    const res = await request.post("/api/checkout", {
+      data: {
+        storeId: "5a92bdf0-17c8-4181-886b-aa7cd5d1c353",
+        items: [{ variantId: "06469e6e-5b9a-4444-bddc-250685197e85", quantity: 1 }],
+        customerName: "X", customerPhone: "+23057123456", fulfillment: "pickup", provider: "cash",
+        guestEmail: "not-an-email",
+      },
+    });
+    expect(res.status()).toBe(400);
+    expect(((await res.json()) as { error?: string }).error ?? "").toMatch(/valid email/i);
+  });
+
+  test("a guest can be quoted a price — the second, silent login wall", async ({ request }) => {
+    // /api/checkout/quote had its own 401. It failed invisibly: the form sat on
+    // "Waiting for the shop to confirm your price…" with the button dark and no
+    // error, so a guest could fill everything in and never learn why.
+    const res = await request.post("/api/checkout/quote", {
+      data: {
+        storeId: "5a92bdf0-17c8-4181-886b-aa7cd5d1c353",
+        items: [{ variantId: "06469e6e-5b9a-4444-bddc-250685197e85", quantity: 1 }],
+        fulfillment: "pickup",
+      },
+    });
+    expect(res.status()).toBe(200);
+    expect((await res.json()).total).toBeGreaterThan(0);
+  });
+
+  test("guest order tracking refuses a wrong number/email pair", async ({ request }) => {
+    const res = await request.post("/api/orders/lookup", {
+      data: { orderNumber: "RR000000-XXXXX", email: "nobody@example.com" },
+    });
+    expect([404, 503]).toContain(res.status()); // 503 only when no service-role key is configured
   });
 
   test("cart page renders an empty state without erroring", async ({ page }) => {
@@ -44,8 +111,12 @@ test.describe("checkout — input validation (no auth needed to prove the schema
           ...patch,
         },
       });
-      // 401 (not signed in) or 400 (schema rejected) — never a 200/500.
-      expect([400, 401]).toContain(res.status());
+      // 400 (schema rejected) is the expected outcome now that guest checkout
+      // exists; 429 is the route's own 10/min limiter tripping when the suite
+      // runs these back to back. Both mean the request never reached the
+      // database — which is what this test is actually asserting. A 200 or a
+      // 500 would be the real failure.
+      expect([400, 429]).toContain(res.status());
     });
   }
 });

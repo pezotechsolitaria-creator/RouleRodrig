@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { guard } from "@/lib/rate-limit";
 import { checkoutSchema } from "@/lib/schemas/checkout";
 import { claimAndNotifyOrderPlaced } from "@/lib/notifications/order-placed";
@@ -34,7 +35,6 @@ export async function POST(req: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Sign in to check out." }, { status: 401 });
 
   let body: unknown;
   try {
@@ -49,9 +49,41 @@ export async function POST(req: NextRequest) {
   const {
     storeId, items, customerName, customerPhone, fulfillment, notes, provider,
     deliveryLat, deliveryLng, deliveryInstructions, deliveryZoneId, expectedTotal, idempotencyKey,
+    guestEmail,
   } = parsed.data;
 
-  const { data, error } = await supabase
+  // ── Guest checkout (M20) ───────────────────────────────────────────────────
+  // The login wall used to live on the line above. It is gone, but the identity
+  // rules are stricter than before, not looser:
+  //
+  //  * SIGNED IN  → the request runs on the CUSTOMER'S OWN session, so
+  //    auth.uid() is set inside create_order and RLS applies exactly as before.
+  //    guestEmail is ignored; the address is read from auth.users server-side.
+  //  * GUEST      → a validated email is mandatory, and the call runs through
+  //    the service-role client because create_order is deliberately NOT granted
+  //    to `anon`. That keeps order creation unreachable from the public API
+  //    surface: the only way in is this route, which is rate-limited (10/min)
+  //    and Zod-validated. Every price, stock lock and refusal code inside the
+  //    RPC is untouched by which client calls it.
+  const isGuest = !user;
+  if (isGuest && !guestEmail) {
+    return NextResponse.json(
+      { error: "Enter your email so we can send your order confirmation." },
+      { status: 400 },
+    );
+  }
+  if (isGuest && !hasServiceRole()) {
+    // Guest checkout structurally cannot work without the key. Fail loudly
+    // rather than silently sending guests back to a login wall.
+    console.error("checkout: SUPABASE_SERVICE_ROLE_KEY missing — guest checkout unavailable");
+    return NextResponse.json(
+      { error: "Guest checkout is temporarily unavailable. Please sign in to complete your order." },
+      { status: 503 },
+    );
+  }
+  const rpcClient = isGuest ? await getPrivileged() : supabase;
+
+  const { data, error } = await rpcClient
     .rpc("create_order", {
       p_store_id: storeId,
       p_items: items.map((i) => ({ variant_id: i.variantId, quantity: i.quantity })),
@@ -72,7 +104,12 @@ export async function POST(req: NextRequest) {
       p_expected_total: expectedTotal ?? null,
       // Retries and double-taps carry the same key; create_order returns the
       // order that already exists rather than reserving stock a second time.
+      // For a guest the replay is matched on (email, key) instead of
+      // (customer_id, key), since customer_id is null and NULL <> NULL.
       p_idempotency_key: idempotencyKey ?? null,
+      // Ignored by the RPC whenever auth.uid() is set — see the identity block
+      // at the top of create_order.
+      p_guest_email: isGuest ? guestEmail : null,
     })
     .single();
 
@@ -109,7 +146,12 @@ export async function POST(req: NextRequest) {
   // and no email failure may ever fail or roll back this response.
   const order = data as { order_id: string; order_number: string; total: number };
   try {
-    await claimAndNotifyOrderPlaced(supabase, {
+    // The claim runs on the SAME client that created the order: a signed-in
+    // buyer claims through their own session (auth.uid() proves ownership), a
+    // guest through the service role — which is the only principal that can
+    // reach a guest order, since customer_id is null and there is no session to
+    // match it against. See claim_order_notification's ownership rule.
+    await claimAndNotifyOrderPlaced(rpcClient, {
       orderId: order.order_id,
       orderNumber: order.order_number,
       storeId,
@@ -118,11 +160,16 @@ export async function POST(req: NextRequest) {
       fulfillment,
       customerName,
       customerPhone,
-      customerEmail: user.email ?? null,
+      // A guest has no auth.users row, so the address comes from the validated
+      // request; a signed-in buyer's comes from their session, never the body.
+      customerEmail: (isGuest ? guestEmail : user?.email) ?? null,
+      isGuest,
     });
   } catch (err) {
     console.error("claimAndNotifyOrderPlaced failed", err);
   }
 
-  return NextResponse.json(data);
+  // `isGuest` lets the confirmation page offer account creation with this
+  // address — the post-purchase prompt — without the client having to guess.
+  return NextResponse.json({ ...(data as object), isGuest });
 }

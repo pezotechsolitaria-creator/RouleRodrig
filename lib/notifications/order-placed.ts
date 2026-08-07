@@ -49,8 +49,13 @@ export interface OrderPlacedInput {
   fulfillment: string;
   customerName: string;
   customerPhone: string;
-  /** From the checkout session's auth user — may be absent (phone-only auth). */
+  /** The address the confirmation goes to: the session's for a registered
+   *  buyer, the validated guest address otherwise. */
   customerEmail: string | null;
+  /** True when the order has no account behind it — changes where the
+   *  customer's "track your order" link points, since /orders/[id] requires a
+   *  session (M20). */
+  isGuest?: boolean;
 }
 
 /**
@@ -185,8 +190,13 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
             ...(hold ? ([["Reserved until", holdDeadlineLabel(hold)]] as [string, string][]) : []),
           ],
           // The order page carries the shop's bank details and the receipt
-          // upload — the actionable half of "payment instructions".
-          cta: { url: `${SITE_URL}/orders/${input.orderId}`, label: "Track your order →" },
+          // upload — the actionable half of "payment instructions". A GUEST
+          // has no session, so /orders/[id] would bounce them to sign-in; they
+          // get the account-free tracking page instead (M20).
+          cta: {
+            url: input.isGuest ? `${SITE_URL}/orders/track` : `${SITE_URL}/orders/${input.orderId}`,
+            label: "Track your order →",
+          },
           channels: ["email"],
         })
       : null;

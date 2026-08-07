@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, Mail, ArrowRight, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
+import { safeNext } from "@/lib/safe-next";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 // Customer sign-in — shares the exact same Supabase Auth session/cookie
@@ -24,9 +25,18 @@ export default function LoginPage() {
 function LoginForm() {
   const supabase = createClient();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/orders";
+  // Sanitised: this value is navigated to and forwarded into the auth callback,
+  // and was previously an open redirect + a javascript: sink. See lib/safe-next.
+  const next = safeNext(searchParams.get("next"), "/orders");
+  // The auth callback sends people here when a link is expired or already used;
+  // nothing read this before, so the visitor saw an unexplained login screen.
+  const authFailed = searchParams.get("error") === "auth";
+  // ?reset=1 opens straight into the forgot-password panel (used by the
+  // "Request a new link" button on an expired reset).
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">(
+    searchParams.get("reset") === "1" ? "forgot" : "signin",
+  );
 
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   // Resets to hidden on every mount, so a revealed password never survives a
@@ -35,6 +45,25 @@ function LoginForm() {
   const [busy, setBusy] = useState<"email" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checkEmail, setCheckEmail] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+
+  // Sending the reset email. This whole flow did not exist: there was no
+  // "Forgot password?" link anywhere and resetPasswordForEmail appeared nowhere
+  // in the codebase, so a customer who forgot their password could neither sign
+  // in nor buy.
+  async function sendReset(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy("email");
+    setError(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/auth/reset-password?next=${encodeURIComponent(next)}`,
+    });
+    setBusy(null);
+    // Deliberately reports success either way: telling an anonymous visitor
+    // whether an address has an account is an account-enumeration oracle.
+    if (error) console.error("resetPasswordForEmail", error);
+    setResetSent(true);
+  }
 
   const callback = () =>
     typeof window !== "undefined"
@@ -64,8 +93,18 @@ function LoginForm() {
       password,
     });
     setBusy(null);
-    if (error) setError(error.message);
-    else window.location.href = next;
+    if (error) return setError(error.message);
+    // Adopt any orders placed as a GUEST with this now-verified address, so the
+    // account shows a complete history instead of starting empty. Matched
+    // server-side on auth.users.email — never on anything sent from here — and
+    // idempotent, so a repeat sign-in is a no-op. Best-effort: a failure here
+    // must never block a successful sign-in.
+    try {
+      await supabase.rpc("claim_guest_orders");
+    } catch (err) {
+      console.error("claim_guest_orders failed", err);
+    }
+    window.location.href = next;
   }
 
   return (
@@ -98,8 +137,65 @@ function LoginForm() {
                 Back to sign in
               </button>
             </div>
+          ) : resetSent ? (
+            <div className="rounded-xl border border-yellow/25 bg-yellow/[0.06] p-5 text-center">
+              <Mail className="mx-auto mb-2 text-yellow" size={22} />
+              <p className="font-syne text-sm font-bold text-offwhite">Check your inbox</p>
+              <p className="mt-1 font-dm text-xs leading-relaxed text-muted">
+                If an account exists for <b className="text-offwhite/90">{email}</b>, we&apos;ve sent a link
+                to set a new password. It expires in an hour.
+              </p>
+              <button
+                onClick={() => { setResetSent(false); setMode("signin"); }}
+                className="mt-4 font-dm text-xs text-yellow hover:underline"
+              >
+                Back to sign in
+              </button>
+            </div>
+          ) : mode === "forgot" ? (
+            <>
+              <h1 className="font-syne text-xl font-bold text-offwhite">Reset your password</h1>
+              <p className="mt-1 font-dm text-sm text-muted">
+                We&apos;ll email you a link to choose a new one.
+              </p>
+              <form onSubmit={sendReset} className="mt-6 space-y-3">
+                <label htmlFor="fp-email" className="sr-only">Email</label>
+                <input
+                  id="fp-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@email.com"
+                  className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 font-dm text-sm text-offwhite placeholder:text-muted/60 transition-colors focus:border-yellow focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={!!busy}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-yellow px-5 py-3 font-syne text-sm font-bold text-dark transition-colors hover:bg-yellow-dark disabled:opacity-60"
+                >
+                  {busy === "email" ? <Loader2 size={16} className="animate-spin" /> : <>Send reset link <ArrowRight size={15} /></>}
+                </button>
+              </form>
+              <button
+                onClick={() => { setMode("signin"); setError(null); }}
+                className="mt-5 w-full text-center font-dm text-xs text-muted transition-colors hover:text-yellow"
+              >
+                Back to sign in
+              </button>
+            </>
           ) : (
             <>
+              {/* The auth callback redirects here with ?error=auth when a link
+                  is expired or already used. Nothing read it before, so the
+                  visitor was returned to a bare login form with no explanation
+                  — and customers were sent to the MERCHANT login at that. */}
+              {authFailed && (
+                <p role="alert" className="mb-4 rounded-xl border border-red-500/25 bg-red-500/[0.06] px-4 py-3 font-dm text-xs text-red-400">
+                  That sign-in link has expired or was already used. Please sign in again.
+                </p>
+              )}
               <h1 className="font-syne text-xl font-bold text-offwhite">
                 {mode === "signin" ? "Sign in" : "Create your account"}
               </h1>
@@ -167,6 +263,15 @@ function LoginForm() {
               </form>
 
               {error && <p className="mt-4 font-dm text-xs text-red-400">{error}</p>}
+
+              {mode === "signin" && (
+                <button
+                  onClick={() => { setMode("forgot"); setError(null); }}
+                  className="mt-4 w-full text-center font-dm text-xs text-yellow hover:underline"
+                >
+                  Forgot password?
+                </button>
+              )}
 
               <button
                 onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); }}

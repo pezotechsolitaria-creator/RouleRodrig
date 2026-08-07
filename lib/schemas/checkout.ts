@@ -47,6 +47,18 @@ export const checkoutSchema = z
     // create_order() returns the existing order for a repeated key rather than
     // creating a twin; it never influences pricing.
     idempotencyKey: z.string().uuid().optional(),
+    // GUEST CHECKOUT (M20). Required only when there is no session — the route
+    // enforces that, because only the server knows whether a session exists.
+    // For a SIGNED-IN buyer this field is ignored entirely: create_order reads
+    // the address from auth.users, so a logged-in user cannot attach someone
+    // else's email to their order by sending one here.
+    guestEmail: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email("Enter a valid email address.")
+      .max(254, "That email address is too long.")
+      .optional(),
   })
   .refine(
     (v) => v.fulfillment === "pickup" || (v.deliveryLat !== undefined && v.deliveryLng !== undefined),

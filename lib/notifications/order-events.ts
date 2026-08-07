@@ -72,7 +72,7 @@ export async function notifyOrderCustomer(orderId: string, event: OrderCustomerE
 
     const { data: order } = await admin
       .from("orders")
-      .select("id, order_number, customer_id, total, store_id, stores(name)")
+      .select("id, order_number, customer_id, customer_email, total, store_id, stores(name)")
       .eq("id", orderId)
       .maybeSingle();
     if (!order) {
@@ -82,17 +82,26 @@ export async function notifyOrderCustomer(orderId: string, event: OrderCustomerE
     const row = order as unknown as {
       order_number: string;
       customer_id: string | null;
+      customer_email: string | null;
       total: number;
       stores: { name: string } | { name: string }[] | null;
     };
-    if (!row.customer_id) return false; // guest order — no account to email
 
     const store = Array.isArray(row.stores) ? row.stores[0] : row.stores;
     const storeName = store?.name ?? "The shop";
 
-    const { data: authUser } = await admin.auth.admin.getUserById(row.customer_id);
-    const email = authUser?.user?.email;
+    // GUEST ORDERS (M20). This used to `return false` whenever customer_id was
+    // null, so a guest received NOTHING for acceptance, payment confirmation or
+    // expiry — the three messages that matter most after placing an order.
+    // orders.customer_email is populated for both paths, so prefer it and fall
+    // back to the auth lookup only for pre-M20 rows that predate the column.
+    let email = row.customer_email ?? null;
+    if (!email && row.customer_id) {
+      const { data: authUser } = await admin.auth.admin.getUserById(row.customer_id);
+      email = authUser?.user?.email ?? null;
+    }
     if (!email) return false;
+    const isGuest = !row.customer_id;
 
     const copy = compose(event, row.order_number, storeName);
     return await dispatchNotification({
@@ -104,7 +113,14 @@ export async function notifyOrderCustomer(orderId: string, event: OrderCustomerE
       body: copy.body,
       details: [["Total", `Rs ${centsToDecimalString(row.total)}`]],
       cta: {
-        url: event === "expired" ? `${SITE_URL}/shop` : `${SITE_URL}/orders/${orderId}`,
+        // A guest cannot open /orders/[id] — it filters on customer_id =
+        // auth.uid() — so they are sent to the account-free tracking page.
+        url:
+          event === "expired"
+            ? `${SITE_URL}/shop`
+            : isGuest
+              ? `${SITE_URL}/orders/track`
+              : `${SITE_URL}/orders/${orderId}`,
         label: copy.cta,
       },
       channels: ["email"],
