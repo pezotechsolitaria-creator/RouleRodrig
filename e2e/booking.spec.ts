@@ -58,6 +58,22 @@ test.describe("booking API refuses illogical requests", () => {
       body: { ...VALID, phone: "12345", start_date: daysFromNow(5), end_date: daysFromNow(7) },
       expectMsg: /phone/i,
     },
+    {
+      // Before 2026-08-08 an unknown vehicle was accepted: priceBreakdown()
+      // returned null and the route fell back to the CLIENT's total_amount,
+      // deriving the deposit from it. That is attacker-controlled pricing,
+      // reachable just by posting a scooter id that doesn't exist — and the
+      // row also formed an invisible second capacity pool.
+      label: "a vehicle that is not in the fleet (was: client-priced booking)",
+      body: {
+        ...VALID,
+        scooter: "not-a-real-vehicle-xyz",
+        start_date: daysFromNow(5),
+        end_date: daysFromNow(7),
+        total_amount: 100,
+      },
+      expectMsg: /isn't available|not available/i,
+    },
   ];
 
   // Serial: /api/bookings is guarded at 8 requests/minute per IP, so running

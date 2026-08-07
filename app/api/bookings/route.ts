@@ -91,7 +91,9 @@ export async function POST(req: NextRequest) {
   let scooterName = scooter;
   // The resolved fleet item is ALSO the price authority: every rupee stored on
   // this booking is recomputed from it below, never taken from the client.
-  let fleetItem: { price: string; category?: string } | undefined;
+  // `id` is needed as well as the price fields: it is the canonical value
+  // stored on the booking, and every capacity query matches on it.
+  let fleetItem: { id: string; price: string; category?: string } | undefined;
   try {
     const content = await getContent();
     const item = content.fleet.find((f) => f.id === scooter || f.name === scooter);
@@ -102,8 +104,34 @@ export async function POST(req: NextRequest) {
       .map((a) => ({ id: a.id, label: a.label, color: a.color }));
     // Capacity = number of physical units (assets) if tracked, else the unit count.
     units = activeAssets.length > 0 ? activeAssets.length : Math.max(1, item?.units ?? 1);
-  } catch {
-    /* fall back to 1 unit */
+  } catch (err) {
+    // getContent() swallows DB failures and returns DEFAULT_CONTENT, so a
+    // Supabase outage makes every real vehicle "unresolvable" rather than
+    // throwing. Either way the booking is refused below rather than priced
+    // from client input — but log it, because this is also the signal that
+    // content reads are failing.
+    console.error("bookings: fleet resolution failed", err);
+  }
+
+  // The vehicle MUST resolve to a real fleet item. Two reasons:
+  //
+  //  * MONEY — if it doesn't, priceBreakdown() returns null and the route used
+  //    to fall back to the CLIENT's total_amount and derive the deposit from
+  //    it. That is exactly the attacker-controlled pricing lib/booking-pricing
+  //    was written to eliminate, reachable simply by posting an unknown
+  //    `scooter` value (which was never validated — only checked non-empty).
+  //  * AVAILABILITY — every capacity query matches `scooter` exactly, so a
+  //    value that isn't the canonical fleet id creates a second, invisible
+  //    capacity pool for the same physical vehicle and bypasses the
+  //    double-booking guard entirely.
+  //
+  // Refusing costs one malformed request. Accepting costs a mispriced booking
+  // on a vehicle nobody knows is taken.
+  if (!fleetItem) {
+    return NextResponse.json(
+      { error: "That vehicle isn't available right now. Please pick another from the list." },
+      { status: 400 },
+    );
   }
 
   let asset_id: string | null = null;
@@ -112,13 +140,26 @@ export async function POST(req: NextRequest) {
   // ── Double-booking guard + auto-assign a free physical unit ──
   try {
     const priv = await getPrivileged();
-    const { data: active } = await priv
+    const { data: active, error: availabilityError } = await priv
       .from("bookings")
       .select("start_date, end_date, status, created_at, asset_id, deposit_paid_at")
       .eq("scooter", scooter)
       .in("status", ["pending", "confirmed"])
       .gte("end_date", start_date)
       .lte("start_date", end_date);
+    // Deliberately fail OPEN here, but never SILENTLY. A request is unpaid, and
+    // per lib/holds.ts an unpaid request reserves nothing — so letting it
+    // through costs nobody the vehicle, and the authoritative check runs again
+    // at payment time in isVehicleFree(), which fails CLOSED. What was wrong
+    // before is that this error vanished entirely: if the availability query
+    // started failing, every booking would sail past the guard with no signal
+    // anywhere that the check had stopped working.
+    if (availabilityError) {
+      console.error(
+        `bookings: availability query failed for ${scooter} ${start_date}..${end_date} — request allowed through, payment-time check still applies`,
+        availabilityError,
+      );
+    }
     const ranges = ((active ?? []) as { start_date: string; end_date: string; status: string; created_at: string; asset_id: string | null; deposit_paid_at: string | null }[])
       .filter((r) => isActiveHold(r));
     const heldOn = (day: string) =>
@@ -141,42 +182,45 @@ export async function POST(req: NextRequest) {
         asset_label = free.color ? `${free.label} · ${free.color}` : free.label;
       }
     }
-  } catch {
-    /* if the check fails, don't block the booking */
+  } catch (err) {
+    // Same reasoning as above — an unpaid request holds nothing, so a crashed
+    // guard must not stop a customer booking. But it is logged, because a
+    // permanently-throwing guard would otherwise be invisible.
+    console.error("bookings: double-booking guard threw — request allowed through", err);
   }
 
   // ── Server-authoritative money ──
-  // Recomputed from the owner's own fleet content + the server-derived day
-  // count. The client's posted total_amount used to be the base the DEPOSIT was
-  // computed from — i.e. attacker-controlled. Now it is only a cross-check:
-  // a mismatch is logged, the server figure always wins. If the vehicle can't
-  // be priced (content miss / unparseable price), fall back to the sanitized
-  // client figures rather than refusing a real customer — the owner still
-  // reviews every request before confirming.
+  // Every figure is recomputed from the owner's own fleet content and the
+  // server-derived day count. The client's total_amount is ONLY a cross-check;
+  // a mismatch is logged and the server figure always wins.
+  //
+  // There is deliberately NO client-priced fallback. It used to fall back when
+  // priceBreakdown() returned null, which meant an unpriceable vehicle — or a
+  // content outage — silently handed pricing back to the request body, the
+  // exact hole this module exists to close.
   const serverBreakdown = priceBreakdown(fleetItem, days);
+  if (!serverBreakdown) {
+    console.error(
+      `bookings: cannot price ${scooter} (price="${fleetItem.price}", days=${days}) — refusing rather than trusting the client`,
+    );
+    return NextResponse.json(
+      { error: "We couldn't price that rental. Please contact us on WhatsApp and we'll sort it out." },
+      { status: 409 },
+    );
+  }
   const clientTotal =
     typeof body.total_amount === "number" && Number.isFinite(body.total_amount) && body.total_amount >= 0
       ? Math.round(body.total_amount)
       : null;
-  if (serverBreakdown && clientTotal !== null && clientTotal !== serverBreakdown.total) {
+  if (clientTotal !== null && clientTotal !== serverBreakdown.total) {
     console.warn(
       `booking price mismatch for ${scooter}: client sent Rs ${clientTotal}, server derived Rs ${serverBreakdown.total} — server figure stored`,
     );
   }
-  const total_amount = serverBreakdown ? serverBreakdown.total : clientTotal;
-  const delivery_fee = serverBreakdown
-    ? serverBreakdown.delivery
-    : typeof body.delivery_fee === "number" && Number.isFinite(body.delivery_fee) && body.delivery_fee >= 0
-      ? Math.round(body.delivery_fee)
-      : null;
-  const depositPct = serverBreakdown
-    ? serverBreakdown.pct
-    : (fleetItem?.category ?? "scooter") === "car" ? 50 : 25;
-  const deposit_amount = serverBreakdown
-    ? serverBreakdown.deposit
-    : total_amount != null
-      ? Math.round((total_amount * depositPct) / 100)
-      : null;
+  const total_amount = serverBreakdown.total;
+  const delivery_fee = serverBreakdown.delivery;
+  const depositPct = serverBreakdown.pct;
+  const deposit_amount = serverBreakdown.deposit;
 
   // Generate the id here so we KNOW it without reading the row back. The public
   // client can INSERT bookings but RLS forbids it from SELECTing them, so an
@@ -189,7 +233,13 @@ export async function POST(req: NextRequest) {
     name: name.slice(0, 120),
     email: email || null,
     phone,
-    scooter: scooter.slice(0, 120),
+    // The CANONICAL fleet id, not whatever the client posted. The lookup above
+    // accepts either the id or the display name, but every capacity query
+    // (`.eq("scooter", …)` in this route, lib/availability.ts and
+    // /api/availability) matches this column exactly — so a row stored under
+    // the display name formed a second, invisible capacity pool for the same
+    // physical vehicle and was skipped by the double-booking guard.
+    scooter: (fleetItem.id || scooter).slice(0, 120),
     start_date,
     end_date,
     pickup_time: (body.pickup_time ?? "")?.toString().trim().slice(0, 10) || null,

@@ -19,13 +19,25 @@ export async function isVehicleFree(
   const activeAssets = (item?.assets ?? []).filter((a) => a.active !== false);
   const units = activeAssets.length > 0 ? activeAssets.length : Math.max(1, item?.units ?? 1);
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("bookings")
     .select("id, start_date, end_date, status, created_at, deposit_paid_at")
     .eq("scooter", scooter)
     .in("status", ["pending", "confirmed"])
     .gte("end_date", start_date)
     .lte("start_date", end_date);
+
+  // FAIL CLOSED. This error used to be discarded, which meant `data` was null,
+  // `ranges` was empty, the loop counted zero holds and the function returned
+  // "free" — so a transient Supabase failure silently reported every vehicle as
+  // available. At payment time that is how two customers both capture a deposit
+  // on the same physical scooter. Saying "we can't confirm availability right
+  // now" costs one booking; saying "free" when it isn't costs a booking AND a
+  // refund AND the customer's trip.
+  if (error) {
+    console.error(`isVehicleFree: availability check FAILED for ${scooter} — treating as unavailable`, error);
+    return false;
+  }
 
   const ranges = ((data ?? []) as { id: string; start_date: string; end_date: string; status: string; created_at: string | null; deposit_paid_at: string | null }[])
     .filter((r) => r.id !== excludeId && isActiveHold(r));
