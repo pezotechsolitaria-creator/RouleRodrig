@@ -30,7 +30,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Never let a DB hiccup produce a broken sitemap — ship the static routes.
   }
 
-  return [
+  // Deduplicate by URL, keeping the FIRST occurrence so the deliberate priority
+  // set here wins over whatever a data-driven source happened to emit.
+  //
+  // /guide/shops was appearing TWICE in the live sitemap: lib/site-data.ts
+  // pushes it as a browse category (href "/guide/shops") and the `extra` array
+  // below adds it under the identical condition — both fire when the owner has
+  // pinned a shop. Deleting one source would fix today and silently regress the
+  // next time either list grows, so dedupe where the two streams meet.
+  //
+  // A duplicate <loc> is not fatal, but it wastes crawl budget and Search
+  // Console reports it, which makes real problems harder to spot.
+  const entries: MetadataRoute.Sitemap = [
     { url: SITE_URL, lastModified: now, changeFrequency: "weekly", priority: 1 },
     ...browse,
     // Marketplace directory — always exists (its empty state recruits
@@ -62,4 +73,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.2,
     })),
   ];
+
+  const seen = new Set<string>();
+  return entries.filter((e) => {
+    // Trailing slashes would make /x and /x/ read as two pages to a crawler.
+    const key = e.url.replace(/\/+$/, "");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
