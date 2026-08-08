@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 // DRIFTED once already (this read v96 while public/sw.js was on v110), which is
 // the one failure this constant exists to prevent — a health endpoint that
 // confidently reports a stale answer is worse than one that reports nothing.
-const SW_CACHE_VERSION = "rr-cache-v114";
+const SW_CACHE_VERSION = "rr-cache-v115";
 
 // ── Health / readiness / liveness ────────────────────────────────────────────
 // GET /api/health           → readiness (checks the database dependency)
@@ -38,6 +38,13 @@ function buildInfo() {
     branch: process.env.VERCEL_GIT_COMMIT_REF ?? "local",
     env: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "unknown",
     swCache: SW_CACHE_VERSION,
+    // WHERE this function actually ran. vercel.json pins `regions: ["fra1"]` to
+    // sit beside the Frankfurt database, but a plan can silently ignore that —
+    // and without this field the only way to tell a working pin from an ignored
+    // one is to infer it from latency, which (see below) is far too noisy to
+    // carry that weight. Vercel injects VERCEL_REGION; "dev1" or absent means
+    // local. Not a secret: it names a datacentre, not a customer.
+    region: process.env.VERCEL_REGION ?? "local",
   };
 }
 

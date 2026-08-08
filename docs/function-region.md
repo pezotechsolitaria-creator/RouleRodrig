@@ -57,14 +57,58 @@ level. If a deploy fails complaining about it, there are two equivalent ways out
 
 Prefer option 1 — the latency is worth far more than the config living in git.
 
-## How to confirm it worked
+## CORRECTION — measured after deploying (2026-08-08)
 
-Hit `https://roulerodrig.com/api/health` **twice** (the first call may be a cold
-start — check `uptimeMs` is more than a few seconds before trusting the number):
+**The original diagnosis above was partly wrong, and the honest numbers are
+worse for it than the ones that motivated the change.**
+
+Four samples on the Frankfurt build (`f4a9be2f`):
+
+| dbLatencyMs | uptimeMs | |
+|---|---|---|
+| 629 | 18,215 | fresh instance |
+| 615 | 162,449 | |
+| **71** | 19,135 | warm |
+| **127** | 21,812 | warm |
+
+And two on the previous Washington build (`7ef17c8a`): **457 ms** at
+`uptimeMs: 1083` (cold) and **148 ms** at `uptimeMs: 361726` (very warm).
+
+The pattern is not geography. It is **connection establishment on a fresh
+serverless instance**: the first database call from a new instance costs
+600 ms+, and subsequent calls on that same instance cost 70–150 ms. The app
+talks to Supabase over PostgREST/HTTPS, so a new instance pays a full TLS
+handshake before the query even starts.
+
+So the 457 ms figure that triggered this change was mostly *cold-instance
+setup*, which I attributed to the transatlantic hop. That was a
+misattribution — one measurement, over-interpreted.
+
+**Is the change still right?** Keeping it, for two reasons, neither of which is
+proof:
+
+1. The best warm sample improved from 148 ms to 71 ms, which is consistent with
+   removing the transatlantic leg from the steady state. But n=1 — treat it as
+   suggestive, not demonstrated.
+2. Co-locating a function with its database is correct regardless, and Frankfurt
+   is also physically closer to Rodrigues than Washington. There is no scenario
+   where iad1 is the better choice here.
+
+**What this change did NOT fix:** the 600 ms first-call penalty on every new
+instance. That is the real latency problem, it is unaddressed, and it will be
+felt by the first visitor to hit each cold instance. Fixing it properly means
+attacking connection reuse, not geography.
+
+## How to confirm the region actually applied
+
+Latency is far too noisy to infer this from. `/api/health` → `build.region`
+reports `VERCEL_REGION` directly:
 
 ```
-dbLatencyMs: expect roughly 5–40 ms, down from ~457 ms
+build.region: "fra1"   ← the pin worked
+build.region: "iad1"   ← the pin was ignored; set it in the Vercel dashboard
+                          (Project → Settings → Functions → Function Region)
 ```
 
-If it has not moved, the deploy did not pick up the region — check the
-deployment's Functions tab in Vercel for the region it actually used.
+Take several samples before judging latency, and always check `uptimeMs` — any
+reading under a few seconds is a cold start and tells you nothing.
