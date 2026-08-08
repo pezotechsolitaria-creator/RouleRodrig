@@ -444,6 +444,31 @@ export async function upsertBrevoContact(c: {
  *               (e.g. a Gmail) — no domain required.
  * No-ops cleanly when neither is set, so the app never breaks.
  */
+/**
+ * Which provider WOULD handle a send right now — names only, never a key.
+ *
+ * Guest checkout is entirely email-dependent (confirmation, tracking link,
+ * payment reminder, expiry warning), and until now there was no way to answer
+ * "is mail actually configured on production?" without opening the Vercel
+ * dashboard. `send()` no-ops silently when nothing is set, which is the right
+ * runtime behaviour and the worst possible diagnostic — the site looks healthy
+ * while every customer email is discarded. Surfaced through /api/health.
+ *
+ * Resend is checked first because `send()` checks it first; keeping the order
+ * identical is what stops this from reporting a provider that isn't the one
+ * doing the work.
+ */
+export async function emailProviderName(): Promise<"resend" | "brevo" | "unconfigured"> {
+  if (process.env.RESEND_API_KEY) return "resend";
+  try {
+    const brevo = await getBrevoConfig();
+    if (brevo.key) return "brevo";
+  } catch {
+    /* config lookup failed — report unconfigured rather than guessing */
+  }
+  return "unconfigured";
+}
+
 async function send(to: string, subject: string, html: string, attachments?: Attachment[]): Promise<boolean> {
   const resendKey = process.env.RESEND_API_KEY;
   const brevo = await getBrevoConfig();

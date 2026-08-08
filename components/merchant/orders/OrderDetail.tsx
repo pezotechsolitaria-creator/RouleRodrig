@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, User, Phone, CreditCard, QrCode, StickyNote, Check, Loader2, Clock } from "lucide-react";
+import { ArrowLeft, User, Phone, CreditCard, Ticket, StickyNote, Check, Loader2, Clock } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useOrder, useUpdateOrder, orderKeys } from "@/lib/merchant/orders";
 import PaymentConfirmCard from "./PaymentConfirmCard";
@@ -128,6 +128,9 @@ export default function OrderDetail({ id }: { id: string }) {
     !order.accepted_at &&
     (order.status === "pending_payment" || order.status === "awaiting_payment_confirmation");
   const hold = holdInfo(order.auto_release_at);
+  // The newest token, which is the only one that can be live: ensure_pickup_code
+  // reuses an unredeemed, unexpired code rather than minting a second one.
+  const pickup = order.qr_pickup_tokens.slice().sort((a, b) => b.issued_at.localeCompare(a.issued_at))[0] ?? null;
 
   return (
     <div className="py-8">
@@ -328,16 +331,22 @@ export default function OrderDetail({ id }: { id: string }) {
             zoneName={order.delivery_zones?.name ?? null}
           />
 
-          {order.qr_pickup_tokens.length > 0 && (
+          {/* The merchant sees the STATE of the handover, never the code
+              itself — M27 revoked the column grant so no client role can read
+              another customer's code. Redeeming happens at the top of the
+              orders list, where the merchant types what the customer shows. */}
+          {pickup && (
             <div className="rounded-2xl border border-white/10 bg-dark-card p-4">
               <h2 className="flex items-center gap-1.5 font-syne text-sm font-bold text-offwhite">
-                <QrCode size={14} className="text-yellow" /> Pickup
+                <Ticket size={14} className="text-yellow" /> Pickup code
               </h2>
-              <div className="mt-3 space-y-1 font-dm text-xs text-muted">
-                {order.qr_pickup_tokens.map((t) => (
-                  <p key={t.id}>{t.redeemed_at ? `Redeemed ${new Date(t.redeemed_at).toLocaleString()}` : "Not yet redeemed"}</p>
-                ))}
-              </div>
+              <p className="mt-3 font-dm text-xs text-muted">
+                {pickup.redeemed_at
+                  ? `Redeemed ${new Date(pickup.redeemed_at).toLocaleString()} — the customer collected this order.`
+                  : new Date(pickup.expires_at) <= new Date()
+                    ? "Expired. Use the status button above to close the order."
+                    : "Issued and unused. The customer has it on their order screen."}
+              </p>
             </div>
           )}
         </div>

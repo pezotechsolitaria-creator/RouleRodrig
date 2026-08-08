@@ -24,8 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       "id, order_number, status, notes, subtotal, discount, tax, total, currency, placed_at, created_at, " +
         "stores(name, phone, whatsapp), " +
         "order_items(id, product_name, variant_name, sku, unit_price, quantity, line_total), " +
-        "payments(id, provider, amount, currency, status, created_at), " +
-        "qr_pickup_tokens(id, issued_at, expires_at, redeemed_at)",
+        "payments(id, provider, amount, currency, status, created_at)",
     )
     .eq("id", id)
     .eq("customer_id", user.id)
@@ -37,5 +36,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
   if (!order) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
-  return NextResponse.json({ order });
+  // The pickup code is NOT an embed on qr_pickup_tokens: M27 revoked the table
+  // grant so the raw code cannot be reached through PostgREST by any client
+  // role. The accessor releases it on one test — this is your order — and the
+  // old embed returned an empty array here anyway, because the table's RLS
+  // policy only ever admitted store staff.
+  const { data: pickup, error: pickupError } = await supabase.rpc("customer_pickup_code", {
+    p_order_id: id,
+  });
+  if (pickupError) console.error("customer_pickup_code failed", pickupError);
+
+  return NextResponse.json({ order: Object.assign({}, order, { pickup: pickup ?? null }) });
 }

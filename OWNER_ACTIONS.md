@@ -149,9 +149,29 @@ Answers to 3 and 5 change the architecture materially. Everything else is detail
   and all admin writes structurally require it.
 - Rotating `SESSION_SECRET` logs out every admin session immediately.
 
-**Verify all of these at once:** `https://roulerodrig.com/api/health` — it reports
-`database`, `adminBackend`, `cron`, `rateLimiter` and the running build, and
-never exposes a secret value.
+**Verify all of these at once:** `https://roulerodrig.com/api/health` — one page,
+no dashboard logins, no secrets exposed. What each field must say on a healthy
+production deploy:
+
+```jsonc
+{
+  "status": "ok",
+  "build":  { "commit": "…", "swCache": "rr-cache-v113" },
+  "checks": {
+    "database":     "ok",
+    "adminBackend": "configured",     // SUPABASE_SERVICE_ROLE_KEY present
+    "cron":         "configured",     // CRON_SECRET present (fails closed without it)
+    "rateLimiter":  "shared",         // "in-memory" = Upstash not wired (item 1)
+    "email":        "brevo",          // or "resend". "unconfigured" = guest checkout is broken
+    "siteUrl":      "https://roulerodrig.com"   // wrong value = every email links to the wrong host
+  }
+}
+```
+
+`email` and `siteUrl` are new. They exist because `send()` **no-ops silently**
+when no provider is configured — the site looks perfectly healthy while every
+customer confirmation is discarded. That is the single most dangerous failure
+mode in guest checkout, and until now nothing surfaced it.
 
 ---
 

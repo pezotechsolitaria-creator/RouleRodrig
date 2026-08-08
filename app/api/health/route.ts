@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { hasServiceRole } from "@/lib/supabase/admin";
 import { hasSharedLimiter } from "@/lib/rate-limit";
+import { emailProviderName } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,16 @@ export async function GET(req: Request) {
     db = "degraded";
   }
 
+  // Reads the admin-saved Brevo config as well as the env vars, so it reports
+  // what send() would actually do rather than what the environment alone
+  // suggests. Never throws — a failed lookup reports "unconfigured".
+  let emailProvider: "resend" | "brevo" | "unconfigured" = "unconfigured";
+  try {
+    emailProvider = await emailProviderName();
+  } catch {
+    /* leave as unconfigured */
+  }
+
   const healthy = db === "ok";
   return NextResponse.json(
     {
@@ -90,6 +101,16 @@ export async function GET(req: Request) {
         // operator investigating abuse needs to know which mode is live before
         // concluding the limits are being ignored.
         rateLimiter: hasSharedLimiter() ? "shared" : "in-memory",
+        // Provider NAME only — never a key, never the sender address. Guest
+        // checkout is entirely email-dependent, and send() no-ops silently when
+        // nothing is configured: the site looks healthy while every customer
+        // email is discarded. "unconfigured" here means guest checkout is
+        // effectively broken even though every other check is green.
+        email: emailProvider,
+        // The canonical origin every confirmation link, tracking link and
+        // JSON-LD URL is built from. If this is wrong, emails point at the
+        // wrong host — a failure that is invisible until a customer clicks.
+        siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "unset",
       },
       uptimeMs: Math.round(process.uptime() * 1000),
       totalMs: Date.now() - started,

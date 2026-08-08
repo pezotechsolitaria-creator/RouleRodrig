@@ -6,6 +6,7 @@ import { getOwnStoreId } from "@/lib/merchant/context";
 import { isUuid } from "@/lib/file-signature";
 import { guard } from "@/lib/rate-limit";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
+import { formatPickupCode } from "@/lib/orders/pickup";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
 
 const NOT_FOUND_CODE = "RR003";
@@ -115,7 +116,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // in-app notification when status actually changes" condition.
   const { data: current } = await supabase
     .from("orders")
-    .select("order_number, customer_id, status")
+    .select("order_number, customer_id, customer_email, status")
     .eq("id", id)
     .maybeSingle();
   if (!current) return NextResponse.json({ error: "Not found." }, { status: 404 });
@@ -136,20 +137,45 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // Best-effort external notification (email today) — never blocks or fails
   // the response. Only fires on a REAL status change, not a note-only edit,
   // same condition the RPC itself uses for the in-app notification row.
-  if (status && status !== current.status && current.customer_id && hasServiceRole()) {
+  if (status && status !== current.status && hasServiceRole()) {
     try {
       const admin = await getPrivileged();
-      const { data: authUser } = await admin.auth.admin.getUserById(current.customer_id);
-      const email = authUser?.user?.email;
+      // A guest order has no auth user, so the address on the order IS the
+      // customer. Before M27 this branch required customer_id and silently
+      // skipped every guest — i.e. the default checkout path got no status
+      // email at all, including the one saying their order was ready.
+      let email = current.customer_email ?? null;
+      if (current.customer_id) {
+        const { data: authUser } = await admin.auth.admin.getUserById(current.customer_id);
+        email = authUser?.user?.email ?? email;
+      }
       if (email) {
         const label = STATUS_LABEL[targetStatus as OrderStatus] ?? targetStatus;
+        // The pickup code belongs IN the email: the customer is usually not
+        // looking at the site when the shop marks an order ready, and arriving
+        // at the counter is the moment they need it. Read with the service
+        // role — no client role can see qr_pickup_tokens.code (M27).
+        let extra = "";
+        if (targetStatus === "ready_for_pickup") {
+          const { data: token } = await admin
+            .from("qr_pickup_tokens")
+            .select("code")
+            .eq("order_id", id)
+            .is("redeemed_at", null)
+            .gt("expires_at", new Date().toISOString())
+            .order("issued_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const code = (token as { code?: string | null } | null)?.code;
+          if (code) extra = ` Show this pickup code at the shop to collect it: ${formatPickupCode(code)}`;
+        }
         await dispatchNotification({
           recipientType: "customer",
           recipientEmail: email,
           orderNumber: current.order_number,
           type: "order_status_changed",
           title: `Order ${current.order_number}: ${label}`,
-          body: `Your order is now: ${label}.`,
+          body: `Your order is now: ${label}.${extra}`,
         });
       }
     } catch (err) {

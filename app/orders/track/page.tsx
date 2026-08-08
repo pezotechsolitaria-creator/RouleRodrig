@@ -8,6 +8,7 @@ import { centsToDecimalString } from "@/lib/money";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { holdInfo, customerHoldCopy, holdRemaining, type PaymentProvider } from "@/lib/orders/hold";
 import BankTransferPanel from "@/components/orders/BankTransferPanel";
+import PickupCodeCard from "@/components/orders/PickupCodeCard";
 import { Button } from "@/components/ui/button";
 
 // ── Guest order tracking + post-purchase (M20, completed M21) ──────────────
@@ -47,6 +48,11 @@ type TrackedOrder = {
   storeSlug: string;
   storePhone: string | null;
   isGuest: boolean;
+  // M27. A guest gets the pickup code on the same credential as everything
+  // else on this page — the login wall was removed at checkout, so the handoff
+  // that follows checkout cannot quietly require an account either.
+  pickupCode: string | null;
+  pickupRedeemedAt: string | null;
   bank: {
     bankName: string | null;
     accountHolder: string | null;
@@ -267,6 +273,18 @@ function TrackOrder() {
                 <span className="font-syne font-bold text-yellow">Rs {centsToDecimalString(order.total)}</span>
               </div>
             </div>
+
+            {/* Ready to collect: the code is the next action, so it sits
+                directly under the order rather than below the receipt. */}
+            {order.status === "ready_for_pickup" && order.pickupCode && (
+              <PickupCodeCard
+                pickup={{ code: order.pickupCode, redeemedAt: order.pickupRedeemedAt }}
+                storeName={order.storeName}
+              />
+            )}
+            {order.status === "collected" && order.pickupRedeemedAt && (
+              <PickupCodeCard pickup={{ code: null, redeemedAt: order.pickupRedeemedAt }} />
+            )}
 
             {/* The reservation clock. M20 returned autoReleaseAt from
                 lookup_order and then rendered nothing with it, so the one party

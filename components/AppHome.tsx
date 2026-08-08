@@ -8,11 +8,12 @@ import {
   Heart, MapPin, ChevronDown, Bot, Bike, Car, BedDouble, TreePalm,
   Utensils, Umbrella, Footprints, Fish, Sailboat, Plane, CarTaxiFront, Mountain,
   ShoppingBag, PartyPopper, ArrowRight, Map as MapIcon, CalendarRange, BookOpen,
-  Siren, Home, Compass, CalendarCheck, Menu,
+  Siren, Compass,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useFavorites } from "@/context/FavoritesContext";
 import { loc } from "@/lib/localize";
+import { NAV_TABS, isTabActive, tabLabel, openTiRoule } from "@/lib/nav-tabs";
 import InstallAppButton from "@/components/InstallAppButton";
 import { DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS } from "@/lib/defaults";
 import type { QuickAccessItem, HomeCard } from "@/lib/defaults";
@@ -110,14 +111,6 @@ export default function AppHome({
     { icon: CalendarRange, label: ["Planner", "Planifier", "Plan"], href: "/trip-planner" },
     { icon: BookOpen, label: ["Guide", "Guide", "Gid"], href: "/guide/rodrigues" },
     { icon: Siren, label: ["Emergency", "Urgences", "Irzans"], href: "/emergency" },
-  ];
-
-  const NAV: { key: string; icon: React.ElementType; label: Tri; href?: string; onClick?: () => void }[] = [
-    { key: "home", icon: Home, label: ["Home", "Accueil", "Lakaz"], href: "/" },
-    { key: "explore", icon: Compass, label: ["Explore", "Explorer", "Explor"], href: "/explore" },
-    { key: "tiroule", icon: Bot, label: ["Ti Roulé", "Ti Roulé", "Ti Roulé"], onClick: () => window.dispatchEvent(new CustomEvent("tiroule:open")) },
-    { key: "bookings", icon: CalendarCheck, label: ["Bookings", "Réserv.", "Rezerv."], href: "/manage-booking" },
-    { key: "more", icon: Menu, label: ["More", "Plus", "Plis"], href: "/more" },
   ];
 
   return (
@@ -249,23 +242,38 @@ export default function AppHome({
               </Link>
             ))}
           </div>
+          {/* Same five tabs as the global BottomNav — one list, two chromes.
+              See lib/nav-tabs.ts for why the tabs are not defined here. */}
           <nav aria-label="Primary">
             <div className="rr-nav-row flex items-center justify-around px-2 py-1.5">
-            {NAV.map((it) => {
-              const active = it.href ? (it.href === "/" ? false : pathname.startsWith(it.href)) : false;
-              const isTi = it.key === "tiroule";
-              const inner = (
-                <>
-                  <it.icon size={isTi ? 22 : 20} className={isTi ? "text-dark" : active ? "text-yellow" : ""} />
-                  <span className={`font-dm text-[10px] font-medium leading-none ${isTi ? "text-dark" : active ? "text-yellow" : "text-muted"}`}>{L(it.label)}</span>
-                </>
-              );
+            {NAV_TABS.map((tab) => {
+              const label = tabLabel(tab, language);
               const base = "flex min-w-[52px] flex-col items-center gap-1 rounded-xl px-2 py-1.5 transition-colors";
-              const tiCls = "flex min-w-[56px] flex-col items-center gap-1 rounded-2xl bg-gradient-to-b from-yellow to-yellow-dark px-2 py-1.5 shadow-[0_6px_18px_-4px_rgba(245,200,66,0.55)]";
-              return it.href ? (
-                <Link key={it.key} href={it.href} aria-current={active ? "page" : undefined} className={`${base} ${active ? "text-yellow" : "text-muted hover:text-offwhite"}`}>{inner}</Link>
-              ) : (
-                <button key={it.key} type="button" onClick={it.onClick} aria-label="Ti Roulé" className={isTi ? tiCls : base}>{inner}</button>
+              if (tab.action === "tiroule") {
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={openTiRoule}
+                    aria-label={label}
+                    className="flex min-w-[56px] flex-col items-center gap-1 rounded-2xl bg-gradient-to-b from-yellow to-yellow-dark px-2 py-1.5 shadow-[0_6px_18px_-4px_rgba(245,200,66,0.55)]"
+                  >
+                    <tab.icon size={22} className="text-dark" />
+                    <span className="font-dm text-[10px] font-medium leading-none text-dark">{label}</span>
+                  </button>
+                );
+              }
+              const active = isTabActive(tab, pathname);
+              return (
+                <Link
+                  key={tab.key}
+                  href={tab.href ?? "/"}
+                  aria-current={active ? "page" : undefined}
+                  className={`${base} ${active ? "text-yellow" : "text-muted hover:text-offwhite"}`}
+                >
+                  <tab.icon size={20} className={active ? "text-yellow" : ""} />
+                  <span className={`font-dm text-[10px] font-medium leading-none ${active ? "text-yellow" : "text-muted"}`}>{label}</span>
+                </Link>
               );
             })}
           </div>

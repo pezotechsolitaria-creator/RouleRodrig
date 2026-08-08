@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, User, Phone, CreditCard, QrCode, MapPin, Truck, Receipt } from "lucide-react";
+import { ArrowLeft, User, Phone, CreditCard, MapPin, Truck, Receipt } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/file-signature";
 import { centsToDecimalString } from "@/lib/money";
@@ -10,6 +10,8 @@ import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { FULFILLMENT_LABEL, googleMapsLink, formatCoords } from "@/lib/orders/location";
 import { holdInfo, customerHoldCopy, holdRemaining, type PaymentProvider } from "@/lib/orders/hold";
 import BankTransferPanel, { type BankDetails } from "@/components/orders/BankTransferPanel";
+import PickupCodeCard from "@/components/orders/PickupCodeCard";
+import type { PickupCode } from "@/lib/orders/pickup";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -46,7 +48,6 @@ type CustomerOrderDetail = {
     unit_price: number; quantity: number; line_total: number;
   }[];
   payments: { id: string; provider: string; amount: number; currency: string; status: string; created_at: string }[];
-  qr_pickup_tokens: { id: string; issued_at: string; expires_at: string; redeemed_at: string | null }[];
 };
 
 export default async function CustomerOrderPage({ params }: { params: Promise<{ id: string }> }) {
@@ -69,8 +70,7 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
         "fulfillment_method, delivery_fee, delivery_lat, delivery_lng, delivery_instructions, payment_receipt_path, receipt_submitted_at, auto_release_at, " +
         "stores(name, phone), " +
         "order_items(id, product_name, variant_name, sku, unit_price, quantity, line_total), " +
-        "payments(id, provider, amount, currency, status, created_at), " +
-        "qr_pickup_tokens(id, issued_at, expires_at, redeemed_at)",
+        "payments(id, provider, amount, currency, status, created_at)",
     )
     .eq("id", id)
     .eq("customer_id", user.id)
@@ -126,6 +126,21 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
 
   const hasGps = typedOrder.delivery_lat != null && typedOrder.delivery_lng != null;
 
+  // The pickup code comes from an RPC, not from an embed on qr_pickup_tokens:
+  // M27 revoked the table grant so the raw code is not reachable through
+  // PostgREST by any client role. customer_pickup_code() releases it on one
+  // test — this is your order.
+  let pickup: PickupCode | null = null;
+  if (typedOrder.status === "ready_for_pickup" || typedOrder.status === "collected") {
+    const { data, error: pickupError } = await supabase.rpc("customer_pickup_code", {
+      p_order_id: typedOrder.id,
+    });
+    // A missing code is not an error page — the order is still fully readable,
+    // and the shop can close it from their side.
+    if (pickupError) console.error("customer_pickup_code failed", pickupError);
+    pickup = (data as PickupCode | null) ?? null;
+  }
+
   return (
     <main className="min-h-screen bg-dark px-4 pb-28 pt-10 text-offwhite md:pb-16">
       <div className="mx-auto max-w-3xl">
@@ -145,6 +160,12 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
             Status: <span className="text-offwhite">{STATUS_LABEL[typedOrder.status as OrderStatus]}</span>
           </p>
         </div>
+
+        {/* Straight under the timeline: when an order is ready, the code IS the
+            next action, and burying it under the receipt would defeat it. */}
+        {pickup?.code && typedOrder.status === "ready_for_pickup" && (
+          <PickupCodeCard pickup={pickup} storeName={(store as { name?: string })?.name} className="mt-4" />
+        )}
 
         {showHold && hold && (
           <section
@@ -280,16 +301,9 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
             </div>
           )}
 
-          {typedOrder.qr_pickup_tokens.length > 0 && (
-            <div className="rounded-2xl border border-white/10 bg-dark-card p-4 sm:col-span-2">
-              <h2 className="flex items-center gap-1.5 font-syne text-sm font-bold text-offwhite">
-                <QrCode size={14} className="text-yellow" /> Pickup
-              </h2>
-              <div className="mt-3 space-y-1 font-dm text-xs text-muted">
-                {typedOrder.qr_pickup_tokens.map((t) => (
-                  <p key={t.id}>{t.redeemed_at ? `Redeemed ${new Date(t.redeemed_at).toLocaleString()}` : "Not yet redeemed"}</p>
-                ))}
-              </div>
+          {pickup?.redeemedAt && (
+            <div className="sm:col-span-2">
+              <PickupCodeCard pickup={pickup} />
             </div>
           )}
         </div>
