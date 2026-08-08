@@ -49,6 +49,10 @@ export default function CheckoutForm({
   // unconfigured shop behaves identically here and in create_order().
   const [acceptsCash, setAcceptsCash] = useState(true);
   const [acceptsBankTransfer, setAcceptsBankTransfer] = useState(false);
+  // This shop wants a PHOTO of the transfer, which is a file upload, which
+  // needs storage RLS, which needs a session. create_order refuses guest bank
+  // transfer here with RR009 (M21) — mirrored so the option is never offered.
+  const [requiresReceipt, setRequiresReceipt] = useState(false);
   // One key per checkout attempt, minted once when this form mounts and kept
   // stable across retries — that is what makes a retry idempotent rather than a
   // second order. A lazy useState initialiser, not useEffect, so it exists
@@ -81,6 +85,23 @@ export default function CheckoutForm({
   const [notes, setNotes] = useState("");
   const [provider, setProvider] = useState<Provider>("cash");
   const [submitting, setSubmitting] = useState(false);
+  const [switching, setSwitching] = useState(false);
+
+  // Sign out and come straight back to checkout. The cart lives in
+  // localStorage, not the session, so it survives — the customer returns to the
+  // same basket signed in as nobody, and the sign-in prompt takes it from there.
+  async function switchAccount() {
+    setSwitching(true);
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      await createClient().auth.signOut();
+      router.replace("/login?next=/checkout");
+      router.refresh();
+    } catch {
+      toast.error("Could not sign out. Please try again.");
+      setSwitching(false);
+    }
+  }
   const [error, setError] = useState<string | null>(null);
 
   const cartKey = cart?.items.map((i) => `${i.variantId}:${i.quantity}`).join(",") ?? "";
@@ -115,9 +136,13 @@ export default function CheckoutForm({
         if (body.payment) {
           setAcceptsCash(!!body.payment.acceptsCash);
           setAcceptsBankTransfer(!!body.payment.acceptsBankTransfer);
+          setRequiresReceipt(!!body.payment.requiresReceipt);
           // Land on a method the shop actually takes rather than leaving the
           // default selected and letting the RPC refuse it at the last step.
-          if (!body.payment.acceptsCash && body.payment.acceptsBankTransfer) {
+          // A guest cannot use bank transfer where a receipt photo is required,
+          // so that combination must not be auto-selected either.
+          const guestBlockedFromBank = !signedInEmail && !!body.payment.requiresReceipt;
+          if (!body.payment.acceptsCash && body.payment.acceptsBankTransfer && !guestBlockedFromBank) {
             setProvider("bank_transfer");
           } else if (body.payment.acceptsCash) {
             setProvider("cash");
@@ -253,7 +278,12 @@ export default function CheckoutForm({
   const scheduleReady = !shopClosed && !(fulfillment === "rr_delivery" && deliveryOffNow);
   // A shop with no payment method configured cannot be ordered from at all;
   // create_order() would refuse whatever we sent.
-  const paymentReady = (provider === "cash" && acceptsCash) || (provider === "bank_transfer" && acceptsBankTransfer);
+  // Bank transfer needs one extra condition for a guest: a shop that demands a
+  // receipt PHOTO cannot be served without an account, because the upload runs
+  // against storage RLS derived from a session. create_order refuses it
+  // (RR009), so the button must not offer it (M21).
+  const bankTransferAvailable = acceptsBankTransfer && !(isGuest && requiresReceipt);
+  const paymentReady = (provider === "cash" && acceptsCash) || (provider === "bank_transfer" && bankTransferAvailable);
   // Never allow submission on a price we could not obtain from the server.
   // A guest must supply a valid email — it is the ONLY way they can be sent a
   // confirmation or find this order again, since they have no account.
@@ -569,10 +599,27 @@ export default function CheckoutForm({
           className="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
         >
           <Check size={15} className="shrink-0 text-green-400" />
-          <p className="min-w-0 font-dm text-sm text-muted">
+          <p className="min-w-0 flex-1 font-dm text-sm text-muted">
             <span className="sr-only" id="who-h">Signed in</span>
             Ordering as <span className="truncate font-medium text-offwhite">{signedInEmail}</span>
           </p>
+          {/* A shared phone, a stale Google session, or simply the wrong
+              account — without a way out, the only options were to abandon the
+              order or place it against someone else's email, which is where the
+              order confirmation and every status update would then go.
+              Deliberately "use a different account" rather than an email-change
+              field: changing an account's address is a Supabase Auth flow that
+              sends confirmation mail to two addresses, which is the wrong thing
+              to start in the middle of a checkout. Signs out and returns here,
+              so the cart (localStorage) survives the round trip. */}
+          <button
+            type="button"
+            onClick={switchAccount}
+            disabled={switching}
+            className="shrink-0 rounded-lg px-2 py-1 font-dm text-xs font-medium text-yellow underline underline-offset-2 transition-colors hover:text-yellow-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow/60 disabled:opacity-50"
+          >
+            {switching ? "Signing out…" : "Not you?"}
+          </button>
         </section>
       )}
 
@@ -626,7 +673,7 @@ export default function CheckoutForm({
             // refuses the rest with RR009. Offering an ungated choice meant a
             // customer could pick Bank transfer — which defaults to OFF — and
             // only discover the shop refuses it after pressing Place order.
-            const accepted = value === "cash" ? acceptsCash : acceptsBankTransfer;
+            const accepted = value === "cash" ? acceptsCash : bankTransferAvailable;
             return (
               <label
                 key={value}
@@ -649,14 +696,27 @@ export default function CheckoutForm({
             This shop hasn&apos;t set up a payment method yet, so it can&apos;t take orders.
           </p>
         )}
-        {acceptsCash !== acceptsBankTransfer && (
+        {/* Never disable a control without saying why — and say it where the
+            customer can act on it. Signing in is the actual remedy here. */}
+        {isGuest && acceptsBankTransfer && requiresReceipt && (
+          <p className="mt-2 font-dm text-xs text-orange-300">
+            This shop needs a photo of your transfer receipt, which needs an account.{" "}
+            <Link href="/login?next=/checkout" className="font-semibold text-yellow hover:underline">
+              Sign in
+            </Link>{" "}
+            to pay by bank transfer, or pay cash instead.
+          </p>
+        )}
+        {acceptsCash !== bankTransferAvailable && !(isGuest && requiresReceipt && acceptsBankTransfer) && (
           <p className="mt-2 font-dm text-xs text-muted">
             This shop only takes {acceptsCash ? "cash" : "bank transfer"}.
           </p>
         )}
-        {provider === "bank_transfer" && acceptsBankTransfer && (
+        {provider === "bank_transfer" && bankTransferAvailable && (
           <p className="mt-2 font-dm text-xs text-muted">
-            You&apos;ll see the shop&apos;s bank details and upload your transfer receipt after placing the order.
+            {isGuest
+              ? "You'll see the shop's bank details on your tracking page after placing the order, and you tell the shop once you've sent the transfer."
+              : "You'll see the shop's bank details and upload your transfer receipt after placing the order."}
           </p>
         )}
       </fieldset>
