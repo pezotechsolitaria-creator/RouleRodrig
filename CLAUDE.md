@@ -13,6 +13,29 @@ production site** (roulerodrig.com) — treat `main` as live.
 - **Bump the service worker cache on every deploy**: in `public/sw.js` increment
   `const CACHE = "rr-cache-vNN"`. Skipping this leaves users on a stale cached build.
 
+## Parallel sessions — use your own worktree
+The owner often runs **several Claude sessions on this repo at once**. Sessions
+that share this directory share one git index, so whoever commits first sweeps up
+everyone else's staged and unstaged files and ships them under its own message.
+This has already misattributed work in both directions.
+
+**A ready worktree exists — work there, not here:**
+`C:/Users/ninja/rr-worktrees/session-2`
+
+- Add another: `git worktree add --detach C:/Users/ninja/rr-worktrees/session-N origin/main`
+- **Keep worktrees outside OneDrive.** A checkout inside it syncs ~500MB of `node_modules`.
+- New worktrees need `npm ci` and a copy of `.env.local` (untracked, so it does not come along).
+- **Detached HEAD is deliberate** — git refuses to check out `main` in two worktrees.
+  Commit normally, then push with `git push origin HEAD:main`.
+- Catch up with `git fetch origin && git rebase origin/main` (not `reset --hard`,
+  which discards your work).
+- A rejected push is the *good* failure: visible, and fixed by a rebase. The bad
+  failure is a silent sweep, which is what sharing one index produces.
+
+**If you must share this directory:** never `git add -A`. Stage explicit paths,
+read `git diff --cached --stat` *before* writing the message, and commit early and
+small — the window between staging and committing is where the race happens.
+
 ## Content model (important)
 - Site content lives in Supabase table `site_content` (`id='main'`, `data` JSONB),
   edited by the owner in `/admin`. Read via `getContent()` / `lib/site-data.ts`.
