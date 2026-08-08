@@ -30,6 +30,7 @@
 import sharp from "sharp";
 import { writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const SAFE_ZONE_SCALE = 0.8;
 
@@ -39,7 +40,12 @@ if (!src) {
   process.exit(1);
 }
 
-const root = resolve(dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), "..");
+// fileURLToPath, NOT url.pathname. A file:// pathname is percent-ENCODED, so any
+// space in a parent folder name arrives as "%20" — this repo lives under
+// "…/Bureau/Roule Rodrigues/…", and the naive version silently wrote a whole
+// stray "Roule%20Rodrigues" directory tree instead of touching the real one.
+// Every asset appeared to generate successfully while nothing changed.
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const out = (p) => resolve(root, p);
 
 /**
@@ -99,7 +105,18 @@ async function maskable(input, size, bg) {
 async function buildIco(input, sizes) {
   const pngs = [];
   for (const size of sizes) {
-    pngs.push({ size, buf: await (await square(input, size)).png().toBuffer() });
+    // ensureAlpha + palette:false are REQUIRED, not tidiness.
+    //
+    // Next.js decodes app/favicon.ico during the build and rejects anything that
+    // is not RGBA: "Format error decoding Ico: The PNG is not in RGBA format!"
+    // and the whole build fails. sharp drops the alpha channel when a source is
+    // fully opaque, and may emit a palette PNG for a flat illustration — both
+    // produce a valid .ico that every browser accepts and that Next refuses.
+    const buf = await (await square(input, size))
+      .ensureAlpha()
+      .png({ palette: false, compressionLevel: 9 })
+      .toBuffer();
+    pngs.push({ size, buf });
   }
   const header = Buffer.alloc(6);
   header.writeUInt16LE(0, 0); // reserved

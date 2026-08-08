@@ -135,14 +135,25 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
       {/* ── Main content ──────────────────────────────── */}
       <div className={`relative z-10 flex flex-col justify-center flex-1 max-w-5xl mx-auto w-full px-4 md:px-6 pb-4 ${compact ? "pt-6" : "pt-20"}`}>
         {/* Eyebrow pill */}
+        {/* Readability over a PHOTO, which is the hard case: the hero image is
+            bright sky and sunlit water, so bg-white/5 gave this pill almost no
+            backing and gold-on-sky fell well under contrast. Three fixes that
+            only work together — a DARK scrim rather than a white one (the text
+            is light, so it needs dark behind it, not lighter), a visible border,
+            and a text shadow covering the moment before backdrop-blur paints on
+            a slow phone. */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.15 }}
-          className="inline-flex items-center gap-2 self-start bg-white/5 backdrop-blur-md border border-white/10 rounded-full px-4 py-1.5 mb-3"
+          className="inline-flex items-center gap-2 self-start bg-dark/70 backdrop-blur-md border border-yellow/25 rounded-full px-4 py-2 mb-3 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.6)]"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-yellow animate-pulse" />
-          <span className="font-bebas text-yellow text-[11px] md:text-xs tracking-[0.3em]">{loc(language, h.eyebrow, h.eyebrowFr, h.eyebrowCr)}</span>
+          {/* 0.3em at 11px pushed the letters so far apart they stopped reading
+              as words — the eye has to reassemble them. 0.18em keeps the
+              editorial feel and stays legible, and 12px on mobile is the
+              smallest this should ever be on a phone held at arm's length. */}
+          <span className="font-bebas text-yellow text-xs md:text-sm tracking-[0.18em] [text-shadow:0_1px_3px_rgba(0,0,0,0.7)]">{loc(language, h.eyebrow, h.eyebrowFr, h.eyebrowCr)}</span>
         </motion.div>
 
         {/* Staggered headline */}
