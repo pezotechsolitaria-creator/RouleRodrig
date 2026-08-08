@@ -189,10 +189,16 @@ export async function POST(req: NextRequest) {
     /* ignore email failures */
   }
 
-  // Sync into Brevo (contact + list) so the owner's automations can fire.
+  // Sync into Brevo so the owner's automations can fire.
+  //
+  // TRANSACTIONAL, explicitly (M41). Covers BOTH accommodation and activities —
+  // they share this route and the place_bookings table. Reserving a room or a
+  // boat trip is not consent to be marketed to; see app/api/bookings/route.ts
+  // for the same reasoning on vehicles.
   if (record.email) {
     try {
       await upsertBrevoContact({
+        list: "transactional",
         email: record.email,
         firstName: record.name.split(/\s+/)[0],
         phone: record.phone,

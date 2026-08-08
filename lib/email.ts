@@ -1,11 +1,30 @@
-// Lightweight email sender using the Resend REST API (no SDK dependency).
-// Gracefully no-ops when RESEND_API_KEY is not configured, so bookings never
-// break just because email isn't set up yet.
+import "server-only";
+// ── Email templates and senders ─────────────────────────────────────────────
+//
+// This file owns WHAT the emails look like. It no longer owns HOW they are
+// delivered: every send goes through lib/email/send.ts, the central router that
+// resolves provider, quota, reserve, idempotency and logging (M41).
+//
+// The local send() below is a thin adapter onto that router, kept so all 18
+// template functions read exactly as they did — and so their callers across the
+// API routes and the cron did not have to change at all.
+//
+// Still true, and still important: nothing here throws. A booking must never
+// fail because a mail provider did.
 import { SITE_URL, CONTACT_EMAIL, PAYPAL_FEE_PERCENT } from "./site";
 // Emails must show "BURGMAN 125cc", never the "burgman" ID the DB stores.
-import { withVehicleName } from "./vehicle-name";
+import { withVehicleName, vehicleCategory } from "./vehicle-name";
+import { sendTransactionalEmail } from "./email/send";
+import { placeEmailType, vehicleEmailType, type EmailType } from "./email/types";
+import { getBrevoCredentials, invalidateBrevoCredentials, upsertBrevoContactRaw } from "./email/providers/brevo";
+import { invalidateEmailConfigCache } from "./email/config";
+import { resendProvider } from "./email/providers/resend";
+import { brevoProvider } from "./email/providers/brevo";
 
 interface BookingEmailData {
+  /** Booking row id. Only used to derive a stable idempotency key — never shown
+   *  to the customer (they see `ref`, the RR-XXXXXX form of the same id). */
+  id?: string | null;
   name: string;
   email: string | null;
   phone: string | null;
@@ -122,12 +141,8 @@ function fmtDate(d: string): string {
   }
 }
 
-// Parse a "Name <email@x>" string (or a bare address) into parts.
-function parseFrom(raw: string): { email: string; name: string } {
-  const m = /^\s*(.*?)\s*<\s*([^>]+)\s*>\s*$/.exec(raw);
-  if (m) return { name: m[1] || "Roule Rodrigues", email: m[2].trim() };
-  return { name: "Roule Rodrigues", email: raw.trim() };
-}
+// (Sender-string parsing moved to lib/email/providers/types.ts — it is a
+//  transport concern, and both provider adapters need it.)
 
 // ── Reusable, email-client-safe building blocks ──────────────────────────
 // Hidden preview text shown in the inbox list next to the subject.
@@ -321,15 +336,17 @@ function buildCalendar(b: BookingEmailData): { gcal: string; ics: string } {
   return { gcal, ics };
 }
 
-// ── Brevo config: admin-saved values (app_secrets) first, env fallback ──
-// Same pattern as the WhatsApp alerts — the owner can paste the API key and
-// sender in Admin → Alerts & Email with no redeploy.
-let emailCfg: { key: string; from: string; listId: number; at: number } | null = null;
 const EMAIL_CFG_TTL = 5 * 60 * 1000;
 
-/** Drop the cached email config (called after the admin saves new settings). */
+/**
+ * Drop every cached email setting — provider credentials, router config
+ * (limits/thresholds/reserve/routing) and the brand lockup. Called after an
+ * admin save so the next send uses the new settings immediately rather than up
+ * to five minutes later.
+ */
 export function invalidateEmailConfig(): void {
-  emailCfg = null;
+  invalidateBrevoCredentials();
+  invalidateEmailConfigCache();
   brandCache = null;
 }
 
@@ -342,47 +359,39 @@ export function invalidateEmailConfig(): void {
  * without one.
  */
 export async function brevoRemindersEnabled(): Promise<boolean> {
-  const { key, listId } = await getBrevoConfig();
-  return !!(key && listId);
-}
-
-async function getBrevoConfig(): Promise<{ key: string; from: string; listId: number }> {
-  if (emailCfg && Date.now() - emailCfg.at < EMAIL_CFG_TTL) return emailCfg;
-  let dbKey = "";
-  let dbFrom = "";
-  let dbList = "";
-  try {
-    const { getPrivileged } = await import("./supabase/admin");
-    const supabase = await getPrivileged();
-    const { data } = await supabase
-      .from("app_secrets")
-      .select("key, value")
-      .in("key", ["brevo_api_key", "email_from", "brevo_list_id"]);
-    const m: Record<string, string> = {};
-    for (const r of (data ?? []) as { key: string; value: string }[]) m[r.key] = r.value;
-    dbKey = (m["brevo_api_key"] ?? "").trim();
-    dbFrom = (m["email_from"] ?? "").trim();
-    dbList = (m["brevo_list_id"] ?? "").trim();
-  } catch {
-    /* fall through to env */
-  }
-  const listRaw = dbList || process.env.BREVO_LIST_ID || "";
-  const listId = Number.parseInt(listRaw, 10);
-  const cfg = {
-    key: dbKey || process.env.BREVO_API_KEY || "",
-    from: dbFrom || process.env.BREVO_FROM || process.env.RESEND_FROM || "",
-    listId: Number.isFinite(listId) && listId > 0 ? listId : 0,
-    at: Date.now(),
-  };
-  emailCfg = cfg;
-  return cfg;
+  // Keyed on the TRANSACTIONAL list, because that is the list a booker actually
+  // joins since M41 — checking the marketing list would report "Brevo is sending
+  // the reminders" about a list nobody joins any more, and customers would get
+  // no reminder at all.
+  //
+  // NOTE: nothing calls this today. Audited across the whole repo — the cron
+  // always sends its own reminders, so the documented "Brevo automations take
+  // over" behaviour has never actually happened. Kept because the switch is
+  // still the right design if the owner does build those automations, but the
+  // duplicate risk it describes is theoretical until something reads it.
+  const { key, transactionalListId } = await getBrevoCredentials();
+  return !!(key && transactionalListId);
 }
 
 /**
- * Create/update a Brevo CONTACT and add it to the configured list, so Brevo
- * automations (confirmation, instructions, pre-trip reminder) can trigger on
- * "contact joins list". Best-effort: never throws, no-ops without a key.
- * The automation workflows themselves are built inside Brevo, not in code.
+ * Create/update a Brevo CONTACT so Brevo automations (confirmation,
+ * instructions, pre-trip reminder) can render real booking data. Best-effort:
+ * never throws, no-ops without a key. The automation workflows themselves are
+ * built inside Brevo, not in code.
+ *
+ * ── MARKETING CONSENT (M41) ───────────────────────────────────────────────
+ * `list` now has to be stated, and every booking flow passes "transactional".
+ *
+ * Until M41 this function put every customer who booked anything into the single
+ * configured `brevo_list_id` — which doubles as the CAMPAIGN audience. So
+ * renting a scooter silently subscribed you to marketing, and the first
+ * promotional campaign would have gone to people who never agreed to receive
+ * one. Booking something is consent to be told about that booking; it is not
+ * consent to be marketed to, and the two audiences are now separate lists.
+ *
+ * The marketing list is reachable only by an explicit opt-in (currently
+ * /api/waitlist). When a booking form later grows a real consent checkbox, it
+ * passes "marketing" here and nothing else about this function changes.
  */
 export async function upsertBrevoContact(c: {
   email: string;
@@ -394,9 +403,11 @@ export async function upsertBrevoContact(c: {
   pickupTime?: string | null;  // HH:MM
   returnDate?: string | null;  // ISO date
   returnTime?: string | null;  // HH:MM
+  /** Which audience to join. Defaults to transactional — the safe choice, so a
+   *  new call site cannot subscribe someone to marketing by omission. */
+  list?: "transactional" | "marketing" | "none";
 }): Promise<boolean> {
-  const { key, listId } = await getBrevoConfig();
-  if (!key || !c.email) return false;
+  if (!c.email) return false;
   // These become Brevo contact attributes (auto-created on first use), so the
   // automation email templates can render {{ contact.VEHICLE }}, etc.
   const attributes: Record<string, string> = {};
@@ -414,26 +425,7 @@ export async function upsertBrevoContact(c: {
     attributes.RETURN_ON = c.returnDate.slice(0, 10);
   }
   if (c.returnTime) attributes.RETURN_TIME = fmtTime(c.returnTime);
-  try {
-    const res = await fetch("https://api.brevo.com/v3/contacts", {
-      method: "POST",
-      headers: { "api-key": key, "Content-Type": "application/json", accept: "application/json" },
-      body: JSON.stringify({
-        email: c.email.toLowerCase(),
-        updateEnabled: true,
-        attributes,
-        ...(listId ? { listIds: [listId] } : {}),
-      }),
-    });
-    if (!res.ok && res.status !== 204) {
-      console.error("[brevo] contact upsert failed", res.status, await res.text().catch(() => ""));
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error("[brevo] contact upsert error", err);
-    return false;
-  }
+  return upsertBrevoContactRaw({ email: c.email, attributes, list: c.list ?? "transactional" });
 }
 
 /**
@@ -459,96 +451,68 @@ export async function upsertBrevoContact(c: {
  * doing the work.
  */
 export async function emailProviderName(): Promise<"resend" | "brevo" | "unconfigured"> {
-  if (process.env.RESEND_API_KEY) return "resend";
   try {
-    const brevo = await getBrevoConfig();
-    if (brevo.key) return "brevo";
+    const { getEmailConfig } = await import("./email/config");
+    const cfg = await getEmailConfig();
+    // Report the DEFAULT provider first when it can actually send — that is the
+    // one carrying almost all traffic. Falls through to the other so a partially
+    // configured setup still reports the provider that would do the work.
+    const order = cfg.defaultProvider === "resend" ? ["resend", "brevo"] : ["brevo", "resend"];
+    for (const name of order) {
+      const impl = name === "resend" ? resendProvider : brevoProvider;
+      if (!cfg.providers[name as "resend" | "brevo"].enabled) continue;
+      if ((await impl.health()).configured) return name as "resend" | "brevo";
+    }
   } catch {
     /* config lookup failed — report unconfigured rather than guessing */
   }
   return "unconfigured";
 }
 
-async function send(to: string, subject: string, html: string, attachments?: Attachment[]): Promise<boolean> {
-  const resendKey = process.env.RESEND_API_KEY;
-  const brevo = await getBrevoConfig();
-  const brevoKey = brevo.key;
-
-  // ── Resend ──
-  if (resendKey) {
-    const from = process.env.RESEND_FROM || "Roule Rodrigues <onboarding@resend.dev>";
-    try {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from,
-          to,
-          subject,
-          html,
-          ...(attachments?.length
-            ? { attachments: attachments.map((a) => ({ filename: a.name, content: a.content })) }
-            : {}),
-        }),
-      });
-      if (!res.ok) {
-        console.error("[email] Resend error", res.status, await res.text().catch(() => ""));
-        return false;
-      }
-      return true;
-    } catch (err) {
-      console.error("[email] Resend send failed", err);
-      return false;
-    }
-  }
-
-  // ── Brevo (no domain needed — verified sender email is enough) ──
-  if (brevoKey) {
-    const fromRaw = brevo.from;
-    if (!fromRaw) {
-      console.error("[email] Email sender not set (Admin → Alerts & Email) — skipping email to", to);
-      return false;
-    }
-    const sender = parseFrom(fromRaw);
-    // Because unauthenticated Gmail senders get their from-domain rewritten to
-    // @brevosend.com, set Reply-To to a real address so replies reach the
-    // owner's inbox.
-    //
-    // Order matters: OWNER_EMAIL first (an explicit env override always wins),
-    // then the routed domain alias, then the Brevo sender. CONTACT_EMAIL sits
-    // above sender.email because both land in the same inbox but the domain
-    // address is the one that looks like a business — and it's routed through
-    // Cloudflare, so it works even if the Brevo sender is swapped later.
-    const replyEmail = process.env.OWNER_EMAIL || CONTACT_EMAIL || sender.email;
-    try {
-      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
-        headers: { "api-key": brevoKey, "Content-Type": "application/json", accept: "application/json" },
-        body: JSON.stringify({
-          sender,
-          to: [{ email: to }],
-          replyTo: { email: replyEmail, name: "Roule Rodrigues" },
-          subject,
-          htmlContent: html,
-          ...(attachments?.length
-            ? { attachment: attachments.map((a) => ({ name: a.name, content: a.content })) }
-            : {}),
-        }),
-      });
-      if (!res.ok) {
-        console.error("[email] Brevo error", res.status, await res.text().catch(() => ""));
-        return false;
-      }
-      return true;
-    } catch (err) {
-      console.error("[email] Brevo send failed", err);
-      return false;
-    }
-  }
-
-  console.log("[email] No email provider set (RESEND_API_KEY or BREVO_API_KEY) — skipping email to", to);
-  return false;
+interface SendOpts {
+  to: string;
+  subject: string;
+  html: string;
+  type: EmailType;
+  /** Stable per-event key. Omit only when the send has no once-only identity. */
+  key?: string | null;
+  relatedType?: string | null;
+  relatedId?: string | null;
+  attachments?: Attachment[];
 }
+
+/**
+ * Adapter onto the central router. Returns a plain boolean because that is what
+ * all 18 template functions and their callers already expect.
+ *
+ * A DEDUPED send reports `true`: the logical email is in the customer's inbox,
+ * which is exactly what the cron needs to know before stamping
+ * `pickup_reminded`. Treating "already sent" as a failure would make the cron
+ * retry it every single day.
+ */
+async function send(opts: SendOpts): Promise<boolean> {
+  const result = await sendTransactionalEmail({
+    type: opts.type,
+    to: opts.to,
+    subject: opts.subject,
+    html: opts.html,
+    attachments: opts.attachments,
+    idempotencyKey: opts.key ?? null,
+    relatedType: opts.relatedType ?? null,
+    relatedId: opts.relatedId ?? null,
+  });
+  return result.ok;
+}
+
+/** Stable idempotency suffix for a booking: the reference if we have it, else
+ *  the row id. Both derive from the same UUID, so either identifies the booking
+ *  uniquely and forever. Returns null when neither is available, which disables
+ *  idempotency for that send rather than inventing a key that could collide. */
+function bookingKeyPart(b: { ref?: string | null; id?: string | null }): string | null {
+  return (b.ref ?? "").trim() || (b.id ?? "").trim() || null;
+}
+
+const keyFor = (type: EmailType, part: string | null): string | null => (part ? `${type}:${part}` : null);
 
 // Bilingual "Label EN · Label FR" rows so a single detail card serves both
 // languages without duplicating the whole table.
@@ -598,6 +562,11 @@ export async function sendBookingEmails(raw: BookingEmailData): Promise<{ custom
   const b = await withVehicleName(raw);
   const result = { customer: false, owner: false };
   const { wa, logo } = await getBrand();
+  // Resolved from the RAW fleet id, before withVehicleName() rewrites `scooter`
+  // to the display name. Cars and scooters are separate email domains.
+  const vcat = await vehicleCategory(raw.scooter);
+  const keyPart = bookingKeyPart(raw);
+  const customerType = vehicleEmailType("booking_confirmation", vcat);
 
   // ── Customer confirmation (bilingual EN + FR, with add-to-calendar) ──
   if (b.email) {
@@ -645,18 +614,24 @@ export async function sendBookingEmails(raw: BookingEmailData): Promise<{ custom
       ${checkList(["Un permis de conduire valide", "Votre confirmation de réservation", "Une pièce d'identité ou un passeport si demandé"])}
       ${paragraph(`Merci d'arriver 10 à 15 minutes en avance afin que nous puissions vérifier le véhicule ensemble. Une question ? Répondez simplement à cet e-mail — au plaisir de vous accueillir !`)}
       ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! I just booked the ${b.scooter} for ${fmtDate(b.start_date)} – ${fmtDate(b.end_date)}.`, "💬 WhatsApp")}</div>` : ""}`;
-    result.customer = await send(
-      b.email,
-      "Your booking request · Votre réservation 🛵",
-      shell({
+    result.customer = await send({
+      to: b.email,
+      subject: "Your booking request · Votre réservation 🛵",
+      html: shell({
         preheader: "We've received your booking · Nous avons bien reçu votre réservation.",
         eyebrow: "Booking received · Réservation reçue",
         title: `Thank you, ${b.name}!`,
         body,
         logo,
       }),
-      [{ name: "roule-rodrigues-booking.ics", content: Buffer.from(cal.ics, "utf8").toString("base64") }],
-    );
+      type: customerType,
+      key: keyFor(customerType, keyPart),
+      relatedType: "booking",
+      relatedId: keyPart,
+      attachments: [
+        { name: "roule-rodrigues-booking.ics", content: Buffer.from(cal.ics, "utf8").toString("base64") },
+      ],
+    });
   }
 
   // ── Owner notification (internal, English) ──
@@ -673,11 +648,15 @@ export async function sendBookingEmails(raw: BookingEmailData): Promise<{ custom
       )}
       ${b.message ? paragraph(`<strong style="color:${C.ink}">Customer note:</strong> ${b.message}`) : ""}
       ${b.phone ? `<div style="text-align:center">${waButton(b.phone, `Hi ${b.name}, thanks for your Roule Rodrigues booking request for the ${b.scooter}! `, "💬 Message " + b.name)}</div>` : ""}`;
-    result.owner = await send(
-      owner,
-      `New booking: ${b.name} — ${b.scooter}`,
-      shell({ eyebrow: "New booking request", title: b.name, body, logo }),
-    );
+    result.owner = await send({
+      to: owner,
+      subject: `New booking: ${b.name} — ${b.scooter}`,
+      html: shell({ eyebrow: "New booking request", title: b.name, body, logo }),
+      type: "owner_booking_alert",
+      key: keyFor("owner_booking_alert", keyPart),
+      relatedType: "booking",
+      relatedId: keyPart,
+    });
   }
 
   return result;
@@ -699,11 +678,16 @@ export async function sendPickupReminder(raw: BookingEmailData): Promise<boolean
     ${frHeading("À demain !")}
     ${paragraph(`Bonjour ${b.name}, petit rappel : votre location commence <strong>demain</strong>. 🛵 Merci d'apporter votre permis de conduire et d'arriver quelques minutes en avance. Nous avons hâte de vous aider à découvrir l'île Rodrigues — à demain !`)}
     ${wa ? `<div style="text-align:center">${waButton(wa, `Hi! About my Roule Rodrigues pickup tomorrow (${b.scooter}) — `, "💬 WhatsApp")}</div>` : ""}`;
-  return send(
+  const type = vehicleEmailType("pickup_reminder", await vehicleCategory(raw.scooter));
+  return send({
     to,
-    "Your rental is tomorrow · Votre location, c'est demain 🛵",
-    shell({ preheader: "Pickup is tomorrow · Le retrait, c'est demain.", eyebrow: "Pickup reminder · Rappel de retrait", title: "See you tomorrow!", body, logo }),
-  );
+    subject: "Your rental is tomorrow · Votre location, c'est demain 🛵",
+    html: shell({ preheader: "Pickup is tomorrow · Le retrait, c'est demain.", eyebrow: "Pickup reminder · Rappel de retrait", title: "See you tomorrow!", body, logo }),
+    type,
+    key: keyFor(type, bookingKeyPart(raw)),
+    relatedType: "booking",
+    relatedId: bookingKeyPart(raw),
+  });
 }
 
 /** Reminder sent the day before the return is due. */
@@ -733,11 +717,16 @@ export async function sendReturnReminder(raw: BookingEmailData): Promise<boolean
     ])}
     ${paragraph(`Merci d'avoir choisi Roule Rodrigues — nous espérons que vous avez passé un moment inoubliable à Rodrigues, et au plaisir de vous revoir lors de votre prochaine visite ! 💛`)}
     ${wa ? `<div style="text-align:center">${waButton(wa, `Hi! About my Roule Rodrigues return (${b.scooter}) — `, "💬 WhatsApp")}</div>` : ""}`;
-  return send(
+  const type = vehicleEmailType("return_reminder", await vehicleCategory(raw.scooter));
+  return send({
     to,
-    "Your return is tomorrow · Votre retour, c'est demain",
-    shell({ preheader: "Your vehicle is due back tomorrow · Retour du véhicule demain.", eyebrow: "Return reminder · Rappel de retour", title: "Return reminder", body, logo }),
-  );
+    subject: "Your return is tomorrow · Votre retour, c'est demain",
+    html: shell({ preheader: "Your vehicle is due back tomorrow · Retour du véhicule demain.", eyebrow: "Return reminder · Rappel de retour", title: "Return reminder", body, logo }),
+    type,
+    key: keyFor(type, bookingKeyPart(raw)),
+    relatedType: "booking",
+    relatedId: bookingKeyPart(raw),
+  });
 }
 
 // ── Post-rental feedback request (sent the day after return) ──────────────
@@ -755,11 +744,16 @@ export async function sendFeedbackRequest(raw: BookingEmailData): Promise<boolea
     ${paragraph(`Bonjour ${b.name}, nous espérons que vous avez adoré Rodrigues ! 🌴 Comment s'est passée votre balade avec le ${b.scooter} ? Un petit avis compte énormément pour une petite entreprise locale — cela prend 30 secondes et aide d'autres voyageurs à nous découvrir.`)}
     <div style="text-align:center">${primaryButton(reviewUrl, "⭐ Leave a review · Laisser un avis")}</div>
     ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! Here's my feedback on the ${b.scooter}: `, "💬 WhatsApp")}</div>` : ""}`;
-  return send(
+  const type = vehicleEmailType("feedback_request", await vehicleCategory(raw.scooter));
+  return send({
     to,
-    "How was your ride? · Votre avis ? 🛵",
-    shell({ preheader: "A 30-second review helps other travellers · Votre avis compte.", eyebrow: "Your feedback · Votre avis", title: "Thanks for riding with us!", body, logo }),
-  );
+    subject: "How was your ride? · Votre avis ? 🛵",
+    html: shell({ preheader: "A 30-second review helps other travellers · Votre avis compte.", eyebrow: "Your feedback · Votre avis", title: "Thanks for riding with us!", body, logo }),
+    type,
+    key: keyFor(type, bookingKeyPart(raw)),
+    relatedType: "booking",
+    relatedId: bookingKeyPart(raw),
+  });
 }
 
 // ── Owner / admin reminders (sent the day before, internal English) ───────
@@ -779,7 +773,15 @@ export async function sendAdminPickupReminder(raw: BookingEmailData): Promise<bo
   if (!owner) return false;
   const b = await withVehicleName(raw);
   const { logo } = await getBrand();
-  return send(owner, `🛵 Deliver tomorrow: ${b.name} — ${b.scooter}`, ownerActionEmail(b, "deliver", logo));
+  return send({
+    to: owner,
+    subject: `🛵 Deliver tomorrow: ${b.name} — ${b.scooter}`,
+    html: ownerActionEmail(b, "deliver", logo),
+    type: "owner_pickup_reminder",
+    key: keyFor("owner_pickup_reminder", bookingKeyPart(raw)),
+    relatedType: "booking",
+    relatedId: bookingKeyPart(raw),
+  });
 }
 
 /** Owner reminder: a scooter is due back tomorrow. */
@@ -788,11 +790,21 @@ export async function sendAdminReturnReminder(raw: BookingEmailData): Promise<bo
   if (!owner) return false;
   const b = await withVehicleName(raw);
   const { logo } = await getBrand();
-  return send(owner, `↩️ Collect tomorrow: ${b.name} — ${b.scooter}`, ownerActionEmail(b, "collect", logo));
+  return send({
+    to: owner,
+    subject: `↩️ Collect tomorrow: ${b.name} — ${b.scooter}`,
+    html: ownerActionEmail(b, "collect", logo),
+    type: "owner_return_reminder",
+    key: keyFor("owner_return_reminder", bookingKeyPart(raw)),
+    relatedType: "booking",
+    relatedId: bookingKeyPart(raw),
+  });
 }
 
 // ── Stay · Eat · Do reservations ─────────────────────────────────────────
 interface PlaceBookingEmailData {
+  /** Row id — idempotency key only, never shown to the customer. */
+  id?: string | null;
   place_name: string;
   category: string | null;
   name: string;
@@ -839,11 +851,16 @@ export async function sendPlaceBookingEmails(b: PlaceBookingEmailData): Promise<
       ${paragraph(`Bonjour ${b.name}, nous avons bien reçu votre demande de réservation pour <strong>${b.place_name}</strong>. Notre équipe confirmera la disponibilité auprès de l'établissement et reviendra vers vous très vite.`)}
       ${paragraph(`<span style="color:${C.muted};font-size:13px">Il s'agit d'une demande, pas encore d'une réservation confirmée — nous vous recontacterons pour tout finaliser.</span>`)}
       ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! I just requested ${b.place_name} for ${fmtDate(b.start_date)}.`, "💬 WhatsApp")}</div>` : ""}`;
-    result.customer = await send(
-      b.email,
-      `Your ${b.place_name} reservation · Votre réservation 🌴`,
-      shell({ preheader: "We've received your reservation · Réservation bien reçue.", eyebrow: "Reservation received · Réservation reçue", title: "Thanks for your reservation!", body, logo }),
-    );
+    const type = placeEmailType("booking_confirmation", b.category);
+    result.customer = await send({
+      to: b.email,
+      subject: `Your ${b.place_name} reservation · Votre réservation 🌴`,
+      html: shell({ preheader: "We've received your reservation · Réservation bien reçue.", eyebrow: "Reservation received · Réservation reçue", title: "Thanks for your reservation!", body, logo }),
+      type,
+      key: keyFor(type, bookingKeyPart(b)),
+      relatedType: "place_booking",
+      relatedId: bookingKeyPart(b),
+    });
   }
 
   const owner = process.env.OWNER_EMAIL;
@@ -860,11 +877,15 @@ export async function sendPlaceBookingEmails(b: PlaceBookingEmailData): Promise<
       ${b.message ? paragraph(`<strong style="color:${C.ink}">Note:</strong> ${b.message}`) : ""}
       ${b.phone ? `<div style="text-align:center">${waButton(b.phone, `Hi ${b.name}, this is Roule Rodrigues about your ${b.place_name} reservation — `, "💬 Message " + b.name)}</div>` : ""}
       ${paragraph(`<span style="color:${C.muted};font-size:12px">Manage this in your admin dashboard → Stay·Eat·Do Bookings.</span>`)}`;
-    result.owner = await send(
-      owner,
-      `New reservation: ${b.name} — ${b.place_name}`,
-      shell({ eyebrow: "New reservation request", title: b.name, body, logo }),
-    );
+    result.owner = await send({
+      to: owner,
+      subject: `New reservation: ${b.name} — ${b.place_name}`,
+      html: shell({ eyebrow: "New reservation request", title: b.name, body, logo }),
+      type: "owner_place_booking_alert",
+      key: keyFor("owner_place_booking_alert", bookingKeyPart(b)),
+      relatedType: "place_booking",
+      relatedId: bookingKeyPart(b),
+    });
   }
 
   return result;
@@ -881,11 +902,16 @@ export async function sendPlaceReminder(b: PlaceBookingEmailData): Promise<boole
     ${frHeading("À demain !")}
     ${paragraph(`Bonjour ${b.name}, petit rappel — votre réservation à <strong>${b.place_name}</strong> est <strong>demain</strong> (${fmtDate(b.start_date)}). 🌴`)}
     ${wa ? `<div style="text-align:center">${waButton(wa, `Hi! About my ${b.place_name} reservation tomorrow — `, "💬 WhatsApp")}</div>` : ""}`;
-  return send(
-    b.email,
-    `Reservation tomorrow · Réservation demain — ${b.place_name} 🌴`,
-    shell({ preheader: "Your reservation is tomorrow · Votre réservation, c'est demain.", eyebrow: "Reservation reminder · Rappel", title: "See you tomorrow!", body, logo }),
-  );
+  const type = placeEmailType("reminder", b.category);
+  return send({
+    to: b.email,
+    subject: `Reservation tomorrow · Réservation demain — ${b.place_name} 🌴`,
+    html: shell({ preheader: "Your reservation is tomorrow · Votre réservation, c'est demain.", eyebrow: "Reservation reminder · Rappel", title: "See you tomorrow!", body, logo }),
+    type,
+    key: keyFor(type, bookingKeyPart(b)),
+    relatedType: "place_booking",
+    relatedId: bookingKeyPart(b),
+  });
 }
 
 /** Customer feedback request the day after a Stay·Eat·Do reservation. */
@@ -900,11 +926,16 @@ export async function sendPlaceFeedbackRequest(b: PlaceBookingEmailData): Promis
     ${paragraph(`Bonjour ${b.name}, comment s'est passé <strong>${b.place_name}</strong> ? Nous serions ravis d'avoir votre retour — un petit avis aide d'autres voyageurs et l'entreprise locale. 💛`)}
     <div style="text-align:center">${primaryButton(reviewUrl, "⭐ Leave a review · Laisser un avis")}</div>
     ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! Here's my feedback on ${b.place_name}: `, "💬 WhatsApp")}</div>` : ""}`;
-  return send(
-    b.email,
-    `How was ${b.place_name}? · Votre avis ? 🌴`,
-    shell({ preheader: "A quick review helps other travellers · Votre avis compte.", eyebrow: "Your feedback · Votre avis", title: "Thanks for visiting!", body, logo }),
-  );
+  const type = placeEmailType("feedback_request", b.category);
+  return send({
+    to: b.email,
+    subject: `How was ${b.place_name}? · Votre avis ? 🌴`,
+    html: shell({ preheader: "A quick review helps other travellers · Votre avis compte.", eyebrow: "Your feedback · Votre avis", title: "Thanks for visiting!", body, logo }),
+    type,
+    key: keyFor(type, bookingKeyPart(b)),
+    relatedType: "place_booking",
+    relatedId: bookingKeyPart(b),
+  });
 }
 
 /** Owner reminder: a Stay·Eat·Do reservation is happening tomorrow. */
@@ -916,7 +947,15 @@ export async function sendAdminPlaceReminder(b: PlaceBookingEmailData): Promise<
     ${paragraph(`<strong style="color:${C.ink}">Reservation tomorrow</strong> (${fmtDate(b.start_date)}) — <strong>${b.name}</strong> at <strong>${b.place_name}</strong>.`)}
     ${detailCard(placeRows(b) + rows(b.phone ? ([["Phone", b.phone]] as [string, string][]) : []))}
     ${b.phone ? `<div style="text-align:center">${waButton(b.phone, `Hi ${b.name}, this is Roule Rodrigues about your ${b.place_name} reservation tomorrow — `, "💬 Message " + b.name)}</div>` : ""}`;
-  return send(owner, `🌴 Reservation tomorrow: ${b.name} — ${b.place_name}`, shell({ eyebrow: "Reservation reminder", title: "Reservation tomorrow", body, logo }));
+  return send({
+    to: owner,
+    subject: `🌴 Reservation tomorrow: ${b.name} — ${b.place_name}`,
+    html: shell({ eyebrow: "Reservation reminder", title: "Reservation tomorrow", body, logo }),
+    type: "owner_place_reminder",
+    key: keyFor("owner_place_reminder", bookingKeyPart(b)),
+    relatedType: "place_booking",
+    relatedId: bookingKeyPart(b),
+  });
 }
 
 // ── Instant enquiry auto-reply (bilingual) ───────────────────────────────
@@ -932,15 +971,29 @@ export async function sendEnquiryAck(to: string, name: string | null): Promise<b
     ${paragraph(`${hiFr} merci d'avoir contacté Roule Rodrigues ! 🛵 Nous avons bien reçu votre message et une vraie personne vous répondra sous quelques heures (nous sommes à l'heure de l'île, UTC+4).`)}
     ${paragraph(`Besoin d'une réponse plus rapide ? Écrivez-nous directement sur WhatsApp — nous répondons généralement en quelques minutes.`)}
     ${wa ? `<div style="text-align:center">${waButton(wa, "Hi Roule Rodrigues! I just sent an enquiry through your website. ", "💬 WhatsApp")}</div>` : ""}`;
-  return send(
+  // Keyed by address + UTC day. A contact submission has no id available here
+  // (the anon INSERT cannot return one under RLS), and this is the honest
+  // middle ground: a double-submitted form gets ONE auto-reply, while a
+  // genuine second enquiry tomorrow still gets its own.
+  return send({
     to,
-    "We've got your message · Message bien reçu 🛵",
-    shell({ preheader: "We've received your message · Nous avons bien reçu votre message.", eyebrow: "Message received · Message reçu", title: "Thanks for getting in touch!", body, logo }),
-  );
+    subject: "We've got your message · Message bien reçu 🛵",
+    html: shell({ preheader: "We've received your message · Nous avons bien reçu votre message.", eyebrow: "Message received · Message reçu", title: "Thanks for getting in touch!", body, logo }),
+    type: "enquiry_ack",
+    key: `enquiry_ack:${to.toLowerCase()}:${new Date().toISOString().slice(0, 10)}`,
+  });
 }
 
 // ── Waitlist / saved-list welcome (lifecycle remarketing, bilingual) ─────
-export async function sendWaitlistWelcome(to: string, source?: string): Promise<boolean> {
+export async function sendWaitlistWelcome(
+  to: string,
+  source?: string,
+  /** Admin "send a test email" path. Sends the same template but as the
+   *  `admin_test` type with NO idempotency key — otherwise the second test to
+   *  the same address would be silently deduped and report success without an
+   *  email arriving, which is the exact opposite of what a test button is for. */
+  opts?: { test?: boolean },
+): Promise<boolean> {
   const { wa, logo } = await getBrand();
   const savedList = source === "saved-list";
   const introEn = savedList
@@ -956,17 +1009,21 @@ export async function sendWaitlistWelcome(to: string, source?: string): Promise<
     ${paragraph(introFr)}
     <div style="text-align:center">${primaryButton(SITE_URL, "Plan your trip · Planifiez votre voyage →")}</div>
     ${wa ? `<div style="text-align:center">${waButton(wa, "Hi Roule Rodrigues! I'd love some help planning my trip. ", "💬 WhatsApp")}</div>` : ""}`;
-  return send(
+  return send({
     to,
-    savedList ? "Your list is saved · Votre liste est enregistrée 🛵" : "Welcome to Roule Rodrigues · Bienvenue 🛵🌴",
-    shell({
+    subject: savedList ? "Your list is saved · Votre liste est enregistrée 🛵" : "Welcome to Roule Rodrigues · Bienvenue 🛵🌴",
+    type: opts?.test ? "admin_test" : "waitlist_welcome",
+    // Source is part of the key: joining the waitlist and saving a list are two
+    // different emails, and one must not suppress the other.
+    key: opts?.test ? null : `waitlist_welcome:${source ?? "default"}:${to.toLowerCase()}`,
+    html: shell({
       preheader: savedList ? "Your saved list is waiting · Votre liste vous attend." : "Island tips, deals and hidden spots · Conseils et offres de Rodrigues.",
       eyebrow: savedList ? "Your saved list · Votre liste" : "Welcome aboard · Bienvenue",
       title: savedList ? "Your saved list is waiting" : "Welcome aboard!",
       body,
       logo,
     }),
-  );
+  });
 }
 
 /**
@@ -987,16 +1044,20 @@ export async function sendTiRouleMissesDigest(to: string, rows: { question: stri
     ${paragraph("Here are the questions visitors asked Ti Roulé this week that he couldn't quite answer yet. Each one is a chance to grow his knowledge — and a free SEO idea.")}
     <table style="width:100%;border-collapse:collapse;margin-top:8px">${items}</table>
     <div style="text-align:center;margin-top:18px">${primaryButton(`${SITE_URL}/admin`, "Open the admin dashboard →")}</div>`;
-  return send(
+  return send({
     to,
-    `Ti Roulé — ${rows.length} question${rows.length === 1 ? "" : "s"} to answer this week 🐢`,
-    shell({
+    subject: `Ti Roulé — ${rows.length} question${rows.length === 1 ? "" : "s"} to answer this week 🐢`,
+    html: shell({
       preheader: "Top questions Ti Roulé couldn't answer this week.",
       eyebrow: "Ti Roulé · weekly",
       title: "This week's unanswered questions",
       body,
     }),
-  );
+    type: "owner_tiroule_digest",
+    // One digest per UTC week. The cron already gates on "is it Monday?", but a
+    // re-run or a manual trigger on the same Monday would otherwise resend it.
+    key: `owner_tiroule_digest:${new Date().toISOString().slice(0, 10)}`,
+  });
 }
 
 /**
@@ -1010,6 +1071,10 @@ export async function sendVehicleUnavailableEmail(o: {
   start: string;
   end: string;
   ref?: string | null;
+  /** Fleet id or name, so the email is routed as car or scooter. Optional: the
+   *  caller only has the display name in some paths, and vehicleCategory()
+   *  resolves either — defaulting to scooter exactly as pricing does. */
+  vehicleId?: string | null;
 }): Promise<boolean> {
   const first = (o.name ?? "").trim().split(/\s+/)[0] || "there";
   const dates = o.start === o.end ? fmtDate(o.start) : `${fmtDate(o.start)} → ${fmtDate(o.end)}`;
@@ -1028,7 +1093,16 @@ export async function sendVehicleUnavailableEmail(o: {
       vient d'être réservé par un autre client. Aucun montant ne vous a été débité —
       <a href="https://roulerodrig.com/browse/scooter" style="color:#F5C842">réservez-en un autre</a>.</p>`,
   });
-  return send(o.to, "Update on your Roule Rodrigues booking", html);
+  const type = vehicleEmailType("booking_status", await vehicleCategory(o.vehicleId ?? o.vehicle));
+  return send({
+    to: o.to,
+    subject: "Update on your Roule Rodrigues booking",
+    html,
+    type,
+    key: keyFor(type, (o.ref ?? "").trim() || null),
+    relatedType: "booking",
+    relatedId: (o.ref ?? "").trim() || null,
+  });
 }
 
 // ── Marketplace order notifications (Milestone 4) ────────────────────────
@@ -1046,6 +1120,16 @@ export async function sendOrderNotificationEmail(o: {
   details?: [string, string][];
   /** Action button — merchant dashboard or customer tracking link (M17). */
   cta?: { url: string; label: string };
+  /**
+   * Routing type. Passed in rather than derived because one template serves the
+   * whole order lifecycle — placed, accepted, paid, expired, merchant copy —
+   * and those are different email types with different priorities. Defaults to
+   * the generic status type so an unmigrated caller still routes and logs.
+   */
+  type?: EmailType;
+  /** Stable per-event key, e.g. `marketplace_order_status:<orderId>:accepted`. */
+  idempotencyKey?: string | null;
+  orderId?: string | null;
 }): Promise<boolean> {
   const { logo } = await getBrand();
   const pairs: [string, string][] = [
@@ -1056,9 +1140,13 @@ export async function sendOrderNotificationEmail(o: {
     ${paragraph(o.message)}
     ${pairs.length ? detailCard(rows(pairs)) : ""}
     ${o.cta ? `<div style="text-align:center">${primaryButton(o.cta.url, o.cta.label)}</div>` : ""}`;
-  return send(
-    o.to,
-    o.subject,
-    shell({ eyebrow: "Order update", title: o.heading, body, logo }),
-  );
+  return send({
+    to: o.to,
+    subject: o.subject,
+    html: shell({ eyebrow: "Order update", title: o.heading, body, logo }),
+    type: o.type ?? "marketplace_order_status",
+    key: o.idempotencyKey ?? null,
+    relatedType: "order",
+    relatedId: o.orderId ?? o.orderNumber ?? null,
+  });
 }

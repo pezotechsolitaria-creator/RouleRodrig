@@ -274,12 +274,19 @@ export async function POST(req: NextRequest) {
     /* ignore email failures */
   }
 
-  // Sync the customer into Brevo (contact + list) with full booking details so
-  // the owner's Brevo automations — confirmation, instructions, pre-trip
-  // reminder, return reminder — render real data. Best-effort.
+  // Sync the customer into Brevo with full booking details so the owner's Brevo
+  // automations — confirmation, instructions, pre-trip reminder, return reminder
+  // — render real data. Best-effort.
+  //
+  // TRANSACTIONAL, explicitly (M41). This covers BOTH scooters and cars: they
+  // share this route and this table. Renting a vehicle is consent to be told
+  // about that rental, not consent to receive campaigns — so this joins the
+  // lifecycle list, never the marketing audience. When a consent checkbox is
+  // added to the booking form, that is the only thing that may pass "marketing".
   if (record.email) {
     try {
       await upsertBrevoContact({
+        list: "transactional",
         email: record.email,
         firstName: record.name.split(/\s+/)[0],
         phone: record.phone,

@@ -45,8 +45,13 @@ export async function POST(req: NextRequest) {
       /* ignore email failures */
     }
     // Also sync into Brevo contacts/list for automations & campaigns.
+    //
+    // MARKETING, and this is the ONLY route in the platform that may say so
+    // (M41). Joining the waitlist or saving a list IS an explicit opt-in to hear
+    // from us — unlike booking a scooter, which is not. Every booking flow
+    // passes "transactional" instead.
     try {
-      await upsertBrevoContact({ email, firstName: (body.name ?? "").trim() || null });
+      await upsertBrevoContact({ list: "marketing", email, firstName: (body.name ?? "").trim() || null });
     } catch {
       /* best-effort */
     }

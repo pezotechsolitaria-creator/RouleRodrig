@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 // DRIFTED once already (this read v96 while public/sw.js was on v110), which is
 // the one failure this constant exists to prevent — a health endpoint that
 // confidently reports a stale answer is worse than one that reports nothing.
-const SW_CACHE_VERSION = "rr-cache-v117";
+const SW_CACHE_VERSION = "rr-cache-v118";
 
 // ── Health / readiness / liveness ────────────────────────────────────────────
 // GET /api/health           → readiness (checks the database dependency)
@@ -83,6 +83,34 @@ export async function GET(req: Request) {
     /* leave as unconfigured */
   }
 
+  // Quota LEVEL only — never the counts.
+  //
+  // This endpoint is public. "238/300 emails sent today" would publish the
+  // platform's order and booking volume to anyone who curls it, which is
+  // business information, not health information. A level answers the only
+  // question an uptime monitor actually has ("is mail about to stop?") and
+  // leaks nothing: the exact numbers live behind the admin session in
+  // /api/admin/email. Same principle as reporting adminBackend as
+  // "configured" rather than echoing the key.
+  let emailQuota: Record<string, string> | null = null;
+  try {
+    const { getEmailConfig } = await import("@/lib/email/config");
+    const { getProviderUsage } = await import("@/lib/email/quota");
+    const cfg = await getEmailConfig();
+    const [resend, brevo] = await Promise.all([
+      getProviderUsage("resend", cfg),
+      getProviderUsage("brevo", cfg),
+    ]);
+    emailQuota = {
+      // "unconfigured" is distinct from "normal": a provider with no key has no
+      // quota problem precisely because it is doing no work.
+      resend: resend.configured ? resend.level : "unconfigured",
+      brevo: brevo.configured ? brevo.level : "unconfigured",
+    };
+  } catch {
+    /* omit rather than report a level we could not compute */
+  }
+
   const healthy = db === "ok";
   return NextResponse.json(
     {
@@ -119,6 +147,8 @@ export async function GET(req: Request) {
         // email is discarded. "unconfigured" here means guest checkout is
         // effectively broken even though every other check is green.
         email: emailProvider,
+        // Levels only (see above). Absent when it could not be computed.
+        ...(emailQuota ? { emailQuota } : {}),
         // The canonical origin every confirmation link, tracking link and
         // JSON-LD URL is built from. If this is wrong, emails point at the
         // wrong host — a failure that is invisible until a customer clicks.

@@ -1,6 +1,7 @@
 import "server-only";
 import { sendOrderNotificationEmail } from "@/lib/email";
 import { sendOwnerWhatsApp } from "@/lib/whatsapp";
+import type { EmailType } from "@/lib/email/types";
 
 // ── Best-effort external notification dispatch (Milestone 4) ────────────────
 // The AUTHORITATIVE, atomic in-app notification is written by the
@@ -30,6 +31,24 @@ export interface NotificationEvent {
    * must fire exactly once per order — not once per staff member.
    */
   channels?: ChannelName[];
+  /**
+   * Routing type for the email channel (M41). One template serves the whole
+   * order lifecycle, but "order placed", "payment confirmed" and "order
+   * expired" are different email types with different priorities — so the
+   * caller, which knows WHICH event this is, names it.
+   */
+  emailType?: EmailType;
+  /**
+   * Stable per-event key, e.g. `marketplace_order_status:<orderId>:accepted`.
+   *
+   * This is a SECOND layer under the M17 claim, not a replacement for it, and it
+   * fixes a real gap the claim leaves: when a customer send fails, M17 releases
+   * the whole claim so the order is re-swept — which previously re-emailed every
+   * merchant staff member who had already been told. Per-recipient keys mean the
+   * retry reaches only whoever was actually missed.
+   */
+  idempotencyKey?: string | null;
+  orderId?: string | null;
 }
 
 export type ChannelName = "email" | "whatsapp" | "web-push" | "mobile-push";
@@ -51,6 +70,9 @@ const emailChannel: NotificationChannel = {
       orderNumber: event.orderNumber,
       details: event.details,
       cta: event.cta,
+      type: event.emailType,
+      idempotencyKey: event.idempotencyKey ?? null,
+      orderId: event.orderId ?? null,
     });
   },
 };

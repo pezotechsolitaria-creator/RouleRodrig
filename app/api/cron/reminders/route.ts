@@ -328,6 +328,37 @@ export async function GET(req: NextRequest) {
     /* ignore */
   }
 
+  // ── Email quota check (M41) ───────────────────────────────────────────
+  // The router alerts as it crosses a threshold mid-send, which catches a busy
+  // day as it happens. This pass catches the cases a send-time hook structurally
+  // cannot: a month that is nearly spent while today is quiet, a provider whose
+  // credentials broke since the last email, and a ticketing reserve that became
+  // insufficient because an event went on sale rather than because mail was sent.
+  let emailQuotaLevel: Record<string, string> = {};
+  try {
+    const { getEmailConfig } = await import("@/lib/email/config");
+    const { getProviderUsage, getReserveState } = await import("@/lib/email/quota");
+    const { alertQuotaLevel, alertReserveInsufficient } = await import("@/lib/email/alerts");
+    const cfg = await getEmailConfig();
+    const [resendUsage, brevoUsage, reserve] = await Promise.all([
+      getProviderUsage("resend", cfg),
+      getProviderUsage("brevo", cfg),
+      getReserveState(cfg),
+    ]);
+    emailQuotaLevel = {
+      resend: resendUsage.configured ? resendUsage.level : "unconfigured",
+      brevo: brevoUsage.configured ? brevoUsage.level : "unconfigured",
+    };
+    // Both alerts are throttled to once per level per UTC day, so a persistent
+    // warning does not become a daily nag the owner learns to ignore.
+    for (const u of [resendUsage, brevoUsage]) {
+      if (u.configured) await alertQuotaLevel(u);
+    }
+    await alertReserveInsufficient(reserve);
+  } catch (err) {
+    console.error("email quota check failed", err);
+  }
+
   // ── Nightly content backup — snapshot site_content when it has changed ──
   let backupSaved = false;
   try {
@@ -368,6 +399,7 @@ export async function GET(req: NextRequest) {
       missesEmailed,
       backupSaved,
       emailFailures,
+      emailQuotaLevel,
     },
     // Non-2xx when mail went undelivered, so the run shows up red in Vercel's
     // cron log. `ok: true` regardless of outcome meant the only signal that

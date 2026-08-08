@@ -159,6 +159,12 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
         details: merchantDetails,
         cta: { url: `${SITE_URL}/merchant/orders/${input.orderId}`, label: "Open in your dashboard →" },
         channels: ["email"],
+        emailType: "marketplace_merchant_notification",
+        // Keyed per RECIPIENT, because this is a fan-out: if the claim is
+        // released and re-swept, staff already notified are deduped and only the
+        // ones actually missed are emailed again.
+        idempotencyKey: `marketplace_merchant_notification:${input.orderId}:${email.toLowerCase()}`,
+        orderId: input.orderId,
       }),
     );
     // Exactly ONE owner WhatsApp ping per order, however many staff there are.
@@ -205,6 +211,9 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
             label: "Track your order →",
           },
           channels: ["email"],
+          emailType: "marketplace_order_confirmation",
+          idempotencyKey: `marketplace_order_confirmation:${input.orderId}`,
+          orderId: input.orderId,
         })
       : null;
 

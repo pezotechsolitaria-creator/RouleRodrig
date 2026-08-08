@@ -3,6 +3,7 @@ import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { dispatchNotification } from "./dispatch";
 import { SITE_URL } from "@/lib/site";
 import { centsToDecimalString } from "@/lib/money";
+import type { EmailType } from "@/lib/email/types";
 
 // ── Customer-facing lifecycle emails ────────────────────────────────────────
 //
@@ -21,6 +22,18 @@ import { centsToDecimalString } from "@/lib/money";
 // committed before any of this runs, exactly like the M17 placement notice.
 
 export type OrderCustomerEvent = "accepted" | "payment_confirmed" | "expired" | "payment_due";
+
+/**
+ * Which email type each lifecycle event routes as (M41). Payment confirmation is
+ * `critical` in the registry — it is the message that tells a customer they owe
+ * nothing further, and its absence produces a support call every time.
+ */
+const EVENT_EMAIL_TYPE: Record<OrderCustomerEvent, EmailType> = {
+  payment_due: "marketplace_payment_due",
+  accepted: "marketplace_order_status",
+  payment_confirmed: "marketplace_payment_confirmation",
+  expired: "marketplace_order_expired",
+};
 
 /** Copy per event. Kept together so the whole customer voice is readable at once. */
 function compose(event: OrderCustomerEvent, orderNumber: string, storeName: string) {
@@ -137,6 +150,11 @@ export async function notifyOrderCustomer(orderId: string, event: OrderCustomerE
         label: copy.cta,
       },
       channels: ["email"],
+      emailType: EVENT_EMAIL_TYPE[event],
+      // One email per (order, lifecycle event). A retried PATCH, a re-run cron
+      // sweep or a double-clicked merchant button all resolve to the same key.
+      idempotencyKey: `${EVENT_EMAIL_TYPE[event]}:${orderId}:${event}`,
+      orderId,
     });
   } catch (err) {
     console.error(`notifyOrderCustomer failed for order ${orderId} (${event})`, err);

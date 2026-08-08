@@ -60,6 +60,7 @@ import {
   TrendingUp,
   UserPlus,
   FileCheck,
+  Settings,
 } from "lucide-react";
 import type { TaxiDriver, TaxiDriverReview } from "@/lib/supabase/taxi-types";
 import type {
@@ -5791,6 +5792,7 @@ function NotificationsEditor() {
       </div>
 
       <EmailSettingsCard />
+      <EmailDeliveryCard />
     </div>
   );
 }
@@ -5801,6 +5803,7 @@ function EmailSettingsCard() {
   const [apikey, setApikey] = useState("");
   const [apikeyHint, setApikeyHint] = useState("");
   const [listId, setListId] = useState("");
+  const [txListId, setTxListId] = useState("");
   const [testTo, setTestTo] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -5815,6 +5818,7 @@ function EmailSettingsCard() {
           const d = await res.json();
           setFrom(d.from || "");
           setListId(d.listId || "");
+          setTxListId(d.transactionalListId || "");
           setApikeyHint(d.apikeyHint || "");
         }
       } finally {
@@ -5830,7 +5834,7 @@ function EmailSettingsCard() {
       const res = await fetch("/api/admin/email", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apikey, from, listId }),
+        body: JSON.stringify({ apikey, from, listId, transactionalListId: txListId }),
       });
       const d = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -5891,9 +5895,18 @@ function EmailSettingsCard() {
       <Field label="SENDER (must be verified in Brevo)">
         <TextInput value={from} onChange={setFrom} placeholder="Roule Rodrigues <you@gmail.com>" />
       </Field>
-      <Field label="BREVO LIST ID (optional — customers auto-join this list, triggering your Brevo automations)">
+      <Field label="TRANSACTIONAL LIST ID (optional — everyone who books joins this list)">
+        <TextInput value={txListId} onChange={setTxListId} placeholder="e.g. 4 (Brevo → Contacts → Lists)" />
+      </Field>
+      <Field label="MARKETING LIST ID (optional — ONLY people who opted in: waitlist and saved lists)">
         <TextInput value={listId} onChange={setListId} placeholder="e.g. 3 (Brevo → Contacts → Lists)" />
       </Field>
+      <p className="text-muted/50 text-[11px] font-dm leading-relaxed">
+        These must be two different lists. Booking a scooter is consent to hear about that booking —
+        it is not consent to receive campaigns. Send promotions to the <strong className="text-offwhite/70">marketing</strong> list
+        only; the <strong className="text-offwhite/70">transactional</strong> list is for lifecycle automations
+        (confirmations, pre-trip reminders) and must never be used as a campaign audience.
+      </p>
 
       {msg && (
         <p className={`flex items-center gap-2 text-sm font-dm ${msg.ok ? "text-green-400" : "text-red-400"}`}>
@@ -5924,6 +5937,469 @@ function EmailSettingsCard() {
             {testing ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />} Send test
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Email delivery: quota, reserve, and what is consuming it (M41) ──────────
+// Deliberately actionable rather than decorative (§32 of the email brief): if
+// usage is high, the panel names the email types responsible so traffic can be
+// moved, and lists every send that did NOT arrive so nothing is silently lost.
+interface QuotaWindowView {
+  used: number;
+  limit: number | null;
+  remaining: number | null;
+  percent: number | null;
+  level: string;
+}
+interface ProviderUsageView {
+  provider: "resend" | "brevo";
+  enabled: boolean;
+  configured: boolean;
+  configReason?: string;
+  day: QuotaWindowView;
+  month: QuotaWindowView;
+  level: string;
+  usageKnown: boolean;
+  blindSpot?: string;
+}
+interface ReserveView {
+  provider: string;
+  configuredDaily: number;
+  configuredMonthly: number;
+  onlyWhenActive: boolean;
+  ticketingActive: boolean;
+  ticketingKnown: boolean;
+  activeEvents: number;
+  protectedDaily: number;
+  protectedMonthly: number;
+  flexibleDaily: number | null;
+  flexibleMonthly: number | null;
+  estimatedRequirement: number | null;
+  sufficient: boolean | null;
+}
+interface ActivityView {
+  id: string;
+  createdAt: string;
+  emailType: string;
+  provider: string | null;
+  status: string;
+  recipient: string;
+  relatedType: string | null;
+  relatedId: string | null;
+  failureReason: string | null;
+}
+interface EmailOpsData {
+  activeProvider: string;
+  usage: { resend: ProviderUsageView; brevo: ProviderUsageView };
+  reserve: ReserveView;
+  todayTypes: { emailType: string; count: number }[];
+  activity: ActivityView[];
+  problems: ActivityView[];
+  statuses: Record<string, number>;
+  config: {
+    defaultProvider: string;
+    providers: Record<string, { enabled: boolean; dailyLimit: number | null; monthlyLimit: number | null }>;
+    thresholds: { watch: number; warning: number; critical: number };
+    reserves: { ticketing: { provider: string; daily: number; monthly: number; onlyWhenActive: boolean } };
+  };
+}
+
+const LEVEL_STYLE: Record<string, { dot: string; text: string; label: string }> = {
+  normal: { dot: "bg-green-400", text: "text-green-400", label: "Normal" },
+  watch: { dot: "bg-yellow", text: "text-yellow", label: "Watch" },
+  warning: { dot: "bg-orange-400", text: "text-orange-400", label: "Warning" },
+  critical: { dot: "bg-red-400", text: "text-red-400", label: "Critical" },
+  exhausted: { dot: "bg-red-500", text: "text-red-500", label: "Limit reached" },
+  unconfigured: { dot: "bg-[#3a3a3a]", text: "text-muted/60", label: "Not configured" },
+};
+
+function levelStyle(l: string) {
+  return LEVEL_STYLE[l] ?? LEVEL_STYLE.unconfigured;
+}
+
+function prettyType(t: string) {
+  return t.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+}
+
+function QuotaBar({ w }: { w: QuotaWindowView }) {
+  const pct = w.percent ?? 0;
+  const s = levelStyle(w.level);
+  return (
+    <div className="h-1.5 rounded-full bg-[#1c1c1c] overflow-hidden">
+      <div className={`h-full ${s.dot} transition-all`} style={{ width: `${Math.max(2, Math.min(100, pct))}%` }} />
+    </div>
+  );
+}
+
+function ProviderQuota({ u }: { u: ProviderUsageView }) {
+  const s = levelStyle(u.configured ? u.level : "unconfigured");
+  const windows: [string, QuotaWindowView][] = [
+    ["today", u.day],
+    ["this month", u.month],
+  ];
+  return (
+    <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl p-4 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-bebas text-offwhite text-sm tracking-[0.2em]">{u.provider.toUpperCase()}</p>
+        <span className={`flex items-center gap-1.5 text-[11px] font-dm ${s.text}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} /> {s.label}
+        </span>
+      </div>
+
+      {!u.configured ? (
+        <p className="text-muted/60 text-xs font-dm leading-relaxed">{u.configReason ?? "Not configured."}</p>
+      ) : (
+        <>
+          {windows.map(([label, w]) =>
+            w.limit === null ? (
+              <p key={label} className="text-muted/50 text-[11px] font-dm">
+                {w.used} sent {label} · no {label === "today" ? "daily" : "monthly"} limit set
+              </p>
+            ) : (
+              <div key={label} className="space-y-1">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-offwhite font-dm text-sm">
+                    {w.used} <span className="text-muted/50">/ {w.limit}</span>{" "}
+                    <span className="text-muted/50 text-xs">{label}</span>
+                  </span>
+                  <span className="text-muted/60 font-dm text-[11px]">
+                    {w.percent?.toFixed(0)}% · {w.remaining} left
+                  </span>
+                </div>
+                <QuotaBar w={w} />
+              </div>
+            ),
+          )}
+          {!u.usageKnown && (
+            <p className="text-orange-400/80 text-[11px] font-dm">
+              Usage could not be read from the log — these numbers are not reliable right now.
+            </p>
+          )}
+          {u.blindSpot && <p className="text-muted/45 text-[11px] font-dm leading-relaxed">{u.blindSpot}</p>}
+        </>
+      )}
+    </div>
+  );
+}
+
+function EmailDeliveryCard() {
+  const [d, setD] = useState<EmailOpsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [showConfig, setShowConfig] = useState(false);
+
+  // Editable settings — seeded from the server, never hard-coded here.
+  const [resendDaily, setResendDaily] = useState("");
+  const [resendMonthly, setResendMonthly] = useState("");
+  const [brevoDaily, setBrevoDaily] = useState("");
+  const [watch, setWatch] = useState("");
+  const [warning, setWarning] = useState("");
+  const [critical, setCritical] = useState("");
+  const [reserveDaily, setReserveDaily] = useState("");
+  const [reserveMonthly, setReserveMonthly] = useState("");
+  const [reserveOnlyActive, setReserveOnlyActive] = useState(true);
+
+  function seed(data: EmailOpsData) {
+    setResendDaily(String(data.config.providers.resend?.dailyLimit ?? ""));
+    setResendMonthly(String(data.config.providers.resend?.monthlyLimit ?? ""));
+    setBrevoDaily(String(data.config.providers.brevo?.dailyLimit ?? ""));
+    setWatch(String(data.config.thresholds.watch));
+    setWarning(String(data.config.thresholds.warning));
+    setCritical(String(data.config.thresholds.critical));
+    setReserveDaily(String(data.config.reserves.ticketing.daily));
+    setReserveMonthly(String(data.config.reserves.ticketing.monthly));
+    setReserveOnlyActive(data.config.reserves.ticketing.onlyWhenActive);
+  }
+
+  async function load() {
+    try {
+      const res = await fetch("/api/admin/email");
+      if (res.ok) {
+        const data = (await res.json()) as EmailOpsData;
+        setD(data);
+        seed(data);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function saveConfig() {
+    setSaving(true);
+    setMsg(null);
+    const n = (v: string) => (v.trim() === "" ? null : Number(v));
+    try {
+      const res = await fetch("/api/admin/email", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          providers: {
+            resend: { dailyLimit: n(resendDaily), monthlyLimit: n(resendMonthly) },
+            brevo: { dailyLimit: n(brevoDaily) },
+          },
+          thresholds: { watch: Number(watch), warning: Number(warning), critical: Number(critical) },
+          reserves: {
+            ticketing: {
+              daily: Number(reserveDaily),
+              monthly: Number(reserveMonthly),
+              onlyWhenActive: reserveOnlyActive,
+            },
+          },
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setMsg({ ok: true, text: "Saved. New limits apply to the next email sent." });
+        await load();
+      } else {
+        setMsg({ ok: false, text: body.error || "Could not save." });
+      }
+    } catch {
+      setMsg({ ok: false, text: "Network error — try again." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-10">
+        <Loader2 size={20} className="animate-spin text-yellow" />
+      </div>
+    );
+  }
+  if (!d) return null;
+
+  const r = d.reserve;
+
+  return (
+    <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-bebas text-yellow text-xs tracking-[0.3em]">EMAIL DELIVERY</p>
+          <p className="text-muted/60 text-xs font-dm mt-1 leading-relaxed">
+            Free-tier capacity across both providers. Emails currently go out via{" "}
+            <strong className="text-offwhite/80">{d.activeProvider}</strong>.
+          </p>
+        </div>
+        <button
+          onClick={load}
+          className="shrink-0 text-muted/60 hover:text-yellow transition-colors"
+          title="Refresh"
+          aria-label="Refresh email delivery stats"
+        >
+          <RefreshCw size={15} />
+        </button>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <ProviderQuota u={d.usage.brevo} />
+        <ProviderQuota u={d.usage.resend} />
+      </div>
+
+      {/* ── Ticketing reserve ── */}
+      <div className="bg-[#111] border border-[#2a2a2a] rounded-xl p-4 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className="font-bebas text-offwhite text-sm tracking-[0.2em]">TICKETING RESERVE</p>
+          <span
+            className={`text-[11px] font-dm ${r.ticketingActive ? "text-yellow" : "text-muted/50"}`}
+          >
+            {r.ticketingActive
+              ? `Active · ${r.activeEvents} event${r.activeEvents === 1 ? "" : "s"} on sale`
+              : "Dormant · no events on sale"}
+          </span>
+        </div>
+        <p className="text-muted/60 text-xs font-dm leading-relaxed">
+          {r.ticketingActive ? (
+            <>
+              Holding <strong className="text-offwhite/80">{r.protectedDaily}/day</strong> and{" "}
+              <strong className="text-offwhite/80">{r.protectedMonthly}/month</strong> of {r.provider} capacity for
+              ticket emails. Other email may use {r.flexibleDaily ?? "∞"}/day.
+            </>
+          ) : (
+            <>
+              Configured at {r.configuredDaily}/day and {r.configuredMonthly}/month on {r.provider}, but nothing is
+              held back — there are no published, uncancelled, upcoming events, so the full capacity stays available
+              to normal traffic. It protects itself again automatically the moment an event goes on sale.
+            </>
+          )}
+        </p>
+        {!r.ticketingKnown && (
+          <p className="text-orange-400/80 text-[11px] font-dm">
+            Could not check for live events, so the reserve is being applied as a precaution.
+          </p>
+        )}
+        {r.sufficient === false && (
+          <p className="text-orange-400 text-xs font-dm leading-relaxed">
+            ⚠ The reserve may be too small: about {r.estimatedRequirement} ticket emails are needed for the capacity
+            still on sale, against {r.configuredMonthly} reserved. Raise it below, or move other email off{" "}
+            {r.provider}.
+          </p>
+        )}
+        {r.sufficient === true && (
+          <p className="text-green-400/80 text-[11px] font-dm">
+            Reserve looks sufficient — about {r.estimatedRequirement} ticket emails needed for the capacity still on
+            sale.
+          </p>
+        )}
+      </div>
+
+      {/* ── What is consuming it ── */}
+      {d.todayTypes.length > 0 && (
+        <div className="space-y-2">
+          <p className="font-bebas text-offwhite/70 text-xs tracking-[0.25em]">TOP EMAIL TYPES TODAY</p>
+          <div className="space-y-1">
+            {d.todayTypes.map((t) => (
+              <div key={t.emailType} className="flex items-center justify-between gap-3 text-xs font-dm">
+                <span className="text-muted/70 truncate">{prettyType(t.emailType)}</span>
+                <span className="text-offwhite/80 shrink-0">{t.count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Anything that did not arrive ── */}
+      {d.problems.length > 0 && (
+        <div className="space-y-2">
+          <p className="font-bebas text-red-400/80 text-xs tracking-[0.25em]">NOT DELIVERED — NEEDS A LOOK</p>
+          <div className="space-y-2">
+            {d.problems.map((p) => (
+              <div key={p.id} className="bg-[#160f0f] border border-red-900/40 rounded-lg p-3 space-y-1">
+                <div className="flex items-center justify-between gap-2 text-xs font-dm">
+                  <span className="text-offwhite/80">{prettyType(p.emailType)}</span>
+                  <span className="text-red-400/80 uppercase text-[10px] tracking-wider">{p.status}</span>
+                </div>
+                <p className="text-muted/60 text-[11px] font-dm break-all">
+                  {p.recipient}
+                  {p.relatedId ? ` · ${p.relatedType} ${p.relatedId}` : ""}
+                </p>
+                {p.failureReason && (
+                  <p className="text-muted/50 text-[11px] font-dm leading-relaxed">{p.failureReason}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Recent activity ── */}
+      <div className="space-y-2">
+        <p className="font-bebas text-offwhite/70 text-xs tracking-[0.25em]">RECENT ACTIVITY</p>
+        {d.activity.length === 0 ? (
+          <p className="text-muted/50 text-xs font-dm">
+            No emails logged yet. Every send from now on is recorded here.
+          </p>
+        ) : (
+          <div className="overflow-x-auto -mx-1">
+            <table className="w-full text-[11px] font-dm min-w-[420px]">
+              <tbody>
+                {d.activity.map((a) => (
+                  <tr key={a.id} className="border-b border-[#1c1c1c] last:border-0">
+                    <td className="py-1.5 pr-2 text-muted/50 whitespace-nowrap align-top">
+                      {new Date(a.createdAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                    </td>
+                    <td className="py-1.5 pr-2 text-offwhite/80 align-top">{prettyType(a.emailType)}</td>
+                    <td className="py-1.5 pr-2 text-muted/60 whitespace-nowrap align-top">{a.provider ?? "—"}</td>
+                    <td
+                      className={`py-1.5 pr-2 whitespace-nowrap align-top ${
+                        a.status === "sent" ? "text-green-400/80" : "text-red-400/80"
+                      }`}
+                    >
+                      {a.status}
+                    </td>
+                    <td className="py-1.5 text-muted/50 truncate max-w-[110px] align-top">
+                      {a.relatedId ?? a.recipient}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Settings ── */}
+      <div className="pt-1 border-t border-[#1c1c1c]">
+        <button
+          onClick={() => setShowConfig((v) => !v)}
+          className="flex items-center gap-2 text-muted/70 hover:text-yellow transition-colors text-xs font-dm py-2"
+        >
+          <Settings size={14} /> {showConfig ? "Hide" : "Adjust"} limits, thresholds and the reserve
+        </button>
+
+        {showConfig && (
+          <div className="space-y-3 pt-2">
+            <p className="text-muted/50 text-[11px] font-dm leading-relaxed">
+              Change these if a provider changes its free tier, or to move where capacity is protected. Leave a limit
+              blank to mean &ldquo;no ceiling&rdquo; (a paid plan).
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Field label="RESEND / DAY">
+                <TextInput value={resendDaily} onChange={setResendDaily} placeholder="100" />
+              </Field>
+              <Field label="RESEND / MONTH">
+                <TextInput value={resendMonthly} onChange={setResendMonthly} placeholder="3000" />
+              </Field>
+              <Field label="BREVO / DAY">
+                <TextInput value={brevoDaily} onChange={setBrevoDaily} placeholder="300" />
+              </Field>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Field label="WATCH %">
+                <TextInput value={watch} onChange={setWatch} placeholder="70" />
+              </Field>
+              <Field label="WARNING %">
+                <TextInput value={warning} onChange={setWarning} placeholder="80" />
+              </Field>
+              <Field label="CRITICAL %">
+                <TextInput value={critical} onChange={setCritical} placeholder="90" />
+              </Field>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label={`TICKETING RESERVE / DAY (on ${r.provider})`}>
+                <TextInput value={reserveDaily} onChange={setReserveDaily} placeholder="40" />
+              </Field>
+              <Field label={`TICKETING RESERVE / MONTH (on ${r.provider})`}>
+                <TextInput value={reserveMonthly} onChange={setReserveMonthly} placeholder="300" />
+              </Field>
+            </div>
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={reserveOnlyActive}
+                onChange={(e) => setReserveOnlyActive(e.target.checked)}
+                className="mt-0.5 accent-yellow"
+              />
+              <span className="text-muted/70 text-xs font-dm leading-relaxed">
+                Only hold the reserve while events are actually on sale (recommended). Unticked, the capacity stays
+                protected permanently even with no events — which just shrinks the pool available to everything else.
+              </span>
+            </label>
+
+            {msg && (
+              <p
+                className={`flex items-center gap-2 text-sm font-dm ${msg.ok ? "text-green-400" : "text-red-400"}`}
+              >
+                {msg.ok ? <CheckCircle size={15} /> : <AlertCircle size={15} />} {msg.text}
+              </p>
+            )}
+
+            <button
+              onClick={saveConfig}
+              disabled={saving}
+              className="flex items-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-5 py-2.5 rounded-full hover:bg-yellow-dark transition-colors disabled:opacity-50"
+            >
+              {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Save limits
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

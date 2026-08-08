@@ -169,6 +169,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           const code = (token as { code?: string | null } | null)?.code;
           if (code) extra = ` Show this pickup code at the shop to collect it: ${formatPickupCode(code)}`;
         }
+        // "Ready for pickup" and "collected" are distinct email types, not
+        // generic status noise: the first carries the pickup code the customer
+        // needs at the counter, the second closes the order.
+        const emailType =
+          targetStatus === "ready_for_pickup"
+            ? "marketplace_pickup_ready"
+            : targetStatus === "collected"
+              ? "marketplace_order_completed"
+              : "marketplace_order_status";
         await dispatchNotification({
           recipientType: "customer",
           recipientEmail: email,
@@ -176,6 +185,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           type: "order_status_changed",
           title: `Order ${current.order_number}: ${label}`,
           body: `Your order is now: ${label}.${extra}`,
+          emailType,
+          // Per (order, target status): a retried PATCH cannot re-notify, but a
+          // genuine later transition still gets its own email.
+          idempotencyKey: `${emailType}:${id}:${targetStatus}`,
+          orderId: id,
         });
       }
     } catch (err) {
