@@ -517,7 +517,7 @@ Marketplace payment restriction (canonical rule ii) is enforced by **three indep
 
 `payment_provider` enum still contains legacy `'paypal'` and `'mcb_juice'` values (Postgres has no `DROP VALUE`) but they are **unreachable** for marketplace orders. MCB Juice was fully removed as a merchant method.
 
-**QR** in the PAYMENT sense is a merchant-supplied static image, not a redeemable token: `store_payment_settings.qr_image_url` / `qr_label`. The PICKUP handoff is live as of M28, but as an 8-character code rather than a scanned QR: `qr_pickup_tokens.code` is issued by a trigger when an order reaches `ready_for_pickup`, shown on `/orders/[id]` and `/orders/track`, and redeemed by store staff at `/api/merchant/pickup/redeem` → `redeem_pickup_code()`, which is single-use, expiring, staff-only and idempotent.
+**QR** means two unrelated things here. In the PAYMENT sense it is a merchant-supplied static image, not a redeemable token: `store_payment_settings.qr_image_url` / `qr_label`. The PICKUP handoff (M28/M30) is a real single-use token: `qr_pickup_tokens.code` is issued by a trigger when an order reaches `ready_for_pickup` and shown on `/orders/[id]` and `/orders/track` as both a QR and eight characters. The QR encodes `https://<site>/merchant/pickup#CODE` — a URL, so the merchant's own camera app decodes it and we ship no scanner; the code rides in the FRAGMENT so it never reaches a server log. That page previews the order (`preview_pickup_code()`, STABLE) before the merchant confirms, and confirming calls `redeem_pickup_code()`: single-use under a row lock, expiring, store-staff-only and idempotent.
 
 ---
 

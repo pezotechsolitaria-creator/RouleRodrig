@@ -135,7 +135,7 @@ CI fails on them by design).
 - Customer timeline has no **Accepted** step
 - Customer/admin order APIs omit `accepted_at`
 - `OrdersTable` mobile card omits the payment column
-- ~~`qr_pickup_tokens` is never inserted — the pickup panel is permanently empty~~ — fixed in M28: a code is issued by trigger on `ready_for_pickup` and redeemed at `/api/merchant/pickup/redeem`
+- ~~`qr_pickup_tokens` is never inserted — the pickup panel is permanently empty~~ — fixed in M28/M30: a token is issued by trigger on `ready_for_pickup`, shown as a scannable QR plus an 8-character fallback, previewed and redeemed at `/api/merchant/pickup/{preview,redeem}`
 - No password reset for customers or merchants
 - Customer notifications render nowhere in the UI
 - `lib/logger.ts` imported nowhere; no structured logging or correlation id
