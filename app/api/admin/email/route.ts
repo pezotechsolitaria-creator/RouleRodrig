@@ -223,7 +223,7 @@ export async function POST(req: NextRequest) {
   if (!isAuthed(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const limited = guard(req, "admin-email-test", 10, 60_000);
   if (limited) return limited;
-  let body: { to?: string };
+  let body: { to?: string; provider?: string };
   try {
     body = await req.json();
   } catch {
@@ -233,20 +233,27 @@ export async function POST(req: NextRequest) {
   if (!EMAIL_RE.test(to)) {
     return NextResponse.json({ error: "Enter a valid email address to send the test to." }, { status: 400 });
   }
+  // Pin the provider when asked. Without this a freshly-configured provider is
+  // unverifiable — the test would route by type, succeed through whichever
+  // provider the config prefers, and tell you nothing about the new one.
+  const provider = body.provider === "resend" || body.provider === "brevo" ? body.provider : undefined;
+
   invalidateEmailConfig(); // always test with the freshest settings
   // `test: true` sends as the `admin_test` type with NO idempotency key —
   // otherwise a second test to the same address would be deduped and report
   // success without an email arriving, which defeats the point of a test button.
-  const ok = await sendWaitlistWelcome(to, undefined, { test: true });
+  const ok = await sendWaitlistWelcome(to, undefined, { test: true, provider });
   if (!ok) {
+    const who = provider ? provider.charAt(0).toUpperCase() + provider.slice(1) : "the email provider";
     return NextResponse.json(
       {
         error:
-          "Send failed. Check the API key and that the sender email is verified in Brevo (Senders). " +
-          "Admin → Alerts & Email now also shows the exact provider error under recent problems.",
+          `Send failed via ${who}. Check its API key and that the sender address is verified there ` +
+          `(Brevo → Senders, or a verified domain in Resend). The exact provider error is listed below ` +
+          `under "not delivered".`,
       },
       { status: 502 },
     );
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, provider: provider ?? null });
 }

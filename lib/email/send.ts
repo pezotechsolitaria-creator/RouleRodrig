@@ -50,6 +50,16 @@ export interface SendTransactionalInput {
   idempotencyKey?: string | null;
   relatedType?: string | null;
   relatedId?: string | null;
+  /**
+   * Bypass the routing table and use exactly this provider, with NO failover.
+   *
+   * Only for the admin test send. Without it a newly-added provider is
+   * unverifiable: the test would route by type, land on whichever provider the
+   * config prefers, and report success — telling you nothing about the one you
+   * just configured. Failover is suppressed deliberately, because a test that
+   * quietly succeeds via the OTHER provider is worse than a failing one.
+   */
+  forceProvider?: ProviderName;
 }
 
 export interface SendTransactionalResult {
@@ -178,9 +188,10 @@ export async function sendTransactionalEmail(input: SendTransactionalInput): Pro
   }
 
   // ── 2. Candidate providers ───────────────────────────────────────────────
-  const preferred = routeFor(cfg, input.type);
+  const preferred = input.forceProvider ?? routeFor(cfg, input.type);
   const other: ProviderName = preferred === "resend" ? "brevo" : "resend";
-  const failoverAllowed = cfg.fallback.enabled && !cfg.fallback.exceptTypes.includes(input.type as EmailType);
+  const failoverAllowed =
+    !input.forceProvider && cfg.fallback.enabled && !cfg.fallback.exceptTypes.includes(input.type as EmailType);
   const candidates: ProviderName[] = failoverAllowed ? [preferred, other] : [preferred];
 
   const payload = { to, subject: input.subject, html: input.html, attachments: input.attachments };

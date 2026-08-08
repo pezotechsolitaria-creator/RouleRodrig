@@ -479,6 +479,8 @@ interface SendOpts {
   relatedType?: string | null;
   relatedId?: string | null;
   attachments?: Attachment[];
+  /** Admin test send only — pin the provider and skip failover. */
+  forceProvider?: "resend" | "brevo";
 }
 
 /**
@@ -500,6 +502,7 @@ async function send(opts: SendOpts): Promise<boolean> {
     idempotencyKey: opts.key ?? null,
     relatedType: opts.relatedType ?? null,
     relatedId: opts.relatedId ?? null,
+    ...(opts.forceProvider ? { forceProvider: opts.forceProvider } : {}),
   });
   return result.ok;
 }
@@ -991,8 +994,10 @@ export async function sendWaitlistWelcome(
   /** Admin "send a test email" path. Sends the same template but as the
    *  `admin_test` type with NO idempotency key — otherwise the second test to
    *  the same address would be silently deduped and report success without an
-   *  email arriving, which is the exact opposite of what a test button is for. */
-  opts?: { test?: boolean },
+   *  email arriving, which is the exact opposite of what a test button is for.
+   *  `provider` pins the send so a newly-configured provider can be proven,
+   *  rather than the test quietly succeeding through the other one. */
+  opts?: { test?: boolean; provider?: "resend" | "brevo" },
 ): Promise<boolean> {
   const { wa, logo } = await getBrand();
   const savedList = source === "saved-list";
@@ -1016,6 +1021,7 @@ export async function sendWaitlistWelcome(
     // Source is part of the key: joining the waitlist and saving a list are two
     // different emails, and one must not suppress the other.
     key: opts?.test ? null : `waitlist_welcome:${source ?? "default"}:${to.toLowerCase()}`,
+    ...(opts?.provider ? { forceProvider: opts.provider } : {}),
     html: shell({
       preheader: savedList ? "Your saved list is waiting · Votre liste vous attend." : "Island tips, deals and hidden spots · Conseils et offres de Rodrigues.",
       eyebrow: savedList ? "Your saved list · Votre liste" : "Welcome aboard · Bienvenue",

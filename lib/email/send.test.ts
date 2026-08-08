@@ -133,6 +133,30 @@ describe("routing", () => {
   });
 });
 
+describe("forceProvider (admin test send)", () => {
+  it("uses the named provider even when routing says otherwise", async () => {
+    // marketplace_order_confirmation routes to brevo by default.
+    const r = await sendTransactionalEmail(input({ forceProvider: "resend" }));
+    expect(r).toMatchObject({ ok: true, provider: "resend" });
+    expect(brevoSend).not.toHaveBeenCalled();
+  });
+
+  it("does NOT fail over — a test that silently succeeds elsewhere proves nothing", async () => {
+    resendSend.mockResolvedValue(fail("quota", "spent"));
+    const r = await sendTransactionalEmail(input({ forceProvider: "resend" }));
+    expect(r.ok).toBe(false);
+    expect(brevoSend).not.toHaveBeenCalled();
+  });
+
+  it("reports the pinned provider's own failure reason", async () => {
+    resendHealth.mockResolvedValue({ configured: false, reason: "RESEND_FROM is not set." });
+    const r = await sendTransactionalEmail(input({ forceProvider: "resend" }));
+    expect(r).toMatchObject({ ok: false, suppressed: true });
+    expect(r.reason).toContain("RESEND_FROM");
+    expect(brevoSend).not.toHaveBeenCalled();
+  });
+});
+
 describe("idempotency", () => {
   it("sends nothing when the key was already used and reports success", async () => {
     // The logical email IS in the inbox — the cron must be able to stamp

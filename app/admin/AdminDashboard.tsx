@@ -5851,19 +5851,23 @@ function EmailSettingsCard() {
     }
   }
 
-  async function sendTest() {
+  // `provider` pins the send to one provider with no failover, so a freshly
+  // configured provider can actually be proven. Without it the test routes by
+  // type and would succeed through the other one, proving nothing.
+  async function sendTest(provider?: "resend" | "brevo") {
     setTesting(true);
     setMsg(null);
     try {
       const res = await fetch("/api/admin/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: testTo }),
+        body: JSON.stringify({ to: testTo, provider }),
       });
       const d = await res.json().catch(() => ({}));
+      const via = provider ? ` via ${provider}` : "";
       setMsg(
         res.ok
-          ? { ok: true, text: `Test email sent to ${testTo} — check the inbox (and spam).` }
+          ? { ok: true, text: `Test email sent to ${testTo}${via} — check the inbox (and spam).` }
           : { ok: false, text: d.error || "Test failed." },
       );
     } catch {
@@ -5930,11 +5934,21 @@ function EmailSettingsCard() {
             className="flex-1 bg-[#0d0d0d] border border-[#2a2a2a] rounded-full px-4 py-2.5 text-sm text-offwhite font-dm focus:border-yellow focus:outline-none"
           />
           <button
-            onClick={sendTest}
+            onClick={() => sendTest("brevo")}
             disabled={testing || !testTo}
             className="flex items-center gap-2 border border-[#2a2a2a] hover:border-yellow/50 text-offwhite font-dm text-sm px-4 py-2.5 rounded-full transition-colors disabled:opacity-50 shrink-0"
           >
-            {testing ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />} Send test
+            {testing ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />} Test via Brevo
+          </button>
+          {/* Separate button, not a dropdown: the whole point is to prove ONE
+              named provider works, and a two-click control makes it easy to
+              think you tested Resend when the selector was still on Brevo. */}
+          <button
+            onClick={() => sendTest("resend")}
+            disabled={testing || !testTo}
+            className="flex items-center gap-2 border border-[#2a2a2a] hover:border-yellow/50 text-offwhite font-dm text-sm px-4 py-2.5 rounded-full transition-colors disabled:opacity-50 shrink-0"
+          >
+            {testing ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />} Test via Resend
           </button>
         </div>
       </div>
