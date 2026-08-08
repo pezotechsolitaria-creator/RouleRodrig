@@ -113,12 +113,12 @@ export async function POST(req: NextRequest) {
   const storeId = items[0]?.storeId;
   let offersRrDelivery = false;
   let schedule = null;
-  let payment = { acceptsCash: true, acceptsBankTransfer: false };
+  let payment = { acceptsCash: true, acceptsBankTransfer: false, requiresReceipt: false };
   if (storeId) {
     const [{ data: pay }, { data: settings }, { data: status }] = await Promise.all([
       supabase
         .from("store_payment_settings")
-        .select("offers_rr_delivery, accepts_cash, accepts_bank_transfer")
+        .select("offers_rr_delivery, accepts_cash, accepts_bank_transfer, require_receipt")
         .eq("store_id", storeId)
         .maybeSingle(),
       supabase.from("marketplace_settings").select("delivery_enabled").eq("id", "main").maybeSingle(),
@@ -133,9 +133,16 @@ export async function POST(req: NextRequest) {
     // offering Bank transfer — which DEFAULTS TO OFF — at shops that would
     // refuse it. The defaults here mirror the column defaults, so a shop with no
     // settings row behaves the same in the UI as it does in the RPC.
+    //
+    // requiresReceipt is here for a GUEST-only reason (M21): a receipt is a
+    // file upload, storage RLS derives ownership from a session, and a guest
+    // has none — so create_order refuses guest bank transfer at these shops
+    // with RR009. Surfacing the flag lets the form say so up front instead of
+    // letting the customer fill everything in and be refused at the button.
     payment = {
       acceptsCash: pay?.accepts_cash ?? true,
       acceptsBankTransfer: pay?.accepts_bank_transfer ?? false,
+      requiresReceipt: pay?.require_receipt ?? false,
     };
   }
 

@@ -193,8 +193,15 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
           // upload — the actionable half of "payment instructions". A GUEST
           // has no session, so /orders/[id] would bounce them to sign-in; they
           // get the account-free tracking page instead (M20).
+          // ?ref= carries only the order NUMBER, never the address: the email
+          // is still typed on arrival, so the link on its own discloses
+          // nothing, and the customer is spared retyping a 14-character
+          // reference on a phone — which is the single most likely place an
+          // elderly or hurried guest gives up (M21).
           cta: {
-            url: input.isGuest ? `${SITE_URL}/orders/track` : `${SITE_URL}/orders/${input.orderId}`,
+            url: input.isGuest
+              ? `${SITE_URL}/orders/track?ref=${encodeURIComponent(input.orderNumber)}`
+              : `${SITE_URL}/orders/${input.orderId}`,
             label: "Track your order →",
           },
           channels: ["email"],

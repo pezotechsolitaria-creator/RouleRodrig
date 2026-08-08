@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyPassword, getSessionValue, COOKIE_NAME, SESSION_TTL_MS } from '@/lib/auth';
-import { guard } from '@/lib/rate-limit';
+import { guardShared } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
   // Brute-force protection: 5 attempts per 5 minutes per IP
-  const limited = guard(req, 'admin-login', 5, 5 * 60_000);
+  const limited = await guardShared(req, 'admin-login', 5, 5 * 60_000);
   if (limited) return limited;
 
   try {

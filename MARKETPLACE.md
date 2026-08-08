@@ -1,5 +1,26 @@
 # Roulé Rodrigues Marketplace — Architecture
 
+> ## ⚠️ PARTS OF THIS DOCUMENT ARE SUPERSEDED (verified 2026-08-08)
+>
+> It was written before the owner set the canonical business rules on 2026-08-05.
+> Where this file disagrees with the list below, **the list below is correct** —
+> it has been verified against the live database and the shipped code.
+>
+> | This document says | Reality |
+> |---|---|
+> | Commission model (`merchants.commission_rate`, commission netting, payouts) | **Monthly subscription, no commission.** `orders.commission_amount` is written as 0 and read by nothing — dead columns kept for compatibility |
+> | PayPal / MCB Juice / card checkout | **Cash and Direct Bank Transfer only.** Cards and PayPal are reserved exclusively for vehicle rentals and place bookings; MCB Juice was removed in M6. Enforced in three independent places: the Zod enum, the `create_order()` whitelist, and a CHECK on `payments` |
+> | `app/api/marketplace/qr/redeem/route.ts` | Does not exist. `qr_pickup_tokens` is modelled but has no redeem route or UI yet |
+> | A `features/` + `lib/marketplace/` layout | Never created. Domain logic lives in `lib/merchant/`, `lib/orders/`, `lib/schemas/`, `lib/cart/`, `lib/notifications/` |
+> | Delivery ETA promises | Roulé Rodrigues does **not** promise a delivery time. `marketplace_settings.delivery_max_minutes` is an upper bound used for wording only; the customer and driver agree the time |
+>
+> Also not described here because they postdate it: guest checkout (M20),
+> `max_open_reservations` and `guest_report_payment()` (M21), and the
+> five-zone `delivery_zones` pricing model (M7).
+>
+> The authoritative sources are [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md),
+> [ARCHITECTURE.md](./ARCHITECTURE.md), and the migration chain itself.
+
 The Local Store marketplace: a production-grade commerce platform for Rodrigues,
 built to scale to Mauritius and beyond. It lives **inside the existing Next.js /
 Supabase / Vercel app** as three separate surfaces, not a separate codebase.

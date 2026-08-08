@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
-import { guard } from "@/lib/rate-limit";
+import { guardShared } from "@/lib/rate-limit";
 import { checkoutSchema } from "@/lib/schemas/checkout";
 import { claimAndNotifyOrderPlaced } from "@/lib/notifications/order-placed";
 
@@ -20,6 +20,14 @@ const DELIVERY_WINDOW_CODE = "RR011";
 // The derived total no longer matches what the customer was shown — a price
 // moved between the quote and the button. Never charge it silently.
 const PRICE_CHANGED_CODE = "RR012";
+// This buyer is already sitting on the maximum number of unpaid, unaccepted
+// reservations (M21). The inventory-hoarding control — identity-neutral, so it
+// reads the same for a guest and an account holder.
+const TOO_MANY_OPEN_CODE = "RR013";
+// The order-number retry gave up. Transient by construction: a fresh attempt
+// draws new numbers, so the customer should be told to try again, not that
+// something is broken.
+const REFERENCE_CODE = "RR014";
 const SAFE_RPC_ERROR_CODE = "P0001";
 
 // The only thing trusted from the client here is "which variants, how many,
@@ -28,7 +36,7 @@ const SAFE_RPC_ERROR_CODE = "P0001";
 // and re-checks the store's fulfillment options itself — this route is a
 // thin, Zod-validated pass-through, not a second source of truth.
 export async function POST(req: NextRequest) {
-  const limited = guard(req, "checkout", 10, 60_000);
+  const limited = await guardShared(req, "checkout", 10, 60_000);
   if (limited) return limited;
 
   const supabase = await createClient();
@@ -131,6 +139,15 @@ export async function POST(req: NextRequest) {
     // than leaving the customer staring at a price that no longer exists.
     if (error.code === PRICE_CHANGED_CODE) {
       return NextResponse.json({ error: error.message, code: error.code }, { status: 409 });
+    }
+    // 409, not 429: the request rate is fine, the buyer's outstanding
+    // reservations are what refuses it. A 429 would invite a client retry loop
+    // that can never succeed.
+    if (error.code === TOO_MANY_OPEN_CODE) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 409 });
+    }
+    if (error.code === REFERENCE_CODE) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 503 });
     }
     if (error.code === SAFE_RPC_ERROR_CODE) return NextResponse.json({ error: error.message }, { status: 400 });
     console.error("create_order unexpected error", error);

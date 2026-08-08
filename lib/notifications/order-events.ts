@@ -20,11 +20,24 @@ import { centsToDecimalString } from "@/lib/money";
 // best-effort by construction and never throws: the state change has already
 // committed before any of this runs, exactly like the M17 placement notice.
 
-export type OrderCustomerEvent = "accepted" | "payment_confirmed" | "expired";
+export type OrderCustomerEvent = "accepted" | "payment_confirmed" | "expired" | "payment_due";
 
 /** Copy per event. Kept together so the whole customer voice is readable at once. */
 function compose(event: OrderCustomerEvent, orderNumber: string, storeName: string) {
   switch (event) {
+    // The only message in this file that can still change the outcome. Every
+    // other one reports something already decided; this one is sent while the
+    // customer can still act, which is why it is the single highest-value
+    // email the marketplace sends (M21).
+    case "payment_due":
+      return {
+        title: `Your reservation for order ${orderNumber} ends soon`,
+        body:
+          `Your items at ${storeName} are still reserved, but the transfer hasn't been reported yet. ` +
+          `Send it and tell us — the reservation stops counting down the moment you do. ` +
+          `Nothing is charged automatically, and you can still cancel by doing nothing.`,
+        cta: "Pay and keep my items →",
+      };
     case "accepted":
       return {
         title: `${storeName} accepted order ${orderNumber}`,
@@ -119,7 +132,7 @@ export async function notifyOrderCustomer(orderId: string, event: OrderCustomerE
           event === "expired"
             ? `${SITE_URL}/shop`
             : isGuest
-              ? `${SITE_URL}/orders/track`
+              ? `${SITE_URL}/orders/track?ref=${encodeURIComponent(row.order_number)}`
               : `${SITE_URL}/orders/${orderId}`,
         label: copy.cta,
       },

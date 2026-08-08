@@ -45,13 +45,18 @@ function CopyRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function BankTransferPanel({
-  orderId, orderNumber, amount, bank, awaitingConfirmation,
+  orderId, orderNumber, amount, bank, awaitingConfirmation, children,
 }: {
-  orderId: string;
+  /** Omitted for a guest order, which has no session and so no file upload. */
+  orderId?: string;
   orderNumber: string;
   amount: number;
   bank: BankDetails | null;
   awaitingConfirmation: boolean;
+  /** Replaces the receipt uploader. A GUEST cannot upload — storage RLS needs a
+   *  session — so /orders/track passes a "I have sent the transfer" button here
+   *  instead, and the panel itself stays identical for both buyers (M21). */
+  children?: React.ReactNode;
 }) {
   // Already reported — the customer's work is done; they're waiting on the shop.
   if (awaitingConfirmation) {
@@ -107,7 +112,7 @@ export default function BankTransferPanel({
 
       {hasBank && (
         <div className="mt-4 border-t border-white/10 pt-4">
-          <ReceiptUploader orderId={orderId} required={!!bank?.require_receipt} />
+          {children ?? (orderId ? <ReceiptUploader orderId={orderId} required={!!bank?.require_receipt} /> : null)}
         </div>
       )}
     </section>

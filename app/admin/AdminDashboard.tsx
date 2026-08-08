@@ -40,6 +40,7 @@ import {
   Handshake,
   Store,
   Truck,
+  Wallet,
   Clock,
   Tag,
   ToggleLeft,
@@ -170,6 +171,7 @@ const MARKETPLACE_LINKS: { href: string; label: string; icon: React.ElementType 
   { href: "/admin/subscriptions",  label: "Merchants & Subscriptions", icon: Store },
   { href: "/admin/stores",         label: "Shops & Opening Hours",     icon: Clock },
   { href: "/admin/delivery-zones", label: "Delivery Areas & Fees",     icon: Truck },
+  { href: "/admin/monetization",   label: "Monetization & Revenue",    icon: Wallet },
 ];
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────

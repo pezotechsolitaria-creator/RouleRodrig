@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
-import { guard } from "@/lib/rate-limit";
+import { guardShared } from "@/lib/rate-limit";
 
 // ── Account-free order lookup (M20) ────────────────────────────────────────
 //
@@ -23,7 +23,7 @@ const lookupSchema = z.object({
 export async function POST(req: NextRequest) {
   // Deliberately tighter than checkout: this is the only guessable surface in
   // the marketplace, so 8/min per IP is the brute-force budget.
-  const limited = guard(req, "order-lookup", 8, 60_000);
+  const limited = await guardShared(req, "order-lookup", 8, 60_000);
   if (limited) return limited;
 
   if (!hasServiceRole()) {

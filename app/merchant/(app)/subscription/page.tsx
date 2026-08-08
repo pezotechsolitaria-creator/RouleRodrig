@@ -7,6 +7,7 @@ import { getMerchantDashboard } from "@/lib/merchant/context";
 import { getMerchantSubscription, getBillingHistory, PLAN_LABEL, type SubscriptionStatus } from "@/lib/merchant/subscription";
 import { centsToDecimalString } from "@/lib/money";
 import { Badge } from "@/components/ui/badge";
+import FeeSummary, { type FeeSummaryData } from "@/components/merchant/FeeSummary";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -52,13 +53,27 @@ export default async function MerchantSubscriptionPage({
   const { invoices, total } = await getBillingHistory(supabase, dashboard.merchantId, { page, pageSize: PAGE_SIZE });
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // What this shop is actually charged, aggregated in the database (M25). One
+  // RPC, not a walk of order history — it stays O(1) round trips as the shop
+  // grows. A failure here must not take the whole subscription page down: the
+  // plan and invoice sections below are independently useful.
+  const { data: feeData, error: feeError } = await supabase.rpc("merchant_fee_summary", {
+    p_merchant_id: dashboard.merchantId,
+  });
+  if (feeError) console.error("merchant_fee_summary failed", feeError);
+  const fees = (feeData as FeeSummaryData | null) ?? null;
+
   return (
     <div className="py-8">
       <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">ACCOUNT</p>
       <h1 className="mt-1 font-syne text-2xl font-extrabold text-offwhite">Subscription</h1>
-      <p className="mt-1.5 font-dm text-sm text-muted">
-        Selling on Roulé Rodrigues is a monthly membership — we never take a commission on your sales.
-      </p>
+      {/* The old line here read "we never take a commission on your sales". It
+          was true under the subscription-only model and became a lie the moment
+          the platform could be switched to commission or hybrid (M23). The
+          honest version is rendered by <FeeSummary> below, from the shop's own
+          resolved rate — so the page can never contradict the invoice. */}
+
+      {fees && <FeeSummary data={fees} />}
 
       {/* The layout already renders <SubscriptionBanner> on every merchant
           route, including this one. Rendering it again stacked two identical

@@ -181,6 +181,55 @@ export async function GET(req: NextRequest) {
     console.error("orders expiry sweep failed", err);
   }
 
+  // ── Warn BEFORE the reservation lapses ────────────────────────────────
+  // Every other message about the hold reports something already decided. This
+  // is the only one sent while the customer can still act on it, and it is the
+  // reason a guest-specific short expiry was rejected: an unpaid order is far
+  // more often a forgotten one than an abusive one, and a reminder recovers the
+  // sale where a shorter clock only loses it faster.
+  //
+  // BANK TRANSFER ONLY, deliberately. A cash customer owes nothing until
+  // handover (M13) — chasing them for money that is not due is the exact false
+  // alarm lib/orders/hold.ts exists to avoid. For cash, inaction is the
+  // MERCHANT'S, and they already hold the order in their dashboard.
+  let paymentRemindersSent = 0;
+  try {
+    const soon = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+    const { data: dueSoon } = await supabase
+      .from("orders")
+      .select("id, payments(provider)")
+      .eq("status", "pending_payment")
+      .is("accepted_at", null)
+      .is("expiry_reminded_at", null)
+      .not("auto_release_at", "is", null)
+      .gt("auto_release_at", new Date().toISOString())
+      .lt("auto_release_at", soon)
+      .limit(200);
+
+    for (const o of (dueSoon ?? []) as { id: string; payments: { provider: string }[] | null }[]) {
+      if (!(o.payments ?? []).some((p) => p.provider === "bank_transfer")) continue;
+      // Stamp FIRST. A send that fails is one lost reminder; a stamp that fails
+      // after a successful send is the same customer emailed every day until
+      // the order expires, which is worse than silence.
+      const { error: stampError } = await supabase
+        .from("orders")
+        .update({ expiry_reminded_at: new Date().toISOString() })
+        .eq("id", o.id)
+        .is("expiry_reminded_at", null);
+      if (stampError) {
+        console.error("expiry reminder stamp failed", o.id, stampError);
+        continue;
+      }
+      try {
+        if (await notifyOrderCustomer(o.id, "payment_due")) paymentRemindersSent++;
+      } catch (err) {
+        console.error("payment reminder failed", o.id, err);
+      }
+    }
+  } catch (err) {
+    console.error("payment reminder pass failed", err);
+  }
+
   // ── Stay·Eat·Do reservations: same bot treatment ──────────────────────
   let placeRemindersSent = 0;
   let placeFeedbackSent = 0;
@@ -315,6 +364,7 @@ export async function GET(req: NextRequest) {
       placeFeedbackSent,
       holdsReleased,
       ordersExpired,
+      paymentRemindersSent,
       missesEmailed,
       backupSaved,
       emailFailures,

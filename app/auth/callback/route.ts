@@ -30,7 +30,29 @@ export async function GET(request: Request) {
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) return NextResponse.redirect(`${origin}${next}`);
+    if (!error) {
+      // Adopt guest orders placed with this address (M21).
+      //
+      // M20 called claim_guest_orders() from ONE place: the password sign-in
+      // handler in /login. Every other way into a session lands here instead —
+      // confirming a brand-new account, and Google OAuth — so the two paths the
+      // post-purchase prompt on /orders/track actually pushes people down
+      // ("Create account or sign in") adopted nothing, and the customer arrived
+      // at an /orders page reading "No orders found" seconds after buying.
+      // That is precisely where the invitation's promise had to hold.
+      //
+      // Safe to run on the merchant flow too: it matches on the caller's own
+      // CONFIRMED address and updates only orders that have no owner, so for
+      // anyone with no guest history it is a no-op returning 0.
+      try {
+        await supabase.rpc("claim_guest_orders");
+      } catch (err) {
+        // Never fail a sign-in over this — the orders are still adoptable on
+        // the next sign-in, and the account itself is valid either way.
+        console.error("claim_guest_orders failed in auth callback", err);
+      }
+      return NextResponse.redirect(`${origin}${next}`);
+    }
   }
 
   const failTarget = next.startsWith("/merchant") ? "/merchant/login" : "/login";

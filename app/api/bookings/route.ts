@@ -4,7 +4,7 @@ import { getPrivileged } from "@/lib/supabase/admin";
 import { getContent } from "@/lib/content";
 import { sendBookingEmails, upsertBrevoContact } from "@/lib/email";
 import { sendOwnerWhatsApp } from "@/lib/whatsapp";
-import { guard } from "@/lib/rate-limit";
+import { guardShared } from "@/lib/rate-limit";
 import { isActiveHold } from "@/lib/holds";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
 import { priceBreakdown, rentalDays, validateRentalWindow } from "@/lib/booking-pricing";
@@ -29,7 +29,7 @@ function bookedDays(start?: string | null, end?: string | null): number {
 // ── Public: create a booking request + send confirmation emails ─────
 export async function POST(req: NextRequest) {
   // 8 booking requests per minute per IP
-  const limited = guard(req, "bookings", 8, 60_000);
+  const limited = await guardShared(req, "bookings", 8, 60_000);
   if (limited) return limited;
 
   let body: {

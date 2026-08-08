@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { hasServiceRole } from "@/lib/supabase/admin";
+import { hasSharedLimiter } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,10 @@ export const dynamic = "force-dynamic";
 // there is no single source of truth available to both. Keep them in step when
 // bumping — CLAUDE.md already requires the bump on every deploy, and surfacing
 // it here is what makes a mismatch visible instead of mysterious.
-const SW_CACHE_VERSION = "rr-cache-v96";
+// DRIFTED once already (this read v96 while public/sw.js was on v110), which is
+// the one failure this constant exists to prevent — a health endpoint that
+// confidently reports a stale answer is worse than one that reports nothing.
+const SW_CACHE_VERSION = "rr-cache-v113";
 
 // ── Health / readiness / liveness ────────────────────────────────────────────
 // GET /api/health           → readiness (checks the database dependency)
@@ -81,6 +85,11 @@ export async function GET(req: Request) {
         // job stops rather than running unauthenticated — so "is it set?" is a
         // question an operator needs answerable without the Vercel dashboard.
         cron: process.env.CRON_SECRET?.trim() ? "configured" : "unconfigured",
+        // "in-memory" is not a fault — it is the documented fallback, and every
+        // limit still applies. But it means the ceiling is per-instance, so an
+        // operator investigating abuse needs to know which mode is live before
+        // concluding the limits are being ignored.
+        rateLimiter: hasSharedLimiter() ? "shared" : "in-memory",
       },
       uptimeMs: Math.round(process.uptime() * 1000),
       totalMs: Date.now() - started,

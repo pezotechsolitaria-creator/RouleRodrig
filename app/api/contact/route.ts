@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { guard } from "@/lib/rate-limit";
+import { guardShared } from "@/lib/rate-limit";
 import { sendEnquiryAck } from "@/lib/email";
 import { isValidPhone } from "@/lib/phone";
 
@@ -9,7 +9,7 @@ import { isValidPhone } from "@/lib/phone";
 // validate and sanitise. Inserts only — never exposes other submissions.
 export async function POST(req: NextRequest) {
   // Max 5 enquiries per minute per IP
-  const limited = guard(req, "contact", 5, 60_000);
+  const limited = await guardShared(req, "contact", 5, 60_000);
   if (limited) return limited;
 
   let body: {
