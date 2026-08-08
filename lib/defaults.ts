@@ -97,7 +97,29 @@ export interface SocialLinks {
 }
 
 export interface BrandingContent {
+  /**
+   * The full lockup — the detailed illustrated logo with the tagline.
+   *
+   * Kept as a brand asset for LARGE placements (print, merch, a future
+   * about-page hero). Deliberately NOT what the navbar, footer or email header
+   * use any more: every one of those renders at 36–38px tall, where a logo
+   * carrying "TOURS · RENTALS · ACTIVITIES · EXPERIENCES" is an unreadable
+   * smudge. Measured, not assumed — see logoMark.
+   */
   logo: string;
+  /**
+   * The icon mark — the simple square scooter-and-tortoise badge.
+   *
+   * Used by every small surface: navbar, footer, email header, favicon and the
+   * PWA icons. Falls back to `logo` when unset, so nothing breaks before the
+   * mark is uploaded.
+   *
+   * Should be SQUARE and at least 512×512. It is also the source the PWA icons
+   * are generated from, and Android masks those to a circle — so keep the
+   * artwork inside the central ~80% or the edges get clipped (which is exactly
+   * how the home-screen icon lost the end of its wordmark).
+   */
+  logoMark?: string;
   mascotImage?: string; // Ti Roulé mascot — a transparent-background character PNG (default pose)
   mascotPoses?: Record<string, string>; // pose key (see lib/mascot.ts) -> image URL
 }

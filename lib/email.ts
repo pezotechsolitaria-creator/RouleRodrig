@@ -111,8 +111,12 @@ async function getBrand(): Promise<{ wa: string; logo: string }> {
         .select("data")
         .eq("id", "main")
         .maybeSingle();
-      const branding = (data?.data as { branding?: { logo?: string } } | null)?.branding;
-      logo = (branding?.logo ?? "").toString().trim();
+      const branding = (data?.data as { branding?: { logo?: string; logoMark?: string } } | null)?.branding;
+      // The MARK first. This header renders the image at height:38px — the full
+      // lockup's tagline lines ("TOURS · RENTALS · ACTIVITIES · EXPERIENCES")
+      // are illegible at that size, and an email header is the one place a
+      // customer decides whether the message looks like a real business.
+      logo = (branding?.logoMark ?? branding?.logo ?? "").toString().trim();
     }
   } catch {
     /* best-effort */

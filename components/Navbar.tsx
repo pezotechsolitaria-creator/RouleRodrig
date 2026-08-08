@@ -106,14 +106,18 @@ export default function Navbar({
     return () => { document.body.style.overflowY = ""; };
   }, [menuOpen]);
 
-  const logoEl = branding?.logo ? (
+  // The MARK, not the full lockup: this renders at h-9 (36px), where the
+  // lockup's tagline lines are an unreadable smudge. Falls back to `logo` so
+  // nothing changes until a mark is uploaded.
+  const brandImage = branding?.logoMark || branding?.logo;
+  const logoEl = brandImage ? (
     <Image
-      src={branding.logo}
+      src={brandImage}
       alt="Roule Rodrigues"
       width={140}
       height={40}
       className="h-9 w-auto object-contain"
-      unoptimized={branding.logo.startsWith("/uploads/") || (branding.logo.startsWith("http") && !branding.logo.includes("supabase.co"))}
+      unoptimized={brandImage.startsWith("/uploads/") || (brandImage.startsWith("http") && !brandImage.includes("supabase.co"))}
     />
   ) : (
     <span className="flex items-center gap-2.5">

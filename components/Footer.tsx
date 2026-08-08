@@ -23,6 +23,8 @@ export default function Footer({
   const { t, language } = useLanguage();
   const year = new Date().getFullYear();
   const activeSocial = SOCIAL_CONFIG.filter(({ key }) => social?.[key]);
+  // Same rule as the navbar: prefer the square mark, fall back to the lockup.
+  const brandImage = branding?.logoMark || branding?.logo;
 
   return (
     <footer className="bg-dark-card border-t border-dark-border" aria-label="Site footer">
@@ -31,14 +33,15 @@ export default function Footer({
           {/* Brand */}
           <div>
             <Link href="/" className="flex items-center gap-2.5 mb-5" aria-label="Roule Rodrigues home">
-              {branding?.logo ? (
+              {/* The MARK — h-9 is 36px, too small for the lockup's tagline. */}
+              {brandImage ? (
                 <Image
-                  src={branding.logo}
+                  src={brandImage}
                   alt="Roule Rodrigues"
                   width={140}
                   height={40}
                   className="h-9 w-auto object-contain"
-                  unoptimized={branding.logo.startsWith("/uploads/") || (branding.logo.startsWith("http") && !branding.logo.includes("supabase.co"))}
+                  unoptimized={brandImage.startsWith("/uploads/") || (brandImage.startsWith("http") && !brandImage.includes("supabase.co"))}
                 />
               ) : (
                 <>
