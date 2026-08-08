@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { checkPassword } from "@/lib/auth/check-password";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
@@ -78,9 +79,11 @@ function ResetPasswordForm() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (password.length < 8) return setError("Use at least 8 characters.");
     if (password !== confirm) return setError("Those two passwords don't match.");
-
+    // Same gate as sign-up: a reset must not be a route to a breached password.
+    const verdict = await checkPassword(password);
+    if (verdict) return setError(verdict);
+    
     setBusy(true);
     const { error: updateError } = await supabase.auth.updateUser({ password });
     setBusy(false);
@@ -147,7 +150,7 @@ function ResetPasswordForm() {
                     id="rp-password"
                     type={show ? "text" : "password"}
                     required
-                    minLength={8}
+                    minLength={10}
                     autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -172,7 +175,7 @@ function ResetPasswordForm() {
                     id="rp-confirm"
                     type={show ? "text" : "password"}
                     required
-                    minLength={8}
+                    minLength={10}
                     autoComplete="new-password"
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}

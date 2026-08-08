@@ -7,6 +7,7 @@ import { Loader2, Mail, ArrowRight, ArrowLeft, Eye, EyeOff } from "lucide-react"
 import Link from "next/link";
 import { safeNext } from "@/lib/safe-next";
 import { authRedirect } from "@/lib/auth-redirect";
+import { checkPassword } from "@/lib/auth/check-password";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 // Customer sign-in — shares the exact same Supabase Auth session/cookie
@@ -77,6 +78,16 @@ function LoginForm() {
     setError(null);
 
     if (mode === "signup") {
+      // Refuse a password already in a breach corpus, BEFORE creating the
+      // account. Supabase gates this behind the Pro plan; the underlying Have I
+      // Been Pwned API is free, so we do it ourselves. Fails open — if the
+      // check cannot run, sign-up proceeds rather than stalling on a
+      // third-party outage.
+      const verdict = await checkPassword(password);
+      if (verdict) {
+        setBusy(null);
+        return setError(verdict);
+      }
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -223,7 +234,7 @@ function LoginForm() {
                 <input
                   type={showPassword ? "text" : "password"}
                   required
-                  minLength={6}
+                  minLength={10}
                   autoComplete={mode === "signin" ? "current-password" : "new-password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
