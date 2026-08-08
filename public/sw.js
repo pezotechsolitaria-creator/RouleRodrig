@@ -11,7 +11,7 @@
 // v95 — M9/M10 release: stale-quote guard (RR012), payment-ledger fix and
 // checkout idempotency. Bumping evicts every older cache on activate, so no
 // client can keep running a checkout bundle that predates those fixes.
-const CACHE = "rr-cache-v113";
+const CACHE = "rr-cache-v114";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

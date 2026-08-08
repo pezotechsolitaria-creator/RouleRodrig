@@ -93,7 +93,9 @@ export default function RateShopCard({
             onBlur={() => setHover(0)}
             aria-label={`${i} star${i === 1 ? "" : "s"}`}
             aria-pressed={rating === i}
-            className="rounded-lg p-1 transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow/60"
+            // p-2, not p-1: 28px icon + 8px each side = a 44px tap target,
+            // which is the floor for a control this is the primary action.
+            className="rounded-lg p-2 transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow/60"
           >
             <Star size={28} className={i <= shown ? "fill-yellow text-yellow" : "text-muted/40"} />
           </button>

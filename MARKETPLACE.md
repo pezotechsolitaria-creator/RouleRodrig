@@ -10,7 +10,7 @@
 > |---|---|
 > | Commission model (`merchants.commission_rate`, commission netting, payouts) | **Monthly subscription, no commission.** `orders.commission_amount` is written as 0 and read by nothing — dead columns kept for compatibility |
 > | PayPal / MCB Juice / card checkout | **Cash and Direct Bank Transfer only.** Cards and PayPal are reserved exclusively for vehicle rentals and place bookings; MCB Juice was removed in M6. Enforced in three independent places: the Zod enum, the `create_order()` whitelist, and a CHECK on `payments` |
-> | `app/api/marketplace/qr/redeem/route.ts` | Does not exist. `qr_pickup_tokens` is modelled but has no redeem route or UI yet |
+> | `app/api/marketplace/qr/redeem/route.ts` + a scanned QR | Never created. M28 ships the pickup handoff at `app/api/merchant/pickup/redeem/route.ts` as an 8-character CODE the merchant types, not a QR the merchant scans — same table, same single-use/expiring/staff-only guarantees, no camera dependency |
 > | A `features/` + `lib/marketplace/` layout | Never created. Domain logic lives in `lib/merchant/`, `lib/orders/`, `lib/schemas/`, `lib/cart/`, `lib/notifications/` |
 > | Delivery ETA promises | Roulé Rodrigues does **not** promise a delivery time. `marketplace_settings.delivery_max_minutes` is an upper bound used for wording only; the customer and driver agree the time |
 >

@@ -85,8 +85,9 @@ Stated success metric (`PRODUCT.md`): **"Success today = more rental bookings."*
 | Customer storefront (browse store, product, cart, checkout, orders) | `/shop/[storeSlug]`, `/shop/[storeSlug]/[productSlug]`, `/cart`, `/checkout`, `/orders`, `/orders/[id]` | 🟡 (Phase 2 — checkout requires login; `place_order`/`create_order` RPC live) |
 | Payment methods for product orders | `create_order` RPC — **cash / bank transfer / manual only**; cards rejected (`20260805091000_create_order_reject_card_providers.sql`), MCB Juice removed (`20260805115000`) | ✅ (live rule) |
 | Delivery: pickup / customer_delivery / **rr_delivery** (zone-priced) | `20260805105000`, `/admin/delivery-zones`, `/api/delivery-zones`, `lib/orders/location.ts` | ✅ |
-| QR single-use pickup token (HMAC, screenshot-proof) | `qr_pickup_tokens` table, `MARKETPLACE.md` §QR pickup | ❌ (Infra-only — customer redeem endpoint `/api/marketplace/qr/redeem` is roadmap) |
-| Coupons / reviews (product) | `coupons`, `reviews` tables (`20260730000001_marketplace_core.sql`) | ❌ (Infra-only / Phase 2) |
+| Single-use pickup code (issued on ready, merchant-redeemed) | `qr_pickup_tokens` + `redeem_pickup_code()` (M28), `/api/merchant/pickup/redeem`, `components/merchant/orders/RedeemPickupCode.tsx` | ✅ (an 8-character code, not a QR image — see M28 for why) |
+| Store reviews (verified purchase, account **and** guest) | `rate_store()` / `guest_rate_store()` (M29), `/api/shop/reviews`, `components/orders/RateShopCard.tsx` | ✅ (auto-published; feeds `stores.rating_avg` and the /shop "Top rated" sort) |
+| Product-level reviews and coupons | `coupons` table, `reviews.product_id` (`20260730000001_marketplace_core.sql`) | ❌ (Infra-only / Phase 2 — only STORE reviews are wired) |
 | Recurring subscription auto-billing | `subscription_invoices` (recorded manually today) | ⏳ (no automated biller; admin enters invoices) |
 | Payout / settlement dashboard | `MARKETPLACE.md` Phase 2 | ⏳ (money never touches the platform; no online capture on marketplace side) |
 
@@ -157,8 +158,8 @@ The following are specified (in `MARKETPLACE.md` / roadmap) or have DB infra, bu
 
 - ⏳ **Recurring subscription auto-billing** — `subscription_invoices` are entered manually by the admin; no automated biller.
 - ⏳ **Payout / settlement dashboard** — money never touches the platform; merchants confirm cash/bank-transfer receipts manually, so there is nothing to settle.
-- ❌ **Signed single-use QR pickup redemption** — `qr_pickup_tokens` table exists, but no redeem route/UI is wired (`/api/marketplace/qr/redeem` does not exist); today "QR" is a merchant-supplied static image (`store_payment_settings.qr_image_url`).
-- ❌ **Product coupons and marketplace reviews** — `coupons` and `reviews` tables exist (Infra-only / Phase 2), no customer UI.
+- ❌ **A scannable QR image for pickup** — deliberately not built. M28 ships the same single-use, expiring, merchant-only token as an 8-character CODE, because redeeming a QR needs a working camera on the merchant's phone and this is a market-stall product. A QR can be layered on later encoding the same code. "QR" elsewhere in the UI still means the merchant-supplied static payment image (`store_payment_settings.qr_image_url`).
+- ❌ **Product coupons and PRODUCT reviews** — `coupons` and `reviews.product_id` exist with no customer UI. Store-level reviews ARE live (M29).
 - ⏳ **SEO Wave 2 `/guide/[slug]` per-place pages** — the 21 island stories are still in a client-side component with no indexable pages (blocked on real GSC/Ahrefs/GA4 data per `tasks/lessons.md`).
 - ❌ **Online card capture on the marketplace side** — MCB Juice was built then removed; cards stay rentals-only.
 - ⏳ **`MARKETPLACE.md` "Phase 3" intelligence/scale** — AI recommendations, restock forecasting, AI product descriptions, review moderation, local card rails, multi-island tenancy.
