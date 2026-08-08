@@ -24,7 +24,11 @@ export default function BottomNav() {
     { key: "explore", icon: Compass, href: "/explore", label: L("Explore", "Explorer", "Explor"), active: pathname.startsWith("/explore") },
   ];
   const rightLinks = [
-    { key: "bookings", icon: CalendarCheck, href: "/manage-booking", label: L("Bookings", "Réservations", "Rezervasion"), active: pathname.startsWith("/manage-booking") },
+    // "Bookings" named only half of what this tab reaches: /manage-booking now
+    // covers vehicle rentals AND shop orders. `active` includes /orders so the
+    // tab stays lit once a customer follows the shop-order path off this page,
+    // rather than leaving them on a screen no tab claims.
+    { key: "bookings", icon: CalendarCheck, href: "/manage-booking", label: L("Track", "Suivi", "Swiv"), active: pathname.startsWith("/manage-booking") || pathname.startsWith("/orders") },
     { key: "more", icon: Menu, href: "/more", label: L("More", "Plus", "Plis"), active: pathname.startsWith("/more") },
   ];
 

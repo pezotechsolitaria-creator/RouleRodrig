@@ -41,6 +41,7 @@ function Row({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
 }
 
 export default function ManageBookingPage() {
+  const [kind, setKind] = useState<"vehicle" | "shop">("vehicle");
   const [ref, setRef] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -96,10 +97,60 @@ export default function ManageBookingPage() {
           <ArrowLeft size={15} /> Roule Rodrigues
         </Link>
 
-        <h1 className="mt-6 font-syne text-3xl font-extrabold">Manage your booking</h1>
-        <p className="mt-1 text-sm text-muted">No account needed — enter your reference and the email you booked with.</p>
+        <h1 className="mt-6 font-syne text-3xl font-extrabold">Track your order</h1>
+        <p className="mt-1 text-sm text-muted">
+          {kind === "vehicle"
+            ? "No account needed — enter your reference and the email you booked with."
+            : "Shop orders are tied to the account you ordered with."}
+        </p>
 
-        {!booking ? (
+        {/* The Bookings tab used to reach vehicle rentals only, so a customer
+            who had bought from a shop had nowhere to go — /orders existed but
+            nothing linked to it. The two are genuinely different journeys, not
+            one list with a filter: a vehicle booking is looked up as a GUEST
+            with a reference, while a shop order needs the account it was placed
+            with (create_order requires auth.uid()). Naming that difference here
+            is kinder than a single form that silently fails for half the people
+            who use it. */}
+        <div role="tablist" aria-label="What are you tracking?" className="mt-6 flex gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1.5">
+          {([
+            ["vehicle", "Vehicle rental"],
+            ["shop", "Shop order"],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={kind === value}
+              onClick={() => setKind(value)}
+              className={`flex-1 rounded-xl px-3 py-2.5 font-dm text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow/60 ${
+                kind === value ? "bg-yellow text-dark" : "text-muted hover:text-offwhite"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {kind === "shop" ? (
+          <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+            <h2 className="font-syne text-lg font-bold text-offwhite">Your shop orders</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted">
+              Sign in with the email you used at checkout to see every order, its status, and the
+              shop&apos;s payment details.
+            </p>
+            <Link
+              href="/orders"
+              className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-yellow px-5 py-3 font-syne text-sm font-bold text-dark transition-colors hover:bg-yellow-dark"
+            >
+              View my orders
+            </Link>
+            <p className="mt-4 text-xs leading-relaxed text-muted">
+              Bought a scooter or car rental instead? Switch to <strong className="text-offwhite">Vehicle rental</strong> above — those
+              need no account.
+            </p>
+          </div>
+        ) : !booking ? (
           <form onSubmit={submit} className="mt-8 space-y-4">
             {/* These were bare <label>s with no htmlFor over inputs with no id,
                 so both fields announced as unnamed textboxes and tapping a
