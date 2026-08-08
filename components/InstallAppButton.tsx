@@ -112,7 +112,7 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
       <AnimatePresence>
         {open && (
           <motion.div
-            className="fixed inset-0 z-[130] flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            className="fixed inset-0 z-[130] flex items-end sm:items-center justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/70 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -124,7 +124,18 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
               exit={{ opacity: 0, y: 30, scale: 0.97 }}
               transition={{ type: "spring", damping: 28, stiffness: 320 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-sm bg-dark-card border border-dark-border rounded-3xl p-6"
+              /* The panel had NO height cap and NO scroll. Its content is taller
+                 than a phone viewport, and the container anchors it with
+                 items-end — so everything above the last step (the heading, the
+                 earlier steps, and the install button itself) overflowed off the
+                 TOP of the screen with no way to reach it. Reported as "can't
+                 see the instructions or the download button", which is exactly
+                 what an unscrollable overflowing modal looks like.
+
+                 dvh rather than vh: under vh the mobile address bar counts as
+                 viewport, so 100vh is TALLER than the visible area and the cap
+                 would still clip. dvh tracks the real space. */
+              className="relative max-h-[85dvh] w-full max-w-sm overflow-y-auto overscroll-contain bg-dark-card border border-dark-border rounded-3xl p-6"
             >
               <button onClick={() => setOpen(false)} aria-label="Close" className="absolute top-4 right-4 text-muted hover:text-offwhite transition-colors">
                 <X size={20} />
