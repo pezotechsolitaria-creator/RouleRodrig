@@ -7,6 +7,7 @@ import {
   WEEK_ORDER, WEEKDAYS, hhmm, validateWeek, defaultWeek, type DaySchedule,
 } from "@/lib/schedule";
 import { centsToDecimalString } from "@/lib/money";
+import DeleteShopPanel from "./DeleteShopPanel";
 
 type Profile = {
   name: string; tagline: string | null; description: string | null;
@@ -479,6 +480,17 @@ export default function StoreEditor({
             <p className="font-dm text-[11px] text-muted/70">
               Approval, renewal and suspension are managed on the Merchants &amp; Subscriptions page.
             </p>
+
+            {/* Deliberately at the bottom of the LAST tab, not beside "Save".
+                Deleting the shop deletes the account behind it, so it should
+                take a decision to reach, never a mis-click while editing. */}
+            <DeleteShopPanel
+              storeId={storeId}
+              onDeleted={() => {
+                onSaved();
+                onClose();
+              }}
+            />
             <div>
               <p className="font-bebas text-[10px] tracking-[0.3em] text-yellow">BILLING HISTORY</p>
               {invoices.length === 0 ? (
