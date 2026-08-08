@@ -72,8 +72,54 @@ authentication the moment they are sent through Brevo instead.
 
 **Step 1 — get Brevo SMTP credentials**
 `app.brevo.com` → account menu → **SMTP & API** → **SMTP** tab. It shows a
-server, a port, a login, and an SMTP key. Generate a key if there isn't one.
-**Do not paste these anywhere except the Supabase form.**
+server, a port, a login, and an SMTP key. **Do not paste these anywhere except
+the Supabase form.**
+
+Current values for this project:
+
+| | |
+|---|---|
+| Host | `smtp-relay.brevo.com` |
+| Port | `587` |
+| Login | `b1195e001@smtp-brevo.com` |
+| Password | the SMTP **key** — not the account password, not the API key |
+
+When generating the key, Brevo asks three things:
+
+| Field | Choose | Why |
+|---|---|---|
+| **Name** | `Supabase Auth` | Names what breaks if it is ever revoked. The marketplace uses the Brevo **API** key, which is a different credential — this one serves only Supabase's sign-up / reset / email-change messages |
+| **Variant** | **Standard** (64 chars) | Short (15) exists for systems with field-length limits. Supabase has none, so there is no reason to take less entropy |
+| **Expiry** | the longest offered | See the trap below |
+
+### ⚠️ The 90-day inactivity trap
+
+Brevo's own dialog says it, quietly:
+
+> *"SMTP keys also expire after 90 days of inactivity, regardless of the set
+> expiry date."*
+
+**Inactivity, not age.** This key is used ONLY by Supabase auth email — sign-up
+confirmations, password resets, email changes. It is *not* used by the
+marketplace's own emails, which go through Brevo's **API**, so ordinary order
+traffic does **not** keep it alive.
+
+So while the site is quiet — pre-launch, or a slow off-season — nobody signs up
+for 90 days, the key silently dies, and the next customer who forgets their
+password gets nothing. No error surfaces anywhere in the application.
+
+**Mitigation, in order of reliability:**
+
+1. Set a **calendar reminder every 60 days**: "sign out of roulerodrig.com and
+   request a password reset". One reset resets the 90-day clock. Thirty seconds,
+   and it doubles as a real end-to-end test of the whole email chain.
+2. Note the key's expiry date somewhere you will actually look.
+3. Once the marketplace has steady sign-ups, the risk disappears on its own —
+   real traffic keeps it alive.
+
+Symptom if it does expire: auth email stops, everything else keeps working, and
+`/api/health` still reports green — because health checks the *marketplace*
+email provider, not Supabase's SMTP.
 
 **Step 2 — Supabase Dashboard → Project Settings → Authentication → SMTP Settings**
 
