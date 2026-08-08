@@ -8,6 +8,7 @@ import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import StoreCard, { type BrowseStoreCard } from "@/components/shop/StoreCard";
 import { ShopHeader } from "@/components/shop/ShopChrome";
+import { sellerPitch, type MonetizationModel } from "@/lib/marketplace/fees";
 
 // Deliberately dynamic, NOT ISR: browse_stores() computes each shop's
 // open/closed verdict inside the query, and an "Open now" badge cached for
@@ -75,7 +76,7 @@ const chipOff = `${chipBase} border-white/10 bg-dark-card text-muted hover:borde
 // The launch state IS the empty state: with zero approved merchants this page's
 // job is to recruit the first shops, not to apologise to customers for a bare
 // directory. /merchant/login has a "Create your shop account" mode already.
-function LaunchState() {
+function LaunchState({ pitch }: { pitch: string }) {
   return (
     <div className="mt-10 overflow-hidden rounded-3xl border border-yellow/20 bg-gradient-to-b from-yellow/10 to-transparent px-6 py-12 text-center">
       <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-yellow/10 text-yellow ring-1 ring-inset ring-yellow/20">
@@ -94,7 +95,7 @@ function LaunchState() {
         <p className="mt-2 font-syne text-lg font-bold text-offwhite">Be one of the first on the marketplace</p>
         <p className="mt-2 font-dm text-sm leading-relaxed text-muted">
           List your products, take orders online, and get paid directly in cash or by bank transfer —
-          no commission on your sales, just a simple subscription.
+          {" "}{pitch}.
         </p>
         <Link
           href="/merchant/login"
@@ -132,7 +133,7 @@ export default async function ShopDirectoryPage({
   };
 
   const supabase = await createClient();
-  const [storesRes, catsRes] = await Promise.all([
+  const [storesRes, catsRes, settingsRes] = await Promise.all([
     supabase.rpc("browse_stores", {
       p_q: f.q || null,
       p_category: f.category || null,
@@ -143,6 +144,14 @@ export default async function ShopDirectoryPage({
       p_offset: (f.page - 1) * PAGE_SIZE,
     }),
     supabase.rpc("browse_store_categories"),
+    // What this page PROMISES a prospective seller about money has to come
+    // from the thing that actually charges them, not from a string typed once.
+    // marketplace_settings is publicly readable (marketplace_settings_public_read).
+    supabase
+      .from("marketplace_settings")
+      .select("monetization_model, default_commission_rate")
+      .eq("id", "main")
+      .maybeSingle(),
   ]);
 
   // A failed directory query is a real error page (app/shop/error.tsx), not a
@@ -155,6 +164,14 @@ export default async function ShopDirectoryPage({
   // Categories power the filter bar only — losing them must not sink the page.
   if (catsRes.error) console.error("browse_store_categories failed", catsRes.error);
   const categories = ((catsRes.data ?? []) as BrowseCategory[]).filter((c) => c.storeCount > 0);
+
+  // Falls back to the honest default if the settings read fails: never invent a
+  // cheaper offer than the one actually configured.
+  const settings = settingsRes.data as { monetization_model?: string; default_commission_rate?: number } | null;
+  const pitch = sellerPitch(
+    (settings?.monetization_model as MonetizationModel) ?? "subscription",
+    Number(settings?.default_commission_rate ?? 0),
+  );
 
   const hasFilters = Boolean(f.q || f.category || f.fulfillment || f.open);
   const totalPages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
@@ -296,7 +313,7 @@ export default async function ShopDirectoryPage({
 
             <div className="mt-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-dark-card px-5 py-4">
               <p className="font-dm text-sm text-muted">
-                Run a shop in Rodrigues? Sell on the marketplace — no commission, just a simple subscription.
+                Run a shop in Rodrigues? Sell on the marketplace — {pitch}.
               </p>
               <Link href="/merchant/login" className="font-dm text-sm font-bold text-yellow hover:underline">
                 Open your shop →
@@ -319,7 +336,7 @@ export default async function ShopDirectoryPage({
             </Link>
           </div>
         ) : (
-          <LaunchState />
+          <LaunchState pitch={pitch} />
         )}
       </div>
     </main>

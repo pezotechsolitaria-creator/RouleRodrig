@@ -107,6 +107,36 @@ export function formatRate(rate: number): string {
 }
 
 /**
+ * The one-line promise made to a prospective seller on the PUBLIC recruitment
+ * surface (/shop). Derived, never hardcoded.
+ *
+ * This exists because /shop told merchants "no commission on your sales, just a
+ * simple subscription" in two hardcoded places. That happens to be true today —
+ * the model is `subscription` at 0% — but the whole point of M23 was that the
+ * owner can switch models without a rewrite, and the first switch would have
+ * turned a recruitment page into a false promise about money. A claim about
+ * what somebody will be charged has to come from the thing that charges them.
+ */
+export function sellerPitch(model: MonetizationModel, rate: number): string {
+  const pct = formatRate(rate);
+  switch (model) {
+    case "free":
+      return "no monthly fee and no commission while we get the first shops on board";
+    case "commission":
+      return `no monthly fee — Roulé Rodrigues keeps ${pct} of each completed sale`;
+    case "hybrid":
+      return `a simple monthly subscription, plus ${pct} of each completed sale`;
+    case "subscription":
+    default:
+      // 0% is the configured default, so "no commission" is only safe to say
+      // when the number actually says so.
+      return modelChargesCommission(model) || rate > 0
+        ? `a simple monthly subscription, plus ${pct} of each sale`
+        : "no commission on your sales, just a simple subscription";
+  }
+}
+
+/**
  * Plain language for each model, for the admin chooser. Deliberately describes
  * WHO PAYS WHAT rather than naming the internal enum — the owner is choosing a
  * business model, not a database value.
