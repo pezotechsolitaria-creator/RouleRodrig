@@ -24,6 +24,10 @@ import { isUuid } from "@/lib/file-signature";
 //      a failure there is reported, never fatal.
 const NOT_FOUND = "RR003";
 const ORDERS_IN_FLIGHT = "RR040";
+// Platform infrastructure — the Events merchant and its event stores (M40).
+// Not a "force" case: there is no confirmation strong enough to make deleting
+// the events platform from the marketplace screen the right action.
+const SYSTEM_OWNED = "RR041";
 
 type Account = {
   userId: string;
@@ -123,6 +127,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (error) {
     if (error.code === NOT_FOUND) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    // 403, and deliberately NOT needsForce: this one is never overridable.
+    if (error.code === SYSTEM_OWNED) {
+      return NextResponse.json({ error: error.message, systemOwned: true }, { status: 403 });
+    }
     // 409: the admin has to look at the in-flight orders and decide again.
     // The preview rides along so the dialog can list them without a re-fetch.
     if (error.code === ORDERS_IN_FLIGHT) {

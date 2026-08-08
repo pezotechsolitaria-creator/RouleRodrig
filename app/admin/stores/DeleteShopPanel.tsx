@@ -61,6 +61,8 @@ export default function DeleteShopPanel({
   const [busy, setBusy] = useState(false);
   const [needsForce, setNeedsForce] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Set when the shop is platform infrastructure — a refusal, not a warning. */
+  const [blocked, setBlocked] = useState<string | null>(null);
   /** Which logins to remove. Pre-ticked for the ones with nothing else to lose. */
   const [chosen, setChosen] = useState<Set<string>>(new Set());
 
@@ -117,6 +119,13 @@ export default function DeleteShopPanel({
         body: JSON.stringify({ force, confirmName, deleteAccounts: [...chosen] }),
       });
       const body = await res.json().catch(() => ({}));
+      if (res.status === 403 && body.systemOwned) {
+        // Platform infrastructure (the Events merchant and its event stores).
+        // Deliberately NOT offered as a force: the answer is no, not "are you
+        // sure". The database refuses this independently of the UI (M40).
+        setBlocked(body.error);
+        return;
+      }
       if (res.status === 409 && body.needsForce) {
         // Not an error the admin caused — it is the safety catch doing its job.
         setNeedsForce(true);
@@ -164,6 +173,20 @@ export default function DeleteShopPanel({
 
   if (!preview) {
     return <p className="font-dm text-xs text-red-400">{error ?? "Could not read this shop."}</p>;
+  }
+
+  // Platform infrastructure. Replace the whole panel rather than disabling the
+  // button: leaving a delete form on screen next to "this cannot be deleted"
+  // invites someone to keep trying.
+  if (blocked) {
+    return (
+      <div className="rounded-xl border border-white/15 bg-white/[0.03] p-4">
+        <p className="flex items-center gap-1.5 font-syne text-sm font-bold text-offwhite">
+          <AlertTriangle size={15} className="text-yellow" /> Protected
+        </p>
+        <p className="mt-2 font-dm text-xs leading-relaxed text-muted">{blocked}</p>
+      </div>
+    );
   }
 
   const nameMatches = confirmName.trim().toLowerCase() === preview.storeName.trim().toLowerCase();
