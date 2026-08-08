@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Download, X, Share, MoreVertical, Plus } from "lucide-react";
 import { SITE_URL } from "@/lib/site";
@@ -36,6 +37,12 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
   const [hasNative, setHasNative] = useState(false);
   const [platform, setPlatform] = useState<Platform>("desktop");
   const [open, setOpen] = useState(false);
+  // document.body does not exist during SSR, so the portal can only mount on the
+  // client. Gating on this rather than checking `typeof window` keeps the first
+  // client render identical to the server's and avoids a hydration mismatch.
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     const standalone =
@@ -110,7 +117,7 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
       {trigger}
 
       <AnimatePresence>
-        {open && (
+        {open && mounted && createPortal(
           <motion.div
             className="fixed inset-0 z-[130] flex items-end sm:items-center justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/70 backdrop-blur-sm"
             initial={{ opacity: 0 }}
@@ -194,7 +201,8 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
                 )}
               </ol>
             </motion.div>
-          </motion.div>
+          </motion.div>,
+          document.body,
         )}
       </AnimatePresence>
     </>
