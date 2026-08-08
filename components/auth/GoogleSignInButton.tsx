@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { authRedirect } from "@/lib/auth-redirect";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -64,7 +65,7 @@ export default function GoogleSignInButton({ next }: { next: string }) {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        redirectTo: authRedirect(`/auth/callback?next=${encodeURIComponent(next)}`),
         skipBrowserRedirect: true,
       },
     });

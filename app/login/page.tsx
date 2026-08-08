@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Loader2, Mail, ArrowRight, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { safeNext } from "@/lib/safe-next";
+import { authRedirect } from "@/lib/auth-redirect";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 // Customer sign-in — shares the exact same Supabase Auth session/cookie
@@ -56,7 +57,7 @@ function LoginForm() {
     setBusy("email");
     setError(null);
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/auth/reset-password?next=${encodeURIComponent(next)}`,
+      redirectTo: authRedirect(`/auth/reset-password?next=${encodeURIComponent(next)}`),
     });
     setBusy(null);
     // Deliberately reports success either way: telling an anonymous visitor
@@ -67,7 +68,7 @@ function LoginForm() {
 
   const callback = () =>
     typeof window !== "undefined"
-      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+      ? authRedirect(`/auth/callback?next=${encodeURIComponent(next)}`)
       : undefined;
 
   async function submit(e: React.FormEvent) {

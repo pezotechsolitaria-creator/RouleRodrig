@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { authRedirect } from "@/lib/auth-redirect";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, Mail, ArrowRight, ArrowLeft } from "lucide-react";
@@ -21,7 +22,7 @@ export default function MerchantLoginPage() {
   const [checkEmail, setCheckEmail] = useState(false);
 
   const callback = () =>
-    typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined;
+    typeof window !== "undefined" ? authRedirect("/auth/callback") : undefined;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
