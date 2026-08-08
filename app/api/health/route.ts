@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 // DRIFTED once already (this read v96 while public/sw.js was on v110), which is
 // the one failure this constant exists to prevent — a health endpoint that
 // confidently reports a stale answer is worse than one that reports nothing.
-const SW_CACHE_VERSION = "rr-cache-v119";
+const SW_CACHE_VERSION = "rr-cache-v120";
 
 // ── Health / readiness / liveness ────────────────────────────────────────────
 // GET /api/health           → readiness (checks the database dependency)
@@ -93,6 +93,8 @@ export async function GET(req: Request) {
   // /api/admin/email. Same principle as reporting adminBackend as
   // "configured" rather than echoing the key.
   let emailQuota: Record<string, string> | null = null;
+  // Only present when something IS unconfigured — see the reasoning below.
+  let emailProviderEnv: Record<string, boolean> | null = null;
   try {
     const { getEmailConfig } = await import("@/lib/email/config");
     const { getProviderUsage } = await import("@/lib/email/quota");
@@ -107,6 +109,31 @@ export async function GET(req: Request) {
       resend: resend.configured ? resend.level : "unconfigured",
       brevo: brevo.configured ? brevo.level : "unconfigured",
     };
+
+    // WHICH piece is missing, and only when one is. Exactly the reasoning behind
+    // rateLimiterEnv above: "unconfigured" has four different causes — never set
+    // them, set only one of the pair, set them on Preview instead of Production,
+    // or set them and never redeployed — and each has a different fix. Without
+    // this the only way to tell them apart is to log into the admin panel, which
+    // is a poor thing to require of a deployment check.
+    //
+    // Booleans only, never a value. Knowing that a variable IS set gives an
+    // attacker nothing, and the DNS already announces publicly that this domain
+    // sends through both providers.
+    if (!resend.configured || !brevo.configured) {
+      const { getBrevoCredentials } = await import("@/lib/email/providers/brevo");
+      const b = await getBrevoCredentials().catch(() => ({ key: "", from: "" }));
+      emailProviderEnv = {
+        // Resend needs BOTH. The key alone leaves it deliberately unconfigured
+        // rather than falling back to a sender that cannot reach customers.
+        resendKeySet: !!process.env.RESEND_API_KEY?.trim(),
+        resendFromSet: !!process.env.RESEND_FROM?.trim(),
+        // Brevo's come from app_secrets first, env second — so these are "is a
+        // usable value resolving?", not "is an env var present?".
+        brevoKeySet: !!b.key,
+        brevoSenderSet: !!b.from,
+      };
+    }
   } catch {
     /* omit rather than report a level we could not compute */
   }
@@ -149,6 +176,9 @@ export async function GET(req: Request) {
         email: emailProvider,
         // Levels only (see above). Absent when it could not be computed.
         ...(emailQuota ? { emailQuota } : {}),
+        // Only when a provider is unconfigured, and booleans only — which piece
+        // is missing is the difference between four different fixes.
+        ...(emailProviderEnv ? { emailProviderEnv } : {}),
         // The canonical origin every confirmation link, tracking link and
         // JSON-LD URL is built from. If this is wrong, emails point at the
         // wrong host — a failure that is invisible until a customer clicks.
