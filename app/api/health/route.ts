@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { hasServiceRole } from "@/lib/supabase/admin";
-import { hasSharedLimiter } from "@/lib/rate-limit";
+import { hasSharedLimiter, sharedLimiterDiagnostics } from "@/lib/rate-limit";
 import { emailProviderName } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
@@ -101,6 +101,11 @@ export async function GET(req: Request) {
         // operator investigating abuse needs to know which mode is live before
         // concluding the limits are being ignored.
         rateLimiter: hasSharedLimiter() ? "shared" : "in-memory",
+        // Only when it is NOT shared, and booleans only — never a value. Which
+        // of the two variables is missing is the difference between "never set
+        // them", "set them on Preview not Production", "typo'd a name" and "set
+        // them but never redeployed", and each has a different fix.
+        ...(hasSharedLimiter() ? {} : { rateLimiterEnv: sharedLimiterDiagnostics() }),
         // Provider NAME only — never a key, never the sender address. Guest
         // checkout is entirely email-dependent, and send() no-ops silently when
         // nothing is configured: the site looks healthy while every customer

@@ -109,16 +109,46 @@ function tooMany(retryAfter: number, limit: number): NextResponse {
 //     that takes the checkout down when its cache blinks has caused a worse
 //     outage than the abuse it prevents. The local limiter still applies, so
 //     failing open falls back to a real limit rather than to none.
-const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
-const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+//
+// READ AT CALL TIME, NOT AT MODULE SCOPE. These were previously captured into
+// module-level consts, which is a trap: a bundler is free to statically replace
+// a `process.env.X` expression with its value AT BUILD TIME, and the build
+// environment does not necessarily carry the runtime secrets. The symptom is
+// the nastiest kind — the variables are correctly set in Vercel, the deploy
+// succeeds, and the limiter silently reports "in-memory" forever. Reading
+// inside the function costs one property lookup and removes the whole class.
+function redisConfig(): { url: string; token: string } | null {
+  const url = process.env.UPSTASH_REDIS_REST_URL?.trim();
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+  if (!url || !token) return null;
+  return { url: url.replace(/\/+$/, ""), token };
+}
 
 /** True when a shared store is configured. Exposed for diagnostics (/api/health). */
 export function hasSharedLimiter(): boolean {
-  return Boolean(REDIS_URL && REDIS_TOKEN);
+  return redisConfig() !== null;
+}
+
+/**
+ * Which half of the configuration is missing — BOOLEANS ONLY, never a value.
+ *
+ * "in-memory" alone cannot distinguish "I never set these", "I set them on
+ * Preview instead of Production", "I typo'd a variable name" and "I set them
+ * but never redeployed". Each has a different fix, and hunting through a
+ * dashboard to tell them apart is exactly the kind of time this endpoint exists
+ * to save.
+ */
+export function sharedLimiterDiagnostics(): { urlSet: boolean; tokenSet: boolean } {
+  return {
+    urlSet: Boolean(process.env.UPSTASH_REDIS_REST_URL?.trim()),
+    tokenSet: Boolean(process.env.UPSTASH_REDIS_REST_TOKEN?.trim()),
+  };
 }
 
 async function sharedIncr(key: string, windowSec: number): Promise<number | null> {
-  if (!REDIS_URL || !REDIS_TOKEN) return null;
+  const cfg = redisConfig();
+  if (!cfg) return null;
+  const { url: REDIS_URL, token: REDIS_TOKEN } = cfg;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 1000);
   try {
