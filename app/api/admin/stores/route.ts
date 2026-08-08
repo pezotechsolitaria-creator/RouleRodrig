@@ -64,6 +64,16 @@ const patchSchema = z.object({
     offers_customer_delivery: z.boolean().optional(),
   }).optional(),
   status: z.enum(["draft", "active", "paused", "holiday", "closed"]).optional(),
+  // Featuring is a commercial decision, so it is owner-only (M27). Sent as an
+  // object rather than a bare boolean so "feature until X" and "feature
+  // indefinitely" are one atomic instruction — two separate fields could be
+  // applied half-way and leave a promotion with no end date by accident.
+  featured: z.object({
+    on: z.boolean(),
+    // datetime-local gives "YYYY-MM-DDTHH:mm" with no zone; coerce here so the
+    // RPC always receives a real timestamptz or null, never a half-parsed string.
+    until: z.coerce.date().nullable().optional(),
+  }).optional(),
 });
 
 // Every shop plus its live schedule status, in ONE query. The lateral join runs
@@ -137,8 +147,8 @@ export async function PATCH(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input." }, { status: 400 });
   }
-  const { storeId, profile, payment, status } = parsed.data;
-  if (!profile && !payment && !status) {
+  const { storeId, profile, payment, status, featured } = parsed.data;
+  if (!profile && !payment && !status && !featured) {
     return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
   }
 
@@ -185,6 +195,19 @@ export async function PATCH(req: NextRequest) {
       p_status: status,
     });
     if (error) return fail(error, "shop status");
+  }
+
+  // Owner-only by construction: this route already sits behind the admin cookie
+  // gate and runs on the service role, and admin_set_store_featured() re-checks
+  // independently rather than trusting the caller. Turning featuring OFF always
+  // clears the expiry, so a re-feature never silently inherits an old deadline.
+  if (featured) {
+    const { error } = await supabase.rpc("admin_set_store_featured", {
+      p_store_id: storeId,
+      p_featured: featured.on,
+      p_until: featured.on && featured.until ? featured.until.toISOString() : null,
+    });
+    if (error) return fail(error, "featured");
   }
 
   return NextResponse.json({ ok: true });

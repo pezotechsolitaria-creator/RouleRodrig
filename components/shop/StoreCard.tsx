@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Store as StoreIcon, Star, MapPin } from "lucide-react";
+import { Store as StoreIcon, MapPin } from "lucide-react";
 import { hhmm } from "@/lib/schedule";
+import StarRating from "./StarRating";
 
 // One row of browse_stores()'s `stores` array, exactly as the RPC names them.
 // The open/closed verdict is the SERVER's (computed inside the same query at
@@ -102,8 +103,8 @@ export default function StoreCard({ store }: { store: BrowseStoreCard }) {
 
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 font-dm text-xs text-muted">
           {store.ratingCount > 0 && store.ratingAvg !== null && (
-            <span className="inline-flex items-center gap-1 text-offwhite">
-              <Star size={12} className="fill-yellow text-yellow" />
+            <span className="inline-flex items-center gap-1.5 text-offwhite">
+              <StarRating value={Number(store.ratingAvg)} size={12} />
               {Number(store.ratingAvg).toFixed(1)}
               <span className="text-muted">({store.ratingCount})</span>
             </span>

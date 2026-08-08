@@ -11,6 +11,7 @@ import { FULFILLMENT_LABEL, googleMapsLink, formatCoords } from "@/lib/orders/lo
 import { holdInfo, customerHoldCopy, holdRemaining, type PaymentProvider } from "@/lib/orders/hold";
 import BankTransferPanel, { type BankDetails } from "@/components/orders/BankTransferPanel";
 import PickupCodeCard from "@/components/orders/PickupCodeCard";
+import RateShopCard from "@/components/orders/RateShopCard";
 import type { PickupCode } from "@/lib/orders/pickup";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -127,7 +128,7 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
   const hasGps = typedOrder.delivery_lat != null && typedOrder.delivery_lng != null;
 
   // The pickup code comes from an RPC, not from an embed on qr_pickup_tokens:
-  // M27 revoked the table grant so the raw code is not reachable through
+  // M28 revoked the table grant so the raw code is not reachable through
   // PostgREST by any client role. customer_pickup_code() releases it on one
   // test — this is your order.
   let pickup: PickupCode | null = null;
@@ -139,6 +140,18 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
     // and the shop can close it from their side.
     if (pickupError) console.error("customer_pickup_code failed", pickupError);
     pickup = (data as PickupCode | null) ?? null;
+  }
+
+  // Reviewing is offered exactly once, on the order it is about, and only after
+  // the shop actually handed it over — that is what makes the rating on /shop
+  // worth sorting by.
+  let canReview = false;
+  if (typedOrder.status === "collected") {
+    const { data, error: reviewError } = await supabase.rpc("order_review_state", {
+      p_order_id: typedOrder.id,
+    });
+    if (reviewError) console.error("order_review_state failed", reviewError);
+    canReview = Boolean((data as { canReview?: boolean } | null)?.canReview);
   }
 
   return (
@@ -165,6 +178,14 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
             next action, and burying it under the receipt would defeat it. */}
         {pickup?.code && typedOrder.status === "ready_for_pickup" && (
           <PickupCodeCard pickup={pickup} storeName={(store as { name?: string })?.name} className="mt-4" />
+        )}
+
+        {canReview && (
+          <RateShopCard
+            credential={{ orderId: typedOrder.id }}
+            storeName={(store as { name?: string })?.name ?? "this shop"}
+            className="mt-4"
+          />
         )}
 
         {showHold && hold && (

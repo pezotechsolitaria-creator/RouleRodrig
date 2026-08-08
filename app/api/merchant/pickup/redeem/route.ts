@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { guardShared } from "@/lib/rate-limit";
 import { normalizePickupCode } from "@/lib/orders/pickup";
 
-// ── Merchant-side pickup handover (M27) ────────────────────────────────────
+// ── Merchant-side pickup handover (M28) ────────────────────────────────────
 //
 // The customer shows an eight-character code; the merchant types it here and
 // the order becomes Collected in one transaction. Every guarantee lives in

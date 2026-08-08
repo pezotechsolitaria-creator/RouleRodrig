@@ -28,7 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { data: store, error } = await supabase
     .from("stores")
-    .select("id, merchant_id, name, slug, tagline, description, phone, whatsapp, address, lat, lng, logo_url, status, currency")
+    .select("id, merchant_id, name, slug, tagline, description, phone, whatsapp, address, lat, lng, logo_url, status, currency, featured, featured_until")
     .eq("id", id)
     .maybeSingle();
 

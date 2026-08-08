@@ -141,7 +141,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     try {
       const admin = await getPrivileged();
       // A guest order has no auth user, so the address on the order IS the
-      // customer. Before M27 this branch required customer_id and silently
+      // customer. Before M28 this branch required customer_id and silently
       // skipped every guest — i.e. the default checkout path got no status
       // email at all, including the one saying their order was ready.
       let email = current.customer_email ?? null;
@@ -154,7 +154,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         // The pickup code belongs IN the email: the customer is usually not
         // looking at the site when the shop marks an order ready, and arriving
         // at the counter is the moment they need it. Read with the service
-        // role — no client role can see qr_pickup_tokens.code (M27).
+        // role — no client role can see qr_pickup_tokens.code (M28).
         let extra = "";
         if (targetStatus === "ready_for_pickup") {
           const { data: token } = await admin

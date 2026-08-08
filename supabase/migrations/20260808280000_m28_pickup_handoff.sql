@@ -1,4 +1,4 @@
--- M27 — The pickup handoff: make qr_pickup_tokens a feature instead of a table.
+-- M28 — The pickup handoff: make qr_pickup_tokens a feature instead of a table.
 --
 -- WHAT WAS WRONG
 -- qr_pickup_tokens has existed since 20260730000001 (marketplace_core) with a
@@ -54,7 +54,7 @@ end;
 $$;
 
 comment on column marketplace_settings.pickup_code_hours is
-  'How long a pickup code stays redeemable after it is issued. Expiry is a backstop, not the real gate — the code is only redeemable while the order is in ready_for_pickup, and an expired code degrades to the merchant''s existing "Mark collected" button rather than trapping anyone (M27).';
+  'How long a pickup code stays redeemable after it is issued. Expiry is a backstop, not the real gate — the code is only redeemable while the order is in ready_for_pickup, and an expired code degrades to the merchant''s existing "Mark collected" button rather than trapping anyone (M28).';
 
 -- ── 2. The code column ──────────────────────────────────────────────────────
 alter table qr_pickup_tokens
@@ -67,7 +67,7 @@ create index if not exists qr_pickup_tokens_live_idx
   on qr_pickup_tokens (order_id, expires_at) where redeemed_at is null;
 
 comment on column qr_pickup_tokens.code is
-  'The eight characters the customer shows at the counter. NEVER granted to anon or authenticated — released only by customer_pickup_code(), lookup_order() and the confirmation email, each of which proves the reader owns the order (M27).';
+  'The eight characters the customer shows at the counter. NEVER granted to anon or authenticated — released only by customer_pickup_code(), lookup_order() and the confirmation email, each of which proves the reader owns the order (M28).';
 
 -- ── 3. Code generation ──────────────────────────────────────────────────────
 create or replace function public.new_pickup_code()
@@ -307,7 +307,7 @@ revoke all on function public.redeem_pickup_code(text) from public, anon, authen
 grant execute on function public.redeem_pickup_code(text) to authenticated;
 
 comment on function public.redeem_pickup_code(text) is
-  'Merchant-side handover: verify a customer''s pickup code and move the order to collected in one transaction. Single-use, expiring, store-staff-only, and idempotent on re-submission. Unknown codes and other shops'' codes share one refusal message so the endpoint cannot be used to discover live codes (M27).';
+  'Merchant-side handover: verify a customer''s pickup code and move the order to collected in one transaction. Single-use, expiring, store-staff-only, and idempotent on re-submission. Unknown codes and other shops'' codes share one refusal message so the endpoint cannot be used to discover live codes (M28).';
 
 -- ── 6. Reading the code back ────────────────────────────────────────────────
 create or replace function public.customer_pickup_code(p_order_id uuid)
@@ -381,7 +381,7 @@ begin
            'provider',      (select pm.provider from payments pm
                               where pm.order_id = o.id order by pm.created_at limit 1),
            'receiptSubmittedAt', o.receipt_submitted_at,
-           -- The pickup code (M27). Released on the same credential as the rest
+           -- The pickup code (M28). Released on the same credential as the rest
            -- of this payload — order number AND the address that placed it —
            -- and only while it can still be used: once redeemed or expired,
            -- showing it would invite a customer to present a dead code.
@@ -429,7 +429,7 @@ revoke all on function public.lookup_order(text, text) from public, anon, authen
 grant execute on function public.lookup_order(text, text) to service_role;
 
 comment on function public.lookup_order(text, text) is
-  'Account-free order lookup for guest checkout: order number + the email that placed it. Returns the shop''s bank details only while a bank transfer is still owed, and the live pickup code while the order is waiting to be collected. SECURITY DEFINER, service_role only (M20, extended M21 and M27).';
+  'Account-free order lookup for guest checkout: order number + the email that placed it. Returns the shop''s bank details only while a bank transfer is still owed, and the live pickup code while the order is waiting to be collected. SECURITY DEFINER, service_role only (M20, extended M21 and M28).';
 
 -- ── 8. Table lockdown ───────────────────────────────────────────────────────
 -- RLS decides WHICH ROW; column grants decide WHICH COLUMNS. qr_pickup_tokens
@@ -447,7 +447,7 @@ declare
   v_lo   text;
 begin
   if not exists (select 1 from pg_trigger where tgname = 't_orders_issue_pickup_code') then
-    raise exception 'M27: the ready_for_pickup trigger did not attach.';
+    raise exception 'M28: the ready_for_pickup trigger did not attach.';
   end if;
 
   -- lookup_order() was reproduced whole. Prove nothing M20/M21 put in it was
@@ -456,24 +456,24 @@ begin
     join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public' and p.proname = 'lookup_order';
   if position('pickupCode' in v_lo) = 0 then
-    raise exception 'M27: lookup_order() lost the pickup code.';
+    raise exception 'M28: lookup_order() lost the pickup code.';
   end if;
   if position('accountNumber' in v_lo) = 0 or position('autoReleaseAt' in v_lo) = 0 then
-    raise exception 'M27: lookup_order() lost an M20/M21 field.';
+    raise exception 'M28: lookup_order() lost an M20/M21 field.';
   end if;
 
   -- The generator must produce 8 characters from the intended alphabet.
   v_code := new_pickup_code();
   if v_code !~ '^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$' then
-    raise exception 'M27: new_pickup_code() produced %, which is not an 8-character code.', v_code;
+    raise exception 'M28: new_pickup_code() produced %, which is not an 8-character code.', v_code;
   end if;
 
   -- The raw code must not be readable by a client role.
   if has_column_privilege('authenticated', 'public.qr_pickup_tokens', 'code', 'SELECT') then
-    raise exception 'M27: authenticated can still read qr_pickup_tokens.code.';
+    raise exception 'M28: authenticated can still read qr_pickup_tokens.code.';
   end if;
   if has_table_privilege('anon', 'public.qr_pickup_tokens', 'SELECT') then
-    raise exception 'M27: anon still holds SELECT on qr_pickup_tokens.';
+    raise exception 'M28: anon still holds SELECT on qr_pickup_tokens.';
   end if;
 end;
 $$;

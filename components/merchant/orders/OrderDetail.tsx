@@ -332,7 +332,7 @@ export default function OrderDetail({ id }: { id: string }) {
           />
 
           {/* The merchant sees the STATE of the handover, never the code
-              itself — M27 revoked the column grant so no client role can read
+              itself — M28 revoked the column grant so no client role can read
               another customer's code. Redeeming happens at the top of the
               orders list, where the merchant types what the customer shows. */}
           {pickup && (

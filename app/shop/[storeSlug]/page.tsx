@@ -6,7 +6,16 @@ import { createClient } from "@/lib/supabase/server";
 import ProductCard, { type ShopProductCard } from "@/components/shop/ProductCard";
 import StoreHoursCard from "@/components/shop/StoreHoursCard";
 import CategoryRail from "@/components/shop/CategoryRail";
+import StarRating from "@/components/shop/StarRating";
 import { ShopHeader } from "@/components/shop/ShopChrome";
+
+type StoreReview = {
+  id: string;
+  rating: number;
+  body: string | null;
+  createdAt: string;
+  author: string | null;
+};
 
 export const revalidate = 60;
 
@@ -59,7 +68,7 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
   // the live open/closed verdict is derived in the browser by StoreHoursCard,
   // because this page is ISR (revalidate = 60) and a server-rendered badge
   // would be baked into the cached HTML and wrong right at the opening minute.
-  const [{ data: products }, { data: hours }] = await Promise.all([
+  const [{ data: products }, { data: hours }, { data: reviewData }] = await Promise.all([
     supabase
       .from("products")
       .select(
@@ -75,7 +84,13 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
       .eq("store_id", store.id)
       .is("date", null)
       .order("weekday"),
+    // Through the RPC, not a table read: the reviewer's name is derived from
+    // the order inside the function, so nothing here needs SELECT on
+    // orders.customer_name (M29).
+    supabase.rpc("store_reviews", { p_store_id: store.id, p_limit: 8 }),
   ]);
+
+  const reviews = ((reviewData as StoreReview[] | null) ?? []).filter((r) => r.body);
 
   type ProductRow = {
     id: string; name: string; slug: string;
@@ -141,10 +156,19 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
         <div className="mt-10">
           <h1 className="font-syne text-2xl font-extrabold text-offwhite">{store.name}</h1>
           {store.tagline && <p className="mt-0.5 font-dm text-sm text-muted">{store.tagline}</p>}
-          {store.rating_count > 0 && store.rating_avg !== null && (
-            <p className="mt-1 font-dm text-sm text-offwhite">
-              ★ {Number(store.rating_avg).toFixed(1)} <span className="text-muted">({store.rating_count})</span>
-            </p>
+          {store.rating_count > 0 && store.rating_avg !== null ? (
+            <a href="#reviews" className="mt-1.5 inline-flex items-center gap-2 font-dm text-sm text-offwhite hover:text-yellow">
+              <StarRating value={Number(store.rating_avg)} />
+              {Number(store.rating_avg).toFixed(1)}
+              <span className="text-muted">
+                ({store.rating_count} review{store.rating_count === 1 ? "" : "s"})
+              </span>
+            </a>
+          ) : (
+            // Honest instead of blank. "No reviews yet" tells a visitor the
+            // shop is new, not that the site forgot to load something — and it
+            // says who is allowed to change that.
+            <p className="mt-1.5 font-dm text-xs text-muted">No reviews yet — buyers can rate after collecting an order.</p>
           )}
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-dm text-xs text-muted">
             {store.phone && (
@@ -197,6 +221,30 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
               </div>
             </section>
           ))
+        )}
+
+        {/* Only reviews with words get a card — a wall of "★★★★★" with no text
+            adds nothing the average above has not already said. The COUNT
+            still reflects every rating, including the silent ones. */}
+        {reviews.length > 0 && (
+          <section id="reviews" className="mt-10 scroll-mt-32">
+            <h2 className="font-syne text-lg font-bold text-offwhite">What buyers say</h2>
+            <p className="mt-1 font-dm text-xs text-muted">
+              Every review here comes from a collected order at this shop.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {reviews.map((r) => (
+                <figure key={r.id} className="rounded-2xl border border-white/10 bg-dark-card p-4">
+                  <StarRating value={r.rating} size={13} />
+                  <blockquote className="mt-2 font-dm text-sm leading-relaxed text-offwhite/90">{r.body}</blockquote>
+                  <figcaption className="mt-2 font-dm text-xs text-muted">
+                    {r.author ?? "Verified buyer"} ·{" "}
+                    {new Date(r.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })}
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </section>
         )}
       </div>
     </main>

@@ -9,6 +9,7 @@ import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { holdInfo, customerHoldCopy, holdRemaining, type PaymentProvider } from "@/lib/orders/hold";
 import BankTransferPanel from "@/components/orders/BankTransferPanel";
 import PickupCodeCard from "@/components/orders/PickupCodeCard";
+import RateShopCard from "@/components/orders/RateShopCard";
 import { Button } from "@/components/ui/button";
 
 // ── Guest order tracking + post-purchase (M20, completed M21) ──────────────
@@ -48,11 +49,14 @@ type TrackedOrder = {
   storeSlug: string;
   storePhone: string | null;
   isGuest: boolean;
-  // M27. A guest gets the pickup code on the same credential as everything
+  // M28. A guest gets the pickup code on the same credential as everything
   // else on this page — the login wall was removed at checkout, so the handoff
   // that follows checkout cannot quietly require an account either.
   pickupCode: string | null;
   pickupRedeemedAt: string | null;
+  // M29. Same rule as the signed-in page: reviewable once, after collection.
+  canReview: boolean;
+  reviewed: boolean;
   bank: {
     bankName: string | null;
     accountHolder: string | null;
@@ -284,6 +288,14 @@ function TrackOrder() {
             )}
             {order.status === "collected" && order.pickupRedeemedAt && (
               <PickupCodeCard pickup={{ code: null, redeemedAt: order.pickupRedeemedAt }} />
+            )}
+
+            {/* A guest reviews on the credential they already typed to get
+                here — no account, same moment, same card as a signed-in
+                customer. Guest checkout is the default path, so a review flow
+                that skipped it would collect almost nothing. */}
+            {order.canReview && (
+              <RateShopCard credential={{ orderNumber: order.orderNumber, email }} storeName={order.storeName} />
             )}
 
             {/* The reservation clock. M20 returned autoReleaseAt from

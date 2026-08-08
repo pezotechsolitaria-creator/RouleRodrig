@@ -12,6 +12,7 @@ type Profile = {
   name: string; tagline: string | null; description: string | null;
   phone: string | null; whatsapp: string | null; address: string | null;
   lat: number | null; lng: number | null; logo_url: string | null; status: string;
+  featured: boolean; featured_until: string | null;
 };
 type Payment = {
   accepts_cash: boolean; accepts_bank_transfer: boolean;
@@ -251,6 +252,64 @@ export default function StoreEditor({
                 {STORE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </Field>
+
+            {/* Featuring is the only promotional lever at launch — the platform
+                ships on ONE subscription tier, so there is no "premium plan" to
+                buy placement with. Saved on its own rather than with the profile
+                block: promoting a shop is a commercial decision, and bundling it
+                into "Shop details" would make it an easy accidental side effect
+                of renaming a shop. */}
+            <Field label="Featured shop" htmlFor="e-featured"
+              hint="Sorts this shop to the top of the public directory. A shop that can't take orders is never promoted above one that can.">
+              <label className="flex items-center gap-2.5">
+                <input
+                  id="e-featured"
+                  type="checkbox"
+                  className="h-4 w-4 accent-yellow"
+                  checked={profile.featured}
+                  onChange={(e) => setProfile({ ...profile, featured: e.target.checked })}
+                />
+                <span className="text-sm text-offwhite">Feature this shop</span>
+              </label>
+            </Field>
+
+            {profile.featured && (
+              <Field label="Featured until (optional)" htmlFor="e-featured-until"
+                hint="Leave blank to feature indefinitely. An end date is safer — a promotion with no expiry quietly becomes permanent.">
+                <input
+                  id="e-featured-until"
+                  type="datetime-local"
+                  className={input}
+                  value={profile.featured_until ? profile.featured_until.slice(0, 16) : ""}
+                  onChange={(e) => setProfile({ ...profile, featured_until: e.target.value || null })}
+                />
+              </Field>
+            )}
+
+            {/* The stored flag and the EFFECTIVE state are different things once
+                an expiry is in the past, and an admin looking at a ticked box
+                needs to know which one they are seeing. */}
+            {profile.featured && profile.featured_until && new Date(profile.featured_until) <= new Date() && (
+              <p className="-mt-1 text-xs text-yellow/90">
+                This promotion expired on{" "}
+                {new Date(profile.featured_until).toLocaleString("en-GB", {
+                  timeZone: "Indian/Mauritius", day: "numeric", month: "short", year: "numeric",
+                  hour: "2-digit", minute: "2-digit",
+                })}{" "}
+                — the shop is no longer featured in the directory. Clear the date or untick to tidy up.
+              </p>
+            )}
+
+            <button type="button" disabled={busy}
+              onClick={() => send({
+                featured: {
+                  on: profile.featured,
+                  until: profile.featured && profile.featured_until ? profile.featured_until : null,
+                },
+              }, "Featured")}
+              className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-offwhite transition-colors hover:bg-white/15 disabled:opacity-50">
+              Save featured
+            </button>
             <button type="button" disabled={busy}
               onClick={() => send({
                 profile: {

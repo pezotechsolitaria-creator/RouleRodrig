@@ -1,4 +1,4 @@
--- M28 — Let customers rate shops.
+-- M29 — Let customers rate shops.
 --
 -- WHAT WAS WRONG
 -- /shop offers a "Top rated" sort. browse_stores() implements it. StoreCard and
@@ -145,7 +145,7 @@ revoke all on function public.rate_store(uuid, integer, text) from public, anon,
 grant execute on function public.rate_store(uuid, integer, text) to authenticated;
 
 comment on function public.rate_store(uuid, integer, text) is
-  'Rate the shop behind one of your own collected orders. Verified purchase by construction — the order must be yours and completed — so the review is published immediately (M28).';
+  'Rate the shop behind one of your own collected orders. Verified purchase by construction — the order must be yours and completed — so the review is published immediately (M29).';
 
 -- ── 4. Guest customer ───────────────────────────────────────────────────────
 -- Same credential as lookup_order() and guest_report_payment(): order number
@@ -196,7 +196,7 @@ revoke all on function public.guest_rate_store(text, text, integer, text) from p
 grant execute on function public.guest_rate_store(text, text, integer, text) to service_role;
 
 comment on function public.guest_rate_store(text, text, integer, text) is
-  'Account-free store review on the M20 guest credential (order number + the email that placed it). SECURITY DEFINER, service_role only, so the rate-limited route is the sole way in (M28).';
+  'Account-free store review on the M20 guest credential (order number + the email that placed it). SECURITY DEFINER, service_role only, so the rate-limited route is the sole way in (M29).';
 
 -- ── 5. "Can I review this?" ─────────────────────────────────────────────────
 create or replace function public.order_review_state(p_order_id uuid)
@@ -265,10 +265,10 @@ revoke all on function public.store_reviews(uuid, integer) from public;
 grant execute on function public.store_reviews(uuid, integer) to anon, authenticated, service_role;
 
 comment on function public.store_reviews(uuid, integer) is
-  'Published store reviews for one shop, newest first, with the reviewer shortened to "First L." — derived inside the function so no client role needs SELECT on orders.customer_name (M28).';
+  'Published store reviews for one shop, newest first, with the reviewer shortened to "First L." — derived inside the function so no client role needs SELECT on orders.customer_name (M29).';
 
 -- ── 7. The guest half of the order page ─────────────────────────────────────
--- Reproduced whole from the M27 definition (repo convention — never
+-- Reproduced whole from the M28 definition (repo convention — never
 -- string-patch a shipped RPC) with the review state added, so a guest is
 -- offered the review on the same screen and at the same moment as an account
 -- customer.
@@ -309,7 +309,7 @@ begin
            'provider',      (select pm.provider from payments pm
                               where pm.order_id = o.id order by pm.created_at limit 1),
            'receiptSubmittedAt', o.receipt_submitted_at,
-           -- The pickup code (M27), only while it can still be used.
+           -- The pickup code (M28), only while it can still be used.
            'pickupCode',    (select t.code from qr_pickup_tokens t
                               where t.order_id = o.id
                                 and t.redeemed_at is null
@@ -319,7 +319,7 @@ begin
            'pickupRedeemedAt', (select t.redeemed_at from qr_pickup_tokens t
                                  where t.order_id = o.id and t.redeemed_at is not null
                                  order by t.redeemed_at desc limit 1),
-           -- Review state (M28), on exactly the same credential as the rest.
+           -- Review state (M29), on exactly the same credential as the rest.
            'reviewed',      exists (select 1 from reviews r
                                      where r.order_id = o.id and r.product_id is null),
            'canReview',     o.status = 'collected'
@@ -360,7 +360,7 @@ revoke all on function public.lookup_order(text, text) from public, anon, authen
 grant execute on function public.lookup_order(text, text) to service_role;
 
 comment on function public.lookup_order(text, text) is
-  'Account-free order lookup for guest checkout: order number + the email that placed it. Returns the shop''s bank details while a bank transfer is owed, the live pickup code while the order waits to be collected, and whether the order can still be reviewed. SECURITY DEFINER, service_role only (M20, extended M21, M27, M28).';
+  'Account-free order lookup for guest checkout: order number + the email that placed it. Returns the shop''s bank details while a bank transfer is owed, the live pickup code while the order waits to be collected, and whether the order can still be reviewed. SECURITY DEFINER, service_role only (M20, extended M21, M28, M29).';
 
 -- ── Post-conditions ─────────────────────────────────────────────────────────
 do $$
@@ -368,17 +368,17 @@ declare
   v_lo text;
 begin
   if not exists (select 1 from pg_indexes where indexname = 'reviews_one_per_order') then
-    raise exception 'M28: the one-review-per-order index is missing.';
+    raise exception 'M29: the one-review-per-order index is missing.';
   end if;
 
   -- The self-publish hole 20260805093000 closed must stay closed: these
   -- functions are the ONLY writers, so a client must still hold no INSERT.
   if has_column_privilege('authenticated', 'public.reviews', 'status', 'INSERT') then
-    raise exception 'M28: authenticated can insert reviews.status again.';
+    raise exception 'M29: authenticated can insert reviews.status again.';
   end if;
   if has_function_privilege('anon', 'public.rate_store(uuid,integer,text)', 'EXECUTE')
      or has_function_privilege('authenticated', 'public.guest_rate_store(text,text,integer,text)', 'EXECUTE') then
-    raise exception 'M28: a review writer is executable by the wrong role.';
+    raise exception 'M29: a review writer is executable by the wrong role.';
   end if;
 
   select prosrc into v_lo from pg_proc p
@@ -386,7 +386,7 @@ begin
    where n.nspname = 'public' and p.proname = 'lookup_order';
   if position('canReview' in v_lo) = 0 or position('pickupCode' in v_lo) = 0
      or position('accountNumber' in v_lo) = 0 or position('autoReleaseAt' in v_lo) = 0 then
-    raise exception 'M28: lookup_order() lost a field on the way through.';
+    raise exception 'M29: lookup_order() lost a field on the way through.';
   end if;
 end;
 $$;

@@ -36,7 +36,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
   if (!order) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
-  // The pickup code is NOT an embed on qr_pickup_tokens: M27 revoked the table
+  // The pickup code is NOT an embed on qr_pickup_tokens: M28 revoked the table
   // grant so the raw code cannot be reached through PostgREST by any client
   // role. The accessor releases it on one test — this is your order — and the
   // old embed returned an empty array here anyway, because the table's RLS
