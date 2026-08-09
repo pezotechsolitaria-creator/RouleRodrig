@@ -1,3 +1,4 @@
+import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 import { loadEnvConfig } from "@next/env";
 
@@ -155,4 +156,26 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry wraps the config to upload source maps at build time, so a production
+// stack trace names real files and line numbers instead of minified soup.
+//
+// The upload needs SENTRY_AUTH_TOKEN / SENTRY_ORG / SENTRY_PROJECT. If any is
+// missing the build still SUCCEEDS and errors still reach Sentry — you just get
+// minified traces. That is the right failure mode: a token problem must never
+// be able to break a deploy.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  // Source maps are uploaded to Sentry and then deleted from the build output,
+  // so they are readable in the dashboard but never served to the public — a
+  // published source map hands an attacker the un-minified application.
+  sourcemaps: { deleteSourcemapsAfterUpload: true },
+  // Keep CI logs quiet unless something actually fails.
+  silent: true,
+  // Routes Sentry's own requests through this app's domain, so ad blockers and
+  // strict corporate networks do not silently swallow error reports — which
+  // would leave the dashboard looking reassuringly empty.
+  tunnelRoute: "/monitoring",
+  // Strips Sentry's debug logging from the client bundle.
+  disableLogger: true,
+});
