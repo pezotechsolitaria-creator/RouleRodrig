@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import posthog from "posthog-js";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ArrowLeft, User, Phone, CreditCard, Ticket, StickyNote, Check, Loader2, Clock } from "lucide-react";
@@ -61,6 +62,7 @@ export default function OrderDetail({ id }: { id: string }) {
       const body = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(body?.error ?? "Failed to accept order.");
       await queryClient.invalidateQueries({ queryKey: orderKeys.detail(id) });
+      posthog.capture("merchant_order_accepted", { order_id: id });
       toast.success("Order accepted. The customer has been told.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to accept order.");
@@ -72,6 +74,7 @@ export default function OrderDetail({ id }: { id: string }) {
   async function applyStatus(status: OrderStatus) {
     try {
       await updateOrder.mutateAsync({ status });
+      posthog.capture("merchant_order_status_updated", { order_id: id, status });
       toast.success(`Order marked "${STATUS_LABEL[status]}".`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to update order.");

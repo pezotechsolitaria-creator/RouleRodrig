@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import posthog from "posthog-js";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -328,6 +329,12 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
       // Capture a summary (the form is cleared next) for the WhatsApp confirm link
       // and the deposit payment. Keep the deposit MUR from the breakdown before
       // the form clears it.
+      posthog.capture("scooter_booking_requested", {
+        scooter_id: form.scooter,
+        rental_days: days,
+        has_partner_referral: Boolean(form.partner_code.trim()),
+        has_deposit: Boolean((breakdown?.deposit ?? resData.depositAmount ?? 0) > 0),
+      });
       setLastBooking({
         scooter: selectedScooter?.name ?? form.scooter,
         range: fmtRange(form.start_date, effectiveEnd),

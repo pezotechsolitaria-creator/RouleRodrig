@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import posthog from "posthog-js";
 import { motion } from "framer-motion";
 import { Mail, Loader2, CheckCircle, Send } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
@@ -27,6 +28,7 @@ export default function WaitlistSection() {
         body: JSON.stringify({ email, source: "website" }),
       });
       if (!res.ok) throw new Error();
+      posthog.capture("waitlist_joined", { source: "website" });
       setState("done");
       setEmail("");
     } catch {

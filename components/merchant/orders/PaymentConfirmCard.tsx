@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import posthog from "posthog-js";
 import { toast } from "sonner";
 import { Receipt, Loader2, ExternalLink, ShieldCheck, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -71,6 +72,11 @@ export default function PaymentConfirmCard({
       const r = await fetch(`/api/merchant/orders/${orderId}/confirm-payment`, { method: "POST" });
       const b = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(b.error || "Could not confirm the payment.");
+      posthog.capture("merchant_payment_confirmed", {
+        order_id: orderId,
+        payment_method: provider,
+        has_receipt: hasReceipt,
+      });
       toast.success("Payment confirmed.");
       onConfirmed();
     } catch (e) {

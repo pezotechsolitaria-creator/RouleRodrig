@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import posthog from "posthog-js";
 import { Check, Minus, Plus, ShoppingCart, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart/CartContext";
@@ -36,6 +37,11 @@ export default function AddToCartForm({
   const maxQty = variant ? Math.min(variant.stockQuantity, 100) : 0;
 
   function confirmAdded() {
+    posthog.capture("cart_item_added", {
+      store_id: storeId,
+      variant_id: variant?.id,
+      quantity,
+    });
     toast.success(`Added ${quantity} × ${productName} to cart.`);
     setJustAdded(true);
     if (addedTimer.current) clearTimeout(addedTimer.current);

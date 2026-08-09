@@ -91,7 +91,7 @@ const ContentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   // PayPal's Smart Buttons load their SDK from paypal.com/paypalobjects.com and
   // open the checkout in an iframe, so both need script-src + frame-src grants.
-  "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://vercel.live https://www.paypal.com https://www.paypalobjects.com https://*.paypal.com",
+  "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://vercel.live https://www.paypal.com https://www.paypalobjects.com https://*.paypal.com https://*.posthog.com",
   "frame-src 'self' https://www.paypal.com https://*.paypal.com",
   "connect-src 'self' https:",
   "worker-src 'self' blob:",

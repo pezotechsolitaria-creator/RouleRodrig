@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import posthog from "posthog-js";
 import { useRouter } from "next/navigation";
 import { Loader2, Minus, Plus, Ticket } from "lucide-react";
 import { useCart } from "@/lib/cart/CartContext";
@@ -68,6 +69,11 @@ export default function ReserveTickets({
         }
       }
     }
+    posthog.capture("event_tickets_reserved", {
+      event_store_id: storeId,
+      ticket_count: count,
+      ticket_type_count: Object.values(qty).filter((quantity) => quantity > 0).length,
+    });
     router.push("/checkout");
   }
 

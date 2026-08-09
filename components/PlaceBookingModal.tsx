@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import posthog from "posthog-js";
 import { motion } from "framer-motion";
 import { X, Loader2, AlertCircle, Send, User, Mail, Users, MessageSquare, Clock, BedDouble } from "lucide-react";
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
@@ -132,6 +133,12 @@ export default function PlaceBookingModal({
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j.error || "failed");
+      posthog.capture("place_reservation_requested", {
+        place_id: place.id,
+        place_category: place.category,
+        quantity: qty,
+        has_deposit: Boolean((j.depositAmount ?? 0) > 0),
+      });
       setResult({ bookingId: j.bookingId, depositAmount: j.depositAmount ?? null });
       setFormState("success");
     } catch {

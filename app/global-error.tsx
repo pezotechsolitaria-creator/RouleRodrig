@@ -1,5 +1,6 @@
 "use client";
 
+import posthog from "posthog-js";
 import { useEffect } from "react";
 
 // Last-resort boundary that catches errors in the root layout itself.
@@ -12,6 +13,8 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
+    posthog.captureException(error);
+
     console.error(
       JSON.stringify({
         level: "fatal",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import posthog from "posthog-js";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -185,6 +186,12 @@ export default function OnboardingForm({ categories }: { categories: Category[] 
         productPhoto ? uploadMedia(productPhoto, store_id, "product_photo", product_id).catch(() => {}) : null,
       ]);
 
+      posthog.capture("merchant_onboarding_completed", {
+        business_category: businessCategory,
+        has_logo: Boolean(logo),
+        has_product_photo: Boolean(productPhoto),
+        has_product_category: Boolean(categoryId),
+      });
       router.push("/merchant");
       router.refresh();
     } catch (e2) {

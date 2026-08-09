@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import posthog from "posthog-js";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -146,6 +147,14 @@ export default function ProductForm({
       }
 
       if (!productId) throw new Error("Something went wrong creating the product.");
+
+      posthog.capture(mode === "create" ? "merchant_product_created" : "merchant_product_updated", {
+        store_id: storeId,
+        product_id: productId,
+        status: input.status,
+        has_category: Boolean(input.categoryId),
+        image_count: gridImages.length,
+      });
 
       // Sequential, not parallel — predictable gallery order matches upload
       // order without depending on server-side race handling for the common

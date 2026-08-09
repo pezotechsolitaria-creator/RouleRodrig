@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import posthog from "posthog-js";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, MapPin, AlertTriangle, RefreshCw, Check } from "lucide-react";
@@ -348,6 +349,12 @@ export default function CheckoutForm({
         }
         throw new Error(body.error || "Checkout failed.");
       }
+      posthog.capture("checkout_order_placed", {
+        item_count: cart.items.reduce((count, item) => count + item.quantity, 0),
+        fulfillment_method: fulfillment,
+        payment_method: provider,
+        is_guest_checkout: isGuest,
+      });
       clear();
       toast.success("Order placed!");
       // A GUEST has no session, so /orders/[id] — which filters on
