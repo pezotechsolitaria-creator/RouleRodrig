@@ -1,6 +1,6 @@
 "use client";
 
-import posthog from "posthog-js";
+import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 
 // Last-resort boundary that catches errors in the root layout itself.
@@ -13,7 +13,10 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    posthog.captureException(error);
+    // Sentry, not PostHog: it is the one error tracker here that scrubs PII on
+    // the way out (lib/sentry-scrub.ts). React swallows errors caught by a
+    // boundary, so this boundary has to report the error itself or nothing will.
+    Sentry.captureException(error);
 
     console.error(
       JSON.stringify({

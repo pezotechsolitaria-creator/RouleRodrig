@@ -20,7 +20,14 @@ export default function PWARegister() {
   }, []);
 
   useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN) return;
+    // Same two accepted spellings as instrumentation-client.ts — if this guard
+    // only checked one name, identify() would silently never run whenever the
+    // token happened to be configured under the other.
+    if (
+      !process.env.NEXT_PUBLIC_POSTHOG_KEY &&
+      !process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN
+    )
+      return;
 
     const supabase = createClient();
     const identify = (user: { id: string; email?: string | null }) => {
