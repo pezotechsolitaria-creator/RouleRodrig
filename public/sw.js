@@ -20,7 +20,11 @@
 // evict anything — an existing client keeps its cache unless the name changes.
 // v125 — the iOS splash screens carry the new mark too.
 // v126 — M47 partner application categories.
-const CACHE = "rr-cache-v127";
+// v128 — the mark becomes a rotating cube. Skips v127 deliberately: main had
+// already taken sw.js to v127 while app/api/health/route.ts still read v126, so
+// v127 named two different builds. A cache version is only useful as an
+// identifier if it is unique, so this moves past it and restores the mirror.
+const CACHE = "rr-cache-v128";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

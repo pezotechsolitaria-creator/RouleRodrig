@@ -516,32 +516,118 @@ html[data-splash="on"] #rr-splash.rr-skip {
   pointer-events: none;
   animation: rr-logo-sweep 12s ease-in-out infinite;
 }
-/* A continuous, slow 360° turn — owner's call, and the pace is what keeps it
-   from nagging: one revolution every 14s is closer to a weather vane than to a
-   spinner, so it reads as ambient rather than as something still loading.
-   The perspective lives INSIDE the transform instead of on an ancestor, because
-   .rr-logo-anim already sets its own transform on hover and would otherwise
-   flatten the 3D context out from under this. */
-@keyframes rr-logo-spin-in {
-  from { transform: perspective(600px) rotateY(0deg); }
-  to   { transform: perspective(600px) rotateY(360deg); }
+/* ── The mark as a solid rotating cube ──────────────────────────────────────
+   A flat rotateY on a single image is a card flip: twice per turn it goes
+   edge-on and vanishes, which reads as a glitch rather than as depth. A real
+   cube never disappears — there is always a face toward you — so the rotation
+   finally describes a solid object instead of a sheet of paper.
+
+   Geometry: six faces, each translated out by half the cube's side, so the
+   edges meet exactly. --rr-cube must stay equal to the rendered logo height
+   (h-11 = 44px) or the box will not close.
+
+   Perspective sits on the OUTER element, not inside the keyframe. A transform
+   on an ancestor flattens a 3D context, and .rr-logo-anim sets one on hover —
+   but `perspective` applies to an element's own children, so declaring it here
+   keeps the depth immune to whatever the header does around it. */
+.rr-logo-cube {
+  --rr-cube: 44px;
+  --rr-cube-half: 22px;
+  /* Sampled from logo-master.png rather than guessed, so the closing faces are
+     the same green as the artwork on the four sides. */
+  --rr-cube-green: #028046;
+  display: inline-block;
+  width: var(--rr-cube);
+  height: var(--rr-cube);
+  perspective: 420px;
 }
-.rr-logo-spin {
-  display: inline-flex;
+.rr-logo-cube-inner {
+  position: relative;
+  /* Not decorative. This element is a <span>, so it computes to display:inline,
+     and an inline box ignores width/height — which left it zero-height, so the
+     faces' `inset: 0` resolved against nothing and every one of them rendered
+     0x0. The cube was invisible while the geometry looked perfect on paper. */
+  display: block;
+  width: 100%;
+  height: 100%;
   transform-style: preserve-3d;
-  /* `linear` is not a taste call. Any eased curve accelerates away from 0deg
-     and decelerates into 360deg — and since those two frames are the same
-     image, the loop would visibly hitch once per turn. Only constant angular
-     velocity hides the seam. */
-  animation: rr-logo-spin-in 14s linear infinite;
+  /* The fixed -14deg tilt is what proves it is a cube. Rotating on Y alone
+     hides the top face forever, and the silhouette stays a rectangle — the eye
+     reads that as a spinning card. Tipping it slightly toward the viewer keeps
+     a sliver of the top plane visible through the whole turn. */
+  animation: rr-cube-turn 14s linear infinite;
+  will-change: transform;
+}
+/* `linear` is not a taste call. Any eased curve accelerates away from 0deg and
+   decelerates into 360deg — and since those frames are identical, the loop
+   would visibly hitch once per turn. Only constant angular velocity hides the
+   seam. 14s is a weather vane, not a spinner: ambient, never "still loading". */
+@keyframes rr-cube-turn {
+  from { transform: rotateX(-14deg) rotateY(0deg); }
+  to   { transform: rotateX(-14deg) rotateY(360deg); }
+}
+.rr-logo-cube-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  /* The mark's own PNG has rounded, transparent corners. Without an opaque
+     background behind it you would see straight through the four corners of
+     every face and into the inside of the box. */
+  background: var(--rr-cube-green);
+  /* Stops the far faces rendering mirror-image through the near ones. */
+  backface-visibility: hidden;
+  /* A hairline lighter edge so adjacent faces separate at the seam instead of
+     merging into one green blob when two are lit similarly. */
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.09);
+}
+/* scale(1.17) is measured, not eyeballed. The mark is an APP ICON: its corners
+   are rounded and — critically — the pixels outside that radius are opaque
+   WHITE, not transparent, so the face's green background cannot show through
+   them. Dropped in unscaled, every face wore four white corner wedges and the
+   cube looked like it was wrapped in tape.
+   Sampling icon-512 puts the start of the green field 25px along the diagonal
+   of 512, i.e. ~6.9% in from each edge, so anything from ~1.16 pushes the white
+   past the face's overflow clip. The alternative — rounding the faces to match
+   the artwork — was built and rejected: rounded faces do not meet at the seams,
+   and the cube reads as three floating tiles with gaps at every edge. */
+.rr-logo-cube-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: scale(1.17);
 }
 
+.rr-cube-front  { transform: translateZ(var(--rr-cube-half)); }
+.rr-cube-right  { transform: rotateY(90deg)  translateZ(var(--rr-cube-half)); }
+.rr-cube-back   { transform: rotateY(180deg) translateZ(var(--rr-cube-half)); }
+.rr-cube-left   { transform: rotateY(-90deg) translateZ(var(--rr-cube-half)); }
+/* Top and bottom carry no artwork — the mark would be unreadable edge-on. They
+   close the solid, lit as if the light sits above the header: the top plane
+   catches it, the underside falls away. That shading is the whole reason the
+   shape reads as a cube and not as four images in a carousel. */
+.rr-cube-top    { transform: rotateX(90deg)  translateZ(var(--rr-cube-half)); background: #0aa25c; }
+.rr-cube-bottom { transform: rotateX(-90deg) translateZ(var(--rr-cube-half)); background: #01502d; }
+
+/* Nonessential loops must not burn battery while nobody is looking. The class
+   is toggled by an IntersectionObserver in AppHome when the header scrolls out
+   of view; browsers already suspend animations in a fully hidden tab. */
+.rr-logo-cube-inner.is-paused { animation-play-state: paused; }
+
 @media (prefers-reduced-motion: reduce) {
-  .rr-logo-anim, .rr-logo-bob, .rr-logo-bob::after, .rr-logo-spin { animation: none; }
+  .rr-logo-anim, .rr-logo-bob, .rr-logo-bob::after { animation: none; }
   .rr-logo-bob::after { display: none; }
-  /* Without this the logo would be stuck at whatever frame the cancelled
-     animation left it on, which can be mid-turn and edge-on. */
-  .rr-logo-spin { transform: none; }
+  /* Parked at an angle rather than reset to none. `transform: none` would
+     collapse all six faces onto one plane at the centre of the box, stacking
+     the back and underside on top of the front — the cube would not simply
+     stop, it would fall apart. Holding a static three-quarter view keeps the
+     object intact and still legible as a cube, with no motion at all. */
+  .rr-logo-cube-inner {
+    animation: none;
+    transform: rotateX(-14deg) rotateY(-24deg);
+  }
 }
 
 /* ── Short-viewport home (iPhone Safari & small phones) ─────────────────────

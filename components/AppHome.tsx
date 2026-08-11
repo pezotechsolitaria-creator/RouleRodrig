@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Fragment, type ReactNode } from "react";
+import { useState, useEffect, useRef, Fragment, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -108,6 +108,30 @@ export default function AppHome({
   // "What are you looking for?" tiles — admin-editable (falls back to defaults).
   const lookItems = (lookingFor && lookingFor.length ? lookingFor : DEFAULT_QUICK_ACCESS).filter((x) => x.enabled !== false);
 
+  // Stop the logo cube while nobody can see it. It is a decorative loop that
+  // would otherwise composite a new frame forever, including while the visitor
+  // is far down the page — and the primary scene here is a phone on battery.
+  // A hidden TAB is already handled by the browser, which suspends animations;
+  // this covers the case the browser does not, which is the header simply being
+  // scrolled out of view.
+  //
+  // The observer is the only thing driving this, so a browser without
+  // IntersectionObserver just keeps animating — the fallback is the old
+  // behaviour, never a stopped cube.
+  const cubeRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const el = cubeRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      ([entry]) => el.classList.toggle("is-paused", !entry.isIntersecting),
+      // A little slack so a sticky header hovering at the boundary does not
+      // toggle the class on every scroll frame.
+      { rootMargin: "80px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   // Travel Tools strip (utilities). No "TOOLS" label — the chips speak for
   // themselves and dropping it frees room so Emergency shows fully.
   const TOOLS: { icon: React.ElementType; label: Tri; href: string }[] = [
@@ -123,34 +147,48 @@ export default function AppHome({
       <header className="sticky top-0 z-40 border-b border-white/10 bg-dark/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2.5">
           <Link href="/" className="mr-2 flex items-center" aria-label="Roule Rodrigues home">
+            {/* The mark as a solid rotating cube. Four sides carry the artwork;
+                the top and bottom close the box so it never turns edge-on and
+                vanishes the way a single flipping image does.
+
+                Every face points at the SAME src, so this is one download and
+                one decode however many faces exist — the rest come from cache.
+                Only the front face is `priority`: marking all four would emit
+                four preload hints for one URL.
+
+                alt="" on all of them, deliberately. The <Link> already carries
+                aria-label="Roule Rodrigues home", so labelling the faces would
+                make a screen reader announce the brand four more times for a
+                single link. The cube is decoration around an already-named
+                control.
+
+                next/image, not a raw <img>: the owner-uploaded logo is a 1.24 MB
+                PNG rendered at 44px on EVERY page. Supabase-hosted URLs are
+                excluded from `unoptimized` so the optimizer actually runs on
+                them (remotePatterns already allows *.supabase.co). It falls back
+                to the shipped app icon rather than to text — that icon IS the
+                brand mark now, generated from the same master as every PWA
+                icon. */}
             <span className="rr-logo-anim inline-flex">
-              <span className="rr-logo-spin"><span className="rr-logo-bob inline-flex">
-                {/* next/image, not a raw <img>: the owner-uploaded logo is a
-                    1.24 MB PNG rendered at 32px, on EVERY page, and it was also
-                    being preloaded — the single largest byte saving on the site.
-                    Explicit width/height reserve the box so it cannot shift
-                    layout. Supabase-hosted URLs are excluded from `unoptimized`
-                    so the optimizer actually runs on them (remotePatterns
-                    already allows *.supabase.co). */}
-                {/* Falls back to the shipped app icon rather than to text. The
-                    icon IS the brand mark now (public/icon-192.png, generated
-                    from the same master as every PWA icon), so an owner who has
-                    not uploaded anything still gets the real logo instead of a
-                    wordmark that looks like a missing asset. */}
-                <Image
-                  src={logo || "/icon-192.png"}
-                  alt="Roule Rodrigues"
-                  width={132}
-                  height={44}
-                  priority
-                  sizes="132px"
-                  // h-8 -> h-11: the mark carries fine detail (compass points,
-                  // wing feathers, the island outline) that turned to mush at
-                  // 32px on a phone.
-                  className="h-11 w-auto object-contain"
-                  unoptimized={!!logo && (logo.startsWith("/uploads/") || (logo.startsWith("http") && !logo.includes("supabase.co")))}
-                />
-              </span></span>
+              <span className="rr-logo-cube">
+                <span ref={cubeRef} className="rr-logo-cube-inner">
+                  {(["front", "right", "back", "left"] as const).map((face) => (
+                    <span key={face} className={`rr-logo-cube-face rr-cube-${face}`}>
+                      <Image
+                        src={logo || "/icon-192.png"}
+                        alt=""
+                        width={132}
+                        height={132}
+                        priority={face === "front"}
+                        sizes="44px"
+                        unoptimized={!!logo && (logo.startsWith("/uploads/") || (logo.startsWith("http") && !logo.includes("supabase.co")))}
+                      />
+                    </span>
+                  ))}
+                  <span className="rr-logo-cube-face rr-cube-top" />
+                  <span className="rr-logo-cube-face rr-cube-bottom" />
+                </span>
+              </span>
             </span>
           </Link>
           <button className="mx-auto inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.05] px-3 py-1.5 font-dm text-xs text-offwhite/90" aria-label="Rodrigues Island">
