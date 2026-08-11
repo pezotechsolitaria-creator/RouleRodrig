@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarDays, MapPin, AlertTriangle, Clock } from "lucide-react";
+import { ArrowLeft, CalendarDays, MapPin, AlertTriangle, Clock, ScanLine } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getEventDetail } from "@/lib/events/organizer";
 import { centsToDecimalString } from "@/lib/money";
@@ -65,6 +65,22 @@ export default async function OrganizerEventPage({
           This event is cancelled. Existing tickets are void and no new reservations can be made.
         </p>
       )}
+
+      {/* The door. Prominent and near the top because it is the only thing on
+          this page anyone opens while standing up, in a hurry, on a phone. */}
+      <Link
+        href={`/organizer/${event.slug}/scan`}
+        className="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-yellow/30 bg-yellow/[0.06] px-4 py-3.5 transition hover:border-yellow/50"
+      >
+        <span className="flex items-center gap-2.5">
+          <ScanLine size={18} className="text-yellow" />
+          <span>
+            <span className="block font-syne text-base font-bold text-offwhite">Scan tickets</span>
+            <span className="block font-dm text-xs text-muted">Admit people at the door</span>
+          </span>
+        </span>
+        <ArrowLeft size={16} className="rotate-180 text-muted" />
+      </Link>
 
       {/* ── Payments waiting on a human ──────────────────────────────────
           Above the packages on purpose: an unanswered payment is somebody

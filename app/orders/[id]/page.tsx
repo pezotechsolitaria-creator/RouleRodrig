@@ -11,6 +11,7 @@ import { FULFILLMENT_LABEL, googleMapsLink, formatCoords } from "@/lib/orders/lo
 import { holdInfo, customerHoldCopy, holdRemaining, type PaymentProvider } from "@/lib/orders/hold";
 import BankTransferPanel, { type BankDetails } from "@/components/orders/BankTransferPanel";
 import PickupCodeCard from "@/components/orders/PickupCodeCard";
+import TicketList, { type BuyerTicket } from "@/components/events/TicketList";
 import RateShopCard from "@/components/orders/RateShopCard";
 import type { PickupCode } from "@/lib/orders/pickup";
 
@@ -155,6 +156,26 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
     pickup = (data as PickupCode | null) ?? null;
   }
 
+  // M56. An account holder's tickets come straight through RLS —
+  // tickets_customer_read keys on orders.customer_id = auth.uid(), which is
+  // exactly this person. (The guest equivalent travels inside lookup_order,
+  // because a guest has no uid for that policy to match.)
+  const { data: ticketRows, error: ticketError } = await supabase
+    .from("tickets")
+    .select("public_id, serial, ticket_type_name, state, used_at, event_name, event_starts_at")
+    .eq("order_id", typedOrder.id)
+    .order("serial");
+  if (ticketError) console.error("ticket read failed", ticketError);
+  const tickets: BuyerTicket[] = (ticketRows ?? []).map((t) => ({
+    publicId: t.public_id as string,
+    serial: t.serial as number,
+    type: (t.ticket_type_name as string) ?? null,
+    state: t.state as BuyerTicket["state"],
+    usedAt: (t.used_at as string) ?? null,
+    eventName: (t.event_name as string) ?? null,
+    eventStartsAt: (t.event_starts_at as string) ?? null,
+  }));
+
   // Reviewing is offered exactly once, on the order it is about, and only after
   // the shop actually handed it over — that is what makes the rating on /shop
   // worth sorting by.
@@ -186,6 +207,16 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
             Status: <span className="text-offwhite">{STATUS_LABEL[typedOrder.status as OrderStatus]}</span>
           </p>
         </div>
+
+        {/* M56. Same reasoning as the pickup code, one step stronger: for an
+            event order the ticket is the ONLY thing this page exists to hand
+            over. Keyed on tickets existing rather than on a status, so it cannot
+            be hidden by a status the events flow never sets. */}
+        {tickets.length > 0 && (
+          <div className="mt-4">
+            <TicketList tickets={tickets} />
+          </div>
+        )}
 
         {/* Straight under the timeline: when an order is ready, the code IS the
             next action, and burying it under the receipt would defeat it. */}

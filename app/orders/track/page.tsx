@@ -9,6 +9,7 @@ import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { holdInfo, customerHoldCopy, holdRemaining, type PaymentProvider } from "@/lib/orders/hold";
 import BankTransferPanel from "@/components/orders/BankTransferPanel";
 import PickupCodeCard from "@/components/orders/PickupCodeCard";
+import TicketList, { type BuyerTicket } from "@/components/events/TicketList";
 import RateShopCard from "@/components/orders/RateShopCard";
 import { Button } from "@/components/ui/button";
 import { vocabFor, domainFromFlags } from "@/lib/food/vocabulary";
@@ -54,6 +55,9 @@ type TrackedOrder = {
   // drop a diner or a ticket holder into the shop directory.
   isFood: boolean;
   isEvent: boolean;
+  // M56. Where a guest ticket buyer collects the QR the door scans. Before
+  // this, tickets were issued into a table the buyer had no way to read.
+  tickets: BuyerTicket[];
   isGuest: boolean;
   // M28. A guest gets the pickup code on the same credential as everything
   // else on this page — the login wall was removed at checkout, so the handoff
@@ -309,6 +313,13 @@ function TrackOrder() {
                 <span className="font-syne font-bold text-yellow">Rs {centsToDecimalString(order.total)}</span>
               </div>
             </div>
+
+            {/* M56. The tickets come FIRST for an event buyer: it is the only
+                thing they came back to this page for, and the one thing they
+                need in their hand at the door. Rendered whenever tickets exist
+                rather than on a status check, so a ticket cannot be hidden by a
+                status the events flow does not use. */}
+            {order.tickets?.length > 0 && <TicketList tickets={order.tickets} />}
 
             {/* Ready to collect: the code is the next action, so it sits
                 directly under the order rather than below the receipt. */}
