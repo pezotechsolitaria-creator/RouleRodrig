@@ -116,6 +116,25 @@ function LoginForm() {
     } catch (err) {
       console.error("claim_guest_orders failed", err);
     }
+    // An EVENT ORGANISER belongs in their own area, not in /orders (M43/M44).
+    // Claim first — someone invited after they signed up is only linked at this
+    // moment — then ask. Both calls are idempotent and server-side; a failure in
+    // either just means the customer destination, never a blocked sign-in.
+    //
+    // `next` still wins when it was explicitly asked for, so an organiser who
+    // followed a link to a specific page still lands there.
+    if (!searchParams.get("next")) {
+      try {
+        await supabase.rpc("claim_organizer_invite");
+        const { data: isOrganizer } = await supabase.rpc("is_event_organizer");
+        if (isOrganizer) {
+          window.location.href = "/organizer";
+          return;
+        }
+      } catch (err) {
+        console.error("organizer check failed", err);
+      }
+    }
     window.location.href = next;
   }
 
