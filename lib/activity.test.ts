@@ -222,3 +222,113 @@ describe("classifyReference", () => {
     expect(classifyReference("  RR-A1B2C3  ")).toBe("vehicle");
   });
 });
+
+// ── Row → Activity mappers ─────────────────────────────────────────────────
+// These feed the signed-in list, which merges three tables with three shapes
+// and three histories. The risk is a null field in one old row blanking or
+// breaking the whole page.
+
+import { vehicleToActivity, placeToActivity, orderToActivity } from "./activity";
+
+describe("vehicleToActivity", () => {
+  const row = {
+    id: "abf003bf-2865-4d8b-90db-da3d6e8615a1",
+    scooter: "burgman",
+    vehicleLabel: "BURGMAN 125cc",
+    start_date: "2026-08-19",
+    end_date: "2026-09-16",
+    status: "confirmed",
+    amount_paid: 250000,
+  };
+
+  it("shows the display name, never the fleet slug", () => {
+    // The bug this locks down: the tracking card showed "burgman".
+    expect(vehicleToActivity(row, TODAY).title).toBe("BURGMAN 125cc");
+  });
+
+  it("falls back to the slug rather than showing nothing", () => {
+    expect(vehicleToActivity({ ...row, vehicleLabel: null }, TODAY).title).toBe("burgman");
+  });
+
+  it("builds the reference customers see in their email", () => {
+    expect(vehicleToActivity(row, TODAY).reference).toBe("RR-ABF003");
+  });
+
+  it("prefers what was actually paid over what is owed", () => {
+    expect(vehicleToActivity({ ...row, amount_paid: 250000, deposit_amount: 400000 }, TODAY).amount).toBe(250000);
+    expect(vehicleToActivity({ ...row, amount_paid: null, deposit_amount: 400000 }, TODAY).amount).toBe(400000);
+  });
+
+  it("survives a row with almost nothing in it", () => {
+    const bare = vehicleToActivity({ id: "aaaaaaaa-0000-0000-0000-000000000000" }, TODAY);
+    expect(bare.title).toBe("Rental");
+    expect(bare.date).toBeNull();
+    expect(bare.amount).toBeNull();
+  });
+});
+
+describe("placeToActivity", () => {
+  it("treats a paid deposit as confirmed", () => {
+    const a = placeToActivity(
+      { id: "bbbbbbbb-0000-0000-0000-000000000000", place_name: "Sunset Cruise",
+        start_date: "2026-08-20", status: "pending", deposit_paid_at: "2026-08-10T09:00:00Z" },
+      TODAY,
+    );
+    expect(a.stage).toBe("confirmed");
+    expect(a.statusLabel).toBe("Confirmed");
+  });
+
+  it("names the place as both title and provider", () => {
+    const a = placeToActivity(
+      { id: "bbbbbbbb-0000-0000-0000-000000000000", place_name: "Sunset Cruise" }, TODAY,
+    );
+    expect(a.title).toBe("Sunset Cruise");
+    expect(a.provider).toBe("Sunset Cruise");
+  });
+
+  it("survives a nameless legacy row", () => {
+    expect(placeToActivity({ id: "cccccccc-0000-0000-0000-000000000000" }, TODAY).title).toBe("Booking");
+  });
+});
+
+describe("orderToActivity", () => {
+  it("uses the order's own precise label", () => {
+    const a = orderToActivity(
+      { id: "1", order_number: "RR260811-D9220F", status: "ready_for_pickup", total: 32000 },
+      "Ready",
+    );
+    expect(a.statusLabel).toBe("Ready");
+    expect(a.stage).toBe("active");
+    expect(a.href).toBe("/orders/1");
+  });
+
+  it("falls back to created_at when placed_at is missing", () => {
+    const a = orderToActivity({ id: "1", created_at: "2026-08-01T00:00:00Z" });
+    expect(a.date).toBe("2026-08-01T00:00:00Z");
+  });
+
+  it("prefers placed_at when both exist", () => {
+    const a = orderToActivity({ id: "1", placed_at: "2026-08-05T00:00:00Z", created_at: "2026-08-01T00:00:00Z" });
+    expect(a.date).toBe("2026-08-05T00:00:00Z");
+  });
+
+  it("defaults the currency rather than rendering undefined", () => {
+    expect(orderToActivity({ id: "1" }).currency).toBe("MUR");
+  });
+});
+
+describe("the three kinds merge into one ordered list", () => {
+  it("interleaves by urgency, not by source table", () => {
+    // The whole point of the unified list: a rental starting tomorrow outranks
+    // an order collected an hour ago, even though they come from different
+    // tables with different natural sort keys.
+    const list = [
+      orderToActivity({ id: "o", order_number: "RR1", status: "collected", placed_at: "2026-08-14" }, "Completed"),
+      vehicleToActivity({ id: "aaaaaaaa-0000-0000-0000-000000000000", start_date: "2026-08-16", end_date: "2026-08-18", status: "confirmed" }, TODAY),
+      placeToActivity({ id: "bbbbbbbb-0000-0000-0000-000000000000", start_date: TODAY, status: "confirmed" }, TODAY),
+    ].sort(compareActivities);
+
+    expect(list.map((a) => a.kind)).toEqual(["place", "vehicle", "order"]);
+    expect(list[0].stage).toBe("active");
+  });
+});

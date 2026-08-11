@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { listActivitiesForCustomer } from "@/lib/activity-server";
+import { groupActivities, type Activity } from "@/lib/activity";
 import { ClipboardList, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
@@ -68,6 +70,24 @@ export default async function CustomerOrdersPage({
   const orders = data ?? [];
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
 
+  // ── The other two thirds of "Suivi" ──────────────────────────────────────
+  // This page listed marketplace orders only, so a customer who had rented a
+  // scooter and booked a boat trip saw neither. Rentals and place bookings are
+  // keyed by EMAIL (they predate Supabase Auth here and have no customer_id),
+  // and the session's verified address is what scopes them — never anything
+  // from the request. See lib/activity-server.ts.
+  //
+  // They are shown as their own section rather than merged into the list below
+  // because that list is paginated and searchable over `orders` specifically;
+  // interleaving a second source would break both. Bookings are few, so they
+  // need neither.
+  const { activities, partial } = await listActivitiesForCustomer({
+    verifiedEmail: user.email ?? null,
+    userId: user.id,
+  });
+  const bookings = activities.filter((a) => a.kind !== "order");
+  const grouped = groupActivities(bookings);
+
   return (
     <main className="min-h-screen bg-dark px-4 pb-28 pt-10 text-offwhite md:pb-16">
       <div className="mx-auto max-w-3xl">
@@ -82,12 +102,33 @@ export default async function CustomerOrdersPage({
           <ArrowLeft size={14} /> Roule Rodrigues
         </Link>
         <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">MY ACCOUNT</p>
-        <h1 className="mt-1 font-syne text-2xl font-extrabold text-offwhite">Orders</h1>
+        <h1 className="mt-1 font-syne text-2xl font-extrabold text-offwhite">Your activity</h1>
         <p className="mt-1.5 font-dm text-sm text-muted">
-          Everything you&apos;ve ordered on Roulé Rodrigues — shops and kitchens.
+          Everything you&apos;ve booked or ordered on Roulé Rodrigues.
         </p>
 
-        <div className="mt-6">
+        {partial && (
+          <p className="mt-4 rounded-xl border border-orange-400/30 bg-orange-400/5 px-4 py-3 font-dm text-xs text-orange-200">
+            Some of your bookings could not be loaded just now. Nothing is lost — please refresh in a moment.
+          </p>
+        )}
+
+        {/* Rentals, boat trips, massages and other reservations. Shown before
+            orders because they are dated commitments — a rental starting
+            tomorrow matters more than an order that already arrived. */}
+        {bookings.length > 0 && (
+          <section className="mt-6">
+            <h2 className="font-bebas text-[11px] tracking-[0.3em] text-yellow">BOOKINGS</h2>
+            <div className="mt-2.5 space-y-4">
+              {grouped.now.length > 0 && <ActivityGroup title="Happening now" items={grouped.now} />}
+              {grouped.upcoming.length > 0 && <ActivityGroup title="Coming up" items={grouped.upcoming} />}
+              {grouped.past.length > 0 && <ActivityGroup title="Past" items={grouped.past} dim />}
+            </div>
+          </section>
+        )}
+
+        <h2 className="mt-8 font-bebas text-[11px] tracking-[0.3em] text-yellow">ORDERS</h2>
+        <div className="mt-2.5">
           <OrdersFilterBar />
         </div>
 
@@ -155,5 +196,55 @@ export default async function CustomerOrdersPage({
         )}
       </div>
     </main>
+  );
+}
+
+/**
+ * One stage-group of bookings.
+ *
+ * Deliberately the same visual language as the order rows below it — the point
+ * of unifying tracking is that the customer stops having to notice which
+ * backend produced a thing.
+ */
+function ActivityGroup({
+  title, items, dim = false,
+}: {
+  title: string;
+  items: Activity[];
+  dim?: boolean;
+}) {
+  return (
+    <div className={dim ? "opacity-70" : ""}>
+      <p className="font-dm text-xs text-muted">{title}</p>
+      <div className="mt-1.5 space-y-2">
+        {items.map((a) => (
+          <Link
+            key={`${a.kind}-${a.id}`}
+            href={a.href}
+            className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-dark-card p-4 transition-colors hover:border-yellow/30"
+          >
+            <div className="min-w-0">
+              <p className="truncate font-dm text-sm font-medium text-offwhite">{a.title}</p>
+              <p className="mt-0.5 truncate font-dm text-xs text-muted">
+                {a.reference}
+                {a.date && (
+                  <> · {new Date(a.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</>
+                )}
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
+              {a.amount != null && a.amount > 0 && (
+                <span className="font-dm text-sm font-semibold text-offwhite">
+                  Rs {centsToDecimalString(a.amount)}
+                </span>
+              )}
+              <Badge variant="outline" className="border-white/15 text-muted">
+                {a.statusLabel}
+              </Badge>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
   );
 }

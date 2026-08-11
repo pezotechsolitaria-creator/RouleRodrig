@@ -221,3 +221,106 @@ export function classifyReference(raw: string): ActivityKind | "unknown" {
   if (/^RR\d{6}-[0-9A-Z]+$/.test(s)) return "order";
   return "unknown";
 }
+
+// ── ROW → ACTIVITY ─────────────────────────────────────────────────────────
+//
+// The mappers live here, beside the stage logic, and stay PURE — they take a
+// plain row and today's date and return an Activity. That is what lets the
+// interesting part (which stage, which label, what a customer is told) be
+// tested directly, without a database or a rendered page.
+//
+// Each one is deliberately tolerant of a missing field. These rows come from
+// three tables with three different shapes and three different histories, and a
+// tracking list that throws because one old booking has a null date is worse
+// than one that shows it with no date.
+
+export type VehicleRow = {
+  id: string;
+  scooter?: string | null;
+  /** Already resolved to a display name by the caller — never the fleet slug. */
+  vehicleLabel?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  status?: string | null;
+  amount_paid?: number | null;
+  deposit_amount?: number | null;
+};
+
+export function vehicleToActivity(row: VehicleRow, today: string): Activity {
+  const stage = vehicleStage(row.status, row.start_date, row.end_date, today);
+  const reference = bookingReference(row.id);
+  return {
+    kind: "vehicle",
+    id: row.id,
+    reference,
+    title: row.vehicleLabel || row.scooter || "Rental",
+    provider: null,
+    date: row.start_date ?? null,
+    // What the customer has actually paid, not what they will owe.
+    amount: row.amount_paid ?? row.deposit_amount ?? null,
+    currency: "MUR",
+    stage,
+    statusLabel: activityLabel("vehicle", stage),
+    href: `/manage-booking?ref=${encodeURIComponent(reference)}`,
+  };
+}
+
+export type PlaceRow = {
+  id: string;
+  place_name?: string | null;
+  category?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  status?: string | null;
+  deposit_paid_at?: string | null;
+  amount_paid?: number | null;
+  deposit_amount?: number | null;
+};
+
+export function placeToActivity(row: PlaceRow, today: string): Activity {
+  const stage = placeStage(row.status, row.start_date, row.end_date, today, row.deposit_paid_at);
+  const reference = bookingReference(row.id);
+  return {
+    kind: "place",
+    id: row.id,
+    reference,
+    title: row.place_name || "Booking",
+    provider: row.place_name ?? null,
+    date: row.start_date ?? null,
+    amount: row.amount_paid ?? row.deposit_amount ?? null,
+    currency: "MUR",
+    stage,
+    statusLabel: activityLabel("place", stage),
+    href: `/manage-booking?ref=${encodeURIComponent(reference)}`,
+  };
+}
+
+export type OrderRow = {
+  id: string;
+  order_number?: string | null;
+  status?: string | null;
+  total?: number | null;
+  currency?: string | null;
+  placed_at?: string | null;
+  created_at?: string | null;
+  storeName?: string | null;
+};
+
+export function orderToActivity(row: OrderRow, statusLabel?: string): Activity {
+  const stage = orderStage(row.status);
+  return {
+    kind: "order",
+    id: row.id,
+    reference: row.order_number ?? "",
+    title: row.storeName || "Order",
+    provider: row.storeName ?? null,
+    // placed_at is when it became a real order; created_at is the fallback for
+    // rows that predate it.
+    date: row.placed_at ?? row.created_at ?? null,
+    amount: row.total ?? null,
+    currency: row.currency ?? "MUR",
+    stage,
+    statusLabel: activityLabel("order", stage, statusLabel),
+    href: `/orders/${row.id}`,
+  };
+}
