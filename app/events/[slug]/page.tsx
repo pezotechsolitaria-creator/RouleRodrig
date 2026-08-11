@@ -218,6 +218,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
               <PackagePicker
                 storeId={event.storeId}
                 storeName={event.name}
+                slug={event.slug}
                 ticketTypes={event.ticketTypes}
                 disabled={cancelled}
               />

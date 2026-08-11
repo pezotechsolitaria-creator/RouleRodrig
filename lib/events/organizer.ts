@@ -64,14 +64,34 @@ export type OrganizerPackage = {
 };
 
 export type OrganizerReservation = {
+  orderId: string;
   orderNumber: string;
   status: string;
   customerName: string | null;
   customerPhone: string | null;
+  customerEmail: string | null;
   total: number;
   placedAt: string | null;
   autoReleaseAt: string | null;
   units: number | null;
+  // M49d — enough to JUDGE a payment, not merely to see one is claimed.
+  provider: string | null;
+  receiptSubmittedAt: string | null;
+  /** Object path in the private order-receipts bucket — never a URL. The link is
+   *  minted on demand and expires, so nothing durable is handed to the client. */
+  receiptPath: string | null;
+};
+
+/** Where this event's money goes. The organiser is the payee — Roulé Rodrigues
+ *  never holds ticket money — which is why they both set and read this. */
+export type OrganizerPaymentSettings = {
+  acceptsCash: boolean;
+  acceptsBankTransfer: boolean;
+  requireReceipt: boolean;
+  bankName: string | null;
+  accountHolder: string | null;
+  accountNumber: string | null;
+  instructions: string | null;
 };
 
 export type OrganizerEventDetail = {
@@ -86,6 +106,9 @@ export type OrganizerEventDetail = {
   timezone: string;
   cancelledAt: string | null;
   canVerifyPayments: boolean;
+  /** Null until the organiser has set anything up — which is the state every
+   *  new event starts in, and the reason tickets cannot be sold yet. */
+  payment: OrganizerPaymentSettings | null;
   packages: OrganizerPackage[];
   recent: OrganizerReservation[];
 };

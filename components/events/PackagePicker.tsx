@@ -32,11 +32,14 @@ import type { EventTicketType } from "@/lib/events/queries";
 export default function PackagePicker({
   storeId,
   storeName,
+  slug,
   ticketTypes,
   disabled,
 }: {
   storeId: string;
   storeName: string;
+  /** Where to send the buyer next — the EVENT checkout, not the shop one. */
+  slug: string;
   ticketTypes: EventTicketType[];
   disabled?: boolean;
 }) {
@@ -62,7 +65,9 @@ export default function PackagePicker({
       posthog.capture?.("event_package_selected", {
         store_id: storeId, variant_id: open.variantId, quantity: qty, price: open.price,
       });
-      router.push("/checkout");
+      // The EVENT checkout. /checkout is the marketplace form and would ask a
+      // concert-goer to choose a delivery zone.
+      router.push(`/events/${slug}/checkout`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not reserve those tickets.");
       setBusy(false);

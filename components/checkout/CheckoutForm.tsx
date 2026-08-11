@@ -58,9 +58,11 @@ export default function CheckoutForm({
   // unconfigured shop behaves identically here and in create_order().
   const [acceptsCash, setAcceptsCash] = useState(true);
   const [acceptsBankTransfer, setAcceptsBankTransfer] = useState(false);
-  // This shop wants a PHOTO of the transfer, which is a file upload, which
-  // needs storage RLS, which needs a session. create_order refuses guest bank
-  // transfer here with RR009 (M21) — mirrored so the option is never offered.
+  // This shop wants a PHOTO of the transfer. That used to exclude guests
+  // entirely — the upload needed storage RLS, which needs a session, so
+  // create_order refused with RR009 (M21). M49 moved the upload to the server,
+  // which does it on the guest's order-number + email, so this no longer gates
+  // anything: it only changes what the customer is told to expect next.
   const [requiresReceipt, setRequiresReceipt] = useState(false);
   // One key per checkout attempt, minted once when this form mounts and kept
   // stable across retries — that is what makes a retry idempotent rather than a
@@ -159,10 +161,10 @@ export default function CheckoutForm({
           setRequiresReceipt(!!body.payment.requiresReceipt);
           // Land on a method the shop actually takes rather than leaving the
           // default selected and letting the RPC refuse it at the last step.
-          // A guest cannot use bank transfer where a receipt photo is required,
-          // so that combination must not be auto-selected either.
-          const guestBlockedFromBank = !signedInEmail && !!body.payment.requiresReceipt;
-          if (!body.payment.acceptsCash && body.payment.acceptsBankTransfer && !guestBlockedFromBank) {
+          // (M49c) The guest-vs-receipt exclusion that used to live here is gone:
+          // a guest can now attach proof from /orders/track, so bank transfer at
+          // a receipt-required shop is a real option for them.
+          if (!body.payment.acceptsCash && body.payment.acceptsBankTransfer) {
             setProvider("bank_transfer");
           } else if (body.payment.acceptsCash) {
             setProvider("cash");
@@ -302,11 +304,13 @@ export default function CheckoutForm({
   const scheduleReady = !shopClosed && !(fulfillment === "rr_delivery" && deliveryOffNow);
   // A shop with no payment method configured cannot be ordered from at all;
   // create_order() would refuse whatever we sent.
-  // Bank transfer needs one extra condition for a guest: a shop that demands a
-  // receipt PHOTO cannot be served without an account, because the upload runs
-  // against storage RLS derived from a session. create_order refuses it
-  // (RR009), so the button must not offer it (M21).
-  const bankTransferAvailable = acceptsBankTransfer && !(isGuest && requiresReceipt);
+  // (M49c) Bank transfer used to carry an extra condition for a guest: a shop
+  // demanding a receipt PHOTO could not be served without an account, because
+  // the upload ran against storage RLS derived from a session, and create_order
+  // refused it (RR009). The server now uploads on the guest's behalf against
+  // their order-number + email, so the exclusion — and the RPC guard behind it —
+  // are both gone. Bank transfer is available whenever the shop accepts it.
+  const bankTransferAvailable = acceptsBankTransfer;
   const paymentReady = (provider === "cash" && acceptsCash) || (provider === "bank_transfer" && bankTransferAvailable);
   // Never allow submission on a price we could not obtain from the server.
   // A guest must supply a valid email — it is the ONLY way they can be sent a
@@ -728,27 +732,24 @@ export default function CheckoutForm({
             This {v.seller} hasn&apos;t set up a payment method yet, so it can&apos;t take orders.
           </p>
         )}
-        {/* Never disable a control without saying why — and say it where the
-            customer can act on it. Signing in is the actual remedy here. */}
-        {isGuest && acceptsBankTransfer && requiresReceipt && (
-          <p className="mt-2 font-dm text-xs text-orange-300">
-            This {v.seller} needs a photo of your transfer receipt, which needs an account.{" "}
-            <Link href="/login?next=/checkout" className="font-semibold text-yellow hover:underline">
-              Sign in
-            </Link>{" "}
-            to pay by bank transfer, or pay cash instead.
-          </p>
-        )}
-        {acceptsCash !== bankTransferAvailable && !(isGuest && requiresReceipt && acceptsBankTransfer) && (
+        {/* (M49c) The "sign in to pay by bank transfer" notice that stood here
+            is gone with the restriction it explained. */}
+        {acceptsCash !== bankTransferAvailable && (
           <p className="mt-2 font-dm text-xs text-muted">
             This {v.seller} only takes {acceptsCash ? "cash" : "bank transfer"}.
           </p>
         )}
         {provider === "bank_transfer" && bankTransferAvailable && (
           <p className="mt-2 font-dm text-xs text-muted">
-            {isGuest
-              ? `You'll see the ${v.seller}'s bank details on your tracking page after placing the order, and you tell the ${v.seller} once you've sent the transfer.`
-              : `You'll see the ${v.seller}'s bank details and upload your transfer receipt after placing the order.`}
+            {/* Keeps the food/shop vocabulary from the other half of this
+                change, and adds the receipt case a guest can now satisfy. */}
+            {requiresReceipt
+              ? isGuest
+                ? `You'll see the ${v.seller}'s bank details on your tracking page after placing the order. This ${v.seller} asks for a photo of your transfer, which you can attach there.`
+                : `You'll see the ${v.seller}'s bank details after placing the order. This ${v.seller} asks for a photo of your transfer.`
+              : isGuest
+                ? `You'll see the ${v.seller}'s bank details on your tracking page after placing the order, and you tell the ${v.seller} once you've sent the transfer.`
+                : `You'll see the ${v.seller}'s bank details and upload your transfer receipt after placing the order.`}
           </p>
         )}
       </fieldset>

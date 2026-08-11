@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getEventDetail } from "@/lib/events/organizer";
 import { centsToDecimalString } from "@/lib/money";
 import PackageManager from "@/components/events/PackageManager";
+import PaymentReview from "@/components/events/PaymentReview";
+import PaymentSetup from "@/components/events/PaymentSetup";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 
 export const dynamic = "force-dynamic";
@@ -63,6 +65,23 @@ export default async function OrganizerEventPage({
           This event is cancelled. Existing tickets are void and no new reservations can be made.
         </p>
       )}
+
+      {/* ── Payments waiting on a human ──────────────────────────────────
+          Above the packages on purpose: an unanswered payment is somebody
+          standing still holding money, and it is the only thing on this page
+          that is actively costing the organiser a sale. */}
+      <section aria-labelledby="pay-h" className="mt-8">
+        <h2 id="pay-h" className="mb-2 font-bebas text-[11px] tracking-[0.3em] text-yellow">
+          WAITING ON YOU
+        </h2>
+        <PaymentReview reservations={event.recent} canVerify={event.canVerifyPayments} />
+      </section>
+
+      {/* ── How the organiser gets paid ──────────────────────────────── */}
+      <section aria-labelledby="ps-h" className="mt-8">
+        <h2 id="ps-h" className="sr-only">Payment details</h2>
+        <PaymentSetup storeId={event.storeId} initial={event.payment} />
+      </section>
 
       {/* ── Packages ─────────────────────────────────────────────────── */}
       <section aria-labelledby="pk-h" className="mt-8">

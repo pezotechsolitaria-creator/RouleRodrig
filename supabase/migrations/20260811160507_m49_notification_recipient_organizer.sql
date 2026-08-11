@@ -1,0 +1,23 @@
+-- M49 — an event organiser is a third kind of notification recipient.
+--
+-- notification_recipient has only ('merchant','customer'). An organiser is
+-- neither: M43 deliberately kept them out of merchant_staff, because M40 gave
+-- every event store the SAME system-owned merchant, so one merchant_staff row
+-- would hand them every event on the platform.
+--
+-- The consequence shows up in guest_report_payment(), which notifies
+--   ... from merchant_staff ms join stores s on s.merchant_id = ms.merchant_id
+-- For an event that resolves to the platform merchant's staff — not the people
+-- actually running the event. A buyer could report a transfer and nobody who
+-- could act on it would ever hear.
+--
+-- Labelling those notifications 'merchant' would work mechanically (both RLS
+-- policies on notifications key on recipient_id = auth.uid() and ignore the
+-- type entirely) but would be a lie in the data, and the first person to filter
+-- by recipient_type would get a wrong answer with no way to see why.
+--
+-- ALONE IN ITS OWN MIGRATION ON PURPOSE: Postgres forbids using a new enum
+-- value in the transaction that adds it, so anything that inserts an
+-- 'organizer' notification has to land in a later migration (M49b).
+
+alter type notification_recipient add value if not exists 'organizer';

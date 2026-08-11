@@ -89,6 +89,9 @@ function TrackOrder() {
   const [justOrdered, setJustOrdered] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
+  // Proof of transfer. Optional in general, mandatory when the shop or event
+  // sets require_receipt — the server enforces that either way (RR005).
+  const [receipt, setReceipt] = useState<File | null>(null);
 
   const lookup = useCallback(async (ref: string, mail: string) => {
     setLoading(true);
@@ -144,10 +147,26 @@ function TrackOrder() {
     setReporting(true);
     setReportError(null);
     try {
+      // M49: a guest can now attach proof. They still cannot write to storage —
+      // order-receipts RLS derives ownership from customer_id, which is NULL for
+      // them — so the SERVER uploads it after re-checking the same credential,
+      // and derives the object path from the order id IT resolved. Multipart
+      // only when there is actually a file, so the no-proof case stays a plain
+      // JSON post exactly as before.
       const res = await fetch("/api/orders/report-payment", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderNumber: order.orderNumber, email }),
+        ...(receipt
+          ? (() => {
+              const fd = new FormData();
+              fd.set("orderNumber", order.orderNumber);
+              fd.set("email", email);
+              fd.set("file", receipt);
+              return { body: fd };
+            })()
+          : {
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ orderNumber: order.orderNumber, email }),
+            }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "We couldn't record that.");
@@ -341,24 +360,50 @@ function TrackOrder() {
                 }
                 awaitingConfirmation={!!awaitingConfirmation}
               >
-                {/* A guest cannot upload a file — storage RLS is derived from a
-                    session — so the declaration IS the action. create_order
-                    refuses guest bank transfer at shops that require a receipt
-                    photo, so this button is never the wrong affordance. */}
+                {/* M49: a guest CAN now attach proof. Until then storage RLS
+                    needed a session, so create_order refused guest bank transfer
+                    wherever a receipt was required — which made events, whose
+                    buyers are guests by design, impossible to sell. The upload
+                    now goes through the server on the same order-number + email
+                    credential, so the declaration and the evidence travel
+                    together. */}
                 <div>
                   <p className="font-dm text-xs leading-relaxed text-muted">
                     Once you&apos;ve made the transfer, tell them. They check their account and
                     confirm — nothing is charged automatically, and your reservation stops counting
                     down as soon as you press this.
                   </p>
+
+                  <label className="mt-3 block">
+                    <span className="font-dm text-xs text-muted">
+                      {order.bank?.requireReceipt
+                        ? "Attach your transfer receipt (required)"
+                        : "Attach your transfer receipt (optional, but it speeds things up)"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,application/pdf"
+                      onChange={(e) => {
+                        setReceipt(e.target.files?.[0] ?? null);
+                        setReportError(null);
+                      }}
+                      className="mt-1.5 block w-full font-dm text-xs text-muted file:mr-3 file:rounded-full file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:font-dm file:text-xs file:text-offwhite hover:file:bg-white/15"
+                    />
+                  </label>
+
                   <Button
                     type="button"
                     className="mt-3 w-full"
-                    disabled={reporting}
+                    disabled={reporting || (!!order.bank?.requireReceipt && !receipt)}
                     onClick={() => void reportPayment()}
                   >
                     {reporting ? <Loader2 size={16} className="animate-spin" /> : "I've sent the transfer"}
                   </Button>
+                  {order.bank?.requireReceipt && !receipt && (
+                    <p className="mt-2 font-dm text-xs text-muted">
+                      Attach the receipt to continue.
+                    </p>
+                  )}
                   {reportError && (
                     <p role="alert" className="mt-2 font-dm text-xs text-red-400">{reportError}</p>
                   )}
