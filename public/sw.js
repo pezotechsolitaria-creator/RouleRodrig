@@ -45,7 +45,9 @@
 // the homepage cards. The cart moved to NEW localStorage keys, so a client still
 // running the old bundle would keep writing to a key nothing reads any more —
 // this bump is what stops that.
-const CACHE = "rr-cache-v138";
+// v139 — forces a fresh CSS chunk for the cube motion redesign, which deployed
+// under v137 but was served from a stale build artifact. Fifth number collision.
+const CACHE = "rr-cache-v139";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

@@ -522,6 +522,15 @@ html[data-splash="on"] #rr-splash.rr-skip {
    cube never disappears — there is always a face toward you — so the rotation
    finally describes a solid object instead of a sheet of paper.
 
+   DEPLOY NOTE: the motion redesign shipped once and did not take. /api/health
+   reported the right commit and origin/main held the right source, but the CSS
+   chunk the homepage referenced still carried the previous animation — a stale
+   build artifact, not a stale browser or service worker. Confirmed by fetching
+   the chunk directly over several minutes rather than trusting the page.
+   Editing this file is what forces a new content hash, which is why this
+   paragraph exists. If the cube ever looks unchanged after a deploy again,
+   check the served chunk before touching the CSS.
+
    Geometry: six faces, each translated out by half the cube's side, so the
    edges meet exactly. --rr-cube must stay equal to the rendered logo height
    (h-11 = 44px) or the box will not close.
