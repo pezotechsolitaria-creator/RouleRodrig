@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Download, X, Share, MoreVertical, Plus } from "lucide-react";
 import { SITE_URL } from "@/lib/site";
 
@@ -116,35 +116,41 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
     <>
       {trigger}
 
-      {/* Plainly conditional, and NOT wrapped in AnimatePresence.
+      {/* Portal OUTSIDE, AnimatePresence INSIDE. The order is the whole bug.
 
-          This modal previously rendered <AnimatePresence>{createPortal(…)}</…>
-          and never opened at all. AnimatePresence filters its children through
+          This previously rendered <AnimatePresence>{createPortal(…)}</…> and
+          the modal never opened AT ALL, on any platform, for as long as it was
+          live. AnimatePresence filters its children through
           React.isValidElement(), and a portal's $$typeof is REACT_PORTAL_TYPE
-          rather than REACT_ELEMENT_TYPE — so isValidElement() is false and the
-          portal was discarded before it could mount. Measured on production:
-          open=true, mounted=true, the onClick attached and firing, and no DOM
-          appeared. No error, no warning; the button simply did nothing. It was
-          introduced when the modal was portalled to <body> to escape a
-          contained position:fixed.
+          rather than REACT_ELEMENT_TYPE — so isValidElement() returns false and
+          framer-motion silently discards the portal. Measured on production:
+          open=true, mounted=true, the onClick attached and firing, and zero
+          DOM. No error, no warning. It arrived when the modal was portalled to
+          <body> to escape a contained position:fixed.
 
-          If you reintroduce AnimatePresence, it must go INSIDE the portal (see
-          MapSection's lightbox for that shape) — and re-verify closing, not
-          just opening. A modal that fades out but never unmounts leaves an
-          invisible `fixed inset-0` overlay with pointer-events:auto across the
-          viewport, which swallows every click on the page. A bare conditional
-          cannot fail that way, and the entrance still animates via
-          initial/animate; the only thing given up is the fade-out.
+          MapSection's lightbox already used this correct shape, which is what
+          confirmed the diagnosis.
 
-          Verified locally: opens, closes via X, closes via backdrop, reopens,
-          and leaves zero overlay nodes behind. NOTE when testing this yourself
-          — the service worker caches JS on localhost, so unregister it and
-          clear caches or you will be measuring the previous build. */}
-      {mounted && open && createPortal(
+          test/animatepresence-portal.test.ts fails the build if the two are
+          ever nested the wrong way round again, and e2e/install-app.spec.ts
+          covers open / close / reopen and asserts nothing is left covering the
+          viewport afterwards — a modal that fades out but fails to unmount
+          leaves an invisible full-screen layer that swallows every click, and
+          that is invisible to a screenshot.
+
+          WHEN TESTING THIS LOCALLY: unregister the service worker and clear
+          caches first. It caches the JS bundle, and it served three rounds of
+          stale measurements here — including a convincing but entirely false
+          "the modal will not close". */}
+      {mounted && createPortal(
+        <AnimatePresence>
+          {open && (
           <motion.div
+            key="install-modal"
             className="fixed inset-0 z-[130] flex items-end sm:items-center justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/70 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             onClick={() => setOpen(false)}
           >
             <motion.div
@@ -223,7 +229,9 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
                 )}
               </ol>
             </motion.div>
-          </motion.div>,
+          </motion.div>
+          )}
+        </AnimatePresence>,
         document.body,
       )}
     </>
