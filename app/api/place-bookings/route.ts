@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPrivileged } from "@/lib/supabase/admin";
 import { getContent } from "@/lib/content";
 import { sendPlaceBookingEmails, upsertBrevoContact } from "@/lib/email";
-import { sendOwnerWhatsApp } from "@/lib/whatsapp";
+import { enqueueNotification } from "@/lib/notifications/queue";
 import { guard } from "@/lib/rate-limit";
 import { isActiveHold } from "@/lib/holds";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
@@ -215,14 +215,21 @@ export async function POST(req: NextRequest) {
 
   // Free owner WhatsApp alert (CallMeBot) — owner only, best-effort
   try {
-    await sendOwnerWhatsApp(
+    // Queued (M44). Same reasoning as vehicle bookings, different category
+    // so the owner can send restaurant/tour reservations elsewhere.
+    await enqueueNotification({
+      type: "place_booking.created",
+      category: "bookings",
+      bookingId: record.id,
+      dedupeKey: `place_booking.created:${record.id}`,
+      message:
       `🌴 New reservation\n${record.name} — ${record.place_name}` +
         `\n${record.start_date}` +
         (record.time_slot ? ` · ${record.time_slot}` : "") +
         (record.guests ? ` · ${record.guests} guests` : "") +
         (arrival ? `\n🛬 Arrival: ${arrival}` : "") +
         (record.phone ? `\n📞 ${record.phone}` : ""),
-    );
+    });
   } catch {
     /* ignore */
   }

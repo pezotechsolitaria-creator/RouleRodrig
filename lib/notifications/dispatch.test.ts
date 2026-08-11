@@ -1,17 +1,28 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const sendOrderNotificationEmail = vi.fn();
-const sendOwnerWhatsApp = vi.fn();
+// M44: the WhatsApp channel ENQUEUES instead of sending inline, so the double
+// is the queue rather than the transport. The behaviour these tests protect is
+// unchanged — merchant-only, one message per order, failures never throw —
+// only the collaborator moved.
+const enqueueNotification = vi.fn();
 
 vi.mock("@/lib/email", () => ({ sendOrderNotificationEmail: (...args: unknown[]) => sendOrderNotificationEmail(...args) }));
-vi.mock("@/lib/whatsapp", () => ({ sendOwnerWhatsApp: (...args: unknown[]) => sendOwnerWhatsApp(...args) }));
+vi.mock("./queue", () => ({
+  enqueueNotification: (...args: unknown[]) => enqueueNotification(...args),
+  // Separator is irrelevant to these assertions — they check that the order
+  // number reaches the message, not how the lines are spaced. The real
+  // formatter is covered where its output actually matters.
+  formatWhatsAppMessage: (o: { title: string; lines?: (string | null | undefined)[] }) =>
+    [o.title, ...(o.lines ?? [])].filter(Boolean).join(" "),
+}));
 
 const { dispatchNotification } = await import("./dispatch");
 
 describe("dispatchNotification", () => {
   beforeEach(() => {
     sendOrderNotificationEmail.mockReset();
-    sendOwnerWhatsApp.mockReset();
+    enqueueNotification.mockReset();
   });
 
   it("emails the customer when a recipientEmail is provided", async () => {
@@ -29,7 +40,7 @@ describe("dispatchNotification", () => {
     );
   });
 
-  it("never calls the WhatsApp channel for a customer recipient — sendOwnerWhatsApp structurally can't reach a customer", async () => {
+  it("never calls the WhatsApp channel for a customer recipient — the WhatsApp channel is merchant-only", async () => {
     sendOrderNotificationEmail.mockResolvedValue(true);
     await dispatchNotification({
       recipientType: "customer",
@@ -39,11 +50,11 @@ describe("dispatchNotification", () => {
       title: "t",
       body: "b",
     });
-    expect(sendOwnerWhatsApp).not.toHaveBeenCalled();
+    expect(enqueueNotification).not.toHaveBeenCalled();
   });
 
   it("fires the WhatsApp channel for a merchant recipient", async () => {
-    sendOwnerWhatsApp.mockResolvedValue(true);
+    enqueueNotification.mockResolvedValue(1);
     await dispatchNotification({
       recipientType: "merchant",
       orderNumber: "ORD-2",
@@ -51,7 +62,9 @@ describe("dispatchNotification", () => {
       title: "New order",
       body: "You have a new order.",
     });
-    expect(sendOwnerWhatsApp).toHaveBeenCalledWith(expect.stringContaining("ORD-2"));
+    expect(enqueueNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("ORD-2"), category: "admin" }),
+    );
   });
 
   it("skips the email channel silently when no recipientEmail is given", async () => {
@@ -67,7 +80,7 @@ describe("dispatchNotification", () => {
 
   it("never throws even if every channel rejects — and reports nothing delivered", async () => {
     sendOrderNotificationEmail.mockRejectedValue(new Error("smtp down"));
-    sendOwnerWhatsApp.mockRejectedValue(new Error("callmebot down"));
+    enqueueNotification.mockRejectedValue(new Error("queue unavailable"));
     await expect(
       dispatchNotification({
         recipientType: "customer",
@@ -82,7 +95,7 @@ describe("dispatchNotification", () => {
 
   it("returns true when at least one channel delivers", async () => {
     sendOrderNotificationEmail.mockRejectedValue(new Error("smtp down"));
-    sendOwnerWhatsApp.mockResolvedValue(true);
+    enqueueNotification.mockResolvedValue(1);
     await expect(
       dispatchNotification({
         recipientType: "merchant",
@@ -109,7 +122,7 @@ describe("dispatchNotification", () => {
 
   it("honours the channels filter — an email-only merchant event never reaches WhatsApp", async () => {
     sendOrderNotificationEmail.mockResolvedValue(true);
-    sendOwnerWhatsApp.mockResolvedValue(true);
+    enqueueNotification.mockResolvedValue(1);
     await dispatchNotification({
       recipientType: "merchant",
       recipientEmail: "staff@example.com",
@@ -120,7 +133,7 @@ describe("dispatchNotification", () => {
       channels: ["email"],
     });
     expect(sendOrderNotificationEmail).toHaveBeenCalledTimes(1);
-    expect(sendOwnerWhatsApp).not.toHaveBeenCalled();
+    expect(enqueueNotification).not.toHaveBeenCalled();
   });
 
   it("forwards details and cta to the email channel", async () => {

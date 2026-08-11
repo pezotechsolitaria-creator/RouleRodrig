@@ -1,5 +1,5 @@
 import "server-only";
-import { sendOwnerWhatsApp } from "@/lib/whatsapp";
+import { enqueueNotification } from "@/lib/notifications/queue";
 import type { ProviderName } from "./config";
 import type { ProviderUsage, QuotaLevel, ReserveState } from "./quota";
 
@@ -68,7 +68,16 @@ async function alertOncePerDay(key: string, body: string): Promise<boolean> {
   state[key] = today;
   await writeState(state);
   try {
-    return await sendOwnerWhatsApp(body);
+    // `system` category: an infrastructure alarm, not business activity —
+    // the owner may well want this on a different phone at 3am.
+    // alertOncePerDay already guarantees one per key per day, and the key
+    // is reused here so the queue cannot re-add it either.
+    return (await enqueueNotification({
+      type: `email.quota.${key}`,
+      category: "system",
+      message: body,
+      dedupeKey: `email.quota:${key}:${today}`,
+    })) > 0;
   } catch (err) {
     console.error("[email] quota alert failed to send", err);
     return false;

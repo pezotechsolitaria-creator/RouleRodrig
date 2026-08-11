@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPrivileged } from "@/lib/supabase/admin";
 import { getContent } from "@/lib/content";
 import { sendBookingEmails, upsertBrevoContact } from "@/lib/email";
-import { sendOwnerWhatsApp } from "@/lib/whatsapp";
+import { enqueueNotification } from "@/lib/notifications/queue";
 import { guardShared } from "@/lib/rate-limit";
 import { isActiveHold } from "@/lib/holds";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
@@ -305,7 +305,15 @@ export async function POST(req: NextRequest) {
   // Free owner WhatsApp alert (CallMeBot) — owner only, best-effort
   try {
     const nights = bookedDays(record.start_date, record.end_date);
-    await sendOwnerWhatsApp(
+    // Queued, not sent inline (M44): a rental confirmation must not depend
+    // on CallMeBot being up, and `rentals` is a category the owner can route
+    // to a different phone than deliveries or payments.
+    await enqueueNotification({
+      type: "booking.created",
+      category: "rentals",
+      bookingId: record.id,
+      dedupeKey: `booking.created:${record.id}`,
+      message:
       `🛵 New booking\n${record.name} — ${scooterName}` +
         (record.asset_label ? ` (${record.asset_label})` : "") +
         `\n${waDate(record.start_date)} → ${waDate(record.end_date)}` +
@@ -317,7 +325,7 @@ export async function POST(req: NextRequest) {
             ? `\n💰 ${record.total_price}`
             : "") +
         (record.phone ? `\n📞 ${record.phone}` : ""),
-    );
+    });
   } catch {
     /* ignore */
   }

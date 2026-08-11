@@ -1,6 +1,6 @@
 import "server-only";
 import { sendOrderNotificationEmail } from "@/lib/email";
-import { sendOwnerWhatsApp } from "@/lib/whatsapp";
+import { enqueueNotification, formatWhatsAppMessage } from "./queue";
 import type { EmailType } from "@/lib/email/types";
 
 // ── Best-effort external notification dispatch (Milestone 4) ────────────────
@@ -77,18 +77,41 @@ const emailChannel: NotificationChannel = {
   },
 };
 
-// LIMITATION: sendOwnerWhatsApp only ever reaches the single site-owner
-// number configured in app_secrets/env — there is no per-merchant WhatsApp
-// number stored anywhere in the schema. So this channel is really "ping the
-// site owner about marketplace activity," not "message this merchant." It
-// still fires only for recipientType === "merchant" (never for customers,
-// which sendOwnerWhatsApp structurally cannot do) so the intent stays
-// correct even though the destination is coarser than the abstraction implies.
+// M44: this channel now ENQUEUES instead of sending inline.
+//
+// The old behaviour was `await sendOwnerWhatsApp(...)` inside the request that
+// caused the event, swallowing failures. That was honest but lossy: if CallMeBot
+// blinked, the owner was simply never told an order had arrived, and nothing
+// remembered to try again. Now the message becomes a row and a worker delivers
+// it with retries and backoff.
+//
+// It also stops being a single-number channel. Recipients are rows the owner
+// manages at /admin/notifications, so "Driver Manager gets deliveries, Finance
+// gets payments" is configuration rather than code — which is exactly what the
+// old comment here said was impossible.
+//
+// Still merchant-only: sendOwnerWhatsApp could not message a customer, and
+// nothing about queueing changes who these alerts are FOR.
 const whatsappChannel: NotificationChannel = {
   name: "whatsapp",
   async send(event) {
     if (event.recipientType !== "merchant") return false;
-    return sendOwnerWhatsApp(`[Order ${event.orderNumber}] ${event.title}\n${event.body}`);
+    const queued = await enqueueNotification({
+      type: event.type,
+      // Order activity is what the owner acts on, so it routes to the
+      // "needs my attention" category rather than to a payments feed.
+      category: "admin",
+      message: formatWhatsAppMessage({
+        title: `Order ${event.orderNumber}`,
+        lines: [event.title, event.body],
+      }),
+      // Per-event, per-order key. A re-swept order (M17 releases the claim on a
+      // failed customer send) must not ping the owner a second time.
+      dedupeKey: event.idempotencyKey ?? `wa:${event.type}:${event.orderNumber}`,
+      orderId: event.orderId ?? undefined,
+      payload: { orderNumber: event.orderNumber },
+    });
+    return queued > 0;
   },
 };
 
