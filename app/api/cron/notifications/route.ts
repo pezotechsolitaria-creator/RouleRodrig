@@ -65,6 +65,19 @@ async function run(req: NextRequest) {
   // never arrive.
   const { data: requeued } = await admin.rpc("requeue_stuck_notifications");
 
+  // Delivery escalations ride this cron rather than getting their own: the
+  // Vercel plan caps cron jobs, and a stalled delivery needs checking on the
+  // same cadence as a queued message anyway. Failure here must not stop the
+  // queue draining — they are independent jobs sharing a trigger.
+  let sweep: unknown = null;
+  try {
+    const { data, error } = await admin.rpc("sweep_delivery_escalations");
+    if (error) console.error("sweep_delivery_escalations failed", error);
+    else sweep = data;
+  } catch (err) {
+    console.error("sweep_delivery_escalations threw", err);
+  }
+
   const { data: claimed, error: claimError } = await admin.rpc("claim_notification_jobs", {
     p_limit: BATCH,
   });
@@ -140,6 +153,7 @@ async function run(req: NextRequest) {
     failed,
     deferred,
     requeued: (requeued as number | null) ?? 0,
+    deliverySweep: sweep,
     ms: Date.now() - started,
   });
 }
