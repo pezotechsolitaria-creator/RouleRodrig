@@ -8,6 +8,7 @@ import { guard } from "@/lib/rate-limit";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { formatPickupCode } from "@/lib/orders/pickup";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
+import { notifyDriversOfNewOffer } from "@/lib/push/notify-offer";
 
 const NOT_FOUND_CODE = "RR003";
 const ILLEGAL_TRANSITION_CODE = "RR004";
@@ -138,6 +139,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // the response. Only fires on a REAL status change, not a note-only edit,
   // same condition the RPC itself uses for the in-app notification row.
   if (status && status !== current.status && hasServiceRole()) {
+    // M49 turned this order into a delivery job inside the status update
+    // itself; this wakes the drivers it was offered to. It sits ABOVE the
+    // customer-email branch on purpose — a guest order with no address on file
+    // must still reach a driver, and nesting it below would have made driver
+    // alerts depend on the customer having an email.
+    if (targetStatus === "ready_for_pickup") {
+      await notifyDriversOfNewOffer(id);
+    }
     try {
       const admin = await getPrivileged();
       // A guest order has no auth user, so the address on the order IS the
@@ -157,6 +166,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         // role — no client role can see qr_pickup_tokens.code (M28).
         let extra = "";
         if (targetStatus === "ready_for_pickup") {
+
           const { data: token } = await admin
             .from("qr_pickup_tokens")
             .select("code")

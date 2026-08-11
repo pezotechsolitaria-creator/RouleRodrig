@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import { Button } from "@/components/ui/button";
+import AlertsToggle from "./AlertsToggle";
 
 // ── The driver's phone ──────────────────────────────────────────────────────
 //
@@ -193,6 +194,8 @@ export default function DriverDashboard() {
           </>
         )}
       </div>
+
+      {approved && <AlertsToggle />}
 
       {approved && (
         <div className="grid grid-cols-2 gap-3">

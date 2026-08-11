@@ -4,6 +4,7 @@ import { guardFoodAdmin, readJson, failed } from "@/lib/food/guard";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { formatPickupCode } from "@/lib/orders/pickup";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
+import { notifyDriversOfNewOffer } from "@/lib/push/notify-offer";
 
 // The live food order queue.
 //
@@ -189,6 +190,13 @@ export async function PATCH(req: NextRequest) {
   // response — the status change is already committed, and an email provider
   // being down must not make the operator think the kitchen was not told.
   if (status && status !== current.status) {
+    // The kitchen is a store like any other, so a food order set to
+    // `rr_delivery` becomes a delivery job through the same M49 trigger. Kept
+    // above the email branch for the same reason as the marketplace route: a
+    // driver alert must not depend on the customer having left an address.
+    if (targetStatus === "ready_for_pickup") {
+      await notifyDriversOfNewOffer(orderId);
+    }
     try {
       let email = (current.customer_email as string | null) ?? null;
       if (current.customer_id) {
