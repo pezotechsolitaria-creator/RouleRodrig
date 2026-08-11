@@ -144,6 +144,11 @@ export default function AdminNotifications() {
   }
 
   async function test(slot: Slot) {
+    // Re-entrancy guard, not just the button's `disabled`. `disabled` only
+    // takes effect after React re-renders, so a fast double-tap fires twice —
+    // and every call here is a REAL WhatsApp message, which is exactly what
+    // happened the first time this was used in anger.
+    if (testing) return;
     setTesting(slot.id);
     setFlash(null);
     try {
