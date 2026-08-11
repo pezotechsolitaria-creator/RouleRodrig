@@ -19,7 +19,8 @@
 // v122 while v123 was already live, and a version that moves backwards cannot
 // evict anything — an existing client keeps its cache unless the name changes.
 // v125 — the iOS splash screens carry the new mark too.
-const CACHE = "rr-cache-v125";
+// v126 — M47 partner application categories.
+const CACHE = "rr-cache-v126";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

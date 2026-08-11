@@ -5,7 +5,18 @@ import { guard } from "@/lib/rate-limit";
 // The categories a partner can apply to list. Kept in sync with the DB CHECK
 // constraint (owner_applications_listing_type_check) — a value outside this set
 // is rejected here AND by the database, so a crafted request can't store junk.
-const LISTING_TYPES = ["vehicle", "restaurant", "stay", "activity", "experience"] as const;
+//
+// taxi / event / delivery (M47) are the categories that cannot be created by
+// the applicant ANYWHERE in the product: taxi_drivers is admin-insert-only,
+// event organisers are minted by admin_create_organizer(), and M45 makes driver
+// approval an explicit admin act. Accepting one of these values still only ever
+// writes an application row with status 'pending' — it grants nothing and
+// creates nothing downstream. Approval stays a human decision taken with the
+// existing admin tools.
+const LISTING_TYPES = [
+  "vehicle", "restaurant", "stay", "activity", "experience",
+  "taxi", "event", "delivery",
+] as const;
 type ListingType = (typeof LISTING_TYPES)[number];
 
 // ── Public: a partner applies to list a vehicle / restaurant / stay / … ──────

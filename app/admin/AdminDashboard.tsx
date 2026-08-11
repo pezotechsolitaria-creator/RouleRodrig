@@ -5397,12 +5397,23 @@ interface OwnerApplication {
 }
 
 // Human label + colour for the listing category (matches the public form).
+//
+// Every value the form can send MUST appear here. The lookup below falls back
+// to `vehicle`, so a missing entry does not render blank — it renders a
+// confident, wrong "VEHICLE" badge, and a taxi application read as a scooter
+// application is a decision made on false information.
 const LISTING_BADGE: Record<string, { label: string; cls: string }> = {
   vehicle:    { label: "VEHICLE",    cls: "bg-sky-500/10 text-sky-400" },
   restaurant: { label: "RESTAURANT", cls: "bg-orange-500/10 text-orange-400" },
   stay:       { label: "STAY",       cls: "bg-violet-500/10 text-violet-400" },
   activity:   { label: "ACTIVITY",   cls: "bg-emerald-500/10 text-emerald-400" },
   experience: { label: "EXPERIENCE", cls: "bg-pink-500/10 text-pink-400" },
+  // M47 — approval-only categories. Amber/red-leaning on purpose: each of these
+  // ends in YOU creating an account or a driver record by hand, so they should
+  // not look like the self-service categories in a glanced-at list.
+  taxi:       { label: "TAXI",       cls: "bg-amber-500/10 text-amber-400" },
+  event:      { label: "ORGANISER",  cls: "bg-fuchsia-500/10 text-fuchsia-400" },
+  delivery:   { label: "DELIVERY",   cls: "bg-teal-500/10 text-teal-400" },
 };
 
 function OwnerApplicationsViewer() {
@@ -5447,7 +5458,7 @@ function OwnerApplicationsViewer() {
     return (
       <div className="bg-dark-card border border-dark-border rounded-2xl p-10 text-center">
         <UserPlus size={36} className="text-muted/20 mx-auto mb-3" />
-        <p className="text-muted font-dm text-sm">No applications yet. Partners apply via the <span className="font-mono text-offwhite/40">/list-your-scooter</span> page — vehicles, restaurants, stays, activities and experiences.</p>
+        <p className="text-muted font-dm text-sm">No applications yet. Partners apply via the <span className="font-mono text-offwhite/40">/list-your-scooter</span> page — vehicles, restaurants, stays, activities and experiences, plus taxi drivers, event organisers and delivery partners, which only you can set up.</p>
       </div>
     );
   }
@@ -6638,7 +6649,7 @@ export default function AdminDashboard({
     bookings:     { title: "Bookings",            desc: "Booking requests from the website booking form." },
     place_bookings: { title: "Stay & Activity Bookings", desc: "Reservation requests for hotels, restaurants & activities." },
     leads:        { title: "Listing Leads",       desc: "Food Concierge requests (with craving & budget), plus clicks & enquiries on your Stay·Eat·Do and Taxi listings — for demand tracking & commission follow-up." },
-    owners:       { title: "Partner Applications",  desc: "Partners applying to list a vehicle, restaurant, stay, activity or experience via /list-your-scooter." },
+    owners:       { title: "Partner Applications",  desc: "Partners applying via /list-your-scooter to list a vehicle, restaurant, stay, activity or experience — or to become a taxi driver, event organiser or delivery partner, none of which anyone can create for themselves. Approving one is your cue to set them up in Taxi, Organisers or Delivery; the application itself grants nothing." },
     map:          { title: "Island Map Locations",desc: "Manage the points of interest shown on the island guide map." },
     waitlist:     { title: "Waitlist",            desc: "People who signed up for deals and island tips." },
     planner:      { title: "AI Trip Planner",     desc: "Edit the real places, photos and tips the planner uses to build itineraries." },

@@ -7,32 +7,105 @@ import {
   ArrowLeft, Wallet, CalendarCheck, ShieldCheck, Headphones,
   Send, Loader2, CheckCircle, AlertCircle, Upload, FileCheck, X,
   Bike, UtensilsCrossed, BedDouble, Compass, Sparkles,
+  Car, Ticket, Package, Store, ArrowRight, Lock, Clock,
 } from "lucide-react";
 
 type FormState = "idle" | "loading" | "success" | "error";
-type ListingType = "vehicle" | "restaurant" | "stay" | "activity" | "experience";
+type ListingType =
+  | "vehicle" | "restaurant" | "stay" | "activity" | "experience"
+  | "taxi" | "event" | "delivery";
 
-// Per-category config drives the whole form: which copy shows, what the "what
-// are you listing" field asks, and whether vehicle-only fields (licence,
-// insurance) appear. This is why the page is one component, not five — the flow
-// is identical, only the words and two optional fields change.
+// ── What can actually be listed here, and on whose authority ────────────────
+//
+// The page is organised around one distinction that the product already
+// enforces but never explained: SOME things you can set up yourself, and some
+// things only the Roulé Rodrigues team can create.
+//
+//   * OPEN     — reviewed by a human, then set up for you. The normal path.
+//   * APPROVAL — cannot be self-created ANYWHERE in the product, by design.
+//                taxi_drivers is admin-insert-only; an event organiser exists
+//                only once admin_create_organizer() mints one; and M45 states
+//                that driver approval is an admin act. Applying is the only
+//                way in, and it is a request, not a signup.
+//
+// Saying so plainly is the honest design. The previous version offered five
+// categories and silently omitted the three that need vetting — so a taxi
+// driver or an event organiser had no front door at all and the only route in
+// was knowing the owner personally. That is obscurity, not vetting.
+type Track = "open" | "approval";
+
 const CATEGORIES: Record<ListingType, {
-  label: string; icon: typeof Bike; noun: string;
-  detailPlaceholder: string; needsVehicleDocs: boolean;
+  label: string;
+  icon: typeof Bike;
+  noun: string;
+  blurb: string;
+  detailPlaceholder: string;
+  needsVehicleDocs: boolean;
+  track: Track;
+  /** Shown on approval categories: what is actually checked, and what follows. */
+  vetting?: string;
 }> = {
-  vehicle:    { label: "Vehicle",    icon: Bike,            noun: "vehicle",
-                detailPlaceholder: "Which vehicle(s) & how many? (e.g. 2× Burgman 125, 1× Swift car)", needsVehicleDocs: true },
-  restaurant: { label: "Restaurant", icon: UtensilsCrossed, noun: "restaurant",
-                detailPlaceholder: "Tell us about your place — cuisine, seats, opening hours", needsVehicleDocs: false },
-  stay:       { label: "Stay",       icon: BedDouble,       noun: "stay",
-                detailPlaceholder: "Guesthouse / room / villa — how many guests, what's included", needsVehicleDocs: false },
-  activity:   { label: "Activity",   icon: Compass,         noun: "activity",
-                detailPlaceholder: "What activity? (e.g. kitesurfing lessons, snorkelling trips)", needsVehicleDocs: false },
-  experience: { label: "Experience", icon: Sparkles,        noun: "experience",
-                detailPlaceholder: "Tell us about your experience or guided tour", needsVehicleDocs: false },
+  vehicle: {
+    label: "Vehicle", icon: Bike, noun: "vehicle", track: "open",
+    blurb: "Scooter, car or bike for rent",
+    detailPlaceholder: "Which vehicle(s) & how many? (e.g. 2× Burgman 125, 1× Swift car)",
+    needsVehicleDocs: true,
+  },
+  restaurant: {
+    label: "Restaurant", icon: UtensilsCrossed, noun: "restaurant", track: "open",
+    blurb: "A table worth travelling for",
+    detailPlaceholder: "Tell us about your place — cuisine, seats, opening hours",
+    needsVehicleDocs: false,
+  },
+  stay: {
+    label: "Stay", icon: BedDouble, noun: "stay", track: "open",
+    blurb: "Guesthouse, room or villa",
+    detailPlaceholder: "Guesthouse / room / villa — how many guests, what's included",
+    needsVehicleDocs: false,
+  },
+  activity: {
+    label: "Activity", icon: Compass, noun: "activity", track: "open",
+    blurb: "Kitesurf, diving, hiking & more",
+    detailPlaceholder: "What activity? (e.g. kitesurfing lessons, snorkelling trips)",
+    needsVehicleDocs: false,
+  },
+  experience: {
+    label: "Experience", icon: Sparkles, noun: "experience", track: "open",
+    blurb: "Guided tours and one-off days",
+    detailPlaceholder: "Tell us about your experience or guided tour",
+    needsVehicleDocs: false,
+  },
+  taxi: {
+    label: "Taxi driver", icon: Car, noun: "taxi service", track: "approval",
+    blurb: "Drive visitors around the island",
+    detailPlaceholder: "Your vehicle, how many passengers, and the areas you cover",
+    needsVehicleDocs: true,
+    vetting:
+      "You carry passengers, so we check your licence and insurance before you appear on the Taxi page. " +
+      "Only our team can add a driver — there is no self-signup for this.",
+  },
+  event: {
+    label: "Event organiser", icon: Ticket, noun: "event", track: "approval",
+    blurb: "Sell tickets to your events",
+    detailPlaceholder: "What kind of events, how often, and roughly what size?",
+    needsVehicleDocs: false,
+    vetting:
+      "Tickets are sold through the Roulé Rodrigues account, so we are answerable for every event listed. " +
+      "If we approve you, we create your organiser account and send the invite to your email — you cannot open one yourself.",
+  },
+  delivery: {
+    label: "Delivery partner", icon: Package, noun: "delivery work", track: "approval",
+    blurb: "Deliver marketplace orders",
+    detailPlaceholder: "Your vehicle, the areas you can cover, and your usual hours",
+    needsVehicleDocs: true,
+    vetting:
+      "You would be handling other people's goods and their cash on delivery, so this one is checked carefully. " +
+      "Submitting this form creates a pending application only — approval is a separate decision by our team.",
+  },
 };
 
-const ORDER: ListingType[] = ["vehicle", "restaurant", "stay", "activity", "experience"];
+const OPEN_ORDER: ListingType[] = ["vehicle", "restaurant", "stay", "activity", "experience"];
+const APPROVAL_ORDER: ListingType[] = ["taxi", "event", "delivery"];
 
 // Benefits are phrased so they read true for ANY category, not just scooters.
 const BENEFITS = [
@@ -76,7 +149,7 @@ function DocSlot({ label, hint, value, onChange, disabled }: {
         <div className="flex items-center gap-2 bg-dark-card border border-green-500/30 rounded-xl px-4 py-3">
           <FileCheck size={16} className="text-green-400 shrink-0" />
           <span className="text-green-400 text-xs font-dm flex-1">Uploaded</span>
-          <button type="button" onClick={() => onChange(null)} className="text-muted hover:text-red-400" aria-label="Remove"><X size={14} /></button>
+          <button type="button" onClick={() => onChange(null)} className="text-muted hover:text-red-400 p-1" aria-label="Remove file"><X size={14} /></button>
         </div>
       ) : (
         <button
@@ -96,6 +169,43 @@ function DocSlot({ label, hint, value, onChange, disabled }: {
   );
 }
 
+/** One selectable category. A card, not a pill — it has to carry a description. */
+function CategoryCard({ type, active, onSelect }: {
+  type: ListingType; active: boolean; onSelect: () => void;
+}) {
+  const c = CATEGORIES[type];
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onSelect}
+      className={`group relative flex flex-col items-start gap-2 rounded-2xl border p-4 text-left transition-colors ${
+        active
+          ? "border-yellow bg-yellow/[0.07]"
+          : "border-dark-border bg-dark-card hover:border-yellow/40"
+      }`}
+    >
+      <span
+        className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
+          active ? "bg-yellow text-dark" : "bg-yellow/10 text-yellow"
+        }`}
+      >
+        <c.icon size={19} />
+      </span>
+      <span className="font-syne text-sm font-bold text-offwhite">{c.label}</span>
+      <span className="font-dm text-[11px] leading-snug text-muted">{c.blurb}</span>
+      {/* The lock is the whole point of the second group — it must be visible
+          before you commit to filling anything in, not after you submit. */}
+      {c.track === "approval" && (
+        <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 font-dm text-[10px] font-medium text-amber-400">
+          <Lock size={9} /> Approval needed
+        </span>
+      )}
+    </button>
+  );
+}
+
 export default function ListYourBusinessPage() {
   const [type, setType] = useState<ListingType>("vehicle");
   const [state, setState] = useState<FormState>("idle");
@@ -111,6 +221,11 @@ export default function ListYourBusinessPage() {
   const photosRef = useRef<HTMLInputElement>(null);
 
   const cat = CATEGORIES[type];
+  const isApproval = cat.track === "approval";
+
+  // An organiser account is created against an email address (M43 keys the
+  // invite on it), so for that one category an email is not optional.
+  const emailRequired = type === "event";
 
   async function addPhotos(files: FileList) {
     setPhotosBusy(true); setErr(null);
@@ -127,11 +242,15 @@ export default function ListYourBusinessPage() {
 
   const input =
     "w-full bg-dark-card border border-dark-border rounded-xl px-4 py-3.5 text-offwhite text-sm font-dm placeholder:text-muted/50 focus:border-yellow focus:outline-none transition-colors";
+  const labelCls = "mb-1.5 block font-dm text-xs text-muted";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
     if (!form.owner_name.trim() || !form.phone.trim()) return setErr("Please enter your name and phone number.");
+    if (emailRequired && !form.email.trim()) {
+      return setErr("An email address is required — your organiser invite is sent there.");
+    }
     if (!agreed) return setErr("Please accept the Partner Agreement to continue.");
 
     setState("loading");
@@ -172,39 +291,66 @@ export default function ListYourBusinessPage() {
         </Link>
 
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="mb-10">
+        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="mb-12">
           <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">PARTNER WITH US</p>
           <h1 className="font-syne font-extrabold uppercase leading-[0.95] mb-4" style={{ fontSize: "clamp(34px, 8vw, 72px)" }}>
             List it.<br />Get discovered.
           </h1>
           <p className="text-muted font-dm text-sm md:text-base max-w-xl leading-relaxed">
-            Run something worth visiting on Rodrigues — a scooter, a car, a table, a room, an experience?
+            Run something worth visiting on Rodrigues — a scooter, a table, a room, an experience?
             Get it in front of tourists actively planning their trip. We handle the enquiries; you stay in control.
           </p>
         </motion.div>
 
-        {/* Category picker — this is the "rework": one flow, five things you can list */}
-        <div className="flex flex-wrap gap-2.5 mb-12" role="tablist" aria-label="What do you want to list?">
-          {ORDER.map((t) => {
-            const C = CATEGORIES[t];
-            const active = t === type;
-            return (
-              <button
-                key={t}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => { setType(t); setErr(null); }}
-                className={`flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-syne font-bold transition-colors ${
-                  active
-                    ? "bg-yellow text-dark"
-                    : "bg-dark-card border border-dark-border text-muted hover:text-yellow hover:border-yellow/40"
-                }`}
-              >
-                <C.icon size={16} /> {C.label}
-              </button>
-            );
-          })}
+        {/* ── Already self-serve: the shop. Kept OUT of the application form on
+            purpose — the marketplace has a real signup, and routing people
+            through a slower human review to reach the same place would be a
+            worse experience, not a safer one. ─────────────────────────────── */}
+        <div className="mb-12 rounded-2xl border border-dark-border bg-gradient-to-br from-yellow/[0.07] to-transparent p-6 md:flex md:items-center md:gap-6">
+          <span className="mb-4 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-yellow text-dark md:mb-0">
+            <Store size={22} />
+          </span>
+          <div className="flex-1">
+            <h2 className="font-syne text-lg font-bold text-offwhite">Selling products? Open your shop now</h2>
+            <p className="mt-1 font-dm text-sm leading-relaxed text-muted">
+              Honey, crafts, spices, anything you make or sell — the marketplace is self-serve.
+              Create your shop, add products and take orders today. No application, no waiting.
+            </p>
+          </div>
+          <Link
+            href="/merchant/login"
+            className="mt-4 inline-flex shrink-0 items-center gap-2 rounded-full bg-yellow px-5 py-3 font-syne text-sm font-bold text-dark transition-colors hover:bg-yellow-dark md:mt-0"
+          >
+            Open a shop <ArrowRight size={15} />
+          </Link>
+        </div>
+
+        {/* Category picker — two groups, because the difference is real */}
+        <div role="tablist" aria-label="What do you want to list?" className="mb-12">
+          <p className="font-bebas text-muted text-[10px] tracking-[0.3em] mb-3">
+            WHAT DO YOU WANT TO LIST?
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {OPEN_ORDER.map((t) => (
+              <CategoryCard key={t} type={t} active={t === type} onSelect={() => { setType(t); setErr(null); }} />
+            ))}
+          </div>
+
+          <div className="mt-8">
+            <p className="font-bebas text-amber-400/80 text-[10px] tracking-[0.3em] mb-1.5">
+              BY APPROVAL ONLY
+            </p>
+            <p className="mb-3 max-w-2xl font-dm text-xs leading-relaxed text-muted">
+              These three carry other people&rsquo;s passengers, money or goods, so nobody can set
+              themselves up — our team creates the account after checking you out. Applying here is
+              the only way in, and it is the right way in.
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              {APPROVAL_ORDER.map((t) => (
+                <CategoryCard key={t} type={t} active={t === type} onSelect={() => { setType(t); setErr(null); }} />
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Benefits */}
@@ -229,45 +375,98 @@ export default function ListYourBusinessPage() {
         {/* Application form */}
         <div className="max-w-xl">
           <h2 className="font-syne font-extrabold text-offwhite text-2xl mb-1">
-            List your {cat.noun}
+            {isApproval ? `Apply: ${cat.label}` : `List your ${cat.noun}`}
           </h2>
-          <p className="text-muted text-sm mb-7">Tell us the essentials and we&rsquo;ll be in touch to get you set up.</p>
+          <p className="text-muted text-sm mb-6">
+            {isApproval
+              ? "Tell us about yourself. If it's a fit, we'll be in touch to set you up."
+              : "Tell us the essentials and we'll be in touch to get you set up."}
+          </p>
+
+          {/* The honesty panel. It says what happens after submit, BEFORE the
+              fields — a promise made after someone has already typed for five
+              minutes is not a promise, it is an excuse. */}
+          {isApproval && state !== "success" && (
+            <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/[0.06] p-4">
+              <Lock size={16} className="mt-0.5 shrink-0 text-amber-400" />
+              <div>
+                <p className="font-syne text-sm font-bold text-amber-400">This one is reviewed before it goes live</p>
+                <p className="mt-1 font-dm text-xs leading-relaxed text-offwhite/75">{cat.vetting}</p>
+              </div>
+            </div>
+          )}
 
           {state === "success" ? (
-            <div className="flex items-start gap-3 bg-green-500/10 border border-green-500/30 rounded-2xl px-5 py-5">
-              <CheckCircle size={20} className="text-green-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-syne font-bold text-green-400">Application received!</p>
-                <p className="text-green-400/70 text-sm mt-1">Thank you — we&rsquo;ll contact you shortly to verify your {cat.noun} and get your listing live.</p>
+            <div className="rounded-2xl border border-green-500/30 bg-green-500/10 px-5 py-5">
+              <div className="flex items-start gap-3">
+                <CheckCircle size={20} className="text-green-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-syne font-bold text-green-400">Application received</p>
+                  <p className="text-green-400/70 text-sm mt-1">
+                    {isApproval
+                      ? `Thank you — we review every ${cat.label.toLowerCase()} application by hand. We'll contact you on the number you gave us.`
+                      : `Thank you — we'll contact you shortly to verify your ${cat.noun} and get your listing live.`}
+                  </p>
+                  <p className="mt-3 flex items-center gap-1.5 font-dm text-xs text-green-400/60">
+                    <Clock size={12} /> Nothing is live yet. We&rsquo;ll be in touch first.
+                  </p>
+                </div>
               </div>
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-4" noValidate>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <input className={input} placeholder="Your name *" value={form.owner_name} onChange={(e) => setForm({ ...form, owner_name: e.target.value })} disabled={state === "loading"} />
-                <input className={input} placeholder="Phone / WhatsApp *" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} disabled={state === "loading"} />
-                <input className={input} placeholder="Email (optional)" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} disabled={state === "loading"} />
-                <input className={input} placeholder="Your area (e.g. Port Mathurin)" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} disabled={state === "loading"} />
+                <div>
+                  <label htmlFor="ly-name" className={labelCls}>Your name <span className="text-yellow">*</span></label>
+                  <input id="ly-name" className={input} placeholder="Jean Marie" value={form.owner_name} onChange={(e) => setForm({ ...form, owner_name: e.target.value })} disabled={state === "loading"} />
+                </div>
+                <div>
+                  <label htmlFor="ly-phone" className={labelCls}>Phone / WhatsApp <span className="text-yellow">*</span></label>
+                  <input id="ly-phone" type="tel" className={input} placeholder="+230 5xxx xxxx" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} disabled={state === "loading"} />
+                </div>
+                <div>
+                  <label htmlFor="ly-email" className={labelCls}>
+                    Email {emailRequired ? <span className="text-yellow">*</span> : <span className="text-muted/60">(optional)</span>}
+                  </label>
+                  <input id="ly-email" type="email" className={input} placeholder="you@email.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} disabled={state === "loading"} />
+                  {emailRequired && (
+                    <p className="mt-1 font-dm text-[11px] text-muted/70">Your organiser invite is sent to this address.</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="ly-location" className={labelCls}>Your area</label>
+                  <input id="ly-location" className={input} placeholder="e.g. Port Mathurin" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} disabled={state === "loading"} />
+                </div>
               </div>
 
               {/* Business name matters for a place/restaurant/stay; optional for vehicles */}
               {type !== "vehicle" && (
-                <input className={input} placeholder={`${cat.label} name`} value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} disabled={state === "loading"} />
+                <div>
+                  <label htmlFor="ly-business" className={labelCls}>{cat.label} name</label>
+                  <input id="ly-business" className={input} placeholder={`Your ${cat.label.toLowerCase()} name`} value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} disabled={state === "loading"} />
+                </div>
               )}
 
-              <input className={input} placeholder={cat.detailPlaceholder} value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} disabled={state === "loading"} />
-              <textarea className={`${input} resize-none`} rows={3} placeholder="Anything else we should know?" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} disabled={state === "loading"} />
+              <div>
+                <label htmlFor="ly-details" className={labelCls}>Tell us what you have</label>
+                <input id="ly-details" className={input} placeholder={cat.detailPlaceholder} value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} disabled={state === "loading"} />
+              </div>
+
+              <div>
+                <label htmlFor="ly-message" className={labelCls}>Anything else we should know?</label>
+                <textarea id="ly-message" className={`${input} resize-none`} rows={3} placeholder="Optional" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} disabled={state === "loading"} />
+              </div>
 
               {/* Photos — useful for every category */}
               <div>
                 <p className="font-bebas text-muted text-[10px] tracking-[0.25em] mb-2">
-                  {type === "vehicle" ? "VEHICLE PHOTOS" : "PHOTOS"}
+                  {cat.needsVehicleDocs ? "VEHICLE PHOTOS" : "PHOTOS"}
                 </p>
                 <div className="flex flex-wrap gap-3">
                   {photos.map((_, i) => (
                     <div key={i} className="relative w-20 h-20 rounded-xl bg-dark-card border border-green-500/30 flex items-center justify-center">
                       <FileCheck size={20} className="text-green-400" />
-                      <button type="button" onClick={() => setPhotos((p) => p.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-dark border border-dark-border rounded-full p-0.5 text-muted hover:text-red-400" aria-label="Remove">
+                      <button type="button" onClick={() => setPhotos((p) => p.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-dark border border-dark-border rounded-full p-1 text-muted hover:text-red-400" aria-label={`Remove photo ${i + 1}`}>
                         <X size={12} />
                       </button>
                     </div>
@@ -282,15 +481,24 @@ export default function ListYourBusinessPage() {
                   onChange={(e) => { if (e.target.files?.length) addPhotos(e.target.files); e.target.value = ""; }} />
               </div>
 
-              {/* Vehicle-only documents — irrelevant for a restaurant or a room */}
+              {/* Licence + insurance. Required in spirit for the categories that
+                  carry people or goods, so the copy stops calling them optional
+                  there — a taxi application without a licence cannot be approved
+                  anyway, and saying "optional" only produces a rejected round trip. */}
               {cat.needsVehicleDocs && (
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <DocSlot label="DRIVING LICENCE / ID (optional)" hint="Upload ID" value={idCard} onChange={setIdCard} disabled={state === "loading"} />
-                    <DocSlot label="INSURANCE PAPERS (optional)" hint="Upload insurance" value={insurance} onChange={setInsurance} disabled={state === "loading"} />
+                    <DocSlot
+                      label={isApproval ? "DRIVING LICENCE" : "DRIVING LICENCE / ID (optional)"}
+                      hint="Upload licence" value={idCard} onChange={setIdCard} disabled={state === "loading"} />
+                    <DocSlot
+                      label={isApproval ? "INSURANCE PAPERS" : "INSURANCE PAPERS (optional)"}
+                      hint="Upload insurance" value={insurance} onChange={setInsurance} disabled={state === "loading"} />
                   </div>
                   <p className="text-muted/40 text-[11px] font-dm -mt-1">
-                    Documents are stored privately and only visible to the Roule Rodrigues team.
+                    {isApproval
+                      ? "We can't approve this category without them, but you can send them later if you don't have them to hand. Stored privately, visible only to the Roule Rodrigues team."
+                      : "Documents are stored privately and only visible to the Roule Rodrigues team."}
                   </p>
                 </>
               )}
@@ -304,7 +512,7 @@ export default function ListYourBusinessPage() {
               </label>
 
               {err && (
-                <p className="flex items-center gap-2 text-red-400 text-sm font-dm">
+                <p role="alert" className="flex items-center gap-2 text-red-400 text-sm font-dm">
                   <AlertCircle size={14} /> {err}
                 </p>
               )}
@@ -314,7 +522,9 @@ export default function ListYourBusinessPage() {
                 disabled={state === "loading" || !agreed}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-7 py-3.5 rounded-full hover:bg-yellow-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {state === "loading" ? <><Loader2 size={15} className="animate-spin" /> Sending…</> : <>Submit application <Send size={15} /></>}
+                {state === "loading"
+                  ? <><Loader2 size={15} className="animate-spin" /> Sending…</>
+                  : <>{isApproval ? "Send application" : "Submit application"} <Send size={15} /></>}
               </button>
             </form>
           )}
