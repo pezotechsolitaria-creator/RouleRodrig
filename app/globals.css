@@ -516,9 +516,34 @@ html[data-splash="on"] #rr-splash.rr-skip {
   pointer-events: none;
   animation: rr-logo-sweep 12s ease-in-out infinite;
 }
+/* One full 360° turn on load, then settle — not a continuous spin.
+   A logo that never stops rotating competes with the page for attention, and on
+   a phone it repaints every frame for as long as the tab is open. A single
+   deliberate turn reads as arrival; perpetual motion reads as a loading state
+   that never finishes.
+   forwards holds the end frame so it cannot snap back mid-rotation. */
+@keyframes rr-logo-spin-in {
+  from { transform: rotateY(0deg); }
+  to   { transform: rotateY(360deg); }
+}
+.rr-logo-spin {
+  display: inline-flex;
+  transform-style: preserve-3d;
+  animation: rr-logo-spin-in 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+}
+/* Repeat the turn on demand rather than on a timer. The wrapper already tilts
+   on hover; on a touch device :active is the only equivalent, so both fire it. */
+.rr-logo-anim:hover .rr-logo-spin,
+.rr-logo-anim:active .rr-logo-spin {
+  animation: rr-logo-spin-in 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .rr-logo-anim, .rr-logo-bob, .rr-logo-bob::after { animation: none; }
+  .rr-logo-anim, .rr-logo-bob, .rr-logo-bob::after, .rr-logo-spin { animation: none; }
   .rr-logo-bob::after { display: none; }
+  /* Without this the logo would be stuck at whatever frame the cancelled
+     animation left it on, which can be mid-turn and edge-on. */
+  .rr-logo-spin { transform: none; }
 }
 
 /* ── Short-viewport home (iPhone Safari & small phones) ─────────────────────

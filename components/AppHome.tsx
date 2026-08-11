@@ -120,7 +120,7 @@ export default function AppHome({
         <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2.5">
           <Link href="/" className="mr-2 flex items-center" aria-label="Roule Rodrigues home">
             <span className="rr-logo-anim inline-flex">
-              <span className="rr-logo-bob inline-flex">
+              <span className="rr-logo-spin"><span className="rr-logo-bob inline-flex">
                 {/* next/image, not a raw <img>: the owner-uploaded logo is a
                     1.24 MB PNG rendered at 32px, on EVERY page, and it was also
                     being preloaded — the single largest byte saving on the site.
@@ -128,15 +128,25 @@ export default function AppHome({
                     layout. Supabase-hosted URLs are excluded from `unoptimized`
                     so the optimizer actually runs on them (remotePatterns
                     already allows *.supabase.co). */}
-                {logo ? (
-                  <Image src={logo} alt="Roule Rodrigues" width={120} height={32} priority sizes="120px" className="h-8 w-auto object-contain" unoptimized={logo.startsWith("/uploads/") || (logo.startsWith("http") && !logo.includes("supabase.co"))} />
-                ) : (
-                  <span className="flex items-baseline gap-1.5 font-syne font-extrabold leading-none">
-                    <span className="text-lg text-offwhite">Roulé</span>
-                    <span className="text-lg text-yellow">Rodrigues</span>
-                  </span>
-                )}
-              </span>
+                {/* Falls back to the shipped app icon rather than to text. The
+                    icon IS the brand mark now (public/icon-192.png, generated
+                    from the same master as every PWA icon), so an owner who has
+                    not uploaded anything still gets the real logo instead of a
+                    wordmark that looks like a missing asset. */}
+                <Image
+                  src={logo || "/icon-192.png"}
+                  alt="Roule Rodrigues"
+                  width={132}
+                  height={44}
+                  priority
+                  sizes="132px"
+                  // h-8 -> h-11: the mark carries fine detail (compass points,
+                  // wing feathers, the island outline) that turned to mush at
+                  // 32px on a phone.
+                  className="h-11 w-auto object-contain"
+                  unoptimized={!!logo && (logo.startsWith("/uploads/") || (logo.startsWith("http") && !logo.includes("supabase.co")))}
+                />
+              </span></span>
             </span>
           </Link>
           <button className="mx-auto inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.05] px-3 py-1.5 font-dm text-xs text-offwhite/90" aria-label="Rodrigues Island">
