@@ -11,9 +11,17 @@ export const dynamic = "force-dynamic";
 // there is no single source of truth available to both. Keep them in step when
 // bumping — CLAUDE.md already requires the bump on every deploy, and surfacing
 // it here is what makes a mismatch visible instead of mysterious.
-// DRIFTED once already (this read v96 while public/sw.js was on v110), which is
-// the one failure this constant exists to prevent — a health endpoint that
-// confidently reports a stale answer is worse than one that reports nothing.
+// DRIFTED TWICE now (v96 vs v110, then v126 vs v127 — the second one reached
+// production, where /api/health reported v126 while the worker served v127).
+// That is the one failure this constant exists to prevent: a health endpoint
+// that confidently reports a stale answer is worse than one that reports
+// nothing.
+//
+// Twice is enough to stop asking people to remember. lib/sw-cache.test.ts reads
+// public/sw.js and fails if it disagrees with this line, so the drift is now a
+// red test at the moment it is introduced rather than a wrong number on a
+// dashboard nobody re-reads. The duplication stays — a static service worker
+// genuinely cannot import from the bundle — but it is no longer unguarded.
 const SW_CACHE_VERSION = "rr-cache-v128";
 
 // ── Health / readiness / liveness ────────────────────────────────────────────
