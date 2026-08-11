@@ -22,7 +22,7 @@ import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 // a number that is occasionally a lie.
 
 export default function FoodCartBar() {
-  const { cart, hydrated, itemCount } = useCart();
+  const { cart, hydrated, itemCount } = useCart("food");
   const [total, setTotal] = useState<number | null>(null);
   const [kitchen, setKitchen] = useState<string | null>(null);
 

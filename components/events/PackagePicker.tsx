@@ -44,7 +44,7 @@ export default function PackagePicker({
   disabled?: boolean;
 }) {
   const router = useRouter();
-  const { addItem } = useCart();
+  const { addItem } = useCart("events");
   const [open, setOpen] = useState<EventTicketType | null>(null);
   const [qty, setQty] = useState(1);
   const [busy, setBusy] = useState(false);

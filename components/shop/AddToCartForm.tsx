@@ -19,7 +19,7 @@ export default function AddToCartForm({
 }: {
   storeId: string; storeName: string; productName: string; variants: CartableVariant[];
 }) {
-  const { addItem, clear } = useCart();
+  const { addItem, clear } = useCart("shop");
   const purchasable = variants.filter((v) => v.isActive);
   const [variantId, setVariantId] = useState(purchasable[0]?.id ?? "");
   const [quantity, setQuantity] = useState(1);

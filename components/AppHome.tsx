@@ -15,6 +15,7 @@ import { useFavorites } from "@/context/FavoritesContext";
 import { loc } from "@/lib/localize";
 import { NAV_TABS, isTabActive, tabLabel, openTiRoule } from "@/lib/nav-tabs";
 import InstallAppButton from "@/components/InstallAppButton";
+import EventsPromo, { type PromoEvent } from "@/components/EventsPromo";
 import { DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS } from "@/lib/defaults";
 import type { QuickAccessItem, HomeCard } from "@/lib/defaults";
 
@@ -37,7 +38,7 @@ const HOME_ICON: Record<string, React.ElementType> = {
 
 type Tri = [string, string, string];
 type Card = { id: string; name: string; image?: string; price?: string | null; href: string; tag?: string };
-type CardImages = { scooter: string[]; car: string[]; stays: string[]; exp: string[]; stores: string[] };
+type CardImages = { scooter: string[]; car: string[]; stays: string[]; exp: string[]; stores: string[]; food?: string[] };
 
 // Depth tints for the six primary cards (icon badge + gradient fallback).
 //
@@ -63,7 +64,7 @@ const TINT: Record<string, { icon: string; grad: string }> = {
 // Reviews → Footer, with a FIXED bottom (Travel Tools strip + app nav where
 // Ti Roulé lives). Real content only. `hero`, `reviews`, `footer` are passed in.
 export default function AppHome({
-  hero, reviews, footer, lookingFor, homeCards, experiences, stays, discover, cardImages, mascot, logo,
+  hero, reviews, footer, lookingFor, homeCards, experiences, stays, discover, cardImages, mascot, logo, promoEvents,
 }: {
   hero: ReactNode;
   reviews?: ReactNode;
@@ -74,6 +75,8 @@ export default function AppHome({
   stays: Card[];
   discover: Card[];
   cardImages: CardImages;
+  /** Upcoming ticketed events for the promo strip. Empty renders nothing. */
+  promoEvents: PromoEvent[];
   mascot?: string;
   logo?: string;
 }) {
@@ -89,7 +92,7 @@ export default function AppHome({
   // photos). Falls back to sensible defaults.
   const cardGallery: Record<string, string[]> = {
     scooter: cardImages.scooter, car: cardImages.car, stays: cardImages.stays,
-    exp: cardImages.exp, stores: cardImages.stores, none: [],
+    exp: cardImages.exp, stores: cardImages.stores, food: cardImages.food ?? [], none: [],
   };
   const BIG = (homeCards && homeCards.length ? homeCards : DEFAULT_HOME_CARDS)
     .filter((c) => c.enabled !== false)
@@ -236,18 +239,32 @@ export default function AppHome({
             <h2 className="font-syne text-base font-bold text-offwhite">{L(["What are you looking for?", "Que cherchez-vous ?", "Ki ou pe rode?"])}</h2>
             <Link href="/explore" className="inline-flex items-center gap-1 font-dm text-xs text-yellow hover:underline">{L(["See all", "Voir tout", "Get tou"])} <ArrowRight size={13} /></Link>
           </div>
-          <div className="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {/* A GRID, not a scroller.
+              As a horizontal rail this showed four and a half of ten tiles, and
+              the half-tile was the only hint the rest existed — so six entry
+              points to the site were invisible unless you happened to swipe a
+              row that does not look swipeable. A grid shows every one of them
+              at once and costs about the same vertical space as the rail plus
+              the swipe nobody made.
+
+              Four columns on a phone, more as the screen allows; `auto-rows-fr`
+              keeps every tile the same height so a two-line label ("Airport
+              transfer") does not make its row taller than its neighbours. */}
+          <div className="grid auto-rows-fr grid-cols-4 gap-2 sm:grid-cols-5 lg:grid-cols-6">
             {lookItems.map((c) => {
               const Icon = LOOKING_ICON[c.icon] ?? Compass;
               return (
-                <Link key={c.id} href={c.href} className="group flex w-[74px] shrink-0 flex-col items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] px-2 py-3 text-center transition-all hover:-translate-y-0.5 hover:border-yellow/40">
-                  <Icon size={19} className="text-yellow" />
+                <Link key={c.id} href={c.href} className="group flex flex-col items-center justify-start gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] px-1.5 py-3 text-center transition-all hover:-translate-y-0.5 hover:border-yellow/40">
+                  <Icon size={19} className="shrink-0 text-yellow" />
                   <span className="font-dm text-[10.5px] font-medium leading-tight text-offwhite/90">{loc(language, c.label, c.labelFr, c.labelCr)}</span>
                 </Link>
               );
             })}
           </div>
         </section>
+
+        {/* Events, promoted where a card could not do the job — see EventsPromo. */}
+        <EventsPromo events={promoEvents} />
 
         {discover.length > 0 && (
           <Rail title={L(["Discover Rodrigues", "Découvrir Rodrigues", "Dekouver Rodrig"])} subtitle={L(["Beaches, culture & hidden gems.", "Plages, culture & trésors cachés.", "Laplaz, kiltir & bann trezor kase."])} seeAll="/explore" seeAllLabel={L(["View all", "Voir tout", "Get tou"])}>

@@ -11,6 +11,7 @@ import BankTransferPanel from "@/components/orders/BankTransferPanel";
 import PickupCodeCard from "@/components/orders/PickupCodeCard";
 import RateShopCard from "@/components/orders/RateShopCard";
 import { Button } from "@/components/ui/button";
+import { vocabFor, domainFromFlags } from "@/lib/food/vocabulary";
 
 // ── Guest order tracking + post-purchase (M20, completed M21) ──────────────
 //
@@ -48,9 +49,11 @@ type TrackedOrder = {
   storeName: string;
   storeSlug: string;
   storePhone: string | null;
-  // M55. A kitchen is not a shop, and this page is where guest FOOD customers
-  // wait — so "continue shopping" must not drop them into the shop directory.
+  // M55/M56. A kitchen is not a shop and a ticket is neither, and this page is
+  // where GUEST customers of all three wait — so "continue shopping" must not
+  // drop a diner or a ticket holder into the shop directory.
   isFood: boolean;
+  isEvent: boolean;
   isGuest: boolean;
   // M28. A guest gets the pickup code on the same credential as everything
   // else on this page — the login wall was removed at checkout, so the handoff
@@ -189,14 +192,18 @@ function TrackOrder() {
   const showBankPanel =
     !!order && isBankTransfer && (order.status === "pending_payment" || awaitingConfirmation);
 
+  // Whichever kind of order this turned out to be. Resolved from the ORDER,
+  // not the route — the same /orders/track URL serves food, shops and tickets.
+  const trackVocab = vocabFor(order ? domainFromFlags(order) : "shop");
+
   return (
     <main className="min-h-screen bg-dark px-4 pb-28 pt-10 text-offwhite md:pb-16">
       <div className="mx-auto max-w-lg">
         <Link
-          href={order?.isFood ? "/food" : "/shop"}
+          href={trackVocab.browseHref}
           className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow"
         >
-          <ArrowLeft size={14} /> {order?.isFood ? "Back to the menu" : "Continue shopping"}
+          <ArrowLeft size={14} /> {trackVocab.browseLabel}
         </Link>
 
         {justOrdered && order ? (
@@ -437,10 +444,10 @@ function TrackOrder() {
                         Create account or sign in
                       </Link>
                       <Link
-                        href={order.isFood ? "/food" : "/shop"}
+                        href={trackVocab.browseHref}
                         className="rounded-full border border-white/15 px-4 py-2 font-syne text-xs font-bold text-offwhite transition-colors hover:border-white/30"
                       >
-                        {order.isFood ? "Order again" : "Keep shopping"}
+                        {trackVocab.browseLabel}
                       </Link>
                     </div>
                   </div>

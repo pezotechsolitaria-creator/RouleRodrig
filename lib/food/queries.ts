@@ -104,3 +104,20 @@ export async function listFoodSlugs(supabase: SupabaseClient): Promise<string[]>
   const result = await browseFood(supabase, { limit: 60, sort: "newest" });
   return result.items.map((i) => i.slug);
 }
+
+/**
+ * Dish photos for the homepage Restaurant card, newest first.
+ *
+ * Goes through browseFood() rather than reading product_media directly, so it
+ * can only ever surface a photo belonging to a dish a customer could actually
+ * open — a hero image for an unpublished dish would be an advert for a 404.
+ * Returns an empty list on failure: the card falls back to its gradient, and
+ * the homepage must never fail because a photo did not load.
+ */
+export async function foodCardImages(supabase: SupabaseClient, limit = 6): Promise<string[]> {
+  const result = await browseFood(supabase, { limit: 24, sort: "recommended" });
+  return result.items
+    .map((i) => i.imageUrl)
+    .filter((u): u is string => !!u)
+    .slice(0, limit);
+}

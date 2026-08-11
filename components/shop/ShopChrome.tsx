@@ -23,7 +23,7 @@ import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 // stands between tapping "Add" and seeing the number move.
 
 export function ShopHeader({ backHref, backLabel }: { backHref: string; backLabel: string }) {
-  const { itemCount, hydrated } = useCart();
+  const { itemCount, hydrated } = useCart("shop");
   const reduce = useReducedMotion();
 
   return (
@@ -66,7 +66,7 @@ export function ShopHeader({ backHref, backLabel }: { backHref: string; backLabe
 }
 
 export function CartBar() {
-  const { cart, itemCount, hydrated } = useCart();
+  const { cart, itemCount, hydrated } = useCart("shop");
   const pathname = usePathname() || "/";
   const reduce = useReducedMotion();
   const [subtotal, setSubtotal] = useState<number | null>(null);

@@ -398,7 +398,10 @@ export interface QuickAccessItem {
 
 // Default tiles (used until the owner customises them in admin).
 export const DEFAULT_QUICK_ACCESS: QuickAccessItem[] = [
-  { id: "qa-restaurants", label: "Restaurants", labelFr: "Restaurants", labelCr: "Restoran", href: "/food", icon: "restaurant", enabled: true },
+  // "Eats Local" is a NAME, so it is the same in all three languages — like
+  // "Ti Roulé". Translating it ("Manges Local") would make the same product
+  // look like three products to a trilingual island.
+  { id: "qa-restaurants", label: "Eats Local", labelFr: "Eats Local", labelCr: "Eats Local", href: "/food", icon: "restaurant", enabled: true },
   { id: "qa-beaches", label: "Beaches", labelFr: "Plages", labelCr: "Laplaz", href: "/guide/beaches", icon: "beach", enabled: true },
   { id: "qa-hiking", label: "Hiking", labelFr: "Randonnée", labelCr: "Rando", href: "/guide/routes", icon: "hiking", enabled: true },
   { id: "qa-fishing", label: "Fishing", labelFr: "Pêche", labelCr: "Lapes", href: "/browse/tours", icon: "fishing", enabled: true },
@@ -417,11 +420,15 @@ export const DEFAULT_HOME_CARDS: HomeCard[] = [
   { id: "hc-car", label: "Cars", labelFr: "Voitures", labelCr: "Loto", icon: "car", imageSource: "car", action: "link", href: "/browse/car", tint: "amber", enabled: true },
   { id: "hc-stay", label: "Stays", labelFr: "Séjours", labelCr: "Lozman", icon: "stay", imageSource: "stays", action: "link", href: "/browse/stays", tint: "amber", enabled: true },
   { id: "hc-exp", label: "Experiences", labelFr: "Expériences", labelCr: "Eksperyans", icon: "experience", imageSource: "exp", action: "link", href: "/explore", tint: "teal", enabled: true },
-  // Events took this slot from "Ask Ti Roulé" (owner, Aug 2026). Ti Roulé is
-  // not lost — it still has the gold centre button in the bottom nav on every
-  // page and the hero CTA, so it was the one card whose job was already done
-  // twice elsewhere. Events had no entry point above the fold at all.
-  { id: "hc-events", label: "Events", labelFr: "Événements", labelCr: "Levennman", icon: "event", imageSource: "none", action: "link", href: "/events", tint: "indigo", enabled: true },
+  // This slot has now been Ti Roulé, then Events, and is now FOOD (owner, Aug
+  // 2026). Ordering is the only thing on this grid a visitor does several times
+  // per stay, so it earns a card above the fold more than a listing does.
+  //
+  // Events did NOT lose its entry point — it gained a better one. A single card
+  // in a six-card grid could not say "you can buy tickets here", so events moved
+  // to its own promotional strip under the quick actions where it can show the
+  // real next event, its date and its price. See EventsPromo.
+  { id: "hc-food", label: "Restaurant", labelFr: "Restaurant", labelCr: "Restoran", icon: "restaurant", imageSource: "food", action: "link", href: "/food", tint: "indigo", enabled: true },
   { id: "hc-stores", label: "Local Stores", labelFr: "Boutiques", labelCr: "Laboutik", icon: "store", imageSource: "stores", action: "link", href: "/shop", tint: "amber", enabled: true },
 ];
 

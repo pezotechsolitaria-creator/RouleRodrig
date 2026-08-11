@@ -41,7 +41,11 @@
 // time two branches reached for the same number; burning one is still cheaper
 // than two builds sharing a cache name.
 // v137 — the cube's motion redesign. Fourth collision; same resolution.
-const CACHE = "rr-cache-v137";
+// v138 — three separate carts (food / shop / events), the quick-action grid and
+// the homepage cards. The cart moved to NEW localStorage keys, so a client still
+// running the old bundle would keep writing to a key nothing reads any more —
+// this bump is what stops that.
+const CACHE = "rr-cache-v138";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

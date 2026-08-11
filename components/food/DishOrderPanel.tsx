@@ -26,7 +26,7 @@ import { UNAVAILABLE_LABEL, type FoodDetail } from "@/lib/food/types";
 // last plate produce exactly one order.
 
 export default function DishOrderPanel({ dish }: { dish: FoodDetail }) {
-  const { cart, addItem, clear } = useCart();
+  const { cart, addItem, clear } = useCart("food");
   const sellable = useMemo(() => dish.variants.filter((v) => v.stock > 0), [dish.variants]);
   const [variantId, setVariantId] = useState<string>(
     () => sellable[0]?.id ?? dish.variants[0]?.id ?? "",

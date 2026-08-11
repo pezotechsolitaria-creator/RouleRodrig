@@ -96,12 +96,13 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
   // "Shop". Deliberately AFTER the notFound() guard: run before it, a missing
   // order would send an empty string where a uuid is expected and fire a
   // pointless failing query on every 404.
-  const { data: kitchenRow } = await supabase
-    .from("food_kitchens")
-    .select("store_id")
-    .eq("store_id", typedOrder.store_id)
-    .maybeSingle();
+  const [{ data: kitchenRow }, { data: eventRow }] = await Promise.all([
+    supabase.from("food_kitchens").select("store_id").eq("store_id", typedOrder.store_id).maybeSingle(),
+    supabase.from("events").select("store_id").eq("store_id", typedOrder.store_id).maybeSingle(),
+  ]);
   const isFood = Boolean(kitchenRow);
+  const isEvent = Boolean(eventRow);
+  const sellerLabel = isFood ? "Kitchen" : isEvent ? "Organiser" : "Shop";
 
   const store = Array.isArray(typedOrder.stores) ? typedOrder.stores[0] : typedOrder.stores;
   const payment = typedOrder.payments[0];
@@ -195,7 +196,7 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
         {canReview && (
           <RateShopCard
             credential={{ orderId: typedOrder.id }}
-            storeName={(store as { name?: string })?.name ?? (isFood ? "this kitchen" : "this shop")}
+            storeName={(store as { name?: string })?.name ?? `this ${sellerLabel.toLowerCase()}`}
             className="mt-4"
           />
         )}
@@ -266,7 +267,7 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {store && (
             <div className="rounded-2xl border border-white/10 bg-dark-card p-4">
-              <h2 className="font-syne text-sm font-bold text-offwhite">{isFood ? "Kitchen" : "Shop"}</h2>
+              <h2 className="font-syne text-sm font-bold text-offwhite">{sellerLabel}</h2>
               <div className="mt-3 space-y-2 font-dm text-sm">
                 <p className="flex items-center gap-2 text-offwhite"><User size={14} className="text-muted" /> {(store as { name?: string }).name}</p>
                 {(store as { phone?: string }).phone && (

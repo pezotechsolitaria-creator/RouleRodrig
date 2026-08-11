@@ -18,7 +18,7 @@ export default function QuickAdd({
 }: {
   storeId: string; storeName: string; productName: string; variant: QuickAddVariant;
 }) {
-  const { cart, addItem, updateQuantity, clear } = useCart();
+  const { cart, addItem, updateQuantity, clear } = useCart("shop");
   const inCart = cart?.storeId === storeId ? (cart.items.find((i) => i.variantId === variant.id)?.quantity ?? 0) : 0;
 
   function add(e: React.MouseEvent) {

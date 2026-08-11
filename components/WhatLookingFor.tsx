@@ -51,8 +51,10 @@ const CAT_LABEL: Record<string, Record<string, string>> = {
   scooters:        { en: "Scooters",       fr: "Scooters",        cr: "Skooter" },
   car:             { en: "Cars",           fr: "Voitures",        cr: "Loto" },
   cars:            { en: "Cars",           fr: "Voitures",        cr: "Loto" },
-  food:            { en: "Food & Dining",  fr: "Restauration",    cr: "Manze" },
-  restaurants:     { en: "Food & Dining",  fr: "Restauration",    cr: "Manze" },
+  // A NAME, so it is identical in all three languages — same reasoning as
+  // "Ti Roulé". /food is an ordering platform now, not a dining guide.
+  food:            { en: "Eats Local",     fr: "Eats Local",      cr: "Eats Local" },
+  restaurants:     { en: "Eats Local",     fr: "Eats Local",      cr: "Eats Local" },
   activities:      { en: "Activities",     fr: "Activités",       cr: "Aktivite" },
   tours:           { en: "Guided Tours",   fr: "Visites guidées", cr: "Tour gide" },
   stays:           { en: "Stay",           fr: "Hébergement",     cr: "Lozman" },

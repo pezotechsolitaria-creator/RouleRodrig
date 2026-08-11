@@ -150,20 +150,23 @@ export function buildBrowseCategories(
   {
     // Stay·Eat·Do live in the hub as their own tiles — show each whenever it has
     // items (no longer gated on the old homepage-section "enabled" flag).
-    // Food is different: instead of a restaurant LISTING, the tile opens the
-    // WhatsApp food concierge (/food) — a human recommends & books the table.
-    const fc = content.foodConcierge;
+    //
+    // Food is different again. /food is now an ORDERING platform (M50): pick a
+    // dish, pay, collect. So the tile is no longer gated on foodConcierge
+    // being enabled — ordering does not depend on the concierge existing, and
+    // leaving that gate in meant switching the concierge off would have taken
+    // the whole food business off the hub with it. The concierge still has its
+    // own surface at /food/concierge, and /food falls back to it by itself
+    // while no dish is published.
     const rest = content.recommended.items.filter((p) => p.category === "restaurant");
-    if (fc?.enabled) {
-      cats.push({
-        slug: "food",
-        href: "/food",
-        label: "Food & Dining",
-        image: content.foodConcierge.coverImage || firstImage(rest),
-        count: 0,
-        tagline: "Free concierge · we book your table",
-      });
-    }
+    cats.push({
+      slug: "food",
+      href: "/food",
+      label: "Eats Local",
+      image: content.foodConcierge?.coverImage || firstImage(rest),
+      count: 0,
+      tagline: "Order island food · pick up or delivered",
+    });
     const act = content.recommended.items.filter((p) => p.category === "activity" && !p.isTour);
     if (act.length) cats.push({ slug: "activities", label: "Activities", image: firstImage(act), count: act.length });
     const tours = content.recommended.items.filter((p) => p.category === "activity" && p.isTour);

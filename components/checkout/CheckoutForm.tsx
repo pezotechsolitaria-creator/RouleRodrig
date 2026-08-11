@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, MapPin, AlertTriangle, RefreshCw, Check } from "lucide-react";
 import { toast } from "sonner";
-import { useCart } from "@/lib/cart/CartContext";
+import { useCart, type CartDomain } from "@/lib/cart/CartContext";
 import { centsToDecimalString } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,7 +15,7 @@ import PhoneInput from "@/components/PhoneInput";
 import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 import { todayLine, deliveryLine, nextOpenLabel, type ScheduleStatus } from "@/lib/schedule";
 import { readFulfillment as readFoodFulfillment } from "@/components/food/FulfillmentBar";
-import { vocabFor } from "@/lib/food/vocabulary";
+import { vocabFor, domainFromFlags } from "@/lib/food/vocabulary";
 
 type Provider = "cash" | "bank_transfer";
 type Fulfillment = "pickup" | "customer_delivery" | "rr_delivery";
@@ -34,9 +34,9 @@ const FULFILLMENT_COPY: Record<Fulfillment, { label: string; hint: string }> = {
 };
 
 export default function CheckoutForm({
-  defaultName, defaultPhone, signedInEmail,
-}: { defaultName: string; defaultPhone: string; signedInEmail: string | null }) {
-  const { cart, hydrated, clear } = useCart();
+  domain, defaultName, defaultPhone, signedInEmail,
+}: { domain: CartDomain; defaultName: string; defaultPhone: string; signedInEmail: string | null }) {
+  const { cart, hydrated, clear } = useCart(domain);
   const router = useRouter();
 
   const [resolved, setResolved] = useState<ResolvedCartItem[] | null>(null);
@@ -45,9 +45,11 @@ export default function CheckoutForm({
   const [cartError, setCartError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [storeOffersDelivery, setStoreOffersDelivery] = useState(true);
-  // Whether this order is FOOD. Server-decided in /api/cart/resolve from the
-  // store, not from the route — so the nouns below cannot be spoofed.
-  const [isFood, setIsFood] = useState(false);
+  // WHICH kind of seller this order belongs to. Server-decided in
+  // /api/cart/resolve from the store itself, not from the route — so the nouns
+  // below cannot be spoofed by editing a URL. Starts as the checkout's own
+  // domain, which is already right in every case except a hand-typed link.
+  const [sellerDomain, setSellerDomain] = useState<CartDomain>(domain);
   // Only Roulé Rodrigues delivery is opt-in per shop; a customer's own driver
   // is a collection, so it is offered whenever the shop is open at all.
   const [offersRrDelivery, setOffersRrDelivery] = useState(true);
@@ -143,7 +145,7 @@ export default function CheckoutForm({
         setResolved(body.items ?? []);
         if (body.fulfillment) setStoreOffersDelivery(!!body.fulfillment.delivery);
         setOffersRrDelivery(!!body.offersRrDelivery);
-        setIsFood(!!body.isFood);
+        setSellerDomain(domainFromFlags({ isFood: body.isFood, isEvent: body.isEvent }));
         setSchedule(body.schedule ?? null);
         // Carry over the pickup/delivery choice made while browsing /food.
         // A customer who spent the whole visit in "Delivery" mode and then
@@ -152,7 +154,7 @@ export default function CheckoutForm({
         // most-complained-about behaviour of the big delivery apps. Applied
         // only when the shop can actually honour it, so this preference can
         // never select an option create_order() is about to refuse.
-        if (readFoodFulfillment() === "rr_delivery" && body.offersRrDelivery) {
+        if (body.isFood && readFoodFulfillment() === "rr_delivery" && body.offersRrDelivery) {
           setFulfillment("rr_delivery");
         }
         if (body.payment) {
@@ -273,7 +275,7 @@ export default function CheckoutForm({
 
   // Declared before the first early return that needs it: the empty-cart branch
   // below already links away, and it must link to the MENU for a food order.
-  const v = vocabFor(isFood);
+  const v = vocabFor(sellerDomain);
 
   if (!cart || cart.items.length === 0 || (resolved && resolved.length === 0)) {
     return (
@@ -284,7 +286,7 @@ export default function CheckoutForm({
             contradicting itself and the cart page, which correctly returns to
             the marketplace directory. */}
         <Link href={v.browseHref} className="mt-4 inline-flex items-center gap-1.5 font-dm text-sm text-yellow hover:underline">
-          {isFood ? "See the menu" : "Browse shops"}
+          {v.browseEmptyLabel}
         </Link>
       </div>
     );

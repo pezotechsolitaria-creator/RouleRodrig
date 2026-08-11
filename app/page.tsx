@@ -3,6 +3,9 @@ import { SITE_URL } from "@/lib/site";
 import { getFleetView, buildBrowseCategories, priceNumber } from "@/lib/site-data";
 import { organizationLd, touristDestinationLd, websiteLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
+import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { foodCardImages } from "@/lib/food/queries";
+import { listPublicEvents } from "@/lib/events/queries";
 import Hero from "@/components/Hero";
 import AppHome from "@/components/AppHome";
 import ReviewsContact from "@/components/ReviewsContact";
@@ -77,7 +80,28 @@ export default async function Home() {
     stays: galleryOf(content.recommended.items.filter((p) => p.category === "hotel")),
     exp: galleryOf(content.recommended.items.filter((p) => p.category === "activity")),
     stores: galleryOf(content.mapLocations.filter((l) => l.category === "shop")),
+    // Real dish photos, so the Restaurant card cycles food rather than sitting
+    // on a gradient. Read through the public catalog RPC, so it can only ever
+    // show a dish a customer could actually open. A failure costs the card its
+    // photos, never the homepage.
+    food: await foodCardImages(await createSupabaseClient()),
   };
+
+  // Upcoming ticketed events for the homepage promo strip. Only what is still
+  // ahead and not cancelled, soonest first — a homepage advertising a concert
+  // that happened last week is worse than one advertising nothing.
+  const promoEvents = (await listPublicEvents(await createSupabaseClient()))
+    .filter((e) => e.phase === "upcoming" || e.phase === "in_progress")
+    .slice(0, 6)
+    .map((e) => ({
+      slug: e.slug,
+      name: e.name,
+      coverUrl: e.coverUrl,
+      startsAt: e.startsAt,
+      venueName: e.venueName,
+      fromPrice: e.fromPrice,
+      soldOut: e.remaining <= 0,
+    }));
 
   // ── SEO structured data (JSON-LD) ──
   // Only describes what this page actually SHOWS: the business, the island
@@ -173,6 +197,7 @@ export default async function Home() {
         stays={stays}
         discover={discover}
         cardImages={cardImages}
+        promoEvents={promoEvents}
         mascot={content.branding.mascotImage}
         logo={content.branding.logo}
       />

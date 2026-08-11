@@ -120,9 +120,10 @@ export async function POST(req: NextRequest) {
   // buying dinner is never told to "continue shopping" or that "this shop is
   // closed".
   let isFood = false;
+  let isEvent = false;
   let payment = { acceptsCash: true, acceptsBankTransfer: false, requiresReceipt: false };
   if (storeId) {
-    const [{ data: pay }, { data: settings }, { data: status }, { data: kitchen }] = await Promise.all([
+    const [{ data: pay }, { data: settings }, { data: status }, { data: kitchen }, { data: event }] = await Promise.all([
       supabase
         .from("store_payment_settings")
         .select("offers_rr_delivery, accepts_cash, accepts_bank_transfer, require_receipt")
@@ -135,8 +136,12 @@ export async function POST(req: NextRequest) {
       // food_kitchens is publicly readable for visible stores, so the anon
       // client can answer this without a privileged call.
       supabase.from("food_kitchens").select("store_id").eq("store_id", storeId).maybeSingle(),
+      // Same question for ticketing. Both are publicly readable for visible
+      // stores, so the anon client can answer without a privileged call.
+      supabase.from("events").select("store_id").eq("store_id", storeId).maybeSingle(),
     ]);
     isFood = Boolean(kitchen);
+    isEvent = Boolean(event);
     offersRrDelivery = (pay?.offers_rr_delivery ?? true) && (settings?.delivery_enabled ?? false);
     schedule = status ?? null;
     // Which payment methods this shop actually takes. create_order() rejects an
@@ -157,5 +162,5 @@ export async function POST(req: NextRequest) {
     };
   }
 
-  return NextResponse.json({ items, fulfillment, offersRrDelivery, schedule, payment, isFood });
+  return NextResponse.json({ items, fulfillment, offersRrDelivery, schedule, payment, isFood, isEvent });
 }

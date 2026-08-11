@@ -57,7 +57,7 @@ export default function EventCheckout({
   // "no tickets selected" would flash an empty state at every buyer who has in
   // fact just chosen a package — the CartContext doc-comment warns about exactly
   // this, and the warning is easy to walk past.
-  const { cart, clear, hydrated } = useCart();
+  const { cart, clear, hydrated } = useCart("events");
 
   const [items, setItems] = useState<ResolvedCartItem[] | null>(null);
   const [payment, setPayment] = useState<PaymentOptions | null>(null);

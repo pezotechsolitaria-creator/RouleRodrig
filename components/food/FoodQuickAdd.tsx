@@ -34,7 +34,7 @@ export default function FoodQuickAdd({
   size?: "sm" | "md";
 }) {
   const router = useRouter();
-  const { cart, addItem, updateQuantity, clear } = useCart();
+  const { cart, addItem, updateQuantity, clear } = useCart("food");
 
   const dimensions = size === "sm" ? "h-8 w-8" : "h-10 w-10";
   const icon = size === "sm" ? 15 : 17;

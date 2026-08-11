@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import CheckoutForm from "@/components/checkout/CheckoutForm";
+import { CART_DOMAINS, type CartDomain } from "@/lib/cart/CartContext";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -19,7 +20,21 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
 // buyer's name is pre-filled and the order is attached to their account exactly
 // as before; when it doesn't, they check out as a guest and the order is keyed
 // to a validated email instead.
-export default async function CheckoutPage() {
+export default async function CheckoutPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  // WHICH cart is being checked out. There are three independent ones now
+  // (food, shop, events) and this page can only ever place ONE order, so the
+  // domain has to travel in the URL — the alternative is checking out whichever
+  // cart the component happened to read first, which is a coin toss.
+  const sp = await searchParams;
+  const raw = Array.isArray(sp.cart) ? sp.cart[0] : sp.cart;
+  const domain: CartDomain = (CART_DOMAINS as readonly string[]).includes(raw ?? "")
+    ? (raw as CartDomain)
+    : "shop";
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -35,6 +50,7 @@ export default async function CheckoutPage() {
 
         <div className="mt-6">
           <CheckoutForm
+            domain={domain}
             defaultName={(user?.user_metadata?.full_name as string) ?? ""}
             defaultPhone=""
             signedInEmail={user?.email ?? null}
