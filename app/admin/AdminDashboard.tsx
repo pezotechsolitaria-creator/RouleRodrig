@@ -3341,6 +3341,54 @@ function RecommendedEditor({
               </button>
             </div>
           )}
+          {/* WHICH bookable service this is. This one field is what puts an
+              activity into the massage / fishing / sea-trip marketplace at
+              /experiences/*, all of which run on this same booking engine.
+              Nothing is inferred from the name — guessing would file a
+              restaurant called "The Boat House" under sea trips. */}
+          {it.category === "activity" && (
+            <Field label="SERVICE TYPE (puts it in its own marketplace at /experiences)">
+              <select
+                value={it.serviceType ?? ""}
+                onChange={(e) =>
+                  updateItem(i, { serviceType: (e.target.value || undefined) as typeof it.serviceType })
+                }
+                className="w-full bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl px-4 py-3 font-dm text-sm text-offwhite focus:border-yellow/50 focus:outline-none"
+              >
+                <option value="">Not a listed service — stays in Stay·Eat·Do</option>
+                <option value="massage">💆 Massage — /experiences/massage</option>
+                <option value="fishing">🎣 Fishing trip — /experiences/fishing</option>
+                <option value="boat">⛵ Sea trip — /experiences/boat</option>
+              </select>
+            </Field>
+          )}
+          {it.serviceType && (
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="DURATION (MINUTES)">
+                <TextInput
+                  value={it.durationMinutes != null ? String(it.durationMinutes) : ""}
+                  onChange={(v) => updateItem(i, { durationMinutes: parseInt(v) || undefined })}
+                  placeholder="e.g. 60 or 300"
+                />
+              </Field>
+              <Field label="MAX GUESTS PER TRIP">
+                <TextInput
+                  value={it.maxGuests != null ? String(it.maxGuests) : ""}
+                  onChange={(v) => updateItem(i, { maxGuests: parseInt(v) || undefined })}
+                  placeholder="e.g. 6"
+                />
+              </Field>
+            </div>
+          )}
+          {it.serviceType && (
+            <Field label="PROVIDER / CAPTAIN / THERAPIST NAME (optional)">
+              <TextInput
+                value={it.providerName ?? ""}
+                onChange={(v) => updateItem(i, { providerName: v })}
+                placeholder="e.g. Captain Jean"
+              />
+            </Field>
+          )}
           {it.bookable && it.category !== "hotel" && (
             <Field label="TIME SLOTS (comma-separated — leave blank for whole-day)">
               <TextInput

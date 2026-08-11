@@ -57,7 +57,7 @@
 // v144 — quick actions become intents (massage/fishing/sea trips added, food,
 // shops and events removed in favour of their stronger entry points), taxi and
 // transfers finally separate, and the events carousel.
-const CACHE = "rr-cache-v144";
+const CACHE = "rr-cache-v146";
 // v141 — HOTFIX: /checkout returned a 500. A server component was importing a
 // plain value from a "use client" module and got a client reference back.
 const SHELL = "/";
@@ -140,6 +140,61 @@ self.addEventListener("fetch", (event) => {
         }
         throw new Error("offline");
       }
+    })(),
+  );
+});
+
+// ── Push: a job exists, and the driver is not looking at the page ───────────
+//
+// This is the only reason the delivery network works without a dispatcher.
+// Everything is defended, because a service worker that throws in `push` shows
+// the browser's own "This site has been updated in the background" notice —
+// which tells the driver nothing and looks broken.
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = {};
+  }
+
+  const title = data.title || "Roulé Rodrigues";
+  const options = {
+    body: data.body || "",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    // Same tag replaces rather than stacks, so a driver who missed three
+    // updates about one delivery sees the current state, not a pile.
+    tag: data.tag || "rr",
+    data: { url: data.url || "/driver" },
+    // A delivery offer expires. Keeping it on screen until dismissed is the
+    // difference between earning and finding out too late.
+    requireInteraction: Boolean(data.urgent),
+    vibrate: data.urgent ? [200, 80, 200] : undefined,
+    timestamp: Date.now(),
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || "/driver";
+
+  // Focus the tab the driver already has open rather than piling up new ones —
+  // they are one-handed on a scooter, not managing windows.
+  event.waitUntil(
+    (async () => {
+      const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const client of all) {
+        if (client.url.includes(target) && "focus" in client) return client.focus();
+      }
+      const open = all.find((c) => "focus" in c);
+      if (open) {
+        await open.focus();
+        if ("navigate" in open) return open.navigate(target);
+      }
+      return self.clients.openWindow(target);
     })(),
   );
 });
