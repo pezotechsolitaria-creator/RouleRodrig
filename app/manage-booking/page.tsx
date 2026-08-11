@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Search, Loader2, RotateCcw } from "lucide-react";
 import BookingTimeline from "@/components/BookingTimeline";
+import OrderAlerts from "@/components/orders/OrderAlerts";
 import PayPalDeposit from "@/components/PayPalDeposit";
 import { Field } from "@/components/ui/field";
 
@@ -188,7 +189,15 @@ export default function ManageBookingPage() {
             <p className="text-center text-[11px] text-muted/60">Your reference is in your confirmation email &amp; receipt (it looks like RR-XXXXXX).</p>
           </form>
         ) : (
-          <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+          <>
+          {/* Offered once the booking is on screen, because that is the moment
+              "will you tell me when this is confirmed?" occurs to the customer.
+              Hidden for a booking already finished or cancelled — nothing more
+              is coming, so the switch would be a lie. */}
+          {!isCancelled && !isCompleted && (
+            <OrderAlerts bookingRef={booking.ref} email={email} className="mt-8" />
+          )}
+          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
               <span className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{booking.ref}</span>
               <span
@@ -264,6 +273,7 @@ export default function ManageBookingPage() {
               <RotateCcw size={13} /> Look up another
             </button>
           </div>
+          </>
         )}
       </div>
     </main>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySession, COOKIE_NAME } from '@/lib/auth';
 import { getPrivileged } from '@/lib/supabase/admin';
+import { notifyBookingStatus } from '@/lib/notifications/booking-status';
 
 function isAuthed(req: NextRequest) {
   return verifySession(req.cookies.get(COOKIE_NAME)?.value);
@@ -32,9 +33,29 @@ export async function PATCH(req: NextRequest) {
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
 
   const supabase = await getPrivileged();
+  // Read the current status first: a PATCH that only sets an asset label must
+  // not fire a "booking confirmed" alert, and after the update the old value
+  // is gone.
+  const { data: before } = await supabase
+    .from('bookings')
+    .select('email, status')
+    .eq('id', body.id)
+    .maybeSingle();
+
   const { error } = await supabase.from('bookings').update(patch).eq('id', body.id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Only on a REAL status change. Best-effort: the update is already committed,
+  // and a silent phone must not turn a successful action into an error.
+  if (body.status && before && body.status !== (before as { status?: string }).status) {
+    await notifyBookingStatus({
+      id: body.id,
+      email: (before as { email?: string | null }).email,
+      status: body.status,
+    });
+  }
+
   return NextResponse.json({ ok: true });
 }
 

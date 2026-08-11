@@ -1,6 +1,7 @@
 import "server-only";
 import { sendOrderNotificationEmail } from "@/lib/email";
 import { enqueueNotification, formatWhatsAppMessage } from "./queue";
+import { pushToCustomer } from "@/lib/push/send";
 import type { EmailType } from "@/lib/email/types";
 
 // ── Best-effort external notification dispatch (Milestone 4) ────────────────
@@ -115,12 +116,32 @@ const whatsappChannel: NotificationChannel = {
   },
 };
 
-// Not implemented yet — wired into the dispatcher now so adding a real
-// implementation later doesn't require touching every call site.
+// Real as of M63. Because this sits in the dispatcher rather than at a call
+// site, EVERY transaction that already sends a customer email — marketplace
+// orders, food, events, payment confirmations, expiries — now also reaches the
+// phone, with no change to any of those callers.
+//
+// Customers only. A merchant's alerts are WhatsApp and email by design: they
+// are at a counter with a dashboard open, not walking around waiting.
 const webPushChannel: NotificationChannel = {
   name: "web-push",
-  async send() {
-    return false;
+  async send(event) {
+    if (event.recipientType !== "customer") return false;
+    if (!event.recipientEmail) return false;
+    // Identified by email because the default checkout here is a guest with no
+    // account. A signed-in customer's subscription carries the same address.
+    const sent = await pushToCustomer(
+      { email: event.recipientEmail },
+      {
+        title: event.title,
+        body: event.body,
+        url: event.cta?.url ?? "/orders/track",
+        // Per order, so a stream of updates about one order replaces itself
+        // rather than burying the phone.
+        tag: `order:${event.orderNumber}`,
+      },
+    );
+    return sent > 0;
   },
 };
 

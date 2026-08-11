@@ -94,7 +94,9 @@ async function deliver(targets: Target[], payload: PushPayload): Promise<number>
   return sent;
 }
 
-async function targetsFrom(rpc: string, args: Record<string, string>): Promise<Target[]> {
+// Nullable on purpose: `customer_push_targets` takes a uuid that is often
+// absent (a guest), and Postgres cannot cast an empty string to uuid.
+async function targetsFrom(rpc: string, args: Record<string, string | null>): Promise<Target[]> {
   if (!hasServiceRole()) return [];
   const admin = await getPrivileged();
   const { data, error } = await admin.rpc(rpc, args);
@@ -113,6 +115,22 @@ export async function pushToDriverEndpoints(targets: Target[], payload: PushPayl
 /** Wake every driver holding a live offer on this delivery. Returns how many phones were reached. */
 export async function pushToOfferedDrivers(deliveryId: string, payload: PushPayload): Promise<number> {
   const targets = await targetsFrom("driver_push_targets", { p_delivery_id: deliveryId });
+  return deliver(targets, payload);
+}
+
+/**
+ * Wake a customer about their own transaction. Identified by email (guests, the
+ * default checkout path here) or by account, so one call covers both.
+ */
+export async function pushToCustomer(
+  identity: { email?: string | null; userId?: string | null },
+  payload: PushPayload,
+): Promise<number> {
+  if (!identity.email && !identity.userId) return 0;
+  const targets = await targetsFrom("customer_push_targets", {
+    p_email: identity.email ?? "",
+    p_user_id: identity.userId ?? "",
+  });
   return deliver(targets, payload);
 }
 

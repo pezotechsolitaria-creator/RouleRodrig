@@ -16,6 +16,7 @@ import TicketList, { type BuyerTicket } from "@/components/events/TicketList";
 import RateShopCard from "@/components/orders/RateShopCard";
 import type { PickupCode } from "@/lib/orders/pickup";
 import DeliveryStatusCard from "@/components/orders/DeliveryStatusCard";
+import OrderAlerts from "@/components/orders/OrderAlerts";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -236,6 +237,8 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
         {/* A Roulé Rodrigues delivery: who is bringing it, and the PIN they
             will ask for. Without this the delivery cannot be completed at all
             — the PIN existed nowhere the customer could reach it. */}
+        <OrderAlerts orderId={typedOrder.id} className="mt-4" />
+
         {typedOrder.fulfillment_method === "rr_delivery" && (
           <DeliveryStatusCard orderId={typedOrder.id} className="mt-4" />
         )}
