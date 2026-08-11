@@ -4,7 +4,11 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { downloadCsv, toCsv } from "@/lib/download";
+import { downloadBlob, downloadCsv, toCsv } from "@/lib/download";
+// Static, unlike the partner page's dynamic import: the referral block here is
+// rendered from an IIFE with no hooks available, and this is a password-gated
+// admin bundle where ~20 KB more is immaterial.
+import { qrSvgDocument, qrFilename } from "@/lib/qr-svg";
 import {
   Sparkles,
   Bike,
@@ -4221,7 +4225,12 @@ function PartnersManager() {
         {partner && (() => {
           const refLink = `${SITE_URL}/?ref=${partner.partner_code}`;
           const dashLink = `${SITE_URL}/partner?code=${partner.partner_code}`;
-          const qr = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=10&data=${encodeURIComponent(refLink)}`;
+          // Drawn locally rather than fetched from api.qrserver.com, which sent
+          // every referral link to a third party and returned a fixed-size PNG.
+          // One SVG string feeds both the preview and the download, so the
+          // poster the hotel prints is exactly what is shown here.
+          const qrSvg = qrSvgDocument(refLink);
+          const qr = `data:image/svg+xml;utf8,${encodeURIComponent(qrSvg)}`;
           const waShare = `https://wa.me/?text=${encodeURIComponent(`Rent a scooter on Rodrigues with Roule Rodrigues 🛵 Book here: ${refLink}`)}`;
           return (
             <div className="bg-[#0d0d0d] border border-yellow/20 rounded-2xl p-5">
@@ -4238,17 +4247,15 @@ function PartnersManager() {
                   <img src={qr} alt="Referral QR" className="w-36 h-36 rounded-xl bg-white p-1.5" />
                   <button
                     type="button"
-                    onClick={async () => {
-                      // Generated locally: `download` is ignored on a
-                      // cross-origin URL, so linking to the qrserver image could
-                      // only open it. SVG so the hotel can print a poster.
-                      const [{ qrSvgDocument, qrFilename }, { downloadBlob }] =
-                        await Promise.all([import("@/lib/qr-svg"), import("@/lib/download")]);
+                    onClick={() =>
+                      // Saves the same SVG shown above. `download` is ignored on
+                      // cross-origin URLs, which is why the old link to the
+                      // qrserver image could only ever open it.
                       downloadBlob(
-                        new Blob([qrSvgDocument(refLink)], { type: "image/svg+xml;charset=utf-8" }),
+                        new Blob([qrSvg], { type: "image/svg+xml;charset=utf-8" }),
                         qrFilename(partner.partner_code),
-                      );
-                    }}
+                      )
+                    }
                     className="text-xs font-dm text-muted hover:text-yellow transition-colors"
                   >
                     Download QR

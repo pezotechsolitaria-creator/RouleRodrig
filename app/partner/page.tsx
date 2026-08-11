@@ -103,9 +103,34 @@ export default function PartnerPage() {
   }, [lookup]);
 
   const refLink = data ? `${SITE_URL}/?ref=${code}` : "";
-  const qr = refLink
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=10&data=${encodeURIComponent(refLink)}`
-    : "";
+
+  // The QR is drawn locally instead of fetched from api.qrserver.com. That
+  // handed every partner's referral link to a third party just to draw a
+  // square, and returned a fixed-size PNG for something whose stated purpose is
+  // printing a poster. Same SVG string feeds the image and the download, so
+  // what a partner sees is exactly what they save.
+  //
+  // Built in an effect with a dynamic import so the encoder stays out of this
+  // page's initial bundle; it is ~20 KB and most visitors never see a QR.
+  const [qrSvg, setQrSvg] = useState("");
+
+  useEffect(() => {
+    if (!refLink) {
+      setQrSvg("");
+      return;
+    }
+    let alive = true;
+    import("@/lib/qr-svg").then(({ qrSvgDocument }) => {
+      if (alive) setQrSvg(qrSvgDocument(refLink));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [refLink]);
+
+  // data: URL rather than a blob: — the CSP allows `img-src ... data:` and a
+  // data URL needs no lifetime management.
+  const qr = qrSvg ? `data:image/svg+xml;utf8,${encodeURIComponent(qrSvg)}` : "";
   const waShare = refLink
     ? `https://wa.me/?text=${encodeURIComponent(`Rent a scooter on Rodrigues with Roule Rodrigues 🛵 Book here: ${refLink}`)}`
     : "";
@@ -116,16 +141,15 @@ export default function PartnerPage() {
   // partner to work the rest out. SVG because the stated use is printing it for
   // a reception desk. Dynamically imported so the encoder stays out of this
   // page's initial bundle — nobody pays for it until they click.
+  // Saves the exact SVG already on screen, so the poster a partner prints is
+  // byte-for-byte what they were shown.
   async function downloadQr() {
-    if (!refLink) return;
-    const [{ qrSvgDocument, qrFilename }, { downloadBlob }] = await Promise.all([
+    if (!qrSvg) return;
+    const [{ qrFilename }, { downloadBlob }] = await Promise.all([
       import("@/lib/qr-svg"),
       import("@/lib/download"),
     ]);
-    downloadBlob(
-      new Blob([qrSvgDocument(refLink)], { type: "image/svg+xml;charset=utf-8" }),
-      qrFilename(code),
-    );
+    downloadBlob(new Blob([qrSvg], { type: "image/svg+xml;charset=utf-8" }), qrFilename(code));
   }
 
   function copyLink() {
@@ -258,7 +282,7 @@ export default function PartnerPage() {
                   <button
                     type="button"
                     onClick={downloadQr}
-                    disabled={!refLink}
+                    disabled={!qrSvg}
                     className="text-xs text-muted hover:text-yellow transition-colors disabled:opacity-40 disabled:hover:text-muted"
                   >
                     Download QR
