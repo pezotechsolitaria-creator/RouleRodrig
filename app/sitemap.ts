@@ -68,15 +68,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const { createClient } = await import("@/lib/supabase/server");
     const supabase = await createClient();
-    const { data } = await supabase
-      .from("stores")
-      .select("slug, updated_at")
-      // The seeded test shops are real rows with real RLS visibility, so
-      // nothing else would keep them out of a public sitemap. They are
-      // fixtures, not businesses, and must not be submitted to Google.
-      .not("slug", "like", "zz-test-%")
-      .order("updated_at", { ascending: false })
-      .limit(500);
+    // sitemap_stores() rather than a query built here (M48/M49). The rules for
+    // "may this shop be indexed" are genuinely subtle — RLS visibility, plus
+    // M42's event stores are not shops, plus test fixtures that are
+    // deliberately VISIBLE during the pre-launch testing window but must never
+    // reach Google — and a hand-rolled filter in this file drifted from them
+    // twice in one afternoon. Keeping the predicate in SQL means the sitemap
+    // and the directory cannot disagree, and the migration's post-conditions
+    // prove it rather than trusting this call site.
+    const { data } = await supabase.rpc("sitemap_stores");
     shops = (data ?? []).map((s: { slug: string; updated_at: string | null }) => ({
       url: `${SITE_URL}/shop/${s.slug}`,
       lastModified: s.updated_at ? new Date(s.updated_at) : now,
