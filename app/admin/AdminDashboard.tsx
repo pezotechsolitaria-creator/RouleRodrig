@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { downloadCsv, toCsv } from "@/lib/download";
 import {
   Sparkles,
   Bike,
@@ -4232,9 +4233,23 @@ function PartnersManager() {
                 <div className="flex flex-col items-center gap-2 shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={qr} alt="Referral QR" className="w-36 h-36 rounded-xl bg-white p-1.5" />
-                  <a href={qr} target="_blank" rel="noopener noreferrer" className="text-xs font-dm text-muted hover:text-yellow transition-colors">
-                    Open / download QR
-                  </a>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      // Generated locally: `download` is ignored on a
+                      // cross-origin URL, so linking to the qrserver image could
+                      // only open it. SVG so the hotel can print a poster.
+                      const [{ qrSvgDocument, qrFilename }, { downloadBlob }] =
+                        await Promise.all([import("@/lib/qr-svg"), import("@/lib/download")]);
+                      downloadBlob(
+                        new Blob([qrSvgDocument(refLink)], { type: "image/svg+xml;charset=utf-8" }),
+                        qrFilename(partner.partner_code),
+                      );
+                    }}
+                    className="text-xs font-dm text-muted hover:text-yellow transition-colors"
+                  >
+                    Download QR
+                  </button>
                 </div>
                 {/* Link + actions */}
                 <div className="flex-1 min-w-0 space-y-3">
@@ -6469,13 +6484,11 @@ function WaitlistViewer() {
     list.forEach((e) =>
       rows.push([e.email, e.name ?? "", e.source ?? "", new Date(e.created_at).toISOString()])
     );
-    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `waitlist-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // Was: a detached <a> clicked while never in the DOM (Firefox ignores that),
+    // with revokeObjectURL on the very next line — which can destroy the blob
+    // before the browser has finished reading it. Both fail silently, which is
+    // exactly what "the download button does nothing" looks like.
+    downloadCsv(toCsv(rows), `waitlist-${new Date().toISOString().slice(0, 10)}.csv`);
   }
 
   if (loading)

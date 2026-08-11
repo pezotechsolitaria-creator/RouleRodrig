@@ -110,6 +110,24 @@ export default function PartnerPage() {
     ? `https://wa.me/?text=${encodeURIComponent(`Rent a scooter on Rodrigues with Roule Rodrigues 🛵 Book here: ${refLink}`)}`
     : "";
 
+  // Built locally rather than saved from the api.qrserver.com <img>: the
+  // `download` attribute is ignored on a cross-origin URL, so the old
+  // "Open / download QR" link could only ever OPEN the image and leave the
+  // partner to work the rest out. SVG because the stated use is printing it for
+  // a reception desk. Dynamically imported so the encoder stays out of this
+  // page's initial bundle — nobody pays for it until they click.
+  async function downloadQr() {
+    if (!refLink) return;
+    const [{ qrSvgDocument, qrFilename }, { downloadBlob }] = await Promise.all([
+      import("@/lib/qr-svg"),
+      import("@/lib/download"),
+    ]);
+    downloadBlob(
+      new Blob([qrSvgDocument(refLink)], { type: "image/svg+xml;charset=utf-8" }),
+      qrFilename(code),
+    );
+  }
+
   function copyLink() {
     if (!refLink) return;
     navigator.clipboard.writeText(refLink);
@@ -237,9 +255,14 @@ export default function PartnerPage() {
                 <div className="flex flex-col items-center gap-2 shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={qr} alt="Referral QR" className="w-32 h-32 rounded-xl bg-white p-1.5" />
-                  <a href={qr} target="_blank" rel="noopener noreferrer" className="text-xs text-muted hover:text-yellow transition-colors">
-                    Open / download QR
-                  </a>
+                  <button
+                    type="button"
+                    onClick={downloadQr}
+                    disabled={!refLink}
+                    className="text-xs text-muted hover:text-yellow transition-colors disabled:opacity-40 disabled:hover:text-muted"
+                  >
+                    Download QR
+                  </button>
                 </div>
                 <div className="flex-1 min-w-0 space-y-3">
                   <div className="flex items-center gap-2 bg-dark border border-dark-border rounded-lg px-3 py-2.5">

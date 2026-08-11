@@ -1,7 +1,21 @@
-// Client-side branded booking receipt. Renders a clean, print-ready document
-// into a hidden iframe and opens the print dialog — where every browser (desktop
-// and mobile) offers "Save as PDF". No dependency, no server round-trip, and it
-// can't be popup-blocked (iframe, not window.open).
+import { downloadBlob } from "./download";
+import { buildReceiptPdf, receiptFilename } from "./receipt-pdf";
+
+// ── Booking receipts ─────────────────────────────────────────────────────────
+//
+// This used to render a styled HTML document into a hidden iframe and call
+// print() on it, behind a button labelled "Download receipt". That was the bug:
+// it never downloaded anything. It asked for a print dialog and hoped the
+// customer would find "Save as PDF" inside it — and then removed the iframe on
+// a 4-second timer, which cancelled the dialog for anyone slower than that.
+//
+// Worse, it failed hardest exactly where this site's traffic is. iframe print()
+// is unreliable across WebKit, and an installed PWA frequently has no print UI
+// at all — and this app actively pushes users to install it.
+//
+// So the button now does what it says: it builds a real PDF in the browser and
+// saves it. No dialog, no popup to block, nothing for the customer to
+// interpret. See lib/receipt-pdf.ts for why that needs no dependency.
 
 export type ReceiptRow = { label: string; value: string; strong?: boolean };
 
@@ -15,76 +29,18 @@ export type ReceiptData = {
   note?: string;
 };
 
-const esc = (s: string) =>
-  String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+/**
+ * Saves the receipt as a PDF. Returns false only if the browser refused the
+ * download outright, in which case downloadBlob has already fallen back to
+ * opening the file in a tab, so the customer still gets their receipt.
+ */
+export function downloadReceipt(d: ReceiptData): boolean {
+  if (typeof window === "undefined") return false;
 
-export function printReceipt(d: ReceiptData) {
-  if (typeof window === "undefined") return;
-  const date = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  const rowsHtml = d.rows
-    .map(
-      (r) =>
-        `<tr class="${r.strong ? "total" : ""}"><td>${esc(r.label)}</td><td class="v">${esc(r.value)}</td></tr>`,
-    )
-    .join("");
+  const pdf = buildReceiptPdf(d);
+  // Copy into a fresh ArrayBuffer so the Blob owns its bytes regardless of how
+  // the Uint8Array was allocated.
+  const blob = new Blob([pdf.slice().buffer as ArrayBuffer], { type: "application/pdf" });
 
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(d.ref)}</title>
-  <style>
-    *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    body{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#111;margin:0;padding:32px}
-    .wrap{max-width:520px;margin:0 auto}
-    .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #F5C842;padding-bottom:16px}
-    .brand{font-weight:800;font-size:20px;letter-spacing:-.02em}
-    .brand span{color:#0a7d3b}
-    .muted{color:#666;font-size:12px;line-height:1.5}
-    h1{font-size:14px;text-transform:uppercase;letter-spacing:.14em;margin:26px 0 2px;color:#111}
-    table{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px}
-    td{padding:9px 0;border-bottom:1px solid #eee}
-    td.v{text-align:right;font-weight:600}
-    tr.total td{border-top:2px solid #111;border-bottom:none;font-size:16px;font-weight:800;padding-top:13px;color:#0a7d3b}
-    .note{margin-top:20px;font-size:12px;color:#666;line-height:1.55}
-    .foot{margin-top:30px;border-top:1px solid #eee;padding-top:12px;font-size:11px;color:#999;text-align:center}
-    @media print{body{padding:0}}
-  </style></head><body><div class="wrap">
-    <div class="head">
-      <div><div class="brand">ROULE <span>RODRIGUES</span></div><div class="muted">roulerodrig.com · Rodrigues Island</div></div>
-      <div class="muted" style="text-align:right">${date}<br>Ref: ${esc(d.ref)}</div>
-    </div>
-    <h1>${esc(d.heading)}</h1>
-    <table>
-      <tr><td>Name</td><td class="v">${esc(d.customer)}</td></tr>
-      <tr><td>${esc(d.itemLabel)}</td><td class="v">${esc(d.item)}</td></tr>
-      ${rowsHtml}
-    </table>
-    ${d.note ? `<p class="note">${esc(d.note)}</p>` : ""}
-    <div class="foot">Thank you for choosing Roule Rodrigues — take the long way. 🌴</div>
-  </div></body></html>`;
-
-  const iframe = document.createElement("iframe");
-  iframe.setAttribute("aria-hidden", "true");
-  Object.assign(iframe.style, { position: "fixed", right: "0", bottom: "0", width: "0", height: "0", border: "0" });
-  document.body.appendChild(iframe);
-  const doc = iframe.contentWindow?.document;
-  if (!doc) {
-    iframe.remove();
-    return;
-  }
-  doc.open();
-  doc.write(html);
-  doc.close();
-  setTimeout(() => {
-    try {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-    } catch {
-      /* print unavailable */
-    }
-  }, 350);
-  setTimeout(() => {
-    try {
-      iframe.remove();
-    } catch {
-      /* already gone */
-    }
-  }, 4000);
+  return downloadBlob(blob, receiptFilename(d.ref));
 }

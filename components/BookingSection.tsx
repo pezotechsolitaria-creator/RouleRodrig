@@ -32,7 +32,7 @@ import PayPalDeposit from "@/components/PayPalDeposit";
 import BankTransferDetails from "@/components/BankTransferDetails";
 import SuccessBurst from "@/components/SuccessBurst";
 import BookingTimeline from "@/components/BookingTimeline";
-import { printReceipt } from "@/lib/receipt";
+import { downloadReceipt as saveReceiptPdf } from "@/lib/receipt";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
 // Pricing is SHARED with /api/bookings — the summary the customer sees here
 // and the figures the server stores are the same arithmetic by construction.
@@ -238,7 +238,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
   function downloadReceipt() {
     if (!lastBooking) return;
     const short = (lastBooking.bookingId || "").replace(/-/g, "").slice(0, 6).toUpperCase() || Date.now().toString(36).toUpperCase().slice(-6);
-    printReceipt({
+    saveReceiptPdf({
       ref: `RR-${short}`,
       heading: depositPaid ? "Deposit receipt" : "Booking receipt",
       customer: lastBooking.name,
