@@ -6,6 +6,7 @@ import {
   activityLabel, type Activity,
 } from "@/lib/activity";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
+import { vehicleName } from "@/lib/vehicle-name";
 
 // ── ONE LOOKUP FOR EVERY KIND OF ACTIVITY ──────────────────────────────────
 //
@@ -85,7 +86,14 @@ export async function POST(req: NextRequest) {
         kind,
         id: String(b.id),
         reference: bookingReference(String(b.id)),
-        title: String(b.item ?? (kind === "vehicle" ? "Rental" : "Booking")),
+        // bookings.scooter stores the fleet ID ("burgman") because availability
+        // matching needs it, and vehicle-name.ts says plainly that nobody
+        // outside the database should ever see that slug. The tracking card is
+        // about as outside as it gets.
+        title:
+          kind === "vehicle"
+            ? await vehicleName(String(b.item ?? "Rental"))
+            : String(b.item ?? "Booking"),
         provider: kind === "place" ? String(b.item ?? "") : null,
         date: start,
         // amount_paid is the truthful figure: what the customer has actually
