@@ -20,7 +20,7 @@
 // evict anything — an existing client keeps its cache unless the name changes.
 // v125 — the iOS splash screens carry the new mark too.
 // v126 — M47 partner application categories.
-const CACHE = "rr-cache-v126";
+const CACHE = "rr-cache-v127";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
