@@ -151,3 +151,66 @@ export async function getEventDetail(
   }
   return (data as OrganizerEventDetail | null) ?? null;
 }
+
+// ── Access (M59) ────────────────────────────────────────────────────────────
+
+/** What somebody is on ONE event. 'organizer' runs it; 'door_staff' scans. */
+export type EventRole = "organizer" | "door_staff";
+
+export type EventStaffMember = {
+  assignmentId: string;
+  name: string;
+  email: string;
+  role: EventRole;
+  /** 'invited' until they sign in and claim the invite, then 'active'. */
+  status: string;
+  hasSignedIn: boolean;
+  canVerifyPayments: boolean;
+  assignedAt: string;
+};
+
+// ── Managed ticketing (M60) ─────────────────────────────────────────────────
+//
+// The fee is what the ORGANISER owes ROULÉ RODRIGUES, and it is deliberately
+// carried in its own payload rather than folded into the event detail: nothing
+// in the revenue path knows this type exists, which is what makes "the fee never
+// touches ticket money" structural rather than a habit.
+
+export type ManagedTicketingStatus =
+  | "not_requested"
+  | "requested"
+  | "approved"
+  | "active"
+  | "completed"
+  | "cancelled";
+
+export type ManagedTicketing = {
+  /** Absent when status is 'not_requested' — that state is the absence of a row. */
+  id?: string;
+  status: ManagedTicketingStatus;
+  feeType: "fixed" | "percentage" | null;
+  feeAmountCents: number | null;
+  /** Scaled by 1000: 10% is 10000. */
+  feeRateE5: number | null;
+  feeCurrency: string;
+  serviceIncludes: string | null;
+  organiserNote: string | null;
+  requestedAt: string | null;
+  approvedAt: string | null;
+  acceptedAt: string | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  cancelledReason: string | null;
+  paymentStatus: "unpaid" | "invoiced" | "paid" | "waived";
+  paymentNote: string | null;
+  /** What a percentage fee comes to at TODAY's revenue. Moves until invoiced. */
+  estimatedFeeCents: number | null;
+  estimateBasisCents: number | null;
+  /** Frozen at invoicing. Ticket refunds after this point do not change it. */
+  invoicedFeeCents: number | null;
+  invoicedBasisCents: number | null;
+  invoicedAt: string | null;
+  /** Shown beside the fee so the two are never confused for one another. */
+  ticketRevenueCents: number;
+  separationNote: string;
+};

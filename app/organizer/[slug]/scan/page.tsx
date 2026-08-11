@@ -3,20 +3,23 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getEventDetail } from "@/lib/events/organizer";
+import { getScannerContext } from "@/lib/events/scanner";
 import TicketScanner from "@/components/events/TicketScanner";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
-// The door, for the organiser working it.
+// The door, for whoever is working it.
 //
-// The slug is resolved to a store id and handed to organizer_event_detail(),
-// which is gated by can_manage_event() — so an organiser who edits the URL to
-// another event's slug gets RR003 → notFound(), and a wrong slug is
-// indistinguishable from a forbidden one. redeem_ticket() re-checks the same
-// predicate per scan, so this page is not the gate; it only decides what to
-// render.
+// M59 CHANGED WHAT THIS PAGE LOADS. It used to call organizer_event_detail(),
+// which is gated by can_manage_event() and returns the organiser's bank details,
+// every buyer's email and phone, receipt paths and confirmed revenue. Door staff
+// would have been refused outright — and if they hadn't been, they would have
+// been handed all of that to render a scanner.
+//
+// It now calls scanner_event_context(), gated by can_scan_event(), which returns
+// a name, a date, and whether the event is cancelled. Organisers get the same
+// small payload: one door screen, not two.
 export default async function ScanPage({
   params,
 }: {
@@ -25,24 +28,30 @@ export default async function ScanPage({
   const { slug } = await params;
   const supabase = await createClient();
 
-  const { data: store } = await supabase
-    .from("stores")
-    .select("id")
-    .eq("slug", slug)
-    .maybeSingle();
-  if (!store) notFound();
-
-  const event = await getEventDetail(supabase, (store as { id: string }).id);
+  // Slug → permission in one gated call. No client-side id lookup to tamper
+  // with, and an unknown slug is indistinguishable from a forbidden one.
+  const event = await getScannerContext(supabase, slug);
   if (!event) notFound();
 
   return (
     <main className="mx-auto max-w-md px-4 pb-24 pt-8">
-      <Link
-        href={`/organizer/${event.slug}`}
-        className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow"
-      >
-        <ArrowLeft size={14} /> {event.name}
-      </Link>
+      {event.canManage ? (
+        <Link
+          href={`/organizer/${event.slug}`}
+          className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow"
+        >
+          <ArrowLeft size={14} /> {event.name}
+        </Link>
+      ) : (
+        // Door staff have no dashboard to go back to — sending them to one they
+        // cannot open would be a dead end dressed up as navigation.
+        <Link
+          href="/organizer"
+          className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow"
+        >
+          <ArrowLeft size={14} /> My events
+        </Link>
+      )}
 
       <h1 className="mt-3 font-syne text-2xl font-extrabold text-offwhite">Scan tickets</h1>
 

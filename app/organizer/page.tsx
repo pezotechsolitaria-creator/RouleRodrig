@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { CalendarDays, MapPin, ArrowRight, AlertTriangle, Ticket } from "lucide-react";
+import { CalendarDays, MapPin, ArrowRight, AlertTriangle, Ticket, ScanLine } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { listMyEvents, type OrganizerEvent } from "@/lib/events/organizer";
+import { listScannableEvents, type ScannerEvent } from "@/lib/events/scanner";
 import { centsToDecimalString } from "@/lib/money";
 
 // Dynamic, never cached: every number here is an operational count somebody is
@@ -33,20 +34,49 @@ function fmtDate(iso: string, tz = "Indian/Mauritius") {
 
 export default async function OrganizerHome() {
   const supabase = await createClient();
-  const events = await listMyEvents(supabase);
+
+  // TWO AUDIENCES, ONE PAGE.
+  //
+  // listMyEvents() carries revenue and is organiser-only by construction (M59c
+  // narrowed it to role='organizer' after a door staffer was found receiving
+  // gross_confirmed from it). Door staff get [] from it — correctly — and would
+  // otherwise land on "no events yet" while holding a scanner they can use.
+  //
+  // So the scannable list is loaded too, and anything in it that this person
+  // cannot manage is rendered as a door card: name, date, one button. No money
+  // is fetched for those events at all, rather than fetched and hidden.
+  const [events, scannable] = await Promise.all([
+    listMyEvents(supabase),
+    listScannableEvents(supabase),
+  ]);
+  const doorOnly = scannable.filter((s) => s.role === "door_staff");
+  const isDoorStaffOnly = events.length === 0 && doorOnly.length > 0;
 
   return (
     <main className="mx-auto max-w-5xl px-4 pb-20 pt-8">
-      <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">MY EVENTS</p>
+      <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">
+        {isDoorStaffOnly ? "DOOR" : "MY EVENTS"}
+      </p>
       <h1 className="mt-1 font-syne text-2xl font-extrabold text-offwhite">
-        {events.length === 1 ? events[0].name : "Your events"}
+        {isDoorStaffOnly
+          ? doorOnly.length === 1 ? doorOnly[0].name : "Events you're on the door for"
+          : events.length === 1 ? events[0].name : "Your events"}
       </h1>
       <p className="mt-1.5 font-dm text-sm text-muted">
-        Everything you need to run your event. Ticket money is paid to you directly — Roulé Rodrigues
-        never holds it.
+        {isDoorStaffOnly
+          ? "You're set up to scan tickets at these events. Open the scanner when you're at the door."
+          : "Everything you need to run your event. Ticket money is paid to you directly — Roulé Rodrigues never holds it."}
       </p>
 
-      {events.length === 0 ? (
+      {doorOnly.length > 0 && (
+        <div className="mt-6 space-y-3">
+          {doorOnly.map((e) => (
+            <DoorCard key={e.storeId} event={e} />
+          ))}
+        </div>
+      )}
+
+      {events.length === 0 && doorOnly.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-10 text-center">
           <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow/10 text-yellow ring-1 ring-inset ring-yellow/20">
             <CalendarDays size={22} />
@@ -67,6 +97,44 @@ export default async function OrganizerHome() {
         </div>
       )}
     </main>
+  );
+}
+
+/** A door staffer's view of an event: where and when, and a way in. No sales,
+ *  no revenue, no capacity — none of it is even fetched for these events. */
+function DoorCard({ event: e }: { event: ScannerEvent }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-dark-card p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="font-syne text-lg font-bold text-offwhite">{e.name}</h2>
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 font-dm text-sm text-muted">
+            <span className="flex items-center gap-1.5"><CalendarDays size={13} /> {fmtDate(e.startsAt)}</span>
+            {e.venueName && <span className="flex items-center gap-1.5"><MapPin size={13} /> {e.venueName}</span>}
+          </p>
+        </div>
+        <span className={`shrink-0 rounded-full border px-3 py-1 font-dm text-[11px] font-medium ${PHASE_STYLE[e.phase]}`}>
+          {PHASE_LABEL[e.phase]}
+        </span>
+      </div>
+
+      {e.cancelledAt && (
+        <p role="alert" className="mt-3 flex items-start gap-2 rounded-xl border border-red-500/25 bg-red-500/[0.06] px-4 py-2.5 font-dm text-xs text-red-300">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          This event is cancelled — nobody should be admitted.
+        </p>
+      )}
+
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
+        <Link
+          href={`/organizer/${e.slug}/scan`}
+          className="inline-flex items-center gap-1.5 rounded-full bg-yellow px-4 py-2 font-syne text-xs font-bold text-dark transition-colors hover:bg-yellow-dark"
+        >
+          <ScanLine size={14} /> Scan tickets <ArrowRight size={14} />
+        </Link>
+        <span className="font-dm text-[11px] text-muted">Door access</span>
+      </div>
+    </div>
   );
 }
 

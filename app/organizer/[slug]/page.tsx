@@ -8,6 +8,8 @@ import PackageManager from "@/components/events/PackageManager";
 import PaymentReview from "@/components/events/PaymentReview";
 import PaymentSetup from "@/components/events/PaymentSetup";
 import CapacityCard from "@/components/events/CapacityCard";
+import StaffManager from "@/components/events/StaffManager";
+import ManagedTicketingCard from "@/components/events/ManagedTicketingCard";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 
 export const dynamic = "force-dynamic";
@@ -105,6 +107,13 @@ export default async function OrganizerEventPage({
             placesTaken={event.placesTaken}
           />
         </div>
+      </section>
+
+      {/* ── Who can get in, and the service agreement ──────────────────── */}
+      <section aria-labelledby="st-h" className="mt-8 grid gap-4 lg:grid-cols-2">
+        <h2 id="st-h" className="sr-only">Staff and managed ticketing</h2>
+        <StaffManager storeId={event.storeId} />
+        <ManagedTicketingCard storeId={event.storeId} />
       </section>
 
       {/* ── Packages ─────────────────────────────────────────────────── */}

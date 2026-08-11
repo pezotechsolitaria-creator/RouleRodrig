@@ -188,6 +188,11 @@ const MARKETPLACE_LINKS: { href: string; label: string; icon: React.ElementType 
   // Events, not marketplace — but this is the only link list on the dashboard,
   // and an organiser screen nobody can find is an organiser screen nobody uses.
   { href: "/admin/organizers",     label: "Event Organisers",          icon: UserCog },
+  // Deliberately NOT filed under "Monetization & Revenue" above: that screen is
+  // commission on marketplace order money. This is a service fee an organiser
+  // owes Roulé Rodrigues, which never touches ticket money at all — putting the
+  // two on one screen is the first step to netting them off somewhere.
+  { href: "/admin/managed-ticketing", label: "Managed Ticketing Fees", icon: Handshake },
 ];
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
