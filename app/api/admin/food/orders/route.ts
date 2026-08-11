@@ -4,7 +4,7 @@ import { guardFoodAdmin, readJson, failed } from "@/lib/food/guard";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { formatPickupCode } from "@/lib/orders/pickup";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
-import { notifyDriversOfNewOffer } from "@/lib/push/notify-offer";
+import { notifyDriversOfNewOffer } from "@/lib/delivery/notify";
 
 // The live food order queue.
 //

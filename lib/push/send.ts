@@ -17,7 +17,7 @@ export type PushPayload = {
   urgent?: boolean;
 };
 
-type Target = { endpoint: string; p256dh: string; auth: string; driver_name: string | null };
+export type Target = { endpoint: string; p256dh: string; auth: string; driver_name?: string | null };
 
 let configured: boolean | null = null;
 
@@ -103,6 +103,11 @@ async function targetsFrom(rpc: string, args: Record<string, string>): Promise<T
     return [];
   }
   return (data ?? []) as Target[];
+}
+
+/** Push to endpoints the caller has already looked up. Returns how many phones were reached. */
+export async function pushToDriverEndpoints(targets: Target[], payload: PushPayload): Promise<number> {
+  return deliver(targets, payload);
 }
 
 /** Wake every driver holding a live offer on this delivery. Returns how many phones were reached. */

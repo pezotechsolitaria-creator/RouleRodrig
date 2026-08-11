@@ -8,7 +8,7 @@ import { guard } from "@/lib/rate-limit";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { formatPickupCode } from "@/lib/orders/pickup";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
-import { notifyDriversOfNewOffer } from "@/lib/push/notify-offer";
+import { notifyDriversOfNewOffer } from "@/lib/delivery/notify";
 
 const NOT_FOUND_CODE = "RR003";
 const ILLEGAL_TRANSITION_CODE = "RR004";

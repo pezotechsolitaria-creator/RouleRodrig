@@ -8,6 +8,7 @@ import {
 import { centsToDecimalString } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import AlertsToggle from "./AlertsToggle";
+import WhatsappAlerts from "./WhatsappAlerts";
 
 // ── The driver's phone ──────────────────────────────────────────────────────
 //
@@ -40,6 +41,8 @@ type Dash = {
   metrics?: { completed: number; accepted: number; offers: number; cancellations: number; onTime: number };
   active?: Active[];
   offers?: Offer[];
+  // A boolean only. The key itself is never returned by any endpoint.
+  whatsappConfigured?: boolean;
 };
 
 // The single next step for each state. Keeping this as data rather than a
@@ -196,6 +199,9 @@ export default function DriverDashboard() {
       </div>
 
       {approved && <AlertsToggle />}
+      {approved && (
+        <WhatsappAlerts configured={Boolean(dash?.whatsappConfigured)} onSaved={() => void load()} />
+      )}
 
       {approved && (
         <div className="grid grid-cols-2 gap-3">

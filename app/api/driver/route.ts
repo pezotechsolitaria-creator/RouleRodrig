@@ -33,6 +33,13 @@ const actionSchema = z.discriminatedUnion("action", [
     deliveryId: z.string().uuid(),
     pin: z.string().trim().min(1).max(12),
   }),
+  // An empty key means "turn WhatsApp alerts off" — the RPC deletes rather than
+  // storing a blank that would later read as configured.
+  z.object({
+    action: z.literal("whatsapp"),
+    apiKey: z.string().trim().max(200),
+    phone: z.string().trim().max(30).optional(),
+  }),
   z.object({
     action: z.literal("cannot_complete"),
     deliveryId: z.string().uuid(),
@@ -61,7 +68,15 @@ export async function GET() {
     console.error("driver_dashboard failed", error);
     return NextResponse.json({ error: "Could not load your dashboard." }, { status: 500 });
   }
-  return NextResponse.json({ isDriver: true, ...(data as object) });
+  // Whether WhatsApp alerts are set up — a boolean, never the key itself. No
+  // RPC anywhere returns the stored value, so a stolen session cannot read it.
+  const { data: hasWhatsapp } = await supabase.rpc("driver_whatsapp_configured");
+
+  return NextResponse.json({
+    isDriver: true,
+    ...(data as object),
+    whatsappConfigured: Boolean(hasWhatsapp),
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -94,7 +109,12 @@ export async function POST(req: NextRequest) {
           ? supabase.rpc("advance_delivery", { p_delivery_id: input.deliveryId, p_to: input.to })
           : input.action === "complete"
             ? supabase.rpc("complete_delivery_with_pin", { p_delivery_id: input.deliveryId, p_pin: input.pin })
-            : supabase.rpc("driver_cannot_complete", {
+            : input.action === "whatsapp"
+              ? supabase.rpc("set_driver_whatsapp", {
+                  p_api_key: input.apiKey,
+                  p_phone: input.phone ?? null,
+                })
+              : supabase.rpc("driver_cannot_complete", {
                 p_delivery_id: input.deliveryId,
                 p_reason: input.reason,
                 p_note: input.note ?? null,
