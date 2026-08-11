@@ -26,7 +26,10 @@
 // identifier if it is unique, so this moves past it and restores the mirror.
 // v129 — the food platform. /food is a different page than it was, and the old
 // one is sitting in a lot of runtime caches.
-const CACHE = "rr-cache-v129";
+// v130 — marketplace structured data + shops in the sitemap. A separate number
+// from v129 deliberately: two parallel branches both reached for v129, and a
+// cache name that identifies two different builds identifies neither.
+const CACHE = "rr-cache-v130";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

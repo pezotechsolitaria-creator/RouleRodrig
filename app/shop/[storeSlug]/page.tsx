@@ -8,6 +8,8 @@ import StoreHoursCard from "@/components/shop/StoreHoursCard";
 import CategoryRail from "@/components/shop/CategoryRail";
 import StarRating from "@/components/shop/StarRating";
 import { ShopHeader } from "@/components/shop/ShopChrome";
+import JsonLd from "@/components/JsonLd";
+import { storeLd, breadcrumbLd } from "@/lib/schema";
 
 type StoreReview = {
   id: string;
@@ -144,6 +146,44 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
 
   return (
     <main className="min-h-screen bg-dark px-4 pb-44 pt-0 text-offwhite md:pb-28">
+      {/* Structured data. Every other page on this site emits JSON-LD and the
+          marketplace was the one exception — these shops had a title and a
+          canonical but were, to a crawler, anonymous pages. `Store` plus its
+          offer catalogue is what makes a shop eligible to appear as a business
+          rather than as a generic result.
+
+          Built from the SAME `cards` the page renders below, deliberately:
+          Google devalues (and can penalise) markup describing content that is
+          not on the page, so the catalogue can never drift from what a visitor
+          actually sees. The rating is passed through only when real reviews
+          exist — storeLd drops it otherwise. */}
+      <JsonLd
+        data={[
+          storeLd({
+            name: store.name,
+            slug: store.slug,
+            description: store.tagline || store.description,
+            image: store.cover_url || store.logo_url,
+            address: store.address,
+            phone: store.phone,
+            rating:
+              store.rating_count > 0 && store.rating_avg !== null
+                ? { avg: Number(store.rating_avg), count: store.rating_count }
+                : null,
+            products: cards.slice(0, 30).map((c) => ({
+              name: c.name,
+              url: `${SITE_URL}/shop/${store.slug}/${c.slug}`,
+              price: c.minPrice || undefined,
+              image: c.imageUrl,
+            })),
+          }),
+          breadcrumbLd([
+            { name: "Home", url: SITE_URL },
+            { name: "Shops", url: `${SITE_URL}/shop` },
+            { name: store.name, url: `${SITE_URL}/shop/${store.slug}` },
+          ]),
+        ]}
+      />
       <ShopHeader backHref="/shop" backLabel="All shops" />
 
       <div className="mx-auto max-w-4xl">

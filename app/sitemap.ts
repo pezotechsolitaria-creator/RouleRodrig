@@ -55,6 +55,41 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Never let a DB hiccup produce a broken sitemap — ship the static routes.
   }
 
+  // ── Marketplace shops ──────────────────────────────────────────────────────
+  // /shop was listed but every actual SHOP was invisible to a crawler, so the
+  // pages carrying the real, unique, local content had no path in from search.
+  // The directory alone cannot rank for "Rodrigues honey"; the shop page can.
+  //
+  // Read through the ordinary client so RLS (stores_public_read) decides what
+  // is listable — a draft, paused or unapproved shop is absent here for the
+  // same reason it 404s on the site. Listing a URL Google then cannot fetch is
+  // worse than omitting it.
+  let shops: MetadataRoute.Sitemap = [];
+  try {
+    const { createClient } = await import("@/lib/supabase/server");
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("stores")
+      .select("slug, updated_at")
+      // The seeded test shops are real rows with real RLS visibility, so
+      // nothing else would keep them out of a public sitemap. They are
+      // fixtures, not businesses, and must not be submitted to Google.
+      .not("slug", "like", "zz-test-%")
+      .order("updated_at", { ascending: false })
+      .limit(500);
+    shops = (data ?? []).map((s: { slug: string; updated_at: string | null }) => ({
+      url: `${SITE_URL}/shop/${s.slug}`,
+      lastModified: s.updated_at ? new Date(s.updated_at) : now,
+      changeFrequency: "weekly" as const,
+      // Under the browse pages (0.9) that carry the core rental revenue, above
+      // the guides: a shop is commercial, but the marketplace is not yet the
+      // business.
+      priority: 0.8,
+    }));
+  } catch {
+    // Same rule as above — a failure drops the shops, never the sitemap.
+  }
+
   // Deduplicate by URL, keeping the FIRST occurrence so the deliberate priority
   // set here wins over whatever a data-driven source happened to emit.
   //
@@ -72,6 +107,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Marketplace directory — always exists (its empty state recruits
     // merchants), so it is not data-gated like /guide/shops below.
     { url: `${SITE_URL}/shop`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
+    // Every shop, directly under the directory that links them.
+    ...shops,
     // Food ordering. Always listed (its empty state is the concierge hand-off,
     // not a 404), and every published dish is listed beneath it — a dish page
     // is a real commercial landing page for "ourite rodrigues" and the like.

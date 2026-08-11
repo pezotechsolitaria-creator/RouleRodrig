@@ -225,6 +225,86 @@ export function productLd(p: ProductInput) {
   };
 }
 
+// A marketplace shop. Typed `Store` (a LocalBusiness subtype) because that is
+// what it is — a real trader on Rodrigues with a name, a phone and opening
+// hours, not a product listing.
+//
+// The shop is the seller, NOT Roulé Rodrigues. The platform charges the
+// merchant a subscription and never takes a commission; the customer pays the
+// shop directly in cash or by bank transfer. So this deliberately omits the
+// `seller: { @id: /#business }` line that the rental productLd carries — saying
+// the platform sells the honey would misdescribe the actual transaction.
+//
+// aggregateRating appears ONLY when real reviews exist, the same rule every
+// other block here follows. The values come from `store_reviews` or not at all.
+export function storeLd(s: {
+  name: string;
+  slug: string;
+  description?: string | null;
+  image?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  rating?: { avg: number; count: number } | null;
+  products?: { name: string; url: string; price?: number; image?: string | null }[];
+}) {
+  const url = `${SITE_URL}/shop/${s.slug}`;
+  return {
+    "@context": "https://schema.org",
+    "@type": "Store",
+    "@id": `${url}#store`,
+    name: s.name,
+    url,
+    ...(s.description ? { description: s.description } : {}),
+    ...(s.image ? { image: s.image } : {}),
+    ...(s.phone ? { telephone: s.phone } : {}),
+    address: {
+      "@type": "PostalAddress",
+      // Every shop here is on Rodrigues; the street line is the only part that
+      // varies and it is often absent, so it stays conditional.
+      ...(s.address ? { streetAddress: s.address } : {}),
+      addressLocality: "Rodrigues",
+      addressCountry: "MU",
+    },
+    ...(s.rating && s.rating.count > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: s.rating.avg,
+            reviewCount: s.rating.count,
+            bestRating: 5,
+            worstRating: 1,
+          },
+        }
+      : {}),
+    // Ties each shop back to the platform as one entity, rather than leaving
+    // Google to work out why dozens of unrelated Stores share a domain.
+    parentOrganization: { "@id": `${SITE_URL}/#organization` },
+    ...(s.products?.length
+      ? {
+          hasOfferCatalog: {
+            "@type": "OfferCatalog",
+            name: `${s.name} products`,
+            itemListElement: s.products.map((p) => ({
+              "@type": "Offer",
+              itemOffered: {
+                "@type": "Product",
+                name: p.name,
+                url: p.url,
+                ...(p.image ? { image: p.image } : {}),
+              },
+              // Prices are stored in minor units everywhere in this codebase;
+              // schema.org wants a decimal string.
+              ...(p.price !== undefined
+                ? { price: (p.price / 100).toFixed(2), priceCurrency: "MUR" }
+                : {}),
+              url: p.url,
+            })),
+          },
+        }
+      : {}),
+  };
+}
+
 // The business. Referenced by @id from other blocks so Google links them into
 // one entity instead of treating each page as a separate company.
 export function organizationLd(opts: { logo?: string; sameAs?: string[] } = {}) {
