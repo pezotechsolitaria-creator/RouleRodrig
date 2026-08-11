@@ -61,6 +61,7 @@ export default async function ViewpointsPage() {
       />
       <AppPageHeader logo={content.branding.logo} />
       <PlaceGuide
+        guideHref="/guide/viewpoints"
         eyebrow="ISLAND GUIDE"
         title="Viewpoints & landmarks in Rodrigues"
         intro="Rodrigues is only 18 km long, but it's volcanic and steep — which means the whole island opens up from a handful of high points. These are the ones worth the ride, and what you'll see from each."

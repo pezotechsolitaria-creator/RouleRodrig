@@ -72,6 +72,7 @@ export default async function BeachesPage() {
       />
       <AppPageHeader logo={content.branding.logo} />
       <PlaceGuide
+        guideHref="/guide/beaches"
         eyebrow="ISLAND GUIDE"
         title={`The ${places.length} best beaches in Rodrigues`}
         intro="Rodrigues has a lagoon twice the size of the island itself, and the beaches around it range from busy Sunday picnic sands to coves you'll have entirely to yourself. Here's every one we rate, with directions and what to actually expect."

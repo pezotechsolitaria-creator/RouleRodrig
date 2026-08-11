@@ -69,6 +69,7 @@ export default async function ShopsPage() {
       />
       <AppPageHeader logo={content.branding.logo} />
       <PlaceGuide
+        guideHref="/guide/shops"
         eyebrow="ISLAND GUIDE"
         title="Where to shop in Rodrigues"
         intro="Rodrigues is known for what it makes: honey, lemon and chilli, hand-woven baskets, embroidery, and the buzz of the Saturday market in Port Mathurin. Here's where to find it, mapped by locals."

@@ -60,7 +60,11 @@
 // v147 — door staff + managed ticketing. Also repairs a live drift: main had
 // sw.js on v146 while /api/health still read v145, so v146 named two different
 // builds. The sw-cache test caught it on rebase, which is what it is for.
-const CACHE = "rr-cache-v147";
+// v148 — unified tracking at /track (one reference finds a rental, a place
+// booking or an order) and card-first beach/viewpoint discovery.
+// Also repairs a real drift the sw-cache test caught: sw.js was on v146 while
+// /api/health still reported v145, after a rebase resolved one side only.
+const CACHE = "rr-cache-v148";
 // v141 — HOTFIX: /checkout returned a 500. A server component was importing a
 // plain value from a "use client" module and got a client reference back.
 const SHELL = "/";

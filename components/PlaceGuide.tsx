@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, MapPin, Navigation } from "lucide-react";
 import type { MapLocation } from "@/lib/defaults";
+import PlaceDiscovery from "@/components/PlaceDiscovery";
 import { loc } from "@/lib/localize";
 import type { Language } from "@/lib/i18n";
 
@@ -20,6 +21,7 @@ export default function PlaceGuide({
   title,
   intro,
   places,
+  guideHref,
   related,
   lang = "en",
   labels,
@@ -28,6 +30,8 @@ export default function PlaceGuide({
   title: string;
   intro: string;
   places: MapLocation[];
+  /** This page's own path, so a card can deep-link to its long-form entry. */
+  guideHref: string;
   related: { href: string; label: string }[];
   /** Picks description/story from the *Fr / *Cr siblings the owner maintains. */
   lang?: Language;
@@ -69,7 +73,18 @@ export default function PlaceGuide({
         </div>
       </header>
 
-      <div className="mx-auto max-w-3xl px-5 py-14">
+      {/* ── DISCOVERY FIRST ──────────────────────────────────────────────────
+          The owner's complaint, verbatim: "user clicks Plages and gets dumped
+          into long paragraphs". This grid answers "which one do I go to?" in
+          about two seconds.
+
+          The article below is NOT removed. It is ~1,300 words of genuinely
+          local writing plus 60+ original photos and it earns real search
+          traffic — Google reads the whole page either way, so demoting the
+          prose costs nothing and deleting it would cost the channel. */}
+      <PlaceDiscovery places={places} guideHref={guideHref} />
+
+      <div id="guide" className="mx-auto max-w-3xl px-5 pb-14 pt-4">
         <div className="space-y-16">
           {places.map((p, i) => {
             const photos = (p.images?.length ? p.images : p.image ? [p.image] : []).slice(0, 4);

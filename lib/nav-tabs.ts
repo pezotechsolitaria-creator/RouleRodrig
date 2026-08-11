@@ -57,14 +57,16 @@ export const NAV_TABS: readonly NavTab[] = [
   {
     key: "track",
     icon: CalendarCheck,
-    href: "/manage-booking",
-    // "Bookings" named only half of what this tab reaches: /manage-booking
-    // covers vehicle rentals AND shop orders, so it is the tracking tab.
+    // /track, not /manage-booking. The tab said "Suivi" and led to the VEHICLE
+    // lookup, so a customer tracking food, a shop order, an event ticket or a
+    // boat trip found a form that could not help them — and place bookings had
+    // no customer-facing tracking at all. /track takes any reference.
+    href: "/track",
     label: ["Track", "Suivi", "Swiv"],
-    // /orders is included so the tab stays lit once a customer follows the
-    // shop-order path off /manage-booking, rather than leaving them on a
-    // screen no tab claims.
-    match: (p) => p.startsWith("/manage-booking") || p.startsWith("/orders"),
+    // Every surface a customer can land on from here keeps the tab lit, rather
+    // than leaving them on a screen no tab claims.
+    match: (p) =>
+      p.startsWith("/track") || p.startsWith("/manage-booking") || p.startsWith("/orders"),
   },
   {
     key: "more",

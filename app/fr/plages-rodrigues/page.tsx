@@ -82,6 +82,7 @@ export default async function PlagesPage() {
         showEvents={content.events.some((e) => e.title)}
       />
       <PlaceGuide
+        guideHref="/fr/plages-rodrigues"
         lang="fr"
         eyebrow="GUIDE DE L'ÎLE"
         title={`Les ${places.length} plus belles plages de Rodrigues`}
