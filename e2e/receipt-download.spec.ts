@@ -28,9 +28,14 @@ const CUSTOMER = "E2E Receipt Tester";
 async function submitBooking(page: Page) {
   await page.goto("/browse/scooter");
 
-  // The page renders the booking form TWICE — a responsive desktop/mobile pair,
-  // both carrying the same element ids (which is invalid HTML and makes
-  // "#bk-name" ambiguous). Everything below is scoped to the visible one.
+  // Scoped to the booking form so the field selectors below say what they mean.
+  //
+  // `.first()` is a cheap guard, not a workaround: an earlier version of this
+  // comment claimed the page rendered the form twice with duplicate ids. That
+  // was wrong — measured again, the source defines one <form> and seven bk-*
+  // ids, each exactly once, with seven matching htmlFor labels, and both the
+  // server HTML and the hydrated DOM contain exactly one of each. The "two
+  // forms" reading came from a reused browser tab, not from the site.
   const form = page.locator("form").filter({ has: page.locator("#bk-vehicle") }).first();
   await expect(form).toBeVisible();
 
