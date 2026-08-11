@@ -57,7 +57,10 @@
 // v144 — quick actions become intents (massage/fishing/sea trips added, food,
 // shops and events removed in favour of their stronger entry points), taxi and
 // transfers finally separate, and the events carousel.
-const CACHE = "rr-cache-v146";
+// v147 — door staff + managed ticketing. Also repairs a live drift: main had
+// sw.js on v146 while /api/health still read v145, so v146 named two different
+// builds. The sw-cache test caught it on rebase, which is what it is for.
+const CACHE = "rr-cache-v147";
 // v141 — HOTFIX: /checkout returned a 500. A server component was importing a
 // plain value from a "use client" module and got a client reference back.
 const SHELL = "/";
