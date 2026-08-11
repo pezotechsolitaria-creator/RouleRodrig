@@ -41,6 +41,7 @@ import {
   Store,
   Truck,
   Wallet,
+  UserCog,
   Clock,
   Tag,
   ToggleLeft,
@@ -175,6 +176,9 @@ const MARKETPLACE_LINKS: { href: string; label: string; icon: React.ElementType 
   { href: "/admin/delivery-zones", label: "Delivery Areas & Fees",     icon: Truck },
   { href: "/admin/monetization",   label: "Monetization & Revenue",    icon: Wallet },
   { href: "/admin/notifications",  label: "WhatsApp Alerts",           icon: MessageCircle },
+  // Events, not marketplace — but this is the only link list on the dashboard,
+  // and an organiser screen nobody can find is an organiser screen nobody uses.
+  { href: "/admin/organizers",     label: "Event Organisers",          icon: UserCog },
 ];
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────

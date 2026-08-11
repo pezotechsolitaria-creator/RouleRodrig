@@ -29,7 +29,17 @@ function mockAdmin(opts: {
 }) {
   const eqCalls: [string, string, unknown][] = [];
   const results: Record<string, TableResult> = {
-    orders: opts.order ?? { data: { auto_release_at: "2026-08-09T12:00:00Z" }, error: null },
+    // RELATIVE, not a fixed date. This was "2026-08-09T12:00:00Z", which was in
+    // the future when written and silently became the past — at which point
+    // holdInfo() correctly reported `expired` and customerHoldCopy() returned
+    // the "this reservation has lapsed" text instead of the payment
+    // instructions the assertions look for. The test was not wrong about the
+    // behaviour; it was wrong about the clock. A hold is only ever asserted
+    // against "some time from now", so the fixture must say that.
+    orders: opts.order ?? {
+      data: { auto_release_at: new Date(Date.now() + 48 * 3600 * 1000).toISOString() },
+      error: null,
+    },
     stores: opts.store ?? { data: { merchant_id: "merchant-1", name: "Ti Boutique" }, error: null },
     order_items:
       opts.items ??
