@@ -29,7 +29,7 @@
 // v130 — marketplace structured data + shops in the sitemap. A separate number
 // from v129 deliberately: two parallel branches both reached for v129, and a
 // cache name that identifies two different builds identifies neither.
-const CACHE = "rr-cache-v132";
+const CACHE = "rr-cache-v133";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
