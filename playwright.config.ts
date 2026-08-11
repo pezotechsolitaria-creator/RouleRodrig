@@ -22,7 +22,27 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
+  // The bottleneck is the dev server, not the browser. Turbopack compiles each
+  // route on first request, and five workers hitting it at once made even
+  // `page.goto("/")` time out — the pre-existing smoke tests failed too, so this
+  // is not specific to any one spec. Against a real deployment (E2E_BASE_URL)
+  // or in CI there is nothing to compile, so full parallelism stays there.
+  workers: process.env.CI || process.env.E2E_BASE_URL ? undefined : 2,
   reporter: "list",
+  // Playwright's default is 5s, which is fine against a warm server and not at
+  // all fine against a cold one. Turbopack compiles each route on its first
+  // request, and with several specs running in parallel the first paint of a
+  // page can take 15s+ — the same suite passed in 9s against production and
+  // failed wholesale on a cold dev server purely on this. A longer ceiling
+  // costs nothing when assertions pass quickly; it only changes how long a
+  // genuine failure takes to report.
+  expect: { timeout: 15_000 },
+  // Same reason, for the whole-test budget. Playwright's 30s default is
+  // comfortable against production (the suites finish in ~9s there) and is not
+  // enough against a Turbopack dev server serving several parallel workers,
+  // where a single first paint measured 7s+ and whole tests overran 30s. This
+  // only bounds how long a hung test waits before being reported.
+  timeout: 90_000,
   use: {
     baseURL: BASE_URL,
     trace: "on-first-retry",
