@@ -42,6 +42,15 @@ export type OrganizerEvent = {
 export type OrganizerPackage = {
   variantId: string;
   name: string | null;
+  // M47 content — what makes a tier a tier rather than just a higher price.
+  // These MUST be returned by organizer_event_detail (M47c): the editor posts
+  // back what it was given, so a missing field here is not a blank form, it is
+  // a silent wipe of content the organiser already wrote.
+  subtitle: string | null;
+  description: string | null;
+  inclusions: string[];
+  imageUrl: string | null;
+  displayOrder: number;
   price: number;
   remaining: number;
   isActive: boolean;

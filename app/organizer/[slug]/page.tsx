@@ -4,6 +4,7 @@ import { ArrowLeft, CalendarDays, MapPin, AlertTriangle, Clock } from "lucide-re
 import { createClient } from "@/lib/supabase/server";
 import { getEventDetail } from "@/lib/events/organizer";
 import { centsToDecimalString } from "@/lib/money";
+import PackageManager from "@/components/events/PackageManager";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 
 export const dynamic = "force-dynamic";
@@ -65,63 +66,8 @@ export default async function OrganizerEventPage({
 
       {/* ── Packages ─────────────────────────────────────────────────── */}
       <section aria-labelledby="pk-h" className="mt-8">
-        <h2 id="pk-h" className="font-bebas text-[11px] tracking-[0.3em] text-yellow">TICKET PACKAGES</h2>
-        {event.packages.length === 0 ? (
-          <div className="mt-2 rounded-2xl border border-white/10 bg-dark-card p-8 text-center">
-            <p className="font-syne text-base font-bold text-offwhite">No packages yet</p>
-            <p className="mx-auto mt-1 max-w-sm font-dm text-sm text-muted">
-              Nobody can buy a ticket until this event has at least one package. Roulé Rodrigues sets
-              these up with you.
-            </p>
-          </div>
-        ) : (
-          <div className="mt-2 space-y-2">
-            {event.packages.map((p) => {
-              const pct = p.sold + p.awaiting + p.remaining > 0
-                ? Math.round((p.sold / (p.sold + p.awaiting + p.remaining)) * 100) : 0;
-              return (
-                <div key={p.variantId} className="rounded-2xl border border-white/10 bg-dark-card p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-syne text-base font-bold text-offwhite">{p.name ?? "Ticket"}</p>
-                      <p className="font-dm text-sm text-yellow">Rs {centsToDecimalString(p.price)}</p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {!p.isActive && (
-                        <span className="rounded-full border border-white/15 px-2.5 py-1 font-dm text-[11px] text-muted">
-                          Hidden
-                        </span>
-                      )}
-                      {/* Never show a state without saying what it means. */}
-                      {p.isActive && !p.salesOpen && (
-                        <span className="rounded-full border border-orange-400/30 bg-orange-400/10 px-2.5 py-1 font-dm text-[11px] text-orange-300">
-                          {p.salesEnd && new Date(p.salesEnd) < new Date() ? "Sales closed" : "Not on sale yet"}
-                        </span>
-                      )}
-                      {p.remaining === 0 && (
-                        <span className="rounded-full border border-red-500/25 bg-red-500/10 px-2.5 py-1 font-dm text-[11px] text-red-300">
-                          Sold out
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10"
-                       role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}
-                       aria-label={`${p.name ?? "Ticket"}: ${pct}% sold`}>
-                    <div className="h-full rounded-full bg-yellow" style={{ width: `${pct}%` }} />
-                  </div>
-
-                  <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-1 font-dm text-sm">
-                    <div><dt className="inline text-muted">Sold </dt><dd className="inline font-medium text-offwhite">{p.sold}</dd></div>
-                    <div><dt className="inline text-muted">Awaiting payment </dt><dd className="inline font-medium text-offwhite">{p.awaiting}</dd></div>
-                    <div><dt className="inline text-muted">Left </dt><dd className="inline font-medium text-offwhite">{p.remaining}</dd></div>
-                  </dl>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <h2 id="pk-h" className="sr-only">Ticket packages</h2>
+        <PackageManager storeId={event.storeId} packages={event.packages} />
       </section>
 
       {/* ── Reservations ─────────────────────────────────────────────── */}

@@ -20,9 +20,20 @@ export type EventTicketType = {
   price: number;
   capacity: number;
   remaining: number;
+  minPerOrder: number;
   maxPerOrder: number | null;
   salesOpen: boolean;
   soldOut: boolean;
+  // M47 package content. A customer choosing between Standard and VIP is not
+  // comparing prices — they are comparing promises, and a name alone does not
+  // carry one.
+  subtitle: string | null;
+  description: string | null;
+  inclusions: string[];
+  imageUrl: string | null;
+  /** Why it cannot be bought yet, when that is the case. */
+  salesStart: string | null;
+  salesEnd: string | null;
 };
 
 export type EventSummary = {
@@ -94,7 +105,8 @@ async function ticketTypesFor(
     .from("products")
     .select(
       "store_id, product_variants(id, name, price, stock_quantity, is_active, " +
-        "ticket_types(sales_start, sales_end, max_per_order, min_per_order, display_order))",
+        "ticket_types(sales_start, sales_end, max_per_order, min_per_order, display_order, " +
+        "subtitle, description, inclusions, image_url))",
     )
     .in("store_id", storeIds)
     .eq("status", "active");
@@ -109,7 +121,7 @@ async function ticketTypesFor(
     store_id: string;
     product_variants: {
       id: string; name: string | null; price: number; stock_quantity: number; is_active: boolean;
-      ticket_types: { sales_start: string | null; sales_end: string | null; max_per_order: number | null; display_order: number | null } | { sales_start: string | null; sales_end: string | null; max_per_order: number | null; display_order: number | null }[] | null;
+      ticket_types: { sales_start: string | null; sales_end: string | null; max_per_order: number | null; min_per_order: number | null; display_order: number | null; subtitle: string | null; description: string | null; inclusions: string[] | null; image_url: string | null } | { sales_start: string | null; sales_end: string | null; max_per_order: number | null; min_per_order: number | null; display_order: number | null; subtitle: string | null; description: string | null; inclusions: string[] | null; image_url: string | null }[] | null;
     }[];
   };
 
@@ -130,12 +142,26 @@ async function ticketTypesFor(
         price: v.price,
         capacity: v.stock_quantity,
         remaining: Math.max(0, v.stock_quantity),
+        minPerOrder: Math.max(1, tt.min_per_order ?? 1),
         maxPerOrder: tt.max_per_order,
         salesOpen: startOk && endOk,
         soldOut: v.stock_quantity <= 0,
-      });
+        subtitle: tt.subtitle,
+        description: tt.description,
+        inclusions: tt.inclusions ?? [],
+        imageUrl: tt.image_url,
+        salesStart: tt.sales_start,
+        salesEnd: tt.sales_end,
+        displayOrder: tt.display_order ?? 0,
+      } as EventTicketType & { displayOrder: number });
       byStore.set(p.store_id, list);
     }
+  }
+  // The organiser decides the running order — Early Bird before Standard before
+  // VIP, not whatever order Postgres returned.
+  for (const [k, list] of byStore) {
+    byStore.set(k, list.sort((a, b) =>
+      ((a as { displayOrder?: number }).displayOrder ?? 0) - ((b as { displayOrder?: number }).displayOrder ?? 0)));
   }
   return byStore;
 }

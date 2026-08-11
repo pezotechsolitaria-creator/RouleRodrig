@@ -9,7 +9,7 @@ import JsonLd from "@/components/JsonLd";
 import { ShopHeader } from "@/components/shop/ShopChrome";
 import { getPublicEvent } from "@/lib/events/queries";
 import { eventDateOnly, eventTimeOnly, availabilityLabel } from "@/lib/events/format";
-import ReserveTickets from "@/components/events/ReserveTickets";
+import PackagePicker from "@/components/events/PackagePicker";
 import ShareEvent from "@/components/events/ShareEvent";
 
 export const dynamic = "force-dynamic";
@@ -209,13 +209,19 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
               </Link>
             </div>
           ) : (
-            <ReserveTickets
-              storeId={event.storeId}
-              storeName={event.name}
-              ticketTypes={event.ticketTypes}
-              paymentNote={null}
-              disabled={cancelled}
-            />
+            <>
+              {/* The conversion moment. Cards first, so the customer chooses
+                  WHICH before being asked HOW MANY (M47). */}
+              <h2 className="mb-4 font-bebas text-[11px] tracking-[0.3em] text-yellow">
+                CHOOSE YOUR EXPERIENCE
+              </h2>
+              <PackagePicker
+                storeId={event.storeId}
+                storeName={event.name}
+                ticketTypes={event.ticketTypes}
+                disabled={cancelled}
+              />
+            </>
           )}
         </div>
 
