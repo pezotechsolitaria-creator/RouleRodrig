@@ -3,7 +3,10 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import CheckoutForm from "@/components/checkout/CheckoutForm";
-import { CART_DOMAINS, type CartDomain } from "@/lib/cart/CartContext";
+// From lib/cart/domains, NOT lib/cart/CartContext: this is a server component,
+// and a plain value imported from a "use client" module arrives as a client
+// reference that throws the moment it is used.
+import { toCartDomain, type CartDomain } from "@/lib/cart/domains";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -31,9 +34,7 @@ export default async function CheckoutPage({
   // cart the component happened to read first, which is a coin toss.
   const sp = await searchParams;
   const raw = Array.isArray(sp.cart) ? sp.cart[0] : sp.cart;
-  const domain: CartDomain = (CART_DOMAINS as readonly string[]).includes(raw ?? "")
-    ? (raw as CartDomain)
-    : "shop";
+  const domain: CartDomain = toCartDomain(raw);
 
   const supabase = await createClient();
   const {

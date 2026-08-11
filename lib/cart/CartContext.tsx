@@ -36,8 +36,11 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 // them out one at a time, which is three orders the platform would otherwise
 // have talked them out of.
 
-export const CART_DOMAINS = ["food", "shop", "events"] as const;
-export type CartDomain = (typeof CART_DOMAINS)[number];
+// Defined in a directive-free module so SERVER components can read them too —
+// importing a plain value from a "use client" module gives them a client
+// reference, not the value. See lib/cart/domains.ts.
+export { CART_DOMAINS, toCartDomain, type CartDomain } from "./domains";
+import { CART_DOMAINS, type CartDomain } from "./domains";
 
 export type CartLine = { variantId: string; quantity: number };
 export type CartState = { storeId: string; storeName: string; items: CartLine[] } | null;

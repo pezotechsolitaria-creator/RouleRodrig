@@ -1,4 +1,4 @@
-import type { CartDomain } from "@/lib/cart/CartContext";
+import type { CartDomain } from "@/lib/cart/domains";
 
 // The words the order path uses for whoever is selling.
 //
