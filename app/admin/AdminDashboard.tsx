@@ -61,6 +61,7 @@ import {
   UserPlus,
   FileCheck,
   Settings,
+  MessageCircle,
 } from "lucide-react";
 import type { TaxiDriver, TaxiDriverReview } from "@/lib/supabase/taxi-types";
 import type {
@@ -173,6 +174,7 @@ const MARKETPLACE_LINKS: { href: string; label: string; icon: React.ElementType 
   { href: "/admin/stores",         label: "Shops & Opening Hours",     icon: Clock },
   { href: "/admin/delivery-zones", label: "Delivery Areas & Fees",     icon: Truck },
   { href: "/admin/monetization",   label: "Monetization & Revenue",    icon: Wallet },
+  { href: "/admin/notifications",  label: "WhatsApp Alerts",           icon: MessageCircle },
 ];
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
