@@ -143,6 +143,13 @@ export const EMAIL_TYPES = {
   owner_place_reminder:             { category: "operational", priority: "normal" },
   owner_tiroule_digest:             { category: "operational", priority: "low" },
   admin_test:                       { category: "operational", priority: "low" },
+  // Outbound to an APPLICANT, not to the owner — so unlike its neighbours here
+  // there is no second channel behind it. Somebody applied to list a business
+  // (or, since M47, to become a taxi driver, event organiser or delivery
+  // partner) and the page promised "we'll be in touch"; until this existed,
+  // approving an application flipped a column and told them nothing. `high`
+  // for that reason: it is the answer to a question a real person asked.
+  partner_application_decision:     { category: "operational", priority: "high" },
 
   // ── Marketing ────────────────────────────────────────────────────────────
   // Kept a separate category so it can be throttled first and so it is never

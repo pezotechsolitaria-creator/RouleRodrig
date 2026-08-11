@@ -44,8 +44,37 @@ export async function PATCH(req: NextRequest) {
   if (!id || !["pending", "approved", "rejected"].includes(status))
     return NextResponse.json({ error: "Missing id or invalid status" }, { status: 400 });
   const supabase = await getPrivileged();
+  // Selected back so the decision email has a name, an address and a category
+  // without a second round trip — and so a status that did not actually change
+  // can be detected before anyone is emailed about it.
+  const { data: before } = await supabase
+    .from("owner_applications")
+    .select("id, owner_name, email, listing_type, business_name, status")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase.from("owner_applications").update({ status }).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Tell the applicant. The form promised "we'll be in touch" and this used to
+  // flip a column and stop, which left the promise resting on the owner
+  // remembering to phone them — and since M47 the taxi / organiser / delivery
+  // categories cannot create anything themselves, so this email is the only way
+  // they can learn the answer.
+  //
+  // Best-effort and after the commit, the same rule every other send in this
+  // codebase follows: an admin's click must not fail because a mail provider
+  // did. Re-applying the SAME status sends nothing — an idempotent PATCH from a
+  // double-click should not look like a second decision to the applicant.
+  if (before && before.status !== status && (status === "approved" || status === "rejected")) {
+    try {
+      const { notifyApplicationDecision } = await import("@/lib/notifications/partner-application");
+      await notifyApplicationDecision(before, status);
+    } catch (err) {
+      console.error("application decision email failed", err);
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }
 

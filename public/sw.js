@@ -35,7 +35,9 @@
 // Past v133, which main reached for at the same time this branch did. Two
 // builds under one cache name is the failure v128's note describes, and it is
 // cheaper to burn a number than to debug it later.
-const CACHE = "rr-cache-v134";
+// v135 — partner applicants are told the decision. Same story as v134: main and
+// this branch both reached for 134, so this one steps past rather than share it.
+const CACHE = "rr-cache-v135";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
