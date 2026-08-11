@@ -516,26 +516,24 @@ html[data-splash="on"] #rr-splash.rr-skip {
   pointer-events: none;
   animation: rr-logo-sweep 12s ease-in-out infinite;
 }
-/* One full 360° turn on load, then settle — not a continuous spin.
-   A logo that never stops rotating competes with the page for attention, and on
-   a phone it repaints every frame for as long as the tab is open. A single
-   deliberate turn reads as arrival; perpetual motion reads as a loading state
-   that never finishes.
-   forwards holds the end frame so it cannot snap back mid-rotation. */
+/* A continuous, slow 360° turn — owner's call, and the pace is what keeps it
+   from nagging: one revolution every 14s is closer to a weather vane than to a
+   spinner, so it reads as ambient rather than as something still loading.
+   The perspective lives INSIDE the transform instead of on an ancestor, because
+   .rr-logo-anim already sets its own transform on hover and would otherwise
+   flatten the 3D context out from under this. */
 @keyframes rr-logo-spin-in {
-  from { transform: rotateY(0deg); }
-  to   { transform: rotateY(360deg); }
+  from { transform: perspective(600px) rotateY(0deg); }
+  to   { transform: perspective(600px) rotateY(360deg); }
 }
 .rr-logo-spin {
   display: inline-flex;
   transform-style: preserve-3d;
-  animation: rr-logo-spin-in 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
-}
-/* Repeat the turn on demand rather than on a timer. The wrapper already tilts
-   on hover; on a touch device :active is the only equivalent, so both fire it. */
-.rr-logo-anim:hover .rr-logo-spin,
-.rr-logo-anim:active .rr-logo-spin {
-  animation: rr-logo-spin-in 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* `linear` is not a taste call. Any eased curve accelerates away from 0deg
+     and decelerates into 360deg — and since those two frames are the same
+     image, the loop would visibly hitch once per turn. Only constant angular
+     velocity hides the seam. */
+  animation: rr-logo-spin-in 14s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

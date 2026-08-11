@@ -11,7 +11,14 @@
 // v95 — M9/M10 release: stale-quote guard (RR012), payment-ledger fix and
 // checkout idempotency. Bumping evicts every older cache on activate, so no
 // client can keep running a checkout bundle that predates those fixes.
-const CACHE = "rr-cache-v122";
+// v124 — new logo + continuous spin. The icons had ALREADY been deployed and
+// were byte-identical on the origin, yet devices kept showing the old mark:
+// runtime-cached images survive a deploy on their own, so shipping an asset is
+// not the same as delivering it. This bump is what evicts them.
+// Deliberately ahead of BOTH sides of a rebase conflict: main had gone back to
+// v122 while v123 was already live, and a version that moves backwards cannot
+// evict anything — an existing client keeps its cache unless the name changes.
+const CACHE = "rr-cache-v124";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
