@@ -69,7 +69,7 @@
 // alongside orders, so the signed-in half of Suivi covers everything too.
 // v152 — hero videos. Sixth number collision with a parallel branch; stepping
 // past is still cheaper than two builds sharing one cache name.
-const CACHE = "rr-cache-v152";
+const CACHE = "rr-cache-v153";
 // v141 — HOTFIX: /checkout returned a 500. A server component was importing a
 // plain value from a "use client" module and got a client reference back.
 const SHELL = "/";

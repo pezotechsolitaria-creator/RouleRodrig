@@ -41,7 +41,33 @@ const dmSans = DM_Sans({
   display: "swap",
 });
 
-export const metadata: Metadata = {
+// generateMetadata, not a static object, for ONE reason: the share image.
+//
+// The picture WhatsApp, Messenger and iMessage show when this domain is pasted
+// came from a hardcoded /og-image.jpg — a scooter photo committed to the repo
+// that the owner could not change from /admin and did not want. It now follows
+// the hero background image, which is already owner-managed, so the link
+// preview tracks the same content the site does.
+//
+// getContent() is deliberately cookie-free (see lib/content.ts), which is what
+// lets the pages calling it stay cacheable; reading it here does not opt any
+// route out of that. The bundled file stays as the last-resort fallback for a
+// first run or a failed content read — a preview with NO image looks broken in
+// a way that a merely dated one does not.
+export async function generateMetadata(): Promise<Metadata> {
+  let shareImage = `${SITE_URL}/og-image.jpg`;
+  try {
+    const { getContent } = await import("@/lib/content");
+    const content = await getContent();
+    if (content?.hero?.backgroundImage) shareImage = content.hero.backgroundImage;
+  } catch {
+    /* keep the fallback — metadata must never be able to fail a page render */
+  }
+  return buildMetadata(shareImage);
+}
+
+function buildMetadata(shareImage: string): Metadata {
+  return {
   metadataBase: new URL(SITE_URL),
   // NO `alternates.canonical` here. Next MERGES metadata down the tree, so a
   // canonical set on the root layout is inherited by every page that does not
@@ -81,10 +107,10 @@ export const metadata: Metadata = {
     siteName: "Roule Rodrigues",
     images: [
       {
-        url: "/og-image.jpg",
+        url: shareImage,
         width: 1200,
         height: 630,
-        alt: "Roule Rodrigues — scooter at golden hour on Rodrigues Island",
+        alt: "Roule Rodrigues — rent a scooter or car and explore Rodrigues Island",
       },
     ],
   },
@@ -93,7 +119,7 @@ export const metadata: Metadata = {
     title: "Roule Rodrigues | Vehicle Rentals & Island Experiences",
     description:
       "Discover Rodrigues on your own terms — scooters, cars, restaurants, activities and local transport. Flexible hours, local support.",
-    images: ["/og-image.jpg"],
+    images: [shareImage],
   },
   // Explicit icon set so Google shows the Roule Rodrigues logo beside the
   // search result, not a generic globe. app/favicon.ico was the default Next.js
@@ -125,7 +151,8 @@ export const metadata: Metadata = {
   ...(process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION
     ? { verification: { google: process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION } }
     : {}),
-};
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#0a0a0a",
