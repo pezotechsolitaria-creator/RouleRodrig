@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Download, X, Share, MoreVertical, Plus } from "lucide-react";
 import { SITE_URL } from "@/lib/site";
 
@@ -116,13 +116,35 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
     <>
       {trigger}
 
-      <AnimatePresence>
-        {open && mounted && createPortal(
+      {/* Plainly conditional, and NOT wrapped in AnimatePresence.
+
+          This modal previously rendered <AnimatePresence>{createPortal(…)}</…>
+          and never opened at all. AnimatePresence filters its children through
+          React.isValidElement(), and a portal's $$typeof is REACT_PORTAL_TYPE
+          rather than REACT_ELEMENT_TYPE — so isValidElement() is false and the
+          portal was discarded before it could mount. Measured on production:
+          open=true, mounted=true, the onClick attached and firing, and no DOM
+          appeared. No error, no warning; the button simply did nothing. It was
+          introduced when the modal was portalled to <body> to escape a
+          contained position:fixed.
+
+          If you reintroduce AnimatePresence, it must go INSIDE the portal (see
+          MapSection's lightbox for that shape) — and re-verify closing, not
+          just opening. A modal that fades out but never unmounts leaves an
+          invisible `fixed inset-0` overlay with pointer-events:auto across the
+          viewport, which swallows every click on the page. A bare conditional
+          cannot fail that way, and the entrance still animates via
+          initial/animate; the only thing given up is the fade-out.
+
+          Verified locally: opens, closes via X, closes via backdrop, reopens,
+          and leaves zero overlay nodes behind. NOTE when testing this yourself
+          — the service worker caches JS on localhost, so unregister it and
+          clear caches or you will be measuring the previous build. */}
+      {mounted && open && createPortal(
           <motion.div
             className="fixed inset-0 z-[130] flex items-end sm:items-center justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/70 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
             onClick={() => setOpen(false)}
           >
             <motion.div
@@ -202,9 +224,8 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
               </ol>
             </motion.div>
           </motion.div>,
-          document.body,
-        )}
-      </AnimatePresence>
+        document.body,
+      )}
     </>
   );
 }
