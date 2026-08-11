@@ -36,7 +36,10 @@ const DENY_SUBSTRINGS = [
   "latitude", "longitude", "coordinates", "geolocation",
   // credentials
   "password", "passwd", "secret", "api_key", "apikey", "authorization",
-  "auth_token", "authtoken", "bearer", "jwt", "credential", "signature",
+  // "_token" catches auth_token / access_token / refresh_token / id_token in
+  // one rule. It deliberately does NOT match the bare `token` property, which
+  // belongs to PostHog — see POSTHOG_OWNED_PROPERTIES below.
+  "_token", "authtoken", "bearer", "jwt", "credential", "signature",
   "cookie", "otp", "one_time", "pin_code",
   // codes that can single out a person
   "referral_code", "partner_code", "promo_code", "voucher", "coupon_code",
@@ -48,6 +51,22 @@ const DENY_SUBSTRINGS = [
 const DENY_EXACT = new Set([
   "name", "username", "surname", "dob", "ssn", "nid", "pan", "token", "pin",
 ]);
+
+// ── Do not touch these, ever ─────────────────────────────────────────────────
+//
+// PostHog puts its own plumbing in the SAME flat `properties` bag as our custom
+// properties, and unlike the rest of its internals these are NOT `$`-prefixed.
+// `properties.token` is the project API key: ingest returns 401 for any event
+// whose token was altered, and posthog-js sends it anyway — so redacting it
+// produces a total, silent analytics outage with no console error and no failed
+// request visible to the page. posthog-js names this exact hazard in
+// `_runBeforeSend` ("a generic token/PII scrubber matching /token/i"), and this
+// scrubber walked straight into it in production before this exemption existed.
+//
+// `token` is the only name posthog enforces (`knownUnsafeEditableEventProperty`);
+// `distinct_id` is included because it is equally PostHog-owned and equally
+// fatal to lose, and it is a random id rather than personal data.
+const POSTHOG_OWNED_PROPERTIES = new Set(["token", "distinct_id"]);
 
 // Query parameters worth stripping out of any URL we report. A booking link or
 // a magic-link callback routinely carries exactly this.
@@ -173,6 +192,13 @@ function scrubProperties(props: Record<string, unknown>): Record<string, unknown
   for (const [key, value] of Object.entries(props)) {
     const isInternal = key.startsWith("$");
 
+    // First, before any rule: PostHog's own plumbing passes through verbatim.
+    // Editing it does not protect anyone and breaks ingestion outright.
+    if (POSTHOG_OWNED_PROPERTIES.has(key)) {
+      out[key] = value;
+      continue;
+    }
+
     if (isPresenceFlag(key, value)) {
       out[key] = value;
       continue;
@@ -205,14 +231,23 @@ function scrubProperties(props: Record<string, unknown>): Record<string, unknown
 export function scrubPostHogEvent(cr: CaptureResult | null): CaptureResult | null {
   if (!cr) return null;
 
-  if (cr.properties) {
-    cr.properties = scrubProperties(cr.properties);
+  try {
+    if (cr.properties) {
+      cr.properties = scrubProperties(cr.properties);
+    }
+
+    // Person properties are the highest-value target in the whole payload: they
+    // persist against the profile rather than a single event.
+    if (cr.$set) cr.$set = scrubProperties(cr.$set);
+    if (cr.$set_once) cr.$set_once = scrubProperties(cr.$set_once);
+
+    return cr;
+  } catch {
+    // Fail CLOSED. If sanitising threw, we do not know what is in this payload,
+    // and returning it unscrubbed would defeat the only reason this function
+    // exists. Dropping one event costs a gap in a chart; sending a customer's
+    // phone number to a third party is permanent. Same trade-off the Sentry
+    // scrubber makes in lib/sentry-scrub.ts.
+    return null;
   }
-
-  // Person properties are the highest-value target in the whole payload: they
-  // persist against the profile rather than a single event.
-  if (cr.$set) cr.$set = scrubProperties(cr.$set);
-  if (cr.$set_once) cr.$set_once = scrubProperties(cr.$set_once);
-
-  return cr;
 }

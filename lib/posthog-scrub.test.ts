@@ -81,7 +81,12 @@ describe("scrubPostHogEvent — money and credentials", () => {
       auth_token: "abc",
       otp: "445566",
       cookie: "sb-access=1",
-      token: "abc",
+      // NOT a bare `token` — that key belongs to PostHog and is exempt on
+      // purpose (see the PostHog-owned plumbing suite). These are the shapes a
+      // developer would actually use for a credential.
+      access_token: "abc",
+      refresh_token: "def",
+      id_token: "ghi",
     });
 
     for (const key of Object.keys(out.properties)) {
@@ -195,6 +200,71 @@ describe("scrubPostHogEvent — legitimate analytics survive", () => {
   });
 });
 
+describe("scrubPostHogEvent — PostHog-owned plumbing must survive", () => {
+  // REGRESSION. `properties.token` is the project API key and is NOT
+  // $-prefixed, so an earlier version of this scrubber matched it on the
+  // exact-key deny word "token" and replaced it with "[redacted]". posthog-js
+  // sent the events anyway, ingest rejected every one with a 401, and the
+  // result was a total analytics blackout with no console error and no visible
+  // failed request. Caught only by checking PostHog's own ingested data.
+  it("passes the project token through untouched", () => {
+    const out = scrub({
+      token: "phc_vGeFewnxAek7uwRsVCTNpLiqnf39WKjHWzvko8vGPHfg",
+      distinct_id: "0198-abcd-ef01",
+    });
+
+    expect(out.properties.token).toBe("phc_vGeFewnxAek7uwRsVCTNpLiqnf39WKjHWzvko8vGPHfg");
+    expect(out.properties.distinct_id).toBe("0198-abcd-ef01");
+  });
+
+  it("survives a realistic full $pageview payload with everything intact", () => {
+    // Shaped like what posthog-js actually emits, so this test fails if any
+    // future deny word collides with PostHog's own plumbing again.
+    const out = scrub({
+      token: "phc_test",
+      distinct_id: "abc-123",
+      $session_id: "sess_1",
+      $device_id: "dev_1",
+      $window_id: "win_1",
+      $current_url: "https://roulerodrig.com/explore",
+      $pathname: "/explore",
+      $host: "roulerodrig.com",
+      $referrer: "$direct",
+      $browser: "Chrome",
+      $browser_version: 148,
+      $os: "Windows",
+      $device_type: "Desktop",
+      $screen_height: 800,
+      $screen_width: 1280,
+      $lib: "web",
+      $lib_version: "1.414.0",
+      $time: 1_760_000_000,
+      $insert_id: "ins_1",
+      title: "Explore Rodrigues",
+    });
+
+    expect(out.properties.token).toBe("phc_test");
+    expect(out.properties.distinct_id).toBe("abc-123");
+    expect(out.properties.$session_id).toBe("sess_1");
+    expect(out.properties.$device_id).toBe("dev_1");
+    expect(out.properties.$current_url).toBe("https://roulerodrig.com/explore");
+    expect(out.properties.$pathname).toBe("/explore");
+    expect(out.properties.$lib_version).toBe("1.414.0");
+    expect(out.properties.$insert_id).toBe("ins_1");
+
+    // Nothing in a routine pageview should be redacted at all.
+    expect(JSON.stringify(out.properties)).not.toContain("[redacted]");
+  });
+
+  it("still redacts a token nested inside a custom object", () => {
+    // The exemption is top-level only — PostHog owns `properties.token`, not
+    // some credential a developer buried in a nested payload.
+    const out = scrub({ auth: { token: "sup3rsecret" } });
+
+    expect(JSON.stringify(out.properties)).not.toContain("sup3rsecret");
+  });
+});
+
 describe("scrubPostHogEvent — PostHog internal properties", () => {
   it("keeps $-prefixed keys so sessions and funnels keep working", () => {
     const out = scrub({
@@ -276,6 +346,22 @@ describe("scrubPostHogEvent — nested and hostile payloads", () => {
 
   it("returns null for a null event", () => {
     expect(scrubPostHogEvent(null)).toBeNull();
+  });
+
+  it("fails closed — drops the event rather than sending it unscrubbed", () => {
+    // A property whose enumeration throws. If sanitising cannot complete we do
+    // not know what is in the payload, so it must not be sent.
+    const hostile = {
+      uuid: "u",
+      event: "test_event",
+      properties: {
+        get exploding(): string {
+          throw new Error("cannot read");
+        },
+      },
+    } as unknown as CaptureResult;
+
+    expect(scrubPostHogEvent(hostile)).toBeNull();
   });
 });
 
