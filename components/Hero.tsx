@@ -4,6 +4,7 @@ import Image from "next/image";
 import { MessageCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type HeroContent } from "@/lib/defaults";
+import HeroVideoLayer from "@/components/HeroVideo";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
 
@@ -109,7 +110,12 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
 
   return (
     <section className={`relative w-full overflow-hidden flex flex-col ${compact ? "rr-home-hero min-h-[172px] md:min-h-[36vh]" : "min-h-[40vh] md:min-h-[62vh]"}`} aria-label="Hero section">
-      {/* ── Background image (owner's brand photo) ──────── */}
+      {/* ── Background: the owner's photo, with their footage layered over ───
+          Order is load-bearing. The still renders first and unconditionally;
+          the video sits on top and fades in only once a frame has decoded. So
+          the hero is never blank while a clip loads, and every way video can
+          fail — none uploaded, a codec the browser refuses, Data Saver,
+          reduced motion — simply leaves the photograph showing. */}
       <div className="absolute inset-0">
         {h.backgroundImage && (
           <Image
@@ -122,7 +128,10 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
             unoptimized={h.backgroundImage.startsWith("/uploads/") || (h.backgroundImage.startsWith("http") && !h.backgroundImage.includes("supabase.co"))}
           />
         )}
-        {/* Layered cinematic darkening for depth + legibility */}
+        <HeroVideoLayer videos={h.videos} />
+        {/* Layered cinematic darkening for depth + legibility. Sits ABOVE the
+            video too, so footage shot in bright sun cannot wash out the
+            headline the way an unscrimmed clip would. */}
         <div className="absolute inset-0 bg-gradient-to-b from-dark/85 via-dark/40 to-dark" />
         <div className="absolute inset-0 bg-gradient-to-r from-dark/75 via-dark/20 to-transparent" />
         {/* Soft scrim anchored where the text sits, so the headline always reads */}

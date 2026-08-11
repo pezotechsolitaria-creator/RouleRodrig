@@ -89,6 +89,7 @@ import type {
   RecommendedPlace,
   QuickAccessItem,
   HomeCard,
+  HeroVideo,
 } from "@/lib/defaults";
 import { DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS } from "@/lib/defaults";
 import type { ContactSubmission, Booking, PlaceBooking, Partner, MarketplaceListing, ProductReview, WaitlistEntry } from "@/lib/supabase/types";
@@ -332,6 +333,161 @@ function TransFields({
         </div>
       )}
     </div>
+  );
+}
+
+// ── Hero videos ────────────────────────────────────────────────────────────
+//
+// Uploads do NOT go through /api/admin/upload like every other asset here. That
+// route caps at 4 MB because a Vercel function body cannot exceed ~4.5 MB, and
+// a hero clip is bigger than that even after compression. The route instead
+// hands back a short-lived signed URL and the file goes from this browser
+// straight to Supabase Storage, never touching a function.
+function HeroVideosEditor({
+  videos,
+  onChange,
+  onSessionExpired,
+}: {
+  videos: HeroVideo[];
+  onChange: (v: HeroVideo[]) => void;
+  onSessionExpired?: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [pct, setPct] = useState(0);
+  const [err, setErr] = useState<string | null>(null);
+  const [url, setUrl] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const list = videos ?? [];
+  const add = (v: HeroVideo) => onChange([...list, v]);
+  const patch = (i: number, p: Partial<HeroVideo>) =>
+    onChange(list.map((v, j) => (j === i ? { ...v, ...p } : v)));
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= list.length) return;
+    const next = [...list];
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  };
+  async function remove(i: number) {
+    const v = list[i];
+    onChange(list.filter((_, j) => j !== i));
+    // Best-effort storage cleanup so the bucket does not fill with clips
+    // nothing references. Only for files WE uploaded — a pasted URL is not ours
+    // to delete.
+    const m = /\/hero-video\/([^/?]+)$/.exec(v?.url ?? "");
+    if (m) {
+      try {
+        await fetch(`/api/admin/hero-video?path=${encodeURIComponent(m[1])}`, { method: "DELETE" });
+      } catch { /* the reference is already gone; an orphan is harmless */ }
+    }
+  }
+
+  async function upload(file: File) {
+    setBusy(true); setErr(null); setPct(0);
+    try {
+      const mint = await fetch("/api/admin/hero-video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentType: file.type, size: file.size }),
+      });
+      if (mint.status === 401) { onSessionExpired?.(); return; }
+      const body = await mint.json().catch(() => ({}));
+      if (!mint.ok) throw new Error(body.error || "Could not start the upload.");
+
+      // XHR rather than fetch: this is the one upload on the site big enough
+      // that a progress bar is the difference between "working" and "frozen"
+      // on an island connection.
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", body.signedUrl, true);
+        xhr.setRequestHeader("Content-Type", file.type);
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) setPct(Math.round((e.loaded / e.total) * 100));
+        };
+        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300
+          ? resolve()
+          : reject(new Error(`Upload failed (${xhr.status}).`)));
+        xhr.onerror = () => reject(new Error("Upload failed. Check your connection."));
+        xhr.send(file);
+      });
+
+      add({ id: body.path, url: body.publicUrl, enabled: true });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Upload failed.");
+    } finally {
+      setBusy(false); setPct(0);
+    }
+  }
+
+  return (
+    <Field label="HERO VIDEOS">
+      <p className="text-muted/60 text-[11px] font-dm mb-3 leading-relaxed">
+        Plays behind the headline, muted and looping. The background image below stays as the
+        poster — it is what shows while the video loads, and instead of it on a slow
+        connection, on Data Saver, or for a visitor with reduced motion switched on.
+        <br />
+        <span className="text-yellow/70">Use MP4</span> where you can; it plays everywhere. An
+        iPhone .MOV is accepted but some Android browsers refuse it. Keep clips short
+        (10–20s) and under 64 MB.
+      </p>
+
+      <div className="space-y-2">
+        {list.map((v, i) => (
+          <div key={v.id || i} className="flex items-center gap-2 rounded-lg border border-[#2a2a2a] bg-[#0d0d0d] p-2">
+            <video src={v.url} muted playsInline preload="metadata"
+              className="h-12 w-20 shrink-0 rounded bg-black object-cover" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-dm text-[11px] text-offwhite/70">{v.url}</p>
+              <label className="mt-1 flex cursor-pointer items-center gap-1.5 font-dm text-[10px] text-muted">
+                <input type="checkbox" checked={v.enabled !== false}
+                  onChange={(e) => patch(i, { enabled: e.target.checked })}
+                  className="h-3 w-3 accent-yellow" />
+                Show on the homepage
+              </label>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <button type="button" onClick={() => move(i, -1)} disabled={i === 0}
+                className="rounded border border-[#2a2a2a] px-2 py-1 text-[11px] text-muted hover:text-yellow disabled:opacity-30" aria-label="Move up">↑</button>
+              <button type="button" onClick={() => move(i, 1)} disabled={i === list.length - 1}
+                className="rounded border border-[#2a2a2a] px-2 py-1 text-[11px] text-muted hover:text-yellow disabled:opacity-30" aria-label="Move down">↓</button>
+              <button type="button" onClick={() => void remove(i)}
+                className="rounded border border-[#2a2a2a] px-2 py-1 text-muted hover:border-red-500/50 hover:text-red-400" aria-label="Remove video">
+                <Trash2 size={12} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {busy && (
+        <div className="mt-3">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#2a2a2a]">
+            <div className="h-full bg-yellow transition-all" style={{ width: `${pct}%` }} />
+          </div>
+          <p className="mt-1 font-dm text-[10px] text-muted">Uploading… {pct}%</p>
+        </div>
+      )}
+      {err && <p className="mt-2 font-dm text-[11px] text-red-400">{err}</p>}
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => fileRef.current?.click()} disabled={busy}
+          className="flex items-center gap-2 rounded-lg border border-[#2a2a2a] px-4 py-2 font-dm text-xs text-offwhite/70 transition-colors hover:border-yellow hover:text-yellow disabled:opacity-40">
+          {busy ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+          {busy ? "Uploading…" : "Upload video"}
+        </button>
+        <input ref={fileRef} type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); e.target.value = ""; }} />
+        <span className="font-dm text-[10px] text-muted/50">or paste a link</span>
+        <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…/clip.mp4"
+          className="min-w-[180px] flex-1 rounded-lg border border-[#2a2a2a] bg-[#0d0d0d] px-3 py-2 font-dm text-xs text-offwhite placeholder:text-muted/40 focus:border-yellow focus:outline-none" />
+        <button type="button" disabled={!/^https:\/\/\S+$/.test(url.trim())}
+          onClick={() => { add({ id: `u-${Date.now()}`, url: url.trim(), enabled: true }); setUrl(""); }}
+          className="rounded-lg border border-[#2a2a2a] px-3 py-2 font-dm text-xs text-offwhite/70 transition-colors hover:border-yellow hover:text-yellow disabled:opacity-30">
+          Add
+        </button>
+      </div>
+    </Field>
   );
 }
 
@@ -894,8 +1050,14 @@ function HeroEditor({
 
   return (
     <div className="space-y-5">
+      {/* Video first: it is what a visitor sees, and the image below it now
+          reads as the poster it has become rather than as the whole hero. */}
+      <HeroVideosEditor
+        videos={h.videos ?? []}
+        onChange={(videos) => set({ videos })}
+      />
       <ImagePicker
-        label="BACKGROUND IMAGE"
+        label="BACKGROUND IMAGE (poster)"
         src={h.backgroundImage}
         onUpload={(p) => set({ backgroundImage: p })}
       />

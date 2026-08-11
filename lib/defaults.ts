@@ -1,5 +1,20 @@
 // Client-safe: types and default content only — no Node.js imports
 
+/** One clip in the hero. Owner-managed from /admin → Hero. */
+export interface HeroVideo {
+  /** Stable id so reordering and removal do not depend on array position. */
+  id: string;
+  /** Public URL in the `hero-video` bucket, or any direct video URL. */
+  url: string;
+  /**
+   * Still shown before the video can paint — the FIRST thing a visitor sees on
+   * a slow island connection, and what they keep seeing if the clip never
+   * loads. Falls back to hero.backgroundImage when empty.
+   */
+  poster?: string;
+  enabled?: boolean;
+}
+
 export interface HeroContent {
   eyebrow: string;
   eyebrowFr?: string;
@@ -10,7 +25,17 @@ export interface HeroContent {
   subheadline: string;
   subheadlineFr?: string;
   subheadlineCr?: string;
+  /**
+   * Still image behind the hero. NOT replaced by video — it is the poster and
+   * the fallback. Video is an enhancement on top of a hero that must still work
+   * with no video, a failed decode, or Data Saver on.
+   */
   backgroundImage: string;
+  /**
+   * Owner's own footage, newest first. Empty (or all disabled) means the hero
+   * behaves exactly as it did before this feature existed.
+   */
+  videos?: HeroVideo[];
 }
 
 export interface StatItem {
