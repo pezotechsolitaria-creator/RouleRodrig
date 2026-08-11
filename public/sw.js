@@ -47,7 +47,11 @@
 // this bump is what stops that.
 // v139 — forces a fresh CSS chunk for the cube motion redesign, which deployed
 // under v137 but was served from a stale build artifact. Fifth number collision.
-const CACHE = "rr-cache-v139";
+// v140 — the ticket scanner, and the buyer QR on both order pages. SIXTH time
+// two branches reached for the same number. The pattern is now the rule rather
+// than the exception, which is the argument for deriving this at build time from
+// the commit sha instead of incrementing it by hand.
+const CACHE = "rr-cache-v140";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
