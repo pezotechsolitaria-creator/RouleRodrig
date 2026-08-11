@@ -53,7 +53,8 @@
 // the commit sha instead of incrementing it by hand.
 // v142 — the pickup location everywhere it matters, and a service worker that
 // actually notices a new build instead of serving yesterday's homepage.
-const CACHE = "rr-cache-v142";
+// v143 — the ticket email, event status wording, and venue capacity.
+const CACHE = "rr-cache-v143";
 // v141 — HOTFIX: /checkout returned a 500. A server component was importing a
 // plain value from a "use client" module and got a client reference back.
 const SHELL = "/";
