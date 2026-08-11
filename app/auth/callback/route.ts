@@ -20,16 +20,39 @@ import { safeNext } from "@/lib/safe-next";
 //     merchant-branded "Create your shop account" page which never even read
 //     the error parameter, so nothing was explained. The failure now returns
 //     to the flow the visitor actually came from.
+//  3. CROSS-DEVICE CONFIRMATION FAILED SILENTLY. `code` is a PKCE grant: the
+//     code_verifier lives in the browser that STARTED the flow. Someone who
+//     signs up on a laptop and opens the confirmation on their phone — which is
+//     the normal case, because mail is read on phones — arrived with a code
+//     that cannot be exchanged here and were told the link had expired.
+//     `token_hash` carries no verifier and works from any device, so it is
+//     tried first. Same defect class as the reset page, which failed 100% of
+//     the time for the same reason.
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
+  const tokenHash = searchParams.get("token_hash");
+  const type = searchParams.get("type");
   // Default to the customer area. `/merchant` was the old default, which meant
   // a customer flow that lost its `next` silently ended up in the merchant app.
   const next = safeNext(searchParams.get("next"), "/orders");
 
-  if (code) {
+  if (code || tokenHash) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+    // Device-independent path first.
+    const { error } = tokenHash
+      ? await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          // Supabase sends signup | invite | magiclink | email_change | recovery.
+          // Anything unrecognised is treated as a plain email confirmation
+          // rather than rejected, so a new template cannot break sign-in.
+          type: (["signup", "invite", "magiclink", "email_change", "recovery"].includes(type ?? "")
+            ? type
+            : "email") as "signup" | "invite" | "magiclink" | "email_change" | "recovery" | "email",
+        })
+      : await supabase.auth.exchangeCodeForSession(code!);
+
     if (!error) {
       // Adopt guest orders placed with this address (M21).
       //

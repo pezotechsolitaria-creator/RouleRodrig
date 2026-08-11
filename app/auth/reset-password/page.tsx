@@ -43,38 +43,104 @@ function ResetPasswordForm() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  // The recovery session arrives asynchronously as the client parses the URL
-  // fragment. Waiting for it means we can tell "this link is expired" from
-  // "still loading", instead of showing a form that will always fail.
+  // ── Establishing the recovery session ──────────────────────────────────────
+  //
+  // THE BUG THIS REPLACES. The old version waited 1.2 seconds for a session to
+  // appear from the URL *fragment*, then declared the link dead. It handled no
+  // token of any kind — no code exchange, no token_hash, no fragment parsing.
+  //
+  // But createBrowserClient() from @supabase/ssr uses **PKCE**, which returns
+  // `?code=` in the QUERY STRING and requires an explicit exchange. So the
+  // session could never appear and EVERY reset link failed, 100% of the time,
+  // with a message blaming expiry. Reported from production with the link
+  // clicked seconds after it arrived.
+  //
+  // Three separate arrival shapes now handled, because Supabase's choice
+  // depends on flow type, template, and which device opened the mail:
+  //
+  //   1. ?token_hash=&type=recovery — verifyOtp. DEVICE-INDEPENDENT: it carries
+  //      no verifier, so a link requested on a laptop opens fine on a phone.
+  //      This is the shape to prefer; see the note at the end of the file.
+  //   2. ?code=                     — PKCE exchange. Works only in the SAME
+  //      browser that asked, because the code_verifier is stored there.
+  //   3. #access_token=             — implicit flow; the client picks it up on
+  //      its own, so we only need to wait.
   useEffect(() => {
     let cancelled = false;
+
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (cancelled) return;
       if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") setReady(true);
     });
-    supabase.auth.getSession().then(({ data }) => {
+
+    (async () => {
+      // Already holding a recovery session (e.g. a refresh after arriving).
+      const { data: existing } = await supabase.auth.getSession();
       if (cancelled) return;
-      if (data.session) setReady(true);
-      else {
-        // Give the fragment exchange a moment before declaring the link dead.
-        setTimeout(() => {
-          if (cancelled) return;
-          supabase.auth.getSession().then(({ data: d2 }) => {
-            if (cancelled) return;
-            if (d2.session) setReady(true);
-            else
-              setLinkError(
-                "This reset link has expired or has already been used. Request a new one below.",
-              );
-          });
-        }, 1200);
+      if (existing.session) {
+        setReady(true);
+        return;
       }
-    });
+
+      const tokenHash = params.get("token_hash");
+      const type = params.get("type");
+      const code = params.get("code");
+
+      // 1. token_hash — the cross-device path.
+      if (tokenHash) {
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: (type === "recovery" ? "recovery" : "email") as "recovery" | "email",
+        });
+        if (cancelled) return;
+        if (!error) {
+          setReady(true);
+          return;
+        }
+        setLinkError(
+          "This reset link is no longer valid — it may have been used already, or it expired. " +
+            "Request a fresh one below; the new link works for one hour.",
+        );
+        return;
+      }
+
+      // 2. PKCE code — same-browser only.
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (cancelled) return;
+        if (!error) {
+          setReady(true);
+          return;
+        }
+        // The overwhelmingly common cause, and worth naming precisely: the
+        // person asked for the reset in one browser and opened the mail in
+        // another. Telling them "expired" sends them round the same loop.
+        setLinkError(
+          "This link has to be opened in the same browser that asked for it. " +
+            "If you requested it on another device, or opened it from an email app, " +
+            "request a new one below and open it on this device.",
+        );
+        return;
+      }
+
+      // 3. Implicit fragment, or nothing at all. Give the client a moment to
+      //    parse a fragment before concluding there is no token here.
+      await new Promise((r) => setTimeout(r, 1500));
+      if (cancelled) return;
+      const { data: after } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (after.session) setReady(true);
+      else
+        setLinkError(
+          "This reset link has expired or has already been used. Request a new one below.",
+        );
+    })();
+
     return () => {
       cancelled = true;
       sub.subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, [supabase, params]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
