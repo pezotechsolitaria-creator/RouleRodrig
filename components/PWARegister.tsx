@@ -12,11 +12,68 @@ import { createClient } from "@/lib/supabase/client";
  */
 export default function PWARegister() {
   const identifiedUserId = useRef<string | null>(null);
+  const cleanup = useRef<(() => void) | null>(null);
 
+  // ── Register, and keep it UP TO DATE ──────────────────────────────────────
+  //
+  // Registering once was not enough. sw.js already calls skipWaiting() and
+  // clients.claim(), so a new worker takes over as soon as the browser fetches
+  // it — but an INSTALLED PWA that stays open for days may not re-fetch it, and
+  // even after the new worker activates the open page keeps running the old
+  // JavaScript until something reloads it.
+  //
+  // The visible symptom is a homepage that is simply wrong: the owner was still
+  // being shown the pre-redesign hub hours after it had been replaced, and
+  // nothing on screen suggested a reload would help. A cached shell that
+  // silently disagrees with the deployed site is worse than an offline error,
+  // because it looks like the product.
+  //
+  // So: check for a new worker on load and every time the app comes back to the
+  // foreground, and reload ONCE when a new one takes control.
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    }
+    if (!("serviceWorker" in navigator)) return;
+
+    let reloading = false;
+    // Was this page ALREADY controlled by a worker? On a first-ever visit it is
+    // not, and the very first activation claims the page — which would fire
+    // controllerchange and reload every new visitor for no reason, turning a
+    // stale-cache fix into a worse first impression than the bug. Only an
+    // UPGRADE (a worker replacing a worker) justifies a reload.
+    const hadController = Boolean(navigator.serviceWorker.controller);
+
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((registration) => {
+        // An immediate check catches the common case: the app was reopened
+        // after a deploy.
+        registration.update().catch(() => {});
+
+        const onVisible = () => {
+          if (document.visibilityState === "visible") registration.update().catch(() => {});
+        };
+        document.addEventListener("visibilitychange", onVisible);
+        cleanup.current = () => document.removeEventListener("visibilitychange", onVisible);
+      })
+      .catch(() => {});
+
+    // Fires when the NEW worker has claimed this page. At that moment the
+    // caches have been swapped underneath us, so the running bundle and the
+    // served assets no longer necessarily match — one reload resolves it.
+    //
+    // The guard is not optional: without it a worker that keeps re-claiming
+    // turns this into a reload loop, which is a far worse bug than the stale
+    // page it was meant to fix.
+    const onControllerChange = () => {
+      if (!hadController || reloading) return;
+      reloading = true;
+      window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+
+    return () => {
+      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+      cleanup.current?.();
+    };
   }, []);
 
   useEffect(() => {

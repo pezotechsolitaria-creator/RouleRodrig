@@ -121,9 +121,19 @@ export async function POST(req: NextRequest) {
   // closed".
   let isFood = false;
   let isEvent = false;
+  // WHERE the customer would collect. Returned so checkout can show the place
+  // BEFORE payment — the pickup flow used to name the seller and never the
+  // address, so people bought food without knowing where to go and get it.
+  let pickup: {
+    storeName: string | null; address: string | null; hint: string | null;
+    lat: number | null; lng: number | null; phone: string | null;
+  } | null = null;
   let payment = { acceptsCash: true, acceptsBankTransfer: false, requiresReceipt: false };
   if (storeId) {
-    const [{ data: pay }, { data: settings }, { data: status }, { data: kitchen }, { data: event }] = await Promise.all([
+    const [
+      { data: pay }, { data: settings }, { data: status },
+      { data: kitchen }, { data: event }, { data: store }, { data: kitchenHint },
+    ] = await Promise.all([
       supabase
         .from("store_payment_settings")
         .select("offers_rr_delivery, accepts_cash, accepts_bank_transfer, require_receipt")
@@ -139,9 +149,21 @@ export async function POST(req: NextRequest) {
       // Same question for ticketing. Both are publicly readable for visible
       // stores, so the anon client can answer without a privileged call.
       supabase.from("events").select("store_id").eq("store_id", storeId).maybeSingle(),
+      supabase.from("stores").select("name, address, lat, lng, phone").eq("id", storeId).maybeSingle(),
+      supabase.from("food_kitchens").select("pickup_hint").eq("store_id", storeId).maybeSingle(),
     ]);
     isFood = Boolean(kitchen);
     isEvent = Boolean(event);
+    if (store) {
+      pickup = {
+        storeName: (store as { name?: string }).name ?? null,
+        address: (store as { address?: string | null }).address ?? null,
+        hint: (kitchenHint as { pickup_hint?: string | null } | null)?.pickup_hint ?? null,
+        lat: (store as { lat?: number | null }).lat ?? null,
+        lng: (store as { lng?: number | null }).lng ?? null,
+        phone: (store as { phone?: string | null }).phone ?? null,
+      };
+    }
     offersRrDelivery = (pay?.offers_rr_delivery ?? true) && (settings?.delivery_enabled ?? false);
     schedule = status ?? null;
     // Which payment methods this shop actually takes. create_order() rejects an
@@ -162,5 +184,5 @@ export async function POST(req: NextRequest) {
     };
   }
 
-  return NextResponse.json({ items, fulfillment, offersRrDelivery, schedule, payment, isFood, isEvent });
+  return NextResponse.json({ items, fulfillment, offersRrDelivery, schedule, payment, isFood, isEvent, pickup });
 }

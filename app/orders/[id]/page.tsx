@@ -11,6 +11,7 @@ import { FULFILLMENT_LABEL, googleMapsLink, formatCoords } from "@/lib/orders/lo
 import { holdInfo, customerHoldCopy, holdRemaining, type PaymentProvider } from "@/lib/orders/hold";
 import BankTransferPanel, { type BankDetails } from "@/components/orders/BankTransferPanel";
 import PickupCodeCard from "@/components/orders/PickupCodeCard";
+import PickupLocationCard from "@/components/orders/PickupLocationCard";
 import TicketList, { type BuyerTicket } from "@/components/events/TicketList";
 import RateShopCard from "@/components/orders/RateShopCard";
 import type { PickupCode } from "@/lib/orders/pickup";
@@ -97,13 +98,24 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
   // "Shop". Deliberately AFTER the notFound() guard: run before it, a missing
   // order would send an empty string where a uuid is expected and fire a
   // pointless failing query on every 404.
-  const [{ data: kitchenRow }, { data: eventRow }] = await Promise.all([
-    supabase.from("food_kitchens").select("store_id").eq("store_id", typedOrder.store_id).maybeSingle(),
+  const [{ data: kitchenRow }, { data: eventRow }, { data: storeRow }] = await Promise.all([
+    supabase.from("food_kitchens").select("store_id, pickup_hint").eq("store_id", typedOrder.store_id).maybeSingle(),
     supabase.from("events").select("store_id").eq("store_id", typedOrder.store_id).maybeSingle(),
+    // M57: WHERE to collect. The seller's name is not a location.
+    supabase.from("stores").select("name, address, lat, lng, phone").eq("id", typedOrder.store_id).maybeSingle(),
   ]);
   const isFood = Boolean(kitchenRow);
   const isEvent = Boolean(eventRow);
   const sellerLabel = isFood ? "Kitchen" : isEvent ? "Organiser" : "Shop";
+  const pickupLocation = {
+    storeName: (storeRow as { name?: string } | null)?.name ?? null,
+    address: (storeRow as { address?: string | null } | null)?.address ?? null,
+    hint: (kitchenRow as { pickup_hint?: string | null } | null)?.pickup_hint ?? null,
+    lat: (storeRow as { lat?: number | null } | null)?.lat ?? null,
+    lng: (storeRow as { lng?: number | null } | null)?.lng ?? null,
+    phone: (storeRow as { phone?: string | null } | null)?.phone ?? null,
+  };
+  const isPickup = typedOrder.fulfillment_method === "pickup";
 
   const store = Array.isArray(typedOrder.stores) ? typedOrder.stores[0] : typedOrder.stores;
   const payment = typedOrder.payments[0];
@@ -222,6 +234,14 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
             next action, and burying it under the receipt would defeat it. */}
         {pickup?.code && typedOrder.status === "ready_for_pickup" && (
           <PickupCodeCard pickup={pickup} storeName={(store as { name?: string })?.name} className="mt-4" />
+        )}
+
+        {/* Where to go. Shown for any pickup order that has not been collected
+            yet — while it is being prepared the customer is deciding when to
+            set off, and on arrival they need the pin. An event is excluded:
+            a ticket is scanned at a gate, and the venue lives on the event. */}
+        {isPickup && !isEvent && typedOrder.status !== "collected" && (
+          <PickupLocationCard location={pickupLocation} className="mt-4" />
         )}
 
         {canReview && (

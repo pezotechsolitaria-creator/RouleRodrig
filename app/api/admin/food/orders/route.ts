@@ -213,6 +213,38 @@ export async function PATCH(req: NextRequest) {
             .maybeSingle();
           const code = (token as { code?: string | null } | null)?.code;
           if (code) extra = ` Show this pickup code at the kitchen: ${formatPickupCode(code)}`;
+
+          // WHERE to collect, in the email itself. This is the message that
+          // says "your food is ready" — a customer reading it on a phone,
+          // about to leave the house, needs the address more than anything
+          // else on the screen. Sending only a code told them WHEN to go and
+          // never WHERE, which is the gap the owner reported.
+          const { data: place } = await admin
+            .from("stores")
+            .select("name, address, lat, lng")
+            .eq("id", current.store_id as string)
+            .maybeSingle();
+          const { data: kitchen } = await admin
+            .from("food_kitchens")
+            .select("pickup_hint")
+            .eq("store_id", current.store_id as string)
+            .maybeSingle();
+
+          const where = [
+            (place as { name?: string } | null)?.name,
+            (kitchen as { pickup_hint?: string | null } | null)?.pickup_hint,
+            (place as { address?: string | null } | null)?.address,
+          ]
+            .map((x) => x?.trim())
+            .filter(Boolean)
+            .join(" — ");
+          if (where) extra += ` Collect from: ${where}.`;
+
+          const lat = (place as { lat?: number | null } | null)?.lat;
+          const lng = (place as { lng?: number | null } | null)?.lng;
+          if (lat != null && lng != null) {
+            extra += ` Directions: https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+          }
         }
         const emailType =
           targetStatus === "ready_for_pickup"

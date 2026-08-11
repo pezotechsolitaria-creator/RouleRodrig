@@ -16,6 +16,7 @@ import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 import { todayLine, deliveryLine, nextOpenLabel, type ScheduleStatus } from "@/lib/schedule";
 import { readFulfillment as readFoodFulfillment } from "@/components/food/FulfillmentBar";
 import { vocabFor, domainFromFlags } from "@/lib/food/vocabulary";
+import PickupLocationCard, { type PickupLocation } from "@/components/orders/PickupLocationCard";
 
 type Provider = "cash" | "bank_transfer";
 type Fulfillment = "pickup" | "customer_delivery" | "rr_delivery";
@@ -50,6 +51,10 @@ export default function CheckoutForm({
   // below cannot be spoofed by editing a URL. Starts as the checkout's own
   // domain, which is already right in every case except a hand-typed link.
   const [sellerDomain, setSellerDomain] = useState<CartDomain>(domain);
+  // WHERE this would be collected. Shown before payment, because "I did not
+  // know where to go" is a problem that has to be solved BEFORE the money
+  // moves, not on the confirmation page.
+  const [pickup, setPickup] = useState<PickupLocation | null>(null);
   // Only Roulé Rodrigues delivery is opt-in per shop; a customer's own driver
   // is a collection, so it is offered whenever the shop is open at all.
   const [offersRrDelivery, setOffersRrDelivery] = useState(true);
@@ -146,6 +151,7 @@ export default function CheckoutForm({
         if (body.fulfillment) setStoreOffersDelivery(!!body.fulfillment.delivery);
         setOffersRrDelivery(!!body.offersRrDelivery);
         setSellerDomain(domainFromFlags({ isFood: body.isFood, isEvent: body.isEvent }));
+        setPickup(body.pickup ?? null);
         setSchedule(body.schedule ?? null);
         // Carry over the pickup/delivery choice made while browsing /food.
         // A customer who spent the whole visit in "Delivery" mode and then
@@ -498,6 +504,15 @@ export default function CheckoutForm({
           })}
         </div>
       </fieldset>
+
+      {/* WHERE to collect — shown the moment "Pick up" is the live choice, and
+          only then. An address under a delivery order is noise; an address
+          missing under a pickup order is a customer standing in the wrong
+          village holding a code. Tickets are excluded: a ticket is scanned at
+          the gate, and the venue is on the event page, not the seller's row. */}
+      {fulfillment === "pickup" && sellerDomain !== "events" && pickup && (
+        <PickupLocationCard location={pickup} title="You'll collect from" />
+      )}
 
       {/* Region — decides the delivery fee */}
       {fulfillment === "rr_delivery" && (

@@ -51,7 +51,9 @@
 // two branches reached for the same number. The pattern is now the rule rather
 // than the exception, which is the argument for deriving this at build time from
 // the commit sha instead of incrementing it by hand.
-const CACHE = "rr-cache-v141";
+// v142 — the pickup location everywhere it matters, and a service worker that
+// actually notices a new build instead of serving yesterday's homepage.
+const CACHE = "rr-cache-v142";
 // v141 — HOTFIX: /checkout returned a 500. A server component was importing a
 // plain value from a "use client" module and got a client reference back.
 const SHELL = "/";

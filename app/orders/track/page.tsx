@@ -9,6 +9,7 @@ import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { holdInfo, customerHoldCopy, holdRemaining, type PaymentProvider } from "@/lib/orders/hold";
 import BankTransferPanel from "@/components/orders/BankTransferPanel";
 import PickupCodeCard from "@/components/orders/PickupCodeCard";
+import PickupLocationCard from "@/components/orders/PickupLocationCard";
 import TicketList, { type BuyerTicket } from "@/components/events/TicketList";
 import RateShopCard from "@/components/orders/RateShopCard";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,14 @@ type TrackedOrder = {
   // drop a diner or a ticket holder into the shop directory.
   isFood: boolean;
   isEvent: boolean;
+  // Returned by lookup_order() all along, just never declared here.
+  fulfillment: string | null;
+  // M57. WHERE to collect. The pickup flow used to name the seller and never
+  // the place, so a customer with a valid code had nowhere to take it.
+  pickupAddress: string | null;
+  pickupHint: string | null;
+  pickupLat: number | null;
+  pickupLng: number | null;
   // M56. Where a guest ticket buyer collects the QR the door scans. Before
   // this, tickets were issued into a table the buyer had no way to read.
   tickets: BuyerTicket[];
@@ -321,13 +330,47 @@ function TrackOrder() {
                 status the events flow does not use. */}
             {order.tickets?.length > 0 && <TicketList tickets={order.tickets} />}
 
+            {/* Shown while it is still being prepared too — the customer is
+                deciding when to set off, and that decision needs the address,
+                not just a status word. Hidden once ready, because the block
+                under the pickup code says it again in the right place. */}
+            {order.fulfillment === "pickup" && !order.isEvent
+              && order.status !== "ready_for_pickup" && order.status !== "collected" && (
+              <PickupLocationCard
+                location={{
+                  storeName: order.storeName,
+                  address: order.pickupAddress,
+                  hint: order.pickupHint,
+                  lat: order.pickupLat,
+                  lng: order.pickupLng,
+                  phone: order.storePhone,
+                }}
+              />
+            )}
+
             {/* Ready to collect: the code is the next action, so it sits
                 directly under the order rather than below the receipt. */}
             {order.status === "ready_for_pickup" && order.pickupCode && (
-              <PickupCodeCard
-                pickup={{ code: order.pickupCode, redeemedAt: order.pickupRedeemedAt }}
-                storeName={order.storeName}
-              />
+              <>
+                <PickupCodeCard
+                  pickup={{ code: order.pickupCode, redeemedAt: order.pickupRedeemedAt }}
+                  storeName={order.storeName}
+                />
+                {/* Directly under the code, because this is the screen the
+                    customer is looking at while deciding where to walk. A code
+                    without a destination is half an instruction. */}
+                <PickupLocationCard
+                  className="mt-3"
+                  location={{
+                    storeName: order.storeName,
+                    address: order.pickupAddress,
+                    hint: order.pickupHint,
+                    lat: order.pickupLat,
+                    lng: order.pickupLng,
+                    phone: order.storePhone,
+                  }}
+                />
+              </>
             )}
             {order.status === "collected" && order.pickupRedeemedAt && (
               <PickupCodeCard pickup={{ code: null, redeemedAt: order.pickupRedeemedAt }} />
