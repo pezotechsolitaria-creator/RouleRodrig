@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { legalNextStatuses, timelineIndex, isAwaitingPayment, LEGAL_TRANSITIONS, STATUS_LABEL, STATUS_ORDER, type OrderStatus } from "./status";
+import { legalNextStatuses, timelineIndex, isAwaitingPayment, LEGAL_TRANSITIONS, STATUS_LABEL, STATUS_ORDER, statusLabel, statusSteps, timelineIndexFor, type OrderStatus } from "./status";
 
 describe("legalNextStatuses", () => {
   it("returns the forward + cancel options for each actionable status", () => {
@@ -74,5 +74,65 @@ describe("timelineIndex", () => {
   it("returns -1 for cancelled/refunded so the timeline renders the terminal state instead", () => {
     expect(timelineIndex("cancelled")).toBe(-1);
     expect(timelineIndex("refunded")).toBe(-1);
+  });
+});
+
+// ── Events (M57) ────────────────────────────────────────────────────────────
+describe("event status vocabulary", () => {
+  it("calls a paid event order a TICKET, not 'Confirmed'", () => {
+    // The buyer is scanning the page for the word "ticket". "Confirmed" is the
+    // marketplace's word for the same state and leaves them unsure they have one.
+    expect(statusLabel("paid", true)).toBe("Ticket issued");
+    expect(statusLabel("paid", false)).toBe("Confirmed");
+  });
+
+  it("shows a ticket buyer two milestones, not five", () => {
+    // An event order never reaches preparing/ready_for_pickup/collected, so the
+    // marketplace timeline would leave a valid ticket stuck at 40% forever.
+    expect(statusSteps(true)).toEqual(["pending_payment", "paid"]);
+    expect(statusSteps(false)).toHaveLength(5);
+  });
+
+  it("puts a paid event order on the LAST step", () => {
+    const steps = statusSteps(true);
+    expect(timelineIndexFor("paid", true)).toBe(steps.length - 1);
+  });
+
+  it("treats awaiting confirmation as still-unpaid, same as the marketplace", () => {
+    expect(timelineIndexFor("pending_payment", true)).toBe(0);
+    expect(timelineIndexFor("awaiting_payment_confirmation", true)).toBe(0);
+  });
+
+  it("keeps cancelled and refunded off the timeline", () => {
+    expect(timelineIndexFor("cancelled", true)).toBe(-1);
+    expect(timelineIndexFor("refunded", true)).toBe(-1);
+  });
+
+  it("never leaves an event status falling back to marketplace words", () => {
+    // Every status must have an event word, including the three an event cannot
+    // currently reach — otherwise a future flow that sets one would tell a
+    // ticket holder their concert is "Preparing".
+    const all: OrderStatus[] = [
+      "pending_payment", "awaiting_payment_confirmation", "paid",
+      "preparing", "ready_for_pickup", "collected", "cancelled", "refunded",
+    ];
+    for (const s of all) {
+      expect(statusLabel(s, true), `missing event label for ${s}`).toBeTruthy();
+      if (["preparing", "ready_for_pickup"].includes(s)) {
+        expect(statusLabel(s, true)).not.toBe(STATUS_LABEL[s]);
+      }
+    }
+  });
+
+  it("leaves marketplace behaviour byte-identical", () => {
+    // The whole change must be inert for every non-event order.
+    const all: OrderStatus[] = [
+      "pending_payment", "awaiting_payment_confirmation", "paid",
+      "preparing", "ready_for_pickup", "collected", "cancelled", "refunded",
+    ];
+    for (const s of all) {
+      expect(statusLabel(s, false)).toBe(STATUS_LABEL[s]);
+      expect(timelineIndexFor(s, false)).toBe(timelineIndex(s));
+    }
   });
 });

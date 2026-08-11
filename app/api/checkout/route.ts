@@ -28,6 +28,10 @@ const TOO_MANY_OPEN_CODE = "RR013";
 // draws new numbers, so the customer should be told to try again, not that
 // something is broken.
 const REFERENCE_CODE = "RR014";
+// The VENUE is full (M58) — distinct from RR007, which is one ticket type
+// selling out. Without this the buyer of the last seat is told "Something went
+// wrong", which reads as a broken site rather than a sold-out event.
+const EVENT_FULL_CODE = "RR017";
 const SAFE_RPC_ERROR_CODE = "P0001";
 
 // The only thing trusted from the client here is "which variants, how many,
@@ -129,6 +133,11 @@ export async function POST(req: NextRequest) {
     }
     if (error.code === UNAVAILABLE_CODE || error.code === STOCK_CODE) {
       return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    // 409 for the same reason as stock: the request was well formed, the
+    // event's state refused it. The message already names how many are left.
+    if (error.code === EVENT_FULL_CODE) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 409 });
     }
     // 409, not 400: the request was well formed, the shop's state refused it.
     // The message already names the reason and, for delivery, the alternatives.

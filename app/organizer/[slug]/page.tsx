@@ -7,6 +7,7 @@ import { centsToDecimalString } from "@/lib/money";
 import PackageManager from "@/components/events/PackageManager";
 import PaymentReview from "@/components/events/PaymentReview";
 import PaymentSetup from "@/components/events/PaymentSetup";
+import CapacityCard from "@/components/events/CapacityCard";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 
 export const dynamic = "force-dynamic";
@@ -97,6 +98,13 @@ export default async function OrganizerEventPage({
       <section aria-labelledby="ps-h" className="mt-8">
         <h2 id="ps-h" className="sr-only">Payment details</h2>
         <PaymentSetup storeId={event.storeId} initial={event.payment} />
+        <div className="mt-4">
+          <CapacityCard
+            storeId={event.storeId}
+            capacity={event.capacity}
+            placesTaken={event.placesTaken}
+          />
+        </div>
       </section>
 
       {/* ── Packages ─────────────────────────────────────────────────── */}

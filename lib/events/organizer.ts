@@ -106,6 +106,10 @@ export type OrganizerEventDetail = {
   timezone: string;
   cancelledAt: string | null;
   canVerifyPayments: boolean;
+  /** M58. Total the venue holds across every package; null = no overall limit. */
+  capacity: number | null;
+  /** Derived, never stored — places sold or held right now. */
+  placesTaken: number;
   /** Null until the organiser has set anything up — which is the state every
    *  new event starts in, and the reason tickets cannot be sold yet. */
   payment: OrganizerPaymentSettings | null;

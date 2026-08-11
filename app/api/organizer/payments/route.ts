@@ -73,6 +73,20 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return rpcError(error, "Could not confirm that payment.");
+
+  // The tickets now exist (the RPC set 'paid'; orders_sync_tickets issued them).
+  // Telling the buyer is the last step of the promise the checkout made — "your
+  // ticket goes here" — and it is BEST EFFORT by construction: the payment is
+  // already confirmed and committed, so a mail provider having a bad minute must
+  // not turn the organiser's click into an error or undo anything. The send is
+  // idempotent on the order id, so a retry cannot produce a second copy.
+  try {
+    const { notifyTicketsIssued } = await import("@/lib/notifications/ticket-delivery");
+    await notifyTicketsIssued(parsed.data.orderId);
+  } catch (err) {
+    console.error("notifyTicketsIssued failed", err);
+  }
+
   return NextResponse.json(data);
 }
 

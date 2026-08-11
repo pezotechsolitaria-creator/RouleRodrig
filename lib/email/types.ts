@@ -57,12 +57,16 @@ export interface EmailTypeMeta {
 // before the emails it protects exist (otherwise the reserve can only be added
 // by restructuring, which is the thing this design is meant to avoid).
 export const EMAIL_TYPES = {
-  // ── Ticketing — none of these are emitted yet ─────────────────────────────
+  // ── Ticketing ─────────────────────────────────────────────────────────────
   // A ticket QR is the single most critical email the platform will ever send:
   // it IS the admission. Losing it at the door cannot be repaired by support.
   ticket_order_confirmation:        { category: "ticketing", priority: "critical", planned: true },
   ticket_payment_confirmation:      { category: "ticketing", priority: "critical", planned: true },
-  ticket_qr_delivery:               { category: "ticketing", priority: "critical", planned: true },
+  // LIVE since M57 — lib/notifications/ticket-delivery.ts, sent the moment an
+  // organiser confirms payment. The events checkout tells the buyer in as many
+  // words that their ticket arrives by email, so this is load-bearing copy
+  // rather than a nicety: without it that sentence is simply untrue.
+  ticket_qr_delivery:               { category: "ticketing", priority: "critical" },
   ticket_cancellation:              { category: "ticketing", priority: "high",     planned: true },
   ticket_refund:                    { category: "ticketing", priority: "high",     planned: true },
   ticket_event_reminder:            { category: "ticketing", priority: "normal",   planned: true },

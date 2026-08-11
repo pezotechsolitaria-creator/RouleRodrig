@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/file-signature";
 import { centsToDecimalString } from "@/lib/money";
 import OrderTimeline from "@/components/orders/OrderTimeline";
-import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
+import { statusLabel, type OrderStatus } from "@/lib/orders/status";
 import { FULFILLMENT_LABEL, googleMapsLink, formatCoords } from "@/lib/orders/location";
 import { holdInfo, customerHoldCopy, holdRemaining, type PaymentProvider } from "@/lib/orders/hold";
 import BankTransferPanel, { type BankDetails } from "@/components/orders/BankTransferPanel";
@@ -214,9 +214,9 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
         </div>
 
         <div className="mt-6 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-5">
-          <OrderTimeline status={typedOrder.status as OrderStatus} />
+          <OrderTimeline status={typedOrder.status as OrderStatus} isEvent={tickets.length > 0} />
           <p className="mt-3 text-center font-dm text-xs text-muted">
-            Status: <span className="text-offwhite">{STATUS_LABEL[typedOrder.status as OrderStatus]}</span>
+            Status: <span className="text-offwhite">{statusLabel(typedOrder.status as OrderStatus, tickets.length > 0)}</span>
           </p>
         </div>
 

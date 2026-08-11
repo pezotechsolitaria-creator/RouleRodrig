@@ -53,6 +53,61 @@ export function legalNextStatuses(current: OrderStatus): OrderStatus[] {
 // is surfaced precisely by the status badge instead.
 export const STATUS_ORDER: OrderStatus[] = ["pending_payment", "paid", "preparing", "ready_for_pickup", "collected"];
 
+// ── Events speak a different language, and stop sooner ──────────────────────
+//
+// Related but separate from lib/food/vocabulary.ts, which owns the SELLER nouns
+// ("organiser", "tickets", where "keep browsing" goes). Status words live here,
+// with the statuses they name, so a future edit to one enum cannot leave the
+// other half stale in a file about shopping baskets.
+//
+// An event order goes pending_payment → (awaiting_payment_confirmation) → paid
+// and STOPS. Nothing moves it to preparing, ready_for_pickup or collected:
+// there is nothing to prepare, no counter to collect from, and admission is
+// recorded on the TICKET (tickets.used_at), not on the order.
+//
+// Rendering the marketplace timeline for a ticket therefore gets two things
+// wrong at once — it calls `paid` "Confirmed" when the buyer is looking for the
+// word "ticket", and it shows three further steps that can never light up, so
+// somebody holding a perfectly good ticket sees a progress bar stuck at 40%.
+export const EVENT_STATUS_LABEL: Record<OrderStatus, string> = {
+  pending_payment: "Payment due",
+  awaiting_payment_confirmation: "Checking your payment",
+  paid: "Ticket issued",
+  // Unreachable for an event today. Mapped anyway rather than left to fall back
+  // to marketplace words, so that if some future flow ever does set one, a
+  // ticket holder is not suddenly told their concert is "Preparing".
+  preparing: "Ticket issued",
+  ready_for_pickup: "Ticket issued",
+  collected: "Attended",
+  cancelled: "Cancelled",
+  refunded: "Refunded",
+};
+
+/** The two milestones a ticket buyer actually passes through. */
+export const EVENT_STATUS_ORDER: OrderStatus[] = ["pending_payment", "paid"];
+
+/** Status words for this order, in the buyer's own vocabulary. */
+export function statusLabel(status: OrderStatus, isEvent = false): string {
+  return isEvent ? EVENT_STATUS_LABEL[status] : STATUS_LABEL[status];
+}
+
+/** Milestones to draw. Events have two; everything else has five. */
+export function statusSteps(isEvent = false): OrderStatus[] {
+  return isEvent ? EVENT_STATUS_ORDER : STATUS_ORDER;
+}
+
+/**
+ * Position in whichever timeline applies. For an event, every state at or past
+ * `paid` is the final step — the order is complete once the ticket exists, and
+ * the door is not part of this progress bar.
+ */
+export function timelineIndexFor(status: OrderStatus, isEvent = false): number {
+  if (!isEvent) return timelineIndex(status);
+  if (status === "cancelled" || status === "refunded") return -1;
+  if (status === "pending_payment" || status === "awaiting_payment_confirmation") return 0;
+  return 1;
+}
+
 export function timelineIndex(status: OrderStatus): number {
   if (status === "cancelled" || status === "refunded") return -1;
   if (status === "awaiting_payment_confirmation") return 0;

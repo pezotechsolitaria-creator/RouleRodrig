@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, Search, CheckCircle2, UserPlus, PackageSearch, Phone } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
-import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
+import { statusLabel, type OrderStatus } from "@/lib/orders/status";
 import { holdInfo, customerHoldCopy, holdRemaining, type PaymentProvider } from "@/lib/orders/hold";
 import BankTransferPanel from "@/components/orders/BankTransferPanel";
 import PickupCodeCard from "@/components/orders/PickupCodeCard";
@@ -290,7 +290,7 @@ function TrackOrder() {
               <div className="flex items-center justify-between gap-3">
                 <span className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{order.orderNumber}</span>
                 <span className="rounded-full bg-white/10 px-3 py-1 font-dm text-[11px] font-medium text-offwhite">
-                  {STATUS_LABEL[order.status] ?? order.status}
+                  {statusLabel(order.status, order.isEvent) ?? order.status}
                 </span>
               </div>
               <p className="mt-2 font-syne text-base font-bold text-offwhite">{order.storeName}</p>
