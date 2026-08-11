@@ -539,7 +539,10 @@ html[data-splash="on"] #rr-splash.rr-skip {
   display: inline-block;
   width: var(--rr-cube);
   height: var(--rr-cube);
-  perspective: 420px;
+  /* ~10x the cube's own size. Below roughly 6x the near face balloons and the
+     box reads as a distorted slab rather than a cube; far above it the turn
+     flattens into a sliding card. Rendered at several ratios before picking. */
+  perspective: 440px;
 }
 .rr-logo-cube-inner {
   position: relative;
@@ -551,20 +554,40 @@ html[data-splash="on"] #rr-splash.rr-skip {
   width: 100%;
   height: 100%;
   transform-style: preserve-3d;
-  /* The fixed -14deg tilt is what proves it is a cube. Rotating on Y alone
-     hides the top face forever, and the silhouette stays a rectangle — the eye
-     reads that as a spinning card. Tipping it slightly toward the viewer keeps
-     a sliver of the top plane visible through the whole turn. */
-  animation: rr-cube-turn 14s linear infinite;
+  /* The fixed tilt is what proves it is a cube: rotating on Y alone hides the
+     top face forever and the silhouette stays a rectangle, which the eye reads
+     as a spinning card. -7deg, not -14: at 14 the top plane is nearly as big as
+     the front one and the whole thing reads as a slab seen from above. Seven
+     degrees is enough to disclose the top edge and no more. */
+  animation: rr-cube-turn 12s infinite;
   will-change: transform;
 }
-/* `linear` is not a taste call. Any eased curve accelerates away from 0deg and
-   decelerates into 360deg — and since those frames are identical, the loop
-   would visibly hitch once per turn. Only constant angular velocity hides the
-   seam. 14s is a weather vane, not a spinner: ambient, never "still loading". */
+
+/* ── Quarter-turn, then rest ────────────────────────────────────────────────
+   The previous version rotated continuously at constant speed. Constant speed
+   is right for a loop that must not hitch, but it was the wrong idea for this
+   object: at 44px the mark never held still long enough to be read, so the
+   header carried permanent low-grade movement that resolved into nothing.
+
+   This turns 90deg in 1s and then holds that face for 2s. The mark is legible
+   for two thirds of the time, the motion becomes an event rather than a
+   texture, and the loop still never hitches because every rest lands on an
+   exact quarter — 0/90/180/270 are all identical presentations of a cube whose
+   four sides carry the same artwork.
+
+   The easing lives on the keyframes that BEGIN a turn, so each quarter
+   accelerates and settles like a real object; the rest segments hold the same
+   value and therefore cannot move whatever curve is applied to them. */
 @keyframes rr-cube-turn {
-  from { transform: rotateX(-14deg) rotateY(0deg); }
-  to   { transform: rotateX(-14deg) rotateY(360deg); }
+  0%      { transform: rotateX(-7deg) rotateY(0deg); }
+  16.667% { transform: rotateX(-7deg) rotateY(0deg);   animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  25%     { transform: rotateX(-7deg) rotateY(90deg); }
+  41.667% { transform: rotateX(-7deg) rotateY(90deg);  animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  50%     { transform: rotateX(-7deg) rotateY(180deg); }
+  66.667% { transform: rotateX(-7deg) rotateY(180deg); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  75%     { transform: rotateX(-7deg) rotateY(270deg); }
+  91.667% { transform: rotateX(-7deg) rotateY(270deg); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  100%    { transform: rotateX(-7deg) rotateY(360deg); }
 }
 .rr-logo-cube-face {
   position: absolute;
@@ -579,9 +602,54 @@ html[data-splash="on"] #rr-splash.rr-skip {
   background: var(--rr-cube-green);
   /* Stops the far faces rendering mirror-image through the near ones. */
   backface-visibility: hidden;
-  /* A hairline lighter edge so adjacent faces separate at the seam instead of
-     merging into one green blob when two are lit similarly. */
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.09);
+  /* The hairline inset edge that used to live here is gone. It existed to stop
+     two equally-lit faces merging into one green blob — but the shading below
+     solves that properly, and at 44px the hairline was just a bright seam
+     drawing attention to the construction. */
+}
+
+/* ── Lighting ───────────────────────────────────────────────────────────────
+   The single biggest reason the turn looked wrong. Every face was painted at
+   identical brightness, so a cube mid-rotation was two same-green rectangles
+   meeting at an invisible edge — the eye had nothing to tell it which plane was
+   nearer, and read the whole thing as a flat image flickering rather than a
+   solid turning.
+
+   Each face carries a black overlay that is transparent while that face points
+   at the viewer and darkens as it swings away, which is all "lighting" has to
+   mean here. Four faces share ONE keyframe set, offset in time, because the
+   faces meet the viewer in a fixed order: front (0deg), left (90), back (180),
+   right (270).
+
+   The delays are negative and lag by a quarter each. A positive delay would
+   leave the face un-animated until its first turn came round, so the first
+   three seconds after load would render unlit. */
+.rr-logo-cube-face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  animation: rr-cube-shade 12s linear infinite;
+}
+/* The caps never face the viewer, so they are lit statically by their own
+   background colour (top catches the light, underside falls away) and must not
+   take part in the rotation-synced shading. */
+.rr-cube-top::after, .rr-cube-bottom::after { animation: none; opacity: 0; }
+
+.rr-cube-front::after { animation-delay: 0s; }
+.rr-cube-left::after  { animation-delay: -9s; }  /* lags 3s  → lit at 90deg  */
+.rr-cube-back::after  { animation-delay: -6s; }  /* lags 6s  → lit at 180deg */
+.rr-cube-right::after { animation-delay: -3s; }  /* lags 9s  → lit at 270deg */
+
+@keyframes rr-cube-shade {
+  /* Lit through this face's own rest window… */
+  0%, 16.667% { opacity: 0; }
+  /* …then dark for the three quarters it spends turned away… */
+  25%, 91.667% { opacity: 0.5; }
+  /* …easing back up as it swings home. */
+  100% { opacity: 0; }
 }
 /* scale(1.17) is measured, not eyeballed. The mark is an APP ICON: its corners
    are rounded and — critically — the pixels outside that radius are opaque
@@ -614,7 +682,12 @@ html[data-splash="on"] #rr-splash.rr-skip {
 /* Nonessential loops must not burn battery while nobody is looking. The class
    is toggled by an IntersectionObserver in AppHome when the header scrolls out
    of view; browsers already suspend animations in a fully hidden tab. */
-.rr-logo-cube-inner.is-paused { animation-play-state: paused; }
+.rr-logo-cube-inner.is-paused,
+/* The shades must pause WITH the rotation. Pausing only the inner would leave
+   the faces continuing to darken and brighten on a cube that had stopped
+   turning — a slow pulse in the corner of the header, which is worse than the
+   animation it was meant to stop. */
+.rr-logo-cube-inner.is-paused .rr-logo-cube-face::after { animation-play-state: paused; }
 
 @media (prefers-reduced-motion: reduce) {
   .rr-logo-anim, .rr-logo-bob, .rr-logo-bob::after { animation: none; }
@@ -626,8 +699,11 @@ html[data-splash="on"] #rr-splash.rr-skip {
      object intact and still legible as a cube, with no motion at all. */
   .rr-logo-cube-inner {
     animation: none;
-    transform: rotateX(-14deg) rotateY(-24deg);
+    transform: rotateX(-7deg) rotateY(-24deg);
   }
+  /* Frozen mid-cycle the shade keyframes could leave the front face parked at
+     half-dark. Lit, flat and still is the correct reduced-motion answer. */
+  .rr-logo-cube-face::after { animation: none; opacity: 0; }
 }
 
 /* ── Short-viewport home (iPhone Safari & small phones) ─────────────────────

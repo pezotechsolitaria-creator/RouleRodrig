@@ -40,7 +40,8 @@
 // v136 — the events checkout, and the receipt upload on /orders/track. Third
 // time two branches reached for the same number; burning one is still cheaper
 // than two builds sharing a cache name.
-const CACHE = "rr-cache-v136";
+// v137 — the cube's motion redesign. Fourth collision; same resolution.
+const CACHE = "rr-cache-v137";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
