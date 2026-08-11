@@ -1,6 +1,29 @@
 import * as Sentry from "@sentry/nextjs";
 import posthog from "posthog-js";
 import { SENTRY_COMMON } from "@/lib/sentry-scrub";
+import { scrubPostHogEvent } from "@/lib/posthog-scrub";
+
+// Routes where autocapture is switched off entirely. Autocapture records the
+// clicked element's text and its attributes — including `href` in full — and on
+// these routes that DOM legitimately contains a customer's name, phone number,
+// delivery address, bank details or a booking reference. Verified against real
+// captured payloads, which carry e.g. attr__href="https://wa.me/…?text=…".
+//
+// Everywhere else autocapture stays ON, because that is where its product value
+// is: /explore, /guide, /map, /shop browsing, the homepage rails. Turning it off
+// globally would cost real insight to solve a problem that only exists here.
+const AUTOCAPTURE_SENSITIVE_ROUTES = [
+  /\/checkout/,
+  /\/cart/,
+  /\/orders/,
+  /\/manage-booking/,
+  /\/login/,
+  /\/auth/,
+  /\/merchant/,
+  /\/admin/,
+  /\/partner/,
+  /\/list-your-scooter/,
+];
 
 // Both spellings are accepted on purpose. `.env.production` in this repo sets
 // NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN, but the dashboard calls it "project API
@@ -41,6 +64,23 @@ if (!posthogProjectToken) {
 } else {
   posthog.init(posthogProjectToken, {
     api_host: posthogHost,
+
+    // `defaults: "2026-01-30"` resolves capture_pageview to "history_change".
+    //
+    // DO NOT "fix" this by setting capture_pageview: true, and do not add manual
+    // pageview capture in a route effect. Both produce DOUBLE pageviews.
+    //
+    // What this mode actually does: posthog-js captures the initial pageview on
+    // load AND one per History API change, which is exactly right for the App
+    // Router. The initial one is deferred until document.visibilityState is
+    // "visible" (posthog-core.ts `_captureInitialPageview`) so that Chrome's
+    // prerender does not inflate the numbers, and it is guarded by an
+    // `_initialPageviewCaptured` flag so it can only ever fire once.
+    //
+    // That deferral makes headless/background automation look broken: an
+    // automated tab is `hidden`, so it emits $pageleave but never $pageview.
+    // That is the harness, not the site. Verified in production against real
+    // traffic — $pageview arrives for /, /food, /more, /map, /explore.
     defaults: "2026-01-30",
 
     // Session Replay off, in code rather than by dashboard toggle. It records
@@ -55,6 +95,15 @@ if (!posthogProjectToken) {
     // so letting it also swallow exceptions would quietly create a second,
     // unscrubbed copy of error payloads that can carry customer data.
     capture_exceptions: false,
+
+    // Autocapture stays on, but never on a route whose DOM holds customer data.
+    autocapture: { url_ignorelist: AUTOCAPTURE_SENSITIVE_ROUTES },
+
+    // The structural PII guarantee. Every outbound event passes through here,
+    // so a future posthog.capture("checkout", { phone, email }) is sanitised
+    // rather than silently becoming analytics data. See lib/posthog-scrub.ts —
+    // it is the PostHog counterpart to lib/sentry-scrub.ts.
+    before_send: scrubPostHogEvent,
 
     debug: process.env.NODE_ENV === "development",
   });

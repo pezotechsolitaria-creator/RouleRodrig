@@ -30,11 +30,22 @@ export default function PWARegister() {
       return;
 
     const supabase = createClient();
-    const identify = (user: { id: string; email?: string | null }) => {
+    const identify = (user: { id: string }) => {
       if (identifiedUserId.current === user.id) return;
 
       if (identifiedUserId.current) posthog.reset();
-      posthog.identify(user.id, user.email ? { email: user.email } : undefined);
+
+      // The opaque Supabase UUID and nothing else. It was previously sending
+      // the customer's email as a person property, which made it the only piece
+      // of customer PII in PostHog — and person properties persist against the
+      // profile rather than expiring with an event.
+      //
+      // The email bought nothing that the UUID does not: funnels, retention and
+      // per-user debugging all key on the distinct id, and when support needs to
+      // know WHO a user is, Supabase is the system of record and is already
+      // authoritative. Given this app handles bookings, rentals, ticketing,
+      // marketplace orders and payments, the default is minimisation.
+      posthog.identify(user.id);
       identifiedUserId.current = user.id;
     };
 
