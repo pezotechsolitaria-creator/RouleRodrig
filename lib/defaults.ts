@@ -454,7 +454,13 @@ export const DEFAULT_HOME_CARDS: HomeCard[] = [
   { id: "hc-scooter", label: "Scooters", labelFr: "Scooters", labelCr: "Skooter", icon: "scooter", imageSource: "scooter", action: "link", href: "/browse/scooter", tint: "amber", popular: true, enabled: true },
   { id: "hc-car", label: "Cars", labelFr: "Voitures", labelCr: "Loto", icon: "car", imageSource: "car", action: "link", href: "/browse/car", tint: "amber", enabled: true },
   { id: "hc-stay", label: "Stays", labelFr: "Séjours", labelCr: "Lozman", icon: "stay", imageSource: "stays", action: "link", href: "/browse/stays", tint: "amber", enabled: true },
-  { id: "hc-exp", label: "Experiences", labelFr: "Expériences", labelCr: "Eksperyans", icon: "experience", imageSource: "exp", action: "link", href: "/explore", tint: "teal", enabled: true },
+  // → /browse/tours, not /explore. Every other card on this grid opens its own
+  // category; Experiences was the one that dumped you into the general hub —
+  // which is ALSO the second button in the bottom nav, so the card spent a slot
+  // above the fold to reach a place already one tap away, and the nav lit up
+  // "Explore" as if you had pressed that instead. A category card must land on
+  // its category.
+  { id: "hc-exp", label: "Experiences", labelFr: "Expériences", labelCr: "Eksperyans", icon: "experience", imageSource: "exp", action: "link", href: "/browse/tours", tint: "teal", enabled: true },
   // This slot has now been Ti Roulé, then Events, and is now FOOD (owner, Aug
   // 2026). Ordering is the only thing on this grid a visitor does several times
   // per stay, so it earns a card above the fold more than a listing does.

@@ -64,7 +64,7 @@
 // booking or an order) and card-first beach/viewpoint discovery.
 // Also repairs a real drift the sw-cache test caught: sw.js was on v146 while
 // /api/health still reported v145, after a rebase resolved one side only.
-const CACHE = "rr-cache-v148";
+const CACHE = "rr-cache-v149";
 // v141 — HOTFIX: /checkout returned a 500. A server component was importing a
 // plain value from a "use client" module and got a client reference back.
 const SHELL = "/";
