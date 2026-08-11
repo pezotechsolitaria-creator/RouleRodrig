@@ -18,7 +18,8 @@
 // Deliberately ahead of BOTH sides of a rebase conflict: main had gone back to
 // v122 while v123 was already live, and a version that moves backwards cannot
 // evict anything — an existing client keeps its cache unless the name changes.
-const CACHE = "rr-cache-v124";
+// v125 — the iOS splash screens carry the new mark too.
+const CACHE = "rr-cache-v125";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
