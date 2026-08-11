@@ -37,7 +37,10 @@
 // cheaper to burn a number than to debug it later.
 // v135 — partner applicants are told the decision. Same story as v134: main and
 // this branch both reached for 134, so this one steps past rather than share it.
-const CACHE = "rr-cache-v135";
+// v136 — the events checkout, and the receipt upload on /orders/track. Third
+// time two branches reached for the same number; burning one is still cheaper
+// than two builds sharing a cache name.
+const CACHE = "rr-cache-v136";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
