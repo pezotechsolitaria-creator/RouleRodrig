@@ -65,10 +65,14 @@ async function submitBooking(page: Page) {
   // re-renders the calendar and re-orders which buttons are enabled, so an
   // index-based second click can land back on the start day — giving a zero-day
   // rental, which the form rejects with "Return must be after pickup".
-  const openDays = form.locator('button[aria-label^="20"]:not([disabled])');
+  // Selected via data-date, NOT aria-label. The day buttons' accessible name is
+  // human copy ("Saturday, 15 August 2026 — Available") that exists for screen
+  // readers and changes when a day is chosen; keying tests to it made an
+  // accessibility improvement look like a regression.
+  const openDays = form.locator("button[data-date]:not([disabled])");
   await expect(openDays.first()).toBeEnabled();
   const available: string[] = await openDays.evaluateAll((els) =>
-    els.map((e) => e.getAttribute("aria-label") ?? "").filter(Boolean),
+    els.map((e) => e.getAttribute("data-date") ?? "").filter(Boolean),
   );
   expect(available.length, "calendar offered no bookable dates").toBeGreaterThan(1);
 
@@ -76,8 +80,8 @@ async function submitBooking(page: Page) {
   const end = available[Math.min(2, available.length - 1)];
   expect(end > start, `end ${end} must be after start ${start}`).toBe(true);
 
-  await form.locator(`button[aria-label="${start}"]`).click();
-  await form.locator(`button[aria-label="${end}"]`).click();
+  await form.locator(`button[data-date="${start}"]`).click();
+  await form.locator(`button[data-date="${end}"]`).click();
 
   await form.locator("#bk-name").fill(CUSTOMER);
   await form.locator("#bk-email").fill("e2e.receipt@example.test");

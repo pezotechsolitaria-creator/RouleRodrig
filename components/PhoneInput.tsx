@@ -76,6 +76,15 @@ interface Props {
   disabled?: boolean;
   placeholder?: string;
   inputClassName?: string;
+  /**
+   * Id for the tel input, so a caller's <label htmlFor> actually attaches.
+   *
+   * Without it this field had NO accessible name at all — measured on
+   * production, the computed name was empty. A screen reader announced an
+   * unlabelled edit box in the middle of a booking form, which is a WCAG 4.1.2
+   * failure and, more plainly, unusable.
+   */
+  id?: string;
 }
 
 /**
@@ -83,7 +92,7 @@ interface Props {
  * input. Validates against the selected country's rules and emits a normalised
  * international number, e.g. "+230 5251 2345".
  */
-export default function PhoneInput({ value, onChange, disabled, inputClassName }: Props) {
+export default function PhoneInput({ value, onChange, disabled, inputClassName, id }: Props) {
   const [dialIso, setDialIso] = useState<CountryCode>("MU");
   const [num, setNum] = useState("");
   const [open, setOpen] = useState(false);
@@ -139,6 +148,10 @@ export default function PhoneInput({ value, onChange, disabled, inputClassName }
             disabled={disabled}
             onClick={() => setOpen((o) => !o)}
             aria-label="Select country code"
+            // Without these the button never announces that it opens anything,
+            // or whether it is currently open.
+            aria-haspopup="listbox"
+            aria-expanded={open}
             className="flex items-center gap-1.5 h-full bg-dark-card border border-dark-border rounded-xl px-3 py-3.5 text-offwhite text-sm font-dm hover:border-yellow/50 focus:border-yellow focus:outline-none transition-colors"
           >
             <span className="text-base leading-none">{country.flag}</span>
@@ -154,6 +167,8 @@ export default function PhoneInput({ value, onChange, disabled, inputClassName }
                   autoFocus
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
+                  // A placeholder is not an accessible name.
+                  aria-label="Search country"
                   placeholder="Search country…"
                   className="w-full bg-dark border border-dark-border rounded-lg pl-9 pr-3 py-2 text-sm text-offwhite font-dm focus:border-yellow focus:outline-none"
                 />
@@ -185,19 +200,27 @@ export default function PhoneInput({ value, onChange, disabled, inputClassName }
         <div className="relative flex-1">
           <Phone size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" />
           <input
+            id={id}
             type="tel"
             inputMode="tel"
+            // Lets a password manager or the browser fill this, and satisfies
+            // WCAG 1.3.5 — none of this form's fields declared their purpose.
+            autoComplete="tel"
             placeholder={placeholderFor(country.iso)}
             value={num}
             onChange={(e) => { setNum(e.target.value); emit(country.iso, e.target.value); }}
             disabled={disabled}
+            // The validation message below is visual only unless it is wired to
+            // the field it describes.
+            aria-invalid={showError || undefined}
+            aria-describedby={showError && id ? `${id}-error` : undefined}
             className={`${inputClassName ?? ""}${showError ? " !border-red-500/60" : valid ? " !border-green-500/50" : ""}`}
           />
           {valid && <CheckCircle size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-green-400" />}
         </div>
       </div>
       {showError && (
-        <p className="text-red-400 font-dm text-[11px] mt-1.5">
+        <p id={id ? `${id}-error` : undefined} className="text-red-400 font-dm text-[11px] mt-1.5">
           Enter a valid {country.name} number ({country.flag} {country.dial}) — no country code needed.
         </p>
       )}

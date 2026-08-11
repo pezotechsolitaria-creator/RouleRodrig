@@ -25,6 +25,26 @@ function iso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/**
+ * "2026-08-15" → "Saturday 15 August 2026", for the day buttons' accessible
+ * name. A screen reader reads the raw ISO form as a run of digits, which is
+ * both unpleasant and easy to mishear when picking a rental date.
+ *
+ * Parsed as local time (not `new Date(iso)`, which is UTC) so the weekday
+ * cannot come out a day off west of Greenwich.
+ */
+function longDate(day: string): string {
+  const [y, m, d] = day.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  if (Number.isNaN(date.getTime())) return day;
+  return date.toLocaleDateString(undefined, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 const DOW = ["S", "M", "T", "W", "T", "F", "S"];
 
 export default function AvailabilityCalendar({
@@ -142,14 +162,29 @@ export default function AvailabilityCalendar({
           if (inRange) cls = "bg-yellow/20 text-yellow";
           if (isStart || isEnd) cls = "bg-yellow text-dark font-bold";
 
+          // Everything a sighted user reads from this cell comes from colour and
+          // a strikethrough: whether the day is bookable, whether it is already
+          // taken, and whether it is part of the chosen range. None of that was
+          // exposed non-visually — the label was the bare ISO string, which a
+          // screen reader reads as digits and which says nothing about state.
+          // The translated legend words are reused so this stays in-language.
+          const selected = Boolean(isStart || isEnd || inRange);
+          const state = booked ? labels.booked : selected ? labels.selected : past ? null : labels.available;
+
           return (
             <button
               key={i}
               type="button"
               onClick={() => pick(day)}
               disabled={disabled}
+              // Machine-readable date, deliberately separate from the accessible
+              // name. Tests used to select days by aria-label, so improving that
+              // label for screen readers broke them — copy written for humans
+              // should not double as a selector.
+              data-date={day}
               className={`aspect-square rounded-lg text-xs font-dm flex items-center justify-center transition-colors ${cls}`}
-              aria-label={day}
+              aria-label={state ? `${longDate(day)} — ${state}` : longDate(day)}
+              aria-pressed={disabled ? undefined : selected}
             >
               {num}
             </button>

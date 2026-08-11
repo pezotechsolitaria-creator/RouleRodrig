@@ -582,11 +582,21 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
 
               {/* Dates — visual availability calendar */}
               <div>
-                <label className="font-bebas text-muted text-[10px] tracking-[0.25em] flex items-center gap-1.5 mb-2">
+                {/* A <label> can only name a form control, and the calendar is
+                    a group of buttons — so this named nothing. Exposed as a
+                    labelled group instead, which is what it actually is. */}
+                <span
+                  id="bk-dates-label"
+                  className="font-bebas text-muted text-[10px] tracking-[0.25em] flex items-center gap-1.5 mb-2"
+                >
                   <CalendarDays size={12} className="text-yellow" />
                   {t.booking.datesLabel} <span className="text-yellow">*</span>
-                </label>
-                <div className={fieldErr.date ? "rounded-2xl ring-1 ring-red-500/60" : ""}>
+                </span>
+                <div
+                  role="group"
+                  aria-labelledby="bk-dates-label"
+                  className={fieldErr.date ? "rounded-2xl ring-1 ring-red-500/60" : ""}
+                >
                 <AvailabilityCalendar
                   startDate={form.start_date}
                   endDate={form.end_date}
@@ -666,6 +676,9 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                     <input
                       id="bk-name"
                       type="text"
+                      // WCAG 1.3.5: no field on this form declared its purpose,
+                      // so nothing could autofill a booking.
+                      autoComplete="name"
                       placeholder={t.booking.namePlaceholder}
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -684,6 +697,11 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
                     <input
                       id="bk-email"
                       type="email"
+                      autoComplete="email"
+                      // The label carries a visual "*" that a screen reader
+                      // does not read as "required".
+                      aria-required
+                      aria-invalid={emailInvalid || undefined}
                       placeholder="your@email.com"
                       value={form.email}
                       onChange={(e) => setForm({ ...form, email: e.target.value })}
@@ -697,10 +715,14 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
 
               {/* Phone — with international country-code picker */}
               <div>
-                <label className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                <label htmlFor="bk-phone" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
                   {t.booking.phoneLabel} <span className="text-yellow">*</span>
                 </label>
                 <PhoneInput
+                  // This label used to point at nothing, so the field had no
+                  // accessible name whatsoever — an unlabelled edit box in the
+                  // middle of a booking form.
+                  id="bk-phone"
                   value={form.phone}
                   onChange={(full) => setForm((f) => ({ ...f, phone: full }))}
                   disabled={formState === "loading"}
