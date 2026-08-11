@@ -29,6 +29,21 @@ async function getStore(slug: string) {
     .select("id, name, slug, tagline, description, logo_url, cover_url, address, phone, whatsapp, rating_avg, rating_count")
     .eq("slug", slug)
     .maybeSingle();
+  if (!store) return null;
+
+  // A kitchen is not a shop (M50). browse_stores() already excludes kitchens
+  // from the directory, but the directory is not the only way in — a slug typed,
+  // linked or indexed would still render a storefront full of dishes with a
+  // shop's chrome, priced and addable outside the food surface that owns their
+  // availability rules. The exclusion has to hold on the page too, exactly as
+  // M42 had to for events.
+  const { data: kitchen } = await supabase
+    .from("food_kitchens")
+    .select("store_id")
+    .eq("store_id", store.id)
+    .maybeSingle();
+  if (kitchen) return null;
+
   return store;
 }
 

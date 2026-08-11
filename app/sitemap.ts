@@ -15,6 +15,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // /guide/shops only exists once the owner has pinned a shop — including it
   // before that would list a 404, so it's data-gated like the browse pages.
   const extra: MetadataRoute.Sitemap = [];
+
+  // Published dishes. Read through the same catalog RPC the customer sees, so
+  // this can never list a draft, an archived dish, or one whose kitchen is
+  // paused — a sitemap entry that 404s is worse than a missing one. A failure
+  // here costs the dish URLs, never the whole sitemap.
+  let dishes: MetadataRoute.Sitemap = [];
+  try {
+    // The COOKIELESS client, deliberately. lib/supabase/server.ts reads
+    // cookies, which opts this statically generated route into dynamic
+    // rendering — Next throws, the catch below swallows it, and the sitemap
+    // ships with every dish URL silently missing. Verified by watching exactly
+    // that happen in the build log.
+    const { createAnonClient } = await import("@/lib/supabase/anon");
+    const { listFoodSlugs } = await import("@/lib/food/queries");
+    const slugs = await listFoodSlugs(createAnonClient());
+    dishes = slugs.map((slug) => ({
+      url: `${SITE_URL}/food/${slug}`,
+      lastModified: now,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    }));
+  } catch (err) {
+    console.error("sitemap: food slugs failed", err);
+  }
+
   try {
     const { content, fleet, recentBookings } = await getFleetView();
     browse = buildBrowseCategories(content, fleet, recentBookings).map((c) => ({
@@ -47,6 +72,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Marketplace directory — always exists (its empty state recruits
     // merchants), so it is not data-gated like /guide/shops below.
     { url: `${SITE_URL}/shop`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
+    // Food ordering. Always listed (its empty state is the concierge hand-off,
+    // not a 404), and every published dish is listed beneath it — a dish page
+    // is a real commercial landing page for "ourite rodrigues" and the like.
+    { url: `${SITE_URL}/food`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
+    ...dishes,
+    { url: `${SITE_URL}/food/concierge`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${SITE_URL}/guide/rodrigues`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/guide/beaches`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/guide/viewpoints`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },

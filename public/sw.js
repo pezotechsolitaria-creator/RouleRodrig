@@ -24,7 +24,9 @@
 // already taken sw.js to v127 while app/api/health/route.ts still read v126, so
 // v127 named two different builds. A cache version is only useful as an
 // identifier if it is unique, so this moves past it and restores the mirror.
-const CACHE = "rr-cache-v128";
+// v129 — the food platform. /food is a different page than it was, and the old
+// one is sitting in a lot of runtime caches.
+const CACHE = "rr-cache-v129";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

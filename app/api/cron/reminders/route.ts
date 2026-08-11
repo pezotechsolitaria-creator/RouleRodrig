@@ -359,6 +359,37 @@ export async function GET(req: NextRequest) {
     console.error("email quota check failed", err);
   }
 
+  // ── Food day reset — the SAFETY NET, not the primary path ──────────────
+  // Every dish goes back to its daily_capacity and yesterday's "sold out for
+  // today" marks clear. Without something doing this, the first dish that ran
+  // out yesterday is still sold out this morning and nobody notices — the
+  // platform just quietly stops selling its best plate.
+  //
+  // TIMING, HONESTLY: this cron runs at 06:00 UTC, which is 10:00 in Rodrigues
+  // — too late to be the reset that opens the day, and breakfast would already
+  // have been unbuyable for hours. It is NOT moved earlier, because this same
+  // run drives the pickup/return reminder emails whose timing is deliberate,
+  // and a second cron entry is what broke the last deploy (see the revert in
+  // the history above this file's lifetime).
+  //
+  // So the PRIMARY reset is the operator pressing "Start the day" in
+  // /admin/food when the kitchens actually open — which is also the more
+  // truthful model, since a kitchen's day starts when the cooker arrives, not
+  // at a fixed hour. This run is what covers the morning nobody pressed it.
+  //
+  // food_restock_day() moves stock through the inventory ledger rather than
+  // writing stock_quantity, so the count stays auditable, and it is idempotent:
+  // running it after the operator already did changes nothing. A failure here
+  // must never take the reminder emails down with it.
+  let dishesRestocked = 0;
+  try {
+    const { data, error } = await supabase.rpc("food_restock_day", { p_store_id: null });
+    if (error) console.error("food_restock_day failed", error);
+    else dishesRestocked = (data as number) ?? 0;
+  } catch (err) {
+    console.error("food_restock_day threw", err);
+  }
+
   // ── Nightly content backup — snapshot site_content when it has changed ──
   let backupSaved = false;
   try {
@@ -397,6 +428,7 @@ export async function GET(req: NextRequest) {
       ordersExpired,
       paymentRemindersSent,
       missesEmailed,
+      dishesRestocked,
       backupSaved,
       emailFailures,
       emailQuotaLevel,

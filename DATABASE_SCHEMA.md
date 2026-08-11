@@ -14,6 +14,35 @@ Related docs: [ARCHITECTURE.md](./ARCHITECTURE.md) · [FEATURES_STATUS.md](./FEA
 
 **Project:** `twikiojcklvvuttbrijr` (Roule Rodrigues — live scooter-rental + local marketplace platform). Postgres via Supabase. **35 tables** in `public`, all with RLS enabled. **40 functions/RPCs**, **19 triggers**, **0 Edge Functions**, **91 migrations** (latest `20260806103324_m9_status_paid_captures_payment`).
 
+> **Food platform (M50–M54, Aug 2026) — added after this audit was generated.**
+> Five tables (`food_kitchens`, `food_kitchen_ops`, `food_items`,
+> `food_categories`, `food_item_categories`), one view (`food_catalog`) and
+> eight functions. The model is **a kitchen IS a store, a dish IS a product** —
+> the same reuse decision M33 made for events, so food orders inherit
+> `create_order()`, the row-locked stock reservation, the cash/bank handshake,
+> guest checkout, the pickup code and the delivery network unchanged.
+>
+> Three things a newcomer will otherwise get wrong:
+> * **`food_kitchen_ops` has RLS on and NO policy, deliberately.** It holds the
+>   cooker's name and phone. RLS filters rows and never columns, and a table
+>   grant makes column REVOKEs a no-op here — so the split table is the only
+>   thing protecting that number. Do not add a policy, and do not move those
+>   columns into `food_kitchens`, which anon can read.
+> * **Every kitchen belongs to ONE system merchant (`system_key = 'food'`).**
+>   A merchant per cooker mints a working merchant dashboard as a side effect of
+>   `merchants.owner_id`, which is the exact trap M40 documented for organisers.
+> * **`admin_update_order_status()`, `admin_preview_pickup_code()` and
+>   `admin_redeem_pickup_code()` exist because `/admin` has a cookie session and
+>   no `auth.uid()`.** The merchant-facing originals open with
+>   `if auth.uid() is null then raise` and are unreachable from there. The admin
+>   doors carry the same state machine and the same single-use guarantees, and
+>   the two pickup ones additionally refuse any order that is not a kitchen
+>   order — so the food operator can never close a merchant shop's sale.
+>
+> Dish availability is enforced by a **trigger on `order_items`**
+> (`enforce_food_item_servable`), not inside `create_order()`, so it covers
+> every writer that will ever exist and survives that RPC being rewritten.
+
 The schema spans two generations: an original **v1 lead-gen / rental site** (bookings, contact, reviews, taxi, marketplace *listings*) and a newer **v6–v9 full commerce marketplace** (merchants, stores, products, orders, payments, subscriptions) built on Supabase Auth with a `SECURITY DEFINER` RPC layer. Cash / bank-transfer / QR are the marketplace payment rails; card providers are explicitly rejected in `create_order` (migration `m6_create_order_uses_shared_order_amounts` / `create_order_reject_card_providers`), consistent with the "cards are rentals-only" business rule.
 
 ### RLS design in one paragraph

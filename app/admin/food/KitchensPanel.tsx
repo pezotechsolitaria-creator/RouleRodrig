@@ -1,0 +1,382 @@
+"use client";
+
+import { useCallback, useState } from "react";
+import { toast } from "sonner";
+import { Loader2, Plus, Pencil, Phone, MapPin, Clock, RotateCcw, EyeOff, Eye } from "lucide-react";
+import { foodWrite, type AdminKitchen } from "./types";
+
+// Kitchens and the people who cook in them.
+//
+// The cooker's name, number and notes are stored in food_kitchen_ops, a table
+// with RLS on and NO policy — service-role only. That is not belt-and-braces:
+// RLS filters rows and never columns, and a table grant makes column REVOKEs a
+// no-op on this database, so a phone number in a publicly-readable table would
+// be one `select *` from the anon key away. Splitting the table is the only
+// thing that actually protects it, and this panel is the only place it appears.
+
+const label = "block font-bebas text-[11px] tracking-[0.2em] text-muted";
+const input =
+  "mt-1 w-full rounded-xl border border-white/10 bg-dark px-3 py-2.5 font-dm text-sm text-offwhite placeholder:text-muted focus:border-yellow/50 focus:outline-none";
+
+type Draft = {
+  storeId: string | null;
+  name: string;
+  tagline: string;
+  address: string;
+  phone: string;
+  lat: string;
+  lng: string;
+  prepMinutesMin: number;
+  prepMinutesMax: number;
+  pickupHint: string;
+  cookerName: string;
+  cookerPhone: string;
+  cookerNotes: string;
+  status: string;
+  offersRrDelivery: boolean;
+};
+
+const emptyDraft = (): Draft => ({
+  storeId: null,
+  name: "",
+  tagline: "",
+  address: "",
+  phone: "",
+  lat: "",
+  lng: "",
+  prepMinutesMin: 15,
+  prepMinutesMax: 30,
+  pickupHint: "",
+  cookerName: "",
+  cookerPhone: "",
+  cookerNotes: "",
+  status: "active",
+  offersRrDelivery: true,
+});
+
+export default function KitchensPanel({
+  kitchens, reload,
+}: {
+  kitchens: AdminKitchen[];
+  reload: () => void;
+}) {
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const restock = useCallback(
+    async (k: AdminKitchen) => {
+      setBusy(k.storeId);
+      const res = await foodWrite("/api/admin/food/actions", {
+        method: "POST",
+        body: JSON.stringify({ action: "restock_day", storeId: k.storeId }),
+      });
+      setBusy(null);
+      if (!res.ok) { toast.error(res.error); return; }
+      const n = (res.data as { restocked?: number } | null)?.restocked ?? 0;
+      toast.success(n === 0 ? "Everything was already at capacity." : `Restocked ${n} dish${n === 1 ? "" : "es"}.`);
+      reload();
+    },
+    [reload],
+  );
+
+  const setStatus = useCallback(
+    async (k: AdminKitchen, status: string) => {
+      setBusy(k.storeId);
+      const res = await foodWrite("/api/admin/food/kitchens", {
+        method: "PATCH",
+        body: JSON.stringify({ storeId: k.storeId, status }),
+      });
+      setBusy(null);
+      if (!res.ok) { toast.error(res.error); return; }
+      toast.success(status === "active" ? `${k.name} is back on /food.` : `${k.name} is hidden.`);
+      reload();
+    },
+    [reload],
+  );
+
+  const save = useCallback(async () => {
+    if (!draft) return;
+    const payload = {
+      ...(draft.storeId ? { storeId: draft.storeId } : {}),
+      name: draft.name.trim(),
+      tagline: draft.tagline,
+      address: draft.address,
+      phone: draft.phone,
+      lat: draft.lat.trim() ? Number(draft.lat) : null,
+      lng: draft.lng.trim() ? Number(draft.lng) : null,
+      prepMinutesMin: draft.prepMinutesMin,
+      prepMinutesMax: draft.prepMinutesMax,
+      pickupHint: draft.pickupHint,
+      cookerName: draft.cookerName,
+      cookerPhone: draft.cookerPhone,
+      cookerNotes: draft.cookerNotes,
+      status: draft.status as "draft" | "active" | "paused",
+      offersRrDelivery: draft.offersRrDelivery,
+    };
+    setBusy("save");
+    const res = await foodWrite("/api/admin/food/kitchens", {
+      method: draft.storeId ? "PATCH" : "POST",
+      body: JSON.stringify(payload),
+    });
+    setBusy(null);
+    if (!res.ok) { toast.error(res.error); return; }
+    toast.success(draft.storeId ? "Kitchen saved." : "Kitchen created.");
+    setDraft(null);
+    reload();
+  }, [draft, reload]);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-dm text-sm text-muted">
+          {kitchens.length === 0
+            ? "No kitchens yet."
+            : `${kitchens.length} kitchen${kitchens.length === 1 ? "" : "s"}`}
+        </p>
+        <button
+          onClick={() => setDraft(emptyDraft())}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-yellow px-4 py-2.5 font-dm text-sm font-bold text-dark hover:opacity-90"
+        >
+          <Plus size={15} /> Add a kitchen
+        </button>
+      </div>
+
+      {kitchens.length === 0 && (
+        <div className="mt-6 rounded-2xl border border-yellow/25 bg-yellow/5 px-6 py-10 text-center">
+          <p className="font-syne text-lg font-bold text-offwhite">Start with one cooker</p>
+          <p className="mx-auto mt-2 max-w-md font-dm text-sm text-muted">
+            A kitchen is a person who cooks and a place to collect from. They never sign in, never see a
+            dashboard and never install anything — you manage their menu here and ring them when an order
+            lands.
+          </p>
+        </div>
+      )}
+
+      <div className="mt-4 space-y-2.5">
+        {kitchens.map((k) => (
+          <article key={k.storeId} className="rounded-2xl border border-white/10 bg-dark-card p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-syne text-base font-extrabold text-offwhite">
+                  {k.name}
+                  <span
+                    className={`ml-2 rounded-full px-2 py-0.5 font-dm text-[10px] font-semibold ${
+                      k.status === "active"
+                        ? "bg-green-500/15 text-green-300"
+                        : "bg-white/10 text-muted"
+                    }`}
+                  >
+                    {k.status === "active" ? "Live" : k.status}
+                  </span>
+                </p>
+                <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 font-dm text-xs text-muted">
+                  <span className="inline-flex items-center gap-1">
+                    <Clock size={12} /> {k.prepMinutesMin}–{k.prepMinutesMax} min
+                  </span>
+                  <span>{k.liveDishCount} of {k.dishCount} dishes live</span>
+                  {k.address && (
+                    <span className="inline-flex items-center gap-1"><MapPin size={12} /> {k.address}</span>
+                  )}
+                </p>
+                {(k.cookerName || k.cookerPhone) && (
+                  <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg bg-white/5 px-2 py-1 font-dm text-xs text-offwhite">
+                    <span className="font-bebas text-[10px] tracking-widest text-yellow">COOKER</span>
+                    {k.cookerName}
+                    {k.cookerPhone && (
+                      <a href={`tel:${k.cookerPhone}`} className="inline-flex items-center gap-1 text-yellow hover:underline">
+                        <Phone size={11} /> {k.cookerPhone}
+                      </a>
+                    )}
+                  </p>
+                )}
+                {k.cookerNotes && (
+                  <p className="mt-1 font-dm text-xs text-muted">{k.cookerNotes}</p>
+                )}
+              </div>
+
+              <div className="flex shrink-0 flex-wrap gap-1.5">
+                <button
+                  onClick={() => void restock(k)}
+                  disabled={busy === k.storeId}
+                  title="Restock every dish to its daily count"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-2.5 py-2 font-dm text-[11px] text-muted hover:text-yellow disabled:opacity-50"
+                >
+                  <RotateCcw size={13} /> Restock
+                </button>
+                <button
+                  onClick={() => void setStatus(k, k.status === "active" ? "paused" : "active")}
+                  disabled={busy === k.storeId}
+                  title={k.status === "active" ? "Hide this kitchen and all its dishes" : "Show it again"}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-2.5 py-2 font-dm text-[11px] text-muted hover:text-offwhite disabled:opacity-50"
+                >
+                  {k.status === "active" ? <EyeOff size={13} /> : <Eye size={13} />}
+                </button>
+                <button
+                  onClick={() =>
+                    setDraft({
+                      storeId: k.storeId,
+                      name: k.name,
+                      tagline: k.tagline ?? "",
+                      address: k.address ?? "",
+                      phone: k.phone ?? "",
+                      lat: k.lat?.toString() ?? "",
+                      lng: k.lng?.toString() ?? "",
+                      prepMinutesMin: k.prepMinutesMin,
+                      prepMinutesMax: k.prepMinutesMax,
+                      pickupHint: k.pickupHint ?? "",
+                      cookerName: k.cookerName ?? "",
+                      cookerPhone: k.cookerPhone ?? "",
+                      cookerNotes: k.cookerNotes ?? "",
+                      status: k.status,
+                      offersRrDelivery: true,
+                    })
+                  }
+                  className="rounded-lg border border-white/15 px-2.5 py-2 text-muted hover:text-offwhite"
+                  aria-label={`Edit ${k.name}`}
+                >
+                  <Pencil size={13} />
+                </button>
+              </div>
+            </div>
+            {k.pickupHint && (
+              <p className="mt-2 rounded-xl bg-white/5 px-3 py-2 font-dm text-xs text-muted">
+                Collection: {k.pickupHint}
+              </p>
+            )}
+          </article>
+        ))}
+      </div>
+
+      {draft && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 p-3 sm:p-6">
+          <div className="mx-auto max-w-lg rounded-2xl border border-white/10 bg-dark-card p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">
+                  {draft.storeId ? "EDIT KITCHEN" : "NEW KITCHEN"}
+                </p>
+                <h3 className="mt-0.5 font-syne text-xl font-extrabold text-offwhite">
+                  {draft.name || "Untitled kitchen"}
+                </h3>
+              </div>
+              <button onClick={() => setDraft(null)} className="font-dm text-sm text-muted hover:text-offwhite">
+                Close
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <div>
+                <span className={label}>KITCHEN NAME (CUSTOMERS SEE THIS)</span>
+                <input className={input} value={draft.name}
+                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                  placeholder="Chez Marie" />
+              </div>
+              <div>
+                <span className={label}>WHERE TO COLLECT FROM</span>
+                <input className={input} value={draft.address}
+                  onChange={(e) => setDraft({ ...draft, address: e.target.value })}
+                  placeholder="Port Mathurin, near the market" />
+              </div>
+              <div>
+                <span className={label}>COLLECTION LANDMARK</span>
+                <input className={input} value={draft.pickupHint}
+                  onChange={(e) => setDraft({ ...draft, pickupHint: e.target.value })}
+                  placeholder="Green gate beside the church" />
+                <p className="mt-1 font-dm text-[11px] text-muted">
+                  Half the collection points on this island have no street address. A landmark beats one.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <span className={label}>PREP FROM (MIN)</span>
+                  <input className={input} inputMode="numeric" value={draft.prepMinutesMin}
+                    onChange={(e) => setDraft({ ...draft, prepMinutesMin: parseInt(e.target.value, 10) || 0 })} />
+                </div>
+                <div>
+                  <span className={label}>PREP TO (MIN)</span>
+                  <input className={input} inputMode="numeric" value={draft.prepMinutesMax}
+                    onChange={(e) => setDraft({ ...draft, prepMinutesMax: parseInt(e.target.value, 10) || 0 })} />
+                </div>
+              </div>
+              <p className="-mt-2 font-dm text-[11px] text-muted">
+                A range, never a single number. Every dish here inherits it unless it says otherwise.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <span className={label}>GPS LATITUDE</span>
+                  <input className={input} inputMode="decimal" value={draft.lat}
+                    onChange={(e) => setDraft({ ...draft, lat: e.target.value })} placeholder="-19.6835" />
+                </div>
+                <div>
+                  <span className={label}>GPS LONGITUDE</span>
+                  <input className={input} inputMode="decimal" value={draft.lng}
+                    onChange={(e) => setDraft({ ...draft, lng: e.target.value })} placeholder="63.4200" />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-dark p-3.5">
+                <p className="font-bebas text-[11px] tracking-[0.25em] text-yellow">PRIVATE — THE COOKER</p>
+                <p className="mt-1 font-dm text-[11px] text-muted">
+                  Never shown to customers and never readable by the public API. This is who you ring.
+                </p>
+                <div className="mt-3 space-y-3">
+                  <div>
+                    <span className={label}>COOKER&apos;S NAME</span>
+                    <input className={input} value={draft.cookerName}
+                      onChange={(e) => setDraft({ ...draft, cookerName: e.target.value })} />
+                  </div>
+                  <div>
+                    <span className={label}>COOKER&apos;S PHONE</span>
+                    <input className={input} value={draft.cookerPhone}
+                      onChange={(e) => setDraft({ ...draft, cookerPhone: e.target.value })} />
+                  </div>
+                  <div>
+                    <span className={label}>OPERATIONAL NOTES</span>
+                    <textarea className={input} rows={2} value={draft.cookerNotes}
+                      onChange={(e) => setDraft({ ...draft, cookerNotes: e.target.value })}
+                      placeholder="Call before 7am. No fish on Mondays." />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <span className={label}>VISIBILITY</span>
+                  <select className={input} value={draft.status}
+                    onChange={(e) => setDraft({ ...draft, status: e.target.value })}>
+                    <option value="active">Live on /food</option>
+                    <option value="paused">Hidden</option>
+                    <option value="draft">Draft</option>
+                  </select>
+                </div>
+                <label className="flex cursor-pointer items-end gap-2.5 pb-3 font-dm text-sm text-offwhite">
+                  <input type="checkbox" checked={draft.offersRrDelivery}
+                    onChange={(e) => setDraft({ ...draft, offersRrDelivery: e.target.checked })}
+                    className="h-4 w-4 accent-[#F5C842]" />
+                  We deliver from here
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-2">
+              <button onClick={() => setDraft(null)}
+                className="flex-1 rounded-xl border border-white/15 px-4 py-3 font-dm text-sm text-muted hover:text-offwhite">
+                Cancel
+              </button>
+              <button
+                onClick={() => void save()}
+                disabled={busy === "save" || !draft.name.trim()}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-yellow px-4 py-3 font-dm text-sm font-bold text-dark disabled:opacity-50"
+              >
+                {busy === "save" && <Loader2 size={15} className="animate-spin" />}
+                {draft.storeId ? "Save kitchen" : "Create kitchen"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

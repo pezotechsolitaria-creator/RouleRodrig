@@ -172,6 +172,9 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
 // links here keeps them discoverable — previously /admin/subscriptions could
 // only be reached by typing the URL.
 const MARKETPLACE_LINKS: { href: string; label: string; icon: React.ElementType }[] = [
+  // Food first: it is the only one of these the owner opens every day, because
+  // cookers have no dashboard of their own and the order queue lives here.
+  { href: "/admin/food",           label: "Food Operations",           icon: UtensilsCrossed },
   { href: "/admin/subscriptions",  label: "Merchants & Subscriptions", icon: Store },
   { href: "/admin/stores",         label: "Shops & Opening Hours",     icon: Clock },
   { href: "/admin/delivery-zones", label: "Delivery Areas & Fees",     icon: Truck },

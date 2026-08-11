@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import PhoneInput from "@/components/PhoneInput";
 import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 import { todayLine, deliveryLine, nextOpenLabel, type ScheduleStatus } from "@/lib/schedule";
+import { readFulfillment as readFoodFulfillment } from "@/components/food/FulfillmentBar";
 
 type Provider = "cash" | "bank_transfer";
 type Fulfillment = "pickup" | "customer_delivery" | "rr_delivery";
@@ -134,6 +135,16 @@ export default function CheckoutForm({
         if (body.fulfillment) setStoreOffersDelivery(!!body.fulfillment.delivery);
         setOffersRrDelivery(!!body.offersRrDelivery);
         setSchedule(body.schedule ?? null);
+        // Carry over the pickup/delivery choice made while browsing /food.
+        // A customer who spent the whole visit in "Delivery" mode and then
+        // lands on a checkout defaulted to "Pick up" has been told, at the last
+        // possible step, that the platform was not listening — the single
+        // most-complained-about behaviour of the big delivery apps. Applied
+        // only when the shop can actually honour it, so this preference can
+        // never select an option create_order() is about to refuse.
+        if (readFoodFulfillment() === "rr_delivery" && body.offersRrDelivery) {
+          setFulfillment("rr_delivery");
+        }
         if (body.payment) {
           setAcceptsCash(!!body.payment.acceptsCash);
           setAcceptsBankTransfer(!!body.payment.acceptsBankTransfer);
