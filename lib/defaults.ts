@@ -259,7 +259,35 @@ export interface RecommendedPlace {
   highlights?: string[]; // bullet highlights/amenities shown in the detail view
   images?: string[];   // optional extra photos for the detail gallery
   isTour?: boolean;    // an activity that's a guided tour/excursion → shown under "Guided Tours"
+  /**
+   * Which BOOKABLE SERVICE this is, when it is more specific than "activity".
+   *
+   * This one field is what turns the existing Stay·Eat·Do engine into a massage
+   * / fishing / sea-trip marketplace without a second booking system. That
+   * engine already does everything those verticals need and has done for
+   * months: per-date capacity, time slots, deposit-to-confirm, a photo gallery,
+   * highlights, and the hold/release logic in lib/holds.ts. What it lacked was
+   * a way to say WHICH kind of service an "activity" is, so the three could
+   * have their own discovery surfaces.
+   *
+   * Building three bespoke marketplaces instead would have meant three
+   * availability engines, three deposit flows and three sets of double-booking
+   * bugs, for a catalogue that today contains three items.
+   */
+  serviceType?: "massage" | "fishing" | "boat";
+  /** Minutes. A 60-minute massage and a 5-hour charter both need this. */
+  durationMinutes?: number;
+  /** "Up to 6 people" — shown on the card, distinct from `capacity` (spots/day). */
+  maxGuests?: number;
+  /** What the price includes. Rendered as ticks on the detail view. */
+  included?: string[];
+  /** Provider/captain/therapist name, shown as trust rather than as a heading. */
+  providerName?: string;
 }
+
+/** The bookable service verticals that ride on the Stay·Eat·Do engine. */
+export const SERVICE_TYPES = ["massage", "fishing", "boat"] as const;
+export type ServiceType = (typeof SERVICE_TYPES)[number];
 
 export interface RecommendedContent {
   enabled: boolean;
@@ -398,19 +426,26 @@ export interface QuickAccessItem {
 
 // Default tiles (used until the owner customises them in admin).
 export const DEFAULT_QUICK_ACCESS: QuickAccessItem[] = [
-  // "Eats Local" is a NAME, so it is the same in all three languages — like
-  // "Ti Roulé". Translating it ("Manges Local") would make the same product
-  // look like three products to a trilingual island.
-  { id: "qa-restaurants", label: "Eats Local", labelFr: "Eats Local", labelCr: "Eats Local", href: "/food", icon: "restaurant", enabled: true },
-  { id: "qa-beaches", label: "Beaches", labelFr: "Plages", labelCr: "Laplaz", href: "/guide/beaches", icon: "beach", enabled: true },
-  { id: "qa-hiking", label: "Hiking", labelFr: "Randonnée", labelCr: "Rando", href: "/guide/routes", icon: "hiking", enabled: true },
-  { id: "qa-fishing", label: "Fishing", labelFr: "Pêche", labelCr: "Lapes", href: "/browse/tours", icon: "fishing", enabled: true },
-  { id: "qa-boat", label: "Boat Trips", labelFr: "Sorties mer", labelCr: "Sorti lamer", href: "/browse/tours", icon: "boat", enabled: true },
-  { id: "qa-airport", label: "Airport Transfer", labelFr: "Transfert", labelCr: "Transfer", href: "/taxi", icon: "plane", enabled: true },
-  { id: "qa-taxi", label: "Taxi", labelFr: "Taxi", labelCr: "Taksi", href: "/taxi", icon: "taxi", enabled: true },
-  { id: "qa-viewpoints", label: "Viewpoints", labelFr: "Points de vue", labelCr: "Vue", href: "/guide/viewpoints", icon: "viewpoint", enabled: true },
-  { id: "qa-store", label: "Local Store", labelFr: "Boutiques", labelCr: "Laboutik", href: "/shop", icon: "store", enabled: true },
-  { id: "qa-events", label: "What's on", labelFr: "Événements", labelCr: "Levennman", href: "/explore", icon: "event", enabled: true },
+  // ── THINGS PEOPLE DO, NOT CONTENT CATEGORIES ──────────────────────────────
+  // "Eat Local", "Boutiques" and "Événements" were removed from this grid on
+  // the owner's instruction, and he was right: all three already have a much
+  // stronger entry point above or below it — two of the six photo cards, and
+  // the events carousel. A tiny icon competing with a full-width card for the
+  // same destination does not add a route, it dilutes one.
+  //
+  // What is left is ordered by INTENT rather than by content type: get in the
+  // water, get up a hill, get on a boat, get looked after, get a ride.
+  { id: "qa-beaches",   label: "Beaches",      labelFr: "Plages",       labelCr: "Laplaz",      href: "/guide/beaches",    icon: "beach",     enabled: true },
+  { id: "qa-hiking",    label: "Hiking",       labelFr: "Randonnée",    labelCr: "Rando",       href: "/guide/routes",     icon: "hiking",    enabled: true },
+  { id: "qa-viewpoints",label: "Viewpoints",   labelFr: "Points de vue",labelCr: "Vue",         href: "/guide/viewpoints", icon: "viewpoint", enabled: true },
+  { id: "qa-fishing",   label: "Fishing",      labelFr: "Pêche",        labelCr: "Lapes",       href: "/experiences/fishing", icon: "fishing", enabled: true },
+  { id: "qa-boat",      label: "Boat Trips",   labelFr: "Sorties mer",  labelCr: "Sorti lamer", href: "/experiences/boat",    icon: "boat",    enabled: true },
+  { id: "qa-massage",   label: "Massage",      labelFr: "Massage",      labelCr: "Masaz",       href: "/experiences/massage", icon: "massage", enabled: true },
+  // Taxi and Transfer are DIFFERENT INTENTS and no longer share a page: one is
+  // "I need a ride now", the other is "I am planning a journey". They pointed
+  // at the same URL, which is why the grid looked like it had a duplicate.
+  { id: "qa-taxi",      label: "Taxi",         labelFr: "Taxi",         labelCr: "Taksi",       href: "/taxi",             icon: "taxi",      enabled: true },
+  { id: "qa-airport",   label: "Transfers",    labelFr: "Transferts",   labelCr: "Transfer",    href: "/transfers",        icon: "plane",     enabled: true },
 ];
 
 // Default home cards (used until the owner customises them in admin). Images are

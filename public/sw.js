@@ -54,7 +54,10 @@
 // v142 — the pickup location everywhere it matters, and a service worker that
 // actually notices a new build instead of serving yesterday's homepage.
 // v143 — the ticket email, event status wording, and venue capacity.
-const CACHE = "rr-cache-v143";
+// v144 — quick actions become intents (massage/fishing/sea trips added, food,
+// shops and events removed in favour of their stronger entry points), taxi and
+// transfers finally separate, and the events carousel.
+const CACHE = "rr-cache-v144";
 // v141 — HOTFIX: /checkout returned a 500. A server component was importing a
 // plain value from a "use client" module and got a client reference back.
 const SHELL = "/";

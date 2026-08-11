@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useCallback, useRef, useState } from "react";
 import { Ticket, ArrowRight, CalendarDays, MapPin } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { centsToDecimalString } from "@/lib/money";
@@ -43,6 +44,20 @@ function dayLabel(iso: string, locale: string): { day: string; month: string } {
 
 export default function EventsPromo({ events }: { events: PromoEvent[] }) {
   const { language } = useLanguage();
+  const railRef = useRef<HTMLDivElement>(null);
+  const [page, setPage] = useState(0);
+
+  // Which card is centred, derived from scroll position rather than tracked by
+  // a timer — the dots must follow the FINGER, not a schedule, or they lie the
+  // moment somebody swipes.
+  const onScroll = useCallback(() => {
+    const el = railRef.current;
+    if (!el) return;
+    const card = el.firstElementChild as HTMLElement | null;
+    if (!card) return;
+    const step = card.offsetWidth + 12; // card + gap-3
+    setPage(Math.round(el.scrollLeft / step));
+  }, []);
   const L = (t: [string, string, string]) => (language === "fr" ? t[1] : language === "cr" ? t[2] : t[0]);
   const locale = language === "fr" ? "fr-FR" : "en-GB";
 
@@ -69,22 +84,26 @@ export default function EventsPromo({ events }: { events: PromoEvent[] }) {
         ])}
       </p>
 
-      <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div
+        ref={railRef}
+        onScroll={onScroll}
+        className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         {events.map((e) => {
           const { day, month } = dayLabel(e.startsAt, locale);
           return (
             <Link
               key={e.slug}
               href={`/events/${e.slug}`}
-              className="group relative flex w-[248px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-dark-card transition-colors hover:border-yellow/40"
+              className="group relative flex w-[290px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/10 bg-dark-card transition-colors hover:border-yellow/40 sm:w-[330px]"
             >
-              <div className="relative h-[104px] w-[92px] shrink-0 overflow-hidden bg-dark">
+              <div className="relative h-[124px] w-[112px] shrink-0 overflow-hidden bg-dark">
                 {e.coverUrl ? (
                   <Image
                     src={e.coverUrl}
                     alt=""
                     fill
-                    sizes="92px"
+                    sizes="112px"
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                 ) : (
@@ -128,6 +147,22 @@ export default function EventsPromo({ events }: { events: PromoEvent[] }) {
           );
         })}
       </div>
+
+      {/* Dots, only when there is more than one card — a single dot is not a
+          control, it is a full stop. Presentational: the rail is already
+          keyboard- and screen-reader-navigable as a list of links. */}
+      {events.length > 1 && (
+        <div className="mt-2.5 flex justify-center gap-1.5" aria-hidden>
+          {events.map((e, i) => (
+            <span
+              key={e.slug}
+              className={`h-1.5 rounded-full transition-all ${
+                i === page ? "w-5 bg-yellow" : "w-1.5 bg-white/20"
+              }`}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }

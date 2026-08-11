@@ -16,6 +16,7 @@ import { loc } from "@/lib/localize";
 import { NAV_TABS, isTabActive, tabLabel, openTiRoule } from "@/lib/nav-tabs";
 import InstallAppButton from "@/components/InstallAppButton";
 import EventsPromo, { type PromoEvent } from "@/components/EventsPromo";
+import { HeartHandshake } from "lucide-react";
 import { DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS } from "@/lib/defaults";
 import type { QuickAccessItem, HomeCard } from "@/lib/defaults";
 
@@ -25,6 +26,9 @@ const LOOKING_ICON: Record<string, React.ElementType> = {
   boat: Sailboat, plane: Plane, taxi: CarTaxiFront, viewpoint: Mountain,
   store: ShoppingBag, event: PartyPopper, map: MapIcon, planner: CalendarRange,
   guide: BookOpen, scooter: Bike, car: Car, stay: BedDouble, compass: Compass,
+  // Added with the massage vertical. Without it the tile silently fell through
+  // to the Compass fallback — the same icon as three of its neighbours.
+  massage: HeartHandshake,
 };
 // Icon keys for the six home cards.
 const HOME_ICON: Record<string, React.ElementType> = {
