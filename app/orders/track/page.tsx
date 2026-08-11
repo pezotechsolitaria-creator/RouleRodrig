@@ -8,6 +8,7 @@ import { centsToDecimalString } from "@/lib/money";
 import { statusLabel, type OrderStatus } from "@/lib/orders/status";
 import { holdInfo, customerHoldCopy, holdRemaining, type PaymentProvider } from "@/lib/orders/hold";
 import BankTransferPanel from "@/components/orders/BankTransferPanel";
+import DeliveryStatusCard from "@/components/orders/DeliveryStatusCard";
 import PickupCodeCard from "@/components/orders/PickupCodeCard";
 import PickupLocationCard from "@/components/orders/PickupLocationCard";
 import TicketList, { type BuyerTicket } from "@/components/events/TicketList";
@@ -329,6 +330,13 @@ function TrackOrder() {
                 rather than on a status check, so a ticket cannot be hidden by a
                 status the events flow does not use. */}
             {order.tickets?.length > 0 && <TicketList tickets={order.tickets} />}
+
+            {/* A Roulé Rodrigues delivery, and the PIN the driver asks for at
+                the door. Sits above the pickup blocks because for a delivery
+                order none of those apply. */}
+            {order.fulfillment === "rr_delivery" && (
+              <DeliveryStatusCard orderId={order.id} email={email} />
+            )}
 
             {/* Shown while it is still being prepared too — the customer is
                 deciding when to set off, and that decision needs the address,

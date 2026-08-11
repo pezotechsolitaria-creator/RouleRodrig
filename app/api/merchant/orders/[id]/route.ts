@@ -117,7 +117,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // in-app notification when status actually changes" condition.
   const { data: current } = await supabase
     .from("orders")
-    .select("order_number, customer_id, customer_email, status")
+    .select("order_number, customer_id, customer_email, status, fulfillment_method")
     .eq("id", id)
     .maybeSingle();
   if (!current) return NextResponse.json({ error: "Not found." }, { status: 404 });
@@ -165,7 +165,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         // at the counter is the moment they need it. Read with the service
         // role — no client role can see qr_pickup_tokens.code (M28).
         let extra = "";
-        if (targetStatus === "ready_for_pickup") {
+        // A delivery customer must NOT be told to collect at the shop. The
+        // pickup code is meaningless to them — a driver is bringing the order,
+        // and the code they need is the delivery PIN on their order page.
+        const isRrDelivery = current.fulfillment_method === "rr_delivery";
+        if (targetStatus === "ready_for_pickup" && isRrDelivery) {
+          extra = " A driver is on the way to collect it. Track it on your order page for the PIN to give them.";
+        } else if (targetStatus === "ready_for_pickup") {
 
           const { data: token } = await admin
             .from("qr_pickup_tokens")

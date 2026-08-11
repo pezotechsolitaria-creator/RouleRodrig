@@ -15,6 +15,7 @@ import PickupLocationCard from "@/components/orders/PickupLocationCard";
 import TicketList, { type BuyerTicket } from "@/components/events/TicketList";
 import RateShopCard from "@/components/orders/RateShopCard";
 import type { PickupCode } from "@/lib/orders/pickup";
+import DeliveryStatusCard from "@/components/orders/DeliveryStatusCard";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -232,6 +233,13 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
 
         {/* Straight under the timeline: when an order is ready, the code IS the
             next action, and burying it under the receipt would defeat it. */}
+        {/* A Roulé Rodrigues delivery: who is bringing it, and the PIN they
+            will ask for. Without this the delivery cannot be completed at all
+            — the PIN existed nowhere the customer could reach it. */}
+        {typedOrder.fulfillment_method === "rr_delivery" && (
+          <DeliveryStatusCard orderId={typedOrder.id} className="mt-4" />
+        )}
+
         {pickup?.code && typedOrder.status === "ready_for_pickup" && (
           <PickupCodeCard pickup={pickup} storeName={(store as { name?: string })?.name} className="mt-4" />
         )}
