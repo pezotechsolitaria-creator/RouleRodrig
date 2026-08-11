@@ -29,6 +29,10 @@ const LOOKING_ICON: Record<string, React.ElementType> = {
 const HOME_ICON: Record<string, React.ElementType> = {
   scooter: Bike, car: Car, stay: BedDouble, experience: TreePalm, tiroule: Bot,
   store: ShoppingBag, restaurant: Utensils, beach: Umbrella, compass: Compass,
+  // `event` was missing while the admin icon picker already offered it, so an
+  // Events card silently fell through to the Compass fallback — the same icon
+  // as Experiences, on the card right beside it.
+  event: PartyPopper,
 };
 
 type Tri = [string, string, string];

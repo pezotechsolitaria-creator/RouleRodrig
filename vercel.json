@@ -9,6 +9,10 @@
     {
       "path": "/api/cron/posthog-health",
       "schedule": "30 7 * * *"
+    },
+    {
+      "path": "/api/cron/notifications",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

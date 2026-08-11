@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 // DRIFTED once already (this read v96 while public/sw.js was on v110), which is
 // the one failure this constant exists to prevent — a health endpoint that
 // confidently reports a stale answer is worse than one that reports nothing.
-const SW_CACHE_VERSION = "rr-cache-v123";
+const SW_CACHE_VERSION = "rr-cache-v121";
 
 // ── Health / readiness / liveness ────────────────────────────────────────────
 // GET /api/health           → readiness (checks the database dependency)

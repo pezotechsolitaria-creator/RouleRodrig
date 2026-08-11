@@ -417,7 +417,11 @@ export const DEFAULT_HOME_CARDS: HomeCard[] = [
   { id: "hc-car", label: "Cars", labelFr: "Voitures", labelCr: "Loto", icon: "car", imageSource: "car", action: "link", href: "/browse/car", tint: "amber", enabled: true },
   { id: "hc-stay", label: "Stays", labelFr: "Séjours", labelCr: "Lozman", icon: "stay", imageSource: "stays", action: "link", href: "/browse/stays", tint: "amber", enabled: true },
   { id: "hc-exp", label: "Experiences", labelFr: "Expériences", labelCr: "Eksperyans", icon: "experience", imageSource: "exp", action: "link", href: "/explore", tint: "teal", enabled: true },
-  { id: "hc-tiroule", label: "Ask Ti Roulé", labelFr: "Demander Ti Roulé", labelCr: "Demann Ti Roulé", icon: "tiroule", imageSource: "none", action: "tiroule", tint: "indigo", enabled: true },
+  // Events took this slot from "Ask Ti Roulé" (owner, Aug 2026). Ti Roulé is
+  // not lost — it still has the gold centre button in the bottom nav on every
+  // page and the hero CTA, so it was the one card whose job was already done
+  // twice elsewhere. Events had no entry point above the fold at all.
+  { id: "hc-events", label: "Events", labelFr: "Événements", labelCr: "Levennman", icon: "event", imageSource: "none", action: "link", href: "/events", tint: "indigo", enabled: true },
   { id: "hc-stores", label: "Local Stores", labelFr: "Boutiques", labelCr: "Laboutik", icon: "store", imageSource: "stores", action: "link", href: "/shop", tint: "amber", enabled: true },
 ];
 
