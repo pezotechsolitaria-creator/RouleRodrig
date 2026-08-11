@@ -21,10 +21,32 @@ import { sendWhatsApp } from "@/lib/notifications/whatsapp";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-/** Bounded so one invocation cannot run past the function timeout. */
-const BATCH = 20;
+// ── Sized for an EXTERNAL pinger, not for Vercel cron ───────────────────────
+// This is triggered by cron-job.org every minute, and free external pingers
+// abandon a request at ~30 seconds. That matters because jobs are claimed
+// UP FRONT: if the caller hangs up mid-batch, whatever was claimed but not yet
+// sent sits in `sending` until requeue_stuck_notifications() rescues it ten
+// minutes later. So the batch is small enough to finish comfortably inside any
+// pinger's timeout, and the loop stops early if it is running long and hands
+// the remainder straight back rather than stranding it.
+//
+// 5/minute = 300/hour, which is far beyond this island's real volume.
+const BATCH = 5;
+
+/** Stop claiming new work past this; well inside a 30s client timeout. */
+const TIME_BUDGET_MS = 20_000;
 
 export async function GET(req: NextRequest) {
+  return run(req);
+}
+
+// Some pingers default to POST. Same handler rather than a footgun where the
+// schedule silently 405s and the queue quietly stops draining.
+export async function POST(req: NextRequest) {
+  return run(req);
+}
+
+async function run(req: NextRequest) {
   const auth = authorizeCron(req);
   if (!auth.ok) {
     return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
@@ -64,11 +86,24 @@ export async function GET(req: NextRequest) {
 
   let sent = 0;
   let failed = 0;
+  let deferred = 0;
+  const started = Date.now();
 
   // Sequential, not Promise.all: CallMeBot is a free service and hammering it
-  // with twenty parallel requests is how a shared endpoint starts refusing us.
-  // A batch of 20 at ~1s each is well inside maxDuration.
+  // with parallel requests is how a shared endpoint starts refusing us.
   for (const job of jobs) {
+    // Running long. Hand the rest straight back to `pending` instead of
+    // leaving it claimed — otherwise a slow provider would strand these in
+    // `sending` for ten minutes and the customer's message would sit there.
+    if (Date.now() - started > TIME_BUDGET_MS) {
+      await admin
+        .from("notification_jobs")
+        .update({ status: "pending", attempts: Math.max(0, job.attempts - 1) })
+        .eq("id", job.job_id);
+      deferred += 1;
+      continue;
+    }
+
     const result = await sendWhatsApp({
       phone: job.phone,
       apiKey: job.api_key ?? "",
@@ -103,6 +138,8 @@ export async function GET(req: NextRequest) {
     claimed: jobs.length,
     sent,
     failed,
+    deferred,
     requeued: (requeued as number | null) ?? 0,
+    ms: Date.now() - started,
   });
 }
