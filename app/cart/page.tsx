@@ -9,11 +9,16 @@ import { centsToDecimalString } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
+import { vocabFor } from "@/lib/food/vocabulary";
 
 export default function CartPage() {
   const { cart, hydrated, updateQuantity, removeItem } = useCart();
   const router = useRouter();
   const [resolved, setResolved] = useState<ResolvedCartItem[] | null>(null);
+  // Whether this cart belongs to a KITCHEN. Decided server-side in
+  // /api/cart/resolve from the store itself, so it cannot be spoofed by the
+  // route the customer arrived on. Everything below takes its nouns from it.
+  const [isFood, setIsFood] = useState(false);
   const [loading, setLoading] = useState(true);
   /** Set when the resolve call FAILED — distinct from "the cart is empty". */
   const [cartError, setCartError] = useState<string | null>(null);
@@ -52,7 +57,9 @@ export default function CartPage() {
         return r.json();
       })
       .then((body) => {
-        if (!cancelled) setResolved(body.items ?? []);
+        if (cancelled) return;
+        setResolved(body.items ?? []);
+        setIsFood(!!body.isFood);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -68,6 +75,7 @@ export default function CartPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, reloadKey, cart?.items.map((i) => `${i.variantId}:${i.quantity}`).join(",")]);
 
+  const v = vocabFor(isFood);
   const subtotal = (resolved ?? []).reduce((sum, i) => sum + i.price * i.requestedQuantity, 0);
   const hasIssue = (resolved ?? []).some(
     (i) => !i.isActive || i.productStatus !== "active" || i.stockQuantity < i.requestedQuantity,
@@ -76,13 +84,15 @@ export default function CartPage() {
   return (
     <main className="min-h-screen bg-dark px-4 pb-32 pt-10 text-offwhite">
       <div className="mx-auto max-w-2xl">
-        {/* Back to the marketplace, not the homepage — leaving the cart should
-            land you among the shops so browsing can continue in one tap. */}
-        <Link href="/shop" className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow">
-          <ArrowLeft size={14} /> Continue shopping
+        {/* Back to wherever these items came from, not the homepage — leaving
+            the cart should land you where browsing continues in one tap. For a
+            food order that is the menu, NOT the shop directory: sending a hungry
+            customer to a page of honey and baskets is how the order is lost. */}
+        <Link href={v.browseHref} className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow">
+          <ArrowLeft size={14} /> {v.browseLabel}
         </Link>
 
-        <h1 className="mt-3 font-syne text-2xl font-extrabold text-offwhite">Your cart</h1>
+        <h1 className="mt-3 font-syne text-2xl font-extrabold text-offwhite">{v.cartTitle}</h1>
         {cart && <p className="mt-1 font-dm text-sm text-muted">from {cart.storeName}</p>}
 
         {!hydrated || loading ? (
@@ -107,13 +117,13 @@ export default function CartPage() {
             <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow/10 text-yellow ring-1 ring-inset ring-yellow/20">
               <ShoppingCart size={22} />
             </span>
-            <h2 className="mt-4 font-syne text-lg font-bold text-offwhite">Your cart is empty</h2>
-            <p className="mx-auto mt-1 max-w-xs font-dm text-sm text-muted">Browse a shop and add something you like.</p>
+            <h2 className="mt-4 font-syne text-lg font-bold text-offwhite">{v.emptyTitle}</h2>
+            <p className="mx-auto mt-1 max-w-xs font-dm text-sm text-muted">{v.emptyBody}</p>
             <Link
-              href="/shop"
+              href={v.browseHref}
               className="mt-5 inline-flex items-center gap-1.5 font-dm text-sm font-bold text-yellow hover:underline"
             >
-              Browse shops →
+              {isFood ? "See the menu" : "Browse shops"} →
             </Link>
           </div>
         ) : (

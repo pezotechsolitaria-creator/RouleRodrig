@@ -66,7 +66,7 @@ export default function BankTransferPanel({
           <Clock size={16} className="text-yellow" /> Awaiting confirmation
         </h2>
         <p className="mt-1.5 font-dm text-sm text-muted">
-          Thanks — we&apos;ve told {" "}the shop you&apos;ve paid. They&apos;ll check their account and confirm your
+          Thanks — we&apos;ve told them you&apos;ve paid. They&apos;ll check their account and confirm your
           order shortly. You&apos;ll get a notification the moment they do.
         </p>
       </section>
@@ -100,7 +100,7 @@ export default function BankTransferPanel({
         </dl>
       ) : (
         <p role="alert" className="mt-3 font-dm text-sm text-red-400">
-          This shop hasn&apos;t published its bank details yet. Please contact them before transferring.
+          They haven&apos;t published bank details yet. Please contact them before transferring.
         </p>
       )}
 

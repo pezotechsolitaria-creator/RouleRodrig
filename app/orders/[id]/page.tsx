@@ -91,6 +91,18 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
   if (!order) notFound();
   const typedOrder = order as unknown as CustomerOrderDetail;
 
+  // Is this a food order? One indexed PK lookup, and it decides the nouns on
+  // this page — a customer collecting dinner should not read the heading
+  // "Shop". Deliberately AFTER the notFound() guard: run before it, a missing
+  // order would send an empty string where a uuid is expected and fire a
+  // pointless failing query on every 404.
+  const { data: kitchenRow } = await supabase
+    .from("food_kitchens")
+    .select("store_id")
+    .eq("store_id", typedOrder.store_id)
+    .maybeSingle();
+  const isFood = Boolean(kitchenRow);
+
   const store = Array.isArray(typedOrder.stores) ? typedOrder.stores[0] : typedOrder.stores;
   const payment = typedOrder.payments[0];
   const isBankTransfer = payment?.provider === "bank_transfer";
@@ -183,7 +195,7 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
         {canReview && (
           <RateShopCard
             credential={{ orderId: typedOrder.id }}
-            storeName={(store as { name?: string })?.name ?? "this shop"}
+            storeName={(store as { name?: string })?.name ?? (isFood ? "this kitchen" : "this shop")}
             className="mt-4"
           />
         )}
@@ -254,7 +266,7 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {store && (
             <div className="rounded-2xl border border-white/10 bg-dark-card p-4">
-              <h2 className="font-syne text-sm font-bold text-offwhite">Shop</h2>
+              <h2 className="font-syne text-sm font-bold text-offwhite">{isFood ? "Kitchen" : "Shop"}</h2>
               <div className="mt-3 space-y-2 font-dm text-sm">
                 <p className="flex items-center gap-2 text-offwhite"><User size={14} className="text-muted" /> {(store as { name?: string }).name}</p>
                 {(store as { phone?: string }).phone && (

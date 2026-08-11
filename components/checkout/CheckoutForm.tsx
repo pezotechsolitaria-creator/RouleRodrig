@@ -15,6 +15,7 @@ import PhoneInput from "@/components/PhoneInput";
 import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 import { todayLine, deliveryLine, nextOpenLabel, type ScheduleStatus } from "@/lib/schedule";
 import { readFulfillment as readFoodFulfillment } from "@/components/food/FulfillmentBar";
+import { vocabFor } from "@/lib/food/vocabulary";
 
 type Provider = "cash" | "bank_transfer";
 type Fulfillment = "pickup" | "customer_delivery" | "rr_delivery";
@@ -24,6 +25,9 @@ type Coords = { lat: number; lng: number };
 type Zone = { id: string; name: string; covers: string | null; fee: number };
 
 const FULFILLMENT_COPY: Record<Fulfillment, { label: string; hint: string }> = {
+  // The pickup hint is the one line here that names the seller, so it is
+  // overridden at the render site from lib/food/vocabulary.ts. The other two
+  // describe the DELIVERY arrangement, which is identical for both products.
   pickup: { label: "Pickup", hint: "Collect from the shop. No delivery fee." },
   customer_delivery: { label: "My own delivery", hint: "You arrange a driver. No delivery fee." },
   rr_delivery: { label: "Roulé Rodrigues delivery", hint: "Our team delivers. The fee depends on your area." },
@@ -41,6 +45,9 @@ export default function CheckoutForm({
   const [cartError, setCartError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [storeOffersDelivery, setStoreOffersDelivery] = useState(true);
+  // Whether this order is FOOD. Server-decided in /api/cart/resolve from the
+  // store, not from the route — so the nouns below cannot be spoofed.
+  const [isFood, setIsFood] = useState(false);
   // Only Roulé Rodrigues delivery is opt-in per shop; a customer's own driver
   // is a collection, so it is offered whenever the shop is open at all.
   const [offersRrDelivery, setOffersRrDelivery] = useState(true);
@@ -134,6 +141,7 @@ export default function CheckoutForm({
         setResolved(body.items ?? []);
         if (body.fulfillment) setStoreOffersDelivery(!!body.fulfillment.delivery);
         setOffersRrDelivery(!!body.offersRrDelivery);
+        setIsFood(!!body.isFood);
         setSchedule(body.schedule ?? null);
         // Carry over the pickup/delivery choice made while browsing /food.
         // A customer who spent the whole visit in "Delivery" mode and then
@@ -261,6 +269,10 @@ export default function CheckoutForm({
     );
   }
 
+  // Declared before the first early return that needs it: the empty-cart branch
+  // below already links away, and it must link to the MENU for a food order.
+  const v = vocabFor(isFood);
+
   if (!cart || cart.items.length === 0 || (resolved && resolved.length === 0)) {
     return (
       <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-10 text-center">
@@ -269,8 +281,8 @@ export default function CheckoutForm({
         {/* Was "/" — a link labelled "Browse shops" that went to the homepage,
             contradicting itself and the cart page, which correctly returns to
             the marketplace directory. */}
-        <Link href="/shop" className="mt-4 inline-flex items-center gap-1.5 font-dm text-sm text-yellow hover:underline">
-          Browse shops
+        <Link href={v.browseHref} className="mt-4 inline-flex items-center gap-1.5 font-dm text-sm text-yellow hover:underline">
+          {isFood ? "See the menu" : "Browse shops"}
         </Link>
       </div>
     );
@@ -311,12 +323,12 @@ export default function CheckoutForm({
   const blockedReason = submitting || quoting || hasIssue ? null
     : !identityReady ? "Enter a valid email so we can send your order confirmation."
     : !name.trim() ? "Enter your full name to continue."
-    : !phone.trim() ? "Enter your phone number so the shop can reach you."
+    : !phone.trim() ? v.phoneReason
     : !locationReady ? "Share your delivery location to continue."
     : !zoneReady ? "Choose your delivery area to continue."
-    : !paymentReady ? "This shop does not accept the selected payment method."
-    : !scheduleReady ? "The shop is closed for this fulfilment method right now."
-    : !quote ? "Waiting for the shop to confirm your price…"
+    : !paymentReady ? `This ${v.seller} does not accept the selected payment method.`
+    : !scheduleReady ? `The ${v.seller} is closed for this option right now.`
+    : !quote ? `Waiting for the ${v.seller} to confirm your price…`
     : null;
 
   async function submit(e: React.FormEvent) {
@@ -417,7 +429,7 @@ export default function CheckoutForm({
       {/* Opening hours — stated up front, because a closed shop blocks everything. */}
       {shopClosed && (
         <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/[0.06] px-4 py-3">
-          <p className="font-dm text-sm text-red-300">This shop is closed right now.</p>
+          <p className="font-dm text-sm text-red-300">This {v.seller} is closed right now.</p>
           <p className="mt-0.5 font-dm text-xs text-muted">
             {nextOpenLabel(schedule) || "Please try again during opening hours."}
             {todayLine(schedule) !== "Closed today" && ` · Today ${todayLine(schedule)}`}
@@ -445,8 +457,8 @@ export default function CheckoutForm({
                   ? !offersRrDelivery || deliveryOffNow
                   : f !== "pickup" && !storeOffersDelivery;
             const reason =
-              shopClosed ? "The shop is closed right now."
-                : f === "rr_delivery" && !offersRrDelivery ? "This shop doesn't use our delivery team."
+              shopClosed ? `The ${v.seller} is closed right now.`
+                : f === "rr_delivery" && !offersRrDelivery ? `This ${v.seller} doesn't use our delivery team.`
                 : f === "rr_delivery" && deliveryOffNow ? "Delivery isn't running right now."
                 : null;
             return (
@@ -469,7 +481,9 @@ export default function CheckoutForm({
                   <span className={`block font-dm text-sm ${fulfillment === f ? "text-yellow" : "text-offwhite"}`}>
                     {FULFILLMENT_COPY[f].label}
                   </span>
-                  <span className="block font-dm text-xs text-muted">{FULFILLMENT_COPY[f].hint}</span>
+                  <span className="block font-dm text-xs text-muted">
+                    {f === "pickup" ? v.pickupHint : FULFILLMENT_COPY[f].hint}
+                  </span>
                   {/* Never disable a control without saying why. */}
                   {reason && <span className="mt-0.5 block font-dm text-xs text-orange-300">{reason}</span>}
                 </span>
@@ -676,7 +690,7 @@ export default function CheckoutForm({
           </div>
           <Textarea
             value={notes} onChange={(e) => setNotes(e.target.value)}
-            placeholder="Anything the shop should know? (optional)" aria-label="Order notes"
+            placeholder={v.notesPlaceholder} aria-label="Order notes"
             rows={2} maxLength={1000}
           />
         </div>
@@ -711,14 +725,14 @@ export default function CheckoutForm({
         </div>
         {!acceptsCash && !acceptsBankTransfer && (
           <p role="alert" className="mt-2 font-dm text-xs text-red-400">
-            This shop hasn&apos;t set up a payment method yet, so it can&apos;t take orders.
+            This {v.seller} hasn&apos;t set up a payment method yet, so it can&apos;t take orders.
           </p>
         )}
         {/* Never disable a control without saying why — and say it where the
             customer can act on it. Signing in is the actual remedy here. */}
         {isGuest && acceptsBankTransfer && requiresReceipt && (
           <p className="mt-2 font-dm text-xs text-orange-300">
-            This shop needs a photo of your transfer receipt, which needs an account.{" "}
+            This {v.seller} needs a photo of your transfer receipt, which needs an account.{" "}
             <Link href="/login?next=/checkout" className="font-semibold text-yellow hover:underline">
               Sign in
             </Link>{" "}
@@ -727,14 +741,14 @@ export default function CheckoutForm({
         )}
         {acceptsCash !== bankTransferAvailable && !(isGuest && requiresReceipt && acceptsBankTransfer) && (
           <p className="mt-2 font-dm text-xs text-muted">
-            This shop only takes {acceptsCash ? "cash" : "bank transfer"}.
+            This {v.seller} only takes {acceptsCash ? "cash" : "bank transfer"}.
           </p>
         )}
         {provider === "bank_transfer" && bankTransferAvailable && (
           <p className="mt-2 font-dm text-xs text-muted">
             {isGuest
-              ? "You'll see the shop's bank details on your tracking page after placing the order, and you tell the shop once you've sent the transfer."
-              : "You'll see the shop's bank details and upload your transfer receipt after placing the order."}
+              ? `You'll see the ${v.seller}'s bank details on your tracking page after placing the order, and you tell the ${v.seller} once you've sent the transfer.`
+              : `You'll see the ${v.seller}'s bank details and upload your transfer receipt after placing the order.`}
           </p>
         )}
       </fieldset>

@@ -58,7 +58,7 @@ export default function PickupQr({ code, size = 176 }: { code: string; size?: nu
       width={size}
       height={size}
       role="img"
-      aria-label="QR code for this pickup — the shop scans it with their camera"
+      aria-label="QR code for this pickup — scanned at the counter when you collect"
       className="rounded-xl bg-white shadow-[0_6px_20px_-8px_rgba(0,0,0,0.6)]"
       shapeRendering="crispEdges"
     >

@@ -29,7 +29,13 @@
 // v130 — marketplace structured data + shops in the sitemap. A separate number
 // from v129 deliberately: two parallel branches both reached for v129, and a
 // cache name that identifies two different builds identifies neither.
-const CACHE = "rr-cache-v133";
+// v134 — food stops speaking marketplace: /cart, /checkout and /orders take
+// their nouns from the seller, and a food order no longer offers "continue
+// shopping" into the shop directory.
+// Past v133, which main reached for at the same time this branch did. Two
+// builds under one cache name is the failure v128's note describes, and it is
+// cheaper to burn a number than to debug it later.
+const CACHE = "rr-cache-v134";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

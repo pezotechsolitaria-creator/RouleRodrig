@@ -82,7 +82,7 @@ export default function ReceiptUploader({ orderId, required }: { orderId: string
       let body: { error?: string } = {};
       try { body = JSON.parse(xhr.responseText); } catch { /* non-JSON error page */ }
       if (xhr.status >= 200 && xhr.status < 300) {
-        toast.success("Thanks — the shop will confirm your payment shortly.");
+        toast.success("Thanks — they will confirm your payment shortly.");
         router.refresh();
       } else {
         setPhase("error");
@@ -204,7 +204,7 @@ export default function ReceiptUploader({ orderId, required }: { orderId: string
       </Button>
       {required && !file && (
         <p className="mt-1.5 text-center font-dm text-xs text-muted">
-          This shop asks for proof of payment before confirming.
+          They ask for proof of payment before confirming.
         </p>
       )}
     </div>

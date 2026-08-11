@@ -83,7 +83,9 @@ export default async function CustomerOrdersPage({
         </Link>
         <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">MY ACCOUNT</p>
         <h1 className="mt-1 font-syne text-2xl font-extrabold text-offwhite">Orders</h1>
-        <p className="mt-1.5 font-dm text-sm text-muted">Everything you&apos;ve bought from shops on Roulé Rodrigues.</p>
+        <p className="mt-1.5 font-dm text-sm text-muted">
+          Everything you&apos;ve ordered on Roulé Rodrigues — shops and kitchens.
+        </p>
 
         <div className="mt-6">
           <OrdersFilterBar />
@@ -96,7 +98,7 @@ export default async function CustomerOrdersPage({
             </span>
             <h2 className="mt-4 font-syne text-lg font-bold text-offwhite">No orders found</h2>
             <p className="mx-auto mt-1 max-w-xs font-dm text-sm text-muted">
-              {q || status ? "Try a different search or filter." : "Orders you place with shops will show up here."}
+              {q || status ? "Try a different search or filter." : "Orders you place with shops and kitchens will show up here."}
             </p>
           </div>
         ) : (
@@ -113,7 +115,7 @@ export default async function CustomerOrdersPage({
                   <div className="min-w-0">
                     <p className="font-dm text-sm font-medium text-offwhite">{o.order_number}</p>
                     <p className="mt-0.5 truncate font-dm text-xs text-muted">
-                      {(store as { name?: string } | null)?.name ?? "Shop"} · {itemCount} item(s) · {fmtDate(o.created_at)}
+                      {(store as { name?: string } | null)?.name ?? "Order"} · {itemCount} item(s) · {fmtDate(o.created_at)}
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">

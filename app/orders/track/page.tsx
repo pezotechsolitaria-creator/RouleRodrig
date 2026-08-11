@@ -48,6 +48,9 @@ type TrackedOrder = {
   storeName: string;
   storeSlug: string;
   storePhone: string | null;
+  // M55. A kitchen is not a shop, and this page is where guest FOOD customers
+  // wait — so "continue shopping" must not drop them into the shop directory.
+  isFood: boolean;
   isGuest: boolean;
   // M28. A guest gets the pickup code on the same credential as everything
   // else on this page — the login wall was removed at checkout, so the handoff
@@ -170,8 +173,11 @@ function TrackOrder() {
   return (
     <main className="min-h-screen bg-dark px-4 pb-28 pt-10 text-offwhite md:pb-16">
       <div className="mx-auto max-w-lg">
-        <Link href="/shop" className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow">
-          <ArrowLeft size={14} /> Continue shopping
+        <Link
+          href={order?.isFood ? "/food" : "/shop"}
+          className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow"
+        >
+          <ArrowLeft size={14} /> {order?.isFood ? "Back to the menu" : "Continue shopping"}
         </Link>
 
         {justOrdered && order ? (
@@ -250,7 +256,7 @@ function TrackOrder() {
               </div>
               <p className="mt-2 font-syne text-base font-bold text-offwhite">{order.storeName}</p>
               {/* A guest has no dashboard and no message thread. When something
-                  is wrong, the shop's own number is the whole support channel —
+                  is wrong, their own number is the whole support channel —
                   it must not require going back to the storefront to find it. */}
               {order.storePhone && (
                 <a
@@ -341,7 +347,7 @@ function TrackOrder() {
                     photo, so this button is never the wrong affordance. */}
                 <div>
                   <p className="font-dm text-xs leading-relaxed text-muted">
-                    Once you&apos;ve made the transfer, tell the shop. They check their account and
+                    Once you&apos;ve made the transfer, tell them. They check their account and
                     confirm — nothing is charged automatically, and your reservation stops counting
                     down as soon as you press this.
                   </p>
@@ -386,10 +392,10 @@ function TrackOrder() {
                         Create account or sign in
                       </Link>
                       <Link
-                        href="/shop"
+                        href={order.isFood ? "/food" : "/shop"}
                         className="rounded-full border border-white/15 px-4 py-2 font-syne text-xs font-bold text-offwhite transition-colors hover:border-white/30"
                       >
-                        Keep shopping
+                        {order.isFood ? "Order again" : "Keep shopping"}
                       </Link>
                     </div>
                   </div>

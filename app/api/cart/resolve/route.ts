@@ -113,9 +113,16 @@ export async function POST(req: NextRequest) {
   const storeId = items[0]?.storeId;
   let offersRrDelivery = false;
   let schedule = null;
+  // Is this a FOOD order? Decided here, server-side, from whether the cart's
+  // store has a food_kitchens row — never from the route the customer came in
+  // by, which they control. /cart and /checkout are shared by both products and
+  // take their nouns from this (see lib/food/vocabulary.ts), so a customer
+  // buying dinner is never told to "continue shopping" or that "this shop is
+  // closed".
+  let isFood = false;
   let payment = { acceptsCash: true, acceptsBankTransfer: false, requiresReceipt: false };
   if (storeId) {
-    const [{ data: pay }, { data: settings }, { data: status }] = await Promise.all([
+    const [{ data: pay }, { data: settings }, { data: status }, { data: kitchen }] = await Promise.all([
       supabase
         .from("store_payment_settings")
         .select("offers_rr_delivery, accepts_cash, accepts_bank_transfer, require_receipt")
@@ -125,7 +132,11 @@ export async function POST(req: NextRequest) {
       // The SAME function create_order() and quote_order() gate on, so the UI
       // can never offer an option the RPC is about to refuse.
       supabase.rpc("store_schedule_status", { p_store_id: storeId }).single(),
+      // food_kitchens is publicly readable for visible stores, so the anon
+      // client can answer this without a privileged call.
+      supabase.from("food_kitchens").select("store_id").eq("store_id", storeId).maybeSingle(),
     ]);
+    isFood = Boolean(kitchen);
     offersRrDelivery = (pay?.offers_rr_delivery ?? true) && (settings?.delivery_enabled ?? false);
     schedule = status ?? null;
     // Which payment methods this shop actually takes. create_order() rejects an
@@ -146,5 +157,5 @@ export async function POST(req: NextRequest) {
     };
   }
 
-  return NextResponse.json({ items, fulfillment, offersRrDelivery, schedule, payment });
+  return NextResponse.json({ items, fulfillment, offersRrDelivery, schedule, payment, isFood });
 }

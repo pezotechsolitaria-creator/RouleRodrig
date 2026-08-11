@@ -47,7 +47,7 @@ export default function PickupCodeCard({
         <Ticket size={15} /> Your pickup code
       </h2>
       <p className="mt-2 font-dm text-sm leading-relaxed text-offwhite/85">
-        Your order is ready. Show this {storeName ? `at ${storeName}` : "at the shop"} to collect it —
+        Your order is ready. Show this {storeName ? `at ${storeName}` : "at the counter"} to collect it —
         they scan it with their phone camera, or type the code, and the order is closed on the spot.
       </p>
 
@@ -61,10 +61,10 @@ export default function PickupCodeCard({
       </div>
 
       <p className="mt-4 font-dm text-xs leading-relaxed text-muted">
-        The code works once, and only for this order. If the camera won&apos;t read it, the shop can
+        The code works once, and only for this order. If the camera won&apos;t read it, they can
         type it instead.
         {expires && <> Valid until {expires.toLocaleDateString()}.</>}{" "}
-        If it stops working altogether, the shop can still close the order from their side — nothing is lost.
+        If it stops working altogether, they can still close the order from their side — nothing is lost.
       </p>
       <p className="mt-2 font-dm text-xs text-muted">
         Turn your screen brightness up before you hand it over — that is the usual reason a scan fails.
