@@ -65,3 +65,29 @@ describe("isConsole", () => {
     expect(isConsole("/drivers")).toBe(false);
   });
 });
+
+describe("every console screen is registered", () => {
+  it("treats /kitchen as a console", () => {
+    // A cook mid-service was getting the visitor tab bar ("Order food",
+    // "Ti Roulé") and a floating mascot over the order they were cooking,
+    // because /kitchen shipped without being added here. The rule file exists
+    // precisely so a new console cannot be forgotten — this asserts it was not.
+    expect(isConsole("/kitchen")).toBe(true);
+    expect(showsVisitorNav("/kitchen")).toBe(false);
+  });
+
+  it("covers every console the app actually has", () => {
+    for (const p of ["/admin", "/merchant", "/organizer", "/driver", "/partner", "/kitchen"]) {
+      expect(isConsole(p), `${p} must be a console`).toBe(true);
+      expect(showsVisitorNav(p), `${p} must not show visitor tabs`).toBe(false);
+    }
+  });
+
+  it("still shows the tab bar on ordinary visitor pages", () => {
+    // The inverse matters just as much: over-matching would strip the nav from
+    // the pages that need it.
+    for (const p of ["/shop", "/food", "/events", "/orders/track", "/manage-booking"]) {
+      expect(showsVisitorNav(p), `${p} must keep the tabs`).toBe(true);
+    }
+  });
+});

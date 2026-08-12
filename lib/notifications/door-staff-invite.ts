@@ -61,6 +61,17 @@ export async function notifyDoorStaffInvited(input: {
   name: string;
   eventName: string | null;
   assignmentId: string;
+  /**
+   * Where the invitation lands them. Defaults to the event door.
+   *
+   * The kitchen route reused this email wholesale and inherited /organizer, so
+   * a cook who clicked "Create your account" signed in and arrived at the
+   * events console with no kitchen in sight. An invitation that lands on the
+   * wrong screen is worse than none — it teaches the person the thing does not
+   * work.
+   */
+  destination?: "/organizer" | "/kitchen";
+  role?: "door" | "kitchen";
 }): Promise<boolean> {
   try {
     const to = input.email.trim().toLowerCase();
@@ -69,21 +80,28 @@ export async function notifyDoorStaffInvited(input: {
     const event = input.eventName?.trim() || "an event";
     const name = input.name?.trim() || "there";
 
+    const kitchen = input.role === "kitchen";
+    const dest = input.destination ?? "/organizer";
+
     const body = render({
-      heading: "You're on the door",
+      heading: kitchen ? "You're on the kitchen team" : "You're on the door",
       paragraphs: [
-        `Hi ${name} — you've been added to ${event} on Roulé Rodrigues as door staff.`,
-        "On the night you'll scan tickets at the entrance from your phone. There's nothing to install — it runs in your browser.",
+        kitchen
+          ? `Hi ${name} — you've been added to ${event} on Roulé Rodrigues.`
+          : `Hi ${name} — you've been added to ${event} on Roulé Rodrigues as door staff.`,
+        kitchen
+          ? "You'll see each order as it comes in and tap one button per step. There's nothing to install — it runs in your browser."
+          : "On the night you'll scan tickets at the entrance from your phone. There's nothing to install — it runs in your browser.",
         "Create your account with the exact email address below. That address is how your access is matched, so signing up with a different one will leave you without it.",
       ],
       highlight: { label: "Sign up with this address", value: to },
-      cta: { url: `${SITE_URL}/login?next=/organizer`, label: "Create your account →" },
+      cta: { url: `${SITE_URL}/login?next=${dest}`, label: "Create your account →" },
     });
 
     const res = await sendTransactionalEmail({
       type: "organizer_ticket_order_notification",
       to,
-      subject: `You're on the door for ${event}`,
+      subject: kitchen ? `You're on the kitchen team at ${event}` : `You're on the door for ${event}`,
       html: body,
       // One invite per assignment. A double-clicked Add button, or someone
       // removed and re-added, must not spam them.

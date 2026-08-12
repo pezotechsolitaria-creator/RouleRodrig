@@ -32,6 +32,8 @@ export const CONSOLE_PREFIXES = [
   "/organizer", // app/organizer/layout.tsx
   "/driver",    // app/driver/DriverDashboard.tsx
   "/partner",   // app/partner/layout.tsx
+  "/kitchen",   // app/kitchen/KitchenBoard.tsx — a cook mid-service does not
+                // want "Order food" and a mascot over the order they are cooking.
 ] as const;
 
 /** One-decision screens. A tab bar here is an exit, not a convenience. */
