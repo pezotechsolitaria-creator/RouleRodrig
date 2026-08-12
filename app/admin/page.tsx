@@ -142,7 +142,12 @@ export default async function CommandCenterPage() {
 
   const severityStyle = {
     critical: "border-red-500/35 bg-red-500/[0.07] text-red-200",
-    action: "border-yellow/35 bg-yellow/[0.07] text-yellow",
+    // Red, a shade softer than `critical`. Amber taught the eye to skip these:
+    // a real restaurant application sat for a day looking exactly as urgent as
+    // a stale product review. Anything with a person waiting on a decision is
+    // now unmistakably red; only `info` (reviews, low stock — nobody blocked)
+    // stays quiet, so red still means something.
+    action: "border-red-400/30 bg-red-500/[0.05] text-red-300",
     info: "border-white/12 bg-white/[0.04] text-offwhite/80",
   } as const;
 

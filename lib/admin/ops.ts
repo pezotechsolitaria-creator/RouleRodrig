@@ -47,6 +47,13 @@ export type AttentionCounts = {
  */
 export function attentionItems(c: AttentionCounts): AttentionItem[] {
   const all: AttentionItem[] = [
+    // SEVERITY IS ORDERING, NOT COLOUR. `critical` means a customer is waiting
+    // right now; `action` means a person is waiting on a decision from you.
+    // Both are urgent enough to show in red (see severityStyle in
+    // app/admin/page.tsx) — but the rank still has to separate them, because a
+    // customer whose food is going cold outranks an application that can wait
+    // an hour. A test enforces exactly that, and it caught an attempt to flatten
+    // them into one level.
     {
       key: "deliveries", label: "Deliveries need an admin decision",
       count: c.deliveriesNeedingAdmin ?? 0, severity: "critical", href: "/admin/deliveries",
@@ -76,10 +83,6 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
       count: c.pendingDrivers ?? 0, severity: "action", href: "/admin/deliveries",
     },
     {
-      // RED, not amber. Someone filled in a form to join the platform and is
-      // waiting to hear back; every day of silence is a business you probably
-      // lose, and unlike a stale review it cannot fix itself. This is the one
-      // "action" item with a person on the other end of it.
       //
       // The href was also wrong: it pointed at /admin/content#owner_applications,
       // but the list lives in the Command Centre's own `owners` section. Clicking
