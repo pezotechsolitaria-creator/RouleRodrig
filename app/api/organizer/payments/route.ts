@@ -68,6 +68,22 @@ export async function POST(req: NextRequest) {
   const parsed = confirmSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input." }, { status: 400 });
 
+  // Declining a payment (M69). An organiser could previously only approve: a
+  // blurry receipt, a wrong amount or a transfer that never arrived left them
+  // choosing between issuing an unpaid ticket and leaving the buyer hanging.
+  //
+  // A rejection is NOT a cancellation. The order drops back to pending_payment
+  // so the buyer can try again — cancelling would release their seats while
+  // they were still trying to pay.
+  if ((body as { action?: string })?.action === "reject") {
+    const { data: rejected, error: rejectError } = await supabase.rpc("organizer_reject_payment", {
+      p_order_id: parsed.data.orderId,
+      p_reason: (body as { reason?: string })?.reason?.slice(0, 300) ?? null,
+    });
+    if (rejectError) return rpcError(rejectError, "Could not reject that payment.");
+    return NextResponse.json(rejected);
+  }
+
   const { data, error } = await supabase
     .rpc("confirm_order_payment", { p_order_id: parsed.data.orderId })
     .single();

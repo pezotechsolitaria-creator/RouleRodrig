@@ -117,7 +117,7 @@ export default function PackageManager({
             <div key={p.variantId} className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-dark-card p-3">
               <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-xl bg-white/[0.04]">
                 {p.imageUrl ? (
-                  <Image src={p.imageUrl} alt="" fill sizes="96px" className="object-cover" />
+                  <Image src={p.imageUrl} alt="" fill sizes="96px" className="object-contain" />
                 ) : (
                   <div className="flex h-full items-center justify-center"><ImagePlus size={16} className="text-white/20" /></div>
                 )}
@@ -259,7 +259,7 @@ function PackageForm({
           <label className="mb-1.5 block font-dm text-xs text-muted">Package image</label>
           <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
             {draft.imageUrl ? (
-              <Image src={draft.imageUrl} alt="" fill sizes="32rem" className="object-cover" />
+              <Image src={draft.imageUrl} alt="" fill sizes="32rem" className="object-contain" />
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-1 text-muted">
                 <ImagePlus size={22} />

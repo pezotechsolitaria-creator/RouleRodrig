@@ -146,7 +146,17 @@ export default function TicketScanner({ eventName }: { eventName: string }) {
         videoRef.current.srcObject = stream;
         // playsInline matters on iOS: without it the video goes fullscreen and
         // takes over the whole screen the moment it plays.
-        await videoRef.current.play();
+        //
+        // play() is NOT awaited before we go live, and its rejection is not
+        // fatal. Awaiting it was the Android bug: getUserMedia already consumed
+        // the user gesture, so Chrome can reject the play() that follows — and
+        // because that threw, `scanning` never became true, leaving the video
+        // at 30% opacity behind the "Press start" overlay. The camera really
+        // was on; it was just invisible and reported as a failure.
+        //
+        // The element also carries autoPlay, so the stream renders whether or
+        // not this promise resolves.
+        void videoRef.current.play().catch(() => {});
       }
       setScanning(true);
       rafRef.current = requestAnimationFrame(tick);
@@ -158,7 +168,13 @@ export default function TicketScanner({ eventName }: { eventName: string }) {
           ? "Camera permission was refused. Allow it in your browser settings, or type codes in by hand."
           : name === "NotFoundError"
             ? "No camera on this device. Type codes in by hand instead."
-            : "Could not start the camera. Type codes in by hand instead.",
+            : name === "NotReadableError"
+              ? "Another app is using the camera. Close it and try again, or type codes in by hand."
+              : name === "OverconstrainedError"
+                ? "This device has no rear camera. Type codes in by hand instead."
+                // The name is shown deliberately: without it a failure on
+                // someone else's phone is unreportable and undebuggable.
+                : `Could not start the camera${name ? ` (${name})` : ""}. Type codes in by hand instead.`,
       );
       setShowManual(true);
     }
@@ -204,6 +220,7 @@ export default function TicketScanner({ eventName }: { eventName: string }) {
         <video
           ref={videoRef}
           playsInline
+          autoPlay
           muted
           className={`aspect-[3/4] w-full object-cover ${scanning ? "" : "opacity-30"}`}
         />

@@ -66,6 +66,37 @@ export default function PaymentReview({
     }
   }
 
+  // Declining. Deliberately asks for a reason: the buyer is dropped back to
+  // pending_payment and prompted to pay again, and "your payment was rejected"
+  // with no explanation is how you lose a customer who did nothing wrong.
+  async function reject(r: OrganizerReservation) {
+    const reason = window.prompt(
+      `Why is payment for ${r.orderNumber} being rejected?
+
+The buyer can pay again — their seats are NOT released.`,
+      "The receipt could not be read",
+    );
+    // Cancelled the prompt: do nothing at all rather than reject with no reason.
+    if (reason === null) return;
+
+    setBusy(`r-${r.orderId}`);
+    try {
+      const res = await fetch("/api/organizer/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: r.orderId, action: "reject", reason }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Could not reject that payment.");
+      toast.success(`${r.orderNumber} rejected — the buyer can pay again`);
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not reject that payment.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   if (awaiting.length === 0) {
     return (
       <div className="rounded-2xl border border-white/10 bg-dark-card p-6 text-center">
@@ -129,13 +160,30 @@ export default function PaymentReview({
                 )}
 
                 {canVerify && (
-                  <Button size="sm" disabled={busy === `c-${r.orderId}`} onClick={() => void confirm(r)}>
-                    {busy === `c-${r.orderId}` ? (
-                      <Loader2 size={13} className="animate-spin" />
-                    ) : (
-                      "Confirm & issue ticket"
-                    )}
-                  </Button>
+                  <>
+                    {/* Reject sits FIRST and quiet, Confirm last and primary:
+                        the destructive action should never be the one a thumb
+                        lands on by accident. */}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy !== null}
+                      onClick={() => void reject(r)}
+                    >
+                      {busy === `r-${r.orderId}` ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        "Reject"
+                      )}
+                    </Button>
+                    <Button size="sm" disabled={busy !== null} onClick={() => void confirm(r)}>
+                      {busy === `c-${r.orderId}` ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        "Confirm & issue ticket"
+                      )}
+                    </Button>
+                  </>
                 )}
               </div>
             </div>

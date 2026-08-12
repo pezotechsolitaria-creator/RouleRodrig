@@ -174,7 +174,7 @@ function PackageCard({
             alt=""
             fill
             sizes="(max-width: 640px) 100vw, 50vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            className="object-contain transition-transform duration-500 group-hover:scale-[1.03]"
           />
         ) : (
           <div className="flex h-full items-center justify-center">
@@ -246,7 +246,7 @@ function PackageSheet({
       <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-white/10 bg-dark sm:rounded-3xl">
         <div className="relative aspect-[16/9] w-full overflow-hidden bg-white/[0.04]">
           {t.imageUrl ? (
-            <Image src={t.imageUrl} alt="" fill sizes="(max-width: 640px) 100vw, 32rem" className="object-cover" />
+            <Image src={t.imageUrl} alt="" fill sizes="(max-width: 640px) 100vw, 32rem" className="object-contain" />
           ) : (
             <div className="flex h-full items-center justify-center"><Ticket size={34} className="text-white/15" /></div>
           )}
