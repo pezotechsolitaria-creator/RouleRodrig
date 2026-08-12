@@ -71,11 +71,18 @@ export async function GET(req: NextRequest) {
     .select(
       "id, order_number, status, store_id, customer_name, customer_phone, customer_email, notes, " +
         "subtotal, delivery_fee, total, currency, fulfillment_method, placed_at, created_at, " +
-        "delivery_lat, delivery_lng, delivery_instructions, auto_release_at, payment_receipt_path, receipt_submitted_at, "
-        + "payments(amount, status, provider), " +
+        "delivery_lat, delivery_lng, delivery_instructions, auto_release_at, payment_receipt_path, receipt_submitted_at, " +
         "delivery_zones(name), " +
         "order_items(id, product_name, variant_name, unit_price, quantity, line_total), " +
-        "payments(provider, status)",
+        // ONE embed of payments, carrying every column both consumers below
+        // need. Asking for the same relation twice — which is what adding
+        // `amount` as a second embed did — makes PostgREST fail the WHOLE query
+        // with 42803 "aggregate functions are not allowed in FROM clause of
+        // their own query level". Not a partial result: a 400, so the queue
+        // showed "Failed to load orders" and nothing else. Each embed is valid
+        // alone, which is why a build and 714 tests all passed — neither of
+        // them ever issues the request.
+        "payments(provider, status, amount)",
     )
     .in("store_id", kitchenIds)
     .order("created_at", { ascending: false })
