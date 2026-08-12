@@ -76,8 +76,17 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
       count: c.pendingDrivers ?? 0, severity: "action", href: "/admin/deliveries",
     },
     {
-      key: "owner-apps", label: "Partner applications to review",
-      count: c.pendingOwnerApplications ?? 0, severity: "action", href: "/admin/content#owner_applications",
+      // RED, not amber. Someone filled in a form to join the platform and is
+      // waiting to hear back; every day of silence is a business you probably
+      // lose, and unlike a stale review it cannot fix itself. This is the one
+      // "action" item with a person on the other end of it.
+      //
+      // The href was also wrong: it pointed at /admin/content#owner_applications,
+      // but the list lives in the Command Centre's own `owners` section. Clicking
+      // the alert took you to a page that does not have it — which is why a real
+      // restaurant application looked like nothing had happened at all.
+      key: "owner-apps", label: "New listing applications",
+      count: c.pendingOwnerApplications ?? 0, severity: "critical", href: "/admin#owners",
     },
     {
       key: "submissions", label: "Unanswered contact messages",
