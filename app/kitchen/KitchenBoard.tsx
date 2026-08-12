@@ -26,17 +26,23 @@ type Order = {
   placedAt: string;
   items: Item[];
   note: string | null;
+  /** Cash, not yet paid. The customer settles at the counter on collection. */
+  payOnCollection?: boolean;
 };
 type Dash = { onTeam: boolean; kitchens?: { id: string; name: string }[]; orders?: Order[] };
 
 // One next step per state — as data, so there can never be two.
 const NEXT: Record<string, { to: string; label: string }> = {
+  // Cash orders arrive unpaid and go straight to the kitchen (M74): the
+  // customer pays at the counter, so the food has to exist first.
+  pending_payment: { to: "preparing", label: "Start cooking" },
   paid: { to: "preparing", label: "Start cooking" },
   preparing: { to: "ready_for_pickup", label: "Food is ready" },
   ready_for_pickup: { to: "collected", label: "Handed to customer" },
 };
 
 const STATUS_LABEL: Record<string, string> = {
+  pending_payment: "New order",
   paid: "New order",
   preparing: "Cooking",
   ready_for_pickup: "Ready — waiting for collection",
@@ -179,6 +185,16 @@ export default function KitchenBoard() {
               )}
 
               <p className="mt-3 font-dm text-xs text-muted">{STATUS_LABEL[o.status] ?? o.status}</p>
+
+              {/* The cook must know money is still owed BEFORE handing the bag
+                  over — after it leaves the counter it is gone. No amount
+                  shown: whether it was collected is the cook's business, how
+                  much is owed is the owner's. */}
+              {o.payOnCollection && ready && (
+                <p className="mt-2 rounded-xl border border-yellow/40 bg-yellow/10 px-3 py-2 font-syne text-sm font-bold text-yellow">
+                  Take payment when you hand this over
+                </p>
+              )}
 
               {next && (
                 <button

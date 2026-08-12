@@ -1,0 +1,28 @@
+-- M74 — A cash order was invisible to the kitchen until the owner accepted it.
+--
+-- Reported: "I must accept on admin first so that it appears on the client
+-- kitchen." Exactly right. A cash food order is created as `pending_payment`,
+-- and kitchen_dashboard() only listed paid / preparing / ready_for_pickup, so
+-- every order queued behind the owner opening /admin. That is the bottleneck
+-- the kitchen role existed to remove — the cook was simply waiting for a
+-- different human instead of a different screen.
+--
+-- WHY CASH IS DIFFERENT. `pending_payment` means "no money yet", which for a
+-- bank transfer is a real reason to wait: cook before the transfer lands and
+-- the food may never be collected. But CASH is paid at the counter, on
+-- collection. Waiting for payment before cooking a cash order inverts the
+-- transaction — the customer cannot pay until the food exists.
+--
+-- So the rule is by METHOD, not by status: cash reaches the kitchen at once,
+-- bank transfer still waits for the owner to confirm the proof. The kitchen
+-- never decides whether money arrived; it only learns sooner when money was
+-- never the blocker.
+--
+-- The payload gains `payOnCollection` so the cook can be told to take the money
+-- at handover. Deliberately a flag and not an amount: whether payment happened
+-- is the cook's business, how much is owed is the owner's.
+--
+-- Verified as a real cook under an authenticated role: an unpaid CASH order is
+-- visible (1), an unpaid BANK TRANSFER order is not (0), and payOnCollection is
+-- true on the cash one. Full body applied via apply_migration; see M72 for the
+-- base definition.
