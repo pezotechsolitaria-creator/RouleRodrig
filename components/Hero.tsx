@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { MessageCircle } from "lucide-react";
 import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
 import { DEFAULT_CONTENT, type HeroContent } from "@/lib/defaults";
 import HeroVideoLayer from "@/components/HeroVideo";
 import { useLanguage } from "@/context/LanguageContext";
@@ -107,6 +108,23 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
     language === "fr" && h.headlineFr?.length ? h.headlineFr :
     language === "cr" && h.headlineCr?.length ? h.headlineCr :
     h.headline;
+  const eyebrow = loc(language, h.eyebrow, h.eyebrowFr, h.eyebrowCr)?.trim();
+
+  // True once footage is genuinely on screen. Drives the headline's exit, so
+  // the text is never removed on a visit where the video does not play.
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  // Honour reduced motion by keeping the text put. Content that leaves on its
+  // own is exactly the kind of unrequested movement this setting is about, and
+  // in that mode the hero is a still photograph with a headline over it.
+  const [calm, setCalm] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setCalm(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  const hideText = videoPlaying && !calm;
 
   return (
     <section className={`relative w-full overflow-hidden flex flex-col ${compact ? "rr-home-hero min-h-[172px] md:min-h-[36vh]" : "min-h-[40vh] md:min-h-[62vh]"}`} aria-label="Hero section">
@@ -128,7 +146,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
             unoptimized={h.backgroundImage.startsWith("/uploads/") || (h.backgroundImage.startsWith("http") && !h.backgroundImage.includes("supabase.co"))}
           />
         )}
-        <HeroVideoLayer videos={h.videos} />
+        <HeroVideoLayer videos={h.videos} onPlaying={setVideoPlaying} />
         {/* ── Cinematic treatment ──────────────────────────────────────────
             This used to be three full-bleed scrims stacked on top of each
             other: 85%→100% black vertically, 75% black horizontally, and a 55%
@@ -161,9 +179,23 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
       {/* ── Animated Rodrigues visual system ───────────── */}
       <HeroBackdrop />
 
-      {/* ── Main content ──────────────────────────────── */}
-      <div className={`relative z-10 flex flex-col justify-center flex-1 max-w-5xl mx-auto w-full px-4 md:px-6 pb-4 ${compact ? "pt-6" : "pt-20"}`}>
-        {/* Eyebrow pill */}
+      {/* ── Main content ──────────────────────────────────────────────────
+          The whole block retires once footage is actually playing: the text
+          introduces the place, the video then becomes the place. It fades and
+          drifts up rather than cutting, and it comes STRAIGHT BACK if playback
+          fails, because on every path without video this text is the hero.
+          Reduced motion keeps it on screen permanently — a visitor who has
+          asked for less movement should not have content leave on its own. */}
+      <motion.div
+        animate={{ opacity: hideText ? 0 : 1, y: hideText ? -14 : 0 }}
+        transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+        className={`relative z-10 flex flex-col justify-center flex-1 max-w-5xl mx-auto w-full px-4 md:px-6 pb-4 ${compact ? "pt-6" : "pt-20"}`}
+      >
+        {/* Eyebrow pill — only when there is something to put in it.
+            It rendered unconditionally, so an empty eyebrow (which is exactly
+            what this site's content holds) drew a small dark capsule with a
+            lone pulsing dot floating above the headline: a UI element with no
+            content, which reads as a bug because it is one. */}
         {/* Readability over a PHOTO, which is the hard case: the hero image is
             bright sky and sunlit water, so bg-white/5 gave this pill almost no
             backing and gold-on-sky fell well under contrast. Three fixes that
@@ -171,23 +203,28 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
             is light, so it needs dark behind it, not lighter), a visible border,
             and a text shadow covering the moment before backdrop-blur paints on
             a slow phone. */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.15 }}
-          className="inline-flex items-center gap-2 self-start bg-dark/70 backdrop-blur-md border border-yellow/25 rounded-full px-4 py-2 mb-3 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.6)]"
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-yellow animate-pulse" />
-          {/* 0.3em at 11px pushed the letters so far apart they stopped reading
-              as words — the eye has to reassemble them. 0.18em keeps the
-              editorial feel and stays legible, and 12px on mobile is the
-              smallest this should ever be on a phone held at arm's length. */}
-          <span className="font-bebas text-yellow text-xs md:text-sm tracking-[0.18em] [text-shadow:0_1px_3px_rgba(0,0,0,0.7)]">{loc(language, h.eyebrow, h.eyebrowFr, h.eyebrowCr)}</span>
-        </motion.div>
+        {eyebrow && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.15 }}
+            className="inline-flex items-center gap-2 self-start bg-dark/70 backdrop-blur-md border border-yellow/25 rounded-full px-4 py-2 mb-3 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.6)]"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-yellow animate-pulse" />
+            {/* 0.3em at 11px pushed the letters so far apart they stopped reading
+                as words — the eye has to reassemble them. 0.18em keeps the
+                editorial feel and stays legible, and 12px on mobile is the
+                smallest this should ever be on a phone held at arm's length. */}
+            <span className="font-bebas text-yellow text-xs md:text-sm tracking-[0.18em] [text-shadow:0_1px_3px_rgba(0,0,0,0.7)]">{eyebrow}</span>
+          </motion.div>
+        )}
 
-        {/* Staggered headline */}
+        {/* Staggered headline. Empty lines are dropped rather than rendered as
+            empty <h1>s — the content model keeps three slots and this site fills
+            one, so two of them were shipping as blank headings on every page
+            load: meaningless to a screen reader and a stray gap in the layout. */}
         <div>
-          {headlineLines.map((line, i) => (
+          {headlineLines.filter((l) => l?.trim()).map((line, i) => (
             <div key={`${line}-${i}`} className="overflow-hidden">
               <motion.h1
                 initial={{ y: 120, opacity: 0 }}
@@ -224,7 +261,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
             <MessageCircle size={18} />
           </button>
         </motion.div>
-      </div>
+      </motion.div>
 
       {/* ── Refined scroll cue ─────────────────────────── */}
       <motion.div

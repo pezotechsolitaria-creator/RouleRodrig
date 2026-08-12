@@ -17,7 +17,16 @@ import { parseVideoUrl, isEmbed } from "@/lib/video";
 // photograph, so everything below is about NOT spending that data unless the
 // clip will actually be seen.
 
-export default function HeroVideoLayer({ videos }: { videos?: HeroVideo[] }) {
+export default function HeroVideoLayer({
+  videos,
+  onPlaying,
+}: {
+  videos?: HeroVideo[];
+  /** Fires the moment footage is actually on screen, so the hero can retire
+   *  its headline. Deliberately NOT called when the video is merely loaded:
+   *  the text must stay put on every path where playback never happens. */
+  onPlaying?: (playing: boolean) => void;
+}) {
   const list = (videos ?? []).filter((v) => v?.enabled !== false && !!v?.url);
   const ref = useRef<HTMLVideoElement>(null);
   const [index, setIndex] = useState(0);
@@ -95,7 +104,25 @@ export default function HeroVideoLayer({ videos }: { videos?: HeroVideo[] }) {
           title=""
           allow="autoplay; encrypted-media; picture-in-picture"
           referrerPolicy="strict-origin-when-cross-origin"
-          onLoad={() => setReady(true)}
+          // NOT `setReady` on load, which is what made the hero unprofessional:
+          // onLoad fires when the iframe DOCUMENT is ready, which is well before
+          // the video is playing — so the player faded in still showing
+          // YouTube's own chrome (the big play button, the title bar, the
+          // skip/next controls) for a second or so on every visit.
+          //
+          // The poster now stays put through that window and the player is
+          // revealed only once it is genuinely showing footage. A timer rather
+          // than the YouTube IFrame API on purpose: the API means loading a
+          // third-party script and holding a player instance just to learn one
+          // boolean, and if it ever fails to load the hero would never reveal at
+          // all. A timer cannot fail — worst case the reveal is slightly late,
+          // and the poster it waits on is a real photograph.
+          onLoad={() => {
+            window.setTimeout(() => {
+              setReady(true);
+              onPlaying?.(true);
+            }, 1400);
+          }}
           className={`absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[177.78vh] min-w-full -translate-x-1/2 -translate-y-1/2 border-0 transition-opacity duration-700 ${
             ready ? "opacity-100" : "opacity-0"
           }`}
@@ -121,10 +148,14 @@ export default function HeroVideoLayer({ videos }: { videos?: HeroVideo[] }) {
       poster={current.poster || undefined}
       aria-hidden="true"
       onCanPlay={() => setReady(true)}
+      // `playing` and not `canplay`: a file element knows exactly when frames
+      // start, so the headline retires on the real event rather than a guess.
+      onPlaying={() => onPlaying?.(true)}
       onEnded={() => { if (list.length > 1) { setReady(false); setIndex((i) => i + 1); } }}
       // A decode failure (a .mov Chrome will not take, a broken upload) unmounts
       // the layer entirely rather than leaving a black rectangle over the photo.
-      onError={() => setAllowed(false)}
+      // The headline comes straight back — it is the hero again from here.
+      onError={() => { setAllowed(false); onPlaying?.(false); }}
       className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-700 ${
         ready ? "opacity-100" : "opacity-0"
       }`}
