@@ -15,7 +15,7 @@ const NOT_FOUND = "RR003";
 const BAD_TRANSITION = "RR004";
 const NOT_ALLOWED = "RR086";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
@@ -23,6 +23,19 @@ export async function GET() {
   // Binds any invitation left for this email to the account that just signed
   // in. Cheap, idempotent, and it means a cook never has to be "activated".
   await supabase.rpc("claim_kitchen_invites");
+
+  const url = new URL(req.url);
+  // ?menu=1 asks for the dish list instead of the order queue. One route, two
+  // views, so the cook's phone opens one connection.
+  if (url.searchParams.get("menu") === "1") {
+    const { data: menu, error: menuError } = await supabase.rpc("kitchen_menu");
+    if (menuError) {
+      if (menuError.code === NOT_ON_A_TEAM) return NextResponse.json({ onTeam: false }, { status: 200 });
+      console.error("kitchen_menu failed", menuError);
+      return NextResponse.json({ error: "Could not load the menu." }, { status: 500 });
+    }
+    return NextResponse.json({ onTeam: true, ...(menu as object) });
+  }
 
   const { data, error } = await supabase.rpc("kitchen_dashboard");
   if (error) {
@@ -58,6 +71,16 @@ const actionSchema = z.union([
     cancel: z.literal(true),
     reason: z.string().trim().max(300).optional(),
   }),
+  // Menu du jour and stock (M77). Three verbs, all optional, so tapping
+  // "sold out" cannot silently clear a count set an hour ago. Price is
+  // deliberately absent — that is the owner's revenue, not the cook's.
+  z.object({
+    productId: z.string().uuid(),
+    onMenu: z.boolean().optional(),
+    capacity: z.number().int().min(0).max(999).optional(),
+    clearCapacity: z.boolean().optional(),
+    soldOut: z.boolean().optional(),
+  }),
 ]);
 
 export async function POST(req: NextRequest) {
@@ -79,7 +102,15 @@ export async function POST(req: NextRequest) {
 
   const input = parsed.data;
   const { data, error } =
-    "cancel" in input
+    "productId" in input
+      ? await supabase.rpc("kitchen_update_dish", {
+          p_product_id: input.productId,
+          p_on_menu: input.onMenu ?? null,
+          p_capacity: input.capacity ?? null,
+          p_clear_capacity: input.clearCapacity ?? false,
+          p_sold_out: input.soldOut ?? null,
+        })
+      : "cancel" in input
       ? await supabase.rpc("kitchen_cancel_order", {
           p_order_id: input.orderId,
           p_reason: input.reason ?? null,

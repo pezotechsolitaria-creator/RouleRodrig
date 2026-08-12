@@ -1,0 +1,39 @@
+-- M77 — A restaurant runs its own menu du jour and stock.
+--
+-- The owner: "a dashboard for restaurants will help them to set up stocks menu
+-- du jours by themselves and if they are not computer literate, we, the admin,
+-- can do it for them in our main dashboard."
+--
+-- That is the right shape, and it is why this is SCOPED rather than a second
+-- copy of /admin/food. The daily job in a kitchen is not creating dishes — it
+-- is saying what is on today and how much is left. Prices, photos,
+-- descriptions and new dishes change rarely and stay with the owner, who can
+-- still do all of it from /admin/food for a cook who would rather phone.
+--
+-- So a kitchen gets exactly three verbs, the ones used every service:
+--   · today's count      (food_items.daily_capacity)
+--   · sold out / back on (food_items.sold_out_until)
+--   · on or off the menu (products.status)
+--
+-- It cannot touch PRICE. A cook marking the fish sold out is operations; a cook
+-- repricing the fish is the owner's revenue. Same person today, different
+-- people soon, and the line is far cheaper to keep than to add later. A test
+-- asserts the price is untouched after a kitchen edit.
+--
+-- "Sold out" expires at the start of the next island day rather than after a
+-- fixed 24 hours: it means "come back tomorrow", and tomorrow begins at
+-- midnight, not at 19:42. Nobody has to remember to undo it before service.
+--
+-- Every argument to kitchen_update_dish is optional, so tapping "sold out"
+-- cannot silently clear a count set an hour earlier.
+--
+-- M77b FOLDED IN: the "sold today" figure counted through oi.product_id, which
+-- does not exist — order_items records the VARIANT bought, so a dish reaches
+-- its order lines through product_variants. Written from the shape I expected
+-- instead of the one the table has; 42703 on the first call.
+--
+-- Verified as a real cook: 8 dishes visible, sold-out and capacity both apply,
+-- another kitchen's dish is refused "Not found", and min_price is identical
+-- before and after (25000 → 25000).
+--
+-- Bodies applied via apply_migration; see M72 for my_kitchen_ids().

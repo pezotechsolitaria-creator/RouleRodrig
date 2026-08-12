@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, ChefHat, Check, Clock } from "lucide-react";
+import { Loader2, ChefHat, Check, Clock, UtensilsCrossed, ClipboardList } from "lucide-react";
+import MenuPanel from "./MenuPanel";
 
 // ── The cook's screen ──────────────────────────────────────────────────────
 //
@@ -60,6 +61,10 @@ function waitingFor(iso: string): string {
 }
 
 export default function KitchenBoard() {
+  // Two jobs, two tabs. Orders first and by default: during service that is
+  // the only screen that matters, and the menu is set once at the start of the
+  // day. A cook should never have to find their orders behind a menu editor.
+  const [tab, setTab] = useState<"orders" | "menu">("orders");
   const [dash, setDash] = useState<Dash | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -213,8 +218,26 @@ Tell the customer why — they will see this.`,
 
   const orders = dash.orders ?? [];
 
+  const tabCls = (active: boolean) =>
+    `flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl font-syne text-sm font-bold transition-colors ${
+      active ? "bg-yellow text-dark" : "border border-white/15 text-offwhite"
+    }`;
+
   return (
     <div className="space-y-4">
+      <div className="flex gap-2">
+        <button onClick={() => setTab("orders")} className={tabCls(tab === "orders")}>
+          <ClipboardList size={15} /> Orders{orders.length > 0 ? ` (${orders.length})` : ""}
+        </button>
+        <button onClick={() => setTab("menu")} className={tabCls(tab === "menu")}>
+          <UtensilsCrossed size={15} /> Today&apos;s menu
+        </button>
+      </div>
+
+      {tab === "menu" ? (
+        <MenuPanel />
+      ) : (
+      <>
       {error && (
         <p role="alert" className="rounded-xl border border-red-500/25 bg-red-500/[0.07] px-4 py-3 font-dm text-sm text-red-400">
           {error}
@@ -358,6 +381,8 @@ Tell the customer why — they will see this.`,
             </div>
           );
         })
+      )}
+      </>
       )}
     </div>
   );
