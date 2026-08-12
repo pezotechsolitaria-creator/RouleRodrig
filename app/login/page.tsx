@@ -42,6 +42,26 @@ function LoginForm() {
   // customer with no other role sees their orders there anyway, so nobody is
   // sent further from where they were going.
   const next = safeNext(searchParams.get("next"), "/account");
+
+  // ── WHO IS SIGNING IN ──────────────────────────────────────────────────────
+  // One sign-in serves customers, cooks, shop owners, drivers and organisers,
+  // and it looked identical to all of them. A cook following a kitchen invite
+  // saw a generic "Sign in — Track and manage your orders", which says nothing
+  // about the kitchen they were invited to and reads as the wrong page.
+  //
+  // The destination already tells us who they are, so the page says it back to
+  // them. Same form, same security, different label — enough to confirm "yes,
+  // this is the right door" before typing a password.
+  const CONTEXT: Record<string, { badge: string; signin: string; blurb: string }> = {
+    "/kitchen":   { badge: "KITCHEN",        signin: "Kitchen sign-in",   blurb: "See today's orders and move them along." },
+    "/merchant":  { badge: "MY SHOP",        signin: "Shop sign-in",      blurb: "Your products, orders and opening hours." },
+    "/organizer": { badge: "EVENTS",         signin: "Organiser sign-in", blurb: "Your events, tickets and door staff." },
+    "/driver":    { badge: "DELIVERIES",     signin: "Driver sign-in",    blurb: "Your jobs and today's earnings." },
+  };
+  // startsWith, because an invite may carry a deeper path like /organizer/x/scan.
+  const ctx =
+    Object.entries(CONTEXT).find(([prefix]) => next === prefix || next.startsWith(`${prefix}/`))?.[1] ??
+    null;
   // The auth callback sends people here when a link is expired or already used;
   // nothing read this before, so the visitor saw an unexplained login screen.
   const authFailed = searchParams.get("error") === "auth";
@@ -162,7 +182,7 @@ function LoginForm() {
             <span className="text-2xl text-offwhite">Roulé</span>
             <span className="text-2xl text-yellow">Rodrigues</span>
           </span>
-          <p className="mt-1.5 font-bebas text-[11px] tracking-[0.34em] text-yellow">MY ACCOUNT</p>
+          <p className="mt-1.5 font-bebas text-[11px] tracking-[0.34em] text-yellow">{ctx?.badge ?? "MY ACCOUNT"}</p>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-6">
@@ -240,10 +260,14 @@ function LoginForm() {
                 </p>
               )}
               <h1 className="font-syne text-xl font-bold text-offwhite">
-                {mode === "signin" ? "Sign in" : "Create your account"}
+                {mode === "signin" ? (ctx?.signin ?? "Sign in") : "Create your account"}
               </h1>
               <p className="mt-1 font-dm text-sm text-muted">
-                {mode === "signin" ? "Track and manage your orders." : "Takes a minute."}
+                {mode === "signin"
+                  ? (ctx?.blurb ?? "Track and manage your orders.")
+                  : ctx
+                    ? `${ctx.blurb} Use the email address you were invited with.`
+                    : "Takes a minute."}
               </p>
 
               {/* Renders only when the provider is actually enabled in
