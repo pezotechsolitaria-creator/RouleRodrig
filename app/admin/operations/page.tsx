@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import OperationsFeed from "@/components/admin/OperationsFeed";
+import AdminPushSetup from "@/components/admin/AdminPushSetup";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -21,6 +22,9 @@ export default function AdminOperationsPage() {
           Live state, not an inbox — an item disappears when the problem is actually fixed.
         </p>
         <div className="mt-6">
+          {/* Enabling and TESTING push lives here because this is the page the
+              owner opens when something is wrong — including push itself. */}
+          <AdminPushSetup />
           <OperationsFeed />
         </div>
       </div>

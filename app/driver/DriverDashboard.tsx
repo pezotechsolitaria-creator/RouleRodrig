@@ -198,10 +198,13 @@ export default function DriverDashboard() {
         )}
       </div>
 
-      {approved && <AlertsToggle />}
-      {approved && (
-        <WhatsappAlerts configured={Boolean(dash?.whatsappConfigured)} onSaved={() => void load()} />
-      )}
+      {/* Shown to any driver, not just approved ones. A PENDING driver is
+          exactly who needs alerts on: the first thing they are waiting for is
+          the message saying they were approved. Gating this behind `approved`
+          meant they could not subscribe until after the notification they
+          wanted had already been sent. */}
+      <AlertsToggle />
+      <WhatsappAlerts configured={Boolean(dash?.whatsappConfigured)} onSaved={() => void load()} />
 
       {approved && (
         <div className="grid grid-cols-2 gap-3">
