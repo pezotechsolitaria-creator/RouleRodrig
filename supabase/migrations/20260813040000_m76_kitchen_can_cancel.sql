@@ -1,0 +1,27 @@
+-- M76 — A kitchen can cancel its own order. It still cannot refund one.
+--
+-- The owner asked for both. They are not the same risk and they should not
+-- arrive together.
+--
+-- CANCEL is operationally necessary. The fish ran out, the gas bottle is empty,
+-- the customer phoned the restaurant directly. Without it a cook's only options
+-- are to make food nobody will collect, or to leave an order in the queue all
+-- evening waiting for the owner — and the point of this role is that the owner
+-- is not the bottleneck on ordinary decisions.
+--
+-- REFUND deliberately stays with the owner. A refund MOVES MONEY OUT. A cook
+-- with that button can drain a day's takings, and on this platform payment is
+-- cash at a counter or a bank transfer between two people — neither reverses by
+-- clicking, so a "refund" here is really a promise that somebody hands notes
+-- back. That promise belongs to whoever owns the till.
+--
+-- Already-collected orders are refused outright: cancelling food that is
+-- already in someone's hands is not a cancellation, it is a refund, and that is
+-- exactly the line this keeps.
+--
+-- The result carries `wasPaid`, and the screen says it out loud, so a kitchen
+-- never assumes the platform quietly handled money it never held.
+--
+-- Verified as a real cook: an open order cancels with its reason recorded, an
+-- already-collected order is refused, and another kitchen's order returns "Not
+-- found". Body applied via apply_migration.

@@ -134,6 +134,40 @@ The customer can send a new photo — their order is NOT cancelled.`,
     }
   }
 
+  // Cancelling. Quiet and secondary by design: it is the rarest action on this
+  // screen and the only one that disappoints somebody.
+  async function cancelOrder(order: Order) {
+    if (busy) return;
+    const reason = window.prompt(
+      `Cancel ${order.orderNumber}?
+
+Tell the customer why — they will see this.`,
+      "We have run out of this dish",
+    );
+    if (reason === null) return;
+    setBusy(order.id);
+    setError(null);
+    try {
+      const res = await fetch("/api/kitchen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id, cancel: true, reason }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "That didn't work.");
+      // Said plainly rather than hidden: the kitchen must not assume the
+      // platform quietly handled money it never held.
+      if (body.wasPaid) {
+        setError("Cancelled. This customer had already paid — Roulé Rodrigues must return their money.");
+      }
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "That didn't work.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function advance(order: Order) {
     if (busy) return;
     const next = NEXT[order.status];
@@ -287,6 +321,18 @@ The customer can send a new photo — their order is NOT cancelled.`,
                     </button>
                   </div>
                 </div>
+              )}
+
+              {/* Last, small and quiet. A cook cancels rarely, and never by
+                  accident on a screen used with one thumb. */}
+              {!o.awaitingPayment && (
+                <button
+                  onClick={() => void cancelOrder(o)}
+                  disabled={busy !== null}
+                  className="mt-3 w-full font-dm text-xs text-muted underline underline-offset-2 disabled:opacity-50"
+                >
+                  Cancel this order
+                </button>
               )}
 
               {next && (

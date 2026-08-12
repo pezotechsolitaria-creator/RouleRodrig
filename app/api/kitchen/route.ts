@@ -50,6 +50,14 @@ const actionSchema = z.union([
     payment: z.enum(["confirm", "reject"]),
     reason: z.string().trim().max(300).optional(),
   }),
+  // Cancelling (M76). A kitchen runs out of fish; it should not need the
+  // platform owner to say so. REFUND is deliberately absent — that moves money
+  // out and stays with whoever owns the till.
+  z.object({
+    orderId: z.string().uuid(),
+    cancel: z.literal(true),
+    reason: z.string().trim().max(300).optional(),
+  }),
 ]);
 
 export async function POST(req: NextRequest) {
@@ -71,7 +79,12 @@ export async function POST(req: NextRequest) {
 
   const input = parsed.data;
   const { data, error } =
-    "payment" in input
+    "cancel" in input
+      ? await supabase.rpc("kitchen_cancel_order", {
+          p_order_id: input.orderId,
+          p_reason: input.reason ?? null,
+        })
+      : "payment" in input
       ? input.payment === "confirm"
         ? await supabase.rpc("kitchen_confirm_payment", { p_order_id: input.orderId })
         : await supabase.rpc("kitchen_reject_payment", {
