@@ -20,8 +20,9 @@ import { parseVideoUrl, isEmbed } from "@/lib/video";
 // How long the poster keeps covering an embedded player AFTER it reports
 // PLAYING. YouTube's prev/pause/next overlay stays painted for a beat once
 // playback begins, so revealing on the PLAYING event alone still showed the
-// buttons. Measured on a real phone rather than guessed.
-const REVEAL_HOLD_MS = 4000;
+// buttons. Set from the owner's own timing on a real phone — 4000 first, then
+// tightened to 2500 once it was clear the chrome clears sooner than that.
+const REVEAL_HOLD_MS = 2500;
 
 export default function HeroVideoLayer({
   videos,
@@ -124,10 +125,11 @@ export default function HeroVideoLayer({
           // started, so revealing the instant it reports playing still showed
           // the buttons — which is exactly what the owner kept seeing.
           //
-          // The poster therefore holds for a further REVEAL_HOLD_MS. Measured
-          // by the owner on a real phone at ~4s, not guessed. The cost is four
-          // extra seconds of a photograph nobody minds looking at; the benefit
-          // is that the player is never uncovered while it has chrome on it.
+          // The poster therefore holds for a further REVEAL_HOLD_MS, measured
+          // by the owner on a real phone rather than guessed. The cost is a
+          // couple of extra seconds of a photograph nobody minds looking at;
+          // the benefit is that the player is never uncovered while it still
+          // has chrome drawn on it.
           //
           // Guarded so repeated PLAYING reports (the player sends them on every
           // loop) cannot stack timers.
@@ -231,7 +233,7 @@ export default function HeroVideoLayer({
           // from the player's REPORTED state, so the poster covers every
           // moment the player is not actually playing — including the pause,
           // buffer and end states that draw the prev/pause/next overlay.
-          className={`absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[177.78vh] min-w-full -translate-x-1/2 -translate-y-1/2 border-0 transition-opacity duration-700 ${
+          className={`absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[177.78vh] min-w-full -translate-x-1/2 -translate-y-1/2 border-0 transition-opacity duration-300 ${
             ready ? "opacity-100" : "opacity-0"
           }`}
         />
@@ -264,7 +266,7 @@ export default function HeroVideoLayer({
       // the layer entirely rather than leaving a black rectangle over the photo.
       // The headline comes straight back — it is the hero again from here.
       onError={() => { setAllowed(false); onPlaying?.(false); }}
-      className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-700 ${
+      className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-300 ${
         ready ? "opacity-100" : "opacity-0"
       }`}
     >

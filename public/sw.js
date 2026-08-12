@@ -80,7 +80,7 @@
 // served from Supabase Storage was blocked and the layer silently unmounted.
 // v159 — commerce finally has a door: an Order tab and an /order hub, because
 // Food, Shops and Tickets were reachable only from the homepage.
-const CACHE = "rr-cache-v162";
+const CACHE = "rr-cache-v163";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
