@@ -5,6 +5,7 @@ import { listActivitiesForCustomer } from "@/lib/activity-server";
 import { groupActivities, type Activity } from "@/lib/activity";
 import { ClipboardList, ArrowLeft } from "lucide-react";
 import NotificationCenter from "@/components/NotificationCenter";
+import NotificationPreferences from "@/components/orders/NotificationPreferences";
 import { createClient } from "@/lib/supabase/server";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { centsToDecimalString } from "@/lib/money";
@@ -202,6 +203,7 @@ export default async function CustomerOrdersPage({
             </div>
           </div>
         )}
+        <NotificationPreferences className="mt-10" />
       </div>
     </main>
   );

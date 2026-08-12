@@ -171,6 +171,19 @@ async function run(req: NextRequest) {
     });
   }
 
+  // Stamp the heartbeat. This is what makes the worker's own death
+  // detectable: nothing else in the system knows whether an EXTERNAL cron
+  // (cron-job.org, outside Vercel) is still calling this route.
+  try {
+    await admin.rpc("record_heartbeat", {
+      p_name: "notification_worker",
+      p_meta: { claimed: jobs.length, sent, failed },
+    });
+  } catch (err) {
+    // Never fail the run over bookkeeping — the jobs already went out.
+    console.error("record_heartbeat failed", err);
+  }
+
   return NextResponse.json({
     ok: true,
     claimed: jobs.length,

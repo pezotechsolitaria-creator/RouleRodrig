@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkHeartbeats } from "@/lib/notifications/heartbeat";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { authorizeCron } from "@/lib/cron-auth";
 import { vehicleName } from "@/lib/vehicle-name";
@@ -415,6 +416,12 @@ export async function GET(req: NextRequest) {
   }
 
   const ok = emailFailures === 0;
+  // Is the EXTERNAL notification worker still alive? Nothing else in the system
+  // can tell — it runs on cron-job.org, outside Vercel. checkHeartbeats sends
+  // INLINE rather than queueing, because the queue is drained by the very
+  // worker it would be reporting dead.
+  const heartbeat = await checkHeartbeats();
+
   return NextResponse.json(
     {
       ok,
@@ -432,6 +439,7 @@ export async function GET(req: NextRequest) {
       backupSaved,
       emailFailures,
       emailQuotaLevel,
+      heartbeat,
     },
     // Non-2xx when mail went undelivered, so the run shows up red in Vercel's
     // cron log. `ok: true` regardless of outcome meant the only signal that

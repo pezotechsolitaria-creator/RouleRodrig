@@ -106,11 +106,10 @@ are valid; prefer `dedupeKey` for new work.
 1. **Guests get no in-app feed.** `notifications.recipient_id` is an auth user,
    and guest checkout is the default path. Guests get push (keyed on
    `contact_email`) and email; `/orders/track` is their history.
-2. **The admin has no in-app feed.** `platform_admins` is empty — the owner
-   authenticates with the `ADMIN_PASSWORD` cookie, so there is no `auth.uid()`
-   to address a row to. An admin operations centre must query with the service
-   role in `/admin`, not through `recipient_id`. Admin alerts currently reach
-   the owner by WhatsApp.
+2. **The admin has no in-app *inbox*, by design.** `platform_admins` is empty —
+   the owner authenticates with the `ADMIN_PASSWORD` cookie, so there is no
+   `auth.uid()` to address a row to. Instead of faking one, `/admin/operations`
+   derives the feed from live state with the service role. See below.
 
 ## Web push setup
 
@@ -161,9 +160,48 @@ The 60-second notification worker (`/api/cron/notifications`) therefore runs on
 an **external pinger (cron-job.org)** with `CRON_SECRET`. It drains
 `notification_jobs` and runs `sweep_delivery_escalations()`.
 
-> **This is the single point of failure in the system.** If that external
-> account lapses, WhatsApp and delivery escalation stop silently. Nothing
-> currently monitors it.
+### Watching the watchman
+
+That external pinger was the single point of failure: if it lapsed, WhatsApp and
+delivery escalation stopped **silently**. It is now monitored:
+
+1. The worker calls `record_heartbeat('notification_worker')` on every run.
+2. The daily reminders cron calls `checkHeartbeats()`, which claims any
+   heartbeat older than 15 minutes and WhatsApps the owner.
+
+**`checkHeartbeats` sends inline, never through the queue.** The queue is
+drained by the very worker being reported dead, so a queued alert about a dead
+worker would never arrive. It is the one message in the system that bypasses the
+queue by design. The claim also latches (`alerted_at`), so a week-long outage
+produces one message a day rather than one per check.
+
+The same staleness shows up as a CRITICAL row in the admin operations feed.
+
+## Admin operations feed
+
+`/admin/operations` — **derived from live state, not an inbox.**
+
+An inbox was impossible here: `notifications.recipient_id` is an auth user,
+`platform_admins` is empty, and the owner signs in with the `ADMIN_PASSWORD`
+cookie, so there is no `auth.uid()` to address a row to. Building it that way
+would have produced a panel that silently shows nothing forever.
+
+Deriving is also simply better for one operator: nothing to mark read, and an
+item disappears when the problem is actually fixed rather than when someone
+clicks it. `admin_operations_feed()` reports, by severity:
+
+- **Critical** — deliveries in `requires_admin`/`driver_unresponsive`/failed,
+  deliveries searching for more than two offer windows, a stale worker heartbeat.
+- **High** — payment proofs awaiting a decision, pending driver applications.
+- **Notice** — WhatsApp jobs that exhausted their retries.
+
+## Preferences
+
+`mutableCategories()` in the registry generates the preferences screen, and
+`/api/notifications/preferences` rejects any category not on that list. Because
+the list excludes categories whose events are critical, **a toggle that hides a
+failed payment cannot be built.** `emit_notification()` enforces the same rule
+independently: it ignores mutes at critical priority.
 
 ## Adding a notification
 
