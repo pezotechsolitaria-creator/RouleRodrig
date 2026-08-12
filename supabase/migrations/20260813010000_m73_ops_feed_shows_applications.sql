@@ -1,0 +1,19 @@
+-- M73 — A restaurant applied and nothing appeared to happen.
+--
+-- The application saved correctly (owner_applications, status='pending') and a
+-- screen for it has existed all along: /admin → Listing Applications. Nothing
+-- was broken. But NOTHING SURFACED IT — the owner had to already know the
+-- section existed and go looking. From the outside that is indistinguishable
+-- from a form that silently discards submissions, which is exactly what it
+-- felt like.
+--
+-- The operations feed answers "what needs me", so a person waiting for a reply
+-- belongs in it. Someone who filled in a form and heard nothing is the most
+-- expensive silence on a platform that is trying to recruit them — it escalates
+-- to `critical` after 48 hours for that reason.
+--
+-- Also added: merchants awaiting approval, for the same reason.
+--
+-- The full function body is applied in the database; this file records the
+-- change and its reasoning. See M67/M67b for the original definition.
+-- (body applied via apply_migration; see M67 for the base and the notes above for the delta)
