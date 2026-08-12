@@ -29,7 +29,19 @@ function LoginForm() {
   const searchParams = useSearchParams();
   // Sanitised: this value is navigated to and forwarded into the auth callback,
   // and was previously an open redirect + a javascript: sink. See lib/safe-next.
-  const next = safeNext(searchParams.get("next"), "/orders");
+  // Default to /account, not /orders.
+  //
+  // One sign-in serves customers, shop owners, cooks, drivers and organisers,
+  // and it used to land everyone on the CUSTOMER page. A cook who followed an
+  // invitation without ?next signed in and saw "Your activity" — no kitchen, no
+  // hint one existed — which reads as a broken invitation rather than a wrong
+  // landing page.
+  //
+  // /account is the one page that reads who you actually are and shows the
+  // doors you have: your shop, your kitchen, your deliveries, your events. A
+  // customer with no other role sees their orders there anyway, so nobody is
+  // sent further from where they were going.
+  const next = safeNext(searchParams.get("next"), "/account");
   // The auth callback sends people here when a link is expired or already used;
   // nothing read this before, so the visitor saw an unexplained login screen.
   const authFailed = searchParams.get("error") === "auth";

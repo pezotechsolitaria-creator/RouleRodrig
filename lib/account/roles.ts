@@ -26,7 +26,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // the operator knowing their own address.
 
 export type AccountRole = {
-  key: "merchant" | "driver" | "organizer";
+  key: "merchant" | "driver" | "organizer" | "kitchen";
   /** What the person is, in their own words. */
   title: string;
   /** What they can do there. */
@@ -55,7 +55,7 @@ export async function rolesForUser(
 ): Promise<AccountRole[]> {
   const out: AccountRole[] = [];
 
-  const [staff, owned, driver, organizer] = await Promise.all([
+  const [staff, owned, driver, organizer, kitchen] = await Promise.all([
     // system_key is null on both: "Roulé Rodrigues Kitchen" and "Roulé
     // Rodrigues Events" are platform infrastructure that happen to carry
     // merchant_staff rows for the operator. Without this filter a staff member
@@ -69,6 +69,13 @@ export async function rolesForUser(
     supabase.from("merchants").select("id, display_name, status").eq("owner_id", userId).is("system_key", null),
     supabase.from("delivery_drivers").select("id, full_name, status").eq("user_id", userId).maybeSingle(),
     supabase.from("event_organizers").select("id, display_name, status").eq("user_id", userId).maybeSingle(),
+    // Kitchen staff (M72). Read through the user's own client, so RLS decides:
+    // kitchen_staff_own matches on user_id OR the invited email, which means a
+    // cook sees their door on the very first sign-in, before claim binds it.
+    supabase
+      .from("kitchen_staff")
+      .select("store_id, display_name, user_id, stores(name)")
+      .limit(5),
   ]);
 
   const one = (v: unknown) => (Array.isArray(v) ? (v[0] ?? null) : v);
@@ -145,6 +152,23 @@ export async function rolesForUser(
             ? "Your organiser access is paused."
             : undefined,
     });
+  }
+
+  // A cook's door. Listed even while the invite is unclaimed, because the whole
+  // point of this page is that somebody who was invited can FIND the thing they
+  // were invited to — the previous failure was a cook signing in and landing on
+  // the customer page with no sign the kitchen existed.
+  for (const row of (kitchen.data ?? []) as { display_name?: string; stores?: { name?: string } | { name?: string }[] | null }[]) {
+    const store = Array.isArray(row.stores) ? row.stores[0] : row.stores;
+    out.push({
+      key: "kitchen",
+      title: "Kitchen",
+      blurb: "Today's orders, and one button per step.",
+      href: "/kitchen",
+      label: store?.name ?? null,
+      status: "active",
+    });
+    break; // one door, however many kitchens they work in
   }
 
   return out;

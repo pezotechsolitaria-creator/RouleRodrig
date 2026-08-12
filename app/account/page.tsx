@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ChevronRight, Search, Store, Truck, Ticket, ClipboardList, LogIn, UserPlus,
-  Bell, Globe, KeyRound, LogOut, ShoppingBag, CircleUser,
-} from "lucide-react";
+  Bell, Globe, KeyRound, LogOut, ShoppingBag, CircleUser, ChefHat } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { rolesForUser, type AccountRole } from "@/lib/account/roles";
 import Navbar from "@/components/Navbar";
@@ -40,6 +39,7 @@ const ROLE_ICON: Record<AccountRole["key"], React.ElementType> = {
   merchant: Store,
   driver: Truck,
   organizer: Ticket,
+  kitchen: ChefHat,
 };
 
 const STATUS_STYLE: Record<AccountRole["status"], string> = {
