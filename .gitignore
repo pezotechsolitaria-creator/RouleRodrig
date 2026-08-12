@@ -66,3 +66,6 @@ playwright-report.json
 # Database backups — contain REAL customer names, emails and phone numbers.
 rr-backup-*.json
 rr-*.sql
+
+# Generated handover manual — rebuilt by scripts/build-manual.py, not edited by hand
+Roule Rodrigues - Complete Platform & Operations Manual.pdf
