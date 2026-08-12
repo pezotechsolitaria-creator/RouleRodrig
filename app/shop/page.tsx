@@ -6,6 +6,7 @@ import { SITE_URL } from "@/lib/site";
 import { centsToDecimalString } from "@/lib/money";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
+import { fulfilmentChip } from "@/lib/shop/plain-words";
 import StoreCard, { type BrowseStoreCard } from "@/components/shop/StoreCard";
 import { ShopHeader } from "@/components/shop/ShopChrome";
 import { sellerPitch, type MonetizationModel } from "@/lib/marketplace/fees";
@@ -254,13 +255,17 @@ export default async function ShopDirectoryPage({
             href={shopHref(f, { fulfillment: f.fulfillment === "rr_delivery" ? "" : "rr_delivery" })}
             className={f.fulfillment === "rr_delivery" ? chipOn : chipOff}
           >
-            Delivery
+            {/* Same words as the shop cards and the checkout — see
+                lib/shop/plain-words.ts. These chips used to say "Delivery" and
+                "Pickup" while the cards said something else and the checkout a
+                third thing. */}
+            {fulfilmentChip("rr_delivery")}
           </Link>
           <Link
             href={shopHref(f, { fulfillment: f.fulfillment === "pickup" ? "" : "pickup" })}
             className={f.fulfillment === "pickup" ? chipOn : chipOff}
           >
-            Pickup
+            {fulfilmentChip("pickup")}
           </Link>
           <span className="mx-1 hidden h-4 w-px bg-white/10 sm:block" />
           {(

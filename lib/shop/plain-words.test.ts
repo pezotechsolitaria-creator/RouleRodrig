@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { statusWords, fulfilmentWords, notSellingNote, type ShopScheduleFacts } from "./plain-words";
+import {
+  statusWords, fulfilmentWords, notSellingNote, FULFILMENT, fulfilmentChip,
+  type ShopScheduleFacts,
+} from "./plain-words";
 
 // These tests are about one thing: a shop that is shut must not read as a shop
 // that is open. That was the actual failure — at 17:12, twelve minutes after
@@ -108,5 +111,47 @@ describe("notSellingNote", () => {
 
   it("is silent for a shop that can sell", () => {
     expect(notSellingNote(true)).toBe("");
+  });
+});
+
+describe("FULFILMENT — one vocabulary for the whole journey", () => {
+  it("gives every option a label that says what actually happens", () => {
+    // The old wording set: "Pickup" / "My own delivery" / "Roulé Rodrigues
+    // delivery" at checkout, "Pickup" / "Delivery" / "Your own driver" on the
+    // card, "Pick up" / "Delivery" on the food bar, "Delivery" / "Pickup" in the
+    // shop filters. Four vocabularies, and two names for one option.
+    expect(FULFILMENT.pickup.label).toBe("I'll collect it myself");
+    expect(FULFILMENT.customer_delivery.label).toBe("Someone will collect it for me");
+    expect(FULFILMENT.rr_delivery.label).toBe("Roulé Rodrigues delivers it");
+  });
+
+  it("never uses the phrase that read as a requirement to own a driver", () => {
+    for (const k of ["pickup", "customer_delivery", "rr_delivery"] as const) {
+      expect(FULFILMENT[k].label.toLowerCase()).not.toContain("your own driver");
+    }
+  });
+
+  it("says whether money is involved, which is the follow-up question", () => {
+    expect(FULFILMENT.pickup.hint).toMatch(/nothing extra/i);
+    expect(FULFILMENT.customer_delivery.hint).toMatch(/nothing extra/i);
+    expect(FULFILMENT.rr_delivery.hint).toMatch(/fee/i);
+  });
+
+  it("chips agree with the words the shop cards already use", () => {
+    // The chip and the card must not drift apart again — this is the assertion
+    // that fails if someone edits one and not the other.
+    const chips = fulfilmentWords({
+      offersPickup: true, offersRrDelivery: true, offersOwnDelivery: true,
+      acceptsCash: false, acceptsBankTransfer: false,
+    });
+    expect(chips).toContain(fulfilmentChip("pickup"));
+    expect(chips).toContain(fulfilmentChip("rr_delivery"));
+    expect(chips).toContain(fulfilmentChip("customer_delivery"));
+  });
+
+  it("keeps chips short enough for a filter pill", () => {
+    for (const k of ["pickup", "customer_delivery", "rr_delivery"] as const) {
+      expect(FULFILMENT[k].chip.length).toBeLessThanOrEqual(28);
+    }
   });
 });

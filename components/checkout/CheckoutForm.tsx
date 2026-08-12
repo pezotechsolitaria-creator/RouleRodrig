@@ -16,6 +16,7 @@ import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 import { todayLine, deliveryLine, nextOpenLabel, type ScheduleStatus } from "@/lib/schedule";
 import { readFulfillment as readFoodFulfillment } from "@/components/food/FulfillmentBar";
 import { vocabFor, domainFromFlags } from "@/lib/food/vocabulary";
+import { FULFILMENT } from "@/lib/shop/plain-words";
 import PickupLocationCard, { type PickupLocation } from "@/components/orders/PickupLocationCard";
 
 type Provider = "cash" | "bank_transfer";
@@ -25,14 +26,14 @@ type Coords = { lat: number; lng: number };
 
 type Zone = { id: string; name: string; covers: string | null; fee: number };
 
-const FULFILLMENT_COPY: Record<Fulfillment, { label: string; hint: string }> = {
-  // The pickup hint is the one line here that names the seller, so it is
-  // overridden at the render site from lib/food/vocabulary.ts. The other two
-  // describe the DELIVERY arrangement, which is identical for both products.
-  pickup: { label: "Pickup", hint: "Collect from the shop. No delivery fee." },
-  customer_delivery: { label: "My own delivery", hint: "You arrange a driver. No delivery fee." },
-  rr_delivery: { label: "Roulé Rodrigues delivery", hint: "Our team delivers. The fee depends on your area." },
-};
+// One definition, in lib/shop/plain-words.ts, shared with the shop cards, the
+// shop filters and the food bar. Before this, the same three choices carried
+// four different sets of words across the journey — including "My own delivery"
+// here and "Your own driver" on the card, for the identical option.
+//
+// The pickup hint is still overridden at the render site from
+// lib/food/vocabulary.ts, because that is the one line that names the seller.
+const FULFILLMENT_COPY = FULFILMENT;
 
 export default function CheckoutForm({
   domain, defaultName, defaultPhone, signedInEmail,

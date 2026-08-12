@@ -98,9 +98,9 @@ export type FulfilmentFacts = {
  */
 export function fulfilmentWords(f: FulfilmentFacts): string[] {
   const out: string[] = [];
-  if (f.offersPickup) out.push("Collect in person");
-  if (f.offersRrDelivery) out.push("Delivered to you");
-  if (f.offersOwnDelivery) out.push("Send someone to collect");
+  if (f.offersPickup) out.push(FULFILMENT.pickup.chip);
+  if (f.offersRrDelivery) out.push(FULFILMENT.rr_delivery.chip);
+  if (f.offersOwnDelivery) out.push(FULFILMENT.customer_delivery.chip);
   if (f.acceptsCash) out.push("Pay cash");
   if (f.acceptsBankTransfer) out.push("Bank transfer");
   return out;
@@ -114,4 +114,45 @@ export function fulfilmentWords(f: FulfilmentFacts): string[] {
  */
 export function notSellingNote(acceptingOrders: boolean): string {
   return acceptingOrders ? "" : "Not selling online yet";
+}
+
+// ── ONE set of words for pickup-or-delivery, used everywhere ─────────────────
+//
+// A customer met this same choice up to four times with different wording each
+// time. Browsing food: "Pick up" / "Delivery". Filtering shops: "Delivery" /
+// "Pickup". On a shop card: "Pickup" / "Delivery" / "Your own driver". At
+// checkout: "Pickup" / "My own delivery" / "Roulé Rodrigues delivery".
+//
+// "Your own driver" and "My own delivery" are the same option under two names,
+// and neither says what actually happens. Somebody who has already hesitated
+// once now has to work out whether these are the same three choices they saw a
+// screen ago — and for an elderly customer that hesitation is where the order
+// ends.
+//
+// So: one definition. Every surface imports from here. If a word turns out to be
+// wrong in Creole, it changes once.
+
+export type FulfilmentKind = "pickup" | "customer_delivery" | "rr_delivery";
+
+export const FULFILMENT: Record<FulfilmentKind, { label: string; hint: string; chip: string }> = {
+  pickup: {
+    label: "I'll collect it myself",
+    hint: "Go to the shop and pick it up. Nothing extra to pay.",
+    chip: "Collect in person",
+  },
+  customer_delivery: {
+    label: "Someone will collect it for me",
+    hint: "You send a friend, a taxi or your own driver. Nothing extra to pay.",
+    chip: "Send someone to collect",
+  },
+  rr_delivery: {
+    label: "Roulé Rodrigues delivers it",
+    hint: "We bring it to you. The fee depends on where you are.",
+    chip: "Delivered to you",
+  },
+};
+
+/** The short chip for a card or a filter — never the long label. */
+export function fulfilmentChip(kind: FulfilmentKind): string {
+  return FULFILMENT[kind].chip;
 }

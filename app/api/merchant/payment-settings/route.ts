@@ -107,6 +107,12 @@ export async function PUT(req: NextRequest) {
       payment_instructions: blank(v.paymentInstructions),
       require_receipt: v.requireReceipt,
       offers_rr_delivery: v.offersRrDelivery,
+      // Only sent when the client actually supplied them, so an older client
+      // cannot silently reset a merchant's choice to the default.
+      ...(v.offersPickup !== undefined ? { offers_pickup: v.offersPickup } : {}),
+      ...(v.offersCustomerDelivery !== undefined
+        ? { offers_customer_delivery: v.offersCustomerDelivery }
+        : {}),
     },
   });
 

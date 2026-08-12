@@ -89,7 +89,22 @@ export const paymentSettingsSchema = z
     // The platform owns the delivery FEE and ETA; a shop only chooses whether
     // it takes part in the Roulé Rodrigues delivery network at all.
     offersRrDelivery: z.boolean(),
+    // The other two halves of the same question. Both columns default to true
+    // and create_order() enforces them, so a shop that works from a locked
+    // workshop with no counter was still offering "come and collect" to every
+    // customer with no way to turn it off.
+    offersPickup: z.boolean().optional(),
+    offersCustomerDelivery: z.boolean().optional(),
   })
+  .refine(
+    // Somebody has to be able to receive the goods. All three off is a shop that
+    // can take an order it has no way to fulfil.
+    (v) =>
+      v.offersRrDelivery ||
+      v.offersPickup !== false ||
+      v.offersCustomerDelivery !== false,
+    { message: "Leave at least one way for customers to get their order.", path: ["offersPickup"] },
+  )
   .refine((v) => v.acceptsCash || v.acceptsBankTransfer, {
     message: "Enable at least one payment method.",
     path: ["acceptsCash"],

@@ -17,6 +17,8 @@ type Settings = {
   payment_instructions: string | null;
   require_receipt: boolean;
   offers_rr_delivery: boolean;
+  offers_pickup: boolean;
+  offers_customer_delivery: boolean;
 };
 
 type Zone = { id: string; name: string; fee: number };
@@ -62,6 +64,8 @@ export default function PaymentSettingsForm({
           paymentInstructions: s.payment_instructions ?? "",
           requireReceipt: s.require_receipt,
           offersRrDelivery: s.offers_rr_delivery,
+          offersPickup: s.offers_pickup,
+          offersCustomerDelivery: s.offers_customer_delivery,
         }),
       });
       const b = await r.json().catch(() => ({}));
@@ -164,8 +168,28 @@ export default function PaymentSettingsForm({
         <label className="mt-3 flex items-center gap-3 rounded-xl border border-white/15 px-4 py-3">
           <input type="checkbox" checked={s.offers_rr_delivery} disabled={!deliveryEnabled}
             onChange={(e) => set({ offers_rr_delivery: e.target.checked })} className="accent-yellow" />
-          <span className="font-dm text-sm text-offwhite">Offer Roulé Rodrigues delivery</span>
+          <span className="font-dm text-sm text-offwhite">Roulé Rodrigues delivers for me</span>
         </label>
+        {/* The other two ways a customer can receive an order. Both columns
+            default to true and create_order() enforces them, so a shop with no
+            counter was offering "come and collect" to everyone with no way to
+            say no — and a shop that will not hand goods to a stranger's taxi had
+            the same problem. */}
+        <label className="mt-2 flex items-center gap-3 rounded-xl border border-white/15 px-4 py-3">
+          <input type="checkbox" checked={s.offers_pickup}
+            onChange={(e) => set({ offers_pickup: e.target.checked })} className="accent-yellow" />
+          <span className="font-dm text-sm text-offwhite">Customers can collect from me</span>
+        </label>
+        <label className="mt-2 flex items-center gap-3 rounded-xl border border-white/15 px-4 py-3">
+          <input type="checkbox" checked={s.offers_customer_delivery}
+            onChange={(e) => set({ offers_customer_delivery: e.target.checked })} className="accent-yellow" />
+          <span className="font-dm text-sm text-offwhite">Customers can send their own driver</span>
+        </label>
+        {!s.offers_rr_delivery && !s.offers_pickup && !s.offers_customer_delivery && (
+          <p role="alert" className="mt-2 rounded-xl border border-orange-400/30 bg-orange-400/[0.07] px-4 py-2.5 font-dm text-xs text-orange-200">
+            With all three off, a customer could order and have no way to receive it. Leave at least one on.
+          </p>
+        )}
         <div className="mt-3 flex items-start gap-2 rounded-xl bg-white/[0.03] px-4 py-3">
           <Truck size={15} className="mt-0.5 shrink-0 text-muted" />
           <div className="font-dm text-xs text-muted">

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ShoppingBag, Bike } from "lucide-react";
+import { fulfilmentChip } from "@/lib/shop/plain-words";
 import { centsToDecimalString } from "@/lib/money";
 
 // Pickup or delivery, decided once and remembered.
@@ -74,8 +75,9 @@ export default function FulfillmentBar({
       <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-white/10 bg-dark-card p-1.5">
         {(
           [
-            { id: "pickup" as const, label: "Pick up", icon: ShoppingBag },
-            { id: "rr_delivery" as const, label: "Delivery", icon: Bike },
+            // Shared with the shop cards, the shop filters and the checkout.
+            { id: "pickup" as const, label: fulfilmentChip("pickup"), icon: ShoppingBag },
+            { id: "rr_delivery" as const, label: fulfilmentChip("rr_delivery"), icon: Bike },
           ]
         ).map((opt) => {
           const Icon = opt.icon;
