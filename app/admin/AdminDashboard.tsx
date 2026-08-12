@@ -246,22 +246,55 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 const inputCls =
   "w-full bg-[#0e0e0e] border border-[#2a2a2a] rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 hover:border-[#3a3a3a] focus:border-yellow focus:ring-2 focus:ring-yellow/15 focus:outline-none transition-all";
 
+// DRAFT-AWARE. Reported as "the keyboard is locked": a comma-separated field
+// ate every comma, a price refused a decimal point, and a coordinate refused a
+// minus — on an island whose every latitude is negative.
+//
+// None of those were validation. Callers pass a value DERIVED from parsed state
+// (`list.join(", ")`, `String(loc.lat)`), so each keystroke re-rendered the
+// field from the parse of the previous one, and any half-typed text that did
+// not parse cleanly was overwritten before the next character arrived. Typing
+// "hat," split to ["hat", ""], dropped the empty, and came back as "hat".
+//
+// Fixed here rather than at each call site, because the same shape exists in
+// fields nobody has reported yet. The input keeps its own text while focused
+// and re-syncs from the parent only when it is not — so an edit from elsewhere
+// still lands, and canonical formatting is applied on blur, but never
+// mid-word.
 function TextInput({
   value,
   onChange,
   placeholder,
   type = "text",
+  inputMode,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   type?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
 }) {
+  const [draft, setDraft] = useState(value);
+  const focused = useRef(false);
+
+  useEffect(() => {
+    if (!focused.current) setDraft(value);
+  }, [value]);
+
   return (
     <input
       type={type}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
+      inputMode={inputMode}
+      value={draft}
+      onFocus={() => { focused.current = true; }}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        onChange(e.target.value);
+      }}
+      onBlur={() => {
+        focused.current = false;
+        setDraft(value);
+      }}
       placeholder={placeholder}
       className={inputCls}
     />
@@ -3007,14 +3040,24 @@ function MapEditor({
             <Field label="LATITUDE">
               <TextInput
                 value={String(loc.lat)}
-                onChange={(v) => updateLoc(idx, { lat: parseFloat(v) || 0 })}
+                onChange={(v) => {
+                  // parseFloat("-") is NaN and `|| 0` turned it into 0, so the
+                  // minus never survived — and Rodrigues sits at -19.7, so no
+                  // valid latitude could be typed at all. Ignore text that is
+                  // not yet a number instead of overwriting with zero.
+                  const n = Number(v.trim());
+                  if (v.trim() !== "" && Number.isFinite(n)) updateLoc(idx, { lat: n });
+                }}
                 placeholder="-19.6811"
               />
             </Field>
             <Field label="LONGITUDE">
               <TextInput
                 value={String(loc.lng)}
-                onChange={(v) => updateLoc(idx, { lng: parseFloat(v) || 0 })}
+                onChange={(v) => {
+                  const n = Number(v.trim());
+                  if (v.trim() !== "" && Number.isFinite(n)) updateLoc(idx, { lng: n });
+                }}
                 placeholder="63.4147"
               />
             </Field>

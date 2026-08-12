@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { DraftInput } from "@/components/ui/draft-input";
 import Image from "next/image";
 import { toast } from "sonner";
 import {
@@ -561,14 +562,25 @@ function DishEditor({
                   </div>
                   <div className="w-24">
                     <span className="font-dm text-[10px] text-muted">Rs</span>
-                    <input
+                    {/* DraftInput, not a bare input: value was
+                        centsToDecimalString(price), so every keystroke
+                        re-rendered the field from the parse of the last one.
+                        Typing "12." parsed to 1200 and came straight back as
+                        "12" — the decimal point was deleted as fast as it was
+                        typed, which is why a price could not be entered
+                        freely. The buffer lets "12." exist until it becomes
+                        "12.50". */}
+                    <DraftInput
                       className={input}
                       inputMode="decimal"
                       value={centsToDecimalString(v.price)}
-                      onChange={(e) => {
-                        const cents = toCents(e.target.value);
+                      onChange={(raw) => {
+                        const cents = toCents(raw);
+                        // null while half-typed ("", "12.") — leave the last
+                        // good price alone rather than resetting it to zero.
+                        if (cents === null) return;
                         const next = [...draft.variants];
-                        next[i] = { ...v, price: cents ?? 0 };
+                        next[i] = { ...v, price: cents };
                         set({ variants: next });
                       }}
                     />
