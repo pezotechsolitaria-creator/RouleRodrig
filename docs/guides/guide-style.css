@@ -1,0 +1,128 @@
+/* Shared print styling for the two operator guides.
+   A4, generous margins, high contrast — these get printed and handed to
+   somebody standing in a kitchen or behind a counter, not read on a laptop. */
+
+@page { size: A4; margin: 16mm 14mm; }
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: "Segoe UI", -apple-system, Roboto, sans-serif;
+  color: #14161a;
+  line-height: 1.55;
+  font-size: 10.5pt;
+  margin: 0;
+}
+
+h1 { font-size: 25pt; line-height: 1.1; margin: 0 0 6px; letter-spacing: -0.5px; }
+h2 {
+  font-size: 14pt; margin: 26px 0 10px; padding-top: 10px;
+  border-top: 2px solid #F5C842; page-break-after: avoid;
+}
+h3 { font-size: 11.5pt; margin: 16px 0 6px; page-break-after: avoid; }
+p, li { margin: 0 0 8px; }
+ul, ol { margin: 0 0 10px; padding-left: 20px; }
+strong { font-weight: 700; }
+code {
+  font-family: Consolas, "SF Mono", monospace; font-size: 9.5pt;
+  background: #f2f3f5; padding: 1px 5px; border-radius: 4px;
+}
+
+.cover {
+  border-left: 6px solid #F5C842; padding: 4px 0 4px 16px; margin-bottom: 22px;
+}
+.kicker {
+  font-size: 8.5pt; letter-spacing: 2.4px; text-transform: uppercase;
+  color: #8a6d1f; font-weight: 700; margin: 0 0 6px;
+}
+.sub { font-size: 11.5pt; color: #4a4f57; margin: 6px 0 0; }
+.meta { font-size: 9pt; color: #767b84; margin-top: 10px; }
+
+/* A step in a numbered walkthrough. */
+.step {
+  border: 1px solid #e3e5e9; border-radius: 10px;
+  padding: 12px 14px; margin: 0 0 10px; page-break-inside: avoid;
+}
+.step h3 { margin-top: 0; }
+.step .n {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 21px; height: 21px; border-radius: 50%;
+  background: #F5C842; color: #14161a; font-weight: 800; font-size: 9.5pt;
+  margin-right: 8px; flex: none;
+}
+
+.note, .warn, .tip {
+  border-radius: 10px; padding: 11px 14px; margin: 12px 0;
+  page-break-inside: avoid; font-size: 10pt;
+}
+.note { background: #f6f7f9; border-left: 4px solid #9aa1ab; }
+.warn { background: #fdf3f2; border-left: 4px solid #d94a3d; }
+.tip  { background: #fdf9ec; border-left: 4px solid #F5C842; }
+.note p:last-child, .warn p:last-child, .tip p:last-child { margin-bottom: 0; }
+
+table { width: 100%; border-collapse: collapse; margin: 10px 0 14px; font-size: 9.5pt; }
+th, td { border: 1px solid #e3e5e9; padding: 7px 9px; text-align: left; vertical-align: top; }
+th { background: #f6f7f9; font-weight: 700; }
+
+/* Faithful drawings of each screen, built from the real component code.
+   Deliberately NOT screenshots of the live admin: a real order card carries a
+   customer's name, phone number and delivery address, and a PDF gets
+   forwarded. */
+.screen {
+  background: #16181d; border-radius: 12px; padding: 14px;
+  margin: 12px 0; page-break-inside: avoid;
+}
+.screen-cap { font-size: 8.5pt; color: #767b84; margin: -4px 0 14px; font-style: italic; }
+.card {
+  border: 1px solid rgba(255,255,255,0.14); border-radius: 9px;
+  padding: 10px 12px; margin-bottom: 8px; color: #ece9e2;
+}
+.card:last-child { margin-bottom: 0; }
+.card.hot { border-color: #F5C842; background: rgba(245,200,66,0.13); }
+.card.warn-age { border-color: rgba(251,146,60,0.55); background: rgba(251,146,60,0.08); }
+.card.late { border-color: rgba(239,68,68,0.6); background: rgba(239,68,68,0.08); }
+.card.done { opacity: 0.55; }
+.ref { font-size: 7.5pt; letter-spacing: 2px; color: #F5C842; margin: 0 0 3px; }
+.who { font-size: 11pt; font-weight: 700; margin: 0; }
+.where { font-size: 8.5pt; color: #9aa1ab; margin: 1px 0 6px; }
+.line { font-size: 9.5pt; margin: 2px 0; }
+.qty { color: #F5C842; font-weight: 700; }
+.btn {
+  display: block; text-align: center; background: #F5C842; color: #14161a;
+  font-weight: 800; border-radius: 8px; padding: 8px; margin-top: 8px; font-size: 9.5pt;
+}
+.btn.green { background: #34c759; }
+.btn.ghost { background: none; border: 1px solid rgba(255,255,255,0.25); color: #ece9e2; font-weight: 600; }
+.money-due {
+  border: 1px solid rgba(239,68,68,0.5); background: rgba(239,68,68,0.1);
+  color: #fca5a5; border-radius: 8px; padding: 7px 10px; margin-top: 8px;
+  font-size: 9.5pt; font-weight: 700;
+}
+.clock { float: right; font-size: 9.5pt; font-weight: 700; }
+.clock.ok { color: #9aa1ab; }
+.clock.mid { color: #fb923c; }
+.clock.bad { color: #fca5a5; }
+.counters { display: flex; gap: 7px; margin-bottom: 10px; }
+.counter {
+  flex: 1; border: 1px solid rgba(255,255,255,0.12); border-radius: 9px;
+  padding: 7px 9px; color: #ece9e2;
+}
+.counter.on { border-color: rgba(245,200,66,0.45); background: rgba(245,200,66,0.1); }
+.counter .lbl { font-size: 7pt; letter-spacing: 1.6px; color: #9aa1ab; }
+.counter .num { font-size: 16pt; font-weight: 800; }
+.counter.on .num { color: #F5C842; }
+.tabs { display: flex; gap: 7px; margin-bottom: 10px; }
+.tab {
+  flex: 1; text-align: center; border-radius: 8px; padding: 7px;
+  font-weight: 700; font-size: 9.5pt; color: #ece9e2;
+  border: 1px solid rgba(255,255,255,0.16);
+}
+.tab.on { background: #F5C842; color: #14161a; border-color: #F5C842; }
+
+.pagebreak { page-break-before: always; }
+.faq dt { font-weight: 700; margin-top: 11px; }
+.faq dd { margin: 3px 0 0; padding-left: 0; color: #3d424a; }
+footer {
+  margin-top: 30px; padding-top: 10px; border-top: 1px solid #e3e5e9;
+  font-size: 8.5pt; color: #767b84;
+}

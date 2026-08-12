@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Roulé Rodrigues — Marketplace guide</title>
+<link rel="stylesheet" href="./guide-style.css">
+</head>
+<body>
+
+<div class="cover">
+  <p class="kicker">Roulé Rodrigues · Operator guide</p>
+  <h1>Running the marketplace</h1>
+  <p class="sub">The Shop Operations desk: taking orders through, checking payments, and fixing prices and stock for a seller.</p>
+  <p class="meta">For the platform owner · roulerodrig.com/admin → Shop Operations</p>
+</div>
+
+<p>The marketplace has <strong>two</strong> screens, and they do not replace each other:</p>
+
+<table>
+  <tr><th>Screen</th><th>Who uses it</th><th>What it is for</th></tr>
+  <tr>
+    <td><strong>/merchant</strong></td><td>The seller</td>
+    <td>Their own shop: products, photos, opening hours, payment details, their orders. <strong>Unchanged.</strong></td>
+  </tr>
+  <tr>
+    <td><strong>/admin → Shop Operations</strong></td><td>You</td>
+    <td>Every shop at once. Take an order through, check a proof of payment, fix a price or a stock count for a seller who would rather phone you.</td>
+  </tr>
+</table>
+
+<div class="tip">
+  <p><strong>Why this desk exists.</strong> Restaurants had two screens — one for the cook, one for you — so a restaurant that will not touch a computer is still tradeable, because you can run it for them. The marketplace only had the seller's half. A seller with a phone and no laptop could not really be onboarded. This is the missing half.</p>
+</div>
+
+<h2>1. Finding it</h2>
+<p>Open <strong>/admin</strong> and click <strong>Shop Operations</strong>, directly under Food Operations. Nothing here needs a typed address.</p>
+
+<div class="note">
+  <p><strong>Food is not here, on purpose.</strong> Kitchens live on the Food desk and every other shop lives here. The split is enforced on the server, so this desk cannot touch a kitchen order even by accident — and the Food desk cannot touch a shop's. Two desks, no overlap, nothing to drift.</p>
+</div>
+
+<h2>2. The Orders tab</h2>
+
+<div class="screen">
+  <div class="tabs"><div class="tab on">Orders</div><div class="tab">Prices &amp; stock</div></div>
+  <div class="counters">
+    <div class="counter on"><div class="lbl">NEW</div><div class="num">2</div></div>
+    <div class="counter"><div class="lbl">CONFIRMED</div><div class="num">0</div></div>
+    <div class="counter on"><div class="lbl">PACKING</div><div class="num">1</div></div>
+    <div class="counter"><div class="lbl">READY</div><div class="num">0</div></div>
+  </div>
+  <div class="card">
+    <p class="ref">NEEDS ACTION · ALL ORDERS incl. cancelled · [All shops ▾] · Refresh</p>
+  </div>
+  <div class="card warn-age">
+    <span class="clock mid">22 min ago</span>
+    <p class="who">RR-7C31D9 <span style="font-weight:400;font-size:8.5pt;color:#9aa1ab">Boutique Marlène</span></p>
+    <p class="where">Pickup · Bank transfer</p>
+    <p class="line"><span class="qty">1×</span> Panier vacoas — grand <span style="float:right">Rs 1,200.00</span></p>
+    <div class="btn ghost">View proof of payment</div>
+    <div class="btn">Confirm payment</div>
+  </div>
+  <div class="card">
+    <span class="clock ok">4 min ago</span>
+    <p class="who">RR-7C31E2 <span style="font-weight:400;font-size:8.5pt;color:#9aa1ab">Épicerie Sainte-Rita</span></p>
+    <p class="where">Delivery · Baie du Nord · Cash</p>
+    <p class="line"><span class="qty">2×</span> Miel de Rodrigues <span style="float:right">Rs 700.00</span></p>
+    <div class="money-due">Rs 350.00 still to collect in cash</div>
+    <div class="btn">Send to the shop</div>
+  </div>
+</div>
+<p class="screen-cap">Drawn from the live screen. Real cards carry customer names, phone numbers and delivery addresses, so no screenshot of real data is printed here.</p>
+
+<h3>The four counters</h3>
+<p>Counted across <strong>every</strong> shop, whatever filter you have on — so "Packing 3" never reads zero just because you are looking at one shop.</p>
+
+<h3>Two named tabs</h3>
+<ul>
+  <li><strong>Needs action</strong> — orders that still need somebody. The default.</li>
+  <li><strong>All orders · incl. cancelled</strong> — the full record, including cancelled and completed.</li>
+</ul>
+
+<h3>Moving an order</h3>
+<table>
+  <tr><th>Button</th><th>What happens</th></tr>
+  <tr><td>Confirm payment</td><td>Marks the money received. The shop can start packing.</td></tr>
+  <tr><td>Send to the shop</td><td>The shop is packing it.</td></tr>
+  <tr><td>Mark ready</td><td>Customer emailed with the pickup code and the address. If it is a delivery, a driver is called.</td></tr>
+  <tr><td>Handed over</td><td>Closes the order.</td></tr>
+  <tr><td>Cancel</td><td>Asks first. Stock goes back on sale and the customer is emailed.</td></tr>
+</table>
+<p>Only legal next steps are ever offered — the screen and the database use the same rules, so a button you can see is a button that will work.</p>
+
+<h3>On every card</h3>
+<ul>
+  <li><strong>The phone number is a link.</strong> Tap it and it dials.</li>
+  <li><strong>Open the pin</strong> — a delivery's GPS location in Google Maps.</li>
+  <li><strong>View proof of payment</strong> — the customer's bank transfer photo, on any order that has one, at any stage. The link lasts five minutes and is made fresh each time.</li>
+  <li><strong>Rs X still to collect in cash</strong> — a split payment. The shop or the driver collects it; this tells you it is outstanding.</li>
+  <li><strong>Note</strong> — an internal note. Only your team sees it, never the customer.</li>
+  <li>A card outlines orange once it has sat more than 20 minutes.</li>
+</ul>
+
+<h2 class="pagebreak">3. The Prices &amp; stock tab</h2>
+
+<p>This is the part that lets you run a shop for somebody who will not use a laptop. Pick a shop, or search across all of them, and change three things per item:</p>
+
+<table>
+  <tr><th>Field</th><th>What it does</th></tr>
+  <tr><td><strong>Price (Rs)</strong></td><td>What the customer pays. Type it normally — <code>350.50</code>. Saves when you tap away.</td></tr>
+  <tr><td><strong>In stock</strong></td><td>How many are left. At zero the item cannot be bought.</td></tr>
+  <tr><td><strong>Take off sale / Put back on sale</strong></td><td>Hides or shows the item without deleting anything.</td></tr>
+</table>
+
+<p>An orange banner at the top counts everything that is <strong>out or nearly out</strong> across all shops. A shop that has quietly run to zero is still taking orders it cannot fill, so that number is worth a glance every morning.</p>
+
+<div class="note">
+  <p><strong>Adding and deleting products stays with the seller</strong>, in /merchant. This desk keeps a live shop correct; it does not take the business over. If a seller genuinely cannot add products at all, add them from the seller's own dashboard rather than here.</p>
+</div>
+
+<div class="warn">
+  <p><strong>Every price and stock change is recorded</strong> — what it was, what you changed it to, which shop, and when. Changing somebody else's price is exactly the kind of thing that needs an answer if it is ever questioned. That record is your protection as much as theirs.</p>
+</div>
+
+<h2>4. Split payments</h2>
+<p>A shop can take a deposit by bank transfer and the rest in cash on pickup or at the door.</p>
+<ol>
+  <li>The customer uploads their transfer photo.</li>
+  <li>Whoever confirms it chooses <strong>Paid in full</strong> or enters the smaller amount that actually arrived.</li>
+  <li>The remainder becomes cash to collect. It shows on this desk, on the shop's own screen, and on the driver's job card.</li>
+  <li>When the cash is handed over, it is marked collected.</li>
+</ol>
+<p>Every one of those screens works the amount out from the same record of payments, so they cannot disagree with each other.</p>
+
+<h2>5. If something looks wrong</h2>
+<dl class="faq">
+  <dt>"Failed to load orders"</dt>
+  <dd>The desk could not reach the database. Press Refresh. If it persists the server configuration needs checking — the message says so rather than showing you an empty screen.</dd>
+
+  <dt>A shop is missing from the list</dt>
+  <dd>It is either a kitchen (those are on the Food desk) or it has not been approved yet.</dd>
+
+  <dt>"No shops yet"</dt>
+  <dd>Every store on the platform is currently a kitchen. Shops appear here as soon as one is approved.</dd>
+
+  <dt>A price will not save</dt>
+  <dd>It saves when you tap away from the field, not while typing. A message appears if it was rejected.</dd>
+
+  <dt>An order will not move</dt>
+  <dd>Somebody else moved it first — the seller, from their own dashboard. The screen reloads to show where it actually is.</dd>
+
+  <dt>A cancelled order seems to have vanished</dt>
+  <dd>Switch to <strong>All orders · incl. cancelled</strong>. The default tab only shows what still needs action.</dd>
+</dl>
+
+<footer>
+  Roulé Rodrigues · roulerodrig.com — Shop Operations: roulerodrig.com/admin → Shop Operations.
+  This desk can change prices and stock for shops the platform does not own; treat the admin password accordingly.
+</footer>
+
+</body>
+</html>
