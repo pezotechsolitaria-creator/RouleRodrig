@@ -210,7 +210,7 @@ export default function Contact({
                     onChange={(e) => setForm({ ...form, scooter: e.target.value })}
                     disabled={formState === "loading"}
                   >
-                    <option value="">Not sure / general question</option>
+                    <option value="">Not sure — general question</option>
                     {scooters.map((s) => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}

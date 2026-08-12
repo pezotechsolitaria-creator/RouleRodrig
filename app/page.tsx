@@ -53,9 +53,15 @@ export default async function Home() {
   const browseCats = buildBrowseCategories(content, fleet, recentBookings);
 
   // App-home rails, built from real content only (no invented ratings/prices).
+  // A massage, a charter and a sea trip each have their own marketplace now,
+  // so the rail links there rather than dumping every one of them into the
+  // generic activities list where they appeared twice and lost their price.
   const experiences = content.recommended.items
-    .filter((p) => p.category === "activity" && (p.image || ""))
-    .map((p) => ({ id: p.id, name: p.name, image: p.image, price: p.priceNote ?? null, href: p.isTour ? "/browse/tours" : "/browse/activities" }));
+    .filter((p) => p.category === "activity" && p.name.trim() && (p.image || ""))
+    .map((p) => ({
+      id: p.id, name: p.name, image: p.image, price: p.priceNote ?? null,
+      href: p.serviceType ? `/experiences/${p.serviceType}` : p.isTour ? "/browse/tours" : "/browse/activities",
+    }));
   const stays = content.recommended.items
     .filter((p) => p.category === "hotel" && (p.image || ""))
     .map((p) => ({ id: p.id, name: p.name, image: p.image, price: p.priceNote ?? null, href: "/browse/stays" }));

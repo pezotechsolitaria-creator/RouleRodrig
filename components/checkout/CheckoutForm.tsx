@@ -300,7 +300,10 @@ export default function CheckoutForm({
 
   const items = resolved ?? [];
   const hasIssue = items.some((i) => !i.isActive || i.productStatus !== "active" || i.stockQuantity < i.requestedQuantity);
-  const needsLocation = fulfillment !== "pickup";
+  // Tickets are collected at the gate, so they can never need a location — and
+  // sellerDomain is server-decided, so a hand-typed ?cart= cannot change that.
+  const isTicket = sellerDomain === "events";
+  const needsLocation = !isTicket && fulfillment !== "pickup";
   const locationReady = !needsLocation || coords !== null;
   // rr_delivery has no price until an area is chosen, so it cannot be submitted.
   const zoneReady = fulfillment !== "rr_delivery" || !!zoneId;
@@ -454,7 +457,22 @@ export default function CheckoutForm({
         </p>
       )}
 
-      {/* Delivery method */}
+      {/* ── How you get it ──────────────────────────────────────────────────
+          Nobody delivers a concert. A ticket bought from /cart came through
+          this same form and was asked to choose a delivery method, then a
+          delivery area, then to share a GPS pin — for something that is a code
+          on a phone. The event's own checkout forces pickup; this one now says
+          the same thing in one line instead of asking three questions with no
+          right answer. */}
+      {isTicket ? (
+        <section>
+          <h2 className="font-bebas text-[11px] tracking-[0.3em] text-yellow">HOW IT WORKS</h2>
+          <p className="mt-2 rounded-xl border border-white/10 bg-dark-card p-4 font-dm text-sm text-offwhite/85">
+            Your tickets arrive by email with a QR code. Show it at the gate — nothing is posted
+            or delivered.
+          </p>
+        </section>
+      ) : (
       <fieldset>
         <legend className="font-bebas text-[11px] tracking-[0.3em] text-yellow">DELIVERY METHOD</legend>
         <div className="mt-2 space-y-2">
@@ -504,12 +522,14 @@ export default function CheckoutForm({
           })}
         </div>
       </fieldset>
+      )}
 
       {/* WHERE to collect — shown the moment "Pick up" is the live choice, and
           only then. An address under a delivery order is noise; an address
           missing under a pickup order is a customer standing in the wrong
           village holding a code. Tickets are excluded: a ticket is scanned at
           the gate, and the venue is on the event page, not the seller's row. */}
+
       {fulfillment === "pickup" && sellerDomain !== "events" && pickup && (
         <PickupLocationCard location={pickup} title="You'll collect from" />
       )}

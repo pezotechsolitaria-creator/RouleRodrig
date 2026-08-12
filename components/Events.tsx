@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Star } from "lucide-react";
+import { Calendar, MapPin, Star, Images } from "lucide-react";
 import type { EventItem } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
@@ -42,8 +42,18 @@ export default function Events({ events = [] }: { events?: EventItem[] }) {
               }`}
             >
               {ev.image ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={ev.image} alt={ev.title} className="w-full h-44 object-cover" loading="lazy" />
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={ev.image} alt={ev.title} className="w-full h-44 object-cover" loading="lazy" />
+                  {/* The editor takes as many photos as the owner has; the card
+                      shows the cover and says how many more are inside, the
+                      same promise the places cards make. */}
+                  {(ev.images?.length ?? 0) > 1 && (
+                    <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 font-dm text-[10px] text-white">
+                      <Images size={10} /> {ev.images!.length}
+                    </span>
+                  )}
+                </div>
               ) : (
                 <div className="w-full h-44 bg-gradient-to-br from-yellow/15 via-dark-card to-dark flex items-center justify-center">
                   <Calendar size={36} className="text-yellow/40" />

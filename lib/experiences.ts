@@ -125,6 +125,18 @@ export function experiencesOfType(
 ): RecommendedPlace[] {
   return items
     .filter((p) => p.serviceType === type)
+    // Two guards, both learned from live data.
+    //
+    // A place is only a service while it is still an ACTIVITY. serviceType
+    // lives in a JSON blob, so switching an item's category to Hotel used to
+    // leave the tag behind and the listing stayed on /experiences/boat with no
+    // way to reach the control that set it.
+    //
+    // And a listing with no name is not a listing. One nameless, priceless
+    // sea trip was rendering as a real product card — empty heading, "Price on
+    // request", a live "See the trip" button — because the page only shows its
+    // empty state when the array is empty, not when its contents are.
+    .filter((p) => p.category === "activity" && p.name.trim().length > 0)
     .sort((a, b) => Number(b.featured ?? false) - Number(a.featured ?? false));
 }
 

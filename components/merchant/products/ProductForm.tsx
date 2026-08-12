@@ -271,7 +271,7 @@ export default function ProductForm({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label htmlFor="sku" className="mb-1.5 font-dm text-xs font-medium text-muted">SKU (optional)</Label>
+              <Label htmlFor="sku" className="mb-1.5 font-dm text-xs font-medium text-muted">Your own product code (optional)</Label>
               <Input id="sku" {...register("sku")} disabled={busy} />
             </div>
             <div>

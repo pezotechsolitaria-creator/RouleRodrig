@@ -88,7 +88,7 @@ export default function KitchensPanel({
       });
       setBusy(null);
       if (!res.ok) { toast.error(res.error); return; }
-      toast.success(status === "active" ? `${k.name} is back on /food.` : `${k.name} is hidden.`);
+      toast.success(status === "active" ? `${k.name} is visible to customers again.` : `${k.name} is hidden.`);
       reload();
     },
     [reload],
@@ -228,7 +228,8 @@ export default function KitchensPanel({
                       cookerPhone: k.cookerPhone ?? "",
                       cookerNotes: k.cookerNotes ?? "",
                       status: k.status,
-                      offersRrDelivery: true,
+                      // The kitchen's actual setting, not a hardcoded true.
+                      offersRrDelivery: k.offersRrDelivery,
                     })
                   }
                   className="rounded-lg border border-white/15 px-2.5 py-2 text-muted hover:text-offwhite"
@@ -346,7 +347,7 @@ export default function KitchensPanel({
                   <span className={label}>VISIBILITY</span>
                   <select className={input} value={draft.status}
                     onChange={(e) => setDraft({ ...draft, status: e.target.value })}>
-                    <option value="active">Live on /food</option>
+                    <option value="active">Visible to customers</option>
                     <option value="paused">Hidden</option>
                     <option value="draft">Draft</option>
                   </select>

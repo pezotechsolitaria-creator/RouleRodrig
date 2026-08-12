@@ -78,6 +78,8 @@
 // collision with a parallel branch; stepping past, as ever.
 // v156 — THE hero video fix: the CSP never declared media-src, so every clip
 // served from Supabase Storage was blocked and the layer silently unmounted.
+// v159 — commerce finally has a door: an Order tab and an /order hub, because
+// Food, Shops and Tickets were reachable only from the homepage.
 const CACHE = "rr-cache-v159";
 const SHELL = "/";
 

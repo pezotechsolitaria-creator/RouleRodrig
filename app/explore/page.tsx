@@ -42,7 +42,7 @@ export default async function ExplorePage() {
       descriptionFr: p.descriptionFr,
       descriptionCr: p.descriptionCr,
       image: p.image,
-      href: p.isTour ? "/browse/tours" : "/browse/activities",
+      href: p.serviceType ? `/experiences/${p.serviceType}` : p.isTour ? "/browse/tours" : "/browse/activities",
       filterKey: p.isTour ? "tour" : "activity",
       tags: [],
       price: p.priceNote,

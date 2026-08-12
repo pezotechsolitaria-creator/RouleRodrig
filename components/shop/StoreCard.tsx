@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Store as StoreIcon, MapPin } from "lucide-react";
-import { hhmm } from "@/lib/schedule";
+import { statusWords, fulfilmentWords, notSellingNote } from "@/lib/shop/plain-words";
 import StarRating from "./StarRating";
 
 // One row of browse_stores()'s `stores` array, exactly as the RPC names them.
@@ -34,21 +34,21 @@ export type BrowseStoreCard = {
 };
 
 function StatusBadge({ store }: { store: BrowseStoreCard }) {
-  // A shop that never set opening hours gets no badge at all — claiming either
-  // "open" or "closed" for it would be invented information.
-  if (!store.hasSchedule) return null;
-  if (store.isOpen) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-dark/90 px-2.5 py-1 font-dm text-[11px] font-semibold text-emerald-400">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Open now
-      </span>
-    );
-  }
-  const opens = !store.isClosedToday ? hhmm(store.opensAt) : "";
+  // The wording lives in lib/shop/plain-words.ts, where it is tested. This card
+  // used to render `opensAt` — so a shop that had closed twelve minutes ago
+  // announced "Opens 08:00", which is its opening time on a normal day and not
+  // the answer to the question being asked.
+  const { badge, tone } = statusWords(store);
+  if (!badge) return null;
+  const open = tone === "open";
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-dark/90 px-2.5 py-1 font-dm text-[11px] font-medium text-muted">
-      <span className="h-1.5 w-1.5 rounded-full bg-white/30" />
-      {opens ? `Opens ${opens}` : "Closed today"}
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full bg-dark/90 px-2.5 py-1 font-dm text-[11px] ${
+        open ? "font-semibold text-emerald-400" : "font-medium text-muted"
+      }`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${open ? "bg-emerald-400" : "bg-white/30"}`} />
+      {badge}
     </span>
   );
 }
@@ -78,9 +78,9 @@ export default function StoreCard({ store }: { store: BrowseStoreCard }) {
         <div className="absolute left-2 top-2">
           <StatusBadge store={store} />
         </div>
-        {!store.acceptingOrders && (
+        {notSellingNote(store.acceptingOrders) && (
           <span className="absolute right-2 top-2 rounded-full bg-dark/90 px-2.5 py-1 font-dm text-[11px] font-medium text-muted">
-            Not taking orders yet
+            {notSellingNote(store.acceptingOrders)}
           </span>
         )}
       </div>
@@ -122,11 +122,9 @@ export default function StoreCard({ store }: { store: BrowseStoreCard }) {
         )}
 
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {store.offersPickup && <span className={chip}>Pickup</span>}
-          {store.offersRrDelivery && <span className={chip}>Delivery</span>}
-          {store.offersOwnDelivery && <span className={chip}>Your own driver</span>}
-          {store.acceptsCash && <span className={chip}>Cash</span>}
-          {store.acceptsBankTransfer && <span className={chip}>Bank transfer</span>}
+          {fulfilmentWords(store).map((w) => (
+            <span key={w} className={chip}>{w}</span>
+          ))}
         </div>
       </div>
     </Link>

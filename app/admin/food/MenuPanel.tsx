@@ -258,7 +258,7 @@ export default function MenuPanel({
             {q || kitchenFilter ? "No dishes match" : "The menu is empty"}
           </p>
           <p className="mt-1.5 font-dm text-sm text-muted">
-            {q || kitchenFilter ? "Try a different search." : "Add the first dish and it appears on /food immediately."}
+            {q || kitchenFilter ? "Try a different search." : "Add the first dish — customers see it straight away."}
           </p>
         </div>
       )}
@@ -734,7 +734,7 @@ function DishEditor({
             <input type="checkbox" checked={draft.isSignature}
               onChange={(e) => set({ isSignature: e.target.checked })}
               className="h-4 w-4 accent-[#F5C842]" />
-            Signature dish — show it in the &ldquo;Signature dishes&rdquo; row on /food
+            Signature dish — show it in the &ldquo;Signature dishes&rdquo; row on the Food page
           </label>
         </div>
 

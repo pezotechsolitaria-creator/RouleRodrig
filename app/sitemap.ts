@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { EXPERIENCES } from "@/lib/experiences";
 import { SITE_URL } from "@/lib/site";
 import { getFleetView, buildBrowseCategories } from "@/lib/site-data";
 import { BLOG_POSTS } from "@/lib/blog";
@@ -115,6 +116,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/food`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
     ...dishes,
     { url: `${SITE_URL}/food/concierge`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    // The three service marketplaces. Listed unconditionally, like /shop and
+    // /food above and for the same reason: each has a real empty state that
+    // recruits the providers, and "massage rodrigues" is a search someone makes
+    // whether or not a therapist has signed up yet.
+    ...(Object.keys(EXPERIENCES) as (keyof typeof EXPERIENCES)[]).map((type) => ({
+      url: `${SITE_URL}/experiences/${type}`,
+      lastModified: now,
+      changeFrequency: "weekly" as const,
+      priority: 0.8,
+    })),
     { url: `${SITE_URL}/guide/rodrigues`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/guide/beaches`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/guide/viewpoints`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },

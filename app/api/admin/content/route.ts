@@ -66,6 +66,10 @@ export async function PUT(req: NextRequest) {
     // public page served stale copy for up to 60 minutes.
     revalidatePath('/');
     revalidatePath('/browse/[category]', 'page');
+    // A massage added in admin is served from a 5-minute ISR cache at
+    // /experiences/<type>. Without this the owner saves, looks, sees nothing,
+    // and concludes the feature is broken.
+    revalidatePath('/experiences/[type]', 'page');
     for (const p of ['/faq', '/explore', '/map', '/more', '/trip-planner', '/taxi', '/food', '/guide/rodrigues']) {
       revalidatePath(p);
     }

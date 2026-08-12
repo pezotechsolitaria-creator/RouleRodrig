@@ -12,8 +12,8 @@ import { toCents } from "@/lib/money";
 type Category = { id: string; name: string };
 
 const BUSINESS_CATEGORIES = [
-  "Supermarket", "Grocery / Convenience", "Fish & Seafood", "Fruit & Vegetables",
-  "Honey Producer", "Spices & Piment", "Bakery", "Restaurant / Snacks",
+  "Supermarket", "Grocery shop", "Fish & Seafood", "Fruit & Vegetables",
+  "Honey Producer", "Spices & Piment", "Bakery", "Restaurant or snacks",
   "Handicraft & Art", "Souvenirs", "Pharmacy", "Hardware", "Other",
 ];
 
@@ -307,7 +307,7 @@ export default function OnboardingForm({ categories }: { categories: Category[] 
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor="sku" className={labelCls}>SKU (optional)</label>
+                <label htmlFor="sku" className={labelCls}>Your own product code (optional)</label>
                 <input id="sku" className={inputCls} value={sku} onChange={(e) => setSku(e.target.value)} placeholder="Optional" disabled={busy} />
               </div>
               <div>

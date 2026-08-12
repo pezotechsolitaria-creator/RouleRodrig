@@ -19,3 +19,15 @@ export type CartDomain = (typeof CART_DOMAINS)[number];
 export function toCartDomain(raw: string | null | undefined, fallback: CartDomain = "shop"): CartDomain {
   return (CART_DOMAINS as readonly string[]).includes(raw ?? "") ? (raw as CartDomain) : fallback;
 }
+
+/**
+ * What to CALL each basket when talking to a customer.
+ *
+ * Not "domain", not "cart=events" — the words someone would use out loud. Lives
+ * here rather than in the client context for the reason at the top of this file.
+ */
+export const CART_BASKET_NAME: Record<CartDomain, string> = {
+  food: "Food",
+  shop: "Shopping",
+  events: "Tickets",
+};

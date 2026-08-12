@@ -19,6 +19,7 @@ export type AdminKitchen = {
   cookerName: string | null;
   cookerPhone: string | null;
   cookerNotes: string | null;
+  offersRrDelivery: boolean;
   dishCount: number;
   liveDishCount: number;
 };

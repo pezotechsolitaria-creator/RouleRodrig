@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Search, ClipboardList, CreditCard } from "lucide-react";
 import { useOrders } from "@/lib/merchant/orders";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
+import { paymentLabel } from "@/lib/payments/words";
 import { centsToDecimalString } from "@/lib/money";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -141,7 +142,11 @@ export default function OrdersTable() {
                     <td className="px-4 py-3">Rs {centsToDecimalString(o.total)}</td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center gap-1 text-xs text-muted">
-                        <CreditCard size={12} /> {o.payments[0]?.status ?? "—"}
+                        <CreditCard size={12} />{" "}
+                        {/* Was `payments[0].status` raw: "captured",
+                            "authorized", "partially_refunded" — payments-API
+                            vocabulary shown to someone selling honey. */}
+                        {o.payments[0] ? paymentLabel(o.payments[0].status, o.payments[0].provider) : "—"}
                       </span>
                     </td>
                     <td className="px-4 py-3">{statusBadge(o.status)}</td>

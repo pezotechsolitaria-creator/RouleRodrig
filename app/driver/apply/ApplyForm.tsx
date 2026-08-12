@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 // checks documents in person on an island this size, and demanding an upload
 // before anyone has agreed to anything would stop applications dead.
 const VEHICLES = [
-  { value: "scooter", label: "Scooter / motorbike" },
+  { value: "scooter", label: "Scooter or motorbike" },
   { value: "car", label: "Car" },
   { value: "van", label: "Van or pickup" },
   { value: "bicycle", label: "Bicycle" },

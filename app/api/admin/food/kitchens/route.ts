@@ -23,7 +23,11 @@ export async function GET(req: NextRequest) {
     .select(
       "store_id, prep_minutes_min, prep_minutes_max, pickup_hint, position, " +
         "stores(id, name, slug, tagline, status, address, phone, lat, lng), " +
-        "food_kitchen_ops(cooker_name, cooker_phone, cooker_notes)",
+        "food_kitchen_ops(cooker_name, cooker_phone, cooker_notes), " +
+        // Read it back, because the editor lets you change it. It did not, so
+        // the edit form defaulted the checkbox to ON and every save silently
+        // re-enabled Roulé Rodrigues delivery for a kitchen that had it off.
+        "store_payment_settings(offers_rr_delivery)",
     )
     .order("position");
 
@@ -37,6 +41,7 @@ export async function GET(req: NextRequest) {
     position: number;
     stores: Record<string, unknown> | Record<string, unknown>[] | null;
     food_kitchen_ops: Record<string, unknown> | Record<string, unknown>[] | null;
+    store_payment_settings: Record<string, unknown> | Record<string, unknown>[] | null;
   };
   const one = (v: unknown) => (Array.isArray(v) ? (v[0] ?? null) : v);
 
@@ -80,6 +85,8 @@ export async function GET(req: NextRequest) {
         cookerName: ops?.cooker_name ?? null,
         cookerPhone: ops?.cooker_phone ?? null,
         cookerNotes: ops?.cooker_notes ?? null,
+        offersRrDelivery:
+          (one(r.store_payment_settings) as { offers_rr_delivery?: boolean } | null)?.offers_rr_delivery ?? false,
         dishCount: counted.total,
         liveDishCount: counted.live,
       };

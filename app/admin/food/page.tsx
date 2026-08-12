@@ -26,7 +26,7 @@ export default async function AdminFoodPage() {
             <p className="mt-1.5 max-w-2xl font-dm text-sm text-muted">
               You run the food platform from here. Cookers have no login and nothing to install — you
               publish their dishes, take the orders, and ring them. Everything on this page is live on
-              /food the moment you save it.
+              the Food page the moment you save it.
             </p>
           </div>
           <Link
@@ -34,7 +34,7 @@ export default async function AdminFoodPage() {
             target="_blank"
             className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-white/15 px-3.5 py-2 font-dm text-sm text-muted hover:border-yellow/40 hover:text-yellow"
           >
-            View /food <ExternalLink size={13} />
+            View the Food page <ExternalLink size={13} />
           </Link>
         </div>
 

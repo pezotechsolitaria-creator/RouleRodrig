@@ -1,4 +1,4 @@
-import { Home, Compass, Bot, CalendarCheck, Menu } from "lucide-react";
+import { Home, Compass, Bot, CalendarCheck, Menu, ShoppingBag } from "lucide-react";
 import type { Language } from "@/lib/i18n";
 
 // ── The bottom navigation, defined once ─────────────────────────────────────
@@ -39,6 +39,22 @@ export const NAV_TABS: readonly NavTab[] = [
     label: ["Home", "Accueil", "Lakaz"],
     // Exact, not startsWith: "/" prefixes every path in the app.
     match: (p) => p === "/",
+  },
+  {
+    key: "order",
+    icon: ShoppingBag,
+    // Food, the marketplace and tickets were reachable only from the homepage —
+    // no tab, no navbar link, no footer link, no row in /more. Leaving the
+    // homepage meant losing the shop. This is the door back, and it leads to a
+    // three-card chooser rather than to one of the three, because a customer
+    // should not have to know whether a curry is "food" or "marketplace".
+    href: "/order",
+    label: ["Order", "Commander", "Komann"],
+    // `/order` EXACTLY — "/orders" is the Track tab's own page and startsWith
+    // would have stolen it, lighting two tabs at once.
+    match: (p) =>
+      p === "/order" || p.startsWith("/food") || p.startsWith("/shop") ||
+      p.startsWith("/events") || p.startsWith("/cart") || p.startsWith("/checkout"),
   },
   {
     key: "explore",

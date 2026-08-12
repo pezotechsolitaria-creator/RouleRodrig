@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { X, ChevronLeft, ChevronRight, BedDouble, UtensilsCrossed, Compass, CalendarCheck, MessageCircle, ArrowUpRight, MapPin, CheckCircle } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, BedDouble, UtensilsCrossed, Compass, CalendarCheck, MessageCircle, ArrowUpRight, MapPin, CheckCircle, Clock, Users, UserRound } from "lucide-react";
 import type { RecommendedPlace } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
+import { formatDuration } from "@/lib/experiences";
 
 const CAT: Record<RecommendedPlace["category"], { icon: React.ElementType; color: string }> = {
   hotel: { icon: BedDouble, color: "bg-amber-400/10 text-amber-400 border-amber-400/30" },
@@ -91,6 +92,31 @@ export default function PlaceDetailModal({
         <div className="p-6 sm:p-8">
           <h3 className="font-syne font-extrabold text-offwhite text-2xl sm:text-3xl leading-tight">{place.name}</h3>
           {place.priceNote && <p className="text-yellow/90 font-dm text-sm mt-1">{place.priceNote}</p>}
+
+          {/* How long, how many, who with. The card on /experiences shows these
+              and the modal it opens did not, so tapping a fishing charter for
+              MORE detail gave less of it. */}
+          {(place.durationMinutes || place.maxGuests || place.providerName) && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 font-dm text-xs text-offwhite/75">
+              {formatDuration(place.durationMinutes) && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock size={13} className="text-yellow" /> {formatDuration(place.durationMinutes)}
+                </span>
+              )}
+              {place.maxGuests && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Users size={13} className="text-yellow" />
+                  {language === "fr" ? `jusqu'à ${place.maxGuests}` : `up to ${place.maxGuests}`}
+                </span>
+              )}
+              {place.providerName && (
+                <span className="inline-flex items-center gap-1.5">
+                  <UserRound size={13} className="text-yellow" />
+                  {language === "fr" ? "avec" : "with"} {place.providerName}
+                </span>
+              )}
+            </div>
+          )}
 
           <p className="text-muted/85 font-dm text-sm leading-relaxed mt-4">{loc(language, place.description, place.descriptionFr, place.descriptionCr)}</p>
 

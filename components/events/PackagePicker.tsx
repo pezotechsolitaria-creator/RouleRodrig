@@ -44,14 +44,30 @@ export default function PackagePicker({
   disabled?: boolean;
 }) {
   const router = useRouter();
-  const { addItem } = useCart("events");
+  const { addItem, clear, cart } = useCart("events");
   const [open, setOpen] = useState<EventTicketType | null>(null);
   const [qty, setQty] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Name of the event already in the tickets basket, when it blocks this one. */
+  const [held, setHeld] = useState<string | null>(null);
+
+  async function startFresh() {
+    if (!open) return;
+    setHeld(null);
+    setBusy(true);
+    clear();
+    // clear() writes through a state setter, so the re-add cannot be in the
+    // same tick — the next paint carries the emptied basket.
+    setTimeout(() => {
+      addItem({ storeId, storeName, variantId: open.variantId, quantity: qty });
+      router.push(`/events/${slug}/checkout`);
+    }, 0);
+  }
 
   function openPackage(t: EventTicketType) {
     setError(null);
+    setHeld(null);
     setQty(Math.max(1, t.minPerOrder));
     setOpen(t);
   }
@@ -61,7 +77,17 @@ export default function PackagePicker({
     setBusy(true);
     setError(null);
     try {
-      addItem({ storeId, storeName, variantId: open.variantId, quantity: qty });
+      // addItem REFUSES when the tickets basket already holds another event —
+      // one order cannot span two sellers. That return value was being thrown
+      // away, so reserving for a second event navigated to its checkout with
+      // the FIRST event's basket still loaded: an empty-looking page you could
+      // not get past, and no explanation. Now the conflict is a question.
+      const result = addItem({ storeId, storeName, variantId: open.variantId, quantity: qty });
+      if (result === "conflict") {
+        setHeld(cart?.storeName ?? "another event");
+        setBusy(false);
+        return;
+      }
       posthog.capture?.("event_package_selected", {
         store_id: storeId, variant_id: open.variantId, quantity: qty, price: open.price,
       });
@@ -104,6 +130,8 @@ export default function PackagePicker({
           disabled={disabled}
           onClose={() => { setOpen(null); setError(null); }}
           onReserve={reserve}
+          held={held}
+          onStartFresh={startFresh}
         />
       )}
     </>
@@ -191,11 +219,14 @@ function PackageCard({
 }
 
 function PackageSheet({
-  pkg: t, qty, setQty, busy, error, disabled, onClose, onReserve,
+  pkg: t, qty, setQty, busy, error, disabled, onClose, onReserve, held, onStartFresh,
 }: {
   pkg: EventTicketType; qty: number; setQty: (n: number) => void;
   busy: boolean; error: string | null; disabled?: boolean;
   onClose: () => void; onReserve: () => void;
+  /** Event already sitting in the tickets basket, when it blocks this one. */
+  held: string | null;
+  onStartFresh: () => void;
 }) {
   // The ceiling is whichever runs out first: what the organiser allows per
   // order, or what is actually left. create_order enforces both again (RR016 /
@@ -298,6 +329,22 @@ function PackageSheet({
           </div>
 
           {error && <p role="alert" className="mt-3 font-dm text-sm text-red-400">{error}</p>}
+
+          {/* One basket per event, explained where it bites rather than as a
+              silent refusal. Before this, tapping Reserve here just moved you to
+              a checkout still holding the other event's tickets. */}
+          {held && (
+            <div role="alert" className="mt-3 rounded-xl border border-orange-400/40 bg-orange-400/[0.08] p-4">
+              <p className="font-dm text-sm text-offwhite">
+                You already have tickets for <strong className="text-yellow">{held}</strong> waiting.
+                One order covers one event.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button size="sm" onClick={onStartFresh}>Start again with {t.name}</Button>
+                <Button size="sm" variant="secondary" onClick={onClose}>Keep {held}</Button>
+              </div>
+            </div>
+          )}
 
           <Button size="xl" className="mt-4 w-full" disabled={busy || disabled || t.soldOut} onClick={onReserve}>
             {busy ? <Loader2 size={16} className="animate-spin" /> : `Reserve ${t.name}`}

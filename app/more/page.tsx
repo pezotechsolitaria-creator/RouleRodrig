@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   ArrowLeft, ChevronRight, Compass, Map as MapIcon, BookOpen, Calendar,
   HelpCircle, Phone, Siren, FileText, Shield, RefreshCw, Store, CalendarCheck, ClipboardList,
+  UtensilsCrossed, Ticket, ShoppingBag,
 } from "lucide-react";
 import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
@@ -21,6 +22,17 @@ export const metadata: Metadata = {
 type Row = { icon: React.ElementType; label: string; href: string; note?: string };
 const GROUPS: { title: string; rows: Row[] }[] = [
   {
+    // First group, because buying is what most visitors came to do — and
+    // because none of these three had a link anywhere outside the homepage.
+    title: "Order & buy",
+    rows: [
+      { icon: UtensilsCrossed, label: "Order food", href: "/food", note: "Home-cooked Rodriguan dishes" },
+      { icon: Store, label: "Shop local", href: "/shop", note: "Honey, piment, crafts" },
+      { icon: Ticket, label: "Event tickets", href: "/events", note: "Concerts & séga nights" },
+      { icon: ShoppingBag, label: "My basket", href: "/cart" },
+    ],
+  },
+  {
     title: "Discover",
     rows: [
       { icon: Compass, label: "Rodrigues island guide", href: "/guide/rodrigues", note: "Beaches, tortoises, tips" },
@@ -33,7 +45,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
     title: "Bookings & help",
     rows: [
       { icon: CalendarCheck, label: "Manage a booking", href: "/manage-booking", note: "No account needed" },
-      { icon: ClipboardList, label: "My orders", href: "/orders", note: "Shop purchases" },
+      { icon: ClipboardList, label: "My orders & bookings", href: "/track", note: "Food, shopping, tickets, rentals" },
       { icon: HelpCircle, label: "FAQ", href: "/faq" },
       { icon: Phone, label: "Contact us", href: "/#contact" },
       { icon: Siren, label: "Emergency numbers", href: "/emergency" },

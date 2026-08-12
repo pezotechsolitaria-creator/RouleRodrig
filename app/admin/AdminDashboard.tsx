@@ -150,16 +150,16 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   // sidebar search filters this same array, so they could not be found either.
   { id: "owners",       label: "Listing Applications", icon: FileCheck,   group: "overview" },
   { id: "leads",        label: "Concierge Leads",  icon: TrendingUp,      group: "overview" },
-  { id: "marketplace",  label: "Marketplace",      icon: Store,           group: "overview" },
+  { id: "marketplace",  label: "Business directory", icon: Store,          group: "overview" },
   { id: "partners",     label: "Partner Accounts", icon: UserPlus,        group: "overview" },
 
   // ── "What are you looking for?" — the homepage hub categories ──
   { id: "fleet",        label: "Vehicles",         icon: Bike,            group: "explore" },
-  { id: "foodConcierge",label: "Food Concierge",   icon: UtensilsCrossed, group: "explore" },
+  { id: "foodConcierge",label: "Food WhatsApp help", icon: UtensilsCrossed, group: "explore" },
   { id: "recommended",  label: "Accommodations & Activities",  icon: BedDouble,       group: "explore" },
   { id: "services",     label: "Massage · Fishing · Sea trips", icon: Waves,          group: "explore" },
   { id: "gettingAround",label: "Getting Around",   icon: Bus,             group: "explore" },
-  { id: "events",       label: "Events",           icon: Calendar,        group: "explore" },
+  { id: "events",       label: "What's On (notices)", icon: Calendar,      group: "explore" },
   { id: "taxi",         label: "Taxi & Transport",  icon: Car,             group: "explore" },
 
   // ── Homepage content ──
@@ -171,7 +171,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "quickAccess",  label: "Home Tiles",       icon: Compass,         group: "content" },
   { id: "useful",       label: "Useful Numbers",   icon: Phone,           group: "content" },
   { id: "faq",          label: "FAQ",              icon: HelpCircle,      group: "content" },
-  { id: "sponsors",     label: "Sponsors / Partners", icon: Handshake,    group: "content" },
+  { id: "sponsors",     label: "Sponsors", icon: Handshake,    group: "content" },
   { id: "contact",      label: "Contact Info",     icon: Phone,           group: "content" },
   { id: "branding",     label: "Branding & Social",icon: Share2,          group: "content" },
 ];
@@ -981,7 +981,7 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
             { label: "Manage Bookings",   desc: "View & update booking status",      section: "bookings" as Section,     icon: BookOpen },
             { label: "Edit Vehicles",     desc: "Toggle availability, update photos", section: "fleet" as Section,       icon: Bike },
             { label: "Read Enquiries",    desc: "Customer contact form messages",    section: "submissions" as Section,  icon: Inbox },
-            { label: "Edit Island Guide", desc: "Add / remove map locations",        section: "map" as Section,          icon: MapPin },
+            { label: "Edit Island Guide", desc: "Add or remove map locations",        section: "map" as Section,          icon: MapPin },
             { label: "Trip Planner",      desc: "Edit day-by-day itinerary places",  section: "planner" as Section,      icon: Sparkles },
           ].map((q) => {
             const Icon = q.icon;
@@ -1031,7 +1031,7 @@ function ExperienceEditor({
 
       <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5 space-y-4">
         <ToggleRow label="Show top photo" on={show1} onToggle={() => set({ showImage1: !show1 })} />
-        {show1 && <ImagePicker label="TOP PHOTO (sunset / hero shot)" src={ex.image1} onUpload={(p) => set({ image1: p })} />}
+        {show1 && <ImagePicker label="TOP PHOTO (sunset or hero shot)" src={ex.image1} onUpload={(p) => set({ image1: p })} />}
       </div>
 
       <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5 space-y-4">
@@ -2578,7 +2578,7 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
                   onChange={(e) => assignAsset(b.id, b.scooter, e.target.value)}
                   className="bg-dark border border-[#2a2a2a] rounded-lg px-2.5 py-1 text-xs text-offwhite font-dm focus:border-yellow focus:outline-none"
                 >
-                  <option value="">Auto / unassigned</option>
+                  <option value="">Choose automatically</option>
                   {unitsFor(b.scooter).map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.label}{a.color ? ` · ${a.color}` : ""}{a.active === false ? " (off)" : ""}
@@ -3253,7 +3253,7 @@ function RideRoutesEditor({
                 className={`${inputCls} appearance-none`}
               >
                 <option value="ride">Scooter ride</option>
-                <option value="hike">Hiking / adventure trail</option>
+                <option value="hike">Hiking or adventure trail</option>
               </select>
             </Field>
             <Field label="DIFFICULTY">
@@ -3374,7 +3374,7 @@ function UsefulContactsEditor({
 
 const RECOMMENDED_CATEGORIES: RecommendedPlace["category"][] = ["hotel", "restaurant", "activity"];
 const RECOMMENDED_LABEL: Record<RecommendedPlace["category"], string> = {
-  hotel: "Hotel / Guesthouse",
+  hotel: "Hotel or guesthouse",
   restaurant: "Restaurant",
   activity: "Activity",
 };
@@ -3457,7 +3457,14 @@ function RecommendedEditor({
             <Field label="CATEGORY">
               <select
                 value={it.category}
-                onChange={(e) => updateItem(i, { category: e.target.value as RecommendedPlace["category"] })}
+                onChange={(e) => {
+                  // Leaving "Activity" drops the service tag with it. Without
+                  // this the tag survives in the JSON, the listing stays on
+                  // /experiences, and the dropdown that could clear it is
+                  // hidden — a one-way door.
+                  const category = e.target.value as RecommendedPlace["category"];
+                  updateItem(i, { category, ...(category !== "activity" ? { serviceType: undefined } : {}) });
+                }}
                 className={`${inputCls} appearance-none`}
               >
                 {RECOMMENDED_CATEGORIES.map((c) => (
@@ -3479,7 +3486,7 @@ function RecommendedEditor({
               placeholder="e.g. Sea view, Free breakfast, Pool, Air-con"
             />
           </Field>
-          <Field label="WHATSAPP NUMBER (enables the “Book / Enquire” button)">
+          <Field label="WHATSAPP NUMBER (adds an enquiry button)">
             <TextInput value={it.whatsapp ?? ""} onChange={(v) => updateItem(i, { whatsapp: v })} placeholder="+230 5XXX XXXX" />
           </Field>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -3487,7 +3494,7 @@ function RecommendedEditor({
               <TextInput value={it.link ?? ""} onChange={(v) => updateItem(i, { link: v })} placeholder="https://..." />
             </Field>
             <Field label="BUTTON TEXT (optional)">
-              <TextInput value={it.linkText ?? ""} onChange={(v) => updateItem(i, { linkText: v })} placeholder="e.g. Book now / View on map" />
+              <TextInput value={it.linkText ?? ""} onChange={(v) => updateItem(i, { linkText: v })} placeholder="e.g. Book now, or View on map" />
             </Field>
           </div>
           {/* On-site reservations (live calendar) */}
@@ -3587,7 +3594,7 @@ function RecommendedEditor({
             </div>
           )}
           {it.serviceType && (
-            <Field label="PROVIDER / CAPTAIN / THERAPIST NAME (optional)">
+            <Field label="WHO RUNS IT — captain, therapist or skipper (optional)">
               <TextInput
                 value={it.providerName ?? ""}
                 onChange={(v) => updateItem(i, { providerName: v })}
@@ -5304,7 +5311,7 @@ function MarketplaceManager() {
           </div>
           <MultiImagePicker
             label="PHOTOS"
-            hint="First photo = cover shown on the card. Add multiple angles / dishes / views."
+            hint="First photo = cover shown on the card. Add multiple angles, dishes and views."
             images={form.images.length ? form.images : (form.image_url ? [form.image_url] : [])}
             onChange={(imgs) => setForm({ ...form, images: imgs, image_url: imgs[0] ?? "" })}
           />
@@ -5330,7 +5337,7 @@ function MarketplaceManager() {
             <Field label="WHATSAPP NUMBER (tap-to-chat)">
               <TextInput value={form.whatsapp} onChange={(v) => setForm({ ...form, whatsapp: v })} placeholder="+230 5XXX XXXX" />
             </Field>
-            <Field label="OPENING HOURS / CLOSING TIME">
+            <Field label="OPENING AND CLOSING TIME">
               <TextInput value={form.hours} onChange={(v) => setForm({ ...form, hours: v })} placeholder="e.g. Mon–Sat 9:00–18:00" />
             </Field>
             <Field label="WEBSITE (optional)">
@@ -5837,7 +5844,7 @@ function TaxiManager() {
             </Field>
           </div>
 
-          <Field label="AREAS / ROUTES COVERED">
+          <Field label="AREAS AND ROUTES COVERED">
             <Textarea value={form.areas} onChange={(v) => setForm({ ...form, areas: v })} rows={2}
             />
           </Field>
@@ -5846,7 +5853,7 @@ function TaxiManager() {
             <TextInput value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} placeholder="e.g. Airport specialist, night rides available" />
           </Field>
 
-          <ImagePicker label="DRIVER / VEHICLE PHOTO" src={form.photo} onUpload={(p) => setForm({ ...form, photo: p })} />
+          <ImagePicker label="PHOTO OF THE DRIVER OR VEHICLE" src={form.photo} onUpload={(p) => setForm({ ...form, photo: p })} />
 
           <div className="flex items-center gap-3 pt-2">
             <button
@@ -7012,13 +7019,13 @@ function EmailDeliveryCard() {
               blank to mean &ldquo;no ceiling&rdquo; (a paid plan).
             </p>
             <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="RESEND / DAY">
+              <Field label="RESEND — EMAILS PER DAY">
                 <TextInput value={resendDaily} onChange={setResendDaily} placeholder="100" />
               </Field>
-              <Field label="RESEND / MONTH">
+              <Field label="RESEND — EMAILS PER MONTH">
                 <TextInput value={resendMonthly} onChange={setResendMonthly} placeholder="3000" />
               </Field>
-              <Field label="BREVO / DAY">
+              <Field label="BREVO — EMAILS PER DAY">
                 <TextInput value={brevoDaily} onChange={setBrevoDaily} placeholder="300" />
               </Field>
             </div>
@@ -7290,7 +7297,7 @@ export default function AdminDashboard({
     hero:         { title: "Hero Section",        desc: "Edit the full-screen hero text and background image." },
     promo:        { title: "Promo Carousel",       desc: "Rotating slides near the top of the homepage — cross-promote Stay·Eat·Do, taxi, offers & announcements." },
     experience:   { title: "Experience Photos",   desc: "The two photos in the “Three Steps to the Open Road” story section." },
-    fleet:        { title: "Fleet / Vehicles",    desc: "Add, remove, or edit any vehicle (scooter, car, kayak…). Toggle availability." },
+    fleet:        { title: "Vehicles",    desc: "Add, remove, or edit any vehicle (scooter, car, kayak…). Toggle availability." },
     pricing:      { title: "Pricing",             desc: "Update rental prices for all durations." },
     contact:      { title: "Contact Info",        desc: "Edit phone, email, location and opening hours." },
     gallery:      { title: "Photo Gallery",       desc: "Upload scooter photos — they appear as a gallery on the site." },
@@ -7306,18 +7313,18 @@ export default function AdminDashboard({
     waitlist:     { title: "Waitlist",            desc: "People who signed up for deals and island tips." },
     planner:      { title: "AI Trip Planner",     desc: "Edit the real places, photos and tips the planner uses to build itineraries." },
     routes:       { title: "Ride Routes",         desc: "Curated scenic scooter routes shown on the website with a Google Maps link." },
-    gettingAround:{ title: "Getting Around",      desc: "The transport-options card (bus / taxi / scooter) shown in the island guide." },
+    gettingAround:{ title: "Getting Around",      desc: "The transport-options card (bus, taxi and scooter) shown in the island guide." },
     recommended:  { title: "Accommodations & Activities",     desc: "Curated hotels, restaurants & activities. Toggle the whole section on or off." },
     services:     { title: "Massage · Fishing · Sea trips",   desc: "Add a massage, a fishing trip or a sortie de mer. Each one gets its own page and takes bookings." },
     foodConcierge:{ title: "Food Concierge",       desc: "The WhatsApp food-recommendation service behind the “Food & Dining” hub tile. Set the WhatsApp number that food enquiries go to." },
     faq:          { title: "FAQ",                 desc: "Frequently asked questions shown on the site (also boosts SEO)." },
-    events:       { title: "Island Events",       desc: "Festivals, markets and happenings shown to visitors." },
+    events:       { title: "What’s On — notices",  desc: "A simple list of island happenings shown to visitors. These are ANNOUNCEMENTS, not ticket sales — ticketed events with capacity and QR check-in live under Ticketing." },
     homeCards:    { title: "Home Cards",          desc: "The big photo cards at the top of the homepage — add, remove, reorder, rename and re-point them (photos come from each card's category)." },
     quickAccess:  { title: "Home Tiles",          desc: "The “What are you looking for?” tiles on the homepage — add, remove, reorder and re-point them." },
     useful:       { title: "Useful Numbers",      desc: "Emergency, taxi and key local contacts — shown as tap-to-call." },
-    sponsors:     { title: "Sponsors / Ads",      desc: "Paid sponsor logos shown near the footer. Toggle the whole strip on/off." },
+    sponsors:     { title: "Sponsors",      desc: "Paid sponsor logos shown near the footer. Toggle the whole strip on/off." },
     partners:     { title: "Hotel Partners",      desc: "Manage referral partners and track referrals." },
-    marketplace:  { title: "Marketplace / Deals", desc: "Local business listings shown to customers on the website." },
+    marketplace:  { title: "Business directory",   desc: "A directory of local businesses shown on the website. Separate from the Shops marketplace, where merchants sell real products and take orders." },
     taxi:         { title: "Taxi & Transport",     desc: "Driver directory shown at /taxi — tourists tap WhatsApp or call directly." },
     notifications:{ title: "Alerts & Email",       desc: "Your WhatsApp alert number and the email service (Brevo) that sends customer confirmations — editable any time, no redeploy." },
   };

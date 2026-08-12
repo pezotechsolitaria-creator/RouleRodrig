@@ -70,7 +70,20 @@ describe("isTabActive", () => {
     }
   });
 
-  it("lights nothing on a page outside the five sections", () => {
-    expect(lit("/shop")).toEqual([]);
+  it("lights Order across all three commerce surfaces and the basket", () => {
+    // These used to light nothing at all — the shop, food and tickets had no
+    // tab, which is exactly why a customer who left the homepage was stranded.
+    for (const p of ["/order", "/shop", "/shop/miel-rodrigues", "/food", "/food/ourite", "/events", "/cart", "/checkout"]) {
+      expect(lit(p)).toEqual(["order"]);
+    }
+  });
+
+  it("does not let /order steal /orders from Track", () => {
+    // startsWith("/order") matches "/orders" — the bug this exact-match avoids.
+    expect(lit("/orders")).toEqual(["track"]);
+  });
+
+  it("lights nothing on a page in no section at all", () => {
+    expect(lit("/legal/terms")).toEqual([]);
   });
 });

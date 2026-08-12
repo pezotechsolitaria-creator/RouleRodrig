@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft, ShoppingCart } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useCart } from "@/lib/cart/CartContext";
+import { useCart, useCarts } from "@/lib/cart/CartContext";
 import { centsToDecimalString } from "@/lib/money";
 import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 
@@ -22,8 +22,17 @@ import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 // Both read the same client cart context, so feedback is instant — no fetch
 // stands between tapping "Add" and seeing the number move.
 
+// The badge counts EVERY basket, not the shop's.
+//
+// This header is rendered on event pages too, and it hardcoded useCart("shop").
+// So a concert-goer who had just reserved two tickets saw no badge, while
+// someone with three jars of honey in the marketplace basket saw "3" on a
+// concert page. Both are wrong in the same way: the number has to answer "did
+// that add work?", and the shopper does not know which of three carts the
+// platform filed their thing under. Total is the only honest answer, and /cart
+// (where it leads) already separates them.
 export function ShopHeader({ backHref, backLabel }: { backHref: string; backLabel: string }) {
-  const { itemCount, hydrated } = useCart("shop");
+  const { totalItemCount: itemCount, hydrated } = useCarts();
   const reduce = useReducedMotion();
 
   return (
