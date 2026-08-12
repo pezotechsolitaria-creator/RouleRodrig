@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
+import { audit } from "@/lib/admin/audit";
 
 // Creating and publishing events.
 //
@@ -66,6 +67,16 @@ const updateSchema = z.object({
   venueAddress: z.string().trim().max(300).optional(),
   supportPhone: z.string().trim().max(40).optional(),
   terms: z.string().trim().max(2000).optional(),
+  // The event's poster. Nothing in the repo ever wrote stores.cover_url, yet the
+  // hero, the /events card, the homepage tile and the OpenGraph image all read
+  // it — so every event shipped with a gradient placeholder and no way to fix it.
+  coverUrl: z.string().trim().max(500).nullable().optional(),
+  // Calling it off. events.cancelled_at has existed since M33 and is read
+  // everywhere — event_phase() returns 'cancelled', the scan screen says every
+  // ticket is void — but nothing ever wrote it, so an event could not be
+  // cancelled at all.
+  cancel: z.boolean().optional(),
+  cancelReason: z.string().trim().max(300).optional(),
 });
 
 const patchSchema = z.discriminatedUnion("action", [publishSchema, updateSchema]);
@@ -86,7 +97,39 @@ export async function GET(req: NextRequest) {
   const supabase = await getPrivileged();
   const { data, error } = await supabase.rpc("admin_list_events");
   if (error) return rpcError(error, "Could not load events.");
-  return NextResponse.json({ events: data ?? [] });
+
+  // admin_list_events answers "what is the state of my events"; the edit form
+  // needs the fields it lets you change. Enriched here rather than by widening
+  // the RPC — the shape the list screen depends on stays put.
+  const rows = (data ?? []) as Record<string, unknown>[];
+  const ids = rows.map((r) => String(r.storeId ?? r.store_id ?? ""));
+  const details = new Map<string, Record<string, unknown>>();
+  if (ids.length) {
+    const [{ data: stores }, { data: evs }] = await Promise.all([
+      supabase.from("stores").select("id, cover_url").in("id", ids),
+      supabase.from("events").select("store_id, doors_open_at, venue_address, support_phone, terms").in("store_id", ids),
+    ]);
+    for (const st of (stores ?? []) as Record<string, unknown>[]) {
+      details.set(String(st.id), { coverUrl: st.cover_url ?? null });
+    }
+    for (const ev of (evs ?? []) as Record<string, unknown>[]) {
+      const key = String(ev.store_id);
+      details.set(key, {
+        ...(details.get(key) ?? {}),
+        doorsOpenAt: ev.doors_open_at ?? null,
+        venueAddress: ev.venue_address ?? null,
+        supportPhone: ev.support_phone ?? null,
+        terms: ev.terms ?? null,
+      });
+    }
+  }
+
+  return NextResponse.json({
+    events: rows.map((r) => ({
+      ...r,
+      ...(details.get(String(r.storeId ?? r.store_id ?? "")) ?? {}),
+    })),
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -148,6 +191,59 @@ export async function PATCH(req: NextRequest) {
     });
     if (error) return rpcError(error, "Could not change that.");
     return NextResponse.json(data);
+  }
+
+  // Cover and cancellation are plain column writes on tables this route already
+  // owns, so they do not need their own RPC — but they DO need the same audit
+  // line, since "who cancelled the concert" is the question that gets asked.
+  if (p.coverUrl !== undefined) {
+    const { error: coverError } = await supabase
+      .from("stores")
+      .update({ cover_url: p.coverUrl || null })
+      .eq("id", p.storeId);
+    if (coverError) return rpcError(coverError, "Could not save that photo.");
+    await audit(supabase, {
+      action: "event.cover", entityType: "store", entityId: p.storeId,
+      diff: { coverUrl: p.coverUrl || null },
+    });
+  }
+
+  if (p.cancel !== undefined) {
+    const { error: cancelError } = await supabase
+      .from("events")
+      .update(
+        p.cancel
+          ? { cancelled_at: new Date().toISOString(), cancelled_reason: p.cancelReason || null }
+          : { cancelled_at: null, cancelled_reason: null },
+      )
+      .eq("store_id", p.storeId);
+    if (cancelError) return rpcError(cancelError, "Could not change that.");
+    // A cancelled event must also come off the site — event_phase() reports
+    // 'cancelled' but the store's own status is what keeps it listed.
+    if (p.cancel) {
+      await supabase.from("stores").update({ status: "draft" }).eq("id", p.storeId);
+    }
+    await audit(supabase, {
+      action: p.cancel ? "event.cancel" : "event.uncancel",
+      entityType: "store", entityId: p.storeId,
+      diff: { reason: p.cancelReason ?? null },
+    });
+    // Nothing left for admin_update_event to do when this was the only change.
+    if (
+      p.name === undefined && p.startsAt === undefined && p.endsAt === undefined &&
+      p.doorsOpenAt === undefined && p.venueName === undefined &&
+      p.venueAddress === undefined && p.supportPhone === undefined && p.terms === undefined
+    ) {
+      return NextResponse.json({ ok: true, cancelled: p.cancel });
+    }
+  }
+
+  if (
+    p.name === undefined && p.startsAt === undefined && p.endsAt === undefined &&
+    p.doorsOpenAt === undefined && p.venueName === undefined &&
+    p.venueAddress === undefined && p.supportPhone === undefined && p.terms === undefined
+  ) {
+    return NextResponse.json({ ok: true });
   }
 
   const { data, error } = await supabase.rpc("admin_update_event", {

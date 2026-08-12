@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import EventOrdersPanel from "./EventOrdersPanel";
+import EventEditPanel from "./EventEditPanel";
 import {
   Loader2, CalendarPlus, CalendarDays, MapPin, Eye, EyeOff, Trash2,
-  AlertTriangle, Ticket, Users, Banknote, ExternalLink,
+  AlertTriangle, Ticket, Users, Banknote, ExternalLink, Pencil,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,12 @@ type AdminEvent = {
   hasPaymentMethod: boolean;
   organisers: number;
   ticketsSold: number;
+  // Enriched by the route for the edit form (admin_list_events answers the
+  // list's questions; these answer the form's).
+  coverUrl?: string | null;
+  doorsOpenAt?: string | null;
+  venueAddress?: string | null;
+  supportPhone?: string | null;
 };
 
 const PHASE_STYLE: Record<string, string> = {
@@ -66,6 +73,7 @@ export default function AdminEvents() {
   const [rows, setRows] = useState<AdminEvent[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [openOrders, setOpenOrders] = useState<string | null>(null);
+  const [openEdit, setOpenEdit] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   const [name, setName] = useState("");
@@ -291,6 +299,17 @@ export default function AdminEvents() {
                     </Link>
                   )}
 
+                  {/* Editing. admin_update_event was fully implemented and no
+                      UI ever called it, so a typo'd name or a moved date was
+                      permanent. Photo and cancellation live here too — both
+                      columns existed and were read everywhere, and neither had
+                      a write path. */}
+                  <Button size="sm" variant="outline" disabled={busy === e.storeId}
+                    onClick={() => setOpenEdit(openEdit === e.storeId ? null : e.storeId)}>
+                    <Pencil size={13} className="mr-1" />
+                    {openEdit === e.storeId ? "Close" : "Edit"}
+                  </Button>
+
                   {/* The box office. Until M70 there was no admin path to
                       'paid' for an event order, so a bank transfer or a cash
                       payment on a platform-run event never issued a ticket. */}
@@ -310,6 +329,24 @@ export default function AdminEvents() {
                     </Button>
                   )}
                 </div>
+
+                {openEdit === e.storeId && (
+                  <div className="mt-4">
+                    <EventEditPanel
+                      storeId={e.storeId}
+                      eventName={e.name}
+                      startsAt={e.startsAt}
+                      endsAt={e.endsAt}
+                      doorsOpenAt={e.doorsOpenAt ?? null}
+                      venueName={e.venueName}
+                      venueAddress={e.venueAddress ?? null}
+                      supportPhone={e.supportPhone ?? null}
+                      coverUrl={e.coverUrl ?? null}
+                      cancelledAt={e.cancelledAt}
+                      onSaved={() => void load()}
+                    />
+                  </div>
+                )}
 
                 {openOrders === e.storeId && (
                   <div className="mt-4">
