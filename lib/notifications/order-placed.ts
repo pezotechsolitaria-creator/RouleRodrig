@@ -1,6 +1,7 @@
 import "server-only";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { dispatchNotification } from "./dispatch";
+import { pushToAdmins } from "@/lib/push/send";
 import { SITE_URL } from "@/lib/site";
 import { centsToDecimalString } from "@/lib/money";
 import {
@@ -167,15 +168,22 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
         orderId: input.orderId,
       }),
     );
-    // Exactly ONE owner WhatsApp ping per order, however many staff there are.
-    const ownerPingSend = dispatchNotification({
-      recipientType: "merchant",
-      orderNumber: input.orderNumber,
-      type: "order_created",
+    // PUSH, not WhatsApp. A new order used to fire exactly one owner WhatsApp
+    // ping; on a busy kitchen that is a message per order through a free hobby
+    // service, and it buried the one WhatsApp that actually needs to interrupt
+    // someone — "the food is ready". WhatsApp now fires ONLY on completion (see
+    // the collected branch in the merchant and kitchen routes).
+    //
+    // Push is the right channel here: instant, free, unlimited, and it does not
+    // touch the ~400/day email ceiling that is shared with Supabase auth mail.
+    const ownerPingSend = pushToAdmins({
       title: merchantTitle,
       body: `${rs(input.total)} · ${providerLabel} · ${fulfillmentLabel} · ${input.customerName}`,
-      channels: ["whatsapp"],
-    });
+      url: "/admin/food",
+      // Per order, so a burst of orders does not collapse into one entry.
+      tag: `order:${input.orderNumber}`,
+      urgent: true,
+    }).then((n) => n > 0);
 
     // ── Customer side ──
     const customerSend = input.customerEmail

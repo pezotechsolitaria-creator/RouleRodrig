@@ -6,6 +6,11 @@ const hasServiceRole = vi.fn();
 const getPrivileged = vi.fn();
 
 vi.mock("./dispatch", () => ({ dispatchNotification: (...args: unknown[]) => dispatchNotification(...args) }));
+// The owner's new-order alert is PUSH, not WhatsApp. WhatsApp is now reserved
+// for "the food is ready" alone — a ping per order buried the one message that
+// actually has to interrupt someone, and spent a free hobby service doing it.
+const pushToAdmins = vi.fn(async () => 1);
+vi.mock("@/lib/push/send", () => ({ pushToAdmins: (...args: unknown[]) => pushToAdmins(...args) }));
 vi.mock("@/lib/supabase/admin", () => ({
   hasServiceRole: () => hasServiceRole(),
   getPrivileged: () => getPrivileged(),
@@ -128,9 +133,11 @@ describe("notifyOrderPlaced", () => {
       expect(e.cta.url).toContain("/merchant/orders/order-1");
     }
 
-    // Exactly ONE WhatsApp ping regardless of staff count.
-    const pings = merchantEvents().filter((e) => e.channels?.includes("whatsapp"));
-    expect(pings).toHaveLength(1);
+    // Exactly ONE owner alert regardless of staff count — and it is a PUSH.
+    expect(pushToAdmins).toHaveBeenCalledTimes(1);
+    // A new order must never spend WhatsApp: that channel is reserved for
+    // "food is ready", and email is capped at ~400/day platform-wide.
+    expect(merchantEvents().filter((e) => e.channels?.includes("whatsapp"))).toHaveLength(0);
 
     const customer = customerEvents();
     expect(customer).toHaveLength(1);

@@ -134,6 +134,20 @@ export async function pushToCustomer(
   return deliver(targets, payload);
 }
 
+/**
+ * Wake the owner's own devices — the subscriptions registered from
+ * /admin/operations (M68), keyed by the reserved admin address.
+ *
+ * This is what lets a restaurant order reach a phone WITHOUT spending email.
+ * The free tier is ~400 messages a day shared with Supabase auth mail, so a
+ * busy kitchen emailing every order is the fastest way to take password resets
+ * down with it. Push costs nothing and arrives faster.
+ */
+export async function pushToAdmins(payload: PushPayload): Promise<number> {
+  const targets = await targetsFrom("admin_push_targets", {});
+  return deliver(targets, payload);
+}
+
 /** Wake one specific driver — reassignment, cancellation, an admin nudge. */
 export async function pushToDriver(driverId: string, payload: PushPayload): Promise<number> {
   const targets = await targetsFrom("driver_push_targets_for_driver", { p_driver_id: driverId });

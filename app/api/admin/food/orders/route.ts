@@ -6,6 +6,7 @@ import { formatPickupCode } from "@/lib/orders/pickup";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
 import { audit } from "@/lib/admin/audit";
 import { notifyDriversOfNewOffer } from "@/lib/delivery/notify";
+import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/queue";
 
 // The live food order queue.
 //
@@ -197,6 +198,35 @@ export async function PATCH(req: NextRequest) {
     // driver alert must not depend on the customer having left an address.
     if (targetStatus === "ready_for_pickup") {
       await notifyDriversOfNewOffer(orderId);
+
+      // The kitchen's name, read here because the GET handler's lookup map is
+      // out of scope in this request.
+      const { data: kitchenStore } = await admin
+        .from("stores")
+        .select("name")
+        .eq("id", current.store_id as string)
+        .maybeSingle();
+      const readyKitchenName = (kitchenStore as { name?: string } | null)?.name ?? "the kitchen";
+
+      // THE ONE WhatsApp a kitchen order sends. Every other event on this order
+      // reaches the owner by push, which is free and instant; WhatsApp is
+      // reserved for the single moment that has to interrupt whatever someone
+      // is doing — the food is cooked and going cold. A ping per new order (the
+      // old behaviour) buried exactly this message in noise.
+      await enqueueNotification({
+        type: "food_ready",
+        category: "system",
+        message: formatWhatsAppMessage({
+          title: "Food is ready",
+          lines: [
+            `Order ${current.order_number} is ready at ${readyKitchenName}.`,
+            "https://roulerodrig.com/admin/food",
+          ],
+        }),
+        // One per order, so a status toggled back and forth cannot re-ping.
+        dedupeKey: `food:ready:${orderId}`,
+        orderId,
+      });
     }
     try {
       let email = (current.customer_email as string | null) ?? null;
