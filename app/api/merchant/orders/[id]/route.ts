@@ -8,6 +8,7 @@ import { guard } from "@/lib/rate-limit";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { formatPickupCode } from "@/lib/orders/pickup";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
+import { channelsForStatus } from "@/lib/orders/email-policy";
 import { notifyDriversOfNewOffer } from "@/lib/delivery/notify";
 
 const NOT_FOUND_CODE = "RR003";
@@ -188,6 +189,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         // "Ready for pickup" and "collected" are distinct email types, not
         // generic status noise: the first carries the pickup code the customer
         // needs at the counter, the second closes the order.
+        // Push always; email only for the three statuses that leave something
+        // the customer needs later. See lib/orders/email-policy.ts for why.
+        const channels = channelsForStatus(targetStatus);
         const emailType =
           targetStatus === "ready_for_pickup"
             ? "marketplace_pickup_ready"
@@ -195,6 +199,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
               ? "marketplace_order_completed"
               : "marketplace_order_status";
         await dispatchNotification({
+          channels,
           recipientType: "customer",
           recipientEmail: email,
           orderNumber: current.order_number,

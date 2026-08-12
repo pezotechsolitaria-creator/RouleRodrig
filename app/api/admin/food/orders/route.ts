@@ -4,6 +4,7 @@ import { guardFoodAdmin, readJson, failed } from "@/lib/food/guard";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { formatPickupCode } from "@/lib/orders/pickup";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
+import { channelsForStatus } from "@/lib/orders/email-policy";
 import { audit } from "@/lib/admin/audit";
 import { notifyDriversOfNewOffer } from "@/lib/delivery/notify";
 import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/queue";
@@ -285,6 +286,10 @@ export async function PATCH(req: NextRequest) {
             extra += ` Directions: https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
           }
         }
+        // Push always; email only for the three statuses that leave something
+        // the customer needs later. See lib/orders/email-policy.ts for why.
+        const channels = channelsForStatus(targetStatus);
+
         const emailType =
           targetStatus === "ready_for_pickup"
             ? "marketplace_pickup_ready"
@@ -292,6 +297,7 @@ export async function PATCH(req: NextRequest) {
               ? "marketplace_order_completed"
               : "marketplace_order_status";
         await dispatchNotification({
+          channels,
           recipientType: "customer",
           recipientEmail: email,
           orderNumber: current.order_number as string,
