@@ -47,6 +47,7 @@ import {
   Truck,
   Wallet,
   UserCog,
+  CalendarDays,
   Clock,
   Tag,
   ToggleLeft,
@@ -189,6 +190,9 @@ const MARKETPLACE_LINKS: { href: string; label: string; icon: React.ElementType 
   { href: "/admin/deliveries",     label: "Delivery Control Centre",  icon: Truck },
   // Events, not marketplace — but this is the only link list on the dashboard,
   // and an organiser screen nobody can find is an organiser screen nobody uses.
+  // Events come FIRST of the three: nothing else here is reachable until an
+  // event exists, and until M61 nothing in the product could create one.
+  { href: "/admin/events",         label: "Events",                    icon: CalendarDays },
   { href: "/admin/organizers",     label: "Event Organisers",          icon: UserCog },
   // Deliberately NOT filed under "Monetization & Revenue" above: that screen is
   // commission on marketplace order money. This is a service fee an organiser

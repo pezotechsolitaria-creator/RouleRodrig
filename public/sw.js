@@ -74,7 +74,9 @@
 // v154 — a YouTube link in the hero now plays. It was rendered in a <video>,
 // which fetches HTML, fails to decode, and silently unmounted the whole layer.
 // Past v153, which a parallel branch took at the same moment.
-const CACHE = "rr-cache-v154";
+// v155 — the admin can finally create and publish an event. Seventh number
+// collision with a parallel branch; stepping past, as ever.
+const CACHE = "rr-cache-v155";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
