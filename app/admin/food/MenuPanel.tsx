@@ -83,9 +83,11 @@ type DishDraft = {
 };
 
 export default function MenuPanel({
-  kitchens, categories, onChanged,
+  kitchens, categories, onChanged, loadFailed = false,
 }: {
   kitchens: AdminKitchen[];
+  /** True when the kitchen list could not be read, as opposed to being empty. */
+  loadFailed?: boolean;
   categories: AdminFoodCategory[];
   onChanged: () => void;
 }) {
@@ -201,6 +203,22 @@ export default function MenuPanel({
     void load();
     onChanged();
   }, [draft, load, onChanged]);
+
+  // Only advise creating a kitchen when we actually KNOW there are none.
+  // A failed request also produces an empty array, and telling an operator with
+  // four live kitchens to create one sends them hunting for a problem that does
+  // not exist.
+  if (kitchens.length === 0 && loadFailed) {
+    return (
+      <div className="rounded-2xl border border-red-500/30 bg-red-500/[0.07] px-6 py-10 text-center">
+        <p className="font-syne text-lg font-bold text-offwhite">Could not load your kitchens</p>
+        <p className="mx-auto mt-2 max-w-sm font-dm text-sm text-muted">
+          The menu is almost certainly fine — this is a loading problem. See the error above and try
+          again.
+        </p>
+      </div>
+    );
+  }
 
   if (kitchens.length === 0) {
     return (

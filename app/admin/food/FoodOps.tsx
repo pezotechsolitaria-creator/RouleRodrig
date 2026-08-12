@@ -38,18 +38,42 @@ export default function FoodOps() {
   const [categories, setCategories] = useState<AdminFoodCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [restocking, setRestocking] = useState(false);
+  const [sharedError, setSharedError] = useState<string | null>(null);
+  // Distinguishes "no kitchens exist" from "the request failed" — the two
+  // look identical in an empty array and mean opposite things.
+  const [loadedOk, setLoadedOk] = useState(false);
   // Bumped by any write that changes the catalog, so panels holding their own
   // list re-read rather than showing a stale menu after an edit elsewhere.
   const [version, setVersion] = useState(0);
 
   const loadShared = useCallback(async () => {
-    const [k, c] = await Promise.all([
-      fetch("/api/admin/food/kitchens").then((r) => r.json()).catch(() => ({})),
-      fetch("/api/admin/food/categories").then((r) => r.json()).catch(() => ({})),
-    ]);
-    setKitchens(k.kitchens ?? []);
-    setCategories(c.categories ?? []);
-    setLoading(false);
+    // These used to be `.catch(() => ({}))`, which turned every failure —
+    // a 401 after the admin cookie expired, a 503 with no service-role key, a
+    // dropped connection — into an empty list. The Menu tab then rendered
+    // "Add a kitchen first" to an operator who has four live kitchens and
+    // seven dishes on the website. A silent catch does not prevent the error,
+    // it only hides which error it was.
+    setSharedError(null);
+    try {
+      const [kRes, cRes] = await Promise.all([
+        fetch("/api/admin/food/kitchens"),
+        fetch("/api/admin/food/categories"),
+      ]);
+      const k = await kRes.json().catch(() => ({}));
+      const c = await cRes.json().catch(() => ({}));
+      if (!kRes.ok) throw new Error(k.error || `Could not load kitchens (${kRes.status}).`);
+      if (!cRes.ok) throw new Error(c.error || `Could not load categories (${cRes.status}).`);
+      setKitchens(k.kitchens ?? []);
+      setCategories(c.categories ?? []);
+      setLoadedOk(true);
+    } catch (e) {
+      // Deliberately does NOT clear the lists: whatever was on screen before a
+      // refresh failed is more useful than a blank panel.
+      setLoadedOk(false);
+      setSharedError(e instanceof Error ? e.message : "Could not load kitchens.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { void loadShared(); }, [loadShared, version]);
@@ -99,6 +123,21 @@ export default function FoodOps() {
         </button>
       </div>
 
+      {/* The real reason, stated. Without this a failed load reached the operator
+          as "Add a kitchen first" — advice that is not just unhelpful but
+          actively wrong when four kitchens already exist. */}
+      {sharedError && (
+        <div role="alert" className="mt-6 rounded-xl border border-red-500/30 bg-red-500/[0.07] px-4 py-3">
+          <p className="font-dm text-sm text-red-300">{sharedError}</p>
+          <button
+            onClick={() => void loadShared()}
+            className="mt-2 rounded-full border border-white/20 px-4 py-1.5 font-dm text-xs text-offwhite"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
       <div className="mt-6">
         {loading ? (
           <p className="flex items-center gap-2 font-dm text-sm text-muted">
@@ -110,6 +149,7 @@ export default function FoodOps() {
           <MenuPanel
             key={version}
             kitchens={kitchens}
+            loadFailed={!loadedOk}
             categories={categories}
             onChanged={() => setVersion((v) => v + 1)}
           />
