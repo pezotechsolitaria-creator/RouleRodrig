@@ -111,6 +111,15 @@ export default function Footer({
           </span>
         </div>
 
+        {/* Working with us. The driver dashboard was reachable ONLY by typing
+            the URL — an approved driver had no way back to their own jobs, and
+            nobody could discover that delivering was possible at all. */}
+        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 mb-4">
+          <Link href="/driver" className="text-muted hover:text-yellow transition-colors text-xs font-dm">
+            {language === "fr" ? "Espace livreur" : language === "cr" ? "Espas livrer" : "Driver dashboard"}
+          </Link>
+        </div>
+
         {/* Legal links */}
         <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 mb-5">
           {[

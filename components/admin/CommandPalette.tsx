@@ -17,6 +17,7 @@ type Hit = { group: string; title: string; subtitle: string; href: string };
 
 const ACTIONS: Hit[] = [
   { group: "Go", title: "Command Center", subtitle: "Today, attention, activity", href: "/admin" },
+  { group: "Go", title: "What needs you", subtitle: "Live problems, and push setup", href: "/admin/operations" },
   { group: "Go", title: "Food orders", subtitle: "The live kitchen queue", href: "/admin/food" },
   { group: "Go", title: "Deliveries & drivers", subtitle: "Assignment and failures", href: "/admin/deliveries" },
   { group: "Go", title: "Shops & opening hours", subtitle: "Every shop's schedule", href: "/admin/stores" },

@@ -6,8 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Gauge, UtensilsCrossed, Truck, Clock, Store, Users, Ticket, UserCog,
   PenSquare, MapPinned, Wallet, MessageCircle, ScrollText, Search, Menu, X,
-  ExternalLink, LogOut, Waves, Bike,
-} from "lucide-react";
+  ExternalLink, LogOut, Waves, Bike, Activity } from "lucide-react";
 import CommandPalette from "./CommandPalette";
 
 // ── The control plane's frame ───────────────────────────────────────────────
@@ -38,6 +37,9 @@ const NAV: NavGroup[] = [
   {
     title: "Operations",
     items: [
+      // First in the group on purpose: this is the page that answers "is
+      // anything wrong right now", so it is the one to open first.
+      { href: "/admin/operations", label: "What needs you", icon: Activity },
       { href: "/admin/food", label: "Food orders", icon: UtensilsCrossed },
       { href: "/admin/deliveries", label: "Deliveries & drivers", icon: Truck },
       { href: "/admin/content#bookings", label: "Rental bookings", icon: Clock },
