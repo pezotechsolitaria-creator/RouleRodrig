@@ -1,0 +1,17 @@
+-- M79c — the driver is the one holding out their hand.
+--
+-- M79 let a restaurant take a deposit by bank and the balance in cash "when
+-- pickup or arrive at destination". For a delivery, the person at the
+-- destination is the DRIVER — and their screen said nothing about money owed.
+-- The kitchen card even promises "the driver takes this at the door", which
+-- would have been a lie every single time.
+--
+-- driver_dashboard().active gains collectCash (summed from the ledger, like
+-- every other screen) and currency.
+--
+-- Only ACTIVE jobs get it. An OFFER deliberately does not: how much cash is on
+-- an order is not something to shop offers by, and it would leak an order's
+-- value to every driver it was broadcast to, including the ones who decline.
+--
+-- Zeroed on a cancelled or refunded order, so a dead delivery can never send a
+-- driver to somebody's door asking for money.

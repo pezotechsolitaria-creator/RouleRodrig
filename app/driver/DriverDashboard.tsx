@@ -32,6 +32,8 @@ type Active = {
   orderNumber: string; customerName: string | null; customerPhone: string | null;
   dropoffLat: number | null; dropoffLng: number | null; dropoffNote: string | null;
   pickupDueAt: string | null; deliveryDueAt: string | null; pinAttempts: number;
+  /** M79c — cash still owed on the order, to take at the door. Minor units. */
+  collectCash?: number;
 };
 type Dash = {
   isDriver: boolean;
@@ -334,6 +336,16 @@ export default function DriverDashboard() {
                 </p>
               )}
             </div>
+
+            {/* M79c — a split payment: the customer still owes cash and the
+                driver is the one who has to ask for it. Loud, and stated in
+                money rather than as a status, because this is the only thing
+                on the card that costs somebody real money if it is missed. */}
+            {(a.collectCash ?? 0) > 0 && (
+              <p className="mt-3 rounded-xl border border-red-400/40 bg-red-500/[0.09] px-3 py-2 font-syne text-sm font-bold text-red-300">
+                Collect Rs {centsToDecimalString(a.collectCash!)} in cash at the door
+              </p>
+            )}
 
             {/* Calling and navigating are the two things a driver reaches for
                 mid-job; they are links, not buried in a menu. */}
