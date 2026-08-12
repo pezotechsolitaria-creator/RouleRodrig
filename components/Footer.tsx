@@ -115,6 +115,9 @@ export default function Footer({
             the URL — an approved driver had no way back to their own jobs, and
             nobody could discover that delivering was possible at all. */}
         <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 mb-4">
+          <Link href="/kitchen" className="text-muted hover:text-yellow transition-colors text-xs font-dm">
+            {language === "fr" ? "Espace cuisine" : language === "cr" ? "Espas lakwizinn" : "Kitchen"}
+          </Link>
           <Link href="/driver" className="text-muted hover:text-yellow transition-colors text-xs font-dm">
             {language === "fr" ? "Espace livreur" : language === "cr" ? "Espas livrer" : "Driver dashboard"}
           </Link>
