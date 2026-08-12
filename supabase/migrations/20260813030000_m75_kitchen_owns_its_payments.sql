@@ -1,0 +1,41 @@
+-- M75 — A restaurant approves its own payments.
+--
+-- The owner, twice: "it still shows up on admin and needs my approval before I
+-- can see it on /kitchen — this is the reason why restaurants should have their
+-- own dashboard", and "I uploaded a picture of proof of payment and I do not
+-- know where it is".
+--
+-- Both were the same gap. M74 let CASH through, but a bank transfer with an
+-- uploaded receipt lands in `awaiting_payment_confirmation`, which the kitchen
+-- never listed. The receipt itself was saved correctly the whole time
+-- (orders.payment_receipt_path) — nothing existed to show it to the one person
+-- standing in front of the customer.
+--
+-- So the kitchen now sees the order, sees the proof, and decides. The owner is
+-- out of the path of every individual sale, which is the entire reason the role
+-- exists.
+--
+-- WHAT A COOK STILL CANNOT DO: refund, cancel, reprice, or touch an order in
+-- another kitchen. Approving a payment whose proof they can see is a judgement
+-- about a photo, not authority over money.
+--
+-- Rejecting is NOT cancelling: the order drops back to pending_payment so the
+-- customer can send a better photo. Cancelling would release their food over a
+-- blurry picture.
+--
+-- The receipt path is fetched by its own RPC at the moment of looking, and the
+-- dashboard carries only a boolean — a storage key never sits in a payload on a
+-- phone. The route mints a 2-minute signed URL through the cook's own session.
+--
+-- M75b FOLDED IN: kitchen_confirm_payment first set payments.status = 'paid',
+-- which is not a value in the payment_status enum — the platform's own
+-- confirm_order_payment() uses 'captured'. Written from memory rather than read
+-- from the function that already did this, and it raised 22P02 on the first
+-- real call.
+--
+-- Verified as a real cook under an authenticated role: the awaiting order is
+-- visible with awaitingPayment/hasReceipt true, the receipt path resolves,
+-- another kitchen's receipt is refused "Not found", confirm moves the order to
+-- `paid` and the payment to `captured`.
+--
+-- Full body applied via apply_migration; see M72 for the base definitions.

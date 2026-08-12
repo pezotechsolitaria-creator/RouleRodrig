@@ -35,12 +35,22 @@ export async function GET() {
   return NextResponse.json({ onTeam: true, ...(data as object) });
 }
 
-const actionSchema = z.object({
-  orderId: z.string().uuid(),
-  // Deliberately not the full status enum: a cook moves food forward and
-  // nothing else. Cancelling and refunding are the owner's decisions.
-  to: z.enum(["preparing", "ready_for_pickup", "collected"]),
-});
+const actionSchema = z.union([
+  z.object({
+    orderId: z.string().uuid(),
+    // Deliberately not the full status enum: a cook moves food forward and
+    // nothing else. Cancelling and refunding are the owner's decisions.
+    to: z.enum(["preparing", "ready_for_pickup", "collected"]),
+  }),
+  // Judging a proof of payment (M75). The restaurant decides, not the platform
+  // owner — otherwise every single sale queues behind one person opening
+  // /admin, which is exactly what the kitchen role was built to end.
+  z.object({
+    orderId: z.string().uuid(),
+    payment: z.enum(["confirm", "reject"]),
+    reason: z.string().trim().max(300).optional(),
+  }),
+]);
 
 export async function POST(req: NextRequest) {
   const limited = guard(req, "kitchen-action", 60, 60_000);
@@ -59,10 +69,19 @@ export async function POST(req: NextRequest) {
   const parsed = actionSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid action." }, { status: 400 });
 
-  const { data, error } = await supabase.rpc("kitchen_advance_order", {
-    p_order_id: parsed.data.orderId,
-    p_to: parsed.data.to,
-  });
+  const input = parsed.data;
+  const { data, error } =
+    "payment" in input
+      ? input.payment === "confirm"
+        ? await supabase.rpc("kitchen_confirm_payment", { p_order_id: input.orderId })
+        : await supabase.rpc("kitchen_reject_payment", {
+            p_order_id: input.orderId,
+            p_reason: input.reason ?? null,
+          })
+      : await supabase.rpc("kitchen_advance_order", {
+          p_order_id: input.orderId,
+          p_to: input.to,
+        });
 
   if (error) {
     const map: Record<string, number> = { [NOT_FOUND]: 404, [BAD_TRANSITION]: 409, [NOT_ALLOWED]: 400 };
@@ -76,4 +95,52 @@ export async function POST(req: NextRequest) {
     );
   }
   return NextResponse.json(data);
+}
+
+/**
+ * A short-lived link to the buyer's proof of transfer.
+ *
+ * The bucket is private and stays private. This mints a signed URL through the
+ * COOK'S OWN session, so storage RLS is the arbiter, and the path itself is
+ * fetched from an RPC that refuses any order outside their kitchens. Two
+ * minutes: long enough to look at, too short to pass around.
+ */
+export async function PUT(req: NextRequest) {
+  const limited = guard(req, "kitchen-receipt", 30, 60_000);
+  if (limited) return limited;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  }
+  const parsed = z.object({ orderId: z.string().uuid() }).safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+
+  const { data: path, error } = await supabase.rpc("kitchen_receipt_path", {
+    p_order_id: parsed.data.orderId,
+  });
+  if (error) {
+    if (error.code === NOT_FOUND) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    console.error("kitchen_receipt_path failed", error);
+    return NextResponse.json({ error: "Could not open that receipt." }, { status: 500 });
+  }
+  if (!path) return NextResponse.json({ error: "No receipt was uploaded." }, { status: 404 });
+
+  const { data: signed, error: signError } = await supabase.storage
+    // "order-receipts" — the bucket the merchant receipt viewer already
+    // uses. Checked rather than assumed; the first name I reached for did not
+    // exist and would have 404'd every receipt.
+    .from("order-receipts")
+    .createSignedUrl(path as string, 120);
+  if (signError || !signed?.signedUrl) {
+    console.error("sign receipt failed", signError);
+    return NextResponse.json({ error: "Could not open that receipt." }, { status: 500 });
+  }
+  return NextResponse.json({ url: signed.signedUrl });
 }

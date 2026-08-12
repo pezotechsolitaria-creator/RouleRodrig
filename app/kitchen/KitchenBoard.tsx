@@ -28,6 +28,9 @@ type Order = {
   note: string | null;
   /** Cash, not yet paid. The customer settles at the counter on collection. */
   payOnCollection?: boolean;
+  /** Bank transfer with a receipt uploaded, waiting on the kitchen's judgement. */
+  awaitingPayment?: boolean;
+  hasReceipt?: boolean;
 };
 type Dash = { onTeam: boolean; kitchens?: { id: string; name: string }[]; orders?: Order[] };
 
@@ -42,6 +45,7 @@ const NEXT: Record<string, { to: string; label: string }> = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
+  awaiting_payment_confirmation: "Check the payment proof",
   pending_payment: "New order",
   paid: "New order",
   preparing: "Cooking",
@@ -79,6 +83,56 @@ export default function KitchenBoard() {
     const t = setInterval(() => void load(), 15_000);
     return () => clearInterval(t);
   }, [load]);
+
+  // Judge the transfer. The restaurant decides, not the platform owner —
+  // otherwise every sale queues behind one person opening /admin.
+  async function judgePayment(order: Order, decision: "confirm" | "reject") {
+    if (busy) return;
+    let reason: string | undefined;
+    if (decision === "reject") {
+      const answer = window.prompt(
+        `Why can't this payment be accepted?
+
+The customer can send a new photo — their order is NOT cancelled.`,
+        "The proof of payment could not be read",
+      );
+      if (answer === null) return;
+      reason = answer;
+    }
+    setBusy(order.id);
+    setError(null);
+    try {
+      const res = await fetch("/api/kitchen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id, payment: decision, reason }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "That didn't work.");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "That didn't work.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // The receipt lives in a private bucket, so it is opened through a signed URL
+  // minted for this cook, valid two minutes.
+  async function openReceipt(order: Order) {
+    try {
+      const res = await fetch("/api/kitchen", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.url) throw new Error(body.error || "Could not open that receipt.");
+      window.open(body.url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not open that receipt.");
+    }
+  }
 
   async function advance(order: Order) {
     if (busy) return;
@@ -194,6 +248,45 @@ export default function KitchenBoard() {
                 <p className="mt-2 rounded-xl border border-yellow/40 bg-yellow/10 px-3 py-2 font-syne text-sm font-bold text-yellow">
                   Take payment when you hand this over
                 </p>
+              )}
+
+              {/* WAITING ON A TRANSFER. The cook looks at the photo and decides.
+                  Accept sits last and primary, Reject first and quiet — the
+                  destructive one should never be where a thumb lands by
+                  accident. Rejecting does NOT cancel: the customer can send a
+                  better photo. */}
+              {o.awaitingPayment && (
+                <div className="mt-3 rounded-xl border border-yellow/30 bg-yellow/[0.07] p-3">
+                  <p className="font-dm text-sm text-yellow">
+                    The customer says they have paid by bank transfer.
+                  </p>
+                  {o.hasReceipt ? (
+                    <button
+                      onClick={() => void openReceipt(o)}
+                      className="mt-2 min-h-[44px] w-full rounded-xl border border-white/20 font-dm text-sm text-offwhite"
+                    >
+                      View their proof of payment
+                    </button>
+                  ) : (
+                    <p className="mt-1 font-dm text-xs text-muted">No photo was uploaded.</p>
+                  )}
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      onClick={() => void judgePayment(o, "reject")}
+                      disabled={busy !== null}
+                      className="min-h-[48px] flex-1 rounded-xl border border-white/20 font-syne text-sm font-bold disabled:opacity-50"
+                    >
+                      Not received
+                    </button>
+                    <button
+                      onClick={() => void judgePayment(o, "confirm")}
+                      disabled={busy !== null}
+                      className="min-h-[48px] flex-[2] rounded-xl bg-yellow font-syne text-sm font-bold text-dark disabled:opacity-50"
+                    >
+                      {busy === o.id ? <Loader2 size={16} className="mx-auto animate-spin" /> : "Payment received"}
+                    </button>
+                  </div>
+                </div>
               )}
 
               {next && (
