@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, Mail, ArrowRight, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { Loader2, Mail, ArrowRight, ArrowLeft, Eye, EyeOff, ChefHat, Store, Ticket, Truck } from "lucide-react";
 import Link from "next/link";
 import { safeNext } from "@/lib/safe-next";
 import { authRedirect } from "@/lib/auth-redirect";
@@ -52,11 +52,30 @@ function LoginForm() {
   // The destination already tells us who they are, so the page says it back to
   // them. Same form, same security, different label — enough to confirm "yes,
   // this is the right door" before typing a password.
-  const CONTEXT: Record<string, { badge: string; signin: string; blurb: string }> = {
-    "/kitchen":   { badge: "KITCHEN",        signin: "Kitchen sign-in",   blurb: "See today's orders and move them along." },
-    "/merchant":  { badge: "MY SHOP",        signin: "Shop sign-in",      blurb: "Your products, orders and opening hours." },
-    "/organizer": { badge: "EVENTS",         signin: "Organiser sign-in", blurb: "Your events, tickets and door staff." },
-    "/driver":    { badge: "DELIVERIES",     signin: "Driver sign-in",    blurb: "Your jobs and today's earnings." },
+  const CONTEXT: Record<
+    string,
+    { badge: string; signin: string; blurb: string; Icon: React.ElementType; ring: string; tint: string; text: string }
+  > = {
+    "/kitchen": {
+      badge: "KITCHEN", signin: "Kitchen sign-in",
+      blurb: "See today's orders and move them along.",
+      Icon: ChefHat, ring: "border-orange-400/40", tint: "bg-orange-500/10", text: "text-orange-300",
+    },
+    "/merchant": {
+      badge: "MY SHOP", signin: "Shop sign-in",
+      blurb: "Your products, orders and opening hours.",
+      Icon: Store, ring: "border-sky-400/40", tint: "bg-sky-500/10", text: "text-sky-300",
+    },
+    "/organizer": {
+      badge: "EVENTS", signin: "Organiser sign-in",
+      blurb: "Your events, tickets and door staff.",
+      Icon: Ticket, ring: "border-fuchsia-400/40", tint: "bg-fuchsia-500/10", text: "text-fuchsia-300",
+    },
+    "/driver": {
+      badge: "DELIVERIES", signin: "Driver sign-in",
+      blurb: "Your jobs and today's earnings.",
+      Icon: Truck, ring: "border-teal-400/40", tint: "bg-teal-500/10", text: "text-teal-300",
+    },
   };
   // startsWith, because an invite may carry a deeper path like /organizer/x/scan.
   const ctx =
@@ -182,7 +201,17 @@ function LoginForm() {
             <span className="text-2xl text-offwhite">Roulé</span>
             <span className="text-2xl text-yellow">Rodrigues</span>
           </span>
-          <p className="mt-1.5 font-bebas text-[11px] tracking-[0.34em] text-yellow">{ctx?.badge ?? "MY ACCOUNT"}</p>
+          {ctx ? (
+            // A ROLE DOOR. Same account, same form, but it should be
+            // recognisable at a glance — the owner's point was that every
+            // sign-in looked identical, so wording alone was not enough.
+            <div className={`mx-auto mt-3 flex w-fit items-center gap-2 rounded-full border px-3.5 py-1.5 ${ctx.ring} ${ctx.tint}`}>
+              <ctx.Icon size={14} className={ctx.text} />
+              <span className={`font-bebas text-[11px] tracking-[0.28em] ${ctx.text}`}>{ctx.badge}</span>
+            </div>
+          ) : (
+            <p className="mt-1.5 font-bebas text-[11px] tracking-[0.34em] text-yellow">MY ACCOUNT</p>
+          )}
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-6">
