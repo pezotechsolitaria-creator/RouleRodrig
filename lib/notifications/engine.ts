@@ -69,7 +69,34 @@ export async function notify(
   type: NotificationType,
   target: NotifyTarget,
   ctx: TemplateContext,
-  opts: { dedupeKey: string; orderId?: string | null },
+  opts: {
+    dedupeKey: string;
+    orderId?: string | null;
+    /**
+     * Rich email content, when the caller has better copy than a template can
+     * hold.
+     *
+     * This is what makes migrating existing senders SAFE. The order lifecycle
+     * emails are hand-written per event, carry a detail table, and pick their
+     * CTA based on whether the buyer is a guest — a guest cannot open
+     * /orders/[id], which filters on customer_id = auth.uid(). Flattening all
+     * of that into a registry one-liner would have been a visible downgrade to
+     * the highest-value mail the marketplace sends.
+     *
+     * The registry still decides WHETHER email is allowed, the priority, and
+     * every other channel. This only overrides what the message says.
+     */
+    email?: {
+      subject?: string;
+      title?: string;
+      body?: string;
+      details?: [string, string][];
+      cta?: { url: string; label: string };
+      emailType?: string;
+      /** Overrides the derived key when a caller already has a stable one. */
+      idempotencyKey?: string;
+    };
+  },
 ): Promise<NotifyResult> {
   try {
     if (!hasServiceRole()) return NOTHING;
@@ -162,19 +189,23 @@ export async function notify(
     // engine one entry point without a second implementation.
     let emailed = false;
     if (t.channels.includes("email") && target.email) {
+      const e = opts.email;
       const sent = await dispatchNotification({
         recipientType: t.audience === "merchant" ? "merchant" : "customer",
         recipientEmail: target.email,
         orderNumber: ctx.ref ?? opts.dedupeKey,
         type: "order_status_changed",
-        title,
-        body,
+        title: e?.title ?? title,
+        body: e?.body ?? body,
+        details: e?.details,
         channels: ["email"],
-        emailType: t.emailType as EmailType | undefined,
-        cta: { url: absoluteUrl(link), label: "View details" },
+        emailType: (e?.emailType ?? t.emailType) as EmailType | undefined,
+        // The caller's CTA wins: only it knows whether this buyer can open a
+        // signed-in page.
+        cta: e?.cta ?? { url: absoluteUrl(link), label: "View details" },
         // Same key as the in-app row, so a retried event cannot re-email even
         // if the in-app insert is later removed.
-        idempotencyKey: `email:${opts.dedupeKey}`,
+        idempotencyKey: e?.idempotencyKey ?? `email:${opts.dedupeKey}`,
         orderId: opts.orderId ?? null,
       });
       emailed = Boolean(sent);

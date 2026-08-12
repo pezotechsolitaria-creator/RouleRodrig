@@ -1,6 +1,7 @@
 import "server-only";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
-import { dispatchNotification } from "./dispatch";
+import { notify } from "./engine";
+import type { NotificationType } from "./registry";
 import { SITE_URL } from "@/lib/site";
 import { centsToDecimalString } from "@/lib/money";
 import type { EmailType } from "@/lib/email/types";
@@ -33,6 +34,19 @@ const EVENT_EMAIL_TYPE: Record<OrderCustomerEvent, EmailType> = {
   accepted: "marketplace_order_status",
   payment_confirmed: "marketplace_payment_confirmation",
   expired: "marketplace_order_expired",
+};
+
+/**
+ * Which registry template each lifecycle event raises. Separate from
+ * EVENT_EMAIL_TYPE because they answer different questions: that one routes the
+ * EMAIL for quota priority, this one decides the channels, the in-app wording
+ * and the push.
+ */
+const EVENT_NOTIFICATION_TYPE: Record<OrderCustomerEvent, NotificationType> = {
+  payment_due: "order.payment_due",
+  accepted: "order.accepted",
+  payment_confirmed: "order.payment_confirmed",
+  expired: "order.expired",
 };
 
 /** Copy per event. Kept together so the whole customer voice is readable at once. */
@@ -130,32 +144,45 @@ export async function notifyOrderCustomer(orderId: string, event: OrderCustomerE
     const isGuest = !row.customer_id;
 
     const copy = compose(event, row.order_number, storeName);
-    return await dispatchNotification({
-      recipientType: "customer",
-      recipientEmail: email,
-      orderNumber: row.order_number,
-      type: "order_status_changed",
-      title: copy.title,
-      body: copy.body,
-      details: [["Total", `Rs ${centsToDecimalString(row.total)}`]],
-      cta: {
-        // A guest cannot open /orders/[id] — it filters on customer_id =
-        // auth.uid() — so they are sent to the account-free tracking page.
-        url:
-          event === "expired"
-            ? `${SITE_URL}/shop`
-            : isGuest
-              ? `${SITE_URL}/orders/track?ref=${encodeURIComponent(row.order_number)}`
-              : `${SITE_URL}/orders/${orderId}`,
-        label: copy.cta,
+
+    // MIGRATED ONTO THE ENGINE. This used to call dispatchNotification directly
+    // and therefore reached email only — the customer got no in-app entry and
+    // no push for the four messages that matter most after placing an order.
+    //
+    // The hand-written copy, the total, and the guest-aware CTA are all passed
+    // through as email overrides rather than flattened into the registry's
+    // one-liners: `payment_due` is the single highest-value mail the
+    // marketplace sends, and a guest CANNOT open /orders/[id] (it filters on
+    // customer_id = auth.uid()). The registry still decides the channels, the
+    // priority and the in-app/push wording.
+    const ctaUrl =
+      event === "expired"
+        ? `${SITE_URL}/shop`
+        : isGuest
+          ? `${SITE_URL}/orders/track?ref=${encodeURIComponent(row.order_number)}`
+          : `${SITE_URL}/orders/${orderId}`;
+
+    const result = await notify(
+      EVENT_NOTIFICATION_TYPE[event],
+      // userId drives the in-app row; a guest has none and gets push by email.
+      { userId: row.customer_id ?? null, email },
+      { ref: row.order_number, storeName, id: orderId },
+      {
+        // Same shape as the key this replaced, so an order mid-flight during
+        // the deploy cannot be emailed twice.
+        dedupeKey: `${EVENT_EMAIL_TYPE[event]}:${orderId}:${event}`,
+        orderId,
+        email: {
+          title: copy.title,
+          body: copy.body,
+          details: [["Total", `Rs ${centsToDecimalString(row.total)}`]],
+          cta: { url: ctaUrl, label: copy.cta },
+          emailType: EVENT_EMAIL_TYPE[event],
+          idempotencyKey: `${EVENT_EMAIL_TYPE[event]}:${orderId}:${event}`,
+        },
       },
-      channels: ["email"],
-      emailType: EVENT_EMAIL_TYPE[event],
-      // One email per (order, lifecycle event). A retried PATCH, a re-run cron
-      // sweep or a double-clicked merchant button all resolve to the same key.
-      idempotencyKey: `${EVENT_EMAIL_TYPE[event]}:${orderId}:${event}`,
-      orderId,
-    });
+    );
+    return result.emailed;
   } catch (err) {
     console.error(`notifyOrderCustomer failed for order ${orderId} (${event})`, err);
     return false;

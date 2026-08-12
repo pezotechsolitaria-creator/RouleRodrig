@@ -100,6 +100,7 @@ const CUSTOMER = {
     category: "payments",
     priority: "high",
     channels: ["in_app", "push", "email"],
+    emailType: "marketplace_payment_confirmation",
     title: () => "Payment confirmed",
     body: (c) => `Your payment for ${ref(c)} is confirmed.`,
     // Never the amount on a lock screen.
@@ -116,6 +117,40 @@ const CUSTOMER = {
     body: (c) => `We couldn't confirm payment for ${ref(c)}. Tap to see what to do.`,
     pushBody: () => "Payment update — tap to view.",
     link: (c) => (c.id ? `/orders/${c.id}` : "/orders"),
+  },
+  "order.accepted": {
+    audience: "customer",
+    category: "bookings",
+    priority: "high",
+    // The shop said yes and the reservation clock stopped. That is a record.
+    channels: ["in_app", "push", "email"],
+    emailType: "marketplace_order_status",
+    title: () => "Order accepted",
+    body: (c) => `${c.storeName ?? "The shop"} accepted ${ref(c)} and is preparing it.`,
+    link: (c) => (c.id ? `/orders/${c.id}` : "/orders"),
+  },
+  "order.payment_due": {
+    audience: "customer",
+    category: "payments",
+    priority: "critical",
+    // The one message here that can still change the outcome: it is sent while
+    // the customer can still act. Critical so a mute cannot swallow it.
+    channels: ["in_app", "push", "email"],
+    emailType: "marketplace_payment_due",
+    title: () => "Your reservation ends soon",
+    body: (c) => `${ref(c)} is still reserved, but we haven't seen the transfer yet.`,
+    pushBody: () => "Your reservation ends soon — tap to view.",
+    link: (c) => (c.id ? `/orders/${c.id}` : "/orders/track"),
+  },
+  "order.expired": {
+    audience: "customer",
+    category: "payments",
+    priority: "high",
+    channels: ["in_app", "push", "email"],
+    emailType: "marketplace_order_expired",
+    title: () => "Reservation expired",
+    body: (c) => `${ref(c)} was released because payment wasn't confirmed in time.`,
+    link: () => "/shop",
   },
   "order.preparing": {
     audience: "customer",

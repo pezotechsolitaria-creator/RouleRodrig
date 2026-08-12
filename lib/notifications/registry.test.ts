@@ -183,3 +183,28 @@ describe("deep links", () => {
     }
   });
 });
+
+describe("email types are real", () => {
+  it("every emailType in the registry exists in the email router", async () => {
+    // I shipped `marketplace_order_accepted` from memory while writing these
+    // templates. It does not exist — the real type is
+    // `marketplace_order_status`. An invented name does not throw: the router
+    // falls back to a default, so the mail still sends but at the WRONG quota
+    // priority, which under a full ceiling silently drops a receipt to make
+    // room for a reminder. That failure is invisible in production, so it is
+    // caught here instead.
+    const { ALL_EMAIL_TYPES } = await import("@/lib/email/types");
+    const known = new Set<string>(ALL_EMAIL_TYPES as string[]);
+    for (const [type, t] of all) {
+      if (!t.emailType) continue;
+      expect(known.has(t.emailType), `${type} -> unknown emailType "${t.emailType}"`).toBe(true);
+    }
+  });
+
+  it("only templates that actually email declare an emailType", () => {
+    for (const [type, t] of all) {
+      if (!t.emailType) continue;
+      expect(t.channels, `${type} declares an emailType but cannot email`).toContain("email");
+    }
+  });
+});

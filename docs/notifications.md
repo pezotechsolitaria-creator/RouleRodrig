@@ -23,15 +23,30 @@ domain event  →  notify()  →  registry decides  →  channels  →  record
   Drained by `/api/cron/notifications` every 60s.
 - **`lib/push/send.ts`** — VAPID web push, plus dead-subscription pruning.
 
-### Why two entry points, honestly
+### One entry point, and a delegated email channel
 
-`notify()` owns in-app + push + WhatsApp. Email still flows through
-`dispatchNotification`. That is deliberate and temporary: the email router
-already has provider failover and idempotency, and twelve call sites use it.
-Routing email through the engine too would mean either duplicating that router
-or double-sending from every one of those sites. **Migrating them is the next
-step, not a finished one.** Until then: if your event needs email, call
-`dispatchNotification`; if it needs in-app/push/WhatsApp, call `notify`.
+`notify()` owns all four channels. Email is **delegated** to
+`dispatchNotification` rather than reimplemented — that router already has
+Brevo → Resend failover, the quota ceiling and per-recipient idempotency, and
+duplicating it would give the platform two email paths that drift.
+
+**Rich email is passed through, not flattened.** `opts.email` lets a caller
+supply its own subject, body, detail rows and CTA. That is what made migrating
+safe: the order lifecycle emails are hand-written per event, carry a total, and
+choose their CTA based on whether the buyer is a guest — a guest cannot open
+`/orders/[id]`, which filters on `customer_id = auth.uid()`. Collapsing that
+into a registry one-liner would have been a visible downgrade to the most
+valuable mail the marketplace sends. The registry still decides *whether* email
+is allowed, the priority, and every other channel.
+
+**Migrated so far:** `order-events.ts` — the customer order lifecycle
+(`accepted`, `payment_confirmed`, `expired`, `payment_due`). Those four
+previously reached **email only**; they now also produce an in-app entry and a
+push.
+
+**Still calling `dispatchNotification` directly:** `order-placed.ts` (3 sites)
+and the two merchant/kitchen status routes. They work correctly; they simply
+have not been moved yet. Move one at a time and check its `emailType`.
 
 ## Channels, and when each is right
 
