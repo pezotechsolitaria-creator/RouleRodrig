@@ -341,6 +341,14 @@ export default function TaxiPage() {
                         <Star size={8} className="fill-yellow" /> {tx.topDriver}
                       </span>
                     )}
+                    {/* M72 — the admin takes a gallery now (the car, the boot,
+                        the inside). The card shows the cover and says how many
+                        more there are, like the shop and place cards do. */}
+                    {(d.photos?.length ?? 0) > 1 && (
+                      <span className="absolute bottom-3 right-3 rounded-full bg-black/70 px-2 py-0.5 font-dm text-[10px] text-white">
+                        {d.photos!.length} photos
+                      </span>
+                    )}
                   </div>
 
                   {/* Content */}

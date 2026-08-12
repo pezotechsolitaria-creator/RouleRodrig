@@ -5714,13 +5714,13 @@ const VEHICLE_LABELS: Record<string, string> = {
 };
 
 type DriverForm = {
-  name: string; phone: string; whatsapp: string; photo: string;
+  name: string; phone: string; whatsapp: string; photo: string; photos: string[];
   vehicle: string; vehicle_type: TaxiDriver["vehicle_type"];
   languages: string; areas: string; rate_from: string; notes: string;
 };
 
 const emptyDriverForm = (): DriverForm => ({
-  name: "", phone: "", whatsapp: "", photo: "", vehicle: "",
+  name: "", phone: "", whatsapp: "", photo: "", photos: [], vehicle: "",
   vehicle_type: "car", languages: "", areas: "", rate_from: "", notes: "",
 });
 
@@ -5798,7 +5798,8 @@ function TaxiManager() {
   function openEdit(d: TaxiDriver) {
     setForm({
       name: d.name, phone: d.phone, whatsapp: d.whatsapp ?? "",
-      photo: d.photo ?? "", vehicle: d.vehicle, vehicle_type: d.vehicle_type,
+      photo: d.photo ?? "", photos: d.photos ?? (d.photo ? [d.photo] : []),
+      vehicle: d.vehicle, vehicle_type: d.vehicle_type,
       languages: (d.languages ?? []).join(", "),
       areas: d.areas, rate_from: d.rate_from ?? "", notes: d.notes ?? "",
     });
@@ -5871,7 +5872,12 @@ function TaxiManager() {
             <TextInput value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} placeholder="e.g. Airport specialist, night rides available" />
           </Field>
 
-          <ImagePicker label="PHOTO OF THE DRIVER OR VEHICLE" src={form.photo} onUpload={(p) => setForm({ ...form, photo: p })} />
+          <MultiImagePicker
+            label="PHOTOS OF THE DRIVER AND VEHICLE"
+            hint="The first is the one shown on the card. Add the car, the boot, the inside."
+            images={form.photos?.length ? form.photos : form.photo ? [form.photo] : []}
+            onChange={(imgs) => setForm({ ...form, photos: imgs, photo: imgs[0] ?? "" })}
+          />
 
           <div className="flex items-center gap-3 pt-2">
             <button

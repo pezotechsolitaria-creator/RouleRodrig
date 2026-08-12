@@ -10,7 +10,7 @@ function auth(req: NextRequest): NextResponse | null {
 
 // Whitelist of settable columns — blocks mass-assignment.
 const ALLOWED = [
-  "name", "phone", "whatsapp", "photo", "vehicle", "vehicle_type",
+  "name", "phone", "whatsapp", "photo", "photos", "vehicle", "vehicle_type",
   "languages", "areas", "rate_from", "notes", "featured", "active",
 ] as const;
 

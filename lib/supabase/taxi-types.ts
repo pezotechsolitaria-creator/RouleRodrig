@@ -4,6 +4,8 @@ export interface TaxiDriver {
   phone: string;
   whatsapp: string | null;
   photo: string | null;
+  /** Extra photos (M72). `photo` remains the cover, as `image` does elsewhere. */
+  photos?: string[];
   vehicle: string;
   vehicle_type: "car" | "minibus" | "van" | "scooter" | "other";
   languages: string[];
