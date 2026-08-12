@@ -259,9 +259,11 @@ export default async function FoodPage({
                 {home.rails.map((rail) => (
                   <section key={rail.key}>
                     <h2 className="font-syne text-lg font-extrabold text-offwhite">{rail.title}</h2>
-                    {/* A rail on mobile, a grid on desktop — the same cards,
-                        laid out for the pointer that is actually being used. */}
-                    <div className="mt-3 flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] lg:grid lg:grid-cols-4 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
+                    {/* Stacked on a phone, a rail on a tablet, a grid on
+                        desktop. Mobile was a rail of 190px cards, which put half
+                        of the next dish off the edge of a 375px screen and made
+                        every card noticeably smaller than the marketplace's. */}
+                    <div className="mt-3 grid grid-cols-1 gap-3 sm:flex sm:overflow-x-auto sm:pb-2 [-ms-overflow-style:none] [scrollbar-width:none] lg:grid lg:grid-cols-4 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
                       {rail.items.map((item) => (
                         <div key={`${rail.key}-${item.id}`} className="lg:w-auto">
                           <FoodCard item={item} variant="rail" />

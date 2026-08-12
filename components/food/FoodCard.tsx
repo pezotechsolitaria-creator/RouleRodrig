@@ -46,7 +46,11 @@ export default function FoodCard({
     <Link
       href={`/food/${item.slug}`}
       className={`group relative flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-dark-card transition-colors hover:border-white/25 ${
-        variant === "rail" ? "w-[190px] shrink-0 sm:w-[210px]" : ""
+        // Full width on a phone so a dish card is the same size as a
+        // marketplace product card (343px at 375px wide, versus the 190px
+        // these were). A 190px card in a scroller clipped the next one at
+        // the screen edge and cut the price in half.
+        variant === "rail" ? "w-full shrink-0 sm:w-[210px]" : ""
       } ${unavailable ? "opacity-60" : ""}`}
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-dark">
