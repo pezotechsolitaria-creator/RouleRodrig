@@ -47,6 +47,11 @@ export default function AdminSubscriptions() {
   const [filter, setFilter] = useState("all");
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  // How many days a renewal grants, per merchant. The API has accepted
+  // periodDays (1–366) all along; every button here hardcoded 30, so a
+  // three-month deal or a two-week extension had to be clicked repeatedly.
+  const [days, setDays] = useState<Record<string, number>>({});
+  const daysFor = (id: string) => days[id] ?? 30;
   // Monthly price per plan, in minor units. Renewals default to these; a plan
   // left at 0 is why billing history used to read "Rs 0.00" for every renewal.
   const [planPrices, setPlanPrices] = useState<Record<string, number>>({
@@ -216,7 +221,7 @@ export default function AdminSubscriptions() {
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <button type="button" disabled={!!busy}
-                      onClick={() => act(m.id, "approve_merchant", { periodDays: 30 })}
+                      onClick={() => act(m.id, "approve_merchant", { periodDays: daysFor(m.id) })}
                       className="rounded-full bg-green-500/20 px-3 py-1.5 font-dm text-xs font-medium text-green-300 hover:bg-green-500/30 disabled:opacity-50">
                       {busy === m.id + "approve_merchant"
                         ? <Loader2 size={12} className="animate-spin" />
@@ -233,7 +238,30 @@ export default function AdminSubscriptions() {
                 </div>
               )}
 
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 flex items-center gap-2">
+                <label htmlFor={`days-${m.id}`} className="font-dm text-xs text-muted">
+                  Active days
+                </label>
+                <input
+                  id={`days-${m.id}`}
+                  type="number"
+                  min={1}
+                  max={366}
+                  value={daysFor(m.id)}
+                  onChange={(e) => {
+                    // Clamped to the same 1–366 the API enforces, so the field
+                    // cannot ask for something the server will reject.
+                    const n = Number.parseInt(e.target.value, 10);
+                    setDays((d) => ({ ...d, [m.id]: Number.isNaN(n) ? 30 : Math.min(366, Math.max(1, n)) }));
+                  }}
+                  className="w-20 rounded-lg border border-white/15 bg-dark px-2 py-1 font-dm text-xs text-offwhite"
+                />
+                <span className="font-dm text-xs text-muted">
+                  applied to renewal, reactivate and trial
+                </span>
+              </div>
+
+              <div className="mt-2 flex flex-wrap gap-2">
                 <button type="button" disabled={!!busy}
                   onClick={() => {
                     // Pre-filled from the configured plan price so the invoice
@@ -251,13 +279,13 @@ export default function AdminSubscriptions() {
                     if (entered === null) return; // cancelled
                     const cents = feeToCents(entered);
                     if (cents === null) return toast.error("Enter an amount like 750 or 750.50.");
-                    act(m.id, "approve_renewal", { periodDays: 30, amount: cents });
+                    act(m.id, "approve_renewal", { periodDays: daysFor(m.id), amount: cents });
                   }}
                   className="rounded-full bg-yellow px-3 py-1.5 font-dm text-xs font-medium text-dark hover:bg-yellow-dark disabled:opacity-50">
-                  {busy === m.id + "approve_renewal" ? <Loader2 size={12} className="animate-spin" /> : "Approve renewal (+30d)"}
+                  {busy === m.id + "approve_renewal" ? <Loader2 size={12} className="animate-spin" /> : `Approve renewal (+${daysFor(m.id)}d)`}
                 </button>
                 <button type="button" disabled={!!busy}
-                  onClick={() => act(m.id, "reactivate", { periodDays: 30 })}
+                  onClick={() => act(m.id, "reactivate", { periodDays: daysFor(m.id) })}
                   className="rounded-full border border-white/15 px-3 py-1.5 font-dm text-xs text-offwhite hover:border-green-400/50 hover:text-green-400 disabled:opacity-50">
                   Reactivate
                 </button>
@@ -278,7 +306,7 @@ export default function AdminSubscriptions() {
                     'trialing' as selling, so these only move status + window. */}
                 {s?.status !== "trialing" ? (
                   <button type="button" disabled={!!busy}
-                    onClick={() => act(m.id, "start_trial", { periodDays: 30 })}
+                    onClick={() => act(m.id, "start_trial", { periodDays: daysFor(m.id) })}
                     className="rounded-full border border-white/15 px-3 py-1.5 font-dm text-xs text-offwhite hover:border-yellow/50 hover:text-yellow disabled:opacity-50">
                     Start trial
                   </button>
