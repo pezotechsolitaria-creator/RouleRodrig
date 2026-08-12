@@ -432,13 +432,15 @@ function HeroVideosEditor({
         poster — it is what shows while the video loads, and instead of it on a slow
         connection, on Data Saver, or for a visitor with reduced motion switched on.
         <br />
-        <span className="text-yellow/70">Paste a YouTube or Vimeo link</span>, or upload a file.
-        A YouTube link plays muted and looping with its controls hidden. For an uploaded file use
-        MP4 where you can — it plays everywhere; an iPhone .MOV is accepted but some Android
-        browsers refuse it. Keep clips short (10–20s) and under 64 MB.
+        <span className="text-yellow/70">Upload the video file itself</span> — MP4 where you can,
+        since it plays everywhere. An iPhone .MOV is accepted but some Android browsers refuse it.
+        Keep clips short (10–20s) and under 64 MB.
         <br />
-        A Google Drive or Facebook link is <span className="text-red-300">not</span> a video file
-        and will not play.
+        A <span className="text-red-300">YouTube, Vimeo, Google Drive or Facebook link will not
+        play here.</span> The hero is part of this site, not a third-party player: an embed brings
+        another company&rsquo;s branding and cookies to the top of your homepage and cannot be
+        cropped to fill the screen properly. Uploading works — the bug that used to block it
+        (a missing CSP rule) is fixed.
       </p>
 
       <div className="space-y-2">
@@ -1111,6 +1113,71 @@ function HeroEditor({
       <Field label="SUBHEADLINE">
         <Textarea value={h.subheadline} onChange={(v) => set({ subheadline: v })} rows={2} />
         <div className="mt-2"><TransFields base={h.subheadline} fr={h.subheadlineFr} cr={h.subheadlineCr} onFr={(v) => set({ subheadlineFr: v })} onCr={(v) => set({ subheadlineCr: v })} textarea rows={2} /></div>
+      </Field>
+
+      {/* ── The one hero action ─────────────────────────────────────────────
+          Singular on purpose. The six cards directly under the hero already
+          carry every destination, so a row of hero buttons would compete with
+          them and push them below the fold. Leave the label or the link empty
+          and no button renders at all — a hero with no CTA is a legitimate
+          choice, not a broken state. */}
+      <Field label="HERO BUTTON (optional)">
+        <p className="mb-3 font-dm text-[11px] leading-relaxed text-muted/60">
+          One button under the headline. Leave either field blank to hide it — the cards
+          below the hero already lead everywhere, so no button is often the stronger choice.
+        </p>
+        <label className="mb-3 flex cursor-pointer items-center gap-2 font-dm text-xs text-muted">
+          <input
+            type="checkbox"
+            checked={h.cta?.enabled !== false}
+            onChange={(e) => set({ cta: { ...(h.cta ?? { label: "", href: "" }), enabled: e.target.checked } })}
+            className="h-3.5 w-3.5 accent-yellow"
+          />
+          Show the button
+        </label>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <p className="mb-1.5 font-bebas text-[10px] tracking-[0.25em] text-muted">BUTTON TEXT</p>
+            <TextInput
+              value={h.cta?.label ?? ""}
+              onChange={(v) => set({ cta: { ...(h.cta ?? { href: "" }), label: v } })}
+            />
+          </div>
+          <div>
+            <p className="mb-1.5 font-bebas text-[10px] tracking-[0.25em] text-muted">GOES TO</p>
+            <select
+              value={h.cta?.href ?? ""}
+              onChange={(e) => set({ cta: { ...(h.cta ?? { label: "" }), href: e.target.value } })}
+              className="w-full rounded-lg border border-[#2a2a2a] bg-[#0d0d0d] px-3 py-2.5 font-dm text-sm text-offwhite focus:border-yellow focus:outline-none"
+            >
+              {/* A fixed list, not a free-text box: a typo in a hand-typed path
+                  is a 404 at the most prominent link on the site, and the owner
+                  has no way to tell before a visitor finds it. */}
+              <option value="">— no link —</option>
+              <option value="/browse/scooter">Scooters</option>
+              <option value="/browse/car">Cars</option>
+              <option value="/browse/stays">Stays</option>
+              <option value="/browse/tours">Experiences</option>
+              <option value="/food">Food</option>
+              <option value="/shop">Local shops</option>
+              <option value="/explore">Explore</option>
+              <option value="/map">Map</option>
+              <option value="/trip-planner">Trip planner</option>
+              <option value="/guide/rodrigues">Island guide</option>
+              <option value="/events">Events</option>
+              <option value="/taxi">Taxi</option>
+            </select>
+          </div>
+        </div>
+        <div className="mt-2">
+          <TransFields
+            base={h.cta?.label ?? ""}
+            fr={h.cta?.labelFr}
+            cr={h.cta?.labelCr}
+            onFr={(v) => set({ cta: { ...(h.cta ?? { label: "", href: "" }), labelFr: v } })}
+            onCr={(v) => set({ cta: { ...(h.cta ?? { label: "", href: "" }), labelCr: v } })}
+          />
+        </div>
       </Field>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { HeroVideo } from "@/lib/defaults";
-import { parseVideoUrl, isEmbed } from "@/lib/video";
+import { parseVideoUrl } from "@/lib/video";
 
 // ── The hero's moving background ────────────────────────────────────────────
 //
@@ -68,37 +68,25 @@ export default function HeroVideoLayer({ videos }: { videos?: HeroVideo[] }) {
   const current = list[index % list.length];
   const parsed = parseVideoUrl(current.url);
 
-  // A link we cannot play is skipped rather than rendered. This is the bug the
-  // owner hit: a YouTube WATCH page in a <video src> fetches HTML, fails to
-  // decode, and unmounted the whole layer with nothing said. Now a YouTube or
-  // Vimeo link plays as an embed, and only a genuinely unusable link is
-  // dropped — with admin telling the owner so before it ever ships.
-  if (!parsed.embedUrl) return null;
-
-  if (isEmbed(parsed.kind)) {
-    return (
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 overflow-hidden"
-      >
-        {/* An iframe cannot object-cover. A 16:9 player scaled to whichever
-            axis is short, centred, is what makes a YouTube background fill a
-            full-bleed hero on both a phone (tall) and a desktop (wide) without
-            letterboxing. 177.78vh = 16/9 of the viewport height. */}
-        <iframe
-          key={parsed.embedUrl}
-          src={parsed.embedUrl}
-          title=""
-          allow="autoplay; encrypted-media; picture-in-picture"
-          referrerPolicy="strict-origin-when-cross-origin"
-          onLoad={() => setReady(true)}
-          className={`absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[177.78vh] min-w-full -translate-x-1/2 -translate-y-1/2 border-0 transition-opacity duration-700 ${
-            ready ? "opacity-100" : "opacity-0"
-          }`}
-        />
-      </div>
-    );
-  }
+  // ── No third-party embeds in the hero ─────────────────────────────────────
+  //
+  // A YouTube/Vimeo iframe used to render here. It was a workaround for a bug
+  // that no longer exists: the CSP shipped without a `media-src` directive, so
+  // every self-hosted clip was blocked and the layer silently unmounted. The
+  // owner reasonably concluded that uploading did not work and pasted a
+  // YouTube link, and the embed path was built to make that link play.
+  //
+  // media-src is fixed, so the workaround now costs more than it buys. An
+  // iframe drags in a third-party player and its cookies, cannot be
+  // object-covered (it needs the 177vh/56vw hack to fake a background), cannot
+  // be paused per-frame the way a <video> element can, ignores Data Saver, and
+  // makes the top of the homepage feel like somebody else's product. A hero is
+  // the one place the site should not be renting from another brand.
+  //
+  // An embed link is therefore SKIPPED, not rendered: the hero falls back to
+  // the poster, which is a real photograph and a perfectly good hero. Admin
+  // tells the owner to upload the file instead.
+  if (!parsed.embedUrl || parsed.kind !== "file") return null;
 
   return (
     <video

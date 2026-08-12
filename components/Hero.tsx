@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { MessageCircle } from "lucide-react";
+import Link from "next/link";
+import { MessageCircle, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type HeroContent } from "@/lib/defaults";
 import HeroVideoLayer from "@/components/HeroVideo";
@@ -103,6 +104,12 @@ function HeroBackdrop() {
 export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: boolean }) {
   const h = hero ?? DEFAULT_CONTENT.hero;
   const { language } = useLanguage();
+  // Absent `enabled` counts as on, so a CTA saved before that flag existed
+  // keeps rendering. A CTA with no label or no destination is not a CTA.
+  const cta =
+    h.cta && h.cta.enabled !== false && h.cta.label?.trim() && h.cta.href?.trim()
+      ? h.cta
+      : null;
   const headlineLines =
     language === "fr" && h.headlineFr?.length ? h.headlineFr :
     language === "cr" && h.headlineCr?.length ? h.headlineCr :
@@ -129,13 +136,33 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
           />
         )}
         <HeroVideoLayer videos={h.videos} />
-        {/* Layered cinematic darkening for depth + legibility. Sits ABOVE the
-            video too, so footage shot in bright sun cannot wash out the
-            headline the way an unscrimmed clip would. */}
-        <div className="absolute inset-0 bg-gradient-to-b from-dark/85 via-dark/40 to-dark" />
-        <div className="absolute inset-0 bg-gradient-to-r from-dark/75 via-dark/20 to-transparent" />
-        {/* Soft scrim anchored where the text sits, so the headline always reads */}
-        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 80% 70% at 20% 75%, rgba(0,0,0,0.55), transparent 60%)" }} />
+        {/* ── Cinematic treatment ──────────────────────────────────────────
+            This used to be three full-bleed scrims stacked on top of each
+            other: 85%→100% black vertically, 75% black horizontally, and a 55%
+            radial. They MULTIPLY, so the bottom-left — exactly where the
+            headline sits — was effectively opaque, and the island was gone.
+            The hero read as "a dark rectangle with text on it".
+
+            The replacement protects only what needs protecting and leaves the
+            middle of the frame alone, so the footage is actually visible:
+
+            1. TOP — a short scrim for the sticky header, nothing more.
+            2. BOTTOM — taller and denser, but ending in the page's own colour
+               so the hero DISSOLVES into the cards below instead of stopping
+               at a hard edge. This is the section transition, not decoration.
+            3. TEXT — a soft ellipse anchored under the headline only.
+            4. VIGNETTE — barely there; it settles the edges and pulls the eye
+               to the centre, which is where the horizon usually is. */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[30%] bg-gradient-to-b from-dark/75 via-dark/25 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-dark via-dark/70 to-transparent" />
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "radial-gradient(ellipse 85% 60% at 18% 82%, rgba(0,0,0,0.52), transparent 68%)" }}
+        />
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "radial-gradient(ellipse 115% 95% at 50% 45%, transparent 52%, rgba(0,0,0,0.34))" }}
+        />
       </div>
 
       {/* ── Animated Rodrigues visual system ───────────── */}
@@ -182,20 +209,45 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
           ))}
         </div>
 
-        {/* Subheadline removed — the cinematic headline + imagery carry the hero
-            (cleaner, more premium, shorter). Copy still lives in the CMS. */}
+        {/* Supporting line. It was written, translated and then rendered
+            nowhere — so on a phone the hero was an eyebrow and one word, which
+            is what made it feel empty rather than composed. It is back, but
+            clamped to two lines and hidden on the shortest viewports, because
+            the job here is atmosphere and the cards below carry the detail. */}
+        {loc(language, h.subheadline, h.subheadlineFr, h.subheadlineCr) && (
+          <motion.p
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.75 }}
+            className="rr-hero-sub mt-3 max-w-[34ch] font-dm text-sm leading-relaxed text-offwhite/80 [text-shadow:0_1px_10px_rgba(0,0,0,0.6)] md:mt-4 md:max-w-[46ch] md:text-base"
+          >
+            {loc(language, h.subheadline, h.subheadlineFr, h.subheadlineCr)}
+          </motion.p>
+        )}
 
-        {/* CTAs */}
+        {/* ONE action, and it appears on MOBILE too — the old row was
+            `hidden md:flex`, so the surface most visitors actually see had no
+            action at all. The owner's CTA leads; Ask Ti Roulé stays as a quiet
+            secondary on desktop where there is room for two. */}
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 1 }}
-          className="mt-5 hidden md:flex flex-wrap gap-3"
+          transition={{ duration: 0.7, delay: 0.95 }}
+          className="mt-5 flex flex-wrap items-center gap-3"
         >
+          {cta && (
+            <Link
+              href={cta.href}
+              className="inline-flex items-center gap-2 rounded-full bg-yellow px-6 py-3 font-syne text-sm font-bold text-dark shadow-[0_6px_24px_-6px_rgba(245,200,66,0.55)] transition-colors hover:bg-yellow-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow md:text-base"
+            >
+              {loc(language, cta.label, cta.labelFr, cta.labelCr)}
+              <ArrowRight size={17} />
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent("tiroule:open"))}
-            className="hidden md:flex items-center gap-2 border border-white/25 text-white px-6 py-3 md:px-8 md:py-4 rounded-full text-sm md:text-base hover:bg-white/10 hover:border-white/45 transition-colors backdrop-blur-sm"
+            className="hidden md:flex items-center gap-2 rounded-full border border-white/25 px-6 py-3 text-sm text-white backdrop-blur-sm transition-colors hover:border-white/45 hover:bg-white/10 md:px-8 md:py-4 md:text-base"
           >
             {language === "fr" ? "Demander à Ti Roulé" : language === "cr" ? "Demann Ti Roulé" : "Ask Ti Roulé"}
             <MessageCircle size={18} />

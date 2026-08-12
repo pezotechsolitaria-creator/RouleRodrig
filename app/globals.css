@@ -540,8 +540,13 @@ html[data-splash="on"] #rr-splash.rr-skip {
    but `perspective` applies to an element's own children, so declaring it here
    keeps the depth immune to whatever the header does around it. */
 .rr-logo-cube {
-  --rr-cube: 44px;
-  --rr-cube-half: 22px;
+  /* 38px, down from 44. These two MUST move together and half must be exactly
+     half: every face is translated out by --rr-cube-half, so if it drifts the
+     box stops closing and you get gaps at the edges mid-rotation. Nothing else
+     needs touching — the faces are inset:0 and the <Image> fills them, so this
+     pair is the single source of truth for the mark's size. */
+  --rr-cube: 38px;
+  --rr-cube-half: 19px;
   /* Sampled from logo-master.png rather than guessed, so the closing faces are
      the same green as the artwork on the four sides. */
   --rr-cube-green: #028046;
@@ -551,7 +556,7 @@ html[data-splash="on"] #rr-splash.rr-skip {
   /* ~10x the cube's own size. Below roughly 6x the near face balloons and the
      box reads as a distorted slab rather than a cube; far above it the turn
      flattens into a sliding card. Rendered at several ratios before picking. */
-  perspective: 440px;
+  perspective: 380px;
 }
 .rr-logo-cube-inner {
   position: relative;
