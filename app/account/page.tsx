@@ -181,10 +181,16 @@ export default async function AccountPage() {
                   title="Notifications"
                   note="Which updates reach you, and how"
                 />
+                {/* /login?reset=1, not /auth/reset-password. The latter only
+                    works when you arrive on it from the emailed link — it needs
+                    the recovery token in the URL fragment — so linking there
+                    directly showed "this link is invalid". ?reset=1 opens the
+                    panel that SENDS the email, which is the actual first step. */}
                 <Row
-                  href="/auth/reset-password"
+                  href="/login?reset=1"
                   icon={KeyRound}
                   title="Change my password"
+                  note="We email you a link to set a new one"
                 />
                 <Row href="/more" icon={Globe} title="Help, guides & language" />
               </div>

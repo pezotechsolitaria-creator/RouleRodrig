@@ -203,7 +203,12 @@ export default async function CustomerOrdersPage({
             </div>
           </div>
         )}
-        <NotificationPreferences className="mt-10" />
+        {/* Anchor target for the Notifications row in /account settings. It had
+            none, so the link landed at the top of a long order history and the
+            visitor had to hunt for the controls they asked for. */}
+        <div id="notifications" className="scroll-mt-24">
+          <NotificationPreferences className="mt-10" />
+        </div>
       </div>
     </main>
   );
