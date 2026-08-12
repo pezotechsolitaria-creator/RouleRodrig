@@ -71,7 +71,8 @@ export async function GET(req: NextRequest) {
     .select(
       "id, order_number, status, store_id, customer_name, customer_phone, customer_email, notes, " +
         "subtotal, delivery_fee, total, currency, fulfillment_method, placed_at, created_at, " +
-        "delivery_lat, delivery_lng, delivery_instructions, auto_release_at, payment_receipt_path, receipt_submitted_at, " +
+        "delivery_lat, delivery_lng, delivery_instructions, auto_release_at, payment_receipt_path, receipt_submitted_at, "
+        + "payments(amount, status, provider), " +
         "delivery_zones(name), " +
         "order_items(id, product_name, variant_name, unit_price, quantity, line_total), " +
         "payments(provider, status)",
@@ -129,6 +130,13 @@ export async function GET(req: NextRequest) {
       // the queue. The admin could not see a proof of payment AT ALL before
       // this — the column was never even selected.
       hasReceipt: Boolean(o.payment_receipt_path),
+      // M79 — money still owed on a split payment. Summed from the ledger, the
+      // same way the kitchen screen does it, so the two can never disagree.
+      balanceDue: ["cancelled", "refunded"].includes(String(o.status))
+        ? 0
+        : ((o.payments ?? []) as { amount: number; status: string }[])
+            .filter((p) => p.status === "pending")
+            .reduce((n, p) => n + (p.amount ?? 0), 0),
       receiptSubmittedAt: o.receipt_submitted_at as string | null,
       payment: (list(o.payments)[0] as { provider?: string; status?: string } | undefined) ?? null,
       items: (list(o.order_items) as Record<string, unknown>[]).map((i) => ({

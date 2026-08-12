@@ -443,6 +443,15 @@ function OrderCard({
           this at ALL — the column was not even selected — so an operator
           checking a bank payment had nothing to look at and no way to know a
           photo had been uploaded. Signed for five minutes, on demand. */}
+      {/* M79 — a split payment the owner has not been handed yet. Shown here
+          because "admin should see all in the dashboard": the restaurant
+          collects it, but the platform still needs to know it is outstanding. */}
+      {(order.balanceDue ?? 0) > 0 && (
+        <p className="mt-2 rounded-lg border border-red-400/40 bg-red-500/[0.08] px-3 py-2 font-dm text-xs text-red-300">
+          Rs {((order.balanceDue ?? 0) / 100).toFixed(2)} still to collect in cash
+        </p>
+      )}
+
       {order.hasReceipt && (
         <button
           type="button"

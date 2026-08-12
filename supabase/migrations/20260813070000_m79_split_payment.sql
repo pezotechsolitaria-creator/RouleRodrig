@@ -1,0 +1,39 @@
+-- M79 / M79b — "Pay 50% by bank, the rest in cash on pickup or at the door."
+--
+-- Applied to production via the Supabase MCP; recorded here so the schema
+-- history stays readable.
+--
+-- NO NEW COLUMNS. `payments` is already a LEDGER keyed by order_id, so a split
+-- is something it has always been able to express: one captured bank row for
+-- the deposit, one pending cash row for the balance. Adding deposit_amount and
+-- balance_due to `orders` would have created a second source of truth that
+-- disagrees with the first the moment somebody updates one and not the other.
+-- Every balance shown anywhere is SUMMED from the ledger for that reason.
+--
+-- A real bug fixed on the way: kitchen_confirm_payment updated EVERY payment
+-- row on the order to 'captured'. Harmless while an order had exactly one row —
+-- and silently catastrophic under a split, because confirming the bank deposit
+-- would also have marked the uncollected cash as received. The money would have
+-- read as collected in the ledger while sitting in nobody's hand.
+--
+--   kitchen_confirm_payment(order, amount_received default null)
+--     null           → the whole total, i.e. today's behaviour, unchanged
+--     0 < n < total  → capture the transfer at n, open a pending cash row for
+--                      the remainder, move the order to 'paid' so cooking starts
+--     n > total      → refused
+--   kitchen_settle_balance(order)
+--     the cash physically handed over. Deliberately NOT folded into
+--     'collected': food leaves the counter before the note is in the till, and
+--     a balance that settles itself when an order is marked done is a balance
+--     nobody ever chases. Refuses when there is nothing outstanding.
+--
+--   kitchen_dashboard() gains total, currency and balanceDue.
+--
+-- Verified end to end as a real cook (set local role authenticated), rolled
+-- back: deposit captured at 500 of 1000, cash row left PENDING at 500 (the bug
+-- guard), cook sees balanceDue 500, order status paid, and after settling the
+-- books close at exactly 1000 captured with 0 pending. Double-settle refused.
+--
+-- Also learned in the probe: kitchen staff cannot SELECT `payments` directly —
+-- RLS hides it. Every balance therefore has to travel through a SECURITY
+-- DEFINER function, which is what kitchen_dashboard does.

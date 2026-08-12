@@ -111,6 +111,8 @@ export type AdminFoodOrder = {
   autoReleaseAt: string | null;
   /** A proof of transfer exists. The path itself never leaves the server. */
   hasReceipt?: boolean;
+  /** Cash still to be collected on a split payment. Minor units. */
+  balanceDue?: number;
   receiptSubmittedAt?: string | null;
   payment: { provider?: string; status?: string } | null;
   items: AdminOrderItem[];

@@ -62,6 +62,16 @@ const actionSchema = z.union([
     orderId: z.string().uuid(),
     payment: z.enum(["confirm", "reject"]),
     reason: z.string().trim().max(300).optional(),
+    // M79 — how much actually arrived, in minor units. Omitted means the whole
+    // total, which is every order that is not a split. A smaller number opens a
+    // cash balance; the RPC refuses anything above the total.
+    amountReceived: z.number().int().positive().optional(),
+  }),
+  // M79 — the rest of a split, physically handed over. Separate from
+  // "collected": food can leave the counter before the note is in the till.
+  z.object({
+    orderId: z.string().uuid(),
+    settleBalance: z.literal(true),
   }),
   // Cancelling (M76). A kitchen runs out of fish; it should not need the
   // platform owner to say so. REFUND is deliberately absent — that moves money
@@ -110,6 +120,8 @@ export async function POST(req: NextRequest) {
           p_clear_capacity: input.clearCapacity ?? false,
           p_sold_out: input.soldOut ?? null,
         })
+      : "settleBalance" in input
+      ? await supabase.rpc("kitchen_settle_balance", { p_order_id: input.orderId })
       : "cancel" in input
       ? await supabase.rpc("kitchen_cancel_order", {
           p_order_id: input.orderId,
@@ -117,7 +129,10 @@ export async function POST(req: NextRequest) {
         })
       : "payment" in input
       ? input.payment === "confirm"
-        ? await supabase.rpc("kitchen_confirm_payment", { p_order_id: input.orderId })
+        ? await supabase.rpc("kitchen_confirm_payment", {
+            p_order_id: input.orderId,
+            p_amount_received: input.amountReceived ?? null,
+          })
         : await supabase.rpc("kitchen_reject_payment", {
             p_order_id: input.orderId,
             p_reason: input.reason ?? null,

@@ -36,7 +36,16 @@ type Order = {
   hasReceipt?: boolean;
   /** Collected, cancelled or refunded. Kept on screen as today's record. */
   finished?: boolean;
+  total?: number;
+  currency?: string;
+  /** M79 — still to be handed over in cash. Summed from the ledger, not stored. */
+  balanceDue?: number;
 };
+
+/** Minor units to something a cook reads. Rs 500, not 50000. */
+function money(minor: number, currency = "MUR"): string {
+  return `${currency === "MUR" ? "Rs " : ""}${(minor / 100).toFixed(2)}`;
+}
 type Dash = { onTeam: boolean; kitchens?: { id: string; name: string }[]; orders?: Order[] };
 
 // One next step per state — as data, so there can never be two.
@@ -98,7 +107,7 @@ export default function KitchenBoard() {
 
   // Judge the transfer. The restaurant decides, not the platform owner —
   // otherwise every sale queues behind one person opening /admin.
-  async function judgePayment(order: Order, decision: "confirm" | "reject") {
+  async function judgePayment(order: Order, decision: "confirm" | "reject", amountReceived?: number) {
     if (busy) return;
     let reason: string | undefined;
     if (decision === "reject") {
@@ -117,7 +126,7 @@ The customer can send a new photo — their order is NOT cancelled.`,
       const res = await fetch("/api/kitchen", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: order.id, payment: decision, reason }),
+        body: JSON.stringify({ orderId: order.id, payment: decision, reason, amountReceived }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "That didn't work.");
@@ -143,6 +152,31 @@ The customer can send a new photo — their order is NOT cancelled.`,
       window.open(body.url, "_blank", "noopener,noreferrer");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not open that receipt.");
+    }
+  }
+
+  // M79 — the cash half of a split, actually handed over. Deliberately its own
+  // button rather than folded into "collected": the food can leave the counter
+  // before the money is in the till, and a balance that settles itself the
+  // moment an order is marked done is a balance nobody ever chases.
+  async function settleBalance(order: Order) {
+    if (busy) return;
+    if (!window.confirm(`Confirm you received ${money(order.balanceDue ?? 0, order.currency)} in cash for ${order.orderNumber}?`)) return;
+    setBusy(order.id);
+    setError(null);
+    try {
+      const res = await fetch("/api/kitchen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id, settleBalance: true }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "That didn't work.");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "That didn't work.");
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -391,9 +425,58 @@ Tell the customer why — they will see this.`,
                       disabled={busy !== null}
                       className="min-h-[48px] flex-[2] rounded-xl bg-yellow font-syne text-sm font-bold text-dark disabled:opacity-50"
                     >
-                      {busy === o.id ? <Loader2 size={16} className="mx-auto animate-spin" /> : "Payment received"}
+                      {busy === o.id ? <Loader2 size={16} className="mx-auto animate-spin" /> : "Paid in full"}
                     </button>
                   </div>
+                  {/* M79 — a deposit by bank, the rest in cash on handover.
+                      Secondary to "paid in full" because it is the rarer case,
+                      but on the same card: asking a cook to go somewhere else
+                      to record a half-payment means it does not get recorded. */}
+                  {typeof o.total === "number" && o.total > 0 && (
+                    <button
+                      onClick={() => {
+                        const answer = window.prompt(
+                          `How much did you actually receive for ${o.orderNumber}?
+
+The order is ${money(o.total!, o.currency)}. The rest becomes cash to collect on handover.`,
+                          ((o.total! / 2) / 100).toFixed(2),
+                        );
+                        if (answer === null) return;
+                        const n = Number(answer.replace(",", ".").trim());
+                        if (!Number.isFinite(n) || n <= 0) return setError("Enter how much was received, for example 250.");
+                        const minor = Math.round(n * 100);
+                        if (minor > o.total!) return setError("That is more than the order total.");
+                        void judgePayment(o, "confirm", minor);
+                      }}
+                      disabled={busy !== null}
+                      className="mt-2 min-h-[44px] w-full rounded-xl border border-white/20 font-dm text-sm text-offwhite disabled:opacity-50"
+                    >
+                      Only part of it arrived…
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Money still owed on this order. Loud on purpose — this is the
+                  one thing on the screen that costs the restaurant real money
+                  if the person at the counter forgets it. */}
+              {!o.finished && (o.balanceDue ?? 0) > 0 && (
+                <div className="mt-3 rounded-xl border border-red-400/40 bg-red-500/[0.08] p-3">
+                  <p className="font-syne text-sm font-bold text-red-300">
+                    Collect {money(o.balanceDue!, o.currency)} in cash
+                  </p>
+                  <p className="mt-0.5 font-dm text-xs text-muted">
+                    {o.fulfillment === "rr_delivery"
+                      ? "The driver takes this at the door."
+                      : "Due when they collect."}
+                  </p>
+                  <button
+                    onClick={() => void settleBalance(o)}
+                    disabled={busy !== null}
+                    className="mt-2 min-h-[44px] w-full rounded-xl bg-yellow font-syne text-sm font-bold text-dark disabled:opacity-50"
+                  >
+                    {busy === o.id ? <Loader2 size={16} className="mx-auto animate-spin" /> : "Cash received"}
+                  </button>
                 </div>
               )}
 
