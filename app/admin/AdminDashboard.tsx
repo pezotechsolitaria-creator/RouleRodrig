@@ -70,6 +70,7 @@ import {
   FileCheck,
   Settings,
   MessageCircle,
+  Boxes,
 } from "lucide-react";
 import type { TaxiDriver, TaxiDriverReview } from "@/lib/supabase/taxi-types";
 import type {
@@ -187,6 +188,11 @@ const MARKETPLACE_LINKS: { href: string; label: string; icon: React.ElementType 
   // Food first: it is the only one of these the owner opens every day, because
   // cookers have no dashboard of their own and the order queue lives here.
   { href: "/admin/food",           label: "Food Operations",           icon: UtensilsCrossed },
+  // The same desk for every shop that is not a kitchen. Sits directly beside
+  // Food because it is the same job on the other half of the platform, and
+  // because a seller who cannot use a laptop is only tradeable if the owner
+  // can take the order and fix the stock for them.
+  { href: "/admin/marketplace",    label: "Shop Operations",           icon: Boxes },
   { href: "/admin/subscriptions",  label: "Merchants & Subscriptions", icon: Store },
   { href: "/admin/stores",         label: "Shops & Opening Hours",     icon: Clock },
   { href: "/admin/delivery-zones", label: "Delivery Areas & Fees",     icon: Truck },
