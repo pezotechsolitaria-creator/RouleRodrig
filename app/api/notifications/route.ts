@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from("notifications")
-    .select("id, type, title, body, data, order_id, read_at, created_at")
+    .select("id, type, title, body, data, order_id, read_at, created_at, category, priority, link")
     .eq("recipient_id", user.id)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -34,4 +34,27 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({ notifications: data ?? [] });
+}
+
+// Mark everything read in one call. Doing it per row from the client is a round
+// trip per notification, which on a bad island connection is exactly the moment
+// the user gives up and leaves the badge showing forever.
+export async function POST(req: NextRequest) {
+  const limited = guard(req, "notifications-read-all", 20, 60_000);
+  if (limited) return limited;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+
+  // The RPC scopes to auth.uid() itself — this route cannot be pointed at
+  // somebody else's feed even with a hand-made request.
+  const { data, error } = await supabase.rpc("mark_all_notifications_read");
+  if (error) {
+    console.error("mark_all_notifications_read failed", error);
+    return NextResponse.json({ error: "Could not mark them read." }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true, marked: data ?? 0 });
 }

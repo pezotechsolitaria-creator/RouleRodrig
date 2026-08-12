@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { listActivitiesForCustomer } from "@/lib/activity-server";
 import { groupActivities, type Activity } from "@/lib/activity";
 import { ClipboardList, ArrowLeft } from "lucide-react";
+import NotificationCenter from "@/components/NotificationCenter";
 import { createClient } from "@/lib/supabase/server";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { centsToDecimalString } from "@/lib/money";
@@ -101,8 +102,15 @@ export default async function CustomerOrdersPage({
         >
           <ArrowLeft size={14} /> Roule Rodrigues
         </Link>
-        <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">MY ACCOUNT</p>
-        <h1 className="mt-1 font-syne text-2xl font-extrabold text-offwhite">Your activity</h1>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">MY ACCOUNT</p>
+            <h1 className="mt-1 font-syne text-2xl font-extrabold text-offwhite">Your activity</h1>
+          </div>
+          {/* The customer's notification feed. Renders nothing at all when there
+              is nothing to show, so a first-time visitor sees no empty bell. */}
+          <NotificationCenter className="-mr-2 shrink-0" />
+        </div>
         <p className="mt-1.5 font-dm text-sm text-muted">
           Everything you&apos;ve booked or ordered on Roulé Rodrigues.
         </p>
