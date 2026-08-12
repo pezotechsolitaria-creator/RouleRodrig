@@ -421,6 +421,33 @@ function OrderCard({
         </div>
       )}
 
+      {/* The customer's proof of transfer. The admin food queue never showed
+          this at ALL — the column was not even selected — so an operator
+          checking a bank payment had nothing to look at and no way to know a
+          photo had been uploaded. Signed for five minutes, on demand. */}
+      {order.hasReceipt && (
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              const res = await fetch("/api/admin/food/orders", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ orderId: order.id }),
+              });
+              const body = await res.json().catch(() => ({}));
+              if (!res.ok || !body.url) throw new Error(body.error || "Could not open that receipt.");
+              window.open(body.url, "_blank", "noopener,noreferrer");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Could not open that receipt.");
+            }
+          }}
+          className="mt-2 w-full rounded-xl border border-white/20 py-2 font-dm text-xs text-offwhite hover:border-yellow/40"
+        >
+          View proof of payment
+        </button>
+      )}
+
       {order.status === "ready_for_pickup" && (
         <p className="mt-2.5 inline-flex items-center gap-1.5 font-dm text-xs text-muted">
           <ScanLine size={13} className="text-yellow" />

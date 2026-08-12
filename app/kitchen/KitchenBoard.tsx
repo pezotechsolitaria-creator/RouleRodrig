@@ -31,7 +31,11 @@ type Order = {
   payOnCollection?: boolean;
   /** Bank transfer with a receipt uploaded, waiting on the kitchen's judgement. */
   awaitingPayment?: boolean;
+  /** Bank transfer with nothing proven yet — do NOT cook this. */
+  waitingOnTransfer?: boolean;
   hasReceipt?: boolean;
+  /** Collected, cancelled or refunded. Kept on screen as today's record. */
+  finished?: boolean;
 };
 type Dash = { onTeam: boolean; kitchens?: { id: string; name: string }[]; orders?: Order[] };
 
@@ -46,6 +50,9 @@ const NEXT: Record<string, { to: string; label: string }> = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
+  collected: "Handed over",
+  cancelled: "Cancelled",
+  refunded: "Refunded",
   awaiting_payment_confirmation: "Check the payment proof",
   pending_payment: "New order",
   paid: "New order",
@@ -244,6 +251,23 @@ Tell the customer why — they will see this.`,
         </p>
       )}
 
+      {(() => {
+        const live = orders.filter((o) => !o.finished);
+        const done = orders.filter((o) => o.finished);
+        return (
+          <>
+            {done.length > 0 && (
+              // Today's record, stated plainly. Orders used to vanish the moment
+              // they finished, so a cancelled order or a disputed receipt had
+              // nowhere to be looked up an hour later.
+              <p className="font-dm text-xs text-muted">
+                {live.length} open · {done.length} finished today (below)
+              </p>
+            )}
+          </>
+        );
+      })()}
+
       {orders.length === 0 ? (
         <div className="rounded-2xl border border-white/10 bg-dark-card p-8 text-center">
           <Check size={26} className="mx-auto text-green-400" />
@@ -264,7 +288,11 @@ Tell the customer why — they will see this.`,
             <div
               key={o.id}
               className={`rounded-2xl border p-4 ${
-                ready ? "border-green-500/40 bg-green-500/[0.06]" : "border-yellow/30 bg-yellow/[0.05]"
+                o.finished
+                  ? "border-white/10 bg-dark-card opacity-60"
+                  : ready
+                    ? "border-green-500/40 bg-green-500/[0.06]"
+                    : "border-yellow/30 bg-yellow/[0.05]"
               }`}
             >
               <div className="flex items-start justify-between gap-3">
@@ -316,6 +344,20 @@ Tell the customer why — they will see this.`,
                 </p>
               )}
 
+              {/* The proof, on every order that has one and at any stage. It
+                  used to appear only while a decision was pending, so the
+                  moment it was accepted it became unreachable — and rejecting
+                  actively deleted it. Neither survives a dispute an hour later,
+                  which is exactly when somebody asks. */}
+              {o.hasReceipt && !o.awaitingPayment && (
+                <button
+                  onClick={() => void openReceipt(o)}
+                  className="mt-3 w-full rounded-xl border border-white/20 py-2.5 font-dm text-sm text-offwhite"
+                >
+                  View proof of payment
+                </button>
+              )}
+
               {/* WAITING ON A TRANSFER. The cook looks at the photo and decides.
                   Accept sits last and primary, Reject first and quiet — the
                   destructive one should never be where a thumb lands by
@@ -357,7 +399,7 @@ Tell the customer why — they will see this.`,
 
               {/* Last, small and quiet. A cook cancels rarely, and never by
                   accident on a screen used with one thumb. */}
-              {!o.awaitingPayment && (
+              {!o.awaitingPayment && !o.finished && (
                 <button
                   onClick={() => void cancelOrder(o)}
                   disabled={busy !== null}

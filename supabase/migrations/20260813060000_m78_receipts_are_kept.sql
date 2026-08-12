@@ -1,0 +1,34 @@
+-- M78 — The proof of payment was being destroyed, and hidden once judged.
+--
+-- The owner: "I cannot read the proof of payment and I cannot see it again — it
+-- should be saved until the order is completely done so the resto can review it
+-- well and the admin too. Seriously, I did not see it."
+--
+-- Three faults, two of them mine.
+--
+-- 1. REJECTING DELETED IT. kitchen_reject_payment (M75) and
+--    organizer_reject_payment (M69) both set payment_receipt_path = null. My
+--    reasoning was to prompt a fresh photo. That is exactly backwards:
+--    rejecting a payment is the ONE moment the evidence matters, because it is
+--    the moment somebody disputes it. The prompt for a new upload comes from
+--    the STATUS, not from erasing what came before.
+--
+-- 2. IT VANISHED ONCE JUDGED. The kitchen only saw a receipt while a decision
+--    was pending, so accepting made it unreachable — no way to check a
+--    contested order an hour later.
+--
+-- 3. THE ADMIN NEVER SAW IT AT ALL. /admin/food did not select the column.
+--    Hence "seriously, I did not see it": there was nothing to see.
+--
+-- M78b FOLDED IN: rejecting sends the order back to `pending_payment`, and the
+-- dashboard only admitted that status for CASH — so a rejected bank order
+-- vanished the instant the cook pressed the button. The cash rule was about
+-- whether to COOK; whether to SHOW is a different question and the answer is
+-- always yes. payOnCollection and waitingOnTransfer now say which is which.
+--
+-- Finished and cancelled orders stay on the kitchen screen for the day, so a
+-- kitchen has a record of its own service instead of watching orders disappear.
+--
+-- Verified as a real cook: the path is byte-identical before and after a
+-- rejection, the receipt is still openable, the rejected order is still listed,
+-- and finished orders now appear.

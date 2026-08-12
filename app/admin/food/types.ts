@@ -109,6 +109,9 @@ export type AdminFoodOrder = {
   deliveryInstructions: string | null;
   placedAt: string;
   autoReleaseAt: string | null;
+  /** A proof of transfer exists. The path itself never leaves the server. */
+  hasReceipt?: boolean;
+  receiptSubmittedAt?: string | null;
   payment: { provider?: string; status?: string } | null;
   items: AdminOrderItem[];
 };

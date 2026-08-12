@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
     .select(
       "id, order_number, status, store_id, customer_name, customer_phone, customer_email, notes, " +
         "subtotal, delivery_fee, total, currency, fulfillment_method, placed_at, created_at, " +
-        "delivery_lat, delivery_lng, delivery_instructions, auto_release_at, " +
+        "delivery_lat, delivery_lng, delivery_instructions, auto_release_at, payment_receipt_path, receipt_submitted_at, " +
         "delivery_zones(name), " +
         "order_items(id, product_name, variant_name, unit_price, quantity, line_total), " +
         "payments(provider, status)",
@@ -124,6 +124,12 @@ export async function GET(req: NextRequest) {
       deliveryInstructions: o.delivery_instructions as string | null,
       placedAt: (o.placed_at as string) ?? (o.created_at as string),
       autoReleaseAt: o.auto_release_at as string | null,
+      // A boolean, not the path: the storage key is minted into a short-lived
+      // signed URL on demand rather than shipped to every browser that opens
+      // the queue. The admin could not see a proof of payment AT ALL before
+      // this — the column was never even selected.
+      hasReceipt: Boolean(o.payment_receipt_path),
+      receiptSubmittedAt: o.receipt_submitted_at as string | null,
       payment: (list(o.payments)[0] as { provider?: string; status?: string } | undefined) ?? null,
       items: (list(o.order_items) as Record<string, unknown>[]).map((i) => ({
         id: i.id as string,
@@ -325,4 +331,48 @@ export async function PATCH(req: NextRequest) {
   });
 
   return NextResponse.json({ ok: true, status: targetStatus });
+}
+
+/**
+ * A short-lived link to a buyer's proof of transfer, for the operator.
+ *
+ * The bucket is private and stays private. Scoped to KITCHEN stores by the same
+ * check the PATCH uses, so this screen cannot be turned into a reader for a
+ * real merchant's receipts.
+ */
+export async function PUT(req: NextRequest) {
+  const gate = await guardFoodAdmin(req);
+  if (gate instanceof NextResponse) return gate;
+  const { admin } = gate;
+
+  const body = await readJson(req);
+  if (body instanceof NextResponse) return body;
+  const parsed = z.object({ orderId: z.string().uuid() }).safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+
+  const { data: order } = await admin
+    .from("orders")
+    .select("payment_receipt_path, store_id")
+    .eq("id", parsed.data.orderId)
+    .maybeSingle();
+  if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
+
+  const { data: isKitchen } = await admin
+    .from("food_kitchens")
+    .select("store_id")
+    .eq("store_id", (order as { store_id: string }).store_id)
+    .maybeSingle();
+  if (!isKitchen) return NextResponse.json({ error: "Order not found." }, { status: 404 });
+
+  const path = (order as { payment_receipt_path?: string | null }).payment_receipt_path;
+  if (!path) return NextResponse.json({ error: "No receipt was uploaded." }, { status: 404 });
+
+  const { data: signed, error } = await admin.storage
+    .from("order-receipts")
+    .createSignedUrl(path, 300);
+  if (error || !signed?.signedUrl) {
+    console.error("sign food receipt failed", error);
+    return NextResponse.json({ error: "Could not open that receipt." }, { status: 500 });
+  }
+  return NextResponse.json({ url: signed.signedUrl });
 }
