@@ -76,7 +76,9 @@
 // Past v153, which a parallel branch took at the same moment.
 // v155 — the admin can finally create and publish an event. Seventh number
 // collision with a parallel branch; stepping past, as ever.
-const CACHE = "rr-cache-v155";
+// v156 — THE hero video fix: the CSP never declared media-src, so every clip
+// served from Supabase Storage was blocked and the layer silently unmounted.
+const CACHE = "rr-cache-v156";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

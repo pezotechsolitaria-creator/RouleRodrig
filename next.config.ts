@@ -87,12 +87,27 @@ const ContentSecurityPolicy = [
   "frame-ancestors 'none'",
   "form-action 'self'",
   "img-src 'self' data: blob: https:",
+  // media-src was MISSING, and that silently broke every hero video ever
+  // uploaded. Without it the browser falls back to `default-src 'self'`, which
+  // blocks a clip served from Supabase Storage — a different origin. The
+  // <video> element mounted, the load was refused, the onError handler
+  // unmounted the layer, and the site fell back to the still photo with nothing
+  // said. The owner reasonably concluded "video does not work" and tried a
+  // YouTube link instead, which frame-src then blocked for the same reason.
+  //
+  // Scoped exactly like img-src, which already has to be this permissive for
+  // the same storage bucket.
+  "media-src 'self' data: blob: https:",
   "font-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
   // PayPal's Smart Buttons load their SDK from paypal.com/paypalobjects.com and
   // open the checkout in an iframe, so both need script-src + frame-src grants.
   "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://vercel.live https://www.paypal.com https://www.paypalobjects.com https://*.paypal.com https://*.posthog.com",
-  "frame-src 'self' https://www.paypal.com https://*.paypal.com",
+  // youtube-nocookie / youtube / vimeo: the hero and promo carousel accept a
+  // YouTube or Vimeo link and render it as a muted background embed. Listed
+  // explicitly rather than opening frame-src to https:, because an iframe is a
+  // far more dangerous thing to allow broadly than an image or a video.
+  "frame-src 'self' https://www.paypal.com https://*.paypal.com https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com",
   "connect-src 'self' https:",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
