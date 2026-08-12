@@ -36,24 +36,6 @@ export interface HeroContent {
    * behaves exactly as it did before this feature existed.
    */
   videos?: HeroVideo[];
-  /**
-   * ONE optional action. Deliberately singular: the six cards immediately below
-   * the hero already carry every real destination, so a row of hero buttons
-   * would compete with them and push them below the fold. This is a single
-   * editorial invitation, not a nav bar — omit it and the hero is purely a
-   * visual introduction, which is a legitimate choice.
-   */
-  cta?: HeroCta;
-}
-
-export interface HeroCta {
-  label: string;
-  labelFr?: string;
-  labelCr?: string;
-  /** Internal path ("/browse/scooter") or absolute URL. */
-  href: string;
-  /** Absent counts as true, so an existing CTA keeps working after an upgrade. */
-  enabled?: boolean;
 }
 
 export interface StatItem {

@@ -138,20 +138,20 @@ export function describeVideoUrl(raw: string | null | undefined): {
     return { ok: false, label: "No link yet", detail: "Paste a video link or upload a file." };
   }
   switch (kind) {
-    // Recognised, and deliberately NOT played. The hero dropped third-party
-    // embeds: an iframe puts another company's player, branding and cookies at
-    // the top of the homepage, cannot be object-covered into a true background,
-    // and cannot be paused per-frame the way a <video> can. These two stay
-    // RECOGNISED precisely so the owner gets this sentence instead of a silent
-    // black rectangle.
+    // Playable, and kept that way at the owner's explicit direction. An
+    // uploaded MP4 is still the better result — no third-party player, real
+    // object-cover, pausable per frame — so the copy recommends it. It does not
+    // refuse the link, because pasting one needs no file, no upload and no
+    // compression, and that is often the difference between a hero video
+    // existing and not.
     case "youtube":
-    case "vimeo":
       return {
-        ok: false,
-        label: kind === "youtube" ? "YouTube link" : "Vimeo link",
-        detail:
-          "A link from a video site is not used in the hero — it would embed their player on your homepage. Download the clip and upload the file here instead.",
+        ok: true,
+        label: "YouTube",
+        detail: "Plays muted and looping, with YouTube's controls hidden.",
       };
+    case "vimeo":
+      return { ok: true, label: "Vimeo", detail: "Plays muted and looping in the background." };
     case "file":
       return { ok: true, label: "Video file", detail: "Plays directly. MP4 works everywhere." };
     default:
@@ -159,7 +159,7 @@ export function describeVideoUrl(raw: string | null | undefined): {
         ok: false,
         label: "Not a video link",
         detail:
-          "This will not play. Upload the video file itself (.mp4 or .webm) — a YouTube, Google Drive or Facebook page is not a video file.",
+          "This will not play. Use a YouTube or Vimeo link, or a direct .mp4 / .webm file — a Google Drive or Facebook page is not a video file.",
       };
   }
 }

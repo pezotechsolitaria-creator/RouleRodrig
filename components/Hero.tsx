@@ -1,8 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { MessageCircle, ArrowRight } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { DEFAULT_CONTENT, type HeroContent } from "@/lib/defaults";
 import HeroVideoLayer from "@/components/HeroVideo";
@@ -104,12 +103,6 @@ function HeroBackdrop() {
 export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: boolean }) {
   const h = hero ?? DEFAULT_CONTENT.hero;
   const { language } = useLanguage();
-  // Absent `enabled` counts as on, so a CTA saved before that flag existed
-  // keeps rendering. A CTA with no label or no destination is not a CTA.
-  const cta =
-    h.cta && h.cta.enabled !== false && h.cta.label?.trim() && h.cta.href?.trim()
-      ? h.cta
-      : null;
   const headlineLines =
     language === "fr" && h.headlineFr?.length ? h.headlineFr :
     language === "cr" && h.headlineCr?.length ? h.headlineCr :
@@ -209,41 +202,19 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
           ))}
         </div>
 
-        {/* Supporting line. It was written, translated and then rendered
-            nowhere — so on a phone the hero was an eyebrow and one word, which
-            is what made it feel empty rather than composed. It is back, but
-            clamped to two lines and hidden on the shortest viewports, because
-            the job here is atmosphere and the cards below carry the detail. */}
-        {loc(language, h.subheadline, h.subheadlineFr, h.subheadlineCr) && (
-          <motion.p
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.75 }}
-            className="rr-hero-sub mt-3 max-w-[34ch] font-dm text-sm leading-relaxed text-offwhite/80 [text-shadow:0_1px_10px_rgba(0,0,0,0.6)] md:mt-4 md:max-w-[46ch] md:text-base"
-          >
-            {loc(language, h.subheadline, h.subheadlineFr, h.subheadlineCr)}
-          </motion.p>
-        )}
-
-        {/* ONE action, and it appears on MOBILE too — the old row was
-            `hidden md:flex`, so the surface most visitors actually see had no
-            action at all. The owner's CTA leads; Ask Ti Roulé stays as a quiet
-            secondary on desktop where there is room for two. */}
+        {/* Subheadline and hero CTA both stay OUT, at the owner's direction.
+            Each was tried and each made the hero taller — and height is the one
+            thing this hero cannot spend, because every pixel it takes pushes
+            the six discovery cards further below the fold. The eyebrow and the
+            headline over clear footage is the whole composition; the cards
+            immediately underneath are the actual call to action. The
+            subheadline copy still lives in the CMS for the pages that use it. */}
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.95 }}
-          className="mt-5 flex flex-wrap items-center gap-3"
+          transition={{ duration: 0.7, delay: 1 }}
+          className="mt-5 hidden md:flex flex-wrap gap-3"
         >
-          {cta && (
-            <Link
-              href={cta.href}
-              className="inline-flex items-center gap-2 rounded-full bg-yellow px-6 py-3 font-syne text-sm font-bold text-dark shadow-[0_6px_24px_-6px_rgba(245,200,66,0.55)] transition-colors hover:bg-yellow-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow md:text-base"
-            >
-              {loc(language, cta.label, cta.labelFr, cta.labelCr)}
-              <ArrowRight size={17} />
-            </Link>
-          )}
           <button
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent("tiroule:open"))}

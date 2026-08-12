@@ -141,24 +141,18 @@ describe("isEmbed", () => {
 });
 
 describe("describeVideoUrl — the half that stops this happening again", () => {
-  // This assertion used to be the opposite — that a YouTube link "will work" —
-  // because the hero embedded one. The hero no longer does: an iframe puts
-  // another company's player, branding and cookies at the top of the homepage
-  // and cannot be object-covered into a true background. The link is still
-  // RECOGNISED, and that is the point of the test: the owner must be told why
-  // it is refused rather than watching it silently do nothing, which was the
-  // original bug this whole file exists to prevent.
-  it("refuses a YouTube link but says why, instead of failing silently", () => {
+  // Pasting a link is a supported route, by the owner's decision: it needs no
+  // file, no upload and no compression step, which is often the difference
+  // between a hero video existing and not.
+  it("confirms a YouTube link will work", () => {
     const d = describeVideoUrl("https://youtu.be/dQw4w9WgXcQ");
-    expect(d.ok).toBe(false);
-    expect(d.label).toBe("YouTube link");
-    expect(d.detail).toMatch(/upload the file/i);
+    expect(d.ok).toBe(true);
+    expect(d.label).toBe("YouTube");
   });
 
-  it("refuses a Vimeo link the same way", () => {
+  it("confirms a Vimeo link will work", () => {
     const d = describeVideoUrl("https://vimeo.com/123456789");
-    expect(d.ok).toBe(false);
-    expect(d.detail).toMatch(/upload the file/i);
+    expect(d.ok).toBe(true);
   });
 
   it("says plainly when a link will NOT play, and why", () => {

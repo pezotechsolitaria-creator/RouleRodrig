@@ -78,7 +78,7 @@
 // collision with a parallel branch; stepping past, as ever.
 // v156 — THE hero video fix: the CSP never declared media-src, so every clip
 // served from Supabase Storage was blocked and the layer silently unmounted.
-const CACHE = "rr-cache-v158";
+const CACHE = "rr-cache-v159";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
