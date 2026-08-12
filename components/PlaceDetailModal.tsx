@@ -31,6 +31,7 @@ export default function PlaceDetailModal({
   const photos = place.images && place.images.length > 0 ? place.images : place.image ? [place.image] : [];
   const [idx, setIdx] = useState(0);
   const highlights = (place.highlights ?? []).filter(Boolean);
+  const included = (place.included ?? []).filter(Boolean);
   const isExternal = place.link?.startsWith("http");
   const hasWa = !!(place.whatsapp && place.whatsapp.replace(/\D/g, "").length >= 6);
 
@@ -93,9 +94,42 @@ export default function PlaceDetailModal({
 
           <p className="text-muted/85 font-dm text-sm leading-relaxed mt-4">{loc(language, place.description, place.descriptionFr, place.descriptionCr)}</p>
 
+          {/* What the price covers, and where to actually turn up. Both are
+              fields the owner fills in for a massage or a boat trip, and both
+              were being stored and then never shown — the two questions a
+              customer asks before paying a deposit. */}
+          {included.length > 0 && (
+            <div className="mt-6">
+              <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-3">
+                {language === "fr" ? "CE QUI EST INCLUS" : "WHAT'S INCLUDED"}
+              </p>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {included.map((h) => (
+                  <li key={h} className="flex items-center gap-2 text-xs font-dm text-offwhite/70">
+                    <CheckCircle size={13} className="text-green-400 shrink-0" /> {h}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {place.meetingPoint && (
+            <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-yellow/25 bg-yellow/[0.06] px-4 py-3">
+              <MapPin size={15} className="mt-0.5 shrink-0 text-yellow" />
+              <div>
+                <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">
+                  {language === "fr" ? "POINT DE RENDEZ-VOUS" : "WHERE TO MEET"}
+                </p>
+                <p className="mt-0.5 font-dm text-sm text-offwhite/85">{place.meetingPoint}</p>
+              </div>
+            </div>
+          )}
+
           {highlights.length > 0 && (
             <div className="mt-6">
-              <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-3">HIGHLIGHTS</p>
+              <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-3">
+                {language === "fr" ? "BON À SAVOIR" : "GOOD TO KNOW"}
+              </p>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {highlights.map((h) => (
                   <li key={h} className="flex items-center gap-2 text-xs font-dm text-offwhite/70">

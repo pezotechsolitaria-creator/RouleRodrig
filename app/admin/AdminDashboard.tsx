@@ -129,6 +129,7 @@ type Section =
   | "gettingAround"
   | "faq"
   | "recommended"
+  | "services"
   | "foodConcierge"
   | "experience"
   | "notifications";
@@ -156,6 +157,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "fleet",        label: "Vehicles",         icon: Bike,            group: "explore" },
   { id: "foodConcierge",label: "Food Concierge",   icon: UtensilsCrossed, group: "explore" },
   { id: "recommended",  label: "Accommodations & Activities",  icon: BedDouble,       group: "explore" },
+  { id: "services",     label: "Massage · Fishing · Sea trips", icon: Waves,          group: "explore" },
   { id: "gettingAround",label: "Getting Around",   icon: Bus,             group: "explore" },
   { id: "events",       label: "Events",           icon: Calendar,        group: "explore" },
   { id: "taxi",         label: "Taxi & Transport",  icon: Car,             group: "explore" },
@@ -179,6 +181,8 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
 // links here keeps them discoverable — previously /admin/subscriptions could
 // only be reached by typing the URL.
 const MARKETPLACE_LINKS: { href: string; label: string; icon: React.ElementType }[] = [
+  // The studio no longer IS /admin — the Command Center is. First link goes home.
+  { href: "/admin",                label: "Command Center",            icon: LayoutGrid },
   // Food first: it is the only one of these the owner opens every day, because
   // cookers have no dashboard of their own and the order queue lives here.
   { href: "/admin/food",           label: "Food Operations",           icon: UtensilsCrossed },
@@ -3506,7 +3510,12 @@ function RecommendedEditor({
               </button>
             </div>
           </div>
-          <ImagePicker label="PHOTO" src={it.image} onUpload={(p) => updateItem(i, { image: p })} />
+          <MultiImagePicker
+            label="PHOTOS"
+            hint="Add as many as you like. The first one is the cover — hover a photo to make it the cover or remove it."
+            images={it.images?.length ? it.images : it.image ? [it.image] : []}
+            onChange={(imgs) => updateItem(i, { images: imgs, image: imgs[0] ?? "" })}
+          />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="NAME">
               <TextInput value={it.name} onChange={(v) => updateItem(i, { name: v })} placeholder="e.g. Le Récif Hotel" />
@@ -3687,6 +3696,361 @@ function RecommendedEditor({
         <Plus size={16} /> Add Place
       </button>
       <p className="text-muted/50 text-xs font-dm">Click Save Changes to publish.</p>
+    </div>
+  );
+}
+
+// ── Massage · Fishing · Sea trips ───────────────────────────────────────────────
+//
+// The owner's words: "I JUST WANT TO BE ABLE TO ADD MASSAGE, FISH, SORTIES DE MER
+// ON ADMIN BECAUSE IT WAS IMPOSSIBLE BEFORE."
+//
+// He was right, and the reason is worth writing down. Every field these services
+// need already existed — but to reach them you had to open a section called
+// "Accommodations & Activities", press "Add Place", change a category dropdown to
+// "Activity", and only THEN did a "Service type" select appear. Nobody looking for
+// "add a massage" would ever walk that path. The capability existed; the doorway
+// did not.
+//
+// So this is a doorway, not a new engine. It writes into exactly the same
+// content.recommended.items array, saved by the same Save Changes button, and
+// therefore inherits the whole booking engine — per-date capacity, time slots,
+// deposit-to-confirm, holds — that has run Stay·Eat·Do for months. Three buttons
+// create a correctly-shaped item; every field is visible with no hidden
+// conditionals.
+//
+// The split with the Stay·Eat·Do editor is by SERVICE TYPE: anything with one
+// lives here, anything without lives there. Clearing the type in the header moves
+// the item back, which is stated in the UI rather than left to be discovered.
+
+const SERVICE_KINDS = [
+  {
+    key: "massage" as const,
+    emoji: "💆",
+    label: "Massage",
+    blurb: "Therapist, treatment, duration, price",
+    route: "/experiences/massage",
+    defaults: { durationMinutes: 60, maxGuests: 1, capacity: 6 },
+    placeholders: {
+      name: "e.g. Massage relaxant aux huiles de coco",
+      provider: "e.g. Marie-Claude",
+      meeting: "e.g. At your hotel, or Cabinet Pointe Coton",
+      included: "Oils, towels, 10 min consultation",
+      slots: "09:00, 11:00, 14:00, 16:00",
+    },
+  },
+  {
+    key: "fishing" as const,
+    emoji: "🎣",
+    label: "Fishing trip",
+    blurb: "Captain, boat, hours at sea, spots",
+    route: "/experiences/fishing",
+    defaults: { durationMinutes: 300, maxGuests: 6, capacity: 1 },
+    placeholders: {
+      name: "e.g. Sortie pêche au gros — demi-journée",
+      provider: "e.g. Capitaine Jean-Noël",
+      meeting: "e.g. Port Sud-Est jetty, by the fuel pump",
+      included: "Rods, bait, ice box, water, licence",
+      slots: "06:00, 13:00",
+    },
+  },
+  {
+    key: "boat" as const,
+    emoji: "⛵",
+    label: "Sortie de mer",
+    blurb: "Boat trip, island hop, snorkelling",
+    route: "/experiences/boat",
+    defaults: { durationMinutes: 240, maxGuests: 10, capacity: 1 },
+    placeholders: {
+      name: "e.g. Sortie Île aux Cocos avec déjeuner",
+      provider: "e.g. Skipper Rico",
+      meeting: "e.g. Pointe Coton beach, in front of the hotel",
+      included: "Boat, skipper, snorkel gear, lunch, drinks",
+      slots: "08:30",
+    },
+  },
+];
+
+function ServicesEditor({
+  content,
+  onChange,
+}: {
+  content: SiteContent;
+  onChange: (c: SiteContent) => void;
+}) {
+  const items = content.recommended.items;
+
+  // Real indices, not filtered ones. Editing by position in a filtered list is
+  // how you end up renaming a hotel while trying to edit a boat trip.
+  const rows = items
+    .map((it, index) => ({ it, index }))
+    .filter((r) => !!r.it.serviceType);
+
+  const setItems = (next: RecommendedPlace[]) =>
+    onChange({ ...content, recommended: { ...content.recommended, items: next } });
+  const update = (index: number, patch: Partial<RecommendedPlace>) =>
+    setItems(items.map((it, i) => (i === index ? { ...it, ...patch } : it)));
+  const remove = (index: number) => setItems(items.filter((_, i) => i !== index));
+
+  function add(kind: (typeof SERVICE_KINDS)[number]) {
+    // Created ready to sell: an activity, bookable, with a sane capacity. The
+    // owner should have to type a name and a price, not discover three toggles.
+    setItems([
+      ...items,
+      {
+        id: `svc-${Date.now()}`,
+        category: "activity",
+        serviceType: kind.key,
+        name: "",
+        description: "",
+        image: "",
+        images: [],
+        bookable: true,
+        ...kind.defaults,
+      },
+    ]);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6">
+        <p className="font-syne font-bold text-offwhite text-sm">Bookable services</p>
+        <p className="text-muted/60 text-xs font-dm mt-1 leading-relaxed">
+          Massages, fishing trips and sea trips. Each one gets its own page on the site and takes
+          real bookings — the same calendar and deposits as your rentals. Pick what you are adding:
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+          {SERVICE_KINDS.map((k) => (
+            <button
+              key={k.key}
+              type="button"
+              onClick={() => add(k)}
+              className="text-left bg-dark border border-[#2a2a2a] hover:border-yellow/60 rounded-xl px-4 py-3.5 transition-colors group"
+            >
+              <span className="text-xl">{k.emoji}</span>
+              <span className="block font-dm text-sm text-offwhite group-hover:text-yellow mt-1">
+                Add a {k.label.toLowerCase()}
+              </span>
+              <span className="block font-dm text-[11px] text-muted/60 mt-0.5">{k.blurb}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {rows.length === 0 && (
+        <div className="border-2 border-dashed border-[#2a2a2a] rounded-2xl py-12 text-center">
+          <p className="font-dm text-sm text-muted/70">Nothing added yet.</p>
+          <p className="font-dm text-xs text-muted/50 mt-1">
+            Use one of the three buttons above. Your first one takes about two minutes.
+          </p>
+        </div>
+      )}
+
+      {rows.map(({ it, index }) => {
+        const kind = SERVICE_KINDS.find((k) => k.key === it.serviceType) ?? SERVICE_KINDS[0];
+        const ph = kind.placeholders;
+        return (
+          <div key={it.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-bebas text-yellow text-xs tracking-[0.3em]">
+                {kind.emoji} {it.name || `${kind.label.toUpperCase()} — UNNAMED`}
+              </p>
+              <div className="flex items-center gap-3">
+                <a
+                  href={kind.route}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-dm text-muted/60 hover:text-yellow transition-colors"
+                >
+                  View page
+                </a>
+                <button
+                  type="button"
+                  onClick={() => remove(index)}
+                  className="flex items-center gap-1.5 text-xs font-dm text-muted/60 hover:text-red-400 transition-colors"
+                >
+                  <Trash2 size={12} /> Remove
+                </button>
+              </div>
+            </div>
+
+            <MultiImagePicker
+              label="PHOTOS"
+              hint="Add as many as you like — the boat, the treatment room, a good catch. The first is the cover; hover a photo to change that or delete it."
+              images={it.images?.length ? it.images : it.image ? [it.image] : []}
+              onChange={(imgs) => update(index, { images: imgs, image: imgs[0] ?? "" })}
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="NAME">
+                <TextInput value={it.name} onChange={(v) => update(index, { name: v })} placeholder={ph.name} />
+              </Field>
+              <Field label="TYPE OF SERVICE">
+                <select
+                  value={it.serviceType ?? ""}
+                  onChange={(e) =>
+                    update(index, {
+                      serviceType: (e.target.value || undefined) as RecommendedPlace["serviceType"],
+                    })
+                  }
+                  className={`${inputCls} appearance-none`}
+                >
+                  {SERVICE_KINDS.map((k) => (
+                    <option key={k.key} value={k.key}>
+                      {k.emoji} {k.label}
+                    </option>
+                  ))}
+                  <option value="">None — move to Accommodations &amp; Activities</option>
+                </select>
+              </Field>
+            </div>
+
+            <Field label="DESCRIPTION">
+              <Textarea
+                value={it.description}
+                onChange={(v) => update(index, { description: v })}
+                rows={3}
+              />
+              <div className="mt-2">
+                <TransFields
+                  base={it.description}
+                  fr={it.descriptionFr}
+                  cr={it.descriptionCr}
+                  onFr={(v) => update(index, { descriptionFr: v })}
+                  onCr={(v) => update(index, { descriptionCr: v })}
+                  textarea
+                  rows={2}
+                />
+              </div>
+            </Field>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="WHO RUNS IT (captain, therapist, skipper)">
+                <TextInput
+                  value={it.providerName ?? ""}
+                  onChange={(v) => update(index, { providerName: v })}
+                  placeholder={ph.provider}
+                />
+              </Field>
+              <Field label="WHERE TO MEET">
+                <TextInput
+                  value={it.meetingPoint ?? ""}
+                  onChange={(v) => update(index, { meetingPoint: v })}
+                  placeholder={ph.meeting}
+                />
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <Field label="HOW LONG (MINUTES)">
+                <TextInput
+                  type="number"
+                  value={it.durationMinutes != null ? String(it.durationMinutes) : ""}
+                  onChange={(v) => update(index, { durationMinutes: parseInt(v) || undefined })}
+                  placeholder="60"
+                />
+              </Field>
+              <Field label="PEOPLE PER TRIP">
+                <TextInput
+                  type="number"
+                  value={it.maxGuests != null ? String(it.maxGuests) : ""}
+                  onChange={(v) => update(index, { maxGuests: parseInt(v) || undefined })}
+                  placeholder="6"
+                />
+              </Field>
+              <Field label="TRIPS PER DAY">
+                <TextInput
+                  type="number"
+                  value={it.capacity != null ? String(it.capacity) : ""}
+                  onChange={(v) => update(index, { capacity: parseInt(v) || undefined })}
+                  placeholder="1"
+                />
+              </Field>
+            </div>
+
+            <Field label="PRICE (shown on the card and in the booking form)">
+              <TextInput
+                value={it.priceNote ?? ""}
+                onChange={(v) => update(index, { priceNote: v })}
+                placeholder="e.g. Rs 1,200 per person"
+              />
+            </Field>
+
+            <Field label="WHAT IS INCLUDED (separate with commas)">
+              <TextInput
+                value={(it.included ?? []).join(", ")}
+                onChange={(v) =>
+                  update(index, { included: v.split(",").map((x) => x.trim()).filter(Boolean) })
+                }
+                placeholder={ph.included}
+              />
+            </Field>
+
+            <Field label="GOOD TO KNOW (separate with commas)">
+              <TextInput
+                value={(it.highlights ?? []).join(", ")}
+                onChange={(v) =>
+                  update(index, { highlights: v.split(",").map((x) => x.trim()).filter(Boolean) })
+                }
+                placeholder="e.g. Bring a hat, Not for under 6s, Cancel free 24h before"
+              />
+            </Field>
+
+            <Field label="START TIMES (separate with commas — leave empty for all day)">
+              <TextInput
+                value={(it.timeSlots ?? []).join(", ")}
+                onChange={(v) =>
+                  update(index, { timeSlots: v.split(",").map((x) => x.trim()).filter(Boolean) })
+                }
+                placeholder={ph.slots}
+              />
+            </Field>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="DEPOSIT TO RESERVE (Rs — leave 0 for request only)">
+                <TextInput
+                  type="number"
+                  value={it.depositAmount != null ? String(it.depositAmount) : ""}
+                  onChange={(v) => update(index, { depositAmount: parseInt(v) || undefined })}
+                  placeholder="0"
+                />
+              </Field>
+              <Field label="WHATSAPP (optional — adds an enquiry button)">
+                <TextInput
+                  value={it.whatsapp ?? ""}
+                  onChange={(v) => update(index, { whatsapp: v })}
+                  placeholder="+230 5XXX XXXX"
+                />
+              </Field>
+            </div>
+
+            <div className="flex items-center justify-between bg-dark border border-[#2a2a2a] rounded-xl px-4 py-3">
+              <div>
+                <p className="font-dm text-offwhite text-sm">Take bookings online</p>
+                <p className="text-muted/50 text-[11px] font-dm">
+                  {it.bookable
+                    ? "Customers pick a date and book on the site."
+                    : "Off — the page shows the details but no booking form."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => update(index, { bookable: !it.bookable })}
+                className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${it.bookable ? "bg-yellow" : "bg-[#2a2a2a]"}`}
+                aria-label="Toggle online booking"
+              >
+                <span
+                  className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${it.bookable ? "translate-x-6" : "translate-x-1"}`}
+                />
+              </button>
+            </div>
+          </div>
+        );
+      })}
+
+      <p className="text-muted/50 text-xs font-dm">
+        Click Save Changes to publish. Bookings arrive in <strong className="text-muted/70">Stay &amp; Activity Bookings</strong>.
+      </p>
     </div>
   );
 }
@@ -4253,7 +4617,12 @@ function EventsEditor({
               <TransFields base={ev.description} fr={ev.descriptionFr} cr={ev.descriptionCr} onFr={(v) => update(i, { descriptionFr: v })} onCr={(v) => update(i, { descriptionCr: v })} textarea rows={2} />
             </div>
           </Field>
-          <ImagePicker label="EVENT PHOTO" src={ev.image ?? ""} onUpload={(p) => update(i, { image: p })} />
+          <MultiImagePicker
+            label="EVENT PHOTOS"
+            hint="The first photo is the one shown on the card."
+            images={ev.images?.length ? ev.images : ev.image ? [ev.image] : []}
+            onChange={(imgs) => update(i, { images: imgs, image: imgs[0] ?? "" })}
+          />
         </div>
       ))}
       <button type="button" onClick={add} className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 text-muted/60 hover:text-yellow rounded-2xl py-5 text-sm font-dm transition-colors">
@@ -6876,6 +7245,20 @@ export default function AdminDashboard({
   initialContent: SiteContent;
 }) {
   const [section, setSection] = useState<Section>("dashboard");
+
+  // Deep links from the Command Center and the Ctrl+K palette:
+  // /admin/content#bookings opens straight onto Bookings. Validated against
+  // the real section list, because an unknown hash selecting a section that
+  // does not exist would render an empty studio with no way to tell why.
+  useEffect(() => {
+    const apply = () => {
+      const h = window.location.hash.slice(1);
+      if (h && NAV.some((x) => x.id === h)) setSection(h as Section);
+    };
+    apply();
+    window.addEventListener("hashchange", apply);
+    return () => window.removeEventListener("hashchange", apply);
+  }, []);
   const [content, setContent] = useState<SiteContent>(initialContent);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -6991,6 +7374,7 @@ export default function AdminDashboard({
     routes:       { title: "Ride Routes",         desc: "Curated scenic scooter routes shown on the website with a Google Maps link." },
     gettingAround:{ title: "Getting Around",      desc: "The transport-options card (bus / taxi / scooter) shown in the island guide." },
     recommended:  { title: "Accommodations & Activities",     desc: "Curated hotels, restaurants & activities. Toggle the whole section on or off." },
+    services:     { title: "Massage · Fishing · Sea trips",   desc: "Add a massage, a fishing trip or a sortie de mer. Each one gets its own page and takes bookings." },
     foodConcierge:{ title: "Food Concierge",       desc: "The WhatsApp food-recommendation service behind the “Food & Dining” hub tile. Set the WhatsApp number that food enquiries go to." },
     faq:          { title: "FAQ",                 desc: "Frequently asked questions shown on the site (also boosts SEO)." },
     events:       { title: "Island Events",       desc: "Festivals, markets and happenings shown to visitors." },
@@ -7277,6 +7661,9 @@ export default function AdminDashboard({
           )}
           {section === "recommended" && (
             <RecommendedEditor content={content} onChange={setContent} />
+          )}
+          {section === "services" && (
+            <ServicesEditor content={content} onChange={setContent} />
           )}
           {section === "foodConcierge" && (
             <FoodConciergeEditor content={content} onChange={setContent} />

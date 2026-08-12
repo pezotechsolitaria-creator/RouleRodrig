@@ -272,6 +272,8 @@ export interface EventItem {
   descriptionCr?: string;
   location?: string;
   image?: string;
+  /** Extra photos. `image` stays the cover so every existing event keeps working. */
+  images?: string[];
   featured?: boolean;  // pinned to top + gold border
 }
 
@@ -326,6 +328,14 @@ export interface RecommendedPlace {
   included?: string[];
   /** Provider/captain/therapist name, shown as trust rather than as a heading. */
   providerName?: string;
+  /**
+   * Where the customer actually meets the boat / therapist.
+   *
+   * A fishing charter's address is not its meeting point — "Port Sud-Est jetty,
+   * next to the fuel pump" is. The map link answers "which village"; this
+   * answers "where do I stand".
+   */
+  meetingPoint?: string;
 }
 
 /** The bookable service verticals that ride on the Stay·Eat·Do engine. */

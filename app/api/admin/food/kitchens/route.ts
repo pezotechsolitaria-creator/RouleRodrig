@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { guardFoodAdmin, readJson, failed } from "@/lib/food/guard";
 import { kitchenSchema, kitchenPatchSchema } from "@/lib/schemas/food";
 import { createKitchen, uniqueStoreSlug } from "@/lib/food/admin";
+import { audit } from "@/lib/admin/audit";
 
 // Kitchens — the operator's view of who cooks what.
 //
@@ -109,6 +110,8 @@ export async function POST(req: NextRequest) {
       cookerPhone: parsed.data.cookerPhone || undefined,
       cookerNotes: parsed.data.cookerNotes || undefined,
     });
+    await audit(admin, { action: "kitchen.create", entityType: "store", entityId: storeId,
+      diff: { name: parsed.data.name } });
     return NextResponse.json({ storeId });
   } catch (err) {
     return failed(err, "Could not create that kitchen.");
@@ -182,6 +185,8 @@ export async function PATCH(req: NextRequest) {
       if (error) throw new Error(error.message);
     }
 
+    await audit(admin, { action: "kitchen.update", entityType: "store", entityId: v.storeId,
+      diff: { fields: Object.keys(v).filter((k) => k !== "storeId") } });
     return NextResponse.json({ ok: true });
   } catch (err) {
     return failed(err, "Could not save that kitchen.");

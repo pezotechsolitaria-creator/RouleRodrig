@@ -4,6 +4,7 @@ import { guardFoodAdmin, readJson, failed } from "@/lib/food/guard";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { formatPickupCode } from "@/lib/orders/pickup";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
+import { audit } from "@/lib/admin/audit";
 import { notifyDriversOfNewOffer } from "@/lib/delivery/notify";
 
 // The live food order queue.
@@ -278,6 +279,14 @@ export async function PATCH(req: NextRequest) {
       console.error("food order status notification failed", err);
     }
   }
+
+  // Order status moves money and stock; every one of them is trail-worthy.
+  await audit(admin, {
+    action: "order.status",
+    entityType: "order",
+    entityId: orderId,
+    diff: { from: current.status, to: targetStatus },
+  });
 
   return NextResponse.json({ ok: true, status: targetStatus });
 }

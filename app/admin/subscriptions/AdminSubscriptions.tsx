@@ -88,6 +88,53 @@ export default function AdminSubscriptions() {
     }
   }
 
+  // "I tried to clear test but I could not." — there was no remove button at
+  // all. Now there is one, and it tries the honest delete first: type the name,
+  // and if the merchant never traded it and everything under it really is gone.
+  // If it HAS traded the server answers 409 with what is in the way, and the
+  // operator is offered the archive that keeps the money records intact.
+  async function removeMerchant(m: Merchant) {
+    const typed = prompt(
+      `Remove "${m.display_name}"?\n\n` +
+        `If this merchant has never taken an order, it is deleted for good — shops, products, ` +
+        `hours and photos included. If it has, nothing is deleted and you will be offered to ` +
+        `archive it instead.\n\nType the merchant name to confirm:`,
+      "",
+    );
+    if (typed === null) return;
+
+    setBusy(m.id + "delete");
+    try {
+      const r = await fetch(
+        `/api/admin/subscriptions?merchantId=${encodeURIComponent(m.id)}&confirm=${encodeURIComponent(typed)}`,
+        { method: "DELETE" },
+      );
+      const b = await r.json().catch(() => ({}));
+
+      if (r.status === 409 && b.suggestion === "archive") {
+        if (confirm(`${b.error}\n\nArchive it instead? The shops come off the site immediately.`)) {
+          const a = await fetch(
+            `/api/admin/subscriptions?merchantId=${encodeURIComponent(m.id)}&mode=archive`,
+            { method: "DELETE" },
+          );
+          const ab = await a.json().catch(() => ({}));
+          if (!a.ok) throw new Error(ab.error || "Could not archive that merchant.");
+          toast.success("Archived — shops are off the site, records kept.");
+          await load();
+        }
+        return;
+      }
+
+      if (!r.ok) throw new Error(b.error || "Could not remove that merchant.");
+      toast.success(`"${m.display_name}" deleted.`);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not remove that merchant.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const visible = (merchants ?? []).filter((m) =>
     !q.trim() || m.display_name.toLowerCase().includes(q.toLowerCase()) ||
     (m.contact_email ?? "").toLowerCase().includes(q.toLowerCase()),
@@ -255,6 +302,17 @@ export default function AdminSubscriptions() {
                     Cancel
                   </button>
                 )}
+                {/* Clearing a merchant. Two different actions behind one button
+                    on purpose: the operator says "remove this", and the server
+                    decides whether that can be a real delete (never traded) or
+                    must be an archive (orders exist, and three RESTRICT foreign
+                    keys would refuse anyway). Asking them to know the
+                    difference in advance is asking them to know the schema. */}
+                <button type="button" disabled={!!busy}
+                  onClick={() => removeMerchant(m)}
+                  className="ml-auto rounded-full border border-red-500/30 px-3 py-1.5 font-dm text-xs text-red-300 hover:border-red-500 hover:bg-red-500/10 disabled:opacity-50">
+                  {busy === m.id + "delete" ? <Loader2 size={12} className="animate-spin" /> : "Remove…"}
+                </button>
               </div>
             </div>
           );

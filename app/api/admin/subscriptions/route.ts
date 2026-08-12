@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
+import { deleteVerdict, confirmationMatches } from "@/lib/admin/merchant-delete";
+import { audit } from "@/lib/admin/audit";
 
 // Platform administration of merchant subscriptions.
 //
@@ -305,4 +307,120 @@ export async function PATCH(req: NextRequest) {
   });
 
   return NextResponse.json({ ok: true, currentPeriodEnd: newEnd });
+}
+
+// ── Clearing a merchant ─────────────────────────────────────────────────────
+//
+// GET ?merchantId=…&preview=1 → what deleting would do, and whether it can.
+// DELETE ?merchantId=…&confirm=<name> → does it.
+//
+// Why this is not just `.delete()`: three foreign keys onto `stores` are ON
+// DELETE RESTRICT (orders, deliveries, event_organizer_assignments), so a raw
+// delete on a merchant that ever traded fails with a Postgres error the
+// operator cannot act on. See lib/admin/merchant-delete.ts for the rule; this
+// route measures the footprint and enforces the verdict.
+
+export async function DELETE(req: NextRequest) {
+  if (!isAuthed(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!hasServiceRole()) return serviceRoleMissing();
+
+  const url = new URL(req.url);
+  const merchantId = url.searchParams.get("merchantId") ?? "";
+  const confirm = url.searchParams.get("confirm") ?? "";
+  const archiveOnly = url.searchParams.get("mode") === "archive";
+  if (!/^[0-9a-f-]{36}$/i.test(merchantId)) {
+    return NextResponse.json({ error: "Invalid merchant id." }, { status: 400 });
+  }
+
+  const supabase = await getPrivileged();
+  const { data: merchant } = await supabase
+    .from("merchants")
+    .select("id, display_name, stores(id, name)")
+    .eq("id", merchantId)
+    .maybeSingle();
+  if (!merchant) return NextResponse.json({ error: "Merchant not found." }, { status: 404 });
+
+  const name = String((merchant as { display_name?: string }).display_name ?? "");
+  const storeIds = (((merchant as { stores?: { id: string }[] }).stores) ?? []).map((s) => s.id);
+
+  // ARCHIVE: the answer for a merchant that has traded. Shops go 'closed' (out
+  // of every public listing) and the merchant goes 'suspended'; not one row of
+  // financial history is touched.
+  if (archiveOnly) {
+    if (storeIds.length) {
+      const { error } = await supabase.from("stores").update({ status: "closed" }).in("id", storeIds);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    const { error: mErr } = await supabase.from("merchants").update({ status: "suspended" }).eq("id", merchantId);
+    if (mErr) return NextResponse.json({ error: mErr.message }, { status: 500 });
+    await audit(supabase, {
+      action: "merchant.archive",
+      entityType: "merchant",
+      entityId: merchantId,
+      diff: { name, stores: storeIds.length },
+    });
+    return NextResponse.json({ ok: true, archived: true });
+  }
+
+  if (!confirmationMatches(confirm, name)) {
+    return NextResponse.json(
+      { error: `Type the merchant's name exactly ("${name}") to confirm deletion.` },
+      { status: 400 },
+    );
+  }
+
+  const footprint = await merchantFootprint(supabase, merchantId, storeIds);
+  const verdict = deleteVerdict(footprint);
+  if (!verdict.canDelete) {
+    // 409, not 500: nothing failed. The platform is refusing on purpose, and
+    // the body tells the UI to offer Archive instead.
+    return NextResponse.json({ error: verdict.message, blockers: verdict.blockers, suggestion: "archive" }, { status: 409 });
+  }
+
+  // The cascade does the rest: stores, products, variants, hours, coupons,
+  // reviews, events, tickets, kitchens, staff, subscriptions, invoices.
+  const { error } = await supabase.from("merchants").delete().eq("id", merchantId);
+  if (error) {
+    console.error("merchant delete failed", error);
+    return NextResponse.json({ error: "Could not delete that merchant. Nothing was changed." }, { status: 500 });
+  }
+
+  await audit(supabase, {
+    action: "merchant.delete",
+    entityType: "merchant",
+    entityId: merchantId,
+    diff: { name, stores: storeIds.length },
+  });
+  return NextResponse.json({ ok: true, deleted: true });
+}
+
+/** Count everything that would either block the delete or be destroyed by it. */
+async function merchantFootprint(
+  supabase: Awaited<ReturnType<typeof getPrivileged>>,
+  merchantId: string,
+  storeIds: string[],
+) {
+  const head = { count: "exact" as const, head: true };
+  // A merchant with no stores cannot have store-scoped rows; skipping the
+  // queries also avoids `.in("store_id", [])`, which PostgREST treats as a
+  // match-nothing filter but which is clearer not to send at all.
+  const [orders, deliveries, assignments, invoices] = await Promise.all([
+    storeIds.length
+      ? supabase.from("orders").select("id", head).in("store_id", storeIds)
+      : Promise.resolve({ count: 0 }),
+    storeIds.length
+      ? supabase.from("deliveries").select("id", head).in("store_id", storeIds)
+      : Promise.resolve({ count: 0 }),
+    storeIds.length
+      ? supabase.from("event_organizer_assignments").select("id", head).in("store_id", storeIds)
+      : Promise.resolve({ count: 0 }),
+    supabase.from("subscription_invoices").select("id", head).eq("merchant_id", merchantId).eq("status", "paid"),
+  ]);
+
+  return {
+    orders: orders.count ?? 0,
+    deliveries: deliveries.count ?? 0,
+    organizerAssignments: assignments.count ?? 0,
+    paidInvoices: invoices.count ?? 0,
+  };
 }

@@ -36,6 +36,29 @@ export async function PUT(req: NextRequest) {
     }
 
     await saveContent(body);
+
+    // The audit line for the platform's most consequential write: this PUT
+    // replaces the entire public site in one blob. Which top-level areas moved
+    // is enough for a trail; storing the blob itself would turn the log into a
+    // second, uncontrolled backup of the site.
+    try {
+      const { getPrivileged, hasServiceRole } = await import("@/lib/supabase/admin");
+      const { audit } = await import("@/lib/admin/audit");
+      if (hasServiceRole()) {
+        const changed = Object.keys(body).filter(
+          (k) => JSON.stringify((body as unknown as Record<string, unknown>)[k]) !==
+                 JSON.stringify((stored as unknown as Record<string, unknown>)[k]),
+        );
+        await audit(await getPrivileged(), {
+          action: "content.save",
+          entityType: "site_content",
+          entityId: "main",
+          diff: { changed },
+        });
+      }
+    } catch (err) {
+      console.error("content save audit failed", err);
+    }
     // Bust the ISR cache so edits show immediately. The homepage and /browse
     // are not the only content-backed routes — /faq, /explore, /map, /more,
     // /trip-planner, the guides and the /fr pages all read getContent() under
