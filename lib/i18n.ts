@@ -51,6 +51,7 @@ const translations = {
       routes:   "Routes",
       events:   "Events",
       contact:  "Contact",
+      account:  "My account",
       bookNow:  "Book Now",
     },
 
@@ -485,6 +486,7 @@ const translations = {
       routes:   "Itinéraires",
       events:   "Événements",
       contact:  "Contact",
+      account:  "Mon compte",
       bookNow:  "Réserver",
     },
     fleet: {
@@ -881,6 +883,7 @@ const translations = {
       routes:   "Trazé",
       events:   "Evennman",
       contact:  "Kontakt",
+      account:  "Mo Kont",
       bookNow:  "Rezerv Astèr",
     },
     fleet: {

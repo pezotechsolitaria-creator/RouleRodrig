@@ -3,7 +3,7 @@ import Link from "next/link";
 import {
   ArrowLeft, ChevronRight, Compass, Map as MapIcon, BookOpen, Calendar,
   HelpCircle, Phone, Siren, FileText, Shield, RefreshCw, Store, CalendarCheck, ClipboardList,
-  UtensilsCrossed, Ticket, ShoppingBag,
+  UtensilsCrossed, Ticket, ShoppingBag, CircleUser,
 } from "lucide-react";
 import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
@@ -45,7 +45,8 @@ const GROUPS: { title: string; rows: Row[] }[] = [
     title: "Bookings & help",
     rows: [
       { icon: CalendarCheck, label: "Manage a booking", href: "/manage-booking", note: "No account needed" },
-      { icon: ClipboardList, label: "My orders & bookings", href: "/track", note: "Food, shopping, tickets, rentals" },
+      { icon: CircleUser, label: "My account", href: "/account", note: "Orders, bookings, my shop or driver dashboard, settings" },
+      { icon: ClipboardList, label: "Track an order", href: "/track", note: "No account needed" },
       { icon: HelpCircle, label: "FAQ", href: "/faq" },
       { icon: Phone, label: "Contact us", href: "/#contact" },
       { icon: Siren, label: "Emergency numbers", href: "/emergency" },

@@ -80,7 +80,10 @@
 // served from Supabase Storage was blocked and the layer silently unmounted.
 // v159 — commerce finally has a door: an Order tab and an /order hub, because
 // Food, Shops and Tickets were reachable only from the homepage.
-const CACHE = "rr-cache-v165";
+// v166 — the visitor's tab bar is off every console, and Track became Account:
+// one page that lists whichever dashboards your own account actually has.
+// (Past v165, taken by a parallel branch at the same moment.)
+const CACHE = "rr-cache-v166";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

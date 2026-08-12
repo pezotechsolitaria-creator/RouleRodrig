@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { NAV_TABS, isTabActive, tabLabel, openTiRoule, type NavTab } from "@/lib/nav-tabs";
+import { showsVisitorNav } from "@/lib/nav-scope";
 
 // Premium floating bottom navigation (mobile only). A rounded glass pill with a
 // blurred background, soft shadow and safe-area padding; the active tab gets an
@@ -16,10 +17,14 @@ export default function BottomNav() {
   const pathname = usePathname() || "/";
   const { language } = useLanguage();
 
-  // The app-style homepage renders its own bottom bar (travel tools + nav with
-  // Ti Roulé), so the global floating nav steps aside there. /merchant has its
-  // own navigation entirely (components/merchant/MerchantNav.tsx).
-  if (pathname === "/" || pathname.startsWith("/merchant")) return null;
+  // WHERE this bar belongs is decided in lib/nav-scope.ts, not here.
+  //
+  // It used to be `pathname === "/" || pathname.startsWith("/merchant")` — two
+  // exceptions added as each was noticed — so the customer's tabs also rendered
+  // on /admin, /driver, /organizer, /partner and /checkout. The operator running
+  // the order queue was offered "Order food" and "Ti Roulé" underneath it, and a
+  // floating bar sat beside the pay button competing for the same thumb.
+  if (!showsVisitorNav(pathname)) return null;
 
   const itemCls = (active: boolean) =>
     `relative flex min-w-[50px] flex-col items-center gap-1 rounded-xl px-2 py-1.5 transition-colors ${

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { CircleUser, LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getMerchantDashboard } from "@/lib/merchant/context";
 import { getMerchantSubscription } from "@/lib/merchant/subscription";
@@ -50,6 +50,16 @@ export default async function MerchantAppLayout({ children }: { children: React.
             </span>
             <MerchantNavDesktop />
             <div className="ml-auto flex items-center gap-2">
+              {/* The way out. A merchant is usually a customer too, and this
+                  console had no route to the rest of their account except
+                  retyping a URL. */}
+              <Link
+                href="/account"
+                aria-label="My account"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-muted transition-colors hover:border-yellow/50 hover:text-yellow"
+              >
+                <CircleUser size={16} />
+              </Link>
               <NotificationBell />
               <form action={signOut}>
                 <button

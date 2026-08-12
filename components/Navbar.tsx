@@ -74,6 +74,11 @@ export default function Navbar({
     { label: t.nav.taxi,     href: "/taxi" },
     { label: "FAQ",          href: "/faq" },
     { label: t.nav.contact,  href: "/#contact" },
+    // "Everytime on their website", in the owner's words. The desktop header had
+    // no route to an account at all — a merchant on a laptop had to type
+    // /merchant from memory. One entry, and /account works out which doors they
+    // have.
+    { label: t.nav.account, href: "/account" },
   ];
 
   useEffect(() => {

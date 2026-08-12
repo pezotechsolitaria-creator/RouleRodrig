@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import ConsoleAccountLink from "@/components/ConsoleAccountLink";
 import { redirect } from "next/navigation";
 import { CalendarDays, LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -55,6 +56,8 @@ export default async function OrganizerLayout({ children }: { children: React.Re
               Roulé <span className="text-yellow">Organiser</span>
             </span>
           </Link>
+          <div className="flex items-center gap-2">
+          <ConsoleAccountLink />
           <form action="/auth/signout" method="post">
             <button
               type="submit"
@@ -63,6 +66,7 @@ export default async function OrganizerLayout({ children }: { children: React.Re
               <LogOut size={13} /> Sign out
             </button>
           </form>
+          </div>
         </div>
       </header>
       {children}

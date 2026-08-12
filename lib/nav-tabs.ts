@@ -1,4 +1,4 @@
-import { Home, Compass, Bot, CalendarCheck, Menu, ShoppingBag } from "lucide-react";
+import { Home, Compass, Bot, CircleUser, Menu, ShoppingBag } from "lucide-react";
 import type { Language } from "@/lib/i18n";
 
 // ── The bottom navigation, defined once ─────────────────────────────────────
@@ -71,18 +71,23 @@ export const NAV_TABS: readonly NavTab[] = [
     label: ["Ti Roulé", "Ti Roulé", "Ti Roulé"],
   },
   {
-    key: "track",
-    icon: CalendarCheck,
-    // /track, not /manage-booking. The tab said "Suivi" and led to the VEHICLE
-    // lookup, so a customer tracking food, a shop order, an event ticket or a
-    // boat trip found a form that could not help them — and place bookings had
-    // no customer-facing tracking at all. /track takes any reference.
-    href: "/track",
-    label: ["Track", "Suivi", "Swiv"],
-    // Every surface a customer can land on from here keeps the tab lit, rather
-    // than leaving them on a screen no tab claims.
+    key: "account",
+    icon: CircleUser,
+    // ── Was "Track" ──────────────────────────────────────────────────────────
+    // Tracking is one thing you do about YOUR stuff, and it now lives at the top
+    // of the page that holds all of it. That page is also the answer to a
+    // separate problem: the platform grew a console per role (/merchant,
+    // /driver, /organizer, /partner) and the only way to reach yours was to know
+    // its address. Nothing listed them. /account reads your account and shows
+    // the doors you actually have.
+    //
+    // Guests are not shut out — /account leads with "Find an order or booking",
+    // no account needed, and /track still works on its own (it is in emails).
+    href: "/account",
+    label: ["Account", "Compte", "Kont"],
     match: (p) =>
-      p.startsWith("/track") || p.startsWith("/manage-booking") || p.startsWith("/orders"),
+      p.startsWith("/account") || p.startsWith("/track") ||
+      p.startsWith("/manage-booking") || p.startsWith("/orders") || p.startsWith("/login"),
   },
   {
     key: "more",

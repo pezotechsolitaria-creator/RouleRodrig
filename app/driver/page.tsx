@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import DriverDashboard from "./DriverDashboard";
 import NotificationCenter from "@/components/NotificationCenter";
+import ConsoleAccountLink from "@/components/ConsoleAccountLink";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -25,7 +26,12 @@ export default async function DriverPage() {
             <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">ROULÉ RODRIGUES</p>
             <h1 className="mt-1 font-syne text-2xl font-extrabold">Deliveries</h1>
           </div>
-          <NotificationCenter className="-mr-2 shrink-0" />
+          <div className="flex shrink-0 items-center gap-2">
+            {/* A driver is a person with an account, not only a driver. This is
+                the route to the rest of it — the console had none. */}
+            <ConsoleAccountLink />
+            <NotificationCenter className="-mr-2 shrink-0" />
+          </div>
         </div>
         <div className="mt-5">
           <DriverDashboard />
