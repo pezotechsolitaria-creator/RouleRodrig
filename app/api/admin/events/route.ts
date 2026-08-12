@@ -56,6 +56,16 @@ const publishSchema = z.object({
   publish: z.boolean(),
 });
 
+// The flag was write-once: set at creation, changeable by nothing afterwards.
+// A test event can never be published and its public page 404s, so an event
+// created with the box ticked was permanently stranded with no way back and no
+// explanation on screen. See M73.
+const testFlagSchema = z.object({
+  action: z.literal("testFlag"),
+  storeId: z.string().uuid(),
+  isTest: z.boolean(),
+});
+
 const updateSchema = z.object({
   action: z.literal("update"),
   storeId: z.string().uuid(),
@@ -79,7 +89,7 @@ const updateSchema = z.object({
   cancelReason: z.string().trim().max(300).optional(),
 });
 
-const patchSchema = z.discriminatedUnion("action", [publishSchema, updateSchema]);
+const patchSchema = z.discriminatedUnion("action", [publishSchema, testFlagSchema, updateSchema]);
 
 function rpcError(error: { code?: string; message?: string }, fallback: string) {
   if (error.code === "RR003") return NextResponse.json({ error: "Not found." }, { status: 404 });
@@ -183,6 +193,15 @@ export async function PATCH(req: NextRequest) {
   }
   const p = parsed.data;
   const supabase = await getPrivileged();
+
+  if (p.action === "testFlag") {
+    const { data, error } = await supabase.rpc("admin_set_event_test_flag", {
+      p_store_id: p.storeId,
+      p_is_test: p.isTest,
+    });
+    if (error) return rpcError(error, "Could not change that.");
+    return NextResponse.json(data);
+  }
 
   if (p.action === "publish") {
     const { data, error } = await supabase.rpc("admin_publish_event", {

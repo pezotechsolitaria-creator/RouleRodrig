@@ -94,7 +94,7 @@ export default async function ExplorePage() {
       descriptionFr: e.descriptionFr,
       descriptionCr: e.descriptionCr,
       image: e.image,
-      href: "/browse/events",
+      href: "/events",
       filterKey: "event",
       tags: [e.date].filter(Boolean) as string[],
       featured: e.featured,

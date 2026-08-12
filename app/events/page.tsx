@@ -9,6 +9,8 @@ import JsonLd from "@/components/JsonLd";
 import { ShopHeader } from "@/components/shop/ShopChrome";
 import { listPublicEvents, splitByTime, type EventSummary } from "@/lib/events/queries";
 import { eventDateTime, availabilityLabel, countdownLabel } from "@/lib/events/format";
+import { getContent } from "@/lib/content";
+import Events from "@/components/Events";
 
 // Dynamic, not ISR: the number on the card is "143 tickets remaining", and a
 // stale count is worse than a slow page — it is the one thing a visitor makes a
@@ -105,8 +107,11 @@ function EventCard({ event }: { event: EventSummary }) {
 
 export default async function EventsPage() {
   const supabase = await createClient();
-  const all = await listPublicEvents(supabase);
+  const [all, content] = await Promise.all([listPublicEvents(supabase), getContent()]);
   const { upcoming, past } = splitByTime(all);
+  // The owner's free-text noticeboard, which used to be a second page called
+  // Events. A blank title is a half-created row, not a listing.
+  const notices = content.events.filter((e) => e.title?.trim());
 
   return (
     <main className="min-h-screen bg-dark px-4 pb-44 pt-0 text-offwhite md:pb-28">
@@ -144,8 +149,10 @@ export default async function EventsPage() {
               Sega nights, markets and festivals will appear here as soon as they open. In the meantime
               there is plenty happening on the island.
             </p>
+            {/* NOT /browse/events — that redirects back to this page now, so
+                the button would have been a loop. */}
             <Link
-              href="/browse/events"
+              href="/explore"
               className="mt-6 inline-flex items-center gap-2 rounded-xl bg-yellow px-5 py-3 font-dm text-sm font-bold text-dark transition-opacity hover:opacity-90"
             >
               See what&apos;s happening <ArrowRight size={15} />
@@ -157,6 +164,18 @@ export default async function EventsPage() {
               <EventCard key={e.storeId} event={e} />
             ))}
           </div>
+        )}
+
+        {notices.length > 0 && (
+          <section className="mt-12">
+            <h2 className="font-syne text-lg font-bold text-offwhite">Also happening</h2>
+            <p className="mt-1 font-dm text-sm text-muted">
+              Around the island — no tickets sold here, just what is on.
+            </p>
+            <div className="mt-3">
+              <Events events={notices} />
+            </div>
+          </section>
         )}
 
         {past.length > 0 && (

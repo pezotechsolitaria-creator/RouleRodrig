@@ -11,7 +11,6 @@ import TrustBar from "@/components/TrustBar";
 import BookingSection from "@/components/BookingSection";
 import RecommendedPlaces from "@/components/RecommendedPlaces";
 import GettingAround from "@/components/GettingAround";
-import Events from "@/components/Events";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import ScrollToTop from "@/components/ScrollToTop";
 
@@ -152,6 +151,11 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
   const { category } = await params;
   // Restaurants are handled by the WhatsApp food concierge, not a listing.
   if (category === "restaurants") redirect("/food");
+  // Events are handled by /events, which sells the tickets AND now lists the
+  // owner's free-text "What's on" notices underneath. This page was the second
+  // thing called Events, and it called notFound() whenever the notice list was
+  // empty — so an Events link could land on "Lost on the island".
+  if (category === "events") redirect("/events");
   const { content, fleet, ratings, recentBookings, businessWhatsApp } = await getFleetView();
   const cats = buildBrowseCategories(content, fleet, recentBookings);
 
@@ -278,23 +282,6 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
         <main>
           <BrowseTabs categories={cats} active={category} stickyTop="top-[56px]" />
           <GettingAround content={{ ...ga, options: opts }} />
-        </main>
-        {footer}
-      </>
-    );
-  }
-
-  // ── What's on (events) ──
-  if (category === "events") {
-    const events = content.events.filter((e) => e.title);
-    if (events.length === 0) notFound();
-    return (
-      <>
-        {seo("What's on", events.map((e) => ({ name: e.title })))}
-        {header("What's on")}
-        <main>
-          <BrowseTabs categories={cats} active={category} stickyTop="top-[56px]" />
-          <Events events={content.events} />
         </main>
         {footer}
       </>

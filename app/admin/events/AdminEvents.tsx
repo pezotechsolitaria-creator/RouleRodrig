@@ -268,6 +268,51 @@ export default function AdminEvents() {
                   <span>{e.ticketsSold} sold</span>
                 </div>
 
+                {/* The owner hit this and reported it as "when i click on events
+                    it shows lost on the island". A test event is invisible to
+                    store_is_visible(), so its public page is a 404 — and the
+                    Publish button sat disabled with nothing on screen saying so.
+                    A dead control has to explain itself. */}
+                {e.isTest && (
+                  <div className="mt-3 rounded-xl border border-orange-400/25 bg-orange-400/[0.06] px-3 py-2.5">
+                    <p className="flex items-start gap-2 font-dm text-xs text-orange-200">
+                      <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                      <span>
+                        Marked as a <strong>test event</strong>. It can never be published, and
+                        anyone opening <code className="text-orange-100">/events/{e.slug}</code> sees
+                        &ldquo;Lost on the island&rdquo; — that is a 404, not a fault.
+                      </span>
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2.5"
+                      disabled={busy === e.storeId}
+                      onClick={() =>
+                        void act(
+                          { action: "testFlag", storeId: e.storeId, isTest: false },
+                          "PATCH",
+                          "Now a real event — you can publish it",
+                          e.storeId,
+                        )
+                      }
+                    >
+                      Make this a real event
+                    </Button>
+                  </div>
+                )}
+
+                {/* An unpublished REAL event is a 404 too, and for a reason the
+                    operator can act on. Say it once, plainly, next to the button
+                    that fixes it. */}
+                {!live && !e.isTest && (
+                  <p className="mt-3 flex items-start gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 font-dm text-xs text-muted">
+                    <EyeOff size={13} className="mt-0.5 shrink-0" />
+                    Not published yet — customers who open its link see a 404 until you press
+                    Publish.
+                  </p>
+                )}
+
                 {blockers.length > 0 && !live && (
                   <p className="mt-3 flex items-start gap-2 rounded-xl border border-orange-400/25 bg-orange-400/[0.06] px-3 py-2 font-dm text-xs text-orange-200">
                     <AlertTriangle size={13} className="mt-0.5 shrink-0" />
@@ -284,6 +329,7 @@ export default function AdminEvents() {
                     </Button>
                   ) : (
                     <Button size="sm" disabled={busy === e.storeId || e.isTest}
+                      title={e.isTest ? "Test events cannot be published — use “Make this a real event” first." : undefined}
                       onClick={() => void act({ action: "publish", storeId: e.storeId, publish: true }, "PATCH", "Published — it's live", e.storeId)}>
                       {busy === e.storeId ? <Loader2 size={13} className="animate-spin" /> : (<><Eye size={13} className="mr-1" /> Publish</>)}
                     </Button>
