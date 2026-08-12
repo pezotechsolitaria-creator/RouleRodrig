@@ -192,7 +192,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
           asked for less movement should not have content leave on its own. */}
       <motion.div
         animate={{ opacity: hideText ? 0 : 1, y: hideText ? -14 : 0 }}
-        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
         className={`relative z-10 flex flex-1 flex-col items-center justify-center text-center max-w-5xl mx-auto w-full px-4 md:px-6 pb-4 ${compact ? "pt-6" : "pt-20"}`}
       >
         {/* Eyebrow pill — only when there is something to put in it.

@@ -83,7 +83,9 @@
 // v166 — the visitor's tab bar is off every console, and Track became Account:
 // one page that lists whichever dashboards your own account actually has.
 // (Past v165, taken by a parallel branch at the same moment.)
-const CACHE = "rr-cache-v166";
+// v167 — the hero's poster-to-video fade comes back down to 180ms: 260ms was
+// smooth but read as the still lingering.
+const CACHE = "rr-cache-v167";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

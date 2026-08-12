@@ -25,6 +25,15 @@ import { parseVideoUrl, isEmbed } from "@/lib/video";
 // by reasoning about it. 2500 uncovered the video slightly too early.
 const REVEAL_HOLD_MS = 3900;
 
+// How long the poster then takes to dissolve into the footage. Also tuned on a
+// real phone, and it went the wrong way once: 150 -> 260 -> 180. 150ms was
+// quick but POPPED, because the still and the video's first frame differ in
+// brightness. 260ms dissolved properly but read as the background lingering.
+// 180ms with ease-out moves immediately — so it reads as fast — while still
+// being long enough not to snap. Both playback paths below use the same value:
+// to a visitor they are the same moment, and they must not drift apart.
+const FADE_CLASS = "transition-opacity duration-[180ms] ease-out";
+
 export default function HeroVideoLayer({
   videos,
   onPlaying,
@@ -234,7 +243,7 @@ export default function HeroVideoLayer({
           // from the player's REPORTED state, so the poster covers every
           // moment the player is not actually playing — including the pause,
           // buffer and end states that draw the prev/pause/next overlay.
-          className={`absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[177.78vh] min-w-full -translate-x-1/2 -translate-y-1/2 border-0 transition-opacity duration-[260ms] ease-out ${
+          className={`absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[177.78vh] min-w-full -translate-x-1/2 -translate-y-1/2 border-0 ${FADE_CLASS} ${
             ready ? "opacity-100" : "opacity-0"
           }`}
         />
@@ -267,7 +276,7 @@ export default function HeroVideoLayer({
       // the layer entirely rather than leaving a black rectangle over the photo.
       // The headline comes straight back — it is the hero again from here.
       onError={() => { setAllowed(false); onPlaying?.(false); }}
-      className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-[260ms] ease-out ${
+      className={`absolute inset-0 h-full w-full object-cover object-center ${FADE_CLASS} ${
         ready ? "opacity-100" : "opacity-0"
       }`}
     >
