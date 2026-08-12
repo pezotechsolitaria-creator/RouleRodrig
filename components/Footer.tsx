@@ -118,6 +118,11 @@ export default function Footer({
           <Link href="/driver" className="text-muted hover:text-yellow transition-colors text-xs font-dm">
             {language === "fr" ? "Espace livreur" : language === "cr" ? "Espas livrer" : "Driver dashboard"}
           </Link>
+          {/* /partner was reachable only by typing the URL — the page that
+              recruits every merchant on the platform. */}
+          <Link href="/partner" className="text-muted hover:text-yellow transition-colors text-xs font-dm">
+            {language === "fr" ? "Devenir partenaire" : language === "cr" ? "Vinn partener" : "Sell with us"}
+          </Link>
         </div>
 
         {/* Legal links */}
