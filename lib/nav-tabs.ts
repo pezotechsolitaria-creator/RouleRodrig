@@ -1,4 +1,4 @@
-import { Home, Compass, Bot, CircleUser, Menu, ShoppingBag } from "lucide-react";
+import { Home, Compass, Bot, Menu, ShoppingBag } from "lucide-react";
 import type { Language } from "@/lib/i18n";
 
 // ── The bottom navigation, defined once ─────────────────────────────────────
@@ -31,6 +31,19 @@ export type NavTab = {
   match?: (pathname: string) => boolean;
 };
 
+// ── FIVE TABS, AND NO ACCOUNT AMONG THEM ────────────────────────────────────
+//
+// This bar answers WHERE YOU ARE GOING. An account is WHO YOU ARE, so it lives
+// top-right beside the language toggle and the saved heart — components/
+// AccountButton.tsx, in all three app headers. It was briefly a sixth tab here,
+// which crowded the bar (six targets share 343px at 375px wide) and put an
+// identity control in a list of destinations.
+//
+// Nothing lights on /account, /orders or /track as a result, and that is
+// correct: the control that took you there is in the corner, not in this bar.
+// Lighting an unrelated tab would tell the visitor they are somewhere they are
+// not. /more still carries "My account" and "Track an order" rows for anyone who
+// looks there first.
 export const NAV_TABS: readonly NavTab[] = [
   {
     key: "home",
@@ -69,25 +82,6 @@ export const NAV_TABS: readonly NavTab[] = [
     action: "tiroule",
     // Ti Roulé is a name, so it is the same word in all three languages.
     label: ["Ti Roulé", "Ti Roulé", "Ti Roulé"],
-  },
-  {
-    key: "account",
-    icon: CircleUser,
-    // ── Was "Track" ──────────────────────────────────────────────────────────
-    // Tracking is one thing you do about YOUR stuff, and it now lives at the top
-    // of the page that holds all of it. That page is also the answer to a
-    // separate problem: the platform grew a console per role (/merchant,
-    // /driver, /organizer, /partner) and the only way to reach yours was to know
-    // its address. Nothing listed them. /account reads your account and shows
-    // the doors you actually have.
-    //
-    // Guests are not shut out — /account leads with "Find an order or booking",
-    // no account needed, and /track still works on its own (it is in emails).
-    href: "/account",
-    label: ["Account", "Compte", "Kont"],
-    match: (p) =>
-      p.startsWith("/account") || p.startsWith("/track") ||
-      p.startsWith("/manage-booking") || p.startsWith("/orders") || p.startsWith("/login"),
   },
   {
     key: "more",

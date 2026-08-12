@@ -15,6 +15,7 @@ import { useFavorites } from "@/context/FavoritesContext";
 import { loc } from "@/lib/localize";
 import { NAV_TABS, isTabActive, tabLabel, openTiRoule } from "@/lib/nav-tabs";
 import InstallAppButton from "@/components/InstallAppButton";
+import AccountButton from "@/components/AccountButton";
 import EventsPromo, { type PromoEvent } from "@/components/EventsPromo";
 import { HeartHandshake } from "lucide-react";
 import { DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS } from "@/lib/defaults";
@@ -209,6 +210,10 @@ export default function AppHome({
             <Heart size={17} className={count > 0 ? "fill-red-500 text-red-500" : ""} />
             {count > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-yellow px-1 font-syne text-[10px] font-bold text-dark">{count}</span>}
           </button>
+          {/* Last in the row, beside the other identity controls. This was a
+              sixth tab in the bottom bar; the bar is for where you are going,
+              and an account is who you are. */}
+          <AccountButton />
         </div>
       </header>
 

@@ -35,9 +35,9 @@ describe("NAV_TABS", () => {
   });
 
   it("picks the label for the visitor's language", () => {
-    expect(tabLabel(tab("account"), "en")).toBe("Account");
-    expect(tabLabel(tab("account"), "fr")).toBe("Compte");
-    expect(tabLabel(tab("account"), "cr")).toBe("Kont");
+    expect(tabLabel(tab("order"), "en")).toBe("Order");
+    expect(tabLabel(tab("order"), "fr")).toBe("Commander");
+    expect(tabLabel(tab("order"), "cr")).toBe("Komann");
   });
 });
 
@@ -52,18 +52,20 @@ describe("isTabActive", () => {
     expect(lit("/explore")).toEqual(["explore"]);
   });
 
-  it("lights Account for tracking, bookings, orders and sign-in", () => {
-    // Tracking used to be its own tab. It is one thing you do about YOUR stuff,
-    // so it now lives under the page that holds all of it — including the
-    // dashboards a merchant, driver or organiser could previously only reach by
-    // typing the URL.
-    expect(lit("/account")).toEqual(["account"]);
-    expect(lit("/track")).toEqual(["account"]);
-    expect(lit("/manage-booking")).toEqual(["account"]);
-    expect(lit("/orders")).toEqual(["account"]);
-    expect(lit("/orders/8a1f7c2e-0000-4000-8000-000000000000")).toEqual(["account"]);
-    expect(lit("/orders/track")).toEqual(["account"]);
-    expect(lit("/login")).toEqual(["account"]);
+  it("has exactly five tabs, and none of them is the account", () => {
+    // The account moved to the top-right corner (components/AccountButton.tsx),
+    // beside the language toggle and the saved heart. This bar answers WHERE you
+    // are going; an account is WHO you are. Six tabs also left 50px each at
+    // 375px, the smallest target on the screen.
+    expect(NAV_TABS.map((t) => t.key)).toEqual(["home", "order", "explore", "tiroule", "more"]);
+  });
+
+  it("lights NO tab on the account's own pages", () => {
+    // Correct, not an oversight: the control that took you there is in the
+    // corner. Lighting an unrelated tab would say you are somewhere you are not.
+    for (const p of ["/account", "/track", "/manage-booking", "/orders", "/orders/track", "/login"]) {
+      expect(lit(p), p).toEqual([]);
+    }
   });
 
   it("lights More and Explore on their own sections", () => {
@@ -85,10 +87,11 @@ describe("isTabActive", () => {
     }
   });
 
-  it("does not let /order steal /orders from Account", () => {
+  it("does not let the Order tab claim /orders", () => {
     // startsWith("/order") matches "/orders" — the bug the Order tab's
-    // exact-match avoids. Two tabs lit at once is worse than the wrong one.
-    expect(lit("/orders")).toEqual(["account"]);
+    // exact-match avoids. /orders is account territory and lights nothing.
+    expect(lit("/orders")).toEqual([]);
+    expect(lit("/order")).toEqual(["order"]);
   });
 
   it("lights nothing on a page in no section at all", () => {

@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
 import InstallAppButton from "@/components/InstallAppButton";
+import AccountButton from "@/components/AccountButton";
 
 /**
  * Slim app-style top bar for inner pages — the v2 replacement for the marketing
@@ -73,6 +74,7 @@ export default function AppPageHeader({
         >
           {language.toUpperCase()}
         </button>
+        <AccountButton />
       </div>
     </header>
   );

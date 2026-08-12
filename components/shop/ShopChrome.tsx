@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ChevronLeft, ShoppingCart } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useCart, useCarts } from "@/lib/cart/CartContext";
+import AccountButton from "@/components/AccountButton";
 import { centsToDecimalString } from "@/lib/money";
 import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 
@@ -48,6 +49,8 @@ export function ShopHeader({ backHref, backLabel }: { backHref: string; backLabe
           {backLabel}
         </Link>
 
+        <div className="flex items-center gap-2">
+        <AccountButton />
         <Link
           href="/cart"
           aria-label={hydrated && itemCount > 0 ? `Cart, ${itemCount} item${itemCount === 1 ? "" : "s"}` : "Cart, empty"}
@@ -69,6 +72,7 @@ export function ShopHeader({ backHref, backLabel }: { backHref: string; backLabe
             )}
           </AnimatePresence>
         </Link>
+        </div>
       </div>
     </div>
   );
