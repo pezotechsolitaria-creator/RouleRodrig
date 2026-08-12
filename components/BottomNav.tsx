@@ -65,6 +65,8 @@ export default function BottomNav() {
     );
   };
 
+  // z-40, above the food cart bar's z-30. They share the bottom strip of
+  // the screen, so the ordering is stated here rather than left to DOM order.
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
       <nav

@@ -120,7 +120,7 @@ export default async function FoodPage({
   if (empty && first(sp.preview) !== "1") redirect("/food/concierge");
 
   return (
-    <main className="min-h-screen bg-dark px-4 pb-44 pt-6 text-offwhite">
+    <main className="min-h-screen bg-dark px-4 pb-56 pt-6 text-offwhite md:pb-44">
       {!empty && (
         <JsonLd
           data={[

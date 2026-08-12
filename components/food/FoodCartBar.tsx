@@ -57,8 +57,14 @@ export default function FoodCartBar() {
 
   if (!hydrated || itemCount === 0) return null;
 
+  // Lifted clear of BottomNav on mobile. Both were `fixed bottom-0 z-40`, so
+  // they occupied exactly the same strip and stacked on top of each other: the
+  // cart bar ended up buried under the nav and the last row of dishes was
+  // chopped in half. The gradient stays anchored to bottom-0, so content still
+  // fades out behind BOTH bars. md: drops the offset, since BottomNav is
+  // md:hidden there.
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
+    <div className="fixed inset-x-0 bottom-0 z-30 px-3 pb-[calc(env(safe-area-inset-bottom)+5.25rem)] pt-3 md:pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
       {/* A gradient rather than a hard edge, so the content scrolls out from
           underneath it instead of being chopped off. */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-32 bg-gradient-to-t from-dark via-dark/90 to-transparent" />
