@@ -55,6 +55,54 @@ const NEXT: Record<string, { to: string; label: string } | undefined> = {
   out_for_delivery: { to: "arrived", label: "I've arrived at the customer" },
 };
 
+// ── What a driver actually needs to know in the street ─────────────────────
+// pickupDueAt, deliveryDueAt and an offer's expiresAt were all in the payload
+// and none of them were on screen. A driver could not tell whether they were
+// early, late, or about to lose an offer — the three questions they actually
+// have while holding a phone at a junction.
+
+/** "12 min left" / "8 min late". Null when there is no deadline to report. */
+function timeLeft(iso: string | null): { text: string; late: boolean } | null {
+  if (!iso) return null;
+  const mins = Math.round((new Date(iso).getTime() - Date.now()) / 60000);
+  if (Number.isNaN(mins)) return null;
+  if (mins < 0) return { text: `${Math.abs(mins)} min late`, late: true };
+  if (mins === 0) return { text: "due now", late: true };
+  if (mins < 60) return { text: `${mins} min left`, late: false };
+  return { text: `${Math.floor(mins / 60)}h ${mins % 60}m left`, late: false };
+}
+
+// The whole journey, so "where am I up to" is answered by looking rather than
+// by remembering which button was pressed last.
+const STEPS = ["assigned", "going_to_pickup", "arrived_at_pickup", "picked_up", "out_for_delivery", "arrived"];
+const STEP_LABEL: Record<string, string> = {
+  assigned: "Accepted",
+  going_to_pickup: "To shop",
+  arrived_at_pickup: "At shop",
+  picked_up: "Collected",
+  out_for_delivery: "To customer",
+  arrived: "At door",
+};
+
+function Progress({ status }: { status: string }) {
+  const at = STEPS.indexOf(status);
+  return (
+    <div className="mt-3">
+      <div className="flex items-center gap-1" role="img" aria-label={`Step ${at + 1} of ${STEPS.length}: ${STEP_LABEL[status] ?? status}`}>
+        {STEPS.map((st, i) => (
+          <div
+            key={st}
+            className={`h-1.5 flex-1 rounded-full ${i <= at ? "bg-yellow" : "bg-white/12"}`}
+          />
+        ))}
+      </div>
+      <p className="mt-1.5 font-dm text-xs text-muted">
+        Step {at + 1} of {STEPS.length} — {STEP_LABEL[status] ?? status}
+      </p>
+    </div>
+  );
+}
+
 const REASONS: { value: string; label: string }[] = [
   { value: "vehicle", label: "Vehicle problem" },
   { value: "illness", label: "Illness or emergency" },
@@ -247,6 +295,33 @@ export default function DriverDashboard() {
               </span>
             </div>
 
+            {/* The deadline that applies RIGHT NOW: the pickup one until the
+                package is collected, the delivery one after. Showing both at
+                once is noise; showing neither is what shipped. */}
+            {(() => {
+              const due = timeLeft(
+                ["assigned", "going_to_pickup", "arrived_at_pickup"].includes(a.status)
+                  ? a.pickupDueAt
+                  : a.deliveryDueAt,
+              );
+              if (!due) return null;
+              return (
+                <p
+                  className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-dm text-xs ${
+                    due.late ? "bg-red-500/15 text-red-300" : "bg-white/[0.06] text-muted"
+                  }`}
+                >
+                  <Clock size={12} />
+                  {["assigned", "going_to_pickup", "arrived_at_pickup"].includes(a.status)
+                    ? "Pickup"
+                    : "Delivery"}{" "}
+                  {due.text}
+                </p>
+              );
+            })()}
+
+            <Progress status={a.status} />
+
             <div className="mt-3 space-y-1.5 font-dm text-sm">
               {a.storeAddress && (
                 <p className="flex items-start gap-2 text-muted">
@@ -409,6 +484,22 @@ export default function DriverDashboard() {
                     Rs {centsToDecimalString(o.earning)}
                   </span>
                 </div>
+                {/* An offer expires. Without this it vanished mid-tap with no
+                    warning, and the driver had no way to tell a job worth
+                    hurrying for from one they had all afternoon to take. */}
+                {(() => {
+                  const left = timeLeft(o.expiresAt);
+                  if (!left) return null;
+                  return (
+                    <p
+                      className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-dm text-xs ${
+                        left.late ? "bg-red-500/15 text-red-300" : "bg-yellow/15 text-yellow"
+                      }`}
+                    >
+                      <Clock size={12} /> {left.late ? "Expiring now" : left.text}
+                    </p>
+                  );
+                })()}
                 <Button
                   className="mt-3 min-h-[52px] w-full text-base"
                   disabled={busy !== null}

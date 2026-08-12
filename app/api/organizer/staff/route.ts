@@ -83,7 +83,35 @@ export async function POST(req: NextRequest) {
     p_name: parsed.data.name,
   });
   if (error) return rpcError(error, "Could not add that person.");
-  return NextResponse.json(data);
+
+  // Tell them. The RPC creates an `invited` row and nothing else — before this,
+  // the organiser saw a name appear in the staff list and reasonably assumed an
+  // invitation had gone out, while the invitee heard nothing and never signed
+  // up. Best effort: the access is already granted and committed, so a mail
+  // provider having a bad minute must not turn this into an error.
+  const added = data as { assignmentId?: string; email?: string; name?: string } | null;
+  let invited = false;
+  if (added?.assignmentId && added.email) {
+    // The event's name, so the email says which door rather than "an event".
+    const { data: ev } = await supabase
+      .from("events")
+      .select("title")
+      .eq("store_id", parsed.data.storeId)
+      .limit(1)
+      .maybeSingle();
+
+    const { notifyDoorStaffInvited } = await import("@/lib/notifications/door-staff-invite");
+    invited = await notifyDoorStaffInvited({
+      email: added.email,
+      name: added.name ?? parsed.data.name,
+      eventName: (ev as { title?: string | null } | null)?.title ?? null,
+      assignmentId: added.assignmentId,
+    });
+  }
+
+  // Reported back so the UI can say "invited" vs "added — tell them yourself",
+  // rather than claiming an email went out when it did not.
+  return NextResponse.json({ ...(data as object), invited });
 }
 
 export async function DELETE(req: NextRequest) {
