@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import EventOrdersPanel from "./EventOrdersPanel";
 import {
   Loader2, CalendarPlus, CalendarDays, MapPin, Eye, EyeOff, Trash2,
   AlertTriangle, Ticket, Users, Banknote, ExternalLink,
@@ -64,6 +65,7 @@ function toIsoWithOffset(local: string): string | null {
 export default function AdminEvents() {
   const [rows, setRows] = useState<AdminEvent[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [openOrders, setOpenOrders] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   const [name, setName] = useState("");
@@ -289,6 +291,15 @@ export default function AdminEvents() {
                     </Link>
                   )}
 
+                  {/* The box office. Until M70 there was no admin path to
+                      'paid' for an event order, so a bank transfer or a cash
+                      payment on a platform-run event never issued a ticket. */}
+                  <Button size="sm" variant="outline" disabled={busy === e.storeId}
+                    onClick={() => setOpenOrders(openOrders === e.storeId ? null : e.storeId)}>
+                    <Banknote size={13} className="mr-1" />
+                    {openOrders === e.storeId ? "Hide sales" : "Sales & tickets"}
+                  </Button>
+
                   {e.ticketsSold === 0 && (
                     <Button size="sm" variant="outline" disabled={busy === e.storeId}
                       onClick={() => {
@@ -299,6 +310,12 @@ export default function AdminEvents() {
                     </Button>
                   )}
                 </div>
+
+                {openOrders === e.storeId && (
+                  <div className="mt-4">
+                    <EventOrdersPanel storeId={e.storeId} eventName={e.name} />
+                  </div>
+                )}
               </div>
             );
           })}

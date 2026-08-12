@@ -60,7 +60,17 @@ function whenLabel(iso: string | null, timeZone: string | null): string | null {
  * confirmed a payment, and a mail provider having a bad minute must not undo
  * that or fail their click. Returns false when there was nothing to send.
  */
-export async function notifyTicketsIssued(orderId: string): Promise<boolean> {
+/**
+ * Send (or RE-send) the ticket email for an order.
+ *
+ * `resendToken` exists for one real support case: the buyer says the email never
+ * arrived. The normal send is idempotent per order — Postgres enforces exactly
+ * once, which is right for a double-tapped Confirm button — but that same
+ * guarantee makes a naive resend a silent no-op: the operator sees "sent" and
+ * nothing leaves. Passing a token varies the key so the resend actually happens,
+ * and the caller is expected to write an audit line so repeats are visible.
+ */
+export async function notifyTicketsIssued(orderId: string, resendToken?: string): Promise<boolean> {
   try {
     if (!hasServiceRole()) {
       // Loud, because this is a promise to a paying customer going unkept.
@@ -135,7 +145,9 @@ export async function notifyTicketsIssued(orderId: string): Promise<boolean> {
       // Exactly once per order. An organiser who double-taps Confirm, or a
       // status moved back and forth, must not send a second copy — and Postgres
       // enforces that rather than this function remembering.
-      idempotencyKey: `ticket_qr_delivery:${orderId}`,
+      idempotencyKey: resendToken
+        ? `ticket_qr_delivery:${orderId}:resend:${resendToken}`
+        : `ticket_qr_delivery:${orderId}`,
       relatedType: "order",
       relatedId: orderId,
     });
