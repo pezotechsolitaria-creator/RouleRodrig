@@ -21,8 +21,9 @@ import { parseVideoUrl, isEmbed } from "@/lib/video";
 // PLAYING. YouTube's prev/pause/next overlay stays painted for a beat once
 // playback begins, so revealing on the PLAYING event alone still showed the
 // buttons. Set from the owner's own timing on a real phone, not from theory:
-// 4000, then 2500, then 3750 — 2500 uncovered the player slightly too early.
-const REVEAL_HOLD_MS = 3750;
+// 4000 -> 2500 -> 3750 -> 3900, settled by watching the real player rather than
+// by reasoning about it. 2500 uncovered the video slightly too early.
+const REVEAL_HOLD_MS = 3900;
 
 export default function HeroVideoLayer({
   videos,
@@ -233,7 +234,7 @@ export default function HeroVideoLayer({
           // from the player's REPORTED state, so the poster covers every
           // moment the player is not actually playing — including the pause,
           // buffer and end states that draw the prev/pause/next overlay.
-          className={`absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[177.78vh] min-w-full -translate-x-1/2 -translate-y-1/2 border-0 transition-opacity duration-150 ${
+          className={`absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[177.78vh] min-w-full -translate-x-1/2 -translate-y-1/2 border-0 transition-opacity duration-[260ms] ease-out ${
             ready ? "opacity-100" : "opacity-0"
           }`}
         />
@@ -266,7 +267,7 @@ export default function HeroVideoLayer({
       // the layer entirely rather than leaving a black rectangle over the photo.
       // The headline comes straight back — it is the hero again from here.
       onError={() => { setAllowed(false); onPlaying?.(false); }}
-      className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-150 ${
+      className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-[260ms] ease-out ${
         ready ? "opacity-100" : "opacity-0"
       }`}
     >
