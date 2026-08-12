@@ -29,6 +29,7 @@ export default function HeroVideoLayer({
 }) {
   const list = (videos ?? []).filter((v) => v?.enabled !== false && !!v?.url);
   const ref = useRef<HTMLVideoElement>(null);
+  const frameRef = useRef<HTMLIFrameElement>(null);
   const [index, setIndex] = useState(0);
   const [ready, setReady] = useState(false);
   // Starts false and is only turned on after the checks below pass. Rendering
@@ -73,9 +74,65 @@ export default function HeroVideoLayer({
     return () => io.disconnect();
   }, [allowed, index]);
 
-  if (!allowed || !list.length) return null;
-  const current = list[index % list.length];
-  const parsed = parseVideoUrl(current.url);
+  const current = list.length ? list[index % list.length] : null;
+  const parsed = parseVideoUrl(current?.url);
+  const embed = !!current && isEmbed(parsed.kind) && !!parsed.embedUrl;
+
+  // ── Ask the embedded player what it is actually doing ────────────────────
+  //
+  // `controls: 0` hides YouTube's control BAR. It does NOT stop the player
+  // drawing its prev / pause / next overlay whenever it is paused, buffering
+  // or ended — which is what put three buttons across the middle of the hero.
+  // Nothing about styling or z-index can suppress that; it is painted inside a
+  // cross-origin iframe.
+  //
+  // So visibility follows the player's own reported state instead of a guess.
+  // enablejsapi=1 lets the page talk to it over postMessage WITHOUT loading
+  // YouTube's iframe_api script: send `listening`, and it answers with
+  // onStateChange. State 1 is PLAYING; anything else means the poster should be
+  // covering it, and the headline should be back.
+  useEffect(() => {
+    if (!embed) return;
+    const win = frameRef.current?.contentWindow;
+
+    const onMessage = (e: MessageEvent) => {
+      // Only trust the player's own origin — this listener is on `window`, so
+      // any frame or extension on the page could otherwise drive the hero.
+      if (!/^https:\/\/(www\.)?youtube(-nocookie)?\.com$/.test(e.origin)) return;
+      try {
+        const data = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+        const state = data?.info?.playerState;
+        if (typeof state !== "number") return;
+        const playing = state === 1;
+        setReady(playing);
+        onPlaying?.(playing);
+      } catch {
+        /* not a message we understand — ignore rather than break the hero */
+      }
+    };
+    window.addEventListener("message", onMessage);
+
+    // The handshake has to be repeated: the player only starts reporting once
+    // it is initialised, and there is no event telling us when that is.
+    const hello = window.setInterval(() => {
+      frameRef.current?.contentWindow?.postMessage(
+        JSON.stringify({ event: "listening", id: "rr-hero" }),
+        "*",
+      );
+    }, 400);
+    // Stop knocking after 20s. By then it is either talking to us or it never
+    // will, and in that case the poster simply stays — which is a good hero.
+    const giveUp = window.setTimeout(() => window.clearInterval(hello), 20_000);
+
+    return () => {
+      window.removeEventListener("message", onMessage);
+      window.clearInterval(hello);
+      window.clearTimeout(giveUp);
+      void win;
+    };
+  }, [embed, parsed.embedUrl, onPlaying]);
+
+  if (!allowed || !current) return null;
 
   // A link we cannot play is skipped rather than rendered. This is the bug the
   // owner hit: a YouTube WATCH page in a <video src> fetches HTML, fails to
@@ -93,6 +150,9 @@ export default function HeroVideoLayer({
 
   if (isEmbed(parsed.kind)) {
     return (
+      // pointer-events-none is load-bearing, not tidiness: without it a tap
+      // lands inside YouTube's player and summons its controls, and on a phone
+      // the hero is a large tap target sitting under the reader's thumb.
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
         {/* An iframe cannot object-cover. A 16:9 player scaled to whichever
             axis is short, centred, is what makes an embedded background fill a
@@ -104,25 +164,13 @@ export default function HeroVideoLayer({
           title=""
           allow="autoplay; encrypted-media; picture-in-picture"
           referrerPolicy="strict-origin-when-cross-origin"
-          // NOT `setReady` on load, which is what made the hero unprofessional:
-          // onLoad fires when the iframe DOCUMENT is ready, which is well before
-          // the video is playing — so the player faded in still showing
-          // YouTube's own chrome (the big play button, the title bar, the
-          // skip/next controls) for a second or so on every visit.
-          //
-          // The poster now stays put through that window and the player is
-          // revealed only once it is genuinely showing footage. A timer rather
-          // than the YouTube IFrame API on purpose: the API means loading a
-          // third-party script and holding a player instance just to learn one
-          // boolean, and if it ever fails to load the hero would never reveal at
-          // all. A timer cannot fail — worst case the reveal is slightly late,
-          // and the poster it waits on is a real photograph.
-          onLoad={() => {
-            window.setTimeout(() => {
-              setReady(true);
-              onPlaying?.(true);
-            }, 1400);
-          }}
+          ref={frameRef}
+          // Deliberately NO onLoad reveal. Load means "the document arrived",
+          // not "footage is on screen", and revealing on it is what showed
+          // YouTube's own chrome. The effect above drives visibility purely
+          // from the player's REPORTED state, so the poster covers every
+          // moment the player is not actually playing — including the pause,
+          // buffer and end states that draw the prev/pause/next overlay.
           className={`absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[177.78vh] min-w-full -translate-x-1/2 -translate-y-1/2 border-0 transition-opacity duration-700 ${
             ready ? "opacity-100" : "opacity-0"
           }`}

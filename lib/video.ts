@@ -72,6 +72,13 @@ export function youtubeBackgroundUrl(id: string): string {
     // stays a hero rather than becoming an advert for someone else's channel.
     iv_load_policy: "3",
     disablekb: "1",
+    // Lets the page ASK the player what it is doing, over postMessage, without
+    // loading YouTube's iframe_api script. This is what makes it possible to
+    // show the player only while it is genuinely playing — `controls: 0` above
+    // hides the control BAR, but it does not stop YouTube drawing its
+    // prev/pause/next overlay whenever the player is paused, buffering or
+    // ended, which is what put three buttons across the middle of the hero.
+    enablejsapi: "1",
   });
   // -nocookie is the privacy-preserving host. It costs nothing and avoids
   // setting tracking cookies for visitors who never asked to be on YouTube.

@@ -161,14 +161,17 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
             2. BOTTOM — taller and denser, but ending in the page's own colour
                so the hero DISSOLVES into the cards below instead of stopping
                at a hard edge. This is the section transition, not decoration.
-            3. TEXT — a soft ellipse anchored under the headline only.
+            3. TEXT — a soft ellipse under the headline. It follows the text:
+               the headline is centred now, so an ellipse still anchored at
+               18%/82% would be darkening an empty corner while leaving the
+               words themselves unprotected.
             4. VIGNETTE — barely there; it settles the edges and pulls the eye
                to the centre, which is where the horizon usually is. */}
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[30%] bg-gradient-to-b from-dark/75 via-dark/25 to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-dark via-dark/70 to-transparent" />
         <div
           className="pointer-events-none absolute inset-0"
-          style={{ background: "radial-gradient(ellipse 85% 60% at 18% 82%, rgba(0,0,0,0.52), transparent 68%)" }}
+          style={{ background: "radial-gradient(ellipse 78% 55% at 50% 58%, rgba(0,0,0,0.48), transparent 70%)" }}
         />
         <div
           className="pointer-events-none absolute inset-0"
@@ -189,7 +192,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
       <motion.div
         animate={{ opacity: hideText ? 0 : 1, y: hideText ? -14 : 0 }}
         transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
-        className={`relative z-10 flex flex-col justify-center flex-1 max-w-5xl mx-auto w-full px-4 md:px-6 pb-4 ${compact ? "pt-6" : "pt-20"}`}
+        className={`relative z-10 flex flex-1 flex-col items-center justify-center text-center max-w-5xl mx-auto w-full px-4 md:px-6 pb-4 ${compact ? "pt-6" : "pt-20"}`}
       >
         {/* Eyebrow pill — only when there is something to put in it.
             It rendered unconditionally, so an empty eyebrow (which is exactly
@@ -208,7 +211,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.15 }}
-            className="inline-flex items-center gap-2 self-start bg-dark/70 backdrop-blur-md border border-yellow/25 rounded-full px-4 py-2 mb-3 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.6)]"
+            className="inline-flex items-center gap-2 self-center bg-dark/70 backdrop-blur-md border border-yellow/25 rounded-full px-4 py-2 mb-3 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.6)]"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-yellow animate-pulse" />
             {/* 0.3em at 11px pushed the letters so far apart they stopped reading
@@ -250,7 +253,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 1 }}
-          className="mt-5 hidden md:flex flex-wrap gap-3"
+          className="mt-5 hidden md:flex flex-wrap justify-center gap-3"
         >
           <button
             type="button"
