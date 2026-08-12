@@ -9,8 +9,8 @@ vi.mock("./dispatch", () => ({ dispatchNotification: (...args: unknown[]) => dis
 // The owner's new-order alert is PUSH, not WhatsApp. WhatsApp is now reserved
 // for "the food is ready" alone — a ping per order buried the one message that
 // actually has to interrupt someone, and spent a free hobby service doing it.
-const pushToAdmins = vi.fn(async () => 1);
-vi.mock("@/lib/push/send", () => ({ pushToAdmins: (...args: unknown[]) => pushToAdmins(...args) }));
+const pushToAdmins = vi.fn(async (_payload?: unknown) => 1);
+vi.mock("@/lib/push/send", () => ({ pushToAdmins: (p: unknown) => pushToAdmins(p) }));
 vi.mock("@/lib/supabase/admin", () => ({
   hasServiceRole: () => hasServiceRole(),
   getPrivileged: () => getPrivileged(),
