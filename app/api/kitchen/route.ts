@@ -67,6 +67,12 @@ const actionSchema = z.union([
     // cash balance; the RPC refuses anything above the total.
     amountReceived: z.number().int().positive().optional(),
   }),
+  // M80 — recall a mis-tapped step. No target: the RPC derives where to go
+  // back to, so the client cannot invent a transition.
+  z.object({
+    orderId: z.string().uuid(),
+    undo: z.literal(true),
+  }),
   // M79 — the rest of a split, physically handed over. Separate from
   // "collected": food can leave the counter before the note is in the till.
   z.object({
@@ -120,6 +126,8 @@ export async function POST(req: NextRequest) {
           p_clear_capacity: input.clearCapacity ?? false,
           p_sold_out: input.soldOut ?? null,
         })
+      : "undo" in input
+      ? await supabase.rpc("kitchen_undo_step", { p_order_id: input.orderId })
       : "settleBalance" in input
       ? await supabase.rpc("kitchen_settle_balance", { p_order_id: input.orderId })
       : "cancel" in input

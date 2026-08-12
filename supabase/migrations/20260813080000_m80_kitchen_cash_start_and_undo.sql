@@ -1,0 +1,32 @@
+-- M80 — the "Start cooking" button did not work on cash orders.
+--
+-- M74 deliberately sends a cash order to the kitchen while it is still
+-- `pending_payment`: the customer pays at the counter, so the food has to exist
+-- first. kitchen_dashboard reports payOnCollection = true for exactly that
+-- state, and the cook's screen offers "Start cooking".
+--
+-- kitchen_advance_order never allowed it. Its ladder began at 'paid', so every
+-- cash order — the most common kind on this island — showed a button that
+-- failed with "That order has already moved on." Two correct pieces of work
+-- that disagreed at the seam, and nothing tested the seam.
+--
+-- Proven as a real cook before fixing: kitchen_dashboard reporting
+-- payOnCollection=true and the very next call raising RR004 on the same order.
+--
+-- Also adds RECALL (kitchen_undo_step), which every real kitchen display has
+-- and this did not. A cook working one-handed taps a full-width button by
+-- accident and the order was gone forward with no way back.
+--
+--   ready_for_pickup → preparing
+--   preparing        → paid, or pending_payment when nothing was ever captured
+--   collected        → refused. The food is gone, the money is settled, and M62
+--                      closes the order behind it. That is the owner's call,
+--                      not a recovery from a mis-tap.
+--
+-- The step back is DERIVED in the RPC rather than passed in, so the client
+-- cannot invent a transition.
+--
+-- Verified rolled back, as the cook: cash start→undo returns to
+-- pending_payment (not 'paid', which would invent money that never arrived);
+-- undo from ready returns to preparing; undo of collected refused; undo of a
+-- captured order returns to paid; another kitchen's order stays invisible.
