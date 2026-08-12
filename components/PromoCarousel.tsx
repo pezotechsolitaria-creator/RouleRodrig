@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
 import type { PromoSlide } from "@/lib/defaults";
+import { parseVideoUrl, isEmbed } from "@/lib/video";
 
 const AUTOPLAY_MS = 6000;
 
@@ -60,12 +61,25 @@ export default function PromoCarousel({ slides }: { slides?: PromoSlide[] }) {
               className="absolute inset-0"
             >
               {/* Media with slow Ken Burns zoom */}
-              {s.video ? (
+              {s.video && parseVideoUrl(s.video).kind === "file" ? (
                 <video
                   src={s.video} poster={s.image || undefined}
                   autoPlay muted loop playsInline
                   className="absolute inset-0 w-full h-full object-cover"
                 />
+              ) : s.video && isEmbed(parseVideoUrl(s.video).kind) ? (
+                // Same fix as the hero: a YouTube/Vimeo link is a page, not a
+                // file, so a <video src> renders nothing at all. Scaled to
+                // cover because an iframe cannot object-cover.
+                <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+                  <iframe
+                    src={parseVideoUrl(s.video).embedUrl ?? ""}
+                    title=""
+                    allow="autoplay; encrypted-media; picture-in-picture"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    className="absolute left-1/2 top-1/2 h-[56.25vw] min-h-full w-[177.78vh] min-w-full -translate-x-1/2 -translate-y-1/2 border-0"
+                  />
+                </span>
               ) : s.image ? (
                 <motion.img
                   src={s.image} alt=""

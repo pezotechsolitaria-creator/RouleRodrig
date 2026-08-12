@@ -51,6 +51,8 @@
 // two branches reached for the same number. The pattern is now the rule rather
 // than the exception, which is the argument for deriving this at build time from
 // the commit sha instead of incrementing it by hand.
+// v141 — HOTFIX: /checkout returned a 500. A server component was importing a
+// plain value from a "use client" module and got a client reference back.
 // v142 — the pickup location everywhere it matters, and a service worker that
 // actually notices a new build instead of serving yesterday's homepage.
 // v143 — the ticket email, event status wording, and venue capacity.
@@ -69,9 +71,10 @@
 // alongside orders, so the signed-in half of Suivi covers everything too.
 // v152 — hero videos. Sixth number collision with a parallel branch; stepping
 // past is still cheaper than two builds sharing one cache name.
-const CACHE = "rr-cache-v153";
-// v141 — HOTFIX: /checkout returned a 500. A server component was importing a
-// plain value from a "use client" module and got a client reference back.
+// v154 — a YouTube link in the hero now plays. It was rendered in a <video>,
+// which fetches HTML, fails to decode, and silently unmounted the whole layer.
+// Past v153, which a parallel branch took at the same moment.
+const CACHE = "rr-cache-v154";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

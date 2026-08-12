@@ -95,6 +95,7 @@ import { DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS } from "@/lib/defaults";
 import type { ContactSubmission, Booking, PlaceBooking, Partner, MarketplaceListing, ProductReview, WaitlistEntry } from "@/lib/supabase/types";
 import { SITE_URL } from "@/lib/site";
 import { MASCOT_POSES } from "@/lib/mascot";
+import { parseVideoUrl, describeVideoUrl } from "@/lib/video";
 
 type Section =
   | "dashboard"
@@ -427,18 +428,42 @@ function HeroVideosEditor({
         poster — it is what shows while the video loads, and instead of it on a slow
         connection, on Data Saver, or for a visitor with reduced motion switched on.
         <br />
-        <span className="text-yellow/70">Use MP4</span> where you can; it plays everywhere. An
-        iPhone .MOV is accepted but some Android browsers refuse it. Keep clips short
-        (10–20s) and under 64 MB.
+        <span className="text-yellow/70">Paste a YouTube or Vimeo link</span>, or upload a file.
+        A YouTube link plays muted and looping with its controls hidden. For an uploaded file use
+        MP4 where you can — it plays everywhere; an iPhone .MOV is accepted but some Android
+        browsers refuse it. Keep clips short (10–20s) and under 64 MB.
+        <br />
+        A Google Drive or Facebook link is <span className="text-red-300">not</span> a video file
+        and will not play.
       </p>
 
       <div className="space-y-2">
         {list.map((v, i) => (
           <div key={v.id || i} className="flex items-center gap-2 rounded-lg border border-[#2a2a2a] bg-[#0d0d0d] p-2">
-            <video src={v.url} muted playsInline preload="metadata"
-              className="h-12 w-20 shrink-0 rounded bg-black object-cover" />
+            {/* A YouTube link has no thumbnail a <video> can decode, so the
+                preview showed a black box and told the owner nothing. The
+                badge below is the real fix: it says what this link WILL do
+                before the page ships. */}
+            {parseVideoUrl(v.url).kind === "file" ? (
+              <video src={v.url} muted playsInline preload="metadata"
+                className="h-12 w-20 shrink-0 rounded bg-black object-cover" />
+            ) : (
+              <span className={`flex h-12 w-20 shrink-0 items-center justify-center rounded text-center font-bebas text-[9px] leading-tight tracking-widest ${
+                describeVideoUrl(v.url).ok
+                  ? "bg-yellow/10 text-yellow"
+                  : "bg-red-500/10 text-red-300"
+              }`}>
+                {describeVideoUrl(v.url).label.toUpperCase()}
+              </span>
+            )}
             <div className="min-w-0 flex-1">
               <p className="truncate font-dm text-[11px] text-offwhite/70">{v.url}</p>
+              {/* Never fail silently again. */}
+              <p className={`mt-0.5 font-dm text-[10px] leading-snug ${
+                describeVideoUrl(v.url).ok ? "text-muted" : "text-red-300"
+              }`}>
+                {describeVideoUrl(v.url).detail}
+              </p>
               <label className="mt-1 flex cursor-pointer items-center gap-1.5 font-dm text-[10px] text-muted">
                 <input type="checkbox" checked={v.enabled !== false}
                   onChange={(e) => patch(i, { enabled: e.target.checked })}
