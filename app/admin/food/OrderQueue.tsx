@@ -169,12 +169,30 @@ export default function OrderQueue({ kitchens }: { kitchens: { id: string; name:
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button
-          onClick={() => setScope(scope === "open" ? "all" : "open")}
-          className="rounded-full border border-white/10 bg-dark-card px-3 py-1.5 font-dm text-xs text-muted hover:border-white/25 hover:text-offwhite"
-        >
-          {scope === "open" ? "Showing open orders" : "Showing everything"}
-        </button>
+        {/* Two named tabs, not one toggle. This was a single button reading
+            "Showing open orders" — which says what you ARE seeing and never
+            what you are not, so the owner reasonably concluded cancelled
+            orders were simply not recorded. They always were; the label hid
+            them. Naming the destination is the whole fix. */}
+        {(
+          [
+            { key: "open", label: "Needs action" },
+            { key: "all", label: "All orders · incl. cancelled" },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setScope(t.key)}
+            aria-pressed={scope === t.key}
+            className={`rounded-full px-3 py-1.5 font-dm text-xs transition ${
+              scope === t.key
+                ? "bg-yellow font-bold text-dark"
+                : "border border-white/10 bg-dark-card text-muted hover:border-white/25 hover:text-offwhite"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
         <select
           value={kitchenId}
           onChange={(e) => setKitchenId(e.target.value)}
