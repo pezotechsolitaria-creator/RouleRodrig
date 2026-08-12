@@ -17,6 +17,12 @@ import { parseVideoUrl, isEmbed } from "@/lib/video";
 // photograph, so everything below is about NOT spending that data unless the
 // clip will actually be seen.
 
+// How long the poster keeps covering an embedded player AFTER it reports
+// PLAYING. YouTube's prev/pause/next overlay stays painted for a beat once
+// playback begins, so revealing on the PLAYING event alone still showed the
+// buttons. Measured on a real phone rather than guessed.
+const REVEAL_HOLD_MS = 4000;
+
 export default function HeroVideoLayer({
   videos,
   onPlaying,
@@ -30,6 +36,13 @@ export default function HeroVideoLayer({
   const list = (videos ?? []).filter((v) => v?.enabled !== false && !!v?.url);
   const ref = useRef<HTMLVideoElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
+  // Pending reveal, so a state change can cancel it before it fires.
+  const revealTimer = useRef<number | null>(null);
+  // Whether the player has ever answered the handshake. Some embed builds
+  // simply never do, and without this the poster would sit there forever and
+  // the owner's video would never appear at all — a worse failure than the one
+  // the hold exists to prevent.
+  const heard = useRef(false);
   const [index, setIndex] = useState(0);
   const [ready, setReady] = useState(false);
   // Starts false and is only turned on after the checks below pass. Rendering
@@ -103,9 +116,40 @@ export default function HeroVideoLayer({
         const data = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
         const state = data?.info?.playerState;
         if (typeof state !== "number") return;
-        const playing = state === 1;
-        setReady(playing);
-        onPlaying?.(playing);
+        heard.current = true;
+
+        if (state === 1) {
+          // PLAYING is necessary but NOT sufficient. YouTube keeps its
+          // prev/pause/next overlay painted for a moment AFTER playback has
+          // started, so revealing the instant it reports playing still showed
+          // the buttons — which is exactly what the owner kept seeing.
+          //
+          // The poster therefore holds for a further REVEAL_HOLD_MS. Measured
+          // by the owner on a real phone at ~4s, not guessed. The cost is four
+          // extra seconds of a photograph nobody minds looking at; the benefit
+          // is that the player is never uncovered while it has chrome on it.
+          //
+          // Guarded so repeated PLAYING reports (the player sends them on every
+          // loop) cannot stack timers.
+          if (revealTimer.current === null) {
+            revealTimer.current = window.setTimeout(() => {
+              revealTimer.current = null;
+              setReady(true);
+              onPlaying?.(true);
+            }, REVEAL_HOLD_MS);
+          }
+        } else {
+          // Paused, buffering, ended, cued — any of these can put the overlay
+          // back, so the poster returns immediately and any pending reveal is
+          // cancelled. Hiding is instant while showing waits: the asymmetry is
+          // the whole point.
+          if (revealTimer.current !== null) {
+            window.clearTimeout(revealTimer.current);
+            revealTimer.current = null;
+          }
+          setReady(false);
+          onPlaying?.(false);
+        }
       } catch {
         /* not a message we understand — ignore rather than break the hero */
       }
@@ -128,6 +172,10 @@ export default function HeroVideoLayer({
       window.removeEventListener("message", onMessage);
       window.clearInterval(hello);
       window.clearTimeout(giveUp);
+      if (revealTimer.current !== null) {
+        window.clearTimeout(revealTimer.current);
+        revealTimer.current = null;
+      }
       void win;
     };
   }, [embed, parsed.embedUrl, onPlaying]);
@@ -165,6 +213,18 @@ export default function HeroVideoLayer({
           allow="autoplay; encrypted-media; picture-in-picture"
           referrerPolicy="strict-origin-when-cross-origin"
           ref={frameRef}
+          // Safety net for players that never answer `listening`. Waits longer
+          // than the hold, then reveals only if we have heard nothing at all —
+          // so a talkative player is always driven by its real state, and a
+          // silent one still eventually shows the video instead of stranding
+          // the visitor on the poster.
+          onLoad={() => {
+            window.setTimeout(() => {
+              if (heard.current) return;
+              setReady(true);
+              onPlaying?.(true);
+            }, REVEAL_HOLD_MS + 2000);
+          }}
           // Deliberately NO onLoad reveal. Load means "the document arrived",
           // not "footage is on screen", and revealing on it is what showed
           // YouTube's own chrome. The effect above drives visibility purely
