@@ -2,6 +2,8 @@ import "server-only";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { pushToCustomer, pushToDriverEndpoints } from "@/lib/push/send";
 import { enqueueNotification, formatWhatsAppMessage } from "./queue";
+import { dispatchNotification } from "./dispatch";
+import type { EmailType } from "@/lib/email/types";
 import { templateFor, type NotificationType, type TemplateContext } from "./registry";
 
 // ── The notification engine ────────────────────────────────────────────────
@@ -13,12 +15,15 @@ import { templateFor, type NotificationType, type TemplateContext } from "./regi
 // the registry decides how loud it is and which channels are allowed; this
 // module does the sending.
 //
-// SCOPE, STATED HONESTLY. This engine owns in-app, push and WhatsApp. Email
-// still flows through the existing `dispatchNotification` router, which already
-// owns templates, provider failover and per-recipient idempotency keys. Routing
-// email through here too would mean either duplicating that router or
-// double-sending from the twelve call sites that already use it. Migrating
-// those is a separate, reversible step — not something to do blind.
+// EMAIL IS DELEGATED, NOT DUPLICATED. dispatchNotification owns provider
+// failover, the daily quota ceiling, templates and per-recipient idempotency.
+// The engine calls it with channels:["email"] rather than reimplementing any of
+// that, so there is one email path, not two that drift.
+//
+// The twelve existing dispatchNotification call sites still call it directly.
+// That is deliberate: each one must be moved deliberately, verifying its
+// emailType maps to the right template, because the failure mode is silent —
+// a customer simply never receives their receipt.
 
 export type NotifyTarget = {
   /** Signed-in recipient. Required for the in-app feed — it is keyed on auth.uid(). */
@@ -40,9 +45,16 @@ export type NotifyResult = {
   inApp: boolean;
   pushed: number;
   whatsapp: number;
+  emailed: boolean;
 };
 
-const NOTHING: NotifyResult = { fresh: false, inApp: false, pushed: 0, whatsapp: 0 };
+const NOTHING: NotifyResult = { fresh: false, inApp: false, pushed: 0, whatsapp: 0, emailed: false };
+
+/** Emails need a full URL; every link in the registry is a path. */
+function absoluteUrl(path: string): string {
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://roulerodrig.com";
+  return path.startsWith("http") ? path : `${base}${path}`;
+}
 
 /**
  * Raise a notification for a domain event.
@@ -142,7 +154,33 @@ export async function notify(
       whatsapp = queued;
     }
 
-    return { fresh: true, inApp, pushed, whatsapp };
+    // ── 4. Email ───────────────────────────────────────────────────────────
+    // DELEGATED, not reimplemented. dispatchNotification already owns provider
+    // failover (Brevo → Resend), the quota ceiling, templates and per-recipient
+    // idempotency keys. Rebuilding any of that here would give the platform two
+    // email paths that drift; calling it with channels:["email"] gives the
+    // engine one entry point without a second implementation.
+    let emailed = false;
+    if (t.channels.includes("email") && target.email) {
+      const sent = await dispatchNotification({
+        recipientType: t.audience === "merchant" ? "merchant" : "customer",
+        recipientEmail: target.email,
+        orderNumber: ctx.ref ?? opts.dedupeKey,
+        type: "order_status_changed",
+        title,
+        body,
+        channels: ["email"],
+        emailType: t.emailType as EmailType | undefined,
+        cta: { url: absoluteUrl(link), label: "View details" },
+        // Same key as the in-app row, so a retried event cannot re-email even
+        // if the in-app insert is later removed.
+        idempotencyKey: `email:${opts.dedupeKey}`,
+        orderId: opts.orderId ?? null,
+      });
+      emailed = Boolean(sent);
+    }
+
+    return { fresh: true, inApp, pushed, whatsapp, emailed };
   } catch (err) {
     // A notification must never fail the transaction that caused it. Every
     // caller sits downstream of an already-committed write.

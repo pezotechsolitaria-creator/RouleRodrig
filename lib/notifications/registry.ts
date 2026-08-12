@@ -68,6 +68,16 @@ export type NotificationTemplate = {
   pushBody?: (c: TemplateContext) => string;
   /** Deep link. A notification that doesn't land on its subject is an interruption. */
   link: (c: TemplateContext) => string;
+  /**
+   * Routing key for the email channel, matching lib/email/types.ts.
+   *
+   * Optional: the engine only sends email when `channels` includes "email",
+   * and dispatchNotification falls back to a safe default when this is absent.
+   * Naming it here is what lets the email router apply the right quota
+   * priority — a receipt must outrank a reminder when the daily ceiling is
+   * close.
+   */
+  emailType?: string;
 };
 
 const money = (c: TemplateContext) => c.amount ?? "your payment";

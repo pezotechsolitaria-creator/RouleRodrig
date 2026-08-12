@@ -180,8 +180,15 @@ self.addEventListener("push", (event) => {
   const title = data.title || "Roulé Rodrigues";
   const options = {
     body: data.body || "",
-    icon: "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
+    // /icons/icon-192.png was a 404 — the assets live at the ROOT of /public,
+    // not in an /icons folder. Chrome silently fell back to its generic bell,
+    // so the notification carried no branding at all. A wrong icon path never
+    // errors; it just quietly looks like somebody else's notification.
+    icon: "/icon-192.png",
+    // The badge is the small monochrome glyph in the status bar. Android
+    // silhouettes it, so the maskable variant (full-bleed, no transparent
+    // margin) survives that treatment where the padded icon turns to mush.
+    badge: "/icon-192-maskable.png",
     // Same tag replaces rather than stacks, so a driver who missed three
     // updates about one delivery sees the current state, not a pile.
     tag: data.tag || "rr",
