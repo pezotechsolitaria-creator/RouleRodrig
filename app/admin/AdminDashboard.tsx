@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -636,6 +637,7 @@ function MultiImagePicker({
     setUploading(true);
     try {
       const uploaded: string[] = [];
+      const rejected: string[] = [];
       for (const file of Array.from(files)) {
         const fd = new FormData();
         fd.append("file", file);
@@ -647,9 +649,23 @@ function MultiImagePicker({
         if (res.ok) {
           const { path } = (await res.json()) as { path: string };
           uploaded.push(path);
+        } else {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          rejected.push(`${file.name}: ${body.error ?? "upload failed"}`);
         }
       }
       if (uploaded.length) onChange([...images, ...uploaded]);
+      // Anything the upload route refused — over 4 MB, or a format it does not
+      // accept — used to disappear without a word: the owner picked six photos,
+      // four appeared, and nothing said why. Say why.
+      if (rejected.length) {
+        toast.error(
+          rejected.length === 1
+            ? rejected[0]
+            : `${rejected.length} photos were not added. ${rejected.join(" · ")}`,
+          { duration: 8000 },
+        );
+      }
     } finally {
       setUploading(false);
     }
@@ -3145,10 +3161,11 @@ function PlannerEditor({
             <div className="mt-2"><TransFields base={act.tip} fr={act.tipFr} cr={act.tipCr} onFr={(v) => update(idx, { tipFr: v })} onCr={(v) => update(idx, { tipCr: v })} textarea rows={2} /></div>
           </Field>
 
-          <ImagePicker
-            label="PHOTO (shown in the itinerary)"
-            src={act.image ?? ""}
-            onUpload={(p) => update(idx, { image: p })}
+          <MultiImagePicker
+            label="PHOTOS (shown in the itinerary)"
+            hint="The first is the cover. Tapping it opens the rest."
+            images={act.images?.length ? act.images : act.image ? [act.image] : []}
+            onChange={(imgs) => update(idx, { images: imgs, image: imgs[0] ?? "" })}
           />
         </div>
       ))}
@@ -3288,10 +3305,11 @@ function RideRoutesEditor({
             <TextInput value={r.mapsUrl} onChange={(v) => update(idx, { mapsUrl: v })} placeholder="https://maps.google.com/..." />
           </Field>
 
-          <ImagePicker
-            label="ROUTE PHOTO"
-            src={r.image ?? ""}
-            onUpload={(p) => update(idx, { image: p })}
+          <MultiImagePicker
+            label="ROUTE PHOTOS"
+            hint="The first is the cover shown on the card. Add the viewpoints along the way."
+            images={r.images?.length ? r.images : r.image ? [r.image] : []}
+            onChange={(imgs) => update(idx, { images: imgs, image: imgs[0] ?? "" })}
           />
         </div>
       ))}

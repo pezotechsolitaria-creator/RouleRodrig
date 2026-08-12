@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, Phone, MapPin, Clock, RotateCcw, EyeOff, Eye } from "lucide-react";
+import { Loader2, Plus, Pencil, Phone, MapPin, Clock, RotateCcw, EyeOff, Eye, Trash2 } from "lucide-react";
 import { foodWrite, type AdminKitchen } from "./types";
 
 // Kitchens and the people who cook in them.
@@ -92,6 +92,50 @@ export default function KitchensPanel({
       reload();
     },
     [reload],
+  );
+
+  // Removing a kitchen. Deletes only when nobody has ordered from it — which is
+  // exactly the "clear the test data" case. Once it has taken an order the
+  // server refuses (409) and the operator is offered the honest alternative:
+  // hide it, and keep the record of what people ordered.
+  const remove = useCallback(
+    async (k: AdminKitchen) => {
+      const typed = prompt(
+        `Remove "${k.name}"?
+
+If nobody has ordered from this kitchen it is deleted for good, ` +
+          `along with its ${k.dishCount} dish${k.dishCount === 1 ? "" : "es"}. ` +
+          `If someone has, nothing is deleted and you can hide it instead.
+
+Type the kitchen name to confirm:`,
+        "",
+      );
+      if (typed === null) return;
+      if (typed.trim().toLowerCase() !== k.name.trim().toLowerCase()) {
+        toast.error("That name did not match — nothing was removed.");
+        return;
+      }
+
+      setBusy(k.storeId);
+      const res = await foodWrite(`/api/admin/food/kitchens?storeId=${encodeURIComponent(k.storeId)}`, {
+        method: "DELETE",
+      });
+      setBusy(null);
+
+      if (!res.ok) {
+        if (res.status === 409) {
+          if (confirm(`${res.error}
+
+Hide it now instead?`)) await setStatus(k, "hidden");
+          return;
+        }
+        toast.error(res.error);
+        return;
+      }
+      toast.success(`"${k.name}" removed.`);
+      reload();
+    },
+    [reload, setStatus],
   );
 
   const save = useCallback(async () => {
@@ -236,6 +280,15 @@ export default function KitchensPanel({
                   aria-label={`Edit ${k.name}`}
                 >
                   <Pencil size={13} />
+                </button>
+                <button
+                  type="button"
+                  disabled={busy === k.storeId}
+                  onClick={() => void remove(k)}
+                  className="rounded-lg border border-red-500/25 px-2.5 py-2 text-red-300 hover:border-red-500 hover:bg-red-500/10 disabled:opacity-50"
+                  aria-label={`Remove ${k.name}`}
+                >
+                  <Trash2 size={13} />
                 </button>
               </div>
             </div>

@@ -200,7 +200,8 @@ export interface PlannerActivity {
   story?: string;   // Ti Roulé's story (from the linked map location)
   storyFr?: string;
   storyCr?: string;
-  image?: string;   // optional photo shown in the itinerary card
+  image?: string;   // cover photo shown in the itinerary card
+  images?: string[]; // the rest of the gallery, opened from the cover
   mapsUrl?: string; // precise Google Maps link (else the planner searches by name)
 }
 
@@ -219,6 +220,8 @@ export interface RideRoute {
   mapsUrl: string;    // Google Maps link (rides) or Wikiloc GPS track (trails)
   linkLabel?: string; // custom CTA label, e.g. "View trail on Wikiloc"
   image?: string;
+  /** Gallery. `image` stays the cover, so every existing route keeps working. */
+  images?: string[];
   featured?: boolean; // pinned to top + gold border
   kind?: "ride" | "hike"; // scooter ride (default) vs hiking/adventure trail
 }

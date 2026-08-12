@@ -126,16 +126,20 @@ export type AdminFoodOrder = {
 export async function foodWrite(
   input: string,
   init?: RequestInit,
-): Promise<{ ok: true; data: unknown } | { ok: false; error: string }> {
+): Promise<{ ok: true; data: unknown } | { ok: false; error: string; status: number }> {
   try {
     const res = await fetch(input, {
       ...init,
       headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
     });
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
-    if (!res.ok) return { ok: false, error: body?.error || `Request failed (${res.status}).` };
+    // The STATUS travels with the error. A 409 is not a failure — it is the
+    // server refusing on purpose and offering an alternative (hide the kitchen
+    // rather than delete it), and the caller cannot tell those apart from a
+    // message alone.
+    if (!res.ok) return { ok: false, error: body?.error || `Request failed (${res.status}).`, status: res.status };
     return { ok: true, data: body };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Network error." };
+    return { ok: false, error: err instanceof Error ? err.message : "Network error.", status: 0 };
   }
 }

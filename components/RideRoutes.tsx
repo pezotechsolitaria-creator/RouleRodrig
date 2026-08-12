@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { MapPin, Clock, Route as RouteIcon, ArrowUpRight, WifiOff, Star, Footprints, Bike } from "lucide-react";
+import { MapPin, Clock, Route as RouteIcon, ArrowUpRight, WifiOff, Star, Footprints, Bike, Images as ImageIcon } from "lucide-react";
 import type { RideRoute } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
@@ -111,6 +111,13 @@ export default function RideRoutes({ routes = [] }: { routes?: RideRoute[] }) {
                     </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-dark via-transparent to-transparent" />
+                  {/* The editor takes a whole gallery now — the viewpoints
+                      along the way, not just one cover. */}
+                  {(r.images?.length ?? 0) > 1 && (
+                    <span className="absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 font-dm text-[10px] text-white">
+                      <ImageIcon size={10} /> {r.images!.length}
+                    </span>
+                  )}
                   {/* Save (wishlist) heart */}
                   <div className="absolute top-4 right-4 z-10">
                     <SaveButton

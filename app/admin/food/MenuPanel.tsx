@@ -475,10 +475,14 @@ function DishEditor({
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/heic"
+                  // A dish may carry up to eight photos, and the picker took
+                  // them one at a time — eight trips through the file dialog
+                  // for one plate of ourite.
+                  multiple
                   className="hidden"
                   onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void upload(f);
+                    const files = Array.from(e.target.files ?? []);
+                    void (async () => { for (const f of files) await upload(f); })();
                     e.target.value = "";
                   }}
                 />

@@ -55,6 +55,7 @@ interface Activity {
   tip: string;
   story?: string;
   image?: string;
+  images?: string[];
   mapsUrl?: string;
 }
 
@@ -470,14 +471,33 @@ export default function TripPlanner() {
                               className="bg-dark-card border border-dark-border rounded-2xl p-5 hover:border-yellow/30 transition-colors overflow-hidden"
                             >
                               {act.image && (
-                                /* eslint-disable-next-line @next/next/no-img-element */
-                                <img
-                                  src={act.image}
-                                  alt={act.name}
-                                  onClick={() => setLightbox({ src: act.image!, name: act.name })}
-                                  className="w-full h-40 object-cover rounded-xl mb-4 cursor-pointer hover:opacity-90 transition-opacity"
-                                  loading="lazy"
-                                />
+                                <div className="relative mb-4">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={act.image}
+                                    alt={act.name}
+                                    onClick={() => setLightbox({ src: act.image!, name: act.name })}
+                                    className="w-full h-40 object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                                    loading="lazy"
+                                  />
+                                  {/* Extra photos, straight from the editor's
+                                      gallery. The cover opens; these follow. */}
+                                  {(act.images?.length ?? 0) > 1 && (
+                                    <div className="mt-2 flex gap-2 overflow-x-auto">
+                                      {act.images!.slice(1, 6).map((src) => (
+                                        /* eslint-disable-next-line @next/next/no-img-element */
+                                        <img
+                                          key={src}
+                                          src={src}
+                                          alt={act.name}
+                                          onClick={() => setLightbox({ src, name: act.name })}
+                                          className="h-14 w-14 shrink-0 cursor-pointer rounded-lg object-cover hover:opacity-90"
+                                          loading="lazy"
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               )}
                               <div className="flex items-start gap-4">
                                 {(() => {

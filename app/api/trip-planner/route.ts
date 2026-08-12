@@ -98,6 +98,9 @@ function mapLocationsToActivities(locs: MapLocation[]): Activity[] {
       tipCr: "Tous lor lien kart pou gagn direksion ek distans an direk.",
       ...(l.story ? { story: l.story, storyFr: l.storyFr, storyCr: l.storyCr } : {}),
       ...(image ? { image } : {}),
+      // Beaches and viewpoints often carry a dozen photos. The itinerary card
+      // showed one and dropped the rest on the floor.
+      ...(l.images?.length ? { images: l.images } : {}),
       mapsUrl: `https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}`,
     });
   }

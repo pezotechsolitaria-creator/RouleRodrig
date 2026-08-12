@@ -199,3 +199,32 @@ export async function PATCH(req: NextRequest) {
     return failed(err, "Could not save that kitchen.");
   }
 }
+
+// Removing a kitchen.
+//
+// There was no way to do this at all — no endpoint, no button, and even raw SQL
+// was refused, because every kitchen belongs to the system-owned 'food' merchant
+// and admin_delete_shop() rejects platform infrastructure outright. M62 adds
+// admin_delete_kitchen(): kitchen stores only, and refused the moment anyone has
+// ordered (hide it instead, so the record of what people ordered survives).
+export async function DELETE(req: NextRequest) {
+  const gate = await guardFoodAdmin(req);
+  if (gate instanceof NextResponse) return gate;
+  const { admin } = gate;
+
+  const storeId = new URL(req.url).searchParams.get("storeId") ?? "";
+  if (!/^[0-9a-f-]{36}$/i.test(storeId)) {
+    return NextResponse.json({ error: "Invalid kitchen id." }, { status: 400 });
+  }
+
+  const { data, error } = await admin.rpc("admin_delete_kitchen", { p_store_id: storeId });
+  if (error) {
+    // RR004 is the refusal, not a failure: the kitchen has orders. 409 so the
+    // UI can offer "hide it" instead of showing a red error.
+    if (error.code === "RR004") return NextResponse.json({ error: error.message, suggestion: "hide" }, { status: 409 });
+    if (error.code === "RR003") return NextResponse.json({ error: error.message }, { status: 404 });
+    return failed(error, "Could not remove that kitchen.");
+  }
+
+  return NextResponse.json(data ?? { ok: true });
+}
