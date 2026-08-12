@@ -224,7 +224,13 @@ Tell the customer why — they will see this.`,
       {orders.length === 0 ? (
         <div className="rounded-2xl border border-white/10 bg-dark-card p-8 text-center">
           <Check size={26} className="mx-auto text-green-400" />
-          <p className="mt-2 font-syne text-base font-bold">All caught up</p>
+          <p className="mt-2 font-syne text-base font-bold">
+            {/* Say WHICH kitchen is quiet. An unlabelled empty screen reads as a
+                broken page; a named one reads as a quiet evening. */}
+            {(dash.kitchens ?? []).length > 0
+              ? `No orders for ${(dash.kitchens ?? []).map((k) => k.name).join(" or ")}`
+              : "All caught up"}
+          </p>
           <p className="mt-1 font-dm text-sm text-muted">New orders appear here on their own.</p>
         </div>
       ) : (
@@ -242,9 +248,12 @@ Tell the customer why — they will see this.`,
                 <div className="min-w-0">
                   <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">{o.orderNumber}</p>
                   <p className="font-syne text-base font-bold">{o.customer || "Customer"}</p>
-                  {(dash.kitchens?.length ?? 0) > 1 && (
-                    <p className="font-dm text-xs text-muted">{o.kitchen}</p>
-                  )}
+                  {/* ALWAYS shown, not only when someone works in two kitchens.
+                      The owner was on Riri Resto's team while every order sat in
+                      Ti Kitchen, saw an empty screen, and had no way to tell
+                      WHICH kitchen was empty. Naming it costs one line and turns
+                      "it is broken" into "I am looking at the wrong shop". */}
+                  <p className="font-dm text-xs text-muted">{o.kitchen}</p>
                 </div>
                 <span className="flex shrink-0 items-center gap-1 font-dm text-xs text-muted">
                   <Clock size={12} /> {waitingFor(o.placedAt)}
