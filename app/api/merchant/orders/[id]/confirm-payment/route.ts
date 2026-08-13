@@ -25,7 +25,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
 
-  const { data, error } = await supabase.rpc("confirm_order_payment", { p_order_id: id }).single();
+  // How much actually arrived. Absent means the whole total, which is every
+  // order that is not a split. The RPC refuses anything above the total.
+  let amountReceived: number | null = null;
+  try {
+    const body = (await req.json()) as { amountReceived?: unknown };
+    if (typeof body?.amountReceived === "number" && Number.isInteger(body.amountReceived) && body.amountReceived > 0) {
+      amountReceived = body.amountReceived;
+    }
+  } catch {
+    // No body at all is the ordinary "confirm in full" case, not an error.
+  }
+
+  const { data, error } = await supabase
+    .rpc("confirm_order_payment", { p_order_id: id, p_amount_received: amountReceived })
+    .single();
 
   if (error) {
     if (error.code === NOT_FOUND_CODE) return NextResponse.json({ error: error.message }, { status: 404 });
