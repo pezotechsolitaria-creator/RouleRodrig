@@ -137,7 +137,7 @@
 // address, map pin and contact, from /merchant/profile.
 // v215 — allowing notifications now sends a confirmation push immediately,
 // Kitchen and Taxi alert categories exist, and autofill cannot poison a number.
-const CACHE = "rr-cache-v215";
+const CACHE = "rr-cache-v216";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
