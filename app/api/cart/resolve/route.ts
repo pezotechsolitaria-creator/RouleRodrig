@@ -134,9 +134,10 @@ export async function POST(req: NextRequest) {
       { data: pay }, { data: settings }, { data: status },
       { data: kitchen }, { data: event }, { data: store }, { data: kitchenHint },
     ] = await Promise.all([
+      // offers_rr_delivery only — the payment columns come from an RPC below.
       supabase
         .from("store_payment_settings")
-        .select("offers_rr_delivery, accepts_cash, accepts_bank_transfer, require_receipt")
+        .select("offers_rr_delivery")
         .eq("store_id", storeId)
         .maybeSingle(),
       supabase.from("marketplace_settings").select("delivery_enabled").eq("id", "main").maybeSingle(),
@@ -177,10 +178,34 @@ export async function POST(req: NextRequest) {
     // has none — so create_order refuses guest bank transfer at these shops
     // with RR009. Surfacing the flag lets the form say so up front instead of
     // letting the customer fill everything in and be refused at the button.
+    // Through store_payment_options(), NOT a table read.
+    //
+    // store_payment_settings is deliberately unreadable by anon and
+    // authenticated (M8): it holds bank_name, account_holder and account_number,
+    // and a table grant would publish every live shop's bank account —
+    // marketplace-wide harvesting of exactly the fields an impersonation scam
+    // needs. Column-level revokes cannot help, because a REVOKE on a column is a
+    // no-op while a table grant exists.
+    //
+    // Selecting the table here therefore returned NOTHING for every customer,
+    // and the `?? true` / `?? false` defaults below made that silence look like
+    // an answer: everyone was shown "Cash" whatever the shop actually accepts,
+    // and never offered a transfer even where it was the only method (M83/M84).
+    //
+    // The RPC returns the three booleans and no bank details. The details stay
+    // with store_bank_details(), which releases them only to a customer who
+    // already has an order with that shop.
+    const { data: opts, error: optsError } = await supabase
+      .rpc("store_payment_options", { p_store_id: storeId })
+      .maybeSingle();
+    if (optsError) console.error("store_payment_options failed", optsError);
+    const o = opts as
+      | { accepts_cash?: boolean; accepts_bank_transfer?: boolean; require_receipt?: boolean }
+      | null;
     payment = {
-      acceptsCash: pay?.accepts_cash ?? true,
-      acceptsBankTransfer: pay?.accepts_bank_transfer ?? false,
-      requiresReceipt: pay?.require_receipt ?? false,
+      acceptsCash: o?.accepts_cash ?? true,
+      acceptsBankTransfer: o?.accepts_bank_transfer ?? false,
+      requiresReceipt: o?.require_receipt ?? false,
     };
   }
 
