@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { buildPickupQr } from "@/lib/orders/pickup-qr";
 import {
   Loader2, Send, RefreshCw, Plus, Car, MapPin, Navigation, Users, Clock,
   AlertTriangle, MessageCircle, UserCheck, X, Ban, ChevronRight, Copy, Wallet,
@@ -593,6 +594,29 @@ function DriverRow({
   // The driver's permanent page. Fetched one at a time rather than shipped with
   // the list, so fifty private links never sit in a page source — then handed
   // straight to WhatsApp, because a link in a database helps nobody.
+  // ── Onboard a driver standing in front of you (M96) ──────────────────────
+  //
+  // "Send link" puts a 64-character URL into WhatsApp, which reads exactly like
+  // phishing and asks a taxi driver to complete four more steps alone on his
+  // phone. Two drivers out of two never finished it.
+  //
+  // On a small island the owner usually SEES these people. A QR turns the whole
+  // thing into: hold up the screen, they scan, the page opens, one tap — and he
+  // watches the badge go green before they walk away. No number to be wrong, no
+  // message to lose, nothing to distrust.
+  const [qr, setQr] = useState<{ name: string; url: string } | null>(null);
+
+  async function showQr(id: string) {
+    try {
+      const r = await fetch(`/api/admin/taxi?linkFor=${encodeURIComponent(id)}`);
+      const b = await r.json();
+      if (!r.ok) throw new Error(b.error || "Could not build that link.");
+      setQr({ name: b.name as string, url: `${window.location.origin}${b.link}` });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not build that link.");
+    }
+  }
+
   async function sendLink(id: string) {
     try {
       const r = await fetch(`/api/admin/taxi?linkFor=${encodeURIComponent(id)}`);
@@ -614,7 +638,43 @@ ${url}
     }
   }
 
+  const qrArt = qr ? buildPickupQr(qr.url) : null;
+
   return (
+    <>
+    {qr && qrArt && (
+      // Full-screen so it scans from across a desk. A driver's camera needs
+      // contrast, so the code is black on white regardless of the dark admin.
+      <div
+        onClick={() => setQr(null)}
+        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-6"
+      >
+        <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl bg-white p-6 text-center">
+          <p className="font-syne text-lg font-extrabold text-black">{qr.name}</p>
+          <p className="mt-1 font-dm text-xs text-black/60">
+            Ask them to scan this, then press <strong>Turn on</strong> on their phone. Stay with them until it says
+            &ldquo;On&rdquo;.
+          </p>
+          <svg
+            viewBox={`0 0 ${qrArt.span} ${qrArt.span}`}
+            className="mx-auto mt-4 h-auto w-full max-w-[260px]"
+            role="img"
+            aria-label={`Driver link for ${qr.name}`}
+          >
+            <rect width={qrArt.span} height={qrArt.span} fill="#fff" />
+            <g transform={`translate(${qrArt.quiet} ${qrArt.quiet})`} fill="#000">
+              <path d={qrArt.path} />
+            </g>
+          </svg>
+          <button
+            onClick={() => setQr(null)}
+            className="mt-4 w-full rounded-xl bg-black py-2.5 font-syne text-sm font-bold text-white"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    )}
     <tr className={`border-b border-white/5 last:border-0 ${d.active ? "" : "opacity-50"}`}>
       <td className="px-3 py-2 font-dm text-sm text-offwhite">
         {d.name}
@@ -697,6 +757,13 @@ ${url}
       </td>
       <td className="px-3 py-2 text-right">
         <button
+          onClick={() => void showQr(d.id)}
+          title="Show a QR the driver can scan while standing with you"
+          className="mr-1.5 rounded-full border border-yellow/40 bg-yellow/10 px-2.5 py-1.5 font-dm text-[11px] font-bold text-yellow hover:bg-yellow/20"
+        >
+          Show QR
+        </button>
+        <button
           onClick={() => void sendLink(d.id)}
           className="mr-1.5 rounded-full border border-white/15 px-2.5 py-1.5 font-dm text-[11px] text-yellow hover:border-yellow/50"
         >
@@ -724,6 +791,7 @@ ${url}
         </button>
       </td>
     </tr>
+    </>
   );
 }
 

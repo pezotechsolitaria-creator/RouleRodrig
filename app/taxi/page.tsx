@@ -427,11 +427,15 @@ export default function TaxiPage() {
                       </p>
                     )}
 
-                    {d.rate_from && (
-                      <p className="flex items-center gap-1.5 text-yellow text-xs font-dm font-medium">
-                        <DollarSign size={12} /> {tx.from} {d.rate_from}
-                      </p>
-                    )}
+                    {/* M96: no fare is shown. Roulé Rodrigues does not set taxi
+                        prices — every driver charges differently and the price
+                        is agreed between the driver and the customer, so a
+                        "From Rs …" here was a quote the platform could not
+                        honour. public_taxi_drivers() no longer even returns
+                        rate_from, so this cannot creep back by accident. */}
+                    <p className="flex items-center gap-1.5 text-yellow/90 text-xs font-dm font-medium">
+                      <DollarSign size={12} /> {tx.priceNote}
+                    </p>
 
                     {d.notes && <p className="text-muted/60 text-xs font-dm italic">{d.notes}</p>}
 

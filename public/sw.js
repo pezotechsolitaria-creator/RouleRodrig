@@ -125,7 +125,9 @@
 // seller's WhatsApp to a customer who cannot make a local bank transfer.
 // v209 — whether a driver has a registered phone is now its own column,
 // not two words of grey micro-text under the accept rate.
-const CACHE = "rr-cache-v209";
+// v210 — taxi drivers are visible again (a policy with no grant showed none),
+// no fare is quoted, and admin can onboard a driver with a QR.
+const CACHE = "rr-cache-v210";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
