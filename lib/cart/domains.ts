@@ -31,3 +31,28 @@ export const CART_BASKET_NAME: Record<CartDomain, string> = {
   shop: "Shopping",
   events: "Tickets",
 };
+
+// ── HOW MANY SELLERS ONE DOMAIN MAY HOLD AT ONCE ────────────────────────────
+//
+// This used to be a single rule for the whole app — "one cart, one seller" —
+// and it was right for the wrong reason. The reason it is right for FOOD is
+// physical: two kitchens means two prep times, two collection points and two
+// pickup codes, so asking someone to choose is asking them a real question. For
+// TICKETS it is the same shape: one event, one gate.
+//
+// For the MARKETPLACE it was never true. Nothing about buying honey from one
+// shop stops you buying a basket from another; the reason each order stays with
+// one shop is that payment is a bank transfer INTO THAT SHOP'S OWN ACCOUNT
+// (store_payment_settings is per store) and Roulé Rodrigues holds no money. So
+// the constraint is real at CHECKOUT and completely artificial in the BASKET —
+// and enforcing it in the basket meant a shopper who found a second thing they
+// wanted was shown a dialog offering to throw away the first.
+//
+// So the marketplace holds one basket per shop, as many as you like, and each
+// one checks out on its own. Nothing about the order engine changes: an order
+// is still exactly one `orders` row against one `store_id`.
+export const MULTI_SELLER: Record<CartDomain, boolean> = {
+  food: false,
+  shop: true,
+  events: false,
+};

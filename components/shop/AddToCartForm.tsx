@@ -1,31 +1,47 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import posthog from "posthog-js";
-import { Check, Minus, Plus, ShoppingCart, AlertTriangle } from "lucide-react";
+import { Check, Minus, Plus, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart/CartContext";
 import { centsToDecimalString } from "@/lib/money";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { trackAddToCart } from "@/lib/marketplace/analytics";
 
-export type CartableVariant = { id: string; name: string | null; price: number; stockQuantity: number; isActive: boolean };
+export type CartableVariant = {
+  id: string;
+  name: string | null;
+  price: number;
+  compareAt?: number | null;
+  stockQuantity: number;
+  isActive: boolean;
+};
 
+// ── The buy box ─────────────────────────────────────────────────────────────
+//
+// Options as TAPPABLE CHIPS rather than a <select>. A dropdown hides the price
+// of every option but the chosen one, which is the single fact a shopper is
+// comparing when a product comes in two sizes — and on a phone it costs a modal,
+// a scroll and a confirm to answer "how much is the big one?".
+//
+// The old "your cart has items from another shop — clear it?" dialog is gone
+// with it: the marketplace holds a basket per shop now (lib/cart/domains.ts),
+// so there is nothing to refuse and nothing to throw away.
 export default function AddToCartForm({
   storeId, storeName, productName, variants,
 }: {
   storeId: string; storeName: string; productName: string; variants: CartableVariant[];
 }) {
-  const { addItem, clear } = useCart("shop");
+  const { addItem, basketFor } = useCart("shop");
   const purchasable = variants.filter((v) => v.isActive);
-  const [variantId, setVariantId] = useState(purchasable[0]?.id ?? "");
+  // The first variant with stock, so a product whose small size sold out opens
+  // on the size you can actually buy.
+  const [variantId, setVariantId] = useState(
+    (purchasable.find((v) => v.stockQuantity > 0) ?? purchasable[0])?.id ?? "",
+  );
   const [quantity, setQuantity] = useState(1);
-  const [conflict, setConflict] = useState(false);
-  // Brief "Added ✓" state on the button itself — the confirmation lives where
-  // the tap happened, on top of the toast and the cart badge/bar updating.
+  // A brief "Added ✓" on the button itself — the confirmation belongs where the
+  // tap happened, on top of the toast and the basket badge moving.
   const [justAdded, setJustAdded] = useState(false);
   const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
@@ -35,65 +51,97 @@ export default function AddToCartForm({
   const variant = purchasable.find((v) => v.id === variantId) ?? purchasable[0];
   const outOfStock = !variant || variant.stockQuantity <= 0;
   const maxQty = variant ? Math.min(variant.stockQuantity, 100) : 0;
+  const alreadyInBasket = variant
+    ? (basketFor(storeId)?.items.find((i) => i.variantId === variant.id)?.quantity ?? 0)
+    : 0;
 
-  function confirmAdded() {
-    posthog.capture("cart_item_added", {
-      store_id: storeId,
-      variant_id: variant?.id,
-      quantity,
+  function commitAdd() {
+    if (!variant) return;
+    addItem({ storeId, storeName, variantId: variant.id, quantity });
+    trackAddToCart({
+      storeId, storeName, variantId: variant.id, productName,
+      price: variant.price, quantity, surface: "product_page",
     });
-    toast.success(`Added ${quantity} × ${productName} to cart.`);
+    toast.success(`${quantity} × ${productName} added`, {
+      description: `In your basket from ${storeName}.`,
+      action: { label: "View bag", onClick: () => { window.location.href = "/cart"; } },
+    });
     setJustAdded(true);
     if (addedTimer.current) clearTimeout(addedTimer.current);
     addedTimer.current = setTimeout(() => setJustAdded(false), 1600);
   }
 
-  function commitAdd() {
-    if (!variant) return;
-    const result = addItem({ storeId, storeName, variantId: variant.id, quantity });
-    if (result === "conflict") {
-      setConflict(true);
-      return;
-    }
-    confirmAdded();
-  }
-
   if (purchasable.length === 0) {
-    return <p className="font-dm text-sm text-muted">This product isn&apos;t available right now.</p>;
+    return (
+      <p className="font-dm text-sm text-muted">
+        This product isn&apos;t available right now.
+      </p>
+    );
   }
 
   return (
     <div>
-      {variants.length > 1 && (
-        <div className="mb-4">
-          <label htmlFor="variant" className="mb-1.5 block font-dm text-xs font-medium text-muted">Option</label>
-          <select
-            id="variant"
-            value={variantId}
-            onChange={(e) => { setVariantId(e.target.value); setQuantity(1); }}
-            className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 font-dm text-sm text-offwhite focus:border-yellow focus:outline-none"
-          >
-            {purchasable.map((v) => (
-              <option key={v.id} value={v.id} disabled={v.stockQuantity <= 0}>
-                {v.name ?? "Option"} — Rs {centsToDecimalString(v.price)}{v.stockQuantity <= 0 ? " (out of stock)" : ""}
-              </option>
-            ))}
-          </select>
-        </div>
+      {purchasable.length > 1 && (
+        <fieldset className="mb-4">
+          <legend className="mb-2 font-dm text-xs font-medium text-muted">Choose an option</legend>
+          <div className="flex flex-wrap gap-2">
+            {purchasable.map((v) => {
+              const selected = v.id === variant?.id;
+              const gone = v.stockQuantity <= 0;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  aria-pressed={selected}
+                  disabled={gone}
+                  onClick={() => { setVariantId(v.id); setQuantity(1); }}
+                  className={`rounded-xl border px-3.5 py-2.5 text-left font-dm text-sm transition-colors ${
+                    selected
+                      ? "border-yellow bg-yellow/10 text-offwhite"
+                      : "border-white/15 text-muted hover:border-white/30 hover:text-offwhite"
+                  } ${gone ? "cursor-not-allowed opacity-40" : ""}`}
+                >
+                  <span className="block font-medium">{v.name ?? "Option"}</span>
+                  <span className={`block text-xs ${selected ? "text-yellow" : "text-muted"}`}>
+                    {gone ? "Sold out" : `Rs ${centsToDecimalString(v.price)}`}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
       )}
 
       {variant && (
-        <p className="mb-4 font-syne text-2xl font-extrabold text-yellow">Rs {centsToDecimalString(variant.price)}</p>
+        <div className="mb-4 flex flex-wrap items-baseline gap-2">
+          <p className="font-syne text-3xl font-extrabold text-yellow">
+            Rs {centsToDecimalString(variant.price)}
+          </p>
+          {variant.compareAt && variant.compareAt > variant.price && (
+            <>
+              <p className="font-dm text-sm text-muted line-through">
+                Rs {centsToDecimalString(variant.compareAt)}
+              </p>
+              <span className="rounded-full bg-yellow px-2 py-0.5 font-dm text-[11px] font-bold text-dark">
+                Save Rs {centsToDecimalString(variant.compareAt - variant.price)}
+              </span>
+            </>
+          )}
+        </div>
       )}
 
       {outOfStock ? (
-        <div className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/[0.04] px-4 py-3">
-          <AlertTriangle size={16} className="shrink-0 text-red-400" />
-          <span className="font-dm text-sm text-red-400">Out of stock</span>
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+          <p className="font-dm text-sm font-medium text-offwhite">This one has sold out</p>
+          <p className="mt-0.5 font-dm text-xs text-muted">
+            {purchasable.length > 1
+              ? "Another option above may still be available."
+              : "The shop restocks it from time to time — check back, or ask them directly."}
+          </p>
         </div>
       ) : (
         <>
-          <div className="mb-4 flex items-center gap-3">
+          <div className="mb-4 flex flex-wrap items-center gap-3">
             <span className="font-dm text-xs font-medium text-muted">Quantity</span>
             <div className="flex items-center rounded-full border border-white/15">
               <button
@@ -101,7 +149,7 @@ export default function AddToCartForm({
                 aria-label="Decrease quantity"
                 onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                 disabled={quantity <= 1}
-                className="flex h-9 w-9 items-center justify-center text-offwhite transition-colors hover:text-yellow disabled:opacity-30"
+                className="flex h-10 w-10 items-center justify-center text-offwhite transition-colors hover:text-yellow disabled:opacity-30"
               >
                 <Minus size={14} />
               </button>
@@ -111,53 +159,39 @@ export default function AddToCartForm({
                 aria-label="Increase quantity"
                 onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
                 disabled={quantity >= maxQty}
-                className="flex h-9 w-9 items-center justify-center text-offwhite transition-colors hover:text-yellow disabled:opacity-30"
+                className="flex h-10 w-10 items-center justify-center text-offwhite transition-colors hover:text-yellow disabled:opacity-30"
               >
                 <Plus size={14} />
               </button>
             </div>
-            <span className="font-dm text-xs text-muted">{variant?.stockQuantity} in stock</span>
+            {/* The real number, or nothing. "Only a few left!" on a shelf of 40
+                is the cheapest trick in ecommerce and it is not on this site. */}
+            {variant && variant.stockQuantity <= 5 && (
+              <span className="font-dm text-xs text-orange-300">
+                Only {variant.stockQuantity} left
+              </span>
+            )}
           </div>
 
           <Button onClick={commitAdd} size="xl" className="w-full" aria-live="polite">
             {justAdded ? (
               <>
-                <Check size={15} className="mr-1.5" /> Added
+                <Check size={15} className="mr-1.5" /> Added to your bag
               </>
             ) : (
               <>
-                <ShoppingCart size={15} className="mr-1.5" /> Add to cart
+                <ShoppingCart size={15} className="mr-1.5" /> Add to bag
               </>
             )}
           </Button>
+
+          {alreadyInBasket > 0 && (
+            <p className="mt-2 text-center font-dm text-xs text-muted">
+              {alreadyInBasket} already in your basket from {storeName}.
+            </p>
+          )}
         </>
       )}
-
-      <AlertDialog open={conflict} onOpenChange={setConflict}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Start a new cart?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Your cart has items from another shop. Each order is placed with one shop at a time — clear your
-              current cart to add items from {storeName} instead?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep current cart</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setConflict(false);
-                if (!variant) return;
-                clear();
-                addItem({ storeId, storeName, variantId: variant.id, quantity });
-                confirmAdded();
-              }}
-            >
-              Clear cart &amp; add
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

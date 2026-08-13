@@ -4,31 +4,33 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Minus, Plus, Trash2, ShoppingCart, ArrowLeft, ImageOff, AlertTriangle,
-  UtensilsCrossed, Store, Ticket,
+  Minus, Plus, Trash2, ShoppingBag, ArrowLeft, AlertTriangle,
+  UtensilsCrossed, Store, Ticket, ChevronRight,
 } from "lucide-react";
-import { useCarts, useCart, CART_DOMAINS, type CartDomain } from "@/lib/cart/CartContext";
+import { useCarts, useCart, CART_DOMAINS, type CartDomain, type Basket } from "@/lib/cart/CartContext";
 import { centsToDecimalString } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import ProductThumb from "@/components/shop/ProductThumb";
 import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 
-// ── ONE PAGE, THREE BASKETS ────────────────────────────────────────────────
+// ── ONE BAG, ONE SECTION PER SELLER ─────────────────────────────────────────
 //
-// There is a separate cart for food, for the marketplace and for tickets (see
-// lib/cart/CartContext.tsx for why). This page shows every one that has
-// something in it, each with its own total and its own Checkout button, because
-// each becomes its OWN order — orders.store_id is singular, and a dish and a
-// concert ticket can never be one row.
+// There is a separate cart for food, for the marketplace and for tickets, and
+// the marketplace holds one basket PER SHOP (see lib/cart/domains.ts for why:
+// the customer pays each shop's own bank account, so the split is real at
+// checkout and was never real in the basket).
 //
-// The alternative — one basket per page, chosen by a query parameter — hides
-// from the customer that they have something waiting elsewhere. Showing all of
-// them is the whole point of splitting them up: you can hold dinner AND tickets
-// and pay for them one at a time, instead of being asked to throw one away.
+// This page shows every basket that has something in it, each with its own
+// total and its own Checkout button, because each becomes its OWN order —
+// orders.store_id is singular, and honey from one shop and a basket from
+// another can never be one row.
 //
-// The per-domain nouns live here rather than in lib/food/vocabulary.ts because
-// that module answers a different question — "is this seller a kitchen or a
-// shop" for pages that serve ONE order. This page knows its domain outright.
+// ── WHY THERE IS NO GRAND TOTAL ────────────────────────────────────────────
+// Adding the sections up would produce a number nobody is ever asked to pay.
+// Each shop is paid separately, by separate bank transfer, so a single figure
+// at the bottom would be the one piece of information on this page that is not
+// true. The header counts baskets and items instead.
 
 const SECTION: Record<CartDomain, {
   title: string; icon: React.ElementType; browseHref: string; browseLabel: string;
@@ -40,10 +42,10 @@ const SECTION: Record<CartDomain, {
     browseLabel: "Add more dishes",
   },
   shop: {
-    title: "Your shop basket",
+    title: "From",
     icon: Store,
     browseHref: "/shop",
-    browseLabel: "Continue shopping",
+    browseLabel: "Keep shopping",
   },
   events: {
     title: "Your tickets",
@@ -53,9 +55,17 @@ const SECTION: Record<CartDomain, {
   },
 };
 
+type Section = { domain: CartDomain; basket: Basket };
+
 export default function CartPage() {
-  const { carts, hydrated } = useCarts();
-  const active = CART_DOMAINS.filter((d) => (carts[d]?.items.length ?? 0) > 0);
+  const { baskets, hydrated } = useCarts();
+  const sections: Section[] = CART_DOMAINS.flatMap((domain) =>
+    (baskets[domain] ?? []).map((basket) => ({ domain, basket })),
+  );
+  const itemCount = sections.reduce(
+    (n, s) => n + s.basket.items.reduce((q, i) => q + i.quantity, 0),
+    0,
+  );
 
   return (
     <main className="min-h-screen bg-dark px-4 pb-32 pt-10 text-offwhite">
@@ -64,12 +74,12 @@ export default function CartPage() {
           <ArrowLeft size={14} /> Home
         </Link>
 
-        <h1 className="mt-3 font-syne text-2xl font-extrabold text-offwhite">
-          {active.length > 1 ? "Your orders" : "Your order"}
-        </h1>
-        {active.length > 1 && (
+        <h1 className="mt-3 font-syne text-2xl font-extrabold text-offwhite">Your bag</h1>
+        {hydrated && sections.length > 0 && (
           <p className="mt-1 font-dm text-sm text-muted">
-            These are paid for separately — a kitchen, a shop and an event are three different orders.
+            {itemCount} item{itemCount === 1 ? "" : "s"} from {sections.length} seller
+            {sections.length === 1 ? "" : "s"}
+            {sections.length > 1 && <> · each is paid for separately</>}
           </p>
         )}
 
@@ -79,12 +89,12 @@ export default function CartPage() {
               <Skeleton key={i} className="h-20 w-full rounded-xl bg-white/[0.04]" />
             ))}
           </div>
-        ) : active.length === 0 ? (
+        ) : sections.length === 0 ? (
           <EmptyEverything />
         ) : (
-          <div className="mt-6 space-y-9">
-            {active.map((d) => (
-              <CartSection key={d} domain={d} />
+          <div className="mt-6 space-y-8">
+            {sections.map((s) => (
+              <CartSection key={`${s.domain}:${s.basket.storeId}`} domain={s.domain} basket={s.basket} />
             ))}
           </div>
         )}
@@ -97,9 +107,9 @@ function EmptyEverything() {
   return (
     <div className="mt-8 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-10 text-center">
       <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow/10 text-yellow ring-1 ring-inset ring-yellow/20">
-        <ShoppingCart size={22} />
+        <ShoppingBag size={22} />
       </span>
-      <h2 className="mt-4 font-syne text-lg font-bold text-offwhite">Nothing here yet</h2>
+      <h2 className="mt-4 font-syne text-lg font-bold text-offwhite">Your bag is waiting for something good</h2>
       <p className="mx-auto mt-1 max-w-xs font-dm text-sm text-muted">
         Food, shops and tickets each keep their own basket.
       </p>
@@ -113,7 +123,7 @@ function EmptyEverything() {
               href={s.browseHref}
               className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 px-4 py-2.5 font-dm text-sm font-semibold text-offwhite transition-colors hover:border-yellow/40 hover:text-yellow"
             >
-              <Icon size={15} /> {s.browseLabel}
+              <Icon size={15} /> {d === "shop" ? "Browse products" : s.browseLabel}
             </Link>
           );
         })}
@@ -122,8 +132,8 @@ function EmptyEverything() {
   );
 }
 
-function CartSection({ domain }: { domain: CartDomain }) {
-  const { cart, updateQuantity, removeItem } = useCart(domain);
+function CartSection({ domain, basket }: { domain: CartDomain; basket: Basket }) {
+  const { updateQuantity, removeItem } = useCart(domain);
   const router = useRouter();
   const [resolved, setResolved] = useState<ResolvedCartItem[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -131,14 +141,9 @@ function CartSection({ domain }: { domain: CartDomain }) {
   const [cartError, setCartError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const itemKey = cart?.items.map((i) => `${i.variantId}:${i.quantity}`).join(",") ?? "";
+  const itemKey = basket.items.map((i) => `${i.variantId}:${i.quantity}`).join(",");
 
   useEffect(() => {
-    if (!cart || cart.items.length === 0) {
-      setResolved([]);
-      setLoading(false);
-      return;
-    }
     let cancelled = false;
     setLoading(true);
     setCartError(null);
@@ -149,7 +154,7 @@ function CartSection({ domain }: { domain: CartDomain }) {
     fetch("/api/cart/resolve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items: cart.items }),
+      body: JSON.stringify({ items: basket.items }),
     })
       .then(async (r) => {
         if (!r.ok) throw new Error(`resolve failed (${r.status})`);
@@ -170,8 +175,6 @@ function CartSection({ domain }: { domain: CartDomain }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloadKey, itemKey]);
 
-  if (!cart || cart.items.length === 0) return null;
-
   const meta = SECTION[domain];
   const Icon = meta.icon;
   const items = resolved ?? [];
@@ -179,22 +182,28 @@ function CartSection({ domain }: { domain: CartDomain }) {
   const hasIssue = items.some(
     (i) => !i.isActive || i.productStatus !== "active" || i.stockQuantity < i.requestedQuantity,
   );
+  // Where "keep shopping" should go: back to THIS shop, not to the directory —
+  // the shopper is mid-basket with one seller.
+  const backHref = domain === "shop" ? meta.browseHref : meta.browseHref;
 
   return (
     <section>
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="inline-flex items-center gap-2 font-syne text-base font-extrabold text-offwhite">
-          <Icon size={16} className="text-yellow" /> {meta.title}
+        <h2 className="inline-flex min-w-0 items-baseline gap-2 font-syne text-base font-extrabold text-offwhite">
+          <Icon size={16} className="translate-y-0.5 text-yellow" />
+          <span className="truncate">
+            {domain === "shop" ? basket.storeName : meta.title}
+          </span>
         </h2>
-        <Link href={meta.browseHref} className="shrink-0 font-dm text-xs text-yellow hover:underline">
+        <Link href={backHref} className="shrink-0 font-dm text-xs text-yellow hover:underline">
           {meta.browseLabel}
         </Link>
       </div>
-      <p className="mt-0.5 font-dm text-sm text-muted">from {cart.storeName}</p>
+      {domain !== "shop" && <p className="mt-0.5 font-dm text-sm text-muted">from {basket.storeName}</p>}
 
       {loading ? (
         <div className="mt-3 space-y-2">
-          {Array.from({ length: cart.items.length }).map((_, i) => (
+          {Array.from({ length: basket.items.length }).map((_, i) => (
             <Skeleton key={i} className="h-20 w-full rounded-xl bg-white/[0.04]" />
           ))}
         </div>
@@ -219,14 +228,12 @@ function CartSection({ domain }: { domain: CartDomain }) {
                   key={item.variantId}
                   className="flex items-center gap-3 rounded-xl border border-white/10 bg-dark-card p-3"
                 >
-                  {item.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
-                  ) : (
-                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-muted">
-                      <ImageOff size={18} />
-                    </span>
-                  )}
+                  <ProductThumb
+                    imageUrl={item.imageUrl}
+                    name={item.productName}
+                    slug={item.variantId}
+                    className="h-14 w-14 shrink-0 rounded-lg"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-dm text-sm font-medium text-offwhite">{item.productName}</p>
                     {item.variantName && <p className="truncate font-dm text-xs text-muted">{item.variantName}</p>}
@@ -244,7 +251,7 @@ function CartSection({ domain }: { domain: CartDomain }) {
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
                     <button
-                      aria-label="One fewer"
+                      aria-label={`One fewer ${item.productName}`}
                       onClick={() => updateQuantity(item.variantId, item.requestedQuantity - 1)}
                       className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 text-offwhite"
                     >
@@ -252,7 +259,7 @@ function CartSection({ domain }: { domain: CartDomain }) {
                     </button>
                     <span className="min-w-6 text-center font-dm text-sm tabular-nums">{item.requestedQuantity}</span>
                     <button
-                      aria-label="One more"
+                      aria-label={`One more ${item.productName}`}
                       onClick={() => updateQuantity(item.variantId, item.requestedQuantity + 1)}
                       disabled={item.requestedQuantity >= item.stockQuantity}
                       className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 text-offwhite disabled:opacity-30"
@@ -278,17 +285,24 @@ function CartSection({ domain }: { domain: CartDomain }) {
               <span className="font-semibold text-offwhite">Rs {centsToDecimalString(subtotal)}</span>
             </div>
             <p className="mt-1 font-dm text-xs text-muted">
-              Tax and delivery, if any, are calculated at checkout.
+              Delivery, if you choose it, is added at checkout.
             </p>
             <Button
               size="xl"
               className="mt-3 w-full"
               disabled={hasIssue || items.length === 0}
-              // The domain travels in the URL: /checkout places ONE order, so it
-              // has to be told which basket it is looking at.
-              onClick={() => router.push(`/checkout?cart=${domain}`)}
+              // BOTH the domain and the shop travel in the URL: /checkout places
+              // ONE order, so it has to be told which basket it is looking at —
+              // and the marketplace now has more than one.
+              onClick={() => router.push(`/checkout?cart=${domain}&store=${basket.storeId}`)}
             >
-              {hasIssue ? "Fix the items above to continue" : "Checkout"}
+              {hasIssue ? (
+                "Fix the items above to continue"
+              ) : (
+                <>
+                  Checkout{domain === "shop" ? " with this shop" : ""} <ChevronRight size={16} className="ml-1" />
+                </>
+              )}
             </Button>
           </div>
         </>

@@ -35,6 +35,15 @@ export default async function CheckoutPage({
   const sp = await searchParams;
   const raw = Array.isArray(sp.cart) ? sp.cart[0] : sp.cart;
   const domain: CartDomain = toCartDomain(raw);
+  // WHICH shop, inside that domain. The marketplace now holds one basket per
+  // shop (M96), so ?store= says which basket is being paid for. It is a hint
+  // for picking the basket and never an authority: create_order() re-derives
+  // every price and rule from the storeId in the request body, and refuses a
+  // total that disagrees with what the customer was shown (RR012).
+  const rawStore = Array.isArray(sp.store) ? sp.store[0] : sp.store;
+  const storeId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawStore ?? "")
+    ? (rawStore as string)
+    : null;
 
   const supabase = await createClient();
   const {
@@ -45,13 +54,14 @@ export default async function CheckoutPage({
     <main className="min-h-screen bg-dark px-4 pb-32 pt-10 text-offwhite md:pb-16">
       <div className="mx-auto max-w-lg">
         <Link href="/cart" className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow">
-          <ArrowLeft size={14} /> Back to cart
+          <ArrowLeft size={14} /> Back to your bag
         </Link>
         <h1 className="mt-3 font-syne text-2xl font-extrabold text-offwhite">Checkout</h1>
 
         <div className="mt-6">
           <CheckoutForm
             domain={domain}
+            storeId={storeId}
             defaultName={(user?.user_metadata?.full_name as string) ?? ""}
             defaultPhone=""
             signedInEmail={user?.email ?? null}

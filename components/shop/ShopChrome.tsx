@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, ShoppingCart } from "lucide-react";
+import { ChevronLeft, ShoppingBag, Heart } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useCart, useCarts } from "@/lib/cart/CartContext";
+import { useSaved } from "@/lib/marketplace/saved";
 import AccountButton from "@/components/AccountButton";
 import { centsToDecimalString } from "@/lib/money";
 import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
@@ -34,11 +35,12 @@ import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 // (where it leads) already separates them.
 export function ShopHeader({ backHref, backLabel }: { backHref: string; backLabel: string }) {
   const { totalItemCount: itemCount, hydrated } = useCarts();
+  const { count: savedCount, hydrated: savedHydrated } = useSaved();
   const reduce = useReducedMotion();
 
   return (
     <div className="sticky top-0 z-30 -mx-4 mb-4 border-b border-white/10 bg-dark/85 px-4 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-4xl items-center justify-between">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between">
         <Link
           href={backHref}
           className="group inline-flex items-center gap-2 font-dm text-sm font-medium text-muted transition-colors hover:text-offwhite"
@@ -51,12 +53,26 @@ export function ShopHeader({ backHref, backLabel }: { backHref: string; backLabe
 
         <div className="flex items-center gap-2">
         <AccountButton />
+        {/* Saved. Only once there is something in it — an empty heart in the
+            header is a control that does nothing, and this bar is narrow. */}
+        {savedHydrated && savedCount > 0 && (
+          <Link
+            href="/shop/saved"
+            aria-label={`Saved, ${savedCount} product${savedCount === 1 ? "" : "s"}`}
+            className="relative flex h-11 w-11 items-center justify-center rounded-full border border-white/15 text-offwhite transition-colors hover:border-yellow/50 hover:text-yellow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow"
+          >
+            <Heart size={16} />
+            <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-white/15 px-1 font-dm text-[10px] font-bold leading-none text-offwhite">
+              {savedCount > 99 ? "99+" : savedCount}
+            </span>
+          </Link>
+        )}
         <Link
           href="/cart"
-          aria-label={hydrated && itemCount > 0 ? `Cart, ${itemCount} item${itemCount === 1 ? "" : "s"}` : "Cart, empty"}
+          aria-label={hydrated && itemCount > 0 ? `Bag, ${itemCount} item${itemCount === 1 ? "" : "s"}` : "Bag, empty"}
           className="relative flex h-11 w-11 items-center justify-center rounded-full border border-white/15 text-offwhite transition-colors hover:border-yellow/50 hover:text-yellow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow"
         >
-          <ShoppingCart size={16} />
+          <ShoppingBag size={16} />
           <AnimatePresence>
             {hydrated && itemCount > 0 && (
               <motion.span
@@ -79,21 +95,28 @@ export function ShopHeader({ backHref, backLabel }: { backHref: string; backLabe
 }
 
 export function CartBar() {
-  const { cart, itemCount, hydrated } = useCart("shop");
+  const { baskets, itemCount, hydrated } = useCart("shop");
   const pathname = usePathname() || "/";
   const reduce = useReducedMotion();
   const [subtotal, setSubtotal] = useState<number | null>(null);
 
+  // ── ONE BAR, SEVERAL BASKETS ─────────────────────────────────────────────
+  // The marketplace holds a basket per shop now, so this pill can no longer
+  // name "the" shop. It names the shop when there is one and counts them when
+  // there are more. The money it shows is what is in the BAG — true about the
+  // bag, even though it is not a single payment; /cart is where the per-shop
+  // totals and the per-shop Checkout buttons live.
+  //
   // The count comes straight from context (instant); the money figure needs a
   // live price lookup — same resolve endpoint the cart page trusts, debounced
   // so a quick +1+1+1 burst costs one request. The bar never waits for it.
-  const itemsKey = cart?.items.map((i) => `${i.variantId}:${i.quantity}`).join(",") ?? "";
+  const items = baskets.flatMap((b) => b.items);
+  const itemsKey = items.map((i) => `${i.variantId}:${i.quantity}`).join(",");
   useEffect(() => {
-    if (!hydrated || !cart || cart.items.length === 0) {
+    if (!hydrated || items.length === 0) {
       setSubtotal(null);
       return;
     }
-    const items = cart.items;
     let cancelled = false;
     const t = setTimeout(() => {
       fetch("/api/cart/resolve", {
@@ -118,7 +141,11 @@ export function CartBar() {
   // The cart and checkout pages ARE the cart — the bar would be noise there.
   if (pathname.startsWith("/cart") || pathname.startsWith("/checkout")) return null;
 
-  const visible = hydrated && itemCount > 0 && cart;
+  const visible = hydrated && itemCount > 0 && baskets.length > 0;
+  const where =
+    baskets.length === 1
+      ? baskets[0].storeName
+      : `${baskets.length} shops`;
 
   return (
     <AnimatePresence>
@@ -138,7 +165,7 @@ export function CartBar() {
               {itemCount > 99 ? "99+" : itemCount}
             </span>
             <span className="min-w-0 flex-1 truncate">
-              View cart <span className="font-medium opacity-70">· {cart!.storeName}</span>
+              View bag <span className="font-medium opacity-70">· {where}</span>
             </span>
             {subtotal !== null && <span className="shrink-0">Rs {centsToDecimalString(subtotal)}</span>}
           </Link>

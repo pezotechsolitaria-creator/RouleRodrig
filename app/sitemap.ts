@@ -91,6 +91,45 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Same rule as above — a failure drops the shops, never the sitemap.
   }
 
+  // ── Marketplace products and categories (M96) ─────────────────────────────
+  // The shop pages were listed and every PRODUCT was invisible to a crawler,
+  // which is backwards: "Rodrigues honey" is a product query, and the page that
+  // can win it is the product page, not the directory.
+  //
+  // Both lists come from the SAME predicate as the storefront
+  // (marketplace_stores), so a URL here can never 404 or point at a paused
+  // shop. /shop/search is deliberately absent — an unbounded space of query
+  // strings is a crawl trap, which is why that route sets robots:noindex.
+  let productPages: MetadataRoute.Sitemap = [];
+  let categoryPages: MetadataRoute.Sitemap = [];
+  try {
+    const { createClient } = await import("@/lib/supabase/server");
+    const supabase = await createClient();
+    const [{ data: prods }, { data: home }] = await Promise.all([
+      supabase.rpc("sitemap_products"),
+      supabase.rpc("marketplace_home"),
+    ]);
+    productPages = ((prods ?? []) as { store_slug: string; product_slug: string; updated_at: string | null }[])
+      .map((p) => ({
+        url: `${SITE_URL}/shop/${p.store_slug}/${p.product_slug}`,
+        lastModified: p.updated_at ? new Date(p.updated_at) : now,
+        changeFrequency: "weekly" as const,
+        priority: 0.7,
+      }));
+    // Only categories that HAVE something in them. A category page with nothing
+    // on it is a thin page, and thin pages drag a whole domain down.
+    categoryPages = (((home as { categories?: { slug: string; count: number }[] } | null)?.categories ?? [])
+      .filter((c) => c.count > 0)
+      .map((c) => ({
+        url: `${SITE_URL}/shop/c/${c.slug}`,
+        lastModified: now,
+        changeFrequency: "weekly" as const,
+        priority: 0.8,
+      })));
+  } catch (err) {
+    console.error("sitemap: marketplace products failed", err);
+  }
+
   // Deduplicate by URL, keeping the FIRST occurrence so the deliberate priority
   // set here wins over whatever a data-driven source happened to emit.
   //
@@ -108,8 +147,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Marketplace directory — always exists (its empty state recruits
     // merchants), so it is not data-gated like /guide/shops below.
     { url: `${SITE_URL}/shop`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
-    // Every shop, directly under the directory that links them.
+    // Categories above shops: a category page is the one that can rank for
+    // "Rodrigues honey", and it links to both the products and their sellers.
+    ...categoryPages,
+    // Every shop, directly under the marketplace that links them.
     ...shops,
+    // Then every product. These carry the unique local content.
+    ...productPages,
     // Food ordering. Always listed (its empty state is the concierge hand-off,
     // not a 404), and every published dish is listed beneath it — a dish page
     // is a real commercial landing page for "ourite rodrigues" and the like.

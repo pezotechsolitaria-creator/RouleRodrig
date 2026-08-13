@@ -305,6 +305,100 @@ export function storeLd(s: {
   };
 }
 
+// ── A marketplace product ───────────────────────────────────────────────────
+//
+// Deliberately NOT productLd() above, which describes a RENTAL: that one names
+// Roulé Rodrigues as the seller, because the platform really does rent out the
+// scooters. Here the platform does not sell anything — the shop does, and the
+// customer pays the shop's own bank account directly. Naming the platform as
+// seller would misdescribe the transaction to every crawler that reads it.
+//
+// `offers` is an AggregateOffer whenever a product has several priced variants,
+// so a "from Rs 250" product is not published as though Rs 250 were the only
+// price. availability is InStock/OutOfStock from the real stock figure, and
+// aggregateRating appears only when real published reviews exist — the same
+// rule every other block in this file follows.
+export function marketplaceProductLd(p: {
+  name: string;
+  slug: string;
+  storeSlug: string;
+  storeName: string;
+  description?: string | null;
+  brand?: string | null;
+  sku?: string | null;
+  images?: string[];
+  category?: string | null;
+  /** Integer minor units, as everywhere else in this codebase. */
+  minPrice: number;
+  maxPrice: number;
+  inStock: boolean;
+  offerCount: number;
+  rating?: { avg: number; count: number } | null;
+  reviews?: { rating: number; body: string | null; author: string | null; createdAt: string }[];
+}) {
+  const url = `${SITE_URL}/shop/${p.storeSlug}/${p.slug}`;
+  const money = (cents: number) => (cents / 100).toFixed(2);
+  const availability = p.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
+  const seller = { "@type": "Organization", name: p.storeName, url: `${SITE_URL}/shop/${p.storeSlug}` };
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "@id": `${url}#product`,
+    name: p.name,
+    url,
+    ...(p.description ? { description: p.description } : {}),
+    ...(p.brand ? { brand: { "@type": "Brand", name: p.brand } } : {}),
+    ...(p.sku ? { sku: p.sku } : {}),
+    ...(p.images?.length ? { image: p.images } : {}),
+    ...(p.category ? { category: p.category } : {}),
+    offers:
+      p.offerCount > 1 && p.maxPrice > p.minPrice
+        ? {
+            "@type": "AggregateOffer",
+            lowPrice: money(p.minPrice),
+            highPrice: money(p.maxPrice),
+            priceCurrency: "MUR",
+            offerCount: p.offerCount,
+            availability,
+            url,
+            seller,
+          }
+        : {
+            "@type": "Offer",
+            price: money(p.minPrice),
+            priceCurrency: "MUR",
+            availability,
+            url,
+            seller,
+          },
+    ...(p.rating && p.rating.count > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: p.rating.avg,
+            reviewCount: p.rating.count,
+            bestRating: 5,
+            worstRating: 1,
+          },
+        }
+      : {}),
+    // Only reviews that are actually rendered on the page, and only ones with
+    // words: markup describing content a visitor cannot see is devalued.
+    ...(p.reviews?.length
+      ? {
+          review: p.reviews.slice(0, 5).map((r) => ({
+            "@type": "Review",
+            reviewRating: { "@type": "Rating", ratingValue: r.rating, bestRating: 5, worstRating: 1 },
+            ...(r.body ? { reviewBody: r.body } : {}),
+            ...(r.author ? { author: { "@type": "Person", name: r.author } } : {}),
+            datePublished: r.createdAt.slice(0, 10),
+          })),
+        }
+      : {}),
+  };
+}
+
 // The business. Referenced by @id from other blocks so Google links them into
 // one entity instead of treating each page as a separate company.
 export function organizationLd(opts: { logo?: string; sameAs?: string[] } = {}) {

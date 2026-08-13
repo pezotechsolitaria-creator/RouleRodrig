@@ -36,10 +36,27 @@ type Zone = { id: string; name: string; covers: string | null; fee: number };
 const FULFILLMENT_COPY = FULFILMENT;
 
 export default function CheckoutForm({
-  domain, defaultName, defaultPhone, signedInEmail,
-}: { domain: CartDomain; defaultName: string; defaultPhone: string; signedInEmail: string | null }) {
-  const { cart, hydrated, clear } = useCart(domain);
+  domain, storeId, defaultName, defaultPhone, signedInEmail,
+}: {
+  domain: CartDomain;
+  /** Which shop's basket, from ?store= — the marketplace holds several. */
+  storeId: string | null;
+  defaultName: string;
+  defaultPhone: string;
+  signedInEmail: string | null;
+}) {
+  const { baskets, basketFor, hydrated, clear } = useCart(domain);
   const router = useRouter();
+
+  // WHICH basket this checkout is placing. The marketplace holds one per shop,
+  // so the shop travels in the URL; food and ticketing hold exactly one, so the
+  // fallback is not a guess. A ?store= naming a basket that is not there falls
+  // back too, and the empty-cart branch below catches the genuinely-empty case.
+  //
+  // Nothing about this is trusted: create_order() re-derives every price, every
+  // stock figure and the shop's own rules from the storeId it is given, and
+  // refuses anything that disagrees with what the customer was shown (RR012).
+  const cart = (storeId ? basketFor(storeId) : null) ?? baskets[0] ?? null;
 
   const [resolved, setResolved] = useState<ResolvedCartItem[] | null>(null);
   const [loadingCart, setLoadingCart] = useState(true);
@@ -397,7 +414,10 @@ export default function CheckoutForm({
         payment_method: provider,
         is_guest_checkout: isGuest,
       });
-      clear();
+      // ONLY this shop's basket. Clearing the domain would silently throw away
+      // the other baskets a marketplace shopper is deliberately holding — they
+      // paid one shop, not all of them.
+      clear(cart.storeId);
       toast.success("Order placed!");
       // A GUEST has no session, so /orders/[id] — which filters on
       // customer_id = auth.uid() — would bounce them straight to /login after

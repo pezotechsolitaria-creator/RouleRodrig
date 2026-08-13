@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-// ── THREE CARTS, NOT ONE ────────────────────────────────────────────────────
+// ── THREE DOMAINS, AND THE MARKETPLACE HOLDS SEVERAL SHOPS ──────────────────
 //
 // A cart is a pure client-side intent list — {variantId, quantity} in
 // localStorage. It is NEVER trusted for price or availability: every price
@@ -10,173 +10,196 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 // (/api/checkout → create_order()) only reads variantId + quantity, re-deriving
 // everything else from the database.
 //
-// It used to be ONE cart for the whole site. That was defensible while the
-// marketplace was the only thing selling, and it became wrong the moment food
-// and event ticketing arrived: buying a concert ticket and then adding dinner
-// made the two fight over the same slot, and the customer was asked to throw
-// one away to keep the other. Nobody thinks of a table booking, a bag of chilli
-// and two festival tickets as the same basket, and the platform should not
-// force them to.
-//
-// So there is one cart PER DOMAIN, and they are completely independent:
+// There is one cart PER DOMAIN, and they are completely independent:
 //
 //     food   — dishes, from one kitchen
-//     shop   — marketplace products, from one shop
+//     shop   — marketplace products, from any number of shops
 //     events — tickets, for one event
 //
-// ── WHY EACH CART IS STILL SINGLE-SELLER ───────────────────────────────────
-// The one-store rule inside a domain is NOT the same limitation and it stays.
-// orders.store_id is singular, and for food that is what makes an order
-// fulfillable at all: two kitchens means two prep times, two collection points
-// and two pickup codes. So adding a dish from another kitchen still prompts —
-// but it can no longer be triggered by something that is not even food.
+// ── WHY SHOP IS DIFFERENT NOW (M96) ────────────────────────────────────────
+// Every domain used to hold exactly one seller. For food and tickets that is a
+// physical fact (see MULTI_SELLER in ./domains). For the marketplace it was an
+// accident: the reason an ORDER stays with one shop is that the customer pays
+// that shop's own bank account directly, which is a checkout constraint, not a
+// basket constraint. Enforcing it in the basket produced the worst dialog on
+// the site — "your cart has items from another shop, clear it?" — which asks a
+// shopper to abandon one purchase to make another.
 //
-// ── THE PAYOFF ─────────────────────────────────────────────────────────────
-// A customer can hold dinner, a bag of coffee and two tickets at once and check
-// them out one at a time, which is three orders the platform would otherwise
-// have talked them out of.
+// So every domain now stores a LIST of baskets, and the domain's policy decides
+// whether a second one is allowed. Food and tickets still prompt. The
+// marketplace simply opens another basket, and /cart shows them side by side
+// with a Checkout button each.
+//
+// ── WHAT DID NOT CHANGE ────────────────────────────────────────────────────
+// orders.store_id is still singular and create_order() is untouched. A basket
+// is still a client-side intent list. `useCart(domain).cart` still returns the
+// single basket for single-seller domains, so food and ticketing call sites did
+// not have to move.
 
 // Defined in a directive-free module so SERVER components can read them too —
 // importing a plain value from a "use client" module gives them a client
 // reference, not the value. See lib/cart/domains.ts.
-export { CART_DOMAINS, toCartDomain, type CartDomain } from "./domains";
-import { CART_DOMAINS, type CartDomain } from "./domains";
+export { CART_DOMAINS, toCartDomain, MULTI_SELLER, type CartDomain } from "./domains";
+import { CART_DOMAINS, MULTI_SELLER, type CartDomain } from "./domains";
+// The decisions themselves live in a plain module so they can be tested without
+// a DOM. This file is the context and the localStorage adapter, nothing more.
+import {
+  addToBaskets, clearBaskets, countItems, migrateStored, prune, setQuantity,
+  type Basket, type CartLine,
+} from "./baskets";
 
-export type CartLine = { variantId: string; quantity: number };
-export type CartState = { storeId: string; storeName: string; items: CartLine[] } | null;
+export type { Basket, CartLine };
+/** Kept for the single-seller call sites that still think in one basket. */
+export type CartState = Basket | null;
 
-const STORAGE_PREFIX = "rr-cart-v2-";
+const STORAGE_PREFIX = "rr-cart-v3-";
+/** The one-basket-per-domain layout this replaced. Read once, then rewritten. */
+const V2_PREFIX = "rr-cart-v2-";
 /**
- * The single-cart key this replaced.
+ * The single-cart key that preceded even that.
  *
  * Migrated into `shop` rather than guessed at: the key was named for the
  * marketplace and served only it for most of its life, and deciding a cart's
  * domain properly needs a network round trip that this synchronous read cannot
- * make. Food had existed for hours when this shipped, so the realistic blast
- * radius is a shop basket landing in the shop cart, which is where it belongs.
+ * make.
  */
 const LEGACY_KEY = "rr-marketplace-cart";
 
-function keyFor(domain: CartDomain): string {
-  return `${STORAGE_PREFIX}${domain}`;
-}
+const keyFor = (domain: CartDomain) => `${STORAGE_PREFIX}${domain}`;
 
-function readOne(key: string): CartState {
+function readRaw(key: string): unknown {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as CartState;
-    if (!parsed || !parsed.storeId || !Array.isArray(parsed.items)) return null;
-    return parsed;
+    return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
 
-function readAll(): Record<CartDomain, CartState> {
-  const carts = { food: null, shop: null, events: null } as Record<CartDomain, CartState>;
-  if (typeof window === "undefined") return carts;
+/** A domain's baskets, lifting the older storage layouts on first read. */
+function readDomain(domain: CartDomain): Basket[] {
+  const current = readRaw(keyFor(domain));
+  // v2 held one object per domain; the pre-v2 key held one for the whole app.
+  const legacy = readRaw(`${V2_PREFIX}${domain}`) ?? (domain === "shop" ? readRaw(LEGACY_KEY) : null);
+  const migrated = migrateStored(current, legacy);
+  if (migrated === null) return [];
 
-  for (const d of CART_DOMAINS) carts[d] = readOne(keyFor(d));
-
-  // One-time migration off the single-cart key.
-  const legacy = readOne(LEGACY_KEY);
-  if (legacy && !carts.shop) {
-    carts.shop = legacy;
+  // Rewrite in the current layout only when something older was found, so a
+  // normal read stays a read.
+  if (!Array.isArray(current)) {
+    writeDomain(domain, migrated);
     try {
-      window.localStorage.setItem(keyFor("shop"), JSON.stringify(legacy));
-      window.localStorage.removeItem(LEGACY_KEY);
+      window.localStorage.removeItem(`${V2_PREFIX}${domain}`);
+      if (domain === "shop") window.localStorage.removeItem(LEGACY_KEY);
     } catch {
       /* a full or blocked localStorage must not break the page */
     }
   }
-  return carts;
+  return migrated;
 }
 
-function writeOne(domain: CartDomain, state: CartState) {
+function readAll(): Record<CartDomain, Basket[]> {
+  const out = { food: [], shop: [], events: [] } as Record<CartDomain, Basket[]>;
+  if (typeof window === "undefined") return out;
+  for (const d of CART_DOMAINS) out[d] = readDomain(d);
+  return out;
+}
+
+function writeDomain(domain: CartDomain, baskets: Basket[]) {
   if (typeof window === "undefined") return;
-  const key = keyFor(domain);
-  if (!state || state.items.length === 0) window.localStorage.removeItem(key);
-  else window.localStorage.setItem(key, JSON.stringify(state));
+  // An empty basket is not a basket. Dropping them here means every consumer
+  // can treat "present" as "has something in it".
+  const kept = prune(baskets);
+  try {
+    if (kept.length === 0) window.localStorage.removeItem(keyFor(domain));
+    else window.localStorage.setItem(keyFor(domain), JSON.stringify(kept));
+  } catch {
+    /* quota or private mode — the in-memory cart still works for this session */
+  }
 }
 
 export type CartApi = {
+  /**
+   * THE basket, for single-seller domains. For the marketplace this is the
+   * first one and is deliberately of limited use — anything that renders the
+   * marketplace basket should read `baskets`.
+   */
   cart: CartState;
+  /** Every basket in this domain, in the order they were started. */
+  baskets: Basket[];
   /** False until the first client render has read localStorage. Consumers must
-   * not treat `cart === null` as "genuinely empty" before this is true — SSR
-   * and the first paint always see null, and deciding "empty" too early flashes
-   * an empty state that races with the real data. */
+   * not treat an empty list as "genuinely empty" before this is true — SSR and
+   * the first paint always see none, and deciding "empty" too early flashes an
+   * empty state that races with the real data. */
   hydrated: boolean;
+  /** Across every basket in this domain. */
   itemCount: number;
-  /** "conflict" when this domain's cart already holds a DIFFERENT seller's
-   * items. It can no longer be triggered across domains. */
+  basketFor: (storeId: string) => Basket | null;
+  /** "conflict" only ever comes back from a SINGLE-SELLER domain. */
   addItem: (opts: { storeId: string; storeName: string; variantId: string; quantity: number }) => "ok" | "conflict";
+  /** The variant identifies its basket — a variant belongs to exactly one shop. */
   updateQuantity: (variantId: string, quantity: number) => void;
   removeItem: (variantId: string) => void;
-  clear: () => void;
+  /** One shop's basket, or the whole domain when called with no argument. */
+  clear: (storeId?: string) => void;
 };
 
 type CartsContextValue = {
-  carts: Record<CartDomain, CartState>;
+  baskets: Record<CartDomain, Basket[]>;
   hydrated: boolean;
   /** Total across every domain — for a global badge. */
   totalItemCount: number;
   countFor: (domain: CartDomain) => number;
-  setCart: (domain: CartDomain, next: (prev: CartState) => CartState) => void;
+  setDomain: (domain: CartDomain, next: (prev: Basket[]) => Basket[]) => void;
 };
 
 const CartsContext = createContext<CartsContextValue | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [carts, setCarts] = useState<Record<CartDomain, CartState>>({ food: null, shop: null, events: null });
+  const [baskets, setBaskets] = useState<Record<CartDomain, Basket[]>>({ food: [], shop: [], events: [] });
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    setCarts(readAll());
+    setBaskets(readAll());
     setHydrated(true);
   }, []);
 
-  const setCart = useCallback<CartsContextValue["setCart"]>((domain, next) => {
-    setCarts((prev) => {
-      const updated = next(prev[domain]);
-      writeOne(domain, updated);
+  const setDomain = useCallback<CartsContextValue["setDomain"]>((domain, next) => {
+    setBaskets((prev) => {
+      const updated = prune(next(prev[domain]));
+      writeDomain(domain, updated);
       return { ...prev, [domain]: updated };
     });
   }, []);
 
-  // Keep multiple tabs in sync — now across all three keys.
+  // Keep multiple tabs in sync across every key this module owns.
   useEffect(() => {
     function onStorage(e: StorageEvent) {
-      if (e.key && (e.key.startsWith(STORAGE_PREFIX) || e.key === LEGACY_KEY)) setCarts(readAll());
+      if (e.key && (e.key.startsWith(STORAGE_PREFIX) || e.key.startsWith(V2_PREFIX) || e.key === LEGACY_KEY)) {
+        setBaskets(readAll());
+      }
     }
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  const countFor = useCallback(
-    (domain: CartDomain) => carts[domain]?.items.reduce((sum, i) => sum + i.quantity, 0) ?? 0,
-    [carts],
-  );
+  const countFor = useCallback((domain: CartDomain) => countItems(baskets[domain] ?? []), [baskets]);
 
   const totalItemCount = useMemo(
-    () =>
-      CART_DOMAINS.reduce(
-        (sum, d) => sum + (carts[d]?.items.reduce((n, i) => n + i.quantity, 0) ?? 0),
-        0,
-      ),
-    [carts],
+    () => CART_DOMAINS.reduce((sum, d) => sum + countItems(baskets[d] ?? []), 0),
+    [baskets],
   );
 
   const value = useMemo(
-    () => ({ carts, hydrated, totalItemCount, countFor, setCart }),
-    [carts, hydrated, totalItemCount, countFor, setCart],
+    () => ({ baskets, hydrated, totalItemCount, countFor, setDomain }),
+    [baskets, hydrated, totalItemCount, countFor, setDomain],
   );
 
   return <CartsContext.Provider value={value}>{children}</CartsContext.Provider>;
 }
 
-/** Every cart at once — for /cart, and for any badge that counts the lot. */
+/** Every basket at once — for /cart, and for any badge that counts the lot. */
 export function useCarts(): CartsContextValue {
   const ctx = useContext(CartsContext);
   if (!ctx) throw new Error("useCarts must be used within CartProvider");
@@ -184,60 +207,64 @@ export function useCarts(): CartsContextValue {
 }
 
 /**
- * One domain's cart, with the same API the single cart used to expose.
+ * One domain's baskets.
  *
  * The domain is passed explicitly at every call site rather than inferred from
  * the URL: a component knows what it is selling, and a route does not — the
  * same /cart page serves all three.
  */
 export function useCart(domain: CartDomain): CartApi {
-  const { carts, hydrated, setCart } = useCarts();
-  const cart = carts[domain];
+  const { baskets: all, hydrated, setDomain } = useCarts();
+  const baskets = useMemo(() => all[domain] ?? [], [all, domain]);
+  const multi = MULTI_SELLER[domain];
 
   const addItem = useCallback<CartApi["addItem"]>(
-    ({ storeId, storeName, variantId, quantity }) => {
+    (opts) => {
       let result: "ok" | "conflict" = "ok";
-      setCart(domain, (prev) => {
-        if (prev && prev.storeId !== storeId && prev.items.length > 0) {
-          result = "conflict";
-          return prev;
-        }
-        const base = prev && prev.storeId === storeId ? prev : { storeId, storeName, items: [] };
-        const existing = base.items.find((i) => i.variantId === variantId);
-        const items = existing
-          ? base.items.map((i) => (i.variantId === variantId ? { ...i, quantity: i.quantity + quantity } : i))
-          : [...base.items, { variantId, quantity }];
-        return { storeId, storeName, items };
+      setDomain(domain, (prev) => {
+        const next = addToBaskets(prev, opts, multi);
+        result = next.result;
+        return next.baskets;
       });
       return result;
     },
-    [domain, setCart],
+    [domain, multi, setDomain],
   );
 
-  const updateQuantity = useCallback(
-    (variantId: string, quantity: number) => {
-      setCart(domain, (prev) => {
-        if (!prev) return prev;
-        if (quantity <= 0) return { ...prev, items: prev.items.filter((i) => i.variantId !== variantId) };
-        return { ...prev, items: prev.items.map((i) => (i.variantId === variantId ? { ...i, quantity } : i)) };
-      });
-    },
-    [domain, setCart],
+  const updateQuantity = useCallback<CartApi["updateQuantity"]>(
+    (variantId, quantity) => setDomain(domain, (prev) => setQuantity(prev, variantId, quantity)),
+    [domain, setDomain],
   );
 
-  const removeItem = useCallback(
-    (variantId: string) => {
-      setCart(domain, (prev) => (prev ? { ...prev, items: prev.items.filter((i) => i.variantId !== variantId) } : prev));
-    },
-    [domain, setCart],
+  const removeItem = useCallback<CartApi["removeItem"]>(
+    (variantId) => updateQuantity(variantId, 0),
+    [updateQuantity],
   );
 
-  const clear = useCallback(() => setCart(domain, () => null), [domain, setCart]);
+  const clear = useCallback<CartApi["clear"]>(
+    (storeId) => setDomain(domain, (prev) => clearBaskets(prev, storeId)),
+    [domain, setDomain],
+  );
 
-  const itemCount = useMemo(() => cart?.items.reduce((sum, i) => sum + i.quantity, 0) ?? 0, [cart]);
+  const basketFor = useCallback(
+    (storeId: string) => baskets.find((b) => b.storeId === storeId) ?? null,
+    [baskets],
+  );
+
+  const itemCount = useMemo(() => countItems(baskets), [baskets]);
 
   return useMemo(
-    () => ({ cart, hydrated, itemCount, addItem, updateQuantity, removeItem, clear }),
-    [cart, hydrated, itemCount, addItem, updateQuantity, removeItem, clear],
+    () => ({
+      cart: baskets[0] ?? null,
+      baskets,
+      hydrated,
+      itemCount,
+      basketFor,
+      addItem,
+      updateQuantity,
+      removeItem,
+      clear,
+    }),
+    [baskets, hydrated, itemCount, basketFor, addItem, updateQuantity, removeItem, clear],
   );
 }
