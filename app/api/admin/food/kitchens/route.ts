@@ -18,6 +18,25 @@ export async function GET(req: NextRequest) {
   if (gate instanceof NextResponse) return gate;
   const { admin } = gate;
 
+  // ── THE REMOVAL PREVIEW ────────────────────────────────────────────────────
+  // ?preview=<storeId> answers "what happens if I press the red button" BEFORE
+  // it is pressed: how many orders, how much money, which uploaded files, and
+  // whether anything is currently blocking. The confirm panel can then state
+  // real numbers instead of a generic "this cannot be undone" — which is the
+  // difference between a decision and a flinch.
+  const preview = new URL(req.url).searchParams.get("preview");
+  if (preview) {
+    if (!/^[0-9a-f-]{36}$/i.test(preview)) {
+      return NextResponse.json({ error: "Invalid kitchen id." }, { status: 400 });
+    }
+    const { data, error } = await admin.rpc("admin_kitchen_delete_preview", { p_store_id: preview });
+    if (error) {
+      if (error.code === "RR003") return NextResponse.json({ error: error.message }, { status: 404 });
+      return failed(error, "Could not check that kitchen.");
+    }
+    return NextResponse.json(data);
+  }
+
   // ── WHY THREE READS AND NOT ONE EMBED ──────────────────────────────────────
   // This used to embed food_kitchen_ops and store_payment_settings directly on
   // food_kitchens. They are not children of it — all three are SIBLINGS, each
@@ -276,19 +295,46 @@ export async function DELETE(req: NextRequest) {
   if (gate instanceof NextResponse) return gate;
   const { admin } = gate;
 
-  const storeId = new URL(req.url).searchParams.get("storeId") ?? "";
+  const url = new URL(req.url);
+  const storeId = url.searchParams.get("storeId") ?? "";
   if (!/^[0-9a-f-]{36}$/i.test(storeId)) {
     return NextResponse.json({ error: "Invalid kitchen id." }, { status: 400 });
   }
 
-  const { data, error } = await admin.rpc("admin_delete_kitchen", { p_store_id: storeId });
+  // Two removals, and the caller says which.
+  //
+  // Without ?mode=purge this stays the M62 delete: kitchens nobody has ordered
+  // from, refused (RR004) the moment anyone has. With it, M91's permanent
+  // delete — orders, payments, receipts and all — which is why it demands the
+  // kitchen's own name back and checks it in the database rather than trusting
+  // that a dialog was shown.
+  const purge = url.searchParams.get("mode") === "purge";
+
+  const { data, error } = purge
+    ? await admin.rpc("admin_purge_kitchen", {
+        p_store_id: storeId,
+        p_confirm_name: url.searchParams.get("confirm") ?? "",
+      })
+    : await admin.rpc("admin_delete_kitchen", { p_store_id: storeId });
+
   if (error) {
-    // RR004 is the refusal, not a failure: the kitchen has orders. 409 so the
-    // UI can offer "hide it" instead of showing a red error.
+    // These are refusals, not failures. Each names something the operator can
+    // go and act on, so none of them should arrive as a red 500 with a SQLSTATE
+    // stapled to the end — which is exactly how RR041 reached the owner.
     if (error.code === "RR004") return NextResponse.json({ error: error.message, suggestion: "hide" }, { status: 409 });
+    if (error.code === "RR042") return NextResponse.json({ error: error.message, suggestion: "resolve" }, { status: 409 });
+    if (error.code === "RR043") return NextResponse.json({ error: error.message, suggestion: "confirm" }, { status: 400 });
+    if (error.code === "RR041") return NextResponse.json({ error: error.message }, { status: 403 });
     if (error.code === "RR003") return NextResponse.json({ error: error.message }, { status: 404 });
     return failed(error, "Could not remove that kitchen.");
   }
 
+  // The RPC has already written the audit row, and for a purge that row carries
+  // the whole snapshot — orders, line items, payments. Logging again here would
+  // only add a thinner duplicate of it.
+  //
+  // Note what is NOT done: the uploaded files listed in `data.files` still exist
+  // in storage. They are handed back so the operator can be told, rather than
+  // guessing at a bucket name and reporting a cleanup that never happened.
   return NextResponse.json(data ?? { ok: true });
 }

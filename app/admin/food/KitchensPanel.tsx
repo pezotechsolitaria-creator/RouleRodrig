@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Phone, MapPin, Clock, RotateCcw, EyeOff, Eye, Trash2, Check, X } from "lucide-react";
 import { foodWrite, type AdminKitchen } from "./types";
+import RemoveKitchenPanel from "./RemoveKitchenPanel";
 
 // Kitchens and the people who cook in them.
 //
@@ -62,6 +63,9 @@ export default function KitchensPanel({
 }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  // Which kitchen's remove panel is open. Only one at a time — this is not a
+  // decision to make in two places at once.
+  const [removing, setRemoving] = useState<string | null>(null);
 
   const restock = useCallback(
     async (k: AdminKitchen) => {
@@ -94,49 +98,11 @@ export default function KitchensPanel({
     [reload],
   );
 
-  // Removing a kitchen. Deletes only when nobody has ordered from it — which is
-  // exactly the "clear the test data" case. Once it has taken an order the
-  // server refuses (409) and the operator is offered the honest alternative:
-  // hide it, and keep the record of what people ordered.
-  const remove = useCallback(
-    async (k: AdminKitchen) => {
-      const typed = prompt(
-        `Remove "${k.name}"?
-
-If nobody has ordered from this kitchen it is deleted for good, ` +
-          `along with its ${k.dishCount} dish${k.dishCount === 1 ? "" : "es"}. ` +
-          `If someone has, nothing is deleted and you can hide it instead.
-
-Type the kitchen name to confirm:`,
-        "",
-      );
-      if (typed === null) return;
-      if (typed.trim().toLowerCase() !== k.name.trim().toLowerCase()) {
-        toast.error("That name did not match — nothing was removed.");
-        return;
-      }
-
-      setBusy(k.storeId);
-      const res = await foodWrite(`/api/admin/food/kitchens?storeId=${encodeURIComponent(k.storeId)}`, {
-        method: "DELETE",
-      });
-      setBusy(null);
-
-      if (!res.ok) {
-        if (res.status === 409) {
-          if (confirm(`${res.error}
-
-Hide it now instead?`)) await setStatus(k, "hidden");
-          return;
-        }
-        toast.error(res.error);
-        return;
-      }
-      toast.success(`"${k.name}" removed.`);
-      reload();
-    },
-    [reload, setStatus],
-  );
+  // Removing a kitchen now opens a panel rather than a window.prompt. The prompt
+  // asked for the name while telling the operator almost nothing — it could not
+  // say how many orders were about to go, or what they were worth, because it
+  // had not asked. RemoveKitchenPanel asks first, then offers both options and
+  // describes each one. See lib/admin/kitchen-delete.ts for the wording.
 
   const save = useCallback(async () => {
     if (!draft) return;
@@ -335,9 +301,10 @@ Hide it now instead?`)) await setStatus(k, "hidden");
                 <button
                   type="button"
                   disabled={busy === k.storeId}
-                  onClick={() => void remove(k)}
+                  onClick={() => setRemoving(removing === k.storeId ? null : k.storeId)}
                   className="rounded-lg border border-red-500/25 px-2.5 py-2 text-red-300 hover:border-red-500 hover:bg-red-500/10 disabled:opacity-50"
                   aria-label={`Remove ${k.name}`}
+                  aria-expanded={removing === k.storeId}
                 >
                   <Trash2 size={13} />
                 </button>
@@ -347,6 +314,20 @@ Hide it now instead?`)) await setStatus(k, "hidden");
               <p className="mt-2 rounded-xl bg-white/5 px-3 py-2 font-dm text-xs text-muted">
                 Collection: {k.pickupHint}
               </p>
+            )}
+            {removing === k.storeId && (
+              <RemoveKitchenPanel
+                kitchen={k}
+                onClose={() => setRemoving(null)}
+                onHide={async () => {
+                  await setStatus(k, "hidden");
+                  setRemoving(null);
+                }}
+                onDone={() => {
+                  setRemoving(null);
+                  reload();
+                }}
+              />
             )}
           </article>
         ))}
