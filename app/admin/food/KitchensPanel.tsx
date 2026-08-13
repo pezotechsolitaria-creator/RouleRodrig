@@ -320,7 +320,12 @@ export default function KitchensPanel({
                 kitchen={k}
                 onClose={() => setRemoving(null)}
                 onHide={async () => {
-                  await setStatus(k, "hidden");
+                  // "paused", not "hidden". kitchenPatchSchema accepts only
+                  // draft | active | paused (lib/schemas/food.ts:70), so the old
+                  // "hidden" was rejected 400 and the operator was told "Invalid
+                  // input." immediately after agreeing to hide the kitchen. Same
+                  // value the eye button and the editor dropdown already send.
+                  await setStatus(k, "paused");
                   setRemoving(null);
                 }}
                 onDone={() => {
