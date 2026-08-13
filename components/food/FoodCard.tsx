@@ -1,8 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Flame, Star, Clock, UtensilsCrossed, Users } from "lucide-react";
+import { Flame, Star, Clock, Users } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import { UNAVAILABLE_LABEL, type FoodCard as FoodCardType } from "@/lib/food/types";
+import { dishArt } from "@/lib/food/dish-art";
 import FoodQuickAdd from "./FoodQuickAdd";
 
 // The food card. The most-rendered component on the surface, and the one that
@@ -63,9 +64,30 @@ export default function FoodCard({
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
-          <span className="flex h-full items-center justify-center text-muted/40">
-            <UtensilsCrossed size={26} />
-          </span>
+          // NO PHOTOGRAPH. This used to be a 26px grey icon in an empty box,
+          // which is fine for one dish and ruinous for a menu: the restaurants
+          // went live with 17 of 19 dishes unphotographed and the whole surface
+          // rendered as a grid of near-empty rectangles. A designed placeholder
+          // holds the page up until real photos exist, and vanishes the moment
+          // one is uploaded. See lib/food/dish-art.ts.
+          (() => {
+            const art = dishArt(item.slug, `${item.name} ${item.descriptor ?? ""}`);
+            return (
+              <span
+                className="flex h-full items-center justify-center"
+                style={{ backgroundImage: `linear-gradient(145deg, ${art.from}, ${art.to})` }}
+              >
+                {/* Sized off the card, not a fixed px, so the rail's 210px
+                    cards and the grid's 343px ones both look composed. */}
+                <span
+                  aria-hidden
+                  className="select-none text-[2.75rem] leading-none opacity-90 drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)] sm:text-5xl"
+                >
+                  {art.glyph}
+                </span>
+              </span>
+            );
+          })()
         )}
 
         {item.isSignature && !unavailable && (

@@ -107,7 +107,9 @@
 // account, the one reason no screen could show.
 // v200 — anything left waiting an hour now phones the owner on WhatsApp,
 // and the Command Centre says whether that is actually armed.
-const CACHE = "rr-cache-v200";
+// v201 — a dish with no photograph gets a designed tile instead of an empty
+// box; 17 of 19 live dishes had no image and the menu looked unfinished.
+const CACHE = "rr-cache-v201";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
