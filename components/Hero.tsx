@@ -166,7 +166,35 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
     mq.addEventListener("change", sync);
     return () => mq.removeEventListener("change", sync);
   }, []);
-  const hideText = videoPlaying && !calm;
+  // ── The reveal: words dissolve, the island comes up ─────────────────────
+  //
+  // The headline used to leave ONLY when footage happened to start, so on a
+  // slow connection the words simply sat there and the arrival never resolved.
+  // The dissolve now runs on its own clock, straight off the end of the
+  // letters, and the darkening lifts with it — one movement, not two events.
+  //
+  // It is gated on there BEING a video. Without one this headline IS the hero
+  // (that is why the original never removed it blind), so on a visit with no
+  // footage the words stay and nothing dims away to an empty photograph.
+  const hasVideo = (h.videos ?? []).some((v) => v?.enabled !== false && !!v?.url);
+  const [revealed, setRevealed] = useState(false);
+
+  // Derived from the copy rather than hardcoded, so editing the headline in
+  // admin cannot leave the timing describing a sentence that no longer exists.
+  const longestLine = headlineLines.filter((l) => l?.trim()).reduce((n, l) => Math.max(n, [...l].length), 0);
+  const lettersDoneMs = (0.18 + Math.max(0, longestLine - 1) * 0.055 + 0.62) * 1000;
+
+  useEffect(() => {
+    if (!gateOpen || !hasVideo || prefersReduced) return;
+    // A beat to read it, then the door opens. 420ms is long enough to land and
+    // short enough that nobody feels held.
+    const t = window.setTimeout(() => setRevealed(true), lettersDoneMs + 420);
+    return () => window.clearTimeout(t);
+  }, [gateOpen, hasVideo, prefersReduced, lettersDoneMs]);
+
+  // Reduced motion keeps the headline permanently: content that leaves on its
+  // own is exactly the unrequested movement that setting is about.
+  const hideText = !calm && (revealed || videoPlaying);
 
   return (
     <section className={`relative w-full overflow-hidden flex flex-col ${compact ? "rr-home-hero min-h-[172px] md:min-h-[36vh]" : "min-h-[40vh] md:min-h-[62vh]"}`} aria-label="Hero section">
@@ -176,7 +204,26 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
           the hero is never blank while a clip loads, and every way video can
           fail — none uploaded, a codec the browser refuses, Data Saver,
           reduced motion — simply leaves the photograph showing. */}
-      <div className="absolute inset-0">
+      {/* The footage waking up. Brightness and saturation only — a blur on a
+          full-bleed video is the one filter that genuinely costs frames on a
+          mid-range phone, and the "sharper" impression comes from the scrim
+          lifting off it anyway. The slight scale settles at the same time so
+          the frame breathes open rather than snapping. */}
+      <motion.div
+        className="absolute inset-0"
+        initial={false}
+        animate={
+          // prefersReduced starts it OPEN. The reveal never fires in that mode,
+          // so dimming first would leave the hero permanently darker than it
+          // was before this animation existed — a regression aimed squarely at
+          // the people least able to absorb it.
+          revealed || prefersReduced
+            ? { filter: "brightness(1) saturate(1.06)", scale: 1 }
+            : { filter: "brightness(0.72) saturate(0.88)", scale: 1.035 }
+        }
+        transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
+        style={{ transformOrigin: "50% 45%" }}
+      >
         {h.backgroundImage && (
           <Image
             src={h.backgroundImage}
@@ -209,6 +256,18 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
                words themselves unprotected.
             4. VIGNETTE — barely there; it settles the edges and pulls the eye
                to the centre, which is where the horizon usually is. */}
+        {/* The cinematic darkening, animated as ONE layer. Only opacity moves —
+            the gradients themselves are untouched, so this stays a compositor
+            job on a full-bleed element. It settles at 0.45 rather than 0: the
+            bottom scrim is the section transition into the cards below and the
+            headline needs some backing while it is still fading, so removing it
+            entirely would leave a hard edge and a moment of unreadable text. */}
+        <motion.div
+          className="pointer-events-none absolute inset-0"
+          initial={false}
+          animate={{ opacity: revealed || prefersReduced ? 0.45 : 1 }}
+          transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+        >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[30%] bg-gradient-to-b from-dark/75 via-dark/25 to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-dark via-dark/70 to-transparent" />
         <div
@@ -219,7 +278,8 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
           className="pointer-events-none absolute inset-0"
           style={{ background: "radial-gradient(ellipse 115% 95% at 50% 45%, transparent 52%, rgba(0,0,0,0.34))" }}
         />
-      </div>
+        </motion.div>
+      </motion.div>
 
       {/* ── Animated Rodrigues visual system ───────────── */}
       <HeroBackdrop />
@@ -233,8 +293,13 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
           Reduced motion keeps it on screen permanently — a visitor who has
           asked for less movement should not have content leave on its own. */}
       <motion.div
-        animate={{ opacity: hideText ? 0 : 1, y: hideText ? -14 : 0 }}
-        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+        // A DISSOLVE, not an exit. 0.22s with a 14px lift read as the text
+        // being taken away; over 0.9s, with barely any drift, it reads as the
+        // words giving way to what is behind them. Deliberately the same
+        // duration and curve as the scrim lifting and the footage brightening,
+        // so the three resolve as one movement rather than three.
+        animate={{ opacity: hideText ? 0 : 1, y: hideText ? -8 : 0 }}
+        transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
         className={`relative z-10 flex flex-1 flex-col items-center justify-center text-center max-w-5xl mx-auto w-full px-4 md:px-6 pb-4 ${compact ? "pt-6" : "pt-20"}`}
       >
         {/* Eyebrow pill — only when there is something to put in it.
