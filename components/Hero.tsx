@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { MessageCircle } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { DEFAULT_CONTENT, type HeroContent } from "@/lib/defaults";
 import HeroVideoLayer from "@/components/HeroVideo";
@@ -109,6 +109,48 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
     language === "cr" && h.headlineCr?.length ? h.headlineCr :
     h.headline;
   const eyebrow = loc(language, h.eyebrow, h.eyebrowFr, h.eyebrowCr)?.trim();
+
+  // Read synchronously on first render, unlike the `calm` state below which is
+  // set in an effect and is therefore false for the first frame — long enough
+  // for a staggered reveal to have already started. MotionConfig
+  // reducedMotion="user" (components/MotionProvider) already strips the y and
+  // scale; this collapses the per-letter STAGGER too, so the line simply
+  // appears instead of being written out.
+  const prefersReduced = useReducedMotion();
+
+  // ── Wait for the launch splash before writing the headline ──────────────
+  //
+  // The installed-app splash covers the whole page for 1.8s on a first visit
+  // (app/layout.tsx). The letters finish in about a second, so the entire
+  // reveal happened UNDERNEATH it and the one visitor it was built for — the
+  // first-time one — never saw a thing. Caught by screenshotting the real page
+  // at 620ms and finding the splash, not the hero.
+  //
+  // The splash announces itself with data-splash on <html> and removes the
+  // attribute when it finishes, including when a tap skips it early, so this
+  // follows it exactly rather than racing a hardcoded delay.
+  const [gateOpen, setGateOpen] = useState(
+    // Evaluated during render, not in an effect: setting it afterwards would
+    // let one frame through with the letters already animating, and would also
+    // be a cascading render. SSR has no document, so it defaults to open —
+    // which is correct, because the splash only ever exists on the client.
+    () => typeof document === "undefined" || !document.documentElement.hasAttribute("data-splash"),
+  );
+  useEffect(() => {
+    const html = document.documentElement;
+    if (!html.hasAttribute("data-splash")) return;
+    const mo = new MutationObserver(() => {
+      if (!html.hasAttribute("data-splash")) {
+        setGateOpen(true);
+        mo.disconnect();
+      }
+    });
+    mo.observe(html, { attributes: true, attributeFilter: ["data-splash"] });
+    // A belt-and-braces release: if the splash ever failed to clean up, the
+    // headline must still arrive rather than stay invisible for ever.
+    const failsafe = window.setTimeout(() => { setGateOpen(true); mo.disconnect(); }, 3000);
+    return () => { mo.disconnect(); window.clearTimeout(failsafe); };
+  }, []);
 
   // True once footage is genuinely on screen. Drives the headline's exit, so
   // the text is never removed on a visit where the video does not play.
@@ -227,20 +269,72 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
             empty <h1>s — the content model keeps three slots and this site fills
             one, so two of them were shipping as blank headings on every page
             load: meaningless to a screen reader and a stray gap in the layout. */}
+        {/* ── The headline arrives a letter at a time ──────────────────────
+            The whole line used to rise as one block. Now each character is
+            placed individually, which is the difference between text appearing
+            and a word being written.
+
+            IT SAYS "WELCOME TO" AND STOPS THERE ON PURPOSE. The hero footage
+            opens on its own title card reading RODRIGUES, so the destination is
+            revealed by the film, not by a second line of HTML competing with
+            it. The headline greets, the video answers, and the handover is the
+            existing one: this whole block retires the moment footage is
+            genuinely playing.
+
+            ACCESSIBILITY: the <h1> carries the real sentence as aria-label and
+            every span is aria-hidden. Without that a screen reader announces
+            ten separate letters, which is how a decorative split turns a
+            headline into noise.
+
+            The letters rise inside the existing overflow-hidden mask, so they
+            emerge from behind an edge rather than fading in mid-air. Only
+            opacity and transform — no blur across ten nodes, which is what
+            makes this kind of effect stutter on a cheap phone. */}
         <div>
-          {headlineLines.filter((l) => l?.trim()).map((line, i) => (
-            <div key={`${line}-${i}`} className="overflow-hidden">
-              <motion.h1
-                initial={{ y: 120, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.95, delay: 0.25 + i * 0.12, ease: [0.22, 1, 0.36, 1] }}
-                className="block font-syne font-extrabold text-offwhite leading-[0.9] uppercase tracking-tight [text-shadow:0_2px_40px_rgba(0,0,0,0.45)]"
-                style={{ fontSize: "clamp(1.85rem, 6.6vw, 7rem)" }}
-              >
-                {line}
-              </motion.h1>
-            </div>
-          ))}
+          {headlineLines.filter((l) => l?.trim()).map((line, i) => {
+            // Where this line's letters start, so line two follows line one
+            // instead of both writing themselves at once.
+            const lineDelay = 0.18 + i * 0.34;
+            return (
+              <div key={`${line}-${i}`} className="overflow-hidden">
+                <h1
+                  aria-label={line}
+                  className="block font-syne font-extrabold text-offwhite leading-[0.9] uppercase tracking-tight [text-shadow:0_2px_40px_rgba(0,0,0,0.45)]"
+                  style={{ fontSize: "clamp(1.85rem, 6.6vw, 7rem)" }}
+                >
+                  {[...line].map((ch, j) =>
+                    ch === " " ? (
+                      // A real space, not an animated one: giving it a width in
+                      // em keeps the gap proportional at every clamp size.
+                      <span key={j} aria-hidden className="inline-block w-[0.26em]" />
+                    ) : (
+                      <motion.span
+                        key={j}
+                        aria-hidden
+                        className="inline-block"
+                        // Reduced motion gets the finished headline, immediately.
+                        initial={prefersReduced ? false : { opacity: 0, y: 26, scale: 0.96 }}
+                        animate={
+                          gateOpen
+                            ? { opacity: 1, y: 0, scale: 1 }
+                            : { opacity: 0, y: 26, scale: 0.96 }
+                        }
+                        transition={{
+                          duration: prefersReduced ? 0.3 : 0.62,
+                          // No per-letter offset when motion is reduced: the
+                          // whole line resolves at once.
+                          delay: prefersReduced ? 0 : lineDelay + j * 0.055,
+                          ease: [0.16, 1, 0.3, 1],
+                        }}
+                      >
+                        {ch}
+                      </motion.span>
+                    ),
+                  )}
+                </h1>
+              </div>
+            );
+          })}
         </div>
 
         {/* Subheadline and hero CTA both stay OUT, at the owner's direction.
