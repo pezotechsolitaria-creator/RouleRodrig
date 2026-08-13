@@ -1,35 +1,41 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { Users, Search } from "lucide-react";
+import { Users, Search, UserCheck } from "lucide-react";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { centsToDecimalString } from "@/lib/money";
+import {
+  buildPeople,
+  dormantAccounts,
+  matchesQuery,
+  displayName,
+  isReservedEmail,
+  type Account,
+  type Txn,
+} from "@/lib/admin/customers";
 
 // ── Customers ───────────────────────────────────────────────────────────────
 //
-// The one view the platform never had: a person, and everything they have done
-// across all three transaction systems. Orders join on customer_id; rentals
-// and experience bookings predate Supabase Auth here and join on EMAIL — which
-// is also why this page needs the service role (those tables have no SELECT
-// policy at all, by design).
+// This page used to list auth.users, which on this platform is barely related to
+// customers. Of twelve accounts, three were real people; the rest were test
+// merchants on reserved domains, test organisers, M4 fixtures and the Food
+// platform's own service account. Meanwhile the people who actually spent money
+// — guests, who are the default checkout path — appeared nowhere except as a
+// number in a footnote.
 //
-// Deliberately restrained: name, when they joined, what they have spent, what
-// they have booked. No addresses, no payment details, no browsing trail — an
-// operator resolving an issue needs to FIND the person and their transactions,
-// not to profile them.
+// So the list is built from TRANSACTIONS. A customer is someone who ordered,
+// rented or booked. Having an account is something they might also have.
+//
+// The identity merging and the search live in lib/admin/customers.ts, tested,
+// because "can the owner find the person currently on the phone to them" is the
+// only thing this page is for.
+//
+// Still deliberately restrained: who they are, what they bought, when. No
+// addresses, no payment details, no browsing trail.
 export const dynamic = "force-dynamic";
 
-type CustomerRow = {
-  id: string;
-  email: string;
-  createdAt: string;
-  orders: number;
-  orderTotal: number;
-  rentals: number;
-  experiences: number;
-  lastSeen: string | null;
-};
+const SPENT_EXCLUDED = ["cancelled", "refunded", "pending_payment"];
 
 export default async function CustomersPage({
   searchParams,
@@ -40,7 +46,7 @@ export default async function CustomersPage({
   if (!verifySession(cookieStore.get(COOKIE_NAME)?.value)) redirect("/admin/login");
 
   const { q } = await searchParams;
-  const needle = (q ?? "").trim().toLowerCase();
+  const needle = (q ?? "").trim();
 
   if (!hasServiceRole()) {
     return (
@@ -54,59 +60,82 @@ export default async function CustomersPage({
 
   const admin = await getPrivileged();
 
-  // Ten users today; one page of 200 covers the next year of growth. When it
-  // stops covering it, this needs pagination — not a different design.
-  const [{ data: userList }, orders, bookings, places] = await Promise.all([
+  const [users, orders, bookings, places] = await Promise.all([
     admin.auth.admin.listUsers({ page: 1, perPage: 200 }),
-    admin.from("orders").select("customer_id, customer_email, total, status, created_at").limit(2000),
-    admin.from("bookings").select("email, created_at").limit(2000),
-    admin.from("place_bookings").select("email, created_at").limit(2000),
+    admin
+      .from("orders")
+      .select("id, order_number, customer_id, customer_name, customer_email, customer_phone, total, status, created_at")
+      .limit(2000),
+    admin.from("bookings").select("id, name, email, phone, created_at").limit(2000),
+    admin.from("place_bookings").select("id, name, email, phone, created_at").limit(2000),
   ]);
 
-  const rows: CustomerRow[] = (userList?.users ?? []).map((u) => {
-    const email = (u.email ?? "").toLowerCase();
-    const mine = ((orders.data ?? []) as Record<string, unknown>[]).filter(
-      (o) => o.customer_id === u.id || String(o.customer_email ?? "").toLowerCase() === email,
-    );
-    const rentals = ((bookings.data ?? []) as Record<string, string>[]).filter(
-      (b) => (b.email ?? "").toLowerCase() === email,
-    );
-    const exps = ((places.data ?? []) as Record<string, string>[]).filter(
-      (b) => (b.email ?? "").toLowerCase() === email,
-    );
-    const stamps = [
-      ...mine.map((o) => String(o.created_at)),
-      ...rentals.map((b) => b.created_at),
-      ...exps.map((b) => b.created_at),
-    ].filter(Boolean).sort();
+  // A failed read must not quietly become "this customer has no orders". Say it.
+  const readErrors = [
+    orders.error && "orders",
+    bookings.error && "rentals",
+    places.error && "experiences",
+    users.error && "accounts",
+  ].filter(Boolean) as string[];
 
-    return {
-      id: u.id,
-      email: u.email ?? u.id,
-      createdAt: u.created_at,
-      orders: mine.length,
-      orderTotal: mine
-        .filter((o) => !["cancelled", "refunded", "pending_payment"].includes(String(o.status)))
-        .reduce((s, o) => s + Number(o.total ?? 0), 0),
-      rentals: rentals.length,
-      experiences: exps.length,
-      lastSeen: stamps.at(-1) ?? null,
-    };
-  });
+  const accounts: Account[] = (users.data?.users ?? []).map((u) => ({
+    id: u.id,
+    email: u.email ?? null,
+    createdAt: u.created_at,
+  }));
 
-  // Guest activity is real activity: orders and bookings whose email matches
-  // no account. Shown as one honest line rather than pretending guests are
-  // accounts or hiding that most customers never register.
-  const accountEmails = new Set(rows.map((r) => r.email.toLowerCase()));
-  const guestOrders = ((orders.data ?? []) as Record<string, unknown>[]).filter(
-    (o) => !o.customer_id && !accountEmails.has(String(o.customer_email ?? "").toLowerCase()),
-  ).length;
-  const guestBookings = ((bookings.data ?? []) as Record<string, string>[]).filter(
-    (b) => !accountEmails.has((b.email ?? "").toLowerCase()),
-  ).length;
+  const ref = (id: string) => `RR-${id.replace(/-/g, "").slice(0, 6).toUpperCase()}`;
 
-  const visible = (needle ? rows.filter((r) => r.email.toLowerCase().includes(needle)) : rows)
-    .sort((a, b) => (b.lastSeen ?? "").localeCompare(a.lastSeen ?? ""));
+  const txns: Txn[] = [
+    ...((orders.data ?? []) as Record<string, unknown>[]).map((o): Txn => ({
+      kind: "order",
+      name: (o.customer_name as string) ?? null,
+      email: (o.customer_email as string) ?? null,
+      phone: (o.customer_phone as string) ?? null,
+      accountId: (o.customer_id as string) ?? null,
+      amountMinor: Number(o.total ?? 0),
+      countsToSpend: !SPENT_EXCLUDED.includes(String(o.status)),
+      at: String(o.created_at ?? ""),
+      ref: (o.order_number as string) ?? null,
+    })),
+    ...((bookings.data ?? []) as Record<string, string>[]).map((b): Txn => ({
+      kind: "rental",
+      name: b.name ?? null,
+      email: b.email ?? null,
+      phone: b.phone ?? null,
+      accountId: null,
+      // Rental money lives in a different column and a different unit from order
+      // money. Rather than silently add rupees to cents, Spent counts orders and
+      // the column says so.
+      amountMinor: 0,
+      countsToSpend: false,
+      at: String(b.created_at ?? ""),
+      ref: b.id ? ref(b.id) : null,
+    })),
+    ...((places.data ?? []) as Record<string, string>[]).map((b): Txn => ({
+      kind: "experience",
+      name: b.name ?? null,
+      email: b.email ?? null,
+      phone: b.phone ?? null,
+      accountId: null,
+      amountMinor: 0,
+      countsToSpend: false,
+      at: String(b.created_at ?? ""),
+      ref: b.id ? ref(b.id) : null,
+    })),
+  ];
+
+  const everyone = buildPeople(accounts, txns);
+
+  // Seeded fixtures transact too — there is a ZZTEST order in here on a
+  // .invalid address. A reserved domain can never receive mail, so it is never
+  // a person the owner will need to ring. Counted, not listed.
+  const people = everyone.filter((p) => !isReservedEmail(p.email));
+  const dormant = dormantAccounts(accounts, everyone);
+  const visible = needle ? people.filter((p) => matchesQuery(p, needle)) : people;
+
+  const realDormant = dormant.filter((a) => !isReservedEmail(a.email));
+  const fixtures = dormant.length - realDormant.length + (everyone.length - people.length);
 
   const fmt = (iso: string | null) =>
     iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
@@ -119,17 +148,23 @@ export default async function CustomersPage({
           <Users size={20} className="text-yellow" /> Customers
         </h1>
         <p className="mt-1.5 font-dm text-sm text-muted">
-          Every account, with its orders, rentals and experience bookings in one place.
+          Everyone who has ordered, rented or booked — whether or not they made an account.
         </p>
 
-        <form action="/admin/customers" method="get" className="mt-5 flex max-w-md gap-2" role="search">
+        {readErrors.length > 0 && (
+          <p className="mt-4 rounded-2xl border border-orange-400/30 bg-orange-400/5 px-4 py-3 font-dm text-sm text-orange-200">
+            Could not read {readErrors.join(", ")}. The numbers below are incomplete.
+          </p>
+        )}
+
+        <form action="/admin/customers" method="get" className="mt-5 flex max-w-xl gap-2" role="search">
           <div className="relative flex-1">
             <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input
               type="search"
               name="q"
               defaultValue={q ?? ""}
-              placeholder="Search by email…"
+              placeholder="Search by name, phone, email or reference…"
               className="w-full rounded-xl border border-white/10 bg-dark-card py-2.5 pl-9 pr-3 font-dm text-sm text-offwhite placeholder:text-muted focus:border-yellow/50 focus:outline-none"
             />
           </div>
@@ -138,32 +173,47 @@ export default async function CustomersPage({
 
         {visible.length === 0 ? (
           <p className="mt-8 rounded-2xl border border-white/10 bg-dark-card px-6 py-10 text-center font-dm text-sm text-muted">
-            {needle ? "No account matches that email." : "No customer accounts yet."}
+            {needle
+              ? `Nobody matches “${needle}”. Try part of a name, a phone number, or an order reference.`
+              : "Nobody has ordered, rented or booked yet."}
           </p>
         ) : (
           <div className="mt-5 overflow-x-auto rounded-2xl border border-white/10">
-            <table className="w-full min-w-[680px] text-left">
+            <table className="w-full min-w-[760px] text-left">
               <thead>
                 <tr className="border-b border-white/10 bg-white/[0.03]">
-                  {["Customer", "Joined", "Orders", "Spent", "Rentals", "Experiences", "Last activity"].map((h) => (
-                    <th key={h} className="px-4 py-2.5 font-bebas text-[10px] tracking-[0.2em] text-muted">
-                      {h.toUpperCase()}
-                    </th>
-                  ))}
+                  {["Customer", "Phone", "Orders", "Spent on orders", "Rentals", "Experiences", "Last activity"].map(
+                    (h) => (
+                      <th key={h} className="px-4 py-2.5 font-bebas text-[10px] tracking-[0.2em] text-muted">
+                        {h.toUpperCase()}
+                      </th>
+                    ),
+                  )}
                 </tr>
               </thead>
               <tbody>
-                {visible.map((r) => (
-                  <tr key={r.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.03]">
-                    <td className="px-4 py-3 font-dm text-sm text-offwhite">{r.email}</td>
-                    <td className="px-4 py-3 font-dm text-xs text-muted">{fmt(r.createdAt)}</td>
-                    <td className="px-4 py-3 font-dm text-sm tabular-nums">{r.orders}</td>
-                    <td className="px-4 py-3 font-dm text-sm tabular-nums text-yellow">
-                      {r.orderTotal > 0 ? `Rs ${centsToDecimalString(r.orderTotal)}` : "—"}
+                {visible.map((p) => (
+                  <tr key={p.key} className="border-b border-white/5 last:border-0 hover:bg-white/[0.03]">
+                    <td className="px-4 py-3">
+                      <span className="flex items-center gap-1.5 font-dm text-sm text-offwhite">
+                        {displayName(p)}
+                        {p.hasAccount && (
+                          <UserCheck size={13} className="shrink-0 text-emerald-400" aria-label="Has an account" />
+                        )}
+                      </span>
+                      {p.email && p.name && <span className="font-dm text-xs text-muted">{p.email}</span>}
+                      {p.joined && (
+                        <span className="block font-dm text-[11px] text-muted">Joined {fmt(p.joined)}</span>
+                      )}
                     </td>
-                    <td className="px-4 py-3 font-dm text-sm tabular-nums">{r.rentals}</td>
-                    <td className="px-4 py-3 font-dm text-sm tabular-nums">{r.experiences}</td>
-                    <td className="px-4 py-3 font-dm text-xs text-muted">{fmt(r.lastSeen)}</td>
+                    <td className="px-4 py-3 font-dm text-xs text-muted">{p.phone ?? "—"}</td>
+                    <td className="px-4 py-3 font-dm text-sm tabular-nums">{p.orders}</td>
+                    <td className="px-4 py-3 font-dm text-sm tabular-nums text-yellow">
+                      {p.spentMinor > 0 ? `Rs ${centsToDecimalString(p.spentMinor)}` : "—"}
+                    </td>
+                    <td className="px-4 py-3 font-dm text-sm tabular-nums">{p.rentals}</td>
+                    <td className="px-4 py-3 font-dm text-sm tabular-nums">{p.experiences}</td>
+                    <td className="px-4 py-3 font-dm text-xs text-muted">{fmt(p.lastSeen)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -172,11 +222,28 @@ export default async function CustomersPage({
         )}
 
         <p className="mt-4 font-dm text-xs text-muted">
-          Plus <span className="text-offwhite">{guestOrders}</span> guest order{guestOrders === 1 ? "" : "s"} and{" "}
-          <span className="text-offwhite">{guestBookings}</span> guest booking{guestBookings === 1 ? "" : "s"} from
-          people without an account — guest checkout is the default path, so most customers appear there, not here.
-          Find any specific one with{" "}
-          <Link href="/admin" className="text-yellow underline">Ctrl K</Link> by name, email or reference.
+          <UserCheck size={12} className="inline text-emerald-400" /> means they also have an account. Guests are the
+          default checkout path, so most customers here never registered — that is normal, and they are still findable
+          by name, phone or reference.
+          {realDormant.length > 0 && (
+            <>
+              {" "}
+              <span className="text-offwhite">{realDormant.length}</span> account
+              {realDormant.length === 1 ? " has" : "s have"} registered without buying anything yet.
+            </>
+          )}
+          {fixtures > 0 && (
+            <>
+              {" "}
+              <span className="text-offwhite">{fixtures}</span> seeded test account
+              {fixtures === 1 ? " is" : "s are"} hidden from this list.
+            </>
+          )}{" "}
+          Search anything else with{" "}
+          <Link href="/admin" className="text-yellow underline">
+            Ctrl K
+          </Link>
+          .
         </p>
       </div>
     </main>
