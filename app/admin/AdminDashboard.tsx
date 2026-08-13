@@ -2663,6 +2663,70 @@ const STATUS_CONFIG: Record<
 // match someone who calls in quoting their code.
 const bookingRef = (id: string) => "RR-" + id.replace(/-/g, "").slice(0, 6).toUpperCase();
 
+// ── The proof of payment, where the owner already looks (M83) ──────────────
+//
+// M78's lesson, applied ahead of time rather than after a complaint: an
+// uploaded receipt that /admin does not render is the same as no receipt. This
+// is rendered by BOTH booking managers from the same component so the two
+// cannot drift into showing different things.
+function BookingReceiptLink({ id, kind, path, reportedAt }: {
+  id: string;
+  kind: "vehicle" | "place";
+  path?: string | null;
+  reportedAt?: string | null;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(false);
+
+  // Nothing said is better than a misleading "no receipt" on a booking that
+  // was paid by card and never needed one.
+  if (!path && !reportedAt) return null;
+
+  async function open() {
+    setBusy(true);
+    setErr(false);
+    try {
+      const res = await fetch("/api/admin/booking-receipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, kind }),
+      });
+      const j = (await res.json()) as { url?: string };
+      // A signed URL is short-lived, so it is fetched on demand and opened
+      // immediately rather than rendered into the page as an href.
+      if (res.ok && j.url) window.open(j.url, "_blank", "noopener,noreferrer");
+      else setErr(true);
+    } catch {
+      setErr(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      {path ? (
+        <button
+          type="button"
+          onClick={open}
+          disabled={busy}
+          className="inline-flex items-center gap-1.5 rounded-full border border-yellow/40 bg-yellow/10 px-2.5 py-1 font-dm text-[11px] text-yellow transition-colors hover:bg-yellow/20 disabled:opacity-60"
+        >
+          <FileCheck size={11} /> {busy ? "Opening…" : "View payment proof"}
+        </button>
+      ) : (
+        // Reported without a file: the customer pressed "I have paid" but sent
+        // no slip. Worth saying, because it is a different situation from
+        // silence and the owner will want to chase it.
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#2a2a2a] px-2.5 py-1 font-dm text-[11px] text-muted/70">
+          Says paid — no file attached
+        </span>
+      )}
+      {err && <span className="font-dm text-[11px] text-red-400">Could not open it.</span>}
+    </span>
+  );
+}
+
 function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2945,6 +3009,13 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
               )}
             </div>
 
+            <BookingReceiptLink
+              id={b.id}
+              kind="vehicle"
+              path={b.payment_receipt_path}
+              reportedAt={b.payment_reported_at}
+            />
+
             {b.message && (
               <p className="text-offwhite/60 font-dm text-xs leading-relaxed border-t border-[#2a2a2a] pt-3">
                 {b.message}
@@ -3169,6 +3240,13 @@ function PlaceBookingsManager() {
               {b.phone && <a href={`https://wa.me/${b.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="hover:text-yellow transition-colors flex items-center gap-1"><MessageSquare size={11} /> {b.phone}</a>}
             </div>
             {b.message && <p className="font-dm text-muted/80 text-xs bg-dark border border-[#2a2a2a] rounded-lg p-3">{b.message}</p>}
+
+            <BookingReceiptLink
+              id={b.id}
+              kind="place"
+              path={b.payment_receipt_path}
+              reportedAt={b.payment_reported_at}
+            />
 
             <div className="flex items-center gap-2 pt-2 flex-wrap">
               <p className="font-bebas text-muted text-[9px] tracking-[0.2em] mr-1">UPDATE STATUS:</p>

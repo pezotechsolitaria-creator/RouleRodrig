@@ -231,7 +231,13 @@ export default function PlaceBookingModal({
               </dl>
 
               <PayPalDeposit bookingId={result.bookingId} depositMur={result.depositAmount} kind="place" settlement="full" onPaid={() => setPaid(true)} />
-              <BankTransferDetails name={form.name} vehicle={place.name} settlement="full" />
+              <BankTransferDetails
+                name={form.name}
+                vehicle={place.name}
+                settlement="full"
+                bookingId={result.bookingId}
+                email={form.email}
+              />
 
               {whatsapp && (
                 <a href={waLink("about my reservation")} target="_blank" rel="noopener noreferrer"

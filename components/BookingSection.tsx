@@ -85,7 +85,7 @@ export default function BookingSection({
   useEffect(() => setMounted(true), []);
   const [showPartnerCode, setShowPartnerCode] = useState(false);
   const [lastBooking, setLastBooking] = useState<
-    { scooter: string; range: string; days: number; name: string; total: string; bookingId?: string; deposit?: number; totalMur?: number } | null
+    { scooter: string; range: string; days: number; name: string; email: string; total: string; bookingId?: string; deposit?: number; totalMur?: number } | null
   >(null);
   const [agreed, setAgreed] = useState(false);
   const [agreeError, setAgreeError] = useState(false);
@@ -351,6 +351,9 @@ export default function BookingSection({
         range: fmtRange(form.start_date, effectiveEnd),
         days,
         name: form.name,
+        // Captured here, not read at render: setForm() below clears the form on
+        // success, so by the time the receipt uploader mounts, form.email is "".
+        email: form.email,
         total: estimatedTotal,
         bookingId: resData.bookingId,
         deposit: breakdown?.deposit ?? resData.depositAmount ?? 0,
@@ -516,7 +519,12 @@ export default function BookingSection({
                         <MessageSquare size={16} /> {t.booking.confirmWhatsApp}
                       </a>
                     )}
-                    <BankTransferDetails name={lastBooking.name} vehicle={lastBooking.scooter} />
+                    <BankTransferDetails
+                      name={lastBooking.name}
+                      vehicle={lastBooking.scooter}
+                      bookingId={lastBooking.bookingId}
+                      email={lastBooking.email}
+                    />
                   </motion.div>
                 </motion.div>
               )}

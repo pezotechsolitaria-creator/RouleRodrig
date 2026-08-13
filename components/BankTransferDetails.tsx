@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Landmark, Copy, Check } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
+import BookingReceiptUpload from "@/components/BookingReceiptUpload";
 
 // Local bank-transfer option, for customers (often locals) who'd rather pay the
 // deposit by MCB transfer than card. Hidden behind a "Request bank details"
@@ -15,9 +16,15 @@ export default function BankTransferDetails({
   name,
   vehicle,
   settlement = "deposit",
+  bookingId,
+  email,
 }: {
   name: string;
   vehicle: string;
+  /** The booking this transfer is for. With `email`, unlocks the receipt
+   *  upload — the credential is reference + email, exactly as on /track. */
+  bookingId?: string;
+  email?: string;
   /**
    * "full" when the amount alongside is the whole price rather than a deposit.
    * Activities are settled in full at booking, and "transfer the deposit" would
@@ -89,6 +96,13 @@ export default function BankTransferDetails({
         </div>
       </dl>
       <p className="mt-3 text-muted/80 text-xs font-dm leading-relaxed">{note}</p>
+
+      {/* Upload it here rather than on WhatsApp — the proof then lives ON the
+          booking, where /admin reads it, instead of in a chat thread the owner
+          has to scroll. Falls back to the WhatsApp instruction above when there
+          is no email on the booking: email is optional for vehicle rentals, and
+          reference + email is the credential this upload is proven by. */}
+      {bookingId && email ? <BookingReceiptUpload bookingId={bookingId} email={email} /> : null}
     </div>
   );
 }

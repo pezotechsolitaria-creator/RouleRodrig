@@ -91,7 +91,9 @@
 // confirm rather than leaving a balance for the day.
 // v178 — Ti Roulé is back in the middle of the tab bar, so the cached shell has
 // to be refetched or the old order keeps rendering.
-const CACHE = "rr-cache-v178";
+// v179 — rentals and activities can upload proof of a bank transfer, and the
+// owner can open it from /admin instead of scrolling WhatsApp.
+const CACHE = "rr-cache-v179";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

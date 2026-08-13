@@ -29,6 +29,11 @@ export interface Booking {
   asset_id: string | null;     // which physical unit was assigned
   asset_label: string | null;  // snapshot of its label at booking time
   created_at: string;
+  /** M83 — the customer's bank-transfer slip, and when they said they'd sent
+   *  it. Path into the private `booking-receipts` bucket; opened through
+   *  /api/admin/booking-receipt, never addressable directly. */
+  payment_receipt_path?: string | null;
+  payment_reported_at?: string | null;
   pickup_reminded?: boolean;
   return_reminded?: boolean;
   feedback_reminded?: boolean;
@@ -50,6 +55,11 @@ export interface PlaceBooking {
   message: string | null;
   status: "pending" | "confirmed" | "cancelled" | "completed";
   created_at: string;
+  /** M83 — the customer's bank-transfer slip, and when they said they'd sent
+   *  it. Path into the private `booking-receipts` bucket; opened through
+   *  /api/admin/booking-receipt, never addressable directly. */
+  payment_receipt_path?: string | null;
+  payment_reported_at?: string | null;
   reminded?: boolean;
   feedback_reminded?: boolean;
 }
