@@ -236,86 +236,9 @@ export default async function RootLayout({
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var d=document.documentElement;var lang=null;try{lang=localStorage.getItem('rr_language');}catch(e){}var hasLang=lang==='en'||lang==='fr'||lang==='cr';if(!hasLang){var nl=(navigator.language||'').toLowerCase();try{localStorage.setItem('rr_language',nl.indexOf('fr')===0?'fr':'en');}catch(e){}}var sa=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;var force=location.search.indexOf('splash=1')>-1;var seen=false;try{seen=localStorage.getItem('rr-splash-seen')==='1';}catch(e){}var ss=false;try{ss=sessionStorage.getItem('rr-splash-ses')==='1';}catch(e){}var onHome=location.pathname==='/'||location.pathname==='';var showSplash=force||(!ss&&(sa||!seen)&&!onHome);if(showSplash&&!force){try{localStorage.setItem('rr-splash-seen','1');sessionStorage.setItem('rr-splash-ses','1');}catch(e){}}if(showSplash){d.setAttribute('data-splash','on');var pv=function(){try{document.querySelectorAll('video').forEach(function(v){try{if(!v.paused)v.pause();}catch(e){}});}catch(e){}};var iv=setInterval(pv,180);pv();var done=function(){clearInterval(iv);var el=document.getElementById('rr-splash');if(el)el.remove();d.removeAttribute('data-splash');try{document.querySelectorAll('video').forEach(function(v){if(v.autoplay||v.hasAttribute('autoplay')){try{var p=v.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}});}catch(e){}};setTimeout(done,1800);document.addEventListener('DOMContentLoaded',function(){var el=document.getElementById('rr-splash');if(el)el.addEventListener('click',function(){el.classList.add('rr-skip');setTimeout(done,420);},{once:true});});}}catch(e){}})();`,
+            __html: `(function(){try{var d=document.documentElement;var lang=null;try{lang=localStorage.getItem('rr_language');}catch(e){}var hasLang=lang==='en'||lang==='fr'||lang==='cr';if(!hasLang){var nl=(navigator.language||'').toLowerCase();try{localStorage.setItem('rr_language',nl.indexOf('fr')===0?'fr':'en');}catch(e){}}var sa=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;var force=location.search.indexOf('splash=1')>-1;var seen=false;try{seen=localStorage.getItem('rr-splash-seen')==='1';}catch(e){}var ss=false;try{ss=sessionStorage.getItem('rr-splash-ses')==='1';}catch(e){}var showSplash=force||(!ss&&(sa||!seen));if(showSplash&&!force){try{localStorage.setItem('rr-splash-seen','1');sessionStorage.setItem('rr-splash-ses','1');}catch(e){}}if(showSplash){d.setAttribute('data-splash','on');var pv=function(){try{document.querySelectorAll('video').forEach(function(v){try{if(!v.paused)v.pause();}catch(e){}});}catch(e){}};var iv=setInterval(pv,180);pv();var done=function(){clearInterval(iv);var el=document.getElementById('rr-splash');if(el)el.remove();d.removeAttribute('data-splash');try{document.querySelectorAll('video').forEach(function(v){if(v.autoplay||v.hasAttribute('autoplay')){try{var p=v.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}});}catch(e){}};setTimeout(done,1800);document.addEventListener('DOMContentLoaded',function(){var el=document.getElementById('rr-splash');if(el)el.addEventListener('click',function(){el.classList.add('rr-skip');setTimeout(done,420);},{once:true});});}}catch(e){}})();`,
           }}
         />
-        {/* ── Arrival: WELCOME TO → RODRIGUES ───────────────────────────
-            The homepage's opening moment, and the reason the splash above
-            steps aside on "/": both fire on a first visit, and 1.8s of logo
-            followed by 2.7s of arrival is 4.5s of not-the-website.
-
-            Built by this gate script rather than by React on purpose. The
-            animation is pure CSS (see globals), so it starts at FIRST PAINT
-            instead of waiting for hydration — on island mobile data the bundle
-            is the slow part, and an arrival that waits for it is an arrival
-            that stutters. Nothing here re-renders, so there is nothing for
-            React to own.
-
-            The letters are built here, not written into the markup, because
-            the phrase is trilingual and shipping three hidden copies to every
-            visitor to show one is worse than eleven appendChild calls. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var d=document.documentElement;var onHome=location.pathname==='/'||location.pathname==='';if(!onHome)return;var force=location.search.indexOf('intro=1')>-1;var ses=false;try{ses=sessionStorage.getItem('rr-hero-intro-ses')==='1';}catch(e){}if(ses&&!force)return;try{sessionStorage.setItem('rr-hero-intro-ses','1');sessionStorage.setItem('rr-splash-ses','1');}catch(e){}var lang='en';try{var L=localStorage.getItem('rr_language');if(L==='fr'||L==='cr')lang=L;}catch(e){}d.setAttribute('data-hi-lang',lang);d.setAttribute('data-hero-intro','on');var calm=false;try{calm=window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}var total=calm?1050:2760;var done=function(){d.removeAttribute('data-hero-intro');};setTimeout(done,total);document.addEventListener('DOMContentLoaded',function(){var n=document.getElementById('rr-hero-intro');if(n)n.addEventListener('click',done,{once:true});});}catch(e){}})();`,
-          }}
-        />
-        {/* ── Arrival: WELCOME TO → RODRIGUES ───────────────────────────
-            Server-rendered in full, including every letter, and animated
-            entirely in CSS. Nothing is created or removed in the DOM before
-            hydration, which is the one thing that matters here: React removes
-            children it did not render, so both a script-injected letter and a
-            script-appended overlay get reconciled away mid-animation. The gate
-            script only sets attributes on <html>, exactly as the splash above
-            does — and that demonstrably survives.
-
-            All three phrases ship (about thirty characters) and CSS shows the
-            one matching data-hi-lang. Swapping the text in JS would be a
-            hydration mismatch, which is the trap this design exists to avoid. */}
-        <div id="rr-hero-intro" aria-hidden="true">
-          <div className="rr-hi-stage">
-            <div className="rr-hi-welcome rr-hi-p rr-hi-p-en">
-              <span style={{ "--i": 0 } as React.CSSProperties}>W</span>
-              <span style={{ "--i": 1 } as React.CSSProperties}>E</span>
-              <span style={{ "--i": 2 } as React.CSSProperties}>L</span>
-              <span style={{ "--i": 3 } as React.CSSProperties}>C</span>
-              <span style={{ "--i": 4 } as React.CSSProperties}>O</span>
-              <span style={{ "--i": 5 } as React.CSSProperties}>M</span>
-              <span style={{ "--i": 6 } as React.CSSProperties}>E</span>
-              <span className="rr-hi-space" />
-              <span style={{ "--i": 7 } as React.CSSProperties}>T</span>
-              <span style={{ "--i": 8 } as React.CSSProperties}>O</span>
-            </div>
-            <div className="rr-hi-welcome rr-hi-p rr-hi-p-fr">
-              <span style={{ "--i": 0 } as React.CSSProperties}>B</span>
-              <span style={{ "--i": 1 } as React.CSSProperties}>I</span>
-              <span style={{ "--i": 2 } as React.CSSProperties}>E</span>
-              <span style={{ "--i": 3 } as React.CSSProperties}>N</span>
-              <span style={{ "--i": 4 } as React.CSSProperties}>V</span>
-              <span style={{ "--i": 5 } as React.CSSProperties}>E</span>
-              <span style={{ "--i": 6 } as React.CSSProperties}>N</span>
-              <span style={{ "--i": 7 } as React.CSSProperties}>U</span>
-              <span style={{ "--i": 8 } as React.CSSProperties}>E</span>
-              <span className="rr-hi-space" />
-              <span style={{ "--i": 9 } as React.CSSProperties}>À</span>
-            </div>
-            <div className="rr-hi-welcome rr-hi-p rr-hi-p-cr">
-              <span style={{ "--i": 0 } as React.CSSProperties}>B</span>
-              <span style={{ "--i": 1 } as React.CSSProperties}>I</span>
-              <span style={{ "--i": 2 } as React.CSSProperties}>E</span>
-              <span style={{ "--i": 3 } as React.CSSProperties}>N</span>
-              <span style={{ "--i": 4 } as React.CSSProperties}>V</span>
-              <span style={{ "--i": 5 } as React.CSSProperties}>E</span>
-              <span style={{ "--i": 6 } as React.CSSProperties}>N</span>
-              <span style={{ "--i": 7 } as React.CSSProperties}>I</span>
-              <span className="rr-hi-space" />
-              <span style={{ "--i": 8 } as React.CSSProperties}>D</span>
-              <span style={{ "--i": 9 } as React.CSSProperties}>A</span>
-              <span style={{ "--i": 10 } as React.CSSProperties}>N</span>
-            </div>
-            <div className="rr-hi-dest">RODRIGUES</div>
-            <span className="rr-hi-rule" />
-          </div>
-        </div>
         <div id="rr-splash" aria-hidden="true">
           <svg className="rr-sp-rings" viewBox="0 0 600 600" fill="none">
             {[70, 130, 190, 250, 310, 370].map((r) => (

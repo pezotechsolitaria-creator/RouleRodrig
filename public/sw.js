@@ -95,7 +95,7 @@
 // owner can open it from /admin instead of scrolling WhatsApp.
 // v180 — a Money desk that lists everyone waiting on a payment decision, and
 // an email the moment somebody says they have paid.
-const CACHE = "rr-cache-v182";
+const CACHE = "rr-cache-v183";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
