@@ -7,6 +7,7 @@ import {
   notifyDriverReleased,
   notifyOwnerNoDriver,
 } from "@/lib/delivery/notify";
+import { notifyRideOffers, notifyOwnerRideUnassigned } from "@/lib/rides/notify";
 
 // ── The notification worker ─────────────────────────────────────────────────
 //
@@ -184,12 +185,56 @@ async function run(req: NextRequest) {
     console.error("record_heartbeat failed", err);
   }
 
+  // ── AUTOMATIC TAXI DISPATCH ──────────────────────────────────────────────
+  // Riding on this worker rather than a new cron, on purpose: it already runs
+  // every minute, is already authorised, and already tolerates concurrent
+  // invocations. A second pinger to configure is a second thing to forget.
+  //
+  // auto_dispatch_rides() locks each ride FOR UPDATE SKIP LOCKED, so two
+  // overlapping runs take disjoint rides instead of double-offering. It offers
+  // round 1 to anything new, widens the search when a round expires, and gives up
+  // to 'no_driver' at the end of the ladder — the loop that used to be the
+  // owner's finger on a Dispatch button.
+  let dispatched: unknown = null;
+  try {
+    const { data, error } = await admin.rpc("auto_dispatch_rides", { p_limit: 20 });
+    if (error) {
+      console.error("auto_dispatch_rides failed", error);
+    } else {
+      dispatched = data;
+      const rides = ((data as { rides?: { rideId: string; offered?: number }[] })?.rides ?? []);
+      // Send each round's WhatsApp immediately rather than through the queue: an
+      // offer expires in ten minutes, and a job that waits for the next worker
+      // tick has already burnt a tenth of the driver's window.
+      await Promise.allSettled(
+        rides.filter((r) => (r.offered ?? 0) > 0).map((r) => notifyRideOffers(r.rideId)),
+      );
+      // A ride nobody accepted is the one case that still needs a human, so it is
+      // the one case that messages one.
+      const exhausted = rides.filter((r) => !r.offered && "outcome" in r);
+      for (const r of exhausted) {
+        const { data: ride } = await admin
+          .from("ride_requests")
+          .select("pickup_label, dropoff_label")
+          .eq("id", r.rideId)
+          .maybeSingle();
+        if (ride) {
+          await notifyOwnerRideUnassigned(r.rideId, ride.pickup_label, ride.dropoff_label);
+        }
+      }
+    }
+  } catch (err) {
+    // Dispatch must never take the notification worker down with it.
+    console.error("auto dispatch threw", err);
+  }
+
   return NextResponse.json({
     ok: true,
     claimed: jobs.length,
     sent,
     failed,
     deferred,
+    dispatched,
     requeued: (requeued as number | null) ?? 0,
     deliverySweep: sweep,
     ms: Date.now() - started,

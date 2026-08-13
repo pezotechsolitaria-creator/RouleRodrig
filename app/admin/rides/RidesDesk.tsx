@@ -110,10 +110,21 @@ export default function RidesDesk() {
       if (!r.ok) throw new Error(b.error || "That didn't work.");
       if (Array.isArray(b.targets)) {
         setTargets(b.targets);
+        const d = b.delivery as { sent?: number; unreachable?: { name: string }[] } | undefined;
         if (b.targets.length === 0) {
           toast.warning("No eligible driver in this round — press Dispatch again to widen the search.");
+        } else if (d?.sent) {
+          // The normal case now: it already went. Nothing for the owner to do.
+          toast.success(`Sent automatically to ${d.sent} driver${d.sent === 1 ? "" : "s"}.`);
         } else {
-          toast.success(`${b.targets.length} driver${b.targets.length === 1 ? "" : "s"} to message.`);
+          toast.warning(`${b.targets.length} driver${b.targets.length === 1 ? "" : "s"} offered, but none can be messaged automatically yet — send below.`);
+        }
+        // Naming who is unreachable is the only way the owner knows to fix it.
+        if (d?.unreachable?.length) {
+          toast.warning(
+            `${d.unreachable.map((u) => u.name).join(", ")} ${d.unreachable.length === 1 ? "has" : "have"} not set up WhatsApp yet — use the button below for now.`,
+            { duration: 8000 },
+          );
         }
       } else {
         toast.success(ok);

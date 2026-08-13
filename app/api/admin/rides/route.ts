@@ -5,6 +5,7 @@ import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { audit } from "@/lib/admin/audit";
 import { SITE_URL } from "@/lib/site";
 import { offerMessage, RIDE_SERVICES, OPEN_RIDE_STATUSES, type RideService } from "@/lib/rides/model";
+import { notifyRideOffers } from "@/lib/rides/notify";
 
 // ── THE TAXI & TRANSFER DESK'S BACKEND ──────────────────────────────────────
 //
@@ -216,9 +217,16 @@ export async function PATCH(req: NextRequest) {
       };
     });
 
+    // SEND IT. The first version only handed the owner wa.me links to tap, which
+    // is why he reported "it stops at step 2" — the offer existed and nothing
+    // left the building. The links below stay, but only as the fallback for a
+    // driver who has not done the one-time CallMeBot opt-in yet.
+    const delivery = await notifyRideOffers(p.rideId);
+
     await audit(admin, { action: "ride.dispatch", entityType: "ride_request", entityId: p.rideId,
-      diff: { stage: (data as { stage?: number })?.stage, offered: targets.length } });
-    return NextResponse.json({ ...(data as object), targets });
+      diff: { stage: (data as { stage?: number })?.stage, offered: targets.length,
+              sent: delivery.sent, unreachable: delivery.unreachable.length } });
+    return NextResponse.json({ ...(data as object), targets, delivery });
   }
 
   if (p.action === "assign") {
