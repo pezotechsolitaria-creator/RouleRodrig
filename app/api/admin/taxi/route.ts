@@ -38,6 +38,27 @@ export async function GET(req: NextRequest) {
   const denied = await auth(req);
   if (denied) return denied;
   const supabase = await getPrivileged();
+
+  // ── ONE driver's personal link, on demand ────────────────────────────────
+  // The token is deliberately absent from the list below: fifty of them in every
+  // page load would put every driver's private page in a page source. But the
+  // owner has to be able to SEND a driver their link, so it is fetched one at a
+  // time, for the driver he actually asked about.
+  const linkFor = new URL(req.url).searchParams.get("linkFor");
+  if (linkFor) {
+    const { data, error } = await supabase
+      .from("taxi_drivers")
+      .select("id, name, whatsapp, phone, driver_token")
+      .eq("id", linkFor)
+      .maybeSingle();
+    if (error || !data) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    const d = data as { name: string; whatsapp: string | null; phone: string; driver_token: string };
+    return NextResponse.json({
+      name: d.name,
+      whatsapp: (d.whatsapp ?? d.phone).replace(/\D/g, ""),
+      link: `/d/${d.driver_token}`,
+    });
+  }
   // EXPLICIT COLUMNS, not select("*"). Two of them must never reach a browser:
   //  · whatsapp_api_key is a bearer credential — anyone holding it can send
   //    WhatsApp as that number (see lib/notifications/whatsapp.ts, M43). The
@@ -63,14 +84,21 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Whether automation will reach them, without revealing the credential.
-  const { data: ready } = await supabase.rpc("taxi_whatsapp_readiness");
-  const readyMap = new Map(
-    ((ready ?? []) as { driver_id: string; whatsapp_ready: boolean }[]).map((r) => [r.driver_id, r.whatsapp_ready]),
+  const [{ data: waReady }, { data: pushReady }] = await Promise.all([
+    supabase.rpc("taxi_whatsapp_readiness"),
+    supabase.rpc("taxi_push_readiness"),
+  ]);
+  const waMap = new Map(
+    ((waReady ?? []) as { driver_id: string; whatsapp_ready: boolean }[]).map((r) => [r.driver_id, r.whatsapp_ready]),
+  );
+  const pushMap = new Map(
+    ((pushReady ?? []) as { driver_id: string; push_ready: boolean }[]).map((r) => [r.driver_id, r.push_ready]),
   );
   return NextResponse.json(
     ((data ?? []) as unknown as Record<string, unknown>[]).map((d) => ({
       ...d,
-      whatsapp_ready: readyMap.get(String(d.id)) ?? false,
+      whatsapp_ready: waMap.get(String(d.id)) ?? false,
+      push_ready: pushMap.get(String(d.id)) ?? false,
     })),
   );
 }

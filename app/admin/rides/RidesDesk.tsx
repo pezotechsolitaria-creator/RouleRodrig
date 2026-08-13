@@ -38,6 +38,7 @@ type Driver = {
   seats: number | null; base_label: string | null; base_lat: number | null;
   active: boolean; availability: string;
   base_lng?: number | null; luggage_capacity?: number | null;
+  driver_token?: string | null; whatsapp_ready?: boolean; push_ready?: boolean;
   handles_taxi?: boolean; handles_airport?: boolean; handles_transfer?: boolean;
   rides_offered: number; rides_accepted: number; rides_completed: number;
 };
@@ -589,6 +590,30 @@ function DriverRow({
   });
   const rate = d.rides_offered > 0 ? Math.round((d.rides_accepted / d.rides_offered) * 100) : null;
 
+  // The driver's permanent page. Fetched one at a time rather than shipped with
+  // the list, so fifty private links never sit in a page source — then handed
+  // straight to WhatsApp, because a link in a database helps nobody.
+  async function sendLink(id: string) {
+    try {
+      const r = await fetch(`/api/admin/taxi?linkFor=${encodeURIComponent(id)}`);
+      const b = await r.json();
+      if (!r.ok) throw new Error(b.error || "Could not build that link.");
+      const url = `${window.location.origin}${b.link}`;
+      const text =
+        `Bonjour ${b.name} — this is your personal Roulé Rodrigues page.
+
+` +
+        `Save it on your phone. It shows whether you are working, and any ride waiting for you:
+${url}
+
+` +
+        `Do not share it — it is yours.`;
+      window.open(`https://wa.me/${b.whatsapp}?text=${encodeURIComponent(text)}`, "_blank");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not build that link.");
+    }
+  }
+
   return (
     <tr className={`border-b border-white/5 last:border-0 ${d.active ? "" : "opacity-50"}`}>
       <td className="px-3 py-2 font-dm text-sm text-offwhite">
@@ -639,8 +664,25 @@ function DriverRow({
       <td className="px-3 py-2 font-dm text-[11px] tabular-nums text-muted">
         {rate === null ? "no offers yet" : `${rate}% accepted`}
         <span className="block">{d.rides_completed} done</span>
+        {/* Can we actually reach this driver? Two channels, said plainly: a
+            driver nobody can notify is a driver who gets no work. */}
+        <span className="mt-0.5 block">
+          <span className={d.whatsapp_ready ? "text-green-400" : "text-orange-300"}>
+            {d.whatsapp_ready ? "WhatsApp OK" : "no WhatsApp"}
+          </span>
+          {" · "}
+          <span className={d.push_ready ? "text-green-400" : "text-muted"}>
+            {d.push_ready ? "alerts OK" : "no alerts"}
+          </span>
+        </span>
       </td>
       <td className="px-3 py-2 text-right">
+        <button
+          onClick={() => void sendLink(d.id)}
+          className="mr-1.5 rounded-full border border-white/15 px-2.5 py-1.5 font-dm text-[11px] text-yellow hover:border-yellow/50"
+        >
+          Send link
+        </button>
         <button
           onClick={() =>
             onSave(d.id, {

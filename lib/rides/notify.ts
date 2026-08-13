@@ -1,6 +1,7 @@
 import "server-only";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { sendWhatsApp } from "@/lib/notifications/whatsapp";
+import { pushToDriverEndpoints, type Target as PushTarget } from "@/lib/push/send";
 import { SITE_URL } from "@/lib/site";
 import { offerMessage, type RideService } from "./model";
 
@@ -28,7 +29,10 @@ import { offerMessage, type RideService } from "./model";
 // that, zero taps from anyone.
 
 export type OfferSendResult = {
+  /** WhatsApp messages that left the building. */
   sent: number;
+  /** Phones woken by web push. */
+  pushed: number;
   /** Offered, in their window, but with no CallMeBot key yet. */
   unreachable: { name: string; phone: string }[];
   /** Had a key and the send still failed. */
@@ -59,7 +63,7 @@ type Target = {
  * caller is the dispatch path (once per round) rather than a poller.
  */
 export async function notifyRideOffers(rideId: string): Promise<OfferSendResult> {
-  const empty: OfferSendResult = { sent: 0, unreachable: [], failed: [] };
+  const empty: OfferSendResult = { sent: 0, pushed: 0, unreachable: [], failed: [] };
   if (!hasServiceRole()) {
     // Local dev has no service key — say so once rather than failing a caller.
     console.warn("notifyRideOffers skipped: SUPABASE_SERVICE_ROLE_KEY is unset");
@@ -82,7 +86,7 @@ export async function notifyRideOffers(rideId: string): Promise<OfferSendResult>
     return empty;
   }
 
-  const result: OfferSendResult = { sent: 0, unreachable: [], failed: [] };
+  const result: OfferSendResult = { sent: 0, pushed: 0, unreachable: [], failed: [] };
 
   await Promise.allSettled(
     targets.map(async (t) => {
@@ -117,6 +121,52 @@ export async function notifyRideOffers(rideId: string): Promise<OfferSendResult>
       else result.failed.push({ name, error: sent.error });
     }),
   );
+
+  // ── WEB PUSH, ALONGSIDE ─────────────────────────────────────────────────
+  // Two channels for the same reason delivery has two: WhatsApp needs a
+  // per-driver CallMeBot opt-in the platform cannot perform for them, and until
+  // they do it they are unreachable by message. Push needs one tap on a page they
+  // are already looking at. A driver who has done neither still sees the offer
+  // when they open their link; a driver who has done either gets woken.
+  //
+  // Deliberately not exclusive: a phone that missed the push still has the
+  // WhatsApp, and vice versa. Duplicate notice about a real job beats silence.
+  try {
+    const admin = await getPrivileged();
+    const { data, error } = await admin.rpc("taxi_push_targets", { p_request_id: rideId });
+    if (error) {
+      console.error("taxi_push_targets failed", error);
+    } else {
+      // ONE PUSH PER DRIVER, not one payload to everybody: each carries its own
+      // offer token so tapping the notification opens THAT driver's offer with
+      // the accept button already on screen. A notification that lands on the
+      // homepage is one they still have to go and find the job from, and the
+      // offer expires in ten minutes.
+      const targets = (data ?? []) as (PushTarget & { token: string })[];
+      const results = await Promise.allSettled(
+        targets.map((t) =>
+          pushToDriverEndpoints([t], {
+            title: "New ride available",
+            body: "Tap to see it — first to accept gets it.",
+            url: `/r/${t.token}`,
+            // Per ride, so a second offer replaces the first on the driver's
+            // screen rather than stacking notifications for jobs already gone.
+            tag: `ride-${rideId}`,
+            // Android keeps these on screen instead of collapsing them silently,
+            // which matters when the offer expires in ten minutes.
+            urgent: true,
+          }),
+        ),
+      );
+      result.pushed = results.reduce(
+        (n, r) => n + (r.status === "fulfilled" ? r.value : 0), 0,
+      );
+    }
+  } catch (err) {
+    // Push failing must never stop the WhatsApp that already went, nor unwind a
+    // dispatch that has already committed.
+    console.error("taxi push threw", err);
+  }
 
   if (result.failed.length || result.unreachable.length) {
     console.error("ride offer notify incomplete", {
