@@ -16,14 +16,22 @@ export type MerchantDashboard = {
 };
 
 /**
- * Whether the signed-in user already has a shop, and if so, everything the
- * dashboard needs to render — in one round trip via nested PostgREST embeds
- * instead of four sequential queries. RLS (staff_read / stores_public_read /
- * products_public_read) still applies per-table exactly as it would for
- * separate queries; embedding doesn't bypass row security.
+ * Everything the dashboard header and home screen need, for the store the
+ * person is CURRENTLY acting for.
+ *
+ * Resolved through getOwnStoreId() rather than by looking up merchant_staff
+ * again. That is the bug this replaces: getOwnStoreId honoured the store
+ * switcher and this function did not, so picking "Ti Kitchen" moved the nav,
+ * the Menu tab and the order queue while the home screen, the shop name and the
+ * SUBSCRIPTION BANNER all still described the marketplace shop. The owner saw
+ * "Ti Kitchen (DEMO)" in the switcher above "M4 Test Shop — your shop is live"
+ * and an expired-subscription warning belonging to a different business.
+ *
+ * One resolver for the whole dashboard is the fix. Anything that needs to know
+ * which store this is must go through getOwnStoreId().
  */
-async function getKitchenDashboard(supabase: SupabaseClient): Promise<MerchantDashboard | null> {
-  const storeId = await getOwnKitchenStoreId(supabase);
+export async function getMerchantDashboard(supabase: SupabaseClient): Promise<MerchantDashboard | null> {
+  const storeId = await getOwnStoreId(supabase);
   if (!storeId) return null;
 
   const { data: store } = await supabase
@@ -33,57 +41,24 @@ async function getKitchenDashboard(supabase: SupabaseClient): Promise<MerchantDa
     .maybeSingle();
   if (!store) return null;
 
-  const { data: products } = await supabase
-    .from("products")
-    .select("status")
-    .eq("store_id", storeId);
+  const row = store as { id: string; name: string; merchant_id: string };
+
+  const [{ data: merchant }, { data: products }] = await Promise.all([
+    supabase.from("merchants").select("display_name, status").eq("id", row.merchant_id).maybeSingle(),
+    supabase.from("products").select("status").eq("store_id", storeId),
+  ]);
+
+  const m = merchant as { display_name?: string; status?: string } | null;
 
   return {
-    merchantId: (store as { merchant_id: string }).merchant_id,
-    displayName: (store as { name: string }).name,
-    // A restaurant is live because the platform put it live; there is no
-    // separate approval queue for kitchens, and showing "pending" would be a
-    // status the owner can neither explain nor change.
-    status: "approved",
-    store: { id: storeId, name: (store as { name: string }).name },
+    merchantId: row.merchant_id,
+    // The STORE's name, not the merchant's. Every kitchen hangs off one
+    // platform merchant called "Roulé Rodrigues Kitchen", so showing the
+    // merchant name would label every restaurant identically.
+    displayName: row.name || m?.display_name || "Your shop",
+    status: m?.status ?? "approved",
+    store: { id: row.id, name: row.name },
     productCount: ((products ?? []) as { status?: string }[]).filter((p) => p.status !== "archived").length,
-  };
-}
-
-export async function getMerchantDashboard(supabase: SupabaseClient): Promise<MerchantDashboard | null> {
-  const { data } = await supabase
-    .from("merchant_staff")
-    .select(
-      // Fetch each product's status (not a count(*) embed) so the dashboard
-      // can exclude archived (soft-deleted) products from the headline
-      // count — a plain products(count) embed counts every row regardless
-      // of status, which double-counts a merchant's deleted history.
-      "merchant_id, merchants(display_name, status, stores(id, name, products(status)))",
-    )
-    .limit(1)
-    .maybeSingle();
-
-  if (!data) return getKitchenDashboard(supabase);
-
-  // Supabase types this as an array via the FK relationship name even though
-  // it's a single row per staff membership (merchant_id is not-null unique
-  // per row) — narrow it defensively rather than assume the shape.
-  const merchant = Array.isArray(data.merchants) ? data.merchants[0] : data.merchants;
-  if (!merchant) return null;
-
-  const storesRaw = merchant.stores as unknown;
-  const storeRow = Array.isArray(storesRaw) ? storesRaw[0] : storesRaw;
-  const store = storeRow ? { id: storeRow.id as string, name: storeRow.name as string } : null;
-
-  const productRows = (storeRow?.products as { status?: string }[] | undefined) ?? [];
-  const productCount = productRows.filter((p) => p.status !== "archived").length;
-
-  return {
-    merchantId: data.merchant_id as string,
-    displayName: merchant.display_name as string,
-    status: merchant.status as string,
-    store,
-    productCount,
   };
 }
 

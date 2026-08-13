@@ -32,5 +32,15 @@ export async function switchStore(formData: FormData) {
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
   });
+
+  // Revalidate AND redirect. revalidatePath alone left the switch feeling
+  // laggy — the owner reported it — because the client had to re-render an
+  // already-rendered tree and any page-level cache below the layout could
+  // still serve the old store. A redirect to the dashboard home is one
+  // navigation with the new cookie already set, so every screen below it is
+  // built for the store that was just chosen. It also lands somewhere that
+  // makes sense: an order detail belonging to the shop you just switched AWAY
+  // from is not a place to leave somebody standing.
   revalidatePath("/merchant", "layout");
+  redirect("/merchant");
 }
