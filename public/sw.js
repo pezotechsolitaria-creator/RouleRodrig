@@ -105,7 +105,9 @@
 // for a phone call, and the refund policy says who actually returns the money.
 // v199 — /admin/food now says when a kitchen is hidden by an archived owner
 // account, the one reason no screen could show.
-const CACHE = "rr-cache-v199";
+// v200 — anything left waiting an hour now phones the owner on WhatsApp,
+// and the Command Centre says whether that is actually armed.
+const CACHE = "rr-cache-v200";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

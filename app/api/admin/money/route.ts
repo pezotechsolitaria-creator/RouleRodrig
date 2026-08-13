@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
 import { getPrivileged } from "@/lib/supabase/admin";
+import { ESCALATE_AFTER_HOURS, hoursWaited } from "@/lib/notifications/escalation";
 
 // ── One list of everything waiting on the owner's decision about money ──────
 //
@@ -48,7 +49,10 @@ export async function GET(req: NextRequest) {
       .select("id, name, scooter, deposit_amount, payment_reported_at, payment_receipt_path, deposit_paid_at, status")
       .not("payment_reported_at", "is", null)
       .is("deposit_paid_at", null)
-      .in("status", ["pending"])
+      // "approved" as well as "pending": after M91 a customer declares their
+      // transfer against an APPROVED booking, which is the normal path now.
+      // Listing only "pending" would have hidden every real one.
+      .in("status", ["pending", "approved"])
       .order("payment_reported_at", { ascending: true })
       .limit(100),
     supabase
@@ -127,5 +131,38 @@ export async function GET(req: NextRequest) {
   // Oldest first: the person who has been waiting longest is the one to answer.
   rows.sort((a, b) => (a.reportedAt ?? "").localeCompare(b.reportedAt ?? ""));
 
-  return NextResponse.json({ rows });
+  // ── Is the phone escalation actually armed? (M93) ─────────────────────────
+  //
+  // The WhatsApp escalation only reaches a number that has an ACTIVE slot
+  // subscribed to the "admin" category. A Command Centre that shows a queue but
+  // not whether anyone will be told about it is how you end up believing you
+  // are covered — the same failure as OWNER_EMAIL being unset for months.
+  // Names and the threshold only: an api_key is a bearer credential and never
+  // leaves the server (M43).
+  let escalation: { armed: boolean; to: string[]; afterHours: number } = {
+    armed: false,
+    to: [],
+    afterHours: ESCALATE_AFTER_HOURS,
+  };
+  try {
+    const { data: slots } = await supabase
+      .from("notification_slots")
+      .select("name, phone, is_active, categories")
+      .eq("is_active", true);
+    const names = ((slots ?? []) as { name: string; phone: string; categories: string[] | null }[])
+      .filter((s) => (s.categories ?? []).includes("admin"))
+      // Last four digits only — enough for him to recognise the phone, not
+      // enough to be a contact list if this response ever leaks.
+      .map((s) => `${s.name} (…${(s.phone ?? "").slice(-4)})`);
+    escalation = { armed: names.length > 0, to: names, afterHours: ESCALATE_AFTER_HOURS };
+  } catch (e) {
+    console.error("money: escalation status failed", e);
+  }
+
+  // How long the longest-waiting item has been sitting, so the desk can say
+  // "this one has already triggered a call" rather than making him compare
+  // timestamps himself.
+  const oldestHours = rows.length ? hoursWaited(rows[0].reportedAt ?? new Date().toISOString()) : 0;
+
+  return NextResponse.json({ rows, escalation, oldestHours });
 }

@@ -2845,6 +2845,7 @@ type MoneyRow = {
 
 function MoneyDesk({ onGo }: { onGo: (s: Section) => void }) {
   const [rows, setRows] = useState<MoneyRow[]>([]);
+  const [escalation, setEscalation] = useState<{ armed: boolean; to: string[]; afterHours: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -2854,8 +2855,11 @@ function MoneyDesk({ onGo }: { onGo: (s: Section) => void }) {
       try {
         const res = await fetch("/api/admin/money");
         if (!res.ok) throw new Error();
-        const j = (await res.json()) as { rows: MoneyRow[] };
-        if (live) setRows(j.rows ?? []);
+        const j = (await res.json()) as {
+          rows: MoneyRow[];
+          escalation?: { armed: boolean; to: string[]; afterHours: number };
+        };
+        if (live) { setRows(j.rows ?? []); setEscalation(j.escalation ?? null); }
       } catch {
         if (live) setError(true);
       } finally {
@@ -2879,8 +2883,40 @@ function MoneyDesk({ onGo }: { onGo: (s: Section) => void }) {
   if (loading) return <p className="font-dm text-sm text-muted/60">Checking every desk…</p>;
   if (error) return <p className="font-dm text-sm text-red-400">Could not load this right now.</p>;
 
+  // ── Is the phone escalation armed? (M93) ───────────────────────────────
+  //
+  // Rendered whether or not anything is waiting, and ABOVE the list: the
+  // moment to discover nobody would be called is not the moment somebody has
+  // already been waiting three hours. This is the OWNER_EMAIL lesson applied
+  // before it costs anything — a channel that is off must say so where the
+  // work is, not in a settings page nobody opens.
+  const escalationBanner = escalation && (
+    <div
+      className={`mb-4 rounded-xl border p-3.5 ${
+        escalation.armed ? "border-[#2a2a2a] bg-[#0d0d0d]" : "border-yellow/40 bg-yellow/[0.06]"
+      }`}
+    >
+      <p className="font-bebas text-[10px] tracking-[0.25em] text-muted">WHATSAPP ESCALATION</p>
+      {escalation.armed ? (
+        <p className="mt-1 font-dm text-xs leading-relaxed text-offwhite/80">
+          Anything still waiting after <strong>{escalation.afterHours}h</strong> sends a WhatsApp to{" "}
+          <strong>{escalation.to.join(", ")}</strong> — once an hour, until you deal with it.
+        </p>
+      ) : (
+        <p className="mt-1 font-dm text-xs leading-relaxed text-offwhite/80">
+          Nobody will be phoned. Add a WhatsApp number under{" "}
+          <strong>Alerts &amp; Email</strong>, switch it on, and tick{" "}
+          <strong>&ldquo;Needs my attention&rdquo;</strong> — otherwise a customer can wait all day and
+          the only thing that knows is this screen.
+        </p>
+      )}
+    </div>
+  );
+
   if (rows.length === 0) {
     return (
+      <>
+      {escalationBanner}
       <div className="rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] p-8 text-center">
         <Banknote size={22} className="mx-auto text-muted/40" />
         <p className="mt-3 font-syne font-bold text-offwhite">Nobody is waiting on you</p>
@@ -2888,11 +2924,13 @@ function MoneyDesk({ onGo }: { onGo: (s: Section) => void }) {
           Every reported payment has been dealt with. New ones appear here the moment a customer says they have paid.
         </p>
       </div>
+      </>
     );
   }
 
   return (
     <div className="space-y-3">
+      {escalationBanner}
       <p className="font-dm text-xs text-muted/60">
         {rows.length} {rows.length === 1 ? "person is" : "people are"} waiting for you to confirm a payment. Oldest first.
       </p>

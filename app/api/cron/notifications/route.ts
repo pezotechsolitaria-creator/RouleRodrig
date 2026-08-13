@@ -104,6 +104,23 @@ async function run(req: NextRequest) {
     console.error("sweep_delivery_escalations threw", err);
   }
 
+  // ── Nothing has happened SINCE (M93) ─────────────────────────────────────
+  //
+  // Rides this cron for the same reason the delivery sweep does: it is already
+  // pinged every minute, and a second scheduler is a second thing that can stop
+  // without anyone noticing.
+  //
+  // It enqueues rather than sends, so the message goes out through the same
+  // claim/retry/record path as everything else — and its dedupe key is the
+  // clock hour, so running every minute still means one WhatsApp per hour.
+  let stale: { found: number; queued: number } = { found: 0, queued: 0 };
+  try {
+    const { escalateStale } = await import("@/lib/notifications/escalation");
+    stale = await escalateStale();
+  } catch (err) {
+    console.error("stale-work escalation threw", err);
+  }
+
   const { data: claimed, error: claimError } = await admin.rpc("claim_notification_jobs", {
     p_limit: BATCH,
   });
@@ -237,6 +254,9 @@ async function run(req: NextRequest) {
     dispatched,
     requeued: (requeued as number | null) ?? 0,
     deliverySweep: sweep,
+    // Reported so the response is enough to answer "why did/didn't he get a
+    // WhatsApp?" without opening the database.
+    staleWork: stale,
     ms: Date.now() - started,
   });
 }
