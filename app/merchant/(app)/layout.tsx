@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { CircleUser, LogOut } from "lucide-react";
+import { CircleUser, LogOut, ChefHat } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getMerchantDashboard, getAccessibleStores, getOwnStoreId } from "@/lib/merchant/context";
 import { getMerchantSubscription } from "@/lib/merchant/subscription";
@@ -49,18 +49,34 @@ export default async function MerchantAppLayout({ children }: { children: React.
                 /merchant was unreachable from every section page. */}
             <Link
               href="/merchant"
-              aria-label="Merchant dashboard home"
+              aria-label={isKitchen ? "Kitchen dashboard home" : "Merchant dashboard home"}
               className="flex items-baseline gap-1.5 font-syne font-extrabold leading-none transition-opacity hover:opacity-80"
             >
               <span className="text-base text-offwhite">Roulé</span>
               <span className="text-base text-yellow">Rodrigues</span>
             </Link>
+            {/* Says which business this is, not which codebase it runs on. The
+                same dashboard serves shops and restaurants (M81), and calling a
+                restaurant "MERCHANT" is the kind of small wrongness that makes
+                an owner doubt they are in the right place. */}
             <span className="rounded-full border border-yellow/30 bg-yellow/10 px-2 py-0.5 font-bebas text-[9px] tracking-[0.2em] text-yellow">
-              MERCHANT
+              {isKitchen ? "KITCHEN" : "MERCHANT"}
             </span>
             <MerchantNavDesktop isKitchen={isKitchen} />
             <div className="ml-auto flex items-center gap-2">
               <StoreSwitcher stores={stores} currentId={currentStoreId} action={switchStore} />
+              {/* An owner has two screens: this one, and the cook's board. The
+                  cook's board was only reachable by typing /kitchen, which the
+                  owner has said repeatedly is not acceptable. Restaurants only —
+                  a shop has no kitchen screen to go to. */}
+              {isKitchen && (
+                <Link
+                  href="/kitchen"
+                  className="hidden items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 font-dm text-xs text-muted transition-colors hover:border-yellow/50 hover:text-yellow sm:inline-flex"
+                >
+                  <ChefHat size={13} /> Cook&apos;s screen
+                </Link>
+              )}
               {/* The way out. A merchant is usually a customer too, and this
                   console had no route to the rest of their account except
                   retyping a URL. */}
