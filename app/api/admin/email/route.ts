@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
 import { getPrivileged } from "@/lib/supabase/admin";
-import { sendWaitlistWelcome, invalidateEmailConfig, emailProviderName } from "@/lib/email";
+import { sendWaitlistWelcome, invalidateEmailConfig, emailProviderName, ownerInbox, ownerInboxIsExplicit } from "@/lib/email";
 import { guard } from "@/lib/rate-limit";
 import { getEmailConfig, saveEmailConfig } from "@/lib/email/config";
 import { getProviderUsage, getReserveState } from "@/lib/email/quota";
@@ -59,6 +59,13 @@ export async function GET(req: NextRequest) {
     apikeySet: !!key,
     apikeyHint: key ? `••••${key.slice(-4)}` : "",
     envFallback: !!(process.env.BREVO_API_KEY || process.env.RESEND_API_KEY),
+
+    // Where the seven internal alerts go, and whether that was CHOSEN or
+    // inherited. OWNER_EMAIL was unset in production for months and every one
+    // of those emails silently did nothing — no error, no log, nothing in this
+    // panel. Reporting the address is what makes that impossible to repeat.
+    // The value is the owner's own inbox shown to the owner, not a secret.
+    ownerAlerts: { to: ownerInbox(), explicit: ownerInboxIsExplicit() },
 
     // ── M41 ──
     transactionalListId: m["brevo_transactional_list_id"] ?? "",

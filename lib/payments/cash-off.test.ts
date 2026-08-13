@@ -83,6 +83,13 @@ describe("cash never defaults to available", () => {
         continue; // deleted between listing and reading
       }
       text.split("\n").forEach((line, i) => {
+        // Prose that QUOTES the anti-pattern is not the anti-pattern. This file
+        // already exempts itself for exactly that reason; the same courtesy has
+        // to extend to any doc comment explaining the rule, or writing the
+        // explanation down breaks the test that enforces it — which is what
+        // happened the moment lib/payments/prepayment.ts cited the example.
+        const code = line.trim();
+        if (code.startsWith("*") || code.startsWith("//") || code.startsWith("/*")) return;
         if (CASH_DEFAULTED_TRUE.some((re) => re.test(line))) {
           offenders.push(`${file}:${i + 1}  ${line.trim()}`);
         }

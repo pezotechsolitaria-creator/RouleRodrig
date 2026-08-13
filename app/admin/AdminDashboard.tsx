@@ -7221,6 +7221,7 @@ interface ActivityView {
 }
 interface EmailOpsData {
   activeProvider: string;
+  ownerAlerts?: { to: string; explicit: boolean };
   usage: { resend: ProviderUsageView; brevo: ProviderUsageView };
   reserve: ReserveView;
   todayTypes: { emailType: string; count: number }[];
@@ -7409,6 +7410,34 @@ function EmailDeliveryCard() {
 
   return (
     <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-5">
+      {/* Where the internal alerts land. This panel showed provider health,
+          quota and every failure — and not one word about the address the
+          owner's own alerts are sent to, which is why OWNER_EMAIL being unset
+          went unnoticed for months while everything here looked healthy. */}
+      {d.ownerAlerts && (
+        <div
+          className={`mb-5 rounded-xl border p-3.5 ${
+            d.ownerAlerts.explicit
+              ? "border-[#2a2a2a] bg-[#0d0d0d]"
+              : "border-yellow/40 bg-yellow/[0.06]"
+          }`}
+        >
+          <p className="font-bebas text-[10px] tracking-[0.25em] text-muted">YOUR ALERTS GO TO</p>
+          <p className="mt-1 font-dm text-sm text-offwhite break-all">{d.ownerAlerts.to}</p>
+          <p className="mt-1.5 font-dm text-[11px] leading-relaxed text-muted/70">
+            {d.ownerAlerts.explicit ? (
+              <>New bookings, reservations, the daily pickup and return reminders and reported payments all land here.</>
+            ) : (
+              <>
+                No <code className="text-yellow/80">OWNER_EMAIL</code> is set, so this falls back to the site&apos;s
+                contact address. Set <code className="text-yellow/80">OWNER_EMAIL</code> in Vercel and redeploy to send
+                them to an inbox you read.
+              </>
+            )}
+          </p>
+        </div>
+      )}
+
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-bebas text-yellow text-xs tracking-[0.3em]">EMAIL DELIVERY</p>

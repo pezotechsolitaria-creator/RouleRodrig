@@ -95,7 +95,9 @@
 // owner can open it from /admin instead of scrolling WhatsApp.
 // v180 — a Money desk that lists everyone waiting on a payment decision, and
 // an email the moment somebody says they have paid.
-const CACHE = "rr-cache-v193";
+// v194 — owner alerts can no longer be switched off by a missing env var,
+// and /admin now says out loud which inbox they go to.
+const CACHE = "rr-cache-v194";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

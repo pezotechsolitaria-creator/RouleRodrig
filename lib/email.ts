@@ -560,6 +560,34 @@ function summaryRows(b: BookingEmailData): string {
   return rows(pairs);
 }
 
+// ── Where owner alerts actually go ─────────────────────────────────────────
+//
+// Seven internal emails — new booking, new reservation, the three daily
+// reminders, the Ti Roulé digest and the payment alert — used to read
+// process.env.OWNER_EMAIL directly and `return false` when it was unset.
+//
+// On 2026-08-13 the owner checked Vercel: OWNER_EMAIL was not there, and had
+// never been. So every one of those had been silently doing nothing, for
+// months, with no error, no log and nothing in /admin to say so. He had never
+// received a single "new booking" email and had no way to know that was even a
+// thing that could be true.
+//
+// The variable being unset is not the bug. A notification system that turns
+// itself off completely when one environment variable is missing, and says
+// nothing, is the bug. So it now falls back to the site's own published contact
+// address — already the reply-to fallback in the Brevo provider, already
+// printed inside customer emails — which is a mailbox that demonstrably exists.
+// OWNER_EMAIL still wins when set, because a personal inbox is read faster than
+// a shared one.
+export function ownerInbox(): string {
+  return (process.env.OWNER_EMAIL ?? "").trim() || CONTACT_EMAIL;
+}
+
+/** True when the owner has chosen an address rather than inheriting the fallback. */
+export function ownerInboxIsExplicit(): boolean {
+  return !!(process.env.OWNER_EMAIL ?? "").trim();
+}
+
 /**
  * Sends a confirmation to the customer (if they gave an email) and a
  * notification to the business owner (if OWNER_EMAIL is set).
@@ -642,7 +670,7 @@ export async function sendBookingEmails(raw: BookingEmailData): Promise<{ custom
   }
 
   // ── Owner notification (internal, English) ──
-  const owner = process.env.OWNER_EMAIL;
+  const owner = ownerInbox();
   if (owner) {
     const body = `
       ${paragraph(`You have a new booking request. Details below — manage it in your admin dashboard under <strong>Bookings</strong>.`)}
@@ -776,8 +804,7 @@ function ownerActionEmail(b: BookingEmailData, kind: "deliver" | "collect", logo
 
 /** Owner reminder: a scooter needs delivering tomorrow. */
 export async function sendAdminPickupReminder(raw: BookingEmailData): Promise<boolean> {
-  const owner = process.env.OWNER_EMAIL;
-  if (!owner) return false;
+  const owner = ownerInbox();
   const b = await withVehicleName(raw);
   const { logo } = await getBrand();
   return send({
@@ -793,8 +820,7 @@ export async function sendAdminPickupReminder(raw: BookingEmailData): Promise<bo
 
 /** Owner reminder: a scooter is due back tomorrow. */
 export async function sendAdminReturnReminder(raw: BookingEmailData): Promise<boolean> {
-  const owner = process.env.OWNER_EMAIL;
-  if (!owner) return false;
+  const owner = ownerInbox();
   const b = await withVehicleName(raw);
   const { logo } = await getBrand();
   return send({
@@ -869,8 +895,7 @@ export async function sendPaymentReportedAlert(input: {
   /** Where in /admin this is dealt with. */
   adminPath?: string;
 }): Promise<boolean> {
-  const owner = process.env.OWNER_EMAIL;
-  if (!owner) return false;
+  const owner = ownerInbox();
   const { logo } = await getBrand();
 
   const where =
@@ -940,7 +965,7 @@ export async function sendPlaceBookingEmails(b: PlaceBookingEmailData): Promise<
     });
   }
 
-  const owner = process.env.OWNER_EMAIL;
+  const owner = ownerInbox();
   if (owner) {
     const body = `
       ${paragraph(`New <strong>Stay·Eat·Do</strong> reservation request from <strong>${b.name}</strong>.`)}
@@ -1017,8 +1042,7 @@ export async function sendPlaceFeedbackRequest(b: PlaceBookingEmailData): Promis
 
 /** Owner reminder: a Stay·Eat·Do reservation is happening tomorrow. */
 export async function sendAdminPlaceReminder(b: PlaceBookingEmailData): Promise<boolean> {
-  const owner = process.env.OWNER_EMAIL;
-  if (!owner) return false;
+  const owner = ownerInbox();
   const { logo } = await getBrand();
   const body = `
     ${paragraph(`<strong style="color:${C.ink}">Reservation tomorrow</strong> (${fmtDate(b.start_date)}) — <strong>${b.name}</strong> at <strong>${b.place_name}</strong>.`)}
