@@ -145,7 +145,12 @@ export async function getOrderCount(supabase: SupabaseClient, storeId: string): 
 /** Cheap existence check for pages that only need to gate on "has a shop yet". */
 export async function hasShop(supabase: SupabaseClient): Promise<boolean> {
   const { data } = await supabase.from("merchant_staff").select("merchant_id").limit(1);
-  return (data?.length ?? 0) > 0;
+  if ((data?.length ?? 0) > 0) return true;
+  // A restaurant owner is kitchen_staff, not merchant_staff. Without this the
+  // seven pages that gate on hasShop() — Orders, Products, Payments, Hours,
+  // Pickup, order detail — would bounce them to /merchant/onboarding and invite
+  // them to create a shop they already have.
+  return (await getOwnKitchenStoreId(supabase)) !== null;
 }
 
 /**
