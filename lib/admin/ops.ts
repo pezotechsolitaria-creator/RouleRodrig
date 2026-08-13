@@ -82,6 +82,16 @@ export type AttentionCounts = {
    * so this list is a chase list.
    */
   refundsOwed?: number;
+  /**
+   * Taxi passengers who booked and never appeared, last 30 days (M92).
+   *
+   * INFO, not a queue: nobody is blocked and there is no button to press. It
+   * is here because the cost is invisible otherwise — the driver eats the fuel
+   * and the platform never hears about it — and because a number that climbs
+   * is the signal to change how booking works, not something to fix ride by
+   * ride.
+   */
+  taxiNoShows?: number;
 };
 
 /**
@@ -208,6 +218,10 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
     {
       key: "reviews", label: "Reviews awaiting moderation",
       count: c.pendingReviews ?? 0, severity: "info", href: "/admin/content#reviews",
+    },
+    {
+      key: "taxi-no-shows", label: "Taxi no-shows in the last 30 days",
+      count: c.taxiNoShows ?? 0, severity: "info", href: "/admin/rides",
     },
     {
       key: "low-stock", label: "Products low on stock",

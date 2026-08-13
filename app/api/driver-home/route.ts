@@ -34,6 +34,15 @@ const actionSchema = z.discriminatedUnion("action", [
     action: z.literal("unsubscribe"),
     endpoint: z.string().url().max(600),
   }),
+  // M92 — "nobody came". The driver is the only person who knows, and until
+  // now they had no way to say it: the ride sat in 'arrived' until an admin
+  // cancelled it, which recorded the loss against the driver rather than the
+  // passenger who caused it.
+  z.object({
+    action: z.literal("noShow"),
+    token: z.string().min(32).max(200),
+    note: z.string().trim().max(300).optional(),
+  }),
 ]);
 
 export async function GET(req: NextRequest) {
@@ -75,6 +84,24 @@ export async function POST(req: NextRequest) {
     });
     if (error) {
       console.error("set_taxi_availability_by_token failed", error);
+      return NextResponse.json({ ok: false }, { status: 500 });
+    }
+    return NextResponse.json(data);
+  }
+
+  if (p.action === "noShow") {
+    const { data, error } = await admin.rpc("report_ride_no_show_by_token", {
+      p_token: p.token,
+      p_note: p.note ?? null,
+    });
+    if (error) {
+      // RR090 covers both "not your token" and "no ride to report", on
+      // purpose — neither answer should tell a stranger holding a guessed
+      // token whether it is real.
+      if (error.code === "RR090") {
+        return NextResponse.json({ ok: false, error: error.message }, { status: 404 });
+      }
+      console.error("report_ride_no_show_by_token failed", error);
       return NextResponse.json({ ok: false }, { status: 500 });
     }
     return NextResponse.json(data);

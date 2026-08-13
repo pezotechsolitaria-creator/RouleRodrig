@@ -99,7 +99,7 @@
 // and /admin now says out loud which inbox they go to.
 // v195 — refunds: a cancelled paid order now opens a tracked obligation
 // the customer, the shop and the owner can all see.
-const CACHE = "rr-cache-v195";
+const CACHE = "rr-cache-v196";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

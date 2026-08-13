@@ -53,6 +53,37 @@ export default function DriverHome({ token }: { token: string }) {
 
   useEffect(() => { void load(); }, [load]);
 
+  // M92 — "nobody came". Confirmed first, because it ends the job and cannot be
+  // undone from this screen; the reply tells the driver whether this passenger
+  // has form, which is the whole reason for recording it.
+  const [noShowBusy, setNoShowBusy] = useState(false);
+  const [noShowMsg, setNoShowMsg] = useState<string | null>(null);
+  const reportNoShow = useCallback(async () => {
+    if (!window.confirm("Report that the passenger never came? This ends the ride.")) return;
+    setNoShowBusy(true);
+    setNoShowMsg(null);
+    try {
+      const r = await fetch("/api/driver-home", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "noShow", token }),
+      });
+      const b = (await r.json().catch(() => ({}))) as { ok?: boolean; previousNoShows?: number };
+      if (!r.ok || !b.ok) throw new Error("failed");
+      const prior = (b.previousNoShows ?? 1) - 1;
+      setNoShowMsg(
+        prior > 0
+          ? `Recorded. This number has done it ${prior} time${prior === 1 ? "" : "s"} before — Roulé Rodrigues has been told.`
+          : "Recorded, and Roulé Rodrigues has been told. Thank you.",
+      );
+      await load(true);
+    } catch {
+      setNoShowMsg("That didn't save. Please call Roulé Rodrigues.");
+    } finally {
+      setNoShowBusy(false);
+    }
+  }, [token, load]);
+
   // Poll quietly so a driver who leaves this open sees an offer arrive without
   // touching anything. Fifteen seconds against a ten-minute window is plenty and
   // costs a phone almost nothing.
@@ -209,6 +240,24 @@ export default function DriverHome({ token }: { token: string }) {
               <MessageCircle size={16} /> WhatsApp
             </a>
           </div>
+
+          {/* Quiet and last on purpose: it is rare and it ends the job, so it
+              must not sit where a thumb lands. But it belongs HERE, because the
+              driver is standing at the pickup point looking at this exact
+              screen. Calling comes first, which is why the two contact buttons
+              stay big and this stays a line of text. */}
+          <button
+            onClick={() => void reportNoShow()}
+            disabled={noShowBusy}
+            className="mt-3 w-full font-dm text-xs text-muted underline underline-offset-2 disabled:opacity-50"
+          >
+            {noShowBusy ? "Reporting…" : "The passenger never came"}
+          </button>
+          {noShowMsg && (
+            <p role="status" className="mt-2 text-center font-dm text-xs text-offwhite/80">
+              {noShowMsg}
+            </p>
+          )}
         </div>
       )}
 

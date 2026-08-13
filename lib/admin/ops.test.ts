@@ -171,6 +171,30 @@ describe("food ordering going dark", () => {
   });
 });
 
+describe("taxi no-shows", () => {
+  // M92. Deliberately INFO, unlike every other money-adjacent item: nobody is
+  // blocked and there is no button to press. It is here because the cost is
+  // otherwise invisible — the driver eats the fuel and the platform never
+  // hears — and a number that climbs is the signal to change how booking
+  // works, not something to fix ride by ride.
+  it("is information, not a queue", () => {
+    const item = attentionItems({ taxiNoShows: 3 }).find((i) => i.key === "taxi-no-shows");
+    expect(item, "no taxi-no-shows item at all").toBeDefined();
+    expect(item!.severity).toBe("info");
+    expect(item!.count).toBe(3);
+  });
+
+  it("never outranks somebody who is actually waiting", () => {
+    const items = attentionItems({ taxiNoShows: 50, refundsOwed: 1 });
+    expect(items.findIndex((i) => i.key === "refunds-owed"))
+      .toBeLessThan(items.findIndex((i) => i.key === "taxi-no-shows"));
+  });
+
+  it("says nothing on a clean month", () => {
+    expect(attentionItems({ taxiNoShows: 0 }).find((i) => i.key === "taxi-no-shows")?.count ?? 0).toBe(0);
+  });
+});
+
 describe("money owed back to a customer", () => {
   // M90. The only queue where the customer has already paid AND received
   // nothing. It is also the one the platform cannot fix itself — the money is

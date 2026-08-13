@@ -128,11 +128,13 @@ export default async function CommandCenterPage() {
     { data: emptyLiveKitchens },
     { data: paymentBlockedStores },
     { data: refundsOwed },
+    { data: taxiNoShows },
   ] = await Promise.all([
     admin.rpc("orderable_dish_count"),
     admin.rpc("empty_live_kitchen_count"),
     admin.rpc("payment_blocked_store_count"),
     admin.rpc("outstanding_refund_count"),
+    admin.rpc("recent_no_show_count"),
   ]);
 
   const attention: AttentionItem[] = attentionItems({
@@ -141,6 +143,7 @@ export default async function CommandCenterPage() {
     paymentBlockedStores:
       typeof paymentBlockedStores === "number" ? paymentBlockedStores : undefined,
     refundsOwed: typeof refundsOwed === "number" ? refundsOwed : undefined,
+    taxiNoShows: typeof taxiNoShows === "number" ? taxiNoShows : undefined,
     openOrders: byQueue(openOrders.data as { store_id: string | null }[] | null),
     awaitingPaymentConfirmation: byQueue(awaiting.data as { store_id: string | null }[] | null),
     pendingVehicleBookings: count(pendingBookings),
