@@ -40,6 +40,8 @@ const ALLOWED_WITHOUT_LINKS: Record<string, string> = {
   "/v2": "Legacy preview URL kept alive for old bookmarks; it just redirects to /.",
   "/auth/reset-password": "Opened from a password-reset EMAIL. There is nowhere in the app it could be linked from.",
   "/merchant/pickup": "Where a SCANNED pickup QR lands. The same job is reachable by clicking via the code box on /merchant/orders.",
+  "/r/[token]":
+    "The taxi driver's screen, opened from a WhatsApp link sent to that driver. Taxi drivers have no accounts by decision, so the token IS the credential and there is nowhere in the app it could be linked from.",
 };
 
 /**

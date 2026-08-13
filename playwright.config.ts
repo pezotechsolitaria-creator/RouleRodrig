@@ -1,4 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
+import { config as loadEnv } from "dotenv";
+
+// .env.local holds NEXT_PUBLIC_SUPABASE_URL and the publishable key. Some specs
+// query the database as the ROLE A VISITOR ACTUALLY HAS, which is the only way
+// to catch a missing GRANT or a policy that stopped covering `anon` — both of
+// which look like a working page right up until a customer tries to pay.
+// Without this they would silently skip, and a skipped test proves nothing.
+loadEnv({ path: ".env.local", quiet: true });
 
 // E2E smoke tests for the Roule Rodrigues site. Reuses a running dev server if
 // one is already up (the in-app preview), otherwise starts `npm run dev`.
