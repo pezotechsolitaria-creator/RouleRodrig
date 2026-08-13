@@ -119,7 +119,9 @@
 // of the switch silently doing nothing.
 // v206 — every dish can show the kitchen's WhatsApp, so a visitor who
 // cannot make a local bank transfer still has a way to order.
-const CACHE = "rr-cache-v206";
+// v207 — "Blocked in settings" is no longer a dead end: it explains that the
+// SITE permission differs from the phone permission, and offers Check again.
+const CACHE = "rr-cache-v207";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

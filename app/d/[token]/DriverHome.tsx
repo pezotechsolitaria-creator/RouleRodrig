@@ -131,6 +131,29 @@ export default function DriverHome({ token }: { token: string }) {
     }
   }
 
+  /**
+   * Re-read what the browser thinks NOW.
+   *
+   * "Blocked" was a dead end: the button is not rendered in that state, so the
+   * driver had nothing to press after fixing it in settings, and the page only
+   * re-checks on a fresh mount. Reported as "I cannot turn on notifications
+   * even it is on in my settings, it said blocked" — which is the browser's
+   * SITE permission being denied while the phone's OS permission is allowed.
+   * Two different switches; only the site one blocks this.
+   */
+  async function recheckPermission() {
+    setPushWhy(null);
+    if (!("Notification" in window)) { setPush("unsupported"); return; }
+    if (Notification.permission === "denied") {
+      setPushWhy(
+        "Still blocked for this website. Allowing notifications for your PHONE is not the same as allowing them for this site — you have to allow the site itself, then press Check again.",
+      );
+      return;
+    }
+    // No longer denied: fall straight through to subscribing.
+    await enablePush();
+  }
+
   async function enablePush() {
     setPush("working");
     setPushWhy(null);
@@ -324,8 +347,12 @@ export default function DriverHome({ token }: { token: string }) {
           ) : push === "unsupported" ? (
             <span className="font-dm text-xs text-muted">Not on this phone</span>
           ) : push === "denied" ? (
-            // Nothing here can fix a denied permission — only their settings can.
-            <span className="font-dm text-xs text-orange-300">Blocked in settings</span>
+            // Their settings are the only thing that can fix it — but the page
+            // must still offer a way to re-check, or "blocked" is permanent.
+            <button onClick={() => void recheckPermission()}
+              className="rounded-full border border-orange-400/40 px-3 py-1.5 font-dm text-xs font-bold text-orange-300 hover:bg-orange-400/10">
+              Check again
+            </button>
           ) : (
             <button onClick={() => void enablePush()} disabled={push === "working"}
               className="rounded-full bg-yellow px-4 py-2 font-dm text-xs font-bold text-dark disabled:opacity-50">
@@ -338,6 +365,21 @@ export default function DriverHome({ token }: { token: string }) {
             nothing change, and gives up — and /admin reports "no alerts" with
             no way for either of them to find out which of five different causes
             it was. */}
+        {push === "denied" && !pushWhy && (
+          <div className="mt-2.5 rounded-xl border border-orange-400/25 bg-orange-400/[0.06] p-3">
+            <p className="font-dm text-xs font-bold text-orange-200">Blocked for this website</p>
+            <p className="mt-1 font-dm text-xs leading-relaxed text-orange-200/90">
+              Your phone&apos;s notification setting is a different switch. You have to allow THIS SITE:
+            </p>
+            <ul className="mt-1.5 space-y-1 font-dm text-xs leading-relaxed text-orange-200/90">
+              <li>· <strong>Android / Chrome:</strong> tap the padlock (or ⓘ) next to the address → Permissions → Notifications → Allow.</li>
+              <li>· <strong>iPhone:</strong> add this page to your Home Screen first (Share → Add to Home Screen), open it from there, then allow.</li>
+              <li>· <strong>Computer:</strong> click the padlock left of the address → Notifications → Allow, then reload.</li>
+            </ul>
+            <p className="mt-1.5 font-dm text-xs text-orange-200/90">Then press <strong>Check again</strong>.</p>
+          </div>
+        )}
+
         {pushWhy && push !== "on" && (
           <p className="mt-2.5 rounded-xl border border-orange-400/25 bg-orange-400/[0.06] p-3 font-dm text-xs leading-relaxed text-orange-200">
             {pushWhy}
