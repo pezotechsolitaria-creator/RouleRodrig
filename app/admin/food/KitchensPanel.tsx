@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Phone, MapPin, Clock, RotateCcw, EyeOff, Eye, Trash2, Check, X } from "lucide-react";
 import { foodWrite, type AdminKitchen } from "./types";
@@ -203,6 +204,14 @@ export default function KitchensPanel({
                     { ok: k.hasPayment !== false, label: "A way to pay" },
                     { ok: k.hasHours !== false, label: "Opening hours" },
                     { ok: k.status === "active", label: "Kitchen set live" },
+                    // THE FIFTH FACT, added because its absence cost a day of
+                    // trading. store_is_visible() also requires the MERCHANT to
+                    // be approved, and archiving one (from /admin/subscriptions)
+                    // suspends it. Nothing on this screen said so, so setting a
+                    // kitchen live here succeeded, changed nothing, and could be
+                    // repeated forever — the audit log shows four attempts in
+                    // six minutes while /food served the concierge form.
+                    { ok: !k.merchantArchived, label: "Owner account active" },
                   ];
                   const missing = steps.filter((s) => !s.ok);
                   if (missing.length === 0) return null;
@@ -223,10 +232,26 @@ export default function KitchensPanel({
                           </li>
                         ))}
                       </ul>
+                      {/* Says where to go, because this one cannot be fixed
+                          from this screen — and a checklist item nobody can act
+                          on is how the last four attempts were wasted. */}
+                      {k.merchantArchived && (
+                        <p className="mt-2 font-dm text-xs leading-relaxed text-orange-200">
+                          The owner account for this kitchen is archived, so it stays hidden even when
+                          set live. Restore it under{" "}
+                          <Link href="/admin/subscriptions" className="font-bold underline">
+                            Merchants
+                          </Link>{" "}
+                          first.
+                        </p>
+                      )}
+
                       {/* The last step is one tap, right here. It was the step
                           that got missed on every kitchen, and it lived on a
-                          different screen from the three before it. */}
-                      {k.status !== "active" && missing.length === 1 && (
+                          different screen from the three before it. Never shown
+                          while the owner account is archived — the tap would
+                          report success and change nothing. */}
+                      {k.status !== "active" && missing.length === 1 && !k.merchantArchived && (
                         <button
                           onClick={() => void setStatus(k, "active")}
                           disabled={busy !== null}

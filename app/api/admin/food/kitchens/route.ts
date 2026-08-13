@@ -120,6 +120,38 @@ export async function GET(req: NextRequest) {
     .select("store_id, status")
     .in("store_id", rows.map((r) => r.store_id));
 
+  // ── Is the MERCHANT above this kitchen still approved? ────────────────────
+  //
+  // store_is_visible() requires BOTH `stores.status = 'active'` AND
+  // `merchants.status = 'approved'`. Archiving a merchant (from
+  // /admin/subscriptions) closes its shops and suspends it — and that second
+  // half is invisible from this screen, so a kitchen set back to "active" here
+  // reports success and still never appears anywhere.
+  //
+  // That is not hypothetical. On 13 Aug the food merchant was archived at
+  // 17:47 while deleting a different kitchen, and the audit log then shows Ti
+  // Kitchen's status being flipped to active FOUR TIMES in six minutes. It had
+  // nine dishes and stayed invisible every time, and /food fell back to the
+  // WhatsApp concierge because nothing was orderable. The screen said saved and
+  // meant nothing.
+  //
+  // Two plain reads, joined in code, per this file's own rule — merchants is a
+  // real parent of stores, but embeds have blanked this panel twice already.
+  const { data: ownerRows } = await admin
+    .from("stores")
+    .select("id, merchant_id")
+    .in("id", rows.map((r) => r.store_id));
+  const merchantByStore = new Map(
+    ((ownerRows ?? []) as { id: string; merchant_id: string | null }[]).map((r) => [r.id, r.merchant_id]),
+  );
+  const merchantIds = [...new Set([...merchantByStore.values()].filter(Boolean))] as string[];
+  const { data: merchantRows } = merchantIds.length
+    ? await admin.from("merchants").select("id, status").in("id", merchantIds)
+    : { data: [] };
+  const merchantStatus = new Map(
+    ((merchantRows ?? []) as { id: string; status: string }[]).map((m) => [m.id, m.status]),
+  );
+
   // Opening hours, for the go-live checklist below. A kitchen with no hours is
   // closed at every moment of every day — store_schedule_status() says so, and
   // the customer simply cannot order. Counted here rather than inferred in the
@@ -172,6 +204,11 @@ export async function GET(req: NextRequest) {
             payByStore.get(r.store_id)?.accepts_bank_transfer,
         ),
         hasHours: hasHours.has(r.store_id),
+        // The condition no screen could see. Undefined stays falsy, so a failed
+        // read never invents an alarm.
+        merchantArchived:
+          merchantStatus.get(merchantByStore.get(r.store_id) ?? "") !== undefined &&
+          merchantStatus.get(merchantByStore.get(r.store_id) ?? "") !== "approved",
       };
     }),
   });

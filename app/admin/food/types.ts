@@ -26,6 +26,14 @@ export type AdminKitchen = {
   hasPayment?: boolean;
   /** Has any opening hours at all. With none, the shop is shut every hour of every day. */
   hasHours?: boolean;
+  /**
+   * The merchant that owns this kitchen is archived/suspended (M95).
+   *
+   * store_is_visible() needs the MERCHANT approved as well as the store active,
+   * so while this is true the kitchen cannot appear no matter how many times
+   * its own status is set to live — which is exactly what happened on 13 Aug.
+   */
+  merchantArchived?: boolean;
 };
 
 export type AdminVariant = {

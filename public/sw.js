@@ -103,7 +103,9 @@
 // reserves the vehicle for a stated, disclosed window.
 // v198 — refunds are chased until they are sent, repeat taxi no-shows are held
 // for a phone call, and the refund policy says who actually returns the money.
-const CACHE = "rr-cache-v198";
+// v199 — /admin/food now says when a kitchen is hidden by an archived owner
+// account, the one reason no screen could show.
+const CACHE = "rr-cache-v199";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
