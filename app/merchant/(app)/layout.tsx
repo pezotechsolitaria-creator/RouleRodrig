@@ -3,10 +3,11 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { CircleUser, LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getMerchantDashboard } from "@/lib/merchant/context";
+import { getMerchantDashboard, getAccessibleStores, getOwnStoreId } from "@/lib/merchant/context";
 import { getMerchantSubscription } from "@/lib/merchant/subscription";
 import SubscriptionBanner from "@/components/merchant/SubscriptionBanner";
-import { signOut } from "./actions";
+import StoreSwitcher from "@/components/merchant/StoreSwitcher";
+import { signOut, switchStore } from "./actions";
 import QueryProvider from "@/components/merchant/QueryProvider";
 import NotificationBell from "@/components/merchant/NotificationBell";
 import { MerchantNavDesktop, MerchantNavMobile } from "@/components/merchant/MerchantNav";
@@ -28,6 +29,12 @@ export default async function MerchantAppLayout({ children }: { children: React.
   // RR008 at the worst moment, with no explanation of what stopped or why.
   const dashboard = await getMerchantDashboard(supabase);
   const subscription = dashboard ? await getMerchantSubscription(supabase, dashboard.merchantId) : null;
+  // Only fetched to decide whether a switcher is needed at all; it renders
+  // nothing when there is one store, which is every ordinary merchant.
+  const [stores, currentStoreId] = await Promise.all([
+    getAccessibleStores(supabase),
+    getOwnStoreId(supabase),
+  ]);
 
   return (
     <QueryProvider>
@@ -50,6 +57,7 @@ export default async function MerchantAppLayout({ children }: { children: React.
             </span>
             <MerchantNavDesktop />
             <div className="ml-auto flex items-center gap-2">
+              <StoreSwitcher stores={stores} currentId={currentStoreId} action={switchStore} />
               {/* The way out. A merchant is usually a customer too, and this
                   console had no route to the rest of their account except
                   retyping a URL. */}

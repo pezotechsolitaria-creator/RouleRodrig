@@ -1,5 +1,11 @@
 import "server-only";
+import { cookies } from "next/headers";
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+/** Which store the dashboard is currently acting for. See getAccessibleStores. */
+export const STORE_COOKIE = "rr_merchant_store";
+
+export type AccessibleStore = { id: string; name: string; kind: "shop" | "kitchen" };
 
 export type MerchantDashboard = {
   merchantId: string;
@@ -190,7 +196,55 @@ async function getOwnKitchenStoreId(supabase: SupabaseClient): Promise<string | 
   return ((rows ?? [])[0]?.id as string | undefined) ?? ids[0];
 }
 
+/**
+ * Every store this person may act for — their shop AND any restaurant they own.
+ *
+ * The platform owner is both a marketplace merchant and the owner of two
+ * kitchens. Without this the dashboard resolved merchant first and they could
+ * never reach a restaurant at all; and owning two kitchens, they could never
+ * reach the second one either.
+ *
+ * Shops are listed before kitchens so an existing merchant's default does not
+ * change under them.
+ */
+export async function getAccessibleStores(supabase: SupabaseClient): Promise<AccessibleStore[]> {
+  const out: AccessibleStore[] = [];
+
+  const { data: staffRows } = await supabase
+    .from("merchant_staff")
+    .select("merchant_id, merchants(stores(id, name))");
+  for (const row of (staffRows ?? []) as Record<string, unknown>[]) {
+    const merchant = Array.isArray(row.merchants) ? row.merchants[0] : row.merchants;
+    const storesRaw = (merchant as { stores?: unknown } | null)?.stores;
+    for (const st of (Array.isArray(storesRaw) ? storesRaw : storesRaw ? [storesRaw] : []) as {
+      id: string;
+      name: string;
+    }[]) {
+      if (st?.id && !out.some((x) => x.id === st.id)) out.push({ id: st.id, name: st.name, kind: "shop" });
+    }
+  }
+
+  const { data: kitchenIds } = await supabase.rpc("my_kitchen_owner_ids");
+  const ids = ((kitchenIds as string[] | null) ?? []).filter((id) => !out.some((x) => x.id === id));
+  if (ids.length > 0) {
+    const { data: rows } = await supabase.from("stores").select("id, name").in("id", ids).order("name");
+    for (const st of (rows ?? []) as { id: string; name: string }[]) {
+      out.push({ id: st.id, name: st.name, kind: "kitchen" });
+    }
+  }
+  return out;
+}
+
 export async function getOwnStoreId(supabase: SupabaseClient): Promise<string | null> {
+  // A chosen store wins, but only after being checked against the list this
+  // person may actually act for — the cookie is client-supplied, so treating it
+  // as authoritative would be a store-picker for the whole platform.
+  const chosen = (await cookies()).get(STORE_COOKIE)?.value;
+  if (chosen) {
+    const allowed = await getAccessibleStores(supabase);
+    if (allowed.some((st) => st.id === chosen)) return chosen;
+  }
+
   const { data } = await supabase
     .from("merchant_staff")
     .select("merchant_id, merchants(stores(id))")
