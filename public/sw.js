@@ -109,7 +109,9 @@
 // and the Command Centre says whether that is actually armed.
 // v201 — a dish with no photograph gets a designed tile instead of an empty
 // box; 17 of 19 live dishes had no image and the menu looked unfinished.
-const CACHE = "rr-cache-v201";
+// v202 — the Command Centre reports WhatsApp escalation correctly: an empty
+// category list means ALL, so both live numbers are armed.
+const CACHE = "rr-cache-v202";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

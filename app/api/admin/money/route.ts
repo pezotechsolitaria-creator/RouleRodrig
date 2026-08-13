@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
 import { getPrivileged } from "@/lib/supabase/admin";
 import { ESCALATE_AFTER_HOURS, hoursWaited } from "@/lib/notifications/escalation";
+import { slotReceives } from "@/lib/notifications/slot-match";
 
 // ── One list of everything waiting on the owner's decision about money ──────
 //
@@ -150,7 +151,11 @@ export async function GET(req: NextRequest) {
       .select("name, phone, is_active, categories")
       .eq("is_active", true);
     const names = ((slots ?? []) as { name: string; phone: string; categories: string[] | null }[])
-      .filter((s) => (s.categories ?? []).includes("admin"))
+      // The recipient rule lives in lib/notifications/slot-match.ts and is
+      // pinned against enqueue_notification()'s SQL. Re-implementing it inline
+      // is what produced "nobody will be phoned" while the database was
+      // queueing to two live numbers.
+      .filter((s) => slotReceives(s, "admin"))
       // Last four digits only — enough for him to recognise the phone, not
       // enough to be a contact list if this response ever leaks.
       .map((s) => `${s.name} (…${(s.phone ?? "").slice(-4)})`);
