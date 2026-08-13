@@ -30,6 +30,14 @@ export type PickupLocation = {
   lat?: number | null;
   lng?: number | null;
   phone?: string | null;
+  /**
+   * The seller's WhatsApp, falling back to their phone (M96).
+   *
+   * Checkout uses it for the one customer M89 left with no route at all: a
+   * visitor who cannot make a local bank transfer. Optional, so a seller who
+   * has published no number simply gets no button.
+   */
+  whatsapp?: string | null;
 };
 
 /** True when there is at least one fact worth showing beyond the seller's name. */

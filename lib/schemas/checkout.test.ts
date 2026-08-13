@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkoutSchema, cartResolveSchema } from "./checkout";
+import { checkoutSchema, cartResolveSchema, PAYMENT_PROVIDERS, CHECKOUT_PROVIDERS } from "./checkout";
 
 const base = {
   storeId: "5a92bdf0-17c8-4181-886b-aa7cd5d1c353",
@@ -60,10 +60,16 @@ describe("checkoutSchema", () => {
     expect(checkoutSchema.safeParse({ ...base, provider: "mcb_juice" }).success).toBe(false);
   });
 
-  it("accepts the permitted marketplace providers", () => {
-    for (const provider of ["cash", "bank_transfer", "manual"]) {
+  it("accepts the providers a CUSTOMER may choose", () => {
+    // `manual` was in this list, and that was the bug rather than the test
+    // being wrong about the code — the schema really did accept it, and
+    // create_order really did skip every payment-method check for it. A test
+    // asserting the vulnerable behaviour is how it survived M89. See the M96
+    // block at the foot of this file.
+    for (const provider of ["cash", "bank_transfer"]) {
       expect(checkoutSchema.safeParse({ ...base, provider }).success, provider).toBe(true);
     }
+    expect(checkoutSchema.safeParse({ ...base, provider: "manual" }).success, "manual").toBe(false);
   });
 
   // Rule 5: three delivery choices, and GPS is mandatory for both delivery
@@ -177,5 +183,41 @@ describe("cartResolveSchema", () => {
     expect(cartResolveSchema.safeParse({ items: base.items }).success).toBe(true);
     expect(cartResolveSchema.safeParse({ items: [] }).success).toBe(false);
     expect(cartResolveSchema.safeParse({ items: [{ variantId: "x", quantity: 1 }] }).success).toBe(false);
+  });
+});
+
+describe("a customer cannot send provider=manual (M96)", () => {
+  // `manual` means "a merchant recording money they have already been given".
+  // It sat in the checkout enum, and create_order gates `cash` on accepts_cash
+  // and `bank_transfer` on accepts_bank_transfer while checking NOTHING for
+  // manual — so a POST with provider:"manual" created a real order at a shop
+  // offering no payment method at all, from an anonymous guest (guest checkout
+  // runs the RPC as service_role). Verified against production before the fix:
+  // order RR260813-864D2E. The database refuses it now; this is the gate that
+  // should have stopped it ever arriving.
+  const base = {
+    storeId: "11111111-1111-4111-8111-111111111111",
+    items: [{ variantId: "22222222-2222-4222-8222-222222222222", quantity: 1 }],
+    customerName: "Probe",
+    customerPhone: "+230 5000 0000",
+    fulfillment: "pickup" as const,
+    guestEmail: "probe@example.test",
+  };
+
+  it("refuses manual", () => {
+    const r = checkoutSchema.safeParse({ ...base, provider: "manual" });
+    expect(r.success, "provider=manual was accepted").toBe(false);
+  });
+
+  it("still accepts the two real methods", () => {
+    expect(checkoutSchema.safeParse({ ...base, provider: "bank_transfer" }).success).toBe(true);
+    expect(checkoutSchema.safeParse({ ...base, provider: "cash" }).success).toBe(true);
+  });
+
+  it("keeps manual in the payments vocabulary", () => {
+    // The provider itself is legitimate — a merchant records a settled
+    // payment with it. Only CHECKOUT may not send it.
+    expect(PAYMENT_PROVIDERS).toContain("manual");
+    expect(CHECKOUT_PROVIDERS as readonly string[]).not.toContain("manual");
   });
 });

@@ -121,7 +121,9 @@
 // cannot make a local bank transfer still has a way to order.
 // v207 — "Blocked in settings" is no longer a dead end: it explains that the
 // SITE permission differs from the phone permission, and offers Check again.
-const CACHE = "rr-cache-v207";
+// v208 — closes the provider=manual bypass, and checkout now shows the
+// seller's WhatsApp to a customer who cannot make a local bank transfer.
+const CACHE = "rr-cache-v208";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

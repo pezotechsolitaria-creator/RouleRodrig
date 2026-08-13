@@ -13,6 +13,18 @@ export const cartItemSchema = z.object({
 // whitelist and a CHECK constraint on payments); the UI is not a gate at all.
 export const PAYMENT_PROVIDERS = ["cash", "bank_transfer", "manual"] as const;
 
+// WHAT A CUSTOMER MAY SEND. Deliberately NOT PAYMENT_PROVIDERS.
+//
+// `manual` means "a merchant recording money they have already been given". It
+// was in the checkout enum, and create_order gates `cash` on accepts_cash and
+// `bank_transfer` on accepts_bank_transfer while checking NOTHING for manual —
+// so a POST with provider:"manual" created a real order at a shop that offers
+// no payment method at all, from an anonymous guest (guest checkout runs the
+// RPC as service_role). Verified against production: order RR260813-864D2E.
+// The database refuses it now (M96); this is the gate that should have stopped
+// it reaching the database in the first place.
+export const CHECKOUT_PROVIDERS = ["cash", "bank_transfer"] as const;
+
 // pickup            — collect from the shop, no fee
 // customer_delivery — the customer arranges their own driver, no fee
 // rr_delivery       — the Roulé Rodrigues team delivers, platform fee applies
@@ -26,7 +38,7 @@ export const checkoutSchema = z
     customerPhone: z.string().trim().min(1, "A phone number is required.").max(40),
     fulfillment: z.enum(FULFILLMENT_METHODS),
     notes: z.string().trim().max(1000).optional(),
-    provider: z.enum(PAYMENT_PROVIDERS),
+    provider: z.enum(CHECKOUT_PROVIDERS),
     // GPS is the delivery address. Validated here for shape only — the RPC
     // re-checks presence and range, and is what actually decides.
     deliveryLat: z.number().min(-90).max(90).optional(),

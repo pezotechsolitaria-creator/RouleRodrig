@@ -127,6 +127,8 @@ export async function POST(req: NextRequest) {
   let pickup: {
     storeName: string | null; address: string | null; hint: string | null;
     lat: number | null; lng: number | null; phone: string | null;
+    /** M95/M96 — how to reach the seller when the customer cannot pay them. */
+    whatsapp: string | null;
   } | null = null;
   // The value returned when there is no store to ask about (an empty or fully
   // stale cart). Fails closed for the same reason the RPC fallback below does:
@@ -154,7 +156,7 @@ export async function POST(req: NextRequest) {
       // Same question for ticketing. Both are publicly readable for visible
       // stores, so the anon client can answer without a privileged call.
       supabase.from("events").select("store_id").eq("store_id", storeId).maybeSingle(),
-      supabase.from("stores").select("name, address, lat, lng, phone").eq("id", storeId).maybeSingle(),
+      supabase.from("stores").select("name, address, lat, lng, phone, whatsapp").eq("id", storeId).maybeSingle(),
       supabase.from("food_kitchens").select("pickup_hint").eq("store_id", storeId).maybeSingle(),
     ]);
     isFood = Boolean(kitchen);
@@ -167,6 +169,13 @@ export async function POST(req: NextRequest) {
         lat: (store as { lat?: number | null }).lat ?? null,
         lng: (store as { lng?: number | null }).lng ?? null,
         phone: (store as { phone?: string | null }).phone ?? null,
+        // WhatsApp first, plain phone as the fallback — on this island it is
+        // usually the same number, and a seller who filled in only one field
+        // should still be reachable by a customer who cannot pay them.
+        whatsapp:
+          (store as { whatsapp?: string | null }).whatsapp ??
+          (store as { phone?: string | null }).phone ??
+          null,
       };
     }
     offersRrDelivery = (pay?.offers_rr_delivery ?? true) && (settings?.delivery_enabled ?? false);

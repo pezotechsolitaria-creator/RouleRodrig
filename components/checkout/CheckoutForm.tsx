@@ -790,6 +790,40 @@ export default function CheckoutForm({
             contact them directly.
           </p>
         )}
+
+        {/* ── THE WALL, AND THE WAY THROUGH IT ────────────────────────────
+            M89 made every order a bank transfer. A visitor holding a foreign
+            card cannot make one, so for them this screen is where the site
+            ends: they read the menu, fill in their name, and leave. Silently —
+            it does not even register as a failure anywhere.
+
+            M95 put the seller's WhatsApp on the DISH page, which is the wrong
+            place. Nobody gets stuck browsing; they get stuck HERE. So it is
+            here too, phrased as the answer to the question they are actually
+            asking, and it covers shops as well as kitchens because marketplace
+            checkout has the identical problem. */}
+        {pickup?.whatsapp && (
+          <details className="mt-3 rounded-xl border border-white/12 bg-dark-card px-4 py-3">
+            <summary className="cursor-pointer font-dm text-sm text-offwhite marker:text-yellow">
+              No local bank account?
+            </summary>
+            <p className="mt-2 font-dm text-xs leading-relaxed text-muted">
+              Bank transfers are hard from abroad. Message {pickup.storeName ?? `the ${v.seller}`}{" "}
+              directly and they will arrange payment with you — many take cash on collection or a
+              card in person.
+            </p>
+            <a
+              href={`https://wa.me/${pickup.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(
+                `Hello ${pickup.storeName ?? ""}, I would like to order from Roulé Rodrigues but I do not have a local bank account. How can I pay you?`,
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2.5 inline-flex min-h-[40px] items-center gap-2 rounded-xl bg-[#25D366] px-3.5 font-syne text-sm font-bold text-black"
+            >
+              Message the {v.seller}
+            </a>
+          </details>
+        )}
         {provider === "bank_transfer" && bankTransferAvailable && (
           <p className="mt-2 font-dm text-xs text-muted">
             {/* Keeps the food/shop vocabulary from the other half of this
