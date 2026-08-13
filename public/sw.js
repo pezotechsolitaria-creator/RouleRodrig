@@ -131,7 +131,9 @@
 // customer who cannot bank-transfer has someone to ask.
 // v212 — a Send test notification button in /admin proves the push chain
 // end to end and names whichever of its six invisible links is broken.
-const CACHE = "rr-cache-v212";
+// v213 — the driver page can be installed to the home screen, and the
+// blocked-notifications message names the exact route for that browser.
+const CACHE = "rr-cache-v213";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Loader2, Power, BellRing, BellOff, Car, MapPin, Navigation, Phone,
-  MessageCircle, CheckCircle2, AlertCircle, ArrowRight,
+  MessageCircle, CheckCircle2, AlertCircle, ArrowRight, Download,
 } from "lucide-react";
+import InstallAppButton from "@/components/InstallAppButton";
 import { formatRidePrice } from "@/lib/rides/model";
 
 // ── THE DRIVER'S WHOLE APP ──────────────────────────────────────────────────
@@ -33,6 +34,26 @@ type Home = {
 };
 
 type PushState = "unsupported" | "denied" | "off" | "on" | "working";
+
+/**
+ * The exact route to un-block notifications, for the browser in front of them.
+ *
+ * A denied permission cannot be reset by code — the browser refuses on purpose,
+ * or any site could nag its way back in. The only thing that helps is precise
+ * instructions, and "open the padlock" is not precise on a phone, where there
+ * is no padlock in the place a desktop user pictures.
+ */
+function unblockSteps(): string {
+  if (typeof navigator === "undefined") return "Allow notifications for this site in your browser settings.";
+  const ua = navigator.userAgent;
+  if (/iPad|iPhone|iPod/.test(ua)) {
+    return "iPhone: open Settings → Apps → Safari → Advanced → Website Data and remove roulerodrig.com, then open this link again and add it to your Home Screen before allowing.";
+  }
+  if (/Android/.test(ua)) {
+    return "Android: tap the ℹ or padlock left of the web address at the top → Permissions → Notifications → Allow. Then come back and press Check again.";
+  }
+  return "On this computer: click the padlock (or ℹ) just left of the web address → Notifications → Allow, then reload the page. If you see “Reset permission”, use that.";
+}
 
 export default function DriverHome({ token }: { token: string }) {
   const [home, setHome] = useState<Home | null>(null);
@@ -176,7 +197,12 @@ export default function DriverHome({ token }: { token: string }) {
         setPush(permission === "denied" ? "denied" : "off");
         setPushWhy(
           permission === "denied"
-            ? "Notifications are blocked for this site. Open the padlock in the address bar, allow Notifications, then reload."
+            // NOTHING on this page can undo a denied permission — the browser
+            // deliberately gives a site no way to re-ask, or every site would.
+            // Saying "allow it in settings" and stopping there is what made
+            // this feel unfixable, so name the exact route for the browser
+            // actually in use.
+            ? unblockSteps()
             : "You closed the permission box before allowing it — press the button again.",
         );
         return;
@@ -369,13 +395,10 @@ export default function DriverHome({ token }: { token: string }) {
           <div className="mt-2.5 rounded-xl border border-orange-400/25 bg-orange-400/[0.06] p-3">
             <p className="font-dm text-xs font-bold text-orange-200">Blocked for this website</p>
             <p className="mt-1 font-dm text-xs leading-relaxed text-orange-200/90">
-              Your phone&apos;s notification setting is a different switch. You have to allow THIS SITE:
+              Your phone&apos;s notification setting is a different switch. You have to allow THIS SITE — and no button
+              here can do it for you, because a browser will not let a website ask twice.
             </p>
-            <ul className="mt-1.5 space-y-1 font-dm text-xs leading-relaxed text-orange-200/90">
-              <li>· <strong>Android / Chrome:</strong> tap the padlock (or ⓘ) next to the address → Permissions → Notifications → Allow.</li>
-              <li>· <strong>iPhone:</strong> add this page to your Home Screen first (Share → Add to Home Screen), open it from there, then allow.</li>
-              <li>· <strong>Computer:</strong> click the padlock left of the address → Notifications → Allow, then reload.</li>
-            </ul>
+            <p className="mt-1.5 font-dm text-xs leading-relaxed text-orange-200/90">{unblockSteps()}</p>
             <p className="mt-1.5 font-dm text-xs text-orange-200/90">Then press <strong>Check again</strong>.</p>
           </div>
         )}
@@ -385,6 +408,25 @@ export default function DriverHome({ token }: { token: string }) {
             {pushWhy}
           </p>
         )}
+
+        {/* ── Install this page ───────────────────────────────────────────
+            Not cosmetic: on iPhone a normal Safari tab CANNOT receive push at
+            all — only an installed page can — and on Android an installed page
+            keeps working once the browser is closed, which is exactly when a
+            ride offer arrives. InstallAppButton renders nothing once installed,
+            so this row disappears the moment it stops being useful. */}
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
+          <span className="min-w-0">
+            <span className="flex items-center gap-2 font-dm text-sm text-offwhite">
+              <Download size={16} className="text-muted" />
+              Keep it on your phone
+            </span>
+            <span className="mt-0.5 block font-dm text-[11px] leading-relaxed text-muted">
+              Adds an icon to your home screen. On iPhone this is required before alerts can work at all.
+            </span>
+          </span>
+          <span className="shrink-0"><InstallAppButton variant="chip" /></span>
+        </div>
 
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
           <span className="flex items-center gap-2 font-dm text-sm text-offwhite">
