@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Store, Package, Clock, AlertTriangle, XCircle, Plus, List, ShoppingBag, ImageOff, CheckCircle2 } from "lucide-react";
+import { Store, Package, Clock, AlertTriangle, XCircle, Plus, List, ShoppingBag, ImageOff, CheckCircle2, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getMerchantDashboard, getDashboardStats, getOrderCount } from "@/lib/merchant/context";
 import { getMerchantSubscription } from "@/lib/merchant/subscription";
@@ -202,13 +202,14 @@ export default async function MerchantHome() {
         )}
       </div>
 
-      {/* Quick actions — the five places a merchant actually goes. */}
-      <nav aria-label="Quick actions" className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+      {/* Quick actions — the places a merchant actually goes. */}
+      <nav aria-label="Quick actions" className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-6">
         {([
           { href: "/merchant/orders", label: "Orders", icon: ShoppingBag },
           { href: "/merchant/products", label: "Products", icon: Package },
           { href: "/merchant/hours", label: "Hours", icon: Clock },
           { href: "/merchant/payments", label: "Payments", icon: Store },
+          { href: "/merchant/profile", label: "Shop", icon: Pencil },
           { href: "/merchant/subscription", label: "Plan", icon: CheckCircle2 },
         ] as const).map(({ href, label, icon: Icon }) => (
           <Link

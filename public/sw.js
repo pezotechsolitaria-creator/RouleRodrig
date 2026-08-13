@@ -133,7 +133,9 @@
 // end to end and names whichever of its six invisible links is broken.
 // v213 — the driver page can be installed to the home screen, and the
 // blocked-notifications message names the exact route for that browser.
-const CACHE = "rr-cache-v213";
+// v214 — a seller can finally edit their own shop: name, description,
+// address, map pin and contact, from /merchant/profile.
+const CACHE = "rr-cache-v214";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

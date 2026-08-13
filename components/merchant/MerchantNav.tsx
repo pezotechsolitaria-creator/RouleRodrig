@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Wallet, Clock, BadgeCheck, LayoutDashboard, Package, UtensilsCrossed } from "lucide-react";
+import { ClipboardList, Wallet, Clock, BadgeCheck, LayoutDashboard, Package, UtensilsCrossed, Store } from "lucide-react";
 
 // The merchant dashboard's navigation, defined ONCE and rendered at both
 // breakpoints from the same list.
@@ -29,6 +29,7 @@ const LINKS: NavLink[] = [
   { href: "/merchant/orders", label: "Orders", icon: ClipboardList },
   { href: "/merchant/products", label: "Products", icon: Package },
   { href: "/merchant/payments", label: "Payments", icon: Wallet },
+  { href: "/merchant/profile", label: "Shop", icon: Store },
   { href: "/merchant/hours", label: "Hours", icon: Clock },
   { href: "/merchant/subscription", label: "Plan", icon: BadgeCheck },
 ];
