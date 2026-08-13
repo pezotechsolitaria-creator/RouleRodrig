@@ -129,7 +129,9 @@
 // no fare is quoted, and admin can onboard a driver with a QR.
 // v211 — a shop owner can publish their own WhatsApp from /merchant, so a
 // customer who cannot bank-transfer has someone to ask.
-const CACHE = "rr-cache-v211";
+// v212 — a Send test notification button in /admin proves the push chain
+// end to end and names whichever of its six invisible links is broken.
+const CACHE = "rr-cache-v212";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

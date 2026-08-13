@@ -7088,6 +7088,57 @@ function LeadsViewer() {
 }
 
 // ── WhatsApp alert (CallMeBot) settings ──────────────────────────────────────
+function PushSelfTest() {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  async function run() {
+    setBusy(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/admin/push-test", { method: "POST" });
+      const j = (await res.json()) as { ok?: boolean; message?: string; error?: string };
+      setResult({ ok: !!j.ok, message: j.message ?? j.error ?? "No answer from the server." });
+    } catch {
+      setResult({ ok: false, message: "Could not reach the server." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mb-5 rounded-xl border border-[#2a2a2a] bg-[#0d0d0d] p-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-bebas text-[10px] tracking-[0.25em] text-muted">PHONE &amp; DESKTOP ALERTS</p>
+          <p className="mt-1 font-dm text-xs leading-relaxed text-muted/70">
+            Send yourself a real notification to prove it works — on whichever device you are reading this.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void run()}
+          disabled={busy}
+          className="shrink-0 rounded-full bg-yellow px-3.5 py-2 font-syne text-xs font-bold text-dark transition-colors hover:bg-yellow-dark disabled:opacity-50"
+        >
+          {busy ? "Sending…" : "Send test notification"}
+        </button>
+      </div>
+      {result && (
+        <p
+          className={`mt-2.5 rounded-lg border p-2.5 font-dm text-[11px] leading-relaxed ${
+            result.ok
+              ? "border-green-500/30 bg-green-500/[0.07] text-green-300"
+              : "border-orange-400/30 bg-orange-400/[0.07] text-orange-200"
+          }`}
+        >
+          {result.message}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function NotificationsEditor() {
   const [phone, setPhone] = useState("");
   const [apikey, setApikey] = useState("");
@@ -7646,6 +7697,14 @@ function EmailDeliveryCard() {
           </p>
         </div>
       )}
+
+      {/* ── Does push actually reach this device? (M97) ──────────────────────
+          "I do not receive notifications" needs six invisible things to all be
+          true: a VAPID key pair, a registered device, a live subscription,
+          something calling push, a service worker that handles it, and an OS
+          willing to show it. Every one fails silently. This sends a real push
+          to the admin's own devices and names whichever link is broken. */}
+      <PushSelfTest />
 
       <div className="flex items-start justify-between gap-3">
         <div>
