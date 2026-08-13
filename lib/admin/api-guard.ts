@@ -61,9 +61,33 @@ export async function readJson(req: NextRequest): Promise<unknown | NextResponse
   }
 }
 
-/** Turn a thrown Error into the sentence the operator should read. */
+/**
+ * Turn a failure into the sentence the operator should read.
+ *
+ * THE `instanceof Error` CHECK WAS THROWING AWAY EVERY DATABASE MESSAGE. A
+ * PostgrestError is a plain object — `{ message, details, hint, code }` — and
+ * not an instance of Error, so every failed Supabase call fell through to the
+ * generic fallback. The owner spent a day looking at "Failed to load orders"
+ * while the real reason ("could not find a relationship…", "permission denied
+ * for table…") existed and was discarded one line before it could be shown.
+ *
+ * A screen that names its own cause is the difference between a bug the owner
+ * can report in one message and a bug that needs a debugging session.
+ */
 export function failed(err: unknown, fallback: string): NextResponse {
-  const message = err instanceof Error ? err.message : fallback;
   console.error(fallback, err);
-  return NextResponse.json({ error: message || fallback }, { status: 500 });
+
+  const e = err as { message?: unknown; code?: unknown; hint?: unknown; details?: unknown } | null;
+  const message = typeof e?.message === "string" && e.message.trim() ? e.message.trim() : fallback;
+  const code = typeof e?.code === "string" && e.code ? e.code : undefined;
+  // The hint is Postgres's own suggested fix and is often the whole answer.
+  const hint = typeof e?.hint === "string" && e.hint.trim() ? e.hint.trim() : undefined;
+
+  return NextResponse.json(
+    {
+      error: code ? `${message} (${code})` : message,
+      ...(hint ? { hint } : {}),
+    },
+    { status: 500 },
+  );
 }

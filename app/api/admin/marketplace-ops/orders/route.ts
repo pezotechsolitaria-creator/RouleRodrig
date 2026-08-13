@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { guardAdminApi, readJson, failed } from "@/lib/admin/api-guard";
+import { ORDER_COLUMNS, hydrateOrders, balanceDueOf } from "@/lib/admin/order-hydrate";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { formatPickupCode } from "@/lib/orders/pickup";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
@@ -75,18 +76,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ orders: [], counts: {}, shops: [] });
   }
 
+  // No embeds, same reason as the food desk. See lib/admin/order-hydrate.ts.
   let query = admin
     .from("orders")
-    .select(
-      "id, order_number, status, store_id, customer_name, customer_phone, customer_email, notes, " +
-        "subtotal, delivery_fee, total, currency, fulfillment_method, placed_at, created_at, " +
-        "delivery_lat, delivery_lng, delivery_instructions, auto_release_at, payment_receipt_path, receipt_submitted_at, " +
-        "delivery_zones(name), " +
-        "order_items(id, product_name, variant_name, unit_price, quantity, line_total), " +
-        // ONE embed. Two embeds of the same relation make PostgREST 400 the
-        // entire request — see lib/supabase/select-embeds.test.ts.
-        "payments(provider, status, amount)",
-    )
+    .select(ORDER_COLUMNS)
     .in("store_id", ids)
     .order("created_at", { ascending: false })
     .limit(200);
@@ -96,6 +89,8 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await query;
   if (error) return failed(error, "Failed to load orders.");
+
+  const hydrated = await hydrateOrders(admin, (data ?? []) as Record<string, unknown>[]);
 
   // Counts come from a separate, narrow read of ALL open orders regardless of
   // the current filter — the badge on "Preparing" must not drop to zero just
@@ -110,12 +105,9 @@ export async function GET(req: NextRequest) {
     counts[row.status] = (counts[row.status] ?? 0) + 1;
   }
 
-  type Row = Record<string, unknown>;
-  const one = (v: unknown) => (Array.isArray(v) ? (v[0] ?? null) : v);
-  const list = (v: unknown) => (Array.isArray(v) ? v : v ? [v] : []);
 
   return NextResponse.json({
-    orders: ((data ?? []) as unknown as Row[]).map((o) => ({
+    orders: hydrated.map((o) => ({
       id: o.id as string,
       orderNumber: o.order_number as string,
       status: o.status as OrderStatus,
@@ -130,7 +122,7 @@ export async function GET(req: NextRequest) {
       total: Number(o.total ?? 0),
       currency: (o.currency as string) ?? "MUR",
       fulfillment: o.fulfillment_method as string,
-      deliveryZone: (one(o.delivery_zones) as { name?: string } | null)?.name ?? null,
+      deliveryZone: o.deliveryZoneName,
       deliveryLat: o.delivery_lat as number | null,
       deliveryLng: o.delivery_lng as number | null,
       deliveryInstructions: o.delivery_instructions as string | null,
@@ -143,20 +135,9 @@ export async function GET(req: NextRequest) {
       receiptSubmittedAt: o.receipt_submitted_at as string | null,
       // Money still owed on a split payment, summed from the ledger exactly as
       // the kitchen and driver screens do, so the four cannot disagree.
-      balanceDue: ["cancelled", "refunded"].includes(String(o.status))
-        ? 0
-        : (list(o.payments) as { amount?: number; status?: string }[])
-            .filter((p) => p.status === "pending")
-            .reduce((n, p) => n + (p.amount ?? 0), 0),
-      payment: (list(o.payments)[0] as { provider?: string; status?: string } | undefined) ?? null,
-      items: (list(o.order_items) as Record<string, unknown>[]).map((i) => ({
-        id: i.id as string,
-        name: i.product_name as string,
-        variantName: i.variant_name as string | null,
-        unitPrice: Number(i.unit_price ?? 0),
-        quantity: Number(i.quantity ?? 0),
-        lineTotal: Number(i.line_total ?? 0),
-      })),
+      balanceDue: balanceDueOf(o),
+      payment: o.payments[0] ?? null,
+      items: o.items,
     })),
     counts,
     shops,

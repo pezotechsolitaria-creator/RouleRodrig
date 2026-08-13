@@ -85,7 +85,7 @@
 // (Past v165, taken by a parallel branch at the same moment.)
 // v167 — the hero's poster-to-video fade comes back down to 180ms: 260ms was
 // smooth but read as the still lingering.
-const CACHE = "rr-cache-v172";
+const CACHE = "rr-cache-v173";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
