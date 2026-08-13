@@ -81,6 +81,7 @@ export type KitchenInput = {
   tagline?: string;
   address?: string;
   phone?: string;
+  whatsapp?: string;
   lat?: number | null;
   lng?: number | null;
   prepMinutesMin: number;
@@ -118,6 +119,7 @@ export async function createKitchen(admin: SupabaseClient, input: KitchenInput):
       tagline: input.tagline?.trim() || null,
       address: input.address?.trim() || null,
       phone: input.phone?.trim() || null,
+      whatsapp: input.whatsapp?.trim() || null,
       lat: input.lat ?? null,
       lng: input.lng ?? null,
       // Always born as a draft, whatever was asked for. It is switched on at

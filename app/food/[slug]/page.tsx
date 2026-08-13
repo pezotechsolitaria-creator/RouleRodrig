@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Flame, Users, Clock, ChefHat, MapPin, UtensilsCrossed, Info } from "lucide-react";
+import { ArrowLeft, Flame, Users, Clock, ChefHat, MapPin, UtensilsCrossed, Info, MessageCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
 import { getFoodItem } from "@/lib/food/queries";
@@ -207,6 +207,33 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
                 {dish.pickupHint && (
                   <p className="mt-0.5 inline-flex items-start gap-1 font-dm text-xs text-muted">
                     <MapPin size={11} className="mt-0.5 shrink-0" /> {dish.pickupHint}
+                  </p>
+                )}
+
+                {/* TALK TO THE KITCHEN (M95).
+                    Deliberately the one interactive thing in an otherwise
+                    subordinate block, because since M89 it is load-bearing: a
+                    visitor with a foreign card cannot make a local bank
+                    transfer, so without this the site simply has no path for
+                    them — they read the menu, reach checkout and stop. It is
+                    also who you call when an order goes wrong at 20:00.
+                    The message is pre-written with the dish name so the
+                    kitchen knows what it is about before they read a word. */}
+                {dish.kitchenWhatsapp && (
+                  <a
+                    href={`https://wa.me/${dish.kitchenWhatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(
+                      `Hello ${dish.kitchenName}, I saw "${dish.name}" on Roulé Rodrigues and I would like to order it.`,
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2.5 inline-flex min-h-[40px] items-center gap-2 rounded-xl bg-[#25D366] px-3.5 font-syne text-sm font-bold text-black transition-opacity hover:opacity-90"
+                  >
+                    <MessageCircle size={15} /> Message the kitchen
+                  </a>
+                )}
+                {dish.kitchenWhatsapp && (
+                  <p className="mt-1.5 font-dm text-[11px] leading-snug text-muted">
+                    No local bank account? Ask them to arrange it with you directly.
                   </p>
                 )}
               </div>

@@ -52,6 +52,9 @@ const kitchenFields = z.object({
     tagline: z.string().trim().max(160).optional().or(z.literal("")),
     address: z.string().trim().max(300).optional().or(z.literal("")),
     phone: z.string().trim().max(40).optional().or(z.literal("")),
+    // M95 — the PUBLIC number a customer messages. Distinct from cookerPhone,
+    // which is operational and lives in the RLS-protected ops table.
+    whatsapp: z.string().trim().max(40).optional().or(z.literal("")),
     lat: z.number().min(-90).max(90).optional().nullable(),
     lng: z.number().min(-180).max(180).optional().nullable(),
 

@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
       "store_id, prep_minutes_min, prep_minutes_max, pickup_hint, position, " +
         // stores IS a real parent (food_kitchens.store_id → stores.id), so this
         // embed is the one that can be trusted.
-        "stores(id, name, slug, tagline, status, address, phone, lat, lng)",
+        "stores(id, name, slug, tagline, status, address, phone, whatsapp, lat, lng)",
     )
     .order("position");
 
@@ -183,6 +183,8 @@ export async function GET(req: NextRequest) {
         status: store?.status ?? "draft",
         address: store?.address ?? null,
         phone: store?.phone ?? null,
+        // M95 — the number a customer messages when they cannot bank-transfer.
+        whatsapp: store?.whatsapp ?? null,
         lat: store?.lat ?? null,
         lng: store?.lng ?? null,
         prepMinutesMin: r.prep_minutes_min,
@@ -232,6 +234,7 @@ export async function POST(req: NextRequest) {
       tagline: parsed.data.tagline || undefined,
       address: parsed.data.address || undefined,
       phone: parsed.data.phone || undefined,
+      whatsapp: parsed.data.whatsapp || undefined,
       pickupHint: parsed.data.pickupHint || undefined,
       cookerName: parsed.data.cookerName || undefined,
       cookerPhone: parsed.data.cookerPhone || undefined,
@@ -276,6 +279,7 @@ export async function PATCH(req: NextRequest) {
     if (v.tagline !== undefined) storePatch.tagline = v.tagline?.trim() || null;
     if (v.address !== undefined) storePatch.address = v.address?.trim() || null;
     if (v.phone !== undefined) storePatch.phone = v.phone?.trim() || null;
+    if (v.whatsapp !== undefined) storePatch.whatsapp = v.whatsapp?.trim() || null;
     if (v.lat !== undefined) storePatch.lat = v.lat;
     if (v.lng !== undefined) storePatch.lng = v.lng;
     if (v.status !== undefined) storePatch.status = v.status;

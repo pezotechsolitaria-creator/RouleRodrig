@@ -27,6 +27,15 @@ export type AdminKitchen = {
   /** Has any opening hours at all. With none, the shop is shut every hour of every day. */
   hasHours?: boolean;
   /**
+   * M95 — the PUBLIC number shown on every dish this kitchen cooks.
+   *
+   * Not cookerPhone: that one is operational and deliberately lives in the
+   * RLS-protected ops table. This is the number a customer is invited to
+   * message, which since M89 is the only route for a visitor who cannot make
+   * a local bank transfer.
+   */
+  whatsapp?: string | null;
+  /**
    * The merchant that owns this kitchen is archived/suspended (M95).
    *
    * store_is_visible() needs the MERCHANT approved as well as the store active,

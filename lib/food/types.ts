@@ -70,6 +70,16 @@ export type FoodDetail = FoodCard & {
   related: FoodCard[];
   pickupHint: string | null;
   kitchenSlug: string;
+  /**
+   * The kitchen's own public WhatsApp (M95), falling back to its phone.
+   *
+   * Since M89 every order is a bank transfer, which a visitor holding a
+   * foreign card cannot make — for that customer this link is the only route
+   * from "I want this" to "I ate it". It is also who you call at 20:00 when an
+   * order goes wrong.
+   */
+  kitchenWhatsapp: string | null;
+  kitchenPhone: string | null;
 };
 
 export type FoodCategory = {

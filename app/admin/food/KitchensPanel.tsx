@@ -26,6 +26,7 @@ type Draft = {
   tagline: string;
   address: string;
   phone: string;
+  whatsapp: string;
   lat: string;
   lng: string;
   prepMinutesMin: number;
@@ -44,6 +45,7 @@ const emptyDraft = (): Draft => ({
   tagline: "",
   address: "",
   phone: "",
+  whatsapp: "",
   lat: "",
   lng: "",
   prepMinutesMin: 15,
@@ -113,6 +115,7 @@ export default function KitchensPanel({
       tagline: draft.tagline,
       address: draft.address,
       phone: draft.phone,
+      whatsapp: draft.whatsapp,
       lat: draft.lat.trim() ? Number(draft.lat) : null,
       lng: draft.lng.trim() ? Number(draft.lng) : null,
       prepMinutesMin: draft.prepMinutesMin,
@@ -305,6 +308,7 @@ export default function KitchensPanel({
                       tagline: k.tagline ?? "",
                       address: k.address ?? "",
                       phone: k.phone ?? "",
+                      whatsapp: k.whatsapp ?? "",
                       lat: k.lat?.toString() ?? "",
                       lng: k.lng?.toString() ?? "",
                       prepMinutesMin: k.prepMinutesMin,
@@ -430,6 +434,26 @@ export default function KitchensPanel({
                   <input className={input} inputMode="decimal" value={draft.lng}
                     onChange={(e) => setDraft({ ...draft, lng: e.target.value })} placeholder="63.4200" />
                 </div>
+              </div>
+
+              {/* M95 — PUBLIC, and deliberately directly above the PRIVATE
+                  block so the difference is impossible to miss. Since M89 every
+                  order is a bank transfer, which a visitor holding a foreign
+                  card cannot make; this number is that customer's only way
+                  through, and the one they call when an order goes wrong. */}
+              <div>
+                <span className={label}>PUBLIC WHATSAPP — SHOWN ON EVERY DISH</span>
+                <input
+                  className={input}
+                  value={draft.whatsapp}
+                  onChange={(e) => setDraft({ ...draft, whatsapp: e.target.value })}
+                  placeholder="+230 5xxx xxxx"
+                  inputMode="tel"
+                />
+                <p className="mt-1 font-dm text-[11px] leading-snug text-muted">
+                  Customers tap this to message the kitchen — essential for tourists with no local
+                  bank account. Leave empty to hide the button.
+                </p>
               </div>
 
               <div className="rounded-xl border border-white/10 bg-dark p-3.5">

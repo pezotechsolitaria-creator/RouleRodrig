@@ -117,7 +117,9 @@
 // a peek of the third, and the price no longer breaking in half.
 // v205 — a taxi driver who cannot turn alerts on is now TOLD why, instead
 // of the switch silently doing nothing.
-const CACHE = "rr-cache-v205";
+// v206 — every dish can show the kitchen's WhatsApp, so a visitor who
+// cannot make a local bank transfer still has a way to order.
+const CACHE = "rr-cache-v206";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
