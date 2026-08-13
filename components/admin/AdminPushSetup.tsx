@@ -63,9 +63,24 @@ export default function AdminPushSetup() {
         setMsg({ kind: "err", text: "This deployment has no VAPID public key." });
         return;
       }
-      const sub =
-        (await reg.pushManager.getSubscription()) ??
-        (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toBytes(key) }));
+      // ── Always REBUILD the subscription, never reuse it ──────────────────
+      //
+      // Reusing an existing one is why this said "Alerts on this device — on"
+      // for two days while delivering nothing. The browser keeps a subscription
+      // object long after the push service has stopped honouring it (a changed
+      // VAPID key, a profile reset, an endpoint the vendor retired), and the
+      // database row it belongs to was last touched on 12 Aug — so pressing
+      // Turn on re-sent the same dead endpoint and changed nothing.
+      //
+      // Tearing it down first costs one extra round trip and is the only way to
+      // recover from a stale endpoint without asking the owner to clear site
+      // data by hand.
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) await existing.unsubscribe().catch(() => {});
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: toBytes(key),
+      });
 
       const json = sub.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
       const res = await fetch("/api/admin/push", {
@@ -81,7 +96,17 @@ export default function AdminPushSetup() {
         setMsg({ kind: "err", text: p?.error ?? "Could not turn alerts on." });
         return;
       }
-      setMsg({ kind: "ok", text: "This device is now subscribed. Send a test to confirm." });
+      // The server sends a confirmation push the moment it registers this
+      // device. Reporting whether that was ACCEPTED is the difference between
+      // "subscribed" (a database fact) and "working" (the thing he cares
+      // about) — claiming the first while meaning the second is what wasted
+      // two days.
+      const body = (await res.json().catch(() => null)) as { confirmed?: boolean } | null;
+      setMsg(
+        body?.confirmed
+          ? { kind: "ok", text: "Subscribed — a confirmation notification was just sent to this device. If it does not appear within a few seconds, your operating system is hiding it (check Do Not Disturb / Focus, and that your browser is allowed to show notifications)." }
+          : { kind: "err", text: "This device registered, but the push service would not accept a notification for it. That usually means the site's VAPID keys changed since this browser last subscribed — press Turn on once more, and if it still fails, try a different browser or your phone." },
+      );
       await refresh();
     } catch (err) {
       console.error("admin push enable failed", err);
@@ -142,7 +167,7 @@ export default function AdminPushSetup() {
         <div className="min-w-0">
           <p className="flex items-center gap-2 font-syne text-sm font-bold">
             {subscribed ? <BellRing size={15} className="text-yellow" /> : <Bell size={15} className="text-muted" />}
-            Alerts on this device {subscribed ? "— on" : "— off"}
+            Alerts on this device {subscribed ? "— registered" : "— off"}
           </p>
           <p className="mt-0.5 font-dm text-xs text-muted">
             {devices > 0

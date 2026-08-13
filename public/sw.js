@@ -137,7 +137,9 @@
 // address, map pin and contact, from /merchant/profile.
 // v215 — allowing notifications now sends a confirmation push immediately,
 // Kitchen and Taxi alert categories exist, and autofill cannot poison a number.
-const CACHE = "rr-cache-v216";
+// v217 — Turn on rebuilds the push subscription instead of reusing a stale
+// one, and reports whether a notification was actually accepted.
+const CACHE = "rr-cache-v217";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
