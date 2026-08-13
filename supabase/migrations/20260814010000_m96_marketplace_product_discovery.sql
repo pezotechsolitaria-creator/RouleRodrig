@@ -1,4 +1,12 @@
--- ── M95 · The marketplace learns to show PRODUCTS ───────────────────────────
+-- ── M96 · The marketplace learns to show PRODUCTS ───────────────────────────
+--
+-- ⚠ PARTLY SUPERSEDED by 20260814020000_m96b, which runs after this and wins.
+-- Still current here: the marketplace_stores view, the search_synonyms table
+-- and its seed, marketplace_search_terms() and sitemap_products().
+-- Replaced there: browse_products() (it built the card shape inline, and
+-- computed every facet from one shared set — which made /shop/c/honey offer a
+-- seller filter with no honey behind it) and marketplace_home() (it could not
+-- say that a shop was not selling). Read m96b for the versions that run.
 --
 -- Until now /shop could only answer "which shops exist". browse_stores() is a
 -- good function and it stays, but it answers the wrong question: nobody wakes

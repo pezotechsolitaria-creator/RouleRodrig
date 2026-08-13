@@ -63,5 +63,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({ order: data });
+  // What is still rateable on this order (M97), fetched alongside rather than
+  // folded into lookup_order(): that function is long, load-bearing for the
+  // whole tracking page, and adding a join to it to serve a ratings widget is
+  // how a payment-tracking page breaks. A failure here costs the widget and
+  // never the lookup — someone chasing a payment must still see their order.
+  let reviewable: unknown = null;
+  const { data: rev, error: revError } = await supabase.rpc("guest_order_reviewable", {
+    p_order_number: parsed.data.orderNumber,
+    p_email: parsed.data.email,
+  });
+  if (revError) console.error("guest_order_reviewable failed", revError);
+  else reviewable = rev;
+
+  return NextResponse.json({ order: data, reviewable });
 }

@@ -67,8 +67,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // worse than omitting it.
   let shops: MetadataRoute.Sitemap = [];
   try {
-    const { createClient } = await import("@/lib/supabase/server");
-    const supabase = await createClient();
+    // Cookieless, for the reason spelled out above the dish block and proved
+    // again by the product block below: the session-carrying client turns this
+    // static route dynamic, Next throws, and the bare catch below turns that
+    // into a silently shorter sitemap. This block was reading cookies and
+    // therefore losing every shop URL in the same way.
+    const { createAnonClient } = await import("@/lib/supabase/anon");
+    const supabase = createAnonClient();
     // sitemap_stores() rather than a query built here (M48/M49). The rules for
     // "may this shop be indexed" are genuinely subtle — RLS visibility, plus
     // M42's event stores are not shops, plus test fixtures that are
@@ -100,11 +105,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // (marketplace_stores), so a URL here can never 404 or point at a paused
   // shop. /shop/search is deliberately absent — an unbounded space of query
   // strings is a crawl trap, which is why that route sets robots:noindex.
+  //
+  // The COOKIELESS client, and the build proved why within a minute of the
+  // first attempt: lib/supabase/server.ts reads cookies, that opts this
+  // statically generated route into dynamic rendering, Next throws, the catch
+  // below swallows it, and the sitemap ships with every product URL silently
+  // missing. Exactly the failure lib/supabase/anon.ts was written for after it
+  // happened to the dish URLs.
   let productPages: MetadataRoute.Sitemap = [];
   let categoryPages: MetadataRoute.Sitemap = [];
   try {
-    const { createClient } = await import("@/lib/supabase/server");
-    const supabase = await createClient();
+    const { createAnonClient } = await import("@/lib/supabase/anon");
+    const supabase = createAnonClient();
     const [{ data: prods }, { data: home }] = await Promise.all([
       supabase.rpc("sitemap_products"),
       supabase.rpc("marketplace_home"),

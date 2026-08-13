@@ -60,6 +60,12 @@ export type ShopProduct = {
   name: string;
   status: string;
   currency: string;
+  /**
+   * Where the marketplace files it. Null means the product is missing from
+   * /shop/c/*, from the category tiles and from every category count (M96) —
+   * still findable by search, invisible on the path most shoppers take.
+   */
+  categoryId: string | null;
   variants: ShopVariant[];
 };
 

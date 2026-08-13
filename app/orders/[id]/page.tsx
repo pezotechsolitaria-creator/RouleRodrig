@@ -15,6 +15,8 @@ import PickupCodeCard from "@/components/orders/PickupCodeCard";
 import PickupLocationCard from "@/components/orders/PickupLocationCard";
 import TicketList, { type BuyerTicket } from "@/components/events/TicketList";
 import RateShopCard from "@/components/orders/RateShopCard";
+import RateProductsCard, { type ReviewableProduct } from "@/components/orders/RateProductsCard";
+import BuyAgainCard from "@/components/orders/BuyAgainCard";
 import type { PickupCode } from "@/lib/orders/pickup";
 import DeliveryStatusCard from "@/components/orders/DeliveryStatusCard";
 import OrderAlerts from "@/components/orders/OrderAlerts";
@@ -195,13 +197,28 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
   // the shop actually handed it over — that is what makes the rating on /shop
   // worth sorting by.
   let canReview = false;
+  // Each PRODUCT in the order can also be rated, separately from the shop
+  // (M97): "how was the seller" and "was the honey any good" are two questions,
+  // and the second is the one a shopper comparing producers is asking.
+  let reviewableProducts: ReviewableProduct[] = [];
   if (typedOrder.status === "collected") {
-    const { data, error: reviewError } = await supabase.rpc("order_review_state", {
+    const { data, error: reviewError } = await supabase.rpc("order_reviewable", {
       p_order_id: typedOrder.id,
     });
-    if (reviewError) console.error("order_review_state failed", reviewError);
-    canReview = Boolean((data as { canReview?: boolean } | null)?.canReview);
+    if (reviewError) console.error("order_reviewable failed", reviewError);
+    const state = data as
+      | { canReviewOrder?: boolean; storeReviewed?: boolean; products?: ReviewableProduct[] }
+      | null;
+    canReview = Boolean(state?.canReviewOrder) && !state?.storeReviewed;
+    reviewableProducts = state?.products ?? [];
   }
+
+  // Everything in this order that the marketplace still sells. Resolved in the
+  // browser against the live catalogue, so nothing here can offer a product
+  // that has since sold out or whose shop has paused.
+  const orderedProductIds = [
+    ...new Set(reviewableProducts.map((p) => p.productId)),
+  ];
 
   return (
     <main className="min-h-screen bg-dark px-4 pb-28 pt-10 text-offwhite md:pb-16">
@@ -262,6 +279,25 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
             storeName={(store as { name?: string })?.name ?? `this ${sellerLabel.toLowerCase()}`}
             className="mt-4"
           />
+        )}
+
+        {reviewableProducts.length > 0 && (
+          <div className="mt-4">
+            <RateProductsCard products={reviewableProducts} orderId={typedOrder.id} />
+          </div>
+        )}
+
+        {/* The cheapest sale the marketplace ever makes. Only once the order is
+            finished — offering "buy it again" while the first one is still
+            being prepared reads as a shop that has not noticed. */}
+        {typedOrder.status === "collected" && orderedProductIds.length > 0 && (
+          <div className="mt-4">
+            <BuyAgainCard
+              orderId={typedOrder.id}
+              productIds={orderedProductIds}
+              storeName={(store as { name?: string })?.name ?? "the shop"}
+            />
+          </div>
         )}
 
         {showHold && hold && (

@@ -29,6 +29,24 @@ const patchSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+// ── The PRODUCT's category, which this desk could not set at all ───────────
+//
+// It barely mattered while /shop was a directory of shops: nothing read
+// products.category_id except a label on a card. It matters completely now the
+// marketplace is browsed BY category (M96). A product with no category is
+// absent from /shop/c/*, from the category tiles, from every category count and
+// from the category pages in the sitemap — and several live products have none,
+// so the operator could not fix the one field the new discovery layer runs on.
+//
+// A separate schema and branch because it writes a different table (products,
+// not product_variants) at a different scope: a category is a fact about the
+// product, a price is a fact about one of its variants.
+const categorySchema = z.object({
+  productId: z.string().uuid(),
+  /** null clears it, which is a legitimate thing to want. */
+  categoryId: z.string().uuid().nullable(),
+});
+
 async function nonKitchenStoreIds(admin: { from: (t: string) => { select: (c: string) => Promise<{ data: unknown[] | null }> } }) {
   const { data: kitchens } = await admin.from("food_kitchens").select("store_id");
   const kitchenIds = new Set(((kitchens ?? []) as { store_id: string }[]).map((k) => k.store_id));
@@ -52,7 +70,7 @@ export async function GET(req: NextRequest) {
   let query = admin
     .from("products")
     .select(
-      "id, store_id, name, status, has_variants, currency, " +
+      "id, store_id, name, status, has_variants, currency, category_id, " +
         "product_variants(id, name, sku, price, stock_quantity, low_stock_threshold, is_active, position)",
     )
     .in("store_id", ids)
@@ -66,8 +84,18 @@ export async function GET(req: NextRequest) {
   type Row = Record<string, unknown>;
   const list = (v: unknown) => (Array.isArray(v) ? v : v ? [v] : []);
 
+  // The categories the operator may assign. Sent with the products so the desk
+  // does not need a second call, and only ACTIVE ones — offering a category
+  // that browse hides would file a product where nobody can find it.
+  const { data: cats } = await admin
+    .from("categories")
+    .select("id, name")
+    .eq("is_active", true)
+    .order("position");
+
   return NextResponse.json({
     shops,
+    categories: ((cats ?? []) as { id: string; name: string }[]),
     products: ((data ?? []) as unknown as Row[]).map((p) => ({
       id: p.id as string,
       storeId: p.store_id as string,
@@ -75,6 +103,7 @@ export async function GET(req: NextRequest) {
       name: p.name as string,
       status: p.status as string,
       currency: (p.currency as string) ?? "MUR",
+      categoryId: (p.category_id as string | null) ?? null,
       variants: (list(p.product_variants) as Record<string, unknown>[])
         .map((v) => ({
           id: v.id as string,
@@ -97,6 +126,62 @@ export async function PATCH(req: NextRequest) {
 
   const body = await readJson(req);
   if (body instanceof NextResponse) return body;
+
+  // ── Setting a product's CATEGORY ─────────────────────────────────────────
+  // Recognised by the shape of the request, before the variant schema runs.
+  // Same store scoping as everything else on this desk: a kitchen's product is
+  // reported as non-existent rather than refused, so this endpoint cannot be
+  // used to confirm which store ids are kitchens.
+  const asCategory = categorySchema.safeParse(body);
+  if (asCategory.success) {
+    const { productId, categoryId } = asCategory.data;
+
+    const { data: prod } = await admin
+      .from("products")
+      .select("id, store_id, name, category_id")
+      .eq("id", productId)
+      .maybeSingle();
+    if (!prod) return NextResponse.json({ error: "That product no longer exists." }, { status: 404 });
+    const row = prod as { id: string; store_id: string; name: string; category_id: string | null };
+
+    const { data: kitchenStore } = await admin
+      .from("food_kitchens")
+      .select("store_id")
+      .eq("store_id", row.store_id)
+      .maybeSingle();
+    if (kitchenStore) {
+      return NextResponse.json({ error: "That product no longer exists." }, { status: 404 });
+    }
+
+    // An inactive or invented category id would file the product where the
+    // marketplace hides it — which looks, to the operator, exactly like the
+    // product vanishing.
+    if (categoryId) {
+      const { data: cat } = await admin
+        .from("categories")
+        .select("id")
+        .eq("id", categoryId)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (!cat) return NextResponse.json({ error: "That category is not available." }, { status: 400 });
+    }
+
+    const { error: catError } = await admin
+      .from("products")
+      .update({ category_id: categoryId, updated_at: new Date().toISOString() })
+      .eq("id", productId);
+    if (catError) return failed(catError, "Could not save that category.");
+
+    await audit(admin, {
+      action: "product.category.updated",
+      entityType: "product",
+      entityId: productId,
+      diff: { store: row.store_id, product: row.name, from: row.category_id, to: categoryId, desk: "marketplace" },
+    });
+
+    return NextResponse.json({ ok: true });
+  }
+
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input." }, { status: 400 });

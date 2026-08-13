@@ -40,6 +40,9 @@ export default function StockPanel({ shops }: { shops: { id: string; name: strin
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  // The categories a product may be filed under. Sent with the products, so the
+  // desk never shows a stale list after the owner adds one.
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
 
   const load = useCallback(async () => {
     const params = new URLSearchParams();
@@ -49,6 +52,7 @@ export default function StockPanel({ shops }: { shops: { id: string; name: strin
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Failed to load products.");
       setProducts(body.products ?? []);
+      setCategories(body.categories ?? []);
       setError(null);
     } catch (e) {
       setProducts(null);
@@ -93,8 +97,34 @@ export default function StockPanel({ shops }: { shops: { id: string; name: strin
     );
   }, [products, q]);
 
+  const setCategory = useCallback(
+    async (product: ShopProduct, categoryId: string | null) => {
+      setBusy(product.id);
+      const result = await shopWrite("/api/admin/marketplace-ops/products", {
+        method: "PATCH",
+        body: JSON.stringify({ productId: product.id, categoryId }),
+      });
+      setBusy(null);
+      if (!result.ok) { toast.error(result.error); return; }
+      toast.success(categoryId ? "Category set" : "Category cleared");
+      void load();
+    },
+    [load],
+  );
+
   const lowCount = useMemo(
     () => (products ?? []).reduce((n, p) => n + p.variants.filter((v) => v.isActive && lowStock(v)).length, 0),
+    [products],
+  );
+
+  // ── Products nobody can browse to ────────────────────────────────────────
+  // Since M96 the marketplace is browsed BY category: an uncategorised product
+  // is missing from /shop/c/*, from the category tiles, from every category
+  // count and from the category pages in the sitemap. It is still findable by
+  // search and still sells — but it is invisible on the path most shoppers take,
+  // and nothing anywhere said so.
+  const uncategorised = useMemo(
+    () => (products ?? []).filter((p) => p.status === "active" && !p.categoryId),
     [products],
   );
 
@@ -124,12 +154,22 @@ export default function StockPanel({ shops }: { shops: { id: string; name: strin
 
       {/* The one number worth interrupting for. A shop that has quietly run to
           zero is still taking orders it cannot fill. */}
-      {lowCount > 0 && (
-        <p className="mt-3 inline-flex items-center gap-2 rounded-xl border border-orange-400/40 bg-orange-400/10 px-3 py-2 font-dm text-xs text-orange-200">
-          <AlertTriangle size={14} />
-          {lowCount === 1 ? "1 item is out or nearly out" : `${lowCount} items are out or nearly out`}
-        </p>
-      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {lowCount > 0 && (
+          <p className="inline-flex items-center gap-2 rounded-xl border border-orange-400/40 bg-orange-400/10 px-3 py-2 font-dm text-xs text-orange-200">
+            <AlertTriangle size={14} />
+            {lowCount === 1 ? "1 item is out or nearly out" : `${lowCount} items are out or nearly out`}
+          </p>
+        )}
+        {uncategorised.length > 0 && (
+          <p className="inline-flex items-center gap-2 rounded-xl border border-yellow/40 bg-yellow/10 px-3 py-2 font-dm text-xs text-yellow">
+            <AlertTriangle size={14} />
+            {uncategorised.length === 1
+              ? "1 product has no category — shoppers browsing by category will not see it"
+              : `${uncategorised.length} products have no category — shoppers browsing by category will not see them`}
+          </p>
+        )}
+      </div>
 
       {error && (
         <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 font-dm text-sm text-red-200">
@@ -169,6 +209,29 @@ export default function StockPanel({ shops }: { shops: { id: string; name: strin
                 </span>
               )}
             </header>
+
+            {/* WHERE the marketplace files it. The one field the whole category
+                browsing layer runs on, and until now the only way to set it was
+                the seller's own dashboard — which is no use for the seller who
+                telephones rather than opens a laptop, which is the reason this
+                desk exists. */}
+            <label className="mt-2 flex flex-wrap items-center gap-2 font-dm text-xs">
+              <span className="text-muted">Category</span>
+              <select
+                value={p.categoryId ?? ""}
+                disabled={busy === p.id}
+                onChange={(e) => setCategory(p, e.target.value || null)}
+                className={`rounded-lg border bg-dark px-2.5 py-1.5 font-dm text-xs text-offwhite disabled:opacity-50 ${
+                  p.categoryId ? "border-white/15" : "border-yellow/50"
+                }`}
+              >
+                <option value="">— none (hidden from category browsing) —</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              {busy === p.id && <Loader2 size={12} className="animate-spin text-muted" />}
+            </label>
 
             <div className="mt-3 space-y-3">
               {p.variants.map((v) => {

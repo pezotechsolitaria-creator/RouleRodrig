@@ -15,6 +15,8 @@ import PickupCodeCard from "@/components/orders/PickupCodeCard";
 import PickupLocationCard from "@/components/orders/PickupLocationCard";
 import TicketList, { type BuyerTicket } from "@/components/events/TicketList";
 import RateShopCard from "@/components/orders/RateShopCard";
+import RateProductsCard, { type ReviewableProduct } from "@/components/orders/RateProductsCard";
+import BuyAgainCard from "@/components/orders/BuyAgainCard";
 import { Button } from "@/components/ui/button";
 import { vocabFor, domainFromFlags } from "@/lib/food/vocabulary";
 
@@ -102,6 +104,12 @@ function TrackOrder() {
   const [orderNumber, setOrderNumber] = useState("");
   const [email, setEmail] = useState("");
   const [order, setOrder] = useState<TrackedOrder | null>(null);
+  // What is still rateable, and what can be bought again (M97). Guests are the
+  // default path on this platform, so a feature that served only account
+  // holders would collect almost nothing — the standing M21 lesson.
+  const [reviewable, setReviewable] = useState<
+    { canReviewOrder: boolean; storeReviewed: boolean; products: ReviewableProduct[] } | null
+  >(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** True when we arrived straight from a completed checkout. */
@@ -124,8 +132,13 @@ function TrackOrder() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "We couldn't find that order.");
       setOrder(body.order as TrackedOrder);
+      setReviewable(
+        (body.reviewable as { canReviewOrder: boolean; storeReviewed: boolean; products: ReviewableProduct[] }) ??
+          null,
+      );
     } catch (e) {
       setOrder(null);
+      setReviewable(null);
       setError(e instanceof Error ? e.message : "We couldn't find that order.");
     } finally {
       setLoading(false);
@@ -396,6 +409,28 @@ function TrackOrder() {
                 that skipped it would collect almost nothing. */}
             {order.canReview && (
               <RateShopCard credential={{ orderNumber: order.orderNumber, email }} storeName={order.storeName} />
+            )}
+
+            {/* And the PRODUCTS, separately from the shop — "how was the
+                seller" and "was the honey any good" are two questions, and the
+                second is the one the next shopper is asking (M97). */}
+            {(reviewable?.products.length ?? 0) > 0 && (
+              <RateProductsCard
+                products={reviewable!.products}
+                orderNumber={order.orderNumber}
+                email={email}
+              />
+            )}
+
+            {/* Buy it again. Only once the order is finished, and only for
+                things the marketplace still sells — the card reconciles against
+                the live catalogue rather than re-adding the old order blindly. */}
+            {order.status === "collected" && !order.isEvent && (reviewable?.products.length ?? 0) > 0 && (
+              <BuyAgainCard
+                orderId={order.id}
+                productIds={reviewable!.products.map((p) => p.productId)}
+                storeName={order.storeName}
+              />
             )}
 
             {/* The reservation clock. M20 returned autoReleaseAt from
