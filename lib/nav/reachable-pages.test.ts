@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, sep } from "node:path";
+import { execSync } from "node:child_process";
 
 // ── Every page must be reachable by CLICKING ───────────────────────────────
 //
@@ -41,6 +42,26 @@ const ALLOWED_WITHOUT_LINKS: Record<string, string> = {
   "/merchant/pickup": "Where a SCANNED pickup QR lands. The same job is reachable by clicking via the code box on /merchant/orders.",
 };
 
+/**
+ * Files git actually tracks.
+ *
+ * The rule is about the SHIPPED site, and this repo is often worked on by two
+ * sessions at once — an untracked half-built page is somebody mid-thought, not
+ * a broken promise to a visitor. Restricting to tracked files means work in
+ * progress never turns the suite red for everyone else, while the check still
+ * bites on the commit that adds the page, which is the moment that matters.
+ */
+let trackedCache: Set<string> | null = null;
+function tracked(): Set<string> {
+  if (trackedCache) return trackedCache;
+  const out = execSync("git ls-files", { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
+  // git reports POSIX separators; normalise to this platform so these paths
+  // can be compared with what walk() produces.
+  const rows = out.split("\n").map((f) => f.trim()).filter(Boolean);
+  trackedCache = new Set(rows.map((f) => f.split("/").join(sep)));
+  return trackedCache;
+}
+
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     const p = join(dir, entry);
@@ -60,31 +81,68 @@ function routeOf(file: string): string {
 const norm = (r: string) => r.replace(/\/+$/, "") || "/";
 
 function allRoutes(): string[] {
+  const files = tracked();
   return walk(ROUTE_ROOT)
-    .filter((f) => f.endsWith("page.tsx"))
+    .filter((f) => f.endsWith("page.tsx") && files.has(f))
     .map(routeOf)
     .filter((r) => !r.startsWith("/api"));
 }
 
-/** Paths referenced in a way a person could actually click or be sent to. */
-function clickableTargets(): Set<string> {
-  const found = new Set<string>();
+/**
+ * The private consoles. Everything under these is signed-in staff territory:
+ * the owner's rule is that PUBLIC pages must never need a typed URL, and that
+ * the admin dashboard is the deliberate exception — reachable only by someone
+ * who already knows it is there.
+ */
+const PRIVATE_PREFIXES = ["/admin", "/merchant", "/kitchen", "/driver", "/organizer"];
+const isPrivate = (r: string) => PRIVATE_PREFIXES.some((p) => r === p || r.startsWith(`${p}/`));
+
+type LinkSite = { target: string; fromFile: string; fromPrivate: boolean };
+
+/**
+ * Every clickable path, WITH the file it lives in.
+ *
+ * Where the link lives is the whole point. A public page linked only from
+ * inside /admin has a link and is still unreachable to a visitor — which is
+ * exactly the failure the owner is describing when he says a page should not
+ * need someone to type a slash.
+ */
+function linkSites(): LinkSite[] {
+  const out: LinkSite[] = [];
+  const patterns = [
+    /href\s*=\s*["'`](\/[^"'`?#${]*)/g,          // <Link href="/x">
+    /href:\s*["'`](\/[^"'`?#${]*)/g,             // { href: "/x" } nav tables
+    /(?:push|replace|redirect)\(\s*["'`](\/[^"'`?#${]*)/g,
+    /href\s*=\s*\{?[`"'](\/[a-z0-9\-/]*)\$\{/gi, // href={`/shop/${slug}`}
+  ];
+
   for (const dir of SCAN_DIRS) {
     for (const file of walk(dir)) {
       if (!/\.(tsx?|mjs)$/.test(file)) continue;
+      if (!tracked().has(file)) continue;
       const s = readFileSync(file, "utf8");
-      const patterns = [
-        /href\s*=\s*["'`](\/[^"'`?#${]*)/g,          // <Link href="/x">
-        /href:\s*["'`](\/[^"'`?#${]*)/g,             // { href: "/x" } nav tables
-        /(?:push|replace|redirect)\(\s*["'`](\/[^"'`?#${]*)/g,
-        /href\s*=\s*\{?[`"'](\/[a-z0-9\-/]*)\$\{/gi, // href={`/shop/${slug}`}
-      ];
+      const asRoute = file.startsWith(ROUTE_ROOT) ? norm(routeOf(file)) : null;
+      // A file is "private" if it IS a private route, or lives in a private
+      // folder (components/merchant/…, lib/admin/…).
+      const fromPrivate =
+        (asRoute !== null && isPrivate(asRoute)) ||
+        // BOTH separators. This ran on Windows with only the forward slash and
+        // classified components\admin\AdminShell.tsx as PUBLIC, reporting 74
+        // internal admin links as leaks — a false alarm loud enough to bury a
+        // real one.
+        /[\\/](admin|merchant|kitchen|driver|organizer)[\\/]/.test(file);
+
       for (const re of patterns) {
-        for (const m of s.matchAll(re)) found.add(norm(m[1]));
+        for (const m of s.matchAll(re)) out.push({ target: norm(m[1]), fromFile: file, fromPrivate });
       }
     }
   }
-  return found;
+  return out;
+}
+
+/** Paths referenced in a way a person could actually click or be sent to. */
+function clickableTargets(): Set<string> {
+  return new Set(linkSites().map((l) => l.target));
 }
 
 describe("every page is reachable by clicking", () => {
@@ -123,6 +181,39 @@ describe("every page is reachable by clicking", () => {
       orphans.sort(),
       `These pages have no clickable route into them. Add a link, or add an argued entry to ALLOWED_WITHOUT_LINKS:\n  ${orphans.join("\n  ")}`,
     ).toEqual([]);
+  });
+
+  it("no PUBLIC page is reachable only from inside a staff console", () => {
+    const sites = linkSites();
+    const stranded: string[] = [];
+
+    for (const route of routes) {
+      const n = norm(route);
+      if (isPrivate(n) || n in ALLOWED_WITHOUT_LINKS) continue;
+      const into = sites.filter((l) => l.target === n);
+      if (into.length === 0) continue; // the orphan test above owns this case
+      // A link that exists only inside /admin does not help a visitor: they
+      // would still have to type the path, which is the thing being banned.
+      if (into.every((l) => l.fromPrivate)) {
+        stranded.push(`${route} (only linked from ${[...new Set(into.map((l) => l.fromFile))].join(", ")})`);
+      }
+    }
+
+    expect(
+      stranded.sort(),
+      `Public pages a visitor cannot click to; only linked from staff screens: ${stranded.join(" | ")}`,
+    ).toEqual([]);
+  });
+
+  it("never links the admin dashboard from a public page", () => {
+    // The owner's one deliberate exception: "all pages accessible... except for
+    // admin dashboard of course." A public link to /admin advertises the back
+    // door to every visitor and every crawler.
+    const leaks = linkSites()
+      .filter((l) => l.target.startsWith("/admin") && !l.fromPrivate)
+      .map((l) => `${l.target} ← ${l.fromFile}`);
+
+    expect(leaks.sort(), `Admin is linked from public files: ${leaks.join(" | ")}`).toEqual([]);
   });
 
   it("keeps the allowlist honest — every exception still exists", () => {
