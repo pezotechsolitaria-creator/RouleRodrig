@@ -843,6 +843,76 @@ function placeRows(b: PlaceBookingEmailData): string {
   return rows(pairs);
 }
 
+// ── "Someone says they have paid" ──────────────────────────────────────────
+//
+// The gap this closes: after M83 a customer can upload a bank slip against a
+// rental or an activity, and after M49 against a shop or food order — but every
+// one of those paths ended with the money sitting there until the owner
+// happened to open /admin. A booking that is paid and unseen is a guest who
+// arrives to nothing.
+//
+// Owner-only and internal, so it is English and blunt: what, who, how much, and
+// whether there is a file to look at. It deliberately does NOT confirm anything
+// — a customer saying they paid is a claim, and the owner is the one who checks
+// it against the bank.
+export async function sendPaymentReportedAlert(input: {
+  kind: "vehicle" | "activity" | "order";
+  /** RR-XXXXXX for bookings, the order number for orders. */
+  reference: string;
+  customer: string;
+  item: string | null;
+  amount: number | null;
+  /** False when they pressed "I have paid" but attached nothing. */
+  hasReceipt: boolean;
+  phone?: string | null;
+  email?: string | null;
+  /** Where in /admin this is dealt with. */
+  adminPath?: string;
+}): Promise<boolean> {
+  const owner = process.env.OWNER_EMAIL;
+  if (!owner) return false;
+  const { logo } = await getBrand();
+
+  const where =
+    input.kind === "vehicle" ? "Bookings" : input.kind === "activity" ? "Stay & Activity Bookings" : "Orders";
+
+  const body = `
+    ${paragraph(
+      `<strong>${input.customer}</strong> says they have paid by bank transfer. Nothing is confirmed until you check it — open <strong>${where}</strong> in your admin dashboard${
+        input.hasReceipt ? " and open the payment proof they attached" : ""
+      }.`,
+    )}
+    ${detailCard(
+      rows([
+        ["Reference", input.reference],
+        ...(input.item ? ([["What", input.item]] as [string, string][]) : []),
+        ...(input.amount != null ? ([["Amount they owe", `Rs ${input.amount.toLocaleString("en-US")}`]] as [string, string][]) : []),
+        ["Proof attached", input.hasReceipt ? "Yes — open it in admin" : "NO FILE — worth chasing"],
+        ...(input.phone ? ([["Phone", input.phone]] as [string, string][]) : []),
+        ...(input.email ? ([["Email", input.email]] as [string, string][]) : []),
+      ]),
+    )}
+    ${input.phone ? `<div style="text-align:center">${waButton(input.phone, `Hi ${input.customer}, thanks — checking your transfer now.`, "💬 Message " + input.customer)}</div>` : ""}`;
+
+  return send({
+    to: owner,
+    subject: `Payment reported: ${input.customer} — ${input.reference}`,
+    html: shell({
+      preheader: input.hasReceipt ? "A customer sent proof of payment." : "A customer says they paid — no file attached.",
+      eyebrow: "Payment reported",
+      title: input.customer,
+      body,
+      logo,
+    }),
+    type: "owner_payment_reported",
+    // One alert per booking per declaration. Re-uploading a better photo of the
+    // same slip should not mail the owner twice.
+    key: keyFor("owner_payment_reported", input.reference),
+    relatedType: input.kind === "order" ? "order" : "booking",
+    relatedId: input.reference,
+  });
+}
+
 /** Customer confirmation + owner notification for a Stay·Eat·Do reservation. */
 export async function sendPlaceBookingEmails(b: PlaceBookingEmailData): Promise<{ customer: boolean; owner: boolean }> {
   const result = { customer: false, owner: false };

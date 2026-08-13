@@ -93,7 +93,9 @@
 // to be refetched or the old order keeps rendering.
 // v179 — rentals and activities can upload proof of a bank transfer, and the
 // owner can open it from /admin instead of scrolling WhatsApp.
-const CACHE = "rr-cache-v179";
+// v180 — a Money desk that lists everyone waiting on a payment decision, and
+// an email the moment somebody says they have paid.
+const CACHE = "rr-cache-v180";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

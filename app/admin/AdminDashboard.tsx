@@ -71,6 +71,8 @@ import {
   Settings,
   MessageCircle,
   Boxes,
+  Banknote,
+  ChevronRight,
 } from "lucide-react";
 import type { TaxiDriver, TaxiDriverReview } from "@/lib/supabase/taxi-types";
 import type {
@@ -136,11 +138,15 @@ type Section =
   | "services"
   | "foodConcierge"
   | "experience"
-  | "notifications";
+  | "notifications"
+  | "money";
 
 const NAV: { id: Section; label: string; icon: React.ElementType; group?: string }[] = [
   // ── Daily business (operational inboxes) ──
   { id: "dashboard",    label: "Dashboard",       icon: LayoutDashboard, group: "overview" },
+  // First in the list, above the four desks it summarises: "has anyone paid?"
+  // used to mean opening all four and remembering.
+  { id: "money",        label: "Money",            icon: Banknote,        group: "overview" },
   { id: "bookings",     label: "Bookings",         icon: BookOpen,        group: "overview" },
   { id: "place_bookings", label: "Stay & Activity Bookings", icon: BedDouble,  group: "overview" },
   { id: "submissions",  label: "Enquiries",        icon: Inbox,           group: "overview" },
@@ -2663,16 +2669,133 @@ const STATUS_CONFIG: Record<
 // match someone who calls in quoting their code.
 const bookingRef = (id: string) => "RR-" + id.replace(/-/g, "").slice(0, 6).toUpperCase();
 
+// ── Money: everyone waiting on a decision about a payment ──────────────────
+//
+// Read-only on purpose. Each desk keeps owning its own confirm/reject, because
+// two code paths for one state change means the less-used one rots. This
+// answers "has anyone paid?" in one screen and then points at the desk.
+type MoneyRow = {
+  kind: "vehicle" | "activity" | "order";
+  id: string;
+  reference: string;
+  customer: string;
+  item: string | null;
+  amount: number | null;
+  reportedAt: string | null;
+  hasReceipt: boolean;
+  desk: string;
+};
+
+function MoneyDesk({ onGo }: { onGo: (s: Section) => void }) {
+  const [rows, setRows] = useState<MoneyRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/money");
+        if (!res.ok) throw new Error();
+        const j = (await res.json()) as { rows: MoneyRow[] };
+        if (live) setRows(j.rows ?? []);
+      } catch {
+        if (live) setError(true);
+      } finally {
+        if (live) setLoading(false);
+      }
+    })();
+    return () => { live = false; };
+  }, []);
+
+  const waited = (iso: string | null) => {
+    if (!iso) return "";
+    const hours = Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000);
+    if (hours < 1) return "just now";
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+  };
+
+  const sectionFor = (k: MoneyRow["kind"]): Section =>
+    k === "vehicle" ? "bookings" : k === "activity" ? "place_bookings" : "marketplace";
+
+  if (loading) return <p className="font-dm text-sm text-muted/60">Checking every desk…</p>;
+  if (error) return <p className="font-dm text-sm text-red-400">Could not load this right now.</p>;
+
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] p-8 text-center">
+        <Banknote size={22} className="mx-auto text-muted/40" />
+        <p className="mt-3 font-syne font-bold text-offwhite">Nobody is waiting on you</p>
+        <p className="mt-1 font-dm text-xs text-muted/60">
+          Every reported payment has been dealt with. New ones appear here the moment a customer says they have paid.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="font-dm text-xs text-muted/60">
+        {rows.length} {rows.length === 1 ? "person is" : "people are"} waiting for you to confirm a payment. Oldest first.
+      </p>
+      {rows.map((r) => (
+        <div
+          key={`${r.kind}-${r.id}`}
+          className="rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] p-4 space-y-3"
+        >
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span className="font-syne font-bold text-offwhite text-sm">{r.customer}</span>
+            <span className="font-dm text-[11px] text-muted/60">{r.reference}</span>
+            {r.item && <span className="font-dm text-[11px] text-muted/60">· {r.item}</span>}
+            {r.amount != null && (
+              <span className="font-syne font-bold text-yellow text-sm">Rs {r.amount.toLocaleString("en-US")}</span>
+            )}
+            <span className="ml-auto font-dm text-[11px] text-muted/50">{waited(r.reportedAt)}</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {r.kind === "order" ? (
+              // Orders keep their own receipt viewer on their own desk; sending
+              // the owner there is better than a second signing endpoint that
+              // would have to re-derive the same permissions.
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#2a2a2a] px-2.5 py-1 font-dm text-[11px] text-muted/70">
+                <FileCheck size={11} /> Proof attached — open it on the order
+              </span>
+            ) : (
+              <BookingReceiptLink
+                id={r.id}
+                kind={r.kind === "activity" ? "place" : "vehicle"}
+                hasReceipt={r.hasReceipt}
+                reportedAt={r.reportedAt}
+              />
+            )}
+            <button
+              type="button"
+              onClick={() => onGo(sectionFor(r.kind))}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#2a2a2a] px-2.5 py-1 font-dm text-[11px] text-muted transition-colors hover:border-yellow/40 hover:text-yellow"
+            >
+              Open in {r.desk} <ChevronRight size={11} />
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── The proof of payment, where the owner already looks (M83) ──────────────
 //
 // M78's lesson, applied ahead of time rather than after a complaint: an
 // uploaded receipt that /admin does not render is the same as no receipt. This
 // is rendered by BOTH booking managers from the same component so the two
 // cannot drift into showing different things.
-function BookingReceiptLink({ id, kind, path, reportedAt }: {
+function BookingReceiptLink({ id, kind, hasReceipt, reportedAt }: {
   id: string;
   kind: "vehicle" | "place";
-  path?: string | null;
+  /** Whether a file exists. The PATH itself never reaches the browser — the
+   *  signed URL is minted on demand by /api/admin/booking-receipt from the id. */
+  hasReceipt: boolean;
   reportedAt?: string | null;
 }) {
   const [busy, setBusy] = useState(false);
@@ -2680,7 +2803,7 @@ function BookingReceiptLink({ id, kind, path, reportedAt }: {
 
   // Nothing said is better than a misleading "no receipt" on a booking that
   // was paid by card and never needed one.
-  if (!path && !reportedAt) return null;
+  if (!hasReceipt && !reportedAt) return null;
 
   async function open() {
     setBusy(true);
@@ -2705,7 +2828,7 @@ function BookingReceiptLink({ id, kind, path, reportedAt }: {
 
   return (
     <span className="inline-flex items-center gap-2">
-      {path ? (
+      {hasReceipt ? (
         <button
           type="button"
           onClick={open}
@@ -3012,7 +3135,7 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
             <BookingReceiptLink
               id={b.id}
               kind="vehicle"
-              path={b.payment_receipt_path}
+              hasReceipt={!!b.payment_receipt_path}
               reportedAt={b.payment_reported_at}
             />
 
@@ -3244,7 +3367,7 @@ function PlaceBookingsManager() {
             <BookingReceiptLink
               id={b.id}
               kind="place"
-              path={b.payment_receipt_path}
+              hasReceipt={!!b.payment_receipt_path}
               reportedAt={b.payment_reported_at}
             />
 
@@ -7734,6 +7857,7 @@ export default function AdminDashboard({
     branding:     { title: "Branding & Social",   desc: "Upload your logo and link your social media pages." },
     submissions:  { title: "Enquiries",           desc: "Contact form submissions from customers." },
     bookings:     { title: "Bookings",            desc: "Booking requests from the website booking form." },
+    money:        { title: "Money",                 desc: "Everyone waiting for you to confirm a payment — rentals, activities, shops and food in one list, oldest first." },
     place_bookings: { title: "Stay & Activity Bookings", desc: "Reservation requests for hotels, restaurants & activities." },
     leads:        { title: "Listing Leads",       desc: "Food Concierge requests (with craving & budget), plus clicks & enquiries on your Stay·Eat·Do and Taxi listings — for demand tracking & commission follow-up." },
     owners:       { title: "Partner Applications",  desc: "Partners applying via /list-your-scooter to list a vehicle, restaurant, stay, activity or experience — or to become a taxi driver, event organiser or delivery partner, none of which anyone can create for themselves. Approving one is your cue to set them up in Taxi, Organisers or Delivery; the application itself grants nothing." },
@@ -7759,7 +7883,7 @@ export default function AdminDashboard({
 
   const isAutoSave =
     section === "gallery" || section === "submissions" || section === "bookings" ||
-    section === "place_bookings" ||
+    section === "place_bookings" || section === "money" ||
     section === "dashboard" || section === "partners" || section === "marketplace" ||
     section === "taxi" || section === "reviews" || section === "waitlist" ||
     section === "notifications";
@@ -8012,6 +8136,7 @@ export default function AdminDashboard({
           {section === "leads" && <LeadsViewer />}
           {section === "owners" && <OwnerApplicationsViewer />}
           {section === "bookings" && <BookingsManager fleet={content.fleet} />}
+          {section === "money" && <MoneyDesk onGo={setSection} />}
           {section === "place_bookings" && <PlaceBookingsManager />}
           {section === "map" && (
             <MapEditor content={content} onChange={setContent} />

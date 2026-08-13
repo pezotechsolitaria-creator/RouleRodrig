@@ -145,6 +145,10 @@ export const EMAIL_TYPES = {
   owner_pickup_reminder:            { category: "operational", priority: "normal" },
   owner_return_reminder:            { category: "operational", priority: "normal" },
   owner_place_reminder:             { category: "operational", priority: "normal" },
+  // Money the owner must act on: a customer says they have transferred, and
+  // nothing happens until he looks. "high", not "critical" — it is urgent to a
+  // waiting guest but it does not defend a reserve.
+  owner_payment_reported:           { category: "operational", priority: "high" },
   owner_tiroule_digest:             { category: "operational", priority: "low" },
   admin_test:                       { category: "operational", priority: "low" },
   // Outbound to an APPLICANT, not to the owner — so unlike its neighbours here

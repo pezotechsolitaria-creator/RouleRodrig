@@ -135,5 +135,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 
+  // ── Tell the owner, or none of the above matters ─────────────────────────
+  //
+  // Every payment path on this site used to end here: the money is declared,
+  // the row is stamped, and nothing happens until the owner happens to look.
+  // Best-effort and after the write — the customer's declaration is already
+  // recorded, and a mail provider having a bad minute must not turn a
+  // successful action into an error on their screen.
+  const result = data as { kind?: string; id?: string } | null;
+  if (result?.id) {
+    try {
+      const table = result.kind === "place" ? "place_bookings" : "bookings";
+      const { data: row } = await supabase
+        .from(table)
+        .select(
+          result.kind === "place"
+            ? "name, phone, email, place_name, deposit_amount"
+            : "name, phone, email, scooter, deposit_amount",
+        )
+        .eq("id", result.id)
+        .maybeSingle();
+      const r = (row ?? {}) as Record<string, unknown>;
+      const { sendPaymentReportedAlert } = await import("@/lib/email");
+      await sendPaymentReportedAlert({
+        kind: result.kind === "place" ? "activity" : "vehicle",
+        reference: "RR-" + result.id.replace(/-/g, "").slice(0, 6).toUpperCase(),
+        customer: (r.name as string) ?? "A customer",
+        item: ((r.place_name ?? r.scooter) as string) ?? null,
+        amount: typeof r.deposit_amount === "number" ? r.deposit_amount : null,
+        hasReceipt: !!receiptPath,
+        phone: (r.phone as string) ?? null,
+        email: (r.email as string) ?? null,
+      });
+    } catch (e) {
+      console.error("payment reported: owner alert failed", e);
+    }
+  }
+
   return NextResponse.json({ ok: true, ...(data as object) });
 }

@@ -141,5 +141,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 
+  // Tell the owner. Same reasoning as the booking route: an order that is paid
+  // and unseen is a customer waiting on a desk nobody has opened. Best-effort
+  // and after the write, so a mail provider having a bad minute cannot turn a
+  // successful declaration into an error on the customer's screen.
+  try {
+    const { data: row } = await supabase
+      .from("orders")
+      .select("order_number, customer_name, customer_phone, customer_email, total, payment_receipt_path")
+      .eq("order_number", orderNumber)
+      .maybeSingle();
+    const r = (row ?? {}) as Record<string, unknown>;
+    const { sendPaymentReportedAlert } = await import("@/lib/email");
+    await sendPaymentReportedAlert({
+      kind: "order",
+      reference: (r.order_number as string) ?? orderNumber,
+      customer: (r.customer_name as string) ?? "A customer",
+      item: null,
+      amount: typeof r.total === "number" ? r.total : null,
+      hasReceipt: !!r.payment_receipt_path,
+      phone: (r.customer_phone as string) ?? null,
+      email: (r.customer_email as string) ?? null,
+    });
+  } catch (e) {
+    console.error("order payment reported: owner alert failed", e);
+  }
+
   return NextResponse.json(data ?? { status: "awaiting_payment_confirmation" });
 }

@@ -42,11 +42,18 @@ describe("extractDailyPrice", () => {
   it("agrees with priceNumber for every realistic owner input", async () => {
     // The display parser and the charge parser MUST be the same function now;
     // they disagreed on two of these five before 2026-08-08.
+    //
+    // The import is dynamic because lib/site-data pulls in a wide dependency
+    // graph that the rest of this file has no use for. Under full-suite load
+    // that import alone crossed vitest's 5s default and failed this test four
+    // separate times while passing on its own — which reads as a pricing
+    // regression and is not one. The budget is the fix; the assertion is
+    // untouched.
     const { priceNumber } = await import("./site-data");
     for (const p of ["Rs 1,200/day", "Rs 21 475", "From Rs 1 200/day", "Rs 599", "Rs 2 000"]) {
       expect(priceNumber(p)).toBe(extractDailyPrice(p));
     }
-  });
+  }, 30_000);
 });
 
 describe("priceBreakdown", () => {
