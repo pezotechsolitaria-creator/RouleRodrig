@@ -115,7 +115,9 @@
 // with the price no longer breaking in half at that width.
 // v204 — /food swipes again: scroll-snapping rails, two dishes visible with
 // a peek of the third, and the price no longer breaking in half.
-const CACHE = "rr-cache-v204";
+// v205 — a taxi driver who cannot turn alerts on is now TOLD why, instead
+// of the switch silently doing nothing.
+const CACHE = "rr-cache-v205";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

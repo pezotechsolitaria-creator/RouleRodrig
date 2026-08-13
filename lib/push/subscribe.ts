@@ -48,7 +48,19 @@ export async function currentPushState(): Promise<PushState> {
  * Ask for permission and register. Returns the resulting state so the caller can
  * explain "denied" — which is unrecoverable in-page and needs browser settings.
  */
-export async function enablePush(): Promise<{ state: PushState; error?: string }> {
+/**
+ * Where the subscription is registered.
+ *
+ * Delivery drivers have a Supabase account, so /api/driver/push authenticates
+ * them by session. A TAXI driver has no account at all — they are identified by
+ * a token in their own link — so they register through a different route with
+ * that token in the body. Same browser mechanics, different door: parameterised
+ * here rather than copied, because a second copy of the subscribe/teardown
+ * dance is a second place for "alerts say on but nothing arrives" to live.
+ */
+export type PushTarget = { url?: string; body?: Record<string, unknown> };
+
+export async function enablePush(target: PushTarget = {}): Promise<{ state: PushState; error?: string }> {
   if (!pushSupported()) return { state: "unsupported" };
 
   const permission = await Notification.requestPermission();
@@ -67,10 +79,10 @@ export async function enablePush(): Promise<{ state: PushState; error?: string }
       }));
 
     const json = sub.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
-    const res = await fetch("/api/driver/push", {
+    const res = await fetch(target.url ?? "/api/driver/push", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
+      body: JSON.stringify({ ...(target.body ?? {}), endpoint: json.endpoint, keys: json.keys }),
     });
 
     if (!res.ok) {
@@ -88,7 +100,7 @@ export async function enablePush(): Promise<{ state: PushState; error?: string }
   }
 }
 
-export async function disablePush(): Promise<PushState> {
+export async function disablePush(target: PushTarget = {}): Promise<PushState> {
   if (!pushSupported()) return "unsupported";
   try {
     const reg = await navigator.serviceWorker.ready;
@@ -96,10 +108,10 @@ export async function disablePush(): Promise<PushState> {
     if (sub) {
       // Tell the server first: if unsubscribe() succeeds and the DELETE does
       // not, the row survives as an endpoint that can never be delivered.
-      await fetch("/api/driver/push", {
+      await fetch(target.url ?? "/api/driver/push", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ endpoint: sub.endpoint }),
+        body: JSON.stringify({ ...(target.body ?? {}), endpoint: sub.endpoint }),
       }).catch(() => {});
       await sub.unsubscribe().catch(() => {});
     }

@@ -38,6 +38,13 @@ export default function DriverHome({ token }: { token: string }) {
   const [home, setHome] = useState<Home | null>(null);
   const [busy, setBusy] = useState(false);
   const [push, setPush] = useState<PushState>("off");
+  // WHY it is off. Every failure below used to collapse into "off" with no
+  // message: a denied permission, an iPhone that is not installed to the Home
+  // Screen, a stale link, a server that refused — all looked identical to the
+  // driver AND to the owner, whose Drivers panel then said "no alerts" with no
+  // way to find out why. taxi_push_subscriptions was empty for every driver and
+  // nobody could tell whether that was a bug or nobody had pressed the button.
+  const [pushWhy, setPushWhy] = useState<string | null>(null);
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setBusy(true);
@@ -126,9 +133,31 @@ export default function DriverHome({ token }: { token: string }) {
 
   async function enablePush() {
     setPush("working");
+    setPushWhy(null);
     try {
+      // iOS grants push ONLY to a page installed to the Home Screen. Safari in
+      // a normal tab simply refuses, and saying so is the difference between a
+      // driver who gets work and one who thinks the site is broken.
+      const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const installed =
+        window.matchMedia?.("(display-mode: standalone)").matches ||
+        (navigator as Navigator & { standalone?: boolean }).standalone === true;
+      if (iOS && !installed) {
+        setPush("off");
+        setPushWhy("On iPhone you must first add this page to your Home Screen: tap Share, then “Add to Home Screen”, then open it from there and press this button again.");
+        return;
+      }
+
       const permission = await Notification.requestPermission();
-      if (permission !== "granted") { setPush(permission === "denied" ? "denied" : "off"); return; }
+      if (permission !== "granted") {
+        setPush(permission === "denied" ? "denied" : "off");
+        setPushWhy(
+          permission === "denied"
+            ? "Notifications are blocked for this site. Open the padlock in the address bar, allow Notifications, then reload."
+            : "You closed the permission box before allowing it — press the button again.",
+        );
+        return;
+      }
       const reg = await navigator.serviceWorker.ready;
       const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
       // Re-subscribing yields the same endpoint anyway, and the server treats it
@@ -151,9 +180,20 @@ export default function DriverHome({ token }: { token: string }) {
           userAgent: navigator.userAgent.slice(0, 300),
         }),
       });
-      setPush((await r.json()).ok ? "on" : "off");
-    } catch {
+      const body = (await r.json().catch(() => null)) as { ok?: boolean } | null;
+      if (body?.ok) {
+        setPush("on");
+      } else {
+        // register_taxi_push returns {ok:false} for a token it does not
+        // recognise. Reporting that as a generic failure is what made a stale
+        // link indistinguishable from a broken feature.
+        setPush("off");
+        setPushWhy("This link was not recognised. Ask Roule Rodrigues to send you a fresh one.");
+      }
+    } catch (err) {
+      console.error("taxi push subscribe failed", err);
       setPush("off");
+      setPushWhy("Your phone could not register for alerts. Check you are online, then try again.");
     }
   }
 
@@ -293,6 +333,16 @@ export default function DriverHome({ token }: { token: string }) {
             </button>
           )}
         </div>
+
+        {/* WHY it did not work. Without this the driver taps the button, sees
+            nothing change, and gives up — and /admin reports "no alerts" with
+            no way for either of them to find out which of five different causes
+            it was. */}
+        {pushWhy && push !== "on" && (
+          <p className="mt-2.5 rounded-xl border border-orange-400/25 bg-orange-400/[0.06] p-3 font-dm text-xs leading-relaxed text-orange-200">
+            {pushWhy}
+          </p>
+        )}
 
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
           <span className="flex items-center gap-2 font-dm text-sm text-offwhite">
