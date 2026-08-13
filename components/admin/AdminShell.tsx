@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Gauge, UtensilsCrossed, Truck, Clock, Store, Users, Ticket, UserCog,
   PenSquare, MapPinned, Wallet, MessageCircle, ScrollText, Search, Menu, X,
-  ExternalLink, LogOut, Waves, Bike, Activity, Receipt, ChefHat, ShoppingBag } from "lucide-react";
+  ExternalLink, LogOut, Waves, Bike, Activity, Receipt, ChefHat, ShoppingBag, Car } from "lucide-react";
 import CommandPalette from "./CommandPalette";
 
 // ── The control plane's frame ───────────────────────────────────────────────
@@ -44,6 +44,7 @@ const NAV: NavGroup[] = [
       { href: "/admin/kitchen-staff", label: "Kitchen teams", icon: ChefHat },
       { href: "/admin/food", label: "Food orders", icon: UtensilsCrossed },
       { href: "/admin/marketplace", label: "Shop orders", icon: ShoppingBag },
+      { href: "/admin/rides", label: "Taxi & transfers", icon: Car },
       { href: "/admin/deliveries", label: "Deliveries & drivers", icon: Truck },
       { href: "/admin/content#bookings", label: "Rental bookings", icon: Clock },
       { href: "/admin/content#place_bookings", label: "Experience bookings", icon: MapPinned },

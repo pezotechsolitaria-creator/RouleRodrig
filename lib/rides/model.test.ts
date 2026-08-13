@@ -1,0 +1,165 @@
+import { describe, it, expect } from "vitest";
+import {
+  RIDE_STATUSES, RIDE_SERVICES, RIDE_SERVICE_META, CUSTOMER_STATUS, ADMIN_STATUS,
+  NEXT_STATUSES, canTransition, isOpenRide, searchingMessage, rideReference,
+  formatRidePrice, offerMessage, type RideStatus,
+} from "./model";
+
+// A ride is a real-world commitment: somebody is standing by a road expecting a
+// car. These tests are about the two ways that goes wrong — telling a person the
+// wrong thing, and letting a status skip a step that had to happen first.
+
+describe("the status graph", () => {
+  it("matches admin_set_ride_status() in SQL, transition for transition", () => {
+    // Duplicated deliberately — the server refuses illegal jumps, this stops a
+    // screen OFFERING one. The duplication is only safe while they agree, so
+    // this is the test that keeps them agreeing. Mirrors the CASE in M83.
+    const sql: Record<string, RideStatus[]> = {
+      driver_on_way: ["assigned"],
+      arrived:       ["assigned", "driver_on_way"],
+      on_trip:       ["assigned", "driver_on_way", "arrived"],
+      completed:     ["on_trip"],
+      new:           ["dispatching", "no_driver"],
+    };
+    for (const [to, froms] of Object.entries(sql)) {
+      for (const from of froms) {
+        expect(canTransition(from, to as RideStatus), `${from} → ${to}`).toBe(true);
+      }
+      // And nothing else may reach it.
+      for (const from of RIDE_STATUSES) {
+        if (!froms.includes(from) && to !== "cancelled") {
+          expect(canTransition(from, to as RideStatus), `${from} → ${to} must be refused`).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("never lets a ride jump straight to completed", () => {
+    // The brief: do not mark a ride complete because a client said so. The
+    // server enforces it; this proves no screen will even show the button.
+    for (const from of RIDE_STATUSES) {
+      if (from === "on_trip") continue;
+      expect(canTransition(from, "completed"), from).toBe(false);
+    }
+  });
+
+  it("lets anything still live be cancelled, and nothing finished", () => {
+    expect(canTransition("assigned", "cancelled")).toBe(true);
+    expect(canTransition("on_trip", "cancelled")).toBe(true);
+    expect(canTransition("completed", "cancelled")).toBe(false);
+    expect(canTransition("cancelled", "cancelled")).toBe(false);
+  });
+
+  it("gives a ride nobody accepted a way back into dispatch", () => {
+    // Otherwise 'no_driver' is a dead end and the customer has to book again —
+    // which the brief explicitly forbids.
+    expect(canTransition("no_driver", "new")).toBe(true);
+  });
+
+  it("leaves no status without a defined set of next steps", () => {
+    for (const s of RIDE_STATUSES) expect(NEXT_STATUSES[s], s).toBeDefined();
+  });
+});
+
+describe("what people are told", () => {
+  it("never shows the customer the platform's internal vocabulary", () => {
+    // "dispatching", "no_driver" and "stage 3" are words about our plumbing.
+    for (const s of RIDE_STATUSES) {
+      const text = CUSTOMER_STATUS[s];
+      expect(text, s).toBeTruthy();
+      expect(text.toLowerCase()).not.toMatch(/dispatch|radius|stage|candidate|no_driver|null/);
+    }
+  });
+
+  it("does not tell the customer a failure when nobody accepted", () => {
+    // Somebody is still going to get them a car. Saying "failed" is both unkind
+    // and untrue.
+    expect(CUSTOMER_STATUS.no_driver).toBe("We're arranging this for you by hand");
+    expect(CUSTOMER_STATUS.no_driver.toLowerCase()).not.toMatch(/fail|error|sorry|unavailable/);
+  });
+
+  it("is blunt with the operator, because they have to act on it", () => {
+    expect(ADMIN_STATUS.no_driver).toMatch(/needs you/i);
+  });
+
+  it("labels every service and every status in both voices", () => {
+    for (const s of RIDE_STATUSES) {
+      expect(CUSTOMER_STATUS[s], s).toBeTruthy();
+      expect(ADMIN_STATUS[s], s).toBeTruthy();
+    }
+    for (const s of RIDE_SERVICES) expect(RIDE_SERVICE_META[s].label, s).toBeTruthy();
+  });
+
+  it("asks for flight details only where a flight or ferry exists", () => {
+    expect(RIDE_SERVICE_META.airport.needsArrival).toBe(true);
+    expect(RIDE_SERVICE_META.ferry.needsArrival).toBe(true);
+    // The brief: do not force taxi logic into every transfer, or transfer logic
+    // into a town taxi.
+    expect(RIDE_SERVICE_META.taxi.needsArrival).toBe(false);
+    expect(RIDE_SERVICE_META.hotel.needsArrival).toBe(false);
+  });
+});
+
+describe("searchingMessage", () => {
+  it("widens the reassurance without ever admitting the radius", () => {
+    const all = [1, 2, 3, 4, 9].map(searchingMessage);
+    for (const m of all) expect(m.toLowerCase()).not.toMatch(/radius|stage|km|\d/);
+    // Each round says something different, so the screen does not look frozen.
+    expect(new Set(all.slice(0, 3)).size).toBe(3);
+  });
+
+  it("stops escalating rather than panicking on round 9", () => {
+    expect(searchingMessage(9)).toBe(searchingMessage(4));
+  });
+});
+
+describe("isOpenRide", () => {
+  it("counts a ride nobody accepted as still open — it needs a human", () => {
+    expect(isOpenRide("no_driver")).toBe(true);
+    expect(isOpenRide("completed")).toBe(false);
+    expect(isOpenRide("cancelled")).toBe(false);
+  });
+});
+
+describe("rideReference", () => {
+  it("reads the same way as every other reference on the platform", () => {
+    expect(rideReference("4f2a91b3-0000-4000-8000-000000000000")).toBe("RR-4F2A91");
+  });
+});
+
+describe("formatRidePrice", () => {
+  it("says 'Price on request' rather than Rs 0 when there is no price", () => {
+    // Rs 0 is a promise of a free ride. There is no such thing.
+    expect(formatRidePrice(null)).toBe("Price on request");
+    expect(formatRidePrice(undefined)).toBe("Price on request");
+  });
+
+  it("formats minor units as rupees with a thousands separator", () => {
+    expect(formatRidePrice(180000)).toBe("Rs 1,800");
+    expect(formatRidePrice(50000)).toBe("Rs 500");
+  });
+});
+
+describe("offerMessage", () => {
+  const msg = offerMessage({
+    driverName: "Jean", service: "airport", pickup: "Port Mathurin jetty",
+    dropoff: "Plaine Corail Airport", passengers: 6, whenText: "Now",
+    price: 180000, acceptUrl: "https://roulerodrig.com/r/abc123",
+  });
+
+  it("carries everything needed to decide, in one readable message", () => {
+    // This IS the dispatch channel: no app, no push, read once on a phone.
+    for (const part of ["Jean", "Port Mathurin jetty", "Plaine Corail Airport",
+                        "Now", "6", "Rs 1,800", "https://roulerodrig.com/r/abc123"]) {
+      expect(msg, part).toContain(part);
+    }
+  });
+
+  it("says the race out loud, so a slow tap is not a surprise", () => {
+    expect(msg).toMatch(/first to accept/i);
+  });
+
+  it("puts the link last, where a thumb ends up", () => {
+    expect(msg.trimEnd().endsWith("https://roulerodrig.com/r/abc123")).toBe(true);
+  });
+});

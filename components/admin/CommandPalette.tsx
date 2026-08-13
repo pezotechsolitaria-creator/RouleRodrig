@@ -22,6 +22,8 @@ const ACTIONS: Hit[] = [
   { group: "Go", title: "Kitchen teams", subtitle: "Add a cook to a kitchen", href: "/admin/kitchen-staff" },
   { group: "Go", title: "Kitchen screen", subtitle: "What a cook sees", href: "/kitchen" },
   { group: "Go", title: "Food orders", subtitle: "The live kitchen queue", href: "/admin/food" },
+  { group: "Go", title: "Taxi & transfers", subtitle: "Take a call, dispatch a driver", href: "/admin/rides" },
+  { group: "Create", title: "New taxi or transfer ride", subtitle: "Then dispatch by WhatsApp", href: "/admin/rides" },
   { group: "Go", title: "Deliveries & drivers", subtitle: "Assignment and failures", href: "/admin/deliveries" },
   { group: "Go", title: "Shops & opening hours", subtitle: "Every shop's schedule", href: "/admin/stores" },
   { group: "Go", title: "Merchants & subscriptions", subtitle: "Approvals and billing", href: "/admin/subscriptions" },
