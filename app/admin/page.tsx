@@ -119,7 +119,14 @@ export default async function CommandCenterPage() {
     return q;
   };
 
+  // Whether the food shop is open for business at all. One extra round trip,
+  // after the parallel batch because it needs no input from it, and worth the
+  // cost: it is the difference between an admin who knows ordering is dark and
+  // one who finds out from a customer.
+  const { data: orderableDishes } = await admin.rpc("orderable_dish_count");
+
   const attention: AttentionItem[] = attentionItems({
+    orderableDishes: typeof orderableDishes === "number" ? orderableDishes : undefined,
     openOrders: byQueue(openOrders.data as { store_id: string | null }[] | null),
     awaitingPaymentConfirmation: byQueue(awaiting.data as { store_id: string | null }[] | null),
     pendingVehicleBookings: count(pendingBookings),

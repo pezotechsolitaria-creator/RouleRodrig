@@ -142,3 +142,31 @@ describe("isSearchable", () => {
     expect(isSearchable("ab")).toBe(true);
   });
 });
+
+describe("food ordering going dark", () => {
+  // Every other attention item counts work waiting to be done. This one reports
+  // a STATE, and it is the only one that fires on a zero — which is exactly why
+  // it needs pinning: a future refactor that treats `count: 0` as "nothing to
+  // say" would silently delete the alert.
+  it("raises an alarm when nothing is orderable", () => {
+    const items = attentionItems({ orderableDishes: 0 });
+    const food = items.find((i) => i.key === "food-offline");
+    expect(food, "no food-offline item at all").toBeDefined();
+    expect(food!.count).toBeGreaterThan(0);
+    expect(food!.severity).toBe("critical");
+    expect(food!.href).toBe("/admin/food");
+  });
+
+  it("says nothing while dishes are on sale", () => {
+    const food = attentionItems({ orderableDishes: 7 }).find((i) => i.key === "food-offline");
+    expect(food?.count ?? 0).toBe(0);
+  });
+
+  it("stays quiet when the count is unknown rather than crying wolf", () => {
+    // An absent count means the query failed or has not been wired, which is
+    // not the same as "no food". Claiming the shop is shut on missing data
+    // would train the owner to ignore the one alert that matters most.
+    const food = attentionItems({}).find((i) => i.key === "food-offline");
+    expect(food?.count ?? 0).toBe(0);
+  });
+});

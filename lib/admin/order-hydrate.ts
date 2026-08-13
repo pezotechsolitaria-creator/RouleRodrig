@@ -133,10 +133,17 @@ export async function hydrateOrders(
   }));
 }
 
-/** Cash still owed. Summed from the ledger, the one arithmetic every screen shares. */
+/**
+ * Cash still owed. Summed from the ledger, the one arithmetic every screen shares.
+ *
+ * CASH only, and that qualifier is the whole point (M85). A pending BANK row is
+ * a transfer nobody has verified yet, not money owed at the counter — counting
+ * it told a cook to collect Rs 320 from a customer who had already paid, on the
+ * very same card that was asking them to approve that customer's receipt.
+ */
 export function balanceDueOf(order: HydratedOrder): number {
   if (["cancelled", "refunded"].includes(String(order.status))) return 0;
   return order.payments
-    .filter((p) => p.status === "pending")
+    .filter((p) => p.status === "pending" && p.provider === "cash")
     .reduce((n, p) => n + (p.amount ?? 0), 0);
 }

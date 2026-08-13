@@ -314,8 +314,11 @@ export default function OrderDetail({ id }: { id: string }) {
               // Summed from the ledger, exactly as the admin desks and the
               // driver card do it, so no two screens can disagree about how
               // much is still owed.
+              // CASH only (M85): a pending BANK row is an unverified transfer,
+              // not a balance. Counting it put "Collect Rs X in cash" on the
+              // same card that was asking the merchant to approve the receipt.
               balanceDue={(order.payments ?? [])
-                .filter((p) => p.status === "pending")
+                .filter((p) => p.status === "pending" && p.provider === "cash")
                 .reduce((n, p) => n + (p.amount ?? 0), 0)}
               receiptSubmittedAt={order.receipt_submitted_at}
               onConfirmed={() => queryClient.invalidateQueries({ queryKey: orderKeys.detail(order.id) })}

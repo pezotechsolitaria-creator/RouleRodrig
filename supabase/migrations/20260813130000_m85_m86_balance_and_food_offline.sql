@@ -1,0 +1,44 @@
+-- M85 / M86 — two faults found by running the restaurant end to end.
+--
+-- Applied to production via the Supabase MCP; recorded here so the schema
+-- history stays readable.
+--
+-- ── M85: "collect Rs X in cash" appeared on unpaid BANK transfers ──────────
+--
+-- Found by walking one order through its whole life as the restaurant owner. An
+-- order still waiting to be judged reported:
+--
+--   awaitingPayment = true, hasReceipt = true, balanceDue = 32000
+--
+-- so the cook's card said BOTH "the customer says they have paid by bank
+-- transfer — accept or reject?" AND a red "Collect Rs 320.00 in cash". Two
+-- contradictory instructions about the same money, on the same card.
+--
+-- balanceDue summed EVERY pending payment row. A split balance is pending; so
+-- is a transfer nobody has verified. They are different things:
+--
+--   pending CASH — money the customer still owes and will hand over. Chase it.
+--   pending BANK — money possibly already sent, awaiting proof. Do NOT ask.
+--
+-- Worse than confusing: a cook could hand the bag over and demand cash for an
+-- order the customer had already paid. Corrected in all FOUR places that were
+-- written to agree with each other — kitchen_dashboard, driver_dashboard, and
+-- (in TypeScript) balanceDueOf plus the merchant order detail.
+--
+-- Verified: unconfirmed bank now 0; a genuine 120-of-320 split still reports
+-- 20000; still owed at handover; 0 once cancelled.
+--
+-- ── M86: nobody could see that food ordering was OFF ───────────────────────
+--
+-- Shopping the live site as a customer, /food was a WhatsApp concierge form.
+-- That fallback is deliberate and documented — while there is nothing to sell,
+-- /food IS the concierge — but every kitchen holding dishes was `paused`, so
+-- the ordering surface had quietly become a contact form and NOTHING in /admin
+-- said so. Confirmed: lib/admin/ops.ts had no notion of dish count.
+--
+-- orderable_dish_count() answers it in one query, reusing store_is_visible()
+-- rather than reassembling "orderable" in TypeScript where the second copy
+-- would eventually disagree with the page customers actually see. It counts
+-- VARIANTS: a product whose variants are all off is not buyable.
+--
+-- It reads 0 on production today, and 8 the moment Ti Kitchen is un-paused.

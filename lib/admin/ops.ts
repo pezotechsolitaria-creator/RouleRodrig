@@ -42,6 +42,17 @@ export type AttentionCounts = {
   pendingDrivers?: number;
   deliveriesNeedingAdmin?: number;
   lowStockVariants?: number;
+  /**
+   * Dishes a customer can actually order RIGHT NOW, across every kitchen.
+   *
+   * Zero is a silent catastrophe, which is why it is counted. /food is
+   * deliberately built to fall back to the WhatsApp concierge while there is
+   * nothing to sell — a good decision, and completely invisible from the admin
+   * side. Found by shopping the live site as a customer: every kitchen holding
+   * dishes was `paused`, so the ordering surface had quietly become a contact
+   * form and nothing anywhere said so.
+   */
+  orderableDishes?: number;
 };
 
 /**
@@ -75,6 +86,17 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
     {
       key: "deliveries", label: "Deliveries need an admin decision",
       count: c.deliveriesNeedingAdmin ?? 0, severity: "critical", href: "/admin/deliveries",
+    },
+    // Not a queue — a STATE, and the only item here that fires on a zero.
+    // Everything else counts work waiting to be done; this one says the shop
+    // door is shut. It outranks the rest because no amount of clearing other
+    // queues matters while nobody can place an order in the first place.
+    {
+      key: "food-offline",
+      label: "Food ordering is OFF — customers see the concierge form, not a menu",
+      count: (c.orderableDishes ?? 1) === 0 ? 1 : 0,
+      severity: "critical",
+      href: "/admin/food",
     },
     // One row per queue, each pointing at the screen that actually holds it.
     ...ORDER_QUEUES.flatMap<AttentionItem>((q) => [
