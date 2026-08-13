@@ -111,7 +111,9 @@
 // box; 17 of 19 live dishes had no image and the menu looked unfinished.
 // v202 — the Command Centre reports WhatsApp escalation correctly: an empty
 // category list means ALL, so both live numbers are armed.
-const CACHE = "rr-cache-v202";
+// v203 — /food is two dishes across on a phone again, the way a menu reads,
+// with the price no longer breaking in half at that width.
+const CACHE = "rr-cache-v203";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

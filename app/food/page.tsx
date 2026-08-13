@@ -259,11 +259,18 @@ export default async function FoodPage({
                 {home.rails.map((rail) => (
                   <section key={rail.key}>
                     <h2 className="font-syne text-lg font-extrabold text-offwhite">{rail.title}</h2>
-                    {/* Stacked on a phone, a rail on a tablet, a grid on
-                        desktop. Mobile was a rail of 190px cards, which put half
-                        of the next dish off the edge of a 375px screen and made
-                        every card noticeably smaller than the marketplace's. */}
-                    <div className="mt-3 grid grid-cols-1 gap-3 sm:flex sm:overflow-x-auto sm:pb-2 [-ms-overflow-style:none] [scrollbar-width:none] lg:grid lg:grid-cols-4 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
+                    {/* TWO ACROSS ON A PHONE — the food-ordering shape.
+                        This was a rail of 190px cards, which put half the next
+                        dish off the edge of a 375px screen; the fix for that
+                        (c7f03e7) went to one full-width card per row, which
+                        solved the clipping and lost the thing that made this
+                        read as a menu. You browse food by scanning many dishes
+                        at once, not by scrolling past one enormous card at a
+                        time — and at one-per-row this page ran to 8100px.
+                        A real 2-column GRID gets both: two dishes per row and
+                        nothing clipped, because a grid cell cannot overflow the
+                        way a fixed-width card in a scroller does. */}
+                    <div className="mt-3 grid grid-cols-2 gap-3 sm:flex sm:overflow-x-auto sm:pb-2 [-ms-overflow-style:none] [scrollbar-width:none] lg:grid lg:grid-cols-4 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
                       {rail.items.map((item) => (
                         <div key={`${rail.key}-${item.id}`} className="lg:w-auto">
                           <FoodCard item={item} variant="rail" />

@@ -110,7 +110,9 @@ export default function FoodCard({
       </div>
 
       <div className="flex flex-1 flex-col p-3">
-        <h3 className="font-syne text-sm font-extrabold leading-tight text-offwhite">
+        {/* Clamped so a long name cannot make one card taller than the one
+            beside it — two-up only reads as a grid while the rows line up. */}
+        <h3 className="line-clamp-2 font-syne text-sm font-extrabold leading-tight text-offwhite">
           {item.name}
           {item.spiceLevel > 0 && (
             <span
@@ -128,12 +130,20 @@ export default function FoodCard({
           <p className="mt-1 line-clamp-2 font-dm text-xs leading-snug text-muted">{item.descriptor}</p>
         )}
 
-        <div className="mt-auto flex items-end justify-between gap-2 pt-2.5">
-          <p className="font-syne text-base font-extrabold text-yellow">
+        {/* THE PRICE NEVER BREAKS IN HALF.
+            Side by side, "from Rs 380.00" and "15–30 min" do not both fit in a
+            two-up card, so the price wrapped to "Rs" / "380.00" and the prep
+            time was clipped to "15 m". That is the exact damage that made
+            somebody widen these cards to full width in the first place — the
+            wrapping was the real fault, not the two-up layout. Stacked on a
+            phone with both lines nowrap, the price is one piece at any width
+            and the layout that makes this look like a menu survives. */}
+        <div className="mt-auto flex flex-col items-start gap-0.5 pt-2.5 sm:flex-row sm:items-end sm:justify-between sm:gap-2">
+          <p className="whitespace-nowrap font-syne text-[15px] font-extrabold leading-tight text-yellow sm:text-base">
             {item.variantCount > 1 && <span className="font-dm text-[11px] font-normal text-muted">from </span>}
             Rs {centsToDecimalString(item.price)}
           </p>
-          <p className="flex items-center gap-2 font-dm text-[11px] text-muted">
+          <p className="flex items-center gap-2 whitespace-nowrap font-dm text-[11px] text-muted">
             {item.serves && item.serves > 1 && (
               <span className="inline-flex items-center gap-0.5">
                 <Users size={10} /> {item.serves}
