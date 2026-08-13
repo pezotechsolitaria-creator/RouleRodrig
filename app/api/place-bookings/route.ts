@@ -58,9 +58,13 @@ export async function POST(req: NextRequest) {
   let category: string | null = null;
   let capacity = 1;
   let slots: string[] = [];
-  // Owner-set deposit (Rs) to reserve. Resolved server-side from the listing so
-  // the client can never lower it. >0 → deposit-to-confirm (PayPal/bank); 0 →
-  // request-only (unchanged behaviour). Flat per reservation, like a hold fee.
+  // The owner's price (Rs), paid IN FULL to confirm — activities stopped being
+  // deposit-and-balance on 2026-08-13. Resolved server-side from the listing so
+  // the client can never lower it. >0 → pay-to-confirm (PayPal/bank); 0 →
+  // request-only, the owner confirms by hand. Flat per reservation, not per
+  // person: a boat charter is priced by the boat and there is no per-head field
+  // to multiply by. The stored column keeps its `deposit_amount` name because
+  // renaming it would mean migrating live reservations to change a word.
   let depositAmount = 0;
   try {
     const content = await getContent();

@@ -13,12 +13,12 @@
 //   * daily rate parsed from the fleet item's display price ("Rs 1,200/day")
 //   * 3+ days: 10% off the daily rate; 7+ days: 15% off
 //   * delivery: whatever the owner set on the vehicle's category in /admin
-//   * deposit to confirm: cars 50%, scooters 25% — balance settled at pickup
+//   * deposit to confirm: whatever the owner set on the category — balance at pickup
 
 export type PriceableVehicle = { price: string; category?: string };
 
-/** The only part of a vehicle category this module needs to price a rental. */
-export type DeliveryPricedCategory = { id: string; deliveryFee?: number };
+/** The only parts of a vehicle category this module needs to price a rental. */
+export type DeliveryPricedCategory = { id: string; deliveryFee?: number; depositPct?: number };
 
 export const DELIVERY_EACH_WAY = 200;
 
@@ -90,8 +90,28 @@ export function deliveryFee(
   return catId === "car" ? 0 : DELIVERY_EACH_WAY * 2;
 }
 
-export function depositPct(vehicle: PriceableVehicle | undefined): number {
-  return (vehicle?.category ?? "scooter") === "car" ? 50 : 25;
+/**
+ * What share of the total confirms the booking. The balance is settled at
+ * pickup, so this is the only money that changes hands before the customer
+ * arrives — and until 2026-08-13 it was two numbers in this file that the owner
+ * could feel the effect of but never change.
+ *
+ * Read from the vehicle's category, same as the delivery fee, with the same
+ * two rules: an unset category keeps the old behaviour exactly, and a value the
+ * owner did set is honoured even when it is unusual. Clamped to 1–100 because
+ * the arithmetic below has no meaning outside that: 0 would reserve a vehicle
+ * for nothing, and above 100 would charge more than the rental costs.
+ */
+export function depositPct(
+  vehicle: PriceableVehicle | undefined,
+  categories?: DeliveryPricedCategory[],
+): number {
+  const catId = vehicle?.category ?? "scooter";
+  const cat = categories?.find((c) => c.id === catId);
+  if (cat && typeof cat.depositPct === "number" && Number.isFinite(cat.depositPct)) {
+    return Math.min(100, Math.max(1, Math.round(cat.depositPct)));
+  }
+  return catId === "car" ? 50 : 25;
 }
 
 export type PriceBreakdown = {
@@ -117,7 +137,7 @@ export function priceBreakdown(
   const rental = rate * days;
   const delivery = deliveryFee(vehicle, categories);
   const total = rental + delivery;
-  const pct = depositPct(vehicle);
+  const pct = depositPct(vehicle, categories);
   const deposit = Math.round((total * pct) / 100);
   return { rental, delivery, total, deposit, balance: total - deposit, pct };
 }

@@ -182,13 +182,13 @@ export default function PlaceBookingModal({
         {place.priceNote && <p className="text-yellow/90 font-dm text-sm mb-4">{place.priceNote}</p>}
 
         {formState === "success" && paid ? (
-          /* ── Deposit paid → confirmed celebration ── */
+          /* ── Paid in full → confirmed celebration ── */
           <div className="py-6 text-center">
             <SuccessBurst size={84} />
             <p className="mt-4 font-syne font-extrabold text-offwhite text-xl mb-1">Reservation confirmed! 🎉</p>
-            <p className="text-muted font-dm text-sm mb-5">Your deposit is in — see you at {place.name}. We&apos;ll be in touch with the details.</p>
+            <p className="text-muted font-dm text-sm mb-5">You&apos;re paid up — nothing to settle on the day. See you at {place.name}; we&apos;ll be in touch with the details.</p>
             {whatsapp && (
-              <a href={waLink("I just paid my deposit")} target="_blank" rel="noopener noreferrer"
+              <a href={waLink("I just paid for my booking")} target="_blank" rel="noopener noreferrer"
                  className="inline-flex items-center gap-2 bg-green-500 text-white font-syne font-bold text-sm py-2.5 px-5 rounded-xl hover:bg-green-600 transition-colors">
                 <MessageSquare size={15} /> Message us on WhatsApp
               </a>
@@ -202,7 +202,7 @@ export default function PlaceBookingModal({
             <div className="text-center">
               <SuccessBurst />
               <p className="mt-4 font-syne font-extrabold text-offwhite text-xl">Booking request received!</p>
-              <p className="mt-1 text-muted font-dm text-sm">One quick step to lock it in — pay your deposit below.</p>
+              <p className="mt-1 text-muted font-dm text-sm">One quick step to lock it in — pay below and it&apos;s confirmed.</p>
             </div>
 
             <motion.div
@@ -225,13 +225,13 @@ export default function PlaceBookingModal({
                   <dd className="text-offwhite text-right">{qty}</dd>
                 </div>
                 <div className="flex justify-between gap-3 border-t border-dark-border pt-2">
-                  <dt className="text-muted">Deposit to reserve</dt>
+                  <dt className="text-muted">Total to pay now</dt>
                   <dd className="text-yellow font-syne font-bold text-right">Rs {result.depositAmount.toLocaleString()}</dd>
                 </div>
               </dl>
 
-              <PayPalDeposit bookingId={result.bookingId} depositMur={result.depositAmount} kind="place" onPaid={() => setPaid(true)} />
-              <BankTransferDetails name={form.name} vehicle={place.name} />
+              <PayPalDeposit bookingId={result.bookingId} depositMur={result.depositAmount} kind="place" settlement="full" onPaid={() => setPaid(true)} />
+              <BankTransferDetails name={form.name} vehicle={place.name} settlement="full" />
 
               {whatsapp && (
                 <a href={waLink("about my reservation")} target="_blank" rel="noopener noreferrer"
@@ -239,11 +239,11 @@ export default function PlaceBookingModal({
                   <MessageSquare size={15} /> Prefer to chat? Message us on WhatsApp
                 </a>
               )}
-              <p className="mt-3 text-muted/50 font-dm text-[11px] text-center">The balance is settled with {place.name} — the deposit just secures your spot.</p>
+              <p className="mt-3 text-muted/50 font-dm text-[11px] text-center">This is the full price — once it&apos;s paid there is nothing left to settle with {place.name}.</p>
             </motion.div>
           </div>
         ) : formState === "success" ? (
-          /* ── Request-only listing (no deposit) → request received ── */
+          /* ── Request-only listing (no price set) → request received ── */
           <div className="py-8 text-center">
             <SuccessBurst />
             <p className="mt-4 font-syne font-bold text-offwhite text-lg mb-1">Request sent!</p>

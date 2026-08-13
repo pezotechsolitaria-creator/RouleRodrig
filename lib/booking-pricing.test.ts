@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   deliveryFee,
+  depositPct,
   extractDailyPrice,
   priceBreakdown,
   rentalDays,
@@ -147,6 +148,59 @@ describe("deliveryFee — owner-set, per category", () => {
     const charged = priceBreakdown(SCOOTER, 4, cats)!;
     expect(charged.total).toBe(shown.total);
     expect(charged.deposit).toBe(shown.deposit);
+  });
+});
+
+// ── The deposit is the owner's number too ──────────────────────────────────
+//
+// Same shape as the delivery fee, same two rules: a category he never opened
+// behaves exactly as it did before, and one he did set is honoured. The extra
+// care here is the clamp — this percentage decides how much money reserves a
+// vehicle, and a typo in an admin box must not be able to reserve one for
+// nothing or charge more than the rental costs.
+describe("depositPct — owner-set, per category", () => {
+  const CATS = [
+    { id: "scooter", depositPct: 40 },
+    { id: "car", depositPct: 100 },
+    { id: "kayak" }, // never opened in admin
+  ];
+
+  it("uses the percentage the owner typed", () => {
+    expect(depositPct(SCOOTER, CATS)).toBe(40);
+  });
+
+  it("allows 100 — pay in full to confirm is a real choice", () => {
+    const b = priceBreakdown(CAR, 2, CATS)!;
+    expect(b.pct).toBe(100);
+    expect(b.deposit).toBe(b.total);
+    expect(b.balance).toBe(0);
+  });
+
+  it("keeps the old rule for a category with nothing set", () => {
+    expect(depositPct({ price: "Rs 500", category: "kayak" }, CATS)).toBe(25);
+    expect(depositPct({ price: "Rs 500", category: "jetski" }, CATS)).toBe(25);
+  });
+
+  it("keeps the old rule when no categories are passed at all", () => {
+    expect(depositPct(SCOOTER)).toBe(25);
+    expect(depositPct(CAR)).toBe(50);
+  });
+
+  it("refuses a percentage that would break the arithmetic", () => {
+    // 0 would reserve a vehicle for nothing; >100 would charge more than the
+    // rental. Both are typos, and neither may reach a customer.
+    expect(depositPct(SCOOTER, [{ id: "scooter", depositPct: 0 }])).toBe(1);
+    expect(depositPct(SCOOTER, [{ id: "scooter", depositPct: -20 }])).toBe(1);
+    expect(depositPct(SCOOTER, [{ id: "scooter", depositPct: 250 }])).toBe(100);
+    expect(depositPct(SCOOTER, [{ id: "scooter", depositPct: NaN }])).toBe(25);
+  });
+
+  it("still reconstructs the total exactly at any percentage", () => {
+    for (const pct of [1, 10, 25, 33, 50, 75, 99, 100]) {
+      const b = priceBreakdown(SCOOTER, 3, [{ id: "scooter", depositPct: pct }])!;
+      expect(b.deposit + b.balance).toBe(b.total);
+      expect(b.deposit).toBeGreaterThan(0);
+    }
   });
 });
 

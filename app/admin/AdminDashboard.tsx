@@ -1235,6 +1235,11 @@ function legacyDeliveryFee(catId: string): number {
   return catId === "car" ? 0 : 400;
 }
 
+/** Same idea for the deposit — mirrors lib/booking-pricing.ts depositPct(). */
+function legacyDepositPct(catId: string): number {
+  return catId === "car" ? 50 : 25;
+}
+
 function FleetEditor({
   content,
   onChange,
@@ -1358,6 +1363,7 @@ function FleetEditor({
                 ),
             );
             const fallback = legacyDeliveryFee(c.id);
+            const depositFallback = legacyDepositPct(c.id);
             return (
               <div key={c.id} className="py-4 space-y-3">
                 {/* Wraps rather than squeezing: with all four controls on one
@@ -1401,6 +1407,28 @@ function FleetEditor({
                       className="w-[104px] bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg pl-9 pr-3 py-2 text-offwhite text-sm font-dm tabular-nums placeholder:text-muted/35 focus:border-yellow focus:outline-none"
                     />
                   </div>
+                  {/* Deposit that confirms a booking. Sits beside the delivery
+                      fee because the two together are the whole answer to
+                      "what does a customer pay before he arrives" — and the
+                      owner asked for this one after seeing the other become
+                      editable and the inconsistency in his own dashboard. */}
+                  <div className="relative shrink-0">
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-dm text-xs text-muted/50">%</span>
+                    <input
+                      value={c.depositPct === undefined ? "" : String(c.depositPct)}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/[^\d]/g, "");
+                        updateCat(i, {
+                          depositPct:
+                            raw === "" ? undefined : Math.min(100, Math.max(1, parseInt(raw, 10))),
+                        });
+                      }}
+                      inputMode="numeric"
+                      placeholder={String(legacyDepositPct(c.id))}
+                      aria-label={`Deposit percentage that confirms a ${c.label} booking`}
+                      className="w-[86px] bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg pl-3 pr-7 py-2 text-offwhite text-sm font-dm tabular-nums placeholder:text-muted/35 focus:border-yellow focus:outline-none"
+                    />
+                  </div>
                   <button
                     type="button"
                     onClick={() => removeCat(i)}
@@ -1419,6 +1447,12 @@ function FleetEditor({
                     : c.deliveryFee === 0
                     ? "Delivery & collection: free — shown to the customer as “Free”."
                     : `Delivery & collection: Rs ${c.deliveryFee.toLocaleString("en-US")}, added once to the rental total.`}
+                  {"  ·  "}
+                  {c.depositPct === undefined
+                    ? `Deposit: not set — still ${depositFallback}% to confirm, the rest at pickup.`
+                    : c.depositPct === 100
+                    ? "Deposit: 100% — the customer pays the whole rental to confirm, nothing at pickup."
+                    : `Deposit: ${c.depositPct}% to confirm, the remaining ${100 - c.depositPct}% at pickup.`}
                 </p>
 
                 {/* Body styles. Tapping a chip turns that filter on or off for
@@ -3927,7 +3961,7 @@ function RecommendedEditor({
             </Field>
           )}
           {it.bookable && (
-            <Field label="DEPOSIT TO RESERVE (Rs — 0 or blank = request only, no online payment)">
+            <Field label="PRICE — PAID IN FULL TO CONFIRM (Rs — 0 or blank = request only, no online payment)">
               <TextInput
                 value={it.depositAmount != null ? String(it.depositAmount) : ""}
                 onChange={(v) => updateItem(i, { depositAmount: parseInt(v) || undefined })}
@@ -4258,7 +4292,7 @@ function ServicesEditor({
             </Field>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="DEPOSIT TO RESERVE (Rs — leave 0 for request only)">
+              <Field label="PRICE — PAID IN FULL TO CONFIRM (Rs — leave 0 for request only)">
                 <TextInput
                   type="number"
                   value={it.depositAmount != null ? String(it.depositAmount) : ""}

@@ -24,12 +24,20 @@ export default function PayPalDeposit({
   depositMur,
   fullMur,
   kind = "vehicle",
+  settlement = "deposit",
   onPaid,
 }: {
   bookingId: string;
-  depositMur: number; // the deposit in Rs (fee added on top for PayPal)
+  depositMur: number; // the amount due in Rs (fee added on top for PayPal)
   fullMur?: number; // if set and > deposit, the customer can choose to pay the full total
   kind?: "vehicle" | "place"; // which table the booking lives in
+  /**
+   * Whether `depositMur` is a deposit with a balance owed later, or the whole
+   * price. Activities are settled in full at booking, and calling that "pay
+   * deposit to confirm" would promise a balance that will never be asked for.
+   * The amount and the mechanics are identical — only the sentence differs.
+   */
+  settlement?: "deposit" | "full";
   onPaid?: () => void;
 }) {
   const { language } = useLanguage();
@@ -54,6 +62,11 @@ export default function PayPalDeposit({
   }[language] ?? {
     pay: "Pay deposit to confirm", payFull: "Pay in full", deposit: "Deposit", full: "Full", fee: `incl. ${PAYPAL_FEE_PERCENT}% PayPal fee`, paid: "Payment received — booking confirmed!", secure: "Secure payment via PayPal", err: "Payment could not be completed.",
   };
+
+  // One word, three languages. The button is the last thing a customer reads
+  // before paying, so it must not say "deposit" when the amount is everything.
+  const PAY_IN_FULL = { en: "Pay in full to confirm", fr: "Payer la totalité pour confirmer", cr: "Pey tou pou konfirmen" };
+  const payLabel = settlement === "full" ? (PAY_IN_FULL[language as keyof typeof PAY_IN_FULL] ?? PAY_IN_FULL.en) : T.pay;
 
   // Load the PayPal SDK once.
   useEffect(() => {
@@ -136,7 +149,7 @@ export default function PayPalDeposit({
         </div>
       )}
       <p className="mb-1 font-dm text-sm text-offwhite">
-        {mode === "full" ? T.payFull : T.pay}: <span className="font-syne font-bold text-yellow">{rs(totalMur)}</span>
+        {mode === "full" ? T.payFull : payLabel}: <span className="font-syne font-bold text-yellow">{rs(totalMur)}</span>
       </p>
       <p className="mb-2 font-dm text-[11px] text-muted/80">
         {rs(amountMur)} + {rs(feeMur)} {T.fee}

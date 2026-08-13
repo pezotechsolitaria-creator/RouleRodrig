@@ -87,7 +87,9 @@
 // smooth but read as the still lingering.
 // v175 — delivery fees and car body styles are the owner's to set, and the
 // fleet grew a second filter row, so the shipped bundle changed.
-const CACHE = "rr-cache-v176";
+// v177 — the vehicle deposit is owner-set, and activities are paid in full to
+// confirm rather than leaving a balance for the day.
+const CACHE = "rr-cache-v177";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

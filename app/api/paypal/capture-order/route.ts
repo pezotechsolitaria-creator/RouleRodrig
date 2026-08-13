@@ -97,7 +97,10 @@ export async function POST(req: NextRequest) {
     );
     const message =
       refusal === "amount"
-        ? "The amount paid does not cover this booking's deposit — please contact us."
+        // Neutral wording: this route serves vehicles (a deposit) and
+        // activities (the full price), and naming the wrong one is confusing
+        // at the exact moment someone's money is in limbo.
+        ? "The amount paid doesn't cover what's due on this booking — please contact us."
         : "This payment does not match this booking. It has not been applied — please contact us.";
     return NextResponse.json({ error: message }, { status: 409 });
   }

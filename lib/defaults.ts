@@ -113,6 +113,19 @@ export interface VehicleCategory {
    * stay `?: number` and be read with an undefined check, never `|| DEFAULT`.
    */
   deliveryFee?: number;
+  /**
+   * How much of the total confirms a booking, as a percentage. The rest is
+   * settled at pickup.
+   *
+   * Hardcoded until 2026-08-13 as cars 50 / everything else 25 — numbers the
+   * owner could see the effect of but never change. Undefined keeps exactly
+   * that rule, so a category he has not opened behaves as it always did.
+   *
+   * 100 is a legitimate value and means "pay in full to confirm". 0 is not
+   * allowed through the admin field, because a booking that reserves a vehicle
+   * while costing nothing is how you lose a scooter to a no-show.
+   */
+  depositPct?: number;
   /** Body styles offered inside this category. */
   types?: VehicleType[];
 }
@@ -321,7 +334,25 @@ export interface RecommendedPlace {
   capacity?: number;   // hotel = total rooms · restaurant = seats per slot · activity = spots per date (default 1)
   timeSlots?: string[]; // restaurants & activities: bookable times, e.g. ["12:30","19:00","20:30"]
   priceNote?: string;  // optional price hint shown in the booking form, e.g. "from Rs 2500/night"
-  depositAmount?: number; // deposit in Rs to reserve. >0 → deposit-to-confirm (PayPal + bank), like vehicles; 0/unset → request-only
+  /**
+   * What the customer pays, in Rs, to confirm this booking — IN FULL.
+   *
+   * This was a deposit until 2026-08-13, with a balance settled on arrival.
+   * The owner's decision: activities are now paid in full at the point of
+   * booking, so this number is the whole price and nothing is owed later. The
+   * key keeps its old name because it is the same stored value in the same
+   * `place_bookings.deposit_amount` column, and renaming it would have meant
+   * migrating live reservations to change a word.
+   *
+   * Flat per reservation, NOT per person — a boat charter is priced by the
+   * boat, and there is no per-head field to multiply by. An owner pricing per
+   * person should set the amount for the party size he accepts, or say so in
+   * the price note.
+   *
+   * 0 or unset keeps the listing request-only: nothing to charge, so the owner
+   * confirms it by hand as before.
+   */
+  depositAmount?: number;
   highlights?: string[]; // bullet highlights/amenities shown in the detail view
   images?: string[];   // optional extra photos for the detail gallery
   isTour?: boolean;    // an activity that's a guided tour/excursion → shown under "Guided Tours"
@@ -876,10 +907,10 @@ export const DEFAULT_CONTENT: SiteContent = {
   // unreachable) charges exactly what the hardcoded rule charged before it was
   // owner-editable: cars delivered free, everything else Rs 400 round trip.
   vehicleCategories: [
-    { id: 'scooter',   label: 'Scooters',    enabled: true,  deliveryFee: 400 },
-    { id: 'motorbike', label: 'Motorbikes',  enabled: false, deliveryFee: 400 },
+    { id: 'scooter',   label: 'Scooters',    enabled: true,  deliveryFee: 400, depositPct: 25 },
+    { id: 'motorbike', label: 'Motorbikes',  enabled: false, deliveryFee: 400, depositPct: 25 },
     {
-      id: 'car', label: 'Cars', enabled: false, deliveryFee: 0,
+      id: 'car', label: 'Cars', enabled: false, deliveryFee: 0, depositPct: 50,
       // Seeded disabled: an empty filter row is worse than none, and the owner
       // turns on the body styles they actually rent. /admin also offers these
       // as one-tap suggestions, because the live site reads its categories from
@@ -893,9 +924,9 @@ export const DEFAULT_CONTENT: SiteContent = {
         { id: 'van',       label: 'Van',       enabled: false },
       ],
     },
-    { id: 'ebike',     label: 'E-Bikes',     enabled: false, deliveryFee: 400 },
-    { id: 'bicycle',   label: 'Bicycles',    enabled: false, deliveryFee: 400 },
-    { id: 'kayak',     label: 'Kayaks',      enabled: false, deliveryFee: 400 },
+    { id: 'ebike',     label: 'E-Bikes',     enabled: false, deliveryFee: 400, depositPct: 25 },
+    { id: 'bicycle',   label: 'Bicycles',    enabled: false, deliveryFee: 400, depositPct: 25 },
+    { id: 'kayak',     label: 'Kayaks',      enabled: false, deliveryFee: 400, depositPct: 25 },
   ],
   usefulContacts: [
     { id: 'police',    category: 'emergency', label: 'Police',                number: '999',  note: 'Or 112' },

@@ -11,7 +11,20 @@ import { useLanguage } from "@/context/LanguageContext";
 const BANK = "MCB (Mauritius Commercial Bank)";
 const ACCOUNT = "000447902350";
 
-export default function BankTransferDetails({ name, vehicle }: { name: string; vehicle: string }) {
+export default function BankTransferDetails({
+  name,
+  vehicle,
+  settlement = "deposit",
+}: {
+  name: string;
+  vehicle: string;
+  /**
+   * "full" when the amount alongside is the whole price rather than a deposit.
+   * Activities are settled in full at booking, and "transfer the deposit" would
+   * tell that customer to send part of it and wait for a bill that never comes.
+   */
+  settlement?: "deposit" | "full";
+}) {
   const { language } = useLanguage();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -21,6 +34,14 @@ export default function BankTransferDetails({ name, vehicle }: { name: string; v
     fr: { request: "Payer par virement bancaire local", bank: "Banque", account: "Numéro de compte", ref: "Référence", note: "Virez l'acompte, indiquez la référence, puis envoyez-nous le reçu sur WhatsApp. Nous confirmons dès réception." },
     cr: { request: "Pey par vireman labank lokal", bank: "Labank", account: "Nimero kont", ref: "Referans", note: "Vir depo, met referans, apre avoy nou resi lor WhatsApp. Nou konfirmen kan nou resevwar li." },
   }[language] ?? { request: "Pay by local bank transfer", bank: "Bank", account: "Account number", ref: "Reference", note: "Transfer the deposit, quote the reference, then send us the receipt on WhatsApp." };
+
+  // Same instructions, minus the word that promises a balance later.
+  const FULL_NOTE = {
+    en: "Transfer the full amount, quote the reference, then send us the receipt on WhatsApp. We confirm your booking once it's received.",
+    fr: "Virez la totalité, indiquez la référence, puis envoyez-nous le reçu sur WhatsApp. Nous confirmons dès réception.",
+    cr: "Vir tou montan, met referans, apre avoy nou resi lor WhatsApp. Nou konfirmen kan nou resevwar li.",
+  };
+  const note = settlement === "full" ? (FULL_NOTE[language as keyof typeof FULL_NOTE] ?? FULL_NOTE.en) : T.note;
 
   const reference = `${name} — ${vehicle}`.slice(0, 60);
 
@@ -67,7 +88,7 @@ export default function BankTransferDetails({ name, vehicle }: { name: string; v
           <dd className="text-offwhite text-right">{reference}</dd>
         </div>
       </dl>
-      <p className="mt-3 text-muted/80 text-xs font-dm leading-relaxed">{T.note}</p>
+      <p className="mt-3 text-muted/80 text-xs font-dm leading-relaxed">{note}</p>
     </div>
   );
 }
