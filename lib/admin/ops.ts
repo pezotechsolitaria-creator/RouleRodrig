@@ -83,6 +83,15 @@ export type AttentionCounts = {
    */
   refundsOwed?: number;
   /**
+   * Refunds still unsent after the shop has been reminded twice (M93).
+   *
+   * A subset of refundsOwed, listed separately because it means something
+   * different: not "somebody has not got round to it" but "somebody has been
+   * asked and has not done it". That is the platform's problem — the customer
+   * blames Roulé Rodrigues, not the shop they have never heard of again.
+   */
+  refundsIgnored?: number;
+  /**
    * Taxi passengers who booked and never appeared, last 30 days (M92).
    *
    * INFO, not a queue: nobody is blocked and there is no button to press. It
@@ -92,6 +101,14 @@ export type AttentionCounts = {
    * ride.
    */
   taxiNoShows?: number;
+  /**
+   * Taxi rides parked because the passenger has repeat no-shows (M94).
+   *
+   * ACTION, not info: a real person booked a real ride and it is deliberately
+   * not being dispatched until somebody rings them. Left alone it is a customer
+   * silently ignored, which is worse than the no-show it guards against.
+   */
+  ridesAwaitingCallback?: number;
 };
 
 /**
@@ -141,6 +158,16 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
     // equal, because it is the only queue where the customer has already paid
     // and received nothing — and where every day of delay is the platform's
     // reputation, not the merchant's.
+    // Listed ABOVE plain refunds-owed: chasing has already failed here, so
+    // this is the one that needs the owner personally rather than another
+    // automated nudge.
+    {
+      key: "refunds-ignored",
+      label: "Refunds a shop has been reminded about twice and still not sent",
+      count: c.refundsIgnored ?? 0,
+      severity: "critical",
+      href: "/admin/marketplace",
+    },
     {
       key: "refunds-owed",
       label: "Refunds customers are still waiting for",
@@ -218,6 +245,10 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
     {
       key: "reviews", label: "Reviews awaiting moderation",
       count: c.pendingReviews ?? 0, severity: "info", href: "/admin/content#reviews",
+    },
+    {
+      key: "rides-callback", label: "Taxi bookings held for a confirmation call",
+      count: c.ridesAwaitingCallback ?? 0, severity: "action", href: "/admin/rides",
     },
     {
       key: "taxi-no-shows", label: "Taxi no-shows in the last 30 days",

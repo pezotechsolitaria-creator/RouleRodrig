@@ -101,7 +101,9 @@
 // the customer, the shop and the owner can all see.
 // v197 — a rental is checked with its partner BEFORE anyone pays; approval
 // reserves the vehicle for a stated, disclosed window.
-const CACHE = "rr-cache-v197";
+// v198 — refunds are chased until they are sent, repeat taxi no-shows are held
+// for a phone call, and the refund policy says who actually returns the money.
+const CACHE = "rr-cache-v198";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

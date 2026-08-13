@@ -445,6 +445,45 @@ export async function GET(req: NextRequest) {
     console.error("food_restock_day threw", err);
   }
 
+  // ── Chase refunds nobody has sent (M93) ──────────────────────────────────
+  //
+  // M90 records what a shop owes a customer and shows it on three screens.
+  // What it could not do is insist. A merchant who never opens /merchant — or
+  // who quietly decides the customer will forget — was unopposed, and the only
+  // person who noticed was the one who never got their money back.
+  //
+  // Roulé Rodrigues cannot send it: the money went straight to the shop and
+  // was never ours to move. Attention, applied repeatedly, is the only lever
+  // there is. The RPC nudges at most once every 48h per refund (so this is a
+  // reminder, not a daily noise generator) and hands BACK the ones that have
+  // now been asked twice — those have stopped being forgetfulness, so the
+  // owner hears about them by email.
+  let refundsChased = 0;
+  let refundsEscalated = 0;
+  try {
+    const { data, error } = await supabase.rpc("chase_stale_refunds", { p_hours: 48 });
+    if (error) console.error("chase_stale_refunds failed", error);
+    else {
+      const res = (data ?? {}) as { chased?: number; escalated?: unknown[] };
+      refundsChased = res.chased ?? 0;
+      const escalated = Array.isArray(res.escalated) ? res.escalated : [];
+      refundsEscalated = escalated.length;
+      if (escalated.length > 0) {
+        const lines = escalated
+          .map((e) => {
+            const r = e as { orderNumber?: string; store?: string; customer?: string; amount?: number };
+            return `• ${r.store ?? "A shop"} owes ${r.customer ?? "a customer"} Rs ${((r.amount ?? 0) / 100).toFixed(2)} on ${r.orderNumber ?? ""}`;
+          })
+          .join("\n");
+        await sendOwnerWhatsApp(
+          `Refunds not sent after two reminders:\n${lines}\n\nThese customers paid and have had neither their order nor their money.`,
+        ).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.error("chase_stale_refunds threw", err);
+  }
+
   // ── Nightly content backup — snapshot site_content when it has changed ──
   let backupSaved = false;
   try {
@@ -490,6 +529,8 @@ export async function GET(req: NextRequest) {
       paymentRemindersSent,
       missesEmailed,
       dishesRestocked,
+      refundsChased,
+      refundsEscalated,
       backupSaved,
       emailFailures,
       emailQuotaLevel,

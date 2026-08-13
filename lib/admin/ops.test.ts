@@ -171,6 +171,33 @@ describe("food ordering going dark", () => {
   });
 });
 
+describe("the escalations M93/M94 added", () => {
+  it("puts an ignored refund above one merely owed", () => {
+    // Same severity and same count, so this is the genuine tie: a shop that has
+    // been reminded twice and still not paid needs the owner personally, not
+    // another automated nudge.
+    const items = attentionItems({ refundsIgnored: 1, refundsOwed: 1 });
+    expect(items.findIndex((i) => i.key === "refunds-ignored"))
+      .toBeLessThan(items.findIndex((i) => i.key === "refunds-owed"));
+  });
+
+  it("treats a held taxi booking as work, not trivia", () => {
+    // A real person booked a real ride and is deliberately not being
+    // dispatched. If nobody rings, that is a customer silently ignored — worse
+    // than the no-show it guards against — so it must outrank the info band.
+    const item = attentionItems({ ridesAwaitingCallback: 2 }).find((i) => i.key === "rides-callback");
+    expect(item, "no rides-callback item at all").toBeDefined();
+    expect(item!.severity).toBe("action");
+    const items = attentionItems({ ridesAwaitingCallback: 1, taxiNoShows: 40 });
+    expect(items.findIndex((i) => i.key === "rides-callback"))
+      .toBeLessThan(items.findIndex((i) => i.key === "taxi-no-shows"));
+  });
+
+  it("stays silent when nothing is stuck", () => {
+    expect(attentionItems({ refundsIgnored: 0, ridesAwaitingCallback: 0 })).toEqual([]);
+  });
+});
+
 describe("taxi no-shows", () => {
   // M92. Deliberately INFO, unlike every other money-adjacent item: nobody is
   // blocked and there is no button to press. It is here because the cost is
