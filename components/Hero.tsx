@@ -183,9 +183,6 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
     return () => { mo.disconnect(); window.clearTimeout(failsafe); };
   }, []);
 
-  // True once footage is genuinely on screen. Drives the headline's exit, so
-  // the text is never removed on a visit where the video does not play.
-  const [videoPlaying, setVideoPlaying] = useState(false);
   // Honour reduced motion by keeping the text put. Content that leaves on its
   // own is exactly the kind of unrequested movement this setting is about, and
   // in that mode the hero is a still photograph with a headline over it.
@@ -226,7 +223,18 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
 
   // Reduced motion keeps the headline permanently: content that leaves on its
   // own is exactly the unrequested movement that setting is about.
-  const hideText = !calm && (revealed || videoPlaying);
+  //
+  // DELIBERATELY NOT `|| videoPlaying`. It used to be, and it made the length of
+  // the whole arrival depend on how fast a YouTube embed happened to start:
+  // measured 9.5s on one load and 9.0s on the next with SLOWER settings,
+  // because the video beat the timer and took the text with it. A sequence the
+  // owner asked to be ten seconds cannot be at the mercy of a third-party
+  // player's buffering.
+  //
+  // `revealed` only fires when there IS a video configured, so the old
+  // protection still holds: a hero with no footage keeps its headline rather
+  // than dissolving to a bare photograph.
+  const hideText = !calm && revealed;
 
   return (
     <section className={`relative w-full overflow-hidden flex flex-col ${compact ? "rr-home-hero min-h-[172px] md:min-h-[36vh]" : "min-h-[40vh] md:min-h-[62vh]"}`} aria-label="Hero section">
@@ -267,7 +275,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
             unoptimized={h.backgroundImage.startsWith("/uploads/") || (h.backgroundImage.startsWith("http") && !h.backgroundImage.includes("supabase.co"))}
           />
         )}
-        <HeroVideoLayer videos={h.videos} onPlaying={setVideoPlaying} />
+        <HeroVideoLayer videos={h.videos} />
         {/* ── Cinematic treatment ──────────────────────────────────────────
             This used to be three full-bleed scrims stacked on top of each
             other: 85%→100% black vertically, 75% black horizontally, and a 55%

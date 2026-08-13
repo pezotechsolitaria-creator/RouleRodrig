@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 // red test at the moment it is introduced rather than a wrong number on a
 // dashboard nobody re-reads. The duplication stays — a static service worker
 // genuinely cannot import from the bundle — but it is no longer unguarded.
-const SW_CACHE_VERSION = "rr-cache-v187";
+const SW_CACHE_VERSION = "rr-cache-v188";
 
 // ── Health / readiness / liveness ────────────────────────────────────────────
 // GET /api/health           → readiness (checks the database dependency)
