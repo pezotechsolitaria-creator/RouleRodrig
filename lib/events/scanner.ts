@@ -43,7 +43,11 @@ export async function listScannableEvents(supabase: SupabaseClient): Promise<Sca
   const { data, error } = await supabase.rpc("scanner_my_events");
   if (error) {
     console.error("scanner_my_events failed", error);
-    throw new Error("Could not load your events.");
+    // The door staff member sees the plain sentence; Sentry gets the real
+    // PostgrestError through `cause`. Throwing without it is what made
+    // "Could not load your events." unactionable in production — the message
+    // named the symptom and destroyed the diagnosis in the same line.
+    throw new Error("Could not load your events.", { cause: error });
   }
   return (data as ScannerEvent[] | null) ?? [];
 }
@@ -62,7 +66,10 @@ export async function getScannerContext(
   if (error) {
     if (error.code === "RR003") return null;
     console.error("scanner_event_context failed", error);
-    throw new Error("Could not open the scanner.");
+    // Same reasoning: RR003 is already handled above as an honest "not yours",
+    // so anything reaching here is genuinely unexpected and the cause is the
+    // only thing worth having.
+    throw new Error("Could not open the scanner.", { cause: error });
   }
   return (data as ScannerContext | null) ?? null;
 }
