@@ -109,6 +109,16 @@ export default async function RodriguesGuidePage() {
               The local&apos;s guide to Rodrigues Island
             </h1>
             <p className="mt-4 font-dm text-muted leading-relaxed max-w-2xl">{DESCRIPTION}</p>
+            {/* The ONLY door into the French pages. /fr/guide-rodrigues links on
+                to the beaches and scooter pages, so without this one link the
+                whole French cluster could be reached from Google and from
+                nowhere on this site — hreflang tells a crawler the page exists,
+                it does not give a reader anything to click. */}
+            <p className="mt-3 font-dm text-sm">
+              <Link href="/fr/guide-rodrigues" hrefLang="fr" className="text-yellow underline underline-offset-4 hover:opacity-80">
+                Lire ce guide en français
+              </Link>
+            </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 href="/#explore"

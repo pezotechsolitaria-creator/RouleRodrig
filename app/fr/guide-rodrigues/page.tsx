@@ -126,6 +126,13 @@ export default async function GuideFrPage() {
               Le guide de l&apos;île Rodrigues par les locaux
             </h1>
             <p className="mt-4 font-dm text-muted leading-relaxed max-w-2xl">{DESCRIPTION}</p>
+            {/* The way back to English. hreflang tells a crawler the pair
+                exists; it gives a reader nothing to click. */}
+            <p className="mt-3 font-dm text-sm">
+              <Link href="/guide/rodrigues" hrefLang="en" className="text-yellow underline underline-offset-4 hover:opacity-80">
+                Read this guide in English
+              </Link>
+            </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 href="/fr/location-scooter-rodrigues"
