@@ -101,6 +101,34 @@ function HeroBackdrop() {
   );
 }
 
+/**
+ * The hero's opening timeline, in one place.
+ *
+ * Slow on purpose. The owner asked for roughly ten seconds end to end: each
+ * letter placed deliberately rather than typed, a long enough pause to actually
+ * read the phrase, and an unhurried dissolve into the footage. Every value here
+ * is seconds unless the name says MS.
+ *
+ * Measured from the moment the launch splash lifts, not from page load — the
+ * splash owns the first 1.8s and the headline waits for it (see gateOpen).
+ *
+ *   START + (letters - 1) x STAGGER + LETTER   the phrase completes   ~4.5s
+ *   + HOLD_MS                                  it is held             ~6.7s
+ *   + DISSOLVE / REVEAL                        it opens into video    ~8.2s
+ *
+ * Tuning: STAGGER is the rhythm, HOLD_MS is how long it sits. Those two are
+ * what to change; the rest only affect how soft each individual move is.
+ */
+const INTRO = {
+  START: 0.25,
+  STAGGER: 0.42,
+  LETTER: 0.9,
+  LINE_GAP: 0.7,
+  HOLD_MS: 2200,
+  DISSOLVE: 1.5,
+  REVEAL: 1.6,
+} as const;
+
 export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: boolean }) {
   const h = hero ?? DEFAULT_CONTENT.hero;
   const { language } = useLanguage();
@@ -182,13 +210,14 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
   // Derived from the copy rather than hardcoded, so editing the headline in
   // admin cannot leave the timing describing a sentence that no longer exists.
   const longestLine = headlineLines.filter((l) => l?.trim()).reduce((n, l) => Math.max(n, [...l].length), 0);
-  const lettersDoneMs = (0.18 + Math.max(0, longestLine - 1) * 0.055 + 0.62) * 1000;
+  const lettersDoneMs =
+    (INTRO.START + Math.max(0, longestLine - 1) * INTRO.STAGGER + INTRO.LETTER) * 1000;
 
   useEffect(() => {
     if (!gateOpen || !hasVideo || prefersReduced) return;
-    // A beat to read it, then the door opens. 420ms is long enough to land and
-    // short enough that nobody feels held.
-    const t = window.setTimeout(() => setRevealed(true), lettersDoneMs + 420);
+    // A real pause, not a beat. The phrase has to be readable at a glance and
+    // then sit there long enough to register before the island takes over.
+    const t = window.setTimeout(() => setRevealed(true), lettersDoneMs + INTRO.HOLD_MS);
     return () => window.clearTimeout(t);
   }, [gateOpen, hasVideo, prefersReduced, lettersDoneMs]);
 
@@ -221,7 +250,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
             ? { filter: "brightness(1) saturate(1.06)", scale: 1 }
             : { filter: "brightness(0.72) saturate(0.88)", scale: 1.035 }
         }
-        transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: INTRO.REVEAL, ease: [0.22, 1, 0.36, 1] }}
         style={{ transformOrigin: "50% 45%" }}
       >
         {h.backgroundImage && (
@@ -266,7 +295,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
           className="pointer-events-none absolute inset-0"
           initial={false}
           animate={{ opacity: revealed || prefersReduced ? 0.45 : 1 }}
-          transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: INTRO.REVEAL, ease: [0.22, 1, 0.36, 1] }}
         >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[30%] bg-gradient-to-b from-dark/75 via-dark/25 to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-dark via-dark/70 to-transparent" />
@@ -299,7 +328,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
         // duration and curve as the scrim lifting and the footage brightening,
         // so the three resolve as one movement rather than three.
         animate={{ opacity: hideText ? 0 : 1, y: hideText ? -8 : 0 }}
-        transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: INTRO.DISSOLVE, ease: [0.22, 1, 0.36, 1] }}
         className={`relative z-10 flex flex-1 flex-col items-center justify-center text-center max-w-5xl mx-auto w-full px-4 md:px-6 pb-4 ${compact ? "pt-6" : "pt-20"}`}
       >
         {/* Eyebrow pill — only when there is something to put in it.
@@ -359,7 +388,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
           {headlineLines.filter((l) => l?.trim()).map((line, i) => {
             // Where this line's letters start, so line two follows line one
             // instead of both writing themselves at once.
-            const lineDelay = 0.18 + i * 0.34;
+            const lineDelay = INTRO.START + i * INTRO.LINE_GAP;
             return (
               <div key={`${line}-${i}`} className="overflow-hidden">
                 <h1
@@ -385,10 +414,10 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
                             : { opacity: 0, y: 26, scale: 0.96 }
                         }
                         transition={{
-                          duration: prefersReduced ? 0.3 : 0.62,
+                          duration: prefersReduced ? 0.3 : INTRO.LETTER,
                           // No per-letter offset when motion is reduced: the
                           // whole line resolves at once.
-                          delay: prefersReduced ? 0 : lineDelay + j * 0.055,
+                          delay: prefersReduced ? 0 : lineDelay + j * INTRO.STAGGER,
                           ease: [0.16, 1, 0.3, 1],
                         }}
                       >
