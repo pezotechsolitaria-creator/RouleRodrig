@@ -28,13 +28,14 @@ export async function GET(req: NextRequest) {
   // account details. The flags stay on the row (checkout needs them); the
   // sensitive fields come from store_bank_details(), which releases them to
   // store staff, a platform admin, or a customer who has an order there.
-  const [{ data: flags, error }, { data: bank }] = await Promise.all([
+  const [{ data: flags, error }, { data: bank }, { data: storeRow }] = await Promise.all([
     supabase
       .from("store_payment_settings")
       .select("accepts_cash, accepts_bank_transfer, require_receipt, offers_rr_delivery, offers_pickup, offers_customer_delivery")
       .eq("store_id", storeId)
       .maybeSingle(),
     supabase.rpc("store_bank_details", { p_store_id: storeId }).maybeSingle(),
+    supabase.from("stores").select("whatsapp").eq("id", storeId).maybeSingle(),
   ]);
 
   if (error) {
@@ -49,6 +50,7 @@ export async function GET(req: NextRequest) {
         account_holder: (bank as { account_holder?: string | null } | null)?.account_holder ?? null,
         account_number: (bank as { account_number?: string | null } | null)?.account_number ?? null,
         payment_instructions: (bank as { payment_instructions?: string | null } | null)?.payment_instructions ?? null,
+        whatsapp: (storeRow as { whatsapp?: string | null } | null)?.whatsapp ?? null,
       }
     : null;
 
@@ -121,6 +123,21 @@ export async function PUT(req: NextRequest) {
         : {}),
     },
   });
+
+  // The shop's public WhatsApp lives on `stores`, which a merchant session has
+  // no UPDATE grant on — deliberately (M8). set_store_whatsapp() is the narrow
+  // door: one column, gated on is_store_staff(). Only sent when the client
+  // supplied the field, so an older client cannot blank a saved number.
+  if (!error && v.whatsapp !== undefined) {
+    const { error: waErr } = await supabase.rpc("set_store_whatsapp", {
+      p_store_id: storeId,
+      p_whatsapp: v.whatsapp || null,
+    });
+    if (waErr) {
+      console.error("set_store_whatsapp failed", waErr);
+      return NextResponse.json({ error: "Saved, but the WhatsApp number could not be updated." }, { status: 500 });
+    }
+  }
 
   if (error) {
     // An expired subscription blocks shop edits (trigger, errcode RR008).

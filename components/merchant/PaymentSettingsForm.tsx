@@ -12,6 +12,7 @@ type Settings = {
   accepts_cash: boolean;
   accepts_bank_transfer: boolean;
   bank_name: string | null;
+  whatsapp?: string | null;
   account_holder: string | null;
   account_number: string | null;
   payment_instructions: string | null;
@@ -67,6 +68,7 @@ export default function PaymentSettingsForm({
           accountNumber: s.account_number ?? "",
           paymentInstructions: s.payment_instructions ?? "",
           requireReceipt: s.require_receipt,
+          whatsapp: s.whatsapp ?? "",
           offersRrDelivery: s.offers_rr_delivery,
           offersPickup: s.offers_pickup,
           offersCustomerDelivery: s.offers_customer_delivery,
@@ -159,6 +161,42 @@ export default function PaymentSettingsForm({
           </p>
         ) : (
           noMethod && <p role="alert" className="mt-2 font-dm text-xs text-red-400">Enable at least one payment method.</p>
+        )}
+      </fieldset>
+
+      {/* ── The customer who cannot pay you the normal way (M97) ──────────
+          Orders are bank transfers now, and a visitor holding a foreign card
+          cannot make one. Without a number here, that customer reaches your
+          checkout, finds no way through, and leaves — and you never hear about
+          it. With one, they message you and you arrange it.
+
+          It sits on this page rather than a shop-profile screen because this
+          is the page about getting paid, and because there IS no shop-profile
+          screen: a merchant session has no write access to `stores` at all
+          (M8), so this saves through a narrow accessor built for it. */}
+      <fieldset className="rounded-2xl border border-white/10 bg-dark-card p-4">
+        <legend className="px-1 font-bebas text-[11px] tracking-[0.3em] text-yellow">
+          IF A CUSTOMER CANNOT PAY
+        </legend>
+        <p className="mt-1 font-dm text-xs leading-relaxed text-muted">
+          Tourists often have no local bank account. Put your WhatsApp here and they can message you
+          to arrange payment instead of giving up. It appears on your shop&apos;s checkout and on
+          every dish you sell.
+        </p>
+        <input
+          value={s.whatsapp ?? ""}
+          onChange={(e) => set({ whatsapp: e.target.value })}
+          placeholder="+230 5xxx xxxx"
+          inputMode="tel"
+          maxLength={40}
+          aria-label="Your public WhatsApp number"
+          className="mt-3 w-full rounded-xl border border-white/10 bg-dark px-3 py-2.5 font-dm text-sm text-offwhite placeholder:text-muted focus:border-yellow/50 focus:outline-none"
+        />
+        {!s.whatsapp?.trim() && (
+          <p className="mt-1.5 font-dm text-[11px] text-muted">
+            Leave empty and no button is shown — but a customer with a foreign card will have no way
+            to reach you.
+          </p>
         )}
       </fieldset>
 

@@ -98,6 +98,12 @@ export const paymentSettingsSchema = z
     accountNumber: z.string().trim().max(64).optional().or(z.literal("")),
     paymentInstructions: z.string().trim().max(1000).optional().or(z.literal("")),
     requireReceipt: z.boolean(),
+    // M97 — the shop's PUBLIC WhatsApp. It lives on `stores`, not on
+    // store_payment_settings, but it belongs on this form: it is the number a
+    // customer messages when they cannot pay by the methods above, which is
+    // exactly what this page is about. Optional so an older client that does
+    // not send it cannot blank a number the merchant already set.
+    whatsapp: z.string().trim().max(40).optional().or(z.literal("")),
     // The platform owns the delivery FEE and ETA; a shop only chooses whether
     // it takes part in the Roulé Rodrigues delivery network at all.
     offersRrDelivery: z.boolean(),

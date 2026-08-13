@@ -127,7 +127,9 @@
 // not two words of grey micro-text under the accept rate.
 // v210 — taxi drivers are visible again (a policy with no grant showed none),
 // no fare is quoted, and admin can onboard a driver with a QR.
-const CACHE = "rr-cache-v210";
+// v211 — a shop owner can publish their own WhatsApp from /merchant, so a
+// customer who cannot bank-transfer has someone to ask.
+const CACHE = "rr-cache-v211";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
