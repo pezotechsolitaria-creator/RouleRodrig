@@ -7,6 +7,7 @@ import type { RecommendedPlace } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
 import { formatDuration } from "@/lib/experiences";
+import { showsServiceFacts } from "@/lib/places/service-fields";
 
 const CAT: Record<RecommendedPlace["category"], { icon: React.ElementType; color: string }> = {
   hotel: { icon: BedDouble, color: "bg-amber-400/10 text-amber-400 border-amber-400/30" },
@@ -33,6 +34,10 @@ export default function PlaceDetailModal({
   const [idx, setIdx] = useState(0);
   const highlights = (place.highlights ?? []).filter(Boolean);
   const included = (place.included ?? []).filter(Boolean);
+  // Massage, fishing trip or sea trip — the three verticals these facts belong
+  // to. The rule lives in lib/places/service-fields.ts, shared with the admin
+  // editor that strips them, so the two cannot drift.
+  const isService = showsServiceFacts(place);
   const isExternal = place.link?.startsWith("http");
   const hasWa = !!(place.whatsapp && place.whatsapp.replace(/\D/g, "").length >= 6);
 
@@ -93,10 +98,22 @@ export default function PlaceDetailModal({
           <h3 className="font-syne font-extrabold text-offwhite text-2xl sm:text-3xl leading-tight">{place.name}</h3>
           {place.priceNote && <p className="text-yellow/90 font-dm text-sm mt-1">{place.priceNote}</p>}
 
-          {/* How long, how many, who with. The card on /experiences shows these
+          {/* ── SERVICE FACTS, AND ONLY FOR SERVICES ──────────────────────────
+              How long, how many, who with. The card on /experiences shows these
               and the modal it opens did not, so tapping a fishing charter for
-              MORE detail gave less of it. */}
-          {(place.durationMinutes || place.maxGuests || place.providerName) && (
+              MORE detail gave less of it.
+
+              But they are gated on serviceType, which the first version was not,
+              and the owner caught it: a GUESTHOUSE was announcing "4h · up to
+              10". Those numbers had been sitting in its row since it was briefly
+              an activity, harmless while nothing rendered them — and there was
+              no field anywhere to clear them, because they are only editable in
+              the massage/fishing/boat editor.
+
+              A hotel does not have a duration, and its capacity means ROOMS, not
+              people per trip. Anything outside the services vertical says
+              nothing about either. */}
+          {isService && (place.durationMinutes || place.maxGuests || place.providerName) && (
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 font-dm text-xs text-offwhite/75">
               {formatDuration(place.durationMinutes) && (
                 <span className="inline-flex items-center gap-1.5">
@@ -139,7 +156,7 @@ export default function PlaceDetailModal({
             </div>
           )}
 
-          {place.meetingPoint && (
+          {isService && place.meetingPoint && (
             <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-yellow/25 bg-yellow/[0.06] px-4 py-3">
               <MapPin size={15} className="mt-0.5 shrink-0 text-yellow" />
               <div>

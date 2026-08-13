@@ -87,7 +87,7 @@
 // smooth but read as the still lingering.
 // v175 — delivery fees and car body styles are the owner's to set, and the
 // fleet grew a second filter row, so the shipped bundle changed.
-const CACHE = "rr-cache-v175";
+const CACHE = "rr-cache-v176";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

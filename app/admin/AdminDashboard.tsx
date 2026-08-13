@@ -95,6 +95,7 @@ import type {
   HomeCard,
   HeroVideo,
 } from "@/lib/defaults";
+import { SERVICE_ONLY_CLEARED, hasServiceLeftovers, describeLeftovers } from "@/lib/places/service-fields";
 import { DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS } from "@/lib/defaults";
 import type { ContactSubmission, Booking, PlaceBooking, Partner, MarketplaceListing, ProductReview, WaitlistEntry } from "@/lib/supabase/types";
 import { SITE_URL } from "@/lib/site";
@@ -3726,6 +3727,28 @@ function RecommendedEditor({
               </button>
             </div>
           </div>
+          {/* Leftovers from a listing that used to be a massage/fishing/boat
+              service. They are invisible on the site now, but they are still in
+              the data and there is nowhere else to delete them from — this
+              editor never had these fields, and the services editor only lists
+              rows that still carry a service tag. */}
+          {!it.serviceType && hasServiceLeftovers(it) && (
+            <div className="rounded-xl border border-orange-400/25 bg-orange-400/[0.06] px-4 py-3">
+              <p className="font-dm text-xs text-orange-200">
+                This listing still carries details that only belong to a massage, fishing trip or
+                sea trip{describeLeftovers(it) ? ` — ${describeLeftovers(it)}` : ""}. They are not
+                shown to customers.
+              </p>
+              <button
+                type="button"
+                onClick={() => updateItem(i, SERVICE_ONLY_CLEARED)}
+                className="mt-2 rounded-lg border border-orange-400/40 px-3 py-1.5 font-dm text-xs text-orange-100 transition-colors hover:border-orange-300 hover:bg-orange-400/10"
+              >
+                Remove them
+              </button>
+            </div>
+          )}
+
           <MultiImagePicker
             label="PHOTOS"
             hint="Add as many as you like. The first one is the cover — hover a photo to make it the cover or remove it."
@@ -3740,12 +3763,17 @@ function RecommendedEditor({
               <select
                 value={it.category}
                 onChange={(e) => {
-                  // Leaving "Activity" drops the service tag with it. Without
-                  // this the tag survives in the JSON, the listing stays on
-                  // /experiences, and the dropdown that could clear it is
-                  // hidden — a one-way door.
+                  // Leaving "Activity" drops the service tag AND everything that
+                  // only means something alongside it. Clearing the tag alone was
+                  // not enough: a guesthouse kept "4h" and "up to 10" from when it
+                  // was briefly an activity, and no editor anywhere could reach
+                  // those fields to remove them — they live in the massage /
+                  // fishing / boat screen, which lists nothing without a tag.
                   const category = e.target.value as RecommendedPlace["category"];
-                  updateItem(i, { category, ...(category !== "activity" ? { serviceType: undefined } : {}) });
+                  updateItem(i, {
+                    category,
+                    ...(category !== "activity" ? SERVICE_ONLY_CLEARED : {}),
+                  });
                 }}
                 className={`${inputCls} appearance-none`}
               >
