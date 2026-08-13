@@ -1,0 +1,532 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  MapPin, Navigation, Users, Luggage, Clock, Loader2, ArrowRight, ArrowLeft,
+  Check, Car, PlaneTakeoff, Ship, Hotel, Crown, Search, LocateFixed, PhoneCall,
+} from "lucide-react";
+import { RIDE_SERVICE_META, formatRidePrice, type RideService } from "@/lib/rides/model";
+import type { RidePlace } from "@/lib/rides/places";
+import { searchPlaces } from "@/lib/rides/places";
+
+// ── THE CUSTOMER BOOKS THEIR OWN RIDE ───────────────────────────────────────
+//
+// This screen is what removes the owner from the start of every journey. Before
+// it, a ride began with a phone call he typed into /admin/rides and priced by
+// hand — the exact intervention he asked to be rid of.
+//
+// ── WHY THREE STEPS AND NOT ONE FORM ────────────────────────────────────────
+// A single form with eleven fields is the "old-fashioned taxi UI" the brief ruled
+// out, and it is unusable for the elderly customers this has to serve. So:
+//   1. what kind of journey        (one tap)
+//   2. where from, where to        (search, or the landmark list, or GPS)
+//   3. who you are                 (name + phone, and the price is already known)
+// Progressive disclosure: nothing about flights appears unless there is a flight.
+//
+// ── WHY NO MAP ──────────────────────────────────────────────────────────────
+// A drag-a-pin map is the wrong tool on Rodrigues. There are perhaps forty places
+// anyone asks to be taken to, everybody knows their names, and a tourist dragging
+// a pin around a coastline they have never seen will place it in the sea. A named
+// list of real Rodriguan landmarks is faster, works on a slow connection, and
+// gives us exact coordinates — which is what pricing and dispatch actually need.
+// "Somewhere else" still accepts free text, and that ride simply prices on
+// request rather than blocking the booking.
+
+const SERVICE_ICON: Record<RideService, React.ElementType> = {
+  taxi: Car, airport: PlaneTakeoff, ferry: Ship, hotel: Hotel, private: Crown,
+};
+
+// Airport and ferry runs have a fixed end, so asking is wasted work.
+const FIXED_DROPOFF: Partial<Record<RideService, string>> = {
+  airport: "Plaine Corail Airport",
+  ferry: "Port Mathurin ferry terminal",
+};
+
+type Quote = {
+  ok: boolean; price?: number; currency?: string; roadKm?: number | null;
+  tripMinutes?: number | null; night?: boolean; message?: string; reason?: string;
+};
+
+function PlacePicker({
+  label, icon: Icon, value, onPick, placeholder,
+}: {
+  label: string; icon: React.ElementType; value: RidePlace | null;
+  onPick: (p: RidePlace | null) => void; placeholder: string;
+}) {
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const results = useMemo(() => searchPlaces(q), [q]);
+
+  // Their own position, when they are standing where they want collecting from.
+  function useMyLocation() {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        onPick({
+          id: "gps", name: "My current location", area: "",
+          lat: pos.coords.latitude, lng: pos.coords.longitude,
+        });
+        setLocating(false);
+        setOpen(false);
+      },
+      // A refused permission is not an error worth shouting about — the list is
+      // right there.
+      () => setLocating(false),
+      { timeout: 8000 },
+    );
+  }
+
+  if (value && !open) {
+    return (
+      <button
+        type="button"
+        onClick={() => { setOpen(true); setQ(""); }}
+        className="flex w-full items-center gap-3 rounded-2xl border border-white/12 bg-dark-card px-4 py-3.5 text-left"
+      >
+        <Icon size={18} className="shrink-0 text-yellow" />
+        <span className="min-w-0 flex-1">
+          <span className="block font-bebas text-[10px] tracking-[0.22em] text-muted">{label}</span>
+          <span className="block truncate font-dm text-base text-offwhite">{value.name}</span>
+          {value.area && <span className="block truncate font-dm text-xs text-muted">{value.area}</span>}
+        </span>
+        <span className="font-dm text-xs text-yellow">Change</span>
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-yellow/30 bg-dark-card p-4">
+      <p className="font-bebas text-[10px] tracking-[0.22em] text-yellow">{label}</p>
+      <div className="relative mt-2">
+        <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+        <input
+          autoFocus
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={placeholder}
+          aria-label={label}
+          className="w-full rounded-xl border border-white/12 bg-dark py-3 pl-9 pr-3 font-dm text-base text-offwhite placeholder:text-muted focus:border-yellow/60 focus:outline-none"
+        />
+      </div>
+
+      <button
+        type="button"
+        onClick={useMyLocation}
+        disabled={locating}
+        className="mt-2 flex w-full items-center gap-2 rounded-xl border border-white/12 px-3 py-2.5 font-dm text-sm text-offwhite/85 disabled:opacity-50"
+      >
+        {locating ? <Loader2 size={15} className="animate-spin text-yellow" /> : <LocateFixed size={15} className="text-yellow" />}
+        Use where I am now
+      </button>
+
+      <div className="mt-2 max-h-64 overflow-y-auto">
+        {results.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => { onPick(p); setOpen(false); }}
+            className="flex w-full items-center gap-2.5 border-b border-white/[0.06] px-1 py-3 text-left last:border-0"
+          >
+            <MapPin size={14} className="shrink-0 text-muted" />
+            <span className="min-w-0">
+              <span className="block truncate font-dm text-sm text-offwhite">{p.name}</span>
+              {p.area && <span className="block truncate font-dm text-xs text-muted">{p.area}</span>}
+            </span>
+          </button>
+        ))}
+        {/* Anywhere we have not named. The ride still goes out; it just prices on
+            request rather than refusing somebody who lives up a track. */}
+        {q.trim().length > 2 && (
+          <button
+            type="button"
+            onClick={() => { onPick({ id: "custom", name: q.trim(), area: "", lat: null, lng: null }); setOpen(false); }}
+            className="flex w-full items-center gap-2.5 px-1 py-3 text-left"
+          >
+            <MapPin size={14} className="shrink-0 text-yellow" />
+            <span className="font-dm text-sm text-yellow">
+              Use &ldquo;{q.trim()}&rdquo; — we&apos;ll confirm the price
+            </span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function BookRide({ initialService }: { initialService: RideService }) {
+  const [step, setStep] = useState(initialService === "taxi" ? 1 : 2);
+  const [service, setService] = useState<RideService>(initialService);
+  const [pickup, setPickup] = useState<RidePlace | null>(null);
+  const [dropoff, setDropoff] = useState<RidePlace | null>(null);
+  const [whenKind, setWhenKind] = useState<"now" | "scheduled">("now");
+  const [when, setWhen] = useState("");
+  const [passengers, setPassengers] = useState(1);
+  const [luggage, setLuggage] = useState(0);
+  const [flightRef, setFlightRef] = useState("");
+  const [meetGreet, setMeetGreet] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [quoting, setQuoting] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<{ reference: string; price: number | null } | null>(null);
+
+  const meta = RIDE_SERVICE_META[service];
+  const fixedDrop = FIXED_DROPOFF[service];
+
+  // The fixed end of an airport or ferry run, filled in so nobody types it.
+  useEffect(() => {
+    if (!fixedDrop) return;
+    const known = searchPlaces(fixedDrop)[0] ?? null;
+    setDropoff(known ?? { id: "fixed", name: fixedDrop, area: "", lat: null, lng: null });
+  }, [fixedDrop]);
+
+  // Re-quote whenever anything that changes the fare changes. Debounced, because a
+  // customer stepping the passenger count from 1 to 6 should cost one request.
+  const requote = useCallback(async () => {
+    if (!pickup || !dropoff) { setQuote(null); return; }
+    setQuoting(true);
+    try {
+      const r = await fetch("/api/rides/quote", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service,
+          pickupLat: pickup.lat, pickupLng: pickup.lng,
+          dropoffLat: dropoff.lat, dropoffLng: dropoff.lng,
+          passengers, luggage,
+          when: whenKind === "scheduled" && when ? new Date(when).toISOString() : null,
+        }),
+      });
+      setQuote(await r.json());
+    } catch {
+      setQuote({ ok: false, message: "We'll confirm the price with you." });
+    } finally {
+      setQuoting(false);
+    }
+  }, [service, pickup, dropoff, passengers, luggage, whenKind, when]);
+
+  useEffect(() => {
+    const t = setTimeout(() => void requote(), 350);
+    return () => clearTimeout(t);
+  }, [requote]);
+
+  async function submit() {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await fetch("/api/rides", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service, whenKind,
+          scheduledAt: whenKind === "scheduled" && when ? new Date(when).toISOString() : null,
+          pickupLabel: pickup?.name ?? "", pickupLat: pickup?.lat ?? null, pickupLng: pickup?.lng ?? null,
+          dropoffLabel: dropoff?.name ?? "", dropoffLat: dropoff?.lat ?? null, dropoffLng: dropoff?.lng ?? null,
+          passengers, luggage,
+          notes: notes || undefined,
+          flightRef: meta.needsArrival ? flightRef || undefined : undefined,
+          meetGreet: meta.needsArrival ? meetGreet : false,
+          name, phone, email: email || undefined,
+        }),
+      });
+      const b = await r.json();
+      if (!r.ok || !b.ok) throw new Error(b.error || "Something went wrong. Please try again.");
+      setDone({ reference: b.reference, price: b.price ?? null });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // ── Booked ──────────────────────────────────────────────────────────────
+  if (done) {
+    return (
+      <div className="rounded-3xl border border-green-500/30 bg-green-500/[0.07] p-6 text-center">
+        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-green-500/15 text-green-400">
+          <Check size={28} />
+        </span>
+        <h2 className="mt-4 font-syne text-2xl font-extrabold text-offwhite">We&apos;re finding your driver</h2>
+        <p className="mt-2 font-dm text-sm text-muted">
+          No need to call anyone. A driver will accept in the next few minutes and you&apos;ll see their
+          name and number here.
+        </p>
+        <p className="mt-4 font-bebas text-[11px] tracking-[0.28em] text-yellow">YOUR REFERENCE</p>
+        <p className="font-syne text-3xl font-extrabold text-offwhite">{done.reference}</p>
+        {done.price != null && (
+          <p className="mt-1 font-dm text-sm text-offwhite/85">{formatRidePrice(done.price)}</p>
+        )}
+        <Link
+          href={`/taxi/track?ref=${encodeURIComponent(done.reference)}&phone=${encodeURIComponent(phone)}`}
+          className="mt-6 flex items-center justify-center gap-2 rounded-2xl bg-yellow px-5 py-4 font-dm text-base font-bold text-dark"
+        >
+          Follow my ride <ArrowRight size={18} />
+        </Link>
+        <p className="mt-3 font-dm text-xs text-muted">
+          Keep this reference. You&apos;ll need it and this phone number to check on the ride.
+        </p>
+      </div>
+    );
+  }
+
+  const canContinue2 = !!pickup && !!dropoff && (whenKind === "now" || !!when);
+  const canBook = canContinue2 && name.trim().length > 1 && phone.trim().length > 4;
+
+  return (
+    <div>
+      {/* Three dots rather than "Step 2 of 3" — smaller, calmer, same information. */}
+      <div className="mb-5 flex items-center justify-center gap-2">
+        {[1, 2, 3].map((n) => (
+          <span key={n} className={`h-1.5 rounded-full transition-all ${n === step ? "w-6 bg-yellow" : n < step ? "w-1.5 bg-yellow/50" : "w-1.5 bg-white/15"}`} />
+        ))}
+      </div>
+
+      {/* ── 1. What kind of journey ──────────────────────────────────────── */}
+      {step === 1 && (
+        <div>
+          <h2 className="font-syne text-xl font-extrabold text-offwhite">What do you need?</h2>
+          <div className="mt-4 space-y-2.5">
+            {(Object.keys(RIDE_SERVICE_META) as RideService[]).map((s) => {
+              const Icon = SERVICE_ICON[s];
+              const m = RIDE_SERVICE_META[s];
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => { setService(s); setDropoff(null); setStep(2); }}
+                  className="flex w-full items-center gap-4 rounded-2xl border border-white/12 bg-dark-card p-4 text-left transition-colors hover:border-yellow/50 active:scale-[0.99]"
+                >
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-yellow/10 text-yellow">
+                    <Icon size={22} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-syne text-base font-bold text-offwhite">{m.label}</span>
+                    <span className="block font-dm text-xs text-muted">{m.blurb}</span>
+                  </span>
+                  <ArrowRight size={18} className="shrink-0 text-muted" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── 2. Where, and when ───────────────────────────────────────────── */}
+      {step === 2 && (
+        <div className="space-y-3">
+          <h2 className="font-syne text-xl font-extrabold text-offwhite">{meta.label}</h2>
+
+          <PlacePicker label="PICK ME UP AT" icon={MapPin} value={pickup} onPick={setPickup}
+            placeholder="Hotel, beach, village…" />
+
+          {/* An airport or ferry run has a fixed end, so it is stated rather than asked. */}
+          {fixedDrop ? (
+            <div className="flex items-center gap-3 rounded-2xl border border-white/12 bg-dark-card px-4 py-3.5">
+              <Navigation size={18} className="shrink-0 text-yellow" />
+              <span>
+                <span className="block font-bebas text-[10px] tracking-[0.22em] text-muted">GOING TO</span>
+                <span className="block font-dm text-base text-offwhite">{fixedDrop}</span>
+              </span>
+            </div>
+          ) : (
+            <PlacePicker label="TAKE ME TO" icon={Navigation} value={dropoff} onPick={setDropoff}
+              placeholder="Where are you going?" />
+          )}
+
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => setWhenKind("now")}
+              className={`rounded-xl border px-3 py-3 font-dm text-sm ${whenKind === "now" ? "border-yellow bg-yellow/10 text-yellow" : "border-white/12 text-offwhite/80"}`}>
+              As soon as possible
+            </button>
+            <button type="button" onClick={() => setWhenKind("scheduled")}
+              className={`rounded-xl border px-3 py-3 font-dm text-sm ${whenKind === "scheduled" ? "border-yellow bg-yellow/10 text-yellow" : "border-white/12 text-offwhite/80"}`}>
+              Book for later
+            </button>
+          </div>
+          {whenKind === "scheduled" && (
+            <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)}
+              aria-label="When do you need it"
+              className="w-full rounded-xl border border-white/12 bg-dark-card px-3 py-3 font-dm text-base text-offwhite focus:border-yellow/60 focus:outline-none" />
+          )}
+
+          <div className="grid grid-cols-2 gap-2">
+            <Stepper label="PEOPLE" icon={Users} value={passengers} setValue={setPassengers} min={1} max={12} />
+            <Stepper label="BAGS" icon={Luggage} value={luggage} setValue={setLuggage} min={0} max={12} />
+          </div>
+
+          {/* Only for a journey that actually has a flight or a boat. */}
+          {meta.needsArrival && (
+            <div className="rounded-2xl border border-white/12 bg-dark-card p-4">
+              <label className="block font-bebas text-[10px] tracking-[0.22em] text-muted" htmlFor="flight">
+                FLIGHT OR BOAT NUMBER (OPTIONAL)
+              </label>
+              <input id="flight" value={flightRef} onChange={(e) => setFlightRef(e.target.value)}
+                placeholder="e.g. MK034"
+                className="mt-1.5 w-full rounded-xl border border-white/12 bg-dark px-3 py-2.5 font-dm text-base text-offwhite placeholder:text-muted focus:border-yellow/60 focus:outline-none" />
+              <label className="mt-3 flex items-center gap-2 font-dm text-sm text-offwhite/85">
+                <input type="checkbox" checked={meetGreet} onChange={(e) => setMeetGreet(e.target.checked)} className="accent-yellow" />
+                Wait for me inside with a sign
+              </label>
+            </div>
+          )}
+
+          <PriceCard quote={quote} quoting={quoting} />
+
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setStep(1)}
+              className="flex items-center gap-1.5 rounded-2xl border border-white/15 px-4 py-4 font-dm text-sm text-muted">
+              <ArrowLeft size={16} /> Back
+            </button>
+            <button type="button" disabled={!canContinue2} onClick={() => setStep(3)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-yellow py-4 font-dm text-base font-bold text-dark disabled:opacity-40">
+              Continue <ArrowRight size={18} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 3. Who you are ───────────────────────────────────────────────── */}
+      {step === 3 && (
+        <div className="space-y-3">
+          <h2 className="font-syne text-xl font-extrabold text-offwhite">Almost done</h2>
+          <p className="font-dm text-sm text-muted">
+            Your driver needs a name and a number to find you. No account, no password.
+          </p>
+
+          <Field label="YOUR NAME">
+            <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name"
+              className={inputCls} placeholder="e.g. Marie Perrine" />
+          </Field>
+          <Field label="YOUR PHONE">
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" autoComplete="tel"
+              className={inputCls} placeholder="+230 5XXX XXXX" />
+          </Field>
+          <Field label="EMAIL (OPTIONAL)">
+            <input value={email} onChange={(e) => setEmail(e.target.value)} inputMode="email" autoComplete="email"
+              className={inputCls} placeholder="you@example.com" />
+          </Field>
+          <Field label="ANYTHING THE DRIVER SHOULD KNOW (OPTIONAL)">
+            <input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputCls}
+              placeholder="e.g. baby seat, wheelchair, two stops" />
+          </Field>
+
+          <div className="rounded-2xl border border-white/10 bg-dark-card p-4 font-dm text-sm">
+            <p className="text-offwhite">{pickup?.name} → {dropoff?.name}</p>
+            <p className="mt-0.5 text-muted">
+              {whenKind === "now" ? "As soon as possible" : new Date(when).toLocaleString("en-GB", { timeZone: "Indian/Mauritius" })}
+              {" · "}{passengers} {passengers === 1 ? "person" : "people"}
+            </p>
+          </div>
+
+          <PriceCard quote={quote} quoting={quoting} />
+
+          {error && <p role="alert" className="font-dm text-sm text-red-400">{error}</p>}
+
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setStep(2)}
+              className="flex items-center gap-1.5 rounded-2xl border border-white/15 px-4 py-4 font-dm text-sm text-muted">
+              <ArrowLeft size={16} /> Back
+            </button>
+            <button type="button" disabled={!canBook || busy} onClick={() => void submit()}
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-yellow py-5 font-syne text-lg font-extrabold text-dark disabled:opacity-40">
+              {busy ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
+              Find me a driver
+            </button>
+          </div>
+          <p className="text-center font-dm text-xs text-muted">
+            You pay the driver directly. Nothing is charged here.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const inputCls =
+  "w-full rounded-xl border border-white/12 bg-dark-card px-3 py-3.5 font-dm text-base text-offwhite placeholder:text-muted focus:border-yellow/60 focus:outline-none";
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block font-bebas text-[10px] tracking-[0.22em] text-muted">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+// Big +/- buttons rather than a number input: a 44px target beats a spinner
+// nobody over fifty can hit on a phone.
+function Stepper({
+  label, icon: Icon, value, setValue, min, max,
+}: {
+  label: string; icon: React.ElementType; value: number;
+  setValue: (n: number) => void; min: number; max: number;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/12 bg-dark-card p-3">
+      <p className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.22em] text-muted">
+        <Icon size={12} className="text-yellow" /> {label}
+      </p>
+      <div className="mt-1.5 flex items-center justify-between">
+        <button type="button" aria-label={`Fewer ${label.toLowerCase()}`}
+          onClick={() => setValue(Math.max(min, value - 1))}
+          className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/15 font-syne text-xl text-offwhite">
+          −
+        </button>
+        <span className="font-syne text-2xl font-extrabold text-offwhite">{value}</span>
+        <button type="button" aria-label={`More ${label.toLowerCase()}`}
+          onClick={() => setValue(Math.min(max, value + 1))}
+          className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/15 font-syne text-xl text-offwhite">
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PriceCard({ quote, quoting }: { quote: Quote | null; quoting: boolean }) {
+  if (quoting && !quote) {
+    return (
+      <div className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-dark-card py-5 font-dm text-sm text-muted">
+        <Loader2 size={15} className="animate-spin text-yellow" /> Working out the price…
+      </div>
+    );
+  }
+  if (!quote) return null;
+
+  // A ride we cannot price is still a ride. Saying so beats an empty box or a
+  // fake number.
+  if (!quote.ok) {
+    return (
+      <div className="rounded-2xl border border-white/12 bg-dark-card px-5 py-4 text-center">
+        <p className="flex items-center justify-center gap-2 font-dm text-sm text-offwhite/85">
+          <PhoneCall size={15} className="text-yellow" />
+          {quote.message ?? "We'll confirm the price with you."}
+        </p>
+        <p className="mt-1 font-dm text-xs text-muted">Nothing is charged until you agree.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-yellow/30 bg-yellow/[0.07] px-5 py-4 text-center">
+      <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">YOUR FARE</p>
+      <p className="font-syne text-3xl font-extrabold text-offwhite">
+        {formatRidePrice(quote.price, quote.currency)}
+      </p>
+      <p className="mt-1 flex flex-wrap items-center justify-center gap-x-3 font-dm text-xs text-muted">
+        {quote.roadKm != null && <span>about {quote.roadKm} km</span>}
+        {quote.tripMinutes != null && (
+          <span className="inline-flex items-center gap-1"><Clock size={11} /> ~{quote.tripMinutes} min</span>
+        )}
+        {quote.night && <span className="text-yellow/90">night rate</span>}
+      </p>
+      <p className="mt-1.5 font-dm text-xs text-muted">Paid directly to your driver</p>
+    </div>
+  );
+}

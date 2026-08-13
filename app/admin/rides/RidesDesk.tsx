@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   Loader2, Send, RefreshCw, Plus, Car, MapPin, Navigation, Users, Clock,
-  AlertTriangle, MessageCircle, UserCheck, X, Ban, ChevronRight, Copy,
+  AlertTriangle, MessageCircle, UserCheck, X, Ban, ChevronRight, Copy, Wallet,
 } from "lucide-react";
 import {
   ADMIN_STATUS, RIDE_SERVICE_META, RIDE_SERVICES, NEXT_STATUSES,
@@ -48,6 +48,12 @@ type Candidate = {
   reason_skipped: string | null;
 };
 type Target = { name: string; whatsapp: string; waUrl: string; acceptUrl: string };
+type PricingRow = {
+  service: string; base_fare: number; per_km: number; minimum_fare: number;
+  flat_fare: number | null; per_extra_passenger: number; per_luggage: number;
+  night_surcharge: number; night_from_hour: number; night_to_hour: number;
+  is_bookable: boolean;
+};
 
 const STATUS_TONE: Record<string, string> = {
   new: "border-yellow/40 text-yellow",
@@ -71,6 +77,7 @@ export default function RidesDesk() {
   const [busy, setBusy] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [showRoster, setShowRoster] = useState(false);
+  const [showFares, setShowFares] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -186,6 +193,10 @@ export default function RidesDesk() {
             <option value="open">Open rides</option>
             <option value="all">Everything</option>
           </select>
+          <button onClick={() => setShowFares((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-2 font-dm text-sm text-muted hover:text-offwhite">
+            <Wallet size={14} /> Fares
+          </button>
           <button onClick={() => setShowRoster((r) => !r)}
             className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-2 font-dm text-sm text-muted hover:text-offwhite">
             <Users size={14} /> Drivers ({drivers.filter((d) => d.active).length})
@@ -204,6 +215,7 @@ export default function RidesDesk() {
 
         {showNew && <NewRideForm onDone={() => { setShowNew(false); void load(); }} />}
         {showRoster && <DriverRoster drivers={drivers} onSaved={() => void load()} />}
+        {showFares && <FaresPanel />}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1fr]">
           {/* ── The queue ───────────────────────────────────────────────── */}
@@ -651,5 +663,182 @@ function DriverRow({
         </button>
       </td>
     </tr>
+  );
+}
+
+
+// ── THE FARES ───────────────────────────────────────────────────────────────
+//
+// The owner asked for test prices he can edit or delete after. The numbers seeded
+// by the migration are my guesses at Rodriguan rates and they are customer-facing
+// the moment the booking screen is live, so this is where he makes them his.
+//
+// "Delete" is `Offer this` turned off, not a deleted row: quote_ride() would
+// answer 'unknown_service' for a missing row while the booking screen still listed
+// the service. Off means the screen says "we will confirm the price with you",
+// which is a real answer rather than a broken one.
+//
+// Rupees in the boxes, minor units in the database — the conversion happens in the
+// route, so a fare cannot land 100x wrong.
+function FaresPanel() {
+  const [rows, setRows] = useState<PricingRow[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch("/api/admin/ride-pricing");
+      const b = await r.json();
+      if (!r.ok) throw new Error(b.error || "Could not load fares.");
+      setRows(b.pricing);
+    } catch (e) {
+      setRows([]);
+      toast.error(e instanceof Error ? e.message : "Could not load fares.");
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  async function save(service: string, patch: Record<string, unknown>) {
+    setBusy(service);
+    try {
+      const r = await fetch("/api/admin/ride-pricing", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ service, ...patch }),
+      });
+      const b = await r.json();
+      if (!r.ok) throw new Error(b.error || "Could not save.");
+      toast.success("Fare saved — customers see this immediately.");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (rows === null) {
+    return (
+      <div className="mt-4 flex justify-center py-8">
+        <Loader2 className="animate-spin text-yellow" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 space-y-3">
+      <p className="rounded-xl border border-orange-400/25 bg-orange-400/[0.06] px-4 py-3 font-dm text-xs text-orange-200">
+        <AlertTriangle size={13} className="mr-1.5 inline" />
+        These are starting numbers, not real Rodriguan rates — change them before customers
+        book. A price saved here appears on the booking screen straight away.
+      </p>
+      {rows.map((p) => <FareRow key={p.service} p={p} busy={busy === p.service} onSave={save} />)}
+    </div>
+  );
+}
+
+function FareRow({
+  p, busy, onSave,
+}: {
+  p: PricingRow;
+  busy: boolean;
+  onSave: (service: string, patch: Record<string, unknown>) => void;
+}) {
+  // Minor units out of the database, rupees into the boxes.
+  const r = (minor: number | null | undefined) => (minor == null ? "" : String(minor / 100));
+  const [f, setF] = useState({
+    baseFare: r(p.base_fare),
+    perKm: r(p.per_km),
+    minimumFare: r(p.minimum_fare),
+    flatFare: r(p.flat_fare),
+    nightSurcharge: r(p.night_surcharge),
+    isBookable: p.is_bookable,
+  });
+  const meta = RIDE_SERVICE_META[p.service as RideService];
+  const isFlat = f.flatFare !== "";
+
+  const box = "w-full rounded-lg border border-white/12 bg-dark px-2.5 py-2 font-dm text-sm text-offwhite focus:border-yellow/50 focus:outline-none";
+  const lbl = "block font-bebas text-[9px] tracking-[0.18em] text-muted mb-1";
+
+  return (
+    <div className={`rounded-2xl border p-4 ${f.isBookable ? "border-white/10 bg-dark-card" : "border-white/[0.06] bg-dark-card opacity-60"}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-syne text-base font-bold text-offwhite">{meta?.label ?? p.service}</p>
+        <label className="inline-flex items-center gap-2 font-dm text-xs text-muted">
+          <input
+            type="checkbox"
+            checked={f.isBookable}
+            onChange={(e) => setF({ ...f, isBookable: e.target.checked })}
+            className="accent-yellow"
+          />
+          Offer this
+        </label>
+      </div>
+
+      {/* A flat fare and a per-km fare are alternatives, not a pair. Saying so
+          beats letting somebody fill both in and wonder which one won. */}
+      <p className="mt-1 font-dm text-[11px] text-muted">
+        {isFlat
+          ? "Flat fare — distance is ignored. Clear it to charge by distance instead."
+          : "Charged by distance. Set a flat fare to override it entirely."}
+      </p>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <label>
+          <span className={lbl}>FLAT FARE Rs</span>
+          <input value={f.flatFare} onChange={(e) => setF({ ...f, flatFare: e.target.value })}
+            inputMode="decimal" placeholder="—" className={box} />
+        </label>
+        <label className={isFlat ? "opacity-40" : ""}>
+          <span className={lbl}>BASE Rs</span>
+          <input value={f.baseFare} onChange={(e) => setF({ ...f, baseFare: e.target.value })}
+            inputMode="decimal" className={box} disabled={isFlat} />
+        </label>
+        <label className={isFlat ? "opacity-40" : ""}>
+          <span className={lbl}>PER KM Rs</span>
+          <input value={f.perKm} onChange={(e) => setF({ ...f, perKm: e.target.value })}
+            inputMode="decimal" className={box} disabled={isFlat} />
+        </label>
+        <label className={isFlat ? "opacity-40" : ""}>
+          <span className={lbl}>MINIMUM Rs</span>
+          <input value={f.minimumFare} onChange={(e) => setF({ ...f, minimumFare: e.target.value })}
+            inputMode="decimal" className={box} disabled={isFlat} />
+        </label>
+        <label>
+          <span className={lbl}>NIGHT EXTRA Rs</span>
+          <input value={f.nightSurcharge} onChange={(e) => setF({ ...f, nightSurcharge: e.target.value })}
+            inputMode="decimal" placeholder="0" className={box} />
+        </label>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2">
+        <button
+          onClick={() =>
+            onSave(p.service, {
+              // An empty box is null, not 0: null clears a flat fare, while 0
+              // would advertise a free ride.
+              flatFare: f.flatFare === "" ? null : Number(f.flatFare),
+              baseFare: f.baseFare === "" ? 0 : Number(f.baseFare),
+              perKm: f.perKm === "" ? 0 : Number(f.perKm),
+              minimumFare: f.minimumFare === "" ? 0 : Number(f.minimumFare),
+              nightSurcharge: f.nightSurcharge === "" ? 0 : Number(f.nightSurcharge),
+              isBookable: f.isBookable,
+            })
+          }
+          disabled={busy}
+          className="rounded-full bg-yellow px-4 py-2 font-dm text-xs font-bold text-dark disabled:opacity-50"
+        >
+          {busy ? <Loader2 size={12} className="animate-spin" /> : "Save fare"}
+        </button>
+        <a
+          href={`/taxi/book?service=${p.service}`}
+          target="_blank"
+          rel="noreferrer"
+          className="font-dm text-xs text-muted hover:text-yellow"
+        >
+          See what a customer sees →
+        </a>
+      </div>
+    </div>
   );
 }

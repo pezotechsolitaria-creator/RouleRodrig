@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { track } from "@vercel/analytics";
@@ -18,6 +20,7 @@ import {
   PenLine,
   X,
   CheckCircle,
+  PlaneTakeoff,
 } from "lucide-react";
 import AppPageHeader from "@/components/AppPageHeader";
 import type { TaxiDriver, TaxiDriverReview } from "@/lib/supabase/taxi-types";
@@ -296,6 +299,42 @@ export default function TaxiPage() {
           <p className="text-muted font-dm text-sm max-w-xl leading-relaxed">
             {tx.subtitle}
           </p>
+        </div>
+
+        {/* ── THE NEW WAY, ABOVE THE DIRECTORY ─────────────────────────────
+            The list below is still worth having — some people want to pick a
+            driver they know by name. But the platform's job is to find them one,
+            and until now the only option was to phone somebody yourself. This is
+            the path that reaches every available driver at once instead of one. */}
+        <div className="mb-7 overflow-hidden rounded-3xl border border-yellow/30 bg-gradient-to-br from-yellow/12 to-transparent p-5">
+          <p className="font-bebas text-[10px] tracking-[0.3em] text-yellow">FASTEST WAY</p>
+          <h2 className="mt-1 font-syne text-xl font-extrabold text-offwhite sm:text-2xl">
+            Tell us where you&apos;re going
+          </h2>
+          <p className="mt-1.5 max-w-md font-dm text-sm text-muted">
+            See the fare before you book. We ask every available driver at once — the first to
+            accept comes to you. No account, and you pay your driver directly.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href="/taxi/book"
+              className="inline-flex items-center gap-2 rounded-full bg-yellow px-5 py-3 font-dm text-sm font-bold text-dark transition-opacity hover:opacity-90"
+            >
+              <Car size={16} /> Book a ride
+            </Link>
+            <Link
+              href="/taxi/book?service=airport"
+              className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-3 font-dm text-sm text-offwhite transition-colors hover:border-yellow/50"
+            >
+              <PlaneTakeoff size={15} /> Airport transfer
+            </Link>
+            <Link
+              href="/taxi/track"
+              className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-3 font-dm text-sm text-muted transition-colors hover:text-offwhite"
+            >
+              Follow a ride
+            </Link>
+          </div>
         </div>
 
         {/* Driver grid */}

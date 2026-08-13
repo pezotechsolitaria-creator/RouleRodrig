@@ -260,7 +260,7 @@ begin
       -- No coordinates means no distance means no honest number. Say so rather
       -- than quoting the minimum and hoping.
       return jsonb_build_object('ok', false, 'reason', 'need_locations',
-        'message', 'Pick both places on the map so we can work out the fare.'); end if;
+        'message', 'Choose both places from the list so we can work out the fare.'); end if;
     v_km := haversine_km(p_pickup_lat, p_pickup_lng, p_dropoff_lat, p_dropoff_lng)::numeric;
     v_road := round(v_km * v_set.road_factor, 2);
     v_fare := v_p.base_fare + round(v_road * v_p.per_km)::integer;
