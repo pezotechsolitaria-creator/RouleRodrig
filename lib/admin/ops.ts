@@ -19,9 +19,20 @@ export type AttentionItem = {
   href: string;
 };
 
+/**
+ * Orders waiting, split by WHICH QUEUE they are waiting in.
+ *
+ * They were one number linking to /admin/food. But that screen is scoped to
+ * kitchens by design — a shop order or a concert order counted in that total led
+ * to a page where it can never appear, so the alert said "3 orders" and the
+ * destination showed one. Three surfaces exist and each owns its own orders:
+ * /admin/food, /admin/marketplace, /admin/events.
+ */
+export type OrderQueues = { food?: number; shop?: number; events?: number };
+
 export type AttentionCounts = {
-  openOrders?: number;
-  awaitingPaymentConfirmation?: number;
+  openOrders?: OrderQueues;
+  awaitingPaymentConfirmation?: OrderQueues;
   pendingVehicleBookings?: number;
   pendingPlaceBookings?: number;
   unhandledSubmissions?: number;
@@ -45,6 +56,13 @@ export type AttentionCounts = {
  * because "0 problems" repeated eleven times reads as noise and trains the
  * operator to stop looking at the one line that matters.
  */
+/** The three order queues, and the only screen that can show each one. */
+const ORDER_QUEUES = [
+  { key: "food" as const, noun: "Food orders", href: "/admin/food" },
+  { key: "shop" as const, noun: "Shop orders", href: "/admin/marketplace" },
+  { key: "events" as const, noun: "Ticket orders", href: "/admin/events" },
+];
+
 export function attentionItems(c: AttentionCounts): AttentionItem[] {
   const all: AttentionItem[] = [
     // SEVERITY IS ORDERING, NOT COLOUR. `critical` means a customer is waiting
@@ -58,14 +76,23 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
       key: "deliveries", label: "Deliveries need an admin decision",
       count: c.deliveriesNeedingAdmin ?? 0, severity: "critical", href: "/admin/deliveries",
     },
-    {
-      key: "awaiting-payment", label: "Bank transfers awaiting confirmation",
-      count: c.awaitingPaymentConfirmation ?? 0, severity: "critical", href: "/admin/food",
-    },
-    {
-      key: "open-orders", label: "Open orders in the queue",
-      count: c.openOrders ?? 0, severity: "critical", href: "/admin/food",
-    },
+    // One row per queue, each pointing at the screen that actually holds it.
+    ...ORDER_QUEUES.flatMap<AttentionItem>((q) => [
+      {
+        key: `awaiting-payment-${q.key}`,
+        label: `${q.noun} awaiting payment confirmation`,
+        count: c.awaitingPaymentConfirmation?.[q.key] ?? 0,
+        severity: "critical",
+        href: q.href,
+      },
+      {
+        key: `open-orders-${q.key}`,
+        label: `${q.noun} still open`,
+        count: c.openOrders?.[q.key] ?? 0,
+        severity: "critical",
+        href: q.href,
+      },
+    ]),
     {
       key: "vehicle-bookings", label: "Rental requests to confirm",
       count: c.pendingVehicleBookings ?? 0, severity: "action", href: "/admin/content#bookings",
@@ -83,13 +110,13 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
       count: c.pendingDrivers ?? 0, severity: "action", href: "/admin/deliveries",
     },
     {
-      //
-      // The href was also wrong: it pointed at /admin/content#owner_applications,
-      // but the list lives in the Command Centre's own `owners` section. Clicking
-      // the alert took you to a page that does not have it — which is why a real
-      // restaurant application looked like nothing had happened at all.
+      // The list lives in the content studio's "Listing Applications" section.
+      // It was /admin#owners, which was right while the studio WAS /admin —
+      // moving the studio to /admin/content turned it into a link that lands on
+      // the Command Center and does nothing, so a real restaurant application
+      // looked like nothing had happened at all.
       key: "owner-apps", label: "New listing applications",
-      count: c.pendingOwnerApplications ?? 0, severity: "critical", href: "/admin#owners",
+      count: c.pendingOwnerApplications ?? 0, severity: "critical", href: "/admin/content#owners",
     },
     {
       key: "submissions", label: "Unanswered contact messages",

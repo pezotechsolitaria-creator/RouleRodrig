@@ -84,12 +84,30 @@ export async function GET(req: NextRequest) {
 
   const one = (v: unknown) => (Array.isArray(v) ? (v[0] ?? null) : v);
 
-  for (const o of (orders.data ?? []) as Record<string, unknown>[]) {
+  // WHICH queue owns this order. Every hit used to link to /admin/food, which
+  // is scoped to kitchens — so searching a shop order or a ticket order found it
+  // and then sent the operator to a screen where it can never appear.
+  const orderRows = (orders.data ?? []) as Record<string, unknown>[];
+  const orderStoreIds = [...new Set(orderRows.map((o) => String(o.store_id ?? "")).filter(Boolean))];
+  const kitchenIds = new Set<string>();
+  const eventIds = new Set<string>();
+  if (orderStoreIds.length) {
+    const [k, e] = await Promise.all([
+      admin.from("food_kitchens").select("store_id").in("store_id", orderStoreIds),
+      admin.from("events").select("store_id").in("store_id", orderStoreIds),
+    ]);
+    for (const r of (k.data ?? []) as { store_id: string }[]) kitchenIds.add(r.store_id);
+    for (const r of (e.data ?? []) as { store_id: string }[]) eventIds.add(r.store_id);
+  }
+  const queueFor = (storeId: string) =>
+    kitchenIds.has(storeId) ? "/admin/food" : eventIds.has(storeId) ? "/admin/events" : "/admin/marketplace";
+
+  for (const o of orderRows) {
     hits.push({
       group: "Orders",
       title: String(o.order_number ?? "Order"),
       subtitle: `${(one(o.stores) as { name?: string } | null)?.name ?? "—"} · ${o.status} · ${o.customer_name ?? "guest"}`,
-      href: "/admin/food",
+      href: queueFor(String(o.store_id ?? "")),
     });
   }
 

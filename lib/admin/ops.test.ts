@@ -11,15 +11,15 @@ import {
 describe("attentionItems", () => {
   it("drops zero counts entirely rather than rendering '0 problems'", () => {
     expect(attentionItems({})).toEqual([]);
-    expect(attentionItems({ pendingReviews: 0, openOrders: 0 })).toEqual([]);
+    expect(attentionItems({ pendingReviews: 0, openOrders: { food: 0, shop: 0, events: 0 } })).toEqual([]);
   });
 
   it("puts a waiting customer above waiting paperwork", () => {
     const items = attentionItems({
-      pendingMerchants: 50,     // action — a person waiting on a decision
-      openOrders: 1,            // critical — a customer waiting on food
+      pendingMerchants: 50,          // action — a person waiting on a decision
+      openOrders: { food: 1 },       // critical — a customer waiting on food
     });
-    expect(items[0].key).toBe("open-orders");
+    expect(items[0].key).toBe("open-orders-food");
     // Severity beats raw count: fifty applications do not outrank one order.
     expect(items[1].key).toBe("merchants");
   });
@@ -34,22 +34,53 @@ describe("attentionItems", () => {
 
   it("treats money in limbo as critical", () => {
     const [first] = attentionItems({
-      awaitingPaymentConfirmation: 1,
+      awaitingPaymentConfirmation: { shop: 1 },
       pendingReviews: 30,
     });
-    expect(first.key).toBe("awaiting-payment");
+    expect(first.key).toBe("awaiting-payment-shop");
     expect(first.severity).toBe("critical");
   });
 
   it("gives every item a destination — an alert with nowhere to click is a nag", () => {
+    const q = { food: 1, shop: 1, events: 1 };
     const items = attentionItems({
-      openOrders: 1, pendingVehicleBookings: 1, pendingPlaceBookings: 1,
+      openOrders: q, awaitingPaymentConfirmation: q,
+      pendingVehicleBookings: 1, pendingPlaceBookings: 1,
       unhandledSubmissions: 1, pendingReviews: 1, pendingMerchants: 1,
       pendingOwnerApplications: 1, pendingDrivers: 1, deliveriesNeedingAdmin: 1,
-      lowStockVariants: 1, awaitingPaymentConfirmation: 1,
+      lowStockVariants: 1,
     });
-    expect(items).toHaveLength(11);
+    // 9 singletons + 3 open-order queues + 3 awaiting-payment queues.
+    expect(items).toHaveLength(15);
     for (const i of items) expect(i.href.startsWith("/admin")).toBe(true);
+  });
+
+  it("sends each order queue to the screen that can actually show it", () => {
+    // The bug: both counts were one number linking to /admin/food, which is
+    // scoped to kitchens — so a shop or ticket order was counted in an alert
+    // whose destination could never display it.
+    const items = attentionItems({
+      openOrders: { food: 1, shop: 1, events: 1 },
+      awaitingPaymentConfirmation: { shop: 1 },
+    });
+    const href = (k: string) => items.find((i) => i.key === k)?.href;
+    expect(href("open-orders-food")).toBe("/admin/food");
+    expect(href("open-orders-shop")).toBe("/admin/marketplace");
+    expect(href("open-orders-events")).toBe("/admin/events");
+    expect(href("awaiting-payment-shop")).toBe("/admin/marketplace");
+  });
+
+  it("names the queue in the label, so the number is never ambiguous", () => {
+    const [item] = attentionItems({ openOrders: { events: 2 } });
+    expect(item.label).toBe("Ticket orders still open");
+  });
+
+  it("points listing applications at the studio section that holds them", () => {
+    // /admin#owners was right while the studio WAS /admin. Moving the studio to
+    // /admin/content turned it into a link that lands on the Command Center and
+    // does nothing.
+    const [item] = attentionItems({ pendingOwnerApplications: 1 });
+    expect(item.href).toBe("/admin/content#owners");
   });
 });
 

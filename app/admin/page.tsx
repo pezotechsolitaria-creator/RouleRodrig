@@ -9,7 +9,7 @@ import { verifySession, COOKIE_NAME } from "@/lib/auth";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { centsToDecimalString } from "@/lib/money";
 import {
-  attentionItems, mergeActivity, type ActivityEvent, type AttentionItem,
+  attentionItems, mergeActivity, type ActivityEvent, type AttentionItem, type OrderQueues,
 } from "@/lib/admin/ops";
 
 // ── The Command Center ──────────────────────────────────────────────────────
@@ -62,9 +62,13 @@ export default async function CommandCenterPage() {
     pendingMerchants, ownerApps, pendingDrivers, deliveriesAdmin,
     variants,
     recentOrders, recentBookings, recentPlaces, recentLeads, recentContacts,
+    kitchenStores, eventStores,
   ] = await Promise.all([
-    admin.from("orders").select("id", { count: "exact", head: true }).in("status", OPEN_ORDER_STATUSES),
-    admin.from("orders").select("id", { count: "exact", head: true }).eq("status", "awaiting_payment_confirmation"),
+    // WITH store_id, not a bare count. These two used to be single numbers that
+    // linked to /admin/food — a screen scoped to kitchens — so a shop order or a
+    // ticket order was counted in an alert whose destination could never show it.
+    admin.from("orders").select("store_id").in("status", OPEN_ORDER_STATUSES).limit(2000),
+    admin.from("orders").select("store_id").eq("status", "awaiting_payment_confirmation").limit(2000),
     admin.from("orders").select("total, status").gte("placed_at", midnight),
     admin.from("bookings").select("id", { count: "exact", head: true }).gte("created_at", midnight),
     admin.from("bookings").select("id", { count: "exact", head: true }).eq("status", "pending"),
@@ -89,6 +93,9 @@ export default async function CommandCenterPage() {
       .order("created_at", { ascending: false }).limit(6),
     admin.from("contact_submissions").select("name, created_at")
       .order("created_at", { ascending: false }).limit(4),
+    // Which stores are kitchens, and which are events. Everything else is a shop.
+    admin.from("food_kitchens").select("store_id"),
+    admin.from("events").select("store_id"),
   ]);
 
   const todayRows = (todaysOrders.data ?? []) as { total: number; status: string }[];
@@ -98,9 +105,23 @@ export default async function CommandCenterPage() {
   const lowStock = ((variants.data ?? []) as { stock_quantity: number; low_stock_threshold: number; is_active: boolean }[])
     .filter((v) => v.is_active && v.low_stock_threshold > 0 && v.stock_quantity <= v.low_stock_threshold).length;
 
+  // Bucket each waiting order by the queue that can actually act on it.
+  const kitchenIds = new Set(((kitchenStores.data ?? []) as { store_id: string }[]).map((k) => k.store_id));
+  const eventIds = new Set(((eventStores.data ?? []) as { store_id: string }[]).map((e) => e.store_id));
+  const byQueue = (rows: { store_id: string | null }[] | null): OrderQueues => {
+    const q = { food: 0, shop: 0, events: 0 };
+    for (const r of rows ?? []) {
+      const id = r.store_id ?? "";
+      if (kitchenIds.has(id)) q.food += 1;
+      else if (eventIds.has(id)) q.events += 1;
+      else q.shop += 1;
+    }
+    return q;
+  };
+
   const attention: AttentionItem[] = attentionItems({
-    openOrders: count(openOrders),
-    awaitingPaymentConfirmation: count(awaiting),
+    openOrders: byQueue(openOrders.data as { store_id: string | null }[] | null),
+    awaitingPaymentConfirmation: byQueue(awaiting.data as { store_id: string | null }[] | null),
     pendingVehicleBookings: count(pendingBookings),
     pendingPlaceBookings: count(pendingPlaces),
     unhandledSubmissions: count(submissions),

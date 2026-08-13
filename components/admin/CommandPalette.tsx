@@ -28,6 +28,7 @@ const ACTIONS: Hit[] = [
   { group: "Go", title: "Massage, fishing & sea trips", subtitle: "Add and edit bookable services", href: "/admin/content#services" },
   { group: "Go", title: "Customers", subtitle: "Accounts and their activity", href: "/admin/customers" },
   { group: "Go", title: "Events & tickets", subtitle: "Create, publish and monitor events", href: "/admin/events" },
+  { group: "Go", title: "Shop orders", subtitle: "The marketplace queue and stock", href: "/admin/marketplace" },
   { group: "Go", title: "Ticketing fees", subtitle: "What the platform charges organisers", href: "/admin/managed-ticketing" },
   { group: "Go", title: "Event organisers", subtitle: "Scoped organiser accounts", href: "/admin/organizers" },
   { group: "Go", title: "Content studio", subtitle: "Everything the website shows", href: "/admin/content" },
