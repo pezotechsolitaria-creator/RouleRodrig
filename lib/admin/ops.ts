@@ -53,6 +53,14 @@ export type AttentionCounts = {
    * form and nothing anywhere said so.
    */
   orderableDishes?: number;
+  /**
+   * Kitchens that are LIVE and offering nothing.
+   *
+   * The opposite of orderableDishes and just as invisible. A customer who finds
+   * an open restaurant with an empty menu concludes the site is broken, not
+   * that the kitchen is quiet.
+   */
+  emptyLiveKitchens?: number;
 };
 
 /**
@@ -96,6 +104,15 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
       label: "Food ordering is OFF — customers see the concierge form, not a menu",
       count: (c.orderableDishes ?? 1) === 0 ? 1 : 0,
       severity: "critical",
+      href: "/admin/food",
+    },
+    // A live restaurant with an empty menu. Not critical — nothing is broken
+    // and no customer is waiting — but somebody will walk into it today.
+    {
+      key: "empty-live-kitchen",
+      label: "Live kitchens with no dishes on sale",
+      count: c.emptyLiveKitchens ?? 0,
+      severity: "action",
       href: "/admin/food",
     },
     // One row per queue, each pointing at the screen that actually holds it.

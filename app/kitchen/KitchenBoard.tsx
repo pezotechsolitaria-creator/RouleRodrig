@@ -42,7 +42,14 @@ import MenuPanel from "./MenuPanel";
 // a cancelled order from three hours ago used to sort above an order that
 // needed cooking now.
 
-type Item = { name: string; variant: string | null; qty: number };
+type Item = {
+  name: string;
+  variant: string | null;
+  qty: number;
+  /** M88 — lets the cook mark this dish sold out without leaving the order. */
+  productId?: string | null;
+  soldOut?: boolean;
+};
 type Order = {
   id: string;
   orderNumber: string;
@@ -385,6 +392,35 @@ Tell the customer why — they will see this.`,
     });
   }
 
+  // M88 — running out is discovered HERE, reading the order that asks for the
+  // fish, not in the menu editor. Marking it from the card is one tap at the
+  // moment of discovery; the alternative is leaving the order screen in the
+  // middle of service, finding the dish in a list and coming back, which is
+  // why the next customer still gets offered it.
+  //
+  // Its own request rather than post(): the dish verbs take a productId and no
+  // orderId, and relying on zod to strip a stray one would be an accident
+  // waiting to be someone else's bug.
+  async function markSoldOut(productId: string, soldOut: boolean) {
+    if (busy) return;
+    setBusy(productId);
+    setError(null);
+    try {
+      const res = await fetch("/api/kitchen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, soldOut }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "That didn't save.");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "That didn't save.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function advance(order: Order) {
     const next = NEXT[order.status];
     if (!next) return;
@@ -477,12 +513,40 @@ Tell the customer why — they will see this.`,
         {/* The order itself, big enough to read from arm's length. */}
         <ul className="mt-3 space-y-1">
           {o.items.map((it, i) => (
-            <li key={i} className="flex gap-2 font-dm text-base text-offwhite">
+            <li key={i} className="flex items-start gap-2 font-dm text-base text-offwhite">
               <span className="font-syne font-bold text-yellow">{it.qty}×</span>
-              <span>
+              <span className="min-w-0 flex-1">
                 {it.name}
                 {it.variant && <span className="text-muted"> · {it.variant}</span>}
+                {/* Already off today's menu — so a cook reading three orders
+                    for the same fish marks it once and sees it on all of them. */}
+                {it.soldOut && (
+                  <span className="ml-1.5 whitespace-nowrap rounded-full bg-red-500/15 px-2 py-0.5 font-bebas text-[10px] tracking-[0.15em] text-red-300">
+                    SOLD OUT
+                  </span>
+                )}
               </span>
+              {/* Small, right-aligned and quiet, like "Cancel this order": it
+                  changes what every future customer sees, so it must not be
+                  where a thumb lands by accident. It does NOT affect THIS
+                  order — the food is already sold and still has to be made.
+                  Hidden on finished cards, which are today's record.
+                  productId is absent for anything that is not a food item. */}
+              {!o.finished && it.productId && (
+                <button
+                  onClick={() => void markSoldOut(it.productId!, !it.soldOut)}
+                  disabled={busy !== null}
+                  className="-my-1 shrink-0 rounded-lg px-2 py-1 font-dm text-xs text-muted underline underline-offset-2 disabled:opacity-50"
+                >
+                  {busy === it.productId ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : it.soldOut ? (
+                    "Put back on"
+                  ) : (
+                    "Ran out"
+                  )}
+                </button>
+              )}
             </li>
           ))}
         </ul>

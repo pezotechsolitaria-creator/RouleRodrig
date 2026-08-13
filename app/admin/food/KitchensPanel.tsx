@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, Phone, MapPin, Clock, RotateCcw, EyeOff, Eye, Trash2 } from "lucide-react";
+import { Loader2, Plus, Pencil, Phone, MapPin, Clock, RotateCcw, EyeOff, Eye, Trash2, Check, X } from "lucide-react";
 import { foodWrite, type AdminKitchen } from "./types";
 
 // Kitchens and the people who cook in them.
@@ -222,6 +222,57 @@ Hide it now instead?`)) await setStatus(k, "hidden");
                     <span className="inline-flex items-center gap-1"><MapPin size={12} /> {k.address}</span>
                   )}
                 </p>
+                {/* ── Can a customer actually order from this kitchen? ────────
+                    Four facts decide it, every one of them already knowable and
+                    none of them ever shown together. That is how four kitchens
+                    came to be built, stocked with dishes, and completely
+                    invisible: each screen showed its own piece and nobody had
+                    the whole sentence.
+
+                    Only shown while something is missing. A kitchen that is
+                    trading does not need a checklist telling it so. */}
+                {(() => {
+                  const steps = [
+                    { ok: k.liveDishCount > 0, label: "Dishes published" },
+                    { ok: k.hasPayment !== false, label: "A way to pay" },
+                    { ok: k.hasHours !== false, label: "Opening hours" },
+                    { ok: k.status === "active", label: "Kitchen set live" },
+                  ];
+                  const missing = steps.filter((s) => !s.ok);
+                  if (missing.length === 0) return null;
+                  return (
+                    <div className="mt-2.5 rounded-xl border border-orange-400/40 bg-orange-400/[0.07] p-3">
+                      <p className="font-syne text-sm font-bold text-orange-200">
+                        Customers cannot order from this kitchen yet
+                      </p>
+                      <ul className="mt-1.5 space-y-1">
+                        {steps.map((s) => (
+                          <li
+                            key={s.label}
+                            className={`flex items-center gap-1.5 font-dm text-xs ${
+                              s.ok ? "text-muted" : "text-orange-200"
+                            }`}
+                          >
+                            {s.ok ? <Check size={12} /> : <X size={12} />} {s.label}
+                          </li>
+                        ))}
+                      </ul>
+                      {/* The last step is one tap, right here. It was the step
+                          that got missed on every kitchen, and it lived on a
+                          different screen from the three before it. */}
+                      {k.status !== "active" && missing.length === 1 && (
+                        <button
+                          onClick={() => void setStatus(k, "active")}
+                          disabled={busy !== null}
+                          className="mt-2.5 w-full rounded-xl bg-yellow py-2 font-syne text-sm font-bold text-dark disabled:opacity-50"
+                        >
+                          Everything else is ready — set {k.name} live
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {(k.cookerName || k.cookerPhone) && (
                   <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg bg-white/5 px-2 py-1 font-dm text-xs text-offwhite">
                     <span className="font-bebas text-[10px] tracking-widest text-yellow">COOKER</span>

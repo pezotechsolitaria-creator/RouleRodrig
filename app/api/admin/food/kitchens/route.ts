@@ -55,7 +55,10 @@ export async function GET(req: NextRequest) {
       // Read back, because the editor lets you change it. It did not, so the
       // edit form defaulted the checkbox to ON and every save silently
       // re-enabled Roulé Rodrigues delivery for a kitchen that had it off.
-      ? admin.from("store_payment_settings").select("store_id, offers_rr_delivery").in("store_id", storeIds)
+      ? admin
+          .from("store_payment_settings")
+          .select("store_id, offers_rr_delivery, accepts_cash, accepts_bank_transfer")
+          .in("store_id", storeIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
   if (opsRes.error) console.error("kitchen ops read failed", opsRes.error);
@@ -67,7 +70,12 @@ export async function GET(req: NextRequest) {
     ),
   );
   const payByStore = new Map(
-    ((paymentRes.data ?? []) as unknown as { store_id: string; offers_rr_delivery?: boolean }[]).map(
+    ((paymentRes.data ?? []) as unknown as {
+      store_id: string;
+      offers_rr_delivery?: boolean;
+      accepts_cash?: boolean;
+      accepts_bank_transfer?: boolean;
+    }[]).map(
       (r) => [r.store_id, r] as const,
     ),
   );
@@ -92,6 +100,16 @@ export async function GET(req: NextRequest) {
     .from("products")
     .select("store_id, status")
     .in("store_id", rows.map((r) => r.store_id));
+
+  // Opening hours, for the go-live checklist below. A kitchen with no hours is
+  // closed at every moment of every day — store_schedule_status() says so, and
+  // the customer simply cannot order. Counted here rather than inferred in the
+  // browser so the checklist and the checkout agree.
+  const { data: hourRows } = await admin
+    .from("store_hours")
+    .select("store_id")
+    .in("store_id", rows.map((r) => r.store_id));
+  const hasHours = new Set(((hourRows ?? []) as { store_id: string }[]).map((h) => h.store_id));
 
   const dishCount = new Map<string, { total: number; live: number }>();
   for (const p of (counts ?? []) as { store_id: string; status: string }[]) {
@@ -127,6 +145,14 @@ export async function GET(req: NextRequest) {
           payByStore.get(r.store_id)?.offers_rr_delivery ?? false,
         dishCount: counted.total,
         liveDishCount: counted.live,
+        // ── The four facts that decide whether a customer can order ────────
+        // Every one of these was already knowable and none was shown together,
+        // which is how four kitchens ended up built, stocked and invisible.
+        hasPayment: Boolean(
+          payByStore.get(r.store_id)?.accepts_cash ||
+            payByStore.get(r.store_id)?.accepts_bank_transfer,
+        ),
+        hasHours: hasHours.has(r.store_id),
       };
     }),
   });

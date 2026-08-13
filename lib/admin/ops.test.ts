@@ -170,3 +170,40 @@ describe("food ordering going dark", () => {
     expect(food?.count ?? 0).toBe(0);
   });
 });
+
+describe("a live kitchen with an empty menu", () => {
+  // Found by shopping the site: Chez Banane was active and visible with zero
+  // sellable dishes. Nothing is broken and nobody is waiting, so it is not
+  // critical — but a customer who opens an OPEN restaurant and finds no food
+  // concludes the site is broken, not that the kitchen is quiet.
+  it("names them when there are any", () => {
+    const item = attentionItems({ emptyLiveKitchens: 1 }).find((i) => i.key === "empty-live-kitchen");
+    expect(item, "no empty-live-kitchen item at all").toBeDefined();
+    expect(item!.count).toBe(1);
+    expect(item!.severity).toBe("action");
+    expect(item!.href).toBe("/admin/food");
+  });
+
+  it("ranks below the alert that ordering is off entirely", () => {
+    // Both fire together on the state production is in today, and the order
+    // has to survive a refactor: un-pausing a kitchen with no dishes fixes
+    // neither, so "nothing is orderable" must stay the line read first.
+    const items = attentionItems({ orderableDishes: 0, emptyLiveKitchens: 1 });
+    const offline = items.findIndex((i) => i.key === "food-offline");
+    const empty = items.findIndex((i) => i.key === "empty-live-kitchen");
+    expect(offline).toBeGreaterThanOrEqual(0);
+    expect(empty).toBeGreaterThan(offline);
+  });
+
+  it("says nothing when every live kitchen has food", () => {
+    const item = attentionItems({ emptyLiveKitchens: 0 }).find((i) => i.key === "empty-live-kitchen");
+    expect(item?.count ?? 0).toBe(0);
+  });
+
+  it("stays quiet when the count is unknown", () => {
+    // Unlike food-offline this one counts work rather than reporting a state,
+    // so a missing count is simply nothing to say.
+    const item = attentionItems({}).find((i) => i.key === "empty-live-kitchen");
+    expect(item?.count ?? 0).toBe(0);
+  });
+});

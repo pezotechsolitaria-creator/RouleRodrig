@@ -22,6 +22,10 @@ export type AdminKitchen = {
   offersRrDelivery: boolean;
   dishCount: number;
   liveDishCount: number;
+  /** Accepts at least one payment method. Without it checkout has nothing to offer. */
+  hasPayment?: boolean;
+  /** Has any opening hours at all. With none, the shop is shut every hour of every day. */
+  hasHours?: boolean;
 };
 
 export type AdminVariant = {
