@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Gauge, UtensilsCrossed, Truck, Clock, Store, Users, Ticket, UserCog,
   PenSquare, MapPinned, Wallet, MessageCircle, ScrollText, Search, Menu, X,
-  ExternalLink, LogOut, Waves, Bike, Activity, Receipt, ChefHat, ShoppingBag, Car } from "lucide-react";
+  ExternalLink, LogOut, Waves, Bike, Activity, Receipt, ChefHat, ShoppingBag, Car, ClipboardList } from "lucide-react";
 import CommandPalette from "./CommandPalette";
 
 // ── The control plane's frame ───────────────────────────────────────────────
@@ -40,6 +40,9 @@ const NAV: NavGroup[] = [
       // First in the group on purpose: this is the page that answers "is
       // anything wrong right now", so it is the one to open first.
       { href: "/admin/operations", label: "What needs you", icon: Activity },
+      // Above the three specialist desks because it is the only one that can
+      // answer "what is waiting for me" — each of those sees a third of it.
+      { href: "/admin/orders", label: "All orders", icon: ClipboardList },
       { href: "/admin/statement", label: "Order statement", icon: Receipt },
       { href: "/admin/kitchen-staff", label: "Kitchen teams", icon: ChefHat },
       { href: "/admin/food", label: "Food orders", icon: UtensilsCrossed },
