@@ -112,21 +112,24 @@ function HeroBackdrop() {
  * Measured from the moment the launch splash lifts, not from page load — the
  * splash owns the first 1.8s and the headline waits for it (see gateOpen).
  *
- *   START + (letters - 1) x STAGGER + LETTER   the phrase completes   ~4.5s
- *   + HOLD_MS                                  it is held             ~6.7s
- *   + DISSOLVE / REVEAL                        it opens into video    ~8.2s
+ *   START + (letters - 1) x STAGGER + LETTER   the phrase completes   ~4.9s
+ *   + HOLD_MS                                  it is held             ~7.4s
+ *   + DISSOLVE / REVEAL                        it opens into video    ~9.0s
+ *
+ * Plus the ~1.6s splash ahead of it, that is very close to ten seconds from
+ * page load, which is what the owner asked for after seeing 9.5s.
  *
  * Tuning: STAGGER is the rhythm, HOLD_MS is how long it sits. Those two are
  * what to change; the rest only affect how soft each individual move is.
  */
 const INTRO = {
   START: 0.25,
-  STAGGER: 0.42,
+  STAGGER: 0.47,
   LETTER: 0.9,
   LINE_GAP: 0.7,
-  HOLD_MS: 2200,
-  DISSOLVE: 1.5,
-  REVEAL: 1.6,
+  HOLD_MS: 2500,
+  DISSOLVE: 1.6,
+  REVEAL: 1.7,
 } as const;
 
 export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: boolean }) {
