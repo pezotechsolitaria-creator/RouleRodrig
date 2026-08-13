@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban, ChevronLeft, ChevronRight, Star, Maximize2, Snowflake, Fuel, MapPin, Bluetooth, DoorOpen, Check, LifeBuoy, Flame } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { DEFAULT_CONTENT, type FleetItem, type VehicleCategory } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
+import { typeChips, shouldShowTypeFilter, applyTypeFilter } from "@/lib/vehicle-filter";
 import { useCurrency } from "@/context/CurrencyContext";
 import ScooterDetailModal from "@/components/ScooterDetailModal";
 import SaveButton from "@/components/SaveButton";
@@ -189,7 +190,11 @@ export default function Fleet({
   const { t, language } = useLanguage();
   const { convert } = useCurrency();
   const [activeCat, setActiveCat] = useState<string>("all");
+  // Body style within the active category — "suv", "sedan". Separate state from
+  // activeCat because the two filters compose: Cars → SUV.
+  const [activeType, setActiveType] = useState<string>("all");
   const [detail, setDetail] = useState<{ scooter: FleetItem; specs: Spec[]; included: string[] } | null>(null);
+  const calm = useReducedMotion();
 
   const enabledIds = new Set(cats.filter((c) => c.enabled).map((c) => c.id));
   const knownIds = new Set(cats.map((c) => c.id));
@@ -212,9 +217,36 @@ export default function Fleet({
       ? visibleItems.filter((it) => catOf(it) === activeCat)
       : visibleItems;
 
+  // ── Body-style filter (SUV / Sedan / 4x4 …) ──────────────────────────────
+  //
+  // The category answers "what am I renting"; this answers "which one". On
+  // /browse/cars the page has already narrowed to one category, so these chips
+  // are the only filter on screen and the ONLY way to tell four cars apart
+  // without reading every card.
+  //
+  // Which chips appear is derived, never declared: a style is offered only if
+  // the owner enabled it AND a bookable vehicle currently carries it. That is
+  // what makes a filter trustworthy — every chip returns results, so tapping
+  // one can never produce an empty grid, and a style disappears on its own the
+  // day the last car of that shape is taken off the site.
+  const activeCatDef =
+    showTabs && activeCat !== "all"
+      ? cats.find((c) => c.id === activeCat)
+      : usedCats.length === 1
+      ? usedCats[0]
+      : undefined;
+  const typeChipList = typeChips(baseItems, activeCatDef?.types);
+  const showTypes = shouldShowTypeFilter(typeChipList);
+  const typeActive = showTypes && activeType !== "all" && typeChipList.some((c) => c.id === activeType);
+  const typedItems = showTypes ? applyTypeFilter(baseItems, typeChipList, activeType) : baseItems;
+
+  // Switching category must drop a body style that belonged to the old one,
+  // or picking Scooters after SUV would silently show nothing.
+  useEffect(() => setActiveType("all"), [activeCat]);
+
   // Available vehicles first, sold-out / unavailable ones last.
   const isOut = (it: FleetItem) => it.available === false || it.soldOutToday === true;
-  const items = [...baseItems].sort((a, b) => Number(isOut(a)) - Number(isOut(b)));
+  const items = [...typedItems].sort((a, b) => Number(isOut(a)) - Number(isOut(b)));
 
   if (visibleItems.length === 0) return null;
 
@@ -256,6 +288,69 @@ export default function Fleet({
                 {c.label}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* ── Body style ────────────────────────────────────────────────────
+            A second, subordinate tier. When the category tabs above are on
+            screen those own the solid-gold active state, so these take the
+            quieter gold-wash treatment and the hierarchy stays legible; on a
+            single-category page like /browse/cars there is no row above, these
+            ARE the filter, and they take the solid pill. Two states for one
+            control, chosen by what else is on the page — not two components. */}
+        {showTypes && (
+          <div
+            role="group"
+            aria-label={`Filter ${(activeCatDef?.label ?? "vehicles").toLowerCase()} by type`}
+            className={`flex flex-wrap items-center gap-2 ${showTabs ? "-mt-5 mb-9" : "mb-10"}`}
+          >
+            {[
+              { id: "all", label: t.fleet.allTypes, n: baseItems.length },
+              ...typeChipList.map((c) => ({ id: c.id, label: c.label, n: c.count })),
+            ].map((chip) => {
+              const on = chip.id === "all" ? !typeActive : activeType === chip.id;
+              const solid = !showTabs;
+              return (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => setActiveType(chip.id)}
+                  aria-pressed={on}
+                  // min-h-11 is the 44px touch target, not a look: these sit
+                  // under a thumb on a phone, and at their natural 39px they
+                  // were the smallest tappable thing on the page.
+                  className={`relative inline-flex min-h-11 items-center rounded-full border px-4 py-2 font-syne text-[13px] font-bold transition-colors ${
+                    on
+                      ? solid
+                        ? "border-transparent text-dark"
+                        : "border-yellow/40 bg-yellow/12 text-yellow"
+                      : "border-white/10 bg-white/[0.03] text-muted hover:border-yellow/30 hover:text-offwhite"
+                  }`}
+                >
+                  {/* The gold travels between chips instead of blinking out of
+                      one and into another — the single piece of authored motion
+                      in this row, and the thing that makes it feel like a
+                      control rather than a set of links. */}
+                  {on && solid && (
+                    calm ? (
+                      <span className="absolute inset-0 rounded-full bg-yellow" />
+                    ) : (
+                      <motion.span
+                        layoutId="fleet-type-pill"
+                        className="absolute inset-0 rounded-full bg-yellow"
+                        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                      />
+                    )
+                  )}
+                  <span className="relative z-10">
+                    {chip.label}{" "}
+                    <span className={`ml-1 font-dm font-normal tabular-nums ${on && solid ? "text-dark/70" : ""}`}>
+                      {chip.n}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
 

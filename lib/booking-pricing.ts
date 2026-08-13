@@ -12,10 +12,13 @@
 // Pricing rules (owner's):
 //   * daily rate parsed from the fleet item's display price ("Rs 1,200/day")
 //   * 3+ days: 10% off the daily rate; 7+ days: 15% off
-//   * delivery: scooters Rs 200 each way (Rs 400), cars delivered free
+//   * delivery: whatever the owner set on the vehicle's category in /admin
 //   * deposit to confirm: cars 50%, scooters 25% — balance settled at pickup
 
 export type PriceableVehicle = { price: string; category?: string };
+
+/** The only part of a vehicle category this module needs to price a rental. */
+export type DeliveryPricedCategory = { id: string; deliveryFee?: number };
 
 export const DELIVERY_EACH_WAY = 200;
 
@@ -51,9 +54,40 @@ export function extractDailyPrice(priceStr: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-export function deliveryFee(vehicle: PriceableVehicle | undefined): number {
+/**
+ * What delivery + collection costs for this vehicle.
+ *
+ * Until 2026-08-13 this was a constant: Rs 200 each way for anything that
+ * wasn't a car, and free for cars. Both numbers were invisible to the owner and
+ * unchangeable without a deploy — so the day fuel moved, or the day a car
+ * needed a delivery charge, the site was wrong and there was nothing he could
+ * do about it from /admin. The figure now comes from the vehicle's own category
+ * (see VehicleCategory.deliveryFee), which he edits like any other content.
+ *
+ * `categories` is optional ONLY so that a call site which genuinely has no
+ * content to hand still prices something sane rather than crashing. Every real
+ * call site passes it, and both of them — the booking API and the customer's
+ * summary — must pass the SAME list, or the customer would be quoted one figure
+ * and charged another.
+ *
+ * The fallback is the pre-2026-08-13 rule, exactly, so a category the owner has
+ * never opened keeps charging what it charged yesterday. A category with
+ * `deliveryFee: 0` is FREE and is not the same thing as a category with no fee
+ * set — hence the explicit undefined check rather than `??` on a falsy number.
+ */
+export function deliveryFee(
+  vehicle: PriceableVehicle | undefined,
+  categories?: DeliveryPricedCategory[],
+): number {
   if (!vehicle) return 0;
-  return (vehicle.category ?? "scooter") === "car" ? 0 : DELIVERY_EACH_WAY * 2;
+  const catId = vehicle.category ?? "scooter";
+  const cat = categories?.find((c) => c.id === catId);
+  if (cat && typeof cat.deliveryFee === "number" && Number.isFinite(cat.deliveryFee)) {
+    // Negative would be a discount the rest of the pricing cannot honour, and a
+    // fraction of a rupee cannot be charged — clamp rather than propagate.
+    return Math.max(0, Math.round(cat.deliveryFee));
+  }
+  return catId === "car" ? 0 : DELIVERY_EACH_WAY * 2;
 }
 
 export function depositPct(vehicle: PriceableVehicle | undefined): number {
@@ -69,7 +103,11 @@ export type PriceBreakdown = {
   pct: number;
 };
 
-export function priceBreakdown(vehicle: PriceableVehicle | undefined, days: number): PriceBreakdown | null {
+export function priceBreakdown(
+  vehicle: PriceableVehicle | undefined,
+  days: number,
+  categories?: DeliveryPricedCategory[],
+): PriceBreakdown | null {
   if (!vehicle || days <= 0) return null;
   const daily = extractDailyPrice(vehicle.price);
   if (!daily) return null;
@@ -77,7 +115,7 @@ export function priceBreakdown(vehicle: PriceableVehicle | undefined, days: numb
   if (days >= 7) rate = Math.round(daily * 0.85);
   else if (days >= 3) rate = Math.round(daily * 0.9);
   const rental = rate * days;
-  const delivery = deliveryFee(vehicle);
+  const delivery = deliveryFee(vehicle, categories);
   const total = rental + delivery;
   const pct = depositPct(vehicle);
   const deposit = Math.round((total * pct) / 100);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  deliveryFee,
   extractDailyPrice,
   priceBreakdown,
   rentalDays,
@@ -83,6 +84,69 @@ describe("priceBreakdown", () => {
     expect(priceBreakdown(SCOOTER, 0)).toBeNull();
     expect(priceBreakdown({ price: "on request" }, 2)).toBeNull();
     expect(priceBreakdown(undefined, 2)).toBeNull();
+  });
+});
+
+// ── Delivery is the owner's number now, not a constant ─────────────────────
+//
+// The rule it replaces (cars free, everything else Rs 400) was unreachable from
+// /admin. These lock in the two things that could go wrong in the swap: an
+// untouched category must keep charging yesterday's figure, and an explicit
+// Rs 0 must mean FREE rather than "unset" — the classic falsy-number bug, and
+// the one that would have silently charged Rs 400 for free scooter delivery.
+describe("deliveryFee — owner-set, per category", () => {
+  const CATS = [
+    { id: "scooter", deliveryFee: 250 },
+    { id: "car", deliveryFee: 600 },
+    { id: "kayak" }, // never opened in admin
+    { id: "ebike", deliveryFee: 0 }, // deliberately free
+  ];
+
+  it("charges what the owner typed for that category", () => {
+    expect(deliveryFee(SCOOTER, CATS)).toBe(250);
+    expect(deliveryFee(CAR, CATS)).toBe(600);
+  });
+
+  it("treats an explicit 0 as free, not as unset", () => {
+    expect(deliveryFee({ price: "Rs 500", category: "ebike" }, CATS)).toBe(0);
+  });
+
+  it("falls back to the pre-2026-08-13 rule for a category with no fee set", () => {
+    expect(deliveryFee({ price: "Rs 500", category: "kayak" }, CATS)).toBe(400);
+  });
+
+  it("falls back for a vehicle whose category is not in the list at all", () => {
+    expect(deliveryFee({ price: "Rs 500", category: "jetski" }, CATS)).toBe(400);
+    expect(deliveryFee(CAR, CATS.filter((c) => c.id !== "car"))).toBe(0);
+  });
+
+  it("keeps the old behaviour when no categories are passed", () => {
+    expect(deliveryFee(SCOOTER)).toBe(400);
+    expect(deliveryFee(CAR)).toBe(0);
+  });
+
+  it("refuses a negative or fractional fee rather than charging it", () => {
+    expect(deliveryFee(SCOOTER, [{ id: "scooter", deliveryFee: -500 }])).toBe(0);
+    expect(deliveryFee(SCOOTER, [{ id: "scooter", deliveryFee: 249.6 }])).toBe(250);
+    expect(deliveryFee(SCOOTER, [{ id: "scooter", deliveryFee: NaN }])).toBe(400);
+  });
+
+  it("flows through priceBreakdown into the total and the deposit", () => {
+    const b = priceBreakdown(CAR, 2, [{ id: "car", deliveryFee: 600 }])!;
+    expect(b.delivery).toBe(600);
+    expect(b.total).toBe(b.rental + 600);
+    expect(b.deposit).toBe(Math.round(b.total / 2));
+    expect(b.deposit + b.balance).toBe(b.total);
+  });
+
+  // The customer's summary and the server's charge call the same function, so
+  // the only way they can disagree is by being handed different categories.
+  it("gives the same answer for the same category list — the quote IS the charge", () => {
+    const cats = [{ id: "scooter", deliveryFee: 275 }];
+    const shown = priceBreakdown(SCOOTER, 4, cats)!;
+    const charged = priceBreakdown(SCOOTER, 4, cats)!;
+    expect(charged.total).toBe(shown.total);
+    expect(charged.deposit).toBe(shown.deposit);
   });
 });
 

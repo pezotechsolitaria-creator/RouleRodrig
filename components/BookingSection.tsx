@@ -23,7 +23,7 @@ import {
   ArrowRight,
   ShieldCheck,
 } from "lucide-react";
-import type { FleetItem } from "@/lib/defaults";
+import type { FleetItem, VehicleCategory } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
@@ -63,7 +63,18 @@ function daysBetween(a: string, b: string): number {
   return Math.max(0, Math.round(diff / 86_400_000));
 }
 
-export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[]; whatsapp?: string }) {
+export default function BookingSection({
+  fleet,
+  categories,
+  whatsapp,
+}: {
+  fleet?: FleetItem[];
+  /** The owner's vehicle categories — where the delivery fee lives. The booking
+   *  API prices the same rental from the same list, so a summary rendered
+   *  without this would quote one figure and charge another. */
+  categories?: VehicleCategory[];
+  whatsapp?: string;
+}) {
   const { t, language } = useLanguage();
   const { convert } = useCurrency();
   const scooters = (fleet ?? []).filter((s) => s.available !== false && !s.soldOutToday);
@@ -113,7 +124,7 @@ export default function BookingSection({ fleet, whatsapp }: { fleet?: FleetItem[
   // next day so the customer isn't forced to pick two days for one day's hire.
   const effectiveEnd = form.end_date || (form.start_date ? isoAddDays(form.start_date, 1) : "");
   const days = daysBetween(form.start_date, effectiveEnd);
-  const breakdown = priceBreakdown(selectedScooter, days);
+  const breakdown = priceBreakdown(selectedScooter, days, categories);
   const estimatedTotal = breakdown ? `Rs ${breakdown.total.toLocaleString()}` : "";
   const activeUnits = (selectedScooter?.assets ?? []).filter((a) => a.active !== false).length;
   const capacity = activeUnits > 0 ? activeUnits : Math.max(1, selectedScooter?.units ?? 1);

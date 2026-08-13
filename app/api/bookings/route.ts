@@ -94,8 +94,14 @@ export async function POST(req: NextRequest) {
   // `id` is needed as well as the price fields: it is the canonical value
   // stored on the booking, and every capacity query matches on it.
   let fleetItem: { id: string; price: string; category?: string } | undefined;
+  // Delivery is priced from the owner's categories, not a constant. Declared
+  // out here because the resolution below is inside a try: leaving it in scope
+  // there would mean a content read that half-failed still priced the rental,
+  // silently, with the fallback fee instead of the owner's.
+  let vehicleCategories: { id: string; deliveryFee?: number }[] | undefined;
   try {
     const content = await getContent();
+    vehicleCategories = content.vehicleCategories;
     const item = content.fleet.find((f) => f.id === scooter || f.name === scooter);
     if (item?.name) scooterName = item.name;
     fleetItem = item;
@@ -198,7 +204,7 @@ export async function POST(req: NextRequest) {
   // priceBreakdown() returned null, which meant an unpriceable vehicle — or a
   // content outage — silently handed pricing back to the request body, the
   // exact hole this module exists to close.
-  const serverBreakdown = priceBreakdown(fleetItem, days);
+  const serverBreakdown = priceBreakdown(fleetItem, days, vehicleCategories);
   if (!serverBreakdown) {
     console.error(
       `bookings: cannot price ${scooter} (price="${fleetItem.price}", days=${days}) — refusing rather than trusting the client`,

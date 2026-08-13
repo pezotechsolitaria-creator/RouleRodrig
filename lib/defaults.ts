@@ -71,14 +71,50 @@ export interface FleetItem {
   assets?: FleetAsset[];  // individual physical units — enables exact asset tracking
   soldOutToday?: boolean; // computed at request time: every unit is out on a trip today
   category?: string; // vehicle category id, e.g. "scooter"
+  /**
+   * Body style WITHIN the category — "suv", "sedan", "4x4". Optional, and a
+   * vehicle without one is never hidden: it simply doesn't answer any type
+   * filter. See VehicleType for why this is a second field rather than more
+   * categories.
+   */
+  type?: string;
   specs?: string[];       // spec chips (e.g. "Air conditioning", "5 seats") — category-appropriate
   included?: string[];    // what's included (e.g. "Full tank of fuel") — category-appropriate
+}
+
+/**
+ * A body style inside a category — SUV, Sedan, 4x4, Van for cars; Automatic or
+ * 125cc for scooters.
+ *
+ * Deliberately NOT more VehicleCategories. A category is a top-level product
+ * line: it owns a /browse/… page, a delivery fee, a deposit rule and a slot in
+ * the site nav. "SUV" is none of those — it is a way of narrowing the cars you
+ * are already looking at. Modelling it as a category would have put SUVs in the
+ * sitemap as their own destination and split one delivery fee into four.
+ */
+export interface VehicleType {
+  id: string;
+  label: string;    // shown as the filter chip, e.g. "SUV"
+  enabled: boolean; // off = keep the tag on the vehicles but stop offering the filter
 }
 
 export interface VehicleCategory {
   id: string;
   label: string;    // shown as the filter tab, e.g. "Scooters", "Cars"
   enabled: boolean; // show this category on the website
+  /**
+   * What delivery + collection costs for this class of vehicle, in whole
+   * rupees, for the WHOLE rental (drop-off and pickup together — that is what
+   * the customer sees on the summary line).
+   *
+   * Undefined means "never set in admin", and falls back to the rule that was
+   * hardcoded until 2026-08-13: cars free, everything else Rs 400. Zero is a
+   * real, owner-chosen answer meaning free — which is exactly why this must
+   * stay `?: number` and be read with an undefined check, never `|| DEFAULT`.
+   */
+  deliveryFee?: number;
+  /** Body styles offered inside this category. */
+  types?: VehicleType[];
 }
 
 export interface PricingRow {
@@ -835,13 +871,31 @@ export const DEFAULT_CONTENT: SiteContent = {
       kind: 'hike',
     },
   ],
+  // deliveryFee is stated on every seeded category rather than left undefined,
+  // so a fresh install (and the DEFAULT_CONTENT fallback used when Supabase is
+  // unreachable) charges exactly what the hardcoded rule charged before it was
+  // owner-editable: cars delivered free, everything else Rs 400 round trip.
   vehicleCategories: [
-    { id: 'scooter',   label: 'Scooters',    enabled: true },
-    { id: 'motorbike', label: 'Motorbikes',  enabled: false },
-    { id: 'car',       label: 'Cars',        enabled: false },
-    { id: 'ebike',     label: 'E-Bikes',     enabled: false },
-    { id: 'bicycle',   label: 'Bicycles',    enabled: false },
-    { id: 'kayak',     label: 'Kayaks',      enabled: false },
+    { id: 'scooter',   label: 'Scooters',    enabled: true,  deliveryFee: 400 },
+    { id: 'motorbike', label: 'Motorbikes',  enabled: false, deliveryFee: 400 },
+    {
+      id: 'car', label: 'Cars', enabled: false, deliveryFee: 0,
+      // Seeded disabled: an empty filter row is worse than none, and the owner
+      // turns on the body styles they actually rent. /admin also offers these
+      // as one-tap suggestions, because the live site reads its categories from
+      // Supabase and never sees this array.
+      types: [
+        { id: 'suv',       label: 'SUV',       enabled: false },
+        { id: 'sedan',     label: 'Sedan',     enabled: false },
+        { id: 'hatchback', label: 'Hatchback', enabled: false },
+        { id: '4x4',       label: '4x4',       enabled: false },
+        { id: 'pick-up',   label: 'Pick-up',   enabled: false },
+        { id: 'van',       label: 'Van',       enabled: false },
+      ],
+    },
+    { id: 'ebike',     label: 'E-Bikes',     enabled: false, deliveryFee: 400 },
+    { id: 'bicycle',   label: 'Bicycles',    enabled: false, deliveryFee: 400 },
+    { id: 'kayak',     label: 'Kayaks',      enabled: false, deliveryFee: 400 },
   ],
   usefulContacts: [
     { id: 'police',    category: 'emergency', label: 'Police',                number: '999',  note: 'Or 112' },

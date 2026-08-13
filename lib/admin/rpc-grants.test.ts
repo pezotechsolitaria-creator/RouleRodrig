@@ -40,6 +40,12 @@ function gatedAdminFunctions(sql: string): string[] {
 
 describe("admin RPC grants", () => {
   const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql"));
+  // Read once, not once per (file × gated function). This was re-reading the
+  // whole migration corpus inside a nested loop, so its cost grew with the
+  // SQUARE of the migration count — it finally crossed the 5s default timeout
+  // and started failing under suite load while passing on its own. The check
+  // itself is unchanged; only the number of disk reads is.
+  const sqlByFile = new Map(files.map((f) => [f, readFileSync(join(MIGRATIONS, f), "utf8")]));
 
   it("finds migrations to check at all — a silent zero would pass forever", () => {
     expect(files.length).toBeGreaterThan(10);
@@ -48,13 +54,11 @@ describe("admin RPC grants", () => {
   it("revokes EXECUTE from PUBLIC for every admin_* RPC an anon caller could pass", () => {
     const offenders: string[] = [];
 
-    for (const file of files) {
-      const sql = readFileSync(join(MIGRATIONS, file), "utf8");
+    for (const [file, sql] of sqlByFile) {
       for (const fn of gatedAdminFunctions(sql)) {
         // The revoke may live in this migration or a later one; the whole
         // corpus is the source of truth for the function's final state.
-        const revokedSomewhere = files.some((f) => {
-          const other = readFileSync(join(MIGRATIONS, f), "utf8");
+        const revokedSomewhere = [...sqlByFile.values()].some((other) => {
           // The revoke may be schema-qualified (`public.admin_delete_shop(...)`)
           // and may or may not spell out the argument list. Both forms are in
           // this repo, and a regex that misses one reports a false alarm on a

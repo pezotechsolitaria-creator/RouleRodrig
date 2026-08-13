@@ -84,6 +84,7 @@ import type {
   PlannerActivity,
   RideRoute,
   VehicleCategory,
+  VehicleType,
   UsefulContact,
   EventItem,
   Sponsor,
@@ -1198,6 +1199,41 @@ const KIND_DEFAULTS: Record<VehicleKind, { specs: string[]; included: string[]; 
   other:   { noun: "vehicle", specs: [], included: [], placeholder: "e.g. key feature, capacity, transmission" },
 };
 
+// ── Body styles ────────────────────────────────────────────────────────────
+//
+// The id is what a fleet item stores and what the filter matches on, so it has
+// to survive the owner renaming the label ("SUV" → "SUVs / 4x4") without
+// orphaning every car tagged with it. Generated once, at creation, from the
+// first label — never recomputed.
+function slugifyType(label: string): string {
+  return label
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+}
+
+// Offered as one-tap chips, because the live site reads its categories from
+// Supabase and will never see the seeded defaults in lib/defaults.ts. Without
+// these the owner faces an empty box and has to invent the vocabulary himself.
+const TYPE_SUGGESTIONS: Record<VehicleKind, string[]> = {
+  car:     ["SUV", "Sedan", "Hatchback", "4x4", "Pick-up", "Van", "Minibus", "Convertible"],
+  scooter: ["Automatic", "Manual", "125cc", "150cc+", "Electric"],
+  bike:    ["City", "Mountain", "Electric", "Kids"],
+  kayak:   ["Single", "Double", "Transparent"],
+  boat:    ["With skipper", "Self-drive", "Catamaran", "Speedboat"],
+  other:   [],
+};
+
+/** What delivery costs when the owner has never set a fee — the rule that was
+ *  hardcoded until 2026-08-13, shown as the field's placeholder so "empty"
+ *  never means "unknown". Mirrors lib/booking-pricing.ts deliveryFee(). */
+function legacyDeliveryFee(catId: string): number {
+  return catId === "car" ? 0 : 400;
+}
+
 function FleetEditor({
   content,
   onChange,
@@ -1205,6 +1241,11 @@ function FleetEditor({
   content: SiteContent;
   onChange: (c: SiteContent) => void;
 }) {
+  // What the owner is typing into each category's "add a type" box, keyed by
+  // category id. Local and uncommitted on purpose — a half-typed word must not
+  // reach the content blob, where it would be one Save away from the live site.
+  const [typeDraft, setTypeDraft] = useState<Record<string, string>>({});
+
   function updateScooter(idx: number, patch: Partial<FleetItem>) {
     const fleet = content.fleet.map((s, i) => (i === idx ? { ...s, ...patch } : s));
     const pricing = content.pricing.map((row, i) =>
@@ -1260,6 +1301,19 @@ function FleetEditor({
     setCats([...cats, { id: `cat-${Date.now()}`, label: "New Type", enabled: true }]);
   const removeCat = (idx: number) => setCats(cats.filter((_, i) => i !== idx));
 
+  // ── Body styles inside a category ──
+  const setTypes = (ci: number, next: VehicleType[]) => updateCat(ci, { types: next });
+  const updateType = (ci: number, ti: number, patch: Partial<VehicleType>) =>
+    setTypes(ci, (cats[ci].types ?? []).map((ty, i) => (i === ti ? { ...ty, ...patch } : ty)));
+  const removeType = (ci: number, ti: number) =>
+    setTypes(ci, (cats[ci].types ?? []).filter((_, i) => i !== ti));
+  const addType = (ci: number, label: string) => {
+    const existing = cats[ci].types ?? [];
+    const id = slugifyType(label);
+    if (!id || existing.some((ty) => ty.id === id)) return;
+    setTypes(ci, [...existing, { id, label: label.trim(), enabled: true }]);
+  };
+
   // ── Group the fleet by category so cars/kayaks never sit among scooters ──
   const rows = content.fleet.map((item, idx) => ({ item, idx }));
   const knownCatIds = new Set(cats.map((c) => c.id));
@@ -1279,40 +1333,171 @@ function FleetEditor({
         <div>
           <p className="font-bebas text-yellow text-xs tracking-[0.3em]">VEHICLE CATEGORIES</p>
           <p className="text-muted/60 text-xs font-dm mt-1">
-            Turn a category ON to show it on the website. Filter tabs appear automatically when more
-            than one enabled category has vehicles.
+            Turn a category ON to show it on the website. Each one carries its own delivery charge
+            and its own body styles — the filter customers use to narrow a page down to, say, SUVs.
           </p>
         </div>
-        <div className="space-y-2.5">
-          {cats.map((c, i) => (
-            <div key={c.id} className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => updateCat(i, { enabled: !c.enabled })}
-                className={`relative w-10 h-5.5 rounded-full transition-colors shrink-0 ${c.enabled ? "bg-yellow" : "bg-[#2a2a2a]"}`}
-                style={{ height: "22px", width: "40px" }}
-                aria-label={c.enabled ? "Enabled" : "Disabled"}
-              >
-                <span className={`absolute top-1 w-3.5 h-3.5 bg-white rounded-full transition-transform ${c.enabled ? "translate-x-[21px]" : "translate-x-1"}`} />
-              </button>
-              <input
-                value={c.label}
-                onChange={(e) => updateCat(i, { label: e.target.value })}
-                className="flex-1 bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg px-3 py-2 text-offwhite text-sm font-dm focus:border-yellow focus:outline-none"
-              />
-              <span className={`text-[10px] font-bebas tracking-[0.15em] w-16 text-center ${c.enabled ? "text-green-400" : "text-muted/40"}`}>
-                {c.enabled ? "SHOWN" : "HIDDEN"}
-              </span>
-              <button
-                type="button"
-                onClick={() => removeCat(i)}
-                className="text-muted/40 hover:text-red-400 transition-colors shrink-0"
-                aria-label="Remove category"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          ))}
+        {/* One row per category, separated by hairlines rather than boxed as
+            cards: this is a settings list, and a card per row would make eight
+            equal-weight panels out of what the owner reads as a single table. */}
+        <div className="divide-y divide-[#1e1e1e] border-y border-[#1e1e1e]">
+          {cats.map((c, i) => {
+            const kind = vehicleKind(c.id, c.label);
+            const types = c.types ?? [];
+            // Matched on the LABEL as well as the id. "Pick-up" slugifies to
+            // "pick-up" while the seeded id is "pickup", so an id-only check
+            // offered the owner a suggestion he already had — caught by
+            // rendering the real panel, not by reading the code.
+            const suggestions = TYPE_SUGGESTIONS[kind].filter(
+              (s) =>
+                !types.some(
+                  (ty) =>
+                    ty.id === slugifyType(s) ||
+                    ty.label.trim().toLowerCase() === s.toLowerCase(),
+                ),
+            );
+            const fallback = legacyDeliveryFee(c.id);
+            return (
+              <div key={c.id} className="py-4 space-y-3">
+                {/* Wraps rather than squeezing: with all four controls on one
+                    line a 375px phone left the category name an 83px slot, so
+                    the fee drops to its own row instead of the name shrinking
+                    to nothing. Measured in a real viewport, not assumed. */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => updateCat(i, { enabled: !c.enabled })}
+                    role="switch"
+                    aria-checked={c.enabled}
+                    className={`relative rounded-full transition-colors shrink-0 ${c.enabled ? "bg-yellow" : "bg-[#2a2a2a]"}`}
+                    style={{ height: "22px", width: "40px" }}
+                    aria-label={`${c.label}: ${c.enabled ? "shown on the website" : "hidden"}`}
+                  >
+                    <span className={`absolute top-1 w-3.5 h-3.5 bg-white rounded-full transition-transform ${c.enabled ? "translate-x-[21px]" : "translate-x-1"}`} />
+                  </button>
+                  <input
+                    value={c.label}
+                    onChange={(e) => updateCat(i, { label: e.target.value })}
+                    aria-label="Category name"
+                    className="flex-1 min-w-[150px] bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg px-3 py-2 text-offwhite text-sm font-dm focus:border-yellow focus:outline-none"
+                  />
+                  {/* Delivery & collection, for the whole rental — the same
+                      figure the customer reads on the booking summary, so it is
+                      labelled the way he says it out loud rather than as
+                      "fee per leg". Empty is a real state: it means never set,
+                      and the placeholder shows what is charged until it is. */}
+                  <div className="relative shrink-0">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-dm text-xs text-muted/50">Rs</span>
+                    <input
+                      value={c.deliveryFee === undefined ? "" : String(c.deliveryFee)}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/[^\d]/g, "");
+                        updateCat(i, { deliveryFee: raw === "" ? undefined : Math.min(99999, parseInt(raw, 10)) });
+                      }}
+                      inputMode="numeric"
+                      placeholder={String(fallback)}
+                      aria-label={`Delivery and collection charge for ${c.label}, in rupees`}
+                      className="w-[104px] bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg pl-9 pr-3 py-2 text-offwhite text-sm font-dm tabular-nums placeholder:text-muted/35 focus:border-yellow focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeCat(i)}
+                    className="text-muted/40 hover:text-red-400 transition-colors shrink-0"
+                    aria-label={`Remove ${c.label}`}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+
+                <p className="pl-[52px] font-dm text-[11px] text-muted/45">
+                  {c.deliveryFee === undefined
+                    ? fallback === 0
+                      ? "Delivery & collection: not set — it stays free, exactly as before."
+                      : `Delivery & collection: not set — still charging the old rate of Rs ${fallback}.`
+                    : c.deliveryFee === 0
+                    ? "Delivery & collection: free — shown to the customer as “Free”."
+                    : `Delivery & collection: Rs ${c.deliveryFee.toLocaleString("en-US")}, added once to the rental total.`}
+                </p>
+
+                {/* Body styles. Tapping a chip turns that filter on or off for
+                    the website; the × deletes it. Suggestions sit to the right,
+                    visibly quieter, so the owner can build the list in four taps
+                    without inventing the vocabulary. */}
+                <div className="pl-[52px] flex flex-wrap items-center gap-1.5">
+                  <span className="font-bebas text-muted/50 text-[10px] tracking-[0.2em] mr-1">TYPES</span>
+                  {types.map((ty, ti) => (
+                    <span
+                      key={ty.id}
+                      className={`inline-flex items-center gap-1 rounded-full border pl-2.5 pr-1 py-1 transition-colors ${
+                        ty.enabled
+                          ? "border-yellow/40 bg-yellow/10"
+                          : "border-[#2a2a2a] bg-[#101010]"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => updateType(i, ti, { enabled: !ty.enabled })}
+                        aria-pressed={ty.enabled}
+                        title={ty.enabled ? "Offered as a filter — tap to hide" : "Hidden — tap to offer"}
+                        className={`h-1.5 w-1.5 rounded-full shrink-0 ${ty.enabled ? "bg-yellow" : "bg-[#3a3a3a]"}`}
+                      />
+                      <input
+                        value={ty.label}
+                        onChange={(e) => updateType(i, ti, { label: e.target.value })}
+                        aria-label={`${ty.label} name`}
+                        style={{ width: `${Math.max(3, ty.label.length + 1)}ch` }}
+                        className={`bg-transparent font-dm text-xs focus:outline-none ${ty.enabled ? "text-yellow" : "text-muted"}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeType(i, ti)}
+                        className="text-muted/40 hover:text-red-400 transition-colors px-1"
+                        aria-label={`Remove ${ty.label}`}
+                      >
+                        <X size={11} />
+                      </button>
+                    </span>
+                  ))}
+                  {suggestions.slice(0, 6).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => addType(i, s)}
+                      className="inline-flex items-center gap-1 rounded-full border border-dashed border-[#2f2f2f] px-2.5 py-1 font-dm text-xs text-muted/50 hover:border-yellow/40 hover:text-yellow transition-colors"
+                    >
+                      <Plus size={10} /> {s}
+                    </button>
+                  ))}
+                  {/* Anything the suggestions don't cover. Enter commits, so
+                      adding four styles never means four trips to the mouse. */}
+                  <input
+                    value={typeDraft[c.id] ?? ""}
+                    onChange={(e) => setTypeDraft((d) => ({ ...d, [c.id]: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter") return;
+                      e.preventDefault();
+                      addType(i, typeDraft[c.id] ?? "");
+                      setTypeDraft((d) => ({ ...d, [c.id]: "" }));
+                    }}
+                    onBlur={() => {
+                      if (!(typeDraft[c.id] ?? "").trim()) return;
+                      addType(i, typeDraft[c.id]);
+                      setTypeDraft((d) => ({ ...d, [c.id]: "" }));
+                    }}
+                    placeholder="+ type…"
+                    aria-label={`Add a body style to ${c.label}`}
+                    className="w-24 rounded-full border border-transparent bg-transparent px-2.5 py-1 font-dm text-xs text-offwhite placeholder:text-muted/35 hover:border-[#2a2a2a] focus:border-yellow focus:outline-none transition-colors"
+                  />
+                  {types.length === 0 && suggestions.length === 0 && (
+                    <span className="font-dm text-[11px] text-muted/35">
+                      Nothing yet — this category shows every vehicle in one list.
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
         <button
           type="button"
@@ -1431,7 +1616,10 @@ function FleetEditor({
             <Field label="CATEGORY">
               <select
                 value={scooter.category ?? "scooter"}
-                onChange={(e) => updateScooter(idx, { category: e.target.value })}
+                // Moving a car to Scooters must drop "SUV" with it — body
+                // styles belong to one category, and a stale tag would keep
+                // this vehicle out of every filter on its new page.
+                onChange={(e) => updateScooter(idx, { category: e.target.value, type: undefined })}
                 className={`${inputCls} appearance-none`}
               >
                 {cats.map((c) => (
@@ -1446,6 +1634,33 @@ function FleetEditor({
                 )}
               </select>
             </Field>
+            {/* Body style. Only rendered once the category HAS styles: an
+                empty dropdown on every scooter would be a question with no
+                answers, and the filter it feeds does not exist until there are
+                at least two of them anyway. */}
+            {(cats.find((c) => c.id === (scooter.category ?? "scooter"))?.types ?? []).length > 0 && (
+              <Field label="TYPE (what the filter narrows by)">
+                <select
+                  value={scooter.type ?? ""}
+                  onChange={(e) => updateScooter(idx, { type: e.target.value || undefined })}
+                  className={`${inputCls} appearance-none`}
+                >
+                  <option value="">— none —</option>
+                  {(cats.find((c) => c.id === (scooter.category ?? "scooter"))?.types ?? []).map((ty) => (
+                    <option key={ty.id} value={ty.id}>
+                      {ty.label}{ty.enabled ? "" : " (filter off)"}
+                    </option>
+                  ))}
+                  {/* A style tagged here and later deleted upstairs would
+                      otherwise vanish from this dropdown and silently reset the
+                      vehicle to "none" on the next save. */}
+                  {scooter.type &&
+                    !(cats.find((c) => c.id === (scooter.category ?? "scooter"))?.types ?? []).some((ty) => ty.id === scooter.type) && (
+                      <option value={scooter.type}>{scooter.type} (removed)</option>
+                    )}
+                </select>
+              </Field>
+            )}
             <Field label="UNITS (how many you own)">
               <TextInput
                 value={String(scooter.units ?? 1)}

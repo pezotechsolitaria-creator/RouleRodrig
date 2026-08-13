@@ -242,7 +242,11 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
               t.booking.included; the 3+/7+ day discounts are in
               lib/booking-pricing), so nothing new is being promised. */}
           <TrustBar />
-          <BookingSection fleet={items} whatsapp={businessWhatsApp} />
+          <BookingSection
+            fleet={items}
+            categories={content.vehicleCategories}
+            whatsapp={businessWhatsApp}
+          />
         </main>
         {footer}
       </>

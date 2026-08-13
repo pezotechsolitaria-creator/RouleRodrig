@@ -31,6 +31,18 @@ function walk(dir: string, out: string[] = []): string[] {
 
 const sourceFiles = [...walk(join(ROOT, "app")), ...walk(join(ROOT, "components")), ...walk(join(ROOT, "lib"))];
 
+// Every check below scans the same few hundred files. Reading them once here
+// rather than once per test turns four full passes over app/ + components/ +
+// lib/ into one. These tests were crossing vitest's 5s default timeout under
+// full-suite load and failing while passing in isolation — which reads exactly
+// like a real regression and teaches people to re-run instead of look.
+const cache = new Map<string, string>();
+const read = (f: string): string => {
+  let src = cache.get(f);
+  if (src === undefined) { src = readFileSync(f, "utf8"); cache.set(f, src); }
+  return src;
+};
+
 const isClientComponent = (src: string) => /^\s*(["'])use client\1/m.test(src.slice(0, 400));
 
 const EMAIL_IMPORT = /from\s+["'](@\/lib\/email(\/[^"']*)?|\.{1,2}\/(email|providers)(\/[^"']*)?)["']/;
@@ -43,7 +55,7 @@ describe("email layer never reaches the browser", () => {
   it("is not imported by any client component", () => {
     const offenders = sourceFiles
       .filter((f) => {
-        const src = readFileSync(f, "utf8");
+        const src = read(f);
         return isClientComponent(src) && EMAIL_IMPORT.test(src);
       })
       .map((f) => relative(ROOT, f));
@@ -54,7 +66,7 @@ describe("email layer never reaches the browser", () => {
     // NEXT_PUBLIC_* is inlined into the client bundle by definition, so the name
     // alone is the vulnerability — no import needed.
     const offenders = sourceFiles
-      .filter((f) => /NEXT_PUBLIC_[A-Z_]*(RESEND|BREVO|SMTP|MAIL|SENDGRID|POSTMARK)/.test(readFileSync(f, "utf8")))
+      .filter((f) => /NEXT_PUBLIC_[A-Z_]*(RESEND|BREVO|SMTP|MAIL|SENDGRID|POSTMARK)/.test(read(f)))
       .map((f) => relative(ROOT, f));
     expect(offenders, `files exposing a mail credential publicly: ${offenders.join(", ")}`).toEqual([]);
   });
@@ -74,7 +86,7 @@ describe("email layer never reaches the browser", () => {
     const unguarded = emailModules
       .filter((f) => !/\.test\.ts$/.test(f))
       .filter((f) => !exempt.has(relative(ROOT, f).split("\\").join("/")))
-      .filter((f) => !/^\s*import\s+["']server-only["']/m.test(readFileSync(f, "utf8")))
+      .filter((f) => !/^\s*import\s+["']server-only["']/m.test(read(f)))
       .map((f) => relative(ROOT, f));
     expect(unguarded, `email modules missing server-only: ${unguarded.join(", ")}`).toEqual([]);
   });

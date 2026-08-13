@@ -85,7 +85,9 @@
 // (Past v165, taken by a parallel branch at the same moment.)
 // v167 — the hero's poster-to-video fade comes back down to 180ms: 260ms was
 // smooth but read as the still lingering.
-const CACHE = "rr-cache-v174";
+// v175 — delivery fees and car body styles are the owner's to set, and the
+// fleet grew a second filter row, so the shipped bundle changed.
+const CACHE = "rr-cache-v175";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
