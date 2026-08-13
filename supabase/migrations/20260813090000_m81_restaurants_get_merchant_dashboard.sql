@@ -1,0 +1,45 @@
+-- M81 — restaurants get the REAL merchant dashboard, not a cut-down one.
+--
+-- The owner, looking at /merchant/orders: "I like the merchant dashboard and
+-- you just replaced it by the resto dashboard. I want a copy of these features
+-- but for food, everything the same."
+--
+-- /kitchen was built for a COOK: what to cook, who is collecting, no money.
+-- That is still right for a cook. It is not a dashboard for the person who OWNS
+-- the restaurant, who needs orders, dishes, payment details, opening hours and
+-- their plan — exactly what a marketplace seller already has.
+--
+-- The cheap answer would have been to copy six pages of /merchant. Instead:
+-- every merchant API route already scopes by store_id from getOwnStoreId(), and
+-- all 28 store-scoped RLS policies funnel through ONE function,
+-- is_store_staff(). So the same dashboard serves restaurants once that function
+-- knows about kitchens. No second copy to keep in sync, and a restaurant gets
+-- every feature a shop gets — including ones not written yet.
+--
+-- WHY A ROLE COLUMN. Widening is_store_staff for ALL kitchen_staff would hand
+-- every cook the money screens — order totals, revenue, payment settings —
+-- which is exactly what /kitchen was designed to keep out of a cook's hands.
+-- So kitchen_staff gains a role: 'owner' opens the merchant dashboard, 'cook'
+-- stays on /kitchen. New invites default to 'cook', the safer of the two. The
+-- two existing rows are backfilled to 'owner': both are the platform owner's
+-- own account, added before roles existed.
+--
+-- WHY NOT GIVE EACH KITCHEN ITS OWN MERCHANT. All four kitchens deliberately
+-- hang off one platform merchant (M40) so a cooker never becomes a merchant
+-- with a subscription to pay. That is also precisely why /merchant could not
+-- already serve them: getOwnStoreId() resolves merchant -> stores -> first row,
+-- so Chez Banane's owner would have been shown whichever kitchen sorted first.
+-- kitchen_staff is the only table that knows who owns what.
+--
+-- Verified as a real restaurant owner, rolled back:
+--   is_store_staff(own kitchen)   = true
+--   is_store_staff(other kitchen) = false
+--   own orders visible = 3, OTHER kitchen's orders visible = 0
+--   products 7, store_hours 7, payment settings 1  (the dashboard's whole surface)
+-- and as a cook (role demoted in-transaction):
+--   is_store_staff = false, orders visible = 0, payment settings = 0,
+--   while kitchen_dashboard() still returned 4 orders — demoting somebody must
+--   not break the cook screen they actually use.
+--
+-- The kitchen merchant's subscription is active premium to 2026-09-11, so this
+-- does not put restaurants behind the "subscription expired" wall.

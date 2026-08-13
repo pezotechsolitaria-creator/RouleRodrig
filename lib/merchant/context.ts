@@ -16,6 +16,34 @@ export type MerchantDashboard = {
  * products_public_read) still applies per-table exactly as it would for
  * separate queries; embedding doesn't bypass row security.
  */
+async function getKitchenDashboard(supabase: SupabaseClient): Promise<MerchantDashboard | null> {
+  const storeId = await getOwnKitchenStoreId(supabase);
+  if (!storeId) return null;
+
+  const { data: store } = await supabase
+    .from("stores")
+    .select("id, name, merchant_id")
+    .eq("id", storeId)
+    .maybeSingle();
+  if (!store) return null;
+
+  const { data: products } = await supabase
+    .from("products")
+    .select("status")
+    .eq("store_id", storeId);
+
+  return {
+    merchantId: (store as { merchant_id: string }).merchant_id,
+    displayName: (store as { name: string }).name,
+    // A restaurant is live because the platform put it live; there is no
+    // separate approval queue for kitchens, and showing "pending" would be a
+    // status the owner can neither explain nor change.
+    status: "approved",
+    store: { id: storeId, name: (store as { name: string }).name },
+    productCount: ((products ?? []) as { status?: string }[]).filter((p) => p.status !== "archived").length,
+  };
+}
+
 export async function getMerchantDashboard(supabase: SupabaseClient): Promise<MerchantDashboard | null> {
   const { data } = await supabase
     .from("merchant_staff")
@@ -29,7 +57,7 @@ export async function getMerchantDashboard(supabase: SupabaseClient): Promise<Me
     .limit(1)
     .maybeSingle();
 
-  if (!data) return null;
+  if (!data) return getKitchenDashboard(supabase);
 
   // Supabase types this as an array via the FK relationship name even though
   // it's a single row per staff membership (merchant_id is not-null unique
@@ -127,13 +155,45 @@ export async function hasShop(supabase: SupabaseClient): Promise<boolean> {
  * resolving store_id this way means a query is scoped to "my store" by
  * construction, not by trusting anything the request body claims.
  */
+/**
+ * The kitchen this person OWNS, if any.
+ *
+ * Every food kitchen hangs off the single PLATFORM merchant, so the
+ * merchant_staff lookup below cannot tell one restaurant from another — it
+ * would hand Chez Banane's owner whichever kitchen sorted first. kitchen_staff
+ * is the only thing that knows who owns what, so it is asked directly.
+ *
+ * Ordered by name for a stable answer when someone owns more than one (the
+ * platform owner does), so the dashboard does not silently change restaurants
+ * between requests.
+ */
+async function getOwnKitchenStoreId(supabase: SupabaseClient): Promise<string | null> {
+  const { data, error } = await supabase.rpc("my_kitchen_owner_ids");
+  if (error) {
+    console.error("my_kitchen_owner_ids failed", error);
+    return null;
+  }
+  const ids = (data as string[] | null) ?? [];
+  if (ids.length === 0) return null;
+  if (ids.length === 1) return ids[0];
+
+  const { data: rows } = await supabase
+    .from("stores")
+    .select("id, name")
+    .in("id", ids)
+    .order("name");
+  return ((rows ?? [])[0]?.id as string | undefined) ?? ids[0];
+}
+
 export async function getOwnStoreId(supabase: SupabaseClient): Promise<string | null> {
   const { data } = await supabase
     .from("merchant_staff")
     .select("merchant_id, merchants(stores(id))")
     .limit(1)
     .maybeSingle();
-  if (!data) return null;
+  // A restaurant owner is not merchant_staff — they are kitchen_staff with
+  // role 'owner'. Checked BEFORE giving up, so /merchant works for them.
+  if (!data) return getOwnKitchenStoreId(supabase);
 
   const merchant = Array.isArray(data.merchants) ? data.merchants[0] : data.merchants;
   const storesRaw = merchant?.stores as unknown;
