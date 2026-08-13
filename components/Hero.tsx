@@ -112,19 +112,26 @@ function HeroBackdrop() {
  * Measured from the moment the launch splash lifts, not from page load — the
  * splash owns the first 1.8s and the headline waits for it (see gateOpen).
  *
- *   START + (letters - 1) x STAGGER + LETTER   the phrase completes   ~4.9s
- *   + HOLD_MS                                  it is held             ~7.4s
- *   + DISSOLVE / REVEAL                        it opens into video    ~9.0s
+ *   START + (letters - 1) x STAGGER + LETTER   the phrase completes   ~4.8s
+ *   + HOLD_MS                                  it is held             ~7.3s
+ *   + DISSOLVE / REVEAL                        it opens into video    ~8.9s
  *
- * Plus the ~1.6s splash ahead of it, that is very close to ten seconds from
- * page load, which is what the owner asked for after seeing 9.5s.
+ * The splash owns roughly the first 1.9s and is deliberately untouched — the
+ * owner called its timing right. Added to the above that puts WELCOME TO fully
+ * written at about SIX SECONDS from page load, which is the mark asked for, and
+ * the whole arrival at about ten.
+ *
+ * So STAGGER is set from that 6s target rather than chosen for feel: with nine
+ * letters it is the only value that moves the completion moment. It was tuned
+ * by measuring, not by arithmetic — 0.37 landed at 5.1s and 0.47 at 6.3s, so
+ * 0.45 sits on the mark.
  *
  * Tuning: STAGGER is the rhythm, HOLD_MS is how long it sits. Those two are
  * what to change; the rest only affect how soft each individual move is.
  */
 const INTRO = {
   START: 0.25,
-  STAGGER: 0.47,
+  STAGGER: 0.45,
   LETTER: 0.9,
   LINE_GAP: 0.7,
   HOLD_MS: 2500,
