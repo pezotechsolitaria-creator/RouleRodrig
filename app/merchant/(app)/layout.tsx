@@ -35,6 +35,9 @@ export default async function MerchantAppLayout({ children }: { children: React.
     getAccessibleStores(supabase),
     getOwnStoreId(supabase),
   ]);
+  // Drives the food-only Menu tab. Read from the switcher's own list rather
+  // than a second query, so the tab and the store selector can never disagree.
+  const isKitchen = stores.some((st) => st.id === currentStoreId && st.kind === "kitchen");
 
   return (
     <QueryProvider>
@@ -55,7 +58,7 @@ export default async function MerchantAppLayout({ children }: { children: React.
             <span className="rounded-full border border-yellow/30 bg-yellow/10 px-2 py-0.5 font-bebas text-[9px] tracking-[0.2em] text-yellow">
               MERCHANT
             </span>
-            <MerchantNavDesktop />
+            <MerchantNavDesktop isKitchen={isKitchen} />
             <div className="ml-auto flex items-center gap-2">
               <StoreSwitcher stores={stores} currentId={currentStoreId} action={switchStore} />
               {/* The way out. A merchant is usually a customer too, and this
@@ -87,7 +90,7 @@ export default async function MerchantAppLayout({ children }: { children: React.
           <div className="pt-4"><SubscriptionBanner sub={subscription} /></div>
           {children}
         </main>
-        <MerchantNavMobile />
+        <MerchantNavMobile isKitchen={isKitchen} />
       </div>
       <Toaster
         theme="dark"

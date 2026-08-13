@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Wallet, Clock, BadgeCheck, LayoutDashboard, Package } from "lucide-react";
+import { ClipboardList, Wallet, Clock, BadgeCheck, LayoutDashboard, Package, UtensilsCrossed } from "lucide-react";
 
 // The merchant dashboard's navigation, defined ONCE and rendered at both
 // breakpoints from the same list.
@@ -22,14 +22,27 @@ import { ClipboardList, Wallet, Clock, BadgeCheck, LayoutDashboard, Package } fr
 // (their entire catalogue, reachable only from dashboard tiles) were both
 // unreachable in-page — and in the installed PWA there is no browser chrome to
 // fall back on. Products also never showed an active state.
-const LINKS = [
+type NavLink = { href: string; label: string; icon: React.ElementType; exact?: boolean };
+
+const LINKS: NavLink[] = [
   { href: "/merchant", label: "Home", icon: LayoutDashboard, exact: true },
   { href: "/merchant/orders", label: "Orders", icon: ClipboardList },
   { href: "/merchant/products", label: "Products", icon: Package },
   { href: "/merchant/payments", label: "Payments", icon: Wallet },
   { href: "/merchant/hours", label: "Hours", icon: Clock },
   { href: "/merchant/subscription", label: "Plan", icon: BadgeCheck },
-] as const;
+];
+
+// Restaurants only. A shop has a catalogue, not a menu du jour, and showing a
+// marketplace seller a "Menu" tab is a promise the page cannot keep. Slotted
+// after Products because it answers the same question in food terms — what am I
+// selling today — rather than appended at the end where nobody looks.
+function linksFor(isKitchen: boolean): NavLink[] {
+  if (!isKitchen) return LINKS;
+  const out = [...LINKS];
+  out.splice(3, 0, { href: "/merchant/menu", label: "Menu", icon: UtensilsCrossed });
+  return out;
+}
 
 function useActive() {
   const pathname = usePathname();
@@ -40,11 +53,12 @@ function useActive() {
 }
 
 /** Inline links inside the header. Hidden on phones, where the tab bar takes over. */
-export function MerchantNavDesktop() {
+export function MerchantNavDesktop({ isKitchen = false }: { isKitchen?: boolean }) {
   const isActive = useActive();
+  const links = linksFor(isKitchen);
   return (
     <nav aria-label="Merchant sections" className="ml-4 hidden items-center gap-3 sm:flex">
-      {LINKS.map(({ href, label, icon: Icon, ...rest }) => {
+      {links.map(({ href, label, icon: Icon, ...rest }) => {
         const active = isActive(href, "exact" in rest && rest.exact);
         return (
           <Link
@@ -68,7 +82,8 @@ export function MerchantNavDesktop() {
  * iOS home indicator; the layout adds matching bottom padding so nothing is
  * ever hidden underneath it.
  */
-export function MerchantNavMobile() {
+export function MerchantNavMobile({ isKitchen = false }: { isKitchen?: boolean }) {
+  const links = linksFor(isKitchen);
   const isActive = useActive();
   return (
     <nav
@@ -76,7 +91,7 @@ export function MerchantNavMobile() {
       className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-dark/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)] sm:hidden"
     >
       <ul className="mx-auto flex max-w-md">
-        {LINKS.map(({ href, label, icon: Icon, ...rest }) => {
+        {links.map(({ href, label, icon: Icon, ...rest }) => {
           const active = isActive(href, "exact" in rest && rest.exact);
           return (
             <li key={href} className="flex-1">

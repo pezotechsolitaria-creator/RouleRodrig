@@ -1,0 +1,44 @@
+-- M82 / M82b — split payment on the merchant dashboard, for shops AND restaurants.
+--
+-- The owner: "split payments, explain me where it is." Fair question — it was
+-- only ever on /kitchen, the cook's screen. Now that restaurants use the real
+-- merchant dashboard (M81), the money controls belong there too; and once they
+-- are there a marketplace seller gets them free, which is right anyway. A
+-- deposit by bank and the balance in cash is not a food idea.
+--
+--   confirm_order_payment(order, amount_received default null)
+--     null          -> the whole total, i.e. today's behaviour, unchanged
+--     0 < n < total -> capture n, open a pending cash row for the remainder
+--     n > total     -> refused
+--   settle_order_balance(order)
+--     the cash physically handed over. Separate from marking an order
+--     collected: goods leave the counter before the note is in the till.
+--
+-- Carries the same fix M79 made for kitchen_confirm_payment: this function also
+-- ran `update payments set status='captured' where order_id = ...` with no
+-- further predicate. Harmless with one payment row, silently catastrophic under
+-- a split, because confirming the bank deposit would also mark the UNCOLLECTED
+-- cash as received — money reading as collected while in nobody's hand.
+--
+-- M82b, and worth remembering: `status` is AMBIGUOUS in this function's body.
+-- It RETURNS TABLE(order_id uuid, status text), so `status` is an OUT parameter
+-- name. The original never wrote a bare `status` in a WHERE clause so it never
+-- collided; M82's new `and status <> 'captured'` did, and Postgres raised 42702
+-- at RUNTIME. The migration CREATED cleanly — nothing failed until a merchant
+-- pressed the button, which would have broken payment confirmation for every
+-- merchant on the platform. Caught by a probe that called it as a real user
+-- rather than trusting a successful migration. Every column in a WHERE is now
+-- table-qualified.
+--
+-- A pure-cash order has no non-cash row to capture, so confirming one in full
+-- settles its cash row explicitly — otherwise it would sit pending forever.
+--
+-- The customer's confirmation message now states the outstanding amount when
+-- there is one. Saying only "confirmed" on a half-paid order is how somebody
+-- turns up at the counter surprised.
+--
+-- Verified as a real restaurant owner through the MERCHANT path, rolled back:
+--   bank captured 400 of 1000, cash left PENDING at 600, order -> paid
+--   after settling: 0 pending, 1000 captured
+--   pure-cash confirmed in full: 0 left pending
+--   an amount above the total: refused

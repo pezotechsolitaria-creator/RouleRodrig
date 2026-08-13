@@ -15,7 +15,7 @@ import {
 // merchant — the money moves directly between customer and shop — so the UI
 // makes the merchant look at the receipt and then assert it explicitly.
 export default function PaymentConfirmCard({
-  orderId, provider, paymentStatus, orderStatus, amount, hasReceipt, receiptSubmittedAt, onConfirmed,
+  orderId, provider, paymentStatus, orderStatus, amount, hasReceipt, receiptSubmittedAt, balanceDue = 0, onConfirmed,
 }: {
   orderId: string;
   provider: string;
@@ -24,11 +24,14 @@ export default function PaymentConfirmCard({
   amount: number;
   hasReceipt: boolean;
   receiptSubmittedAt: string | null;
+  /** Cash still owed on a split payment, in minor units. */
+  balanceDue?: number;
   onConfirmed: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [opening, setOpening] = useState(false);
   const [dialog, setDialog] = useState(false);
+  const [settling, setSettling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const settled = paymentStatus === "captured";
@@ -64,12 +67,19 @@ export default function PaymentConfirmCard({
     }
   }
 
-  async function confirm() {
+  /** window.confirm, aliased: the local confirm() below shadows the global. */
+  const askConfirm = (msg: string) => window.confirm(msg);
+
+  async function confirm(amountReceived?: number) {
     setDialog(false);
     setConfirming(true);
     setError(null);
     try {
-      const r = await fetch(`/api/merchant/orders/${orderId}/confirm-payment`, { method: "POST" });
+      const r = await fetch(`/api/merchant/orders/${orderId}/confirm-payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(amountReceived ? { amountReceived } : {}),
+      });
       const b = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(b.error || "Could not confirm the payment.");
       posthog.capture("merchant_payment_confirmed", {
@@ -77,7 +87,7 @@ export default function PaymentConfirmCard({
         payment_method: provider,
         has_receipt: hasReceipt,
       });
-      toast.success("Payment confirmed.");
+      toast.success(amountReceived ? "Deposit recorded. The rest is due in cash." : "Payment confirmed.");
       onConfirmed();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not confirm the payment.");
@@ -131,10 +141,74 @@ export default function PaymentConfirmCard({
       {error && <p role="alert" className="mt-2 font-dm text-xs text-red-400">{error}</p>}
 
       {canConfirm && (
-        <Button type="button" className="mt-3 w-full" onClick={() => setDialog(true)} disabled={confirming}>
-          {confirming ? <Loader2 size={15} className="mr-1.5 animate-spin" /> : <ShieldCheck size={15} className="mr-1.5" />}
-          {confirmLabel}
-        </Button>
+        <>
+          <Button type="button" className="mt-3 w-full" onClick={() => setDialog(true)} disabled={confirming}>
+            {confirming ? <Loader2 size={15} className="mr-1.5 animate-spin" /> : <ShieldCheck size={15} className="mr-1.5" />}
+            {confirmLabel}
+          </Button>
+
+          {/* A deposit now, the rest in cash on handover. Secondary to paying in
+              full because it is the rarer case, but on the SAME card: sending
+              somebody elsewhere to record a half-payment means it does not get
+              recorded at all. */}
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-2 w-full"
+            disabled={confirming}
+            onClick={() => {
+              const answer = window.prompt(
+                `How much did you actually receive?
+
+The order is Rs ${centsToDecimalString(amount)}. The rest becomes cash to collect on handover.`,
+                centsToDecimalString(Math.round(amount / 2)),
+              );
+              if (answer === null) return;
+              const n = Number(answer.replace(",", ".").trim());
+              if (!Number.isFinite(n) || n <= 0) { setError("Enter how much was received, for example 250."); return; }
+              const minor = Math.round(n * 100);
+              if (minor > amount) { setError("That is more than the order total."); return; }
+              void confirm(minor);
+            }}
+          >
+            Only part of it arrived…
+          </Button>
+        </>
+      )}
+
+      {/* Money still owed. Loud, because it is the one thing on this card that
+          costs real money if whoever hands the order over forgets it. */}
+      {balanceDue > 0 && (
+        <div className="mt-3 rounded-xl border border-red-400/40 bg-red-500/[0.08] p-3">
+          <p className="font-syne text-sm font-bold text-red-300">
+            Collect Rs {centsToDecimalString(balanceDue)} in cash
+          </p>
+          <p className="mt-0.5 font-dm text-xs text-muted">Due when the customer takes the order.</p>
+          <Button
+            type="button"
+            className="mt-2 w-full"
+            disabled={settling}
+            onClick={async () => {
+              if (!askConfirm(`Confirm you received Rs ${centsToDecimalString(balanceDue)} in cash?`)) return;
+              setSettling(true);
+              setError(null);
+              try {
+                const r = await fetch(`/api/merchant/orders/${orderId}/settle-balance`, { method: "POST" });
+                const b = await r.json().catch(() => ({}));
+                if (!r.ok) throw new Error(b.error || "Could not record that.");
+                toast.success("Cash recorded.");
+                onConfirmed();
+              } catch (e) {
+                setError(e instanceof Error ? e.message : "Could not record that.");
+              } finally {
+                setSettling(false);
+              }
+            }}
+          >
+            {settling ? <Loader2 size={15} className="mr-1.5 animate-spin" /> : null}
+            Cash received
+          </Button>
+        </div>
       )}
 
       <AlertDialog open={dialog} onOpenChange={setDialog}>
@@ -145,7 +219,7 @@ export default function PaymentConfirmCard({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Not yet</AlertDialogCancel>
-            <AlertDialogAction onClick={confirm}>Yes, I received it</AlertDialogAction>
+            <AlertDialogAction onClick={() => void confirm()}>Yes, I received it</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

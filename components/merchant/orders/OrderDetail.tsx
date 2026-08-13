@@ -311,6 +311,12 @@ export default function OrderDetail({ id }: { id: string }) {
               orderStatus={order.status}
               amount={order.payments[0].amount}
               hasReceipt={!!order.payment_receipt_path}
+              // Summed from the ledger, exactly as the admin desks and the
+              // driver card do it, so no two screens can disagree about how
+              // much is still owed.
+              balanceDue={(order.payments ?? [])
+                .filter((p) => p.status === "pending")
+                .reduce((n, p) => n + (p.amount ?? 0), 0)}
               receiptSubmittedAt={order.receipt_submitted_at}
               onConfirmed={() => queryClient.invalidateQueries({ queryKey: orderKeys.detail(order.id) })}
             />
