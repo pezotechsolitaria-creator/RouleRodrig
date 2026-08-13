@@ -89,7 +89,9 @@
 // fleet grew a second filter row, so the shipped bundle changed.
 // v177 — the vehicle deposit is owner-set, and activities are paid in full to
 // confirm rather than leaving a balance for the day.
-const CACHE = "rr-cache-v177";
+// v178 — Ti Roulé is back in the middle of the tab bar, so the cached shell has
+// to be refetched or the old order keeps rendering.
+const CACHE = "rr-cache-v178";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

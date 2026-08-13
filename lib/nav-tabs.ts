@@ -70,18 +70,28 @@ export const NAV_TABS: readonly NavTab[] = [
       p.startsWith("/events") || p.startsWith("/cart") || p.startsWith("/checkout"),
   },
   {
-    key: "explore",
-    icon: Compass,
-    href: "/explore",
-    label: ["Explore", "Explorer", "Explor"],
-    match: (p) => p.startsWith("/explore"),
-  },
-  {
+    // ── DEAD CENTRE, AND IT HAS TO STAY THERE ────────────────────────────────
+    // Ti Roulé is the only tab rendered as a raised gold button rather than an
+    // icon and a word, and that treatment only reads as "this is the special
+    // one" from the middle of the row. It WAS third of five — then the Order tab
+    // was added ahead of it and pushed it to fourth, where a gold button just
+    // looks like a tab someone got wrong. The comment in BottomNav.tsx still
+    // claimed it sat in the centre, which is how the drift went unnoticed.
+    //
+    // A test now asserts the centre position, so the next tab added cannot
+    // quietly displace it again.
     key: "tiroule",
     icon: Bot,
     action: "tiroule",
     // Ti Roulé is a name, so it is the same word in all three languages.
     label: ["Ti Roulé", "Ti Roulé", "Ti Roulé"],
+  },
+  {
+    key: "explore",
+    icon: Compass,
+    href: "/explore",
+    label: ["Explore", "Explorer", "Explor"],
+    match: (p) => p.startsWith("/explore"),
   },
   {
     key: "more",

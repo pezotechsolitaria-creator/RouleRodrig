@@ -11,6 +11,10 @@ import { showsVisitorNav } from "@/lib/nav-scope";
 // orange pill and its icon enlarges. Ti Roulé sits in the centre (gold), opening
 // the site-wide chat; Saved lives in the top-right heart.
 //
+// "In the centre" is enforced by a test in lib/nav-tabs.test.ts, not by this
+// comment — it stayed here and stayed wrong for a while after a new tab pushed
+// Ti Roulé to fourth of five.
+//
 // The TABS themselves come from lib/nav-tabs.ts — the same list AppHome renders
 // with its own chrome. This file owns the look, never the labels or the routes.
 export default function BottomNav() {
