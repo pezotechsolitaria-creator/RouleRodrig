@@ -8,6 +8,7 @@ import { centsToDecimalString } from "@/lib/money";
 import { statusLabel, type OrderStatus } from "@/lib/orders/status";
 import { holdInfo, customerHoldCopy, holdRemaining, type PaymentProvider } from "@/lib/orders/hold";
 import BankTransferPanel from "@/components/orders/BankTransferPanel";
+import RefundPanel from "@/components/refunds/RefundPanel";
 import DeliveryStatusCard from "@/components/orders/DeliveryStatusCard";
 import OrderAlerts from "@/components/orders/OrderAlerts";
 import PickupCodeCard from "@/components/orders/PickupCodeCard";
@@ -416,6 +417,12 @@ function TrackOrder() {
                 </p>
               </section>
             )}
+
+            {/* M90 — the guest's refund, on the same credential they looked
+                the order up with. Above the bank panel for the same reason as
+                the signed-in page: a cancelled paid order has exactly one
+                question and it is this one. */}
+            <RefundPanel credential={{ orderNumber: order.orderNumber, email }} />
 
             {showBankPanel && (
               <BankTransferPanel

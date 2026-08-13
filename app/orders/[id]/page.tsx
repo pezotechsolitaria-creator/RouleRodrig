@@ -10,6 +10,7 @@ import { statusLabel, type OrderStatus } from "@/lib/orders/status";
 import { FULFILLMENT_LABEL, googleMapsLink, formatCoords } from "@/lib/orders/location";
 import { holdInfo, customerHoldCopy, holdRemaining, type PaymentProvider } from "@/lib/orders/hold";
 import BankTransferPanel, { type BankDetails } from "@/components/orders/BankTransferPanel";
+import RefundPanel from "@/components/refunds/RefundPanel";
 import PickupCodeCard from "@/components/orders/PickupCodeCard";
 import PickupLocationCard from "@/components/orders/PickupLocationCard";
 import TicketList, { type BuyerTicket } from "@/components/events/TicketList";
@@ -279,6 +280,14 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
             </p>
           </section>
         )}
+
+        {/* Money owed BACK (M90). Above the bank panel deliberately: if this
+            order was cancelled after payment, "where is my money" is the only
+            question the customer has, and it used to have no answer anywhere
+            on this page. Renders nothing when there is no refund. */}
+        <div className="mt-4">
+          <RefundPanel credential={{ orderId: typedOrder.id }} />
+        </div>
 
         {showBankPanel && (
           <div className="mt-4">

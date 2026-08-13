@@ -7,6 +7,7 @@ import { getMerchantSubscription } from "@/lib/merchant/subscription";
 import { centsToDecimalString } from "@/lib/money";
 import { todayLine, deliveryLine, nextOpenLabel, type ScheduleStatus } from "@/lib/schedule";
 import { isPrepaymentOnly } from "@/lib/payments/prepayment";
+import RefundsOwed from "@/components/merchant/RefundsOwed";
 
 export default async function MerchantHome() {
   const supabase = await createClient();
@@ -94,6 +95,11 @@ export default async function MerchantHome() {
           </Link>
         </div>
       )}
+
+      {/* Money owed back to a customer (M90). Renders nothing when there is
+          none, and sits above the shop summary because it is the only thing on
+          this page where somebody else is out of pocket. */}
+      <RefundsOwed />
 
       {/* Shop summary + approval status */}
       <div className="mt-7 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-6">

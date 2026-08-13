@@ -123,18 +123,24 @@ export default async function CommandCenterPage() {
   // after the parallel batch because it needs no input from it, and worth the
   // cost: it is the difference between an admin who knows ordering is dark and
   // one who finds out from a customer.
-  const [{ data: orderableDishes }, { data: emptyLiveKitchens }, { data: paymentBlockedStores }] =
-    await Promise.all([
-      admin.rpc("orderable_dish_count"),
-      admin.rpc("empty_live_kitchen_count"),
-      admin.rpc("payment_blocked_store_count"),
-    ]);
+  const [
+    { data: orderableDishes },
+    { data: emptyLiveKitchens },
+    { data: paymentBlockedStores },
+    { data: refundsOwed },
+  ] = await Promise.all([
+    admin.rpc("orderable_dish_count"),
+    admin.rpc("empty_live_kitchen_count"),
+    admin.rpc("payment_blocked_store_count"),
+    admin.rpc("outstanding_refund_count"),
+  ]);
 
   const attention: AttentionItem[] = attentionItems({
     orderableDishes: typeof orderableDishes === "number" ? orderableDishes : undefined,
     emptyLiveKitchens: typeof emptyLiveKitchens === "number" ? emptyLiveKitchens : undefined,
     paymentBlockedStores:
       typeof paymentBlockedStores === "number" ? paymentBlockedStores : undefined,
+    refundsOwed: typeof refundsOwed === "number" ? refundsOwed : undefined,
     openOrders: byQueue(openOrders.data as { store_id: string | null }[] | null),
     awaitingPaymentConfirmation: byQueue(awaiting.data as { store_id: string | null }[] | null),
     pendingVehicleBookings: count(pendingBookings),

@@ -171,6 +171,40 @@ describe("food ordering going dark", () => {
   });
 });
 
+describe("money owed back to a customer", () => {
+  // M90. The only queue where the customer has already paid AND received
+  // nothing. It is also the one the platform cannot fix itself — the money is
+  // in the merchant's account — so this number is a chase list, and it has to
+  // be impossible to miss.
+  it("is critical", () => {
+    const item = attentionItems({ refundsOwed: 2 }).find((i) => i.key === "refunds-owed");
+    expect(item, "no refunds-owed item at all").toBeDefined();
+    expect(item!.count).toBe(2);
+    expect(item!.severity).toBe("critical");
+  });
+
+  it("comes first among equals", () => {
+    // Within one severity this list orders by COUNT — five blocked shops do
+    // outrank one refund, and that rule is deliberate and older than this
+    // item, so it is not bent here. What IS pinned is the genuine tie: on
+    // equal counts a refund is read before a shop that merely cannot sell,
+    // because one is a wrong already done and the other is opportunity lost.
+    const items = attentionItems({ refundsOwed: 1, paymentBlockedStores: 1 });
+    const refund = items.findIndex((i) => i.key === "refunds-owed");
+    const blocked = items.findIndex((i) => i.key === "payment-blocked-stores");
+    expect(refund).toBeGreaterThanOrEqual(0);
+    expect(refund).toBeLessThan(blocked);
+  });
+
+  it("says nothing when every refund has gone out", () => {
+    expect(attentionItems({ refundsOwed: 0 }).find((i) => i.key === "refunds-owed")?.count ?? 0).toBe(0);
+  });
+
+  it("stays quiet when the count is unknown", () => {
+    expect(attentionItems({}).find((i) => i.key === "refunds-owed")?.count ?? 0).toBe(0);
+  });
+});
+
 describe("a live shop nobody can pay", () => {
   // M89 turned cash off platform-wide. Eight of eleven stores were cash-only
   // with no bank account published, so the switch takes them off the market

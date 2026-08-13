@@ -72,6 +72,16 @@ export type AttentionCounts = {
    * everyone like a shop nobody is buying from.
    */
   paymentBlockedStores?: number;
+  /**
+   * Refunds a customer is still waiting for (M90).
+   *
+   * The most damaging number on this page. Every other queue is somebody
+   * waiting for a thing; this is somebody waiting for their MONEY BACK, after
+   * an order they already paid for was cancelled. It is also the one the
+   * platform cannot fix by itself — the money sits in the merchant's account,
+   * so this list is a chase list.
+   */
+  refundsOwed?: number;
 };
 
 /**
@@ -116,6 +126,17 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
       count: (c.orderableDishes ?? 1) === 0 ? 1 : 0,
       severity: "critical",
       href: "/admin/food",
+    },
+    // Money owed BACK. First among equals in the critical band once counts are
+    // equal, because it is the only queue where the customer has already paid
+    // and received nothing — and where every day of delay is the platform's
+    // reputation, not the merchant's.
+    {
+      key: "refunds-owed",
+      label: "Refunds customers are still waiting for",
+      count: c.refundsOwed ?? 0,
+      severity: "critical",
+      href: "/admin/marketplace",
     },
     // A live shop nobody can pay. Critical, and ranked with the other two
     // "the door is shut" states rather than among the queues: no amount of
