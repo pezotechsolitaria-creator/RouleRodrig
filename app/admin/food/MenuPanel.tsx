@@ -717,7 +717,30 @@ function DishEditor({
                 );
               })}
             </div>
-            <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
+            {/* ── A WAY BACK OUT OF A TIME WINDOW ──────────────────────────
+                "Leave both blank" is easy advice to give and, on a phone, was
+                impossible to follow. A <input type="time"> on iOS is a spinning
+                wheel: once it holds 06:00 there is no blank to spin back to, so
+                a dish that got one time by accident could never be returned to
+                all-day — and one time without the other is exactly the state
+                the validator rejects. The owner was trapped between a rule and
+                a control that could not satisfy it.
+
+                So clearing is its own button, which empties BOTH ends at once
+                and therefore always lands on a state that saves. */}
+            <div className="mt-2.5 flex items-center justify-between gap-2">
+              <span className={label}>SERVED BETWEEN</span>
+              {(draft.availableFrom || draft.availableUntil) && (
+                <button
+                  type="button"
+                  onClick={() => set({ availableFrom: "", availableUntil: "" })}
+                  className="rounded-lg border border-white/15 px-2.5 py-1.5 font-dm text-[11px] text-muted transition hover:border-yellow/50 hover:text-yellow"
+                >
+                  Clear · serve all day
+                </button>
+              )}
+            </div>
+            <div className="mt-1.5 grid gap-3 sm:grid-cols-2">
               <div>
                 <span className={label}>SERVED FROM</span>
                 <input className={input} type="time" value={draft.availableFrom}
@@ -730,8 +753,9 @@ function DishEditor({
               </div>
             </div>
             <p className="mt-1.5 font-dm text-[11px] text-muted">
-              Leave both blank to serve it all day. The database refuses an order outside this window —
-              not just the button.
+              {draft.availableFrom || draft.availableUntil
+                ? "Both times are needed, or use Clear to serve it all day. The database refuses an order outside this window — not just the button."
+                : "Served all day. Set both times to limit it to part of the day — breakfast, or lunch only."}
             </p>
           </div>
 
