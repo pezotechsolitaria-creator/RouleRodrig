@@ -71,6 +71,8 @@ export type OrderDetail = {
   // see the clock that was about to cancel their order.
   accepted_at: string | null;
   auto_release_at: string | null;
+  /** M89 — cash is off platform-wide, so a part-payment has nowhere to leave a balance. */
+  prepayment_only?: boolean;
   order_items: OrderItem[];
   payments: OrderPayment[];
   qr_pickup_tokens: { id: string; issued_at: string; expires_at: string; redeemed_at: string | null }[];

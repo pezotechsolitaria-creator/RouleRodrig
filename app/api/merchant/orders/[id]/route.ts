@@ -10,6 +10,7 @@ import { formatPickupCode } from "@/lib/orders/pickup";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
 import { channelsForStatus } from "@/lib/orders/email-policy";
 import { notifyDriversOfNewOffer } from "@/lib/delivery/notify";
+import { isPrepaymentOnly } from "@/lib/payments/prepayment";
 
 const NOT_FOUND_CODE = "RR003";
 const ILLEGAL_TRANSITION_CODE = "RR004";
@@ -74,8 +75,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   });
   if (notesError) console.error("order_internal_notes failed", notesError);
 
+  // M89 — whether cash still exists. The detail card uses it to hide recording
+  // a PART payment, which books the remainder as a pending cash row that the
+  // payments trigger now refuses.
+  const prepaymentOnly = await isPrepaymentOnly(supabase);
+
   return NextResponse.json({
-    order: Object.assign({}, order, { internal_notes: (internalNotes as string | null) ?? null }),
+    order: Object.assign({}, order, {
+      internal_notes: (internalNotes as string | null) ?? null,
+      prepayment_only: prepaymentOnly,
+    }),
   });
 }
 

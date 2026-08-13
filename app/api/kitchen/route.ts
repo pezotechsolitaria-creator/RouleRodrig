@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { guard } from "@/lib/rate-limit";
+import { isPrepaymentOnly } from "@/lib/payments/prepayment";
 
 // The cook's entire API surface.
 //
@@ -37,7 +38,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ onTeam: true, ...(menu as object) });
   }
 
-  const { data, error } = await supabase.rpc("kitchen_dashboard");
+  // M89 — whether cash still exists. Read here rather than inside
+  // kitchen_dashboard() so the RPC body does not have to be rewritten for a
+  // platform flag; the board uses it to hide controls that would now be
+  // refused by the payments trigger.
+  const [{ data, error }, prepaymentOnly] = await Promise.all([
+    supabase.rpc("kitchen_dashboard"),
+    isPrepaymentOnly(supabase),
+  ]);
   if (error) {
     // Not being on a team is a normal state, not a failure — the page uses it
     // to explain rather than to show an error.
@@ -45,7 +53,7 @@ export async function GET(req: NextRequest) {
     console.error("kitchen_dashboard failed", error);
     return NextResponse.json({ error: "Could not load your orders." }, { status: 500 });
   }
-  return NextResponse.json({ onTeam: true, ...(data as object) });
+  return NextResponse.json({ onTeam: true, prepaymentOnly, ...(data as object) });
 }
 
 const actionSchema = z.union([

@@ -61,6 +61,17 @@ export type AttentionCounts = {
    * that the kitchen is quiet.
    */
   emptyLiveKitchens?: number;
+  /**
+   * Live shops with no way to receive money (M89).
+   *
+   * Cash was switched off platform-wide so nothing is handed over before the
+   * money arrives. Eight of eleven stores were cash-only with no account
+   * published, so the switch takes them off the market until they supply bank
+   * details — four of them live on the day it shipped. That is the intended
+   * trade, but it MUST be visible: a shop that silently cannot sell looks to
+   * everyone like a shop nobody is buying from.
+   */
+  paymentBlockedStores?: number;
 };
 
 /**
@@ -105,6 +116,18 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
       count: (c.orderableDishes ?? 1) === 0 ? 1 : 0,
       severity: "critical",
       href: "/admin/food",
+    },
+    // A live shop nobody can pay. Critical, and ranked with the other two
+    // "the door is shut" states rather than among the queues: no amount of
+    // clearing work matters while a customer physically cannot buy. This is
+    // the cost of M89 made visible, and it clears itself one merchant at a
+    // time as bank details arrive.
+    {
+      key: "payment-blocked-stores",
+      label: "Live shops with no bank details — they cannot take an order",
+      count: c.paymentBlockedStores ?? 0,
+      severity: "critical",
+      href: "/admin/stores",
     },
     // A live restaurant with an empty menu. Not critical — nothing is broken
     // and no customer is waiting — but somebody will walk into it today.

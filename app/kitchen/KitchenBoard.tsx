@@ -79,7 +79,13 @@ type Order = {
 function money(minor: number, currency = "MUR"): string {
   return `${currency === "MUR" ? "Rs " : ""}${(minor / 100).toFixed(2)}`;
 }
-type Dash = { onTeam: boolean; kitchens?: { id: string; name: string }[]; orders?: Order[] };
+type Dash = {
+  onTeam: boolean;
+  kitchens?: { id: string; name: string }[];
+  orders?: Order[];
+  /** M89 — cash is off platform-wide, so a part-payment has nowhere to leave a balance. */
+  prepaymentOnly?: boolean;
+};
 
 // One next step per state — as data, so there can never be two.
 const NEXT: Record<string, { to: string; label: string }> = {
@@ -631,8 +637,16 @@ Tell the customer why — they will see this.`,
             {/* M79 — a deposit by bank, the rest in cash on handover.
                 Secondary to "paid in full" because it is the rarer case,
                 but on the same card: asking a cook to go somewhere else
-                to record a half-payment means it does not get recorded. */}
-            {typeof o.total === "number" && o.total > 0 && (
+                to record a half-payment means it does not get recorded.
+
+                M89 HIDES IT while the platform is prepayment-only. A part
+                payment books the remainder as a PENDING CASH row, which the
+                payments trigger now refuses outright — so leaving the button
+                on screen would offer the cook an action that fails with a
+                raw database error in the middle of service. The whole point
+                of prepayment is that a kitchen never hands food over against
+                money it has not got. */}
+            {!dash.prepaymentOnly && typeof o.total === "number" && o.total > 0 && (
               <button
                 onClick={() => {
                   const answer = window.prompt(

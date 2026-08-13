@@ -27,6 +27,10 @@ export default function PaymentSettingsForm({
   zones, maxMinutes, deliveryEnabled,
 }: { zones: Zone[]; maxMinutes: number; deliveryEnabled: boolean }) {
   const [s, setS] = useState<Settings | null>(null);
+  // M89. Fails closed at true: showing a live Cash box when the platform
+  // refuses cash lets a merchant tick it, save happily, and still take no
+  // orders — the worst of the three possible wrong answers.
+  const [prepaymentOnly, setPrepaymentOnly] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -41,7 +45,7 @@ export default function PaymentSettingsForm({
         if (!r.ok) throw new Error(b.error || "Couldn't load your payment settings.");
         return b;
       })
-      .then((b) => { if (!cancelled) setS(b.settings); })
+      .then((b) => { if (!cancelled) { setS(b.settings); setPrepaymentOnly(b.prepaymentOnly !== false); } })
       .catch((e) => { if (!cancelled) setLoadError(e instanceof Error ? e.message : "Couldn't load your payment settings."); });
     return () => { cancelled = true; };
   }, [reloadKey]);
@@ -109,20 +113,53 @@ export default function PaymentSettingsForm({
       <fieldset className="rounded-2xl border border-white/10 bg-dark-card p-4">
         <legend className="px-1 font-bebas text-[11px] tracking-[0.3em] text-yellow">HOW CUSTOMERS PAY</legend>
         <p className="mt-1 font-dm text-xs text-muted">
-          Marketplace orders are paid directly to you — cash in person, or a bank transfer.
-          Card payments are only used for vehicle rentals.
+          {prepaymentOnly
+            ? "Roulé Rodrigues orders are paid by bank transfer before you prepare them, so nothing leaves your shop unpaid. The money goes directly to you — we never hold it. Card payments are only used for vehicle rentals."
+            : "Marketplace orders are paid directly to you — cash in person, or a bank transfer. Card payments are only used for vehicle rentals."}
         </p>
         <div className="mt-3 space-y-2">
-          <label className="flex items-center gap-3 rounded-xl border border-white/15 px-4 py-3">
-            <input type="checkbox" checked={s.accepts_cash} onChange={(e) => set({ accepts_cash: e.target.checked })} className="accent-yellow" />
-            <span className="font-dm text-sm text-offwhite">Cash</span>
+          {/* CASH IS THE PLATFORM'S DECISION, NOT THE SHOP'S (M89).
+              Left visible rather than deleted so a merchant who remembers
+              ticking it can see what happened to it, and so the box comes
+              back by itself if the switch is ever turned off. A disabled
+              control with a reason beats a control that saves and does
+              nothing. */}
+          <label
+            className={`flex items-center gap-3 rounded-xl border border-white/15 px-4 py-3 ${
+              prepaymentOnly ? "opacity-50" : ""
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={!prepaymentOnly && s.accepts_cash}
+              disabled={prepaymentOnly}
+              onChange={(e) => set({ accepts_cash: e.target.checked })}
+              className="accent-yellow"
+            />
+            <span className="font-dm text-sm text-offwhite">
+              Cash
+              {prepaymentOnly && (
+                <span className="ml-2 font-dm text-xs text-muted">
+                  — not available on Roulé Rodrigues
+                </span>
+              )}
+            </span>
           </label>
           <label className="flex items-center gap-3 rounded-xl border border-white/15 px-4 py-3">
             <input type="checkbox" checked={s.accepts_bank_transfer} onChange={(e) => set({ accepts_bank_transfer: e.target.checked })} className="accent-yellow" />
             <span className="font-dm text-sm text-offwhite">Direct bank transfer</span>
           </label>
         </div>
-        {noMethod && <p role="alert" className="mt-2 font-dm text-xs text-red-400">Enable at least one payment method.</p>}
+        {prepaymentOnly && !s.accepts_bank_transfer ? (
+          // Sharper than "enable at least one method": with cash gone there is
+          // exactly one thing to do, so the message says that thing.
+          <p role="alert" className="mt-2 font-dm text-xs text-red-400">
+            Turn on bank transfer and add your account below, or customers cannot pay you and your
+            shop cannot take orders.
+          </p>
+        ) : (
+          noMethod && <p role="alert" className="mt-2 font-dm text-xs text-red-400">Enable at least one payment method.</p>
+        )}
       </fieldset>
 
       {s.accepts_bank_transfer && (

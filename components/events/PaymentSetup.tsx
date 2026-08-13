@@ -29,8 +29,14 @@ export default function PaymentSetup({
   initial: OrganizerPaymentSettings | null;
 }) {
   const router = useRouter();
-  const [cash, setCash] = useState(initial?.acceptsCash ?? true);
-  const [bank, setBank] = useState(initial?.acceptsBankTransfer ?? false);
+  // M89 — a NEW organiser no longer arrives with Cash pre-ticked and transfer
+  // off. That default let somebody set up, save happily, and sell nothing:
+  // cash is refused platform-wide, so the only configuration that can actually
+  // take money is a bank account. Starting with transfer on surfaces the empty
+  // required fields immediately, which is the guidance they need. An existing
+  // organiser's saved values are untouched.
+  const [cash, setCash] = useState(initial?.acceptsCash ?? false);
+  const [bank, setBank] = useState(initial?.acceptsBankTransfer ?? true);
   const [bankName, setBankName] = useState(initial?.bankName ?? "");
   const [holder, setHolder] = useState(initial?.accountHolder ?? "");
   const [account, setAccount] = useState(initial?.accountNumber ?? "");

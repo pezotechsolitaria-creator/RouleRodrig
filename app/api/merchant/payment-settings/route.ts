@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOwnStoreId } from "@/lib/merchant/context";
 import { guard } from "@/lib/rate-limit";
 import { paymentSettingsSchema } from "@/lib/schemas/checkout";
+import { isPrepaymentOnly } from "@/lib/payments/prepayment";
 
 const SUBSCRIPTION_CODE = "RR008";
 
@@ -53,7 +54,12 @@ export async function GET(req: NextRequest) {
 
   // A shop that has never saved settings takes cash only — the same default the
   // create_order() RPC assumes when no row exists.
+  //
+  // M89 ships prepaymentOnly alongside it: the form needs to explain why the
+  // Cash box no longer does anything, rather than letting a merchant tick it,
+  // save successfully, and still take no orders.
   return NextResponse.json({
+    prepaymentOnly: await isPrepaymentOnly(supabase),
     settings: data ?? {
       accepts_cash: true,
       accepts_bank_transfer: false,

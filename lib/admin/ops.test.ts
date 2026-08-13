@@ -171,6 +171,41 @@ describe("food ordering going dark", () => {
   });
 });
 
+describe("a live shop nobody can pay", () => {
+  // M89 turned cash off platform-wide. Eight of eleven stores were cash-only
+  // with no bank account published, so the switch takes them off the market
+  // until they supply one — four of them live the day it shipped. The trade is
+  // deliberate; the SILENCE would not be. A shop that cannot sell looks exactly
+  // like a shop nobody is buying from.
+  it("is critical — a customer physically cannot buy", () => {
+    const item = attentionItems({ paymentBlockedStores: 4 }).find((i) => i.key === "payment-blocked-stores");
+    expect(item, "no payment-blocked-stores item at all").toBeDefined();
+    expect(item!.count).toBe(4);
+    expect(item!.severity).toBe("critical");
+    expect(item!.href).toBe("/admin/stores");
+  });
+
+  it("outranks an empty kitchen, which is only untidy", () => {
+    const items = attentionItems({ paymentBlockedStores: 1, emptyLiveKitchens: 9 });
+    const blocked = items.findIndex((i) => i.key === "payment-blocked-stores");
+    const empty = items.findIndex((i) => i.key === "empty-live-kitchen");
+    expect(blocked).toBeGreaterThanOrEqual(0);
+    // Severity must beat raw count: nine tidy-ups do not outrank one shop that
+    // cannot take money.
+    expect(blocked).toBeLessThan(empty);
+  });
+
+  it("says nothing once every live shop can be paid", () => {
+    const item = attentionItems({ paymentBlockedStores: 0 }).find((i) => i.key === "payment-blocked-stores");
+    expect(item?.count ?? 0).toBe(0);
+  });
+
+  it("stays quiet when the count is unknown", () => {
+    const item = attentionItems({}).find((i) => i.key === "payment-blocked-stores");
+    expect(item?.count ?? 0).toBe(0);
+  });
+});
+
 describe("a live kitchen with an empty menu", () => {
   // Found by shopping the site: Chez Banane was active and visible with zero
   // sellable dishes. Nothing is broken and nobody is waiting, so it is not

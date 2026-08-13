@@ -128,7 +128,11 @@ export async function POST(req: NextRequest) {
     storeName: string | null; address: string | null; hint: string | null;
     lat: number | null; lng: number | null; phone: string | null;
   } | null = null;
-  let payment = { acceptsCash: true, acceptsBankTransfer: false, requiresReceipt: false };
+  // The value returned when there is no store to ask about (an empty or fully
+  // stale cart). Fails closed for the same reason the RPC fallback below does:
+  // this object reaches the checkout form, and "cash is fine" is not a safe
+  // thing to say when nobody has been asked.
+  let payment = { acceptsCash: false, acceptsBankTransfer: false, requiresReceipt: true };
   if (storeId) {
     const [
       { data: pay }, { data: settings }, { data: status },
@@ -202,10 +206,17 @@ export async function POST(req: NextRequest) {
     const o = opts as
       | { accepts_cash?: boolean; accepts_bank_transfer?: boolean; require_receipt?: boolean }
       | null;
+    // EVERY FALLBACK HERE FAILS CLOSED. `?? true` on cash was the last
+    // remnant of the M83/M84 bug in a new form: when the RPC returns nothing —
+    // an error, or a store that stopped being visible mid-checkout — that
+    // default would offer CASH after M89 turned it off platform-wide, which is
+    // the one outcome this whole change exists to prevent. A missing answer is
+    // not a yes. The worst case is now "this shop cannot take orders", which is
+    // visible and true, instead of a payment method nobody authorised.
     payment = {
-      acceptsCash: o?.accepts_cash ?? true,
+      acceptsCash: o?.accepts_cash ?? false,
       acceptsBankTransfer: o?.accepts_bank_transfer ?? false,
-      requiresReceipt: o?.require_receipt ?? false,
+      requiresReceipt: o?.require_receipt ?? true,
     };
   }
 

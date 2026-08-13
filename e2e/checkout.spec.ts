@@ -1,4 +1,11 @@
 import { test, expect } from "@playwright/test";
+
+// PROVIDER NOTE (M89): every request here sends `bank_transfer`, not `cash`.
+// Cash is refused platform-wide by a trigger on `payments`, so a cash body now
+// fails for a reason none of these tests are about — they are about guest
+// email validation, price tampering, oversell races and stock. M4 Test Shop
+// accepts bank transfer and has bank details on file, so the orders still
+// reach the code each test actually exercises.
 import AxeBuilder from "@axe-core/playwright";
 import { seedOrderFixture, deleteOrderFixture, hasServiceRole, type OrderFixture } from "./support/order-test-fixtures";
 
@@ -57,7 +64,7 @@ test.describe("checkout — guest (no session)", () => {
       data: {
         storeId: "5a92bdf0-17c8-4181-886b-aa7cd5d1c353",
         items: [{ variantId: "06469e6e-5b9a-4444-bddc-250685197e85", quantity: 1 }],
-        customerName: "X", customerPhone: "+23057123456", fulfillment: "pickup", provider: "cash",
+        customerName: "X", customerPhone: "+23057123456", fulfillment: "pickup", provider: "bank_transfer",
       },
     });
     expect(res.status()).toBe(400);
@@ -69,7 +76,7 @@ test.describe("checkout — guest (no session)", () => {
       data: {
         storeId: "5a92bdf0-17c8-4181-886b-aa7cd5d1c353",
         items: [{ variantId: "06469e6e-5b9a-4444-bddc-250685197e85", quantity: 1 }],
-        customerName: "X", customerPhone: "+23057123456", fulfillment: "pickup", provider: "cash",
+        customerName: "X", customerPhone: "+23057123456", fulfillment: "pickup", provider: "bank_transfer",
         guestEmail: "not-an-email",
       },
     });
@@ -131,7 +138,7 @@ test.describe("checkout — input validation (no auth needed to prove the schema
         data: {
           storeId: "5a92bdf0-17c8-4181-886b-aa7cd5d1c353",
           items: [{ variantId: "06469e6e-5b9a-4444-bddc-250685197e85", quantity: 1 }],
-          customerName: "X", customerPhone: "1", fulfillment: "pickup", provider: "cash",
+          customerName: "X", customerPhone: "1", fulfillment: "pickup", provider: "bank_transfer",
           ...patch,
         },
       });
@@ -173,7 +180,7 @@ test.describe("checkout — authenticated", () => {
         storeId: fixture.storeId,
         items: [{ variantId: fixture.variantId, quantity: 1, price: 1, unitPrice: 1 }],
         total: 1, subtotal: 1,
-        customerName: "Tamper", customerPhone: "1", fulfillment: "pickup", provider: "cash",
+        customerName: "Tamper", customerPhone: "1", fulfillment: "pickup", provider: "bank_transfer",
       },
     });
     expect(res.status()).toBe(200);
@@ -188,7 +195,7 @@ test.describe("checkout — authenticated", () => {
       data: {
         storeId: fixture.storeId,
         items: [{ variantId: fixture.variantId, quantity: 100 }],
-        customerName: "Greedy", customerPhone: "1", fulfillment: "pickup", provider: "cash",
+        customerName: "Greedy", customerPhone: "1", fulfillment: "pickup", provider: "bank_transfer",
       },
     });
     expect(res.status()).toBe(409);
@@ -203,7 +210,7 @@ test.describe("checkout — authenticated", () => {
         data: {
           storeId: fixture.storeId,
           items: [{ variantId: fixture.variantId, quantity: 1 }],
-          customerName: "Race", customerPhone: "1", fulfillment: "pickup", provider: "cash",
+          customerName: "Race", customerPhone: "1", fulfillment: "pickup", provider: "bank_transfer",
         },
       }),
     );
@@ -223,7 +230,7 @@ test.describe("checkout — authenticated", () => {
         customerName: '<img src=x onerror="window.__XSS=1">',
         customerPhone: "1",
         notes: '<svg onload="window.__XSS2=1">',
-        fulfillment: "pickup", provider: "cash",
+        fulfillment: "pickup", provider: "bank_transfer",
       },
     });
     expect(res.status()).toBe(200);

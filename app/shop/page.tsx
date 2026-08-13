@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 const PAGE_SIZE = 12;
 
 const DESCRIPTION =
-  "Buy from local shops in Rodrigues Island — honey, chilli, crafts and more. Order online, pay cash or by bank transfer, pick up or get it delivered island-wide.";
+  "Buy from local shops in Rodrigues Island — honey, chilli, crafts and more. Order online, pay by bank transfer, pick up or get it delivered island-wide.";
 
 export const metadata: Metadata = {
   title: "Local Shops in Rodrigues | Roulé Rodrigues Marketplace",
@@ -95,7 +95,8 @@ function LaunchState({ pitch }: { pitch: string }) {
         <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">RUN A SHOP IN RODRIGUES?</p>
         <p className="mt-2 font-syne text-lg font-bold text-offwhite">Be one of the first on the marketplace</p>
         <p className="mt-2 font-dm text-sm leading-relaxed text-muted">
-          List your products, take orders online, and get paid directly in cash or by bank transfer —
+          List your products, take orders online, and get paid directly by bank transfer before you
+          hand anything over —
           {" "}{pitch}.
         </p>
         <Link

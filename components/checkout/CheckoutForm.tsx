@@ -102,7 +102,10 @@ export default function CheckoutForm({
   const [locationError, setLocationError] = useState<string | null>(null);
   const [deliveryInstructions, setDeliveryInstructions] = useState("");
   const [notes, setNotes] = useState("");
-  const [provider, setProvider] = useState<Provider>("cash");
+  // Bank transfer is the default because it is, as of M89, the only method the
+  // platform offers. The cart-resolve effect still corrects this from what the
+  // shop actually accepts, so nothing here assumes the switch is on.
+  const [provider, setProvider] = useState<Provider>("bank_transfer");
   const [submitting, setSubmitting] = useState(false);
   const [switching, setSwitching] = useState(false);
 
@@ -738,43 +741,53 @@ export default function CheckoutForm({
         </div>
       </section>
 
-      {/* Payment — cash or bank transfer only; cards belong to vehicle rentals */}
+      {/* Payment — cash or bank transfer only; cards belong to vehicle rentals.
+          M89 turned cash off platform-wide (marketplace_settings.prepayment_only)
+          so that nothing is ever handed over before the money has arrived. */}
       <fieldset>
         <legend className="font-bebas text-[11px] tracking-[0.3em] text-yellow">PAYMENT</legend>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          {([["cash", "Cash"], ["bank_transfer", "Bank transfer"]] as const).map(([value, label]) => {
-            // Each shop chooses which methods it takes, and create_order()
-            // refuses the rest with RR009. Offering an ungated choice meant a
-            // customer could pick Bank transfer — which defaults to OFF — and
-            // only discover the shop refuses it after pressing Place order.
-            const accepted = value === "cash" ? acceptsCash : bankTransferAvailable;
-            return (
+        {/* A CHOICE IS ONLY DRAWN WHEN THERE IS ONE TO MAKE.
+            With cash off, the two-tile radio rendered a permanently disabled
+            "Cash" on every checkout — advertising a method that no longer
+            exists and inviting a tap that does nothing. One available method
+            is a statement, not a question. The radio is kept for the case
+            where both are on, so turning the switch back off restores the
+            choice without another change here. */}
+        {acceptsCash && bankTransferAvailable ? (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {([["cash", "Cash"], ["bank_transfer", "Bank transfer"]] as const).map(([value, label]) => (
               <label
                 key={value}
-                className={`rounded-xl border px-4 py-3 text-center font-dm text-sm transition-colors ${
+                className={`cursor-pointer rounded-xl border px-4 py-3 text-center font-dm text-sm transition-colors ${
                   provider === value ? "border-yellow bg-yellow/10 text-yellow" : "border-white/15 text-offwhite hover:bg-white/[0.04]"
-                } ${accepted ? "cursor-pointer" : "cursor-not-allowed opacity-40"}`}
+                }`}
               >
                 <input
                   type="radio" name="provider" value={value} checked={provider === value}
-                  disabled={!accepted}
                   onChange={() => setProvider(value)} className="sr-only"
                 />
                 {label}
               </label>
-            );
-          })}
-        </div>
-        {!acceptsCash && !acceptsBankTransfer && (
-          <p role="alert" className="mt-2 font-dm text-xs text-red-400">
-            This {v.seller} hasn&apos;t set up a payment method yet, so it can&apos;t take orders.
+            ))}
+          </div>
+        ) : bankTransferAvailable ? (
+          <p className="mt-2 rounded-xl border border-yellow/25 bg-yellow/[0.06] px-4 py-3 font-dm text-sm text-offwhite">
+            Paid by <span className="font-bold text-yellow">bank transfer</span> before your order is
+            prepared.
           </p>
-        )}
-        {/* (M49c) The "sign in to pay by bank transfer" notice that stood here
-            is gone with the restriction it explained. */}
-        {acceptsCash !== bankTransferAvailable && (
-          <p className="mt-2 font-dm text-xs text-muted">
-            This {v.seller} only takes {acceptsCash ? "cash" : "bank transfer"}.
+        ) : acceptsCash ? (
+          <p className="mt-2 rounded-xl border border-white/15 px-4 py-3 font-dm text-sm text-offwhite">
+            Paid in <span className="font-bold text-yellow">cash</span>.
+          </p>
+        ) : null}
+        {!acceptsCash && !acceptsBankTransfer && (
+          // Four live shops are in exactly this state the day M89 ships: cash
+          // was their only method and they have published no account. Say what
+          // is actually wrong rather than "no payment method", which reads to a
+          // customer as a fault on their side.
+          <p role="alert" className="mt-2 font-dm text-xs text-red-400">
+            This {v.seller} has not published bank details yet, so it cannot take orders. Please
+            contact them directly.
           </p>
         )}
         {provider === "bank_transfer" && bankTransferAvailable && (

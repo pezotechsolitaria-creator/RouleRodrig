@@ -55,7 +55,7 @@ const DOORS = [
     icon: Ticket,
     title: "Tickets",
     line: "Concerts, séga nights, festivals",
-    detail: "Pay online or in cash, then show the code at the gate.",
+    detail: "Pay by bank transfer, then show the code at the gate.",
     accent: "from-purple-500/20",
   },
 ];
@@ -81,7 +81,8 @@ export default function OrderHubPage() {
             What would you like to order?
           </h1>
           <p className="mt-2 font-dm text-sm text-muted">
-            Three ways to buy from Rodrigues. Pick one — you can pay in cash on collection if you prefer.
+            Three ways to buy from Rodrigues. Pick one — you pay by bank transfer, and the seller
+            confirms before your order is prepared.
           </p>
 
           <OrderHubBaskets />

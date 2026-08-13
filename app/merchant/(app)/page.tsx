@@ -6,6 +6,7 @@ import { getMerchantDashboard, getDashboardStats, getOrderCount } from "@/lib/me
 import { getMerchantSubscription } from "@/lib/merchant/subscription";
 import { centsToDecimalString } from "@/lib/money";
 import { todayLine, deliveryLine, nextOpenLabel, type ScheduleStatus } from "@/lib/schedule";
+import { isPrepaymentOnly } from "@/lib/payments/prepayment";
 
 export default async function MerchantHome() {
   const supabase = await createClient();
@@ -26,7 +27,7 @@ export default async function MerchantHome() {
   // store_schedule_status() — the SAME function create_order() gates on — so
   // this badge can never claim the shop is open while checkout refuses orders.
   const storeId = dashboard.store?.id ?? null;
-  const [schedule, payment, subscription] = storeId
+  const [schedule, payment, subscription, prepaymentOnly] = storeId
     ? await Promise.all([
         supabase.rpc("store_schedule_status", { p_store_id: storeId }).single()
           .then((r) => (r.data as ScheduleStatus | null) ?? null),
@@ -37,18 +38,28 @@ export default async function MerchantHome() {
           .maybeSingle()
           .then((r) => r.data),
         getMerchantSubscription(supabase, dashboard.merchantId),
+        isPrepaymentOnly(supabase),
       ])
-    : [null, null, null];
+    : [null, null, null, true];
 
   // Column defaults, so an unconfigured shop reads here exactly as it behaves
   // in create_order().
+  //
+  // M89 — cash is subject to the platform switch. This line said "Taking cash"
+  // straight from the column, which after the switch is a lie told on the
+  // merchant's own home screen: checkout offers no cash and the payments
+  // trigger refuses it. What a merchant is told they accept has to be what a
+  // customer is actually offered.
   const pay = {
-    acceptsCash: payment?.accepts_cash ?? true,
+    acceptsCash: !prepaymentOnly && (payment?.accepts_cash ?? false),
     acceptsBankTransfer: payment?.accepts_bank_transfer ?? false,
     offersRrDelivery: payment?.offers_rr_delivery ?? true,
     offersPickup: payment?.offers_pickup ?? true,
     offersCustomerDelivery: payment?.offers_customer_delivery ?? true,
   };
+  // The shop cannot be paid at all. Loudest thing on the page when true —
+  // every other number here is meaningless while no order can complete.
+  const cannotBePaid = !pay.acceptsCash && !pay.acceptsBankTransfer;
 
   return (
     <div className="py-8">
@@ -57,6 +68,32 @@ export default async function MerchantHome() {
       <p className="mt-1.5 font-dm text-sm text-muted">
         You&apos;re signed in as <span className="text-offwhite/90">{user?.email}</span>.
       </p>
+
+      {/* THE ONLY THING THAT MATTERS WHEN IT IS TRUE.
+          Roulé Rodrigues stopped taking cash so that nothing leaves a shop
+          before the money has arrived. For a shop that had only ever ticked
+          "cash", that means checkout now has nothing to offer — and without
+          this banner the merchant would see a normal-looking dashboard, a
+          healthy product list and simply no orders, with no way to find out
+          why. It names the cause, the fix, and links straight to it. */}
+      {storeId && cannotBePaid && (
+        <div className="mt-7 rounded-2xl border border-red-400/40 bg-red-500/[0.08] p-5">
+          <p className="flex items-center gap-2 font-syne text-base font-bold text-red-300">
+            <AlertTriangle size={17} /> Customers cannot pay you yet
+          </p>
+          <p className="mt-1.5 font-dm text-sm text-offwhite/90">
+            Roulé Rodrigues orders are now paid by bank transfer before you prepare them, so nothing
+            leaves your shop unpaid. Add your bank details and your shop can take orders again — it
+            takes a minute.
+          </p>
+          <Link
+            href="/merchant/payments"
+            className="mt-3 inline-flex min-h-[44px] items-center rounded-xl bg-yellow px-5 font-syne text-sm font-bold text-dark"
+          >
+            Add my bank details
+          </Link>
+        </div>
+      )}
 
       {/* Shop summary + approval status */}
       <div className="mt-7 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-6">

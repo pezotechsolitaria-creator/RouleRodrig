@@ -311,6 +311,10 @@ export default function OrderDetail({ id }: { id: string }) {
               orderStatus={order.status}
               amount={order.payments[0].amount}
               hasReceipt={!!order.payment_receipt_path}
+              // M89. Undefined means an older cached response — fail closed and
+              // hide the split, since offering it when cash is off produces a
+              // raw RR017 from the payments trigger.
+              allowSplit={order.prepayment_only === false}
               // Summed from the ledger, exactly as the admin desks and the
               // driver card do it, so no two screens can disagree about how
               // much is still owed.

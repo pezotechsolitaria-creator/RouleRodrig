@@ -30,7 +30,7 @@ import FoodCartBar from "@/components/food/FoodCartBar";
 export const dynamic = "force-dynamic";
 
 const DESCRIPTION =
-  "Order food in Rodrigues Island — octopus, grilled fish, Creole curries and local snacks from island kitchens. Pick it up or get it delivered. Pay cash or by bank transfer.";
+  "Order food in Rodrigues Island — octopus, grilled fish, Creole curries and local snacks from island kitchens. Pick it up or get it delivered. Pay by bank transfer.";
 
 export const metadata: Metadata = {
   title: "Order food in Rodrigues | Roulé Rodrigues",

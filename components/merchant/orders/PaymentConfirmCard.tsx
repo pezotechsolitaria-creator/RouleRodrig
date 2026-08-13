@@ -15,7 +15,7 @@ import {
 // merchant — the money moves directly between customer and shop — so the UI
 // makes the merchant look at the receipt and then assert it explicitly.
 export default function PaymentConfirmCard({
-  orderId, provider, paymentStatus, orderStatus, amount, hasReceipt, receiptSubmittedAt, balanceDue = 0, onConfirmed,
+  orderId, provider, paymentStatus, orderStatus, amount, hasReceipt, receiptSubmittedAt, balanceDue = 0, allowSplit = true, onConfirmed,
 }: {
   orderId: string;
   provider: string;
@@ -26,6 +26,13 @@ export default function PaymentConfirmCard({
   receiptSubmittedAt: string | null;
   /** Cash still owed on a split payment, in minor units. */
   balanceDue?: number;
+  /**
+   * M89 — false while the platform is prepayment-only. Recording a PART
+   * payment books the remainder as a pending cash row, which the payments
+   * trigger now refuses, so the control would fail with a raw database error.
+   * A balance already on an older order still renders and can still be settled.
+   */
+  allowSplit?: boolean;
   onConfirmed: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
@@ -150,7 +157,9 @@ export default function PaymentConfirmCard({
           {/* A deposit now, the rest in cash on handover. Secondary to paying in
               full because it is the rarer case, but on the SAME card: sending
               somebody elsewhere to record a half-payment means it does not get
-              recorded at all. */}
+              recorded at all. Hidden entirely once cash is off (M89) — a
+              half-paid order is precisely the exposure prepayment removes. */}
+          {allowSplit && (
           <Button
             type="button"
             variant="outline"
@@ -173,6 +182,7 @@ The order is Rs ${centsToDecimalString(amount)}. The rest becomes cash to collec
           >
             Only part of it arrived…
           </Button>
+          )}
         </>
       )}
 
