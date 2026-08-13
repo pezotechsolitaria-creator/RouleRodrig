@@ -139,7 +139,9 @@
 // Kitchen and Taxi alert categories exist, and autofill cannot poison a number.
 // v217 — Turn on rebuilds the push subscription instead of reusing a stale
 // one, and reports whether a notification was actually accepted.
-const CACHE = "rr-cache-v217";
+// v218 — the alerts page leads with browser notifications; WhatsApp is
+// labelled as the backup it now is.
+const CACHE = "rr-cache-v218";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

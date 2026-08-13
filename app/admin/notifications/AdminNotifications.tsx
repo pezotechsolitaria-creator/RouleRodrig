@@ -8,6 +8,20 @@ import {
 } from "lucide-react";
 import { NOTIFICATION_CATEGORIES, CATEGORY_LABEL, type NotificationCategory } from "@/lib/notifications/categories";
 
+function ChannelHeading({ n, title, blurb }: { n: number; title: string; blurb: string }) {
+  return (
+    <div className="mb-2 flex items-start gap-2.5">
+      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-yellow/15 font-syne text-[11px] font-bold text-yellow">
+        {n}
+      </span>
+      <div className="min-w-0">
+        <p className="font-syne text-sm font-bold text-offwhite">{title}</p>
+        <p className="mt-0.5 font-dm text-[11px] leading-relaxed text-muted">{blurb}</p>
+      </div>
+    </div>
+  );
+}
+
 function PushSelfTest() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -234,9 +248,17 @@ export default function AdminNotifications() {
         <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">ALERTS</p>
-            <h1 className="mt-1 font-syne text-2xl font-extrabold">WhatsApp recipients</h1>
-            <p className="mt-1.5 font-dm text-sm text-muted">
-              Who gets pinged, and for what. Add as many as you need.
+            <h1 className="mt-1 font-syne text-2xl font-extrabold">How you get told</h1>
+            {/* Reframed once the owner decided CallMeBot is the BACKUP, not the
+                main channel. The page was titled "WhatsApp recipients", which
+                made the primary channel — a browser notification, free,
+                instant, no third party — look like an afterthought sitting
+                above the real thing. Order on a page is a claim about what
+                matters, so it now leads with push. */}
+            <p className="mt-1.5 font-dm text-sm leading-relaxed text-muted">
+              Notifications on your phone or computer are the main channel — free, instant, and nothing to set up beyond
+              allowing them. WhatsApp below is the <strong className="text-offwhite/80">backup</strong>, for a phone that
+              has notifications switched off or a person who simply lives in WhatsApp.
             </p>
             {/* ── Two different channels, on the page where alerts live ──────
                 WhatsApp goes to the numbers below via CallMeBot. Browser
@@ -245,7 +267,12 @@ export default function AdminNotifications() {
                 looked here, did not find it, and reasonably concluded it did
                 not exist. It belongs where he goes when something is not
                 arriving. */}
-            <div className="mt-3">
+            <div className="mt-4">
+              <ChannelHeading
+                n={1}
+                title="Notifications (main)"
+                blurb="On the phone or computer you are reading this on. Allow them once and they arrive even when the site is closed."
+              />
               <PushSelfTest />
             </div>
           </div>
@@ -264,6 +291,20 @@ export default function AdminNotifications() {
             {error}
           </p>
         )}
+
+        {/* ── Channel 2: WhatsApp, the backup ───────────────────────────────
+            Kept, and deliberately second. It costs a CallMeBot key per person
+            — the driver messages a bot, receives a key, relays it back — which
+            is real friction for anyone who is not the owner. As a fallback for
+            a phone with notifications off it earns its place; as the primary
+            channel it was quietly setting the bar for onboarding everybody. */}
+        <div className="mt-8">
+          <ChannelHeading
+            n={2}
+            title="WhatsApp (backup)"
+            blurb="For a phone with notifications switched off. Each person needs their own CallMeBot key, so use it where notifications will not do."
+          />
+        </div>
 
         {/* ── Editor ─────────────────────────────────────────── */}
         {draft && (
