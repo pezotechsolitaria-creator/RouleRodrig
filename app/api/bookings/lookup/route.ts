@@ -64,6 +64,10 @@ export async function POST(req: NextRequest) {
     deposit: number | null;
     depositPaid: boolean;
     status: string | null;
+    // M91 — vehicles only. The customer's page needs the deadline to show it
+    // beside the pay button, and the note to explain a declined booking.
+    paymentDueBy?: string | null;
+    unavailableNote?: string | null;
   } | null;
 
   if (!b) {

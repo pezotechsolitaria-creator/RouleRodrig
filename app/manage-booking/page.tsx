@@ -6,6 +6,7 @@ import { ArrowLeft, Search, Loader2, RotateCcw } from "lucide-react";
 import BookingTimeline from "@/components/BookingTimeline";
 import OrderAlerts from "@/components/orders/OrderAlerts";
 import PayPalDeposit from "@/components/PayPalDeposit";
+import BankTransferDetails from "@/components/BankTransferDetails";
 import { Field } from "@/components/ui/field";
 
 type Booking = {
@@ -22,6 +23,10 @@ type Booking = {
   amountPaid?: number | null;
   depositPaid: boolean;
   status: string;
+  /** M91 — when an approved-but-unpaid reservation stops holding the vehicle. */
+  paymentDueBy?: string | null;
+  /** M91 — why a request could not be met, in the owner's own words. */
+  unavailableNote?: string | null;
 };
 
 // dd/mm/yyyy — the format guests expect (not the ISO the API returns).
@@ -256,13 +261,71 @@ export default function ManageBookingPage() {
               )}
             </dl>
 
-            {/* Still pending & unpaid → let the guest pay the deposit right here to lock it in. */}
-            {booking.status === "pending" && !booking.depositPaid && booking.deposit != null && booking.deposit > 0 && (
+            {/* ── M91: waiting on the availability check ──────────────────
+                A vehicle request is no longer payable on arrival. The owner
+                confirms with the partner first, so showing a pay button here
+                would let a customer buy a scooter nobody has agreed to lend. */}
+            {booking.kind === "vehicle" && booking.status === "pending" && !booking.depositPaid && (
+              <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="font-syne text-sm font-bold text-offwhite">We&apos;re checking availability</p>
+                <p className="mt-1 font-dm text-xs leading-relaxed text-muted">
+                  We&apos;re confirming this vehicle with its owner. As soon as it&apos;s confirmed we&apos;ll email you
+                  and you can pay here. Nothing is charged until then — and if it isn&apos;t free, we&apos;ll suggest
+                  something similar.
+                </p>
+              </div>
+            )}
+
+            {/* Declined, in the owner's own words rather than a bare "cancelled". */}
+            {booking.unavailableNote && (
+              <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="font-syne text-sm font-bold text-offwhite">About your request</p>
+                <p className="mt-1 whitespace-pre-line font-dm text-xs leading-relaxed text-muted">
+                  {booking.unavailableNote}
+                </p>
+              </div>
+            )}
+
+            {/* Approved → pay, WITH the deadline stated. A reservation that
+                expires silently is the defect the marketplace already has;
+                repeating it here would be inexcusable. */}
+            {booking.status === "approved" && !booking.depositPaid && booking.deposit != null && booking.deposit > 0 && (
               <div className="mt-5 border-t border-white/[0.08] pt-5">
+                <div className="mb-4 rounded-xl border border-green-500/30 bg-green-500/[0.07] p-3.5">
+                  <p className="font-syne text-sm font-bold text-green-300">It&apos;s available — it&apos;s yours to confirm</p>
+                  <p className="mt-1 font-dm text-xs leading-relaxed text-green-200/80">
+                    {booking.paymentDueBy
+                      ? `We're holding it for you until ${new Date(booking.paymentDueBy).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}. After that it goes back to other customers.`
+                      : "Pay below to confirm it."}
+                  </p>
+                </div>
                 <PayPalDeposit
                   bookingId={booking.id}
                   depositMur={booking.deposit}
                   fullMur={booking.kind === "vehicle" && booking.total ? booking.total : undefined}
+                  kind={booking.kind}
+                  onPaid={() => setBooking((b) => (b ? { ...b, depositPaid: true, status: "confirmed" } : b))}
+                />
+                <BankTransferDetails
+                  name={booking.ref}
+                  vehicle={booking.item}
+                  bookingId={booking.id}
+                  email={email}
+                />
+              </div>
+            )}
+
+            {/* Place bookings are unchanged — they were never gated on an
+                availability check, and quietly changing that here would break a
+                flow this milestone is not about. */}
+            {booking.kind === "place" && booking.status === "pending" && !booking.depositPaid && booking.deposit != null && booking.deposit > 0 && (
+              <div className="mt-5 border-t border-white/[0.08] pt-5">
+                <PayPalDeposit
+                  bookingId={booking.id}
+                  depositMur={booking.deposit}
+                  // No larger "pay in full" option here — an activity is already
+                  // settled in full at the amount the owner set.
+                  settlement="full"
                   kind={booking.kind}
                   onPaid={() => setBooking((b) => (b ? { ...b, depositPaid: true, status: "confirmed" } : b))}
                 />

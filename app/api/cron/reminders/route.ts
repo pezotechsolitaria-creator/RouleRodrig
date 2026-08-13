@@ -142,6 +142,60 @@ export async function GET(req: NextRequest) {
     holdsReleased++;
   }
 
+  // ── M91: release approved reservations nobody paid for ────────────────
+  //
+  // An approved booking is the ONE unpaid state that reserves a vehicle, so it
+  // is also the one that can take a scooter out of the fleet by doing nothing.
+  // isActiveHold() already stops counting it the moment payment_due_by passes —
+  // availability frees up without waiting for this sweep — but the row must
+  // also be closed, or the owner's Bookings list fills with reservations that
+  // look live and are not.
+  //
+  // The customer is TOLD. They were given a deadline in writing when it was
+  // approved; letting it lapse in silence is the defect the marketplace already
+  // has on its list, and repeating it deliberately would be worse.
+  const { data: lapsed } = await supabase
+    .from("bookings")
+    .select("id, name, email, scooter, start_date, end_date, deposit_paid_at, payment_due_by")
+    .eq("status", "approved")
+    .lt("payment_due_by", new Date().toISOString());
+
+  for (const b of (lapsed ?? []) as {
+    id: string; name: string; email: string | null; scooter: string;
+    start_date: string; end_date: string; deposit_paid_at: string | null;
+  }[]) {
+    // Belt and braces: a payment that landed in the same minute as the sweep
+    // must never be cancelled out from under the customer.
+    if (b.deposit_paid_at) continue;
+    await supabase
+      .from("bookings")
+      .update({
+        status: "cancelled",
+        payment_due_by: null,
+        unavailable_note:
+          "We held this vehicle for you but the payment window passed, so it has gone back to other customers. " +
+          "Nothing was charged — message us and we'll happily look again for your dates.",
+      })
+      .eq("id", b.id);
+    holdsReleased++;
+    try {
+      const { sendVehicleUnavailable } = await import("@/lib/email");
+      await sendVehicleUnavailable({
+        id: b.id,
+        email: b.email,
+        name: b.name ?? "there",
+        scooter: b.scooter ?? "your vehicle",
+        start_date: b.start_date,
+        end_date: b.end_date,
+        note:
+          "We held it for you but the payment window passed, so it has gone back to other customers. " +
+          "Nothing was charged — just reply and we'll look again.",
+      });
+    } catch (e) {
+      console.error("cron: lapsed reservation email failed", e);
+    }
+  }
+
   // ── Release expired MARKETPLACE orders ────────────────────────────────
   // Both parties are shown a hard deadline — the customer reads "your items
   // are reserved until X" (lib/orders/hold.ts) and the merchant "confirm

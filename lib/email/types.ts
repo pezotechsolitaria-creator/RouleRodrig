@@ -140,6 +140,11 @@ export const EMAIL_TYPES = {
   // these sit below customer mail in priority: the owner has a second channel,
   // the customer does not.
   enquiry_ack:                      { category: "operational", priority: "normal" },
+  // M91 — the two halves of the availability check. Both are CRITICAL: the
+  // first carries a deadline the customer must act on, and the second is the
+  // only thing standing between "we are checking" and silence forever.
+  booking_availability_confirmed:   { category: "scooter_rental", priority: "critical" },
+  booking_unavailable:              { category: "scooter_rental", priority: "critical" },
   owner_booking_alert:              { category: "operational", priority: "high" },
   owner_place_booking_alert:        { category: "operational", priority: "high" },
   owner_pickup_reminder:            { category: "operational", priority: "normal" },

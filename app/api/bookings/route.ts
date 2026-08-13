@@ -5,7 +5,7 @@ import { getContent } from "@/lib/content";
 import { sendBookingEmails, upsertBrevoContact } from "@/lib/email";
 import { enqueueNotification } from "@/lib/notifications/queue";
 import { guardShared } from "@/lib/rate-limit";
-import { isActiveHold } from "@/lib/holds";
+import { isActiveHold, HOLDING_STATUSES } from "@/lib/holds";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
 import { priceBreakdown, rentalDays, validateRentalWindow } from "@/lib/booking-pricing";
 
@@ -148,9 +148,9 @@ export async function POST(req: NextRequest) {
     const priv = await getPrivileged();
     const { data: active, error: availabilityError } = await priv
       .from("bookings")
-      .select("start_date, end_date, status, created_at, asset_id, deposit_paid_at")
+      .select("start_date, end_date, status, created_at, asset_id, deposit_paid_at, payment_due_by")
       .eq("scooter", scooter)
-      .in("status", ["pending", "confirmed"])
+      .in("status", [...HOLDING_STATUSES])
       .gte("end_date", start_date)
       .lte("start_date", end_date);
     // Deliberately fail OPEN here, but never SILENTLY. A request is unpaid, and

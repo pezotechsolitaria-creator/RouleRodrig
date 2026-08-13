@@ -2658,7 +2658,10 @@ const STATUS_CONFIG: Record<
   string,
   { label: string; cls: string; dot: string }
 > = {
-  pending:   { label: "Pending",   cls: "bg-amber-400/10 text-amber-400 border-amber-400/30",   dot: "bg-amber-400"   },
+  pending:   { label: "Checking",  cls: "bg-amber-400/10 text-amber-400 border-amber-400/30",   dot: "bg-amber-400"   },
+  // M91 — availability confirmed with the partner, holding the vehicle until
+  // payment_due_by. Gold, because it is the state that needs the customer to act.
+  approved:  { label: "Awaiting payment", cls: "bg-yellow/10 text-yellow border-yellow/30",      dot: "bg-yellow"      },
   confirmed: { label: "Confirmed", cls: "bg-green-500/10 text-green-400 border-green-500/30",   dot: "bg-green-400"   },
   cancelled: { label: "Cancelled", cls: "bg-red-500/10   text-red-400   border-red-500/30",     dot: "bg-red-400"     },
   completed: { label: "Completed", cls: "bg-blue-500/10  text-blue-400  border-blue-500/30",    dot: "bg-blue-400"    },
@@ -2668,6 +2671,160 @@ const STATUS_CONFIG: Record<
 // gets in their confirmation email + Manage-Booking lookup, so the owner can
 // match someone who calls in quoting their code.
 const bookingRef = (id: string) => "RR-" + id.replace(/-/g, "").slice(0, 6).toUpperCase();
+
+// ── The availability decision (M91) ────────────────────────────────────────
+//
+// The owner rents vehicles he does not all own. Confirming one on the spot
+// means occasionally taking money for a scooter the partner has already lent
+// out, and every one of those becomes a refund — the PayPal fee, the exchange
+// spread and the customer's trust, all gone.
+//
+// So he answers one question here before anybody pays. Approving RESERVES the
+// vehicle (see lib/holds.ts) and emails a pay link with a deadline; declining
+// sends his own words, immediately, rather than leaving the customer in
+// "we're checking" forever.
+function AvailabilityDecision({
+  booking,
+  busy,
+  onDone,
+}: {
+  booking: Booking;
+  busy: boolean;
+  onDone: () => void;
+}) {
+  const [mode, setMode] = useState<null | "approve" | "unavailable">(null);
+  const [note, setNote] = useState("");
+  const [hours, setHours] = useState("24");
+  const [working, setWorking] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function submit(decision: "approve" | "unavailable") {
+    setWorking(true);
+    setErr(null);
+    try {
+      const res = await fetch("/api/admin/bookings/availability", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: booking.id,
+          decision,
+          note: decision === "unavailable" ? note : undefined,
+          hours: decision === "approve" ? Number(hours) || 24 : undefined,
+        }),
+      });
+      const j = (await res.json()) as { error?: string };
+      if (!res.ok) { setErr(j.error ?? "That didn't work."); return; }
+      setMode(null);
+      setNote("");
+      onDone();
+    } catch {
+      setErr("Network problem — try again.");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  const disabled = busy || working;
+
+  return (
+    <div className="rounded-xl border border-[#2a2a2a] bg-[#0d0d0d] p-3.5">
+      <p className="font-bebas text-[9px] tracking-[0.2em] text-yellow">
+        {booking.status === "approved" ? "HELD — WAITING FOR PAYMENT" : "IS IT AVAILABLE?"}
+      </p>
+
+      {booking.status === "approved" && booking.payment_due_by && (
+        <p className="mt-1 font-dm text-[11px] text-muted/70">
+          Reserved until {new Date(booking.payment_due_by).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}.
+          Nobody else is offered this vehicle until then.
+        </p>
+      )}
+
+      {!mode && (
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => setMode("approve")}
+            className="inline-flex items-center gap-1.5 rounded-full border border-green-500/40 bg-green-500/10 px-3 py-1.5 font-syne text-[11px] font-bold text-green-400 transition-colors hover:bg-green-500/20 disabled:opacity-50"
+          >
+            <BadgeCheck size={12} /> {booking.status === "approved" ? "Extend the hold" : "Yes — it's available"}
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => setMode("unavailable")}
+            className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1.5 font-syne text-[11px] font-bold text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+          >
+            <Ban size={12} /> Not available
+          </button>
+        </div>
+      )}
+
+      {mode === "approve" && (
+        <div className="mt-2.5 space-y-2">
+          <label className="block font-dm text-[11px] text-muted">
+            Hold it for
+            <input
+              value={hours}
+              onChange={(e) => setHours(e.target.value.replace(/[^\d]/g, ""))}
+              inputMode="numeric"
+              className="mx-2 w-14 rounded-lg border border-[#2a2a2a] bg-[#0d0d0d] px-2 py-1 text-center font-dm text-xs text-offwhite tabular-nums focus:border-yellow focus:outline-none"
+            />
+            hours, then release it
+          </label>
+          <p className="font-dm text-[11px] leading-relaxed text-muted/60">
+            The customer is emailed a pay link and told this exact deadline. Until it passes, this vehicle is not
+            offered to anyone else.
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => submit("approve")}
+              className="rounded-full bg-yellow px-3.5 py-1.5 font-syne text-[11px] font-bold text-dark transition-colors hover:bg-yellow-dark disabled:opacity-50"
+            >
+              {working ? "Sending…" : "Confirm & email the customer"}
+            </button>
+            <button type="button" onClick={() => setMode(null)} className="font-dm text-[11px] text-muted hover:text-offwhite">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {mode === "unavailable" && (
+        <div className="mt-2.5 space-y-2">
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={3}
+            placeholder="What should the customer know? e.g. That scooter is out those dates, but the Avenis is free and the same price — want it?"
+            className="w-full rounded-lg border border-[#2a2a2a] bg-[#0d0d0d] px-3 py-2 font-dm text-xs text-offwhite placeholder:text-muted/40 focus:border-yellow focus:outline-none"
+          />
+          <p className="font-dm text-[11px] leading-relaxed text-muted/60">
+            Sent to the customer word for word, with a reminder that they were not charged. Leave it blank and we send
+            a polite default.
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => submit("unavailable")}
+              className="rounded-full border border-red-500/40 bg-red-500/10 px-3.5 py-1.5 font-syne text-[11px] font-bold text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+            >
+              {working ? "Sending…" : "Tell the customer"}
+            </button>
+            <button type="button" onClick={() => setMode(null)} className="font-dm text-[11px] text-muted hover:text-offwhite">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {err && <p className="mt-2 font-dm text-[11px] text-red-400">{err}</p>}
+    </div>
+  );
+}
 
 // ── Money: everyone waiting on a decision about a payment ──────────────────
 //
@@ -3145,10 +3302,24 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
               </p>
             )}
 
+            {/* ── M91: the availability decision ──────────────────────────
+                The two buttons that replace confirming a vehicle he has not
+                checked. Approve RESERVES it and emails a pay link with a
+                deadline; Not available emails the customer straight away with
+                his reason. Shown only while the answer is still open — once a
+                booking is paid or cancelled there is nothing to decide. */}
+            {(b.status === "pending" || b.status === "approved") && (
+              <AvailabilityDecision
+                booking={b}
+                busy={updating === b.id}
+                onDone={load}
+              />
+            )}
+
             {/* Status actions */}
             <div className="flex items-center gap-2 pt-2 flex-wrap">
               <p className="font-bebas text-muted text-[9px] tracking-[0.2em] mr-1">UPDATE STATUS:</p>
-              {(["pending", "confirmed", "cancelled", "completed"] as const).map((s) => {
+              {(["pending", "approved", "confirmed", "cancelled", "completed"] as const).map((s) => {
                 const cfg = STATUS_CONFIG[s];
                 return (
                   <button

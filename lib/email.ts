@@ -697,6 +697,129 @@ export async function sendBookingEmails(raw: BookingEmailData): Promise<{ custom
   return result;
 }
 
+/**
+ * The owner's own words, on their way into an HTML email.
+ *
+ * unavailable_note is free text he types in /admin and the customer reads. An
+ * apostrophe or an ampersand would otherwise break the markup; a stray tag
+ * would be rendered.
+ */
+function escapeHtml(v: string): string {
+  return v
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// ── M91: the two answers to "is it available?" ─────────────────────────────
+//
+// The owner checks with the partner before anybody pays. These are the only
+// two things the customer can hear back, and BOTH must arrive — a request that
+// gets neither is worse than the instant-confirm-then-refund flow it replaced,
+// because at least that one ended.
+//
+// Bilingual like every other customer email on this site.
+
+/** Available — pay to confirm, by a stated deadline. */
+export async function sendAvailabilityConfirmed(b: {
+  id: string;
+  email: string | null;
+  name: string;
+  scooter: string;
+  start_date: string;
+  end_date: string;
+  amountDue: number | null;
+  payBy: string;
+}): Promise<boolean> {
+  if (!b.email) return false;
+  const { wa, logo } = await getBrand();
+  const ref = "RR-" + b.id.replace(/-/g, "").slice(0, 6).toUpperCase();
+  const payUrl = `${SITE_URL}/manage-booking`;
+  const by = new Date(b.payBy);
+  const byEn = by.toLocaleString("en-GB", { dateStyle: "full", timeStyle: "short" });
+  const byFr = by.toLocaleString("fr-FR", { dateStyle: "full", timeStyle: "short" });
+
+  const body = `
+    ${paragraph(`Good news ${b.name} — <strong>${b.scooter}</strong> is free for your dates and we're holding it for you.`)}
+    ${detailCard(
+      rows([
+        ["Reference", ref],
+        ["Vehicle", b.scooter],
+        ["Dates", `${fmtDate(b.start_date)} → ${fmtDate(b.end_date)}`],
+        ...(b.amountDue != null ? ([["To pay now", rs(b.amountDue)]] as [string, string][]) : []),
+        ["Held until", byEn],
+      ]),
+    )}
+    ${paragraph(`Pay by <strong>${byEn}</strong> and it's yours. After that we have to release it to other customers — we'll tell you if that happens, and you can always ask us to look again.`)}
+    ${paragraph(`<a href="${payUrl}" style="color:${C.ink};font-weight:600">Pay and confirm your booking</a> — you'll need your reference <strong>${ref}</strong> and this email address.`)}
+    ${sepFr()}
+    ${frHeading("Disponible — à confirmer")}
+    ${paragraph(`Bonne nouvelle ${b.name} — <strong>${b.scooter}</strong> est libre à vos dates et nous vous le réservons.`)}
+    ${paragraph(`Réglez avant le <strong>${byFr}</strong> et il est à vous. Passé ce délai, nous devons le remettre à disposition — nous vous préviendrons, et vous pourrez toujours nous redemander.`)}
+    ${paragraph(`<a href="${payUrl}" style="color:${C.ink};font-weight:600">Payer et confirmer</a> — avec votre référence <strong>${ref}</strong> et cette adresse e-mail.`)}
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! About booking ${ref} — `, "💬 WhatsApp")}</div>` : ""}`;
+
+  return send({
+    to: b.email,
+    subject: `It's available — confirm your ${b.scooter} · Disponible 🛵`,
+    html: shell({
+      preheader: `Held until ${byEn}. Pay to confirm.`,
+      eyebrow: "Available · Disponible",
+      title: "It's yours to confirm",
+      body,
+      logo,
+    }),
+    type: "booking_availability_confirmed",
+    key: keyFor("booking_availability_confirmed", b.id),
+    relatedType: "booking",
+    relatedId: b.id,
+  });
+}
+
+/** Not available — say so quickly, and never leave them waiting. */
+export async function sendVehicleUnavailable(b: {
+  id: string;
+  email: string | null;
+  name: string;
+  scooter: string;
+  start_date: string;
+  end_date: string;
+  note: string | null;
+}): Promise<boolean> {
+  if (!b.email) return false;
+  const { wa, logo } = await getBrand();
+  const ref = "RR-" + b.id.replace(/-/g, "").slice(0, 6).toUpperCase();
+
+  const body = `
+    ${paragraph(`${b.name}, we're sorry — <strong>${b.scooter}</strong> isn't free for ${fmtDate(b.start_date)} → ${fmtDate(b.end_date)}. You have not been charged anything.`)}
+    ${b.note ? paragraph(`<strong style="color:${C.ink}">From us:</strong> ${escapeHtml(b.note)}`) : ""}
+    ${paragraph(`We'd still like to get you on the road. Reply to this email or message us on WhatsApp and we'll find you something that works for those dates.`)}
+    ${paragraph(`<a href="${SITE_URL}/browse/scooters" style="color:${C.ink};font-weight:600">See what else is available</a>`)}
+    ${sepFr()}
+    ${frHeading("Indisponible")}
+    ${paragraph(`${b.name}, nous sommes désolés — <strong>${b.scooter}</strong> n'est pas libre du ${fmtDate(b.start_date)} au ${fmtDate(b.end_date)}. Rien ne vous a été débité.`)}
+    ${paragraph(`Écrivez-nous ou contactez-nous sur WhatsApp : nous vous trouverons un véhicule équivalent pour ces dates.`)}
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! ${ref} wasn't available — what else do you have for those dates?`, "💬 Find me another")}</div>` : ""}`;
+
+  return send({
+    to: b.email,
+    subject: `Not available for those dates · Indisponible — ${ref}`,
+    html: shell({
+      preheader: "You have not been charged. Let's find you another vehicle.",
+      eyebrow: "Availability · Disponibilité",
+      title: "We couldn't get you that one",
+      body,
+      logo,
+    }),
+    type: "booking_unavailable",
+    key: keyFor("booking_unavailable", b.id),
+    relatedType: "booking",
+    relatedId: b.id,
+  });
+}
+
 // ── Reminder / feedback emails (sent by the daily cron) ──────────────────
 
 /** Reminder sent the day before pickup. */

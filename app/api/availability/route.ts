@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPrivileged } from "@/lib/supabase/admin";
-import { isActiveHold } from "@/lib/holds";
+import { isActiveHold, HOLDING_STATUSES } from "@/lib/holds";
 
 // ── Public: booked date ranges for a scooter (no personal data) ─────
 // Returns confirmed + pending ranges so customers can avoid requesting
@@ -12,8 +12,8 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from("bookings")
-    .select("scooter, start_date, end_date, status, created_at, deposit_paid_at")
-    .in("status", ["pending", "confirmed"])
+    .select("scooter, start_date, end_date, status, created_at, deposit_paid_at, payment_due_by")
+    .in("status", [...HOLDING_STATUSES])
     .gte("end_date", new Date().toISOString().split("T")[0]);
 
   if (scooter) query = query.eq("scooter", scooter);

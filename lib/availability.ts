@@ -1,6 +1,6 @@
 import { getPrivileged } from "@/lib/supabase/admin";
 import { getContent } from "@/lib/content";
-import { isActiveHold } from "@/lib/holds";
+import { isActiveHold, HOLDING_STATUSES } from "@/lib/holds";
 
 // Is a vehicle still free for a date range, counting ONLY active holds (paid
 // deposits / confirmed bookings — unpaid pending no longer blocks)? Used at
@@ -21,9 +21,9 @@ export async function isVehicleFree(
 
   const { data, error } = await supabase
     .from("bookings")
-    .select("id, start_date, end_date, status, created_at, deposit_paid_at")
+    .select("id, start_date, end_date, status, created_at, deposit_paid_at, payment_due_by")
     .eq("scooter", scooter)
-    .in("status", ["pending", "confirmed"])
+    .in("status", [...HOLDING_STATUSES])
     .gte("end_date", start_date)
     .lte("start_date", end_date);
 

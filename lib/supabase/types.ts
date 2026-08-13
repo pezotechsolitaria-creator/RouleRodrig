@@ -24,7 +24,12 @@ export interface Booking {
   total_price: string | null;
   total_amount: number | null;
   message: string | null;
-  status: "pending" | "confirmed" | "cancelled" | "completed";
+  /**
+   * M91: "pending" now means "request in, availability not yet checked" and
+   * holds nothing; "approved" means the owner confirmed with the partner and
+   * RESERVES the vehicle until payment_due_by.
+   */
+  status: "pending" | "approved" | "confirmed" | "cancelled" | "completed";
   partner_code: string | null;
   asset_id: string | null;     // which physical unit was assigned
   asset_label: string | null;  // snapshot of its label at booking time
@@ -34,6 +39,12 @@ export interface Booking {
    *  /api/admin/booking-receipt, never addressable directly. */
   payment_receipt_path?: string | null;
   payment_reported_at?: string | null;
+  /** M91 — set when the owner confirmed availability with the partner. */
+  approved_at?: string | null;
+  /** M91 — when an approved-but-unpaid reservation stops holding the vehicle. */
+  payment_due_by?: string | null;
+  /** M91 — why it could not happen, shown to the customer verbatim. */
+  unavailable_note?: string | null;
   pickup_reminded?: boolean;
   return_reminded?: boolean;
   feedback_reminded?: boolean;

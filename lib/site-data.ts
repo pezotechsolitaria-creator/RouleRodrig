@@ -1,6 +1,6 @@
 import { getContent } from "@/lib/content";
 import { getPrivileged } from "@/lib/supabase/admin";
-import { isActiveHold } from "@/lib/holds";
+import { isActiveHold, HOLDING_STATUSES } from "@/lib/holds";
 import { extractDailyPrice } from "@/lib/booking-pricing";
 import type { FleetItem, SiteContent } from "@/lib/defaults";
 import type { BrowseCategory } from "@/components/WhatLookingFor";
@@ -38,8 +38,8 @@ export async function getFleetView() {
     const [todayRes, recentRes, ratingRes, reviewRes] = await Promise.all([
       supabase
         .from("bookings")
-        .select("scooter, status, created_at, deposit_paid_at")
-        .in("status", ["pending", "confirmed"])
+        .select("scooter, status, created_at, deposit_paid_at, payment_due_by")
+        .in("status", [...HOLDING_STATUSES])
         .lte("start_date", todayIsland)
         .gte("end_date", todayIsland),
       supabase

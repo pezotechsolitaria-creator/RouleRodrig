@@ -20,7 +20,6 @@ import {
   Sparkles,
   X,
   Download,
-  ArrowRight,
   ShieldCheck,
 } from "lucide-react";
 import type { FleetItem, VehicleCategory } from "@/lib/defaults";
@@ -28,8 +27,6 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import PhoneInput from "@/components/PhoneInput";
-import PayPalDeposit from "@/components/PayPalDeposit";
-import BankTransferDetails from "@/components/BankTransferDetails";
 import SuccessBurst from "@/components/SuccessBurst";
 import BookingTimeline from "@/components/BookingTimeline";
 import { downloadReceipt as saveReceiptPdf } from "@/lib/receipt";
@@ -89,7 +86,6 @@ export default function BookingSection({
   >(null);
   const [agreed, setAgreed] = useState(false);
   const [agreeError, setAgreeError] = useState(false);
-  const [payOpen, setPayOpen] = useState(false);
   const [depositPaid, setDepositPaid] = useState(false);
   // Inline validation: which fields are wrong + the message to show. Set on a
   // submit attempt so the customer instantly sees WHAT to fix instead of a
@@ -444,16 +440,36 @@ export default function BookingSection({
                   <BookingTimeline completed={depositPaid ? 3 : 1} />
                 </div>
 
+                {/* ── M91: what happens next, instead of a payment button ──
+                    The owner rents vehicles he does not all own, so a booking
+                    confirmed on the spot can turn into a refund when the
+                    partner turns out to be busy. A refund costs the PayPal fee,
+                    the exchange spread and the customer's trust, so the check
+                    now comes first and NOTHING is charged until it passes.
+                    Saying that plainly here is the whole point: "we'll be right
+                    back" with no explanation reads as a site that failed. */}
+                {!depositPaid && (
+                  <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-left">
+                    <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">
+                      {t.booking.checkingTitle}
+                    </p>
+                    <ol className="mt-2.5 space-y-2">
+                      {[t.booking.checkingStep1, t.booking.checkingStep2, t.booking.checkingStep3].map((step, i) => (
+                        <li key={i} className="flex gap-2.5 font-dm text-xs leading-relaxed text-offwhite/80">
+                          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-yellow/15 font-syne text-[10px] font-bold text-yellow">
+                            {i + 1}
+                          </span>
+                          {step}
+                        </li>
+                      ))}
+                    </ol>
+                    <p className="mt-3 font-dm text-[11px] leading-relaxed text-muted/70">
+                      {t.booking.checkingNote}
+                    </p>
+                  </div>
+                )}
+
                 <div className="mt-6 flex flex-col gap-2.5">
-                  {lastBooking?.bookingId && (lastBooking.deposit ?? 0) > 0 && !depositPaid && (
-                    <button
-                      type="button"
-                      onClick={() => setPayOpen(true)}
-                      className="w-full flex items-center justify-center gap-2 bg-yellow text-dark font-syne font-bold text-sm py-3.5 rounded-xl hover:bg-yellow-dark transition-colors"
-                    >
-                      Pay deposit to confirm <ArrowRight size={16} />
-                    </button>
-                  )}
                   <button
                     type="button"
                     onClick={downloadReceipt}
@@ -465,70 +481,12 @@ export default function BookingSection({
               </motion.div>
             )}
 
-            {/* Secure-payment popup (bottom sheet on mobile, modal on desktop) */}
-            <AnimatePresence>
-              {payOpen && lastBooking && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onClick={() => setPayOpen(false)}
-                  className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4"
-                >
-                  <motion.div
-                    initial={{ y: 40, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: 40, opacity: 0 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    onClick={(e) => e.stopPropagation()}
-                    className="relative w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-dark-border bg-dark-card p-6"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setPayOpen(false)}
-                      className="absolute top-4 right-4 text-muted hover:text-offwhite transition-colors"
-                      aria-label="Close"
-                    >
-                      <X size={20} />
-                    </button>
-                    <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-1">SECURE PAYMENT</p>
-                    <h3 className="font-syne font-extrabold text-offwhite text-xl mb-1">Pay your deposit</h3>
-                    <p className="text-muted font-dm text-sm mb-5">{lastBooking.scooter} · {lastBooking.range}</p>
-                    {lastBooking.bookingId && (lastBooking.deposit ?? 0) > 0 && (
-                      <PayPalDeposit
-                        bookingId={lastBooking.bookingId}
-                        depositMur={lastBooking.deposit ?? 0}
-                        fullMur={lastBooking.totalMur}
-                        onPaid={() => { setDepositPaid(true); setPayOpen(false); }}
-                      />
-                    )}
-                    {whatsapp && (
-                      <a
-                        href={`https://wa.me/${whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(
-                          `Hi Roule Rodrigues! I'd like to pay my deposit:\n\n` +
-                          `🛵 Vehicle: ${lastBooking.scooter}\n` +
-                          `📅 Dates: ${lastBooking.range} (${lastBooking.days} day${lastBooking.days !== 1 ? "s" : ""})\n` +
-                          `👤 Name: ${lastBooking.name}\n` +
-                          (lastBooking.total ? `💰 Est. total: ${lastBooking.total}\n` : "") +
-                          `\nCould you send me the bank details? Thank you!`
-                        )}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-3 w-full flex items-center justify-center gap-2 bg-green-500 text-white font-syne font-bold text-sm py-3 rounded-xl hover:bg-green-600 transition-colors"
-                      >
-                        <MessageSquare size={16} /> {t.booking.confirmWhatsApp}
-                      </a>
-                    )}
-                    <BankTransferDetails
-                      name={lastBooking.name}
-                      vehicle={lastBooking.scooter}
-                      bookingId={lastBooking.bookingId}
-                      email={lastBooking.email}
-                    />
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {/* M91: the secure-payment sheet that used to live here is gone.
+                Payment no longer happens at request time — the owner checks
+                the vehicle with its partner first, and the pay step moves to
+                /manage-booking once he has approved it. Leaving a dormant
+                PayPal sheet behind would be a second, unreachable payment
+                path that nobody maintains. */}
 
             {formState === "error" && (
               <motion.div
