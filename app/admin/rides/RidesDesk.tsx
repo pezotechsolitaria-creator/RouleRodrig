@@ -37,6 +37,8 @@ type Driver = {
   id: string; name: string; phone: string; whatsapp: string | null; vehicle: string | null;
   seats: number | null; base_label: string | null; base_lat: number | null;
   active: boolean; availability: string;
+  base_lng?: number | null; luggage_capacity?: number | null;
+  handles_taxi?: boolean; handles_airport?: boolean; handles_transfer?: boolean;
   rides_offered: number; rides_accepted: number; rides_completed: number;
 };
 type Candidate = {
@@ -68,6 +70,7 @@ export default function RidesDesk() {
   const [targets, setTargets] = useState<Target[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [showRoster, setShowRoster] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -172,6 +175,10 @@ export default function RidesDesk() {
             <option value="open">Open rides</option>
             <option value="all">Everything</option>
           </select>
+          <button onClick={() => setShowRoster((r) => !r)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-2 font-dm text-sm text-muted hover:text-offwhite">
+            <Users size={14} /> Drivers ({drivers.filter((d) => d.active).length})
+          </button>
           <button onClick={() => void load()}
             className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-2 font-dm text-sm text-muted hover:text-offwhite">
             <RefreshCw size={14} /> Refresh
@@ -185,6 +192,7 @@ export default function RidesDesk() {
         </div>
 
         {showNew && <NewRideForm onDone={() => { setShowNew(false); void load(); }} />}
+        {showRoster && <DriverRoster drivers={drivers} onSaved={() => void load()} />}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1fr]">
           {/* ── The queue ───────────────────────────────────────────────── */}
@@ -467,5 +475,170 @@ function NewRideForm({ onDone }: { onDone: () => void }) {
         </button>
       </div>
     </div>
+  );
+}
+
+
+// ── THE ROSTER ──────────────────────────────────────────────────────────────
+//
+// These fields decide who gets offered work, so they live on the dispatch desk
+// rather than in the content studio next to the driver's photo and languages.
+// They were added to taxi_drivers by the rides migration and then blocked by the
+// API's mass-assignment allowlist, so until now there was no way to set any of
+// them — every driver defaulted to 4 seats and could never be ranked by distance.
+function DriverRoster({ drivers, onSaved }: { drivers: Driver[]; onSaved: () => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+
+  async function save(id: string, patch: Record<string, unknown>) {
+    setBusy(id);
+    try {
+      const r = await fetch("/api/admin/taxi", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...patch }),
+      });
+      if (!r.ok) {
+        const b = await r.json().catch(() => ({}));
+        throw new Error(b.error || "Could not save.");
+      }
+      toast.success("Saved.");
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const cell =
+    "rounded-lg border border-white/12 bg-dark px-2 py-1.5 font-dm text-xs text-offwhite focus:border-yellow/50 focus:outline-none";
+
+  return (
+    <div className="mt-4 overflow-x-auto rounded-2xl border border-white/10">
+      <table className="w-full min-w-[880px] text-left">
+        <thead>
+          <tr className="border-b border-white/10 bg-white/[0.03]">
+            {["Driver", "Working?", "Seats", "Waits at", "Latitude", "Longitude", "Takes", "Record", ""].map((h) => (
+              <th key={h} className="px-3 py-2 font-bebas text-[10px] tracking-[0.18em] text-muted">
+                {h.toUpperCase()}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {drivers.length === 0 && (
+            <tr>
+              <td colSpan={9} className="px-3 py-8 text-center font-dm text-sm text-muted">
+                No drivers yet. Add them in the content studio under Taxi, then set their seats and base here.
+              </td>
+            </tr>
+          )}
+          {drivers.map((d) => (
+            <DriverRow key={d.id} d={d} busy={busy === d.id} onSave={save} cell={cell} />
+          ))}
+        </tbody>
+      </table>
+      <p className="border-t border-white/10 px-3 py-2.5 font-dm text-[11px] text-muted">
+        Seats and a base location are what let the engine rank a driver. Without a base they still get
+        offered work — just last, after everyone whose position is known.
+      </p>
+    </div>
+  );
+}
+
+function DriverRow({
+  d, busy, onSave, cell,
+}: {
+  d: Driver;
+  busy: boolean;
+  cell: string;
+  onSave: (id: string, patch: Record<string, unknown>) => void;
+}) {
+  const [f, setF] = useState({
+    availability: d.availability,
+    seats: d.seats?.toString() ?? "",
+    base_label: d.base_label ?? "",
+    base_lat: d.base_lat?.toString() ?? "",
+    base_lng: d.base_lng?.toString() ?? "",
+    handles_taxi: d.handles_taxi ?? true,
+    handles_airport: d.handles_airport ?? true,
+    handles_transfer: d.handles_transfer ?? true,
+  });
+  const rate = d.rides_offered > 0 ? Math.round((d.rides_accepted / d.rides_offered) * 100) : null;
+
+  return (
+    <tr className={`border-b border-white/5 last:border-0 ${d.active ? "" : "opacity-50"}`}>
+      <td className="px-3 py-2 font-dm text-sm text-offwhite">
+        {d.name}
+        <span className="block font-dm text-[11px] text-muted">{d.vehicle}</span>
+      </td>
+      <td className="px-3 py-2">
+        <select
+          value={f.availability}
+          onChange={(e) => setF({ ...f, availability: e.target.value })}
+          aria-label={`Is ${d.name} working`}
+          className={cell}
+        >
+          <option value="available">Working</option>
+          <option value="busy">Busy</option>
+          <option value="off">Not today</option>
+        </select>
+      </td>
+      <td className="px-3 py-2">
+        <input value={f.seats} onChange={(e) => setF({ ...f, seats: e.target.value })}
+          aria-label={`Seats for ${d.name}`} placeholder="4" inputMode="numeric" className={`${cell} w-14`} />
+      </td>
+      <td className="px-3 py-2">
+        <input value={f.base_label} onChange={(e) => setF({ ...f, base_label: e.target.value })}
+          aria-label={`Where ${d.name} waits`} placeholder="Port Mathurin" className={`${cell} w-32`} />
+      </td>
+      <td className="px-3 py-2">
+        <input value={f.base_lat} onChange={(e) => setF({ ...f, base_lat: e.target.value })}
+          aria-label={`Latitude for ${d.name}`} placeholder="-19.6790" inputMode="decimal" className={`${cell} w-24`} />
+      </td>
+      <td className="px-3 py-2">
+        <input value={f.base_lng} onChange={(e) => setF({ ...f, base_lng: e.target.value })}
+          aria-label={`Longitude for ${d.name}`} placeholder="63.4180" inputMode="decimal" className={`${cell} w-24`} />
+      </td>
+      <td className="px-3 py-2">
+        <div className="flex gap-2 font-dm text-[11px] text-muted">
+          {([["handles_taxi", "Taxi"], ["handles_airport", "Airport"], ["handles_transfer", "Transfer"]] as const).map(
+            ([k, lbl]) => (
+              <label key={k} className="inline-flex items-center gap-1">
+                <input type="checkbox" checked={f[k]}
+                  onChange={(e) => setF({ ...f, [k]: e.target.checked })} className="accent-yellow" />
+                {lbl}
+              </label>
+            ),
+          )}
+        </div>
+      </td>
+      <td className="px-3 py-2 font-dm text-[11px] tabular-nums text-muted">
+        {rate === null ? "no offers yet" : `${rate}% accepted`}
+        <span className="block">{d.rides_completed} done</span>
+      </td>
+      <td className="px-3 py-2 text-right">
+        <button
+          onClick={() =>
+            onSave(d.id, {
+              availability: f.availability,
+              // Empty means "not set", which the engine handles. It must not
+              // become 0 — a driver with 0 seats is skipped for every ride.
+              seats: f.seats ? parseInt(f.seats) : null,
+              base_label: f.base_label || null,
+              base_lat: f.base_lat ? parseFloat(f.base_lat) : null,
+              base_lng: f.base_lng ? parseFloat(f.base_lng) : null,
+              handles_taxi: f.handles_taxi,
+              handles_airport: f.handles_airport,
+              handles_transfer: f.handles_transfer,
+            })
+          }
+          disabled={busy}
+          className="rounded-full border border-white/15 px-2.5 py-1.5 font-dm text-[11px] text-offwhite hover:border-yellow/50 disabled:opacity-50"
+        >
+          {busy ? <Loader2 size={11} className="animate-spin" /> : "Save"}
+        </button>
+      </td>
+    </tr>
   );
 }
