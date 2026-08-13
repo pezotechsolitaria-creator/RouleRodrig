@@ -8,6 +8,57 @@ import {
 } from "lucide-react";
 import { NOTIFICATION_CATEGORIES, CATEGORY_LABEL, type NotificationCategory } from "@/lib/notifications/categories";
 
+function PushSelfTest() {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  async function run() {
+    setBusy(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/admin/push-test", { method: "POST" });
+      const j = (await res.json()) as { ok?: boolean; message?: string; error?: string };
+      setResult({ ok: !!j.ok, message: j.message ?? j.error ?? "No answer from the server." });
+    } catch {
+      setResult({ ok: false, message: "Could not reach the server." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="font-dm text-xs font-bold text-offwhite">Browser notifications</p>
+          <p className="mt-0.5 font-dm text-[11px] leading-relaxed text-muted">
+            Separate from WhatsApp below. Send yourself a real one to prove it works on this device.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void run()}
+          disabled={busy}
+          className="shrink-0 rounded-full border border-yellow/40 bg-yellow/10 px-3.5 py-2 font-dm text-xs font-bold text-yellow transition-colors hover:bg-yellow/20 disabled:opacity-50"
+        >
+          {busy ? "Sending…" : "Send test notification"}
+        </button>
+      </div>
+      {result && (
+        <p
+          className={`mt-2 rounded-lg border p-2.5 font-dm text-[11px] leading-relaxed ${
+            result.ok
+              ? "border-green-500/30 bg-green-500/[0.07] text-green-300"
+              : "border-orange-400/30 bg-orange-400/[0.07] text-orange-200"
+          }`}
+        >
+          {result.message}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── WhatsApp recipients ─────────────────────────────────────────────────────
 //
 // Dynamic slots: the owner adds as many as they need, forever, without a
@@ -187,6 +238,16 @@ export default function AdminNotifications() {
             <p className="mt-1.5 font-dm text-sm text-muted">
               Who gets pinged, and for what. Add as many as you need.
             </p>
+            {/* ── Two different channels, on the page where alerts live ──────
+                WhatsApp goes to the numbers below via CallMeBot. Browser
+                notifications are a separate mechanism entirely, and the test
+                for them was added to a different admin screen — so the owner
+                looked here, did not find it, and reasonably concluded it did
+                not exist. It belongs where he goes when something is not
+                arriving. */}
+            <div className="mt-3">
+              <PushSelfTest />
+            </div>
           </div>
           {!draft && (
             <button
@@ -223,14 +284,29 @@ export default function AdminNotifications() {
               </div>
               <div>
                 <label htmlFor="n-phone" className="mb-1 block font-dm text-xs text-muted">WhatsApp number</label>
-                <input id="n-phone" className={input} value={draft.phone} placeholder="+230 5835 5588" inputMode="tel"
+                {/* autoComplete="off" + a non-standard name, because Chrome
+                    autofilled an EMAIL ADDRESS into this field — the owner sent
+                    a screenshot of "ninjaespion23@gmail.com" sitting in the
+                    WhatsApp number box. Saved like that, CallMeBot silently
+                    never delivers and the recipient looks configured. The
+                    browser guesses from the label when a field does not say
+                    what it wants, so this one now says. */}
+                <input id="n-phone" name="rr-whatsapp-number" className={input} value={draft.phone}
+                  placeholder="+230 5835 5588" inputMode="tel" autoComplete="off" spellCheck={false}
                   onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
+                {draft.phone.includes("@") && (
+                  // Caught at the point of entry rather than at delivery time,
+                  // which is hours later and silent.
+                  <p className="mt-1 font-dm text-[11px] text-orange-300">
+                    That looks like an email address. CallMeBot needs the WhatsApp number, e.g. +230 5835 5588.
+                  </p>
+                )}
               </div>
               <div>
                 <label htmlFor="n-key" className="mb-1 block font-dm text-xs text-muted">
                   CallMeBot API key {draft.id && <span className="text-muted/70">— leave blank to keep</span>}
                 </label>
-                <input id="n-key" className={input} value={draft.apiKey} type="password" autoComplete="off"
+                <input id="n-key" name="rr-callmebot-key" className={input} value={draft.apiKey} type="password" autoComplete="new-password"
                   placeholder={draft.id ? "unchanged" : "123456"}
                   onChange={(e) => setDraft({ ...draft, apiKey: e.target.value })} />
               </div>

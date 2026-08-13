@@ -135,7 +135,9 @@
 // blocked-notifications message names the exact route for that browser.
 // v214 — a seller can finally edit their own shop: name, description,
 // address, map pin and contact, from /merchant/profile.
-const CACHE = "rr-cache-v214";
+// v215 — allowing notifications now sends a confirmation push immediately,
+// Kitchen and Taxi alert categories exist, and autofill cannot poison a number.
+const CACHE = "rr-cache-v215";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

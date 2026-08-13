@@ -24,6 +24,12 @@ export const NOTIFICATION_CATEGORIES = [
   "ticketing",
   "payments",
   "bookings",
+  // M98 — added once the platform actually had these businesses. Until now the
+  // only way to alert a kitchen or a taxi desk was to leave a recipient's
+  // categories empty, which means "everything" and gives a cook the same
+  // traffic as the owner.
+  "food",
+  "rides",
   "system",
   "admin",
 ] as const;
@@ -41,6 +47,8 @@ export const CATEGORY_LABEL: Record<NotificationCategory, string> = {
   ticketing: "Events & tickets",
   payments: "Payments",
   bookings: "Bookings",
+  food: "Kitchen & food orders",
+  rides: "Taxi & rides",
   system: "System & errors",
   admin: "Needs my attention",
 };

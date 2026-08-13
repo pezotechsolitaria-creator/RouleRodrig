@@ -116,6 +116,29 @@ export async function POST(req: NextRequest) {
       console.error("register_taxi_push failed", error);
       return NextResponse.json({ ok: false }, { status: 500 });
     }
+
+    // Confirm on the spot, to the phone that just registered. Allowing the
+    // permission only proved the BROWSER agreed — it says nothing about VAPID
+    // signing, the service worker, or whether the phone will draw anything. A
+    // driver who sees "Alerts are on" knows; one who sees a green switch is
+    // only hoping, and finds out at the worst moment.
+    if ((data as { ok?: boolean } | null)?.ok) {
+      try {
+        const { pushToDriverEndpoints } = await import("@/lib/push/send");
+        await pushToDriverEndpoints(
+          [{ endpoint: p.endpoint, p256dh: p.p256dh, auth: p.auth }],
+          {
+            title: "Alerts are on 🎉",
+            body: "You'll hear about a ride even when this page is closed.",
+            url: "/",
+            tag: "rr-alerts-on",
+          },
+        );
+      } catch (e) {
+        console.error("driver push welcome failed", e);
+      }
+    }
+
     return NextResponse.json(data);
   }
 
