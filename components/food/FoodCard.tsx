@@ -51,7 +51,11 @@ export default function FoodCard({
         // marketplace product card (343px at 375px wide, versus the 190px
         // these were). A 190px card in a scroller clipped the next one at
         // the screen edge and cut the price in half.
-        variant === "rail" ? "w-full shrink-0 sm:w-[210px]" : ""
+        // 152px at 375px: two dishes fully visible with ~35px of a third
+        // showing. That peek is deliberate — it is the only signal a thumb gets
+        // that the row scrolls. w-full killed it (c7f03e7) and with it the
+        // whole swipe.
+        variant === "rail" ? "w-[152px] shrink-0 snap-start sm:w-[210px]" : ""
       } ${unavailable ? "opacity-60" : ""}`}
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-dark">

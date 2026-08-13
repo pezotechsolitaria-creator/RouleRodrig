@@ -113,7 +113,9 @@
 // category list means ALL, so both live numbers are armed.
 // v203 — /food is two dishes across on a phone again, the way a menu reads,
 // with the price no longer breaking in half at that width.
-const CACHE = "rr-cache-v203";
+// v204 — /food swipes again: scroll-snapping rails, two dishes visible with
+// a peek of the third, and the price no longer breaking in half.
+const CACHE = "rr-cache-v204";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

@@ -259,18 +259,19 @@ export default async function FoodPage({
                 {home.rails.map((rail) => (
                   <section key={rail.key}>
                     <h2 className="font-syne text-lg font-extrabold text-offwhite">{rail.title}</h2>
-                    {/* TWO ACROSS ON A PHONE — the food-ordering shape.
-                        This was a rail of 190px cards, which put half the next
-                        dish off the edge of a 375px screen; the fix for that
-                        (c7f03e7) went to one full-width card per row, which
-                        solved the clipping and lost the thing that made this
-                        read as a menu. You browse food by scanning many dishes
-                        at once, not by scrolling past one enormous card at a
-                        time — and at one-per-row this page ran to 8100px.
-                        A real 2-column GRID gets both: two dishes per row and
-                        nothing clipped, because a grid cell cannot overflow the
-                        way a fixed-width card in a scroller does. */}
-                    <div className="mt-3 grid grid-cols-2 gap-3 sm:flex sm:overflow-x-auto sm:pb-2 [-ms-overflow-style:none] [scrollbar-width:none] lg:grid lg:grid-cols-4 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
+                    {/* A SWIPE RAIL, AND THE PEEK IS THE POINT.
+                        c7f03e7 read "half the next dish is off the edge" as a
+                        bug and went to one full-width card per row. It is not a
+                        bug — it is the affordance. A partly visible third card
+                        is the only thing that tells a thumb this row moves, and
+                        it is why every food app on earth is built this way.
+                        Killing it cost the swipe AND the two-up scan, and made
+                        the page 8100px long.
+                        So: a scroll-snapping rail on every size. What WAS
+                        genuinely broken at this width is the price wrapping to
+                        "Rs" / "320.00" — fixed properly in FoodCard rather than
+                        by making the cards enormous. */}
+                    <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-pl-4 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] lg:grid lg:grid-cols-4 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
                       {rail.items.map((item) => (
                         <div key={`${rail.key}-${item.id}`} className="lg:w-auto">
                           <FoodCard item={item} variant="rail" />
