@@ -123,7 +123,9 @@
 // SITE permission differs from the phone permission, and offers Check again.
 // v208 — closes the provider=manual bypass, and checkout now shows the
 // seller's WhatsApp to a customer who cannot make a local bank transfer.
-const CACHE = "rr-cache-v208";
+// v209 — whether a driver has a registered phone is now its own column,
+// not two words of grey micro-text under the accept rate.
+const CACHE = "rr-cache-v209";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

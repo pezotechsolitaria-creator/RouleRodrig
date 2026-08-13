@@ -542,7 +542,7 @@ function DriverRoster({ drivers, onSaved }: { drivers: Driver[]; onSaved: () => 
       <table className="w-full min-w-[880px] text-left">
         <thead>
           <tr className="border-b border-white/10 bg-white/[0.03]">
-            {["Driver", "Working?", "Seats", "Waits at", "Latitude", "Longitude", "Takes", "Record", ""].map((h) => (
+            {["Driver", "Working?", "Can we reach them?", "Seats", "Waits at", "Latitude", "Longitude", "Takes", "Record", ""].map((h) => (
               <th key={h} className="px-3 py-2 font-bebas text-[10px] tracking-[0.18em] text-muted">
                 {h.toUpperCase()}
               </th>
@@ -632,6 +632,36 @@ ${url}
           <option value="off">Not today</option>
         </select>
       </td>
+
+      {/* ── CAN WE ACTUALLY REACH THEM? ─────────────────────────────────────
+          This was two words of 11px grey text tucked under the accept-rate,
+          and the owner's reply was "where does it show a registered device? I
+          do not see it." He was right: the single most consequential fact
+          about a driver — whether a ride offer can physically arrive — was the
+          least visible thing in the row. A driver nobody can notify gets no
+          work, so it now has its own column and states each channel in words. */}
+      <td className="px-3 py-2">
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 font-dm text-[11px] ${
+            d.push_ready
+              ? "border-green-500/40 bg-green-500/10 text-green-400"
+              : "border-orange-400/40 bg-orange-400/10 text-orange-300"
+          }`}
+          title={
+            d.push_ready
+              ? "This driver has registered a phone for ride alerts."
+              : "No phone registered. Send them their link and ask them to press Turn on."
+          }
+        >
+          {d.push_ready ? "📱 Phone registered" : "📵 No phone yet"}
+        </span>
+        <span
+          className={`mt-1 block font-dm text-[11px] ${d.whatsapp_ready ? "text-green-400" : "text-orange-300"}`}
+        >
+          {d.whatsapp_ready ? "WhatsApp ready" : "WhatsApp not set up"}
+        </span>
+      </td>
+
       <td className="px-3 py-2">
         <input value={f.seats} onChange={(e) => setF({ ...f, seats: e.target.value })}
           aria-label={`Seats for ${d.name}`} placeholder="4" inputMode="numeric" className={`${cell} w-14`} />
@@ -664,17 +694,6 @@ ${url}
       <td className="px-3 py-2 font-dm text-[11px] tabular-nums text-muted">
         {rate === null ? "no offers yet" : `${rate}% accepted`}
         <span className="block">{d.rides_completed} done</span>
-        {/* Can we actually reach this driver? Two channels, said plainly: a
-            driver nobody can notify is a driver who gets no work. */}
-        <span className="mt-0.5 block">
-          <span className={d.whatsapp_ready ? "text-green-400" : "text-orange-300"}>
-            {d.whatsapp_ready ? "WhatsApp OK" : "no WhatsApp"}
-          </span>
-          {" · "}
-          <span className={d.push_ready ? "text-green-400" : "text-muted"}>
-            {d.push_ready ? "alerts OK" : "no alerts"}
-          </span>
-        </span>
       </td>
       <td className="px-3 py-2 text-right">
         <button
