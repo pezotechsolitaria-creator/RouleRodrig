@@ -10,6 +10,7 @@ import { loc } from "@/lib/localize";
 import PlaceBookingModal from "@/components/PlaceBookingModal";
 import PlaceDetailModal from "@/components/PlaceDetailModal";
 import SaveButton from "@/components/SaveButton";
+import AutoPhotos from "@/components/AutoPhotos";
 
 const CATEGORY: Record<
   RecommendedPlace["category"],
@@ -146,12 +147,12 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
                   className="relative h-44 bg-gradient-to-br from-yellow/10 via-dark-card to-dark overflow-hidden cursor-pointer"
                 >
                   {p.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={p.image}
+                    <AutoPhotos
+                      images={[p.image, ...(p.images ?? [])]}
                       alt={p.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                      loading="lazy"
+                      sizes="(max-width: 640px) 100vw, 340px"
+                      stagger={i}
+                      className="transition-transform duration-500 group-hover:scale-[1.04]"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">

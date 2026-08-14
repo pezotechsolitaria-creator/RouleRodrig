@@ -1,4 +1,4 @@
-import Image from "next/image";
+import AutoPhotos from "@/components/AutoPhotos";
 import Link from "next/link";
 import { ArrowRight, Languages, MapPin, MessageCircle, ShieldCheck } from "lucide-react";
 import type { RecommendedPlace } from "@/lib/defaults";
@@ -101,7 +101,7 @@ export default function GuideRoster({
       ) : (
         <>
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {guides.map((g) => {
+            {guides.map((g, i) => {
               // The person's name is the headline here. `providerName` is who
               // they are; `name` is what the listing is called ("Sunrise hike
               // to Mont Limon"), and a roster of services is not a roster of
@@ -126,7 +126,12 @@ export default function GuideRoster({
                         card a visitor can act on. */}
                     <span className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-dark-card ring-1 ring-white/10">
                       {photo ? (
-                        <Image src={photo} alt={title} fill sizes="64px" className="object-cover" />
+                        <AutoPhotos
+                          images={[g.image, ...(g.images ?? [])]}
+                          alt={title}
+                          sizes="64px"
+                          stagger={i}
+                        />
                       ) : (
                         <span className="flex h-full w-full items-center justify-center font-syne text-xl font-bold text-yellow/70">
                           {title.charAt(0).toUpperCase() || "?"}

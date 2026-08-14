@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import AutoPhotos from "@/components/AutoPhotos";
 import {
   Star, Clock, Users, MapPin, ArrowRight, SlidersHorizontal, Sparkles, ImageOff,
 } from "lucide-react";
@@ -113,13 +113,14 @@ export default function ExperienceMarket({
         </div>
       ) : (
         <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visible.map((p) => (
+          {visible.map((p, i) => (
             <ExperienceCard
               key={p.id}
               place={p}
               copy={copy}
               fr={fr}
               language={language}
+              index={i}
               onOpen={() => setDetailPlace(p)}
               onBook={() => setBookingPlace(p)}
             />
@@ -154,7 +155,7 @@ const chip = (on: boolean) =>
   }`;
 
 function ExperienceCard({
-  place, copy, fr, language, onOpen, onBook,
+  place, copy, fr, language, onOpen, onBook, index = 0,
 }: {
   place: RecommendedPlace;
   copy: ExperienceCopy;
@@ -162,6 +163,8 @@ function ExperienceCard({
   language: string;
   onOpen: () => void;
   onBook: () => void;
+  /** Position in the grid — offsets this card's photo cycle. */
+  index?: number;
 }) {
   const duration = formatDuration(place.durationMinutes);
   const cover = place.image || place.images?.[0];
@@ -179,13 +182,12 @@ function ExperienceCard({
         aria-label={place.name}
       >
         {cover ? (
-          <Image
-            src={cover}
+          <AutoPhotos
+            images={[place.image, ...(place.images ?? [])]}
             alt={place.name}
-            fill
             sizes="(max-width: 640px) 100vw, 340px"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            unoptimized={cover.startsWith("/uploads/") || (cover.startsWith("http") && !cover.includes("supabase.co"))}
+            stagger={index}
+            className="transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
           <span className="flex h-full items-center justify-center text-muted/40">

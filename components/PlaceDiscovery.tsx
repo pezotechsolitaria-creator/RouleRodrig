@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
+import AutoPhotos from "@/components/AutoPhotos";
 import { Search, Navigation, Images, MapPin, SlidersHorizontal } from "lucide-react";
 import type { MapLocation } from "@/lib/defaults";
 import { availableBadges, badgesFor, filterPlaces, photoCount } from "@/lib/place-discovery";
@@ -98,8 +98,8 @@ export default function PlaceDiscovery({
         </div>
       ) : (
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {visible.map((p) => (
-            <PlaceCard key={p.id} place={p} fr={fr} language={language} guideHref={guideHref} />
+          {visible.map((p, i) => (
+            <PlaceCard key={p.id} place={p} fr={fr} language={language} guideHref={guideHref} index={i} />
           ))}
         </div>
       )}
@@ -115,12 +115,14 @@ const chip = (on: boolean) =>
   }`;
 
 function PlaceCard({
-  place, fr, language, guideHref,
+  place, fr, language, guideHref, index = 0,
 }: {
   place: MapLocation;
   fr: boolean;
   language: string;
   guideHref: string;
+  /** Position in the grid — offsets this card's photo cycle. */
+  index?: number;
 }) {
   const cover = place.image || place.images?.[0];
   const badges = badgesFor(place, 3);
@@ -133,13 +135,12 @@ function PlaceCard({
           where the owner's story and the rest of the photos live. */}
       <a href={`${guideHref}#${place.id}`} className="relative block aspect-[4/3] w-full overflow-hidden bg-dark">
         {cover ? (
-          <Image
-            src={cover}
+          <AutoPhotos
+            images={[place.image, ...(place.images ?? [])]}
             alt={name}
-            fill
             sizes="(max-width: 640px) 50vw, 260px"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            unoptimized={cover.startsWith("/uploads/") || (cover.startsWith("http") && !cover.includes("supabase.co"))}
+            stagger={index}
+            className="transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
           <span className="flex h-full items-center justify-center text-muted/40">
