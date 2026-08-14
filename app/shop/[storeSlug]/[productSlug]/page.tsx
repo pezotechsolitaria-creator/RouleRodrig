@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ChevronRight, Truck, Store as StoreIcon, Handshake, ShieldCheck, Star } from "lucide-react";
 import { SITE_URL } from "@/lib/site";
 import { createClient } from "@/lib/supabase/server";
-import { centsToDecimalString } from "@/lib/money";
+import { centsToDecimalString, centsToShortString } from "@/lib/money";
 import { breadcrumbLd, marketplaceProductLd } from "@/lib/schema";
 import { statusWords, FULFILMENT } from "@/lib/shop/plain-words";
 import JsonLd from "@/components/JsonLd";
@@ -212,7 +212,11 @@ export default async function ProductPage({
               />
             </div>
 
-            {p.ratingCount > 0 && p.ratingAvg !== null ? (
+            {/* Only when there is something to say. "No reviews yet — buyers
+                can rate this after their order is collected" is a sentence
+                explaining an absence, directly above the price; the seller card
+                further down already says the same thing once. */}
+            {p.ratingCount > 0 && p.ratingAvg !== null && (
               <a href="#reviews" className="mt-2 inline-flex items-center gap-2 font-dm text-sm text-offwhite hover:text-yellow">
                 <StarRating value={Number(p.ratingAvg)} size={14} />
                 {Number(p.ratingAvg).toFixed(1)}
@@ -220,10 +224,6 @@ export default async function ProductPage({
                   ({p.ratingCount} review{p.ratingCount === 1 ? "" : "s"})
                 </span>
               </a>
-            ) : (
-              <p className="mt-2 font-dm text-xs text-muted">
-                No reviews yet — buyers can rate this after their order is collected.
-              </p>
             )}
 
             <div className="mt-5 rounded-2xl border border-white/10 bg-dark-card p-4">
@@ -256,12 +256,14 @@ export default async function ProductPage({
                 Before payment, not after. "I didn't know where to collect it"
                 is a problem to solve while someone is still deciding. */}
             {ways.length > 0 && (
-              <div className="mt-4 rounded-2xl border border-white/10 bg-dark-card p-4">
-                <p className="font-bebas text-[11px] tracking-[0.28em] text-muted/70">HOW YOU GET IT</p>
-                <ul className="mt-2.5 space-y-2.5">
+              <div className="mt-3 rounded-xl border border-white/10 bg-dark-card p-3.5">
+                {/* The option names alone. Each one used to carry a sentence of
+                    explanation under it — three sentences for a choice made
+                    once, at checkout, where the explanations still live. */}
+                <ul className="space-y-2">
                   {ways.map((w) => (
-                    <li key={w.chip} className="flex items-start gap-2.5">
-                      <span className="mt-0.5 shrink-0 text-yellow/80">
+                    <li key={w.chip} className="flex items-center gap-2">
+                      <span className="shrink-0 text-yellow/80">
                         {w.chip === FULFILMENT.rr_delivery.chip ? (
                           <Truck size={14} />
                         ) : w.chip === FULFILMENT.pickup.chip ? (
@@ -270,17 +272,14 @@ export default async function ProductPage({
                           <Handshake size={14} />
                         )}
                       </span>
-                      <span className="min-w-0">
-                        <span className="block font-dm text-sm font-medium text-offwhite">{w.chip}</span>
-                        <span className="block font-dm text-xs text-muted">{w.hint}</span>
-                      </span>
+                      <span className="font-dm text-[13px] text-offwhite">{w.chip}</span>
                     </li>
                   ))}
                 </ul>
                 {p.store.offersRrDelivery && p.deliveryFeeFrom !== null && (
-                  <p className="mt-3 border-t border-white/10 pt-3 font-dm text-xs text-muted">
-                    Delivery costs from Rs {centsToDecimalString(p.deliveryFeeFrom)}, depending on where
-                    you are. You choose your area at checkout.
+                  <p className="mt-2.5 border-t border-white/10 pt-2.5 font-dm text-xs text-muted">
+                    Delivery from Rs {centsToShortString(p.deliveryFeeFrom)} — you pick your area at
+                    checkout.
                   </p>
                 )}
                 {status.badge && (
@@ -293,16 +292,16 @@ export default async function ProductPage({
               </div>
             )}
 
-            <p className="mt-4 flex items-start gap-2 font-dm text-xs text-muted">
-              <ShieldCheck size={14} className="mt-px shrink-0 text-yellow/70" />
-              You pay {p.store.name} directly by bank transfer, and they confirm before your order is
-              prepared. No card details are ever entered.
+            {/* One line. It was three, explaining a payment method the customer
+                has not chosen yet and will be walked through at checkout. */}
+            <p className="mt-3 flex items-center gap-2 font-dm text-xs text-muted">
+              <ShieldCheck size={13} className="shrink-0 text-yellow/70" />
+              Pay {p.store.name} direct by bank transfer. No card details.
             </p>
 
             {p.description && (
-              <section className="mt-6">
-                <h2 className="font-syne text-base font-bold text-offwhite">About this product</h2>
-                <p className="mt-2 whitespace-pre-line font-dm text-sm leading-relaxed text-muted">
+              <section className="mt-5">
+                <p className="whitespace-pre-line font-dm text-sm leading-relaxed text-muted">
                   {p.description}
                 </p>
               </section>

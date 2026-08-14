@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
-import { ShopHeader } from "@/components/shop/ShopChrome";
+import MarketHeader from "@/components/shop/MarketHeader";
 import ProductListing from "@/components/shop/ProductListing";
-import { browseProducts, PRODUCTS_PER_PAGE } from "@/lib/marketplace/catalog";
+import { browseProducts, getMarketplaceHome, PRODUCTS_PER_PAGE } from "@/lib/marketplace/catalog";
 import { readFilters } from "@/lib/marketplace/urls";
 
 // Free-text search results.
@@ -11,8 +11,8 @@ import { readFilters } from "@/lib/marketplace/urls";
 // Dynamic for the same reason as /shop: every card carries live stock and the
 // shop's open/closed state, and a cached result set is wrong exactly when it
 // matters. Search pages are also the one surface that must never be indexed —
-// an infinite space of query strings is a crawl trap, and Google has said so
-// for fifteen years. Categories are the indexable surface (/shop/c/[slug]).
+// an unbounded space of query strings is a crawl trap. Categories are the
+// indexable surface (/shop/c/[slug]).
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
@@ -30,33 +30,33 @@ export default async function MarketplaceSearchPage({
   const f = readFilters(await searchParams);
   const supabase = await createClient();
 
-  const result = await browseProducts(supabase, {
-    q: f.q,
-    category: f.category,
-    fulfillment: f.fulfillment,
-    seller: f.seller,
-    maxPrice: f.maxPrice,
-    inStock: f.inStock,
-    openNow: f.openNow,
-    sort: f.sort,
-    limit: PRODUCTS_PER_PAGE,
-    offset: (f.page - 1) * PRODUCTS_PER_PAGE,
-  });
+  const [result, home] = await Promise.all([
+    browseProducts(supabase, {
+      q: f.q,
+      category: f.category,
+      fulfillment: f.fulfillment,
+      seller: f.seller,
+      maxPrice: f.maxPrice,
+      inStock: f.inStock,
+      openNow: f.openNow,
+      sort: f.sort,
+      limit: PRODUCTS_PER_PAGE,
+      offset: (f.page - 1) * PRODUCTS_PER_PAGE,
+    }),
+    // The rail, so a shopper whose search found nothing can still tap a shelf.
+    getMarketplaceHome(supabase),
+  ]);
 
   return (
     <main className="min-h-screen bg-dark px-4 pb-44 pt-0 text-offwhite md:pb-28">
-      <ShopHeader backHref="/shop" backLabel="Marketplace" />
+      <MarketHeader back={{ href: "/shop", label: "the marketplace" }} defaultQuery={f.q} />
       <ProductListing
         base="/shop/search"
         filters={f}
         result={result}
         perPage={PRODUCTS_PER_PAGE}
-        heading={f.q ? `Results for “${f.q}”` : "All products"}
-        subheading={
-          f.q
-            ? null
-            : "Everything the island's shops are selling right now — narrow it down on the left."
-        }
+        categories={home?.categories ?? []}
+        heading={f.q ? `“${f.q}”` : "All products"}
       />
     </main>
   );

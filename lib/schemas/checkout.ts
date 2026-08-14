@@ -81,6 +81,64 @@ export const checkoutSchema = z
     path: ["deliveryZoneId"],
   });
 
+// ── ONE CHECKOUT, SEVERAL SELLERS (M99) ────────────────────────────────────
+//
+// The customer types their details once and presses one button; the backend
+// splits the bag into one order per seller. Everything a person enters is
+// shared — name, phone, email, where they are, how they pay. What is NOT shared
+// lives in each group: which items, how that shop's parcel reaches them, and
+// which total the customer was shown for it.
+//
+// The per-group `expectedTotal` matters more here than in a single checkout: a
+// price that moves in ONE shop must refuse the whole bag (RR012) rather than
+// quietly charging a different figure for that shop alone.
+export const checkoutGroupSchema = z
+  .object({
+    storeId: z.string().uuid(),
+    items: z.array(cartItemSchema).min(1, "Your bag is empty.").max(50, "Too many items in one order."),
+    fulfillment: z.enum(FULFILLMENT_METHODS),
+    deliveryZoneId: z.string().uuid().optional(),
+    expectedTotal: z.number().int().min(0).max(2_147_483_647).optional(),
+  })
+  .refine((g) => g.fulfillment !== "rr_delivery" || !!g.deliveryZoneId, {
+    message: "Choose the area we are delivering to.",
+    path: ["deliveryZoneId"],
+  });
+
+export const checkoutGroupsSchema = z
+  .object({
+    // Bounded to match create_order_group's own limit: each group takes row
+    // locks on stock, and nobody buys from nine island shops at once.
+    groups: z.array(checkoutGroupSchema).min(1, "Your bag is empty.").max(8),
+    customerName: z.string().trim().min(1, "Your name is required.").max(200),
+    customerPhone: z.string().trim().min(1, "A phone number is required.").max(40),
+    provider: z.enum(CHECKOUT_PROVIDERS),
+    notes: z.string().trim().max(1000).optional(),
+    deliveryLat: z.number().min(-90).max(90).optional(),
+    deliveryLng: z.number().min(-180).max(180).optional(),
+    deliveryInstructions: z.string().trim().max(500).optional(),
+    idempotencyKey: z.string().uuid().optional(),
+    guestEmail: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email("Enter a valid email address.")
+      .max(254, "That email address is too long.")
+      .optional(),
+  })
+  .refine(
+    // Any group being delivered needs the pin, and there is one customer
+    // standing in one place — so the location is shared, not per shop.
+    (v) =>
+      v.groups.every((g) => g.fulfillment === "pickup") ||
+      (v.deliveryLat !== undefined && v.deliveryLng !== undefined),
+    { message: "Share your location so the order can be delivered.", path: ["deliveryLat"] },
+  )
+  .refine((v) => new Set(v.groups.map((g) => g.storeId)).size === v.groups.length, {
+    message: "That shop appears twice in your bag.",
+    path: ["groups"],
+  });
+
 export const cartResolveSchema = z.object({
   items: z.array(cartItemSchema).min(1).max(50),
 });

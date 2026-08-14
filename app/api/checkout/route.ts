@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { guardShared } from "@/lib/rate-limit";
-import { checkoutSchema } from "@/lib/schemas/checkout";
+import { checkoutSchema, checkoutGroupsSchema } from "@/lib/schemas/checkout";
 import { claimAndNotifyOrderPlaced } from "@/lib/notifications/order-placed";
+import { placeOrderGroup } from "./group";
 
 const NOT_FOUND_CODE = "RR003";
 const VALIDATION_CODE = "RR005";
@@ -54,6 +55,25 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
+
+  // ── ONE CHECKOUT, SEVERAL SELLERS (M99) ──────────────────────────────────
+  // Recognised by the shape of the request. The single-seller path below is
+  // untouched — food, ticketing and any older client still post `storeId` and
+  // still get exactly what they got before. A bag with several shops posts
+  // `groups` and is placed by create_order_group(), which calls the SAME
+  // create_order() once per shop inside ONE transaction: either every order
+  // exists or none does.
+  if (body && typeof body === "object" && Array.isArray((body as { groups?: unknown }).groups)) {
+    const grouped = checkoutGroupsSchema.safeParse(body);
+    if (!grouped.success) {
+      return NextResponse.json(
+        { error: grouped.error.issues[0]?.message ?? "Invalid input." },
+        { status: 400 },
+      );
+    }
+    return placeOrderGroup(grouped.data);
+  }
+
   const parsed = checkoutSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input." }, { status: 400 });

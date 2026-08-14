@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { centsToDecimalString, toCents } from "./money";
+import { centsToDecimalString, centsToShortString, toCents } from "./money";
 
 describe("toCents", () => {
   // The exact values that broke Math.round(parseFloat(x) * 100) in the M2
@@ -61,5 +61,24 @@ describe("centsToDecimalString", () => {
       expect(cents).not.toBeNull();
       expect(centsToDecimalString(cents as number)).toBe(parseFloat(v).toFixed(2));
     }
+  });
+});
+
+describe("centsToShortString", () => {
+  it("drops the .00 that a card has no room for", () => {
+    expect(centsToShortString(45000)).toBe("450");
+    expect(centsToShortString(15000)).toBe("150");
+    expect(centsToShortString(0)).toBe("0");
+  });
+
+  it("keeps real cents, because dropping them would change the price", () => {
+    expect(centsToShortString(45050)).toBe("450.50");
+    expect(centsToShortString(1)).toBe("0.01");
+    expect(centsToShortString(99)).toBe("0.99");
+  });
+
+  it("handles a negative amount without inventing a rupee", () => {
+    expect(centsToShortString(-45000)).toBe("-450");
+    expect(centsToShortString(-45050)).toBe("-450.50");
   });
 });

@@ -4,9 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
-import { ShopHeader } from "@/components/shop/ShopChrome";
+import MarketHeader from "@/components/shop/MarketHeader";
 import ProductListing from "@/components/shop/ProductListing";
-import { browseProducts, PRODUCTS_PER_PAGE } from "@/lib/marketplace/catalog";
+import { browseProducts, getMarketplaceHome, PRODUCTS_PER_PAGE } from "@/lib/marketplace/catalog";
 import { readFilters } from "@/lib/marketplace/urls";
 
 // ── The indexable half of the listing ───────────────────────────────────────
@@ -75,22 +75,34 @@ export default async function CategoryPage({
   const f = { ...readFilters(await searchParams), category: cat.slug };
   const supabase = await createClient();
 
-  const result = await browseProducts(supabase, {
-    q: f.q,
-    category: cat.slug,
-    fulfillment: f.fulfillment,
-    seller: f.seller,
-    maxPrice: f.maxPrice,
-    inStock: f.inStock,
-    openNow: f.openNow,
-    sort: f.sort,
-    limit: PRODUCTS_PER_PAGE,
-    offset: (f.page - 1) * PRODUCTS_PER_PAGE,
-  });
+  const [result, home] = await Promise.all([
+    browseProducts(supabase, {
+      q: f.q,
+      category: cat.slug,
+      fulfillment: f.fulfillment,
+      seller: f.seller,
+      maxPrice: f.maxPrice,
+      inStock: f.inStock,
+      openNow: f.openNow,
+      sort: f.sort,
+      limit: PRODUCTS_PER_PAGE,
+      offset: (f.page - 1) * PRODUCTS_PER_PAGE,
+    }),
+    // The full rail, not just the facets of this page — switching shelf is the
+    // most-used move on a category page and it must not need a trip back.
+    getMarketplaceHome(supabase),
+  ]);
 
   return (
     <main className="min-h-screen bg-dark px-4 pb-44 pt-0 text-offwhite md:pb-28">
-      <ShopHeader backHref="/shop" backLabel="Marketplace" />
+      <MarketHeader
+        back={{ href: "/shop", label: "the marketplace" }}
+        defaultQuery={f.q}
+        // Searching from a category page searches WITHIN it: someone on the
+        // honey shelf typing "citron" means honey with lemon, not a fresh
+        // island-wide search that throws away the shelf they chose.
+        action={`/shop/c/${cat.slug}`}
+      />
       {result.products.length > 0 && (
         <JsonLd
           data={[
@@ -117,8 +129,8 @@ export default async function CategoryPage({
         result={result}
         perPage={PRODUCTS_PER_PAGE}
         categoryLocked
+        categories={home?.categories ?? []}
         heading={cat.name}
-        subheading={`${cat.name} from the island's own shops and producers.`}
       />
     </main>
   );

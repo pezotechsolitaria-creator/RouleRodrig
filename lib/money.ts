@@ -54,3 +54,19 @@ export function centsToDecimalString(cents: number): string {
   const abs = Math.abs(cents);
   return `${sign}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, "0")}`;
 }
+
+/**
+ * The same amount with the ".00" dropped when there are no cents.
+ *
+ * For dense commerce surfaces — a product card, a category rail, the one-line
+ * delivery note — where "Rs 450.00" spends four characters saying nothing.
+ * Rodrigues prices are whole rupees almost without exception, so this is the
+ * common case, and on a 375px card the difference decides whether the price and
+ * the struck-through original fit on one line.
+ *
+ * NOT for a total, a receipt, an invoice or anything anyone has to reconcile:
+ * money being paid is written in full, always.
+ */
+export function centsToShortString(cents: number): string {
+  return cents % 100 === 0 ? String(Math.trunc(cents / 100)) : centsToDecimalString(cents);
+}
