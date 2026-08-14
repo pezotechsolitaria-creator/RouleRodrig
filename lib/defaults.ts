@@ -597,13 +597,23 @@ export const DEFAULT_QUICK_ACCESS: QuickAccessItem[] = [
   //
   // What is left is ordered by INTENT rather than by content type: get in the
   // water, get up a hill, get on a boat, get looked after, get a ride.
-  { id: "qa-beaches",   label: "Beaches",      labelFr: "Plages",       labelCr: "Laplaz",      href: "/guide/beaches",    icon: "beach",     enabled: true },
+  // Beaches and Viewpoints were two tiles pointing at two halves of the same
+  // errand — "show me somewhere beautiful to go". Fusing them costs nothing:
+  // both guides still exist and still own their own search intent, and the
+  // beaches page carries a link straight across to the viewpoints one. What it
+  // buys is the slot below, which now holds something nobody else on this
+  // island offers.
+  { id: "qa-beaches",   label: "Beaches & Views", labelFr: "Plages & vues", labelCr: "Laplaz & vi", href: "/guide/beaches",   icon: "beach",     enabled: true },
   // Hiking has its own guide now. It used to land on /guide/routes, a page
   // titled "Scooter routes & hiking trails" whose H1, hero copy and first CTA
   // are all about renting a scooter — so a tile that said "Hiking" opened a
   // scooter page and put the trails below every ride on it.
   { id: "qa-hiking",    label: "Hiking",       labelFr: "Randonnée",    labelCr: "Rando",       href: "/guide/hiking",     icon: "hiking",    enabled: true },
-  { id: "qa-viewpoints",label: "Viewpoints",   labelFr: "Points de vue",labelCr: "Vue",         href: "/guide/viewpoints", icon: "viewpoint", enabled: true },
+  // The slot the fusion freed. "Deliver anything" is the one thing here that
+  // is not a place to go or a thing to rent — it is an errand somebody else
+  // runs for you, and it is the only tile in this grid a resident uses as often
+  // as a visitor.
+  { id: "qa-deliver",   label: "Delivery",     labelFr: "Livraison",    labelCr: "Livrezon",    href: "/deliver",          icon: "delivery",  enabled: true },
   { id: "qa-fishing",   label: "Fishing",      labelFr: "Pêche",        labelCr: "Lapes",       href: "/experiences/fishing", icon: "fishing", enabled: true },
   { id: "qa-boat",      label: "Boat Trips",   labelFr: "Sorties mer",  labelCr: "Sorti lamer", href: "/experiences/boat",    icon: "boat",    enabled: true },
   { id: "qa-massage",   label: "Massage",      labelFr: "Massage",      labelCr: "Masaz",       href: "/experiences/massage", icon: "massage", enabled: true },

@@ -8,7 +8,7 @@ import {
   Heart, MapPin, ChevronDown, Bot, Bike, Car, BedDouble, TreePalm,
   Utensils, Umbrella, Footprints, Fish, Sailboat, Plane, CarTaxiFront, Mountain,
   ShoppingBag, PartyPopper, ArrowRight, Map as MapIcon, CalendarRange, BookOpen,
-  Siren, Compass,
+  Siren, Compass, Truck,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useFavorites } from "@/context/FavoritesContext";
@@ -30,6 +30,10 @@ const LOOKING_ICON: Record<string, React.ElementType> = {
   // Added with the massage vertical. Without it the tile silently fell through
   // to the Compass fallback — the same icon as three of its neighbours.
   massage: HeartHandshake,
+  // Deliver Anything. Truck rather than a box: the tile is about the ERRAND
+  // being run, not the parcel — and a box would read as "track my order",
+  // which is a different tab.
+  delivery: Truck,
 };
 // Icon keys for the six home cards.
 const HOME_ICON: Record<string, React.ElementType> = {
