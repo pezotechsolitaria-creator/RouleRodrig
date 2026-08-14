@@ -148,6 +148,24 @@ export async function pushToAdmins(payload: PushPayload): Promise<number> {
   return deliver(targets, payload);
 }
 
+/**
+ * Wake the SHOP an order belongs to — every device of every staff member.
+ *
+ * The audience nobody had wired (M99). The platform owner was woken for every
+ * order on the island while the shop that actually has to cook it found out
+ * whenever somebody next opened the dashboard. Email is the wrong fallback
+ * here: the free tier is ~400 messages a day shared with Supabase auth mail, so
+ * a busy kitchen emailing every order takes password resets down with it (M41).
+ *
+ * Keyed by STORE, not by user, so a merchant with two shops is woken for both
+ * and a shop with three staff wakes all three.
+ */
+export async function pushToMerchant(storeId: string, payload: PushPayload): Promise<number> {
+  if (!storeId) return 0;
+  const targets = await targetsFrom("merchant_push_targets", { p_store_id: storeId });
+  return deliver(targets, payload);
+}
+
 /** Wake one specific driver — reassignment, cancellation, an admin nudge. */
 export async function pushToDriver(driverId: string, payload: PushPayload): Promise<number> {
   const targets = await targetsFrom("driver_push_targets_for_driver", { p_driver_id: driverId });

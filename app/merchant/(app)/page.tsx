@@ -8,6 +8,7 @@ import { centsToDecimalString } from "@/lib/money";
 import { todayLine, deliveryLine, nextOpenLabel, type ScheduleStatus } from "@/lib/schedule";
 import { isPrepaymentOnly } from "@/lib/payments/prepayment";
 import RefundsOwed from "@/components/merchant/RefundsOwed";
+import MerchantPushSetup from "@/components/merchant/MerchantPushSetup";
 
 export default async function MerchantHome() {
   const supabase = await createClient();
@@ -100,6 +101,11 @@ export default async function MerchantHome() {
           none, and sits above the shop summary because it is the only thing on
           this page where somebody else is out of pocket. */}
       <RefundsOwed />
+
+      {/* M99 — the shop's own phone. Placed after the money warnings and
+          before the shop summary: it is not an emergency, but it is the
+          difference between hearing about an order and discovering it. */}
+      <MerchantPushSetup />
 
       {/* Shop summary + approval status */}
       <div className="mt-7 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-6">

@@ -10,7 +10,15 @@ vi.mock("./dispatch", () => ({ dispatchNotification: (...args: unknown[]) => dis
 // for "the food is ready" alone — a ping per order buried the one message that
 // actually has to interrupt someone, and spent a free hobby service doing it.
 const pushToAdmins = vi.fn(async (_payload?: unknown) => 1);
-vi.mock("@/lib/push/send", () => ({ pushToAdmins: (p: unknown) => pushToAdmins(p) }));
+// M99 — the SHOP's own phones, which is a different audience from the platform
+// owner's. Defaults to 0 devices, because that is the honest state of every
+// shop until somebody turns alerts on, and the function must behave correctly
+// there.
+const pushToMerchant = vi.fn(async (_storeId?: string, _payload?: unknown) => 0);
+vi.mock("@/lib/push/send", () => ({
+  pushToAdmins: (p: unknown) => pushToAdmins(p),
+  pushToMerchant: (s: string, p: unknown) => pushToMerchant(s, p),
+}));
 vi.mock("@/lib/supabase/admin", () => ({
   hasServiceRole: () => hasServiceRole(),
   getPrivileged: () => getPrivileged(),
@@ -135,6 +143,9 @@ describe("notifyOrderPlaced", () => {
 
     // Exactly ONE owner alert regardless of staff count — and it is a PUSH.
     expect(pushToAdmins).toHaveBeenCalledTimes(1);
+    // The shop that has to make it is woken too, and about ITS own store.
+    expect(pushToMerchant).toHaveBeenCalledTimes(1);
+    expect(pushToMerchant.mock.calls[0][0]).toBe("store-1");
     // A new order must never spend WhatsApp: that channel is reserved for
     // "food is ready", and email is capped at ~400/day platform-wide.
     expect(merchantEvents().filter((e) => e.channels?.includes("whatsapp"))).toHaveLength(0);

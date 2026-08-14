@@ -1,7 +1,7 @@
 import "server-only";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { dispatchNotification } from "./dispatch";
-import { pushToAdmins } from "@/lib/push/send";
+import { pushToAdmins, pushToMerchant } from "@/lib/push/send";
 import { SITE_URL } from "@/lib/site";
 import { centsToDecimalString } from "@/lib/money";
 import {
@@ -185,6 +185,28 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
       urgent: true,
     }).then((n) => n > 0);
 
+    // ── The SHOP that has to make it (M99) ──
+    //
+    // The owner has been woken for every order on the island since M68 while
+    // the merchant who actually has to cook it or pack it was told by a
+    // notifications row nobody sees until they next open the dashboard. This
+    // is the same push, aimed at the people whose job it is.
+    //
+    // Deliberately NOT awaited into the result below: a shop with no device
+    // registered is the normal case today, and "0 sent" must never make an
+    // order look like it failed to notify anyone. The owner's ping is what
+    // this function reports on.
+    const merchantPush = pushToMerchant(input.storeId, {
+      title: `New order ${input.orderNumber}`,
+      body: `${rs(input.total)} · ${fulfillmentLabel} · ${input.customerName}`,
+      url: "/merchant/orders",
+      tag: `order:${input.orderNumber}`,
+      urgent: true,
+    }).catch((err) => {
+      console.error("pushToMerchant failed", err);
+      return 0;
+    });
+
     // ── Customer side ──
     const customerSend = input.customerEmail
       ? dispatchNotification({
@@ -225,13 +247,23 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
         })
       : null;
 
-    const [merchantResults, ownerPinged, customerDelivered] = await Promise.all([
+    const [merchantResults, ownerPinged, customerDelivered, merchantPushed] = await Promise.all([
       Promise.allSettled(merchantEmailSends),
       ownerPingSend,
       customerSend,
+      // AWAITED, not left floating. This runs in a serverless function that is
+      // killed the moment the handler resolves, so a promise nobody waits for
+      // is a push that sometimes never leaves. It still cannot fail the
+      // function — it already catches to 0.
+      merchantPush,
     ]);
+    // The shop's own phone counts as reaching them, and counts FIRST: it is the
+    // only channel that reaches the person who has to act, rather than the
+    // platform owner watching every order on the island.
     const merchantReached =
-      merchantResults.some((r) => r.status === "fulfilled" && r.value === true) || ownerPinged === true;
+      merchantPushed > 0 ||
+      merchantResults.some((r) => r.status === "fulfilled" && r.value === true) ||
+      ownerPinged === true;
 
     if (!merchantReached) {
       console.error(`notifyOrderPlaced: NO merchant-side delivery succeeded for order ${input.orderNumber}`);

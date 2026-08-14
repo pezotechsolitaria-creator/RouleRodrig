@@ -147,7 +147,8 @@
 // board for 7 days instead of 24 hours.
 // v221 — a driver opens their page from Account with just a code.
 // v222 — private hire can be booked without inventing a destination.
-const CACHE = "rr-cache-v222";
+// v223 — a shop is woken on its own phone when an order lands.
+const CACHE = "rr-cache-v223";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
