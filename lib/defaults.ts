@@ -335,6 +335,21 @@ export interface RecommendedPlace {
   timeSlots?: string[]; // restaurants & activities: bookable times, e.g. ["12:30","19:00","20:30"]
   priceNote?: string;  // optional price hint shown in the booking form, e.g. "from Rs 2500/night"
   /**
+   * STAYS ONLY — Rs per room, per night. The number the total is computed from.
+   *
+   * Accommodation had no rate at all until this: the only money field was
+   * `depositAmount` below, flat per reservation, so one night and seven nights
+   * cost the same and `priceNote` ("from Rs 2500/night") was decorative text
+   * the engine never read. A guest could therefore be shown one number and
+   * charged another.
+   *
+   * Optional on purpose. A listing without it keeps charging its flat
+   * depositAmount exactly as before — see lib/stay-pricing.ts, which owns the
+   * rule and is the single implementation both the server and the booking form
+   * price from.
+   */
+  nightlyRate?: number;
+  /**
    * What the customer pays, in Rs, to confirm this booking — IN FULL.
    *
    * This was a deposit until 2026-08-13, with a balance settled on arrival.

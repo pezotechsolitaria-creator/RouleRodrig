@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { X, Loader2, AlertCircle, Send, User, Mail, Users, MessageSquare, Clock, BedDouble } from "lucide-react";
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import PhoneInput from "@/components/PhoneInput";
+import { quoteStay } from "@/lib/stay-pricing";
 import PayPalDeposit from "@/components/PayPalDeposit";
 import BankTransferDetails from "@/components/BankTransferDetails";
 import SuccessBurst from "@/components/SuccessBurst";
@@ -96,6 +97,12 @@ export default function PlaceBookingModal({
 
   const maxQty = isStay ? Math.max(1, minRoomsLeft) : Math.max(1, seatsLeft);
   const qty = Math.min(Math.max(1, form.qty), maxQty);
+
+  // What this stay costs, quoted LIVE and from the same function the server
+  // charges with (lib/stay-pricing). The price used to appear only after the
+  // guest had already committed — the one thing every accommodation guideline
+  // says must be visible before the button, not after it.
+  const quote = isStay ? quoteStay(place, form.start, form.end, qty) : null;
 
   // ── Validity ──
   const dateChosen = isStay ? !!(form.start && form.end) : !!form.start;
@@ -407,6 +414,35 @@ export default function PlaceBookingModal({
               onChange={(e) => setForm({ ...form, message: e.target.value })}
               className={`${inputCls} resize-none`} disabled={formState === "loading"}
             />
+
+            {quote && (
+              <div className="rounded-xl border border-yellow/20 bg-yellow/5 p-3">
+                {quote.flat ? (
+                  // Said plainly rather than dressed up as a nightly price: this
+                  // listing genuinely charges one amount however long you stay.
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="font-dm text-xs text-muted">Price for this booking</span>
+                    <span className="font-syne text-lg font-bold text-yellow">Rs {quote.total.toLocaleString()}</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-baseline justify-between gap-3 font-dm text-xs text-muted">
+                      <span>
+                        Rs {quote.rate.toLocaleString()} × {quote.nights} night{quote.nights === 1 ? "" : "s"}
+                        {quote.rooms > 1 ? ` × ${quote.rooms} rooms` : ""}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex items-baseline justify-between gap-3 border-t border-yellow/15 pt-1.5">
+                      <span className="font-dm text-sm text-offwhite">Total</span>
+                      <span className="font-syne text-lg font-bold text-yellow">Rs {quote.total.toLocaleString()}</span>
+                    </div>
+                  </>
+                )}
+                <p className="mt-1 font-dm text-[10px] text-muted/60">
+                  Paid in full to confirm. Nothing further to settle on arrival.
+                </p>
+              </div>
+            )}
 
             <button
               type="submit"

@@ -4763,8 +4763,31 @@ function ServicesEditor({
               />
             </Field>
 
+            {/* Stays are priced by the NIGHT. Every other listing here — a
+                restaurant table, a boat charter, a massage — is one flat amount
+                per reservation, so this field is shown only where it means
+                something, and the flat field below stays as the fallback for a
+                room the owner has not re-priced yet. */}
+            {it.category === "hotel" && (
+              <Field label="RATE PER ROOM, PER NIGHT (Rs — the total is worked out from this)">
+                <TextInput
+                  type="number"
+                  value={it.nightlyRate != null ? String(it.nightlyRate) : ""}
+                  onChange={(v) => update(index, { nightlyRate: parseInt(v) || undefined })}
+                  placeholder="2500"
+                />
+                <p className="mt-1.5 font-dm text-[11px] leading-relaxed text-muted/70">
+                  Set this and the guest sees <span className="text-yellow/80">rate x nights x rooms</span> before
+                  they book, and pays exactly that. Leave it empty and this room keeps charging the single flat
+                  amount below however many nights they stay — which is what it does today.
+                </p>
+              </Field>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="PRICE — PAID IN FULL TO CONFIRM (Rs — leave 0 for request only)">
+              <Field label={it.category === "hotel"
+                ? "FLAT PRICE (Rs — only used when no nightly rate is set)"
+                : "PRICE — PAID IN FULL TO CONFIRM (Rs — leave 0 for request only)"}>
                 <TextInput
                   type="number"
                   value={it.depositAmount != null ? String(it.depositAmount) : ""}

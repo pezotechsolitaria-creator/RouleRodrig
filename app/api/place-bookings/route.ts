@@ -5,6 +5,7 @@ import { sendPlaceBookingEmails, upsertBrevoContact } from "@/lib/email";
 import { enqueueNotification } from "@/lib/notifications/queue";
 import { guard } from "@/lib/rate-limit";
 import { isActiveHold } from "@/lib/holds";
+import { quoteStay } from "@/lib/stay-pricing";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
 
 // ── Public: create a Stay·Eat·Do reservation request + confirmation emails ──
@@ -66,6 +67,9 @@ export async function POST(req: NextRequest) {
   // to multiply by. The stored column keeps its `deposit_amount` name because
   // renaming it would mean migrating live reservations to change a word.
   let depositAmount = 0;
+  // The stay's own rates, kept aside so the nightly total can be worked out
+  // below once the date range is known. Never taken from the client.
+  let stayRates: { nightlyRate?: number; depositAmount?: number } | null = null;
   try {
     const content = await getContent();
     const item = content.recommended.items.find((p) => p.id === place_id);
@@ -77,6 +81,7 @@ export async function POST(req: NextRequest) {
       depositAmount = Number.isFinite(Number(item.depositAmount))
         ? Math.max(0, Math.round(Number(item.depositAmount)))
         : 0;
+      stayRates = { nightlyRate: item.nightlyRate, depositAmount: item.depositAmount };
     }
   } catch {
     /* fall back to provided name */
@@ -116,7 +121,20 @@ export async function POST(req: NextRequest) {
   // would trip the RLS SELECT policy — same lesson as vehicle bookings). This
   // lets us hand the id straight back for the PayPal deposit.
   const id = crypto.randomUUID();
-  const deposit_amount = depositAmount > 0 ? depositAmount : null;
+
+  // ── A stay is priced by the night ───────────────────────────────────────
+  //
+  // Everything else on this route is a flat, per-reservation amount, and for a
+  // boat charter or a massage that is right. For a room it is not: it charged
+  // one night and seven nights identically. quoteStay() owns the rule and is
+  // the SAME function the booking form quotes from, so the total the guest
+  // approves is arithmetically the total stored here.
+  //
+  // It falls back to the flat amount for any listing with no nightly rate set,
+  // so nothing re-prices itself the moment this ships.
+  const stayQuote = isStay ? quoteStay(stayRates, start_date, end_date, quantity) : null;
+  const deposit_amount =
+    stayQuote ? stayQuote.total : depositAmount > 0 ? depositAmount : null;
   const record = {
     id,
     place_id: place_id.slice(0, 80),

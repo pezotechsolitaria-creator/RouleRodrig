@@ -154,7 +154,8 @@
 // it invisible forever.
 // v226 — the hero video keeps playing once started, and a failed upload
 // says why instead of hanging on "Uploading…".
-const CACHE = "rr-cache-v226";
+// v227 — a stay is priced by the night, and the total is shown before booking.
+const CACHE = "rr-cache-v227";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
