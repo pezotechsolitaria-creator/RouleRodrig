@@ -4,9 +4,10 @@ import {
   ArrowRight, ArrowUpRight, Clock, Droplets, Footprints, MapPin, Mountain,
   Repeat, Sun, TriangleAlert, UserCheck,
 } from "lucide-react";
-import type { RideRoute } from "@/lib/defaults";
+import type { RecommendedPlace, RideRoute } from "@/lib/defaults";
 import { loc } from "@/lib/localize";
 import type { Language } from "@/lib/i18n";
+import GuideRoster from "@/components/GuideRoster";
 
 // ── The hiking guide ────────────────────────────────────────────────────────
 //
@@ -46,10 +47,13 @@ function Spec({ icon: Icon, children }: { icon: React.ElementType; children?: Re
 
 export default function HikingGuide({
   trails,
+  guides,
   lang = "en",
   related,
 }: {
   trails: RideRoute[];
+  /** The people. Empty renders an honest "none listed yet" rather than nothing. */
+  guides: RecommendedPlace[];
   lang?: Language;
   related: { href: string; label: string }[];
 }) {
@@ -72,24 +76,44 @@ export default function HikingGuide({
             open. These are the trails we actually send people on, with the climb,
             the ground underfoot and the shade written down rather than guessed.
           </p>
+          {/* The guide is the product, so the first button goes to the people
+              — not to the trail list the visitor is already looking at. */}
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              href="/trip-planner"
+            <a
+              href="#guides"
               className="inline-flex items-center gap-2 rounded-full bg-yellow px-6 py-3 font-syne text-sm font-bold text-dark transition-transform hover:scale-[1.03]"
             >
-              Plan your days <ArrowRight size={16} />
-            </Link>
+              Hike with a local guide <ArrowRight size={16} />
+            </a>
             <Link
-              href="/guide/routes"
+              href="/trip-planner"
               className="inline-flex items-center gap-2 rounded-full border border-white/20 px-6 py-3 font-syne text-sm font-bold text-white transition-colors hover:bg-white/10"
             >
-              Scooter routes
+              Plan your days
             </Link>
           </div>
         </div>
       </header>
 
       <div className="mx-auto max-w-3xl px-5 py-14">
+        {/* The people come first. Someone deciding whether to hike Rodrigues is
+            deciding whether to do it ALONE — that question is answered better
+            by a face and a language than by a fourth paragraph about terrain,
+            and it is the only thing on this page anyone can actually book. */}
+        <div id="guides" className="scroll-mt-20">
+          <GuideRoster guides={guides} lang={lang} />
+        </div>
+
+        <hr className="my-12 border-dark-border" />
+
+        <h2 className="font-syne text-2xl font-bold text-offwhite md:text-3xl">
+          {trails.length > 0 ? "The trails" : "Trails"}
+        </h2>
+        <p className="mb-8 mt-3 max-w-2xl font-dm leading-relaxed text-muted">
+          Free to walk, all of them. Distances, climb and terrain below are the
+          ones we send people out on.
+        </p>
+
         {/* An island with no trails written up yet says so, rather than
             rendering a headline over an empty page. The owner adds one in
             Admin → Content → Routes & Trails and it appears here. */}
@@ -207,13 +231,28 @@ export default function HikingGuide({
                     )}
 
                     {r.guideRequired && (
-                      <p className="mt-4 flex items-start gap-2.5 rounded-xl border border-yellow/25 bg-yellow/[0.06] p-4 font-dm text-sm text-offwhite/85">
-                        <UserCheck size={15} className="mt-0.5 shrink-0 text-yellow" />
-                        <span>
-                          <span className="font-semibold">Guide required.</span>{" "}
-                          {r.permitNote?.trim() || "This trail is not walked unaccompanied — arrange a guide before you go."}
-                        </span>
-                      </p>
+                      <div className="mt-4 rounded-xl border border-yellow/25 bg-yellow/[0.06] p-4">
+                        <p className="flex items-start gap-2.5 font-dm text-sm text-offwhite/85">
+                          <UserCheck size={15} className="mt-0.5 shrink-0 text-yellow" />
+                          <span>
+                            <span className="font-semibold">Guide required.</span>{" "}
+                            {r.permitNote?.trim() || "This trail is not walked unaccompanied."}
+                          </span>
+                        </p>
+                        {/* "Arrange a guide" is not an instruction, it is a
+                            shrug. If we know people who do this, send them
+                            there — this is the one card where a visitor is
+                            most likely to want one. */}
+                        {guides.length > 0 && (
+                          <a
+                            href="#guides"
+                            className="mt-3 inline-flex items-center gap-1.5 font-dm text-sm font-semibold text-yellow transition-colors hover:text-yellow/80"
+                          >
+                            See the {guides.length === 1 ? "guide" : `${guides.length} guides`} who lead this
+                            <ArrowRight size={14} />
+                          </a>
+                        )}
+                      </div>
                     )}
                     {!r.guideRequired && r.permitNote?.trim() && (
                       <p className="mt-4 font-dm text-sm text-muted">{r.permitNote.trim()}</p>

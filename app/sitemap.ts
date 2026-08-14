@@ -172,10 +172,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/food`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
     ...dishes,
     { url: `${SITE_URL}/food/concierge`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
-    // The three service marketplaces. Listed unconditionally, like /shop and
-    // /food above and for the same reason: each has a real empty state that
-    // recruits the providers, and "massage rodrigues" is a search someone makes
-    // whether or not a therapist has signed up yet.
+    // The service marketplaces. Listed unconditionally, like /shop and /food
+    // above and for the same reason: each has a real empty state that recruits
+    // the providers, and "massage rodrigues" is a search someone makes whether
+    // or not a therapist has signed up yet. Driven off EXPERIENCES, so adding a
+    // vertical there lists it here too — hiking arrived this way.
     ...(Object.keys(EXPERIENCES) as (keyof typeof EXPERIENCES)[]).map((type) => ({
       url: `${SITE_URL}/experiences/${type}`,
       lastModified: now,

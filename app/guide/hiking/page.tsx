@@ -5,6 +5,7 @@ import { breadcrumbLd, itemListLd, placeLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import HikingGuide, { isHike } from "@/components/HikingGuide";
+import { isGuide } from "@/components/GuideRoster";
 
 export const revalidate = 3600;
 
@@ -39,6 +40,11 @@ export default async function HikingPage() {
   // entry. A trail with no description written yet stays out of the list, the
   // count and the structured data alike.
   const trails = content.rideRoutes.filter((r) => isHike(r) && r.name && r.description);
+  // The people. Featured first, matching every other listing surface — the
+  // owner's ordering decision, not alphabetical accident.
+  const guides = content.recommended.items
+    .filter(isGuide)
+    .sort((a, b) => Number(!!b.featured) - Number(!!a.featured));
 
   return (
     <>
@@ -69,7 +75,9 @@ export default async function HikingPage() {
       <AppPageHeader logo={content.branding.logo} />
       <HikingGuide
         trails={trails}
+        guides={guides}
         related={[
+          { href: "/experiences/hiking", label: "All hiking guides in Rodrigues" },
           { href: "/guide/routes", label: "Scooter routes around the island" },
           { href: "/guide/viewpoints", label: "Viewpoints & landmarks in Rodrigues" },
           { href: "/guide/beaches", label: "The best beaches in Rodrigues" },

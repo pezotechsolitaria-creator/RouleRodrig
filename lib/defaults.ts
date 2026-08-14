@@ -418,15 +418,25 @@ export interface RecommendedPlace {
    * availability engines, three deposit flows and three sets of double-booking
    * bugs, for a catalogue that today contains three items.
    */
-  serviceType?: "massage" | "fishing" | "boat";
+  serviceType?: "massage" | "fishing" | "boat" | "hiking";
   /** Minutes. A 60-minute massage and a 5-hour charter both need this. */
   durationMinutes?: number;
   /** "Up to 6 people" — shown on the card, distinct from `capacity` (spots/day). */
   maxGuests?: number;
   /** What the price includes. Rendered as ticks on the detail view. */
   included?: string[];
-  /** Provider/captain/therapist name, shown as trust rather than as a heading. */
+  /** Provider/captain/therapist/guide name, shown as trust rather than as a heading. */
   providerName?: string;
+  /**
+   * Languages this person actually works in, e.g. ["English", "French", "Kreol"].
+   *
+   * Added with hiking guides, where it is not a nice-to-have: you are choosing
+   * someone to spend four hours on a ridge with, and whether they can explain
+   * the terrain in a language you speak is the first filter a visitor applies.
+   * Free text rather than an enum — Rodrigues guides also work in Italian and
+   * German, and a fixed list would quietly exclude them.
+   */
+  languages?: string[];
   /**
    * Where the customer actually meets the boat / therapist.
    *
@@ -438,7 +448,7 @@ export interface RecommendedPlace {
 }
 
 /** The bookable service verticals that ride on the Stay·Eat·Do engine. */
-export const SERVICE_TYPES = ["massage", "fishing", "boat"] as const;
+export const SERVICE_TYPES = ["massage", "fishing", "boat", "hiking"] as const;
 export type ServiceType = (typeof SERVICE_TYPES)[number];
 
 export interface RecommendedContent {

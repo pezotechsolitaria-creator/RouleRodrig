@@ -109,6 +109,34 @@ export const EXPERIENCES: Record<ServiceType, ExperienceCopy> = {
     ctaFr: "Voir la sortie",
     priceUnit: "per person",
   },
+  // The fourth vertical, and the one where the PERSON is the product. Nobody
+  // books "a trail" — the trail is public and free to walk. You book someone
+  // who knows where the path goes when the grass is high after the rains, so
+  // the filters here describe the GUIDE and what they specialise in, not a
+  // vessel or a treatment.
+  hiking: {
+    slug: "hiking",
+    title: "Hiking guides in Rodrigues",
+    titleFr: "Guides de randonnée à Rodrigues",
+    subtitle: "Walk the island with someone who grew up on it.",
+    subtitleFr: "Parcourez l'île avec quelqu'un qui y a grandi.",
+    description:
+      "Hike Rodrigues with a local guide — coastal paths, ridges and hidden valleys. See who they are, what they know and which languages they speak, then message them directly on WhatsApp.",
+    emoji: "🥾",
+    filters: [
+      { key: "coastal", label: "Coastal", labelFr: "Littoral" },
+      { key: "mountain", label: "Mountain", labelFr: "Montagne" },
+      { key: "nature", label: "Nature & birds", labelFr: "Nature & oiseaux" },
+      { key: "sunrise", label: "Sunrise", labelFr: "Lever du soleil" },
+      { key: "family", label: "Family-friendly", labelFr: "En famille" },
+    ],
+    emptyTitle: "No guides listed yet",
+    emptyBody:
+      "Local guides are being added one by one. Until then, every trail on the island is written up in the hiking guide — distance, climb, terrain and what to carry.",
+    cta: "Meet the guide",
+    ctaFr: "Voir le guide",
+    priceUnit: "per walk",
+  },
 };
 
 /**

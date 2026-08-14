@@ -4491,6 +4491,7 @@ function RecommendedEditor({
                 <option value="massage">💆 Massage — /experiences/massage</option>
                 <option value="fishing">🎣 Fishing trip — /experiences/fishing</option>
                 <option value="boat">⛵ Sea trip — /experiences/boat</option>
+                <option value="hiking">🥾 Hiking guide — /experiences/hiking</option>
               </select>
             </Field>
           )}
@@ -4627,6 +4628,24 @@ const SERVICE_KINDS = [
       meeting: "e.g. Pointe Coton beach, in front of the hotel",
       included: "Boat, skipper, snorkel gear, lunch, drinks",
       slots: "08:30",
+    },
+  },
+  {
+    // The one where the PERSON is the product — nobody pays for a trail, they
+    // pay for who they walk it with. Capacity defaults to 1 because a guide
+    // leads one group at a time.
+    key: "hiking" as const,
+    emoji: "🥾",
+    label: "Hiking guide",
+    blurb: "A local guide travellers message on WhatsApp",
+    route: "/experiences/hiking",
+    defaults: { durationMinutes: 240, maxGuests: 8, capacity: 1 },
+    placeholders: {
+      name: "e.g. Sunrise hike to Mont Limon",
+      provider: "e.g. Jean-Marc",
+      meeting: "e.g. Mont Lubin church car park, 5am",
+      included: "Guide, water, fruit, transport to the trailhead",
+      slots: "05:00, 08:00",
     },
   },
 ];
@@ -4785,7 +4804,13 @@ function ServicesEditor({
             </Field>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="WHO RUNS IT (captain, therapist, skipper)">
+              <Field
+                label={
+                  it.serviceType === "hiking"
+                    ? "THE GUIDE'S NAME"
+                    : "WHO RUNS IT (captain, therapist, skipper)"
+                }
+              >
                 <TextInput
                   value={it.providerName ?? ""}
                   onChange={(v) => update(index, { providerName: v })}
@@ -4800,6 +4825,23 @@ function ServicesEditor({
                 />
               </Field>
             </div>
+
+            {/* Languages. The first thing a visitor checks before spending four
+                hours on a ridge with someone. Free text, comma-separated, in
+                the same style as HIGHLIGHTS just below — Rodrigues guides also
+                work in Italian and German, and a fixed dropdown would quietly
+                exclude them. */}
+            <Field label="LANGUAGES SPOKEN (comma-separated)">
+              <TextInput
+                value={(it.languages ?? []).join(", ")}
+                onChange={(v) =>
+                  update(index, {
+                    languages: v.split(",").map((x) => x.trim()).filter(Boolean),
+                  })
+                }
+                placeholder="e.g. English, French, Kreol"
+              />
+            </Field>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <Field label="HOW LONG (MINUTES)">
@@ -4898,12 +4940,26 @@ function ServicesEditor({
                   placeholder="0"
                 />
               </Field>
-              <Field label="WHATSAPP (optional — adds an enquiry button)">
+              {/* For a hiking guide this is not an optional extra — it IS how
+                  the traveller reaches them, so it says so. A local number is
+                  fine: the link builder adds +230. */}
+              <Field
+                label={
+                  it.serviceType === "hiking"
+                    ? "WHATSAPP — how travellers reach this guide"
+                    : "WHATSAPP (optional — adds an enquiry button)"
+                }
+              >
                 <TextInput
                   value={it.whatsapp ?? ""}
                   onChange={(v) => update(index, { whatsapp: v })}
                   placeholder="+230 5XXX XXXX"
                 />
+                {it.serviceType === "hiking" && !(it.whatsapp ?? "").trim() && (
+                  <p className="mt-1.5 font-dm text-[11px] text-amber-400/80">
+                    Without a number this guide shows on the site with no way to contact them.
+                  </p>
+                )}
               </Field>
             </div>
 
