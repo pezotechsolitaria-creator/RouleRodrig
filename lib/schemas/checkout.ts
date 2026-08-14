@@ -47,6 +47,11 @@ export const checkoutSchema = z
     // Which region we are delivering to. Only the ID travels — the FEE is read
     // from delivery_zones server-side, so the client cannot price its own delivery.
     deliveryZoneId: z.string().uuid().optional(),
+    // "This will not go on a scooter." Restricts DISPATCH, never the price —
+    // create_order() derives every amount and never reads this, so there is
+    // nothing to gain by lying about it. Applied server-side after the order
+    // exists, so the client cannot reach orders.delivery_size_class directly.
+    deliverySizeClass: z.enum(["standard", "large"]).optional(),
     // The total the customer was actually looking at when they pressed the
     // button, in minor units. This does NOT set the price — create_order()
     // derives every amount itself — it only lets the RPC refuse (RR012) when a
@@ -98,6 +103,11 @@ export const checkoutGroupSchema = z
     items: z.array(cartItemSchema).min(1, "Your bag is empty.").max(50, "Too many items in one order."),
     fulfillment: z.enum(FULFILLMENT_METHODS),
     deliveryZoneId: z.string().uuid().optional(),
+    // "This will not go on a scooter." Restricts DISPATCH, never the price —
+    // create_order() derives every amount and never reads this, so there is
+    // nothing to gain by lying about it. Applied server-side after the order
+    // exists, so the client cannot reach orders.delivery_size_class directly.
+    deliverySizeClass: z.enum(["standard", "large"]).optional(),
     expectedTotal: z.number().int().min(0).max(2_147_483_647).optional(),
   })
   .refine((g) => g.fulfillment !== "rr_delivery" || !!g.deliveryZoneId, {

@@ -161,7 +161,8 @@
 // v231 — listing cards cycle through their photos instead of showing one.
 // v232 — dishes and marketplace products cycle their photos too.
 // v233 — the YouTube hero plays on Android and iPhone, or offers a tap.
-const CACHE = "rr-cache-v233";
+// v234 — a large item is dispatched only to a car or a van.
+const CACHE = "rr-cache-v234";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

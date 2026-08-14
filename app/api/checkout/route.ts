@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
   }
   const {
     storeId, items, customerName, customerPhone, fulfillment, notes, provider,
-    deliveryLat, deliveryLng, deliveryInstructions, deliveryZoneId, expectedTotal, idempotencyKey,
+    deliveryLat, deliveryLng, deliveryInstructions, deliveryZoneId, deliverySizeClass, expectedTotal, idempotencyKey,
     guestEmail,
   } = parsed.data;
 
@@ -191,6 +191,31 @@ export async function POST(req: NextRequest) {
   // app/api/merchant/orders/[id]/route.ts): the order is already committed,
   // and no email failure may ever fail or roll back this response.
   const order = data as { order_id: string; order_number: string; total: number };
+
+  // ── "This one needs a car" ────────────────────────────────────────────────
+  //
+  // Written AFTER create_order rather than through it, on purpose. create_order
+  // is the price-integrity RPC (RR012): every amount is derived inside it, and
+  // its signature is the narrow, audited surface a checkout may touch. Size
+  // affects DISPATCH ELIGIBILITY and nothing else — no fee, no total — so
+  // widening that signature would push a non-monetary field through the one
+  // function whose entire job is refusing to be told what to charge.
+  //
+  // There is nothing to gain by lying either way: the customer does not ride in
+  // the vehicle and the price does not move. It is a statement about the
+  // parcel, not a lever on the order.
+  //
+  // Best-effort, like the notification below it: the order is committed and
+  // paid. A delivery that lands as 'standard' is offered to the whole fleet,
+  // which is exactly today's behaviour — a worse dispatch, never a lost order.
+  if (fulfillment === "rr_delivery" && deliverySizeClass === "large") {
+    try {
+      await rpcClient.from("orders").update({ delivery_size_class: "large" }).eq("id", order.order_id);
+    } catch (err) {
+      console.error("delivery_size_class update failed", err);
+    }
+  }
+
   try {
     // The claim runs on the SAME client that created the order: a signed-in
     // buyer claims through their own session (auth.uid() proves ownership), a

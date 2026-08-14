@@ -113,6 +113,8 @@ export default function CheckoutForm({
   const [fulfillment, setFulfillment] = useState<Fulfillment>("pickup");
   const [zones, setZones] = useState<Zone[] | null>(null);
   const [zoneId, setZoneId] = useState<string>("");
+  // Dispatch eligibility, not a price: see the checkbox below the area picker.
+  const [sizeClass, setSizeClass] = useState<"standard" | "large">("standard");
   const [maxMinutes, setMaxMinutes] = useState(120);
   const [coords, setCoords] = useState<Coords | null>(null);
   const [locating, setLocating] = useState(false);
@@ -388,6 +390,7 @@ export default function CheckoutForm({
           deliveryLng: coords?.lng,
           deliveryInstructions: deliveryInstructions || undefined,
           deliveryZoneId: fulfillment === "rr_delivery" ? zoneId : undefined,
+          deliverySizeClass: fulfillment === "rr_delivery" ? sizeClass : undefined,
           // The figure on the button. create_order() still derives the real
           // price itself; sending this only lets it refuse (RR012) rather than
           // charge a total the customer never saw.
@@ -589,11 +592,45 @@ export default function CheckoutForm({
                 No delivery areas are set up yet. Choose pickup or your own delivery.
               </p>
             )}
+            {/* ── Will it go on a scooter? ─────────────────────────────────
+                Much of this island's delivery fleet is on two wheels, and the
+                customer is the only one who knows what they have just bought
+                is a gas bottle. Asked HERE, next to the area, because both are
+                facts about the drop rather than about the goods.
+
+                Left unticked it changes nothing: the job is offered to every
+                driver exactly as before. Ticked, dispatch only offers it to a
+                car or a van — so the mismatch surfaces now, and not at the
+                shop counter with a scooter outside and the clock running. */}
+            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-dark p-3.5 transition-colors hover:border-yellow/40">
+              <input
+                type="checkbox"
+                checked={sizeClass === "large"}
+                onChange={(e) => setSizeClass(e.target.checked ? "large" : "standard")}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-yellow"
+              />
+              <span>
+                <span className="block font-dm text-sm font-semibold text-offwhite">
+                  This is a large item — it needs a car
+                </span>
+                <span className="mt-0.5 block font-dm text-xs leading-relaxed text-muted">
+                  Tick this for anything that will not fit on a scooter — furniture, a
+                  gas bottle, an appliance, several big boxes. We will only send a
+                  driver with a car or a van. It does not change the price.
+                </span>
+              </span>
+            </label>
+
             {/* Roulé Rodrigues does not promise a time — this is an upper bound,
                 and the customer settles the exact timing with the driver. */}
             <p className="mt-3 font-dm text-xs text-muted">
               Usually delivered within {Math.round(maxMinutes / 60)} hours.
             </p>
+            {sizeClass === "large" && (
+              <p className="font-dm text-xs text-muted">
+                Large items can take longer — fewer drivers have a car.
+              </p>
+            )}
             <p className="font-dm text-xs text-muted">
               The exact delivery time is agreed between you and the driver.
             </p>
