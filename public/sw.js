@@ -164,7 +164,8 @@
 // v234 — a large item is dispatched only to a car or a van.
 // v235 — the hero has no Play button on it again.
 // v236 — Beaches & Viewpoints fuse; Delivery takes the freed quick action.
-const CACHE = "rr-cache-v236";
+// v237 — the phone field is dressed again, and viewpoints sit above the fold.
+const CACHE = "rr-cache-v237";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

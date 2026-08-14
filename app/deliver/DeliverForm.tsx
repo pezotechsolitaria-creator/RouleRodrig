@@ -222,8 +222,19 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
                  className={input} placeholder="Marie" autoComplete="name" />
         </div>
         <div>
-          <label className={label}>Your phone</label>
-          <PhoneInput value={phone} onChange={setPhone} />
+          {/* htmlFor + id, or the field has no accessible name — the exact
+              failure PhoneInput's `id` prop exists to prevent. */}
+          <label htmlFor="d-phone" className={label}>Your phone</label>
+          {/* The component now styles itself if given nothing, which is the
+              safety net — but this page's other fields sit on bg-dark, so it is
+              passed explicitly to match them exactly. pl-10 clears the glyph. */}
+          <PhoneInput
+            id="d-phone"
+            value={phone}
+            onChange={setPhone}
+            disabled={submitting}
+            inputClassName={`${input} pl-10`}
+          />
         </div>
       </div>
 

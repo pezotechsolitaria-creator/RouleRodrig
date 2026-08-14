@@ -47,6 +47,11 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function BeachesPage() {
   const content = await getContent();
   const places = beaches(content.mapLocations) as typeof content.mapLocations;
+  // Same gate /guide/viewpoints applies to its own list — a name and a pin is
+  // not a guide entry — so the band and that page can never disagree.
+  const viewpointCount = content.mapLocations.filter(
+    (l) => l.category === "viewpoint" && l.story,
+  ).length;
 
   return (
     <>
@@ -77,6 +82,18 @@ export default async function BeachesPage() {
         title={`The ${places.length} best beaches in Rodrigues`}
         intro="Rodrigues has a lagoon twice the size of the island itself, and the beaches around it range from busy Sunday picnic sands to coves you'll have entirely to yourself. Here's every one we rate, with directions and what to actually expect."
         places={places}
+        // The homepage tile now says "Beaches & Views" and lands here, so the
+        // other half has to be offered before the scroll rather than in a list
+        // under 1,300 words of prose.
+        // The count is COUNTED, never guessed — same filter the viewpoints page
+        // itself uses, so the band can never promise a number that page does
+        // not show. Falls back to no number when none are written up yet.
+        sibling={{
+          href: "/guide/viewpoints",
+          label: viewpointCount
+            ? `Looking for viewpoints? See all ${viewpointCount}`
+            : "Looking for viewpoints instead?",
+        }}
         related={[
           { href: "/guide/viewpoints", label: "Viewpoints & landmarks in Rodrigues" },
           { href: "/guide/routes", label: "Scooter routes around the island" },

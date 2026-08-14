@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, MapPin, Navigation } from "lucide-react";
+import { ArrowRight, MapPin, Mountain, Navigation } from "lucide-react";
 import type { MapLocation } from "@/lib/defaults";
 import PlaceDiscovery from "@/components/PlaceDiscovery";
 import { loc } from "@/lib/localize";
@@ -23,6 +23,7 @@ export default function PlaceGuide({
   places,
   guideHref,
   related,
+  sibling,
   lang = "en",
   labels,
 }: {
@@ -33,6 +34,14 @@ export default function PlaceGuide({
   /** This page's own path, so a card can deep-link to its long-form entry. */
   guideHref: string;
   related: { href: string; label: string }[];
+  /**
+   * The other half of this pair, shown as a band ABOVE the fold.
+   *
+   * Beaches and Viewpoints answer one question between them, and the homepage
+   * now has a single fused tile for both — so whichever page you land on has to
+   * offer the other one immediately, not in a list under the article.
+   */
+  sibling?: { href: string; label: string };
   /** Picks description/story from the *Fr / *Cr siblings the owner maintains. */
   lang?: Language;
   /** Chrome strings. Server-rendered, so they can't come from the client
@@ -70,6 +79,27 @@ export default function PlaceGuide({
               {L.guide}
             </Link>
           </div>
+
+          {/* ── The sibling guide, at the TOP ──────────────────────────────
+              The homepage used to carry a Viewpoints tile; Beaches and
+              Viewpoints have since been fused into one to free a slot, so this
+              page is now the way most people arrive at the question "where do I
+              go that's beautiful". A related-link buried under 1,300 words is
+              not a route for someone who came from a tile labelled
+              "Beaches & Views" — it has to be visible before the scroll.
+
+              Rendered only when a sibling is given, so the viewpoints page does
+              not grow a link back to itself. */}
+          {sibling && (
+            <Link
+              href={sibling.href}
+              className="mt-6 inline-flex items-center gap-2 rounded-xl border border-yellow/25 bg-yellow/[0.06] px-4 py-3 font-dm text-sm text-offwhite/85 transition-colors hover:border-yellow/50"
+            >
+              <Mountain size={15} className="shrink-0 text-yellow" />
+              <span>{sibling.label}</span>
+              <ArrowRight size={14} className="shrink-0 text-yellow/70" />
+            </Link>
+          )}
         </div>
       </header>
 

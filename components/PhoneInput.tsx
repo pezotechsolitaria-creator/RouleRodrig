@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Phone, CheckCircle, ChevronDown, Search } from "lucide-react";
 import { isValidPhoneNumber, parsePhoneNumberFromString, getExampleNumber, type CountryCode } from "libphonenumber-js";
+import { absorbCountryCode } from "@/lib/phone";
 import examples from "libphonenumber-js/examples.mobile.json";
 
 // Curated list — Mauritius first, then the markets Rodrigues actually sees.
@@ -86,6 +87,25 @@ interface Props {
    */
   id?: string;
 }
+
+// ── The input dresses itself unless told otherwise ──────────────────────────
+//
+// This used to render `className={inputClassName ?? ""}`, so a caller that
+// passed none got a completely UNSTYLED input: no border, no background, no
+// padding — a raw browser box between two properly-dressed fields, which on
+// Android is a white-on-blue native control that reads as broken rather than
+// merely plain. Every existing caller happened to pass a class, so the hole sat
+// there unnoticed until /deliver became the first that did not.
+//
+// A default is the right fix rather than adding the class at that one call
+// site: this component knows what it should look like, and the next form to use
+// it should not have to know too. `inputClassName` still overrides completely,
+// so every caller that already passes one is unaffected.
+//
+// pl-10 is not decoration — the phone glyph is absolutely positioned at left-4,
+// and without the padding the digits run underneath it.
+const DEFAULT_INPUT_CLASS =
+  "w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 pl-10 font-dm text-sm text-offwhite placeholder:text-muted/50 focus:border-yellow focus:outline-none transition-colors";
 
 /**
  * Phone field with a searchable country picker (flag + dial) and a national-only
@@ -208,13 +228,31 @@ export default function PhoneInput({ value, onChange, disabled, inputClassName, 
             autoComplete="tel"
             placeholder={placeholderFor(country.iso)}
             value={num}
-            onChange={(e) => { setNum(e.target.value); emit(country.iso, e.target.value); }}
+            // A typed or pasted country code goes into the PICKER rather than
+            // sitting in the box beside it. Without this, entering a number the
+            // way it is printed on a card gave "+23058363401" next to a picker
+            // already showing "+230" — it validated, but it read as the code
+            // twice, which invites somebody to "fix" it by deleting digits.
+            // absorbCountryCode returns null whenever there is nothing certain
+            // to move, so ordinary typing is untouched.
+            onChange={(e) => {
+              const raw = e.target.value;
+              const split = absorbCountryCode(raw, country.iso);
+              if (split) {
+                setDialIso(split.iso);
+                setNum(split.national);
+                emit(split.iso, split.national);
+                return;
+              }
+              setNum(raw);
+              emit(country.iso, raw);
+            }}
             disabled={disabled}
             // The validation message below is visual only unless it is wired to
             // the field it describes.
             aria-invalid={showError || undefined}
             aria-describedby={showError && id ? `${id}-error` : undefined}
-            className={`${inputClassName ?? ""}${showError ? " !border-red-500/60" : valid ? " !border-green-500/50" : ""}`}
+            className={`${inputClassName ?? DEFAULT_INPUT_CLASS}${showError ? " !border-red-500/60" : valid ? " !border-green-500/50" : ""}`}
           />
           {valid && <CheckCircle size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-green-400" />}
         </div>
