@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import DriverCodeBox from "./DriverCodeBox";
 import Link from "next/link";
 import {
   ChevronRight, Search, Store, Truck, Ticket, ClipboardList, LogIn, UserPlus,
@@ -231,6 +232,14 @@ export default async function AccountPage() {
               </p>
             </section>
           )}
+
+          {/* ── The way back for a taxi driver (M102) ─────────────────────
+              Rendered for everyone, signed in or not: a taxi driver has no
+              account by design, so gating this behind a login would hide it
+              from exactly the person it exists for. It is one input on a page
+              they already open, which is the whole point — the previous
+              version lived at a URL nobody knew existed. */}
+          <DriverCodeBox />
         </div>
       </main>
     </>

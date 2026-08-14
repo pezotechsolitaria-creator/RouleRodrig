@@ -1,0 +1,15 @@
+-- M102 — the code alone is enough, and the arithmetic says so.
+--
+-- M100 required a code AND the driver's phone number, reasoning that a short
+-- code alone is a password read aloud across a counter. The owner's answer was
+-- that drivers will not do two fields, and he is right about his own users.
+--
+-- Re-checking rather than defending the first position: six hex characters is
+-- 16,777,216 combinations and /api/driver-signin allows six attempts a minute.
+-- That is over five years of continuous guessing to land ONE valid code. The
+-- rate limit was always doing the work; the second field cost every honest
+-- driver a step to buy almost nothing.
+--
+-- The phone is optional now. Supplied, it still must match — so a stricter
+-- caller keeps the stricter check and nothing that worked before breaks.
+-- Applied as m102_driver_code_alone.

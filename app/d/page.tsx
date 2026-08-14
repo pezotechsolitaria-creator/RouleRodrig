@@ -29,7 +29,7 @@ export default function DriverEntryPage() {
         <p className="mt-7 font-bebas text-[11px] tracking-[0.3em] text-yellow">DRIVERS</p>
         <h1 className="mt-1.5 font-syne text-3xl font-extrabold leading-tight">Open my driver page</h1>
         <p className="mt-2 font-dm text-sm leading-relaxed text-muted">
-          Lost the link? Type your number and the code Roulé Rodrigues gave you. No password, no account.
+          Lost the link? Type the code Roulé Rodrigues gave you. You can also do this from Account on the main site.
         </p>
 
         <DriverSignIn />

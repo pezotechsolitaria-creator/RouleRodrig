@@ -14,11 +14,12 @@ import { Loader2, ArrowRight, KeyRound } from "lucide-react";
 export default function DriverSignIn() {
   const router = useRouter();
   const [code, setCode] = useState("");
-  const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const ready = code.trim().length >= 4 && phone.trim().length >= 6;
+  // Code only, matching the Account page. The phone field is kept in the
+  // payload as an empty string so the route's schema is satisfied either way.
+  const ready = code.trim().length >= 4;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -29,7 +30,7 @@ export default function DriverSignIn() {
       const res = await fetch("/api/driver-signin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, phone }),
+        body: JSON.stringify({ code }),
       });
       const j = (await res.json()) as { ok?: boolean; path?: string; error?: string };
       if (!res.ok || !j.ok || !j.path) {
@@ -46,21 +47,6 @@ export default function DriverSignIn() {
 
   return (
     <form onSubmit={submit} className="mt-6 space-y-3">
-      <div>
-        <label htmlFor="d-phone" className="mb-1 block font-dm text-xs text-muted">
-          Your phone number
-        </label>
-        <input
-          id="d-phone"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          inputMode="tel"
-          autoComplete="off"
-          placeholder="5836 3401"
-          className="w-full rounded-xl border border-white/15 bg-dark-card px-4 py-3.5 font-dm text-base text-offwhite placeholder:text-muted/40 focus:border-yellow focus:outline-none"
-        />
-      </div>
-
       <div>
         <label htmlFor="d-code" className="mb-1 block font-dm text-xs text-muted">
           Your driver code

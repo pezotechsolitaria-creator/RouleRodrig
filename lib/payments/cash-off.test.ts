@@ -101,7 +101,12 @@ describe("cash never defaults to available", () => {
       `Cash is defaulted to TRUE here. A missing or failed payment-options read must fail CLOSED — ` +
         `see M83/M84. Use \`?? false\`:\n  ${offenders.join("\n  ")}`,
     ).toEqual([]);
-  });
+    // Shells out to `git ls-files` and then reads every tracked source file.
+    // That is comfortably under a second alone and over five under full-suite
+    // load, so it was failing as a TIMEOUT while passing in isolation — which
+    // reads exactly like a real cash-safety regression and is not one. Fourth
+    // test in this suite to need a budget rather than a fix.
+  }, 30_000);
 
   it("still defines the switch and the trigger that enforce it", () => {
     const all = migrations().map(({ sql }) => sql).join("\n");

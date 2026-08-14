@@ -145,7 +145,8 @@
 // phone number and a 6-character code.
 // v220 — a food order carrying proof of payment stays on the kitchen
 // board for 7 days instead of 24 hours.
-const CACHE = "rr-cache-v220";
+// v221 — a driver opens their page from Account with just a code.
+const CACHE = "rr-cache-v221";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

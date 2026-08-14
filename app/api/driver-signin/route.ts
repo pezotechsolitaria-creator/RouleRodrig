@@ -9,27 +9,23 @@ import { guardShared } from "@/lib/rate-limit";
 // Lose the WhatsApp message and you lose the job board — the only recovery was
 // to ask the owner to send it again, at whatever hour.
 //
-// Two factors, matching what /track already does for guest bookings:
+// So a driver gets back in with a 6-character code, entered on the Account
+// page where they already look for everything else.
 //
-//   · the phone number the driver knows by heart
-//   · a 6-character code the owner reads out
-//
-// A code alone would have been a password that never expires and gets read
-// aloud across a counter. Neither factor is useful without the other, and the
-// public taxi page already lists driver phone numbers — so the phone is the
-// convenience half and the code is the secret half.
-//
-// The limit is deliberately tight: six hex characters is 16.7 million
-// combinations, which is plenty against 6 attempts a minute and nothing at all
-// against an unthrottled endpoint. This is where that security actually lives.
+// The phone is OPTIONAL, at the owner's decision, and the arithmetic
+// supports him: six hex characters is 16,777,216 combinations against a limit
+// of six attempts a minute, which is over five years of continuous guessing to
+// land ONE valid code. The rate limit is the security here, not the second
+// field — and a driver at the roadside with one hand free will type six
+// characters where he will abandon two fields.
 const schema = z.object({
   code: z.string().trim().min(4).max(20),
-  phone: z.string().trim().min(6).max(30),
+  phone: z.string().trim().max(30).optional().default(""),
 });
 
 // One message for every failure. Distinguishing "no such code" from "wrong
 // number" would turn this into a way to enumerate which codes are real.
-const NO_MATCH = "That code and number do not match. Check both with Roulé Rodrigues.";
+const NO_MATCH = "That code was not recognised. Check it with Roulé Rodrigues.";
 
 export async function POST(req: NextRequest) {
   const limited = await guardShared(req, "driver-signin", 6, 60_000);
