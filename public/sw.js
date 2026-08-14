@@ -148,7 +148,11 @@
 // v221 — a driver opens their page from Account with just a code.
 // v222 — private hire can be booked without inventing a destination.
 // v223 — a shop is woken on its own phone when an order lands.
-const CACHE = "rr-cache-v223";
+// v224 — the hero video appears again: a cued YouTube player could
+// suppress it forever.
+// v225 — the hero YouTube video appears again: a cued player could hold
+// it invisible forever.
+const CACHE = "rr-cache-v225";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

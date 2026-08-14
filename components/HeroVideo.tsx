@@ -54,6 +54,11 @@ export default function HeroVideoLayer({
   // the owner's video would never appear at all — a worse failure than the one
   // the hold exists to prevent.
   const heard = useRef(false);
+  // Whether this player has EVER genuinely played. Hiding on a non-playing
+  // state is right once footage has been running — the chrome comes back — but
+  // wrong before it ever starts: YouTube sits in CUED and would then suppress
+  // the video permanently, which is exactly how the hero went blank.
+  const everPlayed = useRef(false);
   const [index, setIndex] = useState(0);
   const [ready, setReady] = useState(false);
   // Starts false and is only turned on after the checks below pass. Rendering
@@ -143,6 +148,7 @@ export default function HeroVideoLayer({
           //
           // Guarded so repeated PLAYING reports (the player sends them on every
           // loop) cannot stack timers.
+          everPlayed.current = true;
           if (revealTimer.current === null) {
             revealTimer.current = window.setTimeout(() => {
               revealTimer.current = null;
@@ -159,8 +165,13 @@ export default function HeroVideoLayer({
             window.clearTimeout(revealTimer.current);
             revealTimer.current = null;
           }
-          setReady(false);
-          onPlaying?.(false);
+          // Only ever hide something that was genuinely playing. Before the
+          // first PLAYING this branch would fight the absolute deadline below
+          // and win every time, because a cued player keeps reporting.
+          if (everPlayed.current) {
+            setReady(false);
+            onPlaying?.(false);
+          }
         }
       } catch {
         /* not a message we understand — ignore rather than break the hero */
@@ -231,8 +242,24 @@ export default function HeroVideoLayer({
           // silent one still eventually shows the video instead of stranding
           // the visitor on the poster.
           onLoad={() => {
+            // ── An ABSOLUTE deadline, not a fallback ────────────────────────
+            //
+            // This used to bail out when `heard.current` was set, on the
+            // reasoning that a player which talks to us should be driven by its
+            // real state. That reasoning had a hole, and it took the hero off
+            // the site: YouTube answers the handshake while it is CUED or
+            // BUFFERING, so `heard` goes true, and if autoplay is then deferred
+            // the player never reports PLAYING — no reveal timer ever starts,
+            // and the guard has just disabled the only other way out. The
+            // iframe sat at opacity 0 indefinitely with the correct video
+            // loaded behind it.
+            //
+            // So the deadline now fires regardless of whether the player has
+            // spoken. Revealing is idempotent, and if the player genuinely is
+            // paused the state handler below hides it again on the next
+            // message — showing a still frame of the owner's own video for a
+            // moment is a far smaller cost than never showing it at all.
             window.setTimeout(() => {
-              if (heard.current) return;
               setReady(true);
               onPlaying?.(true);
             }, REVEAL_HOLD_MS + 2000);
