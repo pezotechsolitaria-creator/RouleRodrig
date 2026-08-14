@@ -120,9 +120,12 @@ export default async function RoutesPage() {
             { name: "Island guide", url: `${SITE_URL}/guide/rodrigues` },
             { name: "Routes & trails", url: `${SITE_URL}/guide/routes` },
           ]),
+          // Rides only. The trails are described in full on /guide/hiking and
+          // that page lists them — two pages claiming the same ItemList is how
+          // you end up competing with yourself for your own trail names.
           itemListLd(
-            "Scooter routes & hiking trails in Rodrigues",
-            routes.map((r) => ({ name: r.name.trim() })),
+            "Scooter routes in Rodrigues",
+            rides.map((r) => ({ name: r.name.trim() })),
           ),
         ]}
       />
@@ -162,23 +165,62 @@ export default async function RoutesPage() {
             list={rides}
             heading={`Scooter rides${rides.length ? ` (${rides.length})` : ""}`}
           />
-          <Section
-            list={hikes}
-            heading={`Hiking trails${hikes.length ? ` (${hikes.length})` : ""}`}
-          />
 
+          {/* Hiking has its own guide now, and the full trail write-ups live
+              there. This is a hand-off, not a second copy: the same trail
+              described in full on two URLs makes the two pages compete with
+              each other, and the one that wins is the one Google picks, not
+              the one we meant. So the names and difficulties stay here as an
+              index — enough to see what exists and click through — and the
+              climb, terrain, shade and safety detail live on one page. */}
           {hikes.length > 0 && (
-            <p className="mt-10 flex items-start gap-2.5 rounded-2xl border border-dark-border bg-white/[0.02] p-5 font-dm text-sm text-muted">
-              <Footprints size={16} className="mt-0.5 shrink-0 text-yellow/70" />
-              Rodrigues trails are unshaded and there are no shops on the way. Carry more water than
-              you think you need, start early, and tell someone where you&apos;re going.
-            </p>
+            <section className="mt-12">
+              <h2 className="font-syne text-2xl font-bold text-offwhite md:text-3xl">
+                Hiking trails ({hikes.length})
+              </h2>
+              <p className="mt-3 font-dm leading-relaxed text-muted">
+                Rodrigues walks are short, steep and almost entirely unshaded. Each
+                trail is written up with its climb, the ground underfoot and how much
+                water to carry in the hiking guide.
+              </p>
+              <ul className="mt-5 divide-y divide-dark-border overflow-hidden rounded-2xl border border-dark-border bg-white/[0.02]">
+                {hikes.map((r) => (
+                  <li key={r.id}>
+                    <Link
+                      href={`/guide/hiking#${r.id}`}
+                      className="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-white/[0.03]"
+                    >
+                      <span className="min-w-0">
+                        <span className="block font-syne text-sm font-bold text-offwhite">
+                          {r.name.trim()}
+                        </span>
+                        <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 font-dm text-xs text-muted">
+                          <span>{r.difficulty}</span>
+                          {r.distance && <span>{r.distance}</span>}
+                          {r.elevation && <span>{r.elevation} climb</span>}
+                          {r.duration && <span>{r.duration}</span>}
+                        </span>
+                      </span>
+                      <ArrowRight size={15} className="shrink-0 text-yellow/70" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/guide/hiking"
+                className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/20 px-5 py-2.5 font-syne text-sm font-bold text-white transition-colors hover:bg-white/10"
+              >
+                <Footprints size={15} className="text-yellow" />
+                Open the full hiking guide
+              </Link>
+            </section>
           )}
 
           <nav className="mt-14 border-t border-dark-border pt-8">
             <p className="font-syne text-sm font-bold text-offwhite">Keep exploring</p>
             <ul className="mt-3 space-y-2">
               {[
+                { href: "/guide/hiking", label: "Hiking trails in Rodrigues" },
                 { href: "/guide/beaches", label: "The best beaches in Rodrigues" },
                 { href: "/guide/viewpoints", label: "Viewpoints & landmarks in Rodrigues" },
                 { href: "/guide/rodrigues", label: "The full local's guide to Rodrigues" },

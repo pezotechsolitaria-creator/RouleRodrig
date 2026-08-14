@@ -186,6 +186,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/guide/beaches`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/guide/viewpoints`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/guide/routes`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${SITE_URL}/guide/hiking`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     ...extra,
     // French landing page — the market searches in French ("location scooter
     // Rodrigues"), so this is a commercial page, not a translation afterthought.

@@ -59,7 +59,10 @@ export default async function ExplorePage() {
     descriptionFr: r.descriptionFr,
     descriptionCr: r.descriptionCr,
     image: r.image,
-    href: `/guide/routes#${r.id}`,
+    // A trail's write-up moved to the hiking guide, so its anchor must move
+    // with it — /guide/routes only carries the rides in full now, and a hash
+    // pointing at an id that is no longer on that page scrolls nowhere.
+    href: r.kind === "hike" ? `/guide/hiking#${r.id}` : `/guide/routes#${r.id}`,
     filterKey: r.kind === "hike" ? "hike" : "ride",
     tags: [r.distance, r.difficulty].filter(Boolean) as string[],
     featured: r.featured,

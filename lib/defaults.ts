@@ -273,6 +273,38 @@ export interface RideRoute {
   images?: string[];
   featured?: boolean; // pinned to top + gold border
   kind?: "ride" | "hike"; // scooter ride (default) vs hiking/adventure trail
+
+  // ── Hiking-only fields (kind === "hike") ──────────────────────────────────
+  //
+  // A trail and a scooter ride are not the same object wearing two labels. A
+  // rider wants a distance and a Maps link; a walker wants to know how much of
+  // that distance is UP, whether the path ends where it started, and whether
+  // there is any shade or water on an island where the answer is usually "no".
+  // /guide/routes even claimed to publish "real distances, elevation and
+  // timings" — there was no elevation field, so it never could.
+  //
+  // All optional and all additive: every route already saved keeps working and
+  // renders exactly as before, and a ride simply leaves them blank. They are
+  // hidden in the admin editor until TYPE is set to a trail, so the rides form
+  // does not grow nine fields it will never use.
+  /** Total ascent, e.g. "320 m". Distance alone says nothing about a climb. */
+  elevation?: string;
+  /** Where the walk actually begins, e.g. "Car park at Grande Montagne". */
+  trailhead?: string;
+  /** Whether you end up back at the trailhead — decides if a lift is needed. */
+  routeShape?: "Loop" | "Out and back" | "One way";
+  /** Underfoot, e.g. "Basalt rock and loose gravel". */
+  terrain?: string;
+  /** Rodrigues ridges are mostly bare; say so rather than let people assume. */
+  shade?: "None" | "Some" | "Shaded";
+  /** True only if there is drinkable water ON the trail. Default assumption: none. */
+  waterOnRoute?: boolean;
+  /** e.g. "Start before 8am — the ridge has no cover by midday". */
+  bestTime?: string;
+  /** Reserves such as Grande Montagne are not walked unaccompanied. */
+  guideRequired?: boolean;
+  /** Permit/booking detail shown when a guide or fee is involved. */
+  permitNote?: string;
 }
 
 export interface Sponsor {
@@ -556,7 +588,11 @@ export const DEFAULT_QUICK_ACCESS: QuickAccessItem[] = [
   // What is left is ordered by INTENT rather than by content type: get in the
   // water, get up a hill, get on a boat, get looked after, get a ride.
   { id: "qa-beaches",   label: "Beaches",      labelFr: "Plages",       labelCr: "Laplaz",      href: "/guide/beaches",    icon: "beach",     enabled: true },
-  { id: "qa-hiking",    label: "Hiking",       labelFr: "Randonnée",    labelCr: "Rando",       href: "/guide/routes",     icon: "hiking",    enabled: true },
+  // Hiking has its own guide now. It used to land on /guide/routes, a page
+  // titled "Scooter routes & hiking trails" whose H1, hero copy and first CTA
+  // are all about renting a scooter — so a tile that said "Hiking" opened a
+  // scooter page and put the trails below every ride on it.
+  { id: "qa-hiking",    label: "Hiking",       labelFr: "Randonnée",    labelCr: "Rando",       href: "/guide/hiking",     icon: "hiking",    enabled: true },
   { id: "qa-viewpoints",label: "Viewpoints",   labelFr: "Points de vue",labelCr: "Vue",         href: "/guide/viewpoints", icon: "viewpoint", enabled: true },
   { id: "qa-fishing",   label: "Fishing",      labelFr: "Pêche",        labelCr: "Lapes",       href: "/experiences/fishing", icon: "fishing", enabled: true },
   { id: "qa-boat",      label: "Boat Trips",   labelFr: "Sorties mer",  labelCr: "Sorti lamer", href: "/experiences/boat",    icon: "boat",    enabled: true },

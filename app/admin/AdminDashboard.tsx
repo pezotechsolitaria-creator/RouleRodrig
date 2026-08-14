@@ -176,7 +176,9 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "hero",         label: "Hero",             icon: Sparkles,        group: "content" },
   { id: "map",          label: "Island Guide",     icon: MapPin,          group: "content" },
   { id: "planner",      label: "Trip Planner",     icon: Sparkles,        group: "content" },
-  { id: "routes",       label: "Ride Routes",      icon: MapPin,          group: "content" },
+  // "Ride Routes" hid the fact that this one editor also publishes the hiking
+  // guide — the owner had no reason to look here for trails.
+  { id: "routes",       label: "Routes & Trails",  icon: MapPin,          group: "content" },
   { id: "homeCards",    label: "Home Cards",       icon: LayoutGrid,      group: "content" },
   { id: "quickAccess",  label: "Home Tiles",       icon: Compass,         group: "content" },
   { id: "useful",       label: "Useful Numbers",   icon: Phone,           group: "content" },
@@ -3969,6 +3971,8 @@ function RideRoutesEditor({
   onChange: (c: SiteContent) => void;
 }) {
   const routes = content.rideRoutes ?? [];
+  const hikeCount = routes.filter((r) => (r.kind ?? "ride") === "hike").length;
+  const rideCount = routes.length - hikeCount;
 
   function update(idx: number, patch: Partial<RideRoute>) {
     onChange({ ...content, rideRoutes: routes.map((r, i) => (i === idx ? { ...r, ...patch } : r)) });
@@ -3994,9 +3998,29 @@ function RideRoutesEditor({
   return (
     <div className="space-y-6">
       <p className="text-muted/70 font-dm text-xs leading-relaxed">
-        Curated scenic routes shown on the website. Each card links straight to Google Maps. List stops
-        one per line. Tip: open the route in Google Maps, copy the share link, and paste it below.
+        Scooter routes and hiking trails. <strong className="text-offwhite/80">TYPE decides where each
+        one is published</strong>: a scooter ride appears on{" "}
+        <span className="text-yellow/80">/guide/routes</span>, a trail on{" "}
+        <span className="text-yellow/80">/guide/hiking</span> — the page the homepage “Hiking” tile
+        opens. Setting a route to a trail reveals the extra trail fields below it. List stops one per
+        line. Tip: open the route in Google Maps, copy the share link, and paste it below.
       </p>
+
+      {/* The split, stated. TYPE used to decide nothing more than a heading
+          halfway down one page, so a route filed on the wrong side was
+          invisible and stayed wrong. Now it decides which guide the route is
+          published to — which makes a miscount worth noticing at a glance,
+          before a visitor finds a scooter ride in the hiking guide. */}
+      <div className="flex flex-wrap items-center gap-2 font-dm text-xs">
+        <span className="rounded-full border border-[#2a2a2a] px-3 py-1.5 text-muted">
+          <span className="font-semibold text-offwhite">{rideCount}</span> scooter{" "}
+          {rideCount === 1 ? "ride" : "rides"} → <span className="text-yellow/80">/guide/routes</span>
+        </span>
+        <span className="rounded-full border border-[#2a2a2a] px-3 py-1.5 text-muted">
+          <span className="font-semibold text-offwhite">{hikeCount}</span> hiking{" "}
+          {hikeCount === 1 ? "trail" : "trails"} → <span className="text-yellow/80">/guide/hiking</span>
+        </span>
+      </div>
 
       {routes.map((r, idx) => (
         <div key={r.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
@@ -4069,10 +4093,89 @@ function RideRoutesEditor({
               <TransFields base={r.description} fr={r.descriptionFr} cr={r.descriptionCr} onFr={(v) => update(idx, { descriptionFr: v })} onCr={(v) => update(idx, { descriptionCr: v })} textarea rows={2} />
             </div>
           </Field>
-          <Field label="STOPS (one per line)">
+          {/* ── Trail-only fields ───────────────────────────────────────────
+              Hidden for a scooter ride, which would never use them: a rider
+              wants a distance and a Maps link, a walker wants to know how much
+              of that distance is UP, whether the path ends where it started,
+              and whether there is shade or water — on an island where the
+              answer to the last one is almost always no. These feed the
+              hiking guide at /guide/hiking; blank fields simply don't render
+              there, so nothing has to be filled in to publish a trail. */}
+          {(r.kind ?? "ride") === "hike" && (
+            <div className="rounded-xl border border-yellow/20 bg-yellow/[0.03] p-4 space-y-4">
+              <p className="font-bebas text-yellow text-[10px] tracking-[0.25em]">TRAIL DETAIL</p>
+              <p className="text-muted/70 font-dm text-xs leading-relaxed">
+                Shown on the hiking guide. Leave anything blank and it is simply left out —
+                except water, where a blank is published as “none on the trail”, because a
+                walker who assumes there is a tap is the one who gets into trouble.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="ELEVATION GAIN">
+                  <TextInput value={r.elevation ?? ""} onChange={(v) => update(idx, { elevation: v })} placeholder="e.g. 320 m" />
+                </Field>
+                <Field label="SHAPE">
+                  <select
+                    value={r.routeShape ?? ""}
+                    onChange={(e) => update(idx, { routeShape: (e.target.value || undefined) as RideRoute["routeShape"] })}
+                    className={`${inputCls} appearance-none`}
+                  >
+                    <option value="">— not set —</option>
+                    <option value="Loop">Loop (ends where it starts)</option>
+                    <option value="Out and back">Out and back</option>
+                    <option value="One way">One way (needs a lift back)</option>
+                  </select>
+                </Field>
+                <Field label="TRAILHEAD">
+                  <TextInput value={r.trailhead ?? ""} onChange={(v) => update(idx, { trailhead: v })} placeholder="e.g. Car park at Grande Montagne" />
+                </Field>
+                <Field label="UNDERFOOT">
+                  <TextInput value={r.terrain ?? ""} onChange={(v) => update(idx, { terrain: v })} placeholder="e.g. Basalt rock and loose gravel" />
+                </Field>
+                <Field label="SHADE">
+                  <select
+                    value={r.shade ?? ""}
+                    onChange={(e) => update(idx, { shade: (e.target.value || undefined) as RideRoute["shade"] })}
+                    className={`${inputCls} appearance-none`}
+                  >
+                    <option value="">— not set —</option>
+                    <option value="None">None</option>
+                    <option value="Some">Some</option>
+                    <option value="Shaded">Shaded</option>
+                  </select>
+                </Field>
+                <Field label="BEST TIME">
+                  <TextInput value={r.bestTime ?? ""} onChange={(v) => update(idx, { bestTime: v })} placeholder="e.g. Start before 8am" />
+                </Field>
+              </div>
+
+              <div className="space-y-3 border-t border-yellow/15 pt-4">
+                <ToggleRow
+                  label="Drinkable water on the trail"
+                  on={!!r.waterOnRoute}
+                  onToggle={() => update(idx, { waterOnRoute: !r.waterOnRoute })}
+                />
+                <ToggleRow
+                  label="A guide is required"
+                  on={!!r.guideRequired}
+                  onToggle={() => update(idx, { guideRequired: !r.guideRequired })}
+                />
+              </div>
+
+              <Field label="PERMIT / GUIDE NOTE">
+                <TextInput
+                  value={r.permitNote ?? ""}
+                  onChange={(v) => update(idx, { permitNote: v })}
+                  placeholder="e.g. Book at the reserve office — Rs 200 per person"
+                />
+              </Field>
+            </div>
+          )}
+
+          <Field label={(r.kind ?? "ride") === "hike" ? "ALONG THE WAY (one per line)" : "STOPS (one per line)"}>
             <Textarea value={r.stops} onChange={(v) => update(idx, { stops: v })} rows={4} />
           </Field>
-          <Field label="GOOGLE MAPS LINK">
+          <Field label={(r.kind ?? "ride") === "hike" ? "MAP OR GPS TRACK LINK" : "GOOGLE MAPS LINK"}>
             <TextInput value={r.mapsUrl} onChange={(v) => update(idx, { mapsUrl: v })} placeholder="https://maps.google.com/..." />
           </Field>
 
@@ -8246,7 +8349,7 @@ export default function AdminDashboard({
     map:          { title: "Island Map Locations",desc: "Manage the points of interest shown on the island guide map." },
     waitlist:     { title: "Waitlist",            desc: "People who signed up for deals and island tips." },
     planner:      { title: "AI Trip Planner",     desc: "Edit the real places, photos and tips the planner uses to build itineraries." },
-    routes:       { title: "Ride Routes",         desc: "Curated scenic scooter routes shown on the website with a Google Maps link." },
+    routes:       { title: "Routes & Trails",     desc: "Scooter routes and hiking trails. TYPE decides which guide each one publishes to." },
     gettingAround:{ title: "Getting Around",      desc: "The transport-options card (bus, taxi and scooter) shown in the island guide." },
     recommended:  { title: "Accommodations & Activities",     desc: "Curated hotels, restaurants & activities. Toggle the whole section on or off." },
     services:     { title: "Massage · Fishing · Sea trips",   desc: "Add a massage, a fishing trip or a sortie de mer. Each one gets its own page and takes bookings." },

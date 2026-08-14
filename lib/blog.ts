@@ -78,7 +78,8 @@ export const BLOG_POSTS: BlogPost[] = [
     related: [
       { href: "/browse/scooter", label: "Rent a scooter to explore the island" },
       { href: "/guide/beaches", label: "The best beaches in Rodrigues" },
-      { href: "/guide/routes", label: "Scooter routes & hiking trails" },
+      { href: "/guide/routes", label: "Scooter routes around the island" },
+      { href: "/guide/hiking", label: "Hiking trails in Rodrigues" },
       { href: "/guide/rodrigues", label: "The full local's guide to Rodrigues" },
     ],
   },

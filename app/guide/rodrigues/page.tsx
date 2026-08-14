@@ -184,7 +184,15 @@ export default async function RodriguesGuidePage() {
                   href="/guide/routes"
                   className="inline-flex items-center gap-2 font-dm text-sm text-yellow/80 hover:text-yellow transition-colors"
                 >
-                  Scooter routes &amp; hiking trails, with real distances <ArrowRight size={14} />
+                  Scooter routes around the island, with real distances <ArrowRight size={14} />
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/guide/hiking"
+                  className="inline-flex items-center gap-2 font-dm text-sm text-yellow/80 hover:text-yellow transition-colors"
+                >
+                  Every hike in Rodrigues — climb, terrain and shade <ArrowRight size={14} />
                 </Link>
               </li>
             </ul>

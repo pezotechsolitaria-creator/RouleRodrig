@@ -156,7 +156,8 @@
 // says why instead of hanging on "Uploading…".
 // v227 — a stay is priced by the night, and the total is shown before booking.
 // v228 — modals open above the header again; the hero stops showing YouTube chrome.
-const CACHE = "rr-cache-v228";
+// v229 — hiking gets its own guide at /guide/hiking, and 20 dead components go.
+const CACHE = "rr-cache-v229";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
