@@ -165,7 +165,8 @@
 // v235 — the hero has no Play button on it again.
 // v236 — Beaches & Viewpoints fuse; Delivery takes the freed quick action.
 // v237 — the phone field is dressed again, and viewpoints sit above the fold.
-const CACHE = "rr-cache-v237";
+// v238 — the admin sidebar can find hiking guides.
+const CACHE = "rr-cache-v238";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

@@ -141,7 +141,16 @@ type Section =
   | "notifications"
   | "money";
 
-const NAV: { id: Section; label: string; icon: React.ElementType; group?: string }[] = [
+// `keywords` exists because the sidebar search matched the LABEL and nothing
+// else, and a label is a name rather than an index. The Services desk was
+// literally called "Massage · Fishing · Sea trips" — so once hiking guides were
+// added to it, an owner searching "hiking" got no results and reasonably
+// concluded the feature was missing. It was not; it was unnamed.
+//
+// A hand-kept list would rot the same way, so lib/admin/nav-keywords.test.ts
+// asserts that every service vertical is findable here. Add a fifth kind and
+// that test fails until it is searchable.
+const NAV: { id: Section; label: string; icon: React.ElementType; group?: string; keywords?: string }[] = [
   // ── Daily business (operational inboxes) ──
   { id: "dashboard",    label: "Dashboard",       icon: LayoutDashboard, group: "overview" },
   // First in the list, above the four desks it summarises: "has anyone paid?"
@@ -167,7 +176,10 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "fleet",        label: "Vehicles",         icon: Bike,            group: "explore" },
   { id: "foodConcierge",label: "Food WhatsApp help", icon: UtensilsCrossed, group: "explore" },
   { id: "recommended",  label: "Accommodations & Activities",  icon: BedDouble,       group: "explore" },
-  { id: "services",     label: "Massage · Fishing · Sea trips", icon: Waves,          group: "explore" },
+  // Named for what it IS rather than for the list it held on the day it was
+  // written — the old label went stale the moment a fourth vertical arrived.
+  { id: "services",     label: "Services & Guides", icon: Waves,          group: "explore",
+    keywords: "massage therapist fishing peche pêche boat sea trip sortie de mer skipper captain hiking hike guide trek walk provider" },
   { id: "gettingAround",label: "Getting Around",   icon: Bus,             group: "explore" },
   { id: "events",       label: "What's On (notices)", icon: Calendar,      group: "explore" },
   { id: "taxi",         label: "Taxi & Transport",  icon: Car,             group: "explore" },
@@ -178,7 +190,8 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "planner",      label: "Trip Planner",     icon: Sparkles,        group: "content" },
   // "Ride Routes" hid the fact that this one editor also publishes the hiking
   // guide — the owner had no reason to look here for trails.
-  { id: "routes",       label: "Routes & Trails",  icon: MapPin,          group: "content" },
+  { id: "routes",       label: "Routes & Trails",  icon: MapPin,          group: "content",
+    keywords: "hiking hike trail trek walk scooter ride route elevation" },
   { id: "homeCards",    label: "Home Cards",       icon: LayoutGrid,      group: "content" },
   { id: "quickAccess",  label: "Home Tiles",       icon: Compass,         group: "content" },
   { id: "useful",       label: "Useful Numbers",   icon: Phone,           group: "content" },
@@ -8408,7 +8421,7 @@ export default function AdminDashboard({
     routes:       { title: "Routes & Trails",     desc: "Scooter routes and hiking trails. TYPE decides which guide each one publishes to." },
     gettingAround:{ title: "Getting Around",      desc: "The transport-options card (bus, taxi and scooter) shown in the island guide." },
     recommended:  { title: "Accommodations & Activities",     desc: "Curated hotels, restaurants & activities. Toggle the whole section on or off." },
-    services:     { title: "Massage · Fishing · Sea trips",   desc: "Add a massage, a fishing trip or a sortie de mer. Each one gets its own page and takes bookings." },
+    services:     { title: "Services & Guides",   desc: "The people who provide a service: a massage therapist, a fishing skipper, a sea-trip captain, a hiking guide. Pick a kind below to add one — each gets its own page at /experiences." },
     foodConcierge:{ title: "Food Concierge",       desc: "The WhatsApp food-recommendation service behind the “Food & Dining” hub tile. Set the WhatsApp number that food enquiries go to." },
     faq:          { title: "FAQ",                 desc: "Frequently asked questions shown on the site (also boosts SEO)." },
     events:       { title: "What’s On — notices",  desc: "A simple list of island happenings shown to visitors. These are ANNOUNCEMENTS, not ticket sales — ticketed events with capacity and QR check-in live under Ticketing." },
@@ -8431,7 +8444,8 @@ export default function AdminDashboard({
 
   // Group NAV items — filtered by the sidebar quick-search
   const q = navQuery.trim().toLowerCase();
-  const matches = (n: (typeof NAV)[number]) => !q || n.label.toLowerCase().includes(q);
+  const matches = (n: (typeof NAV)[number]) =>
+    !q || n.label.toLowerCase().includes(q) || (n.keywords ?? "").toLowerCase().includes(q);
   const overviewNav = NAV.filter((n) => n.group === "overview" && matches(n));
   const exploreNav  = NAV.filter((n) => n.group === "explore" && matches(n));
   const contentNav  = NAV.filter((n) => n.group === "content" && matches(n));
