@@ -42,6 +42,8 @@ const ALLOWED_WITHOUT_LINKS: Record<string, string> = {
   "/merchant/pickup": "Where a SCANNED pickup QR lands. The same job is reachable by clicking via the code box on /merchant/orders.",
   "/r/[token]":
     "The taxi driver's screen, opened from a WhatsApp link sent to that driver. Taxi drivers have no accounts by decision, so the token IS the credential and there is nowhere in the app it could be linked from.",
+  "/d":
+    "The driver's way back in after losing their link: phone number plus a 6-character code the owner reads out. Deliberately unlinked — a public \"drivers sign in here\" entry invites strangers to guess codes, and every real driver arrives with the address said out loud or already on their home screen.",
   "/d/[token]":
     "The driver's permanent home, bookmarked from the same WhatsApp link. Identical reasoning to /r/[token] — the token IS the credential, the page is noindex, and linking it anywhere would publish somebody's identity.",
 };

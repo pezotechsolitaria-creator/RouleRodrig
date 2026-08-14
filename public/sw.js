@@ -143,7 +143,9 @@
 // labelled as the backup it now is.
 // v219 — a driver who lost the link can get back in at /d with their
 // phone number and a 6-character code.
-const CACHE = "rr-cache-v219";
+// v220 — a food order carrying proof of payment stays on the kitchen
+// board for 7 days instead of 24 hours.
+const CACHE = "rr-cache-v220";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

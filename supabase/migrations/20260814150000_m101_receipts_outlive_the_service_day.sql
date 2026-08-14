@@ -1,0 +1,19 @@
+-- M101 — "cannot view proof of payment on /kitchen".
+--
+-- The viewer works. kitchen_dashboard() simply stops at 24 hours, and both
+-- orders carrying a receipt were placed on 12 and 13 August — so by the time
+-- anyone went looking, the evidence had rolled off the board with the order.
+--
+-- The 24-hour window is RIGHT for a kitchen screen: it is a board about today's
+-- service, and filling it with last week's dinners would bury the food actually
+-- being cooked. It is WRONG for evidence. M78 exists because a receipt vanished
+-- once judged, and the lesson recorded there was that the moment proof matters
+-- is the moment somebody disputes it — which is never during the service the
+-- order belongs to.
+--
+-- So the window stays 24 hours for ordinary orders and stretches to 7 days for
+-- one that carries a receipt. The board keeps its shape, and a cook asked on
+-- Friday about Tuesday's transfer can still open the photo.
+--
+-- Applied as m101_receipts_outlive_the_service_day; the full body is the M87/M88
+-- kitchen_dashboard() with only the time-window predicate changed.
