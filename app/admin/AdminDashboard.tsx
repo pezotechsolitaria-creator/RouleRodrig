@@ -412,6 +412,10 @@ function HeroVideosEditor({
   const [busy, setBusy] = useState(false);
   const [pct, setPct] = useState(0);
   const [err, setErr] = useState<string | null>(null);
+  // Advice, not a failure — shown alongside the progress bar rather than in
+  // place of it, so a big clip still uploads while the owner is told why it may
+  // not be the right one.
+  const [note, setNote] = useState<string | null>(null);
   const [url, setUrl] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -440,9 +444,38 @@ function HeroVideosEditor({
     }
   }
 
+  // Duration, read from the file itself before a byte is sent. A hero loop is
+  // 10-20 seconds; a minute-long 4K export is both far more data than a
+  // background needs and the thing most likely to be refused or to die
+  // mid-upload. Saying so up front costs nothing — finding out after ten
+  // minutes of progress bar costs the owner the whole attempt.
+  function probe(file: File): Promise<number | null> {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const el = document.createElement("video");
+      el.preload = "metadata";
+      const done = (v: number | null) => { URL.revokeObjectURL(url); resolve(v); };
+      el.onloadedmetadata = () => done(Number.isFinite(el.duration) ? el.duration : null);
+      el.onerror = () => done(null);
+      // A codec the browser cannot read is not a reason to block the upload —
+      // storage may still take it, and this is only advice.
+      window.setTimeout(() => done(null), 4000);
+      el.src = url;
+    });
+  }
+
   async function upload(file: File) {
-    setBusy(true); setErr(null); setPct(0);
+    setBusy(true); setErr(null); setNote(null); setPct(0);
     try {
+      const mb = file.size / (1024 * 1024);
+      const secs = await probe(file);
+      if (mb > 24 || (secs !== null && secs > 30)) {
+        setNote(
+          `This clip is ${mb.toFixed(0)} MB${secs !== null ? ` and ${Math.round(secs)}s long` : ""}. ` +
+          `Uploading it now — but a hero loop only needs 10-20 seconds, and a file this size is slow ` +
+          `for visitors on island mobile data. If it fails or looks heavy, export a short section instead.`,
+        );
+      }
       const mint = await fetch("/api/admin/hero-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -462,10 +495,38 @@ function HeroVideosEditor({
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) setPct(Math.round((e.loaded / e.total) * 100));
         };
-        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300
-          ? resolve()
-          : reject(new Error(`Upload failed (${xhr.status}).`)));
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) return resolve();
+          // Storage says WHY in the body — "exceeded the maximum allowed size"
+          // and friends. Showing the bare number instead turned a specific,
+          // actionable refusal into "Upload failed (413)", which is how a
+          // 61 MB clip that the bucket was never going to accept read as the
+          // upload mysteriously cancelling itself.
+          let detail = "";
+          try {
+            const parsed = JSON.parse(xhr.responseText) as { message?: string; error?: string };
+            detail = parsed.message || parsed.error || "";
+          } catch {
+            detail = (xhr.responseText || "").slice(0, 200);
+          }
+          const size = `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+          reject(new Error(
+            xhr.status === 413
+              ? `Storage refused this file at ${size}${detail ? ` — ${detail}` : ""}. Export it smaller, or trim the clip.`
+              : `Upload failed (${xhr.status})${detail ? ` — ${detail}` : ""}.`,
+          ));
+        };
         xhr.onerror = () => reject(new Error("Upload failed. Check your connection."));
+        // Without these two the promise never settles when the browser drops the
+        // request — and `busy` never clears, so the panel sits on "Uploading…"
+        // for good with no error and no way back. A long upload on an island
+        // connection is exactly when that happens, which is why a big file
+        // looked like it "just cancels".
+        xhr.onabort = () => reject(new Error(
+          `The upload stopped before it finished (${(file.size / (1024 * 1024)).toFixed(1)} MB). ` +
+          `A long upload on a weak connection is usually the cause — try again, or use a smaller file.`,
+        ));
+        xhr.ontimeout = () => reject(new Error("The upload timed out. Try again on a stronger connection."));
         xhr.send(file);
       });
 
@@ -550,7 +611,8 @@ function HeroVideosEditor({
           <p className="mt-1 font-dm text-[10px] text-muted">Uploading… {pct}%</p>
         </div>
       )}
-      {err && <p className="mt-2 font-dm text-[11px] text-red-400">{err}</p>}
+      {note && <p className="mt-2 font-dm text-[11px] leading-relaxed text-yellow/80">{note}</p>}
+      {err && <p className="mt-2 font-dm text-[11px] leading-relaxed text-red-400">{err}</p>}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => fileRef.current?.click()} disabled={busy}

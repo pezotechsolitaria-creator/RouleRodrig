@@ -152,7 +152,9 @@
 // suppress it forever.
 // v225 — the hero YouTube video appears again: a cued player could hold
 // it invisible forever.
-const CACHE = "rr-cache-v225";
+// v226 — the hero video keeps playing once started, and a failed upload
+// says why instead of hanging on "Uploading…".
+const CACHE = "rr-cache-v226";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

@@ -53,12 +53,25 @@ export default function HeroVideoLayer({
   // simply never do, and without this the poster would sit there forever and
   // the owner's video would never appear at all — a worse failure than the one
   // the hold exists to prevent.
+  //
+  // ANY answer counts, deliberately, including "unstarted" and "buffering".
+  // This is not a claim that the video is playing — it is the narrower question
+  // the safety net needs: is anyone home? A player that talks to us is one
+  // whose real state we can follow, so the net must stand down and let the
+  // handshake drive. Relaxing this to mean "has really played" was tried and
+  // reverted: it lets the net uncover a player that answered but never started,
+  // which is a hero with YouTube's thumbnail and play button painted across it.
   const heard = useRef(false);
   // Whether this player has EVER genuinely played. Hiding on a non-playing
   // state is right once footage has been running — the chrome comes back — but
   // wrong before it ever starts: YouTube sits in CUED and would then suppress
   // the video permanently, which is exactly how the hero went blank.
   const everPlayed = useRef(false);
+  // Whether it is playing RIGHT NOW. A separate question from everPlayed, and
+  // both are needed: everPlayed decides whether a non-playing state is worth
+  // HIDING for, this decides whether the player needs RESTARTING. The clip that
+  // started fine and stopped ten seconds later is only visible to the second.
+  const playingNow = useRef(false);
   const [index, setIndex] = useState(0);
   const [ready, setReady] = useState(false);
   // Starts false and is only turned on after the checks below pass. Rendering
@@ -134,6 +147,8 @@ export default function HeroVideoLayer({
         if (typeof state !== "number") return;
         heard.current = true;
 
+        playingNow.current = state === 1;
+
         if (state === 1) {
           // PLAYING is necessary but NOT sufficient. YouTube keeps its
           // prev/pause/next overlay painted for a moment AFTER playback has
@@ -182,18 +197,50 @@ export default function HeroVideoLayer({
     // The handshake has to be repeated: the player only starts reporting once
     // it is initialised, and there is no event telling us when that is.
     const hello = window.setInterval(() => {
+      const w = frameRef.current?.contentWindow;
+      if (!w) return;
+      w.postMessage(JSON.stringify({ event: "listening", id: "rr-hero" }), "*");
+    }, 400);
+
+    // ── Keep it playing, for as long as the hero is on the page ──────────
+    //
+    // Two separate things stop this video, and both were live on the site:
+    //
+    //   · autoplay REFUSED. The <video> path earns autoplay legally through
+    //     muted + playsInline. An embedded player has no such attributes to
+    //     set — `autoplay=1` in the URL is a request, and a browser declines it
+    //     on a page the visitor has not touched yet. The refusal is silent: no
+    //     error, no event, just a player reporting unstarted forever.
+    //   · playing, then PAUSING on its own a few seconds in, which is the one
+    //     the owner described — the hero video stops.
+    //
+    // Neither had anything watching for it. A muted video may still be started
+    // programmatically inside a frame carrying allow="autoplay", which is what
+    // this is, so the fix for both is the same: whenever the player is not
+    // playing, ask it to. Re-playing a playing video is a no-op, which is what
+    // makes this safe to repeat.
+    //
+    // Every 2s rather than on the 400ms knock: this outlives the handshake and
+    // runs for the whole life of the hero, so it must be cheap. Skipped on a
+    // hidden tab — resuming video for a visitor who is not looking is exactly
+    // the mobile data this component exists to protect.
+    const watchdog = window.setInterval(() => {
+      if (playingNow.current) return;
+      if (document.visibilityState !== "visible") return;
       frameRef.current?.contentWindow?.postMessage(
-        JSON.stringify({ event: "listening", id: "rr-hero" }),
+        JSON.stringify({ event: "command", func: "playVideo", args: [] }),
         "*",
       );
-    }, 400);
+    }, 2000);
     // Stop knocking after 20s. By then it is either talking to us or it never
     // will, and in that case the poster simply stays — which is a good hero.
     const giveUp = window.setTimeout(() => window.clearInterval(hello), 20_000);
 
+
     return () => {
       window.removeEventListener("message", onMessage);
       window.clearInterval(hello);
+      window.clearInterval(watchdog);
       window.clearTimeout(giveUp);
       if (revealTimer.current !== null) {
         window.clearTimeout(revealTimer.current);
