@@ -150,7 +150,8 @@ export function offerMessage(o: {
   driverName: string;
   service: RideService;
   pickup: string;
-  dropoff: string;
+  /** Null for a private day hire — there is genuinely nowhere to go. */
+  dropoff: string | null;
   passengers: number;
   whenText: string;
   price: number | null;
@@ -161,7 +162,9 @@ export function offerMessage(o: {
     `Bonjour ${o.driverName} — ${meta.label} available:`,
     ``,
     `Pickup: ${o.pickup}`,
-    `Drop-off: ${o.dropoff}`,
+    // A day hire has no destination. Saying so is useful to the driver;
+    // "Drop-off: null" would just look broken.
+    o.dropoff ? `Drop-off: ${o.dropoff}` : `Drop-off: day hire — no fixed destination`,
     `When: ${o.whenText}`,
     `Passengers: ${o.passengers}`,
     `You earn: ${formatRidePrice(o.price)}`,

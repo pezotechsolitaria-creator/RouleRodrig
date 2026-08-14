@@ -29,7 +29,7 @@ import {
 
 type Ride = {
   id: string; service: RideService; when_kind: string; scheduled_at: string | null;
-  pickup_label: string; dropoff_label: string; passengers: number; luggage: number;
+  pickup_label: string; dropoff_label: string | null; passengers: number; luggage: number;
   customer_name: string; customer_phone: string; quoted_price: number | null; currency: string;
   status: RideStatus; driver_id: string | null; offer_rounds: number; created_at: string;
   taxi_drivers?: { name: string; phone: string; whatsapp: string | null } | null;
@@ -242,7 +242,7 @@ export default function RidesDesk() {
                           {RIDE_SERVICE_META[r.service]?.label ?? r.service} · {rideReference(r.id)}
                         </p>
                         <p className="mt-0.5 truncate font-dm text-xs text-muted">
-                          {r.pickup_label} → {r.dropoff_label}
+                          {r.pickup_label} → {r.dropoff_label ?? "day hire"}
                         </p>
                         <p className="mt-1 flex flex-wrap items-center gap-x-3 font-dm text-xs text-muted">
                           <span className="inline-flex items-center gap-1"><Users size={11} /> {r.passengers}</span>
@@ -277,7 +277,14 @@ export default function RidesDesk() {
                   <a href={`tel:${ride.customer_phone}`} className="font-dm text-sm text-yellow">{ride.customer_phone}</a>
                   <div className="mt-3 space-y-1.5 font-dm text-sm">
                     <p className="flex items-start gap-2"><MapPin size={14} className="mt-0.5 text-green-400" /> {ride.pickup_label}</p>
-                    <p className="flex items-start gap-2"><Navigation size={14} className="mt-0.5 text-yellow" /> {ride.dropoff_label}</p>
+                    <p className="flex items-start gap-2">
+                      <Navigation size={14} className="mt-0.5 text-yellow" />
+                      {/* A private day hire has no destination (M98). Saying so
+                          beats an empty line the operator has to interpret. */}
+                      {ride.dropoff_label ?? (
+                        <span className="text-muted">Day hire — no fixed destination</span>
+                      )}
+                    </p>
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-2 border-t border-white/10 pt-3">

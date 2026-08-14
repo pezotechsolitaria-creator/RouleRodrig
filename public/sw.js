@@ -146,7 +146,8 @@
 // v220 — a food order carrying proof of payment stays on the kitchen
 // board for 7 days instead of 24 hours.
 // v221 — a driver opens their page from Account with just a code.
-const CACHE = "rr-cache-v221";
+// v222 — private hire can be booked without inventing a destination.
+const CACHE = "rr-cache-v222";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

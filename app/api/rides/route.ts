@@ -30,7 +30,11 @@ const bookSchema = z.object({
   pickupLabel: z.string().trim().min(2).max(200),
   pickupLat: z.number().min(-90).max(90).nullable().optional(),
   pickupLng: z.number().min(-180).max(180).nullable().optional(),
-  dropoffLabel: z.string().trim().min(2).max(200),
+  // Nullable since M98: private hire ("a driver for the day") has no
+  // destination. Deliberately NOT re-implementing the per-service rule here —
+  // create_ride_request() owns it and refuses a taxi with no destination, so
+  // one authority decides and this cannot drift away from it.
+  dropoffLabel: z.string().trim().min(2).max(200).nullable().optional(),
   dropoffLat: z.number().min(-90).max(90).nullable().optional(),
   dropoffLng: z.number().min(-180).max(180).nullable().optional(),
   passengers: z.number().int().min(1).max(20).default(1),
@@ -79,7 +83,7 @@ export async function POST(req: NextRequest) {
     p_pickup_label: v.pickupLabel,
     p_pickup_lat: v.pickupLat ?? null,
     p_pickup_lng: v.pickupLng ?? null,
-    p_dropoff_label: v.dropoffLabel,
+    p_dropoff_label: v.dropoffLabel ?? null,
     p_dropoff_lat: v.dropoffLat ?? null,
     p_dropoff_lng: v.dropoffLng ?? null,
     p_passengers: v.passengers,

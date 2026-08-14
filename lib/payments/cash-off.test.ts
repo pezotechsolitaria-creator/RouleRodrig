@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 
 // ── A standing guard on one habit that keeps costing money ──────────────────
 //
@@ -109,9 +110,14 @@ describe("cash never defaults to available", () => {
   }, 30_000);
 
   it("still defines the switch and the trigger that enforce it", () => {
-    const all = migrations().map(({ sql }) => sql).join("\n");
-    expect(all, "prepayment_only() is gone").toMatch(/function\s+public\.prepayment_only\s*\(/);
-    expect(all, "the payments trigger is gone").toMatch(/payments_refuse_cash/);
+    expect(
+      lastMigrationMatching(/function\s+public\.prepayment_only\s*\(/),
+      "prepayment_only() is defined in no migration",
+    ).not.toBeNull();
+    expect(
+      lastMigrationMatching(/payments_refuse_cash/),
+      "the payments trigger is defined in no migration",
+    ).not.toBeNull();
   });
 
   it("has not let a later migration quietly restore cash", () => {
@@ -122,31 +128,74 @@ describe("cash never defaults to available", () => {
     // cash back on across the whole island, silently, with no UI change to
     // notice. So this checks the LAST definition wins, not that some
     // definition somewhere is correct.
-    const defining = migrations().filter(({ sql }) =>
-      /create\s+or\s+replace\s+function\s+public\.store_payment_options/i.test(sql),
+    const latest = lastMigrationMatching(
+      /create\s+or\s+replace\s+function\s+public\.store_payment_options/i,
     );
-    expect(defining.length, "store_payment_options is not defined in any migration").toBeGreaterThan(0);
-
-    const latest = defining[defining.length - 1];
+    expect(latest, "store_payment_options is not defined in any migration").not.toBeNull();
     // Take only the tail from that definition onwards, so an earlier unrelated
     // mention of prepayment_only() in the same file cannot satisfy this.
-    const body = latest.sql.slice(
-      latest.sql.search(/create\s+or\s+replace\s+function\s+public\.store_payment_options/i),
+    const body = latest!.sql.slice(
+      latest!.sql.search(/create\s+or\s+replace\s+function\s+public\.store_payment_options/i),
     );
     expect(
       body,
-      `The newest definition of store_payment_options (${latest.file}) does not consult ` +
+      `The newest definition of store_payment_options (${latest!.file}) does not consult ` +
         `prepayment_only(), so cash would be offered again island-wide.`,
     ).toMatch(/prepayment_only\s*\(\s*\)/);
   });
 });
 
-/** Migration files in applied order — the filename prefix is the timestamp. */
-function migrations(): { file: string; sql: string }[] {
-  return execSync("git ls-files supabase/migrations", { encoding: "utf8" })
-    .split("\n")
-    .map((f) => f.trim())
+/**
+ * Migration files in applied order — the filename prefix is the timestamp.
+ *
+ * Reads the DIRECTORY rather than asking git, deliberately. This repo is worked
+ * on by two sessions at once, and `git ls-files` fails outright while the other
+ * one holds .git/index.lock during a commit — which turned this guard red twice
+ * for a reason that had nothing to do with cash. A standing guard that fails
+ * for unrelated reasons is worse than no guard, because the next person learns
+ * to re-run it until it goes green.
+ *
+ * Nothing is lost by dropping git here: every migration in this folder is
+ * committed by definition, and an uncommitted one is still a migration that has
+ * been applied to the database, which is exactly what this test is about.
+ */
+/**
+ * Migration filenames, NEWEST FIRST. The prefix is the timestamp, so reverse
+ * order is "most recent definition wins" — which is exactly the question both
+ * tests below ask.
+ */
+function migrationFiles(): string[] {
+  const dir = join("supabase", "migrations");
+  return readdirSync(dir)
     .filter((f) => f.endsWith(".sql"))
     .sort()
-    .map((file) => ({ file, sql: readFileSync(file, "utf8") }));
+    .reverse()
+    .map((f) => join(dir, f));
 }
+
+/**
+ * The most recent migration whose text matches, or null.
+ *
+ * Reads LAZILY and stops at the first hit. Reading the whole archive twice —
+ * 224 files on a OneDrive-synced folder, while the other session writes to it —
+ * blew vitest's 5s budget and turned this guard red as a TIMEOUT, which looks
+ * exactly like a real failure and is not one. Raising the timeout would only
+ * defer that; the archive grows every day. Newest-first with an early exit
+ * reads one or two files instead of 224, and it is also the more correct
+ * question: what matters is the definition that WINS, not that one exists
+ * somewhere.
+ */
+function lastMigrationMatching(re: RegExp): { file: string; sql: string } | null {
+  for (const file of migrationFiles()) {
+    let sql: string;
+    try {
+      sql = readFileSync(file, "utf8");
+    } catch {
+      continue; // vanished between listing and reading — not this test's business
+    }
+    if (re.test(sql)) return { file, sql };
+  }
+  return null;
+}
+
+

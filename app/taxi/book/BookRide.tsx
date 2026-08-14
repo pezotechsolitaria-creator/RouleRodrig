@@ -190,7 +190,7 @@ export default function BookRide({ initialService }: { initialService: RideServi
   // Re-quote whenever anything that changes the fare changes. Debounced, because a
   // customer stepping the passenger count from 1 to 6 should cost one request.
   const requote = useCallback(async () => {
-    if (!pickup || !dropoff) { setQuote(null); return; }
+    if (!pickup || (needsDropoff && !dropoff)) { setQuote(null); return; }
     setQuoting(true);
     try {
       const r = await fetch("/api/rides/quote", {
@@ -198,7 +198,7 @@ export default function BookRide({ initialService }: { initialService: RideServi
         body: JSON.stringify({
           service,
           pickupLat: pickup.lat, pickupLng: pickup.lng,
-          dropoffLat: dropoff.lat, dropoffLng: dropoff.lng,
+          dropoffLat: dropoff?.lat ?? null, dropoffLng: dropoff?.lng ?? null,
           passengers, luggage,
           when: whenKind === "scheduled" && when ? new Date(when).toISOString() : null,
         }),
@@ -226,7 +226,7 @@ export default function BookRide({ initialService }: { initialService: RideServi
           service, whenKind,
           scheduledAt: whenKind === "scheduled" && when ? new Date(when).toISOString() : null,
           pickupLabel: pickup?.name ?? "", pickupLat: pickup?.lat ?? null, pickupLng: pickup?.lng ?? null,
-          dropoffLabel: dropoff?.name ?? "", dropoffLat: dropoff?.lat ?? null, dropoffLng: dropoff?.lng ?? null,
+          dropoffLabel: dropoff?.name ?? null, dropoffLat: dropoff?.lat ?? null, dropoffLng: dropoff?.lng ?? null,
           passengers, luggage,
           notes: notes || undefined,
           flightRef: meta.needsArrival ? flightRef || undefined : undefined,
@@ -274,7 +274,13 @@ export default function BookRide({ initialService }: { initialService: RideServi
     );
   }
 
-  const canContinue2 = !!pickup && !!dropoff && (whenKind === "now" || !!when);
+  // PRIVATE HIRE MAY HAVE NO DESTINATION. "A driver for the day, or a set
+  // route" — a day hire genuinely has nowhere to be going, and requiring one
+  // meant the customer had to invent a place to get past this step, then a
+  // driver received a trip nobody was taking. Every other service still needs
+  // it; create_ride_request enforces exactly the same rule server-side (M98).
+  const needsDropoff = service !== "private";
+  const canContinue2 = !!pickup && (!needsDropoff || !!dropoff) && (whenKind === "now" || !!when);
   const canBook = canContinue2 && name.trim().length > 1 && phone.trim().length > 4;
 
   return (
@@ -334,8 +340,21 @@ export default function BookRide({ initialService }: { initialService: RideServi
               </span>
             </div>
           ) : (
-            <PlacePicker label="TAKE ME TO" icon={Navigation} value={dropoff} onPick={setDropoff}
-              placeholder="Where are you going?" />
+            <>
+              <PlacePicker
+                label={needsDropoff ? "TAKE ME TO" : "TAKE ME TO — OPTIONAL"}
+                icon={Navigation}
+                value={dropoff}
+                onPick={setDropoff}
+                placeholder={needsDropoff ? "Where are you going?" : "Leave empty for a day hire"}
+              />
+              {!needsDropoff && !dropoff && (
+                <p className="-mt-1 font-dm text-xs leading-snug text-muted">
+                  Hiring a driver for the day? Leave this empty. We will agree the price with you
+                  before anything is confirmed.
+                </p>
+              )}
+            </>
           )}
 
           <div className="grid grid-cols-2 gap-2">
