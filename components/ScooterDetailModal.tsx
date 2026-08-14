@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import ModalPortal from "@/components/ModalPortal";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { X, ChevronLeft, ChevronRight, Star, ArrowRight, BadgeCheck, Ban, CheckCircle, MessageCircle } from "lucide-react";
@@ -66,6 +67,7 @@ export default function ScooterDetailModal({
   const isUpload = !!src && (src.startsWith("/uploads/") || src.startsWith("http"));
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 20 }}
@@ -196,5 +198,6 @@ export default function ScooterDetailModal({
         </div>
       </motion.div>
     </div>
+    </ModalPortal>
   );
 }

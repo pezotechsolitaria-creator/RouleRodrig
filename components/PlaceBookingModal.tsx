@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import ModalPortal from "@/components/ModalPortal";
 import posthog from "posthog-js";
 import { motion } from "framer-motion";
 import { X, Loader2, AlertCircle, Send, User, Mail, Users, MessageSquare, Clock, BedDouble } from "lucide-react";
@@ -170,6 +171,7 @@ export default function PlaceBookingModal({
       : "#";
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 20 }}
@@ -456,5 +458,6 @@ export default function PlaceBookingModal({
         )}
       </motion.div>
     </div>
+    </ModalPortal>
   );
 }

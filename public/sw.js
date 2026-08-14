@@ -155,7 +155,8 @@
 // v226 — the hero video keeps playing once started, and a failed upload
 // says why instead of hanging on "Uploading…".
 // v227 — a stay is priced by the night, and the total is shown before booking.
-const CACHE = "rr-cache-v227";
+// v228 — modals open above the header again; the hero stops showing YouTube chrome.
+const CACHE = "rr-cache-v228";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

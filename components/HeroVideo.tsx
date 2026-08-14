@@ -289,24 +289,39 @@ export default function HeroVideoLayer({
           // silent one still eventually shows the video instead of stranding
           // the visitor on the poster.
           onLoad={() => {
-            // ── An ABSOLUTE deadline, not a fallback ────────────────────────
+            // ── The deadline, for a player that never speaks ────────────────
             //
-            // This used to bail out when `heard.current` was set, on the
-            // reasoning that a player which talks to us should be driven by its
-            // real state. That reasoning had a hole, and it took the hero off
-            // the site: YouTube answers the handshake while it is CUED or
-            // BUFFERING, so `heard` goes true, and if autoplay is then deferred
-            // the player never reports PLAYING — no reveal timer ever starts,
-            // and the guard has just disabled the only other way out. The
-            // iframe sat at opacity 0 indefinitely with the correct video
-            // loaded behind it.
+            // This guard has now been removed once and put back, and the round
+            // trip is the useful part.
             //
-            // So the deadline now fires regardless of whether the player has
-            // spoken. Revealing is idempotent, and if the player genuinely is
-            // paused the state handler below hides it again on the next
-            // message — showing a still frame of the owner's own video for a
-            // moment is a far smaller cost than never showing it at all.
+            // It was removed because YouTube answers the handshake while CUED
+            // or BUFFERING, so `heard` went true, autoplay was then deferred,
+            // PLAYING never arrived, and the guard had disabled the only other
+            // way out — the hero sat blank with the right video loaded behind
+            // it. Revealing unconditionally fixed that.
+            //
+            // But unconditional has its own casualty, and it is the iPhone.
+            // iOS refuses inline autoplay for an embedded player far more
+            // firmly than a desktop browser does, so there the deadline
+            // uncovers a player that is NOT playing — YouTube's thumbnail, its
+            // big play button, its title and "Watch on YouTube" painted across
+            // the hero. That is what "the video does not display on iPhone"
+            // looks like, and it is strictly worse than the photograph it
+            // replaced.
+            //
+            // What changed since is the watchdog above: a player that is not
+            // playing is now asked to play, every 2s, for as long as the hero
+            // is on screen. So "answered but idle" is no longer a permanent
+            // state that needs escaping — it resolves itself wherever playback
+            // is possible at all. Where it does not resolve, the player
+            // genuinely cannot autoplay, and the right answer there is the
+            // poster: a clean, deliberate photo hero, not third-party chrome.
+            //
+            // So the deadline goes back to its narrow job — rescuing a player
+            // that never answers at all — and everything else is driven by the
+            // player's real state.
             window.setTimeout(() => {
+              if (heard.current) return;
               setReady(true);
               onPlaying?.(true);
             }, REVEAL_HOLD_MS + 2000);

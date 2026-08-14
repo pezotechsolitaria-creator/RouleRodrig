@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import ModalPortal from "@/components/ModalPortal";
 import { motion } from "framer-motion";
 import { X, ChevronLeft, ChevronRight, BedDouble, UtensilsCrossed, Compass, CalendarCheck, MessageCircle, ArrowUpRight, MapPin, CheckCircle, Clock, Users, UserRound } from "lucide-react";
 import type { RecommendedPlace } from "@/lib/defaults";
@@ -57,6 +58,7 @@ export default function PlaceDetailModal({
   const Icon = cfg.icon;
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 20 }}
@@ -208,5 +210,6 @@ export default function PlaceDetailModal({
         </div>
       </motion.div>
     </div>
+    </ModalPortal>
   );
 }
