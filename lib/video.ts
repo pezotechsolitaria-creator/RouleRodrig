@@ -58,7 +58,7 @@ const VIMEO_PATTERN = /vimeo\.com\/(?:video\/)?(\d{6,})/i;
  * plays once and then shows YouTube's end screen of unrelated recommendations,
  * on the homepage, which is worse than no video at all.
  */
-export function youtubeBackgroundUrl(id: string): string {
+export function youtubeBackgroundUrl(id: string, origin?: string): string {
   const params = new URLSearchParams({
     autoplay: "1",
     mute: "1",
@@ -80,6 +80,21 @@ export function youtubeBackgroundUrl(id: string): string {
     // ended, which is what put three buttons across the middle of the hero.
     enablejsapi: "1",
   });
+  // ── `origin` is what makes enablejsapi actually answer ────────────────────
+  //
+  // YouTube checks this against the embedding page before it will talk over
+  // postMessage. Without it the handshake is unreliable, and it fails hardest
+  // on iOS Safari — which is precisely where the hero was reported broken.
+  //
+  // That failure is not quiet: HeroVideo treats "never answered" as "this
+  // player does not speak the API" and uncovers the iframe blind, so an iPhone
+  // got YouTube's thumbnail, play button and "Watch on YouTube" painted across
+  // the hero instead of the video.
+  //
+  // Optional because this module is pure and also runs during SSR, where there
+  // is no window. The caller passes location.origin from the browser; a missing
+  // origin simply returns the old URL rather than a wrong one.
+  if (origin) params.set("origin", origin);
   // -nocookie is the privacy-preserving host. It costs nothing and avoids
   // setting tracking cookies for visitors who never asked to be on YouTube.
   return `https://www.youtube-nocookie.com/embed/${id}?${params.toString()}`;
@@ -96,14 +111,20 @@ export function vimeoBackgroundUrl(id: string): string {
   return `https://player.vimeo.com/video/${id}?${params.toString()}`;
 }
 
-/** Classify a URL the owner pasted, and say what to render for it. */
-export function parseVideoUrl(raw: string | null | undefined): ParsedVideo {
+/**
+ * Classify a URL the owner pasted, and say what to render for it.
+ *
+ * `origin` is threaded through to the YouTube embed so the player will answer
+ * the JS-API handshake (see youtubeBackgroundUrl). Omitted during SSR, where
+ * there is no window to ask.
+ */
+export function parseVideoUrl(raw: string | null | undefined, origin?: string): ParsedVideo {
   const url = (raw ?? "").trim();
   if (!url) return { kind: "unknown", id: null, embedUrl: null };
 
   for (const re of YT_PATTERNS) {
     const m = url.match(re);
-    if (m?.[1]) return { kind: "youtube", id: m[1], embedUrl: youtubeBackgroundUrl(m[1]) };
+    if (m?.[1]) return { kind: "youtube", id: m[1], embedUrl: youtubeBackgroundUrl(m[1], origin) };
   }
 
   const vm = url.match(VIMEO_PATTERN);

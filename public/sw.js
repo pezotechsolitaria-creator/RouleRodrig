@@ -160,7 +160,8 @@
 // v230 — hiking guides are people now: admin-managed, reached on WhatsApp.
 // v231 — listing cards cycle through their photos instead of showing one.
 // v232 — dishes and marketplace products cycle their photos too.
-const CACHE = "rr-cache-v232";
+// v233 — the YouTube hero plays on Android and iPhone, or offers a tap.
+const CACHE = "rr-cache-v233";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

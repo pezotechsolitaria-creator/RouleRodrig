@@ -73,6 +73,23 @@ describe("youtubeBackgroundUrl", () => {
     expect(url).toContain("modestbranding=1");
   });
 
+  it("sends the origin, or YouTube may never answer the handshake", () => {
+    // The iPhone bug. HeroVideo reads the player's state over postMessage and
+    // only uncovers the iframe once it reports PLAYING. YouTube checks `origin`
+    // before it will talk, and without it the handshake fails hardest on iOS —
+    // where "never answered" made the hero uncover the player blind and paint
+    // YouTube's thumbnail and play button across the homepage.
+    const withOrigin = youtubeBackgroundUrl("dQw4w9WgXcQ", "https://roulerodrig.com");
+    expect(withOrigin).toContain("origin=https%3A%2F%2Froulerodrig.com");
+  });
+
+  it("omits origin rather than inventing one during SSR", () => {
+    // This module is pure and also runs on the server, where there is no
+    // window. A guessed origin would be worse than none: YouTube would reject
+    // the handshake outright instead of merely being unreliable.
+    expect(url).not.toContain("origin=");
+  });
+
   it("plays inline rather than going fullscreen on iOS", () => {
     expect(url).toContain("playsinline=1");
   });

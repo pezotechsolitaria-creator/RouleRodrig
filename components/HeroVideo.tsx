@@ -74,6 +74,9 @@ export default function HeroVideoLayer({
   const playingNow = useRef(false);
   const [index, setIndex] = useState(0);
   const [ready, setReady] = useState(false);
+  // The player is loaded and talking to us, but has not started — which on a
+  // phone is the NORMAL outcome, not an error. See the button below.
+  const [needsTap, setNeedsTap] = useState(false);
   // Starts false and is only turned on after the checks below pass. Rendering
   // no <video> at all is the cheapest possible fallback: no request is made.
   const [allowed, setAllowed] = useState(false);
@@ -117,7 +120,13 @@ export default function HeroVideoLayer({
   }, [allowed, index]);
 
   const current = list.length ? list[index % list.length] : null;
-  const parsed = parseVideoUrl(current?.url);
+  // The embed needs `origin` or YouTube may never answer the handshake (see
+  // lib/video.ts). Safe to read at render time: `allowed` starts false, so the
+  // server renders nothing here and there is no markup to mismatch.
+  const parsed = parseVideoUrl(
+    current?.url,
+    typeof window === "undefined" ? undefined : window.location.origin,
+  );
   const embed = !!current && isEmbed(parsed.kind) && !!parsed.embedUrl;
 
   // ── Ask the embedded player what it is actually doing ────────────────────
@@ -164,6 +173,8 @@ export default function HeroVideoLayer({
           // Guarded so repeated PLAYING reports (the player sends them on every
           // loop) cannot stack timers.
           everPlayed.current = true;
+          // It started, so the offer to start it is withdrawn.
+          setNeedsTap(false);
           if (revealTimer.current === null) {
             revealTimer.current = window.setTimeout(() => {
               revealTimer.current = null;
@@ -236,12 +247,31 @@ export default function HeroVideoLayer({
     // will, and in that case the poster simply stays — which is a good hero.
     const giveUp = window.setTimeout(() => window.clearInterval(hello), 20_000);
 
+    // ── When the watchdog cannot win ─────────────────────────────────────────
+    //
+    // The watchdog above asks a stalled player to play every 2s. On a desktop
+    // that usually works. On a PHONE it usually does not, and that is the whole
+    // bug: iOS Safari and Chrome on Android both refuse to start a cross-origin
+    // player without a user gesture, however muted it is, and `playVideo` sent
+    // from a timer is not a gesture. So the player answers the handshake, never
+    // reaches PLAYING, and — because answering disables the blind deadline —
+    // the hero sits on its poster forever with the owner's video loaded behind
+    // it. Both platforms, every time, no error anywhere.
+    //
+    // A tap IS a gesture, and the same postMessage sent from inside a click
+    // handler is honoured. So after giving autoplay a fair run, offer the tap.
+    // Nothing is lost if the visitor ignores it: the poster is still a good
+    // hero, which is why this is a small control and not a takeover.
+    const offerTap = window.setTimeout(() => {
+      if (!playingNow.current) setNeedsTap(true);
+    }, 4200);
 
     return () => {
       window.removeEventListener("message", onMessage);
       window.clearInterval(hello);
       window.clearInterval(watchdog);
       window.clearTimeout(giveUp);
+      window.clearTimeout(offerTap);
       if (revealTimer.current !== null) {
         window.clearTimeout(revealTimer.current);
         revealTimer.current = null;
@@ -268,9 +298,10 @@ export default function HeroVideoLayer({
 
   if (isEmbed(parsed.kind)) {
     return (
-      // pointer-events-none is load-bearing, not tidiness: without it a tap
-      // lands inside YouTube's player and summons its controls, and on a phone
-      // the hero is a large tap target sitting under the reader's thumb.
+      <>
+      {/* pointer-events-none is load-bearing, not tidiness: without it a tap
+          lands inside YouTube's player and summons its controls, and on a phone
+          the hero is a large tap target sitting under the reader's thumb. */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
         {/* An iframe cannot object-cover. A 16:9 player scaled to whichever
             axis is short, centred, is what makes an embedded background fill a
@@ -337,6 +368,48 @@ export default function HeroVideoLayer({
           }`}
         />
       </div>
+
+      {/* ── The tap that mobile requires ──────────────────────────────────────
+          Deliberately OUTSIDE the aria-hidden, pointer-events-none layer
+          above: this is the one thing here a person is meant to reach, so it
+          has to be a real, focusable button that screen readers announce.
+
+          Small, low and off to one side — it is an offer, not a demand. The
+          poster underneath is already a good hero, and a visitor who never
+          taps loses nothing.
+
+          The postMessage goes out synchronously inside the handler, because
+          that is what makes it count as a user gesture; awaiting anything
+          first spends the activation and the player refuses again. */}
+      {needsTap && !ready && (
+        <button
+          type="button"
+          onClick={() => {
+            frameRef.current?.contentWindow?.postMessage(
+              JSON.stringify({ event: "command", func: "playVideo", args: [] }),
+              "*",
+            );
+            // Withdraw the offer immediately. If it worked, PLAYING arrives and
+            // the reveal follows; if it did not, re-showing the button on a
+            // loop would be nagging about something the visitor cannot fix.
+            setNeedsTap(false);
+          }}
+          className="absolute bottom-5 right-4 z-20 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/20 bg-dark/70 px-4 py-2.5 font-dm text-xs font-semibold text-offwhite backdrop-blur-md transition-colors hover:border-yellow/50 hover:text-yellow focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow/60"
+        >
+          <span
+            aria-hidden="true"
+            className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow text-dark"
+          >
+            {/* A triangle, drawn rather than imported — one glyph is not worth
+                pulling an icon into the hero's critical path. */}
+            <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </span>
+          Play video
+        </button>
+      )}
+      </>
     );
   }
 
