@@ -163,7 +163,8 @@
 // v233 — the YouTube hero plays on Android and iPhone, or offers a tap.
 // v234 — a large item is dispatched only to a car or a van.
 // v235 — the hero has no Play button on it again.
-const CACHE = "rr-cache-v235";
+// v236 — Beaches & Viewpoints fuse; Delivery takes the freed quick action.
+const CACHE = "rr-cache-v236";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
