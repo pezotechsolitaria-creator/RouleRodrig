@@ -141,7 +141,9 @@
 // one, and reports whether a notification was actually accepted.
 // v218 — the alerts page leads with browser notifications; WhatsApp is
 // labelled as the backup it now is.
-const CACHE = "rr-cache-v218";
+// v219 — a driver who lost the link can get back in at /d with their
+// phone number and a 6-character code.
+const CACHE = "rr-cache-v219";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

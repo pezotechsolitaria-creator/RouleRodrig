@@ -604,14 +604,22 @@ function DriverRow({
   // thing into: hold up the screen, they scan, the page opens, one tap — and he
   // watches the badge go green before they walk away. No number to be wrong, no
   // message to lose, nothing to distrust.
-  const [qr, setQr] = useState<{ name: string; url: string } | null>(null);
+  const [qr, setQr] = useState<{ name: string; url: string; code: string } | null>(null);
 
   async function showQr(id: string) {
     try {
       const r = await fetch(`/api/admin/taxi?linkFor=${encodeURIComponent(id)}`);
       const b = await r.json();
       if (!r.ok) throw new Error(b.error || "Could not build that link.");
-      setQr({ name: b.name as string, url: `${window.location.origin}${b.link}` });
+      const link = b.link as string;
+      // The code IS the first six characters of the token — nothing to
+      // generate, nothing to keep in sync, and it cannot point at a token that
+      // has since been rotated.
+      setQr({
+        name: b.name as string,
+        url: `${window.location.origin}${link}`,
+        code: link.replace("/d/", "").slice(0, 6).toUpperCase(),
+      });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not build that link.");
     }
@@ -654,6 +662,14 @@ ${url}
           <p className="mt-1 font-dm text-xs text-black/60">
             Ask them to scan this, then press <strong>Turn on</strong> on their phone. Stay with them until it says
             &ldquo;On&rdquo;.
+          </p>
+          {/* The spoken fallback. A QR needs a working camera and a link needs
+              a message that still exists; a code the driver can be told down a
+              phone needs neither, and it is the only route that works when he
+              is already out on the road. */}
+          <p className="mt-3 rounded-lg bg-black/[0.06] px-3 py-2 font-dm text-[11px] text-black/70">
+            Or tell them to open <strong>roulerodrig.com/d</strong> and enter their phone number with this code:
+            <span className="mt-1 block font-mono text-lg tracking-[0.3em] text-black">{qr.code}</span>
           </p>
           <svg
             viewBox={`0 0 ${qrArt.span} ${qrArt.span}`}
