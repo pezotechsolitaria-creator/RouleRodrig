@@ -20,8 +20,16 @@ import { Textarea } from "@/components/ui/textarea";
 
 type Kind = "package" | "shop_and_deliver";
 
+// Byte-for-byte the vehicle booking form's field (components/BookingSection.tsx
+// `inputCls`), because that is the field design this site already uses for
+// every serious form — and this page was the odd one out: bg-dark instead of
+// bg-dark-card, py-3 instead of py-3.5. Small differences, but they are what
+// made the phone box look like it belonged to another site.
+//
+// Not "similar to" — copied, so the two cannot drift apart the next time either
+// is touched.
 const input =
-  "w-full rounded-xl border border-dark-border bg-dark px-4 py-3 font-dm text-sm text-offwhite placeholder:text-muted/60 focus:border-yellow focus:outline-none";
+  "w-full bg-dark-card border border-dark-border rounded-xl px-4 py-3.5 text-offwhite text-sm font-dm placeholder:text-muted/50 focus:border-yellow focus:outline-none transition-colors";
 const label = "mb-1.5 block font-dm text-xs text-muted";
 
 export default function DeliverForm({ signedInEmail }: { signedInEmail: string | null }) {

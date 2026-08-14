@@ -104,8 +104,11 @@ interface Props {
 //
 // pl-10 is not decoration — the phone glyph is absolutely positioned at left-4,
 // and without the padding the digits run underneath it.
+// Matches the vehicle booking form's field exactly — that is this site's
+// established input, and the picker button beside it is already px-3 py-3.5, so
+// anything shorter left the two visibly mismatched in height.
 const DEFAULT_INPUT_CLASS =
-  "w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 pl-10 font-dm text-sm text-offwhite placeholder:text-muted/50 focus:border-yellow focus:outline-none transition-colors";
+  "w-full bg-dark-card border border-dark-border rounded-xl px-4 py-3.5 pl-10 text-offwhite text-sm font-dm placeholder:text-muted/50 focus:border-yellow focus:outline-none transition-colors";
 
 /**
  * Phone field with a searchable country picker (flag + dial) and a national-only

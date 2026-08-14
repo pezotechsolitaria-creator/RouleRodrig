@@ -166,7 +166,8 @@
 // v236 — Beaches & Viewpoints fuse; Delivery takes the freed quick action.
 // v237 — the phone field is dressed again, and viewpoints sit above the fold.
 // v238 — the admin sidebar can find hiking guides.
-const CACHE = "rr-cache-v238";
+// v239 — the delivery form uses the booking form's fields.
+const CACHE = "rr-cache-v239";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
