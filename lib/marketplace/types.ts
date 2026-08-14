@@ -40,6 +40,13 @@ export type MarketProduct = {
 
   imageUrl: string | null;
   imageCount: number;
+  /**
+   * Every photo, cover first — so the card cycles rather than hiding the rest
+   * behind `imageCount`. Attached after the RPC (withGalleries in
+   * lib/product-gallery.ts), and optional because that lookup is best-effort:
+   * the card must still render from `imageUrl` alone.
+   */
+  imageUrls?: string[];
 
   inStock: boolean;
   stockTotal: number;

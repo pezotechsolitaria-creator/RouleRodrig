@@ -159,7 +159,8 @@
 // v229 — hiking gets its own guide at /guide/hiking, and 20 dead components go.
 // v230 — hiking guides are people now: admin-managed, reached on WhatsApp.
 // v231 — listing cards cycle through their photos instead of showing one.
-const CACHE = "rr-cache-v231";
+// v232 — dishes and marketplace products cycle their photos too.
+const CACHE = "rr-cache-v232";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

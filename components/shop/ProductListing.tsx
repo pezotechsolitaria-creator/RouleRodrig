@@ -123,7 +123,7 @@ export default function ProductListing({
             <>
               <div className={`mt-2 ${GRID}`}>
                 {result.products.map((p, i) => (
-                  <MarketProductCard key={p.id} product={p} priority={i < 6} />
+                  <MarketProductCard key={p.id} product={p} priority={i < 6} index={i} />
                 ))}
               </div>
 

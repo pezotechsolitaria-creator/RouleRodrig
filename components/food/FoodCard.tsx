@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import AutoPhotos from "@/components/AutoPhotos";
 import { Flame, Star, Clock, Users } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import { UNAVAILABLE_LABEL, type FoodCard as FoodCardType } from "@/lib/food/types";
@@ -29,11 +29,13 @@ import FoodQuickAdd from "./FoodQuickAdd";
 // same thing.
 
 export default function FoodCard({
-  item, variant = "grid",
+  item, variant = "grid", index = 0,
 }: {
   item: FoodCardType;
   /** grid = the search/category results · rail = a horizontal scroller */
   variant?: "grid" | "rail";
+  /** Position in the grid — offsets this card's photo cycle. */
+  index?: number;
 }) {
   const unavailable = !item.orderable;
   const prep =
@@ -60,12 +62,12 @@ export default function FoodCard({
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-dark">
         {item.imageUrl ? (
-          <Image
-            src={item.imageUrl}
+          <AutoPhotos
+            images={[item.imageUrl, ...(item.imageUrls ?? [])]}
             alt={item.name}
-            fill
             sizes={variant === "rail" ? "210px" : "(max-width: 640px) 50vw, 260px"}
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            stagger={index}
+            className="transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
           // NO PHOTOGRAPH. This used to be a 26px grey icon in an empty box,

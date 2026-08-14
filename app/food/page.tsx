@@ -272,9 +272,9 @@ export default async function FoodPage({
                         "Rs" / "320.00" — fixed properly in FoodCard rather than
                         by making the cards enormous. */}
                     <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-pl-4 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] lg:grid lg:grid-cols-4 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
-                      {rail.items.map((item) => (
+                      {rail.items.map((item, i) => (
                         <div key={`${rail.key}-${item.id}`} className="lg:w-auto">
-                          <FoodCard item={item} variant="rail" />
+                          <FoodCard item={item} variant="rail" index={i} />
                         </div>
                       ))}
                     </div>
@@ -333,8 +333,8 @@ function SearchResults({
         {filters.q && <> for &ldquo;{filters.q}&rdquo;</>}
       </p>
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {results.items.map((item) => (
-          <FoodCard key={item.id} item={item} />
+        {results.items.map((item, i) => (
+          <FoodCard key={item.id} item={item} index={i} />
         ))}
       </div>
     </>

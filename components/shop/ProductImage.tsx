@@ -1,3 +1,5 @@
+import AutoPhotos from "@/components/AutoPhotos";
+import { uniquePhotos } from "@/lib/photos";
 import { productArt } from "@/lib/marketplace/product-art";
 
 // ── The product surface ─────────────────────────────────────────────────────
@@ -17,17 +19,36 @@ import { productArt } from "@/lib/marketplace/product-art";
 // generated jar of honey: inventing a picture of goods somebody is about to pay
 // for is a lie with a price tag on it.
 export default function ProductImage({
-  imageUrl, name, slug, categoryName, className = "", priority = false,
+  imageUrl, imageUrls, name, slug, categoryName, className = "", priority = false, stagger = 0,
 }: {
   imageUrl: string | null;
+  /** The rest of the shop's photos. More than one turns the plate into a gallery. */
+  imageUrls?: string[];
   name: string;
   slug: string;
   categoryName?: string | null;
   className?: string;
   /** The first card above the fold — everything else lazy-loads. */
   priority?: boolean;
+  /** Position in the grid — offsets this card's photo cycle. */
+  stagger?: number;
 }) {
   if (imageUrl) {
+    const gallery = uniquePhotos([imageUrl, ...(imageUrls ?? [])]);
+    // One photo keeps the plain <img>: no client component, no timer, no
+    // hydration — which is most of this catalogue and should stay that cheap.
+    if (gallery.length > 1) {
+      return (
+        <AutoPhotos
+          images={gallery}
+          alt={name}
+          sizes="(max-width: 640px) 50vw, 260px"
+          priority={priority}
+          stagger={stagger}
+          className={className}
+        />
+      );
+    }
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img

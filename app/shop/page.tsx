@@ -213,7 +213,7 @@ export default async function MarketplaceHomePage() {
                 <RowHeading title="People are buying" href="/shop/search" />
                 <div className={GRID}>
                   {bestsellers.map((p, i) => (
-                    <MarketProductCard key={p.id} product={p} priority={i < 6} />
+                    <MarketProductCard key={p.id} product={p} priority={i < 6} index={i} />
                   ))}
                 </div>
               </>
@@ -241,7 +241,7 @@ export default async function MarketplaceHomePage() {
             ) : null}
             <div className={`${big ? "" : "mt-2.5 "}${GRID}`}>
               {everything.products.map((p, i) => (
-                <MarketProductCard key={p.id} product={p} priority={!big && i < 6} />
+                <MarketProductCard key={p.id} product={p} priority={!big && i < 6} index={i} />
               ))}
             </div>
 

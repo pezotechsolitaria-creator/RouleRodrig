@@ -39,12 +39,14 @@ const badge =
   "absolute rounded-md px-1.5 py-0.5 font-dm text-[10px] font-bold leading-tight backdrop-blur-sm";
 
 export default function MarketProductCard({
-  product, priority = false, showSeller = true,
+  product, priority = false, showSeller = true, index = 0,
 }: {
   product: MarketProduct;
   priority?: boolean;
   /** Off on a shop's own storefront, where every card has the same seller. */
   showSeller?: boolean;
+  /** Position in the grid — offsets this card's photo cycle. */
+  index?: number;
 }) {
   const p = product;
   const buyable = p.inStock && p.acceptingOrders;
@@ -68,6 +70,8 @@ export default function MarketProductCard({
         <div className="h-full w-full transition-transform duration-300 group-hover:scale-[1.04]">
           <ProductImage
             imageUrl={p.imageUrl}
+            imageUrls={p.imageUrls}
+            stagger={index}
             name={p.name}
             slug={p.slug}
             categoryName={p.categoryName}

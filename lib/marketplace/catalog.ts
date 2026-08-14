@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BrowseProductsResult, MarketplaceHome, ProductDetail, ProductSort } from "./types";
+import { withGalleries } from "@/lib/product-gallery";
 import { toProductSort } from "./types";
 
 // Server-side reads for the marketplace.
@@ -66,7 +67,8 @@ export async function browseProducts(
     console.error("browse_products failed", error);
     return { ...EMPTY, limit, offset };
   }
-  return (data as BrowseProductsResult) ?? { ...EMPTY, limit, offset };
+  const result = (data as BrowseProductsResult) ?? { ...EMPTY, limit, offset };
+  return { ...result, products: await withGalleries(supabase, result.products) };
 }
 
 /** Catalogue size, category counts, the seller strip and what really sells. */

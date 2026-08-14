@@ -28,6 +28,13 @@ export type FoodCard = {
   price: number;
   currency: string;
   imageUrl: string | null;
+  /**
+   * Every photo of this dish, cover first — so the card cycles rather than
+   * hiding the kitchen's other shots behind a tap. Attached after the browse
+   * RPC (see withGalleries in lib/food/queries.ts). Optional because that
+   * lookup is best-effort: the card must still work from `imageUrl` alone.
+   */
+  imageUrls?: string[];
   prepMin: number | null;
   prepMax: number | null;
   /** 0 none · 1 mild · 2 hot · 3 very hot */

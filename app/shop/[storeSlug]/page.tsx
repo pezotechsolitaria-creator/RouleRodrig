@@ -303,7 +303,7 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
                   // showSeller off: every card here has the same seller, and
                   // repeating it 20 times is noise on the one page where it is
                   // already the headline.
-                  <MarketProductCard key={p.id} product={p} showSeller={false} priority={i < 4} />
+                  <MarketProductCard key={p.id} product={p} showSeller={false} priority={i < 4} index={i} />
                 ))}
               </div>
             </section>

@@ -268,8 +268,8 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
               From the same kitchen, so it all arrives in one order.
             </p>
             <div className="mt-3 flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] lg:grid lg:grid-cols-4 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
-              {dish.related.map((item) => (
-                <FoodCard key={item.id} item={item} variant="rail" />
+              {dish.related.map((item, i) => (
+                <FoodCard key={item.id} item={item} variant="rail" index={i} />
               ))}
             </div>
           </section>

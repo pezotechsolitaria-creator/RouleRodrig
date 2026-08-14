@@ -85,7 +85,7 @@ export default function SavedPage() {
           <>
             <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {products.map((p, i) => (
-                <MarketProductCard key={p.id} product={p} priority={i < 4} />
+                <MarketProductCard key={p.id} product={p} priority={i < 4} index={i} />
               ))}
             </div>
             {missing > 0 && (

@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { withGalleries } from "@/lib/product-gallery";
 import type {
   FoodBrowseResult,
   FoodDetail,
@@ -24,7 +25,20 @@ export async function getFoodHome(supabase: SupabaseClient): Promise<FoodHome | 
     console.error("food_home failed", error);
     return null;
   }
-  return (data as FoodHome) ?? null;
+  const home = (data as FoodHome) ?? null;
+  if (!home) return null;
+
+  // The landing rails come from here, not from browseFood — so they need the
+  // galleries attached too, or /food would be the one food surface still
+  // showing a single photo per dish. One lookup covers every rail: the dishes
+  // are flattened, fetched together, then handed back to their own rail.
+  const flat = home.rails.flatMap((r) => r.items);
+  const withPhotos = await withGalleries(supabase, flat);
+  const byId = new Map(withPhotos.map((i) => [i.id, i]));
+  return {
+    ...home,
+    rails: home.rails.map((r) => ({ ...r, items: r.items.map((i) => byId.get(i.id) ?? i) })),
+  };
 }
 
 export type BrowseFoodOptions = {
@@ -77,8 +91,10 @@ export async function browseFood(
     console.error("browse_food failed", error);
     return { total: 0, limit: opts.limit ?? 24, offset: opts.offset ?? 0, items: [] };
   }
-  return data as FoodBrowseResult;
+  const result = data as FoodBrowseResult;
+  return { ...result, items: await withGalleries(supabase, result.items) };
 }
+
 
 /** One dish, with its variants, images, kitchen and related strip. */
 export async function getFoodItem(
