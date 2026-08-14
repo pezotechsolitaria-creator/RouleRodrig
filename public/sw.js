@@ -162,7 +162,8 @@
 // v232 — dishes and marketplace products cycle their photos too.
 // v233 — the YouTube hero plays on Android and iPhone, or offers a tap.
 // v234 — a large item is dispatched only to a car or a van.
-const CACHE = "rr-cache-v234";
+// v235 — the hero has no Play button on it again.
+const CACHE = "rr-cache-v235";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
