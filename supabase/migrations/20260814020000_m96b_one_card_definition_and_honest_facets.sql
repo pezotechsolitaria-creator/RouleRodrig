@@ -399,6 +399,7 @@ begin
       select jsonb_agg(jsonb_build_object(
                'slug', s.slug::text, 'name', s.name, 'logoUrl', s.logo_url,
                'coverUrl', s.cover_url, 'address', s.address,
+               'lat', s.lat, 'lng', s.lng,
                'ratingAvg', s.rating_avg, 'ratingCount', s.rating_count,
                'productCount', x.n)
              order by s.rating_count desc, x.n desc, s.name)
@@ -499,6 +500,11 @@ begin
       'tagline',      v_store.tagline,
       'logoUrl',      v_store.logo_url,
       'address',      v_store.address,
+      -- The exact pin (M100). Null when the shop has not set one, and the UI
+      -- must say "this is the area", never invent a doorstep.
+      'lat',          v_store.lat,
+      'lng',          v_store.lng,
+      'phone',        v_store.phone,
       'ratingAvg',    v_store.rating_avg,
       'ratingCount',  v_store.rating_count,
       'createdAt',    v_store.created_at,

@@ -14,8 +14,9 @@ import SellerCard from "@/components/shop/SellerCard";
 import MarketProductCard from "@/components/shop/MarketProductCard";
 import StarRating from "@/components/shop/StarRating";
 import SaveButton from "@/components/shop/SaveButton";
+import AddressLink from "@/components/AddressLink";
 import ProductAnalytics from "@/components/shop/ProductAnalytics";
-import { ShopHeader } from "@/components/shop/ShopChrome";
+import MarketHeader from "@/components/shop/MarketHeader";
 import { getProductDetail, relatedProducts } from "@/lib/marketplace/catalog";
 
 // ── The product page ────────────────────────────────────────────────────────
@@ -124,7 +125,7 @@ export default async function ProductPage({
 
   return (
     <main className="min-h-screen bg-dark px-4 pb-44 pt-0 text-offwhite md:pb-28">
-      <ShopHeader backHref={`/shop/${p.store.slug}`} backLabel={p.store.name} />
+      <MarketHeader back={{ href: `/shop/${p.store.slug}`, label: p.store.name }} />
       <ProductAnalytics
         productId={p.id}
         productName={p.name}
@@ -245,9 +246,17 @@ export default async function ProductPage({
                   <p className="mt-3 font-dm text-sm font-medium text-offwhite">
                     This shop isn&apos;t selling online yet
                   </p>
-                  <p className="mt-1 font-dm text-xs text-muted">
-                    You can still visit them{p.store.address ? ` at ${p.store.address}` : ""}.
-                  </p>
+                  {(p.store.address || p.store.lat != null) && (
+                    <div className="mt-1 font-dm text-xs text-muted">
+                      You can still visit them:{" "}
+                      <AddressLink
+                        address={p.store.address}
+                        lat={p.store.lat}
+                        lng={p.store.lng}
+                        name={p.store.name}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Store as StoreIcon, MapPin, PackageCheck, CalendarClock, ChevronRight } from "lucide-react";
+import { Store as StoreIcon, PackageCheck, CalendarClock, ChevronRight } from "lucide-react";
 import type { ProductSeller } from "@/lib/marketplace/types";
 import StarRating from "./StarRating";
+import AddressLink from "@/components/AddressLink";
 
 // ── The trust block ─────────────────────────────────────────────────────────
 //
@@ -68,11 +69,19 @@ export default function SellerCard({
       )}
 
       <dl className="mt-3 space-y-1.5 font-dm text-xs text-muted">
-        {seller.address && (
-          <div className="flex items-center gap-2">
-            <MapPin size={12} className="shrink-0 text-muted/70" />
-            <dd>{seller.address}</dd>
-          </div>
+        {/* Tappable: this is the surface where someone decides whether to go
+            and collect, so "where is it" has to be one tap, not a copy-paste
+            into another app. `explain` because the answer changes a journey. */}
+        {(seller.address || (seller.lat != null && seller.lng != null)) && (
+          <dd>
+            <AddressLink
+              address={seller.address}
+              lat={seller.lat}
+              lng={seller.lng}
+              name={seller.name}
+              explain
+            />
+          </dd>
         )}
         {seller.completedOrders > 0 && (
           <div className="flex items-center gap-2">

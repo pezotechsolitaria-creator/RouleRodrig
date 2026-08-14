@@ -88,6 +88,8 @@ export type MarketplaceSeller = {
   logoUrl: string | null;
   coverUrl: string | null;
   address: string | null;
+  lat: number | null;
+  lng: number | null;
   ratingAvg: number | null;
   ratingCount: number;
   productCount: number;
@@ -136,6 +138,10 @@ export type ProductSeller = {
   tagline: string | null;
   logoUrl: string | null;
   address: string | null;
+  /** The exact pin. Null for a shop that has not set one — say so, never guess. */
+  lat: number | null;
+  lng: number | null;
+  phone: string | null;
   ratingAvg: number | null;
   ratingCount: number;
   createdAt: string;

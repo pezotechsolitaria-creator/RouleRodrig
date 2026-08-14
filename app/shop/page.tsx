@@ -10,6 +10,7 @@ import MarketHeader from "@/components/shop/MarketHeader";
 import CategoryStrip from "@/components/shop/CategoryStrip";
 import MarketProductCard from "@/components/shop/MarketProductCard";
 import HomeAnalytics from "@/components/shop/HomeAnalytics";
+import AddressLink from "@/components/AddressLink";
 import { browseProducts, getMarketplaceHome, productsByIds } from "@/lib/marketplace/catalog";
 import { sellerPitch, type MonetizationModel } from "@/lib/marketplace/fees";
 
@@ -252,10 +253,13 @@ export default async function MarketplaceHomePage() {
               <>
                 <RowHeading title="Island shops" />
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {/* NOT one big link. The address is its own link now (tapping
+                      it opens the shop's pin), and an <a> inside an <a> is
+                      invalid HTML that browsers resolve by dropping one of
+                      them — usually the one you wanted. */}
                   {sellers.map((s) => (
-                    <Link
+                    <div
                       key={s.slug}
-                      href={`/shop/${s.slug}`}
                       className="group flex items-center gap-3 rounded-xl border border-white/10 bg-dark-card p-3 transition-colors hover:border-yellow/40"
                     >
                       {s.logoUrl ? (
@@ -266,17 +270,40 @@ export default async function MarketplaceHomePage() {
                           <StoreIcon size={16} />
                         </span>
                       )}
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-dm text-sm font-semibold text-offwhite group-hover:text-yellow">
+                      <div className="min-w-0 flex-1">
+                        <Link
+                          href={`/shop/${s.slug}`}
+                          className="block truncate font-dm text-sm font-semibold text-offwhite hover:text-yellow"
+                        >
                           {s.name}
-                        </span>
-                        <span className="block truncate font-dm text-[11px] text-muted">
-                          {s.productCount} product{s.productCount === 1 ? "" : "s"}
-                          {s.address ? ` · ${s.address}` : ""}
-                        </span>
-                      </span>
-                      <ChevronRight size={15} className="shrink-0 text-muted group-hover:text-yellow" />
-                    </Link>
+                        </Link>
+                        <div className="flex min-w-0 items-center gap-1.5 font-dm text-[11px] text-muted">
+                          <span className="shrink-0">
+                            {s.productCount} product{s.productCount === 1 ? "" : "s"}
+                          </span>
+                          {s.address && (
+                            <>
+                              <span className="shrink-0 opacity-50">·</span>
+                              <AddressLink
+                                address={s.address}
+                                lat={s.lat}
+                                lng={s.lng}
+                                name={s.name}
+                                size={11}
+                                className="min-w-0"
+                              />
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <Link
+                        href={`/shop/${s.slug}`}
+                        aria-label={`Open ${s.name}`}
+                        className="shrink-0 text-muted hover:text-yellow"
+                      >
+                        <ChevronRight size={15} />
+                      </Link>
+                    </div>
                   ))}
                 </div>
               </>

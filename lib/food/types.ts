@@ -69,6 +69,10 @@ export type FoodDetail = FoodCard & {
   variants: FoodVariant[];
   related: FoodCard[];
   pickupHint: string | null;
+  /** The kitchen's address and exact pin. Null pin = no pin; say so, never guess. */
+  kitchenAddress: string | null;
+  kitchenLat: number | null;
+  kitchenLng: number | null;
   kitchenSlug: string;
   /**
    * The kitchen's own public WhatsApp (M95), falling back to its phone.

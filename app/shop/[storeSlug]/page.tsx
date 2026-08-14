@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Store as StoreIcon, Phone, MapPin, PackageCheck, CalendarClock, ChevronRight } from "lucide-react";
+import { Store as StoreIcon, Phone, PackageCheck, CalendarClock, ChevronRight } from "lucide-react";
 import { SITE_URL } from "@/lib/site";
 import { createClient } from "@/lib/supabase/server";
 import MarketProductCard from "@/components/shop/MarketProductCard";
@@ -9,7 +9,8 @@ import StoreHoursCard from "@/components/shop/StoreHoursCard";
 import CategoryRail from "@/components/shop/CategoryRail";
 import StarRating from "@/components/shop/StarRating";
 import SellerAnalytics from "@/components/shop/SellerAnalytics";
-import { ShopHeader } from "@/components/shop/ShopChrome";
+import AddressLink from "@/components/AddressLink";
+import MarketHeader from "@/components/shop/MarketHeader";
 import JsonLd from "@/components/JsonLd";
 import { storeLd, breadcrumbLd } from "@/lib/schema";
 import { fulfilmentWords } from "@/lib/shop/plain-words";
@@ -36,12 +37,13 @@ async function getStore(slug: string) {
   // those rules by hand and had already drifted once.
   const { data } = await supabase
     .from("marketplace_stores")
-    .select("id, name, slug, tagline, description, logo_url, cover_url, address, phone, whatsapp, rating_avg, rating_count, created_at")
+    .select("id, name, slug, tagline, description, logo_url, cover_url, address, lat, lng, phone, whatsapp, rating_avg, rating_count, created_at")
     .eq("slug", slug)
     .maybeSingle();
   return data as {
     id: string; name: string; slug: string; tagline: string | null; description: string | null;
     logo_url: string | null; cover_url: string | null; address: string | null;
+    lat: number | null; lng: number | null;
     phone: string | null; whatsapp: string | null;
     rating_avg: number | null; rating_count: number; created_at: string;
   } | null;
@@ -162,7 +164,7 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
           ]),
         ]}
       />
-      <ShopHeader backHref="/shop" backLabel="Marketplace" />
+      <MarketHeader back={{ href: "/shop", label: "the marketplace" }} />
       <SellerAnalytics storeId={store.id} storeName={store.name} productCount={products.length} />
 
       <div className="mx-auto max-w-6xl">
@@ -232,10 +234,15 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
                   <Phone size={12} /> {store.phone}
                 </span>
               )}
-              {store.address && (
-                <span className="inline-flex items-center gap-1.5">
-                  <MapPin size={12} /> {store.address}
-                </span>
+              {/* Tappable — this is the page someone opens to decide whether
+                  to go there. */}
+              {(store.address || (store.lat != null && store.lng != null)) && (
+                <AddressLink
+                  address={store.address}
+                  lat={store.lat}
+                  lng={store.lng}
+                  name={store.name}
+                />
               )}
             </div>
 

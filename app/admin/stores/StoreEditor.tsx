@@ -8,6 +8,7 @@ import {
 } from "@/lib/schedule";
 import { centsToDecimalString } from "@/lib/money";
 import DeleteShopPanel from "./DeleteShopPanel";
+import PinPicker from "@/components/PinPicker";
 
 type Profile = {
   name: string; tagline: string | null; description: string | null;
@@ -232,16 +233,14 @@ export default function StoreEditor({
               <input id="e-addr" className={input} value={profile.address ?? ""}
                 onChange={(e) => setProfile({ ...profile, address: e.target.value })} />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Latitude" htmlFor="e-lat" hint="Rodrigues is around -19.7">
-                <input id="e-lat" inputMode="decimal" className={input} value={profile.lat ?? ""}
-                  onChange={(e) => setProfile({ ...profile, lat: e.target.value === "" ? null : Number(e.target.value) })} />
-              </Field>
-              <Field label="Longitude" htmlFor="e-lng" hint="Rodrigues is around 63.4">
-                <input id="e-lng" inputMode="decimal" className={input} value={profile.lng ?? ""}
-                  onChange={(e) => setProfile({ ...profile, lng: e.target.value === "" ? null : Number(e.target.value) })} />
-              </Field>
-            </div>
+            {/* The owner sets pins on a shop's behalf all the time — usually
+                on the phone, standing in the shop, or from a Maps link the
+                owner sent over WhatsApp. Two decimal boxes served neither. */}
+            <PinPicker
+              lat={profile.lat}
+              lng={profile.lng}
+              onChange={(next) => setProfile({ ...profile, lat: next.lat, lng: next.lng })}
+            />
             {profile.logo_url && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={profile.logo_url} alt={`${profile.name} logo`} className="h-14 w-14 rounded-xl object-cover" />

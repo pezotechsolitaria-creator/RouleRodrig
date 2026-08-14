@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Flame, Users, Clock, ChefHat, MapPin, UtensilsCrossed, Info, MessageCircle } from "lucide-react";
+import { ArrowLeft, Flame, Users, Clock, ChefHat, UtensilsCrossed, Info, MessageCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
 import { getFoodItem } from "@/lib/food/queries";
@@ -10,6 +10,7 @@ import { DIETARY_LABEL } from "@/lib/food/types";
 import { centsToDecimalString } from "@/lib/money";
 import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
+import AddressLink from "@/components/AddressLink";
 import FoodCard from "@/components/food/FoodCard";
 import DishOrderPanel from "@/components/food/DishOrderPanel";
 import FoodCartBar from "@/components/food/FoodCartBar";
@@ -204,10 +205,21 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
                   Prepared by <span className="font-semibold">{dish.kitchenName}</span>
                   {!dish.kitchenOpen && <span className="text-muted"> · closed right now</span>}
                 </p>
+                {/* WHERE it is, tappable. The hint used to sit under a map-pin
+                    icon that linked to nothing, so "Port Mathurin, near the
+                    market" was a sentence rather than directions. */}
+                {(dish.kitchenAddress || dish.kitchenLat != null) && (
+                  <AddressLink
+                    address={dish.kitchenAddress}
+                    lat={dish.kitchenLat}
+                    lng={dish.kitchenLng}
+                    name={dish.kitchenName}
+                    size={11}
+                    className="mt-0.5 block font-dm text-xs text-muted"
+                  />
+                )}
                 {dish.pickupHint && (
-                  <p className="mt-0.5 inline-flex items-start gap-1 font-dm text-xs text-muted">
-                    <MapPin size={11} className="mt-0.5 shrink-0" /> {dish.pickupHint}
-                  </p>
+                  <p className="mt-0.5 font-dm text-xs text-muted">{dish.pickupHint}</p>
                 )}
 
                 {/* TALK TO THE KITCHEN (M95).

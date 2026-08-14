@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import PinPicker from "@/components/PinPicker";
 
 // ── The shop's own details, edited by the shop (M98) ───────────────────────
 //
@@ -159,17 +160,15 @@ export default function ShopProfileForm() {
           <input className={input} value={p.address ?? ""} maxLength={300}
             placeholder="Port Mathurin market" onChange={(e) => set({ address: e.target.value })} />
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <div>
-            <span className={label}>MAP LATITUDE</span>
-            <input className={input} inputMode="decimal" value={p.lat ?? ""} placeholder="-19.6835"
-              onChange={(e) => set({ lat: e.target.value === "" ? null : Number(e.target.value) })} />
-          </div>
-          <div>
-            <span className={label}>MAP LONGITUDE</span>
-            <input className={input} inputMode="decimal" value={p.lng ?? ""} placeholder="63.4200"
-              onChange={(e) => set({ lng: e.target.value === "" ? null : Number(e.target.value) })} />
-          </div>
+        {/* Was two boxes asking a shop owner for their own latitude, with the
+            hint "Rodrigues is around -19.7". Five of six live shops had no pin,
+            which is what that form was always going to produce. */}
+        <div className="mt-3">
+          <PinPicker
+            lat={typeof p.lat === "number" ? p.lat : p.lat ? Number(p.lat) : null}
+            lng={typeof p.lng === "number" ? p.lng : p.lng ? Number(p.lng) : null}
+            onChange={(next) => set(next)}
+          />
         </div>
       </fieldset>
 
