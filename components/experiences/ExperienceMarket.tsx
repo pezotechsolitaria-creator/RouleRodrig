@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import AutoPhotos from "@/components/AutoPhotos";
 import {
-  Star, Clock, Users, MapPin, ArrowRight, SlidersHorizontal, Sparkles, ImageOff,
+  Star, Clock, Users, MapPin, ArrowRight, SlidersHorizontal, Sparkles, ImageOff, Moon, Sun,
 } from "lucide-react";
 import type { RecommendedPlace } from "@/lib/defaults";
 import { type ExperienceCopy, formatDuration, matchesFilter } from "@/lib/experiences";
@@ -286,6 +286,26 @@ function ExperienceCard({
         {place.featured && (
           <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-dark/80 px-2 py-1 font-bebas text-[10px] tracking-[0.15em] text-yellow backdrop-blur-sm">
             <Sparkles size={9} /> {fr ? "À LA UNE" : "FEATURED"}
+          </span>
+        )}
+
+        {/* Marked ONLY when it is restricted to one half of the day. A badge on
+            every card would be noise — most experiences run whenever, and
+            saying so on all of them says nothing. This one earns its place
+            because it changes whether you can go tonight. Sits opposite the
+            featured chip so the two never collide. */}
+        {(place.timeOfDay === "day" || place.timeOfDay === "night") && (
+          <span
+            className={`absolute right-2 top-2 inline-flex items-center gap-1 rounded-full px-2 py-1 font-bebas text-[10px] tracking-[0.15em] backdrop-blur-sm ${
+              place.timeOfDay === "night"
+                ? "bg-dark/85 text-offwhite ring-1 ring-inset ring-white/20"
+                : "bg-dark/80 text-yellow"
+            }`}
+          >
+            {place.timeOfDay === "night" ? <Moon size={9} /> : <Sun size={9} />}
+            {place.timeOfDay === "night"
+              ? fr ? "LE SOIR" : "AFTER DARK"
+              : fr ? "EN JOURNÉE" : "DAYTIME"}
           </span>
         )}
         {/* Photo count, so a gallery announces itself rather than hiding behind

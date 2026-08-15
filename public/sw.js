@@ -169,7 +169,8 @@
 // v239 — the delivery form uses the booking form's fields.
 // v240 — experiences split by day and night.
 // v241 — night changes the light, and curated shelves land.
-const CACHE = "rr-cache-v241";
+// v242 — a day-only or night-only experience says so on its card.
+const CACHE = "rr-cache-v242";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
