@@ -323,25 +323,19 @@ export default function AppHome({
           list children ("a child from Home"). A stable key silences it. */}
       <Fragment key="hero">{hero}</Fragment>
 
-      {/* ── THE WORLD SPEAKS ────────────────────────────────────────────────
-          LIVE RODRIGUES or EXPERIENCE RODRIGUES, directly under the hero. This
-          is the line that makes the choice mean something: without it the two
-          worlds differ only in colour, which is the "purely cosmetic theme
-          switch" the brief rules out by name.
+      {/* ── THE WORLD, IN ONE LINE ──────────────────────────────────────────
+          This was a three-line block: eyebrow, a huge headline and a promise.
+          It said the right thing and cost about 150px of the first screen,
+          which pushed the cards and quick actions below the fold — the exact
+          scrolling the owner asked to remove. A homepage earns its first screen
+          for the things people came to DO.
 
-          It is a heading, not decoration, so it carries real hierarchy — but it
-          sits BELOW the hero rather than replacing it, because the hero is
-          owner-managed content and a world must never delete what the owner
-          published. */}
-      <section className="mx-auto max-w-5xl px-5 pb-1 pt-6">
-        <p className="font-bebas text-[11px] tracking-[0.38em] text-yellow">
-          {WORLD_COPY[activeWorld].eyebrow}
-        </p>
-        <h1 className="mt-1 font-syne text-[clamp(1.6rem,6vw,2.6rem)] font-extrabold leading-[0.95] text-offwhite">
-          {L(WORLD_COPY[activeWorld].headline)}
-        </h1>
-        <p className="mt-2 max-w-md font-dm text-sm text-muted">
-          {L(WORLD_COPY[activeWorld].promise)}
+          So the world still names itself, but on one line, at the scale of a
+          section label rather than a hero. The promise moved to the gateway and
+          the switcher, which is where somebody is actually deciding. */}
+      <section className="mx-auto max-w-5xl px-5 pt-3">
+        <p className="font-bebas text-[11px] tracking-[0.34em] text-yellow">
+          {WORLD_COPY[activeWorld].eyebrow} · {L(WORLD_COPY[activeWorld].headline)}
         </p>
       </section>
 
@@ -349,7 +343,7 @@ export default function AppHome({
           and the navigation is in the header, so the reserved strip goes too. */}
       <main className="mx-auto max-w-5xl px-4 pb-[124px] md:pb-16">
         {/* Six primary cards — v1 photo-card design, auto-cycling images. */}
-        <section className="rr-home-cards-sec pt-3">
+        <section className="rr-home-cards-sec pt-2">
           <div className="rr-home-cards grid grid-cols-3 gap-2.5">
             {BIG.map((c) => (
               <AutoImageCard key={c.key} card={c} L={L} />
@@ -365,9 +359,9 @@ export default function AppHome({
             the old homepage and never re-added, so every one of those silently
             dumped the visitor at the top of the page instead of at the hub.
             app/globals.css:125 still reserves its scroll-margin. */}
-        <section id="explore" className="rr-home-tiles-sec mt-4">
-          <div className="mb-2.5 flex items-center justify-between">
-            <h2 className="font-syne text-base font-bold text-offwhite">{L(["What are you looking for?", "Que cherchez-vous ?", "Ki ou pe rode?"])}</h2>
+        <section id="explore" className="rr-home-tiles-sec mt-3">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="font-syne text-[15px] font-bold text-offwhite">{L(["What are you looking for?", "Que cherchez-vous ?", "Ki ou pe rode?"])}</h2>
             <Link href="/explore" className="inline-flex items-center gap-1 font-dm text-xs text-yellow hover:underline">{L(["See all", "Voir tout", "Get tou"])} <ArrowRight size={13} /></Link>
           </div>
           {/* A GRID, not a scroller.

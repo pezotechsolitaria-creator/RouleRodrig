@@ -34,18 +34,50 @@ export default function WorldSwitcher({
     : language === "cr" ? "Sanz ou Rodrigues"
     : "Change your Rodrigues";
 
+  const here = WORLD_COPY[world];
+
+  // ── A DOOR, NOT A SETTING ────────────────────────────────────────────────
+  // The first version was a bordered chip reading "CHANGE YOUR RODRIGUES
+  // CURATED →" — a settings row wearing a serif. Two problems: it announced the
+  // mechanism rather than the destination, and it gave equal weight to the
+  // world you are in and the one you are not.
+  //
+  // This shows the WORLD YOU ARE IN as the subject, with the other offered
+  // quietly beside it — the way a good masthead names the section you are
+  // reading. The accent comes from the live world token, so the control is
+  // painted by whichever world owns the page rather than by a fixed gold.
   const button = (
     <button
       type="button"
       onClick={() => choose(next)}
-      // The accessible name says what will HAPPEN, because "Curated" alone
-      // tells a screen-reader user nothing about which way this goes.
       aria-label={`${label} — ${copy.eyebrow} ${copy.name}`}
-      className={`group inline-flex items-center gap-2 rounded-full border border-white/12 px-3.5 py-2 font-dm text-[11px] font-semibold text-muted transition-colors hover:border-yellow/40 hover:text-yellow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow/50 ${className}`}
+      className={`group relative inline-flex items-center gap-2.5 rounded-full px-3.5 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--rr-world-accent,#F5C842)]/60 ${className}`}
+      style={{
+        border: "1px solid var(--rr-world-line, rgba(255,255,255,0.12))",
+        background: "color-mix(in srgb, var(--rr-world-accent, #F5C842) 7%, transparent)",
+      }}
     >
-      <span className="font-bebas tracking-[0.22em]">{label}</span>
-      <span aria-hidden className="text-offwhite/70 transition-colors group-hover:text-yellow">
-        {copy.eyebrow} →
+      {/* WHERE YOU ARE. The world names itself, in its own accent. */}
+      <span
+        className="font-bebas text-[13px] leading-none tracking-[0.26em]"
+        style={{ color: "var(--rr-world-accent, #F5C842)" }}
+      >
+        {here.eyebrow}
+      </span>
+
+      {/* The hairline that separates the two halves — the visual equivalent of
+          the word "or", without spending a word on it. */}
+      <span
+        aria-hidden
+        className="h-3.5 w-px"
+        style={{ background: "var(--rr-world-line, rgba(255,255,255,0.18))" }}
+      />
+
+      {/* WHERE YOU COULD GO. Quieter, and it brightens on approach so the
+          control reveals that it is a door rather than a label. */}
+      <span className="flex items-center gap-1 font-dm text-[10.5px] font-semibold leading-none text-muted transition-colors group-hover:text-offwhite">
+        {copy.eyebrow}
+        <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
       </span>
     </button>
   );

@@ -4780,8 +4780,26 @@ function ServicesEditor({
         return (
           <div key={it.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
             <div className="flex items-center justify-between gap-3">
-              <p className="font-bebas text-yellow text-xs tracking-[0.3em]">
+              <p className="flex flex-wrap items-center gap-2 font-bebas text-yellow text-xs tracking-[0.3em]">
                 {kind.emoji} {it.name || `${kind.label.toUpperCase()} — UNNAMED`}
+                {/* The world, visible without opening the item. An editor
+                    scanning fifty listings for "what did I put in Curated"
+                    should not have to expand each one to find out. */}
+                <span
+                  className={`rounded-full px-2 py-0.5 font-dm text-[9px] font-bold tracking-normal ${
+                    (it.world ?? "both") === "authentic"
+                      ? "bg-[#B4541E]/20 text-[#E8A87C]"
+                      : (it.world ?? "both") === "curated"
+                        ? "bg-[#C9A227]/18 text-[#C9A227]"
+                        : "bg-white/[0.07] text-muted"
+                  }`}
+                >
+                  {(it.world ?? "both") === "authentic"
+                    ? "🌿 AUTHENTIC"
+                    : (it.world ?? "both") === "curated"
+                      ? "✦ CURATED"
+                      : "BOTH WORLDS"}
+                </span>
               </p>
               <div className="flex items-center gap-3">
                 <a
