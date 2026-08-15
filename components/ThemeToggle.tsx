@@ -28,9 +28,11 @@ export function resolveTheme(choice: ThemeChoice, now: Date = new Date()): "ligh
 }
 
 export function readChoice(): ThemeChoice {
-  if (typeof localStorage === "undefined") return "auto";
+  // DARK unless explicitly chosen. Auto is still selectable, but it is no
+  // longer what an unconfigured visitor gets — see the note above applyTheme.
+  if (typeof localStorage === "undefined") return "dark";
   const v = localStorage.getItem(THEME_KEY);
-  return v === "light" || v === "dark" || v === "auto" ? v : "auto";
+  return v === "light" || v === "dark" || v === "auto" ? v : "dark";
 }
 
 export function applyTheme(resolved: "light" | "dark") {
@@ -46,7 +48,7 @@ export function applyTheme(resolved: "light" | "dark") {
 }
 
 export default function ThemeToggle() {
-  const [choice, setChoice] = useState<ThemeChoice>("auto");
+  const [choice, setChoice] = useState<ThemeChoice>("dark");
   // Nothing reads as selected until the client has read localStorage. The
   // server cannot know the choice, and claiming one for a frame is a visible
   // lie — and, as this page learned the hard way elsewhere, a server/client
@@ -70,8 +72,9 @@ export default function ThemeToggle() {
 
   function pick(next: ThemeChoice) {
     setChoice(next);
-    if (next === "auto") localStorage.removeItem(THEME_KEY);
-    else localStorage.setItem(THEME_KEY, next);
+    // Every choice is stored now, including auto — with dark as the default,
+    // "no value" can no longer mean auto.
+    localStorage.setItem(THEME_KEY, next);
     applyTheme(resolveTheme(next));
   }
 

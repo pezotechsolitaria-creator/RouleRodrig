@@ -237,7 +237,7 @@ export default async function RootLayout({
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var d=document.documentElement;var t=null;try{t=localStorage.getItem('rr_theme');}catch(e){}var light;if(t==='light'){light=true;}else if(t==='dark'){light=false;}else{var h=(new Date().getUTCHours()+4)%24;light=(h>=6&&h<18);}if(light){d.classList.add('light');}try{var mt=document.querySelector('meta[name=\"theme-color\"]');if(mt)mt.setAttribute('content',light?'#F8F9FA':'#0a0a0a');}catch(e){}}catch(e){}})();`,
+            __html: `(function(){try{var d=document.documentElement;var t=null;try{t=localStorage.getItem('rr_theme');}catch(e){}var light=false;if(t==='light'){light=true;}else if(t==='auto'){var h=(new Date().getUTCHours()+4)%24;light=(h>=6&&h<18);}if(light){d.classList.add('light');}try{var mt=document.querySelector('meta[name=\"theme-color\"]');if(mt)mt.setAttribute('content',light?'#F8F9FA':'#0a0a0a');}catch(e){}}catch(e){}})();`,
           }}
         />
         <script
