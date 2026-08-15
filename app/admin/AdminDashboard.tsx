@@ -4720,6 +4720,31 @@ function ServicesEditor({
     setItems(items.map((it, i) => (i === index ? { ...it, ...patch } : it)));
   const remove = (index: number) => setItems(items.filter((_, i) => i !== index));
 
+  // ── FILTER BY WORLD, AND EDIT THE FILTERED SET IN ONE GO ──────────────────
+  // The two halves of this belong together. Filtering answers "what is in
+  // Curated"; bulk editing answers "put these in Curated" — and doing the
+  // second to whatever the first is showing is the only version an editor can
+  // reason about. A bulk action over a hidden selection is how somebody
+  // reassigns a listing they had forgotten was there.
+  const [worldFilter, setWorldFilter] = useState<"all" | "authentic" | "curated" | "both">("all");
+  const visible = worldFilter === "all"
+    ? rows
+    : rows.filter((r) => (r.it.world ?? "both") === worldFilter);
+
+  /** Apply a world to everything currently on screen — one state update. */
+  const bulkWorld = (w: RecommendedPlace["world"]) => {
+    if (visible.length === 0) return;
+    // Destructive enough to deserve a sentence, and the sentence names the
+    // count and the destination rather than asking "are you sure?".
+    const ok = window.confirm(
+      `Move ${visible.length} listing${visible.length === 1 ? "" : "s"} to ` +
+      `${w === "both" ? "BOTH worlds" : w === "authentic" ? "AUTHENTIC only" : "CURATED only"}?`,
+    );
+    if (!ok) return;
+    const targets = new Set(visible.map((r) => r.index));
+    setItems(items.map((it, i) => (targets.has(i) ? { ...it, world: w } : it)));
+  };
+
   function add(kind: (typeof SERVICE_KINDS)[number]) {
     // Created ready to sell: an activity, bookable, with a sane capacity. The
     // owner should have to type a name and a price, not discover three toggles.
@@ -4765,6 +4790,50 @@ function ServicesEditor({
         </div>
       </div>
 
+      {/* World filter + bulk assign. Sits above the list because it acts on
+          the list, and it disappears when there is nothing to act on. */}
+      {rows.length > 0 && (
+        <div className="rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-bebas text-[11px] tracking-[0.24em] text-yellow">WORLD</span>
+            {(["all", "authentic", "curated", "both"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setWorldFilter(k)}
+                className={`rounded-full px-3 py-1.5 font-dm text-[11px] font-semibold transition-colors ${
+                  worldFilter === k
+                    ? "bg-yellow text-dark"
+                    : "border border-[#2a2a2a] text-muted hover:text-offwhite"
+                }`}
+              >
+                {k === "all" ? "All" : k === "authentic" ? "🌿 Authentic" : k === "curated" ? "✦ Curated" : "Both"}
+              </button>
+            ))}
+            <span className="ml-auto font-dm text-[11px] text-muted">
+              {visible.length} of {rows.length} shown
+            </span>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#2a2a2a] pt-3">
+            <span className="font-dm text-[11px] text-muted">
+              Move all {visible.length} shown to:
+            </span>
+            {(["authentic", "curated", "both"] as const).map((w) => (
+              <button
+                key={w}
+                type="button"
+                disabled={visible.length === 0}
+                onClick={() => bulkWorld(w)}
+                className="rounded-full border border-[#2a2a2a] px-3 py-1.5 font-dm text-[11px] font-semibold text-offwhite transition-colors hover:border-yellow/50 hover:text-yellow disabled:opacity-40"
+              >
+                {w === "authentic" ? "🌿 Authentic" : w === "curated" ? "✦ Curated" : "Both worlds"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {rows.length === 0 && (
         <div className="border-2 border-dashed border-[#2a2a2a] rounded-2xl py-12 text-center">
           <p className="font-dm text-sm text-muted/70">Nothing added yet.</p>
@@ -4774,7 +4843,7 @@ function ServicesEditor({
         </div>
       )}
 
-      {rows.map(({ it, index }) => {
+      {visible.map(({ it, index }) => {
         const kind = SERVICE_KINDS.find((k) => k.key === it.serviceType) ?? SERVICE_KINDS[0];
         const ph = kind.placeholders;
         return (
