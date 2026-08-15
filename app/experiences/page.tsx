@@ -53,7 +53,10 @@ export default async function ExperiencesHubPage() {
           ),
         ]}
       />
-      <AppPageHeader logo={content.branding.logo} />
+      {/* A titled header, which is what gives it the back control — the hub is
+          reached from a homepage card, so there has to be a way home that is
+          not the browser button. */}
+      <AppPageHeader title="Experiences" backHref="/" logo={content.branding.logo} />
       <ExperiencesHub places={places} />
     </>
   );

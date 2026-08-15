@@ -74,18 +74,36 @@ const PALETTE: Record<Mode, Record<string, string>> = {
   },
 };
 
+// Fixed positions: a star field that re-randomises on every replay reads as
+// noise rather than as sky.
+const STARS = Array.from({ length: 46 }, (_, i) => ({
+  k: i,
+  l: `${(i * 37) % 97}%`,
+  tp: `${(i * 53) % 58}%`,
+  o: 0.35 + ((i * 17) % 60) / 100,
+}));
+
 /** The owner's chosen length for the dusk sequence. */
 const DUSK_MS = 1200;
 
 export default function ExperiencesHub({ places }: { places: RecommendedPlace[] }) {
   const { language } = useLanguage();
   const fr = language === "fr";
-  const [mode, setMode] = useState<Mode>(() => defaultMode());
+  // ── A STABLE FIRST RENDER, THEN THE ISLAND CLOCK ──────────────────────────
+  // This used to initialise from defaultMode() directly, which reads the
+  // clock — so the server could render "day" and the client "night" (or either
+  // side of the 18:00 boundary), the markup disagreed, and React failed to
+  // hydrate. A failed hydration attaches NO event handlers, so the switch
+  // rendered perfectly and did nothing at all when pressed.
+  //
+  // So both sides render "day" — a fixed, agreed starting point — and the real
+  // mode is applied in an effect once only the client is running.
+  const [mode, setMode] = useState<Mode>("day");
   const [active, setActive] = useState<string | null>(null);
   // 0 = fully day, 1 = fully night. Drives the dusk overlay only; the palette
   // itself swaps at the midpoint so text never sits mid-fade against a ground
   // it does not match.
-  const [t, setT] = useState(() => (defaultMode() === "night" ? 1 : 0));
+  const [t, setT] = useState(0);
   const raf = useRef<number | null>(null);
 
   const inMode = useMemo(
@@ -108,31 +126,43 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
     [places],
   );
 
+  // Correct to the island's actual time after mount. No animation: nobody
+  // asked for a transition they did not trigger, and a page that dusks itself
+  // on arrival is a page that fought you before you touched it.
+  useEffect(() => {
+    const real = defaultMode();
+    if (real === "night") { setMode("night"); setT(1); }
+  }, []);
+
   useEffect(() => () => { if (raf.current) cancelAnimationFrame(raf.current); }, []);
 
   function go(next: Mode) {
     if (next === mode) return;
     setActive(null);
+
+    // ── THE CONTENT CHANGES FIRST, ALWAYS ────────────────────────────────
+    // The mode used to be set from inside the requestAnimationFrame loop, so
+    // the listing and the palette only changed if the animation ran. In a
+    // backgrounded tab rAF is suspended — and it never fires at all in a
+    // browser pane that is not compositing — so the switch rendered, accepted
+    // the press, and did nothing. Pressing Night has to mean "show me the
+    // night" whether or not there is a sunset to watch.
+    //
+    // So the mode commits immediately and the animation is decoration over the
+    // top of an already-correct page.
+    setMode(next);
+
     const from = t;
     const to = next === "night" ? 1 : 0;
     const started = performance.now();
-    let flipped = false;
     if (raf.current) cancelAnimationFrame(raf.current);
 
     const step = (now: number) => {
       const p = Math.min(1, (now - started) / DUSK_MS);
       // easeInOutCubic — the light leaves slowly, then commits.
       const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
-      const v = from + (to - from) * e;
-      setT(v);
-      // Swap the palette once the sky has actually turned, so the interface
-      // settles INTO the new mode rather than announcing it up front.
-      if (!flipped && ((to === 1 && v > 0.55) || (to === 0 && v < 0.45))) {
-        flipped = true;
-        setMode(next);
-      }
+      setT(from + (to - from) * e);
       if (p < 1) raf.current = requestAnimationFrame(step);
-      else setMode(next);
     };
     raf.current = requestAnimationFrame(step);
   }
@@ -180,9 +210,59 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
                 "radial-gradient(90% 45% at 50% 104%, rgba(255,138,60,0.55), transparent 62%)",
             }}
           />
+
+          {/* THE SUN. Sinks and cools as the light goes. Positioned with
+              transform rather than top, so it composites instead of
+              triggering layout on every frame. */}
+          <div
+            className="absolute left-1/2 h-24 w-24 rounded-full"
+            style={{
+              top: "8%",
+              transform: `translate(-50%, ${t * 46}vh)`,
+              opacity: 1 - t * 0.45,
+              filter: `blur(${t * 3}px)`,
+              background:
+                "radial-gradient(circle at 50% 50%," +
+                `rgba(255,246,218,${1 - t}) 0%,` +
+                `rgba(255,170,90,${0.35 + t * 0.5}) 55%, transparent 72%)`,
+            }}
+          />
+
+          {/* THE MOON, only once the sky is dark enough to justify it. */}
+          <div
+            className="absolute h-12 w-12 rounded-full"
+            style={{
+              right: "22%",
+              top: `${20 - t * 8}%`,
+              opacity: Math.max(0, (t - 0.55) * 3.2),
+              background:
+                "radial-gradient(circle at 38% 34%, #FDFBF3 0%, #D8D5C6 62%, transparent 70%)",
+              boxShadow: "0 0 34px 8px rgba(232,230,216,0.14)",
+            }}
+          />
+
+          {/* STARS. Deterministic positions, so a replay looks identical
+              rather than re-scattering. Emerge after the moon. */}
+          <div className="absolute inset-0" style={{ opacity: Math.max(0, (t - 0.6) * 2.6) }}>
+            {STARS.map((st) => (
+              <span
+                key={st.k}
+                className="absolute rounded-full bg-white"
+                style={{ left: st.l, top: st.tp, width: 2, height: 2, opacity: st.o }}
+              />
+            ))}
+          </div>
+
           {/* Whatever the sky is doing, the page has to stay readable, so the
-              canvas sits over it at almost full strength. */}
-          <div className="absolute inset-0" style={{ background: "var(--x-canvas)", opacity: 0.93 }} />
+              canvas sits over it. Held back mid-transition so the sunset is
+              actually visible, then closed to near-opaque at either end. */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: "var(--x-canvas)",
+              opacity: 0.93 - Math.sin(Math.PI * t) * 0.22,
+            }}
+          />
         </div>
 
         <div className="relative z-10 mx-auto max-w-5xl px-5 pb-28 pt-10">
