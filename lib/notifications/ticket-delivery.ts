@@ -35,7 +35,7 @@ function html(heading: string, paragraphs: string[], cta: { url: string; label: 
   return `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1a1a1a">
   <h1 style="font-size:20px;margin:0 0 16px">${escapeHtml(heading)}</h1>
   ${paragraphs.map((p) => `<p style="font-size:15px;line-height:1.6;margin:0 0 14px">${escapeHtml(p)}</p>`).join("")}
-  <p style="margin:24px 0 0"><a href="${cta.url}" style="background:#2F80ED;color:#1a1a1a;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:999px;display:inline-block">${escapeHtml(cta.label)}</a></p>
+  <p style="margin:24px 0 0"><a href="${cta.url}" style="background:#F5C842;color:#1a1a1a;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:999px;display:inline-block">${escapeHtml(cta.label)}</a></p>
   <p style="font-size:12px;color:#777;margin:28px 0 0">Roulé Rodrigues · roulerodrig.com</p>
 </div>`;
 }

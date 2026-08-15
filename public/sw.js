@@ -173,7 +173,7 @@
 // v243 — the day/night switch comes off the individual vertical pages.
 // v244 — one shared category vocabulary across every experience vertical.
 // v245 — sapphire dark palette; sponsors and the announcement bar connected.
-const CACHE = "rr-cache-v245";
+const CACHE = "rr-cache-v246";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

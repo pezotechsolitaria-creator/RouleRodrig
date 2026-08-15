@@ -680,7 +680,11 @@ export const DEFAULT_HOME_CARDS: HomeCard[] = [
   // above the fold to reach a place already one tap away, and the nav lit up
   // "Explore" as if you had pressed that instead. A category card must land on
   // its category.
-  { id: "hc-exp", label: "Experiences", labelFr: "Expériences", labelCr: "Eksperyans", icon: "experience", imageSource: "exp", action: "link", href: "/browse/tours", tint: "teal", enabled: true },
+  // Was /browse/tours, which is ONE kind of experience — a card labelled
+  // "Experiences" that opened the tour list left massages, charters, sea trips
+  // and hiking guides with no door of their own. /experiences is that door, and
+  // it is where Day and Night live.
+  { id: "hc-exp", label: "Experiences", labelFr: "Expériences", labelCr: "Eksperyans", icon: "experience", imageSource: "exp", action: "link", href: "/experiences", tint: "teal", enabled: true },
   // This slot has now been Ti Roulé, then Events, and is now FOOD (owner, Aug
   // 2026). Ordering is the only thing on this grid a visitor does several times
   // per stay, so it earns a card above the fold more than a listing does.

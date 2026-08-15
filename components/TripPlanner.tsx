@@ -211,7 +211,7 @@ export default function TripPlanner() {
   }
 
   return (
-    <section id="trip-planner" className="bg-[#050505] py-24 md:py-36 overflow-x-hidden" aria-label="AI Trip Planner">
+    <section id="trip-planner" className="bg-[#0a0a0a] py-24 md:py-36 overflow-x-hidden" aria-label="AI Trip Planner">
       <div className="max-w-7xl mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -352,12 +352,12 @@ export default function TripPlanner() {
                   className="flex flex-col items-center justify-center min-h-[460px] text-center"
                 >
                   <svg viewBox="0 0 240 170" className="w-52 h-auto mb-6" fill="none" aria-hidden="true">
-                    <path d="M42 118 C 32 90, 60 70, 90 74 C 110 60, 150 60, 166 82 C 200 84, 208 116, 188 134 C 168 158, 122 158, 100 146 C 72 152, 48 142, 42 118 Z" fill="rgba(47,128,237,0.06)" stroke="rgba(47,128,237,0.22)" strokeWidth="1.5" />
-                    <path d="M72 116 C 72 100, 96 92, 116 96 C 144 92, 158 108, 153 121 C 148 136, 110 140, 96 132 C 80 136, 72 128, 72 116 Z" stroke="rgba(47,128,237,0.16)" strokeWidth="1" fill="none" />
-                    <path d="M56 134 C 92 110, 122 140, 162 100" stroke="rgba(47,128,237,0.55)" strokeWidth="2" strokeLinecap="round" strokeDasharray="6 7" />
-                    <circle cx="56" cy="134" r="4" fill="rgba(47,128,237,0.65)" />
-                    <circle cx="162" cy="100" r="6" fill="#2F80ED" />
-                    <path d="M28 158 q 16 -8 32 0 t 32 0 t 32 0 t 32 0 t 32 0" stroke="rgba(47,128,237,0.14)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+                    <path d="M42 118 C 32 90, 60 70, 90 74 C 110 60, 150 60, 166 82 C 200 84, 208 116, 188 134 C 168 158, 122 158, 100 146 C 72 152, 48 142, 42 118 Z" fill="rgba(245,200,66,0.06)" stroke="rgba(245,200,66,0.22)" strokeWidth="1.5" />
+                    <path d="M72 116 C 72 100, 96 92, 116 96 C 144 92, 158 108, 153 121 C 148 136, 110 140, 96 132 C 80 136, 72 128, 72 116 Z" stroke="rgba(245,200,66,0.16)" strokeWidth="1" fill="none" />
+                    <path d="M56 134 C 92 110, 122 140, 162 100" stroke="rgba(245,200,66,0.55)" strokeWidth="2" strokeLinecap="round" strokeDasharray="6 7" />
+                    <circle cx="56" cy="134" r="4" fill="rgba(245,200,66,0.65)" />
+                    <circle cx="162" cy="100" r="6" fill="#F5C842" />
+                    <path d="M28 158 q 16 -8 32 0 t 32 0 t 32 0 t 32 0 t 32 0" stroke="rgba(245,200,66,0.14)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
                   </svg>
                   <p className="font-syne font-bold text-offwhite/40 text-xl">{t.planner.emptyTitle}</p>
                   <p className="text-muted/50 font-dm text-sm mt-2 max-w-xs">{t.planner.emptyDesc}</p>

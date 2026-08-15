@@ -12,7 +12,7 @@ export default function Faq({ content }: { content?: FaqContent }) {
   if (items.length === 0) return null;
 
   return (
-    <section id="faq" className="bg-[#050505] py-24 md:py-32" aria-label="Frequently asked questions">
+    <section id="faq" className="bg-[#0a0a0a] py-24 md:py-32" aria-label="Frequently asked questions">
       <div className="max-w-3xl mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 30 }}

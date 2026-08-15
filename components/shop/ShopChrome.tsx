@@ -159,7 +159,7 @@ export function CartBar() {
         >
           <Link
             href="/cart"
-            className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-full bg-yellow py-3 pl-4 pr-5 font-dm text-sm font-bold text-dark shadow-[0_10px_36px_rgba(47,128,237,0.4)] transition-transform hover:scale-[1.02]"
+            className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-full bg-yellow py-3 pl-4 pr-5 font-dm text-sm font-bold text-dark shadow-[0_10px_36px_rgba(245,200,66,0.4)] transition-transform hover:scale-[1.02]"
           >
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-dark font-dm text-[11px] font-bold text-yellow">
               {itemCount > 99 ? "99+" : itemCount}

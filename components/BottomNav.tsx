@@ -35,7 +35,7 @@ export default function BottomNav() {
       active ? "text-dark" : "text-muted hover:text-offwhite"
     }`;
   const pill = (
-    <span className="absolute inset-0 -z-10 rounded-xl bg-gradient-to-b from-yellow to-yellow-dark shadow-[0_4px_14px_-3px_rgba(47,128,237,0.55)]" />
+    <span className="absolute inset-0 -z-10 rounded-xl bg-gradient-to-b from-yellow to-yellow-dark shadow-[0_4px_14px_-3px_rgba(245,200,66,0.55)]" />
   );
 
   const item = (tab: NavTab) => {
@@ -47,7 +47,7 @@ export default function BottomNav() {
           type="button"
           onClick={openTiRoule}
           aria-label={label}
-          className="flex min-w-[52px] flex-col items-center gap-1 rounded-2xl bg-gradient-to-b from-yellow to-yellow-dark px-2 py-1.5 shadow-[0_6px_18px_-4px_rgba(47,128,237,0.55)]"
+          className="flex min-w-[52px] flex-col items-center gap-1 rounded-2xl bg-gradient-to-b from-yellow to-yellow-dark px-2 py-1.5 shadow-[0_6px_18px_-4px_rgba(245,200,66,0.55)]"
         >
           <tab.icon size={22} className="text-dark" />
           <span className="font-dm text-[10px] font-medium leading-none text-dark">{label}</span>

@@ -48,7 +48,7 @@ export default function GettingAround({ content }: { content?: GettingAroundCont
                 transition={{ duration: 0.35, delay: Math.min(i, 3) * 0.05 }}
                 className={`group relative flex flex-col rounded-2xl p-5 transition-colors duration-300 ${
                   opt.highlight
-                    ? "bg-gradient-to-b from-yellow/[0.08] to-transparent ring-1 ring-yellow/50 hover:ring-yellow shadow-[0_0_44px_-14px_rgba(47,128,237,0.35)]"
+                    ? "bg-gradient-to-b from-yellow/[0.08] to-transparent ring-1 ring-yellow/50 hover:ring-yellow shadow-[0_0_44px_-14px_rgba(245,200,66,0.35)]"
                     : "bg-dark-card ring-1 ring-white/10 hover:ring-yellow/40"
                 }`}
               >

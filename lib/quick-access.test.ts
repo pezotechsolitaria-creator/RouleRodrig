@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { migrateQuickAccess } from "./quick-access";
+import { migrateQuickAccess, migrateHomeCards } from "./quick-access";
 import { DEFAULT_QUICK_ACCESS } from "./defaults";
 import type { QuickAccessItem } from "./defaults";
 
@@ -117,5 +117,40 @@ describe("migrateQuickAccess", () => {
     // migration would silently start rewriting the seed too.
     expect(migrateQuickAccess(DEFAULT_QUICK_ACCESS)).toEqual(DEFAULT_QUICK_ACCESS);
     expect(DEFAULT_QUICK_ACCESS.find((x) => x.id === "qa-hiking")?.href).toBe("/guide/hiking");
+  });
+});
+
+describe("migrateHomeCards", () => {
+  const card = (over: Record<string, unknown> = {}) => ({
+    id: "hc-exp", label: "Experiences", href: "/browse/tours", ...over,
+  });
+
+  it("moves the Experiences card off the tour list onto the hub", () => {
+    // /browse/tours is ONE kind of experience — massages, charters, sea trips
+    // and hiking guides had no door of their own.
+    expect(migrateHomeCards([card()])[0].href).toBe("/experiences");
+  });
+
+  it("leaves a card the owner has re-pointed himself", () => {
+    expect(migrateHomeCards([card({ href: "/browse/activities" })])[0].href).toBe("/browse/activities");
+  });
+
+  it("keeps every other property of the card", () => {
+    const c = card({ label: "Nos expériences", tint: "amber", enabled: false });
+    expect(migrateHomeCards([c])[0]).toEqual({ ...c, href: "/experiences" });
+  });
+
+  it("leaves other cards alone", () => {
+    const others = [card({ id: "hc-scooter", href: "/browse/tours" })];
+    expect(migrateHomeCards(others)).toEqual(others);
+  });
+
+  it("is idempotent", () => {
+    const once = migrateHomeCards([card()]);
+    expect(migrateHomeCards(once)).toEqual(once);
+  });
+
+  it("passes undefined through so the defaults apply", () => {
+    expect(migrateHomeCards(undefined)).toBeUndefined();
   });
 });

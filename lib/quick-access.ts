@@ -75,6 +75,28 @@ const RELABELLED: { id: string; whenLabel: string; label: string; labelFr: strin
   },
 ];
 
+/**
+ * Home CARDS that have moved. Same reasoning as MOVED above, and the same
+ * guard: only rewritten while the card still holds the destination it is being
+ * moved off, so a card the owner has re-pointed himself is left alone.
+ */
+const CARDS_MOVED: { id: string; from: string; to: string }[] = [
+  // "Experiences" opened /browse/tours — one kind of experience. Massages,
+  // charters, sea trips and hiking guides had no door of their own.
+  { id: "hc-exp", from: "/browse/tours", to: "/experiences" },
+];
+
+export function migrateHomeCards<T extends { id: string; href?: string }>(cards: T[]): T[];
+export function migrateHomeCards<T extends { id: string; href?: string }>(cards: undefined): undefined;
+export function migrateHomeCards<T extends { id: string; href?: string }>(cards?: T[]): T[] | undefined;
+export function migrateHomeCards<T extends { id: string; href?: string }>(cards?: T[]): T[] | undefined {
+  if (!cards) return cards;
+  return cards.map((c) => {
+    const move = CARDS_MOVED.find((m) => m.id === c.id && c.href === m.from);
+    return move ? { ...c, href: move.to } : c;
+  });
+}
+
 export function migrateQuickAccess(items: QuickAccessItem[]): QuickAccessItem[];
 export function migrateQuickAccess(items: undefined): undefined;
 export function migrateQuickAccess(items?: QuickAccessItem[]): QuickAccessItem[] | undefined;

@@ -49,7 +49,7 @@ export default async function TripPlannerPage() {
         showRoutes={content.rideRoutes.length > 0}
         showEvents={content.events.some((e) => e.title)}
       />
-      <main className="bg-[#050505] min-h-screen">
+      <main className="bg-[#0a0a0a] min-h-screen">
         <div className="mx-auto max-w-7xl px-6 pt-28 md:pt-32">
           <Link href="/" className="inline-flex items-center gap-2 text-muted hover:text-yellow text-sm transition-colors">
             <ArrowLeft size={15} /> Roule Rodrigues
