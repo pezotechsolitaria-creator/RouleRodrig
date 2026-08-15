@@ -880,6 +880,31 @@ html.light .border-dark-border { border-color: #E5E7EB; }
 html.light .text-offwhite { color: #1A1A1A; }
 html.light .text-muted    { color: #6B7280; }
 
+/* ── OPACITY VARIANTS ARE DIFFERENT CLASSES ────────────────────────────────
+ * `text-offwhite/90` is not `.text-offwhite` with an opacity applied — Tailwind
+ * emits a SEPARATE utility for it. Flipping only the base class therefore left
+ * every faded label near-white on a white ground: the quick-access tile
+ * captions, the travel-tool chips and the location pill all rendered as icons
+ * with nothing beside them, and the card icon badges became empty circles.
+ *
+ * This is safe to flip wholesale, unlike `text-white`. `offwhite` is the body
+ * text token for a dark ground and never means "text sitting on a photograph";
+ * that is `text-white`, which is deliberately NOT touched anywhere in this
+ * layer. The faded steps keep their hierarchy by landing on muted rather than
+ * on ink.
+ */
+html.light .text-offwhite\/90 { color: #1A1A1A; }
+html.light .text-offwhite\/85 { color: #1A1A1A; }
+html.light .text-offwhite\/80 { color: #1A1A1A; }
+html.light .text-offwhite\/75 { color: #4B5563; }
+html.light .text-offwhite\/70 { color: #4B5563; }
+html.light .text-offwhite\/60 { color: #6B7280; }
+html.light .text-offwhite\/55 { color: #6B7280; }
+html.light .text-offwhite\/50 { color: #6B7280; }
+html.light .text-offwhite\/40 { color: #9CA3AF; }
+html.light .text-muted\/80,
+html.light .text-muted\/70    { color: #6B7280; }
+
 /* ── THE ACCENT IS BLUE ON LIGHT, GOLD ON DARK ─────────────────────────────
    Owner's call, and it is the right one twice over. Gold is the brand on the
    near-black canvas and unreadable on a light one: #F5C842 on white is 1.7:1,
