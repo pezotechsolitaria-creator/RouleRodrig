@@ -900,10 +900,23 @@ html.light .text-yellow-dark { color: #17499A; }
 html.light .from-yellow\/10,
 html.light .from-yellow\/\[0\.08\] { --tw-gradient-from: rgba(47,128,237,0.10); }
 
-/* WHITE MEANS FOREGROUND IN THIS DESIGN, not the colour white: text-white is
-   "the readable colour on ink", and bg-white/[0.02] is "a surface lifted off
-   ink". On light both have to invert or they disappear. */
-html.light .text-white { color: #1A1A1A; }
+/* ── TEXT ON PHOTOGRAPHS NEVER FLIPS ──────────────────────────────────────
+   `text-white` in this codebase almost always means "on top of an image" — a
+   card label over its photo, a button on the hero. Flipping it made every one
+   of those dark-on-dark and invisible: the homepage lost "WELCOME TO", "Cars"
+   and every "Explore →".
+
+   A photograph is the same brightness in both themes, so text over one is the
+   same colour in both themes. It is not part of the theme at all.
+
+   `bg-white/x` and `border-white/x` DO flip — those are surfaces lifted off the
+   ground, and the ground is what changed. Only the glyph colour stays. */
+
+/* rr-on-media: an explicit opt-out for text over an image that uses a
+   ground-colour utility (the hero headline is text-offwhite, because it is a
+   heading first and happens to sit on a photo). */
+html.light .rr-on-media,
+html.light .rr-on-media * { color: #FFFFFF; }
 html.light .bg-white\/5,
 html.light .bg-white\/10,
 html.light .bg-white\/\[0\.02\],

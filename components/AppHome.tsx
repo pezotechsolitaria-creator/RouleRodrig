@@ -415,7 +415,12 @@ function AutoImageCard({
       {card.popular && (
         <span className="absolute right-2 top-2 rounded-full bg-yellow px-2 py-0.5 font-bebas text-[8px] tracking-[0.12em] text-dark">POPULAR</span>
       )}
-      <span className="absolute inset-x-0 bottom-0 p-2.5">
+      {/* rr-on-media: this block sits on the card's photo, under a black
+          gradient. Its colours belong to the IMAGE, not to the theme — the
+          accent flipped to blue in light mode and measured ~2.8:1 against that
+          dark gradient, which is the same class of bug as the dark-on-dark
+          headline. Over media, white. */}
+      <span className="rr-on-media absolute inset-x-0 bottom-0 p-2.5">
         <span className="block font-syne text-[13px] font-bold leading-tight text-white drop-shadow">{L(card.label)}</span>
         <span className="mt-0.5 inline-flex items-center gap-1 font-dm text-[10px] font-semibold text-yellow">
           {L(["Explore", "Explorer", "Explor"])} <ArrowRight size={11} className="transition-transform group-hover:translate-x-0.5" />

@@ -411,7 +411,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
               <div key={`${line}-${i}`} className="overflow-hidden">
                 <h1
                   aria-label={line}
-                  className="block font-syne font-extrabold text-offwhite leading-[0.9] uppercase tracking-tight [text-shadow:0_2px_40px_rgba(0,0,0,0.45)]"
+                  className="rr-on-media block font-syne font-extrabold text-offwhite leading-[0.9] uppercase tracking-tight [text-shadow:0_2px_40px_rgba(0,0,0,0.45)]"
                   style={{ fontSize: "clamp(1.85rem, 6.6vw, 7rem)" }}
                 >
                   {[...line].map((ch, j) =>
