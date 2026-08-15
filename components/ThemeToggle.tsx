@@ -18,7 +18,16 @@ import DuskSequence, { useDusk } from "@/components/DuskSequence";
 // keeps working.
 
 export type ThemeChoice = "light" | "dark";
-export const THEME_KEY = "rr_theme";
+// ── A NEW KEY, SO EVERY DEVICE STARTS AT DARK ───────────────────────────────
+// The old key is deliberately abandoned rather than read. During the days this
+// theme was being built, several intermediate builds wrote 'rr_theme' — and one
+// of them made light the default, so devices are carrying a stored "light" that
+// nobody ever chose. Reading that value cannot tell an accidental "light" from
+// a deliberate one, so it is not read at all.
+//
+// Everything starts dark, which is this site's identity. Pressing Light writes
+// the new key and sticks for good. Nothing has to be cleared by hand.
+export const THEME_KEY = "rr_theme_v2";
 
 /** What the document should look like for a choice. */
 export function resolveTheme(choice: ThemeChoice): "light" | "dark" {

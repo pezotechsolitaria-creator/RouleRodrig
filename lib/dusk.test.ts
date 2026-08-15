@@ -54,6 +54,16 @@ describe("dusk sequence layers", () => {
     }
   });
 
+  it("the sun is fully bright through the first half — the frame people see", () => {
+    // The reported bug, exactly. The sun used to fade from the first frame, so
+    // at the midpoint — the moment anyone actually catches, and the moment a
+    // screenshot lands on — it sat at 15% and read as a coloured wash with no
+    // sun in it. Anything below full brightness here is that bug returning.
+    for (let i = 0; i <= 50; i++) {
+      expect(layerOpacities(i / 100).sun).toBe(1);
+    }
+  });
+
   it("the moon and stars stay off until the sky is actually dark", () => {
     expect(layerOpacities(0.5).moon).toBe(0);
     expect(layerOpacities(0.5).stars).toBe(0);

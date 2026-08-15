@@ -106,12 +106,18 @@ export function layerOpacities(t: number) {
     day: Math.max(0, 1 - t * 2),
     night: Math.max(0, t * 2 - 1),
     warm: Math.sin(Math.PI * t),
-    // The sun is gone by t≈0.59, before the moon appears at 0.62. They must not
-    // overlap: a sun and a moon both hanging at a fifth of full brightness
-    // reads as a rendering fault, not as a sky. The test enforces the gap.
-    sun: Math.max(0, 1 - t * 1.7),
-    moon: Math.max(0, (t - 0.62) * 3.4),
-    stars: Math.max(0, (t - 0.66) * 3),
+    // ── THE SUN HAS TO BE A SUN ─────────────────────────────────────────────
+    // It used to fade from the first frame, so by the midpoint — which is the
+    // moment anyone photographing this actually catches — it was at 15% and
+    // simply not there. All you saw was a coloured wash, which is precisely
+    // how it was reported: "it does not look like a sun".
+    //
+    // It is now FULLY BRIGHT for the first 60% and only dims as it goes under
+    // the horizon, which is what a setting sun does. The moon takes over
+    // exactly where it lands, so the two are still never on screen together.
+    sun: t < 0.6 ? 1 : Math.max(0, 1 - (t - 0.6) * 5),
+    moon: Math.max(0, (t - 0.8) * 5),
+    stars: Math.max(0, (t - 0.84) * 6.25),
   };
 }
 
@@ -142,15 +148,20 @@ export default function DuskSequence({ t, sweep }: { t: number; sweep: number })
       />
 
       {/* THE SUNSET ITSELF. Opaque at the midpoint, so the two endpoints can
-          never average into grey behind it. These are the colours the sky over
-          Rodrigues actually goes: violet at the top of the dome, through rose
-          and amber, into a molten band at the horizon. */}
+          never average into grey behind it.
+
+          The first attempt at these stops began #2E1C58 → #7B3A73 → #C75C6A —
+          violet into rose — and on a phone the top two thirds of the screen
+          read as dark maroon. It looked like a warning state, not an evening.
+          A tropical sunset keeps BLUE overhead and confines the warmth to the
+          bottom of the sky, so that is what these stops do: the dome stays
+          oceanic, and the fire sits low where the sun actually is. */}
       <div
         className="absolute inset-0"
         style={{
           opacity: warm,
           background:
-            "linear-gradient(180deg,#2E1C58 0%,#7B3A73 26%,#C75C6A 48%,#F0885B 66%,#FFB25C 82%,#FFD79A 100%)",
+            "linear-gradient(180deg,#123A6B 0%,#2E6FA8 22%,#6BA3C4 40%,#C6A98E 56%,#F2A15C 72%,#FF8A47 88%,#FFC98A 100%)",
         }}
       />
 
@@ -175,20 +186,25 @@ export default function DuskSequence({ t, sweep }: { t: number; sweep: number })
         }}
       />
 
-      {/* THE SUN. Sinks and reddens as it goes, the way it does. Positioned by
-          transform rather than top, so it composites instead of forcing layout
-          on every frame. Stays luminous to the end — a dark sun is the bug this
-          component was rewritten to kill. */}
+      {/* THE SUN. A hard-edged disc with a halo around it, not a soft smudge.
+          The previous one was a 96px blurred gradient at partial opacity, and
+          against a bright sky that is not a sun — it is a slightly lighter
+          patch. A sun is read from its EDGE: a definite bright circle sitting
+          inside a glow. So the core is opaque white-gold with a crisp boundary,
+          the halo is a separate box-shadow, and only the halo softens.
+
+          Positioned by transform rather than top, so it composites instead of
+          forcing layout on every frame. */}
       <div
-        className="absolute left-1/2 h-24 w-24 rounded-full"
+        className="absolute left-1/2 h-32 w-32 rounded-full"
         style={{
-          top: "10%",
-          transform: `translate(-50%, ${t * 62}vh)`,
+          top: "12%",
+          transform: `translate(-50%, ${t * 64}vh)`,
           opacity: sun,
-          filter: `blur(${2 + t * 6}px)`,
           background:
-            "radial-gradient(circle at 50% 50%,#FFFDF2 0%,#FFE9A8 34%," +
-            `rgba(255,166,74,${0.9 - t * 0.2}) 62%, rgba(255,110,50,0) 76%)`,
+            "radial-gradient(circle at 50% 50%,#FFFEF7 0%,#FFF3C4 46%,#FFD976 74%,#FFC24E 100%)",
+          boxShadow:
+            "0 0 60px 24px rgba(255,214,120,0.55), 0 0 140px 60px rgba(255,150,60,0.35)",
         }}
       />
 
