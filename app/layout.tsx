@@ -14,6 +14,8 @@ import PWARegister from "@/components/PWARegister";
 import RefCapture from "@/components/RefCapture";
 import AnnouncementBar from "@/components/AnnouncementBar";
 import BuildWatcher from "@/components/BuildWatcher";
+import { ExperienceWorldProvider } from "@/context/ExperienceWorldContext";
+import ExperienceGateway from "@/components/world/ExperienceGateway";
 import BottomNav from "@/components/BottomNav";
 import GlobalTiRoule from "@/components/GlobalTiRoule";
 import { getContent } from "@/lib/content";
@@ -304,10 +306,18 @@ export default async function RootLayout({
             in the tree honour the OS setting without touching a single one. */}
         <MotionProvider>
         <LanguageProvider>
+          {/* The world is chosen inside the language provider because the
+              gateway speaks all three languages, and above everything else
+              because the choice colours the entire site. */}
+          <ExperienceWorldProvider>
           <CurrencyProvider>
             <FavoritesProvider>
             <CartProvider>
               <LanguagePicker />
+              {/* First visit only. It renders nothing at all once a world is
+                  stored, and nothing on the server, so crawlers and returning
+                  visitors are unaffected. */}
+              <ExperienceGateway />
               <RefCapture />
               {/* ── The announcement bar, finally connected ──────────────────
                   Admin has been able to write one since long before this, and
@@ -360,6 +370,7 @@ export default async function RootLayout({
             </CartProvider>
             </FavoritesProvider>
           </CurrencyProvider>
+          </ExperienceWorldProvider>
         </LanguageProvider>
         </MotionProvider>
         <Analytics />

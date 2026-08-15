@@ -1,0 +1,96 @@
+"use client";
+
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { parseWorld, WORLD_COPY, WORLD_KEY, type World } from "@/lib/worlds";
+import { applyTheme, THEME_KEY } from "@/components/ThemeToggle";
+
+// ── WHO OWNS THE VISITOR'S CHOICE ───────────────────────────────────────────
+//
+// One provider, mounted once, holding the answer to "which Rodrigues am I in".
+// Everything else reads it. The rules it enforces:
+//
+//   • Nothing is assumed on the server. The world lives in localStorage, which
+//     the server cannot see, so the first render is deliberately world-less and
+//     the real value arrives in an effect. Guessing would produce a
+//     server/client mismatch, and a failed hydration attaches NO event
+//     handlers — which is exactly how the Day/Night switch on the experiences
+//     hub came to render perfectly and do nothing when pressed.
+//
+//   • Choosing a world sets the theme, because the world IS the light. See the
+//     note at the top of lib/worlds.ts: the alternative was a third
+//     independent switch and eight combinations to keep coherent.
+//
+//   • `ready` is separate from `world`. "Not chosen yet" and "not read yet"
+//     look identical if you only have null, and the gateway must appear for the
+//     first but never flash for the second.
+
+type Ctx = {
+  /** null = the visitor has not chosen. Only meaningful once `ready`. */
+  world: World | null;
+  /** Has localStorage been read? Nothing should render a world before this. */
+  ready: boolean;
+  choose: (w: World) => void;
+};
+
+const ExperienceWorldContext = createContext<Ctx>({
+  world: null,
+  ready: false,
+  choose: () => {},
+});
+
+export function ExperienceWorldProvider({ children }: { children: React.ReactNode }) {
+  const [world, setWorld] = useState<World | null>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let stored: World | null = null;
+    try {
+      stored = parseWorld(localStorage.getItem(WORLD_KEY));
+    } catch {
+      // Private mode, or storage disabled. A visitor who cannot be remembered
+      // still gets a working site — they simply meet the gateway each time.
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setWorld(stored);
+    setReady(true);
+  }, []);
+
+  const choose = useCallback((w: World) => {
+    setWorld(w);
+    const theme = WORLD_COPY[w].theme;
+    try {
+      localStorage.setItem(WORLD_KEY, w);
+      // Written through to the theme key as well, so the pre-hydration script
+      // in app/layout.tsx paints the right ground on the NEXT load before
+      // React exists. Without this the visitor gets one frame of the wrong
+      // world on every subsequent visit.
+      localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      /* see above */
+    }
+    applyTheme(theme);
+  }, []);
+
+  const value = useMemo(() => ({ world, ready, choose }), [world, ready, choose]);
+
+  return (
+    <ExperienceWorldContext.Provider value={value}>
+      {children}
+    </ExperienceWorldContext.Provider>
+  );
+}
+
+export function useExperienceWorld() {
+  return useContext(ExperienceWorldContext);
+}
+
+/**
+ * The world to PRESENT with, for anything that has to render something either
+ * way. Curated is the fallback because it is the near-black world — this site's
+ * existing identity — so a visitor who has not chosen yet, or whose storage is
+ * unreadable, sees Roule Rodrigues as it already looks rather than a stranger.
+ */
+export function useActiveWorld(): World {
+  const { world } = useExperienceWorld();
+  return world ?? "curated";
+}
