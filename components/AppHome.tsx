@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, Fragment, type ReactNode } from "react";
+import { useState, useEffect, useMemo, useRef, Fragment, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -18,7 +18,7 @@ import InstallAppButton from "@/components/InstallAppButton";
 import AccountButton from "@/components/AccountButton";
 import WorldSwitcher from "@/components/world/WorldSwitcher";
 import { useActiveWorld } from "@/context/ExperienceWorldContext";
-import { WORLD_COPY } from "@/lib/worlds";
+import { WORLD_COPY, forWorld } from "@/lib/worlds";
 import EventsPromo, { type PromoEvent } from "@/components/EventsPromo";
 import { HeartHandshake } from "lucide-react";
 import { DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS } from "@/lib/defaults";
@@ -49,7 +49,15 @@ const HOME_ICON: Record<string, React.ElementType> = {
 };
 
 type Tri = [string, string, string];
-type Card = { id: string; name: string; image?: string; price?: string | null; href: string; tag?: string };
+type Card = {
+  id: string; name: string; image?: string; price?: string | null; href: string; tag?: string;
+  // Optional world metadata. Absent means "both", which is every card that
+  // predates the world system — see lib/worlds.ts.
+  world?: "authentic" | "curated" | "both";
+  worldPriority?: number;
+  featuredAuthentic?: boolean; featuredCurated?: boolean;
+  heroAuthentic?: boolean; heroCurated?: boolean;
+};
 type CardImages = { scooter: string[]; car: string[]; stays: string[]; exp: string[]; stores: string[]; food?: string[] };
 
 // Depth tints for the six primary cards (icon badge + gradient fallback).
@@ -102,6 +110,17 @@ export default function AppHome({
   // world is this site's existing identity, so anyone who has not chosen sees
   // the page they already know rather than a stranger.
   const activeWorld = useActiveWorld();
+
+  // ── THE WORLD REORDERS THE PAGE, NOT JUST ITS COLOURS ─────────────────────
+  // This is what stops the switcher being a theme toggle with extra steps: the
+  // rails are filtered to the world and ranked by the owner's featured flags
+  // and priorities, so Authentic and Curated genuinely offer different things
+  // in a different order.
+  //
+  // Untagged content still appears in both, so an owner who has tagged nothing
+  // sees exactly what they see today — the difference grows as they tag.
+  const worldExperiences = useMemo(() => forWorld(experiences, activeWorld), [experiences, activeWorld]);
+  const worldStays = useMemo(() => forWorld(stays, activeWorld), [stays, activeWorld]);
 
   // The primary photo cards — admin-editable (content.homeCards). Each card's
   // auto-cycling photos come from its imageSource category (the owner's real
@@ -210,8 +229,15 @@ export default function AppHome({
               </span>
             </span>
           </Link>
-          <button className="mx-auto inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.05] px-3 py-1.5 font-dm text-xs text-offwhite/90" aria-label="Rodrigues Island">
-            <MapPin size={13} className="text-yellow" /> Rodrigues Island <ChevronDown size={13} className="text-muted" />
+          {/* ── THE WORLD LIVES WHERE THE LOCATION PILL WAS ────────────────
+              "Rodrigues Island" was a label, not a control: it named the only
+              place this site covers and opened nothing. The world switcher is a
+              real choice and it belongs in the most prominent slot in the
+              header, so it takes that space rather than adding a second row
+              beneath it. */}
+          <WorldSwitcher strip={false} className="mx-auto" />
+          <button className="hidden" aria-hidden tabIndex={-1}>
+            <MapPin size={13} className="text-yellow" /> <ChevronDown size={13} className="text-muted" />
           </button>
           <InstallAppButton variant="icon" />
           <button onClick={cycle} aria-label="Change language" className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 font-bebas text-[11px] tracking-widest text-muted transition-colors hover:text-yellow">
@@ -226,16 +252,6 @@ export default function AppHome({
               and an account is who you are. */}
           <AccountButton />
         </div>
-
-        {/* ── CHANGE YOUR RODRIGUES ──────────────────────────────────────────
-            Directly under the identity row and above everything else, because
-            it reframes the whole page beneath it — putting it lower would make
-            it look like a filter for whatever section it happened to sit in.
-
-            It renders nothing until a world has been chosen, so it costs a
-            first-time visitor nothing and cannot appear while the gateway is
-            still on screen offering the same choice. */}
-        <WorldSwitcher />
 
         {/* ── DESKTOP NAVIGATION ─────────────────────────────────────────────
             A laptop should not be given a phone's thumb dock. The bottom bar
@@ -395,15 +411,15 @@ export default function AppHome({
           </Rail>
         )}
 
-        {experiences.length > 0 && (
+        {worldExperiences.length > 0 && (
           <Rail title={L(["Featured Experiences", "Expériences à la une", "Bann eksperyans"])} subtitle={L(["Handpicked activities you'll love.", "Des activités triées sur le volet.", "Bann aktivite swazir pou ou."])} seeAll="/browse/tours" seeAllLabel={L(["View all", "Voir tout", "Get tou"])}>
-            {experiences.map((e) => <PriceCard key={e.id} card={e} />)}
+            {worldExperiences.map((e) => <PriceCard key={e.id} card={e} />)}
           </Rail>
         )}
 
-        {stays.length > 0 && (
+        {worldStays.length > 0 && (
           <Rail title={L(["Top Stays", "Où dormir", "Kot reste"])} subtitle={L(["Handpicked places to stay.", "Des hébergements triés pour vous.", "Bann lozman swazir pou ou."])} seeAll="/browse/stays" seeAllLabel={L(["View all", "Voir tout", "Get tou"])}>
-            {stays.map((s) => <PriceCard key={s.id} card={s} />)}
+            {worldStays.map((s) => <PriceCard key={s.id} card={s} />)}
           </Rail>
         )}
 

@@ -62,10 +62,21 @@ export default async function Home() {
     .map((p) => ({
       id: p.id, name: p.name, image: p.image, price: p.priceNote ?? null,
       href: p.serviceType ? `/experiences/${p.serviceType}` : p.isTour ? "/browse/tours" : "/browse/activities",
+      // The world fields travel with the card. They used to be dropped here,
+      // which is why tagging content in admin changed /experiences but left the
+      // homepage identical in both worlds — the data never arrived.
+      world: p.world, worldPriority: p.worldPriority,
+      featuredAuthentic: p.featuredAuthentic, featuredCurated: p.featuredCurated,
+      heroAuthentic: p.heroAuthentic, heroCurated: p.heroCurated,
     }));
   const stays = content.recommended.items
     .filter((p) => p.category === "hotel" && (p.image || ""))
-    .map((p) => ({ id: p.id, name: p.name, image: p.image, price: p.priceNote ?? null, href: "/browse/stays" }));
+    .map((p) => ({
+      id: p.id, name: p.name, image: p.image, price: p.priceNote ?? null, href: "/browse/stays",
+      world: p.world, worldPriority: p.worldPriority,
+      featuredAuthentic: p.featuredAuthentic, featuredCurated: p.featuredCurated,
+      heroAuthentic: p.heroAuthentic, heroCurated: p.heroCurated,
+    }));
   const discover = content.mapLocations
     .filter((l) => (l.image || l.images?.[0]) && l.story && ["beach", "viewpoint", "landmark"].includes(l.category))
     .slice(0, 10)
