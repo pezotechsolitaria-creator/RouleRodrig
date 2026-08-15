@@ -219,6 +219,68 @@ export default function AppHome({
               and an account is who you are. */}
           <AccountButton />
         </div>
+
+        {/* ── DESKTOP NAVIGATION ─────────────────────────────────────────────
+            A laptop should not be given a phone's thumb dock. The bottom bar
+            exists because a thumb reaches the bottom of a phone and not the
+            top; neither is true of a mouse, and a floating pill across a wide
+            screen reads as an unfinished mobile port.
+
+            So above md: the same tabs and tools appear here, in the header,
+            where a website keeps its navigation — and the dock below is hidden
+            entirely. One list drives both (lib/nav-tabs.ts), so the two chromes
+            can never drift apart or disagree about what exists. */}
+        <nav aria-label="Primary" className="hidden border-t border-white/10 md:block">
+          <div className="mx-auto flex max-w-6xl items-center gap-1 px-5 py-2">
+            {NAV_TABS.map((tab) => {
+              const label = tabLabel(tab, language);
+              if (tab.action === "tiroule") {
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={openTiRoule}
+                    className="ml-1 flex items-center gap-2 rounded-full bg-gradient-to-b from-yellow to-yellow-dark px-4 py-2 font-dm text-[13px] font-bold text-dark shadow-[0_6px_18px_-6px_rgba(245,200,66,0.6)] transition-transform hover:scale-[1.03]"
+                  >
+                    <tab.icon className="h-[18px] w-[18px]" />
+                    {label}
+                  </button>
+                );
+              }
+              const active = isTabActive(tab, pathname);
+              return (
+                <Link
+                  key={tab.key}
+                  href={tab.href ?? "/"}
+                  aria-current={active ? "page" : undefined}
+                  className={`flex items-center gap-2 rounded-full px-4 py-2 font-dm text-[13px] font-semibold transition-colors ${
+                    active
+                      ? "bg-yellow/12 text-yellow"
+                      : "text-muted hover:bg-white/[0.05] hover:text-offwhite"
+                  }`}
+                >
+                  <tab.icon className="h-[18px] w-[18px]" />
+                  {label}
+                </Link>
+              );
+            })}
+
+            {/* The tools that live in the dock's top row on a phone. On a wide
+                screen there is room for them on the same line, pushed right. */}
+            <span className="ml-auto flex items-center gap-1">
+              {TOOLS.map((t) => (
+                <Link
+                  key={t.href + t.label[0]}
+                  href={t.href}
+                  className="flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 font-dm text-xs font-medium text-offwhite/90 transition-colors hover:border-yellow/40 hover:text-yellow"
+                >
+                  <t.icon className="h-4 w-4 text-yellow" />
+                  {L(t.label)}
+                </Link>
+              ))}
+            </span>
+          </div>
+        </nav>
       </header>
 
       {/* ── Hero (kept — passed in) ────────────────────────── */}
@@ -228,8 +290,9 @@ export default function AppHome({
           list children ("a child from Home"). A stable key silences it. */}
       <Fragment key="hero">{hero}</Fragment>
 
-      {/* pb clears the fixed bottom bar (tools strip + nav). */}
-      <main className="mx-auto max-w-5xl px-4 pb-[124px]">
+      {/* pb clears the fixed bottom bar on a phone. Above md: the dock is gone
+          and the navigation is in the header, so the reserved strip goes too. */}
+      <main className="mx-auto max-w-5xl px-4 pb-[124px] md:pb-16">
         {/* Six primary cards — v1 photo-card design, auto-cycling images. */}
         <section className="rr-home-cards-sec pt-3">
           <div className="rr-home-cards grid grid-cols-3 gap-2.5">
@@ -314,7 +377,7 @@ export default function AppHome({
       {/* ── Floating bottom app nav ─────────────────────────
           A detached rounded panel with a small gap on the sides and below
           (respecting the safe area). */}
-      <div className="fixed inset-x-0 bottom-0 z-40 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <div className="fixed inset-x-0 bottom-0 z-40 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden">
         {/* ── THE DOCK IS PHONE-SIZED, SO IT MUST GROW ON A BIG SCREEN ───────
             Every measurement in here was fixed at phone scale: 20px icons and
             10px labels. On a phone that is right. Stretched across a laptop it
