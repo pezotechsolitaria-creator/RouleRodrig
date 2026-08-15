@@ -56,7 +56,7 @@ interface Attachment {
 // A small, consistent design language shared by every email so the whole
 // lifecycle (confirmation → reminders → feedback) looks like one premium brand.
 const C = {
-  gold: "#F5C842",
+  gold: "#2F80ED",
   ink: "#0F0F0F",
   text: "#4A4A4A",
   muted: "#8C8C8C",
@@ -1314,11 +1314,11 @@ export async function sendVehicleUnavailableEmail(o: {
       <p>The <b>${o.vehicle}</b> you requested for <b>${dates}</b> has just been secured by another
       customer who paid the deposit first, so your request${o.ref ? ` (<b>${o.ref}</b>)` : ""} has been released.</p>
       <p><b>You were not charged.</b> Plenty of other vehicles are available for your dates —</p>
-      <p><a href="https://roulerodrig.com/browse/scooter" style="color:#F5C842;font-weight:700">Browse &amp; book another →</a></p>
+      <p><a href="https://roulerodrig.com/browse/scooter" style="color:#2F80ED;font-weight:700">Browse &amp; book another →</a></p>
       <hr style="border:none;border-top:1px solid #2a2a2a;margin:20px 0" />
       <p style="color:#888;font-size:13px">La voiture / le scooter que vous aviez demandé pour ${dates}
       vient d'être réservé par un autre client. Aucun montant ne vous a été débité —
-      <a href="https://roulerodrig.com/browse/scooter" style="color:#F5C842">réservez-en un autre</a>.</p>`,
+      <a href="https://roulerodrig.com/browse/scooter" style="color:#2F80ED">réservez-en un autre</a>.</p>`,
   });
   const type = vehicleEmailType("booking_status", await vehicleCategory(o.vehicleId ?? o.vehicle));
   return send({

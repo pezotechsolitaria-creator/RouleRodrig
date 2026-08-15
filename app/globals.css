@@ -11,11 +11,11 @@
   --font-dm: var(--font-dm-var);
 
   /* Brand colors */
-  --color-yellow: #F5C842;
-  --color-yellow-dark: #d4a800;
-  --color-dark: #0a0a0a;
-  --color-dark-card: #111111;
-  --color-dark-border: #222222;
+  --color-yellow: #2F80ED;
+  --color-yellow-dark: #1F5FBF;
+  --color-dark: #050505;
+  --color-dark-card: #0A1622;
+  --color-dark-border: #16324A;
   --color-offwhite: #F5F5F0;
   --color-muted: #888888;
 
@@ -161,14 +161,14 @@ h1, h2, h3, h4 {
 }
 
 *:focus-visible {
-  outline: 2px solid #F5C842;
+  outline: 2px solid #2F80ED;
   outline-offset: 2px;
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar       { width: 3px; }
-::-webkit-scrollbar-track { background: #0a0a0a; }
-::-webkit-scrollbar-thumb { background: #F5C842; border-radius: 2px; }
+::-webkit-scrollbar-track { background: #050505; }
+::-webkit-scrollbar-thumb { background: #2F80ED; border-radius: 2px; }
 
 /* Anchor jumps land below the fixed navbar instead of underneath it */
 section[id], [id="booking"], [id="fleet"], [id="map"], [id="routes"], [id="recommended"], [id="contact"] {
@@ -203,9 +203,9 @@ html[data-splash="on"] #rr-splash {
   justify-content: center;
   text-align: center;
   background:
-    radial-gradient(ellipse 70% 45% at 50% -10%, rgba(245,200,66,0.10), transparent 60%),
+    radial-gradient(ellipse 70% 45% at 50% -10%, rgba(47, 128, 237,0.10), transparent 60%),
     radial-gradient(ellipse 60% 40% at 85% 110%, rgba(249,115,22,0.08), transparent 60%),
-    #0a0a0a;
+    #050505;
   animation: rr-splash-exit 0.6s ease 2.4s forwards;
   /* Stop Samsung/Chrome font boosting from inflating the wordmark */
   -webkit-text-size-adjust: 100%;
@@ -227,7 +227,7 @@ html[data-splash="on"] #rr-splash {
   position: absolute;
   inset: -46px;
   border-radius: 9999px;
-  background: radial-gradient(circle, rgba(245,200,66,0.30), transparent 65%);
+  background: radial-gradient(circle, rgba(47, 128, 237,0.30), transparent 65%);
   filter: blur(18px);
   animation: rr-sp-glowpulse 2.6s ease-in-out 0.3s infinite;
 }
@@ -236,7 +236,7 @@ html[data-splash="on"] #rr-splash {
   width: 104px;
   height: 104px;
   border-radius: 26px;
-  box-shadow: 0 22px 70px rgba(245,200,66,0.22);
+  box-shadow: 0 22px 70px rgba(47, 128, 237,0.22);
   opacity: 1; /* visible by default — shows even if the OS freezes animations */
   animation:
     rr-sp-pop 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.1s,
@@ -268,7 +268,7 @@ html[data-splash="on"] #rr-splash {
   text-align: center;
 }
 #rr-splash .rr-sp-name span { color: #f5f5f0; }
-#rr-splash .rr-sp-name em { color: #F5C842; }
+#rr-splash .rr-sp-name em { color: #2F80ED; }
 #rr-splash .rr-sp-tag {
   margin-top: 10px;
   font-family: var(--font-bebas), sans-serif;
@@ -310,7 +310,7 @@ html[data-splash="on"] #rr-splash {
   height: 100%;
   width: 100%;
   border-radius: 9999px;
-  background: #F5C842;
+  background: #2F80ED;
   transform: translateX(-100%);
   animation: rr-sp-fill 2.3s cubic-bezier(0.4, 0, 0.2, 1) 0.15s forwards;
 }
@@ -337,7 +337,7 @@ html[data-splash="on"] #rr-splash {
   height: 104px;
   margin: -52px 0 0 -52px;
   border-radius: 9999px;
-  border: 2px solid rgba(245, 200, 66, 0.6);
+  border: 2px solid rgba(47, 128, 237, 0.6);
   opacity: 0;
   animation: rr-sp-burst 1.5s cubic-bezier(0.22, 1, 0.36, 1) 0.25s;
 }
@@ -374,7 +374,7 @@ html[data-splash="on"] #rr-splash {
   width: 4px;
   height: 4px;
   border-radius: 9999px;
-  background: #F5C842;
+  background: #2F80ED;
   opacity: 0;
   animation: rr-sp-particle 5s ease-in-out infinite;
 }
@@ -484,8 +484,8 @@ html[data-splash="on"] #rr-splash.rr-skip {
   50%      { transform: translateY(-3px); }
 }
 @keyframes rr-logo-glow {
-  0%, 100% { filter: drop-shadow(0 0 0 rgba(245, 200, 66, 0)); }
-  50%      { filter: drop-shadow(0 0 7px rgba(245, 200, 66, 0.45)); }
+  0%, 100% { filter: drop-shadow(0 0 0 rgba(47, 128, 237, 0)); }
+  50%      { filter: drop-shadow(0 0 7px rgba(47, 128, 237, 0.45)); }
 }
 @keyframes rr-logo-sweep {
   0%   { opacity: 0; transform: translateX(-130%) skewX(-20deg); }
@@ -511,7 +511,7 @@ html[data-splash="on"] #rr-splash.rr-skip {
   position: absolute;
   inset: -1px;
   border-radius: 9px;
-  background: linear-gradient(100deg, transparent 40%, rgba(245, 200, 66, 0.6) 50%, transparent 60%);
+  background: linear-gradient(100deg, transparent 40%, rgba(47, 128, 237, 0.6) 50%, transparent 60%);
   mix-blend-mode: screen;
   pointer-events: none;
   animation: rr-logo-sweep 12s ease-in-out infinite;
@@ -748,17 +748,17 @@ html[data-splash="on"] #rr-splash.rr-skip {
    second, parallel gray theme — a shadcn Button/Input/Dialog should render
    indistinguishably from hand-built components elsewhere in the app. */
 :root {
-  --background: #0a0a0a;       /* --color-dark */
+  --background: #050505;       /* --color-dark */
   --foreground: #F5F5F0;       /* --color-offwhite */
-  --card: #111111;             /* --color-dark-card */
+  --card: #0A1622;             /* --color-dark-card */
   --card-foreground: #F5F5F0;
-  --popover: #111111;
+  --popover: #0A1622;
   --popover-foreground: #F5F5F0;
-  --primary: #F5C842;          /* --color-yellow — the one primary action per view */
-  --primary-foreground: #0a0a0a;
+  --primary: #2F80ED;          /* --color-yellow — the one primary action per view */
+  --primary-foreground: #050505;
   --secondary: #1a1a1a;        /* neutral surface — secondary actions are NOT gold (Gold-Is-Information Rule) */
   --secondary-foreground: #F5F5F0;
-  --muted: #111111;
+  --muted: #0A1622;
   --muted-foreground: #888888; /* --color-muted */
   --accent: rgba(255, 255, 255, 0.06);
   --accent-foreground: #F5F5F0;
@@ -766,21 +766,21 @@ html[data-splash="on"] #rr-splash.rr-skip {
   --destructive-foreground: #F5F5F0;
   --border: rgba(255, 255, 255, 0.10);   /* hairline-of-light, not a shadow */
   --input: rgba(255, 255, 255, 0.10);
-  --ring: #F5C842;              /* matches the global :focus-visible gold outline */
-  --chart-1: #F5C842;
-  --chart-2: #d4a800;
+  --ring: #2F80ED;              /* matches the global :focus-visible gold outline */
+  --chart-1: #2F80ED;
+  --chart-2: #1F5FBF;
   --chart-3: #888888;
   --chart-4: #444444;
-  --chart-5: #222222;
+  --chart-5: #16324A;
   --radius: 0.75rem;             /* 12px — inputs/small tiles per DESIGN.md's shape scale */
-  --sidebar: #0a0a0a;
+  --sidebar: #050505;
   --sidebar-foreground: #F5F5F0;
-  --sidebar-primary: #F5C842;
-  --sidebar-primary-foreground: #0a0a0a;
+  --sidebar-primary: #2F80ED;
+  --sidebar-primary-foreground: #050505;
   --sidebar-accent: rgba(255, 255, 255, 0.06);
   --sidebar-accent-foreground: #F5F5F0;
   --sidebar-border: rgba(255, 255, 255, 0.10);
-  --sidebar-ring: #F5C842;
+  --sidebar-ring: #2F80ED;
 }
 
 @layer base {
@@ -815,7 +815,7 @@ html[data-splash="on"] #rr-splash.rr-skip {
     z-index: 0;
     pointer-events: none;
     background:
-      radial-gradient(ellipse 90% 50% at 50% -15%, rgba(245, 200, 66, 0.055), transparent 62%),
+      radial-gradient(ellipse 90% 50% at 50% -15%, rgba(47, 128, 237, 0.055), transparent 62%),
       radial-gradient(ellipse 75% 45% at 85% 112%, rgba(249, 115, 22, 0.045), transparent 60%);
   }
 

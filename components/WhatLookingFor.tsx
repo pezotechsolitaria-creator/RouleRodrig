@@ -276,7 +276,7 @@ export default function WhatLookingFor({
       <div className="pointer-events-none absolute inset-0 hidden md:block" aria-hidden="true">
         <div
           className="absolute -top-24 right-[-10%] w-[55vw] h-[55vw] rounded-full blur-3xl"
-          style={{ background: "radial-gradient(circle, rgba(245,200,66,0.08), transparent 65%)" }}
+          style={{ background: "radial-gradient(circle, rgba(47,128,237,0.08), transparent 65%)" }}
         />
         <div
           className="absolute bottom-[-20%] left-[-10%] w-[45vw] h-[45vw] rounded-full blur-3xl"

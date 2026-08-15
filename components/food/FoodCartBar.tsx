@@ -70,7 +70,7 @@ export default function FoodCartBar() {
       <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-32 bg-gradient-to-t from-dark via-dark/90 to-transparent" />
       <Link
         href="/cart"
-        className="mx-auto flex max-w-2xl items-center gap-3 rounded-2xl bg-yellow px-4 py-3.5 text-dark shadow-[0_10px_30px_-8px_rgba(245,200,66,0.6)] transition-transform active:scale-[0.99]"
+        className="mx-auto flex max-w-2xl items-center gap-3 rounded-2xl bg-yellow px-4 py-3.5 text-dark shadow-[0_10px_30px_-8px_rgba(47,128,237,0.6)] transition-transform active:scale-[0.99]"
       >
         <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-dark/10">
           <ShoppingBag size={17} />

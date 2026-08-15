@@ -100,7 +100,7 @@ export default function IslandMapInner({ locations }: Props) {
             : pics.length === 1
             ? `<img src="${esc(pics[0])}" alt="${esc(loc.name)}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:8px;display:block;" />`
             : "";
-        const directions = `<a href="https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:11px;font-weight:700;color:#0a0a0a;background:#F5C842;padding:6px 12px;border-radius:20px;text-decoration:none;">${DIRECTIONS_LABEL[language]} →</a>`;
+        const directions = `<a href="https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:11px;font-weight:700;color:#050505;background:#2F80ED;padding:6px 12px;border-radius:20px;text-decoration:none;">${DIRECTIONS_LABEL[language]} →</a>`;
 
         const locName = localize(language, loc.name, loc.nameFr, loc.nameCr);
         const locDesc = localize(language, loc.description, loc.descriptionFr, loc.descriptionCr);

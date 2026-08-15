@@ -172,7 +172,8 @@
 // v242 — a day-only or night-only experience says so on its card.
 // v243 — the day/night switch comes off the individual vertical pages.
 // v244 — one shared category vocabulary across every experience vertical.
-const CACHE = "rr-cache-v244";
+// v245 — sapphire dark palette; sponsors and the announcement bar connected.
+const CACHE = "rr-cache-v245";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

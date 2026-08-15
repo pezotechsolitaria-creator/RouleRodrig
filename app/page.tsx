@@ -10,6 +10,7 @@ import Hero from "@/components/Hero";
 import AppHome from "@/components/AppHome";
 import ReviewsContact from "@/components/ReviewsContact";
 import Footer from "@/components/Footer";
+import Sponsors from "@/components/Sponsors";
 
 // The homepage's own canonical. This used to live on the root layout, where
 // Next's metadata merging silently applied it to every page that didn't set one
@@ -196,7 +197,19 @@ export default async function Home() {
       <AppHome
         hero={<Hero hero={content.hero} compact />}
         reviews={<ReviewsContact contact={content.contact} fleet={fleet} />}
-        footer={<Footer social={content.social} branding={content.branding} />}
+        // Sponsors sit immediately above the footer, which is where the admin
+        // panel has always SAID they appear ("shown near the footer") — the
+        // component was simply never mounted, so a paying sponsor could be
+        // added, switched on, and shown to nobody.
+        //
+        // Renders nothing unless the strip is enabled AND at least one sponsor
+        // has a logo, so a site without sponsors is unchanged.
+        footer={
+          <>
+            <Sponsors enabled={content.sponsorsEnabled} sponsors={content.sponsors} />
+            <Footer social={content.social} branding={content.branding} />
+          </>
+        }
         lookingFor={content.quickAccess}
         homeCards={content.homeCards}
         experiences={experiences}

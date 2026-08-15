@@ -121,7 +121,7 @@ export default function DishOrderPanel({ dish }: { dish: FoodDetail }) {
                       checked={variantId === v.id}
                       disabled={out}
                       onChange={() => { setVariantId(v.id); setQty(1); }}
-                      className="h-4 w-4 accent-[#F5C842]"
+                      className="h-4 w-4 accent-[#2F80ED]"
                     />
                     <span className={`font-dm text-sm ${variantId === v.id ? "text-yellow" : "text-offwhite"}`}>
                       {v.name ?? "Standard"}

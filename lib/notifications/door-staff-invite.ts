@@ -45,13 +45,13 @@ function render(opts: {
   ${opts.paragraphs.map((p) => `<p style="font-size:15px;line-height:1.6;margin:0 0 14px">${escapeHtml(p)}</p>`).join("")}
   ${
     opts.highlight
-      ? `<div style="border:1px solid #e5e5e5;border-left:4px solid #F5C842;border-radius:8px;padding:14px 16px;margin:0 0 18px;background:#fafafa">
+      ? `<div style="border:1px solid #e5e5e5;border-left:4px solid #2F80ED;border-radius:8px;padding:14px 16px;margin:0 0 18px;background:#fafafa">
     <p style="font-size:12px;color:#777;margin:0 0 4px;text-transform:uppercase;letter-spacing:.08em">${escapeHtml(opts.highlight.label)}</p>
     <p style="font-size:16px;font-weight:bold;margin:0;word-break:break-all">${escapeHtml(opts.highlight.value)}</p>
   </div>`
       : ""
   }
-  <p style="margin:24px 0 0"><a href="${opts.cta.url}" style="background:#F5C842;color:#1a1a1a;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:999px;display:inline-block">${escapeHtml(opts.cta.label)}</a></p>
+  <p style="margin:24px 0 0"><a href="${opts.cta.url}" style="background:#2F80ED;color:#1a1a1a;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:999px;display:inline-block">${escapeHtml(opts.cta.label)}</a></p>
   <p style="font-size:12px;color:#777;margin:28px 0 0">Roulé Rodrigues · roulerodrig.com</p>
 </div>`;
 }

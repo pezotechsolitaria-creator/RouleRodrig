@@ -26,7 +26,7 @@
 //    imagery, no AI-generated jar of honey. Inventing a picture of goods
 //    somebody is about to pay for is a lie with a price tag on it.
 
-/** Deep pairs that all sit correctly on `bg-dark` (#0a0a0a). */
+/** Deep pairs that all sit correctly on `bg-dark` (#050505). */
 const PALETTE: readonly (readonly [string, string])[] = [
   ["#2A2415", "#12100A"], // amber / honey / preserves
   ["#2C1A16", "#140C0A"], // chilli, spice, piment

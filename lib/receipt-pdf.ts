@@ -58,7 +58,7 @@ function gray(v: number): Op {
 }
 
 const BLACK: Op = "0 0 0 rg";
-const YELLOW: [number, number, number] = [0.961, 0.784, 0.259]; // #F5C842
+const YELLOW: [number, number, number] = [0.961, 0.784, 0.259]; // #2F80ED
 const GREEN: [number, number, number] = [0.039, 0.49, 0.231]; // #0a7d3b
 
 /**
