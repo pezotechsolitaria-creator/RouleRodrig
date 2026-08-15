@@ -167,7 +167,8 @@
 // v237 — the phone field is dressed again, and viewpoints sit above the fold.
 // v238 — the admin sidebar can find hiking guides.
 // v239 — the delivery form uses the booking form's fields.
-const CACHE = "rr-cache-v239";
+// v240 — experiences split by day and night.
+const CACHE = "rr-cache-v240";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

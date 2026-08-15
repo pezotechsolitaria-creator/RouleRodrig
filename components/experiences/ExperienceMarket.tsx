@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import type { RecommendedPlace } from "@/lib/defaults";
 import { type ExperienceCopy, formatDuration, matchesFilter } from "@/lib/experiences";
+import { countByMode, defaultMode, matchesMode, modeCue, type Mode } from "@/lib/time-of-day";
+import DayNightSwitch from "@/components/experiences/DayNightSwitch";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
 import PlaceBookingModal from "@/components/PlaceBookingModal";
@@ -44,19 +46,41 @@ export default function ExperienceMarket({
   const { language } = useLanguage();
   const fr = language === "fr";
   const [active, setActive] = useState<string | null>(null);
+  // Day / night. Initialised from the ISLAND clock, not the visitor's — a
+  // traveller browsing from Paris before they fly should see what is happening
+  // in Rodrigues, which is the whole point of defaulting at all. Set lazily so
+  // the first client render already has the right one; the server renders
+  // nothing mode-specific, so there is no markup to mismatch.
+  const [mode, setMode] = useState<Mode>(() => defaultMode());
   const [bookingPlace, setBookingPlace] = useState<RecommendedPlace | null>(null);
   const [detailPlace, setDetailPlace] = useState<RecommendedPlace | null>(null);
 
-  // Only offer a filter that would actually return something. A chip that
-  // always yields "no results" teaches people the filters are decorative.
+  // WHEN comes before WHAT: a night fishing trip has no business in a list
+  // somebody is reading at ten in the morning, and no chip below should be able
+  // to bring it back. So the mode narrows the catalogue first and everything
+  // else filters within it.
+  const inMode = useMemo(
+    () => places.filter((p) => matchesMode(p.timeOfDay, mode)),
+    [places, mode],
+  );
+
+  // Both sides of the switch, counted across the WHOLE catalogue rather than
+  // the filtered view — the number answers "is there anything at night at all",
+  // which must not change because a category chip is active.
+  const counts = useMemo(() => countByMode(places, (p) => p.timeOfDay), [places]);
+
+  // Only offer a filter that would actually return something IN THIS MODE. A
+  // chip that always yields "no results" teaches people the filters are
+  // decorative, and that is doubly true once the mode has already narrowed
+  // things.
   const usableFilters = useMemo(
-    () => copy.filters.filter((f) => places.some((p) => matchesFilter(p, f.key))),
-    [copy.filters, places],
+    () => copy.filters.filter((f) => inMode.some((p) => matchesFilter(p, f.key))),
+    [copy.filters, inMode],
   );
 
   const visible = useMemo(
-    () => (active ? places.filter((p) => matchesFilter(p, active)) : places),
-    [places, active],
+    () => (active ? inMode.filter((p) => matchesFilter(p, active)) : inMode),
+    [inMode, active],
   );
 
   if (places.length === 0) {
@@ -79,6 +103,26 @@ export default function ExperienceMarket({
 
   return (
     <>
+      {/* WHEN, then WHAT. Above the category chips because it narrows the
+          catalogue they filter within — putting it beside them would suggest
+          they are peers. */}
+      <DayNightSwitch
+        mode={mode}
+        onChange={(m) => {
+          setMode(m);
+          // Drop the category filter when the catalogue underneath changes.
+          // Keeping it is how somebody lands on "nothing matches that" holding
+          // a chip that was perfectly reasonable a moment ago.
+          setActive(null);
+        }}
+        counts={counts}
+        cue={modeCue(mode, language === "fr" ? "fr" : language === "cr" ? "cr" : "en")}
+        labels={{
+          day: fr ? "Jour" : language === "cr" ? "Lizour" : "Day",
+          night: fr ? "Nuit" : language === "cr" ? "Aswar" : "Night",
+        }}
+      />
+
       {usableFilters.length > 0 && (
         <div className="mt-5 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button

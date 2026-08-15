@@ -4839,6 +4839,27 @@ function ServicesEditor({
               </Field>
             </div>
 
+            {/* WHEN it happens. Not a theme — the Day/Night control on
+                /experiences filters on this, so a night fishing trip stops
+                appearing in a list somebody is reading at 10am. "Any time" is
+                the default and the safe answer; only narrow it when the
+                experience genuinely cannot run in the other half of the day. */}
+            <Field label="WHEN IT RUNS">
+              <select
+                value={it.timeOfDay ?? "both"}
+                onChange={(e) =>
+                  update(index, {
+                    timeOfDay: e.target.value as RecommendedPlace["timeOfDay"],
+                  })
+                }
+                className={`${inputCls} appearance-none`}
+              >
+                <option value="both">Any time — shows in both Day and Night</option>
+                <option value="day">☀️ Daytime only</option>
+                <option value="night">🌙 After dark only</option>
+              </select>
+            </Field>
+
             {/* Languages. The first thing a visitor checks before spending four
                 hours on a ridge with someone. Free text, comma-separated, in
                 the same style as HIGHLIGHTS just below — Rodrigues guides also

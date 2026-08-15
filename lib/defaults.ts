@@ -428,6 +428,19 @@ export interface RecommendedPlace {
   /** Provider/captain/therapist/guide name, shown as trust rather than as a heading. */
   providerName?: string;
   /**
+   * When this experience actually happens: by day, after dark, or either.
+   *
+   * A content dimension, not a theme. Stargazing and a night fishing trip are
+   * not evening-coloured versions of daytime ones — they only exist after dark,
+   * and a lagoon snorkel only exists before it. So the Day/Night control on
+   * /experiences filters real inventory rather than recolouring one list.
+   *
+   * Optional, and absent means BOTH: every listing that predates this shows in
+   * either mode, so switching the feature on cannot empty the marketplace. The
+   * owner opts a listing into being night-only.
+   */
+  timeOfDay?: "day" | "night" | "both";
+  /**
    * Languages this person actually works in, e.g. ["English", "French", "Kreol"].
    *
    * Added with hiking guides, where it is not a nice-to-have: you are choosing
