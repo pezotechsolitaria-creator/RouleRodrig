@@ -1065,3 +1065,81 @@ html[data-world="curated"].light .border-white\/12 { border-color: var(--rr-worl
 /* Tighter corners, wider caps, more air. Restraint is the product. */
 html[data-world="curated"].light .rounded-2xl { border-radius: 0.5rem; }
 html[data-world="curated"].light .font-bebas { letter-spacing: 0.34em; }
+
+/* ── CURATED, REFINED ──────────────────────────────────────────────────────
+   What actually separates a luxury hospitality site from a competent one is
+   not ornament — it is restraint applied consistently. Aman, Six Senses,
+   Cheval Blanc and the like share four measurable habits, and none of them
+   involve adding anything:
+
+     1. Type is SMALLER and further apart. Labels shrink and open up; the
+        confidence is in the space, not the size.
+     2. Line-height is generous. Body copy breathes at 1.7+, never 1.4.
+     3. Borders are nearly invisible. A hairline suggests; a grey box states.
+     4. Motion is slow and few. 600ms and one property, not 200ms and four.
+
+   Applied only to Curated, and only on its light ground. */
+
+html[data-world="curated"].light {
+  /* Cards on a near-white page need a ground of their own, or the whole screen
+     reads as one undifferentiated sheet. Pure white against #FAF9F6 is the
+     quietest possible separation — visible, never a box. */
+  --rr-card: #FFFFFF;
+}
+
+/* Section headings: smaller, wider, quieter. The single most reliable signal. */
+html[data-world="curated"].light h2,
+html[data-world="curated"].light h3 {
+  letter-spacing: 0.02em;
+  font-weight: 700;
+}
+
+/* Body copy earns its space. */
+html[data-world="curated"].light p { line-height: 1.7; }
+
+/* Hairlines, everywhere. */
+html[data-world="curated"].light .border-white\/10,
+html[data-world="curated"].light .border-white\/12,
+html[data-world="curated"].light .border-white\/20 { border-color: #EDE8DF; }
+
+/* Photography sits calmer: luxury imagery is desaturated a touch and never
+   shouts against the type sitting on it. */
+html[data-world="curated"].light img { filter: saturate(0.94); }
+
+/* One property, slowly. Replaces the site's snappier default inside this
+   world only, so nothing outside Curated changes pace. */
+html[data-world="curated"].light a,
+html[data-world="curated"].light button {
+  transition-duration: 420ms;
+  transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* ── SCROLLING, FOR EVERY WORLD ────────────────────────────────────────────
+   Not a style change — a rendering one, and the single highest-leverage thing
+   available for a long homepage on a mid-range phone.
+
+   content-visibility tells the browser it may SKIP layout, paint and style for
+   sections that are off screen. On a page of eight rails with dozens of images,
+   that is most of the work it was doing on every frame. contain-intrinsic-size
+   supplies a placeholder height so the scrollbar does not jump as sections are
+   realised — the one bug this technique is famous for, and the reason it is
+   given here rather than left to the browser to guess. */
+.rr-home-tiles-sec,
+main > section:not(:first-of-type) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 420px;
+}
+
+/* Horizontal rails scroll with real momentum on iOS and stop handing the
+   gesture to the page when they reach their end — which is what makes a shelf
+   feel like a shelf rather than a runaway div.
+
+   Targeted by what the rails actually ARE (a snapping horizontal scroller),
+   not by a class name. An earlier version of this rule addressed `.rr-rail`,
+   which does not exist anywhere in the codebase: it compiled, shipped, and
+   styled nothing. */
+.snap-x.overflow-x-auto,
+.rr-tools-row {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
