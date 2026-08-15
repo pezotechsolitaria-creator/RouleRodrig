@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   forWorld, heroesForWorld, inWorld, otherWorld, parseWorld, rankForWorld,
-  targetOf, priorityIn, WORLD_COPY, WORLDS,
+  targetOf, priorityIn, WORLD_COPY, WORLD_LAYOUT, WORLDS,
 } from "@/lib/worlds";
 
 describe("world targeting", () => {
@@ -147,5 +147,27 @@ describe("world copy", () => {
   it("gives the two worlds opposite light, because world subsumes the theme", () => {
     expect(WORLD_COPY.authentic.theme).toBe("light");
     expect(WORLD_COPY.curated.theme).toBe("dark");
+  });
+});
+
+describe("world layout", () => {
+  it("gives the two worlds a genuinely different page order", () => {
+    // The owner's complaint, encoded: if these ever match, the worlds are one
+    // page with two palettes again.
+    expect(WORLD_LAYOUT.authentic.order).not.toEqual(WORLD_LAYOUT.curated.order);
+    expect(WORLD_LAYOUT.authentic.order[1]).toBe("quick");
+    expect(WORLD_LAYOUT.curated.order[1]).toBe("stays");
+  });
+
+  it("covers every section in both worlds, so neither can lose content", () => {
+    const a = [...WORLD_LAYOUT.authentic.order].sort();
+    const c = [...WORLD_LAYOUT.curated.order].sort();
+    expect(a).toEqual(c);
+    expect(new Set(a).size).toBe(a.length);
+  });
+
+  it("differs in density as well as order", () => {
+    expect(WORLD_LAYOUT.authentic.gridCols).not.toBe(WORLD_LAYOUT.curated.gridCols);
+    expect(WORLD_LAYOUT.authentic.railLimit).toBeGreaterThan(WORLD_LAYOUT.curated.railLimit);
   });
 });

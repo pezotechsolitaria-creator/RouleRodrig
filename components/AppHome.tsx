@@ -18,7 +18,7 @@ import InstallAppButton from "@/components/InstallAppButton";
 import AccountButton from "@/components/AccountButton";
 import WorldSwitcher from "@/components/world/WorldSwitcher";
 import { useActiveWorld } from "@/context/ExperienceWorldContext";
-import { WORLD_COPY, forWorld } from "@/lib/worlds";
+import { WORLD_COPY, WORLD_LAYOUT, forWorld } from "@/lib/worlds";
 import EventsPromo, { type PromoEvent } from "@/components/EventsPromo";
 import { HeartHandshake } from "lucide-react";
 import { DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS } from "@/lib/defaults";
@@ -121,6 +121,11 @@ export default function AppHome({
   // sees exactly what they see today — the difference grows as they tag.
   const worldExperiences = useMemo(() => forWorld(experiences, activeWorld), [experiences, activeWorld]);
   const worldStays = useMemo(() => forWorld(stays, activeWorld), [stays, activeWorld]);
+
+  // The world's own architecture: what it puts first, how much it shows at
+  // once, how much air it buys. See the note in lib/worlds.ts — ranking alone
+  // left the two worlds as one page in two palettes.
+  const layout = WORLD_LAYOUT[activeWorld];
 
   // The primary photo cards — admin-editable (content.homeCards). Each card's
   // auto-cycling photos come from its imageSource category (the owner's real
@@ -344,7 +349,7 @@ export default function AppHome({
       <main className="mx-auto max-w-5xl px-4 pb-[124px] md:pb-16">
         {/* Six primary cards — v1 photo-card design, auto-cycling images. */}
         <section className="rr-home-cards-sec pt-2">
-          <div className="rr-home-cards grid grid-cols-3 gap-2.5">
+          <div className={`rr-home-cards grid gap-2.5 ${layout.gridCols === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
             {BIG.map((c) => (
               <AutoImageCard key={c.key} card={c} L={L} />
             ))}
@@ -359,9 +364,9 @@ export default function AppHome({
             the old homepage and never re-added, so every one of those silently
             dumped the visitor at the top of the page instead of at the hub.
             app/globals.css:125 still reserves its scroll-margin. */}
-        <section id="explore" className="rr-home-tiles-sec mt-3">
+        <section id="explore" className={`rr-home-tiles-sec ${layout.sectionGap}`}>
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="font-syne text-[15px] font-bold text-offwhite">{L(["What are you looking for?", "Que cherchez-vous ?", "Ki ou pe rode?"])}</h2>
+            <h2 className={`${layout.headingClass} text-offwhite`}>{L(["What are you looking for?", "Que cherchez-vous ?", "Ki ou pe rode?"])}</h2>
             <Link href="/explore" className="inline-flex items-center gap-1 font-dm text-xs text-yellow hover:underline">{L(["See all", "Voir tout", "Get tou"])} <ArrowRight size={13} /></Link>
           </div>
           {/* A GRID, not a scroller.
@@ -407,13 +412,13 @@ export default function AppHome({
 
         {worldExperiences.length > 0 && (
           <Rail title={L(["Featured Experiences", "Expériences à la une", "Bann eksperyans"])} subtitle={L(["Handpicked activities you'll love.", "Des activités triées sur le volet.", "Bann aktivite swazir pou ou."])} seeAll="/browse/tours" seeAllLabel={L(["View all", "Voir tout", "Get tou"])}>
-            {worldExperiences.map((e) => <PriceCard key={e.id} card={e} />)}
+            {worldExperiences.slice(0, layout.railLimit).map((e) => <PriceCard key={e.id} card={e} />)}
           </Rail>
         )}
 
         {worldStays.length > 0 && (
           <Rail title={L(["Top Stays", "Où dormir", "Kot reste"])} subtitle={L(["Handpicked places to stay.", "Des hébergements triés pour vous.", "Bann lozman swazir pou ou."])} seeAll="/browse/stays" seeAllLabel={L(["View all", "Voir tout", "Get tou"])}>
-            {worldStays.map((s) => <PriceCard key={s.id} card={s} />)}
+            {worldStays.slice(0, layout.railLimit).map((s) => <PriceCard key={s.id} card={s} />)}
           </Rail>
         )}
 

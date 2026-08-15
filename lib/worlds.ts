@@ -185,3 +185,59 @@ export function heroesForWorld<T extends Rankable>(items: T[], world: World): T[
 export function otherWorld(world: World): World {
   return world === "authentic" ? "curated" : "authentic";
 }
+
+// ── THE WORLDS MUST DIFFER IN STRUCTURE, NOT ONLY IN PALETTE ────────────────
+//
+// Ranking content was not enough, and the owner was right to say so. Two pages
+// with the same sections in the same order, at the same density, reading the
+// same way, are ONE page wearing two skins — no amount of recolouring fixes
+// that, and no amount of tagging does either, because tagging reorders items
+// within a section rather than reordering the page.
+//
+// So each world gets its own architecture. What a world puts FIRST is its
+// argument about what the island is for:
+//
+//   AUTHENTIC leads with places and everyday life — discovery, then the things
+//   that let you live it. Dense, editorial, more per screen, the way a
+//   guidebook is generous with what it shows you.
+//
+//   CURATED leads with where you stay and what has been arranged for you.
+//   Sparse, cinematic, fewer things per screen, because restraint is the
+//   product: a page that shows you six things is telling you it chose them.
+
+export type SectionKey = "cards" | "quick" | "discover" | "experiences" | "stays" | "events";
+
+export const WORLD_LAYOUT: Record<
+  World,
+  {
+    /** Section order down the homepage. The world's argument, made in sequence. */
+    order: SectionKey[];
+    /** Cards per row on a phone. Authentic is generous; Curated withholds. */
+    gridCols: 2 | 3;
+    /** How many items a rail shows before "see all". */
+    railLimit: number;
+    /** Vertical rhythm between sections — Curated buys space with it. */
+    sectionGap: string;
+    /** Section headings: editorial sentence case vs. spaced-out cinematic caps. */
+    headingClass: string;
+  }
+> = {
+  authentic: {
+    // Places first: Authentic is about the island itself, so discovery leads
+    // and the transactional rails follow.
+    order: ["cards", "quick", "discover", "experiences", "stays", "events"],
+    gridCols: 3,
+    railLimit: 8,
+    sectionGap: "mt-3",
+    headingClass: "font-syne text-[15px] font-bold tracking-tight",
+  },
+  curated: {
+    // Stays first: Curated is about where you will be and what has been
+    // arranged. Discovery drops below the arranged things.
+    order: ["cards", "stays", "experiences", "quick", "discover", "events"],
+    gridCols: 2,
+    railLimit: 4,
+    sectionGap: "mt-8",
+    headingClass: "font-bebas text-[13px] tracking-[0.34em]",
+  },
+};
