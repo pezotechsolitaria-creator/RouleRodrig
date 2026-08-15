@@ -172,6 +172,20 @@ export interface SocialLinks {
 
 export interface BrandingContent {
   /**
+   * ── THE GATEWAY PHOTOGRAPHS ────────────────────────────────────────────────
+   *
+   * The two images on the first-visit world chooser. These are the most
+   * important pictures on the site — they are the entire argument for why the
+   * two worlds are different — so they must be changeable from /admin without
+   * a deploy.
+   *
+   * Both optional. An empty value falls back to the OG image, so the gateway
+   * can never render a broken panel; it simply shows the two worlds with the
+   * same picture until the owner uploads better ones.
+   */
+  gatewayAuthenticImage?: string;
+  gatewayCuratedImage?: string;
+  /**
    * The full lockup — the detailed illustrated logo with the tagline.
    *
    * Kept as a brand asset for LARGE placements (print, merch, a future
@@ -458,6 +472,9 @@ export interface RecommendedPlace {
   world?: "authentic" | "curated" | "both";
   /** Order within a world. Lower first. Absent sorts after everything numbered. */
   worldPriority?: number;
+  /** Independent rank per world — "both" can lead one and trail the other. */
+  priorityAuthentic?: number;
+  priorityCurated?: number;
   /** Promote to the front of the Authentic listing. */
   featuredAuthentic?: boolean;
   /** Promote to the front of the Curated listing. */

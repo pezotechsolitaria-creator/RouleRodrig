@@ -107,12 +107,28 @@ export function inWorld(item: { world?: string | null }, world: World): boolean 
 
 type Rankable = {
   world?: string | null;
+  /** Shared fallback, kept so nothing saved before the split stops working. */
   worldPriority?: number | null;
+  /**
+   * INDEPENDENT priority per world. The point of the whole system: one record
+   * set to "both" must be able to lead Curated and sit mid-list in Authentic.
+   * A single shared number cannot express that, which would force an editor to
+   * duplicate the record — the exact thing this design exists to avoid.
+   */
+  priorityAuthentic?: number | null;
+  priorityCurated?: number | null;
   featuredAuthentic?: boolean | null;
   featuredCurated?: boolean | null;
   heroAuthentic?: boolean | null;
   heroCurated?: boolean | null;
 };
+
+/** This world's priority, then the shared one, then unranked. */
+export function priorityIn(item: Rankable, world: World): number {
+  const own = world === "authentic" ? item.priorityAuthentic : item.priorityCurated;
+  // ?? not ||, so a deliberate 0 — the strongest rank — is not read as absent.
+  return own ?? item.worldPriority ?? Number.MAX_SAFE_INTEGER;
+}
 
 export function isFeatured(item: Rankable, world: World): boolean {
   return Boolean(world === "authentic" ? item.featuredAuthentic : item.featuredCurated);
@@ -140,8 +156,8 @@ export function rankForWorld<T extends Rankable>(items: T[], world: World): T[] 
 
       // Absent priority sorts last, not as zero — otherwise unranked content
       // would outrank anything the editor deliberately numbered.
-      const pa = a.item.worldPriority ?? Number.MAX_SAFE_INTEGER;
-      const pb = b.item.worldPriority ?? Number.MAX_SAFE_INTEGER;
+      const pa = priorityIn(a.item, world);
+      const pb = priorityIn(b.item, world);
       if (pa !== pb) return pa - pb;
 
       return a.index - b.index;

@@ -317,7 +317,12 @@ export default async function RootLayout({
               {/* First visit only. It renders nothing at all once a world is
                   stored, and nothing on the server, so crawlers and returning
                   visitors are unaffected. */}
-              <ExperienceGateway />
+              <ExperienceGateway
+                images={{
+                  authentic: content.branding?.gatewayAuthenticImage,
+                  curated: content.branding?.gatewayCuratedImage,
+                }}
+              />
               <RefCapture />
               {/* ── The announcement bar, finally connected ──────────────────
                   Admin has been able to write one since long before this, and

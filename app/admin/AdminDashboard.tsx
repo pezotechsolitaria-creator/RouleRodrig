@@ -2403,6 +2403,41 @@ function BrandingEditor({
 
   return (
     <div className="space-y-8">
+      {/* ── THE GATEWAY ─────────────────────────────────────────────────────
+          The two photographs a first-time visitor chooses between. They are the
+          entire argument for why the worlds are different, so they sit at the
+          TOP of this screen rather than below the logo. */}
+      <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
+        <p className="font-bebas text-yellow text-xs tracking-[0.3em]">
+          THE GATEWAY — FIRST-VISIT WORLD CHOOSER
+        </p>
+        <p className="font-dm text-xs leading-relaxed text-muted">
+          Two photographs, shown side by side the first time somebody visits.
+          Pick pictures that argue for their world: Authentic wants village
+          life, nature and everyday island life; Curated wants space, calm and
+          something refined. If either is empty the site falls back to the share
+          image, and both sides look the same — which defeats the point.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <p className="mb-2 font-bebas text-[11px] tracking-[0.2em] text-yellow">🌿 AUTHENTIC</p>
+            <ImagePicker
+              label="AUTHENTIC COVER"
+              src={b.gatewayAuthenticImage ?? ""}
+              onUpload={(p) => setBranding({ gatewayAuthenticImage: p })}
+            />
+          </div>
+          <div>
+            <p className="mb-2 font-bebas text-[11px] tracking-[0.2em] text-yellow">✦ CURATED</p>
+            <ImagePicker
+              label="CURATED COVER"
+              src={b.gatewayCuratedImage ?? ""}
+              onUpload={(p) => setBranding({ gatewayCuratedImage: p })}
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Logo */}
       <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
         <p className="font-bebas text-yellow text-xs tracking-[0.3em]">LOGO</p>
@@ -4900,12 +4935,28 @@ function ServicesEditor({
                         />
                         <span className="font-dm text-xs text-offwhite">Can carry the hero</span>
                       </label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        placeholder="Rank (optional)"
+                        value={(w === "authentic" ? it.priorityAuthentic : it.priorityCurated) ?? ""}
+                        onChange={(e) =>
+                          update(index, {
+                            [w === "authentic" ? "priorityAuthentic" : "priorityCurated"]:
+                              // Empty is NOT zero. Zero is the strongest rank an
+                              // editor can give; empty means "unranked" and
+                              // sorts after everything numbered.
+                              e.target.value === "" ? undefined : Number(e.target.value),
+                          })
+                        }
+                        className={`${inputCls} mt-2`}
+                      />
                     </div>
                   );
                 })}
             </div>
 
-            <Field label="ORDER WITHIN A WORLD (OPTIONAL)">
+            <Field label="FALLBACK ORDER (OPTIONAL)">
               <input
                 type="number"
                 inputMode="numeric"
@@ -4921,8 +4972,8 @@ function ServicesEditor({
                 className={inputCls}
               />
               <p className="mt-1.5 font-dm text-[11px] leading-snug text-muted">
-                Lower shows first. Anything left empty follows the featured and
-                numbered ones, in its existing order.
+                Used only where a world above has no rank of its own. Lower
+                shows first; empty follows the featured and numbered ones.
               </p>
             </Field>
 

@@ -47,7 +47,18 @@ export function ExperienceWorldProvider({ children }: { children: React.ReactNod
   // surface inherits its world by existing inside the document rather than by
   // being handed a prop through six components that do not care.
   useEffect(() => {
-    if (world) applyWorld(world);
+    if (!world) return;
+    applyWorld(world);
+    // ── THE WORLD OWNS THE LIGHT, ON EVERY PATH ─────────────────────────────
+    // choose() applied the theme, but the RESTORE path did not — so a returning
+    // visitor got the world's attribute and copy over whatever ground the theme
+    // key happened to hold. Authentic rendered its warm headline on the black
+    // canvas, which is the one combination that makes the whole system look
+    // like a rename rather than a world.
+    //
+    // Applying it here covers both paths at once, and it is idempotent, so
+    // choosing a world still costs exactly one class toggle.
+    applyTheme(WORLD_COPY[world].theme);
   }, [world]);
 
   useEffect(() => {

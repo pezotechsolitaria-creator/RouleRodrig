@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   forWorld, heroesForWorld, inWorld, otherWorld, parseWorld, rankForWorld,
-  targetOf, WORLD_COPY, WORLDS,
+  targetOf, priorityIn, WORLD_COPY, WORLDS,
 } from "@/lib/worlds";
 
 describe("world targeting", () => {
@@ -75,6 +75,32 @@ describe("ranking", () => {
     ];
     expect(forWorld(both, "authentic")[0].id).toBe("p");
     expect(forWorld(both, "curated")[0].id).toBe("q");
+  });
+});
+
+describe("independent priority per world", () => {
+  it("lets one record lead one world and trail the other", () => {
+    // The whole reason the system exists: without this an editor would have to
+    // duplicate the record to rank it differently, which is precisely what a
+    // shared content pool is meant to avoid.
+    const items = [
+      { id: "villa", world: "both", priorityAuthentic: 9, priorityCurated: 1 },
+      { id: "village", world: "both", priorityAuthentic: 1, priorityCurated: 9 },
+    ];
+    expect(forWorld(items, "authentic").map((i) => i.id)).toEqual(["village", "villa"]);
+    expect(forWorld(items, "curated").map((i) => i.id)).toEqual(["villa", "village"]);
+  });
+
+  it("falls back to the shared number, then to unranked", () => {
+    expect(priorityIn({ priorityCurated: 3, worldPriority: 8 }, "curated")).toBe(3);
+    expect(priorityIn({ worldPriority: 8 }, "curated")).toBe(8);
+    expect(priorityIn({}, "curated")).toBe(Number.MAX_SAFE_INTEGER);
+  });
+
+  it("treats a deliberate 0 as the strongest rank, not as absent", () => {
+    // ?? rather than || — with || a zero would fall through to the shared
+    // number and the editor's strongest possible rank would be ignored.
+    expect(priorityIn({ priorityAuthentic: 0, worldPriority: 5 }, "authentic")).toBe(0);
   });
 });
 
