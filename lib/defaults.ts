@@ -441,6 +441,23 @@ export interface RecommendedPlace {
    */
   timeOfDay?: "day" | "night" | "both";
   /**
+   * Which curated categories this listing belongs to — MANY, deliberately.
+   *
+   * A sunset charter is genuinely Ocean and Romantic and Photography, and the
+   * old filtering could not express that: it substring-matched the chip's word
+   * against the listing's own prose, so "family" matched a "family-run
+   * business" and a listing had to be phrased a certain way to be findable.
+   *
+   * Shared across every vertical, so "what is romantic on this island" is a
+   * question the catalogue can answer across massage, boats and fishing at
+   * once. Vocabulary in lib/experience-categories.ts.
+   *
+   * Absent means untagged, and an untagged listing keeps the old text
+   * behaviour — the catalogue converts at the owner's pace instead of
+   * disappearing from every filter the day this shipped.
+   */
+  categories?: string[];
+  /**
    * Curated shelf this listing belongs on, if any.
    *
    * Merchandising the owner controls, not a computed "popular" — with a

@@ -102,6 +102,7 @@ import { DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS } from "@/lib/defaults";
 import type { ContactSubmission, Booking, PlaceBooking, Partner, MarketplaceListing, ProductReview, WaitlistEntry } from "@/lib/supabase/types";
 import { SITE_URL } from "@/lib/site";
 import { MASCOT_POSES } from "@/lib/mascot";
+import { EXPERIENCE_CATEGORIES } from "@/lib/experience-categories";
 import { parseVideoUrl, describeVideoUrl } from "@/lib/video";
 
 type Section =
@@ -4858,6 +4859,48 @@ function ServicesEditor({
                 <option value="day">☀️ Daytime only</option>
                 <option value="night">🌙 After dark only</option>
               </select>
+            </Field>
+
+            {/* Categories. MANY, not one — a sunset charter is genuinely Ocean
+                and Romantic and Photography, and until now the filters worked
+                by looking for the chip's word inside the listing's own prose,
+                which is why "family" matched a "family-run business".
+
+                Shared across every vertical, so tagging a massage "romantic"
+                puts it in the same answer as a sunset cruise. Leave them all
+                off and the listing keeps the old text behaviour — nothing has
+                to be re-tagged for the site to keep working. */}
+            <Field label="CATEGORIES (tick every one that fits)">
+              <div className="flex flex-wrap gap-2">
+                {EXPERIENCE_CATEGORIES.map((c) => {
+                  const on = (it.categories ?? []).includes(c.key);
+                  return (
+                    <button
+                      key={c.key}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => {
+                        const cur = it.categories ?? [];
+                        update(index, {
+                          categories: on ? cur.filter((k) => k !== c.key) : [...cur, c.key],
+                        });
+                      }}
+                      className={`rounded-full border px-3 py-1.5 font-dm text-xs transition-colors ${
+                        on
+                          ? "border-yellow/60 bg-yellow/15 text-yellow"
+                          : "border-[#2a2a2a] text-muted/70 hover:border-yellow/30 hover:text-yellow"
+                      }`}
+                    >
+                      {c.emoji} {c.en}
+                    </button>
+                  );
+                })}
+              </div>
+              {(it.categories ?? []).length === 0 && (
+                <p className="mt-1.5 font-dm text-[11px] text-muted/60">
+                  Untagged — this listing is still matched on its wording, as before.
+                </p>
+              )}
             </Field>
 
             {/* Curated shelf. The owner's pick, deliberately not a computed

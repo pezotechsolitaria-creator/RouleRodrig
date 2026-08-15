@@ -9,6 +9,9 @@ import {
 import type { RecommendedPlace } from "@/lib/defaults";
 import { type ExperienceCopy, formatDuration, matchesFilter } from "@/lib/experiences";
 import { splitShelves, SHELF_COPY } from "@/lib/time-of-day";
+import {
+  availableCategories, categoryLabel, EXPERIENCE_CATEGORIES, inCategory,
+} from "@/lib/experience-categories";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
 import PlaceBookingModal from "@/components/PlaceBookingModal";
@@ -53,13 +56,17 @@ export default function ExperienceMarket({
   // filter with no control to release it would hide every night trip from
   // somebody browsing at noon with no way to discover it existed. The card
   // still says AFTER DARK, which is the useful half.
-  const usableFilters = useMemo(
-    () => copy.filters.filter((f) => places.some((p) => matchesFilter(p, f.key))),
-    [copy.filters, places],
+  // The SHARED taxonomy, not this vertical's hand-written chip list. A listing
+  // tagged "romantic" now answers the same filter whether it is a massage, a
+  // charter or a sunset cruise — which is the question a visitor actually has.
+  // Only categories with something behind them are offered.
+  const usableCategories = useMemo(
+    () => availableCategories(places, matchesFilter),
+    [places],
   );
 
   const visible = useMemo(
-    () => (active ? places.filter((p) => matchesFilter(p, active)) : places),
+    () => (active ? places.filter((p) => inCategory(p, active, matchesFilter)) : places),
     [places, active],
   );
 
@@ -88,7 +95,7 @@ export default function ExperienceMarket({
 
   return (
     <>
-      {usableFilters.length > 0 && (
+      {usableCategories.length > 0 && (
         <div className="mt-5 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
             onClick={() => setActive(null)}
@@ -96,15 +103,18 @@ export default function ExperienceMarket({
           >
             {fr ? "Tout" : "All"}
           </button>
-          {usableFilters.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setActive(active === f.key ? null : f.key)}
-              className={chip(active === f.key)}
-            >
-              {fr ? f.labelFr : f.label}
-            </button>
-          ))}
+          {usableCategories.map((key) => {
+            const c = EXPERIENCE_CATEGORIES.find((x) => x.key === key);
+            return (
+              <button
+                key={key}
+                onClick={() => setActive(active === key ? null : key)}
+                className={chip(active === key)}
+              >
+                {c?.emoji} {categoryLabel(key, language)}
+              </button>
+            );
+          })}
         </div>
       )}
 
