@@ -170,7 +170,8 @@
 // v240 — experiences split by day and night.
 // v241 — night changes the light, and curated shelves land.
 // v242 — a day-only or night-only experience says so on its card.
-const CACHE = "rr-cache-v242";
+// v243 — the day/night switch comes off the individual vertical pages.
+const CACHE = "rr-cache-v243";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
