@@ -13,6 +13,7 @@ import ReturnWelcome from "@/components/ReturnWelcome";
 import PWARegister from "@/components/PWARegister";
 import RefCapture from "@/components/RefCapture";
 import AnnouncementBar from "@/components/AnnouncementBar";
+import BuildWatcher from "@/components/BuildWatcher";
 import BottomNav from "@/components/BottomNav";
 import GlobalTiRoule from "@/components/GlobalTiRoule";
 import { getContent } from "@/lib/content";
@@ -363,6 +364,10 @@ export default async function RootLayout({
         </MotionProvider>
         <Analytics />
         <SpeedInsights />
+        {/* Reloads a device that is running an older build than the server is
+            serving. A stale device looks exactly like a bug, and diagnosing
+            that from a screenshot has cost more time than any real defect. */}
+        <BuildWatcher commit={process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 8) ?? "dev"} />
       </body>
     </html>
   );

@@ -92,7 +92,7 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
   // The sunset itself lives in components/DuskSequence now, because More plays
   // it too and a cinematic that differs per screen is not a signature. t is
   // 0 = fully day, 1 = fully night; sweep drives only the overlay's visibility.
-  const { t, sweep, play, jump } = useDusk();
+  const { run, play, jump, clear } = useDusk();
 
   const inMode = useMemo(
     () => places.filter((p) => matchesMode(p.timeOfDay, mode)),
@@ -160,7 +160,7 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
             reduced-motion variant. Its colours are literals no theme can
             reach, and it is the same component the Appearance control in
             More plays, so the sunset is one thing the whole site shares. */}
-        <DuskSequence t={t} sweep={sweep} />
+        <DuskSequence run={run} onDone={clear} />
 
         <div className="relative z-10 mx-auto max-w-5xl px-5 pb-28 pt-6">
           <p

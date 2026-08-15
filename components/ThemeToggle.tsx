@@ -70,7 +70,7 @@ export default function ThemeToggle() {
   // lie — and, as this page learned the hard way elsewhere, a server/client
   // disagreement is what breaks hydration and silently kills every handler.
   const [ready, setReady] = useState(false);
-  const { t, sweep, play, jump } = useDusk();
+  const { run, play, jump, clear } = useDusk();
 
   useEffect(() => {
     const c = readChoice();
@@ -117,7 +117,7 @@ export default function ThemeToggle() {
       {/* Same component, same colours, same 1200ms as the experiences hub —
           switching the whole site's light is at least as much of a moment as
           switching one page's. */}
-      <DuskSequence t={t} sweep={sweep} />
+      <DuskSequence run={run} onDone={clear} />
       <div
         role="group"
         aria-label="Appearance"

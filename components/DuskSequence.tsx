@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 // ── THE DUSK SEQUENCE ───────────────────────────────────────────────────────
 //
@@ -44,53 +44,40 @@ export type DuskTarget = "day" | "night";
 /**
  * Drives one dusk playthrough.
  *
- * `play(target)` starts it and returns immediately — the caller commits its own
- * state change in the same tick and never waits for the animation. That
- * ordering is deliberate and was learned the hard way: when the mode was set
- * from inside requestAnimationFrame, pressing Night did nothing at all in any
- * backgrounded tab, because rAF is suspended there. The animation is decoration; it is
- * never load-bearing for the thing the visitor actually asked for.
+ * ── NO PER-FRAME REACT STATE ───────────────────────────────────────────────
+ * This used to tick `t` and `sweep` from requestAnimationFrame, which meant
+ * every frame re-rendered this component AND everything above it — the hub,
+ * its cards, 46 star elements — sixty times a second for 1200ms. On anything
+ * that is not a fast phone that stutters, and rAF is suspended outright in a
+ * backgrounded tab and in any surface that is not compositing, so the sequence
+ * could simply not run at all. It was reported, repeatedly, as not working.
+ *
+ * So React's only job now is to mount the overlay and throw it away when it is
+ * over. Every moving part is a CSS animation, which the browser runs on the
+ * compositor: it cannot be blocked by JavaScript, it does not re-render
+ * anything, and it plays the same whatever else the page is doing.
+ *
+ * `play(target)` returns immediately and the caller commits its own state in
+ * the same tick — the animation is decoration and is never load-bearing for
+ * the thing the visitor actually asked for.
  */
 export function useDusk() {
-  const [t, setT] = useState(0);
-  const [sweep, setSweep] = useState(0);
-  const raf = useRef<number | null>(null);
+  // A new key on every play, so replaying restarts the animation rather than
+  // finding it already finished.
+  const [run, setRun] = useState<{ key: number; dir: DuskTarget } | null>(null);
 
-  useEffect(() => () => { if (raf.current !== null) cancelAnimationFrame(raf.current); }, []);
-
-  const play = useCallback((target: DuskTarget) => {
-    if (typeof window === "undefined") return;
-    if (raf.current !== null) cancelAnimationFrame(raf.current);
-
-    const to = target === "night" ? 1 : 0;
-    const from = 1 - to;
-    const started = performance.now();
-
-    const step = (now: number) => {
-      const p = Math.min(1, (now - started) / DUSK_MS);
-      // Ease so the horizon lingers where the colour is, instead of the sun
-      // travelling at a constant speed and arriving like a lift.
-      const eased = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
-      setT(from + (to - from) * eased);
-      setSweep(p);
-      if (p < 1) raf.current = requestAnimationFrame(step);
-      else raf.current = null;
-    };
-
-    setSweep(0);
-    setT(from);
-    raf.current = requestAnimationFrame(step);
+  const play = useCallback((dir: DuskTarget) => {
+    setRun((prev) => ({ key: (prev?.key ?? 0) + 1, dir }));
   }, []);
 
-  /**
-   * Arrive already at day or night with no animation. Used on mount, when the
-   * island's real clock says night: nobody asked for a transition they did not
-   * trigger, and a page that dusks itself on arrival is a page that fought you
-   * before you touched it.
-   */
-  const jump = useCallback((target: DuskTarget) => setT(target === "night" ? 1 : 0), []);
+  // Kept for callers that need to arrive already at night without a
+  // transition. There is nothing to set any more: with the overlay unmounted
+  // at rest, "already there" is simply not playing.
+  const jump = useCallback((target: DuskTarget) => { void target; }, []);
 
-  return { t, sweep, play, jump };
+  const clear = useCallback(() => setRun(null), []);
+
+  return { run, play, jump, clear };
 }
 
 /**
@@ -121,86 +108,156 @@ export function layerOpacities(t: number) {
   };
 }
 
-export default function DuskSequence({ t, sweep }: { t: number; sweep: number }) {
-  // Invisible at rest (sweep 0 and 1), fully opaque mid-transition. Because it
-  // returns to 0 the overlay never sits between the reader and the page, and
-  // pointer-events-none means it cannot intercept a tap even at full strength.
-  const veil = Math.sin(Math.PI * sweep);
-  if (veil <= 0.001) return null;
+// ── THE KEYFRAMES ARE GENERATED FROM THE TESTED CURVE ───────────────────────
+//
+// The animation is CSS, but the shape it follows is still layerOpacities()
+// above — sampled into keyframe stops here. That matters: it means the curve
+// the tests assert IS the curve the browser plays. Hand-writing percentages
+// next to a tested function is how the two quietly drift apart, and this
+// sequence has already been wrong twice in ways no type checker could see.
+const STEPS = 20;
 
-  // Day gone by the midpoint; night not started until after it. The warm sky
-  // owns the middle entirely — see the note above.
-  const { day, night, warm, sun, moon, stars } = layerOpacities(t);
+function keyframes(name: string, pick: (o: ReturnType<typeof layerOpacities>) => number) {
+  const stops: string[] = [];
+  for (let i = 0; i <= STEPS; i++) {
+    const t = i / STEPS;
+    stops.push(`${Math.round(t * 100)}%{opacity:${pick(layerOpacities(t)).toFixed(3)}}`);
+  }
+  return `@keyframes ${name}{${stops.join("")}}`;
+}
+
+const SUN_KEYFRAMES = (() => {
+  const stops: string[] = [];
+  for (let i = 0; i <= STEPS; i++) {
+    const t = i / STEPS;
+    stops.push(
+      `${Math.round(t * 100)}%{opacity:${layerOpacities(t).sun.toFixed(3)};` +
+        `transform:translate(-50%,${(t * 64).toFixed(1)}vh)}`,
+    );
+  }
+  return `@keyframes rrDuskSun{${stops.join("")}}`;
+})();
+
+const CSS = [
+  // The overlay itself: in, hold, out. It clears itself completely, so at rest
+  // there is nothing between the reader and the page — and because the whole
+  // thing unmounts afterwards, not even an invisible layer remains.
+  "@keyframes rrDuskVeil{0%{opacity:0}14%{opacity:1}86%{opacity:1}100%{opacity:0}}",
+  keyframes("rrDuskDay", (o) => o.day),
+  keyframes("rrDuskWarm", (o) => o.warm),
+  keyframes("rrDuskNight", (o) => o.night),
+  keyframes("rrDuskMoon", (o) => o.moon),
+  keyframes("rrDuskStars", (o) => o.stars),
+  SUN_KEYFRAMES,
+].join("");
+
+/** Sunrise is the same sequence played backwards. */
+const DIR = { night: "normal", day: "reverse" } as const;
+
+export default function DuskSequence({
+  run,
+  onDone,
+}: {
+  run: { key: number; dir: DuskTarget } | null;
+  onDone: () => void;
+}) {
+  // Belt and braces: animationend is the normal path, but if this ever mounts
+  // somewhere animations do not fire, the overlay must still remove itself
+  // rather than sit on the screen forever.
+  useEffect(() => {
+    if (!run) return;
+    const id = window.setTimeout(onDone, DUSK_MS + 400);
+    return () => window.clearTimeout(id);
+  }, [run, onDone]);
+
+  if (!run) return null;
+
+  const anim = (name: string) =>
+    `${name} ${DUSK_MS}ms linear ${DIR[run.dir]} forwards`;
+
+  // ── WHY THESE HINTS EXIST ────────────────────────────────────────────────
+  // The sequence played on a laptop and not on either phone. That asymmetry is
+  // the signature of work being done on the main thread: desktop had the
+  // headroom to keep up and phones did not. Moving to CSS animations is most of
+  // the fix, but a mobile browser will still rasterise an animated full-screen
+  // gradient on the main thread unless it is told the layer is going to change.
+  //
+  // will-change promotes each layer up front, and translateZ(0) is the older
+  // hint that iOS Safari in particular still respects. Together they mean the
+  // GPU composites six full-screen layers, which it does effortlessly, instead
+  // of the CPU repainting them.
+  const layer = { willChange: "opacity", transform: "translateZ(0)" } as const;
 
   return (
     <div
+      key={run.key}
       aria-hidden="true"
       className="pointer-events-none fixed inset-0 z-[60] overflow-hidden"
-      style={{ opacity: veil }}
+      style={{ animation: anim("rrDuskVeil") }}
+      onAnimationEnd={(e) => { if (e.currentTarget === e.target) onDone(); }}
     >
+      <style>{CSS}</style>
+
       {/* DAY — a clean tropical noon sky. */}
       <div
         className="absolute inset-0"
         style={{
-          opacity: day,
+          ...layer,
+          animation: anim("rrDuskDay"),
           background: "linear-gradient(180deg,#4FA8DE 0%,#8FD0EE 46%,#CFEAF7 78%,#EAF6FC 100%)",
         }}
       />
 
       {/* THE SUNSET ITSELF. Opaque at the midpoint, so the two endpoints can
-          never average into grey behind it.
+          never average into the grey-brown that a plain crossfade produces.
 
-          The first attempt at these stops began #2E1C58 → #7B3A73 → #C75C6A —
-          violet into rose — and on a phone the top two thirds of the screen
-          read as dark maroon. It looked like a warning state, not an evening.
-          A tropical sunset keeps BLUE overhead and confines the warmth to the
-          bottom of the sky, so that is what these stops do: the dome stays
-          oceanic, and the fire sits low where the sun actually is. */}
+          An earlier version of these stops ran violet into rose and the top two
+          thirds of a phone screen read as dark maroon — a warning state, not an
+          evening. A tropical sunset keeps BLUE overhead and confines the fire
+          to the bottom of the sky, which is what these do. */}
       <div
         className="absolute inset-0"
         style={{
-          opacity: warm,
+          ...layer,
+          animation: anim("rrDuskWarm"),
           background:
             "linear-gradient(180deg,#123A6B 0%,#2E6FA8 22%,#6BA3C4 40%,#C6A98E 56%,#F2A15C 72%,#FF8A47 88%,#FFC98A 100%)",
         }}
       />
 
-      {/* NIGHT — deep ocean navy, never flat black, so the stars have somewhere
-          to sit. */}
+      {/* NIGHT — deep ocean navy, never flat black, so stars have somewhere to sit. */}
       <div
         className="absolute inset-0"
         style={{
-          opacity: night,
+          ...layer,
+          animation: anim("rrDuskNight"),
           background: "linear-gradient(180deg,#050B1E 0%,#0A1330 44%,#141A3A 74%,#1B1330 100%)",
         }}
       />
 
-      {/* The horizon burn — the beat that reads as "sunset" rather than "a
-          fade". Strongest exactly where the warm sky is strongest. */}
+      {/* The horizon burn — the beat that reads as "sunset" rather than "a fade". */}
       <div
         className="absolute inset-0"
         style={{
-          opacity: warm * 0.85,
+          ...layer,
+          animation: anim("rrDuskWarm"),
+          opacity: 0.85,
           background:
             "radial-gradient(120% 55% at 50% 106%, rgba(255,146,54,0.85), rgba(255,94,58,0.28) 42%, transparent 68%)",
         }}
       />
 
-      {/* THE SUN. A hard-edged disc with a halo around it, not a soft smudge.
-          The previous one was a 96px blurred gradient at partial opacity, and
-          against a bright sky that is not a sun — it is a slightly lighter
-          patch. A sun is read from its EDGE: a definite bright circle sitting
-          inside a glow. So the core is opaque white-gold with a crisp boundary,
-          the halo is a separate box-shadow, and only the halo softens.
-
-          Positioned by transform rather than top, so it composites instead of
-          forcing layout on every frame. */}
+      {/* THE SUN. A hard-edged disc inside a halo, not a soft smudge. The
+          previous one faded to transparent at its own edge, and an eye reads a
+          sun from its EDGE — so the core ends opaque and only the halo softens.
+          It is fully bright through the first 60%, which is the frame anyone
+          actually catches. */}
       <div
         className="absolute left-1/2 h-32 w-32 rounded-full"
         style={{
           top: "12%",
-          transform: `translate(-50%, ${t * 64}vh)`,
-          opacity: sun,
+          willChange: "transform, opacity",
+          animation: anim("rrDuskSun"),
           background:
             "radial-gradient(circle at 50% 50%,#FFFEF7 0%,#FFF3C4 46%,#FFD976 74%,#FFC24E 100%)",
           boxShadow:
@@ -213,8 +270,9 @@ export default function DuskSequence({ t, sweep }: { t: number; sweep: number })
         className="absolute h-12 w-12 rounded-full"
         style={{
           right: "22%",
-          top: `${22 - t * 9}%`,
-          opacity: moon,
+          top: "16%",
+          ...layer,
+          animation: anim("rrDuskMoon"),
           background:
             "radial-gradient(circle at 38% 34%,#FFFDF6 0%,#EDEADB 58%,rgba(216,213,198,0) 72%)",
           boxShadow: "0 0 40px 10px rgba(240,238,225,0.18)",
@@ -222,7 +280,7 @@ export default function DuskSequence({ t, sweep }: { t: number; sweep: number })
       />
 
       {/* STARS. Emerge after the moon. */}
-      <div className="absolute inset-0" style={{ opacity: stars }}>
+      <div className="absolute inset-0" style={{ ...layer, animation: anim("rrDuskStars") }}>
         {STARS.map((st) => (
           <span
             key={st.k}
