@@ -850,49 +850,117 @@ html[data-splash="on"] #rr-splash.rr-skip {
   }
 }
 
-/* ── LIGHT MODE IS A BLUE MODE, NOT A WHITE ONE ─────────────────────────────
- *
- * This layer used to repaint every surface white: #F8F9FA canvas, white cards,
- * dark text. It was rebuilt from the owner's own screenshots several times and
- * rejected every time, and the reason turned out to be that "light mode" here
- * never meant a light background at all. It means THE BLUE ONE — the same
- * near-black island the site always was, wearing blue instead of gold.
- *
- * That is why every white-background attempt failed on sight, and it is a far
- * better system than the one it replaces: the canvas, the photography, the
- * cards and every contrast ratio already tuned against near-black are all
- * untouched. The only thing that changes is the accent, so there is no such
- * thing as a surface this mode has not been tested on.
- *
- * Set by the toggle in /more and by the pre-hydration script in app/layout.
- * ANY rule that repaints a background belongs in dark mode or nowhere.
- */
+/* ── LIGHT MODE ──────────────────────────────────────────────────────────────
+   An OVERRIDE LAYER, not a theme rebuild, and that is a deliberate choice.
 
-/* The accent, and nothing else. #2F80ED reads on near-black at 5.6:1, so it
-   clears AA for body text as well as for icons and links. */
-html.light .text-yellow      { color: #2F80ED; }
-html.light .bg-yellow        { background-color: #2F80ED; color: #FFFFFF; }
-html.light .border-yellow    { border-color: #2F80ED; }
-html.light .fill-yellow      { fill: #2F80ED; }
-html.light .text-yellow-dark { color: #5C9CF0; }
-html.light .bg-yellow-dark   { background-color: #1F5FBF; }
+   This design is dark-first: `bg-dark`, `text-offwhite` and `text-white` are
+   compiled by Tailwind v4's `@theme inline`, which bakes the literal colour
+   into each utility — so those utilities cannot be re-pointed at runtime by
+   swapping a variable. An earlier attempt to restructure the tokens produced
+   utilities that stopped existing at all and put white text on a light ground.
 
-/* Tints and washes built from the accent. Left as rgba so they keep sitting
-   on top of the dark ground rather than punching a pale hole in it. */
-html.light .bg-yellow\/10        { background-color: rgba(47,128,237,0.10); }
-html.light .bg-yellow\/15        { background-color: rgba(47,128,237,0.15); }
-html.light .bg-yellow\/20        { background-color: rgba(47,128,237,0.20); }
-html.light .border-yellow\/40    { border-color: rgba(47,128,237,0.40); }
-html.light .border-yellow\/50    { border-color: rgba(47,128,237,0.50); }
-html.light .border-yellow\/60    { border-color: rgba(47,128,237,0.60); }
-html.light .from-yellow          { --tw-gradient-from: #2F80ED; }
-html.light .to-yellow-dark       { --tw-gradient-to: #1F5FBF; }
+   So light mode re-declares the specific utilities instead. The safety
+   property is what matters: anything NOT listed here simply stays dark, which
+   is readable. A miss costs one out-of-place surface, never an invisible one.
+
+   `html.light` is set by the toggle in /more and by the pre-hydration script,
+   so dark remains the default and the site is untouched unless asked.
+
+   Palette is the owner's light system: #F8F9FA / #FFFFFF / #F1F3F5 / #E5E7EB /
+   #1A1A1A / #6B7280 / #D4A017. */
+
+html.light body { background-color: #F8F9FA; color: #1A1A1A; }
+
+/* Grounds and surfaces */
+html.light .bg-dark            { background-color: #F8F9FA; }
+html.light .bg-dark-card       { background-color: #FFFFFF; }
+html.light .border-dark-border { border-color: #E5E7EB; }
+
+/* Type */
+html.light .text-offwhite { color: #1A1A1A; }
+html.light .text-muted    { color: #6B7280; }
+
+/* ── THE ACCENT IS BLUE ON LIGHT, GOLD ON DARK ─────────────────────────────
+   Owner's call, and it is the right one twice over. Gold is the brand on the
+   near-black canvas and unreadable on a light one: #F5C842 on white is 1.7:1,
+   and even darkened to #B8860B every price on the homepage measured 2.93:1
+   against the card ground — below the 3:1 floor, let alone AA.
+
+   Blue carries the same "press this" meaning without that fight. #d4a800 is
+   6.5:1 on #F8F9FA and 6.2:1 on #F1F3F5, so it works as text, as a fill with
+   white on top, and as a border — one accent, no exceptions to remember.
+
+   The utility is still named `yellow` because renaming it across the app would
+   be a thousand-line diff for no behaviour. Read it as "the accent". */
+html.light .text-yellow      { color: #1F5FBF; }
+html.light .bg-yellow        { background-color: #1F5FBF; color: #FFFFFF; }
+html.light .border-yellow    { border-color: #1F5FBF; }
+html.light .fill-yellow      { fill: #1F5FBF; }
+html.light .text-yellow-dark { color: #17499A; }
 html.light .from-yellow\/10,
-html.light .from-yellow\/\[0\.08\],
-html.light .from-yellow\/\[0\.06\] { --tw-gradient-from: rgba(47,128,237,0.10); }
+html.light .from-yellow\/\[0\.08\] { --tw-gradient-from: rgba(47,128,237,0.10); }
 
-/* The Ti Roulé dock button glows gold in dark mode; in blue mode it glows
-   blue, or it looks like a stray from the other palette. */
-html.light .shadow-\[0_6px_18px_-4px_rgba\(245\,200\,66\,0\.55\)\] {
-  box-shadow: 0 6px 18px -4px rgba(47,128,237,0.55);
-}
+/* ── TEXT ON PHOTOGRAPHS NEVER FLIPS ──────────────────────────────────────
+   `text-white` in this codebase almost always means "on top of an image" — a
+   card label over its photo, a button on the hero. Flipping it made every one
+   of those dark-on-dark and invisible: the homepage lost "WELCOME TO", "Cars"
+   and every "Explore →".
+
+   A photograph is the same brightness in both themes, so text over one is the
+   same colour in both themes. It is not part of the theme at all.
+
+   `bg-white/x` and `border-white/x` DO flip — those are surfaces lifted off the
+   ground, and the ground is what changed. Only the glyph colour stays. */
+
+/* rr-on-media: an explicit opt-out for text over an image that uses a
+   ground-colour utility (the hero headline is text-offwhite, because it is a
+   heading first and happens to sit on a photo). */
+html.light .rr-on-media,
+html.light .rr-on-media * { color: #FFFFFF; }
+html.light .bg-white\/5,
+html.light .bg-white\/10,
+html.light .bg-white\/\[0\.02\],
+html.light .bg-white\/\[0\.03\],
+html.light .bg-white\/\[0\.04\],
+html.light .bg-white\/\[0\.06\]  { background-color: #F1F3F5; }
+html.light .border-white\/5,
+html.light .border-white\/10,
+html.light .border-white\/15,
+html.light .border-white\/20,
+html.light .border-white\/25    { border-color: #E5E7EB; }
+
+/* Gradients built from the dark ground read as dirt on a light one. */
+html.light .from-white\/\[0\.04\],
+html.light .from-white\/\[0\.06\] { --tw-gradient-from: #F1F3F5; }
+html.light .to-white\/\[0\.01\],
+html.light .to-white\/\[0\.015\]  { --tw-gradient-to: #FFFFFF; }
+html.light .from-yellow\/\[0\.06\] { --tw-gradient-from: rgba(245, 200, 66,0.08); }
+
+/* Chrome that assumes a dark page */
+/* ── TRANSLUCENT DARK SURFACES ────────────────────────────────────────────
+   The bottom nav, the app header, the quick-action strip and the trip-plan
+   banner are all `bg-dark/NN` — a translucent BLACK over whatever is behind
+   them. On a light page that is a black bar across the bottom of the screen,
+   which is exactly what the owner photographed and called "not the same as
+   dark mode".
+
+   Every step is listed rather than a few, because the ones that were missed
+   are the ones that showed. Same translucency, opposite colour. */
+html.light .bg-dark\/95 { background-color: rgba(255,255,255,0.95); }
+html.light .bg-dark\/90 { background-color: rgba(255,255,255,0.92); }
+html.light .bg-dark\/85 { background-color: rgba(255,255,255,0.90); }
+html.light .bg-dark\/80 { background-color: rgba(255,255,255,0.88); }
+html.light .bg-dark\/70 { background-color: rgba(255,255,255,0.85); }
+html.light .bg-dark\/60 { background-color: rgba(255,255,255,0.80); }
+html.light .bg-dark\/45 { background-color: rgba(255,255,255,0.70); }
+html.light .bg-dark\/40 { background-color: rgba(255,255,255,0.66); }
+html.light .bg-dark\/10 { background-color: rgba(0,0,0,0.04); }
+
+/* Their hairlines are white-on-dark; on light they have to be ink-on-light. */
+html.light .border-white\/12 { border-color: #E5E7EB; }
+
+/* Text ON a translucent dark surface was white because the surface was dark.
+   Now the surface is light, so the text follows the ground. */
+html.light .bg-dark\/80 .text-offwhite,
+html.light .bg-dark\/85 .text-offwhite,
+html.light .bg-dark\/90 .text-offwhite { color: #1A1A1A; }

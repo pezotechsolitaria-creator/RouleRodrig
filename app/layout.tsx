@@ -245,7 +245,7 @@ export default async function RootLayout({
             // Dark is this site's identity; light is a preference opted into.
             // Anything other than the literal 'light' now means dark, so an old
             // 'auto' value decays to dark on its own instead of needing clearing.
-            __html: `(function(){try{var d=document.documentElement;var t=null;try{t=localStorage.getItem('rr_theme_v2');}catch(e){}if(t==='light'){d.classList.add('light');}}catch(e){}})();`,
+            __html: `(function(){try{var d=document.documentElement;var t=null;try{t=localStorage.getItem('rr_theme_v2');}catch(e){}var light=(t==='light');if(light){d.classList.add('light');}try{var mt=document.querySelector('meta[name=\"theme-color\"]');if(mt)mt.setAttribute('content',light?'#F8F9FA':'#0a0a0a');}catch(e){}}catch(e){}})();`,
           }}
         />
         <script
