@@ -13,6 +13,8 @@ import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
 import AutoPhotos from "@/components/AutoPhotos";
 import DuskSequence, { useDusk } from "@/components/DuskSequence";
+import { useActiveWorld } from "@/context/ExperienceWorldContext";
+import { forWorld, WORLD_COPY } from "@/lib/worlds";
 
 // ── The Experiences hub ─────────────────────────────────────────────────────
 //
@@ -94,9 +96,21 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
   // 0 = fully day, 1 = fully night; sweep drives only the overlay's visibility.
   const { run, play, jump, clear } = useDusk();
 
+  // ── WORLD IS THE PRIMARY LENS ─────────────────────────────────────────────
+  // The brief warns against four confusing tabs, and it is right: World and
+  // Day/Night are NOT peers. The world the visitor chose already narrowed what
+  // this island is to them, so it filters FIRST and silently — there is no
+  // control for it here, because they set it at the gateway and can change it
+  // from the header. Day/Night then filters what remains.
+  //
+  // forWorld also RANKS, so an owner who has featured something for Curated
+  // sees it first here without any further work.
+  const activeWorld = useActiveWorld();
+  const worldPlaces = useMemo(() => forWorld(places, activeWorld), [places, activeWorld]);
+
   const inMode = useMemo(
-    () => places.filter((p) => matchesMode(p.timeOfDay, mode)),
-    [places, mode],
+    () => worldPlaces.filter((p) => matchesMode(p.timeOfDay, mode)),
+    [worldPlaces, mode],
   );
   const cats = useMemo(() => availableCategories(inMode, matchesFilter), [inMode]);
   const shown = useMemo(
@@ -108,10 +122,10 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
   // anything at night at all" rather than shifting when a chip is pressed.
   const counts = useMemo(
     () => ({
-      day: places.filter((p) => matchesMode(p.timeOfDay, "day")).length,
-      night: places.filter((p) => matchesMode(p.timeOfDay, "night")).length,
+      day: worldPlaces.filter((p) => matchesMode(p.timeOfDay, "day")).length,
+      night: worldPlaces.filter((p) => matchesMode(p.timeOfDay, "night")).length,
     }),
-    [places],
+    [worldPlaces],
   );
 
   // Correct to the island's actual time after mount. No animation: nobody
@@ -167,7 +181,11 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
             className="font-bebas text-xs tracking-[0.3em]"
             style={{ color: "var(--x-accent)" }}
           >
-            {L("EXPERIENCES", "EXPÉRIENCES")}
+            {/* The world names itself here rather than the generic section
+                title. A visitor filtering silently by a choice they made at the
+                gateway needs to SEE that choice is in force, or a short list
+                reads as a broken page rather than as a curated one. */}
+            {WORLD_COPY[activeWorld].eyebrow} · {L("EXPERIENCES", "EXPÉRIENCES")}
           </p>
           <h1 className="mt-1.5 font-syne text-2xl font-extrabold leading-tight md:text-3xl">
             {mode === "day"

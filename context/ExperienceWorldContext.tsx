@@ -42,6 +42,14 @@ export function ExperienceWorldProvider({ children }: { children: React.ReactNod
   const [world, setWorld] = useState<World | null>(null);
   const [ready, setReady] = useState(false);
 
+  // Mirror the world onto <html> so CSS can scope to it. One attribute drives
+  // both visual systems — the terracotta and the bronze — which means a new
+  // surface inherits its world by existing inside the document rather than by
+  // being handed a prop through six components that do not care.
+  useEffect(() => {
+    if (world) applyWorld(world);
+  }, [world]);
+
   useEffect(() => {
     let stored: World | null = null;
     try {
@@ -58,6 +66,7 @@ export function ExperienceWorldProvider({ children }: { children: React.ReactNod
   const choose = useCallback((w: World) => {
     setWorld(w);
     const theme = WORLD_COPY[w].theme;
+    applyWorld(w);
     try {
       localStorage.setItem(WORLD_KEY, w);
       // Written through to the theme key as well, so the pre-hydration script
@@ -78,6 +87,11 @@ export function ExperienceWorldProvider({ children }: { children: React.ReactNod
       {children}
     </ExperienceWorldContext.Provider>
   );
+}
+
+/** Stamp the world on the document. Safe to call repeatedly. */
+function applyWorld(w: World) {
+  document.documentElement.setAttribute("data-world", w);
 }
 
 export function useExperienceWorld() {
