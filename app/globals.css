@@ -937,6 +937,30 @@ html.light .to-white\/\[0\.015\]  { --tw-gradient-to: #FFFFFF; }
 html.light .from-yellow\/\[0\.06\] { --tw-gradient-from: rgba(245, 200, 66,0.08); }
 
 /* Chrome that assumes a dark page */
-html.light .bg-dark\/85,
-html.light .bg-dark\/80,
-html.light .bg-dark\/70 { background-color: rgba(255,255,255,0.88); }
+/* ── TRANSLUCENT DARK SURFACES ────────────────────────────────────────────
+   The bottom nav, the app header, the quick-action strip and the trip-plan
+   banner are all `bg-dark/NN` — a translucent BLACK over whatever is behind
+   them. On a light page that is a black bar across the bottom of the screen,
+   which is exactly what the owner photographed and called "not the same as
+   dark mode".
+
+   Every step is listed rather than a few, because the ones that were missed
+   are the ones that showed. Same translucency, opposite colour. */
+html.light .bg-dark\/95 { background-color: rgba(255,255,255,0.95); }
+html.light .bg-dark\/90 { background-color: rgba(255,255,255,0.92); }
+html.light .bg-dark\/85 { background-color: rgba(255,255,255,0.90); }
+html.light .bg-dark\/80 { background-color: rgba(255,255,255,0.88); }
+html.light .bg-dark\/70 { background-color: rgba(255,255,255,0.85); }
+html.light .bg-dark\/60 { background-color: rgba(255,255,255,0.80); }
+html.light .bg-dark\/45 { background-color: rgba(255,255,255,0.70); }
+html.light .bg-dark\/40 { background-color: rgba(255,255,255,0.66); }
+html.light .bg-dark\/10 { background-color: rgba(0,0,0,0.04); }
+
+/* Their hairlines are white-on-dark; on light they have to be ink-on-light. */
+html.light .border-white\/12 { border-color: #E5E7EB; }
+
+/* Text ON a translucent dark surface was white because the surface was dark.
+   Now the surface is light, so the text follows the ground. */
+html.light .bg-dark\/80 .text-offwhite,
+html.light .bg-dark\/85 .text-offwhite,
+html.light .bg-dark\/90 .text-offwhite { color: #1A1A1A; }
