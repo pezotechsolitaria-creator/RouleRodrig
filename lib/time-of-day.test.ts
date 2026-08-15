@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  countByMode, defaultMode, matchesMode, modeCue, rodriguesHour,
+  countByMode, defaultMode, matchesMode, modeCue, rodriguesHour, splitShelves,
 } from "./time-of-day";
 
 // A fixed UTC instant, so these assertions mean the same thing on any machine.
@@ -110,5 +110,47 @@ describe("modeCue", () => {
     expect(modeCue("night", "fr")).toContain("nuit");
     expect(modeCue("night", "cr")).toContain("nwar");
     expect(modeCue("day", "fr")).toContain("jour");
+  });
+});
+
+describe("splitShelves", () => {
+  const read = (i: { s?: "signature" | "hidden" }) => i.s;
+
+  it("puts each listing on exactly one shelf, never two", () => {
+    // A listing shown under "Signature" AND again in the grid below teaches a
+    // visitor that the shelf means nothing.
+    const items = [
+      { id: 1, s: "signature" as const },
+      { id: 2, s: "hidden" as const },
+      { id: 3, s: undefined },
+      { id: 4, s: undefined },
+    ];
+    const out = splitShelves(items, read);
+    expect(out.signature.map((i) => i.id)).toEqual([1]);
+    expect(out.hidden.map((i) => i.id)).toEqual([2]);
+    expect(out.rest.map((i) => i.id)).toEqual([3, 4]);
+
+    // Every input appears exactly once across the three groups.
+    const total = out.signature.length + out.hidden.length + out.rest.length;
+    expect(total).toBe(items.length);
+  });
+
+  it("keeps the owner's order within each shelf", () => {
+    const items = [
+      { id: "b", s: "signature" as const },
+      { id: "a", s: "signature" as const },
+    ];
+    expect(splitShelves(items, read).signature.map((i) => i.id)).toEqual(["b", "a"]);
+  });
+
+  it("returns empty shelves rather than undefined, so callers can just check length", () => {
+    const out = splitShelves([{ id: 1, s: undefined }], read);
+    expect(out.signature).toEqual([]);
+    expect(out.hidden).toEqual([]);
+    expect(out.rest).toHaveLength(1);
+  });
+
+  it("handles an empty catalogue", () => {
+    expect(splitShelves([], read)).toEqual({ signature: [], hidden: [], rest: [] });
   });
 });

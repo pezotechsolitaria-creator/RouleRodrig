@@ -92,3 +92,50 @@ export function countByMode<T>(
     night: items.filter((i) => matchesMode(read(i), "night")).length,
   };
 }
+
+// ── Curated shelves ─────────────────────────────────────────────────────────
+
+export type Shelf = "signature" | "hidden";
+
+export const SHELF_COPY: Record<Shelf, { en: string; fr: string; cr: string; sub: string }> = {
+  signature: {
+    en: "Signature Rodrigues",
+    fr: "Rodrigues d'exception",
+    cr: "Rodrigues otantik",
+    sub: "The experiences that capture the island.",
+  },
+  hidden: {
+    en: "Hidden gems",
+    fr: "Trésors cachés",
+    cr: "Bann tresor kasiet",
+    sub: "What most visitors never see.",
+  },
+};
+
+/**
+ * Split a mode's listings into curated shelves and the rest.
+ *
+ * The shelf is merchandising, NOT a second copy: a listing on a shelf is
+ * removed from the main grid rather than shown twice. Seeing the same charter
+ * under "Signature" and again below teaches a visitor to distrust the shelf.
+ *
+ * A shelf holding one item is still worth showing — "the one experience that
+ * captures the island" is a stronger claim than a row of six, not a weaker one.
+ * A shelf holding NOTHING renders nothing, which the caller gets for free by
+ * checking the array.
+ */
+export function splitShelves<T>(
+  items: T[],
+  read: (item: T) => Shelf | null | undefined,
+): { signature: T[]; hidden: T[]; rest: T[] } {
+  const signature: T[] = [];
+  const hidden: T[] = [];
+  const rest: T[] = [];
+  for (const item of items) {
+    const shelf = read(item);
+    if (shelf === "signature") signature.push(item);
+    else if (shelf === "hidden") hidden.push(item);
+    else rest.push(item);
+  }
+  return { signature, hidden, rest };
+}

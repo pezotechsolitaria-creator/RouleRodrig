@@ -4860,6 +4860,27 @@ function ServicesEditor({
               </select>
             </Field>
 
+            {/* Curated shelf. The owner's pick, deliberately not a computed
+                "popular": with a catalogue this size a popularity score is
+                measuring noise, and "the island's own pick" is a stronger claim
+                than a click count. Keep these SHORT — a shelf holding half the
+                catalogue is not curation, it is a second grid. */}
+            <Field label="CURATED SHELF">
+              <select
+                value={it.shelf ?? ""}
+                onChange={(e) =>
+                  update(index, {
+                    shelf: (e.target.value || undefined) as RecommendedPlace["shelf"],
+                  })
+                }
+                className={`${inputCls} appearance-none`}
+              >
+                <option value="">Not on a shelf — shows in the main list</option>
+                <option value="signature">✨ Signature Rodrigues</option>
+                <option value="hidden">🔍 Hidden gem</option>
+              </select>
+            </Field>
+
             {/* Languages. The first thing a visitor checks before spending four
                 hours on a ridge with someone. Free text, comma-separated, in
                 the same style as HIGHLIGHTS just below — Rodrigues guides also

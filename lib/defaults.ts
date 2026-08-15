@@ -441,6 +441,20 @@ export interface RecommendedPlace {
    */
   timeOfDay?: "day" | "night" | "both";
   /**
+   * Curated shelf this listing belongs on, if any.
+   *
+   * Merchandising the owner controls, not a computed "popular" — with a
+   * catalogue this size a popularity algorithm would be measuring noise, and
+   * "the island's own pick" is a stronger claim than a click count anyway.
+   *
+   *  · signature — "the experiences that capture the island"
+   *  · hidden    — "what most visitors never see"
+   *
+   * Absent means it simply appears in the main grid, which is where almost
+   * everything should be: a shelf that holds half the catalogue is not curation.
+   */
+  shelf?: "signature" | "hidden";
+  /**
    * Languages this person actually works in, e.g. ["English", "French", "Kreol"].
    *
    * Added with hiking guides, where it is not a nice-to-have: you are choosing

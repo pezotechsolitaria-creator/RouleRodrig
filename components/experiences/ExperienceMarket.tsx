@@ -8,8 +8,11 @@ import {
 } from "lucide-react";
 import type { RecommendedPlace } from "@/lib/defaults";
 import { type ExperienceCopy, formatDuration, matchesFilter } from "@/lib/experiences";
-import { countByMode, defaultMode, matchesMode, modeCue, type Mode } from "@/lib/time-of-day";
+import {
+  countByMode, defaultMode, matchesMode, modeCue, splitShelves, SHELF_COPY, type Mode,
+} from "@/lib/time-of-day";
 import DayNightSwitch from "@/components/experiences/DayNightSwitch";
+import ModeAtmosphere from "@/components/experiences/ModeAtmosphere";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
 import PlaceBookingModal from "@/components/PlaceBookingModal";
@@ -83,6 +86,11 @@ export default function ExperienceMarket({
     [inMode, active],
   );
 
+  // Shelves come off the VISIBLE set, so a category chip narrows them like
+  // everything else. A "Signature" row that ignored the active filter would be
+  // showing something the visitor has just said they are not looking for.
+  const shelves = useMemo(() => splitShelves(visible, (p) => p.shelf), [visible]);
+
   if (places.length === 0) {
     return (
       <div className="mt-8 overflow-hidden rounded-3xl border border-yellow/20 bg-gradient-to-b from-yellow/10 to-transparent px-6 py-12 text-center">
@@ -103,6 +111,9 @@ export default function ExperienceMarket({
 
   return (
     <>
+      {/* The light the page sits in. Behind everything, costs no layout. */}
+      <ModeAtmosphere mode={mode} />
+
       {/* WHEN, then WHAT. Above the category chips because it narrows the
           catalogue they filter within — putting it beside them would suggest
           they are peers. */}
@@ -156,20 +167,54 @@ export default function ExperienceMarket({
           </button>
         </div>
       ) : (
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visible.map((p, i) => (
-            <ExperienceCard
-              key={p.id}
-              place={p}
-              copy={copy}
-              fr={fr}
-              language={language}
-              index={i}
-              onOpen={() => setDetailPlace(p)}
-              onBook={() => setBookingPlace(p)}
-            />
-          ))}
-        </div>
+        <>
+          {/* Curated shelves first, then everything else. A shelf renders only
+              when it holds something — an empty "Hidden gems" heading is a
+              promise the page cannot keep. */}
+          {(["signature", "hidden"] as const).map((key) =>
+            shelves[key].length === 0 ? null : (
+              <section key={key} className="mt-8">
+                <h2 className="font-syne text-lg font-extrabold text-offwhite">
+                  {language === "fr" ? SHELF_COPY[key].fr
+                    : language === "cr" ? SHELF_COPY[key].cr
+                    : SHELF_COPY[key].en}
+                </h2>
+                <p className="mt-1 font-dm text-xs text-muted">{SHELF_COPY[key].sub}</p>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {shelves[key].map((p, i) => (
+                    <ExperienceCard
+                      key={p.id}
+                      place={p}
+                      copy={copy}
+                      fr={fr}
+                      language={language}
+                      index={i}
+                      onOpen={() => setDetailPlace(p)}
+                      onBook={() => setBookingPlace(p)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ),
+          )}
+
+          {shelves.rest.length > 0 && (
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {shelves.rest.map((p, i) => (
+                <ExperienceCard
+                  key={p.id}
+                  place={p}
+                  copy={copy}
+                  fr={fr}
+                  language={language}
+                  index={i}
+                  onOpen={() => setDetailPlace(p)}
+                  onBook={() => setBookingPlace(p)}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {detailPlace && (
