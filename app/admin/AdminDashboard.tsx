@@ -4840,6 +4840,92 @@ function ServicesEditor({
               </Field>
             </div>
 
+            {/* ── WHICH RODRIGUES ────────────────────────────────────────────
+                World first, because it is the PRIMARY lens: it decides how the
+                island is presented, and Day/Night below decides what is on
+                offer within it. Putting them the other way round would suggest
+                they are peers.
+
+                "Both" is the default and the safe answer. Every listing that
+                predates this system is already in that state and needs no
+                re-saving — narrowing is a deliberate act. */}
+            <Field label="WHICH RODRIGUES">
+              <select
+                value={it.world ?? "both"}
+                onChange={(e) =>
+                  update(index, { world: e.target.value as RecommendedPlace["world"] })
+                }
+                className={`${inputCls} appearance-none`}
+              >
+                <option value="both">Both worlds — shows to everyone</option>
+                <option value="authentic">🌿 Authentic only — local life, nature, culture</option>
+                <option value="curated">✦ Curated only — premium, refined, private</option>
+              </select>
+              <p className="mt-1.5 font-dm text-[11px] leading-snug text-muted">
+                Controls which world this appears in. Leave on “Both” unless it
+                genuinely belongs to only one.
+              </p>
+            </Field>
+
+            {/* The promotion controls, shown per world and only for the worlds
+                this listing is actually in — offering a "feature in Curated"
+                toggle on an Authentic-only listing is an option that cannot do
+                anything, which is worse than no option at all. */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(["authentic", "curated"] as const)
+                .filter((w) => (it.world ?? "both") === "both" || (it.world ?? "both") === w)
+                .map((w) => {
+                  const featKey = w === "authentic" ? "featuredAuthentic" : "featuredCurated";
+                  const heroKey = w === "authentic" ? "heroAuthentic" : "heroCurated";
+                  return (
+                    <div key={w} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                      <p className="font-bebas text-[11px] tracking-[0.2em] text-yellow">
+                        {w === "authentic" ? "🌿 AUTHENTIC" : "✦ CURATED"}
+                      </p>
+                      <label className="mt-2 flex cursor-pointer items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(it[featKey])}
+                          onChange={(e) => update(index, { [featKey]: e.target.checked })}
+                          className="h-4 w-4 accent-yellow"
+                        />
+                        <span className="font-dm text-xs text-offwhite">Feature near the top</span>
+                      </label>
+                      <label className="mt-1.5 flex cursor-pointer items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(it[heroKey])}
+                          onChange={(e) => update(index, { [heroKey]: e.target.checked })}
+                          className="h-4 w-4 accent-yellow"
+                        />
+                        <span className="font-dm text-xs text-offwhite">Can carry the hero</span>
+                      </label>
+                    </div>
+                  );
+                })}
+            </div>
+
+            <Field label="ORDER WITHIN A WORLD (OPTIONAL)">
+              <input
+                type="number"
+                inputMode="numeric"
+                value={it.worldPriority ?? ""}
+                placeholder="Leave empty for automatic"
+                onChange={(e) =>
+                  update(index, {
+                    // Empty means "unranked", which is NOT the same as 0 —
+                    // zero would outrank every number the owner typed.
+                    worldPriority: e.target.value === "" ? undefined : Number(e.target.value),
+                  })
+                }
+                className={inputCls}
+              />
+              <p className="mt-1.5 font-dm text-[11px] leading-snug text-muted">
+                Lower shows first. Anything left empty follows the featured and
+                numbered ones, in its existing order.
+              </p>
+            </Field>
+
             {/* WHEN it happens. Not a theme — the Day/Night control on
                 /experiences filters on this, so a night fishing trip stops
                 appearing in a list somebody is reading at 10am. "Any time" is

@@ -17,6 +17,8 @@ import { NAV_TABS, isTabActive, tabLabel, openTiRoule } from "@/lib/nav-tabs";
 import InstallAppButton from "@/components/InstallAppButton";
 import AccountButton from "@/components/AccountButton";
 import WorldSwitcher from "@/components/world/WorldSwitcher";
+import { useActiveWorld } from "@/context/ExperienceWorldContext";
+import { WORLD_COPY } from "@/lib/worlds";
 import EventsPromo, { type PromoEvent } from "@/components/EventsPromo";
 import { HeartHandshake } from "lucide-react";
 import { DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS } from "@/lib/defaults";
@@ -96,6 +98,10 @@ export default function AppHome({
   const L = (t: Tri) => (language === "fr" ? t[1] : language === "cr" ? t[2] : t[0]);
   const cycle = () => setLanguage(language === "en" ? "fr" : language === "fr" ? "cr" : "en");
   const openSaved = () => window.dispatchEvent(new CustomEvent("rr:open-saved"));
+  // Which Rodrigues this visitor is in. Falls back to Curated — the near-black
+  // world is this site's existing identity, so anyone who has not chosen sees
+  // the page they already know rather than a stranger.
+  const activeWorld = useActiveWorld();
 
   // The primary photo cards — admin-editable (content.homeCards). Each card's
   // auto-cycling photos come from its imageSource category (the owner's real
@@ -300,6 +306,28 @@ export default function AppHome({
           so rendered bare among siblings the reconciler flags them as keyless
           list children ("a child from Home"). A stable key silences it. */}
       <Fragment key="hero">{hero}</Fragment>
+
+      {/* ── THE WORLD SPEAKS ────────────────────────────────────────────────
+          LIVE RODRIGUES or EXPERIENCE RODRIGUES, directly under the hero. This
+          is the line that makes the choice mean something: without it the two
+          worlds differ only in colour, which is the "purely cosmetic theme
+          switch" the brief rules out by name.
+
+          It is a heading, not decoration, so it carries real hierarchy — but it
+          sits BELOW the hero rather than replacing it, because the hero is
+          owner-managed content and a world must never delete what the owner
+          published. */}
+      <section className="mx-auto max-w-5xl px-5 pb-1 pt-6">
+        <p className="font-bebas text-[11px] tracking-[0.38em] text-yellow">
+          {WORLD_COPY[activeWorld].eyebrow}
+        </p>
+        <h1 className="mt-1 font-syne text-[clamp(1.6rem,6vw,2.6rem)] font-extrabold leading-[0.95] text-offwhite">
+          {L(WORLD_COPY[activeWorld].headline)}
+        </h1>
+        <p className="mt-2 max-w-md font-dm text-sm text-muted">
+          {L(WORLD_COPY[activeWorld].promise)}
+        </p>
+      </section>
 
       {/* pb clears the fixed bottom bar on a phone. Above md: the dock is gone
           and the navigation is in the header, so the reserved strip goes too. */}

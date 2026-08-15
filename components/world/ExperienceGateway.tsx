@@ -39,9 +39,48 @@ import { WORLD_COPY, WORLDS, type World } from "@/lib/worlds";
 // must degrade to a darker panel with legible type, never to a broken image.
 const FALLBACK = "/og-image.jpg";
 
-const POSITION: Record<World, string> = {
-  authentic: "center 55%",
-  curated: "center 45%",
+// ── EACH SIDE IS ALREADY ITS OWN WORLD ──────────────────────────────────────
+// The gateway is the only moment a visitor sees both worlds at once, so it is
+// the only place the difference can be SHOWN rather than described. Two
+// identical panels with different words would be a menu; the choice has to look
+// like a choice before either label is read.
+//
+// Authentic is warm — sunlit, sand and terracotta, the photograph left bright
+// and open. Curated is cool and held back — near-black, desaturated, bronze,
+// far more negative space and much wider letter-spacing. The brief's two visual
+// systems, compressed into one screen.
+const SKIN: Record<World, {
+  position: string;
+  /** Colour laid over the photograph, so the two grounds read differently. */
+  wash: string;
+  /** Bottom-up scrim; Curated's is deeper because its world is darker. */
+  scrim: string;
+  accent: string;
+  /** Curated is restrained; Authentic is open and warm. */
+  filter: string;
+  dimmedFilter: string;
+  tracking: string;
+}> = {
+  authentic: {
+    position: "center 55%",
+    wash: "linear-gradient(180deg, rgba(196,120,64,0.20) 0%, rgba(120,66,40,0.30) 100%)",
+    scrim:
+      "linear-gradient(180deg, rgba(28,18,12,0.10) 0%, rgba(28,18,12,0.34) 48%, rgba(24,15,10,0.90) 100%)",
+    accent: "#F0D9B5",
+    filter: "brightness(0.78) saturate(1.12)",
+    dimmedFilter: "brightness(0.46) saturate(0.85)",
+    tracking: "0.30em",
+  },
+  curated: {
+    position: "center 45%",
+    wash: "linear-gradient(180deg, rgba(11,11,11,0.30) 0%, rgba(11,11,11,0.55) 100%)",
+    scrim:
+      "linear-gradient(180deg, rgba(11,11,11,0.32) 0%, rgba(11,11,11,0.58) 45%, rgba(11,11,11,0.96) 100%)",
+    accent: "#C9A227",
+    filter: "brightness(0.56) saturate(0.62) contrast(1.06)",
+    dimmedFilter: "brightness(0.34) saturate(0.45)",
+    tracking: "0.52em",
+  },
 };
 
 export default function ExperienceGateway({
@@ -89,6 +128,7 @@ export default function ExperienceGateway({
       {WORLDS.map((w) => {
         const copy = WORLD_COPY[w];
         const isOther = hovered !== null && hovered !== w;
+        const skin = SKIN[w];
         return (
           <button
             key={w}
@@ -113,11 +153,11 @@ export default function ExperienceGateway({
               className="absolute inset-0 bg-cover"
               style={{
                 backgroundImage: `url(${images?.[w] || FALLBACK})`,
-                backgroundPosition: POSITION[w],
+                backgroundPosition: skin.position,
                 // The recede is light and slow: the far side dims and pulls
                 // back a little rather than disappearing.
                 transform: hovered === w ? "scale(1.06)" : "scale(1.01)",
-                filter: isOther ? "brightness(0.42) saturate(0.7)" : "brightness(0.66)",
+                filter: isOther ? skin.dimmedFilter : skin.filter,
                 transition: "transform 900ms cubic-bezier(0.22,0.61,0.36,1), filter 600ms ease",
               }}
             />
@@ -127,15 +167,15 @@ export default function ExperienceGateway({
               aria-hidden
               className="absolute inset-0"
               style={{
-                background:
-                  "linear-gradient(180deg, rgba(11,11,11,0.15) 0%, rgba(11,11,11,0.30) 45%, rgba(11,11,11,0.88) 100%)",
+                background: skin.wash,
               }}
             />
+            <div aria-hidden className="absolute inset-0" style={{ background: skin.scrim }} />
 
-            <div className="relative flex h-full flex-col justify-end p-7 md:p-12">
+            <div className={`relative flex h-full flex-col justify-end ${w === "curated" ? "p-8 md:p-16" : "p-7 md:p-12"}`}>
               <p
-                className="font-bebas text-xs tracking-[0.42em]"
-                style={{ color: w === "curated" ? "#C9A227" : "#E8D9C0" }}
+                className="font-bebas text-xs"
+                style={{ color: skin.accent, letterSpacing: skin.tracking }}
               >
                 {copy.eyebrow}
               </p>
@@ -149,8 +189,8 @@ export default function ExperienceGateway({
               <span
                 className="mt-6 inline-flex w-fit items-center gap-2 rounded-full border px-5 py-3 font-dm text-[13px] font-bold text-white transition-all duration-500"
                 style={{
-                  borderColor: hovered === w ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)",
-                  background: hovered === w ? "rgba(255,255,255,0.14)" : "transparent",
+                  borderColor: hovered === w ? skin.accent : "rgba(255,255,255,0.34)",
+                  background: hovered === w ? "rgba(255,255,255,0.12)" : "transparent",
                 }}
               >
                 {tri(copy.cta)}

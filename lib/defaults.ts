@@ -441,6 +441,32 @@ export interface RecommendedPlace {
    */
   timeOfDay?: "day" | "night" | "both";
   /**
+   * ── WHICH RODRIGUES THIS BELONGS TO ───────────────────────────────────────
+   *
+   * The Dual Experience World system (lib/worlds.ts). Authentic is local life,
+   * culture, nature and community; Curated is premium stays, refined dining,
+   * private experiences and wellness.
+   *
+   * Every field here is OPTIONAL and absent means "both", exactly like
+   * timeOfDay above and for the same reason: switching the feature on must not
+   * empty half the site. Nothing needs re-saving, and an owner narrows a
+   * listing deliberately or not at all.
+   *
+   * World is the PRIMARY lens and timeOfDay the secondary one — the world
+   * decides how the island is presented, the time decides what is on offer.
+   */
+  world?: "authentic" | "curated" | "both";
+  /** Order within a world. Lower first. Absent sorts after everything numbered. */
+  worldPriority?: number;
+  /** Promote to the front of the Authentic listing. */
+  featuredAuthentic?: boolean;
+  /** Promote to the front of the Curated listing. */
+  featuredCurated?: boolean;
+  /** Eligible to carry the Authentic homepage hero. */
+  heroAuthentic?: boolean;
+  /** Eligible to carry the Curated homepage hero. */
+  heroCurated?: boolean;
+  /**
    * Which curated categories this listing belongs to — MANY, deliberately.
    *
    * A sunset charter is genuinely Ocean and Romantic and Photography, and the
