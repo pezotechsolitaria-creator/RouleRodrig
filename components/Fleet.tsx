@@ -354,7 +354,9 @@ export default function Fleet({
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
+        {/* 3-up from xl. The card design is untouched — this only stops a
+            long catalogue turning into a very long scroll on a wide screen. */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
           {items.map((scooter, i) => {
             const specs = resolveSpecs(scooter);
             const ownInc = (scooter.included ?? []).filter(Boolean);

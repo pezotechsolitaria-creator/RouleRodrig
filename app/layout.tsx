@@ -237,7 +237,7 @@ export default async function RootLayout({
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var d=document.documentElement;var t=null;try{t=localStorage.getItem('rr_theme');}catch(e){}var light;if(t==='light'){light=true;}else if(t==='dark'){light=false;}else{var h=(new Date().getUTCHours()+4)%24;light=(h>=6&&h<18);}if(light){d.classList.add('light');}}catch(e){}})();`,
+            __html: `(function(){try{var d=document.documentElement;var t=null;try{t=localStorage.getItem('rr_theme');}catch(e){}var light;if(t==='light'){light=true;}else if(t==='dark'){light=false;}else{var h=(new Date().getUTCHours()+4)%24;light=(h>=6&&h<18);}if(light){d.classList.add('light');}try{var mt=document.querySelector('meta[name=\"theme-color\"]');if(mt)mt.setAttribute('content',light?'#F8F9FA':'#0a0a0a');}catch(e){}}catch(e){}})();`,
           }}
         />
         <script
@@ -248,7 +248,7 @@ export default async function RootLayout({
         <div id="rr-splash" aria-hidden="true">
           <svg className="rr-sp-rings" viewBox="0 0 600 600" fill="none">
             {[70, 130, 190, 250, 310, 370].map((r) => (
-              <ellipse key={r} cx="300" cy="300" rx={r} ry={r * 0.82} stroke="#F5C842" strokeWidth="1" />
+              <ellipse key={r} cx="300" cy="300" rx={r} ry={r * 0.82} stroke="#2F80ED" strokeWidth="1" />
             ))}
           </svg>
           <div className="rr-sp-particles" aria-hidden="true">
@@ -270,18 +270,18 @@ export default async function RootLayout({
             <path
               d="M4 18 C 48 6, 80 22, 116 12 S 178 4, 204 10"
               pathLength={300}
-              stroke="#F5C842"
+              stroke="#2F80ED"
               strokeWidth="2"
               strokeLinecap="round"
             />
-            <circle cx="204" cy="10" r="3.5" fill="#F5C842" />
+            <circle cx="204" cy="10" r="3.5" fill="#2F80ED" />
           </svg>
           <div className="rr-sp-ocean" aria-hidden="true">
             <svg className="rr-sp-wave-a" viewBox="0 0 2880 60" preserveAspectRatio="none">
-              <path d="M0,34 C240,14 480,54 720,34 C960,14 1200,54 1440,34 C1680,14 1920,54 2160,34 C2400,14 2640,54 2880,34" fill="none" stroke="#F5C842" strokeWidth="2.5" strokeLinecap="round" />
+              <path d="M0,34 C240,14 480,54 720,34 C960,14 1200,54 1440,34 C1680,14 1920,54 2160,34 C2400,14 2640,54 2880,34" fill="none" stroke="#2F80ED" strokeWidth="2.5" strokeLinecap="round" />
             </svg>
             <svg className="rr-sp-wave-b" viewBox="0 0 2880 60" preserveAspectRatio="none">
-              <path d="M0,30 C240,50 480,10 720,30 C960,50 1200,10 1440,30 C1680,50 1920,10 2160,30 C2400,50 2640,10 2880,30" fill="none" stroke="#F5C842" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M0,30 C240,50 480,10 720,30 C960,50 1200,10 1440,30 C1680,50 1920,10 2160,30 C2400,50 2640,10 2880,30" fill="none" stroke="#2F80ED" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </div>
           <span className="rr-sp-bar"><span /></span>

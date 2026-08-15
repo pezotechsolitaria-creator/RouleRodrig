@@ -67,7 +67,7 @@ export default function Sponsors({
       <div className="pointer-events-none absolute inset-0 hidden md:block" aria-hidden="true">
         <div
           className="absolute left-1/2 top-0 -translate-x-1/2 h-[40vw] w-[70vw] rounded-full blur-3xl"
-          style={{ background: "radial-gradient(circle, rgba(245,200,66,0.06), transparent 65%)" }}
+          style={{ background: "radial-gradient(circle, rgba(47,128,237,0.06), transparent 65%)" }}
         />
       </div>
 

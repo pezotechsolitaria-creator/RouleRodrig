@@ -58,7 +58,7 @@ export default function QuickAdd({
         type="button"
         aria-label={`Add ${productName} to your basket`}
         onClick={add}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-yellow text-dark shadow-[0_6px_18px_-4px_rgba(245,200,66,0.55)] transition-transform hover:scale-110 active:scale-95"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-yellow text-dark shadow-[0_6px_18px_-4px_rgba(47,128,237,0.55)] transition-transform hover:scale-110 active:scale-95"
       >
         <Plus size={16} strokeWidth={2.5} />
       </button>
@@ -66,7 +66,7 @@ export default function QuickAdd({
   }
 
   return (
-    <div className="flex h-9 items-center rounded-full bg-yellow text-dark shadow-[0_6px_18px_-4px_rgba(245,200,66,0.55)]">
+    <div className="flex h-9 items-center rounded-full bg-yellow text-dark shadow-[0_6px_18px_-4px_rgba(47,128,237,0.55)]">
       <button
         type="button"
         aria-label={`One fewer ${productName}`}

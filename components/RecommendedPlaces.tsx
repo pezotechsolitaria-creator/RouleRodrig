@@ -123,7 +123,7 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {shown.map((p, i) => {
             const cfg = CATEGORY[p.category];
             const isExternal = p.link?.startsWith("http");
@@ -137,7 +137,7 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
                 transition={{ duration: 0.35, delay: Math.min(i, 3) * 0.05 }}
                 className={`bg-dark-card rounded-2xl overflow-hidden flex flex-col transition-colors group ${
                   p.featured
-                    ? "border-2 border-yellow/50 hover:border-yellow shadow-[0_0_24px_rgba(245,200,66,0.08)]"
+                    ? "border-2 border-yellow/50 hover:border-yellow shadow-[0_0_24px_rgba(47,128,237,0.08)]"
                     : "border border-white/10 hover:border-yellow/40"
                 }`}
               >

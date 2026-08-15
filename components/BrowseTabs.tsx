@@ -33,7 +33,7 @@ export default function BrowseTabs({
               aria-current={isActive ? "page" : undefined}
               className={`group shrink-0 inline-flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full text-sm font-syne font-bold transition-all duration-200 ${
                 isActive
-                  ? "bg-yellow text-dark shadow-[0_8px_22px_-8px_rgba(245,200,66,0.7)]"
+                  ? "bg-yellow text-dark shadow-[0_8px_22px_-8px_rgba(47,128,237,0.7)]"
                   : "bg-white/[0.04] border border-white/10 text-muted hover:text-offwhite hover:border-white/25 hover:bg-white/[0.07]"
               }`}
             >

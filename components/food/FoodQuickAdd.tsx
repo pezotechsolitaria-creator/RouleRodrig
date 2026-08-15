@@ -113,7 +113,7 @@ export default function FoodQuickAdd({
         type="button"
         aria-label={`Add ${item.name}`}
         onClick={add}
-        className={`flex ${dimensions} items-center justify-center rounded-full bg-yellow text-dark shadow-[0_6px_18px_-4px_rgba(245,200,66,0.55)] transition-transform hover:scale-110 active:scale-95`}
+        className={`flex ${dimensions} items-center justify-center rounded-full bg-yellow text-dark shadow-[0_6px_18px_-4px_rgba(47,128,237,0.55)] transition-transform hover:scale-110 active:scale-95`}
       >
         <Plus size={icon} strokeWidth={2.5} />
       </button>

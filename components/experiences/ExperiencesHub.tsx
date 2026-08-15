@@ -41,7 +41,7 @@ import AutoPhotos from "@/components/AutoPhotos";
 
 // The owner's palettes, verbatim. Dark is the site's existing near-black and
 // gold; light is the tropical daylight system specified alongside it. They are
-// a PAIR — the accent is gold in both, darkened for light because #F5C842 on
+// a PAIR — the accent is gold in both, darkened for light because #2F80ED on
 // #F8F9FA is 1.7:1 and unreadable as a text colour, while #D4A017 clears AA.
 const PALETTE: Record<Mode, Record<string, string>> = {
   day: {
@@ -65,8 +65,8 @@ const PALETTE: Record<Mode, Record<string, string>> = {
     "--x-line": "#222222",
     "--x-ink": "#F5F5F0",
     "--x-muted": "#888888",
-    "--x-accent": "#F5C842",
-    "--x-accent-hover": "#d4a800",
+    "--x-accent": "#2F80ED",
+    "--x-accent-hover": "#1F5FBF",
     "--x-accent-ink": "#0a0a0a",
     "--x-icon-idle": "#6B7280",
     "--x-success": "#34D399",
@@ -104,6 +104,8 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
   // itself swaps at the midpoint so text never sits mid-fade against a ground
   // it does not match.
   const [t, setT] = useState(0);
+  // 0 at rest, 1 mid-transition — drives only the overlay's visibility.
+  const [sweep, setSweep] = useState(0);
   const raf = useRef<number | null>(null);
 
   const inMode = useMemo(
@@ -162,7 +164,9 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
       // easeInOutCubic — the light leaves slowly, then commits.
       const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
       setT(from + (to - from) * e);
+      setSweep(p);
       if (p < 1) raf.current = requestAnimationFrame(step);
+      else setSweep(0);
     };
     raf.current = requestAnimationFrame(step);
   }
@@ -183,7 +187,24 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
             parallax, spin or scroll-coupling, which is the mildest class of
             motion; it never blocks the tap, because the list underneath is
             already filtered before the first frame. */}
-        <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0 z-50 overflow-hidden"
+          style={{
+            // ── VISIBLE, THEN GONE ────────────────────────────────────────
+            // This used to sit BEHIND the content under a 93%-opaque canvas:
+            // it played correctly and was about 7% visible, which is the same
+            // as not playing. A cinematic transition has to actually cross the
+            // screen.
+            //
+            // So it sweeps OVER the page and clears itself: invisible at rest
+            // (0 and 1), fully opaque mid-transition. sin() gives that shape in
+            // one expression, and because it returns to 0 the overlay never
+            // sits between the reader and the list — pointer-events-none means
+            // it cannot intercept a tap even at full strength.
+            opacity: Math.sin(Math.PI * sweep),
+          }}
+        >
           <div
             className="absolute inset-0"
             style={{
@@ -253,16 +274,6 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
             ))}
           </div>
 
-          {/* Whatever the sky is doing, the page has to stay readable, so the
-              canvas sits over it. Held back mid-transition so the sunset is
-              actually visible, then closed to near-opaque at either end. */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background: "var(--x-canvas)",
-              opacity: 0.93 - Math.sin(Math.PI * t) * 0.22,
-            }}
-          />
         </div>
 
         <div className="relative z-10 mx-auto max-w-5xl px-5 pb-28 pt-6">
