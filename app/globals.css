@@ -1033,32 +1033,32 @@ html[data-world="authentic"]:not(.light) .border-white\/12 { border-color: var(-
 html[data-world="authentic"]:not(.light) .rounded-2xl { border-radius: 1.15rem 1.15rem 1.35rem 1.35rem; }
 html[data-world="authentic"]:not(.light) .font-syne { letter-spacing: -0.015em; }
 
-/* ── CURATED — cinematic, restrained, and LIGHT ───────────────────────────
+/* ── CURATED — cinematic, restrained, bronze, and LIGHT ───────────────────
    Curated is the world that CHANGES, which is what makes it read as elevated:
    every premium app on the visitor's phone is already dark, so a bright, quiet
    gallery ground is the stronger signal.
 
-   The accent is the BLUE this light mode already uses, not the bronze tried
-   first. Owner's call, sent with a screenshot, and it is right — the blue was
-   chosen for this ground and tuned against it over several rounds, while the
-   bronze was a second accent introduced to a system that already had one.
-   DESIGN.md forbids exactly that, and a muted bronze on near-white also drifts
-   toward "old document" rather than "gallery".
+   The accent is a deep bronze rather than the blue the rest of light mode
+   uses. That is a deliberate exception, confirmed by the owner: blue is the
+   PRODUCT's accent and it does its job on the ordinary light page, but Curated
+   is meant to feel like a different world, and an accent it does not share
+   with the everyday site is most of how it gets there.
 
-   So this block sets NO accent colour. It deliberately leaves .text-yellow and
-   .bg-yellow to the html.light layer above, which already paints them blue —
-   overriding them here is what put the bronze on screen. Only the things the
-   light layer has no opinion about are set: the ground, the warm ink, the
-   hairline, and the restraint. */
+   The value is measured, not picked. #C9A227 — the bronze used on the gateway
+   panel — is 2.30:1 here and unusable. #8C7228 was the next try and measured
+   4.38:1: under AA, and close enough to look fine while failing. #856B24
+   measures 4.83:1 and clears it with room. */
 html[data-world="curated"] {
-  --rr-world-accent: #1F5FBF;      /* the light layer's blue, for the switcher */
-  --rr-world-accent-soft: #2F80ED;
+  --rr-world-accent: #856B24;      /* deep bronze — measured 4.83:1 */
+  --rr-world-accent-soft: #C9A227;
   --rr-world-ink: #1A1613;         /* warm near-black, never neutral grey */
   --rr-world-line: #E7E2D8;        /* warm hairline, not steel */
   --rr-world-surface: #FFFFFF;
 }
 
 html[data-world="curated"].light body { background-color: #FAF9F6; }
+html[data-world="curated"].light .text-yellow { color: var(--rr-world-accent); }
+html[data-world="curated"].light .bg-yellow { background-color: var(--rr-world-accent); }
 html[data-world="curated"].light .border-white\/10,
 html[data-world="curated"].light .border-white\/12 { border-color: var(--rr-world-line); }
 
