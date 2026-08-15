@@ -16,6 +16,7 @@ import { loc } from "@/lib/localize";
 import { NAV_TABS, isTabActive, tabLabel, openTiRoule } from "@/lib/nav-tabs";
 import InstallAppButton from "@/components/InstallAppButton";
 import AccountButton from "@/components/AccountButton";
+import WorldSwitcher from "@/components/world/WorldSwitcher";
 import EventsPromo, { type PromoEvent } from "@/components/EventsPromo";
 import { HeartHandshake } from "lucide-react";
 import { DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS } from "@/lib/defaults";
@@ -219,6 +220,16 @@ export default function AppHome({
               and an account is who you are. */}
           <AccountButton />
         </div>
+
+        {/* ── CHANGE YOUR RODRIGUES ──────────────────────────────────────────
+            Directly under the identity row and above everything else, because
+            it reframes the whole page beneath it — putting it lower would make
+            it look like a filter for whatever section it happened to sit in.
+
+            It renders nothing until a world has been chosen, so it costs a
+            first-time visitor nothing and cannot appear while the gateway is
+            still on screen offering the same choice. */}
+        <WorldSwitcher />
 
         {/* ── DESKTOP NAVIGATION ─────────────────────────────────────────────
             A laptop should not be given a phone's thumb dock. The bottom bar

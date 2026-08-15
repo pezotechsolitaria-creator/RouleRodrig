@@ -14,7 +14,12 @@ import { otherWorld, WORLD_COPY } from "@/lib/worlds";
 // It is a toggle rather than a menu because there are exactly two worlds. A
 // select with two options is a button that takes an extra tap.
 
-export default function WorldSwitcher({ className = "" }: { className?: string }) {
+export default function WorldSwitcher({
+  /** Extra classes for the button itself. */
+  className = "",
+  /** Render the surrounding strip. Off when embedding into an existing row. */
+  strip = true,
+}: { className?: string; strip?: boolean }) {
   const { world, ready, choose } = useExperienceWorld();
   const { language } = useLanguage();
 
@@ -29,7 +34,7 @@ export default function WorldSwitcher({ className = "" }: { className?: string }
     : language === "cr" ? "Sanz ou Rodrigues"
     : "Change your Rodrigues";
 
-  return (
+  const button = (
     <button
       type="button"
       onClick={() => choose(next)}
@@ -43,5 +48,15 @@ export default function WorldSwitcher({ className = "" }: { className?: string }
         {copy.eyebrow} →
       </span>
     </button>
+  );
+
+  // The strip belongs to this component, not to its caller. A caller that
+  // wrapped it in a bordered row would draw that border for first-time
+  // visitors too — an empty bar above the fold, before any world exists.
+  // Whatever decides to render nothing has to own everything that would
+  // otherwise be left behind.
+  if (!strip) return button;
+  return (
+    <div className="flex justify-center border-t border-white/10 px-4 py-2">{button}</div>
   );
 }
