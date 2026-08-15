@@ -51,9 +51,9 @@ const PALETTE: Record<Mode, Record<string, string>> = {
     "--x-line": "#E5E7EB",     // borders / dividers
     "--x-ink": "#1A1A1A",      // primary text
     "--x-muted": "#6B7280",    // secondary / muted text
-    "--x-accent": "#D4A017",   // accent / brand — gold, kept
-    "--x-accent-hover": "#B8860B",
-    "--x-accent-ink": "#1A1A1A",
+    "--x-accent": "#1F5FBF",   // accent on LIGHT is blue — see globals.css
+    "--x-accent-hover": "#17499A",
+    "--x-accent-ink": "#FFFFFF",
     "--x-icon-idle": "#9CA3AF",
     "--x-success": "#059669",
     "--x-error": "#DC2626",
@@ -265,19 +265,19 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
           />
         </div>
 
-        <div className="relative z-10 mx-auto max-w-5xl px-5 pb-28 pt-10">
+        <div className="relative z-10 mx-auto max-w-5xl px-5 pb-28 pt-6">
           <p
             className="font-bebas text-xs tracking-[0.3em]"
             style={{ color: "var(--x-accent)" }}
           >
             {L("EXPERIENCES", "EXPÉRIENCES")}
           </p>
-          <h1 className="mt-3 font-syne text-4xl font-extrabold leading-tight md:text-5xl">
+          <h1 className="mt-1.5 font-syne text-2xl font-extrabold leading-tight md:text-3xl">
             {mode === "day"
               ? L("Rodrigues under the sun", "Rodrigues sous le soleil")
               : L("Rodrigues after dark", "Rodrigues après la nuit")}
           </h1>
-          <p className="mt-3 max-w-2xl font-dm leading-relaxed" style={{ color: "var(--x-muted)" }}>
+          <p className="mt-1.5 max-w-2xl font-dm text-sm leading-snug" style={{ color: "var(--x-muted)" }}>
             {mode === "day"
               ? L(
                   "The lagoon, the ridges and the kitchens — everything this island does between sunrise and sunset.",
@@ -293,7 +293,7 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
           <div
             role="group"
             aria-label={L("Day or night", "Jour ou nuit")}
-            className="mt-7 flex w-full gap-1 rounded-2xl p-1"
+            className="mt-4 flex w-full gap-1 rounded-2xl p-1"
             style={{ background: "var(--x-surface)", border: "1px solid var(--x-line)" }}
           >
             {([
@@ -308,7 +308,7 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
                   onClick={() => go(o.key)}
                   aria-pressed={on}
                   disabled={o.n === 0}
-                  className="flex min-h-[54px] flex-1 items-center justify-center gap-2 rounded-xl px-4 font-syne text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex min-h-[46px] flex-1 items-center justify-center gap-2 rounded-xl px-4 font-syne text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                   style={
                     on
                       ? { background: "var(--x-accent)", color: "var(--x-accent-ink)" }
@@ -325,7 +325,7 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
 
           {/* Category chips, within the mode. */}
           {cats.length > 0 && (
-            <div className="mt-4 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <Chip on={active === null} onClick={() => setActive(null)}>
                 {L("All", "Tout")}
               </Chip>
@@ -353,7 +353,7 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
                 : L("Nothing listed yet.", "Rien pour le moment.")}
             </p>
           ) : (
-            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {shown.map((p, i) => (
                 <Card key={p.id} place={p} index={i} language={language} />
               ))}
@@ -399,7 +399,7 @@ function Card({ place, index, language }: { place: RecommendedPlace; index: numb
       className="group flex flex-col overflow-hidden rounded-2xl transition-transform hover:-translate-y-0.5"
       style={{ background: "var(--x-surface)", border: "1px solid var(--x-line)" }}
     >
-      <div className="relative aspect-[4/3] w-full overflow-hidden" style={{ background: "var(--x-line)" }}>
+      <div className="relative aspect-square w-full overflow-hidden" style={{ background: "var(--x-line)" }}>
         {cover && (
           <AutoPhotos
             images={[place.image, ...(place.images ?? [])]}

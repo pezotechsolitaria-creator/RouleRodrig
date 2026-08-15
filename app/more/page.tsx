@@ -6,6 +6,7 @@ import {
   UtensilsCrossed, Ticket, ShoppingBag, CircleUser, Car,
 } from "lucide-react";
 import { getContent } from "@/lib/content";
+import ThemeToggle from "@/components/ThemeToggle";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
@@ -88,6 +89,17 @@ export default async function MorePage() {
           </Link>
           <h1 className="mt-5 font-syne text-3xl font-extrabold text-offwhite md:text-4xl">More</h1>
           <p className="mt-1 font-dm text-sm text-muted">Guides, help and everything else about Rodrigues.</p>
+
+          {/* Appearance first, because it changes everything below it — and
+              "where do I turn the lights on" is exactly the kind of question
+              this page exists to answer. */}
+          <section className="mt-8">
+            <p className="mb-2 px-1 font-bebas text-[11px] tracking-[0.3em] text-yellow">APPEARANCE</p>
+            <ThemeToggle />
+            <p className="mt-2 px-1 font-dm text-xs text-muted">
+              Auto follows the time in Rodrigues — light by day, dark after sunset.
+            </p>
+          </section>
 
           <div className="mt-8 space-y-7">
             {GROUPS.map((g) => (

@@ -849,3 +849,81 @@ html[data-splash="on"] #rr-splash.rr-skip {
     );
   }
 }
+
+/* ── LIGHT MODE ──────────────────────────────────────────────────────────────
+   An OVERRIDE LAYER, not a theme rebuild, and that is a deliberate choice.
+
+   This design is dark-first: `bg-dark`, `text-offwhite` and `text-white` are
+   compiled by Tailwind v4's `@theme inline`, which bakes the literal colour
+   into each utility — so those utilities cannot be re-pointed at runtime by
+   swapping a variable. An earlier attempt to restructure the tokens produced
+   utilities that stopped existing at all and put white text on a light ground.
+
+   So light mode re-declares the specific utilities instead. The safety
+   property is what matters: anything NOT listed here simply stays dark, which
+   is readable. A miss costs one out-of-place surface, never an invisible one.
+
+   `html.light` is set by the toggle in /more and by the pre-hydration script,
+   so dark remains the default and the site is untouched unless asked.
+
+   Palette is the owner's light system: #F8F9FA / #FFFFFF / #F1F3F5 / #E5E7EB /
+   #1A1A1A / #6B7280 / #D4A017. */
+
+html.light body { background-color: #F8F9FA; color: #1A1A1A; }
+
+/* Grounds and surfaces */
+html.light .bg-dark            { background-color: #F8F9FA; }
+html.light .bg-dark-card       { background-color: #FFFFFF; }
+html.light .border-dark-border { border-color: #E5E7EB; }
+
+/* Type */
+html.light .text-offwhite { color: #1A1A1A; }
+html.light .text-muted    { color: #6B7280; }
+
+/* ── THE ACCENT IS BLUE ON LIGHT, GOLD ON DARK ─────────────────────────────
+   Owner's call, and it is the right one twice over. Gold is the brand on the
+   near-black canvas and unreadable on a light one: #F5C842 on white is 1.7:1,
+   and even darkened to #B8860B every price on the homepage measured 2.93:1
+   against the card ground — below the 3:1 floor, let alone AA.
+
+   Blue carries the same "press this" meaning without that fight. #1F5FBF is
+   6.5:1 on #F8F9FA and 6.2:1 on #F1F3F5, so it works as text, as a fill with
+   white on top, and as a border — one accent, no exceptions to remember.
+
+   The utility is still named `yellow` because renaming it across the app would
+   be a thousand-line diff for no behaviour. Read it as "the accent". */
+html.light .text-yellow      { color: #1F5FBF; }
+html.light .bg-yellow        { background-color: #1F5FBF; color: #FFFFFF; }
+html.light .border-yellow    { border-color: #1F5FBF; }
+html.light .fill-yellow      { fill: #1F5FBF; }
+html.light .text-yellow-dark { color: #17499A; }
+html.light .from-yellow\/10,
+html.light .from-yellow\/\[0\.08\] { --tw-gradient-from: rgba(47,128,237,0.10); }
+
+/* WHITE MEANS FOREGROUND IN THIS DESIGN, not the colour white: text-white is
+   "the readable colour on ink", and bg-white/[0.02] is "a surface lifted off
+   ink". On light both have to invert or they disappear. */
+html.light .text-white { color: #1A1A1A; }
+html.light .bg-white\/5,
+html.light .bg-white\/10,
+html.light .bg-white\/\[0\.02\],
+html.light .bg-white\/\[0\.03\],
+html.light .bg-white\/\[0\.04\],
+html.light .bg-white\/\[0\.06\]  { background-color: #F1F3F5; }
+html.light .border-white\/5,
+html.light .border-white\/10,
+html.light .border-white\/15,
+html.light .border-white\/20,
+html.light .border-white\/25    { border-color: #E5E7EB; }
+
+/* Gradients built from the dark ground read as dirt on a light one. */
+html.light .from-white\/\[0\.04\],
+html.light .from-white\/\[0\.06\] { --tw-gradient-from: #F1F3F5; }
+html.light .to-white\/\[0\.01\],
+html.light .to-white\/\[0\.015\]  { --tw-gradient-to: #FFFFFF; }
+html.light .from-yellow\/\[0\.06\] { --tw-gradient-from: rgba(47,128,237,0.08); }
+
+/* Chrome that assumes a dark page */
+html.light .bg-dark\/85,
+html.light .bg-dark\/80,
+html.light .bg-dark\/70 { background-color: rgba(255,255,255,0.88); }
