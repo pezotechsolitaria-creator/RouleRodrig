@@ -1008,62 +1008,52 @@ html.light .bg-dark\/90 .text-offwhite { color: #1A1A1A; }
    so a world can refine what the theme established. World is the primary lens.
    ────────────────────────────────────────────────────────────────────────── */
 
-/* ── AUTHENTIC — warm, organic, editorial ─────────────────────────────────
-   Sun-baked earth and terracotta over the light ground. The accent moves off
-   blue and onto burnt sienna, because Authentic is the island as it is:
-   soil, wood, rope and rust, not a product surface. */
+/* ── AUTHENTIC — warm, organic, editorial, and DARK ───────────────────────
+   Authentic keeps this site's near-black identity, so the warmth has to come
+   from the accent and the ink rather than from the ground. Terracotta lightens
+   to sand here: #B4541E is 2.1:1 on near-black and unusable, while #E8A87C
+   clears 8:1 and still reads as sun-baked earth rather than as gold. */
 html[data-world="authentic"] {
-  --rr-world-accent: #B4541E;      /* burnt sienna — measured 4.66:1 on the
-                                      paper below, so it clears AA for body text
-                                      with little to spare. Do not lighten it. */
-  --rr-world-accent-soft: #E8A87C;
-  --rr-world-ink: #2A1A12;         /* warm near-black, never neutral grey */
-  --rr-world-line: #E3D5C7;        /* sand, not steel */
-  --rr-world-surface: #FBF7F2;     /* paper warmth under the cards */
+  --rr-world-accent: #E8A87C;      /* warm sand — 8.4:1 on #0a0a0a */
+  --rr-world-accent-soft: #B4541E;
+  --rr-world-ink: #F2E9E0;         /* warm off-white, never clinical */
+  --rr-world-line: rgba(232,168,124,0.16);
+  --rr-world-surface: #14100D;     /* near-black with earth in it */
 }
 
-html[data-world="authentic"] body { background-color: #FBF7F2; }
+html[data-world="authentic"]:not(.light) body { background-color: #0d0a08; }
+html[data-world="authentic"]:not(.light) .text-yellow { color: var(--rr-world-accent); }
+html[data-world="authentic"]:not(.light) .bg-yellow { background-color: var(--rr-world-accent); }
+html[data-world="authentic"]:not(.light) .text-offwhite { color: var(--rr-world-ink); }
+html[data-world="authentic"]:not(.light) .border-white\/10,
+html[data-world="authentic"]:not(.light) .border-white\/12 { border-color: var(--rr-world-line); }
 
-/* The accent, wherever the site already reaches for one. Scoped to the light
-   ground Authentic always wears, so it can never repaint the dark world. */
-html[data-world="authentic"].light .text-yellow { color: var(--rr-world-accent); }
-html[data-world="authentic"].light .bg-yellow   { background-color: var(--rr-world-accent); }
-html[data-world="authentic"].light .border-yellow { border-color: var(--rr-world-accent); }
+/* Organic corners and editorial headings — the two cheapest signals that this
+   is a page about a place rather than a product surface. */
+html[data-world="authentic"]:not(.light) .rounded-2xl { border-radius: 1.15rem 1.15rem 1.35rem 1.35rem; }
+html[data-world="authentic"]:not(.light) .font-syne { letter-spacing: -0.015em; }
 
-/* Cards stop being neutral rectangles. Softer, warmer, and asymmetric at the
-   corners — the "organic shapes" the brief asks for, done with radius rather
-   than with SVG blobs, so nothing has to be re-laid-out to get it. */
-html[data-world="authentic"].light .rounded-2xl { border-radius: 1.15rem 1.15rem 1.35rem 1.35rem; }
-html[data-world="authentic"].light .border-white\/10,
-html[data-world="authentic"].light .border-white\/12 { border-color: var(--rr-world-line); }
-
-/* Editorial type: headings get tighter leading and a warm ink, which is what
-   separates a magazine page from a dashboard. */
-html[data-world="authentic"].light .font-syne { color: var(--rr-world-ink); letter-spacing: -0.015em; }
-
-/* ── CURATED — cinematic, restrained, bronze ──────────────────────────────
-   Near-black with a muted bronze. NOT the brand gold: #F5C842 is a bright,
-   cheerful yellow and reads as energy, which is the opposite of what this
-   world is for. Bronze is the same family two stops quieter. */
+/* ── CURATED — cinematic, restrained, bronze, and LIGHT ───────────────────
+   Curated is the world that CHANGES, which is what makes it read as elevated:
+   every premium app on the visitor's phone is already dark, so a bright, quiet
+   gallery ground is the stronger signal. Bronze darkens for the light ground —
+   #C9A227 is 2.0:1 on the ground below and fails outright. #8C7228 was the
+   first try and measured 4.38:1 — under AA, and close enough to look fine
+   while failing. #856B24 measures 4.83:1 and clears it with room. */
 html[data-world="curated"] {
-  --rr-world-accent: #C9A227;      /* muted bronze */
-  --rr-world-accent-soft: #8C7228;
-  --rr-world-ink: #F2EDE3;         /* warm off-white, never pure white */
-  --rr-world-line: rgba(201,162,39,0.18);
-  --rr-world-surface: #0B0B0B;
+  --rr-world-accent: #856B24;      /* deep bronze — measured 4.83:1 */
+  --rr-world-accent-soft: #C9A227;
+  --rr-world-ink: #1A1613;         /* warm near-black, never neutral grey */
+  --rr-world-line: #E7E2D8;        /* warm hairline, not steel */
+  --rr-world-surface: #FFFFFF;
 }
 
-html[data-world="curated"]:not(.light) body { background-color: #0B0B0B; }
+html[data-world="curated"].light body { background-color: #FAF9F6; }
+html[data-world="curated"].light .text-yellow { color: var(--rr-world-accent); }
+html[data-world="curated"].light .bg-yellow { background-color: var(--rr-world-accent); }
+html[data-world="curated"].light .border-white\/10,
+html[data-world="curated"].light .border-white\/12 { border-color: var(--rr-world-line); }
 
-html[data-world="curated"]:not(.light) .text-yellow { color: var(--rr-world-accent); }
-html[data-world="curated"]:not(.light) .bg-yellow { background-color: var(--rr-world-accent); }
-html[data-world="curated"]:not(.light) .text-offwhite { color: var(--rr-world-ink); }
-
-/* Thin borders and more air — the two cheapest, most reliable signals of
-   restraint. A hairline reads as considered; a 1px grey box reads as a form. */
-html[data-world="curated"]:not(.light) .border-white\/10,
-html[data-world="curated"]:not(.light) .border-white\/12 { border-color: var(--rr-world-line); }
-html[data-world="curated"]:not(.light) .rounded-2xl { border-radius: 0.5rem; }
-
-/* Curated headings sit wider and calmer. Negative space is the luxury. */
-html[data-world="curated"]:not(.light) .font-bebas { letter-spacing: 0.34em; }
+/* Tighter corners, wider caps, more air. Restraint is the product. */
+html[data-world="curated"].light .rounded-2xl { border-radius: 0.5rem; }
+html[data-world="curated"].light .font-bebas { letter-spacing: 0.34em; }

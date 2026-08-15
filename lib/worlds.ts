@@ -14,12 +14,17 @@
 // independent switches producing eight combinations — and the brief itself
 // warns, correctly, to "avoid four confusing tabs".
 //
-// So World SUBSUMES the theme rather than sitting beside it. Authentic is the
-// warm editorial light world; Curated is the near-black cinematic one. Choosing
-// a world chooses the light, which is what the brief's own visual systems
-// describe anyway — "warm sand, off-white" against "near-black #0B0B0B". Two
-// systems become one, and the theme layer already built stays as the
-// foundation rather than becoming a competing control.
+// So World SUBSUMES the theme rather than sitting beside it. Choosing a world
+// chooses the light. Two systems become one, and the theme layer already built
+// stays as the foundation rather than becoming a competing control.
+//
+// AUTHENTIC is the DARK world and CURATED the light one — the owner's call, and
+// it reads better than the arrangement it replaced. Dark is this site's
+// existing near-black identity, and Authentic is the Rodrigues most visitors
+// come for, so the familiar world stays where it has always been. Curated then
+// earns its difference by being the one that changes: a bright, quiet, gallery
+// ground is a stronger signal of "elevated" than another dark screen, because
+// every premium app on the visitor's phone is already dark.
 //
 // Day/Night survives untouched as the SECONDARY lens it already is: it filters
 // what is on offer, and World decides how the island is presented.
@@ -61,7 +66,7 @@ export const WORLD_COPY: Record<
       "Rant dan Rodrigues Otantik",
     ],
     headline: ["LIVE RODRIGUES", "VIVEZ RODRIGUES", "VIV RODRIGUES"],
-    theme: "light",
+    theme: "dark",
   },
   curated: {
     eyebrow: "CURATED",
@@ -77,7 +82,7 @@ export const WORLD_COPY: Record<
       "Rant dan Rodrigues Curated",
     ],
     headline: ["EXPERIENCE RODRIGUES", "DÉCOUVREZ RODRIGUES", "DEKOUVER RODRIGUES"],
-    theme: "dark",
+    theme: "light",
   },
 };
 
@@ -207,6 +212,17 @@ export function otherWorld(world: World): World {
 
 export type SectionKey = "cards" | "quick" | "discover" | "experiences" | "stays" | "events";
 
+// ── NOT CURRENTLY APPLIED TO THE HOMEPAGE ──────────────────────────────────
+// The owner's instruction, sent with a screenshot: the page looks the SAME in
+// both worlds and the switcher at the top is the only thing that changes. So
+// AppHome renders one design, and the worlds differ in what they show and in
+// what order — content ranking via forWorld — rather than in how the page is
+// built.
+//
+// This table is kept, tested and documented rather than deleted, because it is
+// the considered answer to "how would these two worlds differ structurally"
+// and that question is likely to come back. Nothing reads it today; wiring it
+// up is a deliberate act, not an accident waiting to happen.
 export const WORLD_LAYOUT: Record<
   World,
   {

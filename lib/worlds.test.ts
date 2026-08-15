@@ -145,12 +145,19 @@ describe("world copy", () => {
   });
 
   it("gives the two worlds opposite light, because world subsumes the theme", () => {
-    expect(WORLD_COPY.authentic.theme).toBe("light");
-    expect(WORLD_COPY.curated.theme).toBe("dark");
+    // Authentic is the DARK world: it keeps this site's existing near-black
+    // identity. Curated is the one that changes, which is what makes it read
+    // as elevated rather than as another dark screen.
+    expect(WORLD_COPY.authentic.theme).toBe("dark");
+    expect(WORLD_COPY.curated.theme).toBe("light");
+    expect(WORLD_COPY.authentic.theme).not.toBe(WORLD_COPY.curated.theme);
   });
 });
 
-describe("world layout", () => {
+// WORLD_LAYOUT is not wired into the homepage — see the note above it. These
+// tests guard the shape of the answer, so that if it is ever switched on it is
+// switched on correct.
+describe("world layout (defined, not currently applied)", () => {
   it("gives the two worlds a genuinely different page order", () => {
     // The owner's complaint, encoded: if these ever match, the worlds are one
     // page with two palettes again.
