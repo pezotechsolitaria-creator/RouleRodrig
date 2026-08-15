@@ -41,7 +41,7 @@ import AutoPhotos from "@/components/AutoPhotos";
 
 // The owner's palettes, verbatim. Dark is the site's existing near-black and
 // gold; light is the tropical daylight system specified alongside it. They are
-// a PAIR — the accent is gold in both, darkened for light because #2F80ED on
+// a PAIR — the accent is gold in both, darkened for light because #F5C842 on
 // #F8F9FA is 1.7:1 and unreadable as a text colour, while #D4A017 clears AA.
 const PALETTE: Record<Mode, Record<string, string>> = {
   day: {
@@ -51,7 +51,7 @@ const PALETTE: Record<Mode, Record<string, string>> = {
     "--x-line": "#E5E7EB",     // borders / dividers
     "--x-ink": "#1A1A1A",      // primary text
     "--x-muted": "#6B7280",    // secondary / muted text
-    "--x-accent": "#1F5FBF",   // accent on LIGHT is blue — see globals.css
+    "--x-accent": "#d4a800",   // accent on LIGHT is blue — see globals.css
     "--x-accent-hover": "#17499A",
     "--x-accent-ink": "#FFFFFF",
     "--x-icon-idle": "#9CA3AF",
@@ -65,8 +65,8 @@ const PALETTE: Record<Mode, Record<string, string>> = {
     "--x-line": "#222222",
     "--x-ink": "#F5F5F0",
     "--x-muted": "#888888",
-    "--x-accent": "#2F80ED",
-    "--x-accent-hover": "#1F5FBF",
+    "--x-accent": "#F5C842",
+    "--x-accent-hover": "#d4a800",
     "--x-accent-ink": "#0a0a0a",
     "--x-icon-idle": "#6B7280",
     "--x-success": "#34D399",

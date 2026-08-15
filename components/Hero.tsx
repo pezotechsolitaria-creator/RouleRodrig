@@ -34,7 +34,7 @@ function HeroBackdrop() {
       {/* Glowing gradient blobs */}
       <motion.div
         className="absolute -top-32 -right-24 w-[55vw] h-[55vw] rounded-full blur-3xl"
-        style={{ background: "radial-gradient(circle, rgba(47,128,237,0.16), transparent 65%)" }}
+        style={{ background: "radial-gradient(circle, rgba(245,200,66,0.16), transparent 65%)" }}
         animate={{ opacity: [0.45, 0.85, 0.45], scale: [1, 1.08, 1] }}
         transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
       />
@@ -51,7 +51,7 @@ function HeroBackdrop() {
           <motion.ellipse
             key={r}
             cx="300" cy="300" rx={r} ry={r * 0.82}
-            stroke="#2F80ED" strokeWidth="1"
+            stroke="#F5C842" strokeWidth="1"
             initial={{ opacity: 0 }}
             animate={{ opacity: [0.15, 0.45, 0.15] }}
             transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: i * 0.5 }}
@@ -63,7 +63,7 @@ function HeroBackdrop() {
       <svg className="absolute inset-0 w-full h-full opacity-[0.45]" viewBox="0 0 1440 900" fill="none" preserveAspectRatio="xMidYMid slice">
         <motion.path
           d="M-50 680 C 250 560, 380 760, 620 600 S 1040 360, 1500 460"
-          stroke="#2F80ED" strokeWidth="1.5" strokeLinecap="round"
+          stroke="#F5C842" strokeWidth="1.5" strokeLinecap="round"
           strokeDasharray="10 14"
           initial={{ pathLength: 0, opacity: 0 }}
           animate={{ pathLength: 1, opacity: 0.5, strokeDashoffset: [0, -240] }}

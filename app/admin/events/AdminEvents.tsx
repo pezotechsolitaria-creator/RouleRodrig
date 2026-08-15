@@ -196,7 +196,7 @@ export default function AdminEvents() {
               type="checkbox"
               checked={isTest}
               onChange={(e) => setIsTest(e.target.checked)}
-              className="h-4 w-4 accent-[#2F80ED]"
+              className="h-4 w-4 accent-[#F5C842]"
             />
             <span className="font-dm text-xs text-muted">
               Test event — never shown publicly, even if published

@@ -441,7 +441,7 @@ export default function Fleet({
                       </span>
                     </div>
                   )}
-                  <p className="text-muted/80 font-dm text-sm leading-relaxed mb-4">
+                  <p className="text-muted/80 font-dm text-sm leading-snug line-clamp-2 mb-3">
                     {loc(language, scooter.description, scooter.descriptionFr, scooter.descriptionCr)}
                   </p>
 

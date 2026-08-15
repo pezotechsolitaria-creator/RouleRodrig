@@ -137,7 +137,7 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
                 transition={{ duration: 0.35, delay: Math.min(i, 3) * 0.05 }}
                 className={`bg-dark-card rounded-2xl overflow-hidden flex flex-col transition-colors group ${
                   p.featured
-                    ? "border-2 border-yellow/50 hover:border-yellow shadow-[0_0_24px_rgba(47,128,237,0.08)]"
+                    ? "border-2 border-yellow/50 hover:border-yellow shadow-[0_0_24px_rgba(245,200,66,0.08)]"
                     : "border border-white/10 hover:border-yellow/40"
                 }`}
               >
@@ -179,7 +179,12 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
                 {/* Content */}
                 <div className="p-5 flex flex-col flex-1">
                   <h3 className="font-syne font-bold text-offwhite text-base mb-1.5">{p.name}</h3>
-                  <p className="text-muted/85 font-dm text-sm leading-relaxed flex-1">{loc(language, p.description, p.descriptionFr, p.descriptionCr)}</p>
+                  {/* Clamped to two lines. The full text lives behind Details,
+                      which opens the same description in the modal — the card
+                      is for choosing between places, not for reading about one.
+                      Six lines of prose per card meant two cards filled a phone
+                      screen. */}
+                  <p className="text-muted/85 font-dm text-sm leading-snug line-clamp-2 flex-1">{loc(language, p.description, p.descriptionFr, p.descriptionCr)}</p>
 
                   <div className="flex items-center gap-2 flex-wrap mt-4">
                     <button

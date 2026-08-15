@@ -78,7 +78,7 @@ th { background: #f6f7f9; font-weight: 700; }
   padding: 10px 12px; margin-bottom: 8px; color: #ece9e2;
 }
 .card:last-child { margin-bottom: 0; }
-.card.hot { border-color: #F5C842; background: rgba(47, 128, 237,0.13); }
+.card.hot { border-color: #F5C842; background: rgba(245, 200, 66,0.13); }
 .card.warn-age { border-color: rgba(251,146,60,0.55); background: rgba(251,146,60,0.08); }
 .card.late { border-color: rgba(239,68,68,0.6); background: rgba(239,68,68,0.08); }
 .card.done { opacity: 0.55; }
@@ -107,7 +107,7 @@ th { background: #f6f7f9; font-weight: 700; }
   flex: 1; border: 1px solid rgba(255,255,255,0.12); border-radius: 9px;
   padding: 7px 9px; color: #ece9e2;
 }
-.counter.on { border-color: rgba(47, 128, 237,0.45); background: rgba(47, 128, 237,0.1); }
+.counter.on { border-color: rgba(245, 200, 66,0.45); background: rgba(245, 200, 66,0.1); }
 .counter .lbl { font-size: 7pt; letter-spacing: 1.6px; color: #9aa1ab; }
 .counter .num { font-size: 16pt; font-weight: 800; }
 .counter.on .num { color: #F5C842; }

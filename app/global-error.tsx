@@ -54,7 +54,7 @@ export default function GlobalError({
             onClick={reset}
             style={{
               marginTop: "1.5rem",
-              background: "#2F80ED",
+              background: "#F5C842",
               color: "#0a0a0a",
               border: "none",
               padding: "0.75rem 1.5rem",

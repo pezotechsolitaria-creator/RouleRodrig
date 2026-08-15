@@ -153,13 +153,11 @@ export default async function FoodPage({
         </Link>
 
         {/* ── The question, asked plainly. Everything under it is an answer. ── */}
-        <h1 className="mt-3 font-syne text-3xl font-extrabold leading-[1.05] sm:text-4xl">
-          What are you
-          <br />
-          <span className="text-yellow">hungry for?</span>
+        <h1 className="mt-2 font-syne text-2xl font-extrabold leading-[1.05] sm:text-3xl">
+          What are you <span className="text-yellow">hungry for?</span>
         </h1>
         {!empty && (
-          <p className="mt-2 font-dm text-sm text-muted">
+          <p className="mt-1 font-dm text-xs text-muted">
             {home.dishCount} dish{home.dishCount === 1 ? "" : "es"} from island kitchens
             {home.kitchensOpen > 0 && <> · {home.kitchensOpen} cooking now</>}
           </p>
@@ -169,7 +167,7 @@ export default async function FoodPage({
           <EmptyLaunchState />
         ) : (
           <>
-            <form action="/food" method="get" role="search" className="mt-5 flex gap-2">
+            <form action="/food" method="get" role="search" className="mt-3 flex gap-2">
               <div className="relative flex-1">
                 <Search
                   size={16}

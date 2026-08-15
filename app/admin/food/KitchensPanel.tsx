@@ -494,7 +494,7 @@ export default function KitchensPanel({
                 <label className="flex cursor-pointer items-end gap-2.5 pb-3 font-dm text-sm text-offwhite">
                   <input type="checkbox" checked={draft.offersRrDelivery}
                     onChange={(e) => setDraft({ ...draft, offersRrDelivery: e.target.checked })}
-                    className="h-4 w-4 accent-[#2F80ED]" />
+                    className="h-4 w-4 accent-[#F5C842]" />
                   We deliver from here
                 </label>
               </div>
