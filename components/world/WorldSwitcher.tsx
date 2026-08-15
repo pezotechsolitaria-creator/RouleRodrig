@@ -23,8 +23,10 @@ export default function WorldSwitcher({
   const { world, ready, choose } = useExperienceWorld();
   const { language } = useLanguage();
 
-  // Nothing to switch between until a world exists — before that the gateway
-  // is on screen and this would be offering a choice already being made.
+  // `world` is never null once ready — everyone starts in Authentic since the
+  // gateway was removed. The null branch stays as a type guard rather than as
+  // a behaviour: this control is now the ONLY way to reach Curated, so it
+  // hiding itself would strand the whole world behind nothing.
   if (!ready || world === null) return null;
 
   const next = otherWorld(world);

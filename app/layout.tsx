@@ -15,7 +15,6 @@ import RefCapture from "@/components/RefCapture";
 import AnnouncementBar from "@/components/AnnouncementBar";
 import BuildWatcher from "@/components/BuildWatcher";
 import { ExperienceWorldProvider } from "@/context/ExperienceWorldContext";
-import ExperienceGateway from "@/components/world/ExperienceGateway";
 import BottomNav from "@/components/BottomNav";
 import GlobalTiRoule from "@/components/GlobalTiRoule";
 import { getContent } from "@/lib/content";
@@ -314,15 +313,12 @@ export default async function RootLayout({
             <FavoritesProvider>
             <CartProvider>
               <LanguagePicker />
-              {/* First visit only. It renders nothing at all once a world is
-                  stored, and nothing on the server, so crawlers and returning
-                  visitors are unaffected. */}
-              <ExperienceGateway
-                images={{
-                  authentic: content.branding?.gatewayAuthenticImage,
-                  curated: content.branding?.gatewayCuratedImage,
-                }}
-              />
+              {/* NO first-visit gateway. Removed on the owner's instruction:
+                  a full-screen question in front of the homepage taxes every
+                  visitor to serve a preference most do not have yet. Everyone
+                  starts in Authentic and discovers Curated from the switcher in
+                  the header. components/world/ExperienceGateway is kept but
+                  unmounted — see the note in that file. */}
               <RefCapture />
               {/* ── The announcement bar, finally connected ──────────────────
                   Admin has been able to write one since long before this, and

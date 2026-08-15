@@ -5,6 +5,23 @@ import { useExperienceWorld } from "@/context/ExperienceWorldContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { WORLD_COPY, WORLDS, type World } from "@/lib/worlds";
 
+// ── NOT CURRENTLY MOUNTED ───────────────────────────────────────────────────
+// Removed from app/layout.tsx on the owner's instruction. A full-screen
+// question in front of the homepage taxes every visitor — including the one who
+// came to rent a scooter — to serve a preference most of them do not have yet.
+// Everyone now starts in Authentic and discovers Curated from the switcher in
+// the header, which is the right order: see the island first, be offered the
+// other way of seeing it second.
+//
+// Kept rather than deleted because it is finished, tested against its own
+// failure modes, and the obvious thing to reach for if a first-run moment is
+// ever wanted again — a seasonal splash, or an entry point from a campaign
+// link. Nothing imports it today; mounting it is a deliberate act.
+//
+// NOTE: branding.gatewayAuthenticImage / gatewayCuratedImage in /admin feed
+// ONLY this component, so those two uploaders currently control nothing that
+// renders. They are worth removing if the gateway is not coming back.
+//
 // ── THE GATEWAY ─────────────────────────────────────────────────────────────
 //
 // The first thing a new visitor meets. Its whole job is to make one idea land

@@ -25,7 +25,7 @@ import { applyTheme, THEME_KEY } from "@/components/ThemeToggle";
 //     first but never flash for the second.
 
 type Ctx = {
-  /** null = the visitor has not chosen. Only meaningful once `ready`. */
+  /** Never null once `ready` — everyone starts in Authentic. See below. */
   world: World | null;
   /** Has localStorage been read? Nothing should render a world before this. */
   ready: boolean;
@@ -37,6 +37,9 @@ const ExperienceWorldContext = createContext<Ctx>({
   ready: false,
   choose: () => {},
 });
+
+/** Where everyone starts, unless they have chosen otherwise. */
+const DEFAULT_WORLD: World = "authentic";
 
 export function ExperienceWorldProvider({ children }: { children: React.ReactNode }) {
   const [world, setWorld] = useState<World | null>(null);
@@ -69,8 +72,19 @@ export function ExperienceWorldProvider({ children }: { children: React.ReactNod
       // Private mode, or storage disabled. A visitor who cannot be remembered
       // still gets a working site — they simply meet the gateway each time.
     }
+    // ── NOBODY IS ASKED TO CHOOSE ─────────────────────────────────────────
+    // The first-visit gateway is gone on the owner's instruction, and the
+    // reasoning is sound: a full-screen question in front of the homepage taxes
+    // every visitor — including the ones who came to rent a scooter — to serve
+    // a preference most of them do not have yet. Authentic is also this site's
+    // existing near-black identity, so defaulting to it means the change costs
+    // a returning visitor nothing at all.
+    //
+    // Curated is now something a visitor DISCOVERS from the switcher in the
+    // header, which is the right order: see the island first, be offered the
+    // other way of seeing it second.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setWorld(stored);
+    setWorld(stored ?? DEFAULT_WORLD);
     setReady(true);
   }, []);
 
@@ -110,12 +124,11 @@ export function useExperienceWorld() {
 }
 
 /**
- * The world to PRESENT with, for anything that has to render something either
- * way. Curated is the fallback because it is the near-black world — this site's
- * existing identity — so a visitor who has not chosen yet, or whose storage is
- * unreadable, sees Roule Rodrigues as it already looks rather than a stranger.
+ * The world to PRESENT with. Falls back to Authentic — the near-black world
+ * that is this site's existing identity — so a visitor whose storage is
+ * unreadable sees Roule Rodrigues as it already looks rather than a stranger.
  */
 export function useActiveWorld(): World {
   const { world } = useExperienceWorld();
-  return world ?? "curated";
+  return world ?? DEFAULT_WORLD;
 }
