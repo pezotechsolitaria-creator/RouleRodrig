@@ -45,19 +45,22 @@ import DuskSequence, { useDusk } from "@/components/DuskSequence";
 // a PAIR — the accent is gold in both, darkened for light because #F5C842 on
 // #F8F9FA is 1.7:1 and unreadable as a text colour, while #D4A017 clears AA.
 const PALETTE: Record<Mode, Record<string, string>> = {
+  // Day is the BLUE world, not a white one — the same near-black island in a
+  // different light. A white canvas was tried here and rejected on sight, and
+  // it also made the photography look washed out, which is most of this page.
   day: {
-    "--x-canvas": "#F8F9FA",   // background (main)
-    "--x-surface": "#FFFFFF",  // surface / cards
-    "--x-surface-2": "#F1F3F5",// surface secondary
-    "--x-line": "#E5E7EB",     // borders / dividers
-    "--x-ink": "#1A1A1A",      // primary text
-    "--x-muted": "#6B7280",    // secondary / muted text
-    "--x-accent": "#d4a800",   // accent on LIGHT is blue — see globals.css
-    "--x-accent-hover": "#17499A",
+    "--x-canvas": "#0a0a0a",
+    "--x-surface": "#111111",
+    "--x-surface-2": "#161616",
+    "--x-line": "#222222",
+    "--x-ink": "#F5F5F0",
+    "--x-muted": "#888888",
+    "--x-accent": "#2F80ED",
+    "--x-accent-hover": "#5C9CF0",
     "--x-accent-ink": "#FFFFFF",
-    "--x-icon-idle": "#9CA3AF",
-    "--x-success": "#059669",
-    "--x-error": "#DC2626",
+    "--x-icon-idle": "#6B7280",
+    "--x-success": "#34D399",
+    "--x-error": "#F87171",
   },
   night: {
     "--x-canvas": "#0a0a0a",

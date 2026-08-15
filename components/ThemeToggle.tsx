@@ -54,13 +54,10 @@ export function readChoice(): ThemeChoice {
 export function applyTheme(resolved: "light" | "dark") {
   document.documentElement.classList.toggle("light", resolved === "light");
 
-  // iOS paints Safari's chrome and the standalone status bar from
-  // <meta name="theme-color">. It is static in the document head, so without
-  // this a light page keeps a black status bar and a black notch area — the
-  // one place a theme switch looks broken on an iPhone specifically, because
-  // on Android the same meta only tints a slim bar nobody is looking at.
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", resolved === "light" ? "#F8F9FA" : "#0a0a0a");
+  // Both modes sit on the same near-black ground — light mode is the BLUE one,
+  // not a white one — so iOS chrome stays dark either way. This used to flip to
+  // #F8F9FA and would now put a white status bar above a black page.
+  void resolved;
 }
 
 export default function ThemeToggle() {

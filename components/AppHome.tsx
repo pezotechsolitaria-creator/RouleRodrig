@@ -315,22 +315,28 @@ export default function AppHome({
           A detached rounded panel with a small gap on the sides and below
           (respecting the safe area). */}
       <div className="fixed inset-x-0 bottom-0 z-40 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-        <div className="mx-auto max-w-5xl overflow-hidden rounded-2xl border border-white/12 bg-dark/90 backdrop-blur-xl shadow-[0_16px_44px_-12px_rgba(0,0,0,0.75)]">
-          <div className="rr-tools-row flex items-stretch gap-2 overflow-x-auto border-b border-white/10 px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* ── THE DOCK IS PHONE-SIZED, SO IT MUST GROW ON A BIG SCREEN ───────
+            Every measurement in here was fixed at phone scale: 20px icons and
+            10px labels. On a phone that is right. Stretched across a laptop it
+            becomes a row of faint specks in a very wide bar — which is exactly
+            how it was reported, as the buttons "not being visible".
+            So the pill tightens and everything inside it steps up from sm:. */}
+        <div className="mx-auto max-w-5xl overflow-hidden rounded-2xl border border-white/12 bg-dark/90 backdrop-blur-xl shadow-[0_16px_44px_-12px_rgba(0,0,0,0.75)] md:max-w-3xl">
+          <div className="rr-tools-row flex items-stretch gap-2 overflow-x-auto border-b border-white/10 px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-3 sm:px-4 sm:py-2.5">
             {TOOLS.map((t) => (
-              <Link key={t.href + t.label[0]} href={t.href} className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 transition-colors hover:border-yellow/40">
-                <t.icon size={14} className="text-yellow" />
-                <span className="font-dm text-[11px] font-medium text-offwhite/90">{L(t.label)}</span>
+              <Link key={t.href + t.label[0]} href={t.href} className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 transition-colors hover:border-yellow/40 sm:gap-2 sm:px-4 sm:py-2">
+                <t.icon className="h-3.5 w-3.5 text-yellow sm:h-[18px] sm:w-[18px]" />
+                <span className="font-dm text-[11px] font-medium text-offwhite/90 sm:text-[13px]">{L(t.label)}</span>
               </Link>
             ))}
           </div>
           {/* Same five tabs as the global BottomNav — one list, two chromes.
               See lib/nav-tabs.ts for why the tabs are not defined here. */}
           <nav aria-label="Primary">
-            <div className="rr-nav-row flex items-center justify-around px-2 py-1.5">
+            <div className="rr-nav-row flex items-center justify-around px-2 py-1.5 sm:px-4 sm:py-2.5">
             {NAV_TABS.map((tab) => {
               const label = tabLabel(tab, language);
-              const base = "flex min-w-[52px] flex-col items-center gap-1 rounded-xl px-2 py-1.5 transition-colors";
+              const base = "flex min-w-[52px] flex-col items-center gap-1 rounded-xl px-2 py-1.5 transition-colors sm:min-w-[76px] sm:gap-1.5 sm:px-3 sm:py-2";
               if (tab.action === "tiroule") {
                 return (
                   <button
@@ -338,10 +344,10 @@ export default function AppHome({
                     type="button"
                     onClick={openTiRoule}
                     aria-label={label}
-                    className="flex min-w-[56px] flex-col items-center gap-1 rounded-2xl bg-gradient-to-b from-yellow to-yellow-dark px-2 py-1.5 shadow-[0_6px_18px_-4px_rgba(245,200,66,0.55)]"
+                    className="flex min-w-[56px] flex-col items-center gap-1 rounded-2xl bg-gradient-to-b from-yellow to-yellow-dark px-2 py-1.5 shadow-[0_6px_18px_-4px_rgba(245,200,66,0.55)] sm:min-w-[80px] sm:gap-1.5 sm:px-3 sm:py-2.5"
                   >
-                    <tab.icon size={22} className="text-dark" />
-                    <span className="font-dm text-[10px] font-medium leading-none text-dark">{label}</span>
+                    <tab.icon className="h-[22px] w-[22px] text-dark sm:h-7 sm:w-7" />
+                    <span className="font-dm text-[10px] font-medium leading-none text-dark sm:text-[13px]">{label}</span>
                   </button>
                 );
               }
@@ -353,8 +359,8 @@ export default function AppHome({
                   aria-current={active ? "page" : undefined}
                   className={`${base} ${active ? "text-yellow" : "text-muted hover:text-offwhite"}`}
                 >
-                  <tab.icon size={20} className={active ? "text-yellow" : ""} />
-                  <span className={`font-dm text-[10px] font-medium leading-none ${active ? "text-yellow" : "text-muted"}`}>{label}</span>
+                  <tab.icon className={`h-5 w-5 sm:h-6 sm:w-6 ${active ? "text-yellow" : ""}`} />
+                  <span className={`font-dm text-[10px] font-medium leading-none sm:text-[13px] ${active ? "text-yellow" : "text-muted"}`}>{label}</span>
                 </Link>
               );
             })}
