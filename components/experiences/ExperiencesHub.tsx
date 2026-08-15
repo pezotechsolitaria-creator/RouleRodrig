@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Sun, Moon, ArrowRight } from "lucide-react";
 import type { RecommendedPlace } from "@/lib/defaults";
@@ -12,6 +12,7 @@ import { matchesFilter } from "@/lib/experiences";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
 import AutoPhotos from "@/components/AutoPhotos";
+import DuskSequence, { useDusk } from "@/components/DuskSequence";
 
 // ── The Experiences hub ─────────────────────────────────────────────────────
 //
@@ -74,18 +75,6 @@ const PALETTE: Record<Mode, Record<string, string>> = {
   },
 };
 
-// Fixed positions: a star field that re-randomises on every replay reads as
-// noise rather than as sky.
-const STARS = Array.from({ length: 46 }, (_, i) => ({
-  k: i,
-  l: `${(i * 37) % 97}%`,
-  tp: `${(i * 53) % 58}%`,
-  o: 0.35 + ((i * 17) % 60) / 100,
-}));
-
-/** The owner's chosen length for the dusk sequence. */
-const DUSK_MS = 1200;
-
 export default function ExperiencesHub({ places }: { places: RecommendedPlace[] }) {
   const { language } = useLanguage();
   const fr = language === "fr";
@@ -100,13 +89,10 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
   // mode is applied in an effect once only the client is running.
   const [mode, setMode] = useState<Mode>("day");
   const [active, setActive] = useState<string | null>(null);
-  // 0 = fully day, 1 = fully night. Drives the dusk overlay only; the palette
-  // itself swaps at the midpoint so text never sits mid-fade against a ground
-  // it does not match.
-  const [t, setT] = useState(0);
-  // 0 at rest, 1 mid-transition — drives only the overlay's visibility.
-  const [sweep, setSweep] = useState(0);
-  const raf = useRef<number | null>(null);
+  // The sunset itself lives in components/DuskSequence now, because More plays
+  // it too and a cinematic that differs per screen is not a signature. t is
+  // 0 = fully day, 1 = fully night; sweep drives only the overlay's visibility.
+  const { t, sweep, play, jump } = useDusk();
 
   const inMode = useMemo(
     () => places.filter((p) => matchesMode(p.timeOfDay, mode)),
@@ -133,10 +119,13 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
   // on arrival is a page that fought you before you touched it.
   useEffect(() => {
     const real = defaultMode();
-    if (real === "night") { setMode("night"); setT(1); }
-  }, []);
-
-  useEffect(() => () => { if (raf.current) cancelAnimationFrame(raf.current); }, []);
+    // Reading the clock during render is precisely what broke this component
+    // before: server and client disagreed across the 18:00 boundary, hydration
+    // failed, and a failed hydration attaches no handlers — so the switch
+    // rendered and did nothing. One extra render is the price of it working.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (real === "night") { setMode("night"); jump("night"); }
+  }, [jump]);
 
   function go(next: Mode) {
     if (next === mode) return;
@@ -153,22 +142,7 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
     // So the mode commits immediately and the animation is decoration over the
     // top of an already-correct page.
     setMode(next);
-
-    const from = t;
-    const to = next === "night" ? 1 : 0;
-    const started = performance.now();
-    if (raf.current) cancelAnimationFrame(raf.current);
-
-    const step = (now: number) => {
-      const p = Math.min(1, (now - started) / DUSK_MS);
-      // easeInOutCubic — the light leaves slowly, then commits.
-      const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
-      setT(from + (to - from) * e);
-      setSweep(p);
-      if (p < 1) raf.current = requestAnimationFrame(step);
-      else setSweep(0);
-    };
-    raf.current = requestAnimationFrame(step);
+    play(next);
   }
 
   const L = (en: string, f: string) => (fr ? f : en);
@@ -183,98 +157,10 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
       <div style={{ background: "var(--x-canvas)", color: "var(--x-ink)" }} className="min-h-screen">
         {/* ── The dusk sequence ────────────────────────────────────────────
             1200ms, and it plays for everyone — the owner asked for no
-            reduced-motion variant. It is a background crossfade with no
-            parallax, spin or scroll-coupling, which is the mildest class of
-            motion; it never blocks the tap, because the list underneath is
-            already filtered before the first frame. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none fixed inset-0 z-50 overflow-hidden"
-          style={{
-            // ── VISIBLE, THEN GONE ────────────────────────────────────────
-            // This used to sit BEHIND the content under a 93%-opaque canvas:
-            // it played correctly and was about 7% visible, which is the same
-            // as not playing. A cinematic transition has to actually cross the
-            // screen.
-            //
-            // So it sweeps OVER the page and clears itself: invisible at rest
-            // (0 and 1), fully opaque mid-transition. sin() gives that shape in
-            // one expression, and because it returns to 0 the overlay never
-            // sits between the reader and the list — pointer-events-none means
-            // it cannot intercept a tap even at full strength.
-            opacity: Math.sin(Math.PI * sweep),
-          }}
-        >
-          <div
-            className="absolute inset-0"
-            style={{
-              opacity: 1 - t,
-              background:
-                "linear-gradient(180deg,#7FC4E8 0%,#CFE9F5 45%,#FFE9C2 72%,#F8F9FA 100%)",
-            }}
-          />
-          <div
-            className="absolute inset-0"
-            style={{
-              opacity: t,
-              background:
-                "linear-gradient(180deg,#0A1330 0%,#1A1030 45%,#2A1608 72%,#0a0a0a 100%)",
-            }}
-          />
-          {/* The horizon burn, strongest mid-transition — this is the beat
-              that reads as "sunset" rather than "a fade". */}
-          <div
-            className="absolute inset-0"
-            style={{
-              opacity: Math.sin(Math.PI * t) * 0.55,
-              background:
-                "radial-gradient(90% 45% at 50% 104%, rgba(255,138,60,0.55), transparent 62%)",
-            }}
-          />
-
-          {/* THE SUN. Sinks and cools as the light goes. Positioned with
-              transform rather than top, so it composites instead of
-              triggering layout on every frame. */}
-          <div
-            className="absolute left-1/2 h-24 w-24 rounded-full"
-            style={{
-              top: "8%",
-              transform: `translate(-50%, ${t * 46}vh)`,
-              opacity: 1 - t * 0.45,
-              filter: `blur(${t * 3}px)`,
-              background:
-                "radial-gradient(circle at 50% 50%," +
-                `rgba(255,246,218,${1 - t}) 0%,` +
-                `rgba(255,170,90,${0.35 + t * 0.5}) 55%, transparent 72%)`,
-            }}
-          />
-
-          {/* THE MOON, only once the sky is dark enough to justify it. */}
-          <div
-            className="absolute h-12 w-12 rounded-full"
-            style={{
-              right: "22%",
-              top: `${20 - t * 8}%`,
-              opacity: Math.max(0, (t - 0.55) * 3.2),
-              background:
-                "radial-gradient(circle at 38% 34%, #FDFBF3 0%, #D8D5C6 62%, transparent 70%)",
-              boxShadow: "0 0 34px 8px rgba(232,230,216,0.14)",
-            }}
-          />
-
-          {/* STARS. Deterministic positions, so a replay looks identical
-              rather than re-scattering. Emerge after the moon. */}
-          <div className="absolute inset-0" style={{ opacity: Math.max(0, (t - 0.6) * 2.6) }}>
-            {STARS.map((st) => (
-              <span
-                key={st.k}
-                className="absolute rounded-full bg-white"
-                style={{ left: st.l, top: st.tp, width: 2, height: 2, opacity: st.o }}
-              />
-            ))}
-          </div>
-
-        </div>
+            reduced-motion variant. Its colours are literals no theme can
+            reach, and it is the same component the Appearance control in
+            More plays, so the sunset is one thing the whole site shares. */}
+        <DuskSequence t={t} sweep={sweep} />
 
         <div className="relative z-10 mx-auto max-w-5xl px-5 pb-28 pt-6">
           <p

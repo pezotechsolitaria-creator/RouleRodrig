@@ -237,7 +237,14 @@ export default async function RootLayout({
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var d=document.documentElement;var t=null;try{t=localStorage.getItem('rr_theme');}catch(e){}var light=false;if(t==='light'){light=true;}else if(t==='auto'){var h=(new Date().getUTCHours()+4)%24;light=(h>=6&&h<18);}if(light){d.classList.add('light');}try{var mt=document.querySelector('meta[name=\"theme-color\"]');if(mt)mt.setAttribute('content',light?'#F8F9FA':'#0a0a0a');}catch(e){}}catch(e){}})();`,
+            // LIGHT ONLY WHEN IT WAS ASKED FOR. This used to also go light when
+            // the stored choice was 'auto' and the island clock said daytime,
+            // which meant somebody who had once tapped Auto found the site white
+            // every afternoon, on every device, with nothing to connect it to.
+            // Dark is this site's identity; light is a preference opted into.
+            // Anything other than the literal 'light' now means dark, so an old
+            // 'auto' value decays to dark on its own instead of needing clearing.
+            __html: `(function(){try{var d=document.documentElement;var t=null;try{t=localStorage.getItem('rr_theme');}catch(e){}var light=(t==='light');if(light){d.classList.add('light');}try{var mt=document.querySelector('meta[name=\"theme-color\"]');if(mt)mt.setAttribute('content',light?'#F8F9FA':'#0a0a0a');}catch(e){}}catch(e){}})();`,
           }}
         />
         <script

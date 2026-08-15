@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sun, Moon, Clock } from "lucide-react";
-import { defaultMode } from "@/lib/time-of-day";
+import { Sun, Moon } from "lucide-react";
+import DuskSequence, { useDusk } from "@/components/DuskSequence";
 
 // ── Light, dark, or let the island decide ───────────────────────────────────
 //
@@ -17,22 +17,29 @@ import { defaultMode } from "@/lib/time-of-day";
 // is the normal state, and every surface that has never heard of this feature
 // keeps working.
 
-export type ThemeChoice = "auto" | "light" | "dark";
+export type ThemeChoice = "light" | "dark";
 export const THEME_KEY = "rr_theme";
 
-/** What the document should look like for a choice, at a moment in time. */
-export function resolveTheme(choice: ThemeChoice, now: Date = new Date()): "light" | "dark" {
-  if (choice === "light") return "light";
-  if (choice === "dark") return "dark";
-  return defaultMode(now) === "day" ? "light" : "dark";
+/** What the document should look like for a choice. */
+export function resolveTheme(choice: ThemeChoice): "light" | "dark" {
+  return choice === "light" ? "light" : "dark";
 }
 
 export function readChoice(): ThemeChoice {
-  // DARK unless explicitly chosen. Auto is still selectable, but it is no
-  // longer what an unconfigured visitor gets — see the note above applyTheme.
+  // ── DARK UNLESS THE WORD IS EXACTLY "light" ───────────────────────────────
+  // There used to be a third option, Auto, which followed the island clock. It
+  // was removed because of what it did in practice: somebody taps it once,
+  // and from then on the site is WHITE every afternoon on every device they
+  // own, with nothing on screen connecting that to a switch they touched days
+  // ago. That is indistinguishable from the site being broken, and it is
+  // exactly how it was reported.
+  //
+  // Dark is this site's identity. Light is a preference somebody opts into,
+  // and it stays until they opt out. Reading anything that is not the literal
+  // "light" as dark also means a stored "auto" from before decays to dark by
+  // itself — no migration, no clearing, no stale value surviving.
   if (typeof localStorage === "undefined") return "dark";
-  const v = localStorage.getItem(THEME_KEY);
-  return v === "light" || v === "dark" || v === "auto" ? v : "dark";
+  return localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
 }
 
 export function applyTheme(resolved: "light" | "dark") {
@@ -54,59 +61,77 @@ export default function ThemeToggle() {
   // lie — and, as this page learned the hard way elsewhere, a server/client
   // disagreement is what breaks hydration and silently kills every handler.
   const [ready, setReady] = useState(false);
+  const { t, sweep, play, jump } = useDusk();
 
   useEffect(() => {
-    setChoice(readChoice());
+    const c = readChoice();
+    // localStorage cannot be read on the server, so claiming a selected button
+    // during render is a guess that breaks hydration. Nothing reads as chosen
+    // until this runs.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setChoice(c);
     setReady(true);
-  }, []);
-
-  // Auto must keep up: somebody with the page open at sunset should see it
-  // change. Every five minutes is cheap and the boundary is crossed twice a day.
-  useEffect(() => {
-    if (!ready || choice !== "auto") return;
-    const tick = () => applyTheme(resolveTheme("auto"));
-    tick();
-    const id = window.setInterval(tick, 5 * 60 * 1000);
-    return () => window.clearInterval(id);
-  }, [choice, ready]);
+    // Start the sky where the page already is, so the first switch sweeps from
+    // the right place rather than from an assumed daytime.
+    jump(c === "light" ? "day" : "night");
+  }, [jump]);
 
   function pick(next: ThemeChoice) {
+    // Compare against what is ACTUALLY on screen, not against React state.
+    // State lags by a render, so guarding on it swallowed any second press that
+    // arrived before React had re-rendered — the control looked dead exactly
+    // when somebody was tapping it quickly, which is when they are least
+    // patient. The document class cannot lag; it is the thing being changed.
+    const current: ThemeChoice =
+      document.documentElement.classList.contains("light") ? "light" : "dark";
+    if (next === current) return;
+
     setChoice(next);
-    // Every choice is stored now, including auto — with dark as the default,
-    // "no value" can no longer mean auto.
     localStorage.setItem(THEME_KEY, next);
+
+    // ── THE SUNSET RUNS OVER THE TOP OF AN ALREADY-CORRECT PAGE ─────────────
+    // The theme commits first and the dusk is decoration, exactly as on the
+    // experiences hub. The alternative — applying the theme when the animation
+    // finishes — makes the control feel broken anywhere requestAnimationFrame
+    // is throttled, which is every backgrounded tab.
     applyTheme(resolveTheme(next));
+    play(next === "light" ? "day" : "night");
   }
 
   const opts: { key: ThemeChoice; icon: typeof Sun; label: string }[] = [
     { key: "light", icon: Sun, label: "Light" },
     { key: "dark", icon: Moon, label: "Dark" },
-    { key: "auto", icon: Clock, label: "Auto" },
   ];
 
   return (
-    <div
-      role="group"
-      aria-label="Appearance"
-      className="flex w-full gap-1 rounded-2xl border border-white/10 bg-white/[0.04] p-1"
-    >
-      {opts.map((o) => {
-        const on = ready && choice === o.key;
-        return (
-          <button
-            key={o.key}
-            type="button"
-            onClick={() => pick(o.key)}
-            aria-pressed={on}
-            className={`flex min-h-[46px] flex-1 items-center justify-center gap-1.5 rounded-xl px-3 font-dm text-xs font-semibold transition-colors ${
-              on ? "bg-yellow text-dark" : "text-muted hover:text-offwhite"
-            }`}
-          >
-            <o.icon size={14} className="shrink-0" />
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
+    <>
+      {/* Same component, same colours, same 1200ms as the experiences hub —
+          switching the whole site's light is at least as much of a moment as
+          switching one page's. */}
+      <DuskSequence t={t} sweep={sweep} />
+      <div
+        role="group"
+        aria-label="Appearance"
+        className="flex w-full gap-1 rounded-2xl border border-white/10 bg-white/[0.04] p-1"
+      >
+        {opts.map((o) => {
+          const on = ready && choice === o.key;
+          return (
+            <button
+              key={o.key}
+              type="button"
+              onClick={() => pick(o.key)}
+              aria-pressed={on}
+              className={`flex min-h-[46px] flex-1 items-center justify-center gap-1.5 rounded-xl px-3 font-dm text-xs font-semibold transition-colors ${
+                on ? "bg-yellow text-dark" : "text-muted hover:text-offwhite"
+              }`}
+            >
+              <o.icon size={14} className="shrink-0" />
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+    </>
   );
 }
