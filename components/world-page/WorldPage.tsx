@@ -18,6 +18,7 @@ import WorldEvents from "./WorldEvents";
 import WorldReviews from "./WorldReviews";
 import ConciergeInvite from "./ConciergeInvite";
 import WorldTools from "./WorldTools";
+import WorldFooter from "./WorldFooter";
 
 /**
  * A world, composed.
@@ -207,6 +208,9 @@ export default function WorldPage({
             }
           })}
         </div>
+        {/* The site footer, repainted. Same links, same translations — see the
+            component for why it is neither the shared one nor a new one. */}
+        <WorldFooter social={view.social} brandMark={view.brandMark} />
       </main>
 
       {/* Map · Planner · Guide · Emergency, docked above the floating nav. It

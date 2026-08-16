@@ -4,6 +4,7 @@ import { getContent } from "@/lib/content";
 import { listPublicEvents } from "@/lib/events/queries";
 import { foodCardImages } from "@/lib/food/queries";
 import { DEFAULT_HOME_CARDS, DEFAULT_QUICK_ACCESS } from "@/lib/defaults";
+import type { SocialLinks } from "@/lib/defaults";
 import type { WorldPhotoCard, WorldQuickItem } from "./types";
 import type { PromoEvent } from "@/components/EventsPromo";
 import {
@@ -52,6 +53,9 @@ export interface WorldView {
   moods: Record<string, ResolvedMood[]>;
   logo?: string;
   mascot?: string;
+  /** For the footer: the square mark, and where to follow. */
+  brandMark?: string;
+  social?: SocialLinks;
   /** The real photos each card category can draw from. Shared by every world. */
   cardImages: Record<string, string[]>;
   /**
@@ -187,6 +191,10 @@ export async function buildWorldView(
     moods,
     logo: content.branding.logo,
     mascot: content.branding.mascotImage,
+    // Same rule as the site footer: prefer the square mark, fall back to the
+    // full lockup.
+    brandMark: content.branding.logoMark || content.branding.logo,
+    social: content.social,
     cardImages,
     fallbackCards: (content.homeCards?.length ? content.homeCards : DEFAULT_HOME_CARDS)
       .filter((c) => c.enabled !== false)

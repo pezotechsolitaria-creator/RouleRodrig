@@ -181,7 +181,8 @@
 // v281 — Curated owns its cards and tiles; editing them leaves the homepage alone.
 // v282 — Curated drops the duplicate shortcuts and the grid; a chauffeur joins.
 // v283 — Curated stays your home; the header stops clipping; the hero button toggles.
-const CACHE = "rr-cache-v283";
+// v284 — the footer reaches the curated world, repainted.
+const CACHE = "rr-cache-v284";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
