@@ -5,6 +5,7 @@ import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { locT, type WorldHero as HeroDoc } from "@/lib/world-docs/types";
+import HeroVideoLayer from "@/components/HeroVideo";
 
 const unopt = (src: string) =>
   src.startsWith("/uploads/") || (src.startsWith("http") && !src.includes("supabase.co"));
@@ -118,16 +119,27 @@ export default function WorldHeroBanner({
             />
           </div>
         ))}
+        {/* ── THE SAME BUG, IN A NEW HERO ──────────────────────────────────
+            This was `<video src={hero.video}>`, which is exactly the failure
+            lib/video.ts was written to fix on the homepage: a YouTube WATCH
+            page is not a video file, so the browser fetches HTML, the decode
+            fails, and the layer disappears with nothing said. The owner pasted
+            a YouTube link here and got a still photograph and no explanation —
+            the second time, in the second hero.
+
+            HeroVideoLayer is the answer that already exists and already carries
+            every lesson this project paid for: it plays an MP4 as a <video> and
+            a YouTube or Vimeo link as a chromeless embed, passes `origin` so
+            the player answers the handshake, waits for the player to say it is
+            really PLAYING before revealing it (so a refused autoplay shows the
+            photograph rather than YouTube's thumbnail and play button), and
+            renders nothing at all on a link it cannot play.
+
+            The still underneath is never removed, which is what makes every one
+            of those failure paths cost nothing. */}
         {hero.video && (
-          <video
-            className="absolute inset-0 h-full w-full object-cover"
-            src={hero.video}
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="none"
-            aria-hidden
+          <HeroVideoLayer
+            videos={[{ id: "world-hero", url: hero.video, enabled: true }]}
           />
         )}
         {/* Two scrims, not one: a tall warm gradient for the text, plus a very

@@ -184,7 +184,8 @@
 // v284 — the footer reaches the curated world, repainted.
 // v285 — no flash on "/", and a private chauffeur is its own product.
 // v286 — Authentic gets its outdoors and its island life on the homepage.
-const CACHE = "rr-cache-v286";
+// v287 — a YouTube link works in the curated hero too.
+const CACHE = "rr-cache-v287";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

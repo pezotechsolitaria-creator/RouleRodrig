@@ -36,6 +36,7 @@ import {
   moveItem,
 } from "./fields";
 import { CURATED_ICON_KEYS } from "@/components/world-page/icons";
+import { parseVideoUrl } from "@/lib/video";
 
 export interface StudioProps {
   scope: { kind: "admin" | "editor"; name: string; worlds: WorldId[] };
@@ -785,13 +786,22 @@ function HeroPanel({ doc, patch }: { doc: WorldDoc; patch: (n: Partial<WorldDoc>
       </Field>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Video loop (optional)" hint="Plays muted over the still. The still stays the fallback.">
+        <Field
+          label="Video loop (optional)"
+          hint="Plays muted over the still. The still stays the fallback, always."
+        >
           <input
             className={inputCls}
             value={hero.video ?? ""}
-            placeholder="https://…/clip.mp4"
+            placeholder="YouTube link, Vimeo link, or an .mp4 URL"
             onChange={(e) => set({ video: e.target.value || undefined })}
           />
+          {/* ── SAY WHAT THE LINK WILL DO, BEFORE IT SHIPS ────────────────────
+              The original hero bug was not that a YouTube link failed — it was
+              that it failed SILENTLY, leaving the owner unable to tell a broken
+              link from a deliberate still. This is the half of that fix that
+              belongs in the admin. */}
+          {(hero.video ?? "").trim() && <VideoLinkNote url={hero.video ?? ""} />}
         </Field>
         <Field label="Seconds between stills" hint="0 turns the cross-fade off.">
           <input
@@ -806,6 +816,30 @@ function HeroPanel({ doc, patch }: { doc: WorldDoc; patch: (n: Partial<WorldDoc>
       </div>
     </Disclosure>
   );
+}
+
+/**
+ * What is going to happen to this link, in one line.
+ *
+ * A self-hosted file is still the better result — no third-party player, real
+ * object-cover, and it can be paused per frame — so this says so, without
+ * refusing the link. For somebody filming on a phone, pasting a YouTube URL is
+ * the difference between a hero video existing and not.
+ */
+function VideoLinkNote({ url }: { url: string }) {
+  const parsed = parseVideoUrl(url);
+  const tone =
+    parsed.kind === "file"
+      ? { text: "An MP4 — plays directly, and is the best result.", cls: "text-green-300" }
+      : parsed.kind === "youtube"
+        ? { text: "A YouTube link — plays as a muted, chromeless embed.", cls: "text-offwhite/80" }
+        : parsed.kind === "vimeo"
+          ? { text: "A Vimeo link — plays as a muted, chromeless embed.", cls: "text-offwhite/80" }
+          : {
+              text: "This link cannot be played. The hero will show the still photograph instead. Paste a YouTube or Vimeo link, or a direct .mp4 URL.",
+              cls: "text-amber-300",
+            };
+  return <p className={`mt-1.5 font-dm text-[11px] ${tone.cls}`}>{tone.text}</p>;
 }
 
 function QuickActionsPanel({
