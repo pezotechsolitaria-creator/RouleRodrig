@@ -74,7 +74,7 @@ export default function WorldPage({
 
   return (
     <div className="rr-worldpage min-h-screen" data-world-page={world}>
-      <WorldHeader logo={logo} world={world} />
+      <WorldHeader logo={logo} />
 
       <main>
         <WorldHeroBanner hero={doc.hero} images={heroImages} world={world} />

@@ -65,15 +65,26 @@ export const DEFAULT_CURATED: WorldDoc = {
     intervalSeconds: 7,
   },
 
+  // ── THE WHOLE SERVICE RANGE, NOT A SAMPLE ────────────────────────────────
+  // The first cut had six tiles and one of them pointed at the page you were
+  // already standing on, while CAR AND SCOOTER HIRE — the business this site
+  // was built to run — was missing entirely. A world page that cannot rent you
+  // a scooter is a brochure.
+  //
+  // Seven now, and the seventh is the one that peeks: the row scrolls on a
+  // narrow phone, which is what the half-tile at the edge is for. The
+  // self-referential "Curated" tile is gone; the world switch lives in the
+  // header, where a mode switch belongs.
   quickActions: {
     enabled: true,
     items: [
       { id: "qa-stays", icon: "stay", href: "/browse/stays", label: T("Stays", "Séjours", "Lozman") },
-      { id: "qa-exp", icon: "experience", href: "/browse/tours", label: T("Experiences", "Expériences", "Eksperyans") },
-      { id: "qa-eat", icon: "eat", href: "/food", label: T("Eat & Drink", "Manger & boire", "Manze & bwar") },
-      { id: "qa-shops", icon: "shop", href: "/shop", label: T("Shops", "Boutiques", "Laboutik") },
+      { id: "qa-exp", icon: "experience", href: "/browse/tours", label: T("Private", "Privé", "Prive") },
+      { id: "qa-dining", icon: "dining", href: "/food", label: T("Dining", "Table", "Latab") },
+      { id: "qa-wellness", icon: "wellness", href: "/experiences/massage", label: T("Wellness", "Bien-être", "Byennet") },
       { id: "qa-transfers", icon: "transfer", href: "/transfers", label: T("Transfers", "Transferts", "Transfer") },
-      { id: "qa-curated", icon: "curated", href: "/curated", label: T("Curated", "Sélection", "Seleksion") },
+      { id: "qa-car", icon: "car", href: "/browse/car", label: T("Car hire", "Voiture", "Loto") },
+      { id: "qa-shops", icon: "shop", href: "/shop", label: T("Boutiques", "Boutiques", "Laboutik") },
     ],
   },
 
@@ -92,26 +103,39 @@ export const DEFAULT_CURATED: WorldDoc = {
         "Detrwa moman Rodrig ki merite ou pran letan.",
       ),
       limit: 6,
+      // ── THE SAME LISTINGS AS AUTHENTIC, FRAMED DIFFERENTLY ───────────────
+      // Chez Banane and Île aux Cocos appear on BOTH world pages, and that is
+      // the design rather than an oversight: the island has one catalogue. What
+      // changes is the pill and the order — "Gastronomy" here, "The table"
+      // there. Two catalogues would have meant two things to keep true.
+      //
+      // The traditional fishing trip that used to lead this rail has moved to
+      // Authentic, where it belongs, and a car has taken a place on it: hiring
+      // one IS part of an elevated stay here, and leaving it out was the gap
+      // the owner spotted.
       cards: [
-        card("fc-cocos", { kind: "place", id: "rec-1784585562167" }, {
-          category: T("Island day", "Journée sur l'île", "Enn zourne"),
+        card("fc-villa", { kind: "place", id: "svc-1786553125959" }, {
+          category: T("Private villa", "Villa privée", "Villa prive"),
           labels: ["lbl-pick"],
         }),
-        card("fc-peche", { kind: "place", id: "svc-1786554105958" }, {
-          category: T("Local life", "Vie locale", "Lavi lokal"),
-          labels: ["lbl-locals"],
-        }),
-        card("fc-banane", { kind: "place", id: "rec-1786602913382" }, {
-          category: T("Gastronomy", "Gastronomie", "Manze"),
-          labels: ["lbl-locals"],
-        }),
-        card("fc-apnee", { kind: "place", id: "svc-1786553123744" }, {
-          category: T("Lagoon", "Lagon", "Lagon"),
+        card("fc-cocos", { kind: "place", id: "rec-1784585562167" }, {
+          category: T("Exclusive access", "Accès exclusif", "Akse exklizif"),
           labels: ["lbl-dontmiss"],
         }),
-        card("fc-villa", { kind: "place", id: "svc-1786553125959" }, {
-          category: T("Private", "Privé", "Prive"),
+        card("fc-banane", { kind: "place", id: "rec-1786602913382" }, {
+          category: T("Gastronomy", "Gastronomie", "Gastronomi"),
+        }),
+        card("fc-charter", { kind: "place", id: "rec-1785681665552" }, {
+          category: T("Private charter", "Sortie privée", "Sorti prive"),
           labels: ["lbl-two"],
+        }),
+        card("fc-car", { kind: "fleet", id: "veh-1783380348440" }, {
+          category: T("Self-drive", "Voiture", "Loto"),
+          blurb: T(
+            "Delivered to your door, so the island is yours from the first morning.",
+            "Livrée devant chez vous, l'île est à vous dès le premier matin.",
+            "Livre devan ou laport, lil pou ou depi premie gramatin.",
+          ),
         }),
         card("fc-mangliers", { kind: "place", id: "rec-1783845365369" }, {
           category: T("Stay", "Séjour", "Lozman"),
@@ -360,15 +384,19 @@ export const DEFAULT_AUTHENTIC: WorldDoc = {
     intervalSeconds: 7,
   },
 
+  // Seven, mirroring Curated, and the same reasoning: the whole range rather
+  // than a sample, no tile pointing at the page you are on, and a way to
+  // actually get around the island — which on this side is a scooter.
   quickActions: {
     enabled: true,
     items: [
       { id: "qa-a-beaches", icon: "lagoon", href: "/guide/beaches", label: T("Beaches", "Plages", "Laplaz") },
       { id: "qa-a-hike", icon: "hike", href: "/guide/routes", label: T("Walks", "Sentiers", "Semin") },
-      { id: "qa-a-eat", icon: "eat", href: "/food", label: T("Eat local", "Manger local", "Manze lokal") },
-      { id: "qa-a-shops", icon: "shop", href: "/shop", label: T("Makers", "Artisans", "Artizan") },
-      { id: "qa-a-view", icon: "view", href: "/guide/viewpoints", label: T("Viewpoints", "Points de vue", "Bann vi") },
-      { id: "qa-a-world", icon: "compass", href: "/authentic", label: T("Authentic", "Authentique", "Otantik") },
+      { id: "qa-a-fish", icon: "fish", href: "/experiences/fishing", label: T("Fishing", "Pêche", "Lapes") },
+      { id: "qa-a-eat", icon: "dining", href: "/food", label: T("Local food", "Manger local", "Manze lokal") },
+      { id: "qa-a-craft", icon: "craft", href: "/shop", label: T("Crafts", "Artisans", "Artizan") },
+      { id: "qa-a-village", icon: "village", href: "/map", label: T("Villages", "Villages", "Vilaz") },
+      { id: "qa-a-scooter", icon: "scooter", href: "/browse/scooter", label: T("Scooter", "Scooter", "Skooter") },
     ],
   },
 
@@ -390,7 +418,10 @@ export const DEFAULT_AUTHENTIC: WorldDoc = {
         "Pas des attractions. Des choses qui se passent de toute facon, et qu'on peut rejoindre.",
         "Pa bann atraksion. Bann kitsoz ki pe pase kanmem, ek ki ou kapav zwenn.",
       ),
-      limit: 6,
+      // Seven, not six. Authentic is the generous world by design — more per
+      // screen, the way a guidebook is — and the seventh card is the scooter,
+      // which the limit had been silently cutting off the end of the rail.
+      limit: 7,
       cards: [
         card("fa-peche", { kind: "place", id: "svc-1786554105958" }, {
           category: T("Out at sea", "En mer", "Dan lamer"),
@@ -409,6 +440,15 @@ export const DEFAULT_AUTHENTIC: WorldDoc = {
         }),
         card("fa-mama", { kind: "place", id: "svc-1786553125176" }, {
           category: T("Staying local", "Chez l'habitant", "Kot dimoun"),
+        }),
+        card("fa-scooter", { kind: "fleet", id: "burgman" }, {
+          category: T("Getting about", "Se déplacer", "Bouze"),
+          blurb: T(
+            "How the island actually moves. Delivered free, wherever you are staying.",
+            "Comme tout le monde ici se déplace. Livré gratuitement, où que vous soyez.",
+            "Kouma tou dimoun isi deplase. Livre gratis, kot ou reste.",
+          ),
+          labels: ["lbl-a-local"],
         }),
         card("fa-trou", { kind: "route", id: "ride-graviers-trou-dargent" }, {
           category: T("On foot", "A pied", "Apie"),

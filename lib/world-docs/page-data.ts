@@ -10,6 +10,7 @@ import {
   type ResolvedSection,
 } from "./resolve";
 import type { WorldDoc } from "./types";
+import type { World } from "@/lib/worlds";
 
 /**
  * A cookie-free client for the public reads this page makes.
@@ -49,6 +50,8 @@ export interface WorldView {
  */
 export async function buildWorldView(
   doc: WorldDoc,
+  /** Ranks the auto top-up by this world's tagging. */
+  world?: World,
   now: Date = new Date(),
 ): Promise<WorldView> {
   const content = await getContent();
@@ -75,11 +78,14 @@ export async function buildWorldView(
     places: content.recommended.items,
     locations: content.mapLocations,
     routes: content.rideRoutes,
+    // Only what is actually rentable today: a vehicle the owner has taken
+    // off the road must not be recommended on the front of a world.
+    fleet: content.fleet.filter((v) => v.available !== false),
     events,
     heroImage: content.hero.backgroundImage,
   };
 
-  const { hero, sections } = resolveWorldDoc(doc, cat, now);
+  const { hero, sections } = resolveWorldDoc(doc, cat, now, world);
 
   const moods: Record<string, ResolvedMood[]> = {};
   for (const s of doc.sections) {

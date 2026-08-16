@@ -20,7 +20,8 @@
 // clock cannot do that — nor can it be tested.
 
 import type { FavoriteType } from "@/context/FavoritesContext";
-import type { MapLocation, RecommendedPlace, RideRoute } from "@/lib/defaults";
+import type { FleetItem, MapLocation, RecommendedPlace, RideRoute } from "@/lib/defaults";
+import { forWorld, type World } from "@/lib/worlds";
 import {
   cardIsLive,
   type WorldCard,
@@ -42,6 +43,8 @@ export interface Catalogue {
   places: RecommendedPlace[];
   locations: MapLocation[];
   routes: RideRoute[];
+  /** Scooters and cars, so a world page can recommend one. */
+  fleet: FleetItem[];
   events: CatalogueEvent[];
   /** The site hero photo — the last-resort image for the curated hero. */
   heroImage?: string;
@@ -84,6 +87,11 @@ export function placeHref(p: RecommendedPlace): string {
   if (p.category === "restaurant") return "/food";
   if (p.serviceType) return `/experiences/${p.serviceType}`;
   return p.isTour ? "/browse/tours" : "/browse/activities";
+}
+
+/** Where a vehicle is rented. Its category IS its browse page. */
+export function fleetHref(v: FleetItem): string {
+  return `/browse/${v.category === "car" ? "car" : "scooter"}`;
 }
 
 /** Where a map location is READ ABOUT — the guide page that carries its story. */
@@ -175,6 +183,24 @@ export function resolveCard(
         fav: { type: "route", id: r.id },
       };
     }
+    case "fleet": {
+      const id = card.source.id;
+      const v = cat.fleet.find((x) => x.id === id);
+      // A vehicle taken off the road (`available: false`) disappears from the
+      // page rather than being recommended and then refused at checkout.
+      if (!v || v.available === false) return null;
+      const title = card.title ?? L(v.name);
+      if (!title) return null;
+      return {
+        ...base,
+        title,
+        blurb: card.blurb ?? L(v.tagline, v.taglineFr, v.taglineCr),
+        image: firstImage(card.image, v.image, v.images?.[0]),
+        href: card.href ?? fleetHref(v),
+        meta: L(v.price),
+        fav: { type: "scooter", id: v.id },
+      };
+    }
     case "event": {
       const slug = card.source.slug;
       const e = cat.events.find((x) => x.slug === slug);
@@ -215,6 +241,7 @@ export function topUpPlaces(
   have: ResolvedCard[],
   cat: Catalogue,
   want: number,
+  world?: World,
 ): ResolvedCard[] {
   if (have.length >= want) return have;
   const usedHrefs = new Set(have.map((c) => c.href));
@@ -223,8 +250,17 @@ export function topUpPlaces(
   // Activities first: they are what a curated page is for. Stays and tables
   // follow so a catalogue of only hotels still fills the rail.
   const order: RecommendedPlace["category"][] = ["activity", "hotel", "restaurant"];
+  // ── "BOTH, BUT DE-EMPHASISED" IS A REAL BEHAVIOUR ────────────────────────
+  // `forWorld` is the owner's existing tagging (lib/worlds.ts): a listing
+  // marked for one world is dropped from the other, one marked "both" — which
+  // is EVERY listing until somebody narrows it — stays visible in both and is
+  // ordered by that world's own priority. So a village walk is not hidden from
+  // Curated; it simply comes after the villa. Filtering it out instead would
+  // have made the two worlds two catalogues, which is the thing this design
+  // exists to avoid.
+  const ranked = world ? forWorld(cat.places, world) : cat.places;
   for (const category of order) {
-    for (const p of cat.places.filter((x) => x.category === category)) {
+    for (const p of ranked.filter((x) => x.category === category)) {
       if (out.length >= want) return out;
       const image = firstImage(p.image, p.images?.[0]);
       if (!image || !p.name.trim()) continue;
@@ -251,6 +287,10 @@ export function topUpPlaces(
 }
 
 /** The same, from the map's places — used by "Only in Rodrigues". */
+// No `world` parameter, deliberately: map locations carry no world tagging —
+// the owner tags LISTINGS (RecommendedPlace), not pins — so there is nothing
+// here to rank by, and a parameter that silently did nothing would be worse
+// than its absence. A beach belongs to both islands anyway.
 export function topUpLocations(
   have: ResolvedCard[],
   cat: Catalogue,
@@ -373,6 +413,8 @@ export function resolveWorldDoc(
   doc: WorldDoc,
   cat: Catalogue,
   now: Date,
+  /** Ranks the auto top-up by this world's tagging. Omit for no ranking. */
+  world?: World,
 ): { hero: { images: string[] }; sections: ResolvedSection[] } {
   const labels = doc.labels ?? [];
   const sections: ResolvedSection[] = [];
@@ -386,7 +428,7 @@ export function resolveWorldDoc(
       let cards = s.cards
         .map((c) => resolveCard(c, cat, labels, now))
         .filter((c): c is ResolvedCard => c !== null);
-      cards = topUpPlaces(cards, cat, want).slice(0, want);
+      cards = topUpPlaces(cards, cat, want, world).slice(0, want);
       if (cards.length) sections.push({ ...common, cards });
       continue;
     }

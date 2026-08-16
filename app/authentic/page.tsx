@@ -28,7 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function AuthenticPage() {
   const doc = await getPublishedWorld("authentic");
-  const view = await buildWorldView(doc);
+  const view = await buildWorldView(doc, "authentic");
 
   const jsonLd = {
     "@context": "https://schema.org",

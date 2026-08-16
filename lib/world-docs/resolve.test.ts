@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { MapLocation, RecommendedPlace, RideRoute } from "@/lib/defaults";
+import type { FleetItem, MapLocation, RecommendedPlace, RideRoute } from "@/lib/defaults";
 import {
   heroImages,
   resolveCard,
@@ -52,10 +52,25 @@ const route = (id: string, over: Partial<RideRoute> = {}): RideRoute => ({
   ...over,
 });
 
+const vehicle = (id: string, over: Partial<FleetItem> = {}): FleetItem => ({
+  id,
+  badge: "",
+  name: `Vehicle ${id}`,
+  tagline: "A tagline",
+  description: "A description",
+  unit: "day",
+  price: "From Rs 699",
+  image: `https://img/${id}.jpg`,
+  category: "scooter",
+  available: true,
+  ...over,
+});
+
 const cat = (over: Partial<Catalogue> = {}): Catalogue => ({
   places: [],
   locations: [],
   routes: [],
+  fleet: [],
   events: [],
   ...over,
 });
@@ -295,5 +310,89 @@ describe("resolveWorldDoc", () => {
     const got = resolveWorldDoc(doc, many, NOW);
     const featured = got.sections.find((s) => s.type === "featured");
     expect(featured?.cards.length).toBe(3);
+  });
+});
+
+describe("a card can point at a vehicle", () => {
+  // The original business. The first cut of the world pages had no way to put a
+  // scooter or a car on them at all, which the owner spotted: a page selling
+  // "the island, elevated" with no way to get around it.
+  it("reads the vehicle's own name, photo and price", () => {
+    const got = resolveCard(
+      { id: "c1", source: { kind: "fleet", id: "burgman" } },
+      cat({ fleet: [vehicle("burgman", { name: "BURGMAN 125cc", price: "From Rs 699" })] }),
+      LABELS,
+      NOW,
+    );
+    expect(got?.title.en).toBe("BURGMAN 125cc");
+    expect(got?.meta?.en).toBe("From Rs 699");
+    expect(got?.href).toBe("/browse/scooter");
+  });
+
+  it("sends a car to the car page, not the scooter page", () => {
+    const got = resolveCard(
+      { id: "c1", source: { kind: "fleet", id: "swift" } },
+      cat({ fleet: [vehicle("swift", { category: "car" })] }),
+      LABELS,
+      NOW,
+    );
+    expect(got?.href).toBe("/browse/car");
+  });
+
+  it("DROPS a vehicle the owner has taken off the road", () => {
+    // Recommending it and then refusing it at checkout is the worse failure.
+    const got = resolveCard(
+      { id: "c1", source: { kind: "fleet", id: "burgman" } },
+      cat({ fleet: [vehicle("burgman", { available: false })] }),
+      LABELS,
+      NOW,
+    );
+    expect(got).toBeNull();
+  });
+
+  it("drops one that has been deleted outright", () => {
+    const got = resolveCard(
+      { id: "c1", source: { kind: "fleet", id: "gone" } },
+      cat({ fleet: [vehicle("burgman")] }),
+      LABELS,
+      NOW,
+    );
+    expect(got).toBeNull();
+  });
+});
+
+describe("the top-up respects the owner's world tagging", () => {
+  // "Visible in both, but de-emphasised" is the owner's rule for content that
+  // suits one world more than the other. It has to be an ORDERING, not a
+  // filter: hiding a village walk from Curated would make the two worlds two
+  // catalogues, which is exactly what this design avoids.
+  it("puts a world's own listings before the shared ones", () => {
+    const shared = place("shared", { name: "Shared thing" });
+    const curatedOnly = place("lux", { name: "Lux thing", world: "curated", priorityCurated: 0 });
+    const got = topUpPlaces([], cat({ places: [shared, curatedOnly] }), 5, "curated");
+    expect(got.map((c) => c.title.en)).toEqual(["Lux thing", "Shared thing"]);
+  });
+
+  it("keeps an untagged listing visible in both worlds", () => {
+    const shared = place("shared", { name: "Shared thing" });
+    for (const world of ["authentic", "curated"] as const) {
+      const got = topUpPlaces([], cat({ places: [shared] }), 5, world);
+      expect(got.map((c) => c.title.en)).toEqual(["Shared thing"]);
+    }
+  });
+
+  it("leaves a listing narrowed to the OTHER world out", () => {
+    const got = topUpPlaces(
+      [],
+      cat({ places: [place("a", { name: "Authentic only", world: "authentic" })] }),
+      5,
+      "curated",
+    );
+    expect(got).toEqual([]);
+  });
+
+  it("orders exactly as it did before when no world is given", () => {
+    const places = [place("a", { name: "A" }), place("b", { name: "B", world: "curated" })];
+    expect(topUpPlaces([], cat({ places }), 5).map((c) => c.title.en)).toEqual(["A", "B"]);
   });
 });

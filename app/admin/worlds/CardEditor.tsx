@@ -10,6 +10,8 @@ export interface PickerCatalogue {
   places: { id: string; name: string; category: string; serviceType: string | null; isTour: boolean; image: string }[];
   locations: { id: string; name: string; category: string; image: string; hasStory: boolean }[];
   routes: { id: string; name: string; kind: string; image: string }[];
+  /** Scooters and cars. */
+  fleet: { id: string; name: string; category: string; price: string; image: string }[];
 }
 
 /** What a card is pointing at, in words, plus whether that thing still exists. */
@@ -27,6 +29,10 @@ export function describeSource(card: WorldCard, cat: PickerCatalogue) {
   if (s.kind === "route") {
     const r = cat.routes.find((x) => x.id === s.id);
     return { label: r ? r.name : "Deleted route", image: card.image || r?.image || "", missing: !r };
+  }
+  if (s.kind === "fleet") {
+    const v = cat.fleet.find((x) => x.id === s.id);
+    return { label: v ? v.name : "Removed vehicle", image: card.image || v?.image || "", missing: !v };
   }
   return { label: `Event · ${s.slug}`, image: card.image ?? "", missing: false };
 }
@@ -85,6 +91,13 @@ function SourcePicker({
         kind: r.kind === "hike" ? "Trail" : "Ride",
         image: r.image,
       })),
+      ...cat.fleet.map((v) => ({
+        key: `fleet:${v.id}`,
+        source: { kind: "fleet", id: v.id } as WorldCard["source"],
+        name: v.name,
+        kind: v.category === "car" ? "Car" : "Scooter",
+        image: v.image,
+      })),
     ];
     if (!query) return all;
     return all.filter((r) => `${r.name} ${r.kind}`.toLowerCase().includes(query));
@@ -99,7 +112,7 @@ function SourcePicker({
         <Search size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
         <input
           className={`${inputCls} pl-8`}
-          placeholder="Search stays, activities, beaches, trails…"
+          placeholder="Search stays, activities, beaches, trails, vehicles…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />

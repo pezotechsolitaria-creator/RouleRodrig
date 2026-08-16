@@ -6,7 +6,6 @@ import { Heart } from "lucide-react";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
-import type { WorldId } from "@/lib/world-docs/types";
 import AccountButton from "@/components/AccountButton";
 import ExperienceWorldSwitcher from "@/components/world/WorldSwitcher";
 
@@ -32,13 +31,7 @@ import ExperienceWorldSwitcher from "@/components/world/WorldSwitcher";
 // The language toggle from the app headers is gone for a smaller reason — three
 // controls is a header, five is a toolbar — but it survives in the footer and
 // on every other page.
-export default function WorldHeader({
-  logo,
-  world,
-}: {
-  logo?: string;
-  world: WorldId;
-}) {
+export default function WorldHeader({ logo }: { logo?: string }) {
   const { count } = useFavorites();
   const { language } = useLanguage();
   const openSaved = () => window.dispatchEvent(new CustomEvent("rr:open-saved"));
@@ -99,7 +92,6 @@ export default function WorldHeader({
             >
               Rodrigues
             </span>
-            <span className="sr-only">{world}</span>
           </span>
         </Link>
 

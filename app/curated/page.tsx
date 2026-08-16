@@ -39,7 +39,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function CuratedPage() {
   const doc = await getPublishedWorld("curated");
-  const view = await buildWorldView(doc);
+  const view = await buildWorldView(doc, "curated");
 
   // Only what this page really SHOWS. The featured rail is a genuine list of
   // named things with their own URLs, so it earns ItemList markup; the moods and

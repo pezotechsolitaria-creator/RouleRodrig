@@ -67,6 +67,17 @@ async function pickerCatalogue() {
       kind: r.kind ?? "ride",
       image: r.image || r.images?.[0] || "",
     })),
+    // Only what is on the road. Offering an editor a vehicle the owner has
+    // withdrawn is offering them a card that will never render.
+    fleet: content.fleet
+      .filter((v) => v.available !== false)
+      .map((v) => ({
+        id: v.id,
+        name: v.name,
+        category: v.category ?? "scooter",
+        price: v.price ?? "",
+        image: v.image || v.images?.[0] || "",
+      })),
   };
 }
 

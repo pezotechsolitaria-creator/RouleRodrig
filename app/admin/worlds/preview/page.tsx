@@ -46,7 +46,12 @@ export default async function WorldPreviewPage({
   }
 
   const { doc } = await getEditableWorld(world);
-  const view = await buildWorldView(doc);
+  // The preview ranks by the world being edited, so the auto top-up an
+  // editor sees is the one a visitor will get.
+  const view = await buildWorldView(
+    doc,
+    world === "authentic" || world === "curated" ? world : undefined,
+  );
 
   return (
     <WorldFonts>

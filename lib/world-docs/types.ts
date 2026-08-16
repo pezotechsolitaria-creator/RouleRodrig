@@ -93,6 +93,11 @@ export type CardSource =
   | { kind: "place"; id: string }        // site_content.recommended.items
   | { kind: "location"; id: string }     // site_content.mapLocations
   | { kind: "route"; id: string }        // site_content.rideRoutes
+  // Scooters and cars. This is the ORIGINAL business, and the first cut of the
+  // curated page left it out entirely — a page selling "the island, elevated"
+  // with no way to get around it. A world page must be able to recommend a
+  // vehicle the same way it recommends a table.
+  | { kind: "fleet"; id: string }        // site_content.fleet
   | { kind: "event"; slug: string }      // ticketed events
   | { kind: "link"; href: string };      // anywhere in the app
 
