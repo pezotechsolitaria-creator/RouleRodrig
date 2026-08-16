@@ -7,6 +7,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
 import InstallAppButton from "@/components/InstallAppButton";
 import AccountButton from "@/components/AccountButton";
+import WorldSwitcher from "@/components/world/WorldSwitcher";
 
 /**
  * Slim app-style top bar for inner pages — the v2 replacement for the marketing
@@ -66,6 +67,11 @@ export default function AppPageHeader({
           <span className="flex-1" />
         )}
 
+        {/* On a PRIMARY page there is no title, so the switch sits in the row
+            it would otherwise share with one. On a sub-page it moves below —
+            see the note under this row. */}
+        {!title && <WorldSwitcher strip={false} className="mr-auto" />}
+
         <InstallAppButton variant="icon" />
         <button
           onClick={cycle}
@@ -76,6 +82,27 @@ export default function AppPageHeader({
         </button>
         <AccountButton />
       </div>
+
+      {/* ── THE WORLD SWITCH, ON EVERY PAGE ──────────────────────────────────
+          It used to live on the homepage and the world pages only, which meant
+          tapping any card out of Curated stranded you: the page you landed on
+          had no way back into the world you were in. The owner's instruction is
+          that this control is everywhere — so leaving a world is always one tap
+          from returning to it, and "/" can stay what it has always been.
+
+          On a SUB-PAGE it gets its own row. Inline, it took 186px out of a
+          392px bar and squeezed the page title — measured — to zero width: the
+          visitor could no longer see what they were looking at. A 44px strip is
+          the cheaper trade.
+
+          The component renders nothing until the visitor's world is known, and
+          this wrapper renders nothing when it does — so there is never an empty
+          bar on a first load. */}
+      {title && (
+        <div className="flex justify-center border-t border-white/[0.06] px-4 py-1">
+          <WorldSwitcher strip={false} />
+        </div>
+      )}
     </header>
   );
 }

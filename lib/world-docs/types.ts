@@ -228,19 +228,63 @@ export interface EditorsSection extends SectionBase {
   notes: EditorNote[];
 }
 
+/** One of the large photo cards at the top of a world. */
+export interface WorldPhotoCard {
+  id: string;
+  label: Localized;
+  /** Icon key — see components/world-page/WorldPhotoCards.tsx. */
+  icon: string;
+  href?: string;
+  /** "tiroule" opens the chat instead of navigating. */
+  action?: "link" | "tiroule";
+  /**
+   * Which catalogue category supplies the photograph:
+   * scooter · car · stays · exp · stores · food · none.
+   */
+  imageSource: string;
+  /** A pinned photo, overriding the catalogue's. */
+  image?: string;
+  popular?: boolean;
+  enabled?: boolean;
+}
+
 /**
- * The six photo cards, straight from `content.homeCards`.
+ * The large photo cards — THIS WORLD'S OWN.
  *
- * No payload of its own on purpose. Duplicating the card list into the world
- * document would mean adding a scooter category in two places forever.
+ * ── WHY THEY ARE NOT SHARED WITH THE HOMEPAGE ───────────────────────────────
+ * They were, for one commit: the section read `content.homeCards` so a card was
+ * written once and appeared everywhere. That is the right instinct for a
+ * navigation bar and the wrong one here, and the owner said so plainly — adding
+ * something to Curated must not change Authentic.
+ *
+ * He is right, and the reason is what these cards ARE. On the homepage they are
+ * the site's index: every category, in a fixed order, because a visitor has to
+ * be able to reach all of it. On a curated page they are an argument — six
+ * things chosen, in a chosen order, possibly not six, possibly not the same
+ * six. Sharing one list would have meant the argument could never differ from
+ * the index without changing the index.
+ *
+ * The cost is that a new category has to be added twice. That is the correct
+ * cost: the second time is a decision about whether it belongs in this world.
  */
 export interface CardsSection extends SectionBase {
   type: "cards";
+  items: WorldPhotoCard[];
 }
 
-/** The "what are you looking for" grid, from `content.quickAccess`. */
+/** One tile in the "what are you looking for" grid. */
+export interface WorldQuickItem {
+  id: string;
+  label: Localized;
+  icon: string;
+  href: string;
+  enabled?: boolean;
+}
+
+/** The grid — likewise this world's own, for the same reason as the cards. */
 export interface QuickAccessSection extends SectionBase {
   type: "quickAccess";
+  items: WorldQuickItem[];
 }
 
 /** Upcoming ticketed events. Renders nothing when the island has nothing on. */

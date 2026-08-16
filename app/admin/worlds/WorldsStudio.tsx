@@ -85,11 +85,35 @@ const SECTION_NAME: Record<WorldSection["type"], string> = {
  * panel and letting somebody hunt for the missing form.
  */
 const SECTION_SOURCE: Partial<Record<WorldSection["type"], string>> = {
-  cards: "The cards themselves are edited in the content studio → Home cards, and shared with the homepage.",
-  quickAccess: "The tiles are edited in the content studio → Quick access, and shared with the homepage.",
+  cards: "These belong to THIS world. Adding, renaming or removing one changes nothing on the homepage.",
+  quickAccess: "This world's own tiles. Independent of the homepage grid.",
   events: "Pulled live from Events & tickets. The section hides itself when nothing is coming up.",
   reviews: "Real approved reviews only. Nothing to write here — and nothing invented.",
 };
+
+/** Where a card's photograph comes from. The catalogue, shared by every world. */
+const IMAGE_SOURCES = [
+  { value: "scooter", label: "Scooter photos" },
+  { value: "car", label: "Car photos" },
+  { value: "stays", label: "Stay photos" },
+  { value: "exp", label: "Activity photos" },
+  { value: "stores", label: "Shop photos" },
+  { value: "food", label: "Dish photos" },
+  { value: "none", label: "No photo (gradient)" },
+];
+
+/** Icon keys the big photo cards understand. */
+const CARD_ICONS = [
+  "scooter", "car", "stay", "experience", "restaurant", "store", "beach",
+  "event", "tiroule", "compass",
+];
+
+/** Icon keys the small grid tiles understand. */
+const TILE_ICONS = [
+  "beach", "hiking", "viewpoint", "fishing", "boat", "massage", "taxi", "plane",
+  "restaurant", "store", "event", "map", "planner", "guide", "scooter", "car",
+  "stay", "delivery", "compass",
+];
 
 function when(iso: string | null): string {
   if (!iso) return "—";
@@ -919,6 +943,223 @@ function SectionPanel({
         </p>
       )}
       {head}
+
+      {section.type === "cards" && (
+        <div className="space-y-2">
+          {section.items.map((c, i) => (
+            <Disclosure
+              key={c.id}
+              title={c.label.en || "Untitled card"}
+              subtitle={c.enabled === false ? "Hidden" : c.href || "No destination"}
+              right={
+                <RowTools
+                  index={i}
+                  count={section.items.length}
+                  onMove={(from, to) =>
+                    set({ items: moveItem(section.items, from, to) } as Partial<WorldSection>)
+                  }
+                  onRemove={() =>
+                    set({ items: section.items.filter((_, j) => j !== i) } as Partial<WorldSection>)
+                  }
+                  enabled={c.enabled !== false}
+                  onToggle={() =>
+                    set({
+                      items: section.items.map((x, j) =>
+                        j === i ? { ...x, enabled: x.enabled === false } : x,
+                      ),
+                    } as Partial<WorldSection>)
+                  }
+                />
+              }
+            >
+              <LocalizedField
+                label="Label"
+                value={c.label}
+                onChange={(label) =>
+                  set({
+                    items: section.items.map((x, j) => (j === i ? { ...x, label } : x)),
+                  } as Partial<WorldSection>)
+                }
+              />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Icon">
+                  <select
+                    className={inputCls}
+                    value={c.icon}
+                    onChange={(e) =>
+                      set({
+                        items: section.items.map((x, j) => (j === i ? { ...x, icon: e.target.value } : x)),
+                      } as Partial<WorldSection>)
+                    }
+                  >
+                    {CARD_ICONS.map((k) => (
+                      <option key={k} value={k}>{k}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Photos from" hint="The catalogue supplies the picture.">
+                  <select
+                    className={inputCls}
+                    value={c.imageSource}
+                    onChange={(e) =>
+                      set({
+                        items: section.items.map((x, j) =>
+                          j === i ? { ...x, imageSource: e.target.value } : x,
+                        ),
+                      } as Partial<WorldSection>)
+                    }
+                  >
+                    {IMAGE_SOURCES.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+              <Field label="Goes to">
+                <input
+                  className={inputCls}
+                  value={c.href ?? ""}
+                  placeholder="/browse/stays"
+                  onChange={(e) =>
+                    set({
+                      items: section.items.map((x, j) => (j === i ? { ...x, href: e.target.value } : x)),
+                    } as Partial<WorldSection>)
+                  }
+                />
+              </Field>
+              <ImageField
+                label="Pinned photo (optional)"
+                hint="Overrides the catalogue photo for this card only."
+                value={c.image}
+                onChange={(image) =>
+                  set({
+                    items: section.items.map((x, j) => (j === i ? { ...x, image } : x)),
+                  } as Partial<WorldSection>)
+                }
+              />
+              <label className="flex items-center gap-2 font-dm text-[12px] text-offwhite">
+                <input
+                  type="checkbox"
+                  checked={!!c.popular}
+                  onChange={(e) =>
+                    set({
+                      items: section.items.map((x, j) =>
+                        j === i ? { ...x, popular: e.target.checked } : x,
+                      ),
+                    } as Partial<WorldSection>)
+                  }
+                />
+                Show a “Popular” badge
+              </label>
+            </Disclosure>
+          ))}
+          <button
+            type="button"
+            onClick={() =>
+              set({
+                items: [
+                  ...section.items,
+                  {
+                    id: uid("wc"),
+                    label: { en: "New card" },
+                    icon: "compass",
+                    imageSource: "none",
+                    href: "/explore",
+                    action: "link" as const,
+                    enabled: true,
+                  },
+                ],
+              } as Partial<WorldSection>)
+            }
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/12 px-3 py-1.5 font-dm text-[11px] text-muted hover:border-yellow/40 hover:text-offwhite"
+          >
+            <Plus size={12} /> Add a card
+          </button>
+        </div>
+      )}
+
+      {section.type === "quickAccess" && (
+        <div className="space-y-2">
+          {section.items.map((q, i) => (
+            <div key={q.id} className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate font-dm text-[12px] text-offwhite">
+                  {q.label.en || "Untitled"}
+                </span>
+                <RowTools
+                  index={i}
+                  count={section.items.length}
+                  onMove={(from, to) =>
+                    set({ items: moveItem(section.items, from, to) } as Partial<WorldSection>)
+                  }
+                  onRemove={() =>
+                    set({ items: section.items.filter((_, j) => j !== i) } as Partial<WorldSection>)
+                  }
+                  enabled={q.enabled !== false}
+                  onToggle={() =>
+                    set({
+                      items: section.items.map((x, j) =>
+                        j === i ? { ...x, enabled: x.enabled === false } : x,
+                      ),
+                    } as Partial<WorldSection>)
+                  }
+                />
+              </div>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <LocalizedField
+                  label="Label"
+                  value={q.label}
+                  onChange={(label) =>
+                    set({
+                      items: section.items.map((x, j) => (j === i ? { ...x, label } : x)),
+                    } as Partial<WorldSection>)
+                  }
+                />
+                <Field label="Icon">
+                  <select
+                    className={inputCls}
+                    value={q.icon}
+                    onChange={(e) =>
+                      set({
+                        items: section.items.map((x, j) => (j === i ? { ...x, icon: e.target.value } : x)),
+                      } as Partial<WorldSection>)
+                    }
+                  >
+                    {TILE_ICONS.map((k) => (
+                      <option key={k} value={k}>{k}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Goes to">
+                  <input
+                    className={inputCls}
+                    value={q.href}
+                    onChange={(e) =>
+                      set({
+                        items: section.items.map((x, j) => (j === i ? { ...x, href: e.target.value } : x)),
+                      } as Partial<WorldSection>)
+                    }
+                  />
+                </Field>
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() =>
+              set({
+                items: [
+                  ...section.items,
+                  { id: uid("wq"), label: { en: "New tile" }, icon: "compass", href: "/explore", enabled: true },
+                ],
+              } as Partial<WorldSection>)
+            }
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/12 px-3 py-1.5 font-dm text-[11px] text-muted hover:border-yellow/40 hover:text-offwhite"
+          >
+            <Plus size={12} /> Add a tile
+          </button>
+        </div>
+      )}
 
       {(section.type === "featured" || section.type === "onlyInRodrigues") && (
         <>

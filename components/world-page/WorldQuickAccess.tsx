@@ -7,8 +7,7 @@ import {
   BedDouble, Compass, HeartHandshake, Truck,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
-import { loc } from "@/lib/localize";
-import type { QuickAccessItem } from "@/lib/defaults";
+import { locT, type WorldQuickItem } from "@/lib/world-docs/types";
 import SectionHeading from "./SectionHeading";
 import Reveal from "./Reveal";
 
@@ -23,7 +22,7 @@ const LOOKING_ICON: Record<string, React.ElementType> = {
 };
 
 /**
- * "What are you looking for?" — the homepage's grid, on a world page.
+ * "What are you looking for?" — this world's own grid.
  *
  * ── A GRID, NOT A RAIL ────────────────────────────────────────────────────
  * Ten-ish tiles. As a horizontal rail this showed four and a half and hid the
@@ -31,8 +30,9 @@ const LOOKING_ICON: Record<string, React.ElementType> = {
  * already made once on the homepage and fixed. A four-column grid shows every
  * one of them for about the same vertical space.
  *
- * Reads `content.quickAccess`, so it is the SAME list as the homepage: one
- * place to edit, and it can never say something different here.
+ * The list lives in the world document, not in `content.quickAccess`: what a
+ * curated visitor is offered is an editorial choice, and it must be possible to
+ * make it without touching the homepage.
  */
 export default function WorldQuickAccess({
   id,
@@ -45,7 +45,7 @@ export default function WorldQuickAccess({
   title?: string;
   subtitle?: string;
   seeAll?: string;
-  items: QuickAccessItem[];
+  items: WorldQuickItem[];
 }) {
   const { language } = useLanguage();
   if (!items.length) return null;
@@ -69,7 +69,7 @@ export default function WorldQuickAccess({
                   className="font-dm text-[10px] font-medium leading-tight"
                   style={{ color: "rgba(242,235,225,0.86)" }}
                 >
-                  {loc(language, item.label, item.labelFr, item.labelCr)}
+                  {locT(language, item.label)}
                 </span>
               </Link>
             </Reveal>

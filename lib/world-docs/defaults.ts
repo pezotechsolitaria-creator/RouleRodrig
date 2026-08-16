@@ -91,13 +91,73 @@ export const DEFAULT_CURATED: WorldDoc = {
   labels: DEFAULT_LABELS,
 
   sections: [
-    // The six photo cards and the grid below them are the homepage's, read from
-    // the same admin content. A world that cannot reach scooters, cars, stays,
-    // food and shops is a magazine, not a front door.
+    // ── CURATED'S OWN CARDS ────────────────────────────────────────────────
+    // Not the homepage's. Same six destinations a visitor has to be able to
+    // reach, named the way this world names things — "Villas & stays" rather
+    // than "Stays", "The table" rather than "Restaurant" — and ordered by what
+    // Curated argues matters: where you sleep, then what has been arranged,
+    // then the ways to move. Editing any of it leaves the homepage alone.
     {
       id: "sec-cards",
       type: "cards",
       enabled: true,
+      items: [
+        {
+          id: "wc-stays",
+          label: T("Villas & stays", "Villas & séjours", "Villa & lozman"),
+          icon: "stay",
+          imageSource: "stays",
+          href: "/browse/stays",
+          action: "link",
+          popular: true,
+          enabled: true,
+        },
+        {
+          id: "wc-exp",
+          label: T("Private days", "Journées privées", "Zourne prive"),
+          icon: "experience",
+          imageSource: "exp",
+          href: "/browse/tours",
+          action: "link",
+          enabled: true,
+        },
+        {
+          id: "wc-table",
+          label: T("The table", "La table", "Latab"),
+          icon: "restaurant",
+          imageSource: "food",
+          href: "/food",
+          action: "link",
+          enabled: true,
+        },
+        {
+          id: "wc-car",
+          label: T("Cars", "Voitures", "Loto"),
+          icon: "car",
+          imageSource: "car",
+          href: "/browse/car",
+          action: "link",
+          enabled: true,
+        },
+        {
+          id: "wc-scooter",
+          label: T("Scooters", "Scooters", "Skooter"),
+          icon: "scooter",
+          imageSource: "scooter",
+          href: "/browse/scooter",
+          action: "link",
+          enabled: true,
+        },
+        {
+          id: "wc-shops",
+          label: T("Boutiques", "Boutiques", "Laboutik"),
+          icon: "store",
+          imageSource: "stores",
+          href: "/shop",
+          action: "link",
+          enabled: true,
+        },
+      ],
     },
 
     {
@@ -202,12 +262,24 @@ export const DEFAULT_CURATED: WorldDoc = {
       ),
     },
 
+    // Curated's own grid, likewise. Eight, and every one of them is something
+    // this world would actually arrange for you.
     {
       id: "sec-quick",
       type: "quickAccess",
       enabled: true,
       seeAll: "/explore",
       title: T("What are you looking for?", "Que cherchez-vous ?", "Ki ou pe rode?"),
+      items: [
+        { id: "wq-beach", label: T("Beaches", "Plages", "Laplaz"), icon: "beach", href: "/guide/beaches" },
+        { id: "wq-boat", label: T("Boat trips", "Sorties mer", "Sorti lamer"), icon: "boat", href: "/experiences/boat" },
+        { id: "wq-massage", label: T("Massage", "Massage", "Masaz"), icon: "massage", href: "/experiences/massage" },
+        { id: "wq-fishing", label: T("Fishing", "Pêche", "Lapes"), icon: "fishing", href: "/experiences/fishing" },
+        { id: "wq-view", label: T("Viewpoints", "Points de vue", "Bann vi"), icon: "viewpoint", href: "/guide/viewpoints" },
+        { id: "wq-taxi", label: T("Taxi", "Taxi", "Taksi"), icon: "taxi", href: "/taxi" },
+        { id: "wq-transfer", label: T("Transfers", "Transferts", "Transfer"), icon: "plane", href: "/transfers" },
+        { id: "wq-events", label: T("Tickets", "Billets", "Tiket"), icon: "event", href: "/events" },
+      ],
     },
 
     {

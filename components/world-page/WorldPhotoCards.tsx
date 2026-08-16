@@ -8,8 +8,7 @@ import {
   PartyPopper,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
-import { loc } from "@/lib/localize";
-import type { HomeCard } from "@/lib/defaults";
+import { locT, type WorldPhotoCard } from "@/lib/world-docs/types";
 import Reveal from "./Reveal";
 
 const HOME_ICON: Record<string, React.ElementType> = {
@@ -22,14 +21,25 @@ const unopt = (src: string) =>
   src.startsWith("/uploads/") || (src.startsWith("http") && !src.includes("supabase.co"));
 
 /**
- * The six photo cards — the same ones the homepage carries.
+ * The large photo cards, from THIS WORLD'S document.
  *
- * ── WHY THIS IS NOT A SECOND CARD LIST ────────────────────────────────────
- * It reads `content.homeCards`, exactly as the homepage does. The owner adds a
- * category in the content studio and it appears in every world, with the same
- * label and the same photographs. A world-specific copy would have meant
- * maintaining the site's primary navigation in two places, and finding out they
- * had drifted from a customer.
+ * ── INDEPENDENT, DELIBERATELY ─────────────────────────────────────────────
+ * These are not the homepage's cards. Adding one here changes this world and
+ * nothing else — see the note on CardsSection in lib/world-docs/types.ts for
+ * why that is worth the duplicate entry.
+ *
+ * The PHOTOGRAPHS are still shared, and that part is right: `imageSource` names
+ * a catalogue category, so a scooter photo uploaded once appears on every card
+ * that draws from scooters. What each world SHOWS is editorial; which
+ * photographs exist is not.
+ *
+ * ── ONE CARD LANGUAGE ON THE PAGE ─────────────────────────────────────────
+ * These wear the same construction as the recommendation cards below them: a
+ * chip in the top corner, a serif name over a tall scrim, a champagne way in.
+ * They were a smaller, sans-serif tile with an icon badge, which read as a
+ * different component from a different site sitting above the real ones. Same
+ * language, smaller size — that is what makes a page look composed rather than
+ * assembled.
  *
  * ── ONE PHOTOGRAPH, NOT SIX CYCLING ───────────────────────────────────────
  * The homepage version cross-fades through every photo in each category — six
@@ -41,7 +51,7 @@ export default function WorldPhotoCards({
   cards,
   images,
 }: {
-  cards: HomeCard[];
+  cards: WorldPhotoCard[];
   images: Record<string, string[]>;
 }) {
   const { language } = useLanguage();
@@ -52,8 +62,8 @@ export default function WorldPhotoCards({
       <div className="grid grid-cols-3 gap-2.5 lg:grid-cols-6 lg:gap-3.5">
         {cards.map((c, i) => {
           const Icon = HOME_ICON[c.icon] ?? Compass;
-          const src = (images[c.imageSource] ?? [])[0];
-          const label = loc(language, c.label, c.labelFr, c.labelCr);
+          const src = c.image?.trim() || (images[c.imageSource] ?? [])[0];
+          const label = locT(language, c.label);
 
           const body = (
             <>
@@ -79,14 +89,14 @@ export default function WorldPhotoCards({
                 }}
               />
               <span
-                className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-lg backdrop-blur-md"
+                className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full backdrop-blur-md"
                 style={{
-                  border: "1px solid var(--cur-line)",
-                  backgroundColor: "rgba(10,9,8,0.4)",
+                  border: "1px solid rgba(255,255,255,0.14)",
+                  backgroundColor: "rgba(10,9,8,0.44)",
                   color: "var(--cur-champagne)",
                 }}
               >
-                <Icon size={14} />
+                <Icon size={12} />
               </span>
               {c.popular && (
                 <span
@@ -97,21 +107,21 @@ export default function WorldPhotoCards({
                     letterSpacing: "0.12em",
                   }}
                 >
-                  {loc(language, "Popular", "Populaire", "Popiler")}
+                  {language === "fr" ? "Populaire" : language === "cr" ? "Popiler" : "Popular"}
                 </span>
               )}
               <span className="relative p-2.5">
                 <span
-                  className="block font-dm text-[12px] font-semibold leading-tight"
+                  className="rr-cur-display line-clamp-2 block text-[1.05rem] leading-[1.1]"
                   style={{ color: "#FFFCF7" }}
                 >
                   {label}
                 </span>
                 <span
-                  className="mt-0.5 inline-flex items-center gap-1 font-dm text-[10px]"
+                  className="mt-1 inline-flex items-center gap-1 font-dm text-[10.5px] font-medium"
                   style={{ color: "var(--cur-champagne)" }}
                 >
-                  {loc(language, "Explore", "Explorer", "Explor")}
+                  {language === "fr" ? "Explorer" : language === "cr" ? "Explor" : "Explore"}
                   <ArrowRight size={10} className="transition-transform group-hover:translate-x-0.5" />
                 </span>
               </span>
@@ -119,7 +129,7 @@ export default function WorldPhotoCards({
           );
 
           const cls =
-            "rr-cur-card group relative isolate flex aspect-[4/5] flex-col justify-end overflow-hidden rounded-2xl focus:outline-none focus-visible:ring-2";
+            "rr-cur-card group relative isolate flex aspect-[3/4] flex-col justify-end overflow-hidden rounded-2xl focus:outline-none focus-visible:ring-2";
 
           return (
             <Reveal key={c.id} delay={Math.min(i, 5) * 45}>

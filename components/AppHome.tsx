@@ -21,7 +21,6 @@ import { useActiveWorld } from "@/context/ExperienceWorldContext";
 import { forWorld } from "@/lib/worlds";
 import EventsPromo, { type PromoEvent } from "@/components/EventsPromo";
 import CuratedTeaser from "@/components/CuratedTeaser";
-import WorldHomeGate from "@/components/world/WorldHomeGate";
 import { HeartHandshake } from "lucide-react";
 import { DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS } from "@/lib/defaults";
 import type { QuickAccessItem, HomeCard } from "@/lib/defaults";
@@ -184,9 +183,6 @@ export default function AppHome({
 
   return (
     <>
-      {/* Forwards a Curated visitor to their own front door. See the component. */}
-      <WorldHomeGate />
-
       {/* ── Header ─────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-white/10 bg-dark/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2.5">

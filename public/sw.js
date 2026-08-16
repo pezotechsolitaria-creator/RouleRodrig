@@ -178,7 +178,8 @@
 // v278 — the first screen carries the hero, the actions and the first cards.
 // v279 — rentals are back on both worlds; the sparkle pill is gone.
 // v280 — Authentic is the homepage again; Curated gains cards, events, reviews.
-const CACHE = "rr-cache-v280";
+// v281 — Curated owns its cards and tiles; editing them leaves the homepage alone.
+const CACHE = "rr-cache-v281";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

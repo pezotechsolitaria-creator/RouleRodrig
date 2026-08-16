@@ -102,15 +102,21 @@ export default function WorldPage({
             const seeAll = s.raw.seeAll?.trim() || undefined;
 
             switch (s.type) {
-              case "cards":
+              case "cards": {
+                // The world's own list. `fallbackCards` covers a document saved
+                // before these sections carried one — rendering nothing there
+                // would have deleted a section from a live page.
+                const own = s.raw.type === "cards" ? s.raw.items : undefined;
                 return (
                   <WorldPhotoCards
                     key={s.id}
-                    cards={view.homeCards}
+                    cards={own?.length ? own.filter((c) => c.enabled !== false) : view.fallbackCards}
                     images={view.cardImages}
                   />
                 );
-              case "quickAccess":
+              }
+              case "quickAccess": {
+                const own = s.raw.type === "quickAccess" ? s.raw.items : undefined;
                 return (
                   <WorldQuickAccess
                     key={s.id}
@@ -118,9 +124,10 @@ export default function WorldPage({
                     title={title}
                     subtitle={subtitle}
                     seeAll={seeAll}
-                    items={view.quickAccess}
+                    items={own?.length ? own.filter((q) => q.enabled !== false) : view.fallbackQuick}
                   />
                 );
+              }
               case "featured":
                 return (
                   <FeaturedCurations

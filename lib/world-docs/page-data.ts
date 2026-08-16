@@ -4,7 +4,7 @@ import { getContent } from "@/lib/content";
 import { listPublicEvents } from "@/lib/events/queries";
 import { foodCardImages } from "@/lib/food/queries";
 import { DEFAULT_HOME_CARDS, DEFAULT_QUICK_ACCESS } from "@/lib/defaults";
-import type { HomeCard, QuickAccessItem } from "@/lib/defaults";
+import type { WorldPhotoCard, WorldQuickItem } from "./types";
 import type { PromoEvent } from "@/components/EventsPromo";
 import {
   resolveWorldDoc,
@@ -52,11 +52,18 @@ export interface WorldView {
   moods: Record<string, ResolvedMood[]>;
   logo?: string;
   mascot?: string;
-  /** The six photo cards, and the real photos each one cycles through. */
-  homeCards: HomeCard[];
+  /** The real photos each card category can draw from. Shared by every world. */
   cardImages: Record<string, string[]>;
-  /** The "what are you looking for" grid. */
-  quickAccess: QuickAccessItem[];
+  /**
+   * The site's own card and tile lists, in this document's shape.
+   *
+   * ONLY a fallback. A world document saved before these sections carried their
+   * own items has none, and rendering nothing would have silently deleted a
+   * section from a live page. New documents ship with their own lists and never
+   * touch these.
+   */
+  fallbackCards: WorldPhotoCard[];
+  fallbackQuick: WorldQuickItem[];
   events: PromoEvent[];
   reviews: WorldReview[];
   /** For the page's own metadata and JSON-LD. */
@@ -180,14 +187,26 @@ export async function buildWorldView(
     moods,
     logo: content.branding.logo,
     mascot: content.branding.mascotImage,
-    homeCards: (content.homeCards?.length ? content.homeCards : DEFAULT_HOME_CARDS).filter(
-      (c) => c.enabled !== false,
-    ),
     cardImages,
-    quickAccess: (content.quickAccess?.length
-      ? content.quickAccess
-      : DEFAULT_QUICK_ACCESS
-    ).filter((q) => q.enabled !== false),
+    fallbackCards: (content.homeCards?.length ? content.homeCards : DEFAULT_HOME_CARDS)
+      .filter((c) => c.enabled !== false)
+      .map((c) => ({
+        id: c.id,
+        label: { en: c.label, fr: c.labelFr, cr: c.labelCr },
+        icon: c.icon,
+        href: c.href,
+        action: c.action,
+        imageSource: c.imageSource,
+        popular: c.popular,
+      })),
+    fallbackQuick: (content.quickAccess?.length ? content.quickAccess : DEFAULT_QUICK_ACCESS)
+      .filter((q) => q.enabled !== false)
+      .map((q) => ({
+        id: q.id,
+        label: { en: q.label, fr: q.labelFr, cr: q.labelCr },
+        icon: q.icon,
+        href: q.href,
+      })),
     events,
     reviews,
     featuredTitles,
