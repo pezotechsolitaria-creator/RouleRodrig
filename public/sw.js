@@ -180,7 +180,8 @@
 // v280 — Authentic is the homepage again; Curated gains cards, events, reviews.
 // v281 — Curated owns its cards and tiles; editing them leaves the homepage alone.
 // v282 — Curated drops the duplicate shortcuts and the grid; a chauffeur joins.
-const CACHE = "rr-cache-v282";
+// v283 — Curated stays your home; the header stops clipping; the hero button toggles.
+const CACHE = "rr-cache-v283";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

@@ -33,7 +33,9 @@ import ExperienceWorldSwitcher from "@/components/world/WorldSwitcher";
 // on every other page.
 export default function WorldHeader({ logo }: { logo?: string }) {
   const { count } = useFavorites();
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
+  const cycle = () =>
+    setLanguage(language === "en" ? "fr" : language === "fr" ? "cr" : "en");
   const openSaved = () => window.dispatchEvent(new CustomEvent("rr:open-saved"));
 
   return (
@@ -69,17 +71,21 @@ export default function WorldHeader({ logo }: { logo?: string }) {
               }
             />
           ) : null}
-          {/* ── THE STACKED WORDMARK ──────────────────────────────────────
+          {/* ── THE STACKED WORDMARK, AND WHERE IT YIELDS ─────────────────
               Two lines, TI ROULÉ over RODRIGUES, as the owner drew it. Stacking
-              is what lets the mark stay legible in a 44px-tall bar without
-              eating the width the world switcher needs beside it — and it is
-              why this survives on a phone where the single-line version had to
-              be hidden.
+              keeps the mark legible in a short bar without taking the width a
+              single line would.
+
+              Hidden below 400px, though, because measured on a 392px phone the
+              mark plus the wordmark plus the switcher pushed the favourites
+              heart and the account button clean off the right edge — two
+              controls silently gone. The logo alone still identifies the site,
+              and the page says CURATED RODRIGUES in the hero immediately below.
 
               It stays in the site's display face. The serif belongs to the
               editorial voice below; on the brand mark it would make the page
               look like a different company's. */}
-          <span className="flex flex-col justify-center leading-none">
+          <span className="hidden flex-col justify-center leading-none min-[400px]:flex">
             <span
               className="font-syne text-[13px] font-extrabold uppercase tracking-[0.06em]"
               style={{ color: "var(--cur-ivory)" }}
@@ -98,10 +104,22 @@ export default function WorldHeader({ logo }: { logo?: string }) {
         <div className="ml-auto flex items-center gap-1.5">
           <ExperienceWorldSwitcher strip={false} />
 
+          {/* The language toggle, as on every other page's header. It was the
+              one control the world pages dropped, which made a trilingual site
+              monolingual for anybody who arrived here first. */}
+          <button
+            onClick={cycle}
+            aria-label={loc(language, "Change language", "Changer de langue")}
+            className="flex h-11 w-9 shrink-0 items-center justify-center rounded-full border font-bebas text-[11px] tracking-widest transition-colors"
+            style={{ borderColor: "var(--cur-line)", color: "var(--cur-dim)" }}
+          >
+            {language.toUpperCase()}
+          </button>
+
           <button
             onClick={openSaved}
             aria-label={loc(language, `Saved (${count})`, `Favoris (${count})`)}
-            className="relative flex h-11 w-11 items-center justify-center rounded-full border transition-colors"
+            className="relative flex h-11 w-10 shrink-0 items-center justify-center rounded-full border transition-colors"
             style={{ borderColor: "var(--cur-line)" }}
           >
             <Heart

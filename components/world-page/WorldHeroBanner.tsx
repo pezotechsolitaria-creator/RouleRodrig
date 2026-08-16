@@ -69,7 +69,8 @@ export default function WorldHeroBanner({
   const headline = locT(language, hero.headline);
   const accent = locT(language, hero.headlineAccent);
   const sub = locT(language, hero.subheadline);
-  const cta = locT(language, hero.ctaLabel);
+  // Off, or unlabelled, means no button. Both are the same intent.
+  const cta = hero.ctaEnabled === false ? "" : locT(language, hero.ctaLabel);
 
   return (
     <section

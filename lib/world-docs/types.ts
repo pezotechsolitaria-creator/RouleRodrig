@@ -328,6 +328,15 @@ export interface WorldHero {
   subheadline: Localized;
   ctaLabel: Localized;
   ctaHref: string;
+  /**
+   * Show the hero button at all.
+   *
+   * Absent means shown, so nothing saved before this changes. Off is for a hero
+   * that is carrying a video, or one whose whole job is the photograph and the
+   * sentence — a button on top of a film is the thing people click to make the
+   * film stop.
+   */
+  ctaEnabled?: boolean;
   /** Stills, shown in order. The first is the LCP image. */
   images: string[];
   /** Optional muted loop over the still. The still stays the poster. */

@@ -725,12 +725,28 @@ function HeroPanel({ doc, patch }: { doc: WorldDoc; patch: (n: Partial<WorldDoc>
         value={hero.subheadline}
         onChange={(subheadline) => set({ subheadline })}
       />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <LocalizedField label="Button label" value={hero.ctaLabel} onChange={(ctaLabel) => set({ ctaLabel })} />
-        <Field label="Button goes to" hint="#curated-featured scrolls to the first section.">
-          <input className={inputCls} value={hero.ctaHref} onChange={(e) => set({ ctaHref: e.target.value })} />
-        </Field>
-      </div>
+      <Field
+        label="Show the button"
+        hint="Turn it off for a hero that carries a video, or one where the photograph and the sentence are the whole point."
+      >
+        <label className="flex items-center gap-2 font-dm text-[13px] text-offwhite">
+          <input
+            type="checkbox"
+            checked={hero.ctaEnabled !== false}
+            onChange={(e) => set({ ctaEnabled: e.target.checked })}
+          />
+          {hero.ctaEnabled === false ? "Hidden" : "Shown"}
+        </label>
+      </Field>
+
+      {hero.ctaEnabled !== false && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <LocalizedField label="Button label" value={hero.ctaLabel} onChange={(ctaLabel) => set({ ctaLabel })} />
+          <Field label="Button goes to" hint="#curated-featured scrolls to the first section.">
+            <input className={inputCls} value={hero.ctaHref} onChange={(e) => set({ ctaHref: e.target.value })} />
+          </Field>
+        </div>
+      )}
 
       <Field
         label="Hero stills"
