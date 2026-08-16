@@ -185,7 +185,8 @@
 // v285 — no flash on "/", and a private chauffeur is its own product.
 // v286 — Authentic gets its outdoors and its island life on the homepage.
 // v287 — a YouTube link works in the curated hero too.
-const CACHE = "rr-cache-v287";
+// v288 — the world switch works on every page again.
+const CACHE = "rr-cache-v288";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useExperienceWorld } from "@/context/ExperienceWorldContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { otherWorld, WORLD_COPY, WORLD_PAGE } from "@/lib/worlds";
@@ -24,25 +22,11 @@ export default function WorldSwitcher({
 }: { className?: string; strip?: boolean }) {
   const { world, ready, choose } = useExperienceWorld();
   const { language } = useLanguage();
-  const router = useRouter();
 
   // `world` is never null once ready — everyone starts in Authentic since the
   // gateway was removed. The null branch stays as a type guard rather than as
   // a behaviour: this control is now the ONLY way to reach Curated, so it
   // hiding itself would strand the whole world behind nothing.
-  // ── THE OTHER WORLD IS FETCHED BEFORE IT IS ASKED FOR ───────────────────
-  // Switching used to pause: `router.push` had to go and get the page. The
-  // route is known the moment we know which world you are NOT in, so it is
-  // fetched then, and the press becomes a paint. Prefetching one route the
-  // visitor is being actively invited to visit is the cheapest kind.
-  //
-  // Above the `ready` guard because hooks cannot run conditionally; it simply
-  // does nothing until there is a world.
-  useEffect(() => {
-    if (!ready || world === null) return;
-    router.prefetch(WORLD_PAGE[otherWorld(world)]);
-  }, [ready, world, router]);
-
   if (!ready || world === null) return null;
 
   const next = otherWorld(world);
@@ -67,12 +51,28 @@ export default function WorldSwitcher({
   const button = (
     <button
       type="button"
-      // Choose, then GO. The world owns a page now (lib/worlds.ts → WORLD_PAGE),
-      // so switching has somewhere to arrive; restyling the page you were
-      // already on made the control read as a theme toggle.
+      // ── A FULL LOAD, NOT A CLIENT NAVIGATION ──────────────────────────
+      // This used `router.push`, and the owner's report was that the switch
+      // "stops working" on every inner page. It did, and the cause is the
+      // App Router's prefetch cache meeting a conditional redirect:
+      //
+      //   · "/" is redirected to /curated by middleware for a Curated visitor;
+      //   · every inner page carries <Link href="/"> — the brand mark in the
+      //     header, the Home tab in the bottom nav — which Next prefetches on
+      //     sight;
+      //   · that prefetch is made while the cookie still says CURATED, so it
+      //     comes back as the curated page and is cached under the key "/";
+      //   · pressing AUTHENTIC then pushes "/" and is served that cache. You
+      //     land back where you started, and the button looks dead.
+      //
+      // No amount of prefetch tuning fixes it, because the poisoned entry is
+      // written by links this component does not own. A document load bypasses
+      // the router cache entirely, and it is the honest thing for this control
+      // anyway: a world change swaps the theme, the palette, the layout and the
+      // page. Both destinations are statically cached, so it is one fast hop.
       onClick={() => {
         choose(next);
-        router.push(WORLD_PAGE[next]);
+        window.location.assign(WORLD_PAGE[next]);
       }}
       aria-label={`${label} — ${copy.eyebrow} ${copy.name}`}
       className={`group relative inline-flex min-h-11 items-center gap-2.5 rounded-full px-3.5 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--rr-world-accent,#F5C842)]/60 ${className}`}
