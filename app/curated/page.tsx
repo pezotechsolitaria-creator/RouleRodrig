@@ -68,15 +68,7 @@ export default async function CuratedPage() {
   return (
     <>
       <JsonLd data={jsonLd} />
-      <WorldPage
-        world="curated"
-        doc={doc}
-        sections={view.sections}
-        moods={view.moods}
-        heroImages={view.heroImages}
-        logo={view.logo}
-        mascot={view.mascot}
-      />
+      <WorldPage world="curated" doc={doc} view={view} />
     </>
   );
 }

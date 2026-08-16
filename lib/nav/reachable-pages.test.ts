@@ -38,6 +38,8 @@ const SCAN_DIRS = ["app", "components", "lib"];
  */
 const ALLOWED_WITHOUT_LINKS: Record<string, string> = {
   "/v2": "Legacy preview URL kept alive for old bookmarks; it just redirects to /.",
+  "/authentic":
+    "Authentic IS the homepage (lib/worlds.ts -> WORLD_PAGE). This URL shipped for an hour as a second main page, and is kept alive as a redirect to / for anything already shared. Same reasoning as /v2.",
   "/auth/reset-password": "Opened from a password-reset EMAIL. There is nowhere in the app it could be linked from.",
   "/merchant/pickup": "Where a SCANNED pickup QR lands. The same job is reachable by clicking via the code box on /merchant/orders.",
   "/r/[token]":

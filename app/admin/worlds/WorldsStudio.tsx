@@ -64,11 +64,31 @@ const uid = (p: string) => `${p}-${Date.now().toString(36)}${Math.random().toStr
 const PREVIEW = { href: "/admin/worlds/preview" } as const;
 
 const SECTION_NAME: Record<WorldSection["type"], string> = {
+  cards: "The six photo cards",
+  quickAccess: "What are you looking for?",
   featured: "Handpicked for you",
   onlyInRodrigues: "Only in Rodrigues",
   moods: "Choose your mood",
   editors: "From our local editors",
+  events: "What's on",
+  reviews: "What visitors said",
   concierge: "Concierge invitation",
+};
+
+/**
+ * Sections whose CONTENT lives elsewhere and which therefore have no editor
+ * here beyond their heading and their place on the page.
+ *
+ * The photo cards and the quick-access grid read the same admin content the
+ * homepage does, so they are edited once, in the content studio. Events and
+ * reviews are the real ones or none. Saying so is better than showing an empty
+ * panel and letting somebody hunt for the missing form.
+ */
+const SECTION_SOURCE: Partial<Record<WorldSection["type"], string>> = {
+  cards: "The cards themselves are edited in the content studio → Home cards, and shared with the homepage.",
+  quickAccess: "The tiles are edited in the content studio → Quick access, and shared with the homepage.",
+  events: "Pulled live from Events & tickets. The section hides itself when nothing is coming up.",
+  reviews: "Real approved reviews only. Nothing to write here — and nothing invented.",
 };
 
 function when(iso: string | null): string {
@@ -893,6 +913,11 @@ function SectionPanel({
       title={section.title?.en?.trim() || SECTION_NAME[section.type]}
       subtitle={section.enabled === false ? "Hidden" : SECTION_NAME[section.type]}
     >
+      {SECTION_SOURCE[section.type] && (
+        <p className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5 font-dm text-[11.5px] text-muted">
+          {SECTION_SOURCE[section.type]}
+        </p>
+      )}
       {head}
 
       {(section.type === "featured" || section.type === "onlyInRodrigues") && (

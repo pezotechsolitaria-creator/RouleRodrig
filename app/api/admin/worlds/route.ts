@@ -29,9 +29,14 @@ async function scope() {
   return worldScope(await cookies());
 }
 
-/** Which worlds are composed from a document rather than edited elsewhere. */
+/**
+ * Which worlds are composed from a document rather than edited elsewhere.
+ *
+ * Authentic is deliberately NOT one: it is the homepage, and the homepage is
+ * edited in the content studio. See lib/worlds.ts -> WORLD_PAGE.
+ */
 function hasEngine(world: WorldId): boolean {
-  return world === "curated" || world === "authentic";
+  return world === "curated";
 }
 
 function forbidden(message = "You do not have access to that world.") {

@@ -141,12 +141,9 @@ export default function WorldHeroBanner({
         <div className="max-w-2xl lg:max-w-3xl">
           {eyebrow && (
             <p
-              className="rr-cur-rise rr-cur-eyebrow flex items-center gap-2"
+              className="rr-cur-rise rr-cur-eyebrow"
               style={{ ["--rr-d" as string]: "200ms" }}
             >
-              <span aria-hidden style={{ color: "var(--cur-copper)" }}>
-                ✦
-              </span>
               {eyebrow}
             </p>
           )}

@@ -454,7 +454,11 @@ export function resolveWorldDoc(
       continue;
     }
 
-    // Concierge — always renders when enabled; it has no list to be empty.
+    // Everything else — the photo cards, the grid, events, reviews, the
+    // concierge — draws from data the VIEW supplies rather than from the
+    // document, so there is no card list here to be empty. Each component
+    // renders nothing on its own when its data is missing, which is what keeps
+    // an "Events" heading off a page on a week when the island has nothing on.
     sections.push({ ...common, cards: [] });
   }
 

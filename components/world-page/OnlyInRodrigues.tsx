@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { ArrowUpRight } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { locT } from "@/lib/world-docs/types";
 import type { ResolvedCard } from "@/lib/world-docs/resolve";
@@ -12,23 +13,27 @@ const unopt = (src: string) =>
   src.startsWith("/uploads/") || (src.startsWith("http") && !src.includes("supabase.co"));
 
 /**
- * Only in Rodrigues.
+ * Only in Rodrigues — the page's one moment of theatre.
  *
- * ── THE SECTION THAT COST A THIRD OF THE PAGE ─────────────────────────────
- * This was a two-column grid of 4:5 photographs, each with a heading and three
- * lines of prose beneath: 1,199px on a phone — more than the hero and the
- * featured rail put together — for six links. It was the best-looking section
- * on the page and the one that made everything after it unreachable.
+ * ── IT HAS BEEN THREE THINGS, AND THIS IS WHY ─────────────────────────────
+ * First a two-column grid of photographs with prose under each: beautiful, and
+ * 1,199px tall on a phone — it pushed everything after it out of reach. Then a
+ * row of small square tiles: honest, compact, and completely flat. The owner's
+ * note on that second version was the right one — it can be done better.
  *
- * It is now what it was always trying to be: a fast visual index of what makes
- * this island itself. Square tiles, one line of type, six across a desktop and
- * two and a half on a phone. The stories did not disappear — they moved to the
- * pages the tiles were already linking to, which is where a reader who wants
- * them is going anyway.
+ * So this is the section that is ALLOWED to be big, and it earns it by being
+ * the only one:
  *
- * The titles carry the editorial voice ("Worth the climb"), so they have to
- * stay SHORT. Two lines is the budget, and the clamp enforces it rather than
- * trusting whoever writes the next one.
+ *  · FULL BLEED. It breaks the page's container and runs edge to edge, which
+ *    nothing else here does. That alone says "stop, look at this".
+ *  · TALL. 3:4.6 portraits, the proportion of a printed plate, against the
+ *    3:4 and 4:5 everywhere else.
+ *  · A BROKEN BASELINE. Every second card sits lower, so the row reads as a
+ *    hand-arranged spread rather than a carousel. This is the whole trick, and
+ *    it costs one CSS class.
+ *  · A GHOST NUMERAL behind each title — an editor's plate number, at 15%.
+ *
+ * It is still a rail, and still ~360px tall. Theatre, not expense.
  */
 export default function OnlyInRodrigues({
   id,
@@ -52,17 +57,23 @@ export default function OnlyInRodrigues({
         <SectionHeading title={title ?? ""} subtitle={subtitle} seeAll={seeAll} />
       </div>
 
-      <div className="mx-auto max-w-6xl">
-        <div className="rr-cur-rail mt-4 flex gap-2.5 overflow-x-auto px-5 pb-2 lg:mt-7 lg:grid lg:grid-cols-6 lg:gap-4 lg:overflow-visible lg:px-8 lg:pb-0">
-          {cards.map((card, i) => (
+      {/* pb-6 carries the offset of the dropped cards — without it the last
+          row of them is clipped by the section below. */}
+      <div className="rr-cur-rail mt-5 flex gap-2.5 overflow-x-auto px-5 pb-6 lg:mt-8 lg:gap-4 lg:px-8">
+        {cards.map((card, i) => {
+          const heading = locT(language, card.title);
+          const meta = locT(language, card.meta);
+          const dropped = i % 2 === 1;
+
+          return (
             <Reveal
               key={card.id}
-              delay={Math.min(i, 5) * 50}
-              className="w-[38vw] max-w-[11rem] shrink-0 lg:w-auto lg:max-w-none"
+              delay={Math.min(i, 5) * 60}
+              className={`w-[58vw] max-w-[15rem] shrink-0 lg:w-[15rem] ${dropped ? "mt-6" : ""}`}
             >
               <Link
                 href={card.href}
-                className="rr-cur-card group relative isolate flex aspect-square flex-col justify-end overflow-hidden rounded-2xl focus:outline-none focus-visible:ring-2"
+                className="rr-cur-card group relative isolate flex aspect-[3/4.6] flex-col justify-end overflow-hidden rounded-[1.25rem] focus:outline-none focus-visible:ring-2"
                 style={{ backgroundColor: "var(--cur-bg-raised)" }}
               >
                 {card.image ? (
@@ -71,7 +82,7 @@ export default function OnlyInRodrigues({
                     alt=""
                     fill
                     loading="lazy"
-                    sizes="(max-width: 1024px) 38vw, 180px"
+                    sizes="(max-width: 1024px) 58vw, 240px"
                     className="-z-10 object-cover"
                     unoptimized={unopt(card.image)}
                   />
@@ -81,27 +92,57 @@ export default function OnlyInRodrigues({
                     style={{ background: "var(--cur-fallback)" }}
                   />
                 )}
-                {/* Tall and dark at the foot: one line of small type has to stay
-                    legible over a bright lagoon at any crop. */}
+
+                {/* Tall and dark at the foot: a plate number and a serif line
+                    have to hold over a bright lagoon at any crop. */}
                 <span
-                  className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-3/4"
+                  className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-2/3"
                   style={{
                     backgroundImage:
-                      "linear-gradient(to top, rgba(8,7,6,0.94) 6%, rgba(10,8,6,0.5) 52%, transparent)",
+                      "linear-gradient(to top, rgba(8,7,6,0.96) 8%, rgba(10,8,6,0.55) 48%, transparent)",
                   }}
                 />
-                <span className="relative p-2.5">
+
+                {/* The plate number. Decorative, so it is hidden from readers
+                    who are listening rather than looking. */}
+                <span
+                  aria-hidden
+                  className="rr-cur-display pointer-events-none absolute right-3 top-1 select-none text-[3.4rem] leading-none"
+                  style={{ color: "rgba(255,252,247,0.15)" }}
+                >
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+
+                <span className="relative p-3.5">
+                  {meta && (
+                    <span
+                      className="rr-cur-eyebrow block text-[8px]"
+                      style={{ color: "var(--cur-champagne)", letterSpacing: "0.2em" }}
+                    >
+                      {meta}
+                    </span>
+                  )}
                   <span
-                    className="line-clamp-2 block font-dm text-[11.5px] font-medium leading-tight"
+                    className="rr-cur-display mt-1 line-clamp-3 block text-[1.15rem] leading-[1.15]"
                     style={{ color: "#FFFCF7" }}
                   >
-                    {locT(language, card.title)}
+                    {heading}
+                  </span>
+                  <span
+                    className="mt-2 inline-flex items-center gap-1 font-dm text-[11px] font-medium"
+                    style={{ color: "rgba(242,235,225,0.6)" }}
+                  >
+                    {language === "fr" ? "Voir" : language === "cr" ? "Get" : "See it"}
+                    <ArrowUpRight
+                      size={12}
+                      className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                    />
                   </span>
                 </span>
               </Link>
             </Reveal>
-          ))}
-        </div>
+          );
+        })}
       </div>
     </section>
   );

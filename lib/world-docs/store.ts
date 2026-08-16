@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { freshWorldDoc, DEFAULT_CURATED, DEFAULT_AUTHENTIC } from "./defaults";
+import { freshWorldDoc, DEFAULT_CURATED } from "./defaults";
 import type { WorldDoc, WorldDocRecord, WorldId, WorldRevision } from "./types";
 
 // ── Reading a world ─────────────────────────────────────────────────────────
@@ -367,4 +367,4 @@ async function trimRevisions(world: WorldId, keep = 20): Promise<void> {
   }
 }
 
-export { DEFAULT_CURATED, DEFAULT_AUTHENTIC, freshWorldDoc };
+export { DEFAULT_CURATED, freshWorldDoc };

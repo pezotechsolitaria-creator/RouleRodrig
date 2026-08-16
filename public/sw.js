@@ -177,7 +177,8 @@
 // v277 — both worlds get a page and an editor; Curated is dark copper again.
 // v278 — the first screen carries the hero, the actions and the first cards.
 // v279 — rentals are back on both worlds; the sparkle pill is gone.
-const CACHE = "rr-cache-v279";
+// v280 — Authentic is the homepage again; Curated gains cards, events, reviews.
+const CACHE = "rr-cache-v280";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

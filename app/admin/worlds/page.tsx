@@ -71,11 +71,11 @@ export default async function AdminWorldsPage({
   const world: WorldId =
     requested && canEdit(scope, requested) ? requested : (allowed[0] ?? "curated");
 
-  // Authentic and Curated are composed from a document. The rest are sections
-  // of the site edited elsewhere, and they say so plainly rather than showing
-  // an editor that saves nowhere — an empty form that silently does nothing is
-  // the worse failure.
-  if (world !== "curated" && world !== "authentic") {
+  // Curated is composed from a document. Everything else — Authentic included,
+  // because Authentic IS the homepage — is edited elsewhere, and says so
+  // plainly rather than showing an editor that saves nowhere. An empty form
+  // that silently does nothing is the worse failure.
+  if (world !== "curated") {
     return (
       <div className="min-h-screen bg-dark px-5 py-8">
         <div className="mx-auto max-w-2xl">
@@ -91,8 +91,9 @@ export default async function AdminWorldsPage({
           <p className="mt-2 font-dm text-sm text-muted">{WORLD_META[world].blurb}</p>
           <div className="mt-5 rounded-2xl border border-white/10 bg-dark-card p-4">
             <p className="font-dm text-[13px] text-offwhite">
-              This world does not have its own editable page yet. Its content is
-              still managed where it always has been:
+              {world === "authentic"
+                ? "Authentic is the homepage — the six photo cards, the grid below them and the travel tools. It is edited in the content studio, and the Curated page reads the same cards, so you only write them once."
+                : "This world does not have its own editable page yet. Its content is still managed where it always has been:"}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Link

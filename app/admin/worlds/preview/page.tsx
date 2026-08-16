@@ -55,15 +55,7 @@ export default async function WorldPreviewPage({
 
   return (
     <WorldFonts>
-      <WorldPage
-        world={world}
-        doc={doc}
-        sections={view.sections}
-        moods={view.moods}
-        heroImages={view.heroImages}
-        logo={view.logo}
-        mascot={view.mascot}
-      />
+      <WorldPage world={world} doc={doc} view={view} />
     </WorldFonts>
   );
 }

@@ -97,16 +97,26 @@ export const WORLD_COPY: Record<
 };
 
 /**
- * The page each world calls home.
+ * The page each world calls home. TWO pages, and only two.
  *
- * Switching world NAVIGATES now, rather than only restyling wherever you
- * happened to be standing. That is the owner's call and it is the right one:
- * "Curated" promises a different Rodrigues, and re-painting the page you were
- * already on is a theme toggle wearing the word "world". Each world now has a
- * page composed by its own editable document (lib/world-docs).
+ * ── AUTHENTIC IS THE HOMEPAGE ──────────────────────────────────────────────
+ * There was briefly a third: a separate /authentic built from the same
+ * components as /curated, which meant the site had two near-identical main
+ * pages plus the homepage — and the owner said so plainly ("I did not want 4
+ * different main pages").
+ *
+ * He is right, and the reason is that the homepage ALREADY IS Authentic. Six
+ * photo cards of the real island, a grid of things people actually do, the
+ * travel tools — dense, generous, unpolished. That is the Authentic argument
+ * made in a layout that has been earning its keep for months. Building a
+ * second one was duplicating it, not designing it.
+ *
+ * So Authentic points at "/", Curated at "/curated", and every back link on
+ * the site that goes home lands a visitor in the world they were in — see
+ * components/world/WorldHomeGate.tsx for the half of that which "/" owns.
  */
 export const WORLD_PAGE: Record<World, string> = {
-  authentic: "/authentic",
+  authentic: "/",
   curated: "/curated",
 };
 

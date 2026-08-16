@@ -1,18 +1,23 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useExperienceWorld } from "@/context/ExperienceWorldContext";
 import { locT, type WorldDoc, type WorldId } from "@/lib/world-docs/types";
-import type { ResolvedMood, ResolvedSection } from "@/lib/world-docs/resolve";
+import type { WorldView } from "@/lib/world-docs/page-data";
 import WorldHeader from "./WorldHeader";
 import WorldHeroBanner from "./WorldHeroBanner";
 import QuickActionsRow from "./QuickActionsRow";
+import WorldPhotoCards from "./WorldPhotoCards";
+import WorldQuickAccess from "./WorldQuickAccess";
 import FeaturedCurations from "./FeaturedCurations";
 import OnlyInRodrigues from "./OnlyInRodrigues";
 import MoodRail from "./MoodRail";
 import EditorNotes from "./EditorNotes";
+import WorldEvents from "./WorldEvents";
+import WorldReviews from "./WorldReviews";
 import ConciergeInvite from "./ConciergeInvite";
+import WorldTools from "./WorldTools";
 
 /**
  * A world, composed.
@@ -21,52 +26,51 @@ import ConciergeInvite from "./ConciergeInvite";
  * The order of the sections, their headings, their cards and whether they
  * appear at all come from the document. This component only knows how each
  * TYPE of section is drawn. Reordering the page in /admin/worlds reorders this
- * loop; nobody has to touch a file. That is the requirement the whole worlds
- * data model exists to satisfy, and it is worth stating here because the
- * cheapest way to break it is to "just add one more section" in JSX.
+ * loop; nobody has to touch a file. That is the requirement the whole
+ * world-docs data model exists to satisfy, and it is worth stating here
+ * because the cheapest way to break it is to "just add one more section" in
+ * JSX.
  *
- * ── ONE RENDERER, TWO WORLDS ──────────────────────────────────────────────
- * Authentic and Curated are the same component with different documents and a
- * different `data-world-page` attribute, which is what selects the palette in
- * globals.css. Building a second page for the second world would have meant
- * two implementations of the same seven sections drifting apart from the day
- * they shipped — and it would have made "add a third world" a rewrite instead
- * of a row in a table.
+ * ── ONE RENDERER ──────────────────────────────────────────────────────────
+ * `data-world-page` selects the palette in globals.css, so a second world is a
+ * block of CSS values and a document — not a second page. Authentic is the
+ * homepage (see WORLD_PAGE in lib/worlds.ts); this renders Curated today and
+ * will render anything else the owner composes.
  */
 export default function WorldPage({
   world,
   doc,
-  sections,
-  moods,
-  heroImages,
-  logo,
-  mascot,
+  view,
 }: {
   /** Which world this is. Drives the palette and the section anchors. */
   world: WorldId;
   doc: WorldDoc;
-  sections: ResolvedSection[];
-  /** Keyed by section id — moods need catalogue photography the doc has no room for. */
-  moods: Record<string, ResolvedMood[]>;
-  heroImages: string[];
-  logo?: string;
-  mascot?: string;
+  view: WorldView;
 }) {
   const { language } = useLanguage();
   const { world: currentWorld, ready, choose } = useExperienceWorld();
 
-  // ── ARRIVING HERE IS CHOOSING THIS WORLD ────────────────────────────────
+  // ── ARRIVING HERE IS CHOOSING THIS WORLD — ONCE ─────────────────────────
   // Without this the URL and the visitor's stored world can disagree, and the
-  // switcher in the header then says "you are in AUTHENTIC → go to CURATED"
-  // while the reader is standing on the curated page. It happens on every
-  // entry that is not the switcher itself: a shared link, a search result, the
-  // door on the homepage.
+  // switcher then says "you are in AUTHENTIC → go to CURATED" to somebody
+  // standing on the curated page. It happens on every entry that is not the
+  // switcher itself: a shared link, a search result, the door on the homepage.
   //
-  // The URL wins, because it is the thing the visitor can see. `choose` also
-  // stores the world and applies its theme, so the rest of the site agrees
-  // from the next page onwards.
+  // ── AND WHY IT IS GUARDED BY A REF ──────────────────────────────────────
+  // The first version re-ran whenever the stored world changed, which made the
+  // owner's bug: press the switcher on /curated, and `choose("authentic")`
+  // changed the context — which woke THIS effect, which saw a mismatch and
+  // immediately chose "curated" again. The two fought, the navigation to the
+  // other world was undone mid-flight, and the visitor could leave Curated in
+  // one direction only.
+  //
+  // Claiming is something a page does when a visitor ARRIVES, not a rule it
+  // enforces for as long as it is mounted. Once per mount, and then it is the
+  // switcher's business.
+  const claimed = useRef(false);
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || claimed.current) return;
+    claimed.current = true;
     if (world !== "authentic" && world !== "curated") return;
     if (currentWorld === world) return;
     choose(world);
@@ -74,16 +78,13 @@ export default function WorldPage({
 
   return (
     <div className="rr-worldpage min-h-screen" data-world-page={world}>
-      <WorldHeader logo={logo} />
+      <WorldHeader logo={view.logo} />
 
       <main>
-        <WorldHeroBanner hero={doc.hero} images={heroImages} world={world} />
+        <WorldHeroBanner hero={doc.hero} images={view.heroImages} world={world} />
 
-        {/* Quick actions sit HARD under the hero — no search field between them,
-            which was the brief's one structural instruction. The hero is now a
-            framed card, so the row sits just below it rather than overlapping
-            it: an overlap onto a rounded card reads as a mistake, where onto a
-            full-bleed banner it read as depth. */}
+        {/* The world's own shortcuts sit hard under the hero — no search field
+            between them, which was the brief's one structural instruction. */}
         {doc.quickActions.enabled !== false && (
           <div className="relative z-10 mt-3">
             <QuickActionsRow items={doc.quickActions.items} />
@@ -91,81 +92,124 @@ export default function WorldPage({
         )}
 
         {/* ── THE RHYTHM IS THE SCROLL BUDGET ────────────────────────────────
-            This was space-y-20 py-20: 160px of nothing between every pair of
-            sections, 800px of empty page in total on a phone, in the name of
-            "luxury breathing room". Breathing room is what you can see AROUND
-            something, and 160px of black is not seen, it is scrolled past.
-            40px on a phone still separates them — the sections are visually
-            different enough to do most of that work themselves — and the
-            desktop keeps the more generous rhythm it can afford. */}
+            40px between sections on a phone, not the 160px this started with.
+            Breathing room is what you can see AROUND something; 160px of black
+            is not seen, it is scrolled past. */}
         <div className="space-y-10 pb-10 pt-6 lg:space-y-20 lg:pb-16 lg:pt-12">
-          {sections.map((s) => {
+          {view.sections.map((s) => {
             const title = locT(language, s.title);
             const subtitle = locT(language, s.subtitle);
-
             const seeAll = s.raw.seeAll?.trim() || undefined;
 
-            if (s.type === "featured") {
-              return (
-                <FeaturedCurations
-                  key={s.id}
-                  id={`${world}-featured`}
-                  title={title}
-                  subtitle={subtitle}
-                  seeAll={seeAll}
-                  cards={s.cards}
-                />
-              );
+            switch (s.type) {
+              case "cards":
+                return (
+                  <WorldPhotoCards
+                    key={s.id}
+                    cards={view.homeCards}
+                    images={view.cardImages}
+                  />
+                );
+              case "quickAccess":
+                return (
+                  <WorldQuickAccess
+                    key={s.id}
+                    id={s.id}
+                    title={title}
+                    subtitle={subtitle}
+                    seeAll={seeAll}
+                    items={view.quickAccess}
+                  />
+                );
+              case "featured":
+                return (
+                  <FeaturedCurations
+                    key={s.id}
+                    id={`${world}-featured`}
+                    title={title}
+                    subtitle={subtitle}
+                    seeAll={seeAll}
+                    cards={s.cards}
+                  />
+                );
+              case "onlyInRodrigues":
+                return (
+                  <OnlyInRodrigues
+                    key={s.id}
+                    id={s.id}
+                    title={title}
+                    subtitle={subtitle}
+                    seeAll={seeAll}
+                    cards={s.cards}
+                  />
+                );
+              case "moods":
+                return (
+                  <MoodRail
+                    key={s.id}
+                    id={s.id}
+                    title={title}
+                    subtitle={subtitle}
+                    seeAll={seeAll}
+                    moods={view.moods[s.id] ?? []}
+                  />
+                );
+              case "editors":
+                return s.raw.type === "editors" ? (
+                  <EditorNotes
+                    key={s.id}
+                    id={s.id}
+                    title={title}
+                    subtitle={subtitle}
+                    seeAll={seeAll}
+                    notes={s.raw.notes}
+                  />
+                ) : null;
+              case "events":
+                return (
+                  <WorldEvents
+                    key={s.id}
+                    id={s.id}
+                    title={title}
+                    subtitle={subtitle}
+                    seeAll={seeAll}
+                    events={view.events}
+                  />
+                );
+              case "reviews":
+                return (
+                  <WorldReviews
+                    key={s.id}
+                    id={s.id}
+                    title={title}
+                    subtitle={subtitle}
+                    reviews={view.reviews}
+                  />
+                );
+              case "concierge":
+                return s.raw.type === "concierge" ? (
+                  <ConciergeInvite
+                    key={s.id}
+                    id={s.id}
+                    section={s.raw}
+                    mascot={view.mascot}
+                  />
+                ) : null;
+              default:
+                return null;
             }
-            if (s.type === "onlyInRodrigues") {
-              return (
-                <OnlyInRodrigues
-                  key={s.id}
-                  id={s.id}
-                  title={title}
-                  subtitle={subtitle}
-                  seeAll={seeAll}
-                  cards={s.cards}
-                />
-              );
-            }
-            if (s.type === "moods") {
-              return (
-                <MoodRail
-                  key={s.id}
-                  id={s.id}
-                  title={title}
-                  subtitle={subtitle}
-                  seeAll={seeAll}
-                  moods={moods[s.id] ?? []}
-                />
-              );
-            }
-            if (s.type === "editors" && s.raw.type === "editors") {
-              return (
-                <EditorNotes
-                  key={s.id}
-                  id={s.id}
-                  title={title}
-                  subtitle={subtitle}
-                  seeAll={seeAll}
-                  notes={s.raw.notes}
-                />
-              );
-            }
-            if (s.type === "concierge" && s.raw.type === "concierge") {
-              return (
-                <ConciergeInvite key={s.id} id={s.id} section={s.raw} mascot={mascot} />
-              );
-            }
-            return null;
           })}
         </div>
       </main>
 
-      {/* Clears the floating bottom nav (and its safe-area padding) so the last
-          section is never half-covered on a phone. */}
-      <div className="h-[calc(5rem+env(safe-area-inset-bottom))] md:h-8" aria-hidden />
+      {/* Map · Planner · Guide · Emergency, docked above the floating nav. It
+          is fixed, so it costs no page height — the spacer below already
+          reserves the room for both bars. */}
+      <WorldTools />
+
+      {/* Clears the floating bottom nav AND the tools strip above it, so the
+          last section is never half-covered on a phone. */}
+      <div className="h-[calc(8.5rem+env(safe-area-inset-bottom))] md:h-8" aria-hidden />
     </div>
   );
 }

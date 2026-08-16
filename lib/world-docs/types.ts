@@ -173,10 +173,22 @@ export interface EditorNote {
 // The hero is deliberately NOT in here — see WorldDoc.
 
 export type WorldSectionType =
+  // ── THE HOMEPAGE'S OWN NAVIGATION, AVAILABLE TO ANY WORLD ────────────────
+  // The owner's instruction: the six photo cards and the grid of things people
+  // do belong on every world page, not only on "/". A world that cannot reach
+  // scooters, cars, stays, food and shops is a magazine, not a front door — and
+  // these two read the SAME admin content (content.homeCards,
+  // content.quickAccess) the homepage does, so there is one place to edit them
+  // and they can never disagree.
+  | "cards"
+  | "quickAccess"
   | "featured"
   | "onlyInRodrigues"
   | "moods"
   | "editors"
+  // What is on, and what people said. Both were missing.
+  | "events"
+  | "reviews"
   | "concierge";
 
 interface SectionBase {
@@ -216,6 +228,31 @@ export interface EditorsSection extends SectionBase {
   notes: EditorNote[];
 }
 
+/**
+ * The six photo cards, straight from `content.homeCards`.
+ *
+ * No payload of its own on purpose. Duplicating the card list into the world
+ * document would mean adding a scooter category in two places forever.
+ */
+export interface CardsSection extends SectionBase {
+  type: "cards";
+}
+
+/** The "what are you looking for" grid, from `content.quickAccess`. */
+export interface QuickAccessSection extends SectionBase {
+  type: "quickAccess";
+}
+
+/** Upcoming ticketed events. Renders nothing when the island has nothing on. */
+export interface EventsSection extends SectionBase {
+  type: "events";
+}
+
+/** What visitors said. Real approved reviews only — never invented. */
+export interface ReviewsSection extends SectionBase {
+  type: "reviews";
+}
+
 export interface ConciergeSection extends SectionBase {
   type: "concierge";
   eyebrow?: Localized;
@@ -229,10 +266,14 @@ export interface ConciergeSection extends SectionBase {
 }
 
 export type WorldSection =
+  | CardsSection
+  | QuickAccessSection
   | FeaturedSection
   | OnlyInRodriguesSection
   | MoodsSection
   | EditorsSection
+  | EventsSection
+  | ReviewsSection
   | ConciergeSection;
 
 export interface WorldHero {
