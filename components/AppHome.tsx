@@ -21,7 +21,6 @@ import { useActiveWorld } from "@/context/ExperienceWorldContext";
 import { forWorld } from "@/lib/worlds";
 import EventsPromo, { type PromoEvent } from "@/components/EventsPromo";
 import CuratedTeaser from "@/components/CuratedTeaser";
-import WorldHomeGate from "@/components/world/WorldHomeGate";
 import { HeartHandshake } from "lucide-react";
 import { DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS } from "@/lib/defaults";
 import type { QuickAccessItem, HomeCard } from "@/lib/defaults";
@@ -184,9 +183,8 @@ export default function AppHome({
 
   return (
     <>
-      {/* Once Curated is chosen, "/" answers with Curated — see the component
-          for why that lives here and not in every back link on the site. */}
-      <WorldHomeGate />
+      {/* "/" answering with the visitor's world is handled in middleware now —
+          before the page renders, so there is no flash of the wrong one. */}
 
       {/* ── Header ─────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-white/10 bg-dark/85 backdrop-blur-xl">

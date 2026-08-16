@@ -432,7 +432,7 @@ export interface RecommendedPlace {
    * availability engines, three deposit flows and three sets of double-booking
    * bugs, for a catalogue that today contains three items.
    */
-  serviceType?: "massage" | "fishing" | "boat" | "hiking";
+  serviceType?: "massage" | "fishing" | "boat" | "hiking" | "chauffeur";
   /** Minutes. A 60-minute massage and a 5-hour charter both need this. */
   durationMinutes?: number;
   /** "Up to 6 people" — shown on the card, distinct from `capacity` (spots/day). */
@@ -535,7 +535,18 @@ export interface RecommendedPlace {
 }
 
 /** The bookable service verticals that ride on the Stay·Eat·Do engine. */
-export const SERVICE_TYPES = ["massage", "fishing", "boat", "hiking"] as const;
+// ── A CHAUFFEUR IS NOT A TAXI ──────────────────────────────────────────────
+// The owner's correction, and he is right about the product: /taxi is "I need a
+// ride from here to there, now, for a fare". A private chauffeur is a person
+// and a car booked for a day or a half-day, priced by the time and not the
+// distance, chosen for who they are. Pointing the curated page at /taxi was
+// selling the second thing with the first thing's page.
+//
+// It rides the same engine as massage, fishing, sea trips and hiking guides —
+// per-date capacity, a deposit, a gallery, a real booking — because that engine
+// already does everything this needs and building a fifth booking flow to
+// express "by the day" would have been a fifth set of double-booking bugs.
+export const SERVICE_TYPES = ["massage", "fishing", "boat", "hiking", "chauffeur"] as const;
 export type ServiceType = (typeof SERVICE_TYPES)[number];
 
 export interface RecommendedContent {

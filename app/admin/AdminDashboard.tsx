@@ -180,7 +180,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   // Named for what it IS rather than for the list it held on the day it was
   // written — the old label went stale the moment a fourth vertical arrived.
   { id: "services",     label: "Services & Guides", icon: Waves,          group: "explore",
-    keywords: "massage therapist fishing peche pêche boat sea trip sortie de mer skipper captain hiking hike guide trek walk provider" },
+    keywords: "massage therapist fishing peche pêche boat sea trip sortie de mer skipper captain hiking hike guide trek walk provider chauffeur driver sofer private car day hire" },
   { id: "gettingAround",label: "Getting Around",   icon: Bus,             group: "explore" },
   { id: "events",       label: "What's On (notices)", icon: Calendar,      group: "explore" },
   { id: "taxi",         label: "Taxi & Transport",  icon: Car,             group: "explore" },
@@ -4541,6 +4541,7 @@ function RecommendedEditor({
                 <option value="fishing">🎣 Fishing trip — /experiences/fishing</option>
                 <option value="boat">⛵ Sea trip — /experiences/boat</option>
                 <option value="hiking">🥾 Hiking guide — /experiences/hiking</option>
+                <option value="chauffeur">🚘 Private chauffeur — /experiences/chauffeur</option>
               </select>
             </Field>
           )}
@@ -4695,6 +4696,24 @@ const SERVICE_KINDS = [
       meeting: "e.g. Mont Lubin church car park, 5am",
       included: "Guide, water, fruit, transport to the trailhead",
       slots: "05:00, 08:00",
+    },
+  },
+  {
+    // A CAR AND A DRIVER FOR THE DAY — not a taxi ride. Capacity 1: one
+    // chauffeur, one party, one day. Eight hours is the default because that is
+    // what "a day" means when somebody is driving it.
+    key: "chauffeur" as const,
+    emoji: "🚘",
+    label: "Private chauffeur",
+    blurb: "A car and a driver by the half-day or day",
+    route: "/experiences/chauffeur",
+    defaults: { durationMinutes: 480, maxGuests: 4, capacity: 1 },
+    placeholders: {
+      name: "e.g. A day around the island with Didier",
+      provider: "e.g. Didier",
+      meeting: "e.g. Picked up from your accommodation",
+      included: "Car, fuel, driver, bottled water",
+      slots: "08:00, 13:00",
     },
   },
 ];

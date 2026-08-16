@@ -80,9 +80,10 @@ export const DEFAULT_CURATED: WorldDoc = {
     items: [
       { id: "qa-exp", icon: "experience", href: "/browse/tours", label: T("Private", "Privé", "Prive") },
       { id: "qa-wellness", icon: "wellness", href: "/experiences/massage", label: T("Wellness", "Bien-être", "Byennet") },
-      // "Chauffeur", not "Taxi". Same page, and on this side of the site it is
-      // a driver for the day rather than a ride to the shops.
-      { id: "qa-chauffeur", icon: "taxi", href: "/taxi", label: T("Chauffeur", "Chauffeur", "Sofer") },
+      // Its OWN product, not /taxi. A taxi is a fare between two points; this
+      // is a car and a driver for a day. Pointing here at /taxi was selling the
+      // second thing with the first thing's page — see SERVICE_TYPES.
+      { id: "qa-chauffeur", icon: "taxi", href: "/experiences/chauffeur", label: T("Chauffeur", "Chauffeur", "Sofer") },
       { id: "qa-transfers", icon: "transfer", href: "/transfers", label: T("Transfers", "Transferts", "Transfer") },
       { id: "qa-car", icon: "car", href: "/browse/car", label: T("Car hire", "Voiture", "Loto") },
     ],

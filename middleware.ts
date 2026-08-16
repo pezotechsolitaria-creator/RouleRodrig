@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SITE_URL } from '@/lib/site';
 import { updateSession } from '@/lib/supabase/middleware';
+import { WORLD_COOKIE, WORLD_PAGE, parseWorld } from '@/lib/worlds';
 
 // Canonical host, derived from NEXT_PUBLIC_SITE_URL so this can never disagree
 // with the canonical tags, the sitemap or the JSON-LD — they all read the same
@@ -38,6 +39,28 @@ export async function middleware(req: NextRequest) {
   }
 
   const { pathname } = req.nextUrl;
+
+  // ── "/" ANSWERS WITH THE WORLD YOU CHOSE ───────────────────────────────────
+  //
+  // A visitor who has chosen Curated should land on Curated from every "home"
+  // link on the site. That used to be done in a client effect, which meant the
+  // homepage rendered and THEN bounced — a visible flash of the wrong world on
+  // every visit.
+  //
+  // Here it happens before the page is built, so the wrong page is never
+  // painted. It is also free for everyone else: no cookie, no redirect, and "/"
+  // stays statically cached exactly as it was. Reading the cookie in the PAGE
+  // would have opted the homepage out of ISR entirely; middleware does not.
+  //
+  // 307, not 308: this is a preference that changes the moment somebody presses
+  // AUTHENTIC, and a permanently-cached redirect would strand them.
+  if (pathname === '/') {
+    const world = parseWorld(req.cookies.get(WORLD_COOKIE)?.value);
+    if (world && WORLD_PAGE[world] !== '/') {
+      return NextResponse.redirect(new URL(WORLD_PAGE[world], req.url), 307);
+    }
+  }
+
   if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
     const cookie = req.cookies.get('rr_admin');
     // The worlds studio has a SECOND door: an editor code that opens the worlds

@@ -37,6 +37,25 @@ export type WorldTarget = World | "both";
 
 export const WORLD_KEY = "rr-experience-world";
 
+/**
+ * The same choice, in a cookie, so the SERVER can read it.
+ *
+ * ── WHY BOTH ───────────────────────────────────────────────────────────────
+ * localStorage is invisible to the server, so "/" had to render the homepage
+ * and then bounce a Curated visitor client-side — a visible flash of the wrong
+ * world on every single visit, which the owner (rightly) called annoying.
+ *
+ * A cookie is readable in middleware, which runs BEFORE the page does: the
+ * redirect happens on the way in, and the wrong page is never painted at all.
+ *
+ * It is deliberately NOT httpOnly — the browser writes it, and it is a display
+ * preference, not a credential. Nothing is authorised by it. localStorage stays
+ * the source of truth for the client so a visitor with cookies blocked keeps
+ * working exactly as before, just with the old flash.
+ */
+export const WORLD_COOKIE = "rr_world_pref";
+export const WORLD_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
 /** Copy lives here so the gateway, the switcher and the homepages agree. */
 export const WORLD_COPY: Record<
   World,

@@ -1,7 +1,14 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { parseWorld, WORLD_COPY, WORLD_KEY, type World } from "@/lib/worlds";
+import {
+  parseWorld,
+  WORLD_COOKIE,
+  WORLD_COOKIE_MAX_AGE,
+  WORLD_COPY,
+  WORLD_KEY,
+  type World,
+} from "@/lib/worlds";
 import { applyTheme, THEME_KEY } from "@/components/ThemeToggle";
 
 // ── WHO OWNS THE VISITOR'S CHOICE ───────────────────────────────────────────
@@ -52,6 +59,10 @@ export function ExperienceWorldProvider({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!world) return;
     applyWorld(world);
+    // Restored sessions need the cookie too: a visitor who chose Curated before
+    // this shipped has it in localStorage and not in a cookie, and would flash
+    // forever until they pressed the switcher again.
+    writeWorldCookie(world);
     // ── THE WORLD OWNS THE LIGHT, ON EVERY PATH ─────────────────────────────
     // choose() applied the theme, but the RESTORE path did not — so a returning
     // visitor got the world's attribute and copy over whatever ground the theme
@@ -92,6 +103,10 @@ export function ExperienceWorldProvider({ children }: { children: React.ReactNod
     setWorld(w);
     const theme = WORLD_COPY[w].theme;
     applyWorld(w);
+    // BEFORE the caller navigates. The switcher chooses and then pushes in the
+    // same handler, so the cookie is already correct when middleware sees the
+    // request — which is the whole reason the redirect can be server-side.
+    writeWorldCookie(w);
     try {
       localStorage.setItem(WORLD_KEY, w);
       // Written through to the theme key as well, so the pre-hydration script
@@ -117,6 +132,23 @@ export function ExperienceWorldProvider({ children }: { children: React.ReactNod
 /** Stamp the world on the document. Safe to call repeatedly. */
 function applyWorld(w: World) {
   document.documentElement.setAttribute("data-world", w);
+}
+
+/**
+ * Mirror the choice into a cookie so middleware can route on it.
+ *
+ * `SameSite=Lax` because this is only ever read on a top-level navigation to
+ * this site, and `Secure` only where there is a scheme to be secure on —
+ * setting it on http://localhost silently drops the cookie and the redirect
+ * would appear to be broken in development only.
+ */
+function writeWorldCookie(w: World) {
+  try {
+    const secure = location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = `${WORLD_COOKIE}=${w}; path=/; max-age=${WORLD_COOKIE_MAX_AGE}; SameSite=Lax${secure}`;
+  } catch {
+    /* cookies disabled — the client still works, it just flashes as before */
+  }
 }
 
 export function useExperienceWorld() {

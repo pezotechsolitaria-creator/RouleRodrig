@@ -137,6 +137,34 @@ export const EXPERIENCES: Record<ServiceType, ExperienceCopy> = {
     ctaFr: "Voir le guide",
     priceUnit: "per walk",
   },
+  // The fifth, and the one most easily confused with something the site already
+  // has. A taxi is a fare between two points; this is a car and a driver for a
+  // day, which is why the filters describe the SHAPE OF THE DAY rather than a
+  // destination. Nobody books a chauffeur to get somewhere — they book one so
+  // that where they go stops being a decision they have to make in advance.
+  chauffeur: {
+    slug: "chauffeur",
+    title: "Private chauffeur in Rodrigues",
+    titleFr: "Chauffeur privé à Rodrigues",
+    subtitle: "A car, a driver, and a day that is entirely yours.",
+    subtitleFr: "Une voiture, un chauffeur, et une journée entièrement à vous.",
+    description:
+      "Hire a driver and a car by the half-day or the day in Rodrigues. No route to agree in advance and no fare to watch — stop where you like, stay as long as you like, and let somebody who knows the island do the driving.",
+    emoji: "🚘",
+    filters: [
+      { key: "halfday", label: "Half day", labelFr: "Demi-journée" },
+      { key: "fullday", label: "Full day", labelFr: "Journée" },
+      { key: "airport", label: "With airport pick-up", labelFr: "Avec transfert aéroport" },
+      { key: "tour", label: "Island tour", labelFr: "Tour de l'île" },
+      { key: "evening", label: "Evening & dinner", labelFr: "Soirée & dîner" },
+    ],
+    emptyTitle: "No chauffeurs listed yet",
+    emptyBody:
+      "Drivers are being added one at a time. In the meantime a taxi will take you anywhere on the island for a fixed fare, and an airport transfer can be booked in advance.",
+    cta: "See the day",
+    ctaFr: "Voir la journée",
+    priceUnit: "per day",
+  },
 };
 
 /**

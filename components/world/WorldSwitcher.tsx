@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useExperienceWorld } from "@/context/ExperienceWorldContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -29,6 +30,19 @@ export default function WorldSwitcher({
   // gateway was removed. The null branch stays as a type guard rather than as
   // a behaviour: this control is now the ONLY way to reach Curated, so it
   // hiding itself would strand the whole world behind nothing.
+  // ── THE OTHER WORLD IS FETCHED BEFORE IT IS ASKED FOR ───────────────────
+  // Switching used to pause: `router.push` had to go and get the page. The
+  // route is known the moment we know which world you are NOT in, so it is
+  // fetched then, and the press becomes a paint. Prefetching one route the
+  // visitor is being actively invited to visit is the cheapest kind.
+  //
+  // Above the `ready` guard because hooks cannot run conditionally; it simply
+  // does nothing until there is a world.
+  useEffect(() => {
+    if (!ready || world === null) return;
+    router.prefetch(WORLD_PAGE[otherWorld(world)]);
+  }, [ready, world, router]);
+
   if (!ready || world === null) return null;
 
   const next = otherWorld(world);
