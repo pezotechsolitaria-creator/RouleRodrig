@@ -20,6 +20,7 @@ import WorldSwitcher from "@/components/world/WorldSwitcher";
 import { useActiveWorld } from "@/context/ExperienceWorldContext";
 import { forWorld } from "@/lib/worlds";
 import EventsPromo, { type PromoEvent } from "@/components/EventsPromo";
+import CuratedTeaser from "@/components/CuratedTeaser";
 import { HeartHandshake } from "lucide-react";
 import { DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS } from "@/lib/defaults";
 import type { QuickAccessItem, HomeCard } from "@/lib/defaults";
@@ -378,6 +379,11 @@ export default function AppHome({
             })}
           </div>
         </section>
+
+        {/* The door into the Curated world. It sits directly under the
+            category tiles because it answers the question they cannot: not
+            "what do you want", but "what is worth doing". */}
+        <CuratedTeaser />
 
         {/* Events, promoted where a card could not do the job — see EventsPromo. */}
         <EventsPromo events={promoEvents} />

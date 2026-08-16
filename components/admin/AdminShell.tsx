@@ -6,7 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Gauge, UtensilsCrossed, Truck, Clock, Store, Users, Ticket, UserCog,
   PenSquare, MapPinned, Wallet, MessageCircle, ScrollText, Search, Menu, X,
-  ExternalLink, LogOut, Waves, Bike, Activity, Receipt, ChefHat, ShoppingBag, Car, ClipboardList } from "lucide-react";
+  ExternalLink, LogOut, Waves, Bike, Activity, Receipt, ChefHat, ShoppingBag, Car, ClipboardList,
+  Sparkles } from "lucide-react";
 import CommandPalette from "./CommandPalette";
 
 // ── The control plane's frame ───────────────────────────────────────────────
@@ -22,6 +23,9 @@ import CommandPalette from "./CommandPalette";
 //    its own full-height nav for 80+ sections. Wrapping one sidebar in
 //    another would leave less room for the actual work than for chrome; the
 //    studio instead links back to the Command Center from its own nav.
+//  · /admin/worlds — the worlds studio is a two-column editor with a live
+//    preview of a full page beside it. A 240px sidebar would come straight out
+//    of the preview, which is the half doing the work.
 
 type NavItem = { href: string; label: string; icon: React.ElementType };
 type NavGroup = { title: string; items: NavItem[] };
@@ -79,6 +83,12 @@ const NAV: NavGroup[] = [
     title: "Website & money",
     items: [
       { href: "/admin/content", label: "Content studio", icon: PenSquare },
+      // The worlds studio is where the CURATED page (and, in time, every other
+      // world) is composed. It is listed beside the content studio because that
+      // is the mental neighbourhood — "the words and pictures on the site" —
+      // even though the two write to different tables for the reasons set out
+      // in lib/worlds/types.ts.
+      { href: "/admin/worlds", label: "Worlds studio", icon: Sparkles },
       { href: "/admin/monetization", label: "Monetization", icon: Wallet },
       { href: "/admin/notifications", label: "WhatsApp alerts", icon: MessageCircle },
     ],
@@ -113,7 +123,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   useEffect(() => setDrawerOpen(false), [pathname]);
 
-  const bare = pathname === "/admin/login" || pathname === "/admin/content";
+  const bare =
+    pathname === "/admin/login" ||
+    pathname === "/admin/content" ||
+    pathname.startsWith("/admin/worlds");
   if (bare) return <>{children}</>;
 
   async function signOut() {

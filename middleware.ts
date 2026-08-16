@@ -40,7 +40,22 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
     const cookie = req.cookies.get('rr_admin');
-    if (!cookie?.value) {
+    // The worlds studio has a SECOND door: an editor code that opens the worlds
+    // that person looks after and nothing else (lib/worlds/access.ts). Two
+    // consequences here, both deliberate:
+    //
+    //  · an editor's `rr_world` cookie is enough to pass this gate for
+    //    /admin/worlds — and only for /admin/worlds;
+    //  · with no cookie at all, /admin/worlds RENDERS rather than redirecting,
+    //    because its own page is where an editor signs in. Bouncing them to
+    //    /admin/login would send them to a password they do not have.
+    //
+    // This is a presence check, exactly as the line above always was. The
+    // signature is verified in the page and in every API route it calls;
+    // middleware runs on the edge, where the node crypto that verification
+    // needs is not available.
+    const isWorlds = pathname === '/admin/worlds' || pathname.startsWith('/admin/worlds/');
+    if (!cookie?.value && !isWorlds) {
       return NextResponse.redirect(new URL('/admin/login', req.url));
     }
   }

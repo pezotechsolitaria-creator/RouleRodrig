@@ -3,7 +3,7 @@ import Link from "next/link";
 import {
   ArrowLeft, ChevronRight, Compass, Map as MapIcon, BookOpen, Calendar,
   HelpCircle, Phone, Siren, FileText, Shield, RefreshCw, Store, CalendarCheck, ClipboardList,
-  UtensilsCrossed, Ticket, ShoppingBag, CircleUser, Car,
+  UtensilsCrossed, Ticket, ShoppingBag, CircleUser, Car, Sparkles,
 } from "lucide-react";
 import { getContent } from "@/lib/content";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -37,6 +37,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
   {
     title: "Discover",
     rows: [
+      { icon: Sparkles, label: "Curated Rodrigues", href: "/curated", note: "Our own selection — stays, experiences and local gems" },
       { icon: Compass, label: "Rodrigues island guide", href: "/guide/rodrigues", note: "Beaches, tortoises, tips" },
       { icon: MapIcon, label: "Interactive island map", href: "/map" },
       { icon: BookOpen, label: "Travel blog", href: "/blog" },

@@ -1143,3 +1143,280 @@ main > section:not(:first-of-type) {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
 }
+/* ════════════════════════════════════════════════════════════════════════════
+   THE CURATED WORLD
+   ────────────────────────────────────────────────────────────────────────────
+   A scoped palette, not a second brand. Everything here lives under `.rr-curated`
+   so /curated can read as a quieter, warmer editorial register while the rest of
+   the site keeps DESIGN.md's gold (#F5C842) untouched. Nothing below leaks: no
+   bare element selectors, no overrides of `--color-yellow`.
+
+   WHY A DIFFERENT ACCENT AT ALL. Gold on this site means "press me" — it is the
+   wayfinding colour, and DESIGN.md reserves it. A curated page is a page of
+   RECOMMENDATIONS, where almost nothing is a button; painting it gold would put
+   the loudest colour on the least interactive surface. Copper and champagne sit
+   next to the photography instead of competing with it, and gold comes back for
+   the one CTA per section that really is an action.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.rr-curated {
+  /* Deep, warm, layered — never a flat #000. Each surface is a step, so cards
+     read as depth rather than as outlined boxes. */
+  --cur-bg: #0A0908;
+  --cur-bg-raised: #100D0B;
+  --cur-bg-card: rgba(255, 250, 244, 0.035);
+  --cur-line: rgba(227, 200, 162, 0.14);
+  --cur-line-strong: rgba(227, 200, 162, 0.32);
+
+  --cur-ivory: #F2EBE1;
+  --cur-dim: #A2968A;
+  --cur-faint: #6E655C;
+
+  --cur-copper: #C08457;
+  --cur-champagne: #E3C8A2;
+  --cur-peach: #D9A87C;
+
+  --cur-serif: var(--font-cormorant-var), Georgia, "Times New Roman", serif;
+
+  /* Roles, not colours. Everything that must flip between the dark and light
+     registers goes through one of these, so the light block below is a list of
+     values rather than a second stylesheet. */
+  --cur-on-accent: #0A0908;           /* type ON the accent (the one real button) */
+  --cur-veil: rgba(10, 9, 8, 0.82);   /* the sticky header's frosted ground */
+  --cur-panel: rgba(13, 11, 9, 0.96); /* the world menu */
+  --cur-tint: linear-gradient(180deg, rgba(227, 200, 162, 0.12), rgba(227, 200, 162, 0.02));
+  --cur-fallback: linear-gradient(150deg, rgba(192, 132, 87, 0.22), rgba(10, 9, 8, 1) 70%);
+  --cur-invite: radial-gradient(120% 140% at 50% 0%, rgba(192, 132, 87, 0.16) 0%, rgba(16, 13, 11, 0.9) 46%, rgba(10, 9, 8, 1) 100%);
+
+  background-color: var(--cur-bg);
+  color: var(--cur-ivory);
+}
+
+/* ── THE SAME PAGE IN THE LIGHT REGISTER ───────────────────────────────────
+   Curated already exists on this site as one of the two experience worlds
+   (lib/worlds.ts), and the owner's decision there is that Curated is the LIGHT
+   one: a warm gallery ground with a deep bronze accent. A visitor switches into
+   Curated, the whole site goes light — and if this page stayed near-black it
+   would be the one surface arguing with the world it belongs to.
+
+   So the page follows the light switch, and does it by swapping the tokens
+   above rather than by being re-implemented. The dark register is untouched and
+   is still what an Authentic visitor sees.
+
+   Bronze #856B24 is that world's accent, measured at 4.83:1 on white. Here it
+   does every job champagne does in the dark, including acting as the button
+   GROUND — where the type on it flips to white through --cur-on-accent.
+
+   Photography is deliberately NOT re-tinted. The hero, the cards and the mood
+   rail all carry near-white type on a scrim over a photograph in both
+   registers, because a photograph does not have a light mode. */
+html.light .rr-curated {
+  --cur-bg: #FAF9F6;
+  --cur-bg-raised: #FFFFFF;
+  --cur-bg-card: rgba(26, 22, 19, 0.028);
+  --cur-line: rgba(26, 22, 19, 0.10);
+  --cur-line-strong: rgba(133, 107, 36, 0.42);
+
+  --cur-ivory: #1A1613;
+  --cur-dim: #5B534A;
+  --cur-faint: #8A8076;
+
+  --cur-copper: #7A5F1F;
+  --cur-champagne: #856B24;
+  --cur-peach: #8A5A2B;
+
+  --cur-on-accent: #FFFFFF;
+  --cur-veil: rgba(250, 249, 246, 0.88);
+  --cur-panel: rgba(255, 255, 255, 0.98);
+  --cur-tint: linear-gradient(180deg, rgba(133, 107, 36, 0.10), rgba(133, 107, 36, 0.02));
+  --cur-fallback: linear-gradient(150deg, rgba(133, 107, 36, 0.18), rgba(250, 249, 246, 1) 70%);
+  --cur-invite: radial-gradient(120% 140% at 50% 0%, rgba(133, 107, 36, 0.12) 0%, rgba(255, 255, 255, 0.96) 46%, rgba(250, 249, 246, 1) 100%);
+}
+
+/* The editorial voice. Big, high-contrast, and used ONLY for headlines and
+   emotional statements — navigation, metadata and buttons stay in DM Sans, so
+   the serif keeps meaning something. */
+.rr-cur-display {
+  font-family: var(--cur-serif);
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  line-height: 1.04;
+}
+.rr-cur-display em {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--cur-champagne);
+}
+
+/* Small caps label — the counterweight to the serif. */
+.rr-cur-eyebrow {
+  font-family: var(--font-dm-var), system-ui, sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--cur-champagne);
+}
+
+/* ── Reveal ────────────────────────────────────────────────────────────────
+   One class, driven by a single IntersectionObserver in Reveal.tsx. Chosen over
+   framer-motion for this page specifically: a curated page is a long column of
+   photographs, and mounting a motion component per card puts a JS animation
+   loop behind every one of them on a phone. This is two properties on the
+   compositor and nothing on the main thread. */
+.rr-cur-reveal {
+  opacity: 0;
+  transform: translate3d(0, 16px, 0);
+  transition:
+    opacity 700ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 700ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition-delay: var(--rr-d, 0ms);
+  will-change: opacity, transform;
+}
+.rr-cur-reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── Hero entrance ─────────────────────────────────────────────────────────
+   The cinematic sequence: the image is already there, then eyebrow → headline →
+   sub → CTA → indicators arrive over ~1.4s. Staged in CSS so it starts painting
+   before any JS has run. */
+@keyframes rr-cur-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rr-cur-rise {
+  opacity: 0;
+  animation: rr-cur-rise 900ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  animation-delay: var(--rr-d, 0ms);
+}
+
+@keyframes rr-cur-fadein {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* A slower, gentler Ken Burns than the homepage's: 40s and 6% of travel, so on
+   a still photograph it reads as the room breathing rather than as a zoom. */
+@keyframes rr-cur-drift {
+  from { transform: scale(1.015) translate3d(0, 0, 0); }
+  to   { transform: scale(1.075) translate3d(0, -1.2%, 0); }
+}
+.rr-cur-drift {
+  animation: rr-cur-drift 40s ease-in-out infinite alternate;
+  transform-origin: 52% 46%;
+  will-change: transform;
+}
+
+/* ── Micro-interactions ────────────────────────────────────────────────────
+   Restraint is the brief: a card lifts by 3px, an image grows by 4%, an arrow
+   moves 3px. Nothing bounces, nothing glows. */
+.rr-cur-card {
+  transition:
+    transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    border-color 420ms ease;
+  border: 1px solid var(--cur-line);
+}
+.rr-cur-card:hover {
+  transform: translate3d(0, -3px, 0);
+  border-color: var(--cur-line-strong);
+}
+.rr-cur-card img,
+.rr-cur-card .rr-cur-img {
+  transition: transform 900ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.rr-cur-card:hover img,
+.rr-cur-card:hover .rr-cur-img {
+  transform: scale(1.04);
+}
+
+/* The favourite heart: one confident beat, then still. */
+@keyframes rr-cur-heart {
+  0%   { transform: scale(1); }
+  38%  { transform: scale(1.28); }
+  100% { transform: scale(1); }
+}
+.rr-cur-heart-on {
+  animation: rr-cur-heart 420ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+/* Horizontal rails: hide the bar, keep the snap, and let the next card peek so
+   the swipe is discoverable without a hint arrow. */
+.rr-cur-rail {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+}
+.rr-cur-rail::-webkit-scrollbar {
+  display: none;
+}
+.rr-cur-rail > * {
+  scroll-snap-align: start;
+}
+
+/* A hairline that fades out at both ends — a section divider that does not look
+   like a table border. */
+.rr-cur-rule {
+  height: 1px;
+  background-image: linear-gradient(
+    to right,
+    transparent,
+    var(--cur-line-strong) 18%,
+    var(--cur-line-strong) 82%,
+    transparent
+  );
+}
+
+/* Photography scrim, warmer and taller than the site's default: these images
+   are the content, so the text has to sit on them without greying them out. */
+.rr-cur-scrim {
+  background-image: linear-gradient(
+    to top,
+    rgba(8, 7, 6, 0.94) 0%,
+    rgba(12, 9, 7, 0.66) 32%,
+    rgba(18, 12, 6, 0.16) 64%,
+    transparent 100%
+  );
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────────────
+   Everything above is decoration. With the preference set, the page arrives
+   fully formed and completely still — no delayed reveals that could strand
+   content invisible, which is the usual way this gets implemented wrong. */
+@media (prefers-reduced-motion: reduce) {
+  .rr-cur-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .rr-cur-rise {
+    opacity: 1;
+    animation: none;
+  }
+  .rr-cur-drift {
+    animation: none;
+  }
+  .rr-cur-card,
+  .rr-cur-card img,
+  .rr-cur-card .rr-cur-img {
+    transition: none;
+  }
+  .rr-cur-card:hover {
+    transform: none;
+  }
+  .rr-cur-card:hover img,
+  .rr-cur-card:hover .rr-cur-img {
+    transform: none;
+  }
+  .rr-cur-heart-on {
+    animation: none;
+  }
+}
