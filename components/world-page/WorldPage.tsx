@@ -77,7 +77,7 @@ export default function WorldPage({
       <WorldHeader logo={logo} world={world} />
 
       <main>
-        <WorldHeroBanner hero={doc.hero} images={heroImages} />
+        <WorldHeroBanner hero={doc.hero} images={heroImages} world={world} />
 
         {/* Quick actions sit HARD under the hero — no search field between them,
             which was the brief's one structural instruction. The hero is now a
@@ -98,7 +98,7 @@ export default function WorldPage({
             40px on a phone still separates them — the sections are visually
             different enough to do most of that work themselves — and the
             desktop keeps the more generous rhythm it can afford. */}
-        <div className="space-y-10 py-10 lg:space-y-20 lg:py-16">
+        <div className="space-y-10 pb-10 pt-6 lg:space-y-20 lg:pb-16 lg:pt-12">
           {sections.map((s) => {
             const title = locT(language, s.title);
             const subtitle = locT(language, s.subtitle);

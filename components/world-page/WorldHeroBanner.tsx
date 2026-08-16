@@ -28,8 +28,11 @@ const unopt = (src: string) =>
 export default function WorldHeroBanner({
   hero,
   images,
+  world,
 }: {
   hero: HeroDoc;
+  /** Only used for the CTA's fallback anchor — see below. */
+  world: string;
   /** Already resolved — the owner's pinned stills, or real island photography. */
   images: string[];
 }) {
@@ -78,10 +81,16 @@ export default function WorldHeroBanner({
       // language of everything below start at the top instead of arriving
       // after a hard edge.
       //
-      // The height is the other reason: 76svh of banner meant the first
-      // recommendation was two swipes away on a phone. 52svh, capped, keeps
-      // the cinematic proportion and puts the quick actions on screen.
-      className="relative isolate mx-4 mt-3 flex min-h-[52svh] max-h-[30rem] flex-col justify-end overflow-hidden rounded-[1.75rem] lg:mx-8 lg:mt-5 lg:min-h-[68svh] lg:max-h-[42rem] lg:rounded-[2rem]"
+      // ── WHAT THE FIRST SCREEN HAS TO CARRY ──────────────────────────────
+      // The owner's rule: hero, quick actions AND the first recommendations,
+      // all before anybody scrolls. That is the budget the height is set from,
+      // not the other way round — on a 392×800 phone it leaves ~290px here.
+      //
+      // 36svh is a FLOOR, not the height. The content measures ~284px, so the
+      // card is content-sized on a normal phone and only stretches on a tall
+      // screen where there is room to spare. The previous 52svh floor was
+      // 416px of card wrapped around 364px of words: 52px of it was empty.
+      className="relative isolate mx-4 mt-3 flex min-h-[36svh] max-h-[26rem] flex-col justify-end overflow-hidden rounded-[1.75rem] lg:mx-8 lg:mt-5 lg:min-h-[54svh] lg:max-h-[34rem] lg:rounded-[2rem]"
       aria-label={eyebrow || "Curated Rodrigues"}
     >
       {/* ── Photography ─────────────────────────────────────────────────── */}
@@ -128,7 +137,7 @@ export default function WorldHeroBanner({
       </div>
 
       {/* ── Words ───────────────────────────────────────────────────────── */}
-      <div className="w-full px-5 pb-6 pt-20 lg:px-10 lg:pb-10">
+      <div className="w-full px-5 pb-5 pt-14 lg:px-10 lg:pb-9 lg:pt-20">
         <div className="max-w-2xl lg:max-w-3xl">
           {eyebrow && (
             <p
@@ -143,7 +152,7 @@ export default function WorldHeroBanner({
           )}
 
           <h1
-            className="rr-cur-rise rr-cur-display mt-3 text-[clamp(2.1rem,8.6vw,4.6rem)]"
+            className="rr-cur-rise rr-cur-display mt-2.5 text-[clamp(2rem,8.2vw,4.4rem)]"
             style={{ ["--rr-d" as string]: "380ms", color: "var(--cur-ivory)" }}
           >
             {headline}
@@ -157,62 +166,80 @@ export default function WorldHeroBanner({
 
           {sub && (
             <p
-              className="rr-cur-rise mt-3 max-w-md font-dm text-[13.5px] leading-snug lg:text-base lg:leading-relaxed"
+              className="rr-cur-rise mt-2 line-clamp-2 max-w-md font-dm text-[13px] leading-snug lg:text-base lg:leading-relaxed"
               style={{ ["--rr-d" as string]: "720ms", color: "rgba(242,235,225,0.78)" }}
             >
               {sub}
             </p>
           )}
 
-          {cta && (
-            <div className="rr-cur-rise mt-5" style={{ ["--rr-d" as string]: "940ms" }}>
-              <a
-                href={hero.ctaHref || "#curated-featured"}
-                className="group inline-flex min-h-12 items-center gap-2.5 rounded-full px-5 py-3 font-dm text-[13.5px] font-medium transition-transform duration-300 hover:translate-y-[-2px] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                style={{
-                  backgroundColor: "var(--cur-champagne)",
-                  color: "var(--cur-on-accent)",
-                  boxShadow: "0 18px 40px -18px rgba(227,200,162,0.65)",
-                }}
-              >
-                {cta}
-                <ArrowRight
-                  size={16}
-                  className="transition-transform duration-300 group-hover:translate-x-1"
-                />
-              </a>
-            </div>
-          )}
+          {/* ── ONE ROW: THE BUTTON AND THE INDICATORS ──────────────────────
+              The indicators used to have a row of their own — 44px of the first
+              screen, a fifth of a recommendation card, spent on four hairlines.
+              Pinning them to the bottom-right CORNER of the frame was the first
+              attempt and it was wrong: measured, they landed 48px ON TOP of the
+              button, because "the CTA is short" is an assumption about copy an
+              editor is free to change tomorrow.
 
-          {many && (
-            <div
-              className="rr-cur-rise -ml-3 -mb-2 mt-2 flex items-center"
-              style={{ ["--rr-d" as string]: "1180ms" }}
-            >
-              {images.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setIdx(i)}
-                  aria-label={`View image ${i + 1} of ${images.length}`}
-                  aria-current={i === idx}
-                  // The control the eye sees is a 2px hairline; the control the
-                  // thumb hits is 44×44. The gap between the dashes IS the
-                  // padding of the adjacent targets — spacing them with `gap`
-                  // instead would have left 20px-wide buttons with dead air
-                  // between them, which is how this usually ships broken.
-                  className="flex h-11 w-11 items-center justify-center"
+              Sharing the button's row costs nothing (44px of dots inside a 48px
+              row), cannot collide whatever the button says, and reads as one
+              control bar rather than two stray elements. */}
+          {(cta || many) && (
+            <div className="mt-4 flex items-center justify-between gap-3">
+              {cta && (
+                <a
+                  // The document always carries a target; this is the fallback for a
+                  // half-filled one, and it has to know its world — sending an
+                  // Authentic reader to #curated-featured scrolls to nothing.
+                  href={hero.ctaHref || `#${world}-featured`}
+                  className="rr-cur-rise group inline-flex min-h-12 items-center gap-2.5 rounded-full px-5 py-3 font-dm text-[13.5px] font-medium transition-transform duration-300 hover:translate-y-[-2px] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                  style={{
+                    ["--rr-d" as string]: "940ms",
+                    backgroundColor: "var(--cur-champagne)",
+                    color: "var(--cur-on-accent)",
+                    boxShadow: "0 18px 40px -18px rgba(227,200,162,0.65)",
+                  }}
                 >
-                  <span
-                    className="block h-[2px] rounded-full transition-all duration-500"
-                    style={{
-                      width: i === idx ? "2.25rem" : "1.25rem",
-                      backgroundColor:
-                        i === idx ? "var(--cur-champagne)" : "rgba(242,235,225,0.28)",
-                    }}
+                  {cta}
+                  <ArrowRight
+                    size={16}
+                    className="transition-transform duration-300 group-hover:translate-x-1"
                   />
+                </a>
+              )}
+
+              {/* ── ONE CONTROL, NOT ONE PER PHOTO ─────────────────────────
+                  Four separate 44×44 targets is the textbook carousel, and on a
+                  392px phone the four of them are 176px — which pushed the CTA
+                  into wrapping onto a second line, measured at 85px tall
+                  instead of 48. The textbook answer did not fit the room.
+
+                  So the whole strip is ONE button that advances the hero, with
+                  the dashes as its face: 44px tall, ~68px wide, and it says
+                  where you are as clearly as four buttons did. A hero is
+                  browsed, not navigated — nobody is looking for photo three. */}
+              {many && (
+                <button
+                  type="button"
+                  onClick={() => setIdx((i) => (i + 1) % images.length)}
+                  aria-label={`Next photo — showing ${idx + 1} of ${images.length}`}
+                  className="rr-cur-rise -mr-2 flex h-11 shrink-0 items-center gap-1.5 px-2"
+                  style={{ ["--rr-d" as string]: "1180ms" }}
+                >
+                  {images.map((_, i) => (
+                    <span
+                      key={i}
+                      aria-hidden
+                      className="block h-[2px] rounded-full transition-all duration-500"
+                      style={{
+                        width: i === idx ? "1.5rem" : "0.5rem",
+                        backgroundColor:
+                          i === idx ? "var(--cur-champagne)" : "rgba(242,235,225,0.32)",
+                      }}
+                    />
+                  ))}
                 </button>
-              ))}
+              )}
             </div>
           )}
         </div>

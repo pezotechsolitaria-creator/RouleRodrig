@@ -42,7 +42,7 @@ export default function FeaturedCurations({
       </div>
 
       <div className="mx-auto max-w-6xl">
-        <div className="rr-cur-rail mt-4 flex gap-2.5 overflow-x-auto px-5 pb-2 lg:mt-7 lg:grid lg:grid-cols-3 lg:gap-4 lg:overflow-visible lg:px-8 lg:pb-0 lg:[grid-auto-rows:14rem]">
+        <div className="rr-cur-rail mt-3 flex gap-2.5 overflow-x-auto px-5 pb-2 lg:mt-7 lg:grid lg:grid-cols-3 lg:gap-4 lg:overflow-visible lg:px-8 lg:pb-0 lg:[grid-auto-rows:14rem]">
           {cards.map((card, i) => (
             <div
               key={card.id}
