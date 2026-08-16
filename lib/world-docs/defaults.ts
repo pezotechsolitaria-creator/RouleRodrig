@@ -65,26 +65,26 @@ export const DEFAULT_CURATED: WorldDoc = {
     intervalSeconds: 7,
   },
 
-  // ── THE WHOLE SERVICE RANGE, NOT A SAMPLE ────────────────────────────────
-  // The first cut had six tiles and one of them pointed at the page you were
-  // already standing on, while CAR AND SCOOTER HIRE — the business this site
-  // was built to run — was missing entirely. A world page that cannot rent you
-  // a scooter is a brochure.
+  // ── WHAT THE PHOTO CARDS DO NOT ALREADY SAY ──────────────────────────────
+  // These were seven, and three of them — Stays, Dining, Boutiques — pointed at
+  // exactly where the large photo cards a few hundred pixels below already led.
+  // A second, smaller route to the same place is not a shortcut; it is the same
+  // decision asked twice, and it made the row look like a menu rather than a
+  // set of offers.
   //
-  // Seven now, and the seventh is the one that peeks: the row scrolls on a
-  // narrow phone, which is what the half-tile at the edge is for. The
-  // self-referential "Curated" tile is gone; the world switch lives in the
-  // header, where a mode switch belongs.
+  // What is left is the five things Curated ARRANGES and the cards do not
+  // cover: a private day, wellness, a chauffeur, an airport transfer, a car.
+  // Five fit one row on a 392px phone with nothing hidden.
   quickActions: {
     enabled: true,
     items: [
-      { id: "qa-stays", icon: "stay", href: "/browse/stays", label: T("Stays", "Séjours", "Lozman") },
       { id: "qa-exp", icon: "experience", href: "/browse/tours", label: T("Private", "Privé", "Prive") },
-      { id: "qa-dining", icon: "dining", href: "/food", label: T("Dining", "Table", "Latab") },
       { id: "qa-wellness", icon: "wellness", href: "/experiences/massage", label: T("Wellness", "Bien-être", "Byennet") },
+      // "Chauffeur", not "Taxi". Same page, and on this side of the site it is
+      // a driver for the day rather than a ride to the shops.
+      { id: "qa-chauffeur", icon: "taxi", href: "/taxi", label: T("Chauffeur", "Chauffeur", "Sofer") },
       { id: "qa-transfers", icon: "transfer", href: "/transfers", label: T("Transfers", "Transferts", "Transfer") },
       { id: "qa-car", icon: "car", href: "/browse/car", label: T("Car hire", "Voiture", "Loto") },
-      { id: "qa-shops", icon: "shop", href: "/shop", label: T("Boutiques", "Boutiques", "Laboutik") },
     ],
   },
 
@@ -262,25 +262,14 @@ export const DEFAULT_CURATED: WorldDoc = {
       ),
     },
 
-    // Curated's own grid, likewise. Eight, and every one of them is something
-    // this world would actually arrange for you.
-    {
-      id: "sec-quick",
-      type: "quickAccess",
-      enabled: true,
-      seeAll: "/explore",
-      title: T("What are you looking for?", "Que cherchez-vous ?", "Ki ou pe rode?"),
-      items: [
-        { id: "wq-beach", label: T("Beaches", "Plages", "Laplaz"), icon: "beach", href: "/guide/beaches" },
-        { id: "wq-boat", label: T("Boat trips", "Sorties mer", "Sorti lamer"), icon: "boat", href: "/experiences/boat" },
-        { id: "wq-massage", label: T("Massage", "Massage", "Masaz"), icon: "massage", href: "/experiences/massage" },
-        { id: "wq-fishing", label: T("Fishing", "Pêche", "Lapes"), icon: "fishing", href: "/experiences/fishing" },
-        { id: "wq-view", label: T("Viewpoints", "Points de vue", "Bann vi"), icon: "viewpoint", href: "/guide/viewpoints" },
-        { id: "wq-taxi", label: T("Taxi", "Taxi", "Taksi"), icon: "taxi", href: "/taxi" },
-        { id: "wq-transfer", label: T("Transfers", "Transferts", "Transfer"), icon: "plane", href: "/transfers" },
-        { id: "wq-events", label: T("Tickets", "Billets", "Tiket"), icon: "event", href: "/events" },
-      ],
-    },
+    // ── NO "WHAT ARE YOU LOOKING FOR?" GRID HERE ──────────────────────────
+    // There was one, and the owner cut it: eight small tiles repeating routes
+    // the shortcuts under the hero and the six photo cards had already offered,
+    // sitting between the events and the moods where it broke the run of
+    // photography with a third menu. A curated page earns its keep by choosing;
+    // a grid of every category is the opposite of choosing.
+    //
+    // The section TYPE still exists and can be added back from the studio.
 
     {
       id: "sec-moods",

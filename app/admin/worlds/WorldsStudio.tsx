@@ -582,6 +582,42 @@ export default function WorldsStudio(props: StudioProps) {
 
 // ── Panels ──────────────────────────────────────────────────────────────────
 
+/**
+ * A blank section of each kind.
+ *
+ * Every one arrives HIDDEN (`enabled: false`). Adding a section is an intent to
+ * build one, not to publish an empty heading — and the editor turns it on when
+ * it has something in it, from the same eye control that hides it again.
+ */
+function blankSection(type: WorldSection["type"]): WorldSection {
+  const base = { id: uid(type), enabled: false, title: { en: SECTION_NAME[type] } };
+  switch (type) {
+    case "cards":
+      return { ...base, type, items: [] };
+    case "quickAccess":
+      return { ...base, type, items: [] };
+    case "featured":
+      return { ...base, type, cards: [], limit: 6 };
+    case "onlyInRodrigues":
+      return { ...base, type, cards: [] };
+    case "moods":
+      return { ...base, type, moods: [] };
+    case "editors":
+      return { ...base, type, notes: [] };
+    case "events":
+      return { ...base, type, seeAll: "/events" };
+    case "reviews":
+      return { ...base, type };
+    case "concierge":
+      return { ...base, type, ctaAction: "tiroule" };
+  }
+}
+
+const ADDABLE: WorldSection["type"][] = [
+  "cards", "quickAccess", "featured", "onlyInRodrigues", "moods", "editors",
+  "events", "reviews", "concierge",
+];
+
 function SectionOrder({
   doc,
   patch,
@@ -626,6 +662,11 @@ function SectionOrder({
               index={i}
               count={doc.sections.length}
               onMove={move}
+              // Removing a section is safe here in a way it is not in the
+              // content studio: this writes the DRAFT. Nothing a visitor can
+              // see changes until Publish, and the version before it is one
+              // click away in History.
+              onRemove={() => patch({ sections: doc.sections.filter((x) => x.id !== s.id) })}
               enabled={s.enabled !== false}
               onToggle={() =>
                 patch({
@@ -638,9 +679,24 @@ function SectionOrder({
           </li>
         ))}
       </ul>
+      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+        <span className="font-dm text-[11px] text-muted">Add a section:</span>
+        {ADDABLE.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => patch({ sections: [...doc.sections, blankSection(t)] })}
+            className="inline-flex items-center gap-1 rounded-full border border-white/12 px-2.5 py-1 font-dm text-[11px] text-muted hover:border-yellow/40 hover:text-offwhite"
+          >
+            <Plus size={11} /> {SECTION_NAME[t]}
+          </button>
+        ))}
+      </div>
+
       <p className="font-dm text-[11px] text-muted/70">
         The hero always comes first — a curated page without one is a bug, not a
-        layout.
+        layout. A section you add arrives hidden; turn it on with the eye once
+        it has something in it.
       </p>
     </Disclosure>
   );

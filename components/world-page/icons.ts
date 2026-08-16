@@ -3,6 +3,7 @@ import {
   Bike,
   Camera,
   Car,
+  CarTaxiFront,
   Compass,
   ConciergeBell,
   Crown,
@@ -37,6 +38,7 @@ export const CURATED_ICONS: Record<string, React.ElementType> = {
   dining: UtensilsCrossed,
   shop: ShoppingBag,
   transfer: PlaneLanding,
+  taxi: CarTaxiFront,
   concierge: ConciergeBell,
 
   // What you rent — the core of this business, and missing from the first cut
