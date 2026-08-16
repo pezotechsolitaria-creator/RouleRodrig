@@ -174,7 +174,8 @@
 // v244 — one shared category vocabulary across every experience vertical.
 // v245 — sapphire dark palette; sponsors and the announcement bar connected.
 // v276 — Curated gets its own page, and its own place in the admin.
-const CACHE = "rr-cache-v276";
+// v277 — both worlds get a page and an editor; Curated is dark copper again.
+const CACHE = "rr-cache-v277";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

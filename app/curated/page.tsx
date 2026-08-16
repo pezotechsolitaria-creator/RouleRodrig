@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
-import { getPublishedCurated } from "@/lib/world-docs/store";
-import { buildCuratedView } from "@/lib/world-docs/page-data";
-import CuratedWorld from "@/components/curated/CuratedWorld";
+import { getPublishedWorld } from "@/lib/world-docs/store";
+import { buildWorldView } from "@/lib/world-docs/page-data";
+import WorldPage from "@/components/world-page/WorldPage";
 
 // Ten minutes. The catalogue behind this page changes when the owner edits it,
 // and publishing a world busts this path explicitly (see the worlds API), so
@@ -21,7 +21,7 @@ const FALLBACK_DESCRIPTION =
 // the page. Falling back to the constants above keeps a half-filled document
 // from shipping an empty <title>.
 export async function generateMetadata(): Promise<Metadata> {
-  const doc = await getPublishedCurated();
+  const doc = await getPublishedWorld("curated");
   const title = doc.seo?.title?.trim() || FALLBACK_TITLE;
   const description = doc.seo?.description?.trim() || FALLBACK_DESCRIPTION;
   return {
@@ -38,8 +38,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function CuratedPage() {
-  const doc = await getPublishedCurated();
-  const view = await buildCuratedView(doc);
+  const doc = await getPublishedWorld("curated");
+  const view = await buildWorldView(doc);
 
   // Only what this page really SHOWS. The featured rail is a genuine list of
   // named things with their own URLs, so it earns ItemList markup; the moods and
@@ -68,7 +68,8 @@ export default async function CuratedPage() {
   return (
     <>
       <JsonLd data={jsonLd} />
-      <CuratedWorld
+      <WorldPage
+        world="curated"
         doc={doc}
         sections={view.sections}
         moods={view.moods}

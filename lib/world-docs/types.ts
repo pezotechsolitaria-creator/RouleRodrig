@@ -25,6 +25,11 @@ import { loc } from "@/lib/localize";
 
 /** The worlds the admin can switch between. Order is the switcher's order. */
 export const WORLD_IDS = [
+  // The two EXPERIENCE worlds first: each owns a page composed from its own
+  // document (see lib/worlds.ts for what "authentic" and "curated" mean to a
+  // visitor, and WORLD_PAGE for where switching takes them). Everything after
+  // them is a section of the site that is still edited elsewhere.
+  "authentic",
   "curated",
   "explore",
   "stays",
@@ -43,7 +48,8 @@ export function isWorldId(v: string): v is WorldId {
 
 /** How each world is named, and the public page it composes. */
 export const WORLD_META: Record<WorldId, { label: string; href: string; blurb: string }> = {
-  curated: { label: "Curated", href: "/curated", blurb: "Ti Roulé's own selection — the editorial front door." },
+  authentic: { label: "Authentic", href: "/authentic", blurb: "The island as it is — local life, land and water." },
+  curated: { label: "Curated", href: "/curated", blurb: "Ti Roulé's own selection — stays, tables and arranged days." },
   explore: { label: "Explore", href: "/explore", blurb: "Search and browse everything on the island." },
   stays: { label: "Stays", href: "/browse/stays", blurb: "Places to sleep." },
   experiences: { label: "Experiences", href: "/browse/tours", blurb: "Things to do, book and remember." },
@@ -93,7 +99,7 @@ export type CardSource =
 /** Publishing state of a single card inside an otherwise published world. */
 export type CardStatus = "published" | "draft" | "scheduled";
 
-export interface CuratedCard {
+export interface WorldCard {
   id: string;
   source: CardSource;
   /** Editorial overrides. Empty means "use whatever the catalogue says". */
@@ -159,9 +165,9 @@ export interface EditorNote {
 // page; there is no hard-coded section order on the frontend, which is the
 // whole point of the exercise.
 //
-// The hero is deliberately NOT in here — see CuratedDoc.
+// The hero is deliberately NOT in here — see WorldDoc.
 
-export type CuratedSectionType =
+export type WorldSectionType =
   | "featured"
   | "onlyInRodrigues"
   | "moods"
@@ -173,18 +179,26 @@ interface SectionBase {
   enabled?: boolean;
   title?: Localized;
   subtitle?: Localized;
+  /**
+   * "See all →" beside the heading.
+   *
+   * A curated section shows a handful on purpose, which leaves the reader who
+   * wanted the tenth one with nowhere to go. This is that door. Empty means no
+   * link — correct for the sections that are complete in themselves.
+   */
+  seeAll?: string;
 }
 
 export interface FeaturedSection extends SectionBase {
   type: "featured";
-  cards: CuratedCard[];
+  cards: WorldCard[];
   /** How many cards a phone shows before the rail scrolls. Editorial restraint. */
   limit?: number;
 }
 
 export interface OnlyInRodriguesSection extends SectionBase {
   type: "onlyInRodrigues";
-  cards: CuratedCard[];
+  cards: WorldCard[];
 }
 
 export interface MoodsSection extends SectionBase {
@@ -209,14 +223,14 @@ export interface ConciergeSection extends SectionBase {
   avatar?: string;
 }
 
-export type CuratedSection =
+export type WorldSection =
   | FeaturedSection
   | OnlyInRodriguesSection
   | MoodsSection
   | EditorsSection
   | ConciergeSection;
 
-export interface CuratedHero {
+export interface WorldHero {
   eyebrow: Localized;
   /** Split so the last word can carry the italic. ["Experience Rodrigues,", "elevated."] */
   headline: Localized;
@@ -232,21 +246,21 @@ export interface CuratedHero {
   intervalSeconds?: number;
 }
 
-export interface CuratedDoc {
+export interface WorldDoc {
   /** Bumped only when a migration of stored documents is needed. */
   version: 1;
   /**
    * Always first, always visible. A Curated page with no hero is a bug, not an
    * editorial choice, so this is a field rather than a toggleable section.
    */
-  hero: CuratedHero;
+  hero: WorldHero;
   quickActions: {
     enabled?: boolean;
     items: QuickActionItem[];
   };
   /** The label library the cards draw from. */
   labels: EditorialLabel[];
-  sections: CuratedSection[];
+  sections: WorldSection[];
   seo?: {
     title?: string;
     description?: string;
@@ -254,7 +268,7 @@ export interface CuratedDoc {
 }
 
 /** What a world row looks like once read. `draft` is never public. */
-export interface WorldDocRecord<T = CuratedDoc> {
+export interface WorldDocRecord<T = WorldDoc> {
   world: WorldId;
   published: T | null;
   draft: T | null;
@@ -290,7 +304,7 @@ export interface WorldRevision {
  * be unit-tested and can run identically on the server and in the admin's live
  * preview — a scheduled card must look scheduled in the preview, not published.
  */
-export function cardIsLive(card: CuratedCard, now: Date): boolean {
+export function cardIsLive(card: WorldCard, now: Date): boolean {
   const status = card.status ?? "published";
   if (status === "published") return true;
   if (status === "draft") return false;

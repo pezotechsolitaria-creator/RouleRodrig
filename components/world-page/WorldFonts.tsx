@@ -28,7 +28,7 @@ const cormorant = Cormorant_Garamond({
   display: "swap",
 });
 
-export default function CuratedFonts({ children }: { children: ReactNode }) {
+export default function WorldFonts({ children }: { children: ReactNode }) {
   return (
     <div className={cormorant.variable}>
       {/* The scroll reveals start at opacity:0 and are un-hidden by JavaScript.

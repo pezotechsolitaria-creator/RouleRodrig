@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
-import { locT, type CuratedHero as HeroDoc } from "@/lib/world-docs/types";
+import { locT, type WorldHero as HeroDoc } from "@/lib/world-docs/types";
 
 const unopt = (src: string) =>
   src.startsWith("/uploads/") || (src.startsWith("http") && !src.includes("supabase.co"));
@@ -25,7 +25,7 @@ const unopt = (src: string) =>
  * costs nothing, because the thing underneath was already the finished hero.
  * That ordering is what this project learned the hard way on the homepage.
  */
-export default function CuratedHero({
+export default function WorldHeroBanner({
   hero,
   images,
 }: {
@@ -71,7 +71,17 @@ export default function CuratedHero({
   return (
     <section
       ref={wrapRef}
-      className="relative isolate flex min-h-[76svh] flex-col justify-end overflow-hidden lg:min-h-[86svh]"
+      // ── AN INSET CARD, NOT A FULL-BLEED BANNER ──────────────────────────
+      // Two reasons, and only one of them is height. A framed hero reads as an
+      // app rather than a website — the photograph becomes an object on the
+      // page instead of the page's own background — and it lets the rounded
+      // language of everything below start at the top instead of arriving
+      // after a hard edge.
+      //
+      // The height is the other reason: 76svh of banner meant the first
+      // recommendation was two swipes away on a phone. 52svh, capped, keeps
+      // the cinematic proportion and puts the quick actions on screen.
+      className="relative isolate mx-4 mt-3 flex min-h-[52svh] max-h-[30rem] flex-col justify-end overflow-hidden rounded-[1.75rem] lg:mx-8 lg:mt-5 lg:min-h-[68svh] lg:max-h-[42rem] lg:rounded-[2rem]"
       aria-label={eyebrow || "Curated Rodrigues"}
     >
       {/* ── Photography ─────────────────────────────────────────────────── */}
@@ -113,12 +123,12 @@ export default function CuratedHero({
         {/* Two scrims, not one: a tall warm gradient for the text, plus a very
             slight overall darkening so a bright midday photograph cannot make
             champagne text illegible. */}
-        <div className="rr-cur-scrim absolute inset-0" />
+        <div className="rr-cur-scrim absolute inset-x-0 bottom-0 top-1/4" />
         <div className="absolute inset-0" style={{ backgroundColor: "rgba(8,7,6,0.14)" }} />
       </div>
 
       {/* ── Words ───────────────────────────────────────────────────────── */}
-      <div className="mx-auto w-full max-w-6xl px-5 pb-14 pt-28 lg:px-8 lg:pb-24">
+      <div className="w-full px-5 pb-6 pt-20 lg:px-10 lg:pb-10">
         <div className="max-w-2xl lg:max-w-3xl">
           {eyebrow && (
             <p
@@ -133,7 +143,7 @@ export default function CuratedHero({
           )}
 
           <h1
-            className="rr-cur-rise rr-cur-display mt-4 text-[clamp(2.6rem,10vw,5.6rem)]"
+            className="rr-cur-rise rr-cur-display mt-3 text-[clamp(2.1rem,8.6vw,4.6rem)]"
             style={{ ["--rr-d" as string]: "380ms", color: "var(--cur-ivory)" }}
           >
             {headline}
@@ -147,7 +157,7 @@ export default function CuratedHero({
 
           {sub && (
             <p
-              className="rr-cur-rise mt-5 max-w-xl font-dm text-[0.95rem] leading-relaxed lg:text-lg"
+              className="rr-cur-rise mt-3 max-w-md font-dm text-[13.5px] leading-snug lg:text-base lg:leading-relaxed"
               style={{ ["--rr-d" as string]: "720ms", color: "rgba(242,235,225,0.78)" }}
             >
               {sub}
@@ -155,10 +165,10 @@ export default function CuratedHero({
           )}
 
           {cta && (
-            <div className="rr-cur-rise mt-8" style={{ ["--rr-d" as string]: "940ms" }}>
+            <div className="rr-cur-rise mt-5" style={{ ["--rr-d" as string]: "940ms" }}>
               <a
                 href={hero.ctaHref || "#curated-featured"}
-                className="group inline-flex min-h-12 items-center gap-2.5 rounded-full px-6 py-3 font-dm text-sm font-medium transition-transform duration-300 hover:translate-y-[-2px] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                className="group inline-flex min-h-12 items-center gap-2.5 rounded-full px-5 py-3 font-dm text-[13.5px] font-medium transition-transform duration-300 hover:translate-y-[-2px] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                 style={{
                   backgroundColor: "var(--cur-champagne)",
                   color: "var(--cur-on-accent)",
@@ -176,7 +186,7 @@ export default function CuratedHero({
 
           {many && (
             <div
-              className="rr-cur-rise -ml-3 mt-8 flex items-center"
+              className="rr-cur-rise -ml-3 -mb-2 mt-2 flex items-center"
               style={{ ["--rr-d" as string]: "1180ms" }}
             >
               {images.map((_, i) => (

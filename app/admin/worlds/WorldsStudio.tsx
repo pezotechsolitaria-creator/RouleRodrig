@@ -20,8 +20,8 @@ import {
 } from "lucide-react";
 import {
   WORLD_META,
-  type CuratedDoc,
-  type CuratedSection,
+  type WorldDoc,
+  type WorldSection,
   type WorldId,
   type WorldRevision,
 } from "@/lib/world-docs/types";
@@ -35,12 +35,12 @@ import {
   inputCls,
   moveItem,
 } from "./fields";
-import { CURATED_ICON_KEYS } from "@/components/curated/icons";
+import { CURATED_ICON_KEYS } from "@/components/world-page/icons";
 
 export interface StudioProps {
   scope: { kind: "admin" | "editor"; name: string; worlds: WorldId[] };
   world: WorldId;
-  doc: CuratedDoc;
+  doc: WorldDoc;
   catalogue: PickerCatalogue;
   hasDraft: boolean;
   isLive: boolean;
@@ -63,7 +63,7 @@ const uid = (p: string) => `${p}-${Date.now().toString(36)}${Math.random().toStr
  */
 const PREVIEW = { href: "/admin/worlds/preview" } as const;
 
-const SECTION_NAME: Record<CuratedSection["type"], string> = {
+const SECTION_NAME: Record<WorldSection["type"], string> = {
   featured: "Handpicked for you",
   onlyInRodrigues: "Only in Rodrigues",
   moods: "Choose your mood",
@@ -96,7 +96,7 @@ function when(iso: string | null): string {
  * public on its own.
  */
 export default function WorldsStudio(props: StudioProps) {
-  const [doc, setDoc] = useState<CuratedDoc>(props.doc);
+  const [doc, setDoc] = useState<WorldDoc>(props.doc);
   const [hasDraft, setHasDraft] = useState(props.hasDraft);
   const [isLive, setIsLive] = useState(props.isLive);
   const [publishedAt, setPublishedAt] = useState(props.publishedAt);
@@ -132,14 +132,14 @@ export default function WorldsStudio(props: StudioProps) {
   // reason stated at the top.
   const readOnly = !!props.storageError;
 
-  const patch = useCallback((next: Partial<CuratedDoc>) => {
+  const patch = useCallback((next: Partial<WorldDoc>) => {
     setDoc((d) => ({ ...d, ...next }));
   }, []);
 
-  const setSection = useCallback((id: string, next: Partial<CuratedSection>) => {
+  const setSection = useCallback((id: string, next: Partial<WorldSection>) => {
     setDoc((d) => ({
       ...d,
-      sections: d.sections.map((s) => (s.id === id ? ({ ...s, ...next } as CuratedSection) : s)),
+      sections: d.sections.map((s) => (s.id === id ? ({ ...s, ...next } as WorldSection) : s)),
     }));
   }, []);
 
@@ -191,7 +191,7 @@ export default function WorldsStudio(props: StudioProps) {
       });
       const data = (await res.json().catch(() => ({}))) as {
         error?: string;
-        doc?: CuratedDoc;
+        doc?: WorldDoc;
         hasDraft?: boolean;
         isLive?: boolean;
         publishedAt?: string | null;
@@ -220,7 +220,7 @@ export default function WorldsStudio(props: StudioProps) {
         // stored draft cannot disagree.
         const fresh = await fetch(`/api/admin/worlds?world=${props.world}`);
         if (fresh.ok) {
-          const j = (await fresh.json()) as { doc?: CuratedDoc };
+          const j = (await fresh.json()) as { doc?: WorldDoc };
           if (j.doc) {
             lastSaved.current = JSON.stringify(j.doc);
             setDoc(j.doc);
@@ -298,7 +298,7 @@ export default function WorldsStudio(props: StudioProps) {
             </span>
 
             <Link
-              href="/curated"
+              href={WORLD_META[props.world].href}
               target="_blank"
               className="hidden items-center gap-1.5 rounded-full border border-white/12 px-3 py-1.5 font-dm text-[11.5px] text-muted hover:border-yellow/40 hover:text-offwhite sm:flex"
             >
@@ -542,8 +542,8 @@ function SectionOrder({
   doc,
   patch,
 }: {
-  doc: CuratedDoc;
-  patch: (n: Partial<CuratedDoc>) => void;
+  doc: WorldDoc;
+  patch: (n: Partial<WorldDoc>) => void;
 }) {
   const [dragging, setDragging] = useState<number | null>(null);
 
@@ -586,7 +586,7 @@ function SectionOrder({
               onToggle={() =>
                 patch({
                   sections: doc.sections.map((x) =>
-                    x.id === s.id ? ({ ...x, enabled: x.enabled === false } as CuratedSection) : x,
+                    x.id === s.id ? ({ ...x, enabled: x.enabled === false } as WorldSection) : x,
                   ),
                 })
               }
@@ -602,9 +602,9 @@ function SectionOrder({
   );
 }
 
-function HeroPanel({ doc, patch }: { doc: CuratedDoc; patch: (n: Partial<CuratedDoc>) => void }) {
+function HeroPanel({ doc, patch }: { doc: WorldDoc; patch: (n: Partial<WorldDoc>) => void }) {
   const hero = doc.hero;
-  const set = (p: Partial<CuratedDoc["hero"]>) => patch({ hero: { ...hero, ...p } });
+  const set = (p: Partial<WorldDoc["hero"]>) => patch({ hero: { ...hero, ...p } });
   const images = hero.images ?? [];
 
   return (
@@ -696,8 +696,8 @@ function QuickActionsPanel({
   doc,
   patch,
 }: {
-  doc: CuratedDoc;
-  patch: (n: Partial<CuratedDoc>) => void;
+  doc: WorldDoc;
+  patch: (n: Partial<WorldDoc>) => void;
 }) {
   const qa = doc.quickActions;
   const items = qa.items;
@@ -793,7 +793,7 @@ function QuickActionsPanel({
   );
 }
 
-function LabelsPanel({ doc, patch }: { doc: CuratedDoc; patch: (n: Partial<CuratedDoc>) => void }) {
+function LabelsPanel({ doc, patch }: { doc: WorldDoc; patch: (n: Partial<WorldDoc>) => void }) {
   const labels = doc.labels;
   return (
     <Disclosure title="Editorial labels" subtitle={`${labels.length} in the library`}>
@@ -856,12 +856,12 @@ function SectionPanel({
   catalogue,
   setSection,
 }: {
-  section: CuratedSection;
-  doc: CuratedDoc;
+  section: WorldSection;
+  doc: WorldDoc;
   catalogue: PickerCatalogue;
-  setSection: (id: string, next: Partial<CuratedSection>) => void;
+  setSection: (id: string, next: Partial<WorldSection>) => void;
 }) {
-  const set = (next: Partial<CuratedSection>) => setSection(section.id, next);
+  const set = (next: Partial<WorldSection>) => setSection(section.id, next);
 
   const head = (
     <>
@@ -872,6 +872,19 @@ function SectionPanel({
         value={section.subtitle}
         onChange={(subtitle) => set({ subtitle })}
       />
+      {section.type !== "concierge" && (
+        <Field
+          label="“See all” link"
+          hint="A curated section shows a handful on purpose. This is where the reader who wanted the tenth one goes. Leave empty for no link."
+        >
+          <input
+            className={inputCls}
+            value={section.seeAll ?? ""}
+            placeholder="/browse/tours"
+            onChange={(e) => set({ seeAll: e.target.value } as Partial<WorldSection>)}
+          />
+        </Field>
+      )}
     </>
   );
 
@@ -895,7 +908,7 @@ function SectionPanel({
                 max={12}
                 className={inputCls}
                 value={section.limit ?? 6}
-                onChange={(e) => set({ limit: Number(e.target.value) } as Partial<CuratedSection>)}
+                onChange={(e) => set({ limit: Number(e.target.value) } as Partial<WorldSection>)}
               />
             </Field>
           )}
@@ -911,13 +924,13 @@ function SectionPanel({
                 onChange={(next) =>
                   set({
                     cards: section.cards.map((c, j) => (j === i ? next : c)),
-                  } as Partial<CuratedSection>)
+                  } as Partial<WorldSection>)
                 }
                 onMove={(from, to) =>
-                  set({ cards: moveItem(section.cards, from, to) } as Partial<CuratedSection>)
+                  set({ cards: moveItem(section.cards, from, to) } as Partial<WorldSection>)
                 }
                 onRemove={() =>
-                  set({ cards: section.cards.filter((_, j) => j !== i) } as Partial<CuratedSection>)
+                  set({ cards: section.cards.filter((_, j) => j !== i) } as Partial<WorldSection>)
                 }
               />
             ))}
@@ -935,7 +948,7 @@ function SectionPanel({
                       status: "draft" as const,
                     },
                   ],
-                } as Partial<CuratedSection>)
+                } as Partial<WorldSection>)
               }
               className="inline-flex items-center gap-1.5 rounded-full border border-white/12 px-3 py-1.5 font-dm text-[11px] text-muted hover:border-yellow/40 hover:text-offwhite"
             >
@@ -957,10 +970,10 @@ function SectionPanel({
                   index={i}
                   count={section.moods.length}
                   onMove={(from, to) =>
-                    set({ moods: moveItem(section.moods, from, to) } as Partial<CuratedSection>)
+                    set({ moods: moveItem(section.moods, from, to) } as Partial<WorldSection>)
                   }
                   onRemove={() =>
-                    set({ moods: section.moods.filter((_, j) => j !== i) } as Partial<CuratedSection>)
+                    set({ moods: section.moods.filter((_, j) => j !== i) } as Partial<WorldSection>)
                   }
                   enabled={m.enabled !== false}
                   onToggle={() =>
@@ -968,7 +981,7 @@ function SectionPanel({
                       moods: section.moods.map((x, j) =>
                         j === i ? { ...x, enabled: x.enabled === false } : x,
                       ),
-                    } as Partial<CuratedSection>)
+                    } as Partial<WorldSection>)
                   }
                 />
               }
@@ -979,7 +992,7 @@ function SectionPanel({
                 onChange={(title) =>
                   set({
                     moods: section.moods.map((x, j) => (j === i ? { ...x, title } : x)),
-                  } as Partial<CuratedSection>)
+                  } as Partial<WorldSection>)
                 }
               />
               <LocalizedField
@@ -989,7 +1002,7 @@ function SectionPanel({
                 onChange={(blurb) =>
                   set({
                     moods: section.moods.map((x, j) => (j === i ? { ...x, blurb } : x)),
-                  } as Partial<CuratedSection>)
+                  } as Partial<WorldSection>)
                 }
               />
               <ImageField
@@ -999,7 +1012,7 @@ function SectionPanel({
                 onChange={(image) =>
                   set({
                     moods: section.moods.map((x, j) => (j === i ? { ...x, image } : x)),
-                  } as Partial<CuratedSection>)
+                  } as Partial<WorldSection>)
                 }
               />
               <Field label="Goes to">
@@ -1009,7 +1022,7 @@ function SectionPanel({
                   onChange={(e) =>
                     set({
                       moods: section.moods.map((x, j) => (j === i ? { ...x, href: e.target.value } : x)),
-                    } as Partial<CuratedSection>)
+                    } as Partial<WorldSection>)
                   }
                 />
               </Field>
@@ -1029,7 +1042,7 @@ function SectionPanel({
                     enabled: true,
                   },
                 ],
-              } as Partial<CuratedSection>)
+              } as Partial<WorldSection>)
             }
             className="inline-flex items-center gap-1.5 rounded-full border border-white/12 px-3 py-1.5 font-dm text-[11px] text-muted hover:border-yellow/40 hover:text-offwhite"
           >
@@ -1050,10 +1063,10 @@ function SectionPanel({
                   index={i}
                   count={section.notes.length}
                   onMove={(from, to) =>
-                    set({ notes: moveItem(section.notes, from, to) } as Partial<CuratedSection>)
+                    set({ notes: moveItem(section.notes, from, to) } as Partial<WorldSection>)
                   }
                   onRemove={() =>
-                    set({ notes: section.notes.filter((_, j) => j !== i) } as Partial<CuratedSection>)
+                    set({ notes: section.notes.filter((_, j) => j !== i) } as Partial<WorldSection>)
                   }
                   enabled={n.enabled !== false}
                   onToggle={() =>
@@ -1061,7 +1074,7 @@ function SectionPanel({
                       notes: section.notes.map((x, j) =>
                         j === i ? { ...x, enabled: x.enabled === false } : x,
                       ),
-                    } as Partial<CuratedSection>)
+                    } as Partial<WorldSection>)
                   }
                 />
               }
@@ -1072,7 +1085,7 @@ function SectionPanel({
                 onChange={(title) =>
                   set({
                     notes: section.notes.map((x, j) => (j === i ? { ...x, title } : x)),
-                  } as Partial<CuratedSection>)
+                  } as Partial<WorldSection>)
                 }
               />
               <LocalizedField
@@ -1082,7 +1095,7 @@ function SectionPanel({
                 onChange={(body) =>
                   set({
                     notes: section.notes.map((x, j) => (j === i ? { ...x, body } : x)),
-                  } as Partial<CuratedSection>)
+                  } as Partial<WorldSection>)
                 }
               />
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1092,7 +1105,7 @@ function SectionPanel({
                   onChange={(ctaLabel) =>
                     set({
                       notes: section.notes.map((x, j) => (j === i ? { ...x, ctaLabel } : x)),
-                    } as Partial<CuratedSection>)
+                    } as Partial<WorldSection>)
                   }
                 />
                 <Field label="Goes to">
@@ -1102,7 +1115,7 @@ function SectionPanel({
                     onChange={(e) =>
                       set({
                         notes: section.notes.map((x, j) => (j === i ? { ...x, href: e.target.value } : x)),
-                      } as Partial<CuratedSection>)
+                      } as Partial<WorldSection>)
                     }
                   />
                 </Field>
@@ -1114,7 +1127,7 @@ function SectionPanel({
                 onChange={(byline) =>
                   set({
                     notes: section.notes.map((x, j) => (j === i ? { ...x, byline } : x)),
-                  } as Partial<CuratedSection>)
+                  } as Partial<WorldSection>)
                 }
               />
               <ImageField
@@ -1123,7 +1136,7 @@ function SectionPanel({
                 onChange={(image) =>
                   set({
                     notes: section.notes.map((x, j) => (j === i ? { ...x, image } : x)),
-                  } as Partial<CuratedSection>)
+                  } as Partial<WorldSection>)
                 }
               />
             </Disclosure>
@@ -1142,7 +1155,7 @@ function SectionPanel({
                     enabled: true,
                   },
                 ],
-              } as Partial<CuratedSection>)
+              } as Partial<WorldSection>)
             }
             className="inline-flex items-center gap-1.5 rounded-full border border-white/12 px-3 py-1.5 font-dm text-[11px] text-muted hover:border-yellow/40 hover:text-offwhite"
           >
@@ -1156,26 +1169,26 @@ function SectionPanel({
           <LocalizedField
             label="Eyebrow"
             value={section.eyebrow}
-            onChange={(eyebrow) => set({ eyebrow } as Partial<CuratedSection>)}
+            onChange={(eyebrow) => set({ eyebrow } as Partial<WorldSection>)}
           />
           <LocalizedField
             label="Invitation"
             multiline
             value={section.body}
-            onChange={(body) => set({ body } as Partial<CuratedSection>)}
+            onChange={(body) => set({ body } as Partial<WorldSection>)}
           />
           <div className="grid gap-3 sm:grid-cols-2">
             <LocalizedField
               label="Button label"
               value={section.ctaLabel}
-              onChange={(ctaLabel) => set({ ctaLabel } as Partial<CuratedSection>)}
+              onChange={(ctaLabel) => set({ ctaLabel } as Partial<WorldSection>)}
             />
             <Field label="Button behaviour">
               <select
                 className={inputCls}
                 value={section.ctaAction ?? "tiroule"}
                 onChange={(e) =>
-                  set({ ctaAction: e.target.value as "tiroule" | "link" } as Partial<CuratedSection>)
+                  set({ ctaAction: e.target.value as "tiroule" | "link" } as Partial<WorldSection>)
                 }
               >
                 <option value="tiroule">Open the Ti Roulé chat</option>
@@ -1188,20 +1201,20 @@ function SectionPanel({
               <input
                 className={inputCls}
                 value={section.ctaHref ?? ""}
-                onChange={(e) => set({ ctaHref: e.target.value } as Partial<CuratedSection>)}
+                onChange={(e) => set({ ctaHref: e.target.value } as Partial<WorldSection>)}
               />
             </Field>
           )}
           <LocalizedField
             label="Reassurance line"
             value={section.reassurance}
-            onChange={(reassurance) => set({ reassurance } as Partial<CuratedSection>)}
+            onChange={(reassurance) => set({ reassurance } as Partial<WorldSection>)}
           />
           <ImageField
             label="Concierge portrait"
             hint="Empty uses the Ti Roulé artwork from Branding."
             value={section.avatar}
-            onChange={(avatar) => set({ avatar } as Partial<CuratedSection>)}
+            onChange={(avatar) => set({ avatar } as Partial<WorldSection>)}
           />
         </>
       )}
@@ -1209,7 +1222,7 @@ function SectionPanel({
   );
 }
 
-function SeoPanel({ doc, patch }: { doc: CuratedDoc; patch: (n: Partial<CuratedDoc>) => void }) {
+function SeoPanel({ doc, patch }: { doc: WorldDoc; patch: (n: Partial<WorldDoc>) => void }) {
   return (
     <Disclosure title="Search engines" subtitle="How this page appears on Google">
       <Field label="Title">

@@ -82,8 +82,32 @@ export const WORLD_COPY: Record<
       "Rant dan Rodrigues Curated",
     ],
     headline: ["EXPERIENCE RODRIGUES", "DÉCOUVREZ RODRIGUES", "DEKOUVER RODRIGUES"],
-    theme: "light",
+    // ── CURATED IS DARK AGAIN (owner, 2026-08-16) ─────────────────────────
+    // It was light: a bright gallery ground, on the argument that the world
+    // which CHANGES reads as the elevated one. The owner has since seen the
+    // curated page built dark — near-black with copper and champagne — and
+    // chosen that. So the light experiment is retired rather than kept as a
+    // second thing to maintain.
+    //
+    // The two worlds still differ, and by more than a hue: Authentic is warm
+    // sand on earth-black with soft, generous corners; Curated is champagne on
+    // a colder near-black with tight ones. See app/globals.css.
+    theme: "dark",
   },
+};
+
+/**
+ * The page each world calls home.
+ *
+ * Switching world NAVIGATES now, rather than only restyling wherever you
+ * happened to be standing. That is the owner's call and it is the right one:
+ * "Curated" promises a different Rodrigues, and re-painting the page you were
+ * already on is a theme toggle wearing the word "world". Each world now has a
+ * page composed by its own editable document (lib/world-docs).
+ */
+export const WORLD_PAGE: Record<World, string> = {
+  authentic: "/authentic",
+  curated: "/curated",
 };
 
 /** Narrow an unknown stored value. Anything unrecognised means "not chosen". */

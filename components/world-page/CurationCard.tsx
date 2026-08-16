@@ -62,9 +62,10 @@ export default function CurationCard({
   return (
     <Link
       href={card.href}
-      className={`rr-cur-card group relative isolate flex h-full flex-col justify-end overflow-hidden rounded-3xl focus:outline-none focus-visible:ring-2 ${
-        feature ? "min-h-[26rem] lg:min-h-0" : "min-h-[20rem] lg:min-h-0"
-      }`}
+      // The card fills whatever box the rail or the grid gives it. Sizing
+      // lives at the section, so the same card is a 156px rail item on a phone
+      // and a two-column feature on a desktop without a second component.
+      className="rr-cur-card group relative isolate flex h-full flex-col justify-end overflow-hidden rounded-2xl focus:outline-none focus-visible:ring-2 lg:rounded-3xl"
       style={{ backgroundColor: "var(--cur-bg-raised)" }}
     >
       {card.image ? (
@@ -95,15 +96,15 @@ export default function CurationCard({
           what turns photography into a grey rectangle with words on it. */}
       <span
         className="rr-cur-scrim pointer-events-none absolute inset-x-0 bottom-0 -z-10"
-        style={{ height: feature ? "72%" : "78%" }}
+        style={{ height: feature ? "76%" : "82%" }}
       />
 
       {/* Top row: category on the left, save on the right. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-4">
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-1.5 p-2.5 lg:p-3.5">
         <span className="flex flex-wrap gap-1.5">
           {category && (
             <span
-              className="rr-cur-eyebrow rounded-full px-2.5 py-1 text-[9px] backdrop-blur-md"
+              className="rr-cur-eyebrow truncate rounded-full px-2 py-0.5 text-[8.5px] backdrop-blur-md"
               style={{
                 letterSpacing: "0.18em",
                 color: "var(--cur-ivory)",
@@ -120,16 +121,18 @@ export default function CurationCard({
         </span>
       </div>
 
-      {/* Bottom: labels, title, one fact, the way in. */}
-      <div className="relative p-4 lg:p-5">
+      {/* Bottom: label, title, one fact, the way in. */}
+      <div className="relative p-3 lg:p-4">
         {card.labels.length > 0 && (
-          <span className="mb-2.5 flex flex-wrap gap-1.5">
-            {card.labels.slice(0, 2).map((l) => {
+          // ONE label on a small card, two only on the feature. A 156px card
+          // wearing two badges is a card whose badges are the content.
+          <span className="mb-1.5 flex flex-wrap gap-1.5">
+            {card.labels.slice(0, feature ? 2 : 1).map((l) => {
               const tone = TONE[l.tone] ?? TONE.quiet;
               return (
                 <span
                   key={l.id}
-                  className="rr-cur-eyebrow rounded-full px-2.5 py-1 text-[9px]"
+                  className="rr-cur-eyebrow rounded-full px-2 py-0.5 text-[8.5px]"
                   style={{
                     letterSpacing: "0.16em",
                     backgroundColor: tone.bg,
@@ -144,49 +147,51 @@ export default function CurationCard({
           </span>
         )}
 
-        {/* Clamped on the small cards. On the desktop grid every row is a fixed
-            height, so a four-line name — and the catalogue has some — would push
+        {/* Always clamped. On the desktop grid every row is a fixed height, so
+            a four-line name — and the catalogue has some — would push
             "Discover" out of its own card. */}
         <h3
           className={`rr-cur-display ${
             feature
-              ? "line-clamp-3 text-[clamp(1.6rem,5vw,2.4rem)]"
-              : "line-clamp-2 text-[clamp(1.25rem,4.4vw,1.5rem)]"
+              ? "line-clamp-3 text-[clamp(1.5rem,4.6vw,2.2rem)]"
+              : "line-clamp-2 text-[clamp(1.05rem,3.6vw,1.3rem)]"
           }`}
           style={{ color: "#FFFCF7" }}
         >
           {title}
         </h3>
 
+        {/* The one fact, on its own line under the name — where a reader looks
+            for it — rather than opposite the CTA, where it competed with the
+            only thing on the card that is pressable. */}
+        {meta && (
+          <p
+            className="mt-0.5 truncate font-dm text-[11px]"
+            style={{ color: "var(--cur-peach)" }}
+          >
+            {meta}
+          </p>
+        )}
+
         {feature && blurb && (
           <p
-            className="mt-2 max-w-md font-dm text-sm leading-relaxed"
+            className="mt-1.5 line-clamp-2 max-w-md font-dm text-[13px] leading-snug"
             style={{ color: "rgba(242,235,225,0.72)" }}
           >
             {blurb}
           </p>
         )}
 
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <span
-            className="inline-flex items-center gap-1.5 font-dm text-[12.5px] font-medium"
-            style={{ color: "var(--cur-champagne)" }}
-          >
-            {language === "fr" ? "Découvrir" : language === "cr" ? "Dekouver" : "Discover"}
-            <ArrowRight
-              size={14}
-              className="transition-transform duration-300 group-hover:translate-x-1"
-            />
-          </span>
-          {meta && (
-            <span
-              className="truncate font-dm text-[11.5px]"
-              style={{ color: "rgba(242,235,225,0.5)" }}
-            >
-              {meta}
-            </span>
-          )}
-        </div>
+        <span
+          className="mt-2 inline-flex items-center gap-1 font-dm text-[11.5px] font-medium"
+          style={{ color: "var(--cur-champagne)" }}
+        >
+          {language === "fr" ? "Découvrir" : language === "cr" ? "Dekouver" : "Discover"}
+          <ArrowRight
+            size={12}
+            className="transition-transform duration-300 group-hover:translate-x-1"
+          />
+        </span>
       </div>
     </Link>
   );

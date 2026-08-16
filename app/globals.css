@@ -1048,11 +1048,41 @@ html[data-world="authentic"]:not(.light) .font-syne { letter-spacing: -0.015em; 
    panel — is 2.30:1 here and unusable. #8C7228 was the next try and measured
    4.38:1: under AA, and close enough to look fine while failing. #856B24
    measures 4.83:1 and clears it with room. */
+/* ── CURATED IS DARK AGAIN (owner, 2026-08-16) ─────────────────────────────
+   The light gallery ground above was the previous answer and is kept, dormant,
+   under `.light` — the owner has since chosen the dark copper treatment built
+   for /curated. Champagne on a cold near-black, against Authentic's warm sand
+   on an earth-black: the two worlds still differ in temperature and in
+   geometry, not only in hue.
+
+   #E3C8A2 measures 13.9:1 on #0a0a0a — the accent can carry ordinary body type
+   here, which the bronze never could on white. */
 html[data-world="curated"] {
-  --rr-world-accent: #856B24;      /* deep bronze — measured 4.83:1 */
+  --rr-world-accent: #E3C8A2;      /* champagne — 13.9:1 on the dark ground */
+  --rr-world-accent-soft: #C08457; /* copper, for the quieter half */
+  --rr-world-ink: #F2EBE1;         /* warm ivory */
+  --rr-world-line: rgba(227, 200, 162, 0.16);
+  --rr-world-surface: #100D0B;
+}
+
+html[data-world="curated"]:not(.light) body { background-color: #0A0908; }
+html[data-world="curated"]:not(.light) .text-yellow { color: var(--rr-world-accent); }
+html[data-world="curated"]:not(.light) .bg-yellow { background-color: var(--rr-world-accent); }
+html[data-world="curated"]:not(.light) .text-offwhite { color: var(--rr-world-ink); }
+html[data-world="curated"]:not(.light) .border-white\/10,
+html[data-world="curated"]:not(.light) .border-white\/12 { border-color: var(--rr-world-line); }
+
+/* Tighter corners than Authentic's, and wider caps. Restraint is the product. */
+html[data-world="curated"]:not(.light) .rounded-2xl { border-radius: 0.85rem; }
+html[data-world="curated"]:not(.light) .font-bebas { letter-spacing: 0.34em; }
+
+/* The retired light values, kept only so the dormant `.light` rules below
+   cannot repaint themselves with dark tokens if the theme is ever forced. */
+html[data-world="curated"].light {
+  --rr-world-accent: #856B24;
   --rr-world-accent-soft: #C9A227;
-  --rr-world-ink: #1A1613;         /* warm near-black, never neutral grey */
-  --rr-world-line: #E7E2D8;        /* warm hairline, not steel */
+  --rr-world-ink: #1A1613;
+  --rr-world-line: #E7E2D8;
   --rr-world-surface: #FFFFFF;
 }
 
@@ -1144,12 +1174,18 @@ main > section:not(:first-of-type) {
   overscroll-behavior-x: contain;
 }
 /* ════════════════════════════════════════════════════════════════════════════
-   THE CURATED WORLD
+   THE WORLD PAGES
    ────────────────────────────────────────────────────────────────────────────
-   A scoped palette, not a second brand. Everything here lives under `.rr-curated`
-   so /curated can read as a quieter, warmer editorial register while the rest of
-   the site keeps DESIGN.md's gold (#F5C842) untouched. Nothing below leaks: no
-   bare element selectors, no overrides of `--color-yellow`.
+   A scoped palette, not a second brand. Everything here lives under
+   `.rr-worldpage` so /curated and /authentic can read as their own editorial
+   registers while the rest of the site keeps DESIGN.md's gold (#F5C842)
+   untouched. Nothing below leaks: no bare element selectors, no overrides of
+   `--color-yellow`.
+
+   The base block is CURATED — champagne on a cold near-black. Authentic
+   overrides a dozen values below and inherits everything else, which is the
+   whole reason both worlds are one component: a third world is a block of
+   values, not a second page.
 
    WHY A DIFFERENT ACCENT AT ALL. Gold on this site means "press me" — it is the
    wayfinding colour, and DESIGN.md reserves it. A curated page is a page of
@@ -1159,7 +1195,7 @@ main > section:not(:first-of-type) {
    the one CTA per section that really is an action.
    ════════════════════════════════════════════════════════════════════════════ */
 
-.rr-curated {
+.rr-worldpage {
   /* Deep, warm, layered — never a flat #000. Each surface is a step, so cards
      read as depth rather than as outlined boxes. */
   --cur-bg: #0A0908;
@@ -1178,9 +1214,9 @@ main > section:not(:first-of-type) {
 
   --cur-serif: var(--font-cormorant-var), Georgia, "Times New Roman", serif;
 
-  /* Roles, not colours. Everything that must flip between the dark and light
-     registers goes through one of these, so the light block below is a list of
-     values rather than a second stylesheet. */
+  /* Roles, not colours. Everything a world needs to repaint goes through one
+     of these, so a second world is a list of values rather than a second
+     stylesheet. */
   --cur-on-accent: #0A0908;           /* type ON the accent (the one real button) */
   --cur-veil: rgba(10, 9, 8, 0.82);   /* the sticky header's frosted ground */
   --cur-panel: rgba(13, 11, 9, 0.96); /* the world menu */
@@ -1192,45 +1228,51 @@ main > section:not(:first-of-type) {
   color: var(--cur-ivory);
 }
 
-/* ── THE SAME PAGE IN THE LIGHT REGISTER ───────────────────────────────────
-   Curated already exists on this site as one of the two experience worlds
-   (lib/worlds.ts), and the owner's decision there is that Curated is the LIGHT
-   one: a warm gallery ground with a deep bronze accent. A visitor switches into
-   Curated, the whole site goes light — and if this page stayed near-black it
-   would be the one surface arguing with the world it belongs to.
+/* The page carries ONE register — near-black and copper — whatever the site
+   theme says. There was a light variant here, mapped onto the bronze the
+   Curated world used to wear; the owner has chosen the dark treatment, so the
+   variant is gone rather than kept as a second design to maintain. Everything
+   above is already a token, so bringing it back is a block of values, not a
+   rewrite. */
 
-   So the page follows the light switch, and does it by swapping the tokens
-   above rather than by being re-implemented. The dark register is untouched and
-   is still what an Authentic visitor sees.
+/* ── AUTHENTIC ─────────────────────────────────────────────────────────────
+   Warm sand on an earth-black, against Curated's champagne on a cold one. The
+   two worlds have to differ in TEMPERATURE and in GEOMETRY, not only in hue —
+   two palettes a shade apart read as one page with a filter on it.
 
-   Bronze #856B24 is that world's accent, measured at 4.83:1 on white. Here it
-   does every job champagne does in the dark, including acting as the button
-   GROUND — where the type on it flips to white through --cur-on-accent.
+   Warmer ground (there is red in this black, not blue), a sandier accent, and
+   softer corners: Authentic is generous where Curated withholds. #E8A87C is the
+   accent the Authentic world already wears site-wide (lib/worlds.ts), so a
+   visitor arriving from the switcher meets a page painted in the colour the
+   control that brought them here was painted in. */
+.rr-worldpage[data-world-page="authentic"] {
+  --cur-bg: #0C0907;
+  --cur-bg-raised: #150F0B;
+  --cur-bg-card: rgba(255, 244, 232, 0.04);
+  --cur-line: rgba(232, 168, 124, 0.16);
+  --cur-line-strong: rgba(232, 168, 124, 0.34);
 
-   Photography is deliberately NOT re-tinted. The hero, the cards and the mood
-   rail all carry near-white type on a scrim over a photograph in both
-   registers, because a photograph does not have a light mode. */
-html.light .rr-curated {
-  --cur-bg: #FAF9F6;
-  --cur-bg-raised: #FFFFFF;
-  --cur-bg-card: rgba(26, 22, 19, 0.028);
-  --cur-line: rgba(26, 22, 19, 0.10);
-  --cur-line-strong: rgba(133, 107, 36, 0.42);
+  --cur-ivory: #F4EBE2;
+  --cur-dim: #A99384;
+  --cur-faint: #756254;
 
-  --cur-ivory: #1A1613;
-  --cur-dim: #5B534A;
-  --cur-faint: #8A8076;
+  --cur-copper: #C97B4A;
+  --cur-champagne: #E8A87C;
+  --cur-peach: #E09A6B;
 
-  --cur-copper: #7A5F1F;
-  --cur-champagne: #856B24;
-  --cur-peach: #8A5A2B;
+  --cur-veil: rgba(12, 9, 7, 0.84);
+  --cur-panel: rgba(16, 12, 9, 0.96);
+  --cur-tint: linear-gradient(180deg, rgba(232, 168, 124, 0.13), rgba(232, 168, 124, 0.02));
+  --cur-fallback: linear-gradient(150deg, rgba(201, 123, 74, 0.24), rgba(12, 9, 7, 1) 70%);
+  --cur-invite: radial-gradient(120% 140% at 50% 0%, rgba(201, 123, 74, 0.18) 0%, rgba(21, 15, 11, 0.9) 46%, rgba(12, 9, 7, 1) 100%);
+}
 
-  --cur-on-accent: #FFFFFF;
-  --cur-veil: rgba(250, 249, 246, 0.88);
-  --cur-panel: rgba(255, 255, 255, 0.98);
-  --cur-tint: linear-gradient(180deg, rgba(133, 107, 36, 0.10), rgba(133, 107, 36, 0.02));
-  --cur-fallback: linear-gradient(150deg, rgba(133, 107, 36, 0.18), rgba(250, 249, 246, 1) 70%);
-  --cur-invite: radial-gradient(120% 140% at 50% 0%, rgba(133, 107, 36, 0.12) 0%, rgba(255, 255, 255, 0.96) 46%, rgba(250, 249, 246, 1) 100%);
+/* Softer corners are half of how Authentic reads as the generous world. The
+   rule is on the page scope rather than on each component so the difference
+   cannot be forgotten by whoever adds the next card. */
+.rr-worldpage[data-world-page="authentic"] .rr-cur-card,
+.rr-worldpage[data-world-page="authentic"] .rounded-2xl {
+  border-radius: 1.15rem;
 }
 
 /* The editorial voice. Big, high-contrast, and used ONLY for headlines and

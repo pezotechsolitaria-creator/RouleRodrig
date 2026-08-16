@@ -3,13 +3,13 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { getContent } from "@/lib/content";
 import { listPublicEvents } from "@/lib/events/queries";
 import {
-  resolveCurated,
+  resolveWorldDoc,
   resolveMoods,
   type Catalogue,
   type ResolvedMood,
   type ResolvedSection,
 } from "./resolve";
-import type { CuratedDoc } from "./types";
+import type { WorldDoc } from "./types";
 
 /**
  * A cookie-free client for the public reads this page makes.
@@ -29,7 +29,7 @@ function publicAnonClient() {
   );
 }
 
-export interface CuratedView {
+export interface WorldView {
   heroImages: string[];
   sections: ResolvedSection[];
   moods: Record<string, ResolvedMood[]>;
@@ -47,10 +47,10 @@ export interface CuratedView {
  * only difference between the two callers is WHICH document they pass in
  * (published vs draft) and WHEN they ask about (`now`).
  */
-export async function buildCuratedView(
-  doc: CuratedDoc,
+export async function buildWorldView(
+  doc: WorldDoc,
   now: Date = new Date(),
-): Promise<CuratedView> {
+): Promise<WorldView> {
   const content = await getContent();
 
   // Events are a nice-to-have on this page — a curated card can point at one,
@@ -79,7 +79,7 @@ export async function buildCuratedView(
     heroImage: content.hero.backgroundImage,
   };
 
-  const { hero, sections } = resolveCurated(doc, cat, now);
+  const { hero, sections } = resolveWorldDoc(doc, cat, now);
 
   const moods: Record<string, ResolvedMood[]> = {};
   for (const s of doc.sections) {

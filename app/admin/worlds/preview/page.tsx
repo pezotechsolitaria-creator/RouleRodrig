@@ -1,10 +1,10 @@
 import { cookies } from "next/headers";
 import { worldScope, canEdit } from "@/lib/world-docs/access";
 import { isWorldId, type WorldId } from "@/lib/world-docs/types";
-import { getEditableCurated } from "@/lib/world-docs/store";
-import { buildCuratedView } from "@/lib/world-docs/page-data";
-import CuratedWorld from "@/components/curated/CuratedWorld";
-import CuratedFonts from "@/components/curated/CuratedFonts";
+import { getEditableWorld } from "@/lib/world-docs/store";
+import { buildWorldView } from "@/lib/world-docs/page-data";
+import WorldPage from "@/components/world-page/WorldPage";
+import WorldFonts from "@/components/world-page/WorldFonts";
 
 export const dynamic = "force-dynamic";
 // A draft page must never be indexed, and must never be cached anywhere.
@@ -14,7 +14,7 @@ export const metadata = { robots: { index: false, follow: false } };
  * The live preview.
  *
  * ── THE SAME COMPONENTS, NOT A MOCK-UP ────────────────────────────────────
- * This renders the DRAFT through `buildCuratedView` and `CuratedWorld` — the
+ * This renders the DRAFT through `buildWorldView` and `WorldPage` — the
  * exact two things the public page uses. The alternative, drawing an
  * approximation of the page inside the admin, is a second implementation of the
  * layout that drifts from the real one, and a preview that is approximately
@@ -45,12 +45,13 @@ export default async function WorldPreviewPage({
     );
   }
 
-  const { doc } = await getEditableCurated(world);
-  const view = await buildCuratedView(doc);
+  const { doc } = await getEditableWorld(world);
+  const view = await buildWorldView(doc);
 
   return (
-    <CuratedFonts>
-      <CuratedWorld
+    <WorldFonts>
+      <WorldPage
+        world={world}
         doc={doc}
         sections={view.sections}
         moods={view.moods}
@@ -58,6 +59,6 @@ export default async function WorldPreviewPage({
         logo={view.logo}
         mascot={view.mascot}
       />
-    </CuratedFonts>
+    </WorldFonts>
   );
 }

@@ -31,33 +31,35 @@ export default function MoodRail({
   id,
   title,
   subtitle,
+  seeAll,
   moods,
 }: {
   id: string;
   title?: string;
   subtitle?: string;
+  seeAll?: string;
   moods: ResolvedMood[];
 }) {
   const { language } = useLanguage();
   if (!moods.length) return null;
 
   return (
-    <section id={id} className="scroll-mt-24">
+    <section id={id} className="scroll-mt-20">
       <div className="mx-auto w-full max-w-6xl px-5 lg:px-8">
-        <SectionHeading title={title ?? ""} subtitle={subtitle} />
+        <SectionHeading title={title ?? ""} subtitle={subtitle} seeAll={seeAll} />
       </div>
 
       <div className="mx-auto max-w-6xl">
-        <div className="rr-cur-rail mt-8 flex gap-3.5 overflow-x-auto px-5 pb-3 lg:mt-11 lg:gap-5 lg:px-8">
+        <div className="rr-cur-rail mt-4 flex gap-2.5 overflow-x-auto px-5 pb-2 lg:mt-7 lg:gap-4 lg:px-8">
           {moods.map((mood, i) => (
             <Reveal
               key={mood.id}
               delay={Math.min(i, 3) * 80}
-              className="w-[76vw] max-w-[19rem] shrink-0 lg:w-[19rem]"
+              className="w-[58vw] max-w-[15rem] shrink-0 lg:w-[16rem]"
             >
               <Link
                 href={mood.href}
-                className="rr-cur-card group relative isolate flex aspect-[3/4] flex-col justify-end overflow-hidden rounded-3xl focus:outline-none focus-visible:ring-2"
+                className="rr-cur-card group relative isolate flex aspect-[4/5] flex-col justify-end overflow-hidden rounded-2xl focus:outline-none focus-visible:ring-2 lg:rounded-3xl"
                 style={{ backgroundColor: "var(--cur-bg-raised)" }}
               >
                 {mood.image ? (
@@ -66,7 +68,7 @@ export default function MoodRail({
                     alt=""
                     fill
                     loading="lazy"
-                    sizes="(max-width: 1024px) 76vw, 304px"
+                    sizes="(max-width: 1024px) 58vw, 256px"
                     className="-z-10 object-cover"
                     unoptimized={unopt(mood.image)}
                   />
@@ -88,30 +90,26 @@ export default function MoodRail({
                   }}
                 />
 
-                <div className="p-5">
+                <div className="p-3.5 lg:p-4">
                   <h3
-                    className="rr-cur-eyebrow text-[10px]"
+                    className="rr-cur-eyebrow text-[9px]"
                     style={{ color: "var(--cur-champagne)", letterSpacing: "0.22em" }}
                   >
                     {locT(language, mood.title)}
                   </h3>
                   <p
-                    className="rr-cur-display mt-2.5 text-[1.35rem] leading-[1.2]"
+                    className="rr-cur-display mt-1.5 line-clamp-3 text-[1.1rem] leading-[1.16] lg:text-[1.25rem]"
                     style={{ color: "#FFFCF7" }}
                   >
                     {locT(language, mood.blurb)}
                   </p>
                   <span
-                    className="mt-4 inline-flex items-center gap-1.5 font-dm text-[12px] font-medium"
+                    className="mt-2.5 inline-flex items-center gap-1.5 font-dm text-[11px] font-medium"
                     style={{ color: "rgba(242,235,225,0.62)" }}
                   >
-                    {language === "fr"
-                      ? "Voir ces journées"
-                      : language === "cr"
-                        ? "Get sa bann zourne la"
-                        : "Show me these days"}
+                    {language === "fr" ? "Voir" : language === "cr" ? "Get" : "Show me"}
                     <ArrowRight
-                      size={13}
+                      size={12}
                       className="transition-transform duration-300 group-hover:translate-x-1"
                     />
                   </span>

@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { freshCuratedDoc, DEFAULT_CURATED } from "./defaults";
-import type { CuratedDoc, WorldDocRecord, WorldId, WorldRevision } from "./types";
+import { freshWorldDoc, DEFAULT_CURATED, DEFAULT_AUTHENTIC } from "./defaults";
+import type { WorldDoc, WorldDocRecord, WorldId, WorldRevision } from "./types";
 
 // ── Reading a world ─────────────────────────────────────────────────────────
 //
@@ -32,8 +32,11 @@ function publicReadClient() {
  * alternative — trusting the blob — is a page that throws on `doc.hero.ctaLabel`
  * because the row predates the CTA.
  */
-export function mergeCurated(parsed: Partial<CuratedDoc> | null | undefined): CuratedDoc {
-  const base = freshCuratedDoc();
+export function mergeWorldDoc(
+  parsed: Partial<WorldDoc> | null | undefined,
+  world: WorldId = "curated",
+): WorldDoc {
+  const base = freshWorldDoc(world);
   if (!parsed || typeof parsed !== "object") return base;
   return {
     version: 1,
@@ -60,16 +63,16 @@ export function mergeCurated(parsed: Partial<CuratedDoc> | null | undefined): Cu
  * Never throws: a database blip serves the seed document rather than a broken
  * page, which is the same trade lib/content.ts makes and for the same reason.
  */
-export async function getPublishedCurated(): Promise<CuratedDoc> {
+export async function getPublishedWorld(world: WorldId): Promise<WorldDoc> {
   try {
     const supabase = publicReadClient();
-    const { data, error } = await supabase.rpc("world_published", { p_world: "curated" });
+    const { data, error } = await supabase.rpc("world_published", { p_world: world });
     if (error) throw error;
-    if (data) return mergeCurated(data as Partial<CuratedDoc>);
+    if (data) return mergeWorldDoc(data as Partial<WorldDoc>, world);
   } catch {
     /* fall through to the seed document */
   }
-  return freshCuratedDoc();
+  return freshWorldDoc(world);
 }
 
 // ── Admin-side reads and writes ─────────────────────────────────────────────
@@ -138,12 +141,12 @@ export async function getWorldRecord(world: WorldId): Promise<WorldDocRecord> {
   // honestly rather than inventing a row — the editor sees "not yet saved".
   if (!data) return EMPTY(world, null);
 
-  let published = (data.published as Partial<CuratedDoc> | null) ?? null;
+  let published = (data.published as Partial<WorldDoc> | null) ?? null;
   let scheduledAt = data.scheduled_at;
   const releaseDue =
     data.scheduled && scheduledAt && Date.parse(scheduledAt) <= Date.now();
   if (releaseDue) {
-    published = data.scheduled as Partial<CuratedDoc>;
+    published = data.scheduled as Partial<WorldDoc>;
     scheduledAt = null;
     await supabase
       .from("world_content")
@@ -158,8 +161,8 @@ export async function getWorldRecord(world: WorldId): Promise<WorldDocRecord> {
 
   return {
     world,
-    published: published ? mergeCurated(published) : null,
-    draft: data.draft ? mergeCurated(data.draft as Partial<CuratedDoc>) : null,
+    published: published ? mergeWorldDoc(published, world) : null,
+    draft: data.draft ? mergeWorldDoc(data.draft as Partial<WorldDoc>, world) : null,
     publishedAt: data.published_at,
     updatedAt: data.updated_at,
     scheduledAt,
@@ -168,16 +171,16 @@ export async function getWorldRecord(world: WorldId): Promise<WorldDocRecord> {
 }
 
 /** The document an editor is working on: their draft, or a copy of what is live. */
-export async function getEditableCurated(world: WorldId = "curated"): Promise<{
-  doc: CuratedDoc;
+export async function getEditableWorld(world: WorldId = "curated"): Promise<{
+  doc: WorldDoc;
   record: WorldDocRecord;
 }> {
   const record = await getWorldRecord(world);
-  const doc = record.draft ?? record.published ?? freshCuratedDoc();
+  const doc = record.draft ?? record.published ?? freshWorldDoc(world);
   return { doc, record };
 }
 
-export async function saveDraft(world: WorldId, doc: CuratedDoc, by: string): Promise<void> {
+export async function saveDraft(world: WorldId, doc: WorldDoc, by: string): Promise<void> {
   const supabase = await privileged();
   const { error } = await supabase.from("world_content").upsert(
     {
@@ -325,7 +328,7 @@ export async function rollbackWorld(
   world: WorldId,
   revisionId: string,
   by: string,
-): Promise<CuratedDoc> {
+): Promise<WorldDoc> {
   const supabase = await privileged();
   const { data, error } = await supabase
     .from("world_revisions")
@@ -336,7 +339,7 @@ export async function rollbackWorld(
   if (error) throw new Error(error.message);
   if (!data?.data) throw new Error("That version could not be found.");
 
-  const doc = mergeCurated(data.data as Partial<CuratedDoc>);
+  const doc = mergeWorldDoc(data.data as Partial<WorldDoc>, world);
   await saveDraft(world, doc, by);
   return doc;
 }
@@ -364,4 +367,4 @@ async function trimRevisions(world: WorldId, keep = 20): Promise<void> {
   }
 }
 
-export { DEFAULT_CURATED, freshCuratedDoc };
+export { DEFAULT_CURATED, DEFAULT_AUTHENTIC, freshWorldDoc };

@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { canEdit, worldScope, visibleWorlds } from "@/lib/world-docs/access";
-import { isWorldId, type CuratedDoc, type WorldId } from "@/lib/world-docs/types";
+import { isWorldId, type WorldDoc, type WorldId } from "@/lib/world-docs/types";
 import {
   cancelSchedule,
   discardDraft,
-  getEditableCurated,
+  getEditableWorld,
   getWorldRecord,
   listRevisions,
   publishWorld,
@@ -14,7 +14,7 @@ import {
   saveDraft,
   scheduleWorld,
 } from "@/lib/world-docs/store";
-import { freshCuratedDoc } from "@/lib/world-docs/defaults";
+import { freshWorldDoc } from "@/lib/world-docs/defaults";
 import { getContent } from "@/lib/content";
 
 // ── PER-WORLD WRITES, NOT ONE BLOB ──────────────────────────────────────────
@@ -27,6 +27,11 @@ import { getContent } from "@/lib/content";
 
 async function scope() {
   return worldScope(await cookies());
+}
+
+/** Which worlds are composed from a document rather than edited elsewhere. */
+function hasEngine(world: WorldId): boolean {
+  return world === "curated" || world === "authentic";
 }
 
 function forbidden(message = "You do not have access to that world.") {
@@ -73,10 +78,11 @@ export async function GET(req: NextRequest) {
   if (!isWorldId(world)) return NextResponse.json({ error: "Unknown world" }, { status: 400 });
   if (!canEdit(s, world)) return forbidden();
 
-  // Only Curated has a document engine so far. The other worlds are listed in
-  // the switcher and answer honestly that they are still edited elsewhere,
-  // which is better than showing an empty editor that saves into a void.
-  if (world !== "curated") {
+  // The two EXPERIENCE worlds have a document engine. The remaining entries in
+  // the switcher are sections of the site that are still edited elsewhere, and
+  // they answer honestly rather than showing an empty editor that saves into a
+  // void.
+  if (!hasEngine(world)) {
     return NextResponse.json({
       scope: { kind: s.kind, name: s.name, worlds: visibleWorlds(s) },
       world,
@@ -84,7 +90,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const { doc, record } = await getEditableCurated(world);
+  const { doc, record } = await getEditableWorld(world);
   const revisions = await listRevisions(world);
   return NextResponse.json({
     scope: { kind: s.kind, name: s.name, worlds: visibleWorlds(s) },
@@ -107,7 +113,7 @@ export async function PUT(req: NextRequest) {
   const s = await scope();
   if (!s) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { world?: string; doc?: CuratedDoc };
+  let body: { world?: string; doc?: WorldDoc };
   try {
     body = await req.json();
   } catch {
@@ -188,8 +194,8 @@ export async function POST(req: NextRequest) {
       case "reset-to-defaults": {
         // Deliberately writes the seed into the DRAFT, so "start again" is
         // still one preview and one Publish away from being visible.
-        await saveDraft(world, freshCuratedDoc(), s.name);
-        return NextResponse.json({ success: true, doc: freshCuratedDoc() });
+        await saveDraft(world, freshWorldDoc(world), s.name);
+        return NextResponse.json({ success: true, doc: freshWorldDoc(world) });
       }
       default:
         return NextResponse.json({ error: "Unknown action" }, { status: 400 });

@@ -23,8 +23,8 @@ import type { FavoriteType } from "@/context/FavoritesContext";
 import type { MapLocation, RecommendedPlace, RideRoute } from "@/lib/defaults";
 import {
   cardIsLive,
-  type CuratedCard,
-  type CuratedDoc,
+  type WorldCard,
+  type WorldDoc,
   type EditorialLabel,
   type Localized,
 } from "./types";
@@ -110,7 +110,7 @@ const LOCATION_KIND: Record<MapLocation["category"], Localized> = {
  * editor's deleted stay leaves a shorter page, never a broken promise.
  */
 export function resolveCard(
-  card: CuratedCard,
+  card: WorldCard,
   cat: Catalogue,
   labels: EditorialLabel[],
   now: Date,
@@ -294,7 +294,7 @@ export function topUpLocations(
  * out of, the hero borrows the site's own hero photo and the best-photographed
  * places on the island until someone pins exact stills in /admin/worlds.
  */
-export function heroImages(doc: CuratedDoc, cat: Catalogue, max = 4): string[] {
+export function heroImages(doc: WorldDoc, cat: Catalogue, max = 4): string[] {
   const pinned = (doc.hero.images ?? []).filter((s) => s && s.trim());
   if (pinned.length) return pinned.slice(0, max);
 
@@ -355,12 +355,12 @@ export function resolveMoods(
 /** Fully resolved page model — what the Curated page actually renders. */
 export interface ResolvedSection {
   id: string;
-  type: CuratedDoc["sections"][number]["type"];
+  type: WorldDoc["sections"][number]["type"];
   title?: Localized;
   subtitle?: Localized;
   cards: ResolvedCard[];
   /** Carried through untouched for the section types that aren't card lists. */
-  raw: CuratedDoc["sections"][number];
+  raw: WorldDoc["sections"][number];
 }
 
 /**
@@ -369,8 +369,8 @@ export interface ResolvedSection {
  * Sections that end up empty are dropped — a heading with nothing under it is
  * the same broken promise as a dead card.
  */
-export function resolveCurated(
-  doc: CuratedDoc,
+export function resolveWorldDoc(
+  doc: WorldDoc,
   cat: Catalogue,
   now: Date,
 ): { hero: { images: string[] }; sections: ResolvedSection[] } {

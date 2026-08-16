@@ -1,8 +1,9 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useExperienceWorld } from "@/context/ExperienceWorldContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { otherWorld, WORLD_COPY } from "@/lib/worlds";
+import { otherWorld, WORLD_COPY, WORLD_PAGE } from "@/lib/worlds";
 
 // ── CHANGE YOUR RODRIGUES ───────────────────────────────────────────────────
 //
@@ -22,6 +23,7 @@ export default function WorldSwitcher({
 }: { className?: string; strip?: boolean }) {
   const { world, ready, choose } = useExperienceWorld();
   const { language } = useLanguage();
+  const router = useRouter();
 
   // `world` is never null once ready — everyone starts in Authentic since the
   // gateway was removed. The null branch stays as a type guard rather than as
@@ -51,9 +53,15 @@ export default function WorldSwitcher({
   const button = (
     <button
       type="button"
-      onClick={() => choose(next)}
+      // Choose, then GO. The world owns a page now (lib/worlds.ts → WORLD_PAGE),
+      // so switching has somewhere to arrive; restyling the page you were
+      // already on made the control read as a theme toggle.
+      onClick={() => {
+        choose(next);
+        router.push(WORLD_PAGE[next]);
+      }}
       aria-label={`${label} — ${copy.eyebrow} ${copy.name}`}
-      className={`group relative inline-flex items-center gap-2.5 rounded-full px-3.5 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--rr-world-accent,#F5C842)]/60 ${className}`}
+      className={`group relative inline-flex min-h-11 items-center gap-2.5 rounded-full px-3.5 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--rr-world-accent,#F5C842)]/60 ${className}`}
       style={{
         border: "1px solid var(--rr-world-line, rgba(255,255,255,0.12))",
         background: "color-mix(in srgb, var(--rr-world-accent, #F5C842) 7%, transparent)",

@@ -16,16 +16,16 @@
 
 import {
   T,
-  type CuratedDoc,
-  type CuratedCard,
+  type WorldDoc,
+  type WorldCard,
   type EditorialLabel,
 } from "./types";
 
 const card = (
   id: string,
-  source: CuratedCard["source"],
-  extra: Omit<CuratedCard, "id" | "source"> = {},
-): CuratedCard => ({ id, source, ...extra });
+  source: WorldCard["source"],
+  extra: Omit<WorldCard, "id" | "source"> = {},
+): WorldCard => ({ id, source, ...extra });
 
 // ── The label library ───────────────────────────────────────────────────────
 //
@@ -41,7 +41,7 @@ export const DEFAULT_LABELS: EditorialLabel[] = [
   { id: "lbl-dontmiss", tone: "warm", text: T("Don't miss", "À ne pas manquer", "Pa rat sa") },
 ];
 
-export const DEFAULT_CURATED: CuratedDoc = {
+export const DEFAULT_CURATED: WorldDoc = {
   version: 1,
 
   hero: {
@@ -84,6 +84,7 @@ export const DEFAULT_CURATED: CuratedDoc = {
       id: "sec-featured",
       type: "featured",
       enabled: true,
+      seeAll: "/browse/tours",
       title: T("Handpicked for you", "Choisis pour vous", "Swazir pou ou"),
       subtitle: T(
         "A few Rodrigues moments worth making time for.",
@@ -122,6 +123,7 @@ export const DEFAULT_CURATED: CuratedDoc = {
       id: "sec-only",
       type: "onlyInRodrigues",
       enabled: true,
+      seeAll: "/explore",
       title: T("Only in Rodrigues", "Seulement à Rodrigues", "Zis dan Rodrig"),
       subtitle: T(
         "The places, flavours and moments you won't find anywhere else.",
@@ -130,36 +132,26 @@ export const DEFAULT_CURATED: CuratedDoc = {
       ),
       cards: [
         card("oi-cocos", { kind: "location", id: "loc-1784584619975" }, {
-          title: T("Meet the island's rarest residents", "Les habitants les plus rares de l'île", "Bann pli rar abitan lil"),
-          blurb: T(
-            "A sandbank an hour offshore where thousands of terns and noddies nest — and nowhere else.",
-            "Un banc de sable à une heure du large où nichent des milliers de sternes — et nulle part ailleurs.",
-            "Enn bank disab enn er dan lamer kot milye zwazo fer zot nik — ek nanye lot par.",
-          ),
+          title: T("The island's rarest residents", "Les habitants les plus rares", "Bann pli rar abitan"),
           labels: ["lbl-dontmiss"],
         }),
         card("oi-limon", { kind: "location", id: "loc-1784122891862" }, {
-          title: T("Some views are worth the climb", "Certaines vues méritent la montée", "Sertin vi vo lapenn mont"),
+          title: T("Worth the climb", "Ça vaut la montée", "Vo lapenn mont"),
           labels: ["lbl-sunset"],
         }),
         card("oi-food", { kind: "link", href: "/food" }, {
-          title: T("Flavours that belong to Rodrigues", "Des saveurs bien d'ici", "Bann gou ki pou Rodrig"),
-          blurb: T(
-            "Octopus, limes, honey and smoked sausage — an island kitchen that is not Mauritian cooking.",
-            "Ourite, limons, miel et saucisses fumées — une cuisine d'île qui n'est pas mauricienne.",
-            "Ourit, limon, dimiel ek sosis fime — enn lakwizinn lil ki pa Moris.",
-          ),
+          title: T("Flavours from here alone", "Des saveurs bien d'ici", "Gou ki pou isi"),
         }),
         card("oi-kotpive", { kind: "location", id: "loc-1784584377346" }, {
-          title: T("Made here, by hand", "Fait ici, à la main", "Fer isi, ar lame"),
+          title: T("Made here, by hand", "Fait à la main", "Fer ar lame"),
           labels: ["lbl-hidden"],
         }),
         card("oi-coral", { kind: "location", id: "loc-1784582011518" }, {
-          title: T("The road built from coral", "La route bâtie en corail", "Semin fer ar koray"),
+          title: T("A road built of coral", "Une route en corail", "Semin ar koray"),
           labels: ["lbl-hidden"],
         }),
         card("oi-stfrancois", { kind: "location", id: "loc-1784121476763" }, {
-          title: T("The lagoon at its widest", "Le lagon dans toute sa largeur", "Lagon dan so pli gran larzer"),
+          title: T("The lagoon at its widest", "Le lagon, au plus large", "Lagon pli larz"),
         }),
       ],
     },
@@ -330,7 +322,299 @@ export const DEFAULT_CURATED: CuratedDoc = {
   },
 };
 
-/** A fresh deep copy — callers mutate their document freely. */
-export function freshCuratedDoc(): CuratedDoc {
-  return JSON.parse(JSON.stringify(DEFAULT_CURATED)) as CuratedDoc;
+// ============================================================================
+// AUTHENTIC
+// ============================================================================
+//
+// The other half of the switch. Same engine, same catalogue, a different
+// argument about what the island is for — and that difference has to live in
+// the WORDS and the ORDER, not only in the palette, or the two worlds are one
+// page wearing two skins.
+//
+//   Curated leads with what has been arranged for you: a private island day, a
+//   villa, a table. It is quiet, and it withholds.
+//
+//   Authentic leads with the island doing what it does anyway: a fishing boat
+//   going out, a Saturday market, a path to a beach no road reaches. It is
+//   warmer, and it is generous — more per screen, the way a guidebook is.
+//
+// Note what it does NOT do: invent a second catalogue. Both worlds point at the
+// same real listings; they disagree about which ones matter and what to say
+// about them, which is exactly what an editor is for.
+
+export const DEFAULT_AUTHENTIC: WorldDoc = {
+  version: 1,
+
+  hero: {
+    eyebrow: T("Authentic Rodrigues", "Rodrigues authentique", "Rodrig otantik"),
+    headline: T("Live Rodrigues,", "Vivez Rodrigues,", "Viv Rodrig,"),
+    headlineAccent: T("as it is.", "telle qu'elle est.", "kouma li ete."),
+    subheadline: T(
+      "Fishermen, footpaths and Saturday markets. The island doing what it does anyway - and how to be there for it.",
+      "Des pecheurs, des sentiers, le marche du samedi. L'ile telle qu'elle vit - et comment y etre.",
+      "Peser, semin, bazar samdi. Lil pe fer seki li fer - ek kouma pou la.",
+    ),
+    ctaLabel: T("See the island", "Voir l'ile", "Get lil la"),
+    ctaHref: "#authentic-featured",
+    images: [],
+    intervalSeconds: 7,
+  },
+
+  quickActions: {
+    enabled: true,
+    items: [
+      { id: "qa-a-beaches", icon: "lagoon", href: "/guide/beaches", label: T("Beaches", "Plages", "Laplaz") },
+      { id: "qa-a-hike", icon: "hike", href: "/guide/routes", label: T("Walks", "Sentiers", "Semin") },
+      { id: "qa-a-eat", icon: "eat", href: "/food", label: T("Eat local", "Manger local", "Manze lokal") },
+      { id: "qa-a-shops", icon: "shop", href: "/shop", label: T("Makers", "Artisans", "Artizan") },
+      { id: "qa-a-view", icon: "view", href: "/guide/viewpoints", label: T("Viewpoints", "Points de vue", "Bann vi") },
+      { id: "qa-a-world", icon: "compass", href: "/authentic", label: T("Authentic", "Authentique", "Otantik") },
+    ],
+  },
+
+  labels: [
+    { id: "lbl-a-local", tone: "pick", text: T("Locals do this", "Les locaux le font", "Bann dimoun isi fer sa") },
+    { id: "lbl-a-early", tone: "warm", text: T("Go early", "Allez tot", "Al boner") },
+    { id: "lbl-a-walk", tone: "quiet", text: T("On foot only", "A pied seulement", "Zis apie") },
+  ],
+
+  sections: [
+    {
+      id: "sec-a-featured",
+      type: "featured",
+      enabled: true,
+      seeAll: "/explore",
+      title: T("What the island is doing today", "Ce que l'ile fait aujourd'hui", "Seki lil pe fer zordi"),
+      subtitle: T(
+        "Not attractions. Things that were happening here anyway, that you can join.",
+        "Pas des attractions. Des choses qui se passent de toute facon, et qu'on peut rejoindre.",
+        "Pa bann atraksion. Bann kitsoz ki pe pase kanmem, ek ki ou kapav zwenn.",
+      ),
+      limit: 6,
+      cards: [
+        card("fa-peche", { kind: "place", id: "svc-1786554105958" }, {
+          category: T("Out at sea", "En mer", "Dan lamer"),
+          labels: ["lbl-a-local"],
+        }),
+        card("fa-cocos", { kind: "place", id: "rec-1784585562167" }, {
+          category: T("The islet", "L'ilot", "Lilo"),
+          labels: ["lbl-a-early"],
+        }),
+        card("fa-banane", { kind: "place", id: "rec-1786602913382" }, {
+          category: T("The table", "A table", "Latab"),
+          labels: ["lbl-a-local"],
+        }),
+        card("fa-apnee", { kind: "place", id: "svc-1786553123744" }, {
+          category: T("In the lagoon", "Dans le lagon", "Dan lagon"),
+        }),
+        card("fa-mama", { kind: "place", id: "svc-1786553125176" }, {
+          category: T("Staying local", "Chez l'habitant", "Kot dimoun"),
+        }),
+        card("fa-trou", { kind: "route", id: "ride-graviers-trou-dargent" }, {
+          category: T("On foot", "A pied", "Apie"),
+          labels: ["lbl-a-walk"],
+        }),
+      ],
+    },
+
+    {
+      id: "sec-a-only",
+      type: "onlyInRodrigues",
+      enabled: true,
+      seeAll: "/map",
+      title: T("The island itself", "L'ile elle-meme", "Lil li-mem"),
+      subtitle: T(
+        "Places with a story attached, told by the people who live beside them.",
+        "Des lieux qui ont une histoire, racontee par ceux qui vivent a cote.",
+        "Bann plas ki ena zot zistwar, rakonte par bann ki reste akote.",
+      ),
+      cards: [
+        card("oa-cocos", { kind: "location", id: "loc-1784584619975" }, {
+          title: T("Where the birds nest", "Ou nichent les oiseaux", "Kot zwazo fer nik"),
+          labels: ["lbl-a-early"],
+        }),
+        card("oa-kotpive", { kind: "location", id: "loc-1784584377346" }, {
+          title: T("Made here, by hand", "Fait a la main", "Fer ar lame"),
+        }),
+        card("oa-coral", { kind: "location", id: "loc-1784582011518" }, {
+          title: T("A road built of coral", "Une route en corail", "Semin ar koray"),
+        }),
+        card("oa-marie", { kind: "location", id: "loc-1783535711857" }, {
+          title: T("The island's own saint", "La sainte de l'ile", "Sen lil la"),
+        }),
+        card("oa-landing", { kind: "location", id: "loc-1784582409592" }, {
+          title: T("Where the boats come in", "Ou rentrent les bateaux", "Kot bato rantre"),
+          labels: ["lbl-a-early"],
+        }),
+        card("oa-limon", { kind: "location", id: "loc-1784122891862" }, {
+          title: T("The top of the island", "Le toit de l'ile", "Lao lil"),
+          labels: ["lbl-a-walk"],
+        }),
+      ],
+    },
+
+    {
+      id: "sec-a-moods",
+      type: "moods",
+      enabled: true,
+      title: T("What kind of day is it?", "Quel genre de journee ?", "Ki kalite zourne?"),
+      subtitle: T(
+        "Start with the weather and the mood. The island supplies the rest.",
+        "Commencez par le temps qu'il fait. L'ile fournit le reste.",
+        "Koumans ar letan ki fer. Lil pou donn lerest.",
+      ),
+      moods: [
+        {
+          id: "mood-a-water",
+          title: T("On the water", "Sur l'eau", "Lor dilo"),
+          blurb: T(
+            "Out with the boats at first light, back before the wind gets up.",
+            "Sortir avec les bateaux a l'aube, rentrer avant que le vent se leve.",
+            "Sorti ar bato boner, retourn avan divan leve.",
+          ),
+          href: "/experiences/fishing",
+          enabled: true,
+        },
+        {
+          id: "mood-a-foot",
+          title: T("On foot", "A pied", "Apie"),
+          blurb: T(
+            "Cliff paths, hard climbs, and beaches no road reaches.",
+            "Sentiers de falaise, montees seches, et des plages sans route.",
+            "Semin falez, montaz difisil, ek laplaz kot pena semin.",
+          ),
+          href: "/guide/routes",
+          enabled: true,
+        },
+        {
+          id: "mood-a-market",
+          title: T("Market morning", "Matin de marche", "Gramatin bazar"),
+          blurb: T(
+            "Saturday in Port Mathurin: limes, honey, smoked sausage, everyone you know.",
+            "Samedi a Port Mathurin : citrons, miel, saucisses fumees, tout le monde.",
+            "Samdi Port Mathurin: limon, dimiel, sosis fime, tou dimoun.",
+          ),
+          href: "/food",
+          enabled: true,
+        },
+        {
+          id: "mood-a-slow",
+          title: T("Nothing planned", "Rien de prevu", "Nanye pa organize"),
+          blurb: T(
+            "A beach, a bit of shade, and a whole afternoon to spend badly.",
+            "Une plage, un peu d'ombre, et tout l'apres-midi a ne rien faire.",
+            "Enn laplaz, tigit lonbraz, ek tou tanto pou fer nanye.",
+          ),
+          href: "/guide/beaches",
+          enabled: true,
+        },
+        {
+          id: "mood-a-people",
+          title: T("Meeting people", "Rencontrer", "Zwenn dimoun"),
+          blurb: T(
+            "Craft workshops, village kitchens, and the makers who will show you.",
+            "Ateliers d'artisans, cuisines de village, et ceux qui vous montrent.",
+            "Latelie artizan, lakwizinn vilaz, ek bann ki pou montre ou.",
+          ),
+          href: "/shop",
+          enabled: true,
+        },
+      ],
+    },
+
+    {
+      id: "sec-a-editors",
+      type: "editors",
+      enabled: true,
+      title: T("Told by people who live here", "Raconte par ceux d'ici", "Rakonte par bann isi"),
+      subtitle: T(
+        "The answers you would get from a neighbour, not from a brochure.",
+        "Les reponses d'un voisin, pas d'une brochure.",
+        "Bann repons enn vwazin, pa enn brosir.",
+      ),
+      notes: [
+        {
+          id: "ed-a-first",
+          title: T("Start here on day one", "Commencer par ici", "Koumans isi premie zour"),
+          body: T(
+            "The three places that make the rest of the island make sense.",
+            "Les trois endroits qui font comprendre tout le reste.",
+            "Trwa plas ki fer ou konpran lerest.",
+          ),
+          href: "/guide/rodrigues",
+          ctaLabel: T("Read the guide", "Lire le guide", "Lir gid la"),
+          byline: T("Ti Roule editors", "La redaction Ti Roule", "Lekip Ti Roule"),
+          enabled: true,
+        },
+        {
+          id: "ed-a-walk",
+          title: T("The walk everyone talks about", "La randonnee dont on parle", "Rando ki tou dimoun koze"),
+          body: T(
+            "Graviers to Trou d'Argent - how long it really takes, and when to start.",
+            "Graviers a Trou d'Argent - le vrai temps, et quand partir.",
+            "Graviers ziska Trou d'Argent - konbien letan vremem, ek kan koumanse.",
+          ),
+          href: "/guide/routes",
+          ctaLabel: T("See the routes", "Voir les sentiers", "Get bann semin"),
+          byline: T("Ti Roule editors", "La redaction Ti Roule", "Lekip Ti Roule"),
+          enabled: true,
+        },
+        {
+          id: "ed-a-sunday",
+          title: T("Build a day, in a minute", "Composer sa journee", "Fer ou zourne dan enn minit"),
+          body: T(
+            "Morning, lunch, afternoon, and the drive between them.",
+            "Matin, dejeuner, apres-midi, et la route entre les deux.",
+            "Gramatin, manze midi, tanto, ek semin ant zot.",
+          ),
+          href: "/trip-planner",
+          ctaLabel: T("Open the planner", "Ouvrir le planificateur", "Ouver planer la"),
+          byline: T("Ti Roule editors", "La redaction Ti Roule", "Lekip Ti Roule"),
+          enabled: true,
+        },
+      ],
+    },
+
+    {
+      id: "sec-a-concierge",
+      type: "concierge",
+      enabled: true,
+      eyebrow: T("Ask a local", "Demandez a un local", "Demann enn dimoun isi"),
+      title: T("Not sure where to start?", "Vous ne savez pas par ou commencer ?", "Ou pa kone kot koumanse?"),
+      body: T(
+        "Tell us how long you have and what you like. We will tell you what we would do.",
+        "Dites-nous combien de temps vous avez et ce que vous aimez. On vous dira ce qu'on ferait.",
+        "Dir nou konbien letan ou ena ek ki ou kontan. Nou pou dir ou seki nou ti pou fer.",
+      ),
+      ctaLabel: T("Ask Ti Roule", "Demander a Ti Roule", "Demann Ti Roule"),
+      ctaAction: "tiroule",
+      reassurance: T(
+        "English, French or Creole - whichever is easier.",
+        "En anglais, francais ou creole - comme vous voulez.",
+        "Angle, franse ouswa kreol - kouma pli fasil.",
+      ),
+    },
+  ],
+
+  seo: {
+    title: "Authentic Rodrigues - local life, walks, fishing & the island itself",
+    description:
+      "Rodrigues as the people who live here see it: fishing trips, cliff walks, the Saturday market, village kitchens and the places worth the detour.",
+  },
+};
+
+const SEEDS: Record<string, WorldDoc> = {
+  authentic: DEFAULT_AUTHENTIC,
+  curated: DEFAULT_CURATED,
+};
+
+/**
+ * A fresh deep copy of a world's seed - callers mutate their document freely.
+ *
+ * A world with no seed of its own falls back to the Curated document rather
+ * than to an empty page: an editor opening a brand-new world wants something to
+ * edit, and every field in it is going to be replaced anyway.
+ */
+export function freshWorldDoc(world: string = "curated"): WorldDoc {
+  return JSON.parse(JSON.stringify(SEEDS[world] ?? DEFAULT_CURATED)) as WorldDoc;
 }

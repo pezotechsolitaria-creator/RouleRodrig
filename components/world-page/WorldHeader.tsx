@@ -6,9 +6,22 @@ import { Heart } from "lucide-react";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
+import type { WorldId } from "@/lib/world-docs/types";
 import AccountButton from "@/components/AccountButton";
-import WorldMenu from "./WorldMenu";
+import ExperienceWorldSwitcher from "@/components/world/WorldSwitcher";
 
+// ── ONE SWITCHER, NOT TWO ───────────────────────────────────────────────────
+//
+// This header used to carry its own menu listing Curated / Explore / Stays /
+// Shops — a second control also called a "world switcher", sitting a few pixels
+// from the real one, meaning something completely different. Two controls with
+// the same name and different jobs is worse than either alone.
+//
+// It now carries the site's actual world switch: Authentic <-> Curated, which
+// navigates to that world's page. The sections it used to list are one tap away
+// in the quick actions immediately below the hero, which is where a list of
+// destinations belongs.
+//
 // ── NO SEARCH FIELD, DELIBERATELY ───────────────────────────────────────────
 //
 // Search is Explore's job, and it is one tap away in the world switcher. A
@@ -19,7 +32,13 @@ import WorldMenu from "./WorldMenu";
 // The language toggle from the app headers is gone for a smaller reason — three
 // controls is a header, five is a toolbar — but it survives in the footer and
 // on every other page.
-export default function CuratedHeader({ logo }: { logo?: string }) {
+export default function WorldHeader({
+  logo,
+  world,
+}: {
+  logo?: string;
+  world: WorldId;
+}) {
   const { count } = useFavorites();
   const { language } = useLanguage();
   const openSaved = () => window.dispatchEvent(new CustomEvent("rr:open-saved"));
@@ -32,14 +51,14 @@ export default function CuratedHeader({ logo }: { logo?: string }) {
         backgroundColor: "var(--cur-veil)",
       }}
     >
-      <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-2.5 lg:px-8">
+      <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-2 lg:px-8">
         <Link
           href="/"
           // A minimum WIDTH as well as a height: on a phone the wordmark is
           // hidden and only the mark remains, which on its own is a 28px-wide
           // target. Spelled as an arbitrary value because this Tailwind build
           // generates .min-h-11 but not .min-w-11.
-          className="flex min-h-11 min-w-[2.75rem] shrink-0 items-center justify-center gap-2 sm:justify-start"
+          className="flex min-h-11 min-w-[2.75rem] shrink-0 items-center gap-2"
           aria-label={loc(language, "Roulé Rodrigues home", "Accueil Roulé Rodrigues")}
         >
           {logo ? (
@@ -50,24 +69,42 @@ export default function CuratedHeader({ logo }: { logo?: string }) {
               height={32}
               priority
               sizes="112px"
-              className="h-7 w-auto object-contain"
+              className="h-8 w-auto shrink-0 object-contain"
               unoptimized={
                 logo.startsWith("/uploads/") ||
                 (logo.startsWith("http") && !logo.includes("supabase.co"))
               }
             />
           ) : null}
-          {/* The wordmark stays in the site's display face. The serif belongs to
-              the editorial voice below; using it on the brand mark too would
-              make the page look like a different company's. */}
-          <span className="hidden font-syne text-[13px] font-extrabold uppercase leading-none tracking-[0.16em] sm:block">
-            <span style={{ color: "var(--cur-ivory)" }}>Roulé </span>
-            <span style={{ color: "var(--cur-copper)" }}>Rodrigues</span>
+          {/* ── THE STACKED WORDMARK ──────────────────────────────────────
+              Two lines, TI ROULÉ over RODRIGUES, as the owner drew it. Stacking
+              is what lets the mark stay legible in a 44px-tall bar without
+              eating the width the world switcher needs beside it — and it is
+              why this survives on a phone where the single-line version had to
+              be hidden.
+
+              It stays in the site's display face. The serif belongs to the
+              editorial voice below; on the brand mark it would make the page
+              look like a different company's. */}
+          <span className="flex flex-col justify-center leading-none">
+            <span
+              className="font-syne text-[13px] font-extrabold uppercase tracking-[0.06em]"
+              style={{ color: "var(--cur-ivory)" }}
+            >
+              Ti Roulé
+            </span>
+            <span
+              className="mt-0.5 font-dm text-[8px] font-medium uppercase tracking-[0.28em]"
+              style={{ color: "var(--cur-copper)" }}
+            >
+              Rodrigues
+            </span>
+            <span className="sr-only">{world}</span>
           </span>
         </Link>
 
         <div className="ml-auto flex items-center gap-1.5">
-          <WorldMenu current="curated" />
+          <ExperienceWorldSwitcher strip={false} />
 
           <button
             onClick={openSaved}

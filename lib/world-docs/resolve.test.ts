@@ -3,14 +3,14 @@ import type { MapLocation, RecommendedPlace, RideRoute } from "@/lib/defaults";
 import {
   heroImages,
   resolveCard,
-  resolveCurated,
+  resolveWorldDoc,
   resolveMoods,
   topUpLocations,
   topUpPlaces,
   type Catalogue,
 } from "./resolve";
-import { cardIsLive, type CuratedCard, type CuratedDoc, type EditorialLabel } from "./types";
-import { freshCuratedDoc } from "./defaults";
+import { cardIsLive, type WorldCard, type WorldDoc, type EditorialLabel } from "./types";
+import { freshWorldDoc } from "./defaults";
 
 // ── What these tests are actually guarding ──────────────────────────────────
 //
@@ -65,7 +65,7 @@ const NOW = new Date("2026-08-16T12:00:00Z");
 
 describe("resolveCard", () => {
   it("reads the name and photo from the catalogue, not from the card", () => {
-    const c: CuratedCard = { id: "c1", source: { kind: "place", id: "p1" } };
+    const c: WorldCard = { id: "c1", source: { kind: "place", id: "p1" } };
     const got = resolveCard(c, cat({ places: [place("p1", { name: "Renamed later" })] }), LABELS, NOW);
     expect(got?.title.en).toBe("Renamed later");
     expect(got?.image).toBe("https://img/p1.jpg");
@@ -73,12 +73,12 @@ describe("resolveCard", () => {
 
   it("DROPS a card whose listing has been deleted", () => {
     // The whole point: the page shrinks, it does not 404.
-    const c: CuratedCard = { id: "c1", source: { kind: "place", id: "gone" } };
+    const c: WorldCard = { id: "c1", source: { kind: "place", id: "gone" } };
     expect(resolveCard(c, cat({ places: [place("p1")] }), LABELS, NOW)).toBeNull();
   });
 
   it("lets the editor override the title and photo without copying the rest", () => {
-    const c: CuratedCard = {
+    const c: WorldCard = {
       id: "c1",
       source: { kind: "location", id: "l1" },
       title: { en: "Some views are worth the climb" },
@@ -128,7 +128,7 @@ describe("resolveCard", () => {
 });
 
 describe("cardIsLive", () => {
-  const base: CuratedCard = { id: "c", source: { kind: "link", href: "/x" } };
+  const base: WorldCard = { id: "c", source: { kind: "link", href: "/x" } };
 
   it("shows a card with no status at all", () => {
     expect(cardIsLive(base, NOW)).toBe(true);
@@ -193,7 +193,7 @@ describe("topping a thin section up", () => {
 
 describe("heroImages", () => {
   it("uses the owner's pinned stills when there are any", () => {
-    const doc = { ...freshCuratedDoc() };
+    const doc = { ...freshWorldDoc("curated") };
     doc.hero.images = ["https://img/pinned.jpg"];
     expect(heroImages(doc, cat({ heroImage: "https://img/site.jpg" }))).toEqual([
       "https://img/pinned.jpg",
@@ -201,7 +201,7 @@ describe("heroImages", () => {
   });
 
   it("falls back to the site hero and the island's scenery, never to nothing", () => {
-    const doc = freshCuratedDoc();
+    const doc = freshWorldDoc("curated");
     const got = heroImages(
       doc,
       cat({
@@ -247,7 +247,7 @@ describe("resolveMoods", () => {
   });
 });
 
-describe("resolveCurated", () => {
+describe("resolveWorldDoc", () => {
   const catalogue = cat({
     places: [place("rec-1784585562167"), place("svc-1786554105958")],
     locations: [location("loc-1"), location("loc-2", { story: "story" })],
@@ -255,26 +255,26 @@ describe("resolveCurated", () => {
   });
 
   it("renders the sections in the document's order, not a hard-coded one", () => {
-    const doc = freshCuratedDoc();
-    const reversed: CuratedDoc = { ...doc, sections: [...doc.sections].reverse() };
-    const got = resolveCurated(reversed, catalogue, NOW);
+    const doc = freshWorldDoc("curated");
+    const reversed: WorldDoc = { ...doc, sections: [...doc.sections].reverse() };
+    const got = resolveWorldDoc(reversed, catalogue, NOW);
     expect(got.sections[0].type).toBe("concierge");
   });
 
   it("leaves out a section the editor switched off", () => {
-    const doc = freshCuratedDoc();
+    const doc = freshWorldDoc("curated");
     doc.sections = doc.sections.map((s) =>
       s.type === "concierge" ? { ...s, enabled: false } : s,
     );
-    const got = resolveCurated(doc, catalogue, NOW);
+    const got = resolveWorldDoc(doc, catalogue, NOW);
     expect(got.sections.some((s) => s.type === "concierge")).toBe(false);
   });
 
   it("drops a card list that resolved to nothing rather than leaving a bare heading", () => {
-    const doc = freshCuratedDoc();
+    const doc = freshWorldDoc("curated");
     // Nothing in the catalogue and nothing to top up from: every card that
     // points at a listing disappears.
-    const got = resolveCurated(doc, cat(), NOW);
+    const got = resolveWorldDoc(doc, cat(), NOW);
     expect(got.sections.some((s) => s.type === "featured")).toBe(false);
 
     // "Only in Rodrigues" survives, and that is correct rather than a leak: the
@@ -289,10 +289,10 @@ describe("resolveCurated", () => {
   });
 
   it("never returns more featured cards than the section asks for", () => {
-    const doc = freshCuratedDoc();
+    const doc = freshWorldDoc("curated");
     doc.sections = doc.sections.map((s) => (s.type === "featured" ? { ...s, limit: 3 } : s));
     const many = cat({ places: Array.from({ length: 20 }, (_, i) => place(`p${i}`)) });
-    const got = resolveCurated(doc, many, NOW);
+    const got = resolveWorldDoc(doc, many, NOW);
     const featured = got.sections.find((s) => s.type === "featured");
     expect(featured?.cards.length).toBe(3);
   });

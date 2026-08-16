@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import { AlertTriangle, Check, Link2, Search } from "lucide-react";
-import type { CuratedCard, EditorialLabel } from "@/lib/world-docs/types";
+import type { WorldCard, EditorialLabel } from "@/lib/world-docs/types";
 import { Disclosure, Field, ImageField, LocalizedField, RowTools, inputCls } from "./fields";
 
 export interface PickerCatalogue {
@@ -13,7 +13,7 @@ export interface PickerCatalogue {
 }
 
 /** What a card is pointing at, in words, plus whether that thing still exists. */
-export function describeSource(card: CuratedCard, cat: PickerCatalogue) {
+export function describeSource(card: WorldCard, cat: PickerCatalogue) {
   const s = card.source;
   if (s.kind === "link") return { label: `Link → ${s.href}`, image: card.image ?? "", missing: false };
   if (s.kind === "place") {
@@ -46,9 +46,9 @@ function SourcePicker({
   cat,
   onChange,
 }: {
-  card: CuratedCard;
+  card: WorldCard;
   cat: PickerCatalogue;
-  onChange: (source: CuratedCard["source"]) => void;
+  onChange: (source: WorldCard["source"]) => void;
 }) {
   const [q, setQ] = useState("");
   const query = q.trim().toLowerCase();
@@ -57,7 +57,7 @@ function SourcePicker({
     const all = [
       ...cat.places.map((p) => ({
         key: `place:${p.id}`,
-        source: { kind: "place", id: p.id } as CuratedCard["source"],
+        source: { kind: "place", id: p.id } as WorldCard["source"],
         name: p.name,
         kind:
           p.category === "hotel"
@@ -73,14 +73,14 @@ function SourcePicker({
       })),
       ...cat.locations.map((l) => ({
         key: `location:${l.id}`,
-        source: { kind: "location", id: l.id } as CuratedCard["source"],
+        source: { kind: "location", id: l.id } as WorldCard["source"],
         name: l.name,
         kind: l.category,
         image: l.image,
       })),
       ...cat.routes.map((r) => ({
         key: `route:${r.id}`,
-        source: { kind: "route", id: r.id } as CuratedCard["source"],
+        source: { kind: "route", id: r.id } as WorldCard["source"],
         name: r.name,
         kind: r.kind === "hike" ? "Trail" : "Ride",
         image: r.image,
@@ -175,18 +175,18 @@ export default function CardEditor({
   onMove,
   onRemove,
 }: {
-  card: CuratedCard;
+  card: WorldCard;
   index: number;
   count: number;
   cat: PickerCatalogue;
   labels: EditorialLabel[];
-  onChange: (next: CuratedCard) => void;
+  onChange: (next: WorldCard) => void;
   onMove: (from: number, to: number) => void;
   onRemove: () => void;
 }) {
   const info = describeSource(card, cat);
   const status = card.status ?? "published";
-  const set = (patch: Partial<CuratedCard>) => onChange({ ...card, ...patch });
+  const set = (patch: Partial<WorldCard>) => onChange({ ...card, ...patch });
 
   return (
     <Disclosure

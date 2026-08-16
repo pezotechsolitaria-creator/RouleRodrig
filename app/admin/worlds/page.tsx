@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { worldScope, visibleWorlds, canEdit } from "@/lib/world-docs/access";
 import { WORLD_META, isWorldId, type WorldId } from "@/lib/world-docs/types";
-import { getEditableCurated, listRevisions } from "@/lib/world-docs/store";
+import { getEditableWorld, listRevisions } from "@/lib/world-docs/store";
 import { getContent } from "@/lib/content";
 import EditorSignIn from "./EditorSignIn";
 import WorldsStudio from "./WorldsStudio";
@@ -60,10 +60,11 @@ export default async function AdminWorldsPage({
   const world: WorldId =
     requested && canEdit(scope, requested) ? requested : (allowed[0] ?? "curated");
 
-  // Only Curated has a document engine today. Rather than showing an editor
-  // that saves nowhere, the other worlds say plainly where they ARE edited —
-  // an empty form that silently does nothing is the worse failure.
-  if (world !== "curated") {
+  // Authentic and Curated are composed from a document. The rest are sections
+  // of the site edited elsewhere, and they say so plainly rather than showing
+  // an editor that saves nowhere — an empty form that silently does nothing is
+  // the worse failure.
+  if (world !== "curated" && world !== "authentic") {
     return (
       <div className="min-h-screen bg-dark px-5 py-8">
         <div className="mx-auto max-w-2xl">
@@ -103,7 +104,7 @@ export default async function AdminWorldsPage({
     );
   }
 
-  const { doc, record } = await getEditableCurated(world);
+  const { doc, record } = await getEditableWorld(world);
   const [revisions, catalogue] = await Promise.all([listRevisions(world), pickerCatalogue()]);
 
   return (

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   forWorld, heroesForWorld, inWorld, otherWorld, parseWorld, rankForWorld,
-  targetOf, priorityIn, WORLD_COPY, WORLD_LAYOUT, WORLDS,
+  targetOf, priorityIn, WORLD_COPY, WORLD_LAYOUT, WORLD_PAGE, WORLDS,
 } from "@/lib/worlds";
 
 describe("world targeting", () => {
@@ -144,13 +144,27 @@ describe("world copy", () => {
     }
   });
 
-  it("gives the two worlds opposite light, because world subsumes the theme", () => {
-    // Authentic is the DARK world: it keeps this site's existing near-black
-    // identity. Curated is the one that changes, which is what makes it read
-    // as elevated rather than as another dark screen.
+  it("keeps both worlds dark — the light experiment is retired", () => {
+    // This assertion used to be the opposite: Authentic dark, Curated LIGHT, on
+    // the argument that the world which CHANGES reads as the elevated one. The
+    // owner has since seen /curated built in near-black with copper and
+    // champagne, and chosen it — so Curated is dark again.
+    //
+    // The worlds still differ, and by more than a hue: warm sand on an
+    // earth-black against champagne on a colder one, with softer corners on
+    // Authentic. That difference lives in app/globals.css, which a unit test
+    // cannot see. What it CAN protect is that neither world quietly loses its
+    // theme, which is what sets the ground under the whole system.
     expect(WORLD_COPY.authentic.theme).toBe("dark");
-    expect(WORLD_COPY.curated.theme).toBe("light");
-    expect(WORLD_COPY.authentic.theme).not.toBe(WORLD_COPY.curated.theme);
+    expect(WORLD_COPY.curated.theme).toBe("dark");
+  });
+
+  it("gives every world a page of its own to arrive at", () => {
+    // Switching world NAVIGATES now, so a world without a page would be a
+    // control that leads nowhere.
+    const pages = WORLDS.map((w) => WORLD_PAGE[w]);
+    for (const page of pages) expect(page.startsWith("/")).toBe(true);
+    expect(new Set(pages).size).toBe(WORLDS.length);
   });
 });
 
