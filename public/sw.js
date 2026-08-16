@@ -186,7 +186,8 @@
 // v286 — Authentic gets its outdoors and its island life on the homepage.
 // v287 — a YouTube link works in the curated hero too.
 // v288 — the world switch works on every page again.
-const CACHE = "rr-cache-v288";
+// v289 — the hero video follows you into Curated.
+const CACHE = "rr-cache-v289";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

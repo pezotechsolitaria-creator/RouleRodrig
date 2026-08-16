@@ -82,7 +82,12 @@ export default function WorldPage({
       <WorldHeader logo={view.logo} />
 
       <main>
-        <WorldHeroBanner hero={doc.hero} images={view.heroImages} world={world} />
+        <WorldHeroBanner
+          hero={doc.hero}
+          images={view.heroImages}
+          videos={view.heroVideos}
+          world={world}
+        />
 
         {/* The world's own shortcuts sit hard under the hero — no search field
             between them, which was the brief's one structural instruction. */}

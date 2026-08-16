@@ -5,6 +5,7 @@ import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { locT, type WorldHero as HeroDoc } from "@/lib/world-docs/types";
+import type { HeroVideo } from "@/lib/defaults";
 import HeroVideoLayer from "@/components/HeroVideo";
 
 const unopt = (src: string) =>
@@ -29,9 +30,12 @@ const unopt = (src: string) =>
 export default function WorldHeroBanner({
   hero,
   images,
+  videos,
   world,
 }: {
   hero: HeroDoc;
+  /** Resolved by the view: this world's clip, or the site's. */
+  videos: HeroVideo[];
   /** Only used for the CTA's fallback anchor — see below. */
   world: string;
   /** Already resolved — the owner's pinned stills, or real island photography. */
@@ -137,11 +141,7 @@ export default function WorldHeroBanner({
 
             The still underneath is never removed, which is what makes every one
             of those failure paths cost nothing. */}
-        {hero.video && (
-          <HeroVideoLayer
-            videos={[{ id: "world-hero", url: hero.video, enabled: true }]}
-          />
-        )}
+        {videos.length > 0 && <HeroVideoLayer videos={videos} />}
         {/* Two scrims, not one: a tall warm gradient for the text, plus a very
             slight overall darkening so a bright midday photograph cannot make
             champagne text illegible. */}

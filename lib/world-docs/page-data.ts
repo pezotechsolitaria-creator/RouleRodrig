@@ -4,7 +4,7 @@ import { getContent } from "@/lib/content";
 import { listPublicEvents } from "@/lib/events/queries";
 import { foodCardImages } from "@/lib/food/queries";
 import { DEFAULT_HOME_CARDS, DEFAULT_QUICK_ACCESS } from "@/lib/defaults";
-import type { SocialLinks } from "@/lib/defaults";
+import type { HeroVideo, SocialLinks } from "@/lib/defaults";
 import type { WorldPhotoCard, WorldQuickItem } from "./types";
 import type { PromoEvent } from "@/components/EventsPromo";
 import {
@@ -49,6 +49,24 @@ export interface WorldReview {
 
 export interface WorldView {
   heroImages: string[];
+  /**
+   * The hero's footage, resolved.
+   *
+   * ── WHY THIS INHERITS ─────────────────────────────────────────────────────
+   * The owner had a YouTube hero configured in the content studio and it
+   * vanished the moment he was in Curated — because the curated hero read only
+   * its OWN `hero.video`, which is empty, while `content.hero.videos` (the
+   * field he had actually filled in) drove the homepage alone.
+   *
+   * The stills already worked this way: an empty `hero.images` borrows the
+   * site's hero photograph rather than showing nothing. Footage now follows the
+   * same rule, and for the same reason — a film uploaded once is the island,
+   * not an editorial choice, and asking for it twice is how it ends up in one
+   * place only.
+   *
+   * Pinning a video on the world document still overrides it completely.
+   */
+  heroVideos: HeroVideo[];
   sections: ResolvedSection[];
   moods: Record<string, ResolvedMood[]>;
   logo?: string;
@@ -185,8 +203,14 @@ export async function buildWorldView(
     url: c.href.startsWith("/") ? c.href : undefined,
   }));
 
+  // The world's own clip wins; otherwise the site's, enabled ones only.
+  const heroVideos: HeroVideo[] = doc.hero.video?.trim()
+    ? [{ id: "world-hero", url: doc.hero.video.trim(), enabled: true }]
+    : (content.hero.videos ?? []).filter((v) => v?.enabled !== false && !!v?.url);
+
   return {
     heroImages: hero.images,
+    heroVideos,
     sections,
     moods,
     logo: content.branding.logo,

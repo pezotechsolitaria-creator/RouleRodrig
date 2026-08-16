@@ -788,7 +788,7 @@ function HeroPanel({ doc, patch }: { doc: WorldDoc; patch: (n: Partial<WorldDoc>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field
           label="Video loop (optional)"
-          hint="Plays muted over the still. The still stays the fallback, always."
+          hint="Leave empty to use the hero video from the content studio. Fill it in to give this world its own. Either way it plays muted over the still, and the still stays the fallback."
         >
           <input
             className={inputCls}
