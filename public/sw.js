@@ -183,7 +183,8 @@
 // v283 — Curated stays your home; the header stops clipping; the hero button toggles.
 // v284 — the footer reaches the curated world, repainted.
 // v285 — no flash on "/", and a private chauffeur is its own product.
-const CACHE = "rr-cache-v285";
+// v286 — Authentic gets its outdoors and its island life on the homepage.
+const CACHE = "rr-cache-v286";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

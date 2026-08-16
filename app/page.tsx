@@ -77,16 +77,72 @@ export default async function Home() {
       featuredAuthentic: p.featuredAuthentic, featuredCurated: p.featuredCurated,
       heroAuthentic: p.heroAuthentic, heroCurated: p.heroCurated,
     }));
+  // ── THE AUTHENTIC TAXONOMY, AS RAILS ────────────────────────────────────
+  //
+  // Authentic Rodrigues is "live the island as it truly is", and the owner
+  // wrote down what that means: culture and traditions, village discovery and
+  // community, nature and the outdoors, everyday local food, crafts and real
+  // island life, beaches and landscapes shown plainly.
+  //
+  // The homepage covered the last of those and none of the rest — it had
+  // Discover (which mixed landscapes and landmarks into one bag), Experiences
+  // and Stays. Two rails close the gap, in the SAME rail component, with no new
+  // design: nothing here is a new look, only content that was already in the
+  // owner's admin and had nowhere to appear.
+  //
+  // Discover narrows to LANDSCAPES so the landmarks can lead their own rail
+  // rather than being the tail of somebody else's.
   const discover = content.mapLocations
-    .filter((l) => (l.image || l.images?.[0]) && l.story && ["beach", "viewpoint", "landmark"].includes(l.category))
+    .filter((l) => (l.image || l.images?.[0]) && l.story && ["beach", "viewpoint"].includes(l.category))
     .slice(0, 10)
     .map((l) => ({
       id: l.id,
       name: l.name,
       image: l.image ?? l.images?.[0],
-      href: l.category === "beach" ? `/guide/beaches#${l.id}` : l.category === "viewpoint" ? `/guide/viewpoints#${l.id}` : "/map",
+      href: l.category === "beach" ? `/guide/beaches#${l.id}` : `/guide/viewpoints#${l.id}`,
       tag: l.category,
     }));
+
+  // Culture, villages, crafts, storytelling — the island's own life. Landmarks
+  // and craft shops are the two things the owner records that are about PEOPLE
+  // rather than scenery, so this is where they belong.
+  const islandLife = content.mapLocations
+    .filter((l) => (l.image || l.images?.[0]) && ["landmark", "shop"].includes(l.category))
+    .slice(0, 10)
+    .map((l) => ({
+      id: l.id,
+      name: l.name,
+      image: l.image ?? l.images?.[0],
+      href: l.category === "shop" ? "/shop" : "/map",
+      tag: l.category,
+    }));
+
+  // Nature and the outdoors: the trails somebody walks and the boats they go
+  // out on. Two different tables in admin, one intent for a visitor — which is
+  // exactly why neither had a home on this page before.
+  const outdoors = [
+    ...content.rideRoutes
+      .filter((r) => r.kind === "hike" && (r.image || r.images?.[0]))
+      .map((r) => ({
+        id: `route-${r.id}`,
+        name: r.name,
+        image: r.image ?? r.images?.[0],
+        price: [r.distance, r.duration].filter(Boolean).join(" · ") || null,
+        href: "/guide/routes",
+      })),
+    ...content.recommended.items
+      .filter((p) => (p.serviceType === "fishing" || p.serviceType === "boat") && (p.image || p.images?.[0]))
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        image: p.image ?? p.images?.[0],
+        price: p.priceNote ?? null,
+        href: `/experiences/${p.serviceType}`,
+        world: p.world, worldPriority: p.worldPriority,
+        featuredAuthentic: p.featuredAuthentic, featuredCurated: p.featuredCurated,
+        heroAuthentic: p.heroAuthentic, heroCurated: p.heroCurated,
+      })),
+  ].slice(0, 10);
 
   // Per-card image galleries so the homepage cards auto-cycle through the real
   // photos of each category's contents (all scooters, all cars, all stays…).
@@ -226,6 +282,8 @@ export default async function Home() {
         experiences={experiences}
         stays={stays}
         discover={discover}
+        islandLife={islandLife}
+        outdoors={outdoors}
         cardImages={cardImages}
         promoEvents={promoEvents}
         mascot={content.branding.mascotImage}

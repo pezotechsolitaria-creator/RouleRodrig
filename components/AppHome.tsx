@@ -85,7 +85,7 @@ const TINT: Record<string, { icon: string; grad: string }> = {
 // Reviews → Footer, with a FIXED bottom (Travel Tools strip + app nav where
 // Ti Roulé lives). Real content only. `hero`, `reviews`, `footer` are passed in.
 export default function AppHome({
-  hero, reviews, footer, lookingFor, homeCards, experiences, stays, discover, cardImages, mascot, logo, promoEvents,
+  hero, reviews, footer, lookingFor, homeCards, experiences, stays, discover, islandLife, outdoors, cardImages, mascot, logo, promoEvents,
 }: {
   hero: ReactNode;
   reviews?: ReactNode;
@@ -95,6 +95,10 @@ export default function AppHome({
   experiences: Card[];
   stays: Card[];
   discover: Card[];
+  /** Culture, villages, crafts — the Authentic taxonomy's "real island life". */
+  islandLife: Card[];
+  /** Trails, fishing and sea trips — its "nature & outdoor adventure". */
+  outdoors: Card[];
   cardImages: CardImages;
   /** Upcoming ticketed events for the promo strip. Empty renders nothing. */
   promoEvents: PromoEvent[];
@@ -122,6 +126,9 @@ export default function AppHome({
   // sees exactly what they see today — the difference grows as they tag.
   const worldExperiences = useMemo(() => forWorld(experiences, activeWorld), [experiences, activeWorld]);
   const worldStays = useMemo(() => forWorld(stays, activeWorld), [stays, activeWorld]);
+  // Ranked like the others, so tagging a boat trip "curated" in admin moves it
+  // here too rather than only on the pages that were wired first.
+  const worldOutdoors = useMemo(() => forWorld(outdoors, activeWorld), [outdoors, activeWorld]);
 
 
   // The primary photo cards — admin-editable (content.homeCards). Each card's
@@ -392,8 +399,52 @@ export default function AppHome({
         <EventsPromo events={promoEvents} />
 
         {discover.length > 0 && (
-          <Rail title={L(["Discover Rodrigues", "Découvrir Rodrigues", "Dekouver Rodrig"])} subtitle={L(["Beaches, culture & hidden gems.", "Plages, culture & trésors cachés.", "Laplaz, kiltir & bann trezor kase."])} seeAll="/explore" seeAllLabel={L(["View all", "Voir tout", "Get tou"])}>
+          <Rail title={L(["Discover Rodrigues", "Découvrir Rodrigues", "Dekouver Rodrig"])} subtitle={L(["Beaches, viewpoints & hidden gems.", "Plages, points de vue & trésors cachés.", "Laplaz, bann vi & trezor kase."])} seeAll="/explore" seeAllLabel={L(["View all", "Voir tout", "Get tou"])}>
             {discover.map((d) => (
+              <Link key={d.id} href={d.href} className="group relative flex h-36 w-36 shrink-0 snap-start flex-col justify-end overflow-hidden rounded-2xl border border-white/10">
+                {d.image ? (
+                  <Image src={d.image} alt={d.name} fill sizes="(max-width:768px) 45vw, 220px" className="object-cover transition-transform duration-500 group-hover:scale-105" unoptimized={d.image.startsWith("/uploads/") || (d.image.startsWith("http") && !d.image.includes("supabase.co"))} />
+                ) : <span className="absolute inset-0 bg-gradient-to-br from-yellow/20 to-dark" />}
+                <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+                <span className="relative p-2.5 font-syne text-sm font-bold leading-tight text-white">{d.name}</span>
+              </Link>
+            ))}
+          </Rail>
+        )}
+
+        {/* ── Nature & the outdoors ────────────────────────────────────
+            Trails and boats, which the owner keeps in two different tables and
+            a visitor thinks of as one afternoon. */}
+        {worldOutdoors.length > 0 && (
+          <Rail
+            title={L(["On foot & on the water", "À pied & sur l'eau", "Apie & lor dilo"])}
+            subtitle={L([
+              "Trails, fishing and sea trips.",
+              "Sentiers, pêche et sorties en mer.",
+              "Semin, lapes ek sorti lamer.",
+            ])}
+            seeAll="/guide/routes"
+            seeAllLabel={L(["View all", "Voir tout", "Get tou"])}
+          >
+            {worldOutdoors.map((o) => <PriceCard key={o.id} card={o} />)}
+          </Rail>
+        )}
+
+        {/* ── Culture, villages, crafts ────────────────────────────────────
+            The half of "live the island as it truly is" that is about people
+            rather than scenery, and had nowhere to appear before. */}
+        {islandLife.length > 0 && (
+          <Rail
+            title={L(["Real island life", "La vraie vie de l'île", "Vre lavi lil"])}
+            subtitle={L([
+              "Culture, villages and the people who make things.",
+              "Culture, villages et ceux qui fabriquent.",
+              "Kiltir, vilaz ek bann ki fer kitsoz.",
+            ])}
+            seeAll="/map"
+            seeAllLabel={L(["View all", "Voir tout", "Get tou"])}
+          >
+            {islandLife.map((d) => (
               <Link key={d.id} href={d.href} className="group relative flex h-36 w-36 shrink-0 snap-start flex-col justify-end overflow-hidden rounded-2xl border border-white/10">
                 {d.image ? (
                   <Image src={d.image} alt={d.name} fill sizes="(max-width:768px) 45vw, 220px" className="object-cover transition-transform duration-500 group-hover:scale-105" unoptimized={d.image.startsWith("/uploads/") || (d.image.startsWith("http") && !d.image.includes("supabase.co"))} />
