@@ -7,7 +7,7 @@ import {
   Gauge, UtensilsCrossed, Truck, Clock, Store, Users, Ticket, UserCog,
   PenSquare, MapPinned, Wallet, MessageCircle, ScrollText, Search, Menu, X,
   ExternalLink, LogOut, Waves, Bike, Activity, Receipt, ChefHat, ShoppingBag, Car, ClipboardList,
-  Sparkles } from "lucide-react";
+  Sparkles, UserCheck } from "lucide-react";
 import CommandPalette from "./CommandPalette";
 
 // ── The control plane's frame ───────────────────────────────────────────────
@@ -60,8 +60,12 @@ const NAV: NavGroup[] = [
   {
     title: "People",
     items: [
+      // The desk for everybody who OPERATES here — merchants and delivery
+      // partners in one place, with account status, verification and what they
+      // are doing right now kept as the three separate things they are.
+      { href: "/admin/people", label: "People & Operations", icon: UserCheck },
       { href: "/admin/customers", label: "Customers", icon: Users },
-      { href: "/admin/subscriptions", label: "Merchants", icon: Store },
+      { href: "/admin/subscriptions", label: "Merchant billing", icon: Store },
       { href: "/admin/organizers", label: "Organisers", icon: UserCog },
     ],
   },

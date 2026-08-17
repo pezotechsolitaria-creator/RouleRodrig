@@ -187,7 +187,8 @@
 // v287 — a YouTube link works in the curated hero too.
 // v288 — the world switch works on every page again.
 // v289 — the hero video follows you into Curated.
-const CACHE = "rr-cache-v289";
+// v290 — People & Operations: one desk for merchants and delivery partners.
+const CACHE = "rr-cache-v290";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
