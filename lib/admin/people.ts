@@ -29,6 +29,38 @@
 
 export type PersonKind = "merchant" | "driver";
 
+/**
+ * How far through joining are they, and WHOSE MOVE IS IT?
+ *
+ * ── WHY THIS IS NOT A FOURTH VALUE OF `AccountState` ──────────────────
+ * It was tempting: "invited" looks like it belongs next to "pending". It does
+ * not, and the reason is the one that keeps the other three apart — it answers
+ * a different question. Account state answers "may they be here?". This answers
+ * "what is outstanding, and who is holding it up?".
+ *
+ * They vary independently. An invited merchant is `pending` + `invited`. The
+ * moment they sign in they are still `pending` — an admin has not approved them
+ * yet — but they are `activated`, and the desk’s next action just changed from
+ * "chase them" to "review them". Collapsing the two loses exactly that.
+ *
+ * The ladder is ordered, and every rung is a different person’s move:
+ *
+ *   invited               we sent it; waiting on THEM to sign up
+ *   activated             they signed in; the account is theirs now
+ *   incomplete            theirs, but required details are still missing
+ *   awaiting_verification details in, documents waiting on US
+ *   complete              nothing outstanding
+ *
+ * Somebody who signed themselves up never sits at `invited`; they join the
+ * ladder at `activated`, which is why this is derived and never stored.
+ */
+export type OnboardingState =
+  | "invited"
+  | "activated"
+  | "incomplete"
+  | "awaiting_verification"
+  | "complete";
+
 /** May this person be on the platform at all? */
 export type AccountState = "pending" | "active" | "suspended" | "deactivated";
 
@@ -131,6 +163,7 @@ export function storeIsOpen(account: AccountState, storeStatus: string | null | 
 // action.
 
 export type PeopleAction =
+  | "resend_invite"
   | "activate"
   | "suspend"
   | "deactivate"
@@ -141,6 +174,9 @@ export type PeopleAction =
 export type Risk = "low" | "medium" | "high" | "destructive";
 
 export const ACTION_RISK: Record<PeopleAction, Risk> = {
+  // Sending an email again costs nothing and un-sticks the commonest problem in
+  // admin-assisted onboarding: the invitation went to spam.
+  resend_invite: "low",
   // Turning somebody ON is recoverable by turning them off again.
   activate: "low",
   verify: "low",
@@ -197,6 +233,11 @@ export function describeAction(
       : `${count} ${kind === "merchant" ? "merchants" : "delivery partners"}`;
 
   switch (action) {
+    case "resend_invite":
+      return {
+        title: `Send the invitation to ${who} again?`,
+        body: "Same link, same address. Nothing about their account changes.",
+      };
     case "activate":
       return {
         title: `Activate ${who}?`,
@@ -261,6 +302,8 @@ export type PeopleFilter = {
   segment: string | "all";
   /** Drivers only. */
   availability: "all" | "offline" | "available" | "busy";
+  /** Where they are on the joining ladder. */
+  onboarding: OnboardingState | "all";
   sort: "recent" | "name" | "oldest";
   page: number;
 };
@@ -271,6 +314,7 @@ export const DEFAULT_FILTER: PeopleFilter = {
   verification: "all",
   segment: "all",
   availability: "all",
+  onboarding: "all",
   sort: "recent",
   page: 1,
 };
@@ -302,6 +346,11 @@ export function filterFromParams(params: URLSearchParams | Record<string, string
     ),
     segment: get("segment").trim() || "all",
     availability: oneOf(get("availability"), ["all", "offline", "available", "busy"] as const, "all"),
+    onboarding: oneOf(
+      get("onboarding"),
+      ["all", "invited", "activated", "incomplete", "awaiting_verification", "complete"] as const,
+      "all",
+    ),
     sort: oneOf(get("sort"), ["recent", "name", "oldest"] as const, "recent"),
     page: Number.isFinite(page) && page > 0 ? Math.min(page, 500) : 1,
   };
@@ -315,6 +364,7 @@ export function paramsFromFilter(f: PeopleFilter): URLSearchParams {
   if (f.verification !== "all") p.set("verification", f.verification);
   if (f.segment !== "all") p.set("segment", f.segment);
   if (f.availability !== "all") p.set("availability", f.availability);
+  if (f.onboarding !== "all") p.set("onboarding", f.onboarding);
   if (f.sort !== "recent") p.set("sort", f.sort);
   if (f.page > 1) p.set("page", String(f.page));
   return p;
@@ -339,6 +389,17 @@ export type PersonRow = {
   storesOpen?: number;
   storesTotal?: number;
   joinedAt: string;
+  /** Where they are on the joining ladder. Derived, never stored. */
+  onboarding: OnboardingState;
+  /**
+   * The address an admin invited them at, or null if they signed themselves up.
+   * Its presence is what tells an assisted account from a self-service one, and
+   * it stops being the way in the moment `claimed` is true.
+   */
+  inviteEmail: string | null;
+  invitedAt: string | null;
+  /** Has a real person signed in and taken ownership of this row? */
+  claimed: boolean;
 };
 
 const norm = (s: string) => s.toLowerCase().trim();
@@ -365,6 +426,7 @@ export function applyFilter(rows: PersonRow[], f: PeopleFilter): PersonRow[] {
     if (f.verification !== "all" && r.verification !== f.verification) return false;
     if (f.segment !== "all" && norm(r.segment) !== norm(f.segment)) return false;
     if (f.availability !== "all" && (r.availability ?? "offline") !== f.availability) return false;
+    if (f.onboarding !== "all" && r.onboarding !== f.onboarding) return false;
     return true;
   });
 
@@ -399,6 +461,8 @@ export type PeopleStats = {
   suspended: number;
   deactivated: number;
   awaitingVerification: number;
+  /** Invited by an admin and not yet signed in. */
+  awaitingActivation: number;
   /** Drivers only. */
   online?: number;
   busy?: number;
@@ -416,6 +480,9 @@ export function computeStats(rows: PersonRow[], kind: PersonKind): PeopleStats {
     awaitingVerification: rows.filter(
       (r) => r.verification === "submitted" || r.verification === "in_review",
     ).length,
+    // The number an assisted-onboarding desk actually runs on: people we invited
+    // who have not turned up yet, and whom nobody chases unless it is on screen.
+    awaitingActivation: rows.filter((r) => r.onboarding === "invited").length,
   };
   if (kind === "driver") {
     return {
@@ -444,8 +511,147 @@ export const VERIFICATION_LABEL: Record<VerificationState, string> = {
   rejected: "Rejected",
 };
 
+export const ONBOARDING_LABEL: Record<OnboardingState, string> = {
+  invited: "Invitation sent",
+  activated: "Signed in",
+  incomplete: "Profile incomplete",
+  awaiting_verification: "Awaiting verification",
+  complete: "Complete",
+};
+
+/**
+ * Whose move is it? The desk sorts its day by this.
+ *
+ * "them" means chasing is the only thing available; "us" means somebody here
+ * has work to do. Showing it stops an operator reading "Invitation sent" as a
+ * task and mailing the same person for the fourth time.
+ */
+export function whoseMove(state: OnboardingState): "them" | "us" | "nobody" {
+  if (state === "invited" || state === "incomplete") return "them";
+  if (state === "activated" || state === "awaiting_verification") return "us";
+  return "nobody";
+}
+
 export const AVAILABILITY_LABEL: Record<"offline" | "available" | "busy", string> = {
   offline: "Offline",
   available: "Online",
   busy: "On a delivery",
 };
+
+// ── Admin-assisted onboarding ───────────────────────────────────────
+//
+// Not everybody who sells or delivers here is comfortable with a sign-up form.
+// So an admin can create the account FOR them — and then it is theirs: the
+// invitation is claimed by email on first sign-in, and no password is ever
+// generated, seen, or transmitted by anybody at Roulé Rodrigues.
+//
+// That is not a new mechanism. It is the one the kitchen and the event door
+// already run on (admin_add_kitchen_staff + claim_kitchen_invites,
+// admin_invite_organizer + claim_organizer_invite). What follows is only the
+// decisions around it that belong neither in SQL nor in a component.
+
+/**
+ * Where are they on the ladder?
+ *
+ * Derived from what the row already says, in ONE place, so the list badge, the
+ * detail panel and the "who needs chasing" counter cannot drift apart.
+ */
+export function onboardingOf(input: {
+  claimed: boolean;
+  inviteEmail: string | null | undefined;
+  profileComplete: boolean;
+  verification: VerificationState;
+}): OnboardingState {
+  // The only rung that is about the invitation rather than the person’s own
+  // progress: we have written the row, and nobody has come to collect it.
+  if (!input.claimed) return (input.inviteEmail ?? "").trim() ? "invited" : "incomplete";
+  if (!input.profileComplete) return "incomplete";
+  if (input.verification === "verified") return "complete";
+  if (input.verification === "submitted" || input.verification === "in_review") {
+    return "awaiting_verification";
+  }
+  // Signed in, details filled, nothing submitted to check yet.
+  return "activated";
+}
+
+/**
+ * E.164, or null.
+ *
+ * ── WHY THIS EXISTS ───────────────────────────────────────────
+ * delivery_drivers.phone is CHECKed against ^\+[1-9][0-9]{6,15}$. Someone here
+ * who types their number the way everyone on the island writes it — "5835 5588"
+ * — violates that constraint, and Postgres answers with a bare 23514 that an
+ * admin sitting beside the driver cannot act on. M108’s live assertion hit this
+ * exact wall on its first run.
+ *
+ * So the number is normalised before it can reach the database at all, and the
+ * default country code is Mauritius/Rodrigues because that is who uses this.
+ * Anything already carrying a + is respected as typed.
+ */
+export function normalizePhone(input: string, defaultCc = "230"): string | null {
+  const raw = (input ?? "").trim();
+  if (!raw) return null;
+
+  // Keep the fact of a leading + (or 00), then drop every non-digit: spaces,
+  // dashes, brackets, the lot.
+  const international = raw.startsWith("+") || raw.startsWith("00");
+  const digits = raw.replace(/^00/, "").replace(/\D/g, "");
+  if (!digits) return null;
+
+  const e164 = international ? `+${digits}` : `+${defaultCc}${digits}`;
+  return /^\+[1-9][0-9]{6,15}$/.test(e164) ? e164 : null;
+}
+
+/**
+ * How long before an invitation may be sent again.
+ *
+ * Long enough that a double-clicked button and an impatient operator cannot
+ * mail somebody four times; short enough to fix "it went to spam" while they
+ * are still standing in front of you.
+ */
+export const RESEND_COOLDOWN_MS = 5 * 60 * 1000;
+
+export function canResendInvite(
+  row: { claimed: boolean; inviteEmail: string | null; invitedAt: string | null },
+  now: number = Date.now(),
+): { ok: boolean; reason?: string; waitMs?: number } {
+  if (!row.inviteEmail) {
+    return { ok: false, reason: "This account was not created from an invitation." };
+  }
+  if (row.claimed) {
+    return { ok: false, reason: "They have already signed in — there is nothing left to claim." };
+  }
+  const sent = row.invitedAt ? Date.parse(row.invitedAt) : NaN;
+  if (Number.isFinite(sent)) {
+    const wait = RESEND_COOLDOWN_MS - (now - sent);
+    if (wait > 0) {
+      return {
+        ok: false,
+        reason: "An invitation went out a moment ago. Give it a few minutes before sending another.",
+        waitMs: wait,
+      };
+    }
+  }
+  return { ok: true };
+}
+
+/**
+ * Is there enough here to trade, or to drive?
+ *
+ * An admin creating the account only has to know a name, an email and — for a
+ * driver — a phone and a vehicle. The rest is the person’s own to fill in, which
+ * is what `incomplete` means on the ladder. Returned as a LIST so the detail
+ * panel can say precisely what is missing instead of the word "incomplete",
+ * which tells an operator nothing they can act on.
+ */
+export function missingProfileFields(
+  kind: PersonKind,
+  row: { phone?: string | null; segment?: string | null; email?: string | null },
+): string[] {
+  const missing: string[] = [];
+  if (!(row.email ?? "").trim()) missing.push("Email address");
+  if (!(row.phone ?? "").trim()) missing.push("Phone number");
+  if (kind === "driver" && !(row.segment ?? "").trim()) missing.push("Vehicle type");
+  if (kind === "merchant" && !(row.segment ?? "").trim()) missing.push("What they sell");
+  return missing;
+}

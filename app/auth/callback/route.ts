@@ -74,6 +74,32 @@ export async function GET(request: Request) {
         // the next sign-in, and the account itself is valid either way.
         console.error("claim_guest_orders failed in auth callback", err);
       }
+
+      // ── AND THE INVITATIONS, FOR THE SAME REASON (M108) ──────────────────
+      // The paragraph above describes exactly what had ALSO happened to
+      // invitations: claim_organizer_invite was called only from the password
+      // branch of /login, so anybody who did what their invitation email told
+      // them to do — "create your account with this address" — confirmed that
+      // account, landed HERE, and was never linked to the thing they had been
+      // invited to. Creating an account is the one path that cannot go through
+      // the password branch, so the invited were the people it missed.
+      //
+      // Claimed before the redirect so the destination below can be theirs.
+      let claims = { organizer: false, merchant: false, driver: false };
+      try {
+        const { claimInvites } = await import("@/lib/invites/claim");
+        claims = await claimInvites(supabase);
+      } catch (err) {
+        console.error("invite claim failed in auth callback", err);
+      }
+
+      // An explicit `next` still wins — a link to a specific page was asked for
+      // on purpose. Only the default destination is redirected.
+      if (next === "/orders") {
+        const { homeForClaims } = await import("@/lib/invites/claim");
+        const home = homeForClaims(claims);
+        if (home) return NextResponse.redirect(`${origin}${home}`);
+      }
       return NextResponse.redirect(`${origin}${next}`);
     }
   }

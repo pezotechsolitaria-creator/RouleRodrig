@@ -8,7 +8,9 @@ import {
   describeAction,
   effectiveAvailability,
   isBulkAllowed,
+  missingProfileFields,
   needsReason,
+  onboardingOf,
   storeIsOpen,
   storedAccountValue,
   verificationOf,
@@ -41,7 +43,9 @@ const FEATURE = "The People & Operations desk";
 async function loadMerchants(admin: Awaited<ReturnType<typeof getAdmin>>): Promise<PersonRow[]> {
   const { data: merchants, error } = await admin
     .from("merchants")
-    .select("id, display_name, legal_name, contact_email, contact_phone, status, kyc_status, created_at, system_key")
+    .select(
+      "id, display_name, legal_name, contact_email, contact_phone, status, kyc_status, created_at, system_key, owner_id, invite_email, invited_at",
+    )
     .order("created_at", { ascending: false });
   if (error) throw error;
 
@@ -58,19 +62,35 @@ async function loadMerchants(admin: Awaited<ReturnType<typeof getAdmin>>): Promi
     .map((m) => {
       const account = accountStateOf("merchant", m.status as string);
       const mine = (stores ?? []).filter((s) => s.merchant_id === m.id);
+      const verification = verificationOf(m.kyc_status as string);
+      const email = (m.contact_email as string) ?? "";
+      const phone = (m.contact_phone as string) ?? "";
+      const segment = mine.find((s) => s.category_hint)?.category_hint ?? "";
       return {
         id: m.id as string,
         kind: "merchant" as const,
         name: (m.display_name as string) ?? "",
         subtitle: (m.legal_name as string) ?? "",
-        email: (m.contact_email as string) ?? "",
-        phone: (m.contact_phone as string) ?? "",
+        email,
+        phone,
         account,
-        verification: verificationOf(m.kyc_status as string),
-        segment: mine.find((s) => s.category_hint)?.category_hint ?? "",
+        verification,
+        segment,
         storesTotal: mine.length,
         storesOpen: mine.filter((s) => storeIsOpen(account, s.status)).length,
         joinedAt: (m.created_at as string) ?? "",
+        // owner_id is the whole test for "has a real person taken this over?".
+        // Before M108 it could not be null, so every merchant was claimed by
+        // definition and the question did not exist.
+        claimed: !!m.owner_id,
+        inviteEmail: (m.invite_email as string) ?? null,
+        invitedAt: (m.invited_at as string) ?? null,
+        onboarding: onboardingOf({
+          claimed: !!m.owner_id,
+          inviteEmail: m.invite_email as string | null,
+          profileComplete: missingProfileFields("merchant", { email, phone, segment }).length === 0,
+          verification,
+        }),
       };
     });
 }
@@ -87,7 +107,7 @@ async function loadDrivers(admin: Awaited<ReturnType<typeof getAdmin>>): Promise
   const { data, error } = await admin
     .from("delivery_drivers")
     .select(
-      "id, full_name, phone, vehicle_type, vehicle_details, licence_reference, status, availability, approved_at, created_at",
+      "id, full_name, phone, vehicle_type, vehicle_details, licence_reference, status, availability, approved_at, created_at, user_id, invite_email, invited_at",
     )
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -95,18 +115,39 @@ async function loadDrivers(admin: Awaited<ReturnType<typeof getAdmin>>): Promise
   return (data ?? []).map((d) => {
     const account = accountStateOf("driver", d.status as string);
     const hasLicence = !!(d.licence_reference as string | null)?.trim();
+    const verification = d.approved_at
+      ? ("verified" as const)
+      : hasLicence
+        ? ("submitted" as const)
+        : ("unsubmitted" as const);
+    // A driver has no email column of its own — the address only exists while
+    // the invitation is outstanding, and after that it lives on auth.users.
+    const email = ((d.invite_email as string) ?? "").trim();
+    const phone = (d.phone as string) ?? "";
+    const segment = (d.vehicle_type as string) ?? "";
     return {
       id: d.id as string,
       kind: "driver" as const,
       name: (d.full_name as string) ?? "",
       subtitle: (d.vehicle_details as string) ?? "",
-      email: "",
-      phone: (d.phone as string) ?? "",
+      email,
+      phone,
       account,
-      verification: d.approved_at ? ("verified" as const) : hasLicence ? ("submitted" as const) : ("unsubmitted" as const),
-      segment: (d.vehicle_type as string) ?? "",
+      verification,
+      segment,
       availability: effectiveAvailability(account, d.availability as string),
       joinedAt: (d.created_at as string) ?? "",
+      claimed: !!d.user_id,
+      inviteEmail: (d.invite_email as string) ?? null,
+      invitedAt: (d.invited_at as string) ?? null,
+      onboarding: onboardingOf({
+        claimed: !!d.user_id,
+        inviteEmail: d.invite_email as string | null,
+        // An email address is not required of a driver who signed themselves
+        // up, so it is not counted as missing for one.
+        profileComplete: missingProfileFields("driver", { email: email || "n/a", phone, segment }).length === 0,
+        verification,
+      }),
     };
   });
 }

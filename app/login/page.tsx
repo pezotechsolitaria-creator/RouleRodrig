@@ -167,23 +167,33 @@ function LoginForm() {
     } catch (err) {
       console.error("claim_guest_orders failed", err);
     }
-    // An EVENT ORGANISER belongs in their own area, not in /orders (M43/M44).
-    // Claim first — someone invited after they signed up is only linked at this
-    // moment — then ask. Both calls are idempotent and server-side; a failure in
-    // either just means the customer destination, never a blocked sign-in.
+    // Somebody invited to RUN something — an event, a kitchen, a shop, a
+    // delivery round — belongs in their own area, not in /orders (M43/M44,
+    // M108). Claim first: a person invited after they already had an account is
+    // linked at exactly this moment. Every claim is idempotent and server-side,
+    // and a failure in any of them just means the customer destination, never a
+    // blocked sign-in.
     //
-    // `next` still wins when it was explicitly asked for, so an organiser who
+    // `next` still wins when it was explicitly asked for, so anybody who
     // followed a link to a specific page still lands there.
     if (!searchParams.get("next")) {
       try {
-        await supabase.rpc("claim_organizer_invite");
+        const { claimInvites, homeForClaims } = await import("@/lib/invites/claim");
+        const claims = await claimInvites(supabase);
+        const home = homeForClaims(claims);
+        if (home) {
+          window.location.href = home;
+          return;
+        }
+        // An organiser assigned by an event owner rather than by invitation is
+        // not "claimed" by anything, so the role itself is still the authority.
         const { data: isOrganizer } = await supabase.rpc("is_event_organizer");
         if (isOrganizer) {
           window.location.href = "/organizer";
           return;
         }
       } catch (err) {
-        console.error("organizer check failed", err);
+        console.error("invite claim failed", err);
       }
     }
     window.location.href = next;

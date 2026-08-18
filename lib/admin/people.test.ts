@@ -16,6 +16,12 @@ import {
   storeIsOpen,
   storedAccountValue,
   verificationOf,
+  canResendInvite,
+  missingProfileFields,
+  normalizePhone,
+  onboardingOf,
+  RESEND_COOLDOWN_MS,
+  whoseMove,
   type PersonRow,
 } from "./people";
 
@@ -34,6 +40,10 @@ const row = (over: Partial<PersonRow> = {}): PersonRow => ({
   verification: "verified",
   segment: "restaurant",
   joinedAt: "2026-01-01T00:00:00Z",
+  onboarding: "complete",
+  inviteEmail: null,
+  invitedAt: null,
+  claimed: true,
   ...over,
 });
 
@@ -271,5 +281,175 @@ describe("the counters", () => {
     expect(s.online).toBe(1);
     expect(s.busy).toBe(1);
     expect(s.shopsOpen).toBeUndefined();
+  });
+});
+
+// ── Admin-assisted onboarding ───────────────────────────────────────
+//
+// Some of the people who sell and deliver here will not fill in a sign-up form,
+// so an admin creates the account for them. What follows is the set of rules
+// that keeps "created for them" from becoming "controlled by us".
+
+describe("the onboarding ladder is not the account state", () => {
+  it("puts an unclaimed invitation on the first rung", () => {
+    expect(
+      onboardingOf({
+        claimed: false,
+        inviteEmail: "marie@example.com",
+        profileComplete: true,
+        verification: "unsubmitted",
+      }),
+    ).toBe("invited");
+  });
+
+  it("moves them off it the moment they sign in — while the account is STILL pending", () => {
+    // This is the whole reason the ladder is separate. The account state has
+    // not changed and must not: an admin still has to approve them. What
+    // changed is whose move it is.
+    const state = onboardingOf({
+      claimed: true,
+      inviteEmail: "marie@example.com",
+      profileComplete: true,
+      verification: "unsubmitted",
+    });
+    expect(state).toBe("activated");
+    expect(whoseMove(state)).toBe("us");
+    expect(whoseMove("invited")).toBe("them");
+  });
+
+  it("says incomplete when they own it but have not filled it in", () => {
+    expect(
+      onboardingOf({
+        claimed: true,
+        inviteEmail: "marie@example.com",
+        profileComplete: false,
+        verification: "unsubmitted",
+      }),
+    ).toBe("incomplete");
+  });
+
+  it("hands it back to us once documents are in, and finishes at verified", () => {
+    const base = { claimed: true, inviteEmail: null, profileComplete: true } as const;
+    expect(onboardingOf({ ...base, verification: "submitted" })).toBe("awaiting_verification");
+    expect(onboardingOf({ ...base, verification: "in_review" })).toBe("awaiting_verification");
+    expect(onboardingOf({ ...base, verification: "verified" })).toBe("complete");
+    expect(whoseMove("complete")).toBe("nobody");
+  });
+
+  it("never puts a self-service signup on the invited rung", () => {
+    // Nobody invited them, so "waiting for them to accept" is meaningless.
+    expect(
+      onboardingOf({
+        claimed: true,
+        inviteEmail: null,
+        profileComplete: true,
+        verification: "unsubmitted",
+      }),
+    ).toBe("activated");
+  });
+
+  it("counts who is still to turn up, separately from who is still to be checked", () => {
+    const rows = [
+      row({ id: "a", onboarding: "invited", claimed: false, account: "pending" }),
+      row({ id: "b", onboarding: "invited", claimed: false, account: "pending" }),
+      row({ id: "c", onboarding: "awaiting_verification", verification: "submitted" }),
+      row({ id: "d" }),
+    ];
+    const s = computeStats(rows, "merchant");
+    expect(s.awaitingActivation).toBe(2);
+    expect(s.awaitingVerification).toBe(1);
+  });
+
+  it("filters by it, and survives a hand-edited URL", () => {
+    const rows = [row({ id: "a", onboarding: "invited" }), row({ id: "b" })];
+    expect(applyFilter(rows, { ...DEFAULT_FILTER, onboarding: "invited" }).map((r) => r.id)).toEqual(["a"]);
+    expect(filterFromParams({ onboarding: "nonsense" }).onboarding).toBe("all");
+    expect(paramsFromFilter({ ...DEFAULT_FILTER, onboarding: "invited" }).get("onboarding")).toBe("invited");
+  });
+});
+
+describe("a local phone number reaches the database in E.164", () => {
+  // delivery_drivers.phone is CHECKed against ^\+[1-9][0-9]{6,15}$. Without
+  // this, an admin typing a number the way it is written on the island gets a
+  // bare 23514 they cannot act on. M108's live assertion hit exactly that.
+  it("adds the country code to a local number, however it is spaced", () => {
+    expect(normalizePhone("5835 5588")).toBe("+23058355588");
+    expect(normalizePhone("58-35-55-88")).toBe("+23058355588");
+    expect(normalizePhone(" (5835) 5588 ")).toBe("+23058355588");
+  });
+
+  it("respects a number that already carries a country code", () => {
+    expect(normalizePhone("+230 5835 5588")).toBe("+23058355588");
+    expect(normalizePhone("0033 6 12 34 56 78")).toBe("+33612345678");
+    expect(normalizePhone("+33 6 12 34 56 78")).toBe("+33612345678");
+  });
+
+  it("refuses what the constraint would refuse, rather than passing it on", () => {
+    expect(normalizePhone("")).toBeNull();
+    expect(normalizePhone("   ")).toBeNull();
+    expect(normalizePhone("abc")).toBeNull();
+    expect(normalizePhone("12")).toBeNull();
+    expect(normalizePhone("+0123456789")).toBeNull();
+    expect(normalizePhone("+1234567890123456789")).toBeNull();
+  });
+});
+
+describe("resending an invitation", () => {
+  const invited = {
+    claimed: false,
+    inviteEmail: "marie@example.com",
+    invitedAt: "2026-08-18T10:00:00Z",
+  };
+  const at = (iso: string) => Date.parse(iso);
+
+  it("is refused inside the cooldown, and allowed after it", () => {
+    expect(canResendInvite(invited, at("2026-08-18T10:01:00Z")).ok).toBe(false);
+    expect(canResendInvite(invited, at("2026-08-18T10:01:00Z")).waitMs).toBe(RESEND_COOLDOWN_MS - 60_000);
+    expect(canResendInvite(invited, at("2026-08-18T10:06:00Z")).ok).toBe(true);
+  });
+
+  it("is refused once they have signed in, because there is nothing left to claim", () => {
+    expect(canResendInvite({ ...invited, claimed: true }, at("2026-09-01T00:00:00Z")).ok).toBe(false);
+  });
+
+  it("is refused for somebody who was never invited", () => {
+    expect(canResendInvite({ claimed: true, inviteEmail: null, invitedAt: null }).ok).toBe(false);
+  });
+
+  it("is allowed when the timestamp is missing rather than blocked forever", () => {
+    // An invitation with no invited_at is old or was written by hand. Refusing
+    // to ever resend it would strand the person with no way through.
+    expect(canResendInvite({ ...invited, invitedAt: null }).ok).toBe(true);
+  });
+});
+
+describe("what is still missing is listed, not summarised", () => {
+  it("names the fields so the panel can say which", () => {
+    expect(missingProfileFields("driver", { email: "a@b.co", phone: "", segment: "scooter" })).toEqual([
+      "Phone number",
+    ]);
+    expect(missingProfileFields("driver", { email: "", phone: "", segment: "" })).toEqual([
+      "Email address",
+      "Phone number",
+      "Vehicle type",
+    ]);
+    expect(missingProfileFields("merchant", { email: "a@b.co", phone: "+230", segment: "cafe" })).toEqual([]);
+  });
+});
+
+describe("the invitation never becomes a second way to be active", () => {
+  it("keeps an invited driver offline even if the column says otherwise", () => {
+    // Belt and braces with admin_invite_driver, which writes 'offline'. If a
+    // stray write ever set availability on a pending driver, dispatch still
+    // must not see them.
+    expect(effectiveAvailability("pending", "available")).toBe("offline");
+  });
+
+  it("does not let resend_invite into a bulk run", () => {
+    // Low risk per person, but a bulk resend is a way to mail everybody at
+    // once, which is spam with an admin cookie in front of it.
+    expect(isBulkAllowed("resend_invite")).toBe(false);
+    expect(ACTION_RISK.resend_invite).toBe("low");
+    expect(needsReason("resend_invite")).toBe(false);
   });
 });

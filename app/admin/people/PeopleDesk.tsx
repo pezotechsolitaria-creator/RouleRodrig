@@ -3,15 +3,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
-  BadgeCheck, Bike, Building2, CheckCircle2, ChevronRight, Loader2, MoreHorizontal,
-  RefreshCw, Search, ShieldOff, Store, TriangleAlert, UserCheck, UserX, X,
+  BadgeCheck, Bike, Building2, CheckCircle2, ChevronRight, Loader2, Mail, MoreHorizontal,
+  Plus, RefreshCw, Search, ShieldOff, Store, TriangleAlert, UserCheck, UserX, X,
 } from "lucide-react";
 import {
-  ACCOUNT_LABEL, AVAILABILITY_LABEL, BULK_ACTIONS, VERIFICATION_LABEL,
-  applyFilter, computeStats, describeAction, filterFromParams, paginate, paramsFromFilter,
-  type AccountState, type PeopleAction, type PeopleFilter, type PersonKind, type PersonRow,
+  ACCOUNT_LABEL, AVAILABILITY_LABEL, BULK_ACTIONS, ONBOARDING_LABEL, VERIFICATION_LABEL,
+  applyFilter, canResendInvite, computeStats, describeAction, filterFromParams, missingProfileFields,
+  paginate, paramsFromFilter, whoseMove,
+  type AccountState, type OnboardingState, type PeopleAction, type PeopleFilter, type PersonKind,
+  type PersonRow,
 } from "@/lib/admin/people";
 import ConfirmAction from "./ConfirmAction";
+import InvitePerson from "./InvitePerson";
 
 type Detail = {
   operations: Record<string, unknown>;
@@ -24,6 +27,18 @@ const ACCOUNT_TONE: Record<AccountState, string> = {
   pending: "border-amber-500/30 bg-amber-500/10 text-amber-200",
   suspended: "border-red-500/30 bg-red-500/10 text-red-300",
   deactivated: "border-white/12 bg-white/[0.03] text-muted",
+};
+
+// The ladder is coloured by WHOSE MOVE IT IS, not by how far along it is.
+// Amber is "we are waiting on them", sky is "somebody here owes them
+// something", and a finished profile earns no badge at all — a row with nothing
+// outstanding should be quiet.
+const ONBOARDING_TONE: Record<OnboardingState, string> = {
+  invited: "border-amber-500/30 bg-amber-500/10 text-amber-200",
+  activated: "border-sky-500/30 bg-sky-500/10 text-sky-300",
+  incomplete: "border-amber-500/30 bg-amber-500/10 text-amber-200",
+  awaiting_verification: "border-sky-500/30 bg-sky-500/10 text-sky-300",
+  complete: "border-white/12 bg-white/[0.03] text-muted",
 };
 
 function Badge({ tone, children }: { tone: string; children: React.ReactNode }) {
@@ -64,6 +79,8 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
   const [actionError, setActionError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [inviting, setInviting] = useState(false);
+  const [resending, setResending] = useState<string | null>(null);
 
   // ── The URL is the state ──────────────────────────────────────────────────
   // A filtered view can be shared with somebody else, bookmarked, and survives
@@ -147,6 +164,42 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
     router.replace(qs.toString() ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
 
+  /**
+   * Send the invitation again.
+   *
+   * Not routed through ConfirmAction: it changes nothing, and a modal asking
+   * "are you sure you want to send an email again?" trains people to click
+   * through modals. The COOLDOWN is what protects the invitee, and it is
+   * enforced on the server — this button only reports what the server said.
+   */
+  async function resendInvite(r: PersonRow) {
+    if (resending) return;
+    setResending(r.id);
+    setActionError(null);
+    try {
+      const res = await fetch("/api/admin/people/invite", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, id: r.id }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; invited?: boolean };
+      if (!res.ok) {
+        setActionError(data.error ?? "That invitation could not be sent again.");
+        return;
+      }
+      setToast(
+        data.invited
+          ? `Invitation sent to ${r.inviteEmail}`
+          : "The invitation was recorded but the email did not go out.",
+      );
+      await load();
+    } catch {
+      setActionError("Could not reach the server.");
+    } finally {
+      setResending(null);
+    }
+  }
+
   async function run(action: PeopleAction, ids: string[], reason: string) {
     setBusy(true);
     setActionError(null);
@@ -204,21 +257,30 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
             <Icon size={15} /> {label}
           </button>
         ))}
+        {/* Assisted onboarding. Self-service is unchanged and still how most
+            people join — this is for the ones who will not fill in a form. */}
+        <button
+          onClick={() => { setActionError(null); setInviting(true); }}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-yellow/40 bg-yellow/10 px-3.5 py-2 font-dm text-[12.5px] text-yellow hover:bg-yellow/15"
+        >
+          <Plus size={14} /> {kind === "merchant" ? "Add merchant" : "Add partner"}
+        </button>
         <button
           onClick={() => void load()}
           aria-label="Refresh"
-          className="ml-auto flex h-9 w-9 items-center justify-center rounded-full border border-white/12 text-muted hover:border-yellow/40 hover:text-yellow"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/12 text-muted hover:border-yellow/40 hover:text-yellow"
         >
           <RefreshCw size={14} />
         </button>
       </div>
 
       {/* ── Quick stats — every one a count of rows actually held ─────────── */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
         <Metric label="Total" value={rows ? stats.total : null} />
         <Metric label="Active" value={rows ? stats.active : null} />
         <Metric label="Pending" value={rows ? stats.pending : null} />
         <Metric label="Suspended" value={rows ? stats.suspended : null} />
+        <Metric label="Not signed in" value={rows ? stats.awaitingActivation : null} />
         <Metric label="Awaiting checks" value={rows ? stats.awaitingVerification : null} />
         {kind === "driver" ? (
           <Metric label="Online now" value={rows ? stats.online ?? null : null} />
@@ -288,6 +350,18 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
             {segments.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         )}
+
+        <select
+          value={filter.onboarding}
+          onChange={(e) => setFilter({ onboarding: e.target.value as PeopleFilter["onboarding"] })}
+          aria-label="Joining progress"
+          className="rounded-full border border-white/15 bg-dark px-3 py-2 font-dm text-[13px] text-offwhite focus:border-yellow focus:outline-none"
+        >
+          <option value="all">Any progress</option>
+          {(Object.keys(ONBOARDING_LABEL) as OnboardingState[]).map((k) => (
+            <option key={k} value={k}>{ONBOARDING_LABEL[k]}</option>
+          ))}
+        </select>
 
         <select
           value={filter.sort}
@@ -396,6 +470,15 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
                             {AVAILABILITY_LABEL[r.availability]}
                           </Badge>
                         )}
+                        {/* Only when something is outstanding. A finished row
+                            says nothing, which is what makes the amber ones
+                            findable at a glance. */}
+                        {r.onboarding !== "complete" && (
+                          <Badge tone={ONBOARDING_TONE[r.onboarding]}>
+                            {r.onboarding === "invited" && <Mail size={11} className="mr-1" />}
+                            {ONBOARDING_LABEL[r.onboarding]}
+                          </Badge>
+                        )}
                         {r.kind === "merchant" && (r.storesTotal ?? 0) > 0 && (
                           <Badge tone="border-white/12 bg-white/[0.03] text-muted">
                             {r.storesOpen}/{r.storesTotal} shop{r.storesTotal === 1 ? "" : "s"} open
@@ -435,6 +518,14 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
                                 <Icon size={14} className="text-muted" /> {label}
                               </button>
                             ))}
+                            {canResendInvite(r).ok && (
+                              <button
+                                onClick={() => { setMenuFor(null); void resendInvite(r); }}
+                                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left font-dm text-[12.5px] text-offwhite hover:bg-white/[0.05]"
+                              >
+                                <Mail size={14} className="text-muted" /> Resend invitation
+                              </button>
+                            )}
                             <button
                               onClick={() => { setMenuFor(null); setOpen(r); }}
                               className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left font-dm text-[12.5px] text-muted hover:bg-white/[0.05]"
@@ -542,6 +633,63 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
               ))}
             </dl>
 
+            {/* ── JOINING ──────────────────────────────────────────────
+                Shown only while something is outstanding. The point of this
+                block is to answer "why is this person not working yet?" in one
+                glance, and name the next action rather than a status word. */}
+            {open.onboarding !== "complete" && (
+              <>
+                <h3 className="mt-5 font-bebas text-[11px] tracking-[0.28em] text-yellow">JOINING</h3>
+                <div className="mt-2 rounded-xl border border-white/10 bg-dark-card p-3">
+                  <div className="flex items-center gap-2">
+                    <Badge tone={ONBOARDING_TONE[open.onboarding]}>{ONBOARDING_LABEL[open.onboarding]}</Badge>
+                    <span className="font-dm text-[11.5px] text-muted">
+                      {whoseMove(open.onboarding) === "them" ? "Waiting on them" : "Waiting on us"}
+                    </span>
+                  </div>
+
+                  {open.onboarding === "invited" && (
+                    <p className="mt-2 font-dm text-[12px] text-muted">
+                      Invited{open.invitedAt ? ` on ${new Date(open.invitedAt).toLocaleDateString()}` : ""} at{" "}
+                      <span className="text-offwhite">{open.inviteEmail}</span>. They have not signed in
+                      yet. Nobody here can sign in for them — they choose their own password.
+                    </p>
+                  )}
+
+                  {open.onboarding === "incomplete" && (
+                    <div className="mt-2">
+                      <p className="font-dm text-[12px] text-muted">Still missing:</p>
+                      <ul className="mt-1 flex flex-wrap gap-1.5">
+                        {missingProfileFields(open.kind, open).map((f) => (
+                          <li key={f}>
+                            <Badge tone="border-amber-500/30 bg-amber-500/10 text-amber-200">{f}</Badge>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {open.onboarding === "activated" && (
+                    <p className="mt-2 font-dm text-[12px] text-muted">
+                      They have signed in and the account is theirs. It is still pending your approval
+                      — signing in proves who they are, not that they are ready to trade.
+                    </p>
+                  )}
+
+                  {canResendInvite(open).ok && (
+                    <button
+                      onClick={() => void resendInvite(open)}
+                      disabled={resending === open.id}
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3.5 py-2 font-dm text-[12.5px] text-offwhite hover:border-yellow/40 disabled:opacity-50"
+                    >
+                      {resending === open.id ? <Loader2 size={13} className="animate-spin" /> : <Mail size={13} />}
+                      Resend invitation
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+
             <h3 className="mt-5 font-bebas text-[11px] tracking-[0.28em] text-yellow">PERFORMANCE</h3>
             {detail ? (
               <div className="mt-2 grid grid-cols-2 gap-2">
@@ -600,6 +748,14 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
             </div>
           </aside>
         </div>
+      )}
+
+      {inviting && (
+        <InvitePerson
+          kind={kind}
+          onClose={() => setInviting(false)}
+          onCreated={() => void load()}
+        />
       )}
 
       {pending && (

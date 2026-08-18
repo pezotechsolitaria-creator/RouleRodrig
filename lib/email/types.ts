@@ -131,6 +131,14 @@ export const EMAIL_TYPES = {
   // counters cannot see them. They exist here so the concept is nameable, and
   // so the day auth email moves in-app the routing entry is already present.
   // The quota engine treats them as Brevo's invisible load, not as app traffic.
+  // An invitation is the ONLY route into an account somebody else created for
+  // you, which puts it in the same class as a password reset: it may be queued
+  // behind other mail, but it must never be dropped to defend a reserve. The
+  // volume is a handful ever, so guaranteeing it costs nothing. Until M108 the
+  // door and kitchen invites borrowed organizer_ticket_order_notification — a
+  // TICKETING type marked `planned` — which put access mail under a ticketing
+  // quota it had nothing to do with.
+  account_invitation:               { category: "account", priority: "critical" },
   email_verification:               { category: "account", priority: "critical", planned: true },
   password_reset:                   { category: "account", priority: "critical", planned: true },
   security_notification:            { category: "account", priority: "critical", planned: true },

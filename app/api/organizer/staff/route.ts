@@ -100,12 +100,13 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    const { notifyDoorStaffInvited } = await import("@/lib/notifications/door-staff-invite");
-    invited = await notifyDoorStaffInvited({
+    const { notifyInvited } = await import("@/lib/notifications/invite");
+    invited = await notifyInvited({
       email: added.email,
       name: added.name ?? parsed.data.name,
-      eventName: (ev as { title?: string | null } | null)?.title ?? null,
+      context: (ev as { title?: string | null } | null)?.title ?? null,
       assignmentId: added.assignmentId,
+      role: "door",
     });
   }
 

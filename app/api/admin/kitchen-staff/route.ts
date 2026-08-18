@@ -68,13 +68,12 @@ export async function POST(req: NextRequest) {
   let invited = false;
   try {
     const { data: store } = await admin.from("stores").select("name").eq("id", parsed.data.storeId).maybeSingle();
-    const { notifyDoorStaffInvited } = await import("@/lib/notifications/door-staff-invite");
-    invited = await notifyDoorStaffInvited({
+    const { notifyInvited } = await import("@/lib/notifications/invite");
+    invited = await notifyInvited({
       email: parsed.data.email,
       name: parsed.data.name,
-      eventName: (store as { name?: string } | null)?.name ?? "the kitchen",
+      context: (store as { name?: string } | null)?.name ?? "the kitchen",
       assignmentId: (data as { id?: string })?.id ?? parsed.data.email,
-      destination: "/kitchen",
       role: "kitchen",
     });
   } catch (err) {
