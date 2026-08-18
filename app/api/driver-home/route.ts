@@ -38,6 +38,15 @@ const actionSchema = z.discriminatedUnion("action", [
   // now they had no way to say it: the ride sat in 'arrived' until an admin
   // cancelled it, which recorded the loss against the driver rather than the
   // passenger who caused it.
+  // M109 — the driver moves their OWN ride. Until this existed the only route
+  // to 'arrived' or 'on_trip' was admin_set_ride_status(), so the customer's
+  // timeline advanced when the OWNER touched /admin — which is exactly the
+  // answering-service role the ride system was built to end.
+  z.object({
+    action: z.literal("advance"),
+    token: z.string().min(32).max(200),
+    to: z.enum(["driver_on_way", "arrived", "on_trip", "completed"]),
+  }),
   z.object({
     action: z.literal("noShow"),
     token: z.string().min(32).max(200),
@@ -86,6 +95,22 @@ export async function POST(req: NextRequest) {
       console.error("set_taxi_availability_by_token failed", error);
       return NextResponse.json({ ok: false }, { status: 500 });
     }
+    return NextResponse.json(data);
+  }
+
+  if (p.action === "advance") {
+    const { data, error } = await admin.rpc("driver_advance_ride_by_token", {
+      p_token: p.token, p_to: p.to,
+    });
+    if (error) {
+      console.error("driver_advance_ride_by_token failed", error);
+      return NextResponse.json({ ok: false }, { status: 500 });
+    }
+    // The RPC answers {ok:false,reason:...} for a bad token, a ride that is not
+    // theirs, and a step that is out of order. All are 200s: a driver
+    // double-tapping ARRIVED on a slow connection is the NORMAL case, and it
+    // must not surface as a fault. The client re-reads and finds itself already
+    // where it wanted to be.
     return NextResponse.json(data);
   }
 

@@ -10,6 +10,7 @@ import {
   CUSTOMER_STATUS, searchingMessage, formatRidePrice,
   RIDE_SERVICE_META, type RideStatus, type RideService,
 } from "@/lib/rides/model";
+import LiveTripView from "@/components/tracking/LiveTripView";
 
 // ── "WHERE IS MY TAXI?" ─────────────────────────────────────────────────────
 //
@@ -37,7 +38,11 @@ type Ride = {
   currency?: string;
   passengers?: number;
   rounds?: number;
-  driver?: { name: string; phone: string; vehicle: string | null } | null;
+  driver?: { name: string; phone: string; vehicle: string | null; photo?: string | null } | null;
+  // M109 — what makes the map possible. channelKey is served ONLY while the ride
+  // is live and has a driver, so it disappears the moment tracking should stop.
+  tripId?: string | null;
+  channelKey?: string | null;
 };
 
 const STEPS: { key: RideStatus; label: string }[] = [
@@ -113,6 +118,12 @@ export default function TrackRide({
 
   const found = ride?.ok === true;
   const status = ride?.status;
+  // A ride somebody is actually driving. 'assigned' counts: the driver has the
+  // job and may already be moving toward the pickup.
+  const isLive =
+    status === "assigned" || status === "driver_on_way" ||
+    status === "arrived" || status === "on_trip";
+  const showLive = Boolean(found && isLive && ride?.channelKey);
 
   return (
     <div>
@@ -186,10 +197,40 @@ export default function TrackRide({
             )}
           </div>
 
+          {/* ── THE MAP, once there is something to watch (M109) ────────────
+              Replaces the static driver card and the step list rather than
+              sitting above them: LiveTripView already contains both, and two
+              driver cards on one screen is how a page stops feeling considered.
+
+              The condition is channelKey, not status. The key is minted by the
+              server only for a ride that is genuinely live AND has a driver, so
+              this cannot show a map for a trip that has nothing to plot — and
+              a customer whose driver has not opened their phone yet gets the
+              old, honest text screen instead of an empty map. */}
+          {showLive && (
+            <LiveTripView
+              lookup={{ ref, phone }}
+              channelKey={ride.channelKey ?? null}
+              active={isLive}
+              driver={
+                ride.driver
+                  ? {
+                      name: ride.driver.name,
+                      phone: ride.driver.phone,
+                      vehicle: ride.driver.vehicle,
+                      photo: ride.driver.photo ?? null,
+                    }
+                  : null
+              }
+              pickupLabel={ride.pickup ?? null}
+              dropoffLabel={ride.dropoff ?? null}
+            />
+          )}
+
           {/* The driver, the moment there is one. Their number is the whole point
               of this screen — a customer who can call their driver does not call
               the office. */}
-          {ride.driver && (
+          {!showLive && ride.driver && (
             <div className="rounded-2xl border border-green-500/30 bg-green-500/[0.07] p-5">
               <p className="font-bebas text-[10px] tracking-[0.25em] text-green-400">YOUR DRIVER</p>
               <p className="mt-0.5 font-syne text-xl font-extrabold text-offwhite">{ride.driver.name}</p>
@@ -215,7 +256,9 @@ export default function TrackRide({
             </div>
           )}
 
-          {/* The journey. Six steps, and the one you are on is lit. */}
+          {/* The journey. Six steps, and the one you are on is lit. Hidden when
+              the live map is up — it carries its own timeline. */}
+          {!showLive && (
           <div className="rounded-2xl border border-white/10 bg-dark-card p-5">
             <ol className="space-y-0">
               {STEPS.map((s, i) => {
@@ -244,6 +287,7 @@ export default function TrackRide({
               })}
             </ol>
           </div>
+          )}
 
           {/* The journey itself, for reassurance that we got it right. */}
           <div className="rounded-2xl border border-white/10 bg-dark-card p-5">

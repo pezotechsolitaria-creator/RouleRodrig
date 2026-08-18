@@ -6,6 +6,7 @@ import {
   MessageCircle, CheckCircle2, AlertCircle, ArrowRight, Download,
 } from "lucide-react";
 import InstallAppButton from "@/components/InstallAppButton";
+import DriverJobPanel from "@/components/tracking/DriverJobPanel";
 import { formatRidePrice } from "@/lib/rides/model";
 
 // ── THE DRIVER'S WHOLE APP ──────────────────────────────────────────────────
@@ -26,10 +27,19 @@ import { formatRidePrice } from "@/lib/rides/model";
 // loop.
 
 type Offer = { token: string; pickup: string; dropoff: string; price: number | null; passengers: number; expiresAt: string };
-type Job = { pickup: string; dropoff: string; customerName: string; customerPhone: string; status: string; price: number | null };
+type Job = {
+  pickup: string; dropoff: string; customerName: string; customerPhone: string;
+  status: string; price: number | null;
+  // M109 — what Driver Mode needs to be trackable. Optional on the type so a
+  // page served from a cache older than the migration still renders the job.
+  kind?: "ride"; id?: string; channelKey?: string | null;
+  pickupLat?: number | null; pickupLng?: number | null;
+  dropoffLat?: number | null; dropoffLng?: number | null;
+};
 type Home = {
   ok: boolean; name?: string; availability?: "available" | "busy" | "off";
-  vehicle?: string | null; whatsappReady?: boolean; ridesCompleted?: number;
+  vehicle?: string | null; vehicleType?: string | null;
+  whatsappReady?: boolean; ridesCompleted?: number;
   offer?: Offer | null; job?: Job | null;
 };
 
@@ -310,53 +320,68 @@ export default function DriverHome({ token }: { token: string }) {
         </a>
       )}
 
-      {/* ── THE JOB THEY ARE ON ───────────────────────────────────────────── */}
+      {/* ── THE JOB THEY ARE ON ───────────────────────────────────────────
+          Was a static card: two contact buttons and a "nobody came" link. The
+          driver could not move their own ride, so the customer's timeline only
+          advanced when the OWNER opened /admin — the exact intervention this
+          system exists to remove. DriverJobPanel adds the one-button step
+          ladder, live GPS, the map strip and Navigate. */}
       {home.job && (
-        <div className="rounded-2xl border border-green-500/30 bg-green-500/[0.07] p-5">
-          <p className="font-bebas text-[10px] tracking-[0.25em] text-green-400">YOUR CURRENT RIDE</p>
-          <p className="mt-1.5 font-syne text-lg font-bold text-offwhite">{home.job.customerName}</p>
-          <div className="mt-2 space-y-1.5 font-dm text-sm">
-            <p className="flex items-start gap-2"><MapPin size={14} className="mt-0.5 text-green-400" /> {home.job.pickup}</p>
-            <p className="flex items-start gap-2"><Navigation size={14} className="mt-0.5 text-yellow" /> {home.job.dropoff}</p>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <a href={`tel:${home.job.customerPhone}`}
-              className="flex items-center justify-center gap-2 rounded-xl bg-yellow py-3.5 font-dm text-sm font-bold text-dark">
-              <Phone size={16} /> Call
-            </a>
-            <a href={`https://wa.me/${home.job.customerPhone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer"
-              className="flex items-center justify-center gap-2 rounded-xl bg-[#25D366] py-3.5 font-dm text-sm font-bold text-black">
-              <MessageCircle size={16} /> WhatsApp
-            </a>
-          </div>
+        <>
+          <DriverJobPanel
+            token={token}
+            working={working}
+            job={{
+              kind: "ride",
+              id: home.job.id ?? "",
+              status: home.job.status,
+              channelKey: home.job.channelKey ?? null,
+              pickup: home.job.pickup,
+              dropoff: home.job.dropoff,
+              pickupLat: home.job.pickupLat ?? null,
+              pickupLng: home.job.pickupLng ?? null,
+              dropoffLat: home.job.dropoffLat ?? null,
+              dropoffLng: home.job.dropoffLng ?? null,
+              customerName: home.job.customerName,
+              customerPhone: home.job.customerPhone,
+            }}
+            onChanged={() => load(true)}
+          />
 
           {/* Quiet and last on purpose: it is rare and it ends the job, so it
-              must not sit where a thumb lands. But it belongs HERE, because the
-              driver is standing at the pickup point looking at this exact
-              screen. Calling comes first, which is why the two contact buttons
-              stay big and this stays a line of text. */}
-          <button
-            onClick={() => void reportNoShow()}
-            disabled={noShowBusy}
-            className="mt-3 w-full font-dm text-xs text-muted underline underline-offset-2 disabled:opacity-50"
-          >
-            {noShowBusy ? "Reporting…" : "The passenger never came"}
-          </button>
-          {noShowMsg && (
-            <p role="status" className="mt-2 text-center font-dm text-xs text-offwhite/80">
-              {noShowMsg}
-            </p>
-          )}
-        </div>
+              must not sit where a thumb lands. But it belongs on this screen,
+              because the driver is standing at the pickup point looking at it. */}
+          <div className="rounded-2xl border border-white/10 bg-dark-card px-5 py-4">
+            <button
+              onClick={() => void reportNoShow()}
+              disabled={noShowBusy}
+              className="w-full font-dm text-xs text-muted underline underline-offset-2 disabled:opacity-50"
+            >
+              {noShowBusy ? "Reporting…" : "The passenger never came"}
+            </button>
+            {noShowMsg && (
+              <p role="status" className="mt-2 text-center font-dm text-xs text-offwhite/80">
+                {noShowMsg}
+              </p>
+            )}
+          </div>
+        </>
       )}
 
       {!home.offer && !home.job && working && (
-        <div className="rounded-2xl border border-white/10 bg-dark-card px-5 py-8 text-center">
-          <Car size={26} className="mx-auto text-muted" />
-          <p className="mt-2 font-dm text-sm text-muted">
-            Nothing right now. We&apos;ll message you the moment a ride comes up near you.
-          </p>
-        </div>
+        <>
+          {/* Sharing a position while merely ON DUTY is what makes "the nearest
+              driver" mean anything: dispatch has to know who is near a pickup
+              BEFORE there is a job to be near. Only the 4-second broadcast is
+              gated on having one — this is the 20-second database write. */}
+          <DriverJobPanel token={token} working={working} job={null} onChanged={() => load(true)} />
+          <div className="rounded-2xl border border-white/10 bg-dark-card px-5 py-8 text-center">
+            <Car size={26} className="mx-auto text-muted" />
+            <p className="mt-2 font-dm text-sm text-muted">
+              Nothing right now. We&apos;ll message you the moment a ride comes up near you.
+            </p>
+          </div>
+        </>
       )}
 
       {/* ── WILL I HEAR ABOUT THE NEXT ONE? ───────────────────────────────── */}

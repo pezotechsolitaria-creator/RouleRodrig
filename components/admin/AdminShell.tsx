@@ -7,7 +7,7 @@ import {
   Gauge, UtensilsCrossed, Truck, Clock, Store, Users, Ticket, UserCog,
   PenSquare, MapPinned, Wallet, MessageCircle, ScrollText, Search, Menu, X,
   ExternalLink, LogOut, Waves, Bike, Activity, Receipt, ChefHat, ShoppingBag, Car, ClipboardList,
-  Sparkles, UserCheck } from "lucide-react";
+  Sparkles, UserCheck, Radar } from "lucide-react";
 import CommandPalette from "./CommandPalette";
 
 // ── The control plane's frame ───────────────────────────────────────────────
@@ -44,6 +44,10 @@ const NAV: NavGroup[] = [
       // First in the group on purpose: this is the page that answers "is
       // anything wrong right now", so it is the one to open first.
       { href: "/admin/operations", label: "What needs you", icon: Activity },
+      // Beside "what needs you" because it answers the other half of the same
+      // question: that page says what is wrong, this one says who is out there
+      // to fix it.
+      { href: "/admin/live", label: "Live map", icon: Radar },
       // Above the three specialist desks because it is the only one that can
       // answer "what is waiting for me" — each of those sees a third of it.
       { href: "/admin/orders", label: "All orders", icon: ClipboardList },

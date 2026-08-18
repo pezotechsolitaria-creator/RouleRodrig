@@ -484,6 +484,28 @@ export async function GET(req: NextRequest) {
     console.error("chase_stale_refunds threw", err);
   }
 
+  // ── M109: end watches nobody ended ──────────────────────────────────────
+  // A driver whose phone died mid-trip leaves a LIVE capability key and a
+  // last-known position behind. Nothing else clears them: the key is normally
+  // withdrawn by the driver pressing FINISH, and a dead phone never does.
+  //
+  // The sweep also enforces the "do not track drivers forever" rule the location
+  // table was built around — positions are erased two hours after a trip ends,
+  // and any driver silent for six hours is removed outright.
+  //
+  // Idempotent, so a double run is harmless.
+  let tripsSwept = 0;
+  try {
+    const { data, error } = await supabase.rpc("sweep_trip_tracking");
+    if (error) console.error("sweep_trip_tracking failed", error);
+    else {
+      const r = (data ?? {}) as { rides?: number; deliveries?: number; stale?: number };
+      tripsSwept = (r.rides ?? 0) + (r.deliveries ?? 0) + (r.stale ?? 0);
+    }
+  } catch (err) {
+    console.error("sweep_trip_tracking threw", err);
+  }
+
   // ── Nightly content backup — snapshot site_content when it has changed ──
   let backupSaved = false;
   try {
@@ -531,6 +553,7 @@ export async function GET(req: NextRequest) {
       dishesRestocked,
       refundsChased,
       refundsEscalated,
+      tripsSwept,
       backupSaved,
       emailFailures,
       emailQuotaLevel,

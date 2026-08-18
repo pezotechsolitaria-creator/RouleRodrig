@@ -1462,3 +1462,146 @@ main > section:not(:first-of-type) {
     animation: none;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LIVE TRACKING MAP (M109)
+   ══════════════════════════════════════════════════════════════════════════
+   Leaflet ships its own opinionated chrome. Everything below is the minimum
+   needed to make a third-party map look like it belongs to this platform,
+   plus the marker itself — which is a divIcon, so it is CSS rather than an
+   image request.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* The tile sheet is the one surface we do not control. A light-mode map inside
+   a dark UI is a rectangle of glare, so the tiles are cooled and slightly
+   desaturated to sit under the yellow markers instead of fighting them. */
+.rr-tiles {
+  filter: saturate(0.82) contrast(1.04) brightness(0.97);
+}
+.dark .rr-tiles {
+  /* Not a full invert — inverted OSM tiles turn the lagoon orange. This keeps
+     hue while dropping the sheet's luminance so the markers stay the brightest
+     things on screen. */
+  filter: saturate(0.62) brightness(0.72) contrast(1.12) hue-rotate(178deg) invert(0.9);
+}
+
+.rr-divicon {
+  background: none !important;
+  border: 0 !important;
+}
+
+/* ── The vehicle ───────────────────────────────────────────────────────── */
+.rr-drv {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  transition: opacity 0.4s ease, filter 0.4s ease;
+}
+.rr-drv-body {
+  position: relative;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-yellow);
+  box-shadow: 0 3px 10px rgb(0 0 0 / 0.45), 0 0 0 2.5px #0a0a0a;
+  /* Matched to the 4s publish cadence: the icon finishes turning at about the
+     moment the next fix lands, so the rotation never visibly snaps. */
+  transition: transform 0.9s cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
+}
+.rr-drv-halo {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 999px;
+  background: var(--color-yellow);
+  opacity: 0;
+}
+/* The pulse is the "this is live" signal, and it is deliberately the ONLY
+   moving thing when the vehicle is stationary — it stops the instant the fix
+   goes stale, which is how a frozen dot tells the truth about itself. */
+.rr-drv-live .rr-drv-halo {
+  animation: rr-drv-pulse 2.4s ease-out infinite;
+}
+@keyframes rr-drv-pulse {
+  0%   { opacity: 0.45; transform: scale(0.62); }
+  70%  { opacity: 0;    transform: scale(1.5); }
+  100% { opacity: 0;    transform: scale(1.5); }
+}
+.rr-drv-sel .rr-drv-body {
+  box-shadow: 0 3px 12px rgb(0 0 0 / 0.5), 0 0 0 3px #0a0a0a, 0 0 0 6px var(--color-yellow);
+}
+
+/* ── Pickup / drop-off ─────────────────────────────────────────────────── */
+.rr-place {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+}
+.rr-place-lbl {
+  position: absolute;
+  top: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-family: var(--font-dm), system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #f5f5f0;
+  background: rgb(10 10 10 / 0.82);
+  padding: 2px 7px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+/* ── Leaflet's own chrome, brought into the design system ──────────────── */
+.leaflet-container {
+  background: #0e1419;
+  font-family: var(--font-dm), system-ui, sans-serif;
+}
+.leaflet-control-attribution {
+  background: rgb(10 10 10 / 0.7) !important;
+  color: #999 !important;
+  font-size: 9px !important;
+  padding: 1px 6px !important;
+  border-radius: 6px 0 0 0;
+}
+.leaflet-control-attribution a {
+  color: #bbb !important;
+}
+.leaflet-control-zoom a {
+  background: rgb(17 17 17 / 0.94) !important;
+  color: #f5f5f0 !important;
+  border-color: rgb(255 255 255 / 0.12) !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 30px !important;
+  font-size: 17px !important;
+}
+.leaflet-control-zoom a:hover {
+  background: rgb(34 34 34 / 0.98) !important;
+  color: var(--color-yellow) !important;
+}
+.leaflet-bar {
+  border: 0 !important;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.4) !important;
+  border-radius: 10px !important;
+  overflow: hidden;
+}
+
+/* A driver watching their own screen while driving, and a customer refreshing
+   a page in a moving car, both benefit from motion. Somebody who has asked the
+   OS to stop animations has not. */
+@media (prefers-reduced-motion: reduce) {
+  .rr-drv-live .rr-drv-halo { animation: none; opacity: 0.22; }
+  .rr-drv-body { transition: none; }
+  .rr-tiles { transition: none; }
+}

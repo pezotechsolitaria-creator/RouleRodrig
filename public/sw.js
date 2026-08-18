@@ -188,7 +188,15 @@
 // v288 — the world switch works on every page again.
 // v289 — the hero video follows you into Curated.
 // v290 — People & Operations: one desk for merchants and delivery partners.
-const CACHE = "rr-cache-v292";
+// v291/v292 — taken by the Curated hero background on main while this branch
+// was in flight. SEVENTH time two branches reached for the same number.
+// v293 — M109 live driver tracking. The driver's page, the customer's tracking
+// screen and the admin map all ship new client bundles, and globals.css gains
+// the map styles. A driver still running an older bundle would have no way to
+// advance their own ride, which is the one thing this release exists to give
+// them — so this bump is what actually delivers it. Stepping past 292 rather
+// than sharing it: a cache name that identifies two builds identifies neither.
+const CACHE = "rr-cache-v293";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

@@ -8,6 +8,7 @@ import {
 import { centsToDecimalString } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import AlertsToggle from "./AlertsToggle";
+import DeliveryTracking from "@/components/tracking/DeliveryTracking";
 import WhatsappAlerts from "./WhatsappAlerts";
 
 // ── The driver's phone ──────────────────────────────────────────────────────
@@ -272,6 +273,22 @@ export default function DriverDashboard() {
             <p className="font-dm text-xs text-muted">rupees</p>
           </div>
         </div>
+      )}
+
+      {/* ── Where the driver is (M109) ────────────────────────────────────
+          Above the job cards deliberately: a driver whose location is off is
+          invisible to dispatch AND to the customer watching them, and that has
+          to be visible before the work, not buried under it.
+
+          Only the FIRST active job is tracked. A driver holding two deliveries
+          is in one place, and the position belongs to whichever they are
+          actually doing — which is the one at the top of this list. */}
+      {approved && (
+        <DeliveryTracking
+          online={online}
+          activeId={active[0]?.id ?? null}
+          activeStatus={active[0]?.status ?? null}
+        />
       )}
 
       {error && (
