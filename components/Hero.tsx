@@ -3,9 +3,9 @@
 import Image from "next/image";
 import { MessageCircle } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
-import { useState, useEffect } from "react";
 import { DEFAULT_CONTENT, type HeroContent } from "@/lib/defaults";
 import HeroVideoLayer from "@/components/HeroVideo";
+import { INTRO, useCalm, useHeroReveal, useSplashGate } from "@/lib/hero-intro";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
 
@@ -101,43 +101,9 @@ function HeroBackdrop() {
   );
 }
 
-/**
- * The hero's opening timeline, in one place.
- *
- * Slow on purpose. The owner asked for roughly ten seconds end to end: each
- * letter placed deliberately rather than typed, a long enough pause to actually
- * read the phrase, and an unhurried dissolve into the footage. Every value here
- * is seconds unless the name says MS.
- *
- * Measured from the moment the launch splash lifts, not from page load — the
- * splash owns the first 1.8s and the headline waits for it (see gateOpen).
- *
- *   START + (letters - 1) x STAGGER + LETTER   the phrase completes   ~4.8s
- *   + HOLD_MS                                  it is held             ~7.3s
- *   + DISSOLVE / REVEAL                        it opens into video    ~8.9s
- *
- * The splash owns roughly the first 1.9s and is deliberately untouched — the
- * owner called its timing right. Added to the above that puts WELCOME TO fully
- * written at about SIX SECONDS from page load, which is the mark asked for, and
- * the whole arrival at about ten.
- *
- * So STAGGER is set from that 6s target rather than chosen for feel: with nine
- * letters it is the only value that moves the completion moment. It was tuned
- * by measuring, not by arithmetic — 0.37 landed at 5.1s and 0.47 at 6.3s, so
- * 0.45 sits on the mark.
- *
- * Tuning: STAGGER is the rhythm, HOLD_MS is how long it sits. Those two are
- * what to change; the rest only affect how soft each individual move is.
- */
-const INTRO = {
-  START: 0.25,
-  STAGGER: 0.45,
-  LETTER: 0.9,
-  LINE_GAP: 0.7,
-  HOLD_MS: 2500,
-  DISSOLVE: 1.6,
-  REVEAL: 1.7,
-} as const;
+// The opening timeline now lives in lib/hero-intro.ts, because the Curated
+// hero plays the same sequence and two copies of it would drift apart the first
+// time somebody was asked to make it slower.
 
 export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: boolean }) {
   const h = hero ?? DEFAULT_CONTENT.hero;
@@ -156,91 +122,27 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
   // appears instead of being written out.
   const prefersReduced = useReducedMotion();
 
-  // ── Wait for the launch splash before writing the headline ──────────────
+  // ── The arrival ─────────────────────────────────────────────────────────
   //
-  // The installed-app splash covers the whole page for 1.8s on a first visit
-  // (app/layout.tsx). The letters finish in about a second, so the entire
-  // reveal happened UNDERNEATH it and the one visitor it was built for — the
-  // first-time one — never saw a thing. Caught by screenshotting the real page
-  // at 620ms and finding the splash, not the hero.
-  //
-  // The splash announces itself with data-splash on <html> and removes the
-  // attribute when it finishes, including when a tap skips it early, so this
-  // follows it exactly rather than racing a hardcoded delay.
-  const [gateOpen, setGateOpen] = useState(
-    // Evaluated during render, not in an effect: setting it afterwards would
-    // let one frame through with the letters already animating, and would also
-    // be a cascading render. SSR has no document, so it defaults to open —
-    // which is correct, because the splash only ever exists on the client.
-    () => typeof document === "undefined" || !document.documentElement.hasAttribute("data-splash"),
-  );
-  useEffect(() => {
-    const html = document.documentElement;
-    if (!html.hasAttribute("data-splash")) return;
-    const mo = new MutationObserver(() => {
-      if (!html.hasAttribute("data-splash")) {
-        setGateOpen(true);
-        mo.disconnect();
-      }
-    });
-    mo.observe(html, { attributes: true, attributeFilter: ["data-splash"] });
-    // A belt-and-braces release: if the splash ever failed to clean up, the
-    // headline must still arrive rather than stay invisible for ever.
-    const failsafe = window.setTimeout(() => { setGateOpen(true); mo.disconnect(); }, 3000);
-    return () => { mo.disconnect(); window.clearTimeout(failsafe); };
-  }, []);
+  // Three things that used to be written out here and are now shared with the
+  // Curated hero: waiting for the launch splash to lift before writing the
+  // headline, tracking the reduced-motion preference, and the reveal itself.
+  // See lib/hero-intro.ts — every comment that was here went with them.
+  const gateOpen = useSplashGate();
+  const calm = useCalm();
 
-  // Honour reduced motion by keeping the text put. Content that leaves on its
-  // own is exactly the kind of unrequested movement this setting is about, and
-  // in that mode the hero is a still photograph with a headline over it.
-  const [calm, setCalm] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const sync = () => setCalm(mq.matches);
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
-  // ── The reveal: words dissolve, the island comes up ─────────────────────
-  //
-  // The headline used to leave ONLY when footage happened to start, so on a
-  // slow connection the words simply sat there and the arrival never resolved.
-  // The dissolve now runs on its own clock, straight off the end of the
-  // letters, and the darkening lifts with it — one movement, not two events.
-  //
-  // It is gated on there BEING a video. Without one this headline IS the hero
-  // (that is why the original never removed it blind), so on a visit with no
-  // footage the words stay and nothing dims away to an empty photograph.
+  // Gated on there BEING a video. Without one this headline IS the hero, so on
+  // a visit with no footage the words stay and nothing dims away to an empty
+  // photograph.
   const hasVideo = (h.videos ?? []).some((v) => v?.enabled !== false && !!v?.url);
-  const [revealed, setRevealed] = useState(false);
-
-  // Derived from the copy rather than hardcoded, so editing the headline in
-  // admin cannot leave the timing describing a sentence that no longer exists.
-  const longestLine = headlineLines.filter((l) => l?.trim()).reduce((n, l) => Math.max(n, [...l].length), 0);
-  const lettersDoneMs =
-    (INTRO.START + Math.max(0, longestLine - 1) * INTRO.STAGGER + INTRO.LETTER) * 1000;
-
-  useEffect(() => {
-    if (!gateOpen || !hasVideo || prefersReduced) return;
-    // A real pause, not a beat. The phrase has to be readable at a glance and
-    // then sit there long enough to register before the island takes over.
-    const t = window.setTimeout(() => setRevealed(true), lettersDoneMs + INTRO.HOLD_MS);
-    return () => window.clearTimeout(t);
-  }, [gateOpen, hasVideo, prefersReduced, lettersDoneMs]);
+  const revealed = useHeroReveal({
+    hasVideo,
+    calm: !!prefersReduced,
+    lines: headlineLines,
+  });
 
   // Reduced motion keeps the headline permanently: content that leaves on its
   // own is exactly the unrequested movement that setting is about.
-  //
-  // DELIBERATELY NOT `|| videoPlaying`. It used to be, and it made the length of
-  // the whole arrival depend on how fast a YouTube embed happened to start:
-  // measured 9.5s on one load and 9.0s on the next with SLOWER settings,
-  // because the video beat the timer and took the text with it. A sequence the
-  // owner asked to be ten seconds cannot be at the mercy of a third-party
-  // player's buffering.
-  //
-  // `revealed` only fires when there IS a video configured, so the old
-  // protection still holds: a hero with no footage keeps its headline rather
-  // than dissolving to a bare photograph.
   const hideText = !calm && revealed;
 
   return (

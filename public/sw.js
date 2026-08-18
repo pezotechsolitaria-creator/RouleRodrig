@@ -188,7 +188,7 @@
 // v288 — the world switch works on every page again.
 // v289 — the hero video follows you into Curated.
 // v290 — People & Operations: one desk for merchants and delivery partners.
-const CACHE = "rr-cache-v291";
+const CACHE = "rr-cache-v292";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

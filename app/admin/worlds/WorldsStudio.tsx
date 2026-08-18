@@ -707,6 +707,10 @@ function HeroPanel({ doc, patch }: { doc: WorldDoc; patch: (n: Partial<WorldDoc>
   const hero = doc.hero;
   const set = (p: Partial<WorldDoc["hero"]>) => patch({ hero: { ...hero, ...p } });
   const images = hero.images ?? [];
+  const bg = hero.background ?? {};
+  const setBg = (p: Partial<NonNullable<WorldDoc["hero"]["background"]>>) =>
+    set({ background: { ...bg, ...p } });
+  const painted = bg.mode === "colour";
 
   return (
     <Disclosure title="Hero" subtitle="The signature moment" defaultOpen>
@@ -749,9 +753,76 @@ function HeroPanel({ doc, patch }: { doc: WorldDoc; patch: (n: Partial<WorldDoc>
         </div>
       )}
 
+      {/* ── BACKGROUND ────────────────────────────────────────────────────
+          Above the stills on purpose: it decides whether there are any. */}
+      <Field
+        label="Background"
+        hint={
+          painted
+            ? "The hero opens on colour. No photograph is loaded at all — the drifting glow and the horizon lines are drawn."
+            : "The hero opens on photography. The colour below still sits underneath it, and shows while the photo loads."
+        }
+      >
+        <div className="flex flex-wrap gap-2">
+          {([
+            { v: "photo" as const, label: "Photograph" },
+            { v: "colour" as const, label: "Colour" },
+          ]).map(({ v, label }) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setBg({ mode: v })}
+              aria-pressed={(bg.mode ?? "photo") === v}
+              className={`rounded-full border px-3.5 py-2 font-dm text-[12.5px] transition-colors ${
+                (bg.mode ?? "photo") === v
+                  ? "border-yellow/50 bg-yellow/15 text-yellow"
+                  : "border-white/12 text-muted hover:border-yellow/40 hover:text-offwhite"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </Field>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <ColourField
+          label="Background colour"
+          hint="What the whole hero sits on. Leave empty for the world's own near-black."
+          placeholder="#0A0908"
+          value={bg.colour ?? ""}
+          onChange={(colour) => setBg({ colour: colour || undefined })}
+        />
+        <ColourField
+          label="Glow colour"
+          hint="The drifting light and the horizon lines. Champagne by default."
+          placeholder="#E3C8A2"
+          value={bg.accent ?? ""}
+          onChange={(accent) => setBg({ accent: accent || undefined })}
+        />
+      </div>
+
+      <Field
+        label="Move the background"
+        hint="Off leaves the colour and the glow completely still. Readers who have asked for reduced motion get the still version either way."
+      >
+        <label className="flex items-center gap-2 font-dm text-[13px] text-offwhite">
+          <input
+            type="checkbox"
+            checked={bg.animated !== false}
+            onChange={(e) => setBg({ animated: e.target.checked })}
+          />
+          {bg.animated === false ? "Still" : "Drifting"}
+        </label>
+      </Field>
+
       <Field
         label="Hero stills"
-        hint="Leave empty and the page borrows the site's hero photo and the island's best-photographed places."
+        hint={
+          painted
+            ? "Not shown while the background is set to Colour — they are kept, so switching back restores them."
+            : "Leave empty and the page borrows the site's hero photo and the island's best-photographed places."
+        }
       >
         <div className="space-y-2">
           {images.map((src, i) => (
@@ -815,6 +886,64 @@ function HeroPanel({ doc, patch }: { doc: WorldDoc; patch: (n: Partial<WorldDoc>
         </Field>
       </div>
     </Disclosure>
+  );
+}
+
+/**
+ * A colour, pickable or typed.
+ *
+ * Two inputs bound to one value, because neither alone is enough. The native
+ * swatch cannot express `var(--cur-champagne)` or leave the field EMPTY — it
+ * always reports a colour, so on its own there is no way to say "use the
+ * default". The text box can say both and is miserable for choosing a shade.
+ *
+ * So the swatch writes into the text box, and the text box is the truth.
+ */
+function ColourField({
+  label,
+  hint,
+  placeholder,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  placeholder?: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  // <input type="color"> demands #rrggbb. Anything else — a var(), a name, an
+  // empty field — falls back to the placeholder so the swatch has something to
+  // show without overwriting what the editor actually typed.
+  const swatch = /^#[0-9a-f]{6}$/i.test(value.trim()) ? value.trim() : placeholder ?? "#000000";
+  return (
+    <Field label={label} hint={hint}>
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={swatch}
+          onChange={(e) => onChange(e.target.value)}
+          aria-label={`${label} — pick a colour`}
+          className="h-10 w-12 shrink-0 cursor-pointer rounded-lg border border-white/15 bg-dark p-1"
+        />
+        <input
+          className={inputCls}
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            aria-label={`Reset ${label}`}
+            className="shrink-0 rounded-full border border-white/12 px-2.5 py-1.5 font-dm text-[11px] text-muted hover:border-yellow/40 hover:text-offwhite"
+          >
+            Reset
+          </button>
+        )}
+      </div>
+    </Field>
   );
 }
 

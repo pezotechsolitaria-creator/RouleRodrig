@@ -320,6 +320,27 @@ export type WorldSection =
   | ReviewsSection
   | ConciergeSection;
 
+/** The layer under the hero. See WorldHero.background. */
+export interface WorldHeroBackground {
+  /**
+   * `photo` keeps the stills. `colour` drops them entirely and opens on the
+   * painted backdrop — no photograph, no LCP image, nothing to download.
+   * Absent means photo, so nothing saved before this changes.
+   */
+  mode?: "photo" | "colour";
+  /** The base the whole hero sits on. Any CSS colour. */
+  colour?: string;
+  /** The glow the animated backdrop is drawn in. Champagne by default. */
+  accent?: string;
+  /**
+   * Run the drifting glow at all.
+   *
+   * Off leaves a flat, completely still colour — which is the right answer for
+   * an editor who wants the hero quiet, and is what reduced motion gets anyway.
+   */
+  animated?: boolean;
+}
+
 export interface WorldHero {
   eyebrow: Localized;
   /** Split so the last word can carry the italic. ["Experience Rodrigues,", "elevated."] */
@@ -337,12 +358,56 @@ export interface WorldHero {
    * film stop.
    */
   ctaEnabled?: boolean;
+  /**
+   * What sits BEHIND everything else in the hero.
+   *
+   * The hero used to be photograph-or-nothing: with no stills pinned it
+   * borrowed the site's hero photo and the island's best-photographed places,
+   * which is a good default and a poor ceiling — there was no way to say "this
+   * world opens on colour, not on a picture".
+   *
+   * `colour` is that option. It paints the base and runs the animated copper
+   * backdrop instead of photography, which is also what shows through while a
+   * heavy still is still decoding and on any path where the video never plays.
+   * So it is a real background rather than a fallback: something is always
+   * painted, even on the first frame.
+   */
+  background?: WorldHeroBackground;
   /** Stills, shown in order. The first is the LCP image. */
   images: string[];
   /** Optional muted loop over the still. The still stays the poster. */
   video?: string;
   /** Seconds between stills. 0 disables the cross-fade entirely. */
   intervalSeconds?: number;
+}
+
+/**
+ * What the hero actually paints, given what the editor set.
+ *
+ * Pure, and separate from the component, because it decides three things that
+ * are easy to get subtly wrong and impossible to see in a screenshot:
+ *
+ *  · `colour` mode returns NO stills. Not "stills that are hidden" — none, so
+ *    nothing is fetched and there is no LCP image to pay for.
+ *  · the stills are KEPT in the document either way, so switching back to
+ *    Photograph restores exactly what was there.
+ *  · something is always painted. An empty colour falls back to the world's own
+ *    token rather than to transparent, which would show the page behind it.
+ */
+export function resolveHeroBackground(
+  hero: Pick<WorldHero, "background">,
+  images: string[],
+  fallback: { canvas: string; glow: string },
+): { painted: boolean; canvas: string; glow: string; animated: boolean; stills: string[] } {
+  const bg = hero.background ?? {};
+  const painted = bg.mode === "colour";
+  return {
+    painted,
+    canvas: bg.colour?.trim() || fallback.canvas,
+    glow: bg.accent?.trim() || fallback.glow,
+    animated: bg.animated !== false,
+    stills: painted ? [] : images,
+  };
 }
 
 export interface WorldDoc {
