@@ -19,6 +19,8 @@ export type AdminKitchen = {
   /** Halal certification is a property of the kitchen, and of whoever issued it. */
   halalCertified: boolean;
   halalCertifier: string | null;
+  /** Last valid day. Past this the catalog stops reporting the kitchen certified. */
+  halalCertifiedUntil: string | null;
   cookerName: string | null;
   cookerPhone: string | null;
   cookerNotes: string | null;

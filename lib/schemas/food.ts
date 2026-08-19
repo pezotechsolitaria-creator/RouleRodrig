@@ -80,6 +80,15 @@ const kitchenFields = z.object({
   // CHECK: certified is not a thing you can be anonymously.
   halalCertified: z.boolean().optional(),
   halalCertifier: z.string().trim().max(160).optional().or(z.literal("")),
+  // Null/blank stays valid: some certifications carry no date. The catalog
+  // treats a lapsed one as uncertified, so this field is what makes the badge
+  // expire by itself instead of by somebody remembering to check.
+  halalCertifiedUntil: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2027-03-31.")
+    .optional()
+    .nullable()
+    .or(z.literal("")),
 });
 
 /** The cross-field rules, applied only when both halves are present. */

@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     .from("food_kitchens")
     .select(
       "store_id, prep_minutes_min, prep_minutes_max, pickup_hint, position, " +
-        "halal_certified, halal_certifier, " +
+        "halal_certified, halal_certifier, halal_certified_until, " +
         // stores IS a real parent (food_kitchens.store_id → stores.id), so this
         // embed is the one that can be trusted.
         "stores(id, name, slug, tagline, status, address, phone, whatsapp, lat, lng)",
@@ -108,6 +108,7 @@ export async function GET(req: NextRequest) {
     position: number;
     halal_certified: boolean | null;
     halal_certifier: string | null;
+    halal_certified_until: string | null;
     stores: Record<string, unknown> | Record<string, unknown>[] | null;
 
   };
@@ -196,6 +197,7 @@ export async function GET(req: NextRequest) {
         position: r.position,
         halalCertified: r.halal_certified ?? false,
         halalCertifier: r.halal_certifier ?? null,
+        halalCertifiedUntil: r.halal_certified_until ?? null,
         cookerName: ops?.cooker_name ?? null,
         cookerPhone: ops?.cooker_phone ?? null,
         cookerNotes: ops?.cooker_notes ?? null,
@@ -306,6 +308,9 @@ export async function PATCH(req: NextRequest) {
     if (v.halalCertified !== undefined) {
       kitchenPatch.halal_certified = v.halalCertified;
       kitchenPatch.halal_certifier = v.halalCertified ? (v.halalCertifier ?? "").trim() || null : null;
+      // The date goes with the flag: un-certifying must not leave an expiry
+      // behind for a certificate that is no longer claimed at all.
+      kitchenPatch.halal_certified_until = v.halalCertified ? (v.halalCertifiedUntil || null) : null;
     } else if (v.halalCertifier !== undefined) {
       kitchenPatch.halal_certifier = v.halalCertifier.trim() || null;
     }

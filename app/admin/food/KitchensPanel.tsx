@@ -3,9 +3,10 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, Phone, MapPin, Clock, RotateCcw, EyeOff, Eye, Trash2, Check, X } from "lucide-react";
+import { Loader2, Plus, Pencil, Phone, MapPin, Clock, RotateCcw, EyeOff, Eye, Trash2, Check, X, AlertTriangle } from "lucide-react";
 import { foodWrite, type AdminKitchen } from "./types";
 import RemoveKitchenPanel from "./RemoveKitchenPanel";
+import { certificateState, needsAttention } from "@/lib/admin/halal";
 
 // Kitchens and the people who cook in them.
 //
@@ -39,6 +40,7 @@ type Draft = {
   offersRrDelivery: boolean;
   halalCertified: boolean;
   halalCertifier: string;
+  halalCertifiedUntil: string;
 };
 
 const emptyDraft = (): Draft => ({
@@ -60,6 +62,7 @@ const emptyDraft = (): Draft => ({
   offersRrDelivery: true,
   halalCertified: false,
   halalCertifier: "",
+  halalCertifiedUntil: "",
 });
 
 export default function KitchensPanel({
@@ -73,6 +76,9 @@ export default function KitchensPanel({
   // Which kitchen's remove panel is open. Only one at a time — this is not a
   // decision to make in two places at once.
   const [removing, setRemoving] = useState<string | null>(null);
+  // Read once per render, not per card: every warning on this screen should be
+  // measured against the same "today".
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   const restock = useCallback(
     async (k: AdminKitchen) => {
@@ -132,6 +138,7 @@ export default function KitchensPanel({
       offersRrDelivery: draft.offersRrDelivery,
       halalCertified: draft.halalCertified,
       halalCertifier: draft.halalCertifier.trim(),
+      halalCertifiedUntil: draft.halalCertifiedUntil || null,
     };
     setBusy("save");
     const res = await foodWrite("/api/admin/food/kitchens", {
@@ -328,6 +335,7 @@ export default function KitchensPanel({
                       offersRrDelivery: k.offersRrDelivery,
                       halalCertified: k.halalCertified,
                       halalCertifier: k.halalCertifier ?? "",
+                      halalCertifiedUntil: k.halalCertifiedUntil ?? "",
                     })
                   }
                   className="rounded-lg border border-white/15 px-2.5 py-2 text-muted hover:text-offwhite"
@@ -352,6 +360,31 @@ export default function KitchensPanel({
                 Collection: {k.pickupHint}
               </p>
             )}
+
+            {/* ── THE CERTIFICATE, WHILE THERE IS STILL TIME ────────────────
+                The database already hides a lapsed badge by itself, which is
+                the safe behaviour and a completely silent one: the owner would
+                find out weeks later, from a kitchen mysteriously absent under
+                Halal, or from a customer. This says it while renewing is still
+                possible. Wording and thresholds live in lib/admin/halal.ts. */}
+            {(() => {
+              const cert = certificateState(k, todayIso);
+              if (!needsAttention(cert)) return null;
+              const tone =
+                cert.tone === "expired"
+                  ? "border-red-500/40 bg-red-500/10 text-red-200"
+                  : cert.tone === "urgent"
+                    ? "border-amber-500/40 bg-amber-500/10 text-amber-100"
+                    : "border-white/10 bg-white/5 text-muted";
+              return (
+                <p className={`mt-2 flex items-start gap-2 rounded-xl border px-3 py-2 font-dm text-xs ${tone}`}>
+                  <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden />
+                  <span>
+                    <span className="font-semibold">Halal certificate</span> — {cert.text}
+                  </span>
+                </p>
+              );
+            })()}
             {removing === k.storeId && (
               <RemoveKitchenPanel
                 kitchen={k}
@@ -539,6 +572,23 @@ export default function KitchensPanel({
                       Shown to the customer beside the badge. Required — a certification nobody
                       issued is only a claim, and customers cannot check a name that is not there.
                     </p>
+
+                    <div className="mt-3">
+                      <span className={label}>VALID UNTIL</span>
+                      <input
+                        className={input}
+                        type="date"
+                        value={draft.halalCertifiedUntil}
+                        onChange={(e) => setDraft({ ...draft, halalCertifiedUntil: e.target.value })}
+                      />
+                      <p className="mt-1.5 font-dm text-[11px] text-muted">
+                        {/* The date is what makes the badge expire by itself. Without
+                            it the claim outlives the certificate and nobody notices. */}
+                        The day after this, customers stop seeing the halal badge automatically and
+                        these dishes leave the Halal filter. Leave blank only if the certificate
+                        genuinely has no end date — then nothing can warn you.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
