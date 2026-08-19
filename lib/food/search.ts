@@ -97,7 +97,11 @@ const DIETARY_WORDS: Record<string, string> = {
   veggie: "vegetarian",
   veg: "vegetarian",
   vegan: "vegan",
+  // Both spellings are in everyday use in Mauritius, and somebody searching for
+  // food they are allowed to eat should not have to guess ours.
   halal: "halal",
+  halaal: "halal",
+  hallal: "halal",
   "gluten-free": "gluten_free",
   glutenfree: "gluten_free",
   spicy: "spicy",

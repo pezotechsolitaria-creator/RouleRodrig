@@ -101,3 +101,21 @@ describe("parseFoodQuery", () => {
     expect(parseFoodQuery("ourite!!!").q).toContain('"octopus"');
   });
 });
+
+// Halal was in the dietary vocabulary from the start and reachable by nobody:
+// the tag existed, the filter chip did not, and a misspelling found nothing.
+describe("halal is findable however it is written", () => {
+  it("accepts the spellings people actually use", () => {
+    for (const q of ["halal", "halaal", "hallal", "HALAL", "  Halal  "]) {
+      expect(parseFoodQuery(q).dietary, q).toContain("halal");
+    }
+  });
+
+  it("finds it inside a longer question", () => {
+    expect(parseFoodQuery("halal chicken").dietary).toContain("halal");
+  });
+
+  it("does not invent it when nobody asked", () => {
+    expect(parseFoodQuery("grilled fish").dietary).not.toContain("halal");
+  });
+});

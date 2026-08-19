@@ -132,6 +132,21 @@ export default function FoodCard({
           )}
         </h3>
 
+        {/* ── HALAL, ON THE CARD ITSELF ────────────────────────────────────
+            Every other dietary tag lives on the dish page, which is the right
+            place for information you read once you are already interested.
+            Halal is not that: somebody who needs it needs it before they read
+            anything else, and making them open nine dishes to find out is the
+            same as not saying. It is the only tag here for that reason — a card
+            wearing eight pills tells you nothing at a glance. */}
+        {item.dietary?.includes("halal") && (
+          <p className="mt-1.5">
+            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-dm text-[10px] font-semibold text-emerald-300">
+              Halal
+            </span>
+          </p>
+        )}
+
         {item.descriptor && (
           <p className="mt-1 line-clamp-2 font-dm text-xs leading-snug text-muted">{item.descriptor}</p>
         )}

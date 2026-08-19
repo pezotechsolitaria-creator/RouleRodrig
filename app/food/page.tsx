@@ -239,7 +239,13 @@ export default async function FoodPage({
                 Cheapest
               </Link>
               <span className="mx-0.5 hidden w-px shrink-0 bg-white/10 sm:block" />
-              {(["vegetarian", "seafood", "gluten_free"] as const).map((tag) => (
+              {/* Halal first, and not alphabetically. The other three narrow a
+                  menu somebody is already browsing; this one decides whether
+                  they can eat here at all. A dish could be tagged halal in
+                  admin since the vocabulary shipped, but no customer could ever
+                  filter for it — the tag existed and the way to find it did
+                  not, which is the same as it not existing. */}
+              {(["halal", "vegetarian", "seafood", "gluten_free"] as const).map((tag) => (
                 <Link
                   key={tag}
                   href={foodHref(f, { diet: f.diet === tag ? "" : tag })}
