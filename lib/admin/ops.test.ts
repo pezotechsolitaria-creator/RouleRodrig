@@ -289,6 +289,44 @@ describe("a live shop nobody can pay", () => {
     const item = attentionItems({}).find((i) => i.key === "payment-blocked-stores");
     expect(item?.count ?? 0).toBe(0);
   });
+
+  // The row said "4" for days while a live kitchen took no orders, because
+  // finding out WHICH four meant opening another screen and comparing nine
+  // rows by eye. A count nobody can act on is a count they learn to ignore.
+  it("names the shops, because the number alone is not actionable", () => {
+    const item = attentionItems({
+      paymentBlockedStores: 4,
+      paymentBlockedStoreNames: [
+        "Atelier Vannerie",
+        "Chez Banane (kitchen)",
+        "Chez Marlène — Piment & Épices",
+        "Miel de Rodrigues",
+      ],
+    }).find((i) => i.key === "payment-blocked-stores");
+
+    expect(item?.names).toHaveLength(4);
+    expect(item?.names).toContain("Chez Banane (kitchen)");
+  });
+
+  it("survives having no names, so an older caller still renders", () => {
+    const item = attentionItems({ paymentBlockedStores: 2 }).find((i) => i.key === "payment-blocked-stores");
+    expect(item?.count).toBe(2);
+    expect(item?.names).toBeUndefined();
+  });
+
+  // Only the rows where identity IS the next step carry names. A queue of
+  // orders is its own list; repeating it on the dashboard is noise.
+  it("does not put names on rows that do not need them", () => {
+    const items = attentionItems({
+      paymentBlockedStores: 1,
+      paymentBlockedStoreNames: ["Chez Banane (kitchen)"],
+      emptyLiveKitchens: 3,
+      refundsOwed: 2,
+    });
+    for (const i of items) {
+      if (i.key !== "payment-blocked-stores") expect(i.names, i.key).toBeUndefined();
+    }
+  });
 });
 
 describe("a live kitchen with an empty menu", () => {

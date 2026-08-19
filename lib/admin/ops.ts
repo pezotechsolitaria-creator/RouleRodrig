@@ -17,6 +17,20 @@ export type AttentionItem = {
   severity: AttentionSeverity;
   /** Where the admin goes to deal with it. */
   href: string;
+  /**
+   * The actual things behind the number, when knowing the number is not enough
+   * to act on it.
+   *
+   * "Live shops with no bank details: 4" told the owner a real emergency was
+   * happening and nothing about where. Finding out meant opening the shops
+   * screen and comparing nine rows by eye, so the red 4 sat there for days
+   * while a live kitchen took no orders. A count you cannot act on is a count
+   * you learn to ignore.
+   *
+   * Only worth filling for the rows where the identity IS the next step —
+   * "17 orders waiting" needs no list, the queue is the list.
+   */
+  names?: string[];
 };
 
 /**
@@ -72,6 +86,11 @@ export type AttentionCounts = {
    * everyone like a shop nobody is buying from.
    */
   paymentBlockedStores?: number;
+  /**
+   * WHICH shops those are. Without this the row above is unactionable: the
+   * owner is told four shops cannot trade and left to work out which four.
+   */
+  paymentBlockedStoreNames?: string[];
   /**
    * Refunds a customer is still waiting for (M90).
    *
@@ -186,6 +205,9 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
       count: c.paymentBlockedStores ?? 0,
       severity: "critical",
       href: "/admin/stores",
+      // Named, because "4" is not something anybody can act on. Each of these
+      // is fixed in one place: the shop's Payment section on /admin/stores.
+      names: c.paymentBlockedStoreNames,
     },
     // A live restaurant with an empty menu. Not critical — nothing is broken
     // and no customer is waiting — but somebody will walk into it today.

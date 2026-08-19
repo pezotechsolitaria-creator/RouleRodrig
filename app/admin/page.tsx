@@ -131,6 +131,7 @@ export default async function CommandCenterPage() {
     { data: taxiNoShows },
     { data: refundsIgnored },
     { data: ridesAwaitingCallback },
+    { data: blockedStoreRows },
   ] = await Promise.all([
     admin.rpc("orderable_dish_count"),
     admin.rpc("empty_live_kitchen_count"),
@@ -139,6 +140,9 @@ export default async function CommandCenterPage() {
     admin.rpc("recent_no_show_count"),
     admin.rpc("ignored_refund_count"),
     admin.rpc("rides_awaiting_callback_count"),
+    // The same query as the count above, but it says WHO. The count alone was
+    // unactionable: four shops cannot trade, work out which four yourself.
+    admin.rpc("payment_blocked_stores"),
   ]);
 
   const attention: AttentionItem[] = attentionItems({
@@ -146,6 +150,13 @@ export default async function CommandCenterPage() {
     emptyLiveKitchens: typeof emptyLiveKitchens === "number" ? emptyLiveKitchens : undefined,
     paymentBlockedStores:
       typeof paymentBlockedStores === "number" ? paymentBlockedStores : undefined,
+    paymentBlockedStoreNames: Array.isArray(blockedStoreRows)
+      ? (blockedStoreRows as { store_name?: string; is_kitchen?: boolean }[]).map((r) =>
+          // A kitchen and a shop are fixed from the same screen but are
+          // different things in the owner's head, so the row says which.
+          r.is_kitchen ? `${r.store_name} (kitchen)` : String(r.store_name ?? ""),
+        )
+      : undefined,
     refundsOwed: typeof refundsOwed === "number" ? refundsOwed : undefined,
     taxiNoShows: typeof taxiNoShows === "number" ? taxiNoShows : undefined,
     refundsIgnored: typeof refundsIgnored === "number" ? refundsIgnored : undefined,
@@ -252,13 +263,22 @@ export default async function CommandCenterPage() {
                   <Link
                     key={a.key}
                     href={a.href}
-                    className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition-colors hover:border-yellow/50 ${severityStyle[a.severity]}`}
+                    className={`block rounded-xl border px-4 py-3 transition-colors hover:border-yellow/50 ${severityStyle[a.severity]}`}
                   >
-                    <span className="font-dm text-sm">{a.label}</span>
-                    <span className="flex items-center gap-2">
-                      <span className="font-syne text-base font-extrabold tabular-nums">{a.count}</span>
-                      <ArrowRight size={14} />
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="font-dm text-sm">{a.label}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="font-syne text-base font-extrabold tabular-nums">{a.count}</span>
+                        <ArrowRight size={14} />
+                      </span>
                     </span>
+                    {/* The things behind the number, when the number alone is
+                        not enough to act on. See AttentionItem.names. */}
+                    {a.names && a.names.length > 0 && (
+                      <span className="mt-1.5 block font-dm text-xs opacity-75">
+                        {a.names.join(" · ")}
+                      </span>
+                    )}
                   </Link>
                 ))}
               </div>
