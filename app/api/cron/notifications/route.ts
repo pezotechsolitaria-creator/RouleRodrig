@@ -196,6 +196,11 @@ async function run(req: NextRequest) {
   // to 'no_driver' at the end of the ladder — the loop that used to be the
   // owner's finger on a Dispatch button.
   let dispatched: unknown = null;
+  // Reported for the same reason staleWork is: this is the alert that used to
+  // leave no trace anywhere, so the run that raises it should be able to say
+  // so. `queued` counts RECIPIENTS, not rides — two owner numbers, two jobs.
+  // A queued of 0 is not an error: it also means the recipients already had it.
+  const rideAlerts = { rides: 0, queued: 0 };
   try {
     const { data, error } = await admin.rpc("auto_dispatch_rides", { p_limit: 20 });
     if (error) {
@@ -211,16 +216,15 @@ async function run(req: NextRequest) {
       );
       // A ride nobody accepted is the one case that still needs a human, so it is
       // the one case that messages one.
+      //
+      // Unlike the offers above this ENQUEUES. The offer cannot wait a tick; a
+      // ride that has already spent four rounds failing can, and queuing is
+      // what makes it reach BOTH owner numbers, retry when CallMeBot blinks,
+      // and leave a row that answers "was I told about that ride?".
       const exhausted = rides.filter((r) => !r.offered && "outcome" in r);
+      rideAlerts.rides = exhausted.length;
       for (const r of exhausted) {
-        const { data: ride } = await admin
-          .from("ride_requests")
-          .select("pickup_label, dropoff_label")
-          .eq("id", r.rideId)
-          .maybeSingle();
-        if (ride) {
-          await notifyOwnerRideUnassigned(r.rideId, ride.pickup_label, ride.dropoff_label);
-        }
+        rideAlerts.queued += await notifyOwnerRideUnassigned(r.rideId);
       }
     }
   } catch (err) {
@@ -240,6 +244,7 @@ async function run(req: NextRequest) {
     // Reported so the response is enough to answer "why did/didn't he get a
     // WhatsApp?" without opening the database.
     staleWork: stale,
+    rideAlerts,
     ms: Date.now() - started,
   });
 }

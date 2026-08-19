@@ -2,8 +2,10 @@ import "server-only";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { sendWhatsApp } from "@/lib/notifications/whatsapp";
 import { pushToDriverEndpoints, type Target as PushTarget } from "@/lib/push/send";
+import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/queue";
 import { SITE_URL } from "@/lib/site";
-import { offerMessage, type RideService } from "./model";
+import { offerMessage, rideReference, type RideService } from "./model";
+import { rideUnassignedAlert } from "./no-driver-copy";
 
 // ── SENDING THE OFFER WITHOUT ANYBODY PRESSING ANYTHING ─────────────────────
 //
@@ -178,47 +180,116 @@ export async function notifyRideOffers(rideId: string): Promise<OfferSendResult>
   return result;
 }
 
+/** Whole minutes since a timestamp, or null. The clock lives here rather than
+ *  in the copy module — that is what keeps the copy hermetically testable. */
+function minutesSince(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  const mins = Math.floor((Date.now() - t) / 60_000);
+  return mins > 0 ? mins : null;
+}
+
+type UnassignedRow = {
+  pickup_label: string | null;
+  dropoff_label: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
 /**
  * Tell the owner a ride ran out of drivers.
  *
- * The one message that must reach a human, because a ride in 'no_driver' has a
- * customer waiting and no automatic path left. Sent to the platform's own
- * WhatsApp slot, not to a driver.
+ * The one message that must reach a human, because a ride nobody took has a
+ * customer waiting and no automatic path left.
+ *
+ * ── WHY THIS GOES THROUGH THE QUEUE AND notifyRideOffers DOES NOT ───────────
+ * The offer above is direct because it expires in ten minutes and a queue tick
+ * burns a tenth of the driver's window. This message has no such clock: the
+ * ride has already spent four rounds and several minutes failing, so one more
+ * tick costs nothing — and what it buys cannot be had any other way.
+ *
+ * It used to read ONE notification_slots row with `.limit(1)` and no ORDER BY,
+ * then send it itself. Three consequences, all real:
+ *   1. One of the owner's two numbers got the alert and the other never had —
+ *      decided by physical row order, which every successful send rewrites.
+ *   2. sendWhatsApp fails once and the alert is gone. No retry exists.
+ *   3. No notification_jobs row, so "was I told about that ride?" was
+ *      unanswerable. Ride RR-26A506 sat in that state for five days.
+ * enqueueNotification fans out to every slot taking "rides" (both, today —
+ * their categories arrays are empty, which means everything), retries with
+ * backoff, records the attempt, and raises the no-recipient case to Sentry.
+ *
+ * Returns the number of recipients queued — 0 when the queue is unavailable OR
+ * when the message was correctly deduped. NEVER throws.
  */
-export async function notifyOwnerRideUnassigned(rideId: string, pickup: string, dropoff: string): Promise<boolean> {
-  if (!hasServiceRole()) return false;
+export async function notifyOwnerRideUnassigned(rideId: string): Promise<number> {
+  if (!hasServiceRole()) return 0;
   try {
     const admin = await getPrivileged();
-    // notification_slots is keyed by uuid with a `role` and a `categories`
-    // array, NOT by a literal id of 'owner' — I assumed the latter and the
-    // lookup would have silently returned nothing, so a ride nobody accepted
-    // would have failed quietly, which is the one message that must not.
-    // Any ACTIVE slot with a key will do; the platform already fans out this way.
-    const { data } = await admin
-      .from("notification_slots")
-      .select("phone, api_key, role")
-      .eq("is_active", true)
-      .not("api_key", "is", null)
-      .limit(1)
-      .maybeSingle();
-    const slot = data as { phone?: string; api_key?: string } | null;
-    if (!slot?.phone || !slot?.api_key) return false;
 
-    const sent = await sendWhatsApp({
-      phone: slot.phone,
-      apiKey: slot.api_key,
-      message: [
-        `No driver accepted a ride.`,
-        ``,
-        `${pickup} → ${dropoff}`,
-        ``,
-        `Assign someone by hand here:`,
-        `${SITE_URL}/admin/rides`,
-      ].join("\n"),
+    // The read moved in here from the cron. It is the same round trip the
+    // caller used to make, and holding it next to the copy is what stops the
+    // two drifting: the caller passed `ride.dropoff_label` into a parameter
+    // typed `string` and tsc could not see it, because the privileged client is
+    // untyped. A day hire has no destination, and that reached the template.
+    const { data, error } = await admin
+      .from("ride_requests")
+      .select("pickup_label, dropoff_label, customer_name, customer_phone, created_at, updated_at")
+      .eq("id", rideId)
+      .maybeSingle();
+    if (error) {
+      console.error("notifyOwnerRideUnassigned: could not read the ride", { rideId, error });
+      return 0;
+    }
+    const ride = data as UnassignedRow | null;
+    if (!ride) {
+      console.error("notifyOwnerRideUnassigned: ride not found", { rideId });
+      return 0;
+    }
+
+    // Was anybody actually asked? ride_offers is UNIQUE (request_id, driver_id),
+    // so the row count IS the number of drivers ever offered this ride across
+    // every round. Zero means the roster was empty, not that anyone refused —
+    // opposite problems, and the old copy called both "no driver accepted".
+    // A failure here costs one line of the message, never the message.
+    const { count, error: countError } = await admin
+      .from("ride_offers")
+      .select("id", { count: "exact", head: true })
+      .eq("request_id", rideId);
+    if (countError) {
+      console.error("notifyOwnerRideUnassigned: could not count offers", { rideId, countError });
+    }
+
+    const alert = rideUnassignedAlert({
+      rideId,
+      // The discriminator. Stamped by the same UPDATE that sets 'no_driver',
+      // and again by a reopen — so a ride that strands twice alerts twice.
+      stampedAt: ride.updated_at,
+      customerName: ride.customer_name,
+      customerPhone: ride.customer_phone,
+      pickup: ride.pickup_label,
+      dropoff: ride.dropoff_label,
+      minutesWaiting: minutesSince(ride.created_at),
+      driversAsked: countError ? null : count,
     });
-    return sent.ok;
+
+    return await enqueueNotification({
+      type: alert.type,
+      category: "rides",
+      message: formatWhatsAppMessage({ title: alert.title, lines: alert.lines }),
+      // Null only when updated_at is unusable, and then deliberately: an
+      // undeduped duplicate beats a swallowed alert.
+      dedupeKey: alert.dedupeKey ?? undefined,
+      // The customer's number is in the MESSAGE only. This is what the admin
+      // notifications card would need to say WHICH ride, and it is kept
+      // indefinitely.
+      payload: { rideId, ref: rideReference(rideId), driversAsked: countError ? null : count },
+    });
   } catch (err) {
     console.error("notifyOwnerRideUnassigned threw", err);
-    return false;
+    return 0;
   }
 }
