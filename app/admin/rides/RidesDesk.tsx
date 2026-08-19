@@ -683,23 +683,62 @@ function DriverRow({
   // watches the badge go green before they walk away. No number to be wrong, no
   // message to lose, nothing to distrust.
   const [qr, setQr] = useState<{ name: string; url: string; code: string } | null>(null);
+  const [rotating, setRotating] = useState(false);
+
+  // The code IS the first six characters of the token — nothing to generate,
+  // nothing to keep in sync, and it cannot point at a token that has since been
+  // rotated. Derived in ONE place so "show his link" and "give him a new link"
+  // can never disagree about what to read out.
+  function openHandover(b: { name?: string; link?: string }) {
+    const link = String(b.link ?? "");
+    setQr({
+      name: String(b.name ?? ""),
+      url: `${window.location.origin}${link}`,
+      code: link.replace("/d/", "").slice(0, 6).toUpperCase(),
+    });
+  }
 
   async function showQr(id: string) {
     try {
       const r = await fetch(`/api/admin/taxi?linkFor=${encodeURIComponent(id)}`);
       const b = await r.json();
       if (!r.ok) throw new Error(b.error || "Could not build that link.");
-      const link = b.link as string;
-      // The code IS the first six characters of the token — nothing to
-      // generate, nothing to keep in sync, and it cannot point at a token that
-      // has since been rotated.
-      setQr({
-        name: b.name as string,
-        url: `${window.location.origin}${link}`,
-        code: link.replace("/d/", "").slice(0, 6).toUpperCase(),
-      });
+      openHandover(b);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not build that link.");
+    }
+  }
+
+  // ── RE-KEY A DRIVER ──────────────────────────────────────────────────────
+  //
+  // Two-step on purpose, and the second step is not optional. The driver's
+  // six-character sign-in code is left(driver_token, 6) — driver_link_by_code
+  // matches on the token's own prefix, so a new link kills the code in the same
+  // statement. There is no self-service way back: /d and Account both answer
+  // "That code was not recognised." So this lands the owner on the handover
+  // screen with the NEW link and the NEW code already showing. He cannot rotate
+  // and walk away.
+  async function rotate(id: string, name: string) {
+    if (
+      !confirm(
+        `Give ${name} a brand-new link?\n\n` +
+          `His link stops working straight away — and so do the six characters he was told. ` +
+          `He cannot get back in on his own. The new one opens next, and you have to send it to him.`,
+      )
+    ) {
+      return;
+    }
+    setRotating(true);
+    try {
+      const r = await fetch(`/api/admin/taxi?rotate=${encodeURIComponent(id)}`, { method: "POST" });
+      const b = await r.json();
+      if (!r.ok) throw new Error(b.error || "Could not change that link.");
+      openHandover(b);
+      toast.success("New link ready — send it to him now.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not change that link.");
+    } finally {
+      setRotating(false);
     }
   }
 
@@ -746,7 +785,7 @@ ${url}
               phone needs neither, and it is the only route that works when he
               is already out on the road. */}
           <p className="mt-3 rounded-lg bg-black/[0.06] px-3 py-2 font-dm text-[11px] text-black/70">
-            Or tell them to open <strong>roulerodrig.com/d</strong> and enter their phone number with this code:
+            Or tell them to open <strong>roulerodrig.com/d</strong> and enter this code:
             <span className="mt-1 block font-mono text-lg tracking-[0.3em] text-black">{qr.code}</span>
           </p>
           <svg
@@ -862,6 +901,14 @@ ${url}
           className="mr-1.5 rounded-full border border-white/15 px-2.5 py-1.5 font-dm text-[11px] text-yellow hover:border-yellow/50"
         >
           Send link
+        </button>
+        <button
+          onClick={() => void rotate(d.id, d.name)}
+          disabled={rotating}
+          title="Kill this driver's link and his six-character code, and issue new ones. Use it if his link has been seen by somebody else."
+          className="mr-1.5 rounded-full border border-red-500/30 px-2.5 py-1.5 font-dm text-[11px] text-red-400 hover:bg-red-500/10 disabled:opacity-40"
+        >
+          {rotating ? <Loader2 size={11} className="animate-spin" /> : "New link"}
         </button>
         <button
           onClick={() =>

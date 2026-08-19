@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPrivileged } from "@/lib/supabase/admin";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
+import { audit } from "@/lib/admin/audit";
 
 function auth(req: NextRequest): NextResponse | null {
   const ok = verifySession(req.cookies.get(COOKIE_NAME)?.value);
@@ -34,6 +35,21 @@ function pick(body: Record<string, unknown>) {
   return out;
 }
 
+/**
+ * The number a driver's link is sent to. trim() before the fallback, not `??`.
+ *
+ * M119 forbids a blank in the column, but this builds the wa.me link that
+ * carries the driver's access token — a blank number there opens WhatsApp's
+ * contact CHOOSER with that token already composed, one mis-tap from the wrong
+ * person. Belt and braces is cheap on that particular message, and it must not
+ * drift between the "send his link" path and the "re-key him" path.
+ */
+function waNumber(whatsapp: string | null | undefined, phone: string): string {
+  return ((whatsapp ?? "").trim() || phone).replace(/\D/g, "");
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(req: NextRequest) {
   const denied = await auth(req);
   if (denied) return denied;
@@ -55,12 +71,7 @@ export async function GET(req: NextRequest) {
     const d = data as { name: string; whatsapp: string | null; phone: string; driver_token: string };
     return NextResponse.json({
       name: d.name,
-      // trim() before the fallback, not `??`. M119 now forbids a blank in the
-      // column, but this helper builds the wa.me link that carries the driver's
-      // permanent access token — a blank number there opens WhatsApp's contact
-      // CHOOSER with that token already composed, one mis-tap from the wrong
-      // person. Belt and braces is cheap on that particular message.
-      whatsapp: ((d.whatsapp ?? "").trim() || d.phone).replace(/\D/g, ""),
+      whatsapp: waNumber(d.whatsapp, d.phone),
       link: `/d/${d.driver_token}`,
     });
   }
@@ -111,8 +122,60 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const denied = await auth(req);
   if (denied) return denied;
-  const body = await req.json();
   const supabase = await getPrivileged();
+
+  // ── GIVE ONE DRIVER A NEW LINK ───────────────────────────────────────────
+  //
+  // driver_token IS the driver's credential and it is deliberately NOT in
+  // ALLOWED above — it stays out. A settable token field would let a typo
+  // install a guessable credential, would accept "" or null (the column is
+  // nullable and a UNIQUE btree permits many nulls, so a blank makes the driver
+  // unreachable with no error anywhere), and would skip the prefix re-roll that
+  // stops one driver's six-character code resolving to another driver's token.
+  // Rotation is an ACTION, minted server-side, and this is the only way to do it.
+  //
+  // On POST rather than GET because it writes; on a query param rather than a
+  // body field so the driver-create path below never has to inspect an action.
+  const rotateFor = new URL(req.url).searchParams.get("rotate");
+  if (rotateFor) {
+    if (!UUID.test(rotateFor)) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    const { data, error } = await supabase.rpc("admin_rotate_driver_token", { p_driver_id: rotateFor });
+    if (error) {
+      // RR090 is "no such driver" — the function refusing, not a crash.
+      return NextResponse.json({ error: error.message }, { status: error.code === "RR090" ? 404 : 500 });
+    }
+    const r = (data ?? {}) as {
+      ok?: boolean; reason?: string; message?: string;
+      name?: string; whatsapp?: string | null; phone?: string; link?: string;
+    };
+    // A soft refusal, not an error: the driver is mid-ride and re-keying him now
+    // would leave him unable to press Completed.
+    if (!r.ok || !r.link) {
+      return NextResponse.json(
+        { error: r.message ?? "Could not change that link." },
+        { status: r.reason === "on_ride" ? 409 : 500 },
+      );
+    }
+    // AFTER the write, never before, and never carrying a token — audit_logs is
+    // append-only with no purge and /admin/audit prints the diff verbatim, so a
+    // token logged here would outlive the rotation meant to retire it.
+    await audit(supabase, {
+      action: "taxi.rotate_token",
+      entityType: "taxi_driver",
+      entityId: rotateFor,
+      diff: { driver: r.name },
+    });
+    // Byte-identical to the ?linkFor= response, so the desk can hand it straight
+    // to the QR overlay it already uses — which is the point: rotating without
+    // handing over is the failure mode.
+    return NextResponse.json({
+      name: r.name,
+      whatsapp: waNumber(r.whatsapp, r.phone ?? ""),
+      link: r.link,
+    });
+  }
+
+  const body = await req.json();
   const { data, error } = await supabase.from("taxi_drivers").insert([pick(body)]).select("id, name").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
