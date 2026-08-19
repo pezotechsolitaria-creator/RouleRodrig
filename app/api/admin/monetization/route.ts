@@ -39,6 +39,18 @@ const settingsSchema = z.object({
     .max(MAX_COMMISSION_RATE, "Commission cannot exceed 50%."),
 });
 
+// The order reservation window, in hours per provider (backlog #53).
+//
+// Same 1..8760 range admin_set_order_hold_hours() enforces. Validated on both
+// sides deliberately: this gives the owner a real message instead of a 500,
+// and the SQL check is what actually protects the column from anything that
+// does not come through this route.
+const holdSchema = z.object({
+  cash: z.number().int().min(1).max(8760),
+  bankTransfer: z.number().int().min(1).max(8760),
+  manual: z.number().int().min(1).max(8760),
+});
+
 const planSchema = z.object({
   slug: z.string().trim().min(1).max(40),
   name: z.string().trim().min(1).max(80),
@@ -61,7 +73,7 @@ export async function GET(req: NextRequest) {
   const [{ data: settings, error }, { data: plans }, { data: overview }] = await Promise.all([
     supabase
       .from("marketplace_settings")
-      .select("monetization_model, default_commission_rate")
+      .select("monetization_model, default_commission_rate, order_hold_hours")
       .eq("id", "main")
       .maybeSingle(),
     supabase.from("subscription_plans").select("*").order("sort_order"),
@@ -75,9 +87,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Failed to load monetization settings." }, { status: 500 });
   }
 
+  // Mirrors order_hold_hours()'s own fallback so the form shows what the
+  // database WOULD use, not a zero, when the column has never been written.
+  const hold = (settings?.order_hold_hours ?? {}) as Record<string, number>;
+
   return NextResponse.json({
     model: settings?.monetization_model ?? "subscription",
     defaultCommissionRate: Number(settings?.default_commission_rate ?? 0),
+    orderHoldHours: {
+      cash: Number(hold.cash ?? 168),
+      bankTransfer: Number(hold.bank_transfer ?? 48),
+      manual: Number(hold.manual ?? 48),
+    },
     plans: plans ?? [],
     overview: overview ?? null,
   });
@@ -150,6 +171,47 @@ export async function PATCH(req: NextRequest) {
     if (error.code === "RR003") return NextResponse.json({ error: "Plan not found." }, { status: 404 });
     console.error("admin_set_subscription_plan failed", error);
     return NextResponse.json({ error: "Could not save that plan." }, { status: 500 });
+  }
+  return NextResponse.json(data);
+}
+
+// The reservation window (backlog #53).
+//
+// A separate verb rather than a field on PUT: the window and the commission
+// model are independent decisions that happen to share a row, and folding them
+// into one save button would mean an owner adjusting a deadline also re-writes
+// the platform's revenue model.
+export async function POST(req: NextRequest) {
+  if (!isAuthed(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!hasServiceRole()) return serviceRoleMissing();
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  }
+  const parsed = holdSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "A window must be between 1 hour and 365 days." },
+      { status: 400 },
+    );
+  }
+
+  const supabase = await getPrivileged();
+  const { data, error } = await supabase.rpc("admin_set_order_hold_hours", {
+    p_cash: parsed.data.cash,
+    p_bank_transfer: parsed.data.bankTransfer,
+    p_manual: parsed.data.manual,
+    p_actor_note: "admin_dashboard",
+  });
+
+  if (error) {
+    if (error.code === "RR005") return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error.code === "RR003") return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    console.error("admin_set_order_hold_hours failed", error);
+    return NextResponse.json({ error: "Could not save the reservation window." }, { status: 500 });
   }
   return NextResponse.json(data);
 }

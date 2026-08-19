@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, RefreshCw, AlertTriangle, Check } from "lucide-react";
+import { Loader2, RefreshCw, AlertTriangle, Check, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { centsToDecimalString, toCents } from "@/lib/money";
+import { holdWindowLabel } from "@/lib/orders/hold";
 import {
   MODEL_COPY,
   MONETIZATION_MODELS,
@@ -66,6 +67,14 @@ export default function AdminMonetization() {
   const [savedModel, setSavedModel] = useState<MonetizationModel>("subscription");
   const [savedRatePct, setSavedRatePct] = useState("0");
 
+  // The order reservation window (backlog #53). Kept in its own state and saved
+  // by its own button: it shares a row with the commission model but is not the
+  // same decision, and an owner shortening a deadline must not also re-publish
+  // the platform's revenue model.
+  const [hold, setHold] = useState({ cash: "168", bankTransfer: "48", manual: "48" });
+  const [savedHold, setSavedHold] = useState({ cash: "168", bankTransfer: "48", manual: "48" });
+  const [savingHold, setSavingHold] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
@@ -78,6 +87,14 @@ export default function AdminMonetization() {
       setSavedModel(body.model as MonetizationModel);
       setRatePct(pct);
       setSavedRatePct(pct);
+      const h = body.orderHoldHours ?? {};
+      const asText = {
+        cash: String(h.cash ?? 168),
+        bankTransfer: String(h.bankTransfer ?? 48),
+        manual: String(h.manual ?? 48),
+      };
+      setHold(asText);
+      setSavedHold(asText);
       setPlans(body.plans ?? []);
       setOverview(body.overview ?? null);
     } catch (e) {
@@ -113,6 +130,38 @@ export default function AdminMonetization() {
       toast.error(e instanceof Error ? e.message : "Could not save.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  const holdNums = {
+    cash: Number(hold.cash),
+    bankTransfer: Number(hold.bankTransfer),
+    manual: Number(hold.manual),
+  };
+  const holdValid = Object.values(holdNums).every(
+    (n) => Number.isInteger(n) && n >= 1 && n <= 8760,
+  );
+  const holdDirty =
+    hold.cash !== savedHold.cash ||
+    hold.bankTransfer !== savedHold.bankTransfer ||
+    hold.manual !== savedHold.manual;
+
+  async function saveHold() {
+    setSavingHold(true);
+    try {
+      const res = await fetch("/api/admin/monetization", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(holdNums),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Could not save the reservation window.");
+      setSavedHold({ ...hold });
+      toast.success("Reservation window saved");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save the reservation window.");
+    } finally {
+      setSavingHold(false);
     }
   }
 
@@ -261,6 +310,84 @@ export default function AdminMonetization() {
           </Button>
           {!dirty && <span className="flex items-center gap-1.5 font-dm text-xs text-green-400"><Check size={14} /> Saved</span>}
         </div>
+      </section>
+
+      {/* ── The reservation window (backlog #53) ───────────────────────
+          The dial behind the deadline the customer now sees at checkout and on
+          /track. It was configurable in the database from M13 and editable by
+          nobody, which meant the one number governing "how long does a customer
+          have to reach a bank" could only be changed by hand-writing SQL
+          against production.
+
+          Cash and bank transfer are separate on purpose and the copy says why:
+          a cash customer owes nothing until handover, so their window costs the
+          shop only shelf space, while a transfer customer is racing a bank. */}
+      <section aria-labelledby="hold-h" className="rounded-2xl border border-white/10 bg-dark-card p-5">
+        <h2 id="hold-h" className="flex items-center gap-2 font-syne text-base font-bold text-offwhite">
+          <Clock size={16} className="text-yellow" /> Reservation window
+        </h2>
+        <p className="mt-1 font-dm text-sm text-muted">
+          How long a new order holds its stock before it is released and the order is cancelled. The
+          customer is told this deadline at checkout and on their tracking page, as a date and time.
+        </p>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          {([
+            ["bankTransfer", "Bank transfer", "They are racing a bank. Too short and a customer who orders on Friday cannot pay until Monday."],
+            ["cash", "Cash", "Nothing is owed until handover, so this costs the shop shelf space rather than a lost sale."],
+            ["manual", "Other", "Anything arranged directly with the shop."],
+          ] as const).map(([key, label, why]) => {
+            const n = Number(hold[key]);
+            const ok = Number.isInteger(n) && n >= 1 && n <= 8760;
+            return (
+              <div key={key}>
+                <label htmlFor={`hold-${key}`} className="block font-bebas text-[11px] tracking-[0.2em] text-muted">
+                  {label.toUpperCase()}
+                </label>
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    id={`hold-${key}`}
+                    type="number"
+                    min={1}
+                    max={8760}
+                    value={hold[key]}
+                    onChange={(e) => setHold((h) => ({ ...h, [key]: e.target.value }))}
+                    aria-invalid={!ok}
+                    className={`w-24 rounded-xl border bg-dark px-3 py-2 font-dm text-sm text-offwhite focus:outline-none ${
+                      ok ? "border-white/15 focus:border-yellow/50" : "border-red-500/50"
+                    }`}
+                  />
+                  <span className="font-dm text-xs text-muted">
+                    hours{ok ? ` · ${holdWindowLabel(n)}` : ""}
+                  </span>
+                </div>
+                <p className="mt-1.5 font-dm text-[11px] leading-relaxed text-muted">{why}</p>
+              </div>
+            );
+          })}
+        </div>
+
+        {!holdValid && (
+          <p role="alert" className="mt-3 font-dm text-xs text-red-400">
+            A window must be a whole number of hours between 1 and 8760 (365 days).
+          </p>
+        )}
+
+        <div className="mt-5 flex items-center gap-3">
+          <Button onClick={() => void saveHold()} disabled={!holdDirty || !holdValid || savingHold}>
+            {savingHold ? <Loader2 size={16} className="mr-1.5 animate-spin" /> : null}
+            Save window
+          </Button>
+          {!holdDirty && (
+            <span className="flex items-center gap-1.5 font-dm text-xs text-green-400">
+              <Check size={14} /> Saved
+            </span>
+          )}
+        </div>
+        <p className="mt-3 font-dm text-[11px] text-muted">
+          Changing this affects orders placed from now on. Orders already waiting keep the deadline
+          they were given — the customer was shown it and may have acted on it.
+        </p>
       </section>
 
       {/* ── Plans ──────────────────────────────────────────────────────── */}
