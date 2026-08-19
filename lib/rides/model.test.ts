@@ -382,3 +382,40 @@ describe("the arrival promise names who keeps it", () => {
     expect(form).toMatch(/not an hour early/);
   });
 });
+
+// ── THE DISPATCH DESK IS THREE PLACES, NOT SIX PILLS (M123) ─────────────────
+//
+// "Rework entirely the taxi panel in admin because it is very confusing."
+// The cause was structural: Queue, Drivers and Fares were three INDEPENDENT
+// booleans, so all three could be open at once and the queue — the reason the
+// page exists — was pushed off the bottom. Six identical-looking pills gave no
+// hint that three changed the page and three did something.
+describe("the admin rides desk", () => {
+  const desk = readFileSync(join(__dirname, "../../app/admin/rides/RidesDesk.tsx"), "utf8");
+
+  it("has one place at a time, not three independent toggles", () => {
+    expect(desk).not.toMatch(/const \[showRoster/);
+    expect(desk).not.toMatch(/const \[showFares/);
+    expect(desk).toMatch(/const \[view, setView\] = useState<"queue" \| "drivers" \| "fares">/);
+  });
+
+  it("marks which tab you are on, for a screen reader too", () => {
+    expect(desk).toMatch(/aria-current=\{view === t\.id \? "page" : undefined\}/);
+  });
+
+  it("keeps New ride an ACTION on the queue, not a fourth place", () => {
+    // It is something you do while looking at the queue, and it closes itself.
+    expect(desk).toMatch(/view === "queue" && showNew/);
+  });
+
+  it("only offers actions that belong to where you are", () => {
+    // "Clear expired offers" on the Fares screen is noise.
+    expect(desk).toMatch(/\{view === "queue" && \(\s*<>/);
+  });
+
+  it("counts rides still needing a decision, not rows loaded", () => {
+    // With scope "all" the list carries finished rides; a tab reading 200
+    // would say nothing at all.
+    expect(desk).toMatch(/filter\(\(r\) => isOpenRide\(r\.status\)\)/);
+  });
+});

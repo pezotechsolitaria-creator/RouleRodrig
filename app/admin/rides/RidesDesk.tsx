@@ -11,6 +11,7 @@ import {
 import { pickupTimeLabel, pickupClock,
   ADMIN_STATUS, RIDE_SERVICE_META, RIDE_SERVICES, NEXT_STATUSES,
   formatRidePrice, rideReference, type RideStatus, type RideService,
+  isOpenRide,
 } from "@/lib/rides/model";
 
 // ── THE DISPATCH DESK ───────────────────────────────────────────────────────
@@ -82,8 +83,15 @@ export default function RidesDesk() {
   const [targets, setTargets] = useState<Target[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
-  const [showRoster, setShowRoster] = useState(false);
-  const [showFares, setShowFares] = useState(false);
+  // WHERE you are, not three things that happen to be visible. "New ride" is
+  // deliberately NOT a place: it is an action you take while looking at the
+  // queue, and it closes itself when the ride is created.
+  const [view, setView] = useState<"queue" | "drivers" | "fares">("queue");
+
+  // The number on the Queue tab is the number of rides still needing a
+  // decision — not how many rows happen to be loaded. With scope "all" the
+  // list includes finished rides, and a tab reading 200 would say nothing.
+  const openCount = (rides ?? []).filter((r) => isOpenRide(r.status)).length;
 
   const load = useCallback(async () => {
     try {
@@ -188,41 +196,79 @@ export default function RidesDesk() {
           </div>
         )}
 
-        <div className="mt-5 flex flex-wrap items-center gap-2">
-          <button onClick={() => setShowNew((s) => !s)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-yellow px-4 py-2 font-dm text-sm font-bold text-dark">
-            <Plus size={15} /> New ride
-          </button>
-          <select value={scope} onChange={(e) => setScope(e.target.value as "open" | "all")}
-            aria-label="Which rides"
-            className="rounded-full border border-white/15 bg-dark-card px-3 py-2 font-dm text-sm text-offwhite">
-            <option value="open">Open rides</option>
-            <option value="all">Everything</option>
-          </select>
-          <button onClick={() => setShowFares((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-2 font-dm text-sm text-muted hover:text-offwhite">
-            <Wallet size={14} /> Fares
-          </button>
-          <button onClick={() => setShowRoster((r) => !r)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-2 font-dm text-sm text-muted hover:text-offwhite">
-            <Users size={14} /> Drivers ({drivers.filter((d) => d.active).length})
-          </button>
+        {/* ── WHERE YOU ARE ──────────────────────────────────────────────
+            A row of six same-looking pills gave no clue that three of them
+            changed the page and three did something. Places first, as tabs
+            that show which one you are in; actions after, separated, and only
+            the ones that apply to where you are. */}
+        <div className="mt-5 flex flex-wrap items-center gap-1 border-b border-white/10 pb-px">
+          {([
+            { id: "queue",   label: "Queue",   count: openCount },
+            { id: "drivers", label: "Drivers", count: drivers.filter((d) => d.active).length },
+            { id: "fares",   label: "Fares",   count: null },
+          ] as const).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setView(t.id)}
+              aria-current={view === t.id ? "page" : undefined}
+              className={`-mb-px rounded-t-lg border-b-2 px-4 py-2.5 font-dm text-sm transition-colors ${
+                view === t.id
+                  ? "border-yellow text-offwhite"
+                  : "border-transparent text-muted hover:text-offwhite"
+              }`}
+            >
+              {t.label}
+              {t.count !== null && (
+                <span className={`ml-1.5 tabular-nums ${view === t.id ? "text-yellow" : "text-muted/70"}`}>
+                  {t.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {view === "queue" && (
+            <>
+              <button onClick={() => setShowNew((s) => !s)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-yellow px-4 py-2 font-dm text-sm font-bold text-dark">
+                <Plus size={15} /> New ride
+              </button>
+              <select value={scope} onChange={(e) => setScope(e.target.value as "open" | "all")}
+                aria-label="Which rides"
+                className="rounded-full border border-white/15 bg-dark-card px-3 py-2 font-dm text-sm text-offwhite">
+                <option value="open">Open rides</option>
+                <option value="all">Everything</option>
+              </select>
+              {/* Housekeeping, not dispatch. Quiet, and last. */}
+              <button onClick={() => void act({ action: "sweep" }, "sweep", "Expired offers cleared.")}
+                disabled={busy === "sweep"}
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-2 font-dm text-sm text-muted hover:text-offwhite disabled:opacity-50">
+                {busy === "sweep" ? <Loader2 size={14} className="animate-spin" /> : <Clock size={14} />}
+                Clear expired offers
+              </button>
+            </>
+          )}
           <button onClick={() => void load()}
             className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-2 font-dm text-sm text-muted hover:text-offwhite">
             <RefreshCw size={14} /> Refresh
           </button>
-          <button onClick={() => void act({ action: "sweep" }, "sweep", "Expired offers cleared.")}
-            disabled={busy === "sweep"}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-2 font-dm text-sm text-muted hover:text-offwhite disabled:opacity-50">
-            {busy === "sweep" ? <Loader2 size={14} className="animate-spin" /> : <Clock size={14} />}
-            Clear expired offers
-          </button>
         </div>
 
-        {showNew && <NewRideForm onDone={() => { setShowNew(false); void load(); }} />}
-        {showRoster && <DriverRoster drivers={drivers} onSaved={() => void load()} />}
-        {showFares && <FaresPanel />}
+        {view === "queue" && showNew && (
+          <NewRideForm onDone={() => { setShowNew(false); void load(); }} />
+        )}
+        {view === "drivers" && <DriverRoster drivers={drivers} onSaved={() => void load()} />}
+        {view === "fares" && <FaresPanel />}
 
+        {/* ── ONE PLACE AT A TIME ────────────────────────────────────────
+            Queue, Drivers and Fares used to be three independent toggles, so
+            all three could be open at once and the queue — the reason the page
+            exists — was pushed off the bottom of the screen. They are three
+            different jobs; they are now three places, and you are always in
+            exactly one. */}
+        {view === "queue" && (
+        <>
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1fr]">
           {/* ── The queue ───────────────────────────────────────────────── */}
           <section>
@@ -420,6 +466,8 @@ export default function RidesDesk() {
             )}
           </section>
         </div>
+        </>
+        )}
       </div>
     </main>
   );
