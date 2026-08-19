@@ -352,3 +352,33 @@ describe("the pickup time is shown beside the flight", () => {
     expect(desk).not.toMatch(/toLocaleTimeString/);
   });
 });
+
+// ── THE PROMISE MATCHES WHO ACTUALLY KEEPS IT (M122) ────────────────────────
+//
+// The field said "We track the flight". Nothing did: there is no flight-status
+// integration, and on Rodrigues there does not need to be — the driver checks
+// the flight himself, which is normal practice on the island. So the sentence
+// names the driver, not a system we do not run.
+//
+// M120 is what makes it true: the flight number and pickup time now reach the
+// driver's job card, so he has something to check.
+describe("the arrival promise names who keeps it", () => {
+  const form = readFileSync(join(__dirname, "../../app/taxi/book/BookRide.tsx"), "utf8");
+
+  it("does not claim the platform tracks flights", () => {
+    // There is no flight-status API. Saying otherwise is a promise nobody owns.
+    expect(form).not.toMatch(/We track the flight/i);
+    expect(form).not.toMatch(/We track the boat/i);
+  });
+
+  it("says the driver watches it, for both a plane and a boat", () => {
+    expect(form).toMatch(/Your driver watches the flight/);
+    expect(form).toMatch(/Your driver watches the boat/);
+  });
+
+  it("still gives the reason the number is being asked for", () => {
+    // Required fields need a why, or they read as bureaucracy.
+    expect(form).toMatch(/even if you are delayed/);
+    expect(form).toMatch(/not an hour early/);
+  });
+});

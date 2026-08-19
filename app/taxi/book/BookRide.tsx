@@ -408,8 +408,8 @@ export default function BookRide({ initialService }: { initialService: RideServi
                 }`} />
               <p id="flight-why" className="mt-1.5 font-dm text-xs leading-snug text-muted">
                 {service === "ferry"
-                  ? "We track the boat, so your driver is there when it docks — not an hour early."
-                  : "We track the flight, so your driver is there when you land — even if you are delayed."}
+                  ? "Your driver watches the boat, so they are there when it docks — not an hour early."
+                  : "Your driver watches the flight, so they are there when you land — even if you are delayed."}
               </p>
               <label className="mt-3 flex items-center gap-2 font-dm text-sm text-offwhite/85">
                 <input type="checkbox" checked={meetGreet} onChange={(e) => setMeetGreet(e.target.checked)} className="accent-yellow" />
