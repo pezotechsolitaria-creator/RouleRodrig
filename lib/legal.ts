@@ -81,7 +81,7 @@ export function legalIdentityComplete(): boolean {
 // server components, and all three have to agree. A resolver that reached for
 // a database client could not be shared by them.
 
-import type { LegalContent } from "./defaults";
+import type { LegalContent, TermsContent } from "./defaults";
 
 export type ResolvedLegal = {
   legalName: LegalFact;
@@ -132,4 +132,40 @@ export function missingFactsFor(legal?: LegalContent | null): string[] {
   if (isMissing(r.registeredAddress)) out.push("registeredAddress");
   if (isMissing(r.publicationDirector)) out.push("publicationDirector");
   return out;
+}
+
+// ── OWNER-DECIDED COMMERCIAL RULES ──────────────────────────────────────────
+//
+// Same contract as the legal identity above, for the same reason: the Terms of
+// Service may describe how the platform works, but it must not invent the
+// owner's commercial policy. A blank clause stays visibly outstanding rather
+// than being filled with something plausible, because a guessed term published
+// on a page a customer agrees to is a term the business would be held to.
+
+export const TERMS_CLAUSES = [
+  "vehicleMinAge",
+  "experienceCancellationNotice",
+  "deliveryFailedRule",
+  "complaintWindow",
+  "ageRestrictedGoods",
+] as const;
+
+export type TermsClause = (typeof TERMS_CLAUSES)[number];
+
+export type ResolvedTerms = Record<TermsClause, LegalFact>;
+
+/** Owner value where supplied, OWNER_REQUIRED everywhere else. Never invents. */
+export function resolveTerms(terms?: TermsContent | null): ResolvedTerms {
+  const out = {} as ResolvedTerms;
+  for (const key of TERMS_CLAUSES) {
+    const v = (terms?.[key] ?? "").trim();
+    out[key] = !v || v === OWNER_REQUIRED ? OWNER_REQUIRED : v;
+  }
+  return out;
+}
+
+/** Which commercial rules the owner still has to decide. */
+export function missingClauses(terms?: TermsContent | null): TermsClause[] {
+  const r = resolveTerms(terms);
+  return TERMS_CLAUSES.filter((k) => isMissing(r[k]));
 }

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   LEGAL, isMissing, missingFacts, legalIdentityComplete,
   resolveLegal, missingFactsFor, OWNER_REQUIRED,
+  resolveTerms, missingClauses, TERMS_CLAUSES,
 } from "./legal";
 
 // ── THE POLICY MUST NOT DRIFT AWAY FROM THE PRODUCT ─────────────────────────
@@ -186,5 +187,85 @@ describe("the certificate never becomes public", () => {
     expect(cert).toMatch(/legal-documents/);
     expect(cert).toMatch(/createSignedUrl/);
     expect(cert).not.toMatch(/getPublicUrl/);
+  });
+});
+
+// ── THE TERMS MUST DESCRIBE THE PRODUCT THAT EXISTS (P1 #4) ────────────────
+//
+// Same discipline as the privacy tests above: prose has no type checker, so
+// these assert that specific claims are present or absent. The terms spent
+// months describing a scooter-rental site while the platform sold food,
+// tickets, taxi journeys, delivery and experiences.
+
+const terms = () => stripComments(readFileSync(join(ROOT, "app/legal/terms/page.tsx"), "utf8"));
+
+describe("published terms of service", () => {
+  it("covers every vertical the platform actually sells", () => {
+    const t = terms();
+    for (const vertical of [
+      "Vehicle rentals",
+      "Food orders",
+      "Marketplace orders",
+      "Event tickets",
+      "Taxi and private hire",
+      "Delivery",
+      "Experiences",
+    ]) {
+      expect(t).toContain(vertical);
+    }
+  });
+
+  it("keeps Mauritius as the governing law", () => {
+    const t = terms();
+    expect(t).toContain("Republic of Mauritius");
+    expect(t).toContain("governed by the laws");
+    expect(t).toContain("Mauritian courts have jurisdiction");
+  });
+
+  it("does NOT cap liability at commission alone", () => {
+    // The bug being pinned: the old cap was "limited to the commission we
+    // earned on that booking". The platform is subscription-funded, so that
+    // figure is zero on most transactions — a total exclusion by accident.
+    const t = terms();
+    expect(t).not.toMatch(/limited to the commission we earned/i);
+    expect(t).toMatch(/greater of/i);
+  });
+
+  it("keeps the carve-outs that no term may lawfully exclude", () => {
+    const t = terms();
+    expect(t).toMatch(/death or personal injury/i);
+    expect(t).toMatch(/fraud/i);
+    // And it must not claim consumer rights away.
+    expect(t).toMatch(/consumer law/i);
+  });
+
+  it("says who holds the customer's money, because that decides who refunds", () => {
+    const t = terms();
+    expect(t).toMatch(/never receives or holds that money/i);
+  });
+
+  it("discloses the reservation clock it now shows at checkout", () => {
+    expect(terms()).toMatch(/reserves stock for a limited period/i);
+  });
+});
+
+describe("resolveTerms", () => {
+  it("never invents a commercial rule", () => {
+    // The rule that matters most on this whole page: a plausible-sounding term
+    // published on a document customers agree to is a term the business is
+    // bound by. Blank must stay blank.
+    const r = resolveTerms(undefined);
+    for (const key of TERMS_CLAUSES) expect(r[key]).toBe(OWNER_REQUIRED);
+    expect(missingClauses(undefined)).toEqual([...TERMS_CLAUSES]);
+  });
+
+  it("publishes what the owner decided", () => {
+    const r = resolveTerms({ complaintWindow: "48 hours" });
+    expect(r.complaintWindow).toBe("48 hours");
+    expect(missingClauses({ complaintWindow: "48 hours" })).not.toContain("complaintWindow");
+  });
+
+  it("treats whitespace as still undecided", () => {
+    expect(isMissing(resolveTerms({ vehicleMinAge: "   " }).vehicleMinAge)).toBe(true);
   });
 });

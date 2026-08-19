@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Check, AlertTriangle, Upload, Eye, Trash2, ShieldCheck } from "lucide-react";
+import { Loader2, Check, AlertTriangle, Upload, Eye, Trash2, ShieldCheck, Gavel } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // The owner's own company details, editable without a deploy.
@@ -22,6 +22,66 @@ type LegalFields = {
   tradingAddress: string;
   publicationDirector: string;
 };
+
+type TermsFields = {
+  vehicleMinAge: string;
+  experienceCancellationNotice: string;
+  deliveryFailedRule: string;
+  complaintWindow: string;
+  ageRestrictedGoods: string;
+};
+
+const EMPTY_TERMS: TermsFields = {
+  vehicleMinAge: "",
+  experienceCancellationNotice: "",
+  deliveryFailedRule: "",
+  complaintWindow: "",
+  ageRestrictedGoods: "",
+};
+
+// Every one of these is a decision only the owner can make, and each appears
+// verbatim in the published Terms of Service. Blank shows there as "[to be
+// confirmed by the operator]" — honest, and visibly unfinished, which is the
+// point. The hints say what the clause is FOR, because a term written without
+// understanding what it governs is how a business ends up bound to something
+// it did not mean.
+const TERMS_FIELDS: {
+  key: keyof TermsFields;
+  label: string;
+  hint: string;
+  placeholder: string;
+}[] = [
+  {
+    key: "vehicleMinAge",
+    label: "Minimum age to hire a vehicle",
+    hint: "The law requires 18 to ride. If your own rule or your insurer's is higher, say so here.",
+    placeholder: "e.g. 21, or 18 with a full licence held for 1 year",
+  },
+  {
+    key: "experienceCancellationNotice",
+    label: "Cancelling a boat trip, fishing trip or massage",
+    hint: "How much notice a customer must give. Weather cancellations are already covered separately and are always refundable.",
+    placeholder: "e.g. 24 hours' notice for a full refund, 50% within 24 hours",
+  },
+  {
+    key: "deliveryFailedRule",
+    label: "When a delivery cannot be completed",
+    hint: "Nobody answers, the address is wrong, or the customer is not there. Say what happens to the goods and to the money.",
+    placeholder: "e.g. the driver waits 10 minutes, then returns it to the shop for collection that day",
+  },
+  {
+    key: "complaintWindow",
+    label: "How long to report a problem",
+    hint: "For orders generally. Food already has its own 24-hour rule, stated separately.",
+    placeholder: "e.g. 48 hours of receiving your order",
+  },
+  {
+    key: "ageRestrictedGoods",
+    label: "Alcohol and age-restricted goods",
+    hint: "Leave blank if nothing age-restricted is sold on the platform.",
+    placeholder: "e.g. alcohol is sold only to over-18s and ID is checked at handover",
+  },
+];
 
 const EMPTY: LegalFields = {
   legalName: "",
@@ -88,6 +148,9 @@ export default function AdminLegal() {
   const [fields, setFields] = useState<LegalFields>(EMPTY);
   const [saved, setSaved] = useState<LegalFields>(EMPTY);
 
+  const [terms, setTerms] = useState<TermsFields>(EMPTY_TERMS);
+  const [savedTerms, setSavedTerms] = useState<TermsFields>(EMPTY_TERMS);
+
   const [certificatePath, setCertificatePath] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -109,6 +172,16 @@ export default function AdminLegal() {
       };
       setFields(next);
       setSaved(next);
+      const t = body.terms ?? {};
+      const nextTerms: TermsFields = {
+        vehicleMinAge: t.vehicleMinAge ?? "",
+        experienceCancellationNotice: t.experienceCancellationNotice ?? "",
+        deliveryFailedRule: t.deliveryFailedRule ?? "",
+        complaintWindow: t.complaintWindow ?? "",
+        ageRestrictedGoods: t.ageRestrictedGoods ?? "",
+      };
+      setTerms(nextTerms);
+      setSavedTerms(nextTerms);
       setCertificatePath(l.certificatePath ?? null);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Could not load the legal details.");
@@ -121,7 +194,9 @@ export default function AdminLegal() {
     void load();
   }, [load]);
 
-  const dirty = (Object.keys(fields) as (keyof LegalFields)[]).some((k) => fields[k] !== saved[k]);
+  const legalDirty = (Object.keys(fields) as (keyof LegalFields)[]).some((k) => fields[k] !== saved[k]);
+  const termsDirty = (Object.keys(terms) as (keyof TermsFields)[]).some((k) => terms[k] !== savedTerms[k]);
+  const dirty = legalDirty || termsDirty;
   const outstanding = REQUIRED.filter((k) => !fields[k].trim());
 
   async function save() {
@@ -130,12 +205,13 @@ export default function AdminLegal() {
       const res = await fetch("/api/admin/legal", {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(fields),
+        body: JSON.stringify({ legal: fields, terms }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Could not save.");
       setSaved({ ...fields });
-      toast.success("Legal details saved — the notice page is already updated");
+      setSavedTerms({ ...terms });
+      toast.success("Saved — the legal notice and terms are already updated");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save.");
     } finally {
@@ -259,6 +335,58 @@ export default function AdminLegal() {
               </div>
             );
           })}
+        </div>
+
+        <div className="mt-5 flex items-center gap-3">
+          <Button onClick={() => void save()} disabled={!dirty || saving}>
+            {saving ? <Loader2 size={16} className="mr-1.5 animate-spin" /> : null}
+            Save
+          </Button>
+          {!dirty && (
+            <span className="flex items-center gap-1.5 font-dm text-xs text-green-400">
+              <Check size={14} /> Saved
+            </span>
+          )}
+        </div>
+      </section>
+
+      {/* ── Commercial rules the owner must decide (P1 #4) ──────────────
+          Each of these appears verbatim in the published Terms of Service.
+          They are separated from the company details above because they are a
+          different kind of thing: the block above is a matter of fact that can
+          be looked up, this one is a matter of policy that has to be chosen. */}
+      <section className="rounded-2xl border border-white/10 bg-dark-card p-5">
+        <h2 className="flex items-center gap-2 font-syne text-base font-bold text-offwhite">
+          <Gavel size={16} className="text-yellow" /> Your commercial rules
+        </h2>
+        <p className="mt-1 font-dm text-sm text-muted">
+          These appear word for word in your{" "}
+          <a href="/legal/terms" target="_blank" rel="noreferrer" className="text-yellow hover:underline">
+            Terms &amp; Conditions
+          </a>
+          . Nothing here is filled in for you — a guessed rule published on a page customers agree to
+          is a rule you would be held to. Anything left blank shows there as{" "}
+          <span className="text-yellow/80">[to be confirmed by the operator]</span>.
+        </p>
+
+        <div className="mt-4 space-y-4">
+          {TERMS_FIELDS.map((f) => (
+            <div key={f.key}>
+              <label htmlFor={`terms-${f.key}`} className="block font-bebas text-[11px] tracking-[0.2em] text-muted">
+                {f.label.toUpperCase()}
+                {!terms[f.key].trim() && <span className="ml-2 text-yellow/80">· not yet decided</span>}
+              </label>
+              <textarea
+                id={`terms-${f.key}`}
+                rows={2}
+                value={terms[f.key]}
+                placeholder={f.placeholder}
+                onChange={(e) => setTerms((p) => ({ ...p, [f.key]: e.target.value }))}
+                className={field}
+              />
+              <p className="mt-1 font-dm text-[11px] leading-relaxed text-muted">{f.hint}</p>
+            </div>
+          ))}
         </div>
 
         <div className="mt-5 flex items-center gap-3">

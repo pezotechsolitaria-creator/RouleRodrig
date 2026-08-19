@@ -3,7 +3,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getContentWithStatus, saveContent } from "@/lib/content";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
-import { missingFactsFor } from "@/lib/legal";
+import { missingFactsFor, missingClauses } from "@/lib/legal";
 
 // ── THE COMPANY'S OWN IDENTITY (P1 #2) ──────────────────────────────────────
 //
@@ -37,6 +37,23 @@ const legalSchema = z.object({
   certificatePath: z.string().trim().max(500).optional(),
 });
 
+// The owner's own commercial rules, published in the Terms of Service. Blank
+// is a legitimate value and renders publicly as "to be confirmed" — the page
+// must never fill one in with a plausible guess, because a guessed term is one
+// the business would be held to.
+const termsSchema = z.object({
+  vehicleMinAge: z.string().trim().max(200).optional(),
+  experienceCancellationNotice: z.string().trim().max(400).optional(),
+  deliveryFailedRule: z.string().trim().max(600).optional(),
+  complaintWindow: z.string().trim().max(200).optional(),
+  ageRestrictedGoods: z.string().trim().max(600).optional(),
+});
+
+const bodySchema = z.object({
+  legal: legalSchema.optional(),
+  terms: termsSchema.optional(),
+});
+
 export async function GET(req: NextRequest) {
   if (!isAuthed(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { content, loaded } = await getContentWithStatus();
@@ -47,7 +64,13 @@ export async function GET(req: NextRequest) {
     );
   }
   const legal = content.legal ?? {};
-  return NextResponse.json({ legal, missing: missingFactsFor(legal) });
+  const terms = content.terms ?? {};
+  return NextResponse.json({
+    legal,
+    terms,
+    missing: missingFactsFor(legal),
+    missingClauses: missingClauses(terms),
+  });
 }
 
 export async function PUT(req: NextRequest) {
@@ -59,7 +82,9 @@ export async function PUT(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
-  const parsed = legalSchema.safeParse(body);
+  // Accepts either block, or both. The two screens are one save button for the
+  // owner and there is no reason to make them two round trips.
+  const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message ?? "Invalid input." },
@@ -78,8 +103,9 @@ export async function PUT(req: NextRequest) {
     );
   }
 
-  const legal = { ...(content.legal ?? {}), ...parsed.data };
-  await saveContent({ ...content, legal });
+  const legal = { ...(content.legal ?? {}), ...(parsed.data.legal ?? {}) };
+  const terms = { ...(content.terms ?? {}), ...(parsed.data.terms ?? {}) };
+  await saveContent({ ...content, legal, terms });
 
   try {
     const { getPrivileged, hasServiceRole } = await import("@/lib/supabase/admin");
@@ -88,11 +114,10 @@ export async function PUT(req: NextRequest) {
       // WHICH fields changed, never the values: a BRN and a registered address
       // are the identity documents of the business, and the audit log is not
       // where a second copy of them should accumulate.
-      const changed = Object.keys(parsed.data).filter(
-        (k) =>
-          (content.legal ?? {})[k as keyof typeof legal] !==
-          parsed.data[k as keyof typeof parsed.data],
-      );
+      const changed = [
+        ...Object.keys(parsed.data.legal ?? {}).map((k) => `legal.${k}`),
+        ...Object.keys(parsed.data.terms ?? {}).map((k) => `terms.${k}`),
+      ];
       await audit(await getPrivileged(), {
         action: "legal.save",
         entityType: "site_content",
@@ -109,7 +134,13 @@ export async function PUT(req: NextRequest) {
   // showing "to be confirmed" for up to an hour.
   revalidatePath("/legal/notice");
   revalidatePath("/legal/privacy");
+  revalidatePath("/legal/terms");
   revalidatePath("/");
 
-  return NextResponse.json({ legal, missing: missingFactsFor(legal) });
+  return NextResponse.json({
+    legal,
+    terms,
+    missing: missingFactsFor(legal),
+    missingClauses: missingClauses(terms),
+  });
 }

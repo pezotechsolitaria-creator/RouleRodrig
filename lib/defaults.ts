@@ -664,6 +664,33 @@ export interface LegalContent {
   certificatePath?: string;
 }
 
+/**
+ * ── COMMERCIAL RULES ONLY THE OWNER CAN DECIDE ─────────────────────────────
+ *
+ * The Terms of Service can describe how the platform WORKS from the code — who
+ * holds the money, when a reservation lapses, who the seller is. It cannot
+ * invent the owner's own commercial policy: how long before a boat trip you may
+ * cancel, what happens to a delivery nobody answers the door for, how old you
+ * must be to hire a vehicle.
+ *
+ * Those are business decisions, and a plausible-sounding guess published as a
+ * binding term is worse than an honest blank. Each is optional; blank renders
+ * publicly as "to be confirmed by the operator", exactly like the legal
+ * identity block, and is filled in from /admin/legal.
+ */
+export interface TermsContent {
+  /** Minimum age to HIRE a vehicle, if it differs from the legal riding age. */
+  vehicleMinAge?: string;
+  /** Notice required to cancel a boat trip, fishing trip or massage. */
+  experienceCancellationNotice?: string;
+  /** What happens when a delivery cannot be completed at the address given. */
+  deliveryFailedRule?: string;
+  /** How long a customer has to raise a problem with an order. */
+  complaintWindow?: string;
+  /** Rule for alcohol or any other age-restricted goods sold on the platform. */
+  ageRestrictedGoods?: string;
+}
+
 export interface SiteContent {
   hero: HeroContent;
   stats: StatItem[];
@@ -677,6 +704,7 @@ export interface SiteContent {
   social: SocialLinks;
   branding: BrandingContent;
   legal?: LegalContent;
+  terms?: TermsContent;
   announcement: AnnouncementContent;
   mapLocations: MapLocation[];
   plannerActivities: PlannerActivity[];
@@ -884,6 +912,8 @@ export const DEFAULT_CONTENT: SiteContent = {
   // into production would be a false one. lib/legal.ts renders each blank as
   // visibly outstanding until the owner fills it in from /admin/legal.
   legal: {},
+  // Same rule as `legal`: blank, never guessed. See TermsContent.
+  terms: {},
   announcement: {
     active: false,
     text: 'Book 3+ days and get a FREE helmet & lock upgrade!',
