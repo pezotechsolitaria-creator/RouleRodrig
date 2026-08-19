@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   RIDE_STATUSES, RIDE_SERVICES, RIDE_SERVICE_META, CUSTOMER_STATUS, ADMIN_STATUS,
   NEXT_STATUSES, canTransition, isOpenRide, searchingMessage, rideReference,
@@ -161,5 +163,44 @@ describe("offerMessage", () => {
 
   it("puts the link last, where a thumb ends up", () => {
     expect(msg.trimEnd().endsWith("https://roulerodrig.com/r/abc123")).toBe(true);
+  });
+});
+
+// ── PRIVATE HIRE ASKS ONLY WHERE TO COLLECT YOU ─────────────────────────────
+//
+// The destination was first made OPTIONAL for a day hire, which was not enough:
+// an optional field is still a question on the screen, so customers invented a
+// place to get past the step and a driver was sent a trip nobody was taking.
+// The field is now not rendered at all for private hire.
+//
+// Asserted against the source because the decision lives in one branch of the
+// booking form, and the failure mode is that a later edit "restores" the field
+// for consistency with the other services.
+describe("private hire has no destination field", () => {
+  const form = readFileSync(join(__dirname, "../../app/taxi/book/BookRide.tsx"), "utf8");
+
+  it("never offers TAKE ME TO as an optional field", () => {
+    // The exact label that used to render for a day hire.
+    expect(form).not.toMatch(/TAKE ME TO — OPTIONAL/);
+    expect(form).not.toMatch(/Leave empty for a day hire/);
+  });
+
+  it("still asks every other service where they are going", () => {
+    expect(form).toMatch(/"TAKE ME TO"/);
+    expect(form).toMatch(/const needsDropoff = service !== "private"/);
+  });
+
+  it("keeps PICK ME UP AT, which is the one thing a day hire does need", () => {
+    expect(form).toMatch(/PICK ME UP AT/);
+  });
+
+  it("summarises a day hire without an empty arrow", () => {
+    // `A → undefined` was what the confirmation step rendered once dropoff
+    // could legitimately be null.
+    expect(form).toMatch(/driver for the day/);
+  });
+
+  it("agrees with the model: private hire needs no arrival", () => {
+    expect(RIDE_SERVICE_META.private.needsArrival).toBe(false);
   });
 });

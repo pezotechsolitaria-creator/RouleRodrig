@@ -274,11 +274,13 @@ export default function BookRide({ initialService }: { initialService: RideServi
     );
   }
 
-  // PRIVATE HIRE MAY HAVE NO DESTINATION. "A driver for the day, or a set
-  // route" — a day hire genuinely has nowhere to be going, and requiring one
-  // meant the customer had to invent a place to get past this step, then a
-  // driver received a trip nobody was taking. Every other service still needs
-  // it; create_ride_request enforces exactly the same rule server-side (M98).
+  // PRIVATE HIRE IS NEVER ASKED FOR A DESTINATION. "A driver for the day, or a
+  // set route" — a day hire genuinely has nowhere to be going. It was first
+  // made optional, but an optional field is still a question on the screen, and
+  // customers kept inventing a place to get past the step; the driver then
+  // received a trip nobody was taking. So the field is not rendered at all.
+  // Every other service still needs it, and create_ride_request enforces the
+  // same rule server-side (M98) — this is presentation, not the boundary.
   const needsDropoff = service !== "private";
   const canContinue2 = !!pickup && (!needsDropoff || !!dropoff) && (whenKind === "now" || !!when);
   const canBook = canContinue2 && name.trim().length > 1 && phone.trim().length > 4;
@@ -339,22 +341,23 @@ export default function BookRide({ initialService }: { initialService: RideServi
                 <span className="block font-dm text-base text-offwhite">{fixedDrop}</span>
               </span>
             </div>
+          ) : needsDropoff ? (
+            <PlacePicker
+              label="TAKE ME TO"
+              icon={Navigation}
+              value={dropoff}
+              onPick={setDropoff}
+              placeholder="Where are you going?"
+            />
           ) : (
-            <>
-              <PlacePicker
-                label={needsDropoff ? "TAKE ME TO" : "TAKE ME TO — OPTIONAL"}
-                icon={Navigation}
-                value={dropoff}
-                onPick={setDropoff}
-                placeholder={needsDropoff ? "Where are you going?" : "Leave empty for a day hire"}
-              />
-              {!needsDropoff && !dropoff && (
-                <p className="-mt-1 font-dm text-xs leading-snug text-muted">
-                  Hiring a driver for the day? Leave this empty. We will agree the price with you
-                  before anything is confirmed.
-                </p>
-              )}
-            </>
+            /* Private hire asks where to COLLECT you and nothing else. An
+               optional destination still reads as a question that has to be
+               dealt with, and a day hire has no answer to give — the customer
+               was inventing a place just to get past the step. */
+            <p className="rounded-2xl border border-white/10 bg-dark-card px-4 py-3.5 font-dm text-sm leading-snug text-muted">
+              Your driver stays with you — tell them where you would like to go on the day. We will
+              confirm the price with you; no charge until you agree.
+            </p>
           )}
 
           <div className="grid grid-cols-2 gap-2">
@@ -435,7 +438,9 @@ export default function BookRide({ initialService }: { initialService: RideServi
           </Field>
 
           <div className="rounded-2xl border border-white/10 bg-dark-card p-4 font-dm text-sm">
-            <p className="text-offwhite">{pickup?.name} → {dropoff?.name}</p>
+            <p className="text-offwhite">
+              {dropoff ? `${pickup?.name} → ${dropoff.name}` : `${pickup?.name} · driver for the day`}
+            </p>
             <p className="mt-0.5 text-muted">
               {whenKind === "now" ? "As soon as possible" : new Date(when).toLocaleString("en-GB", { timeZone: "Indian/Mauritius" })}
               {" · "}{passengers} {passengers === 1 ? "person" : "people"}
