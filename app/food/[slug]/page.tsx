@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Flame, Users, Clock, ChefHat, UtensilsCrossed, Info, MessageCircle } from "lucide-react";
+import { ArrowLeft, Flame, Users, Clock, ChefHat, UtensilsCrossed, Info, MessageCircle, BadgeCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
 import { getFoodItem } from "@/lib/food/queries";
@@ -205,6 +205,22 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
                   Prepared by <span className="font-semibold">{dish.kitchenName}</span>
                   {!dish.kitchenOpen && <span className="text-muted"> · closed right now</span>}
                 </p>
+                {/* The certifier is named, not implied. "Halal certified" on its
+                    own asks the customer to trust the platform; the issuer's
+                    name is the part they can actually check, and it is the only
+                    reason the field is mandatory. The card carries the badge;
+                    this is where the badge is accounted for. */}
+                {dish.kitchenHalalCertified && (
+                  <p className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2 py-1 font-dm text-xs text-emerald-200">
+                    <BadgeCheck size={13} aria-hidden />
+                    <span>
+                      Halal certified
+                      {dish.kitchenHalalCertifier && (
+                        <span className="text-emerald-200/70"> · by {dish.kitchenHalalCertifier}</span>
+                      )}
+                    </span>
+                  </p>
+                )}
                 {/* WHERE it is, tappable. The hint used to sit under a map-pin
                     icon that linked to nothing, so "Port Mathurin, near the
                     market" was a sentence rather than directions. */}

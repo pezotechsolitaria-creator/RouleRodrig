@@ -1,6 +1,6 @@
 import Link from "next/link";
 import AutoPhotos from "@/components/AutoPhotos";
-import { Flame, Star, Clock, Users } from "lucide-react";
+import { Flame, Star, Clock, Users, BadgeCheck } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import { UNAVAILABLE_LABEL, type FoodCard as FoodCardType } from "@/lib/food/types";
 import { dishArt } from "@/lib/food/dish-art";
@@ -139,10 +139,24 @@ export default function FoodCard({
             anything else, and making them open nine dishes to find out is the
             same as not saying. It is the only tag here for that reason — a card
             wearing eight pills tells you nothing at a glance. */}
-        {item.dietary?.includes("halal") && (
+        {/* Two different promises, and the card does not blur them. A certified
+            KITCHEN covers everything it makes, so the badge appears on every one
+            of its dishes without the owner tagging each recipe — that is the
+            point of certifying a place. A dish merely TAGGED halal is the
+            kitchen's own statement about one recipe, and it says so by staying
+            plain. Somebody who needs certification can tell which they are
+            looking at without opening anything. */}
+        {(item.kitchenHalalCertified || item.dietary?.includes("halal")) && (
           <p className="mt-1.5">
-            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-dm text-[10px] font-semibold text-emerald-300">
-              Halal
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-dm text-[10px] font-semibold ${
+                item.kitchenHalalCertified
+                  ? "bg-emerald-500/20 text-emerald-200"
+                  : "bg-emerald-500/10 text-emerald-300/90"
+              }`}
+            >
+              {item.kitchenHalalCertified && <BadgeCheck size={11} aria-hidden />}
+              {item.kitchenHalalCertified ? "Halal certified" : "Halal"}
             </span>
           </p>
         )}

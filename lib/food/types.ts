@@ -55,6 +55,15 @@ export type FoodCard = {
   kitchenId: string;
   kitchenName: string;
   kitchenOpen: boolean;
+  /**
+   * Halal certification is held by the KITCHEN, so it travels with every dish
+   * that kitchen makes rather than being repeated on each recipe. The dish-level
+   * `dietary` tag still means what it always meant — this ingredient list is
+   * halal — and the two are shown differently, because "we say so" and
+   * "somebody certified it" are not the same promise.
+   */
+  kitchenHalalCertified: boolean;
+  kitchenHalalCertifier: string | null;
   categories: string[];
   orderable: boolean;
   reason: FoodUnavailableReason | null;
