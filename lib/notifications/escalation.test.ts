@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hourBucket, hoursWaited, escalationMessage, ESCALATE_AFTER_HOURS } from "./escalation";
+import { hourBucket, hoursWaited, exactHoursWaited, formatWaited, escalationBucket, escalationMessage, ESCALATE_AFTER_HOURS } from "./escalation";
 import type { StaleItem } from "./escalation";
 
 // ── The two things that decide whether this alert helps or gets muted ───────
@@ -89,5 +89,58 @@ describe("escalationMessage", () => {
 describe("the threshold the owner asked for", () => {
   it("escalates after one hour", () => {
     expect(ESCALATE_AFTER_HOURS).toBe(1);
+  });
+});
+
+// From a real WhatsApp thread: a booking at 18:04 produced "1 customer waiting
+// 1h" at 19:04 and the IDENTICAL sentence at 20:02. Two defects in one message —
+// the number floored so it stood still, and the key was the clock hour so it
+// repeated forever.
+describe("an escalation that repeats must carry new information", () => {
+  const booked = new Date("2026-08-19T18:04:00Z").getTime();
+  const at = (iso: string) => new Date(iso).getTime();
+  const since = new Date(booked).toISOString();
+
+  it("does not still say 1h after nearly two hours", () => {
+    expect(formatWaited(since, at("2026-08-19T19:04:00Z"))).toBe("1h");
+    expect(formatWaited(since, at("2026-08-19T20:02:00Z"))).toBe("1h 58m");
+  });
+
+  it("never claims more time has passed than actually has", () => {
+    for (const m of [61, 94, 119, 121, 179]) {
+      const shown = formatWaited(since, booked + m * 60_000);
+      const h = Math.floor(m / 60), r = m % 60;
+      expect(shown, m + " min").toBe(h < 3 && r > 0 ? h + "h " + r + "m" : h + "h");
+    }
+  });
+
+  it("steps 1, 2, 4, 8 and stays quiet in between", () => {
+    expect(escalationBucket(1)).toBe(1);
+    expect(escalationBucket(1.9)).toBe(1);
+    expect(escalationBucket(2)).toBe(2);
+    expect(escalationBucket(3)).toBe(2);
+    expect(escalationBucket(4)).toBe(4);
+    expect(escalationBucket(7)).toBe(4);
+    expect(escalationBucket(8)).toBe(8);
+  });
+
+  it("says nothing below the first step", () => {
+    expect(escalationBucket(0)).toBe(0);
+    expect(escalationBucket(0.5)).toBe(0);
+    expect(escalationBucket(Number.NaN)).toBe(0);
+  });
+
+  // The whole point: the message the owner actually received twice would now be
+  // sent once, and the second one would say something different.
+  it("collapses the real duplicate and lets the real escalation through", () => {
+    const key = (n: number, iso: string) => `admin.stale_work:${n}:${escalationBucket(exactHoursWaited(since, at(iso)))}`;
+    expect(key(1, "2026-08-19T19:04:00Z")).toBe(key(1, "2026-08-19T19:59:00Z"));
+    expect(key(1, "2026-08-19T19:04:00Z")).not.toBe(key(1, "2026-08-19T20:05:00Z"));
+  });
+
+  it("never suppresses a new person joining the queue", () => {
+    const oneWaiting = `admin.stale_work:1:${escalationBucket(3)}`;
+    const twoWaiting = `admin.stale_work:2:${escalationBucket(3)}`;
+    expect(oneWaiting).not.toBe(twoWaiting);
   });
 });

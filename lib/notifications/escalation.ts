@@ -42,11 +42,56 @@ function hoursAgoIso(hours: number): string {
   return new Date(Date.now() - hours * 3600_000).toISOString();
 }
 
-/** Whole hours between then and now, floored — "waiting 3h". */
+/** Whole hours between then and now, floored — the honest lower bound. */
 export function hoursWaited(since: string, now: number = Date.now()): number {
   const t = new Date(since).getTime();
   if (!Number.isFinite(t)) return 0;
   return Math.max(0, Math.floor((now - t) / 3600_000));
+}
+
+/** Exact hours as a fraction. Used to decide escalation steps, never shown. */
+export function exactHoursWaited(since: string, now: number = Date.now()): number {
+  const t = new Date(since).getTime();
+  if (!Number.isFinite(t)) return 0;
+  return Math.max(0, (now - t) / 3600_000);
+}
+
+/**
+ * How long somebody has waited, in words — "1h 58m", "3h".
+ *
+ * Whole floored hours were what the owner actually saw, and on an alert that
+ * repeats they made the number stand still: a booking at 18:04 produced
+ * "1 customer waiting 1h" at 19:04 and, at 20:02, the identical sentence,
+ * because 1h58m floors to 1. Two messages an hour apart saying the same thing
+ * teach you not to open the second one.
+ *
+ * Rounding would have fixed the stillness and bought a worse problem — 1h34m
+ * announced as "2h" exaggerates how long a real person has been ignored, and
+ * this number exists to be trusted. So the minutes are simply shown while they
+ * still carry information, and dropped once the hours are the story.
+ */
+export function formatWaited(since: string, now: number = Date.now()): string {
+  const total = Math.max(0, Math.floor((now - new Date(since).getTime()) / 60_000));
+  if (!Number.isFinite(total)) return "0h";
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h === 0) return `${m}m`;
+  return h < 3 && m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+/**
+ * Which escalation step a wait of `hours` belongs to: 1, 2, 4, 8, 16, 32…
+ *
+ * The alert used to repeat every clock hour for as long as the work sat there.
+ * Hour after hour of the same sentence is how a real alert becomes background
+ * noise — the same way a red "4" with no names became something to scroll past.
+ *
+ * Doubling means every message that does arrive carries a number the last one
+ * did not: 1h, 2h, 4h, 8h. Quiet in between, and louder each time it speaks.
+ */
+export function escalationBucket(hours: number): number {
+  if (!Number.isFinite(hours) || hours < 1) return 0;
+  return 2 ** Math.floor(Math.log2(hours));
 }
 
 /**
@@ -173,16 +218,16 @@ function hasValidThreshold(hours: number): boolean {
  */
 export function escalationMessage(items: StaleItem[], now: number = Date.now()): string {
   const oldest = items[0];
-  const waited = oldest ? hoursWaited(oldest.waitingSince, now) : 0;
+  const waitedText = oldest ? formatWaited(oldest.waitingSince, now) : "0h";
   const head =
     items.length === 1
-      ? `1 customer waiting ${waited}h`
-      : `${items.length} customers waiting — longest ${waited}h`;
+      ? `1 customer waiting ${waitedText}`
+      : `${items.length} customers waiting — longest ${waitedText}`;
 
   return formatWhatsAppMessage({
     title: `⏳ ${head}`,
     lines: items.slice(0, 5).map(
-      (i) => `${i.customer} (${i.reference}) ${i.detail} — ${hoursWaited(i.waitingSince, now)}h`,
+      (i) => `${i.customer} (${i.reference}) ${i.detail} — ${formatWaited(i.waitingSince, now)}`,
     ),
     action: items.length > 5 ? `+${items.length - 5} more in /admin → Money` : "Open /admin → Money",
   });
@@ -208,9 +253,20 @@ export async function escalateStale(
       category: "admin",
       message: escalationMessage(items),
       payload: { count: items.length, oldest: items[0]?.waitingSince, thresholdHours: hours },
-      // One per clock hour. The worker runs every minute; without this he would
-      // get the same message sixty times and mute the number.
-      dedupeKey: `admin.stale_work:${hourBucket()}`,
+      // Doubling backoff, not one per clock hour.
+      //
+      // The worker runs every minute, so SOME dedupe was always needed. But an
+      // hourly key meant the same sentence arrived every hour for as long as the
+      // work sat there — 19:04 and 20:02 both read "1 customer waiting 1h" —
+      // which teaches the owner the message is not worth opening.
+      //
+      // Keyed on the escalation step instead, so it speaks at 1h, 2h, 4h, 8h and
+      // is quiet between. The count is in the key too: a NEW person joining the
+      // queue is new information and must never be suppressed by a backoff that
+      // was about somebody else.
+      dedupeKey: `admin.stale_work:${items.length}:${escalationBucket(
+        exactHoursWaited(items[0]?.waitingSince ?? new Date().toISOString()),
+      )}`,
     });
     return { found: items.length, queued };
   } catch (err) {
