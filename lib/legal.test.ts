@@ -386,7 +386,9 @@ describe("the cancellation rule agrees with itself everywhere", () => {
     expect(stripComments(bookingForm())).toMatch(/80% of your deposit/i);
     expect(stripComments(i18nSrc())).toMatch(/80% of your deposit/i);
     // And the policy page must spell out why the deposit is the basis.
-    expect(refundsPage()).toMatch(/Only the deposit is paid in advance/i);
+    expect(refundsPage()).toMatch(/calculated on whatever you paid/i);
+    // And it must not claim a deposit exists where experiences charge nothing.
+    expect(refundsPage()).toMatch(/request-only/i);
   });
 
   it("does not advertise 'no deposit required' while the form charges one", () => {

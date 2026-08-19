@@ -74,15 +74,26 @@ export default async function RefundsPage() {
           The same rule covers anything booked ahead and paid for in advance — a vehicle rental, and
           a boat trip, fishing trip, massage or other bookable experience.
         </P>
-        {/* The one question this policy would otherwise leave open. Only the
-            deposit is taken up front (the balance is due at handover), so
-            "the amount paid" and "the deposit" are the same figure — saying so
-            is the difference between a customer being able to work out what
-            they get back and having to ask. */}
+        {/* The question this policy would otherwise leave open, and the one
+            place it could state something untrue.
+
+            A rental takes a deposit at booking with the balance due at
+            handover, so "what you paid" and "the deposit" are the same figure.
+            An experience does NOT work that way: 10 of the 11 bookable
+            listings in production charge nothing at all — they are
+            request-only, the owner confirms by hand, and no money moves until
+            then. Saying "a refund is calculated on the deposit" to those
+            customers describes a refund of a deposit that was never taken. */}
         <P>
-          Only the deposit is paid in advance — the balance is due when you collect or when the
-          service takes place — so a refund is calculated on the deposit. A cancelled booking leaves
-          no balance to pay.
+          A refund is calculated on whatever you paid <strong>in advance</strong> to secure the
+          booking. For a vehicle rental that is the deposit taken at booking, with the balance due
+          when you collect — so a cancelled booking leaves no balance to pay.
+        </P>
+        <P>
+          Many experiences are <strong>request-only</strong>: nothing is charged until the operator
+          confirms, and often nothing is charged at all. Where you have paid nothing there is nothing
+          to refund and you can cancel at no cost — but please do cancel rather than simply not
+          appear, so the slot goes back to somebody else.
         </P>
         <UL>
           {R.cancellationTiers.map((t) => (
