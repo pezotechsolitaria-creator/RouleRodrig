@@ -10,6 +10,7 @@ import { formatPickupCode } from "@/lib/orders/pickup";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
 import { channelsForStatus } from "@/lib/orders/email-policy";
 import { notifyDriversOfNewOffer } from "@/lib/delivery/notify";
+import { pushToCustomer } from "@/lib/push/send";
 import { isPrepaymentOnly } from "@/lib/payments/prepayment";
 
 const NOT_FOUND_CODE = "RR003";
@@ -157,6 +158,39 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (targetStatus === "ready_for_pickup") {
       await notifyDriversOfNewOffer(id);
     }
+    // ── THE CUSTOMER'S OWN PHONE, BEFORE THE EMAIL (M124) ──────────────────
+    //
+    // Same gap as the admin food route, on the screen merchants actually use
+    // (M81 — restaurants run on this dashboard, not a food copy). The driver
+    // was pushed, the customer was emailed. Push is free and instant; email is
+    // ~400 a day shared with Supabase auth mail, and it still follows, because
+    // a customer who never granted permission must still be told.
+    try {
+      await pushToCustomer(
+        { email: current.customer_email ?? null, userId: current.customer_id ?? null },
+        status === "ready_for_pickup"
+          ? {
+              // No pickup code in a push: it sits on a lock screen anyone can
+              // read. The code stays in the email and on the order page.
+              title: "Your order is ready",
+              body: `Order ${current.order_number} is ready to collect.`,
+              url: `/orders/track?ref=${encodeURIComponent(String(current.order_number))}`,
+              tag: `order:${id}`,
+            }
+          : {
+              title: "Order update",
+              body: `Order ${current.order_number} is now ${
+                (STATUS_LABEL[status as OrderStatus] ?? status).toLowerCase()
+              }.`,
+              url: `/orders/track?ref=${encodeURIComponent(String(current.order_number))}`,
+              tag: `order:${id}`,
+            },
+      );
+    } catch (err) {
+      // Never roll back a status the merchant has already acted on.
+      console.error("merchant order push failed", err);
+    }
+
     try {
       const admin = await getPrivileged();
       // A guest order has no auth user, so the address on the order IS the

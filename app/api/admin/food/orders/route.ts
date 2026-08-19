@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { pushToCustomer } from "@/lib/push/send";
 import { guardFoodAdmin, readJson, failed } from "@/lib/food/guard";
 import { ORDER_COLUMNS, hydrateOrders, balanceDueOf } from "@/lib/admin/order-hydrate";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
@@ -230,6 +231,52 @@ export async function PATCH(req: NextRequest) {
         orderId,
       });
     }
+    // ── THE CUSTOMER'S OWN PHONE, BEFORE THE EMAIL (M124) ──────────────────
+    //
+    // Every other party already learned about this status change: the driver
+    // by push, the owner by WhatsApp, the customer by EMAIL only. So the one
+    // person waiting for the food got the slowest channel on the platform, and
+    // one that costs quota — the free tier is ~400 a day shared with Supabase
+    // auth mail.
+    //
+    // Push first, email still after: they are not alternatives. A customer who
+    // never granted permission, or is on a desktop that is asleep, must still
+    // be told. Failure here is logged and swallowed for the same reason the
+    // email is — a notification that throws must not roll back a status the
+    // kitchen has already acted on.
+    try {
+      const pushed = await pushToCustomer(
+        {
+          email: current.customer_email as string | null,
+          userId: current.customer_id as string | null,
+        },
+        targetStatus === "ready_for_pickup"
+          ? {
+              title: "Your food is ready",
+              // No pickup code here on purpose: a push sits on a lock screen
+              // anyone can read. The code is in the email and on the order.
+              body: `Order ${current.order_number} is ready to collect.`,
+              url: `/orders/track?ref=${encodeURIComponent(String(current.order_number))}`,
+              tag: `order:${orderId}`,
+            }
+          : {
+              title: "Order update",
+              body: `Order ${current.order_number} is now ${
+                (STATUS_LABEL[targetStatus as OrderStatus] ?? targetStatus).toLowerCase()
+              }.`,
+              url: `/orders/track?ref=${encodeURIComponent(String(current.order_number))}`,
+              tag: `order:${orderId}`,
+            },
+      );
+      if (pushed === 0) {
+        // Not an error — most customers never subscribe. Logged so "they said
+        // they never got told" can be answered with a fact.
+        console.info("food order push: no subscribed device", orderId);
+      }
+    } catch (err) {
+      console.error("food order push failed", err);
+    }
+
     try {
       let email = (current.customer_email as string | null) ?? null;
       if (current.customer_id) {
