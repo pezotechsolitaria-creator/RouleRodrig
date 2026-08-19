@@ -586,6 +586,50 @@ covered by deterministic unit tests instead.)
 
 ---
 
+## 8b. The first real driving day — owner checklist
+
+Nothing in this system has met a real phone. `driver_locations` has never held a
+row. This is the shortest path from that to a working trip, in order.
+
+**Before the day**
+
+1. **Set a base location for every taxi driver** (`/admin` → their driver record).
+   A driver with neither a live fix nor a base cannot be ranked by distance and
+   will not appear on the map — dispatch silently scores them "position
+   unknown". `/admin/live` now names anyone in this state at the top of the page.
+
+**On the next real job**
+
+2. **The driver** opens their own link (`/d/<token>`), presses **I'M WORKING**,
+   and taps **Allow** when the phone asks for location. The page then says
+   *"Roulé Rodrigues can see you"* and lists the three rules — page in front,
+   screen may dim, sharing pauses if they switch apps.
+3. **You** open two things side by side: the customer's tracking link
+   (`/taxi/track` with the reference + phone) and `/admin/live`.
+
+**What "working" looks like**
+
+| where | expect |
+|---|---|
+| Driver | "Roulé Rodrigues can see you" · switching apps flips it to "Paused while you're in another app" and back on return |
+| Customer | the booked road drawn **before** the driver moves, then a moving marker · "Live" · an ETA that only appears once somebody is driving |
+| `/admin/live` | the driver on the map within ~20 s, freshness green, "See what the customer sees" opens the identical screen |
+
+**If nothing appears**
+
+- `/admin/live` says *"No drivers sharing location yet"* → nobody has pressed
+  I'M WORKING **and** allowed location. That is the usual cause.
+- Driver says *"Location is blocked"* → the browser permission was denied. It
+  cannot be re-asked by the page; the banner names the exact steps per phone.
+- Driver says *"You don't look like you're on Rodrigues"* → a test phone, or a
+  VPN. Positions off the island are deliberately not shared.
+
+**Known limit, worth saying out loud to the driver once:** if they close the tab
+or lock the phone for a long stretch, the customer stops seeing them move. The
+last position is kept and labelled *"Last seen 3 min ago"* rather than left
+looking live. There is no web API that fixes this — it is the browser, not the
+app.
+
 ## 9. Remaining production risks
 
 | Risk | Severity | Detail |

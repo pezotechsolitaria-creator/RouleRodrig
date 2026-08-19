@@ -1,6 +1,8 @@
 "use client";
 
-import { Loader2, Satellite, SatelliteDish, AlertTriangle, Compass } from "lucide-react";
+import {
+  Loader2, Satellite, SatelliteDish, AlertTriangle, Compass, PauseCircle,
+} from "lucide-react";
 import type { DriverTrackingState } from "@/lib/tracking/useDriverTracking";
 
 // ── WHY THE DOT IS OR IS NOT THERE, IN THE DRIVER'S WORDS ───────────────────
@@ -24,6 +26,14 @@ export default function DriverGpsStatus({
 
   const banner = (() => {
     switch (tracking.gps) {
+      case "paused":
+        return {
+          tone: "warn" as const,
+          icon: <PauseCircle size={16} />,
+          title: "Sharing paused — this page isn't in front",
+          body: "Your phone stops updating your position when you switch to another app or lock the screen. Your customer can still see where you were last. Come back to this page and it starts again on its own.",
+          action: null,
+        };
       case "denied":
         return {
           tone: "bad" as const,
@@ -71,6 +81,7 @@ export default function DriverGpsStatus({
   })();
 
   const live = tracking.gps === "live";
+  const paused = tracking.gps === "paused";
 
   return (
     <div className="space-y-2.5">
@@ -81,22 +92,54 @@ export default function DriverGpsStatus({
       >
         {live ? (
           <SatelliteDish size={17} className="shrink-0 text-green-400" />
+        ) : paused ? (
+          <PauseCircle size={17} className="shrink-0 text-yellow" />
         ) : (
           <Satellite size={17} className="shrink-0 text-muted" />
         )}
         <span className="min-w-0 flex-1">
           <span className="block font-dm text-sm font-bold text-offwhite">
-            {live ? "Roulé Rodrigues can see you" : "Location not shared yet"}
+            {live
+              ? "Roulé Rodrigues can see you"
+              : paused
+                ? "Paused while you're in another app"
+                : "Location not shared yet"}
           </span>
           <span className="block font-dm text-[11px] leading-relaxed text-muted">
             {live
               ? hasJob
                 ? "Your customer can watch you on the map."
                 : "You'll be offered the jobs nearest you."
-              : "Keep this page open while you work."}
+              : paused
+                ? "Come back to this page to start again."
+                : "Keep this page open while you work."}
           </span>
         </span>
       </div>
+
+      {/* ── THE THREE THINGS A DRIVER HAS TO DO ─────────────────────────
+          Said once, plainly, and only while they are on duty — which is the
+          only time any of it is actionable. A driver on their first day should
+          not have to infer this from an error message that has not happened
+          yet.
+
+          Deliberately NOT "keep your screen bright": the page has to stay in
+          front, but the display can dim, and telling somebody to burn their
+          battery for no reason is how the instruction stops being believed. */}
+      {live && (
+        <ul className="space-y-1.5 rounded-2xl border border-white/10 bg-dark-card px-4 py-3">
+          {[
+            "Keep this page in front while you're on a job.",
+            "Your screen can dim — just don't switch to another app.",
+            "If you do, sharing pauses and starts again when you come back.",
+          ].map((line) => (
+            <li key={line} className="flex items-start gap-2 font-dm text-[11px] leading-relaxed text-muted">
+              <span aria-hidden="true" className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-yellow" />
+              {line}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {banner && (
         <div

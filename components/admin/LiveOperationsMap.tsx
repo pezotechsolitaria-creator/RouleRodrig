@@ -208,6 +208,16 @@ export default function LiveOperationsMap() {
 
   const stale = board?.staleAfterSeconds ?? 600;
 
+  // Is ANYBODY transmitting, anywhere in the fleet? Distinct from "in this
+  // filter", and the difference decides what the empty map should say.
+  const anyoneSharing = drivers.some((d) => d.positionSource === "live");
+  // Taxi drivers with neither a live fix nor a base. Until one or the other
+  // exists they cannot be ranked by distance OR drawn, so dispatch silently
+  // scores them "position unknown" and an operator has no way to see why.
+  const taxiWithoutBase = drivers.filter(
+    (d) => d.kind === "taxi" && d.positionSource === null,
+  );
+
   const pins: Pin[] = useMemo(
     () =>
       visible.map((d) => {
@@ -291,10 +301,24 @@ export default function LiveOperationsMap() {
           ) : visible.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 bg-dark-card px-8 text-center">
               <MapPin size={26} className="text-muted" />
-              <p className="font-dm text-sm text-muted">
+              {/* Three different situations that all used to look like one
+                  empty map. An operator opening this on the first driving day
+                  needs to know which of them they are looking at, because each
+                  has a different next action — add a driver, wait, or check
+                  that somebody actually pressed I'M WORKING. */}
+              <p className="font-dm text-sm font-bold text-offwhite">
                 {drivers.length === 0
-                  ? "No drivers on the platform yet."
-                  : "Nobody in this filter has a position yet. A driver appears here the moment they go on duty with their page open."}
+                  ? "No drivers on the platform yet"
+                  : anyoneSharing
+                    ? "Nobody in this filter has a position"
+                    : "No drivers sharing location yet"}
+              </p>
+              <p className="max-w-[42ch] font-dm text-xs leading-relaxed text-muted">
+                {drivers.length === 0
+                  ? "Add a taxi driver or approve a delivery partner, and they appear here once they go on duty."
+                  : anyoneSharing
+                    ? "Try the All filter — somebody is sharing, just not in this group."
+                    : "A driver appears the moment they open their own page, press I'M WORKING and allow location. Nobody has done that yet."}
               </p>
             </div>
           ) : (
@@ -415,6 +439,26 @@ export default function LiveOperationsMap() {
             reference={watching.job.ref}
             passengerName={watching.job.customerName}
           />
+        </div>
+      )}
+
+      {/* ── THE ONE SETTING THAT HAS TO BE FILLED IN ──────────────────────
+          A taxi driver with no live fix AND no base location is invisible to
+          both the map and to distance ranking — dispatch scores them "position
+          unknown" and offers them work as if they were nowhere. It is one field
+          in their record, and nothing else surfaces that it is empty. */}
+      {taxiWithoutBase.length > 0 && (
+        <div className="rounded-2xl border border-yellow/30 bg-yellow/[0.06] px-4 py-3">
+          <p className="flex items-center gap-1.5 font-dm text-xs font-bold text-offwhite">
+            <AlertTriangle size={13} className="text-yellow" />
+            {taxiWithoutBase.length} taxi driver{taxiWithoutBase.length === 1 ? " has" : "s have"} no
+            base location
+          </p>
+          <p className="mt-1 font-dm text-[11px] leading-relaxed text-muted">
+            {taxiWithoutBase.map((d) => d.name).join(", ")} — until they share a live position or you
+            set where they usually wait, they cannot be ranked by distance and will not appear on
+            this map. Set it in their driver record.
+          </p>
         </div>
       )}
 

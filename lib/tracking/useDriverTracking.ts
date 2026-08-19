@@ -41,6 +41,7 @@ export type GpsState =
   | "searching"      // permission granted, no fix yet
   | "poor"           // fixes arriving, but too imprecise to be useful
   | "live"           // working
+  | "paused"         // the page is backgrounded; the browser has stopped us
   | "off_island";    // a real fix, nowhere near Rodrigues
 
 export type DriverTrackingCredential =
@@ -290,22 +291,33 @@ export function useDriverTracking({
     void persist(fixRef.current);
   }, [trackingStatus, trip?.id, enabled, persist]);
 
-  // ── Coming back from the background ──────────────────────────────────────
-  // A suspended tab wakes with a position that may be minutes stale and a socket
-  // that may be dead. Force a fresh fix and a fresh write rather than letting the
-  // old one look current.
+  // ── BACKGROUNDED: the failure a driver will actually hit ─────────────────
+  // Every other GPS state here is something the phone tells us. This one is
+  // something the BROWSER does to us: once the page is not visible, timers are
+  // throttled and position callbacks slow to a crawl or stop. The driver has
+  // done nothing wrong and their phone is fine — they switched to WhatsApp.
+  //
+  // Reported as its own state rather than letting the dot silently go stale,
+  // because the fix is a sentence ("come back to this page") and nobody can act
+  // on a fix they are not told about.
+  const [backgrounded, setBackgrounded] = useState(false);
   useEffect(() => {
     if (!enabled) return;
-    const onVisible = () => {
-      if (document.visibilityState !== "visible") return;
+    const onVisibility = () => {
+      const visible = document.visibilityState === "visible";
+      setBackgrounded(!visible);
+      if (!visible) return;
+      // Coming back: a suspended tab wakes holding a position that may be
+      // minutes old. Force a fresh fix and a fresh write rather than letting
+      // the stale one look current.
       lastPersist.current = 0;
       lastPublish.current = 0;
       navigator.geolocation?.getCurrentPosition(
         () => {}, () => {}, { enableHighAccuracy: true, maximumAge: 0, timeout: 10_000 },
       );
     };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [enabled]);
 
   const retry = useCallback(() => {
@@ -317,7 +329,9 @@ export function useDriverTracking({
   // Derived rather than stored: a driver who is off duty is idle by
   // definition, so there is no moment where `enabled` is false and the reported
   // state still says "live".
-  const gps: GpsState = enabled ? gpsState : "idle";
+  // `paused` outranks whatever the last fix said: a live-looking dot on a
+  // backgrounded page is precisely the lie this screen exists to prevent.
+  const gps: GpsState = !enabled ? "idle" : backgrounded ? "paused" : gpsState;
 
   return { gps, lastFix, accuracyM, reported, serverError, retry };
 }

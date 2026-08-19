@@ -285,8 +285,12 @@ export default function LiveTripView({
             they are going while they wait for somebody to start driving. */}
         {hasSomethingToDraw && !fix && active && (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[500] p-3 pb-6">
-            <p className="pointer-events-auto mx-auto w-fit rounded-full border border-white/10 bg-dark-card px-3.5 py-2 font-dm text-[11px] text-muted shadow-lg">
-              Your driver hasn&apos;t shared their location yet
+            {/* Names what IS on screen before it names what is missing. "Your
+                driver hasn't shared their location" alone reads as a fault;
+                said after "this is your route", it reads as a next step. */}
+            <p className="pointer-events-auto mx-auto w-fit max-w-[92%] rounded-2xl border border-white/10 bg-dark-card px-3.5 py-2 text-center font-dm text-[11px] leading-relaxed text-muted shadow-lg">
+              <span className="font-bold text-offwhite">This is your route.</span>{" "}
+              Your driver appears here as soon as they start sharing their location.
             </p>
           </div>
         )}
