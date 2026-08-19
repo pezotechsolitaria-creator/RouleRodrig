@@ -72,13 +72,39 @@ const kitchenFields = z.object({
     // "the cooker is ill today" button.
   status: z.enum(["draft", "active", "paused"]).optional(),
   offersRrDelivery: z.boolean().optional(),
+
+  // Halal is a property of the KITCHEN, not of a recipe — the surfaces, the
+  // oil, the knives, what else this cook prepares. The dish-level `halal`
+  // dietary tag describes an ingredient list; this attests to a place, and it
+  // is attested BY somebody. See checkKitchenPairs and the matching database
+  // CHECK: certified is not a thing you can be anonymously.
+  halalCertified: z.boolean().optional(),
+  halalCertifier: z.string().trim().max(160).optional().or(z.literal("")),
 });
 
-/** The two cross-field rules, applied only when both halves are present. */
+/** The cross-field rules, applied only when both halves are present. */
 function checkKitchenPairs(
-  v: { prepMinutesMin?: number; prepMinutesMax?: number; lat?: number | null; lng?: number | null },
+  v: {
+    prepMinutesMin?: number;
+    prepMinutesMax?: number;
+    lat?: number | null;
+    lng?: number | null;
+    halalCertified?: boolean;
+    halalCertifier?: string;
+  },
   ctx: z.RefinementCtx,
 ) {
+  // "Certified" with nobody behind it is not a certification, it is the word.
+  // The database refuses this too — the rule is here as well so the operator
+  // gets a sentence in the form rather than a constraint violation.
+  if (v.halalCertified === true && !(v.halalCertifier ?? "").trim()) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Name who certified this kitchen — a certification with no issuer is only a claim.",
+      path: ["halalCertifier"],
+    });
+  }
+
   if (
     v.prepMinutesMin !== undefined &&
     v.prepMinutesMax !== undefined &&

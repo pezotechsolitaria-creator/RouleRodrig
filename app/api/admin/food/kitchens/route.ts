@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
     .from("food_kitchens")
     .select(
       "store_id, prep_minutes_min, prep_minutes_max, pickup_hint, position, " +
+        "halal_certified, halal_certifier, " +
         // stores IS a real parent (food_kitchens.store_id → stores.id), so this
         // embed is the one that can be trusted.
         "stores(id, name, slug, tagline, status, address, phone, whatsapp, lat, lng)",
@@ -105,6 +106,8 @@ export async function GET(req: NextRequest) {
     prep_minutes_max: number;
     pickup_hint: string | null;
     position: number;
+    halal_certified: boolean | null;
+    halal_certifier: string | null;
     stores: Record<string, unknown> | Record<string, unknown>[] | null;
 
   };
@@ -191,6 +194,8 @@ export async function GET(req: NextRequest) {
         prepMinutesMax: r.prep_minutes_max,
         pickupHint: r.pickup_hint,
         position: r.position,
+        halalCertified: r.halal_certified ?? false,
+        halalCertifier: r.halal_certifier ?? null,
         cookerName: ops?.cooker_name ?? null,
         cookerPhone: ops?.cooker_phone ?? null,
         cookerNotes: ops?.cooker_notes ?? null,
@@ -294,6 +299,16 @@ export async function PATCH(req: NextRequest) {
     if (v.prepMinutesMax !== undefined) kitchenPatch.prep_minutes_max = v.prepMinutesMax;
     if (v.pickupHint !== undefined) kitchenPatch.pickup_hint = v.pickupHint?.trim() || null;
     if (v.position !== undefined) kitchenPatch.position = v.position;
+    // Certification travels as a pair or not at all. Turning it OFF clears the
+    // issuer in the same write, so a kitchen can never keep a name that is no
+    // longer vouching for it — that stale name is exactly what a customer would
+    // trust.
+    if (v.halalCertified !== undefined) {
+      kitchenPatch.halal_certified = v.halalCertified;
+      kitchenPatch.halal_certifier = v.halalCertified ? (v.halalCertifier ?? "").trim() || null : null;
+    } else if (v.halalCertifier !== undefined) {
+      kitchenPatch.halal_certifier = v.halalCertifier.trim() || null;
+    }
     if (Object.keys(kitchenPatch).length) {
       const { error } = await admin.from("food_kitchens").update(kitchenPatch).eq("store_id", v.storeId);
       if (error) throw new Error(error.message);

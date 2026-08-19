@@ -16,6 +16,9 @@ export type AdminKitchen = {
   prepMinutesMax: number;
   pickupHint: string | null;
   position: number;
+  /** Halal certification is a property of the kitchen, and of whoever issued it. */
+  halalCertified: boolean;
+  halalCertifier: string | null;
   cookerName: string | null;
   cookerPhone: string | null;
   cookerNotes: string | null;

@@ -37,6 +37,8 @@ type Draft = {
   cookerNotes: string;
   status: string;
   offersRrDelivery: boolean;
+  halalCertified: boolean;
+  halalCertifier: string;
 };
 
 const emptyDraft = (): Draft => ({
@@ -56,6 +58,8 @@ const emptyDraft = (): Draft => ({
   cookerNotes: "",
   status: "active",
   offersRrDelivery: true,
+  halalCertified: false,
+  halalCertifier: "",
 });
 
 export default function KitchensPanel({
@@ -126,6 +130,8 @@ export default function KitchensPanel({
       cookerNotes: draft.cookerNotes,
       status: draft.status as "draft" | "active" | "paused",
       offersRrDelivery: draft.offersRrDelivery,
+      halalCertified: draft.halalCertified,
+      halalCertifier: draft.halalCertifier.trim(),
     };
     setBusy("save");
     const res = await foodWrite("/api/admin/food/kitchens", {
@@ -320,6 +326,8 @@ export default function KitchensPanel({
                       status: k.status,
                       // The kitchen's actual setting, not a hardcoded true.
                       offersRrDelivery: k.offersRrDelivery,
+                      halalCertified: k.halalCertified,
+                      halalCertifier: k.halalCertifier ?? "",
                     })
                   }
                   className="rounded-lg border border-white/15 px-2.5 py-2 text-muted hover:text-offwhite"
@@ -497,6 +505,42 @@ export default function KitchensPanel({
                     className="h-4 w-4 accent-[#F5C842]" />
                   We deliver from here
                 </label>
+              </div>
+
+              {/* ── HALAL CERTIFICATION ──────────────────────────────────────
+                  On the kitchen, not the dish. The dish-level "halal" tag
+                  describes a recipe; this attests to a place — the surfaces,
+                  the oil, the knives, what else this cook prepares — and it is
+                  attested BY somebody. The issuer field is not optional
+                  decoration: the database refuses a certified kitchen with no
+                  issuer, because "certified" with nobody behind it is the word
+                  and not the thing, and the people who rely on it cannot tell
+                  the difference from the outside. */}
+              <div className="mt-3 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.05] p-3">
+                <label className="flex cursor-pointer items-center gap-2.5 font-dm text-sm text-offwhite">
+                  <input
+                    type="checkbox"
+                    checked={draft.halalCertified}
+                    onChange={(e) => setDraft({ ...draft, halalCertified: e.target.checked })}
+                    className="h-4 w-4 accent-emerald-400"
+                  />
+                  This kitchen is halal certified
+                </label>
+                {draft.halalCertified && (
+                  <div className="mt-2.5">
+                    <span className={label}>CERTIFIED BY</span>
+                    <input
+                      className={input}
+                      value={draft.halalCertifier}
+                      onChange={(e) => setDraft({ ...draft, halalCertifier: e.target.value })}
+                      placeholder="e.g. Islamic Circle of Mauritius"
+                    />
+                    <p className="mt-1.5 font-dm text-[11px] text-muted">
+                      Shown to the customer beside the badge. Required — a certification nobody
+                      issued is only a claim, and customers cannot check a name that is not there.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
