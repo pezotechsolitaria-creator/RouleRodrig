@@ -204,3 +204,49 @@ describe("private hire has no destination field", () => {
     expect(RIDE_SERVICE_META.private.needsArrival).toBe(false);
   });
 });
+
+// ── AN ARRIVAL RUN CARRIES ITS FLIGHT OR FERRY NUMBER (M119) ────────────────
+//
+// It used to be "(OPTIONAL)". A driver sent to Plaine Corail without it cannot
+// know the plane is two hours late — he waits, or the customer lands to nobody.
+// Required in the form AND at the API, because the form is a convenience and
+// the route is the rule.
+describe("flight and ferry numbers are required", () => {
+  const form = readFileSync(join(__dirname, "../../app/taxi/book/BookRide.tsx"), "utf8");
+  const api = readFileSync(join(__dirname, "../../app/api/rides/route.ts"), "utf8");
+
+  it("applies to exactly the services that meet an arrival", () => {
+    expect(RIDE_SERVICE_META.airport.needsArrival).toBe(true);
+    expect(RIDE_SERVICE_META.ferry.needsArrival).toBe(true);
+    // And to nothing else — a taxi across the island has no flight.
+    expect(RIDE_SERVICE_META.taxi.needsArrival).toBe(false);
+    expect(RIDE_SERVICE_META.hotel.needsArrival).toBe(false);
+    expect(RIDE_SERVICE_META.private.needsArrival).toBe(false);
+  });
+
+  it("no longer offers the number as optional", () => {
+    expect(form).not.toMatch(/FLIGHT OR BOAT NUMBER \(OPTIONAL\)/);
+  });
+
+  it("names the right thing for a boat and for a plane", () => {
+    expect(form).toMatch(/FERRY OR BOAT NUMBER/);
+    expect(form).toMatch(/FLIGHT NUMBER/);
+  });
+
+  it("blocks the step until the number is given", () => {
+    expect(form).toMatch(/flightRefOk/);
+    expect(form).toMatch(/canContinue2[\s\S]{0,200}flightRefOk/);
+  });
+
+  it("is enforced at the API, not only in the form", () => {
+    // A client-side requirement is a hint; this is the boundary.
+    expect(api).toMatch(/needsArrival/);
+    expect(api).toMatch(/\.refine\(/);
+    expect(api).toMatch(/flightRef/);
+  });
+
+  it("reads needsArrival rather than listing the services again", () => {
+    // Two hardcoded lists drift; one flag cannot.
+    expect(api).toMatch(/RIDE_SERVICE_META\[v\.service\]/);
+  });
+});

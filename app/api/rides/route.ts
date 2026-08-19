@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { guard } from "@/lib/rate-limit";
-import { RIDE_SERVICES } from "@/lib/rides/model";
+import { RIDE_SERVICES, RIDE_SERVICE_META } from "@/lib/rides/model";
 
 // ── THE CUSTOMER'S OWN BOOKING ──────────────────────────────────────────────
 //
@@ -45,7 +45,20 @@ const bookSchema = z.object({
   name: z.string().trim().min(2).max(120),
   phone: z.string().trim().min(5).max(40),
   email: z.string().trim().email().max(160).optional().or(z.literal("")),
-});
+})
+  // ── AN ARRIVAL RUN CARRIES ITS FLIGHT OR FERRY NUMBER ─────────────────────
+  //
+  // Required in the form, and required here too, because the form is a
+  // convenience and this is the rule. A driver sent to Plaine Corail without a
+  // flight number cannot know the plane is two hours late; he waits, or the
+  // customer lands to nobody. The number is what makes the meeting work.
+  //
+  // RIDE_SERVICE_META.needsArrival is the same flag the form reads, so the two
+  // can never disagree about which services this applies to.
+  .refine(
+    (v) => !RIDE_SERVICE_META[v.service]?.needsArrival || (v.flightRef ?? "").trim().length >= 2,
+    { path: ["flightRef"], message: "Tell us the flight or ferry number so your driver can meet you." },
+  );
 
 export async function POST(req: NextRequest) {
   // Deliberately tight. A ride is a person and a car; six a minute from one

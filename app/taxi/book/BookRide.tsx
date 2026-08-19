@@ -282,7 +282,17 @@ export default function BookRide({ initialService }: { initialService: RideServi
   // Every other service still needs it, and create_ride_request enforces the
   // same rule server-side (M98) — this is presentation, not the boundary.
   const needsDropoff = service !== "private";
-  const canContinue2 = !!pickup && (!needsDropoff || !!dropoff) && (whenKind === "now" || !!when);
+  // A FLIGHT OR FERRY NUMBER IS REQUIRED, NOT A NICETY. It is the only way the
+  // driver learns the plane is two hours late; without it an airport run turns
+  // into a 5am phone call, or a driver waiting at the terminal for nobody.
+  // Every other service still leaves it out entirely.
+  const needsFlightRef = meta.needsArrival;
+  const flightRefOk = !needsFlightRef || flightRef.trim().length >= 2;
+  const canContinue2 =
+    !!pickup &&
+    (!needsDropoff || !!dropoff) &&
+    (whenKind === "now" || !!when) &&
+    flightRefOk;
   const canBook = canContinue2 && name.trim().length > 1 && phone.trim().length > 4;
 
   return (
@@ -381,15 +391,26 @@ export default function BookRide({ initialService }: { initialService: RideServi
             <Stepper label="BAGS" icon={Luggage} value={luggage} setValue={setLuggage} min={0} max={12} />
           </div>
 
-          {/* Only for a journey that actually has a flight or a boat. */}
+          {/* Only for a journey that actually has a flight or a boat — and there
+              it is required, because the driver plans around it. */}
           {meta.needsArrival && (
             <div className="rounded-2xl border border-white/12 bg-dark-card p-4">
               <label className="block font-bebas text-[10px] tracking-[0.22em] text-muted" htmlFor="flight">
-                FLIGHT OR BOAT NUMBER (OPTIONAL)
+                {service === "ferry" ? "FERRY OR BOAT NUMBER" : "FLIGHT NUMBER"}
               </label>
               <input id="flight" value={flightRef} onChange={(e) => setFlightRef(e.target.value)}
-                placeholder="e.g. MK034"
-                className="mt-1.5 w-full rounded-xl border border-white/12 bg-dark px-3 py-2.5 font-dm text-base text-offwhite placeholder:text-muted focus:border-yellow/60 focus:outline-none" />
+                placeholder={service === "ferry" ? "e.g. Anna M" : "e.g. MK034"}
+                required
+                aria-describedby="flight-why"
+                aria-invalid={!flightRefOk}
+                className={`mt-1.5 w-full rounded-xl border bg-dark px-3 py-2.5 font-dm text-base text-offwhite placeholder:text-muted focus:outline-none ${
+                  flightRefOk ? "border-white/12 focus:border-yellow/60" : "border-orange-400/50 focus:border-orange-400"
+                }`} />
+              <p id="flight-why" className="mt-1.5 font-dm text-xs leading-snug text-muted">
+                {service === "ferry"
+                  ? "We track the boat, so your driver is there when it docks — not an hour early."
+                  : "We track the flight, so your driver is there when you land — even if you are delayed."}
+              </p>
               <label className="mt-3 flex items-center gap-2 font-dm text-sm text-offwhite/85">
                 <input type="checkbox" checked={meetGreet} onChange={(e) => setMeetGreet(e.target.checked)} className="accent-yellow" />
                 Wait for me inside with a sign
