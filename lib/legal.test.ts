@@ -369,11 +369,24 @@ describe("the cancellation rule agrees with itself everywhere", () => {
 
   it("states the same 48-hour cutoff in the policy and at the point of payment", () => {
     expect(resolveRefunds(undefined).cancellationTiers[0].window).toMatch(/48 hours/);
-    // All three languages of the booking form must carry the cutoff, not just English.
+    // All three languages of the booking form must carry the cutoff, not just
+    // English — a French or Creole customer agreeing to a rule they were never
+    // shown is the same failure, one language over.
     const form = stripComments(bookingForm());
-    expect(form).toMatch(/more than 48h before pickup/i);
-    expect(form).toMatch(/48 h avant le retrait/i);
-    expect(form).toMatch(/48 er avan retre/i);
+    expect(form).toMatch(/more than 48h before/i);
+    expect(form).toMatch(/plus de 48 h avant/i);
+    expect(form).toMatch(/plis ki 48 er avan/i);
+  });
+
+  it("says the 80% is of the DEPOSIT, everywhere it is quoted", () => {
+    // "80% refund" alone is ambiguous when only 25% is prepaid and the balance
+    // is due at pickup: a customer could reasonably read it as 80% of the whole
+    // rental. Every surface quoting the figure must name its basis.
+    expect(resolveRefunds(undefined).cancellationTiers[0].outcome).toMatch(/deposit/i);
+    expect(stripComments(bookingForm())).toMatch(/80% of your deposit/i);
+    expect(stripComments(i18nSrc())).toMatch(/80% of your deposit/i);
+    // And the policy page must spell out why the deposit is the basis.
+    expect(refundsPage()).toMatch(/Only the deposit is paid in advance/i);
   });
 
   it("does not advertise 'no deposit required' while the form charges one", () => {

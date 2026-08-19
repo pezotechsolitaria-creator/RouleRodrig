@@ -887,7 +887,8 @@ export default function BookingSection({
                           This line said "Free cancellation up to 48h before
                           pickup", which the refund policy did not support even
                           then and certainly does not now: outside 48 hours the
-                          refund is 80%, with 20% retained for administration.
+                          refund is 80% OF THE DEPOSIT — the only part paid in
+                          advance — with 20% retained for administration.
                           A cancellation promise shown at the point of payment
                           is the one a customer relies on, so it states the fee
                           rather than implying there is none. The 100%-if-we-
@@ -896,10 +897,10 @@ export default function BookingSection({
                         <ShieldCheck size={13} className="mt-0.5 shrink-0 text-green-400" />
                         <p className="font-dm text-[11px] leading-snug text-muted">
                           {language === "fr"
-                            ? "Annulez jusqu'à 48 h avant le retrait : remboursement de 80 %. Au-delà, non remboursable."
+                            ? "Annulez plus de 48 h avant : 80 % de l'acompte remboursé. Dans les 48 h, non remboursable."
                             : language === "cr"
-                              ? "Anile ziska 48 er avan retre : 80 % ranbourse. Apre sa, pena ranbourseman."
-                              : "Cancel more than 48h before pickup for an 80% refund. Inside 48h it is non-refundable."}{" "}
+                              ? "Anile plis ki 48 er avan : 80 % lakont ranbourse. Dan 48 er, pena ranbourseman."
+                              : "Cancel more than 48h before and 80% of your deposit is refunded. Inside 48h it is non-refundable."}{" "}
                           <Link href="/legal/refunds" target="_blank" className="text-yellow hover:underline">
                             {language === "fr" ? "Détails" : language === "cr" ? "Detay" : "Details"}
                           </Link>

@@ -74,6 +74,16 @@ export default async function RefundsPage() {
           The same rule covers anything booked ahead and paid for in advance — a vehicle rental, and
           a boat trip, fishing trip, massage or other bookable experience.
         </P>
+        {/* The one question this policy would otherwise leave open. Only the
+            deposit is taken up front (the balance is due at handover), so
+            "the amount paid" and "the deposit" are the same figure — saying so
+            is the difference between a customer being able to work out what
+            they get back and having to ask. */}
+        <P>
+          Only the deposit is paid in advance — the balance is due when you collect or when the
+          service takes place — so a refund is calculated on the deposit. A cancelled booking leaves
+          no balance to pay.
+        </P>
         <UL>
           {R.cancellationTiers.map((t) => (
             <li key={t.window}>

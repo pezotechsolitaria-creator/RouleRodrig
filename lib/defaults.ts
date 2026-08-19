@@ -978,11 +978,14 @@ export const DEFAULT_CONTENT: SiteContent = {
   refunds: {
     cancellationTiers: [
       {
-        window: 'More than 48 hours before pickup',
+        window: 'More than 48 hours before the scheduled service',
         outcome:
-          '80% of what you paid is refunded. We retain 20% as an administration and processing fee',
+          '80% of the deposit paid is refunded. The remaining 20% is retained as an administrative and processing fee',
       },
-      { window: 'Within 48 hours of pickup, or a no-show', outcome: 'non-refundable' },
+      {
+        window: 'Within 48 hours of the scheduled service, or a no-show',
+        outcome: 'non-refundable',
+      },
     ],
     securityDeposit:
       'A refundable security deposit may be collected at pickup (cash or card hold). It is returned in full at drop-off, less any agreed charge for damage, missing fuel, or late return.',
