@@ -45,12 +45,14 @@ function stageOf(status: string | undefined): TrackingStatus {
 type Ctx = { ok?: boolean; trip?: { id?: string; status?: string; channelKey?: string } | null };
 
 export default function DeliveryTracking({
-  online, activeId, activeStatus,
+  online, activeId, activeStatus, driverId,
 }: {
   online: boolean;
   /** The delivery being worked, from the dashboard's own state. */
   activeId: string | null;
   activeStatus: string | null;
+  /** For fleet presence, so the admin board sees them appear and disappear. */
+  driverId?: string | null;
 }) {
   const [channelKey, setChannelKey] = useState<string | null>(null);
 
@@ -88,6 +90,8 @@ export default function DeliveryTracking({
     channelKey: effectiveKey,
     trip: activeId ? { kind: "delivery" as const, id: activeId } : null,
     trackingStatus: stageOf(activeStatus ?? undefined),
+    driverKind: "delivery",
+    driverId,
   });
 
   // Going offline erases the stored position rather than letting it age out.

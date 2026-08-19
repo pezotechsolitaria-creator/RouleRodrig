@@ -7,7 +7,7 @@ import {
   Signal, SignalLow, SignalZero, AlertTriangle, X, Eye,
 } from "lucide-react";
 import { freshness, lastSeenLabel, type Freshness } from "@/lib/tracking/model";
-import { subscribeToTrip } from "@/lib/tracking/channel";
+import { subscribeToTrip, watchFleetPresence, type DriverPresence } from "@/lib/tracking/channel";
 import type { MapPin as Pin } from "@/components/tracking/TrackingMap";
 import LiveTripView from "@/components/tracking/LiveTripView";
 
@@ -101,6 +101,23 @@ export default function LiveOperationsMap() {
   >(null);
   /** The driver whose customer-facing tracking screen the operator is watching. */
   const [watching, setWatching] = useState<Driver | null>(null);
+  // ── PRESENCE ───────────────────────────────────────────────────────────
+  // The board polls the DATABASE every 10 s, which is the authority on where
+  // everyone is — but a last-known timestamp cannot tell a dead phone from a
+  // quiet minute until stale_location_minutes has elapsed. Presence fires a
+  // `leave` in seconds. One socket for the whole fleet, not one per driver.
+  const [present, setPresent] = useState<Set<string>>(new Set());
+  useEffect(
+    () =>
+      watchFleetPresence((list: DriverPresence[]) =>
+        setPresent(new Set(list.map((p) => `${p.driverKind}:${p.driverId}`))),
+      ),
+    [],
+  );
+  const isTransmitting = useCallback(
+    (d: Driver) => present.has(`${d.kind}:${d.id}`),
+    [present],
+  );
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
@@ -136,13 +153,41 @@ export default function LiveOperationsMap() {
   const drivers = useMemo(() => board?.drivers ?? [], [board]);
   const selected = drivers.find((d) => d.id === selectedId) ?? null;
 
+  // ── THE RECENT PATH ────────────────────────────────────────────────────
+  // Accumulated HERE, in the operator's browser, from the positions we are
+  // already receiving — not stored anywhere.
+  //
+  // That is a deliberate choice, not a shortcut. driver_locations is one row
+  // per driver, upserted, precisely so there is nowhere to keep a trail; the
+  // engine's own comment calls that the cheapest way to honour "do not track
+  // drivers forever". Persisting a breadcrumb table would quietly undo it. A
+  // trail that lives only as long as somebody is watching answers "did he
+  // really go via Mont Lubin" without building a history of anyone's movements.
+  // Tagged with the channel it belongs to, the same way `streamed` is: a
+  // different driver's path is discarded by COMPARISON rather than by an effect
+  // racing to clear it.
+  const [trail, setTrail] = useState<{ key: string; points: [number, number][] } | null>(null);
+
   // One socket, for the selected driver only.
   useEffect(() => {
     const key = selected?.job?.channelKey;
     if (!key) return;
-    return subscribeToTrip(key, (fix) =>
-      setStreamed({ key, lat: fix.lat, lng: fix.lng, heading: fix.heading }),
-    );
+    return subscribeToTrip(key, (fix) => {
+      setStreamed({ key, lat: fix.lat, lng: fix.lng, heading: fix.heading });
+      setTrail((prev) => {
+        const points = prev?.key === key ? prev.points : [];
+        const last = points[points.length - 1];
+        // Skip near-duplicates: a stationary driver would otherwise pile
+        // thousands of identical points into the array.
+        if (last && Math.abs(last[0] - fix.lat) < 1e-5 && Math.abs(last[1] - fix.lng) < 1e-5) {
+          return prev;
+        }
+        // Capped: this is a "recent" path, and an unbounded array on a screen
+        // left open all day is a leak with a nice name.
+        const next: [number, number][] = [...points, [fix.lat, fix.lng]];
+        return { key, points: next.length > 300 ? next.slice(next.length - 300) : next };
+      });
+    });
   }, [selected?.job?.channelKey]);
 
   // Tagging each frame with its channel means selecting another driver discards
@@ -271,6 +316,11 @@ export default function LiveOperationsMap() {
               }
               fitTo={fitTo}
               follow={false}
+              trail={
+                trail && trail.key === selected?.job?.channelKey && trail.points.length > 1
+                  ? trail.points
+                  : null
+              }
             />
           )}
         </div>
@@ -310,6 +360,7 @@ export default function LiveOperationsMap() {
                           <span className="block truncate font-dm text-[10px] text-muted">
                             {d.job ? `On ${d.job.ref}` : d.availability === "available" ? "Free" : "Off"}
                             {d.positionSource === "base" && " · base only"}
+                            {isTransmitting(d) && " · transmitting"}
                           </span>
                         </span>
                         {signalIcon(d.positionSource === "live" ? f : "unknown")}

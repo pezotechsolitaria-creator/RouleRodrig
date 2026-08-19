@@ -1747,3 +1747,23 @@ html.light .rr-basemap-switch button.is-on {
 .rr-tiles-labels {
   filter: none;
 }
+
+/* ── PLACE NAMES OVER IMAGERY ──────────────────────────────────────────────
+   Our own gazetteer, not a third party's label tiles — see
+   lib/tracking/place-labels.ts. A halo rather than a plate: over satellite the
+   ground is every colour at once, and a solid chip for every village would
+   cover the thing the imagery is there to show. */
+.rr-place-name {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  pointer-events: none;
+  font-family: var(--font-dm), system-ui, sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  text-shadow:
+    0 0 3px rgb(0 0 0 / 0.95), 0 0 6px rgb(0 0 0 / 0.8),
+    0 1px 2px rgb(0 0 0 / 0.9);
+}

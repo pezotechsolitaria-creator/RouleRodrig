@@ -200,7 +200,12 @@
 // the live view on delivery and in admin. New client bundles everywhere and new
 // map CSS in globals.css; a client on v293 would keep drawing straight lines
 // over street tiles.
-const CACHE = "rr-cache-v294";
+// v295 — the satellite basemap changes provider for LICENCE reasons (Esri out,
+// EOX 2016 CC BY 4.0 in), plus fleet presence and the recent-path trail. A
+// client left on v294 would keep requesting Esri tiles this platform is not
+// licensed to use commercially, so this bump is the thing that actually stops
+// that.
+const CACHE = "rr-cache-v295";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

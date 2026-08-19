@@ -5,42 +5,63 @@
 // component imports a tile URL, and none should.
 //
 // ── TWO BASEMAPS, SATELLITE FIRST ───────────────────────────────────────────
-// The owner asked for satellite "like Google, so we can see the routes clearly",
-// and on Rodrigues that is the right default for a reason beyond taste: much of
+// The owner asked for satellite "like Google, so we can see the routes
+// clearly", and on Rodrigues that is right for a reason beyond taste: much of
 // the island's road network is unnamed, and a lot of what a driver actually
 // follows — cane tracks, the turning into a guesthouse, the last 200 m of dirt
 // to a beach — is legible in imagery and simply absent from a street rendering.
 //
-// SATELLITE is a HYBRID, exactly as Google's is: imagery underneath, a
-// transparent labels/boundaries layer on top. Imagery alone is beautiful and
-// unreadable — you cannot tell which grey line is the road you want.
+// ── THE LICENCE, WHICH DECIDED THE PROVIDER ─────────────────────────────────
+// This is a COMMERCIAL taxi and delivery platform, so a basemap has to be
+// licensed for commercial use. That rules out more than it sounds like:
 //
-// ── WHAT WAS VERIFIED, AND WHEN ─────────────────────────────────────────────
-// Measured 2026-08-19 against the real island centre (-19.7024, 63.4105):
+//   Esri World Imagery      free to reach, but Esri state it is not available
+//                           for commercial use without an ArcGIS licence.
+//                           REMOVED for that reason (owner's decision).
+//   EOX 2018-2024 layers    CC BY-NC-SA 4.0 — NON-commercial. Same problem.
+//   EOX 2016 (`s2cloudless_3857`)
+//                           CC BY 4.0. Commercial use permitted with
+//                           attribution. THIS is what we use.
+//   Google / Bing / Mapbox / HERE
+//                           paid, and excluded by the zero-recurring-cost rule.
 //
-//   Esri World Imagery        z13 14.5 KB · z15 16.3 KB · z17 10.5 KB   real
-//   Esri Reference labels     z13/15/17 ~0.9 KB (sparse here, as expected)
-//   EOX Sentinel-2 cloudless  z13 11.8 KB · z15 7.4 KB · z17 2.9 KB     thin
-//   OSM standard              z15 17.9 KB · z17 4.1 KB                  real
+// Verified over the island centre (-19.7024, 63.4105) on 2026-08-19: the 2016
+// layer returns real tiles at z12-z17.
 //
-// Sentinel-2 is 10 m/pixel, so past about z14 it is upsampled mush — fine as a
-// licence-clean fallback, not as the thing a driver navigates by. Esri holds
-// detail to z17 and beyond over Rodrigues.
+// ── WHAT THAT COSTS, STATED PLAINLY ─────────────────────────────────────────
+// Two honest limitations, both consequences of the licence choice rather than
+// of the code:
 //
-// ── THE LICENCE POSITION, STATED PLAINLY ────────────────────────────────────
-// Esri's World Imagery tile service is publicly reachable without a key and is
-// the standard free satellite layer in the Leaflet ecosystem, used with the
-// attribution below. It is NOT covered by an open licence the way OpenStreetMap
-// is: Esri's terms of use govern it, and a commercial deployment at scale is a
-// question for the owner, not for this file. It is therefore swappable by env
-// var like everything else here, and `EOX_SENTINEL` below is the fully-open
-// (CC-BY) alternative if that answer ever comes back "no".
+//   AGE          2016 imagery. Rodrigues' coastline, ridge and main roads have
+//                not moved, but a building or a track laid since then is not
+//                in it.
+//   RESOLUTION   Sentinel-2 is 10 m/pixel, which is about z14. Past that the
+//                tiles are an upscale, not more detail — measured: 14.4 KB at
+//                z12 falling to 1.9 KB at z17. maxNativeZoom stops Leaflet
+//                requesting zooms the data does not contain and upscales
+//                locally instead: same picture, fewer requests, politer to a
+//                free service.
+//
+// The permanent fix is not another provider. Rodrigues is 108 km²: a satellite
+// basemap for JUST this island, built from Copernicus Sentinel data (whose own
+// licence expressly allows commercial use with attribution) and served as
+// PMTiles from storage we already pay for, is a small asset and answers the
+// licence, the age and the resolution at once. See docs/LIVE_TRACKING.md.
+//
+// ── LABELS ──────────────────────────────────────────────────────────────────
+// Imagery alone is beautiful and unreadable — you cannot tell which grey line
+// is the road you want. Google solves it with a labels overlay, and so do we,
+// but from our OWN gazetteer (lib/rides/places.ts) rather than a third party's
+// tiles. That is not a compromise: the global labels layer we trialled returned
+// 872-byte, essentially empty tiles over Rodrigues, while the gazetteer holds
+// the forty place names people here actually say out loud. It is also one fewer
+// external dependency and one fewer licence to honour.
 //
 // ── OSM TILE POLICY (the streets basemap) ───────────────────────────────────
 // The OSMF Tile Usage Policy is a real constraint, not a formality: heavy or
 // bulk use is prohibited, an identifying User-Agent/Referer is required, and
 // they may block a client without warning. A tracking map requests tiles
-// CONTINUOUSLY while a customer watches, so it is the one screen most likely to
+// CONTINUOUSLY while a customer watches, so it is the screen most likely to
 // look like abuse. maxZoom is capped, Leaflet's tile cache is left alone, and
 // the map pans rather than re-centres — see TrackingMap.
 
@@ -66,32 +87,35 @@ export type Basemap = {
 
 export type BasemapId = "satellite" | "streets";
 
-const ESRI_ATTR =
-  'Imagery &copy; <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a>, Maxar, Earthstar Geographics';
-
 const OSM_ATTR =
   '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
+
+/**
+ * The 2016 Sentinel-2 cloudless mosaic — the ONE EOX layer released under
+ * CC BY 4.0 rather than CC BY-NC-SA. Attribution is a licence condition, not a
+ * courtesy, and Leaflet renders it in the map's attribution control whenever
+ * this layer is active.
+ */
+const EOX_ATTR =
+  '<a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless</a> by EOX IT Services GmbH ' +
+  '(Contains modified Copernicus Sentinel data 2016) &mdash; CC BY 4.0';
 
 const SATELLITE: Basemap = {
   id: "satellite",
   label: "Satellite",
   base: {
-    // NOTE the {y}/{x} order — ArcGIS REST is row/col, the reverse of the
-    // XYZ convention every other provider here uses. Swapping them yields
-    // tiles from the wrong hemisphere, which looks like "satellite is broken".
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attribution: ESRI_ATTR,
+    url: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg",
+    attribution: EOX_ATTR,
     maxZoom: 19,
-    maxNativeZoom: 18,
+    // 10 m/pixel is roughly z14. Beyond it Leaflet upscales the last real tile
+    // rather than asking EOX for detail that does not exist.
+    maxNativeZoom: 14,
   },
-  overlay: {
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}",
-    attribution: "",
-    maxZoom: 19,
-    maxNativeZoom: 18,
-  },
-  // Never tinted. Darkening photography does not make it stylish, it makes it
-  // muddy — and the whole point of imagery is seeing the ground.
+  // No third-party overlay. Place names come from our own gazetteer — see the
+  // LABELS note above.
+  overlay: undefined,
+  // Never tinted: darkening photography does not make it stylish, it makes it
+  // muddy, and the point of imagery is seeing the ground.
   tintable: false,
 };
 
@@ -108,17 +132,27 @@ const STREETS: Basemap = {
 };
 
 /**
- * Fully-open (CC-BY) satellite, for the day Esri's terms become a problem.
- * Not wired to the UI: at 10 m/pixel it is unusable above ~z14, so it is a
- * documented escape hatch rather than a choice a customer should be offered.
+ * The self-hosted path, for when 2016 at 10 m/pixel stops being good enough.
+ *
+ * Copernicus Sentinel data is free and open INCLUDING for commercial use, with
+ * attribution — it is EOX's hosted service that carries the non-commercial
+ * terms, not the underlying imagery. So a newer, sharper basemap for Rodrigues
+ * alone is a licensing question already answered; it is only a build step.
+ *
+ * Point NEXT_PUBLIC_MAP_SATELLITE_URL at it and this module needs no change.
  */
-export const EOX_SENTINEL: TileLayerSpec = {
-  url: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg",
-  attribution:
-    'Sentinel-2 cloudless by <a href="https://eox.at" target="_blank" rel="noopener">EOX</a> (CC-BY-NC-SA)',
-  maxZoom: 19,
-  maxNativeZoom: 14,
-};
+export function satelliteFromEnv(): TileLayerSpec | null {
+  const url = process.env.NEXT_PUBLIC_MAP_SATELLITE_URL;
+  const attribution = process.env.NEXT_PUBLIC_MAP_SATELLITE_ATTRIBUTION;
+  if (!url || !attribution) return null;
+  const maxNative = Number(process.env.NEXT_PUBLIC_MAP_SATELLITE_MAX_NATIVE_ZOOM);
+  return {
+    url,
+    attribution,
+    maxZoom: 19,
+    maxNativeZoom: Number.isFinite(maxNative) ? maxNative : undefined,
+  };
+}
 
 function fromEnv(): Basemap | null {
   const url = process.env.NEXT_PUBLIC_MAP_TILE_URL;
@@ -144,8 +178,10 @@ function fromEnv(): Basemap | null {
 
 /** Every basemap a viewer may switch between, in menu order. */
 export function getBasemaps(): Basemap[] {
+  const sat = satelliteFromEnv();
+  const satellite: Basemap = sat ? { ...SATELLITE, base: sat } : SATELLITE;
   const custom = fromEnv();
-  return custom ? [SATELLITE, custom] : [SATELLITE, STREETS];
+  return custom ? [satellite, custom] : [satellite, STREETS];
 }
 
 export function getBasemap(id: BasemapId): Basemap {

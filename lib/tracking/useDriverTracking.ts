@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  createTripPublisher, PERSIST_MS,
+  createTripPublisher, joinFleetPresence, PERSIST_MS,
 } from "./channel";
 import {
   filterFix, isOnRodrigues, publishIntervalMs,
@@ -51,6 +51,9 @@ export type UseDriverTrackingArgs = {
   /** Master switch. False stops the watch and clears the server-side position. */
   enabled: boolean;
   credential: DriverTrackingCredential;
+  /** Who this is, for fleet presence. Omit and presence is simply not joined. */
+  driverKind?: "taxi" | "delivery";
+  driverId?: string | null;
   /** Null while the driver has no job: we still persist, but broadcast nothing. */
   channelKey: string | null;
   trip: { kind: "ride" | "delivery"; id: string } | null;
@@ -70,7 +73,7 @@ export type DriverTrackingState = {
 };
 
 export function useDriverTracking({
-  enabled, credential, channelKey, trip, trackingStatus,
+  enabled, credential, channelKey, trip, trackingStatus, driverKind, driverId,
 }: UseDriverTrackingArgs): DriverTrackingState {
   const [gpsState, setGps] = useState<GpsState>("idle");
   const [lastFix, setLastFix] = useState<Fix | null>(null);
@@ -133,6 +136,35 @@ export function useDriverTracking({
       inflight.current = false;
     }
   }, []);
+
+  // ── PRESENCE: "somebody is there" ────────────────────────────────────────
+  // Separate from position on purpose. The database's timestamp cannot tell a
+  // dead phone from a quiet minute until `stale_location_minutes` has elapsed;
+  // a dropped socket fires a presence `leave` in seconds. One is the authority
+  // on WHERE, the other on WHETHER.
+  //
+  // Keyed on the driver, and torn down when they go off duty — so pressing
+  // "I'M OFF" removes them from the admin board at once rather than when a
+  // heartbeat eventually times out.
+  const presence = useRef<ReturnType<typeof joinFleetPresence> | null>(null);
+  useEffect(() => {
+    if (!enabled || !driverKind || !driverId) return;
+    const handle = joinFleetPresence({
+      driverKind, driverId, onJob: Boolean(trip), since: Date.now(),
+    });
+    presence.current = handle;
+    return () => {
+      handle.close();
+      presence.current = null;
+    };
+    // `trip` deliberately absent: a driver picking up a job must not drop and
+    // rejoin the fleet channel. The effect below updates it in place instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, driverKind, driverId]);
+
+  useEffect(() => {
+    presence.current?.update(Boolean(trip));
+  }, [trip]);
 
   // ── The publisher lives as long as the job does ──────────────────────────
   useEffect(() => {

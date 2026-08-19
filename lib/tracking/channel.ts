@@ -155,3 +155,118 @@ export function createTripPublisher(channelKey: string): {
     },
   };
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// PRESENCE — WHO IS TRANSMITTING RIGHT NOW
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Broadcast answers "where is this driver". Presence answers a different and
+// coarser question: "is anybody there at all".
+//
+// ── WHY BOTH, AND WHY NOT ONE ─────────────────────────────────────────────
+// The database already stores a last-known position with a timestamp, and
+// staleness can be inferred from it — but only by WAITING. A driver whose phone
+// dies looks perfectly live for `stale_location_minutes` (ten by default),
+// because absence of an update is indistinguishable from a quiet moment until
+// enough time has passed.
+//
+// Presence closes that gap: the socket drops, Supabase fires a `leave`, and the
+// admin board knows within seconds rather than minutes. It does NOT replace the
+// timestamp — a driver on a train with a flaky connection may leave and rejoin
+// repeatedly while genuinely driving, so the DB's `recorded_at` stays the
+// authority on the POSITION and presence is the authority on the CONNECTION.
+//
+// ── WHY ONE SHARED CHANNEL ────────────────────────────────────────────────
+// Every on-duty driver joins the same fleet channel rather than one channel
+// each. Supabase's free tier allows 200 concurrent connections, and one channel
+// per driver plus one per watcher is how a small island spends them. Presence
+// state is a map of driver -> metadata, which is exactly the shape the admin
+// board needs anyway.
+//
+// The topic is NOT a capability here: it carries no position and no customer
+// data, only "driver X, of kind Y, is transmitting". Anything more sensitive
+// stays on the per-trip channel where the key is the authorisation.
+
+/** The one channel every on-duty driver joins. */
+export const FLEET_PRESENCE_TOPIC = "fleet-presence";
+
+export type DriverPresence = {
+  driverKind: "taxi" | "delivery";
+  driverId: string;
+  /** Whether they are currently on a job, for the admin board's counts. */
+  onJob: boolean;
+  /** Epoch ms, from the driver's own clock — indicative only, never compared. */
+  since: number;
+};
+
+/**
+ * Announce that this driver is transmitting, for as long as the handle lives.
+ *
+ * Returns a `close` that leaves the channel explicitly. Explicit beats implicit
+ * here: a driver pressing "I'M OFF" should disappear from the board at once,
+ * not when a heartbeat eventually times out.
+ */
+export function joinFleetPresence(me: DriverPresence): { update: (onJob: boolean) => void; close: () => void } {
+  const supabase = createClient();
+  const channel = supabase.channel(FLEET_PRESENCE_TOPIC, {
+    // The key is what identifies this driver's slot. Without it Supabase
+    // allocates a random one per connection and a reconnect looks like a second
+    // driver.
+    config: { presence: { key: `${me.driverKind}:${me.driverId}` } },
+  });
+
+  let joined = false;
+  let current = me;
+
+  void channel.subscribe((status) => {
+    if (status !== "SUBSCRIBED") return;
+    joined = true;
+    void channel.track(current);
+  });
+
+  return {
+    update(onJob: boolean) {
+      current = { ...current, onJob };
+      if (joined) void channel.track(current);
+    },
+    close() {
+      joined = false;
+      void channel.untrack().finally(() => void supabase.removeChannel(channel));
+    },
+  };
+}
+
+/**
+ * Watch the whole fleet's presence. Used by the admin board.
+ *
+ * `onChange` receives the full set every time it changes — presence is small
+ * (tens of drivers) and a diff would be more code than it saves.
+ */
+export function watchFleetPresence(
+  onChange: (present: DriverPresence[]) => void,
+): () => void {
+  const supabase = createClient();
+  const channel = supabase.channel(FLEET_PRESENCE_TOPIC, {
+    config: { presence: { key: "observer" } },
+  });
+
+  const emit = () => {
+    const state = channel.presenceState<DriverPresence>();
+    const out: DriverPresence[] = [];
+    for (const key of Object.keys(state)) {
+      // An observer occupies a slot too; it is not a driver.
+      if (key === "observer") continue;
+      const first = state[key]?.[0];
+      if (first?.driverId) out.push(first);
+    }
+    onChange(out);
+  };
+
+  channel
+    .on("presence", { event: "sync" }, emit)
+    .on("presence", { event: "join" }, emit)
+    .on("presence", { event: "leave" }, emit)
+    .subscribe();
+
+  return () => { void supabase.removeChannel(channel); };
+}

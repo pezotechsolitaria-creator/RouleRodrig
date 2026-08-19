@@ -288,6 +288,7 @@ export default function DriverDashboard() {
           online={online}
           activeId={active[0]?.id ?? null}
           activeStatus={active[0]?.status ?? null}
+          driverId={dash?.driver?.id ?? null}
         />
       )}
 

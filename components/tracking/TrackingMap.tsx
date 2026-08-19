@@ -9,6 +9,7 @@ import {
 } from "@/lib/tracking/tiles";
 import { createSmoothMarker, type SmoothMarker } from "@/lib/tracking/smooth-marker";
 import { shouldRefit, isFramableSize } from "@/lib/tracking/model";
+import { labelsForZoom } from "@/lib/tracking/place-labels";
 
 // ── THE MAP, FOR EVERY SURFACE THAT NEEDS ONE ───────────────────────────────
 //
@@ -64,6 +65,14 @@ type Props = {
    * end. Pass lat/lng to override.
    */
   bubble?: { text: string; lat?: number; lng?: number; muted?: boolean } | null;
+  /**
+   * Where the driver has actually BEEN on this job, oldest first.
+   *
+   * Distinct from `route`, which is where they are going. An operator asking
+   * "did he really go via Mont Lubin" is asking about this, and it is the only
+   * thing on the map that answers a question about the past.
+   */
+  trail?: [number, number][] | null;
 };
 
 const VEHICLE_PATH: Record<string, string> = {
@@ -122,7 +131,7 @@ function placeIconHtml(pin: MapPin): string {
 
 export default function TrackingMap({
   driver, pins = [], route, directLine, follow = true,
-  className, fitTo, interactive = true, bubble = null,
+  className, fitTo, interactive = true, bubble = null, trail = null,
 }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const map = useRef<LeafletMap | null>(null);
@@ -149,6 +158,9 @@ export default function TrackingMap({
   const [basemapId, setBasemapId] = useState<BasemapId>(DEFAULT_BASEMAP);
   const baseLayer = useRef<TileLayer | null>(null);
   const labelLayer = useRef<TileLayer | null>(null);
+  /** Our gazetteer drawn over imagery, redrawn on zoom. */
+  const placeLabels = useRef<import("leaflet").LayerGroup | null>(null);
+  const labelRedraw = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     try {
@@ -169,6 +181,7 @@ export default function TrackingMap({
   const placeMarkers = useRef<Map<string, Marker>>(new globalThis.Map());
   const line = useRef<Polyline | null>(null);
   const bubbleMarker = useRef<Marker | null>(null);
+  const trailLine = useRef<Polyline | null>(null);
   const accuracyRing = useRef<CircleMarker | null>(null);
   const userPanned = useRef(false);
   const fitted = useRef(false);
@@ -338,11 +351,57 @@ export default function TrackingMap({
       labelLayer.current.setZIndex(250);
     }
 
+    // ── PLACE NAMES, FROM OUR OWN GAZETTEER ─────────────────────────────
+    // Only over imagery: the street basemap already draws its own names, and
+    // two sets of labels on one map is worse than either. Redrawn on zoom
+    // because what belongs on screen changes with it — all 35 at once is a word
+    // cloud, not a map.
+    placeLabels.current?.remove();
+    placeLabels.current = null;
+
+    if (!bm.overlay && bm.id === "satellite") {
+      const group = leaflet.layerGroup().addTo(m);
+      placeLabels.current = group;
+
+      const draw = () => {
+        group.clearLayers();
+        for (const l of labelsForZoom(m.getZoom())) {
+          leaflet
+            .marker([l.lat, l.lng], {
+              interactive: false,
+              keyboard: false,
+              // Decorative: the journey's own pins carry the meaning, and a
+              // screen reader should not read out thirty village names.
+              alt: "",
+              icon: leaflet.divIcon({
+                className: "rr-divicon",
+                html: `<span class="rr-place-name">${esc(l.name)}</span>`,
+                iconSize: [0, 0],
+                iconAnchor: [0, 0],
+              }),
+            })
+            .addTo(group);
+        }
+      };
+
+      draw();
+      m.on("zoomend", draw);
+      // Captured so the cleanup detaches THIS handler, not a later one.
+      labelRedraw.current = draw;
+    }
+
     try {
       window.localStorage.setItem(BASEMAP_STORAGE_KEY, basemapId);
     } catch {
       // Not being able to remember the choice is not a reason to refuse it.
     }
+
+    return () => {
+      if (labelRedraw.current) m.off("zoomend", labelRedraw.current);
+      labelRedraw.current = null;
+      placeLabels.current?.remove();
+      placeLabels.current = null;
+    };
   }, [basemapId, ready]);
 
   // ── The moving driver ────────────────────────────────────────────────────
@@ -485,6 +544,27 @@ export default function TrackingMap({
       line.current = leaflet.layerGroup([casing, dash]).addTo(m) as unknown as Polyline;
     }
   }, [route, directLine, ready]);
+
+  // ── Where the driver has BEEN ────────────────────────────────────────────
+  // Deliberately quieter than the route: thinner, dimmer, and behind it. The
+  // route is the thing anyone is acting on; the trail is evidence, and evidence
+  // that shouts drowns out the instruction.
+  useEffect(() => {
+    const leaflet = L.current;
+    const m = map.current;
+    if (!leaflet || !m) return;
+    if (trailLine.current) { m.removeLayer(trailLine.current); trailLine.current = null; }
+    if (!trail || trail.length < 2) return;
+
+    trailLine.current = leaflet
+      .polyline(trail, {
+        color: "#ffffff", weight: 3, opacity: 0.55, lineCap: "round",
+        lineJoin: "round", dashArray: "1 6", interactive: false,
+      })
+      .addTo(m);
+    // Under the route and the markers.
+    trailLine.current.bringToBack();
+  }, [trail, ready]);
 
   // ── The floating "12 min" pill ───────────────────────────────────────────
   // A divIcon rather than a Leaflet tooltip: a tooltip is tied to another layer,

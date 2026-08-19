@@ -97,12 +97,14 @@ function navUrl(lat: number, lng: number): string {
 }
 
 export default function DriverJobPanel({
-  token, job, working, onChanged,
+  token, job, working, onChanged, driverId,
 }: {
   token: string;
   job: DriverJob | null;
   working: boolean;
   onChanged: () => void | Promise<void>;
+  /** For fleet presence, so the admin board sees them appear and disappear. */
+  driverId?: string | null;
 }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -118,6 +120,8 @@ export default function DriverJobPanel({
     channelKey: job?.channelKey ?? null,
     trip: job ? { kind: job.kind, id: job.id } : null,
     trackingStatus: stage,
+    driverKind: "taxi",
+    driverId,
   });
 
   // Going off duty erases the stored position rather than letting it age out.

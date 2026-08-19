@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  Loader2, Power, BellRing, BellOff, Car, MapPin, Navigation, Phone,
+  Loader2, Power, BellRing, BellOff, Car,
   MessageCircle, CheckCircle2, AlertCircle, ArrowRight, Download,
 } from "lucide-react";
 import InstallAppButton from "@/components/InstallAppButton";
@@ -37,7 +37,8 @@ type Job = {
   dropoffLat?: number | null; dropoffLng?: number | null;
 };
 type Home = {
-  ok: boolean; name?: string; availability?: "available" | "busy" | "off";
+  ok: boolean; name?: string; driverId?: string;
+  availability?: "available" | "busy" | "off";
   vehicle?: string | null; vehicleType?: string | null;
   whatsappReady?: boolean; ridesCompleted?: number;
   offer?: Offer | null; job?: Job | null;
@@ -331,6 +332,7 @@ export default function DriverHome({ token }: { token: string }) {
           <DriverJobPanel
             token={token}
             working={working}
+            driverId={home.driverId ?? null}
             job={{
               kind: "ride",
               id: home.job.id ?? "",
@@ -374,7 +376,13 @@ export default function DriverHome({ token }: { token: string }) {
               driver" mean anything: dispatch has to know who is near a pickup
               BEFORE there is a job to be near. Only the 4-second broadcast is
               gated on having one — this is the 20-second database write. */}
-          <DriverJobPanel token={token} working={working} job={null} onChanged={() => load(true)} />
+          <DriverJobPanel
+            token={token}
+            working={working}
+            job={null}
+            driverId={home.driverId ?? null}
+            onChanged={() => load(true)}
+          />
           <div className="rounded-2xl border border-white/10 bg-dark-card px-5 py-8 text-center">
             <Car size={26} className="mx-auto text-muted" />
             <p className="mt-2 font-dm text-sm text-muted">

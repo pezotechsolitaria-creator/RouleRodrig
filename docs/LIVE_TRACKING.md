@@ -259,24 +259,82 @@ That measurement also exposed a standing error: `dispatch_settings.road_factor`
 was **1.35** against a real **1.85**. Every approximate ETA had been ~35%
 optimistic since the dispatch engine was built. **M111 sets it to 1.80.**
 
-**Satellite.** Esri World Imagery + a transparent transportation-labels overlay
-— a true hybrid, as Google's is. Imagery alone is beautiful and unreadable; you
-cannot tell which grey line is the road you want. Verified over the island
-centre: Esri returns real tiles at z13/15/17 (14.5 / 16.3 / 10.5 KB). Sentinel-2
-cloudless also works but is 10 m/pixel, so past ~z14 it is upsampled mush — it is
-kept in `tiles.ts` as the licence-clean fallback, not as a choice offered to
-customers.
+**Satellite — and the licence that decided it.** This is a *commercial* taxi and
+delivery platform, so the basemap has to be licensed for commercial use. That
+rules out more than it sounds like:
 
-Satellite is the **default**, with a Satellite/Map switch on the map, remembered
-per browser. Switching swaps two tile layers and touches nothing else — the map,
-route and markers all survive.
+| source | verdict |
+|---|---|
+| **Esri World Imagery** | free to reach, but Esri state it is **not available for commercial use** without an ArcGIS licence. **Rejected** (owner's decision). |
+| **EOX Sentinel-2 cloudless 2018–2024** | **CC BY-NC-SA 4.0 — non-commercial.** Same problem. |
+| **EOX Sentinel-2 cloudless 2016** (`s2cloudless_3857`) | **CC BY 4.0.** Commercial use permitted with attribution. **This is what ships.** |
+| Google · Bing · Mapbox · HERE | paid; excluded by the zero-recurring-cost rule. |
 
-> **Licence, stated plainly:** Esri's World Imagery service is publicly reachable
-> without a key and is the standard free satellite layer in the Leaflet
-> ecosystem, used with the attribution shown. It is **not** open-licensed the way
-> OpenStreetMap is — Esri's terms govern it, and a commercial deployment at scale
-> is an owner decision, not a code decision. It is swappable by env var, and
-> `EOX_SENTINEL` in `lib/tracking/tiles.ts` is the CC-BY alternative.
+Attribution is a *licence condition*, not a courtesy, and it renders in the map's
+attribution control whenever satellite is active — verified in browser:
+
+> Sentinel-2 cloudless by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016) — CC BY 4.0
+
+**Two honest limitations**, both consequences of the licence rather than the code:
+
+- **Age** — 2016 imagery. Rodrigues' coastline, ridge and main roads have not
+  moved, but anything built since is not in it.
+- **Resolution** — Sentinel-2 is 10 m/pixel, roughly z14. `maxNativeZoom: 14`
+  stops Leaflet requesting zooms the data does not contain and upscales locally
+  instead. Verified: zooming past z14 issues **no further tile requests**.
+
+**Labels.** Imagery alone is unreadable — you cannot tell which grey line is the
+road you want. The third-party labels layer went with Esri, and is not missed:
+it returned **872-byte, essentially empty tiles** over Rodrigues. Place names now
+come from our own gazetteer (`lib/rides/places.ts` → `lib/tracking/place-labels.ts`)
+— the ~35 names people here actually say out loud, in zoom bands so the map is
+not a word cloud. Verified: 12 labels at z13 growing to 33 at z18, and **zero**
+over the street basemap, which draws its own.
+
+**The permanent fix** is not another provider. Rodrigues is 108 km². Copernicus
+Sentinel data is free and open **including for commercial use** with attribution
+— it is EOX's hosted *service* that carries the non-commercial terms, not the
+imagery. A newer, sharper basemap for this island alone, built from Copernicus
+and served as PMTiles from storage already paid for, answers licence, age and
+resolution at once. Point `NEXT_PUBLIC_MAP_SATELLITE_URL` +
+`NEXT_PUBLIC_MAP_SATELLITE_ATTRIBUTION` at it and no code changes.
+
+### Presence — who is transmitting right now
+
+Broadcast answers *where* a driver is. Presence answers a coarser question:
+*is anybody there at all*.
+
+The database already stores a last-known position with a timestamp, and
+staleness can be inferred from it — **but only by waiting.** A driver whose phone
+dies looks perfectly live for `stale_location_minutes` (ten by default), because
+absence of an update is indistinguishable from a quiet moment. Presence closes
+that gap: the socket drops, Supabase fires a `leave`, and the admin board knows
+in seconds.
+
+It does **not** replace the timestamp. A driver on a flaky connection may leave
+and rejoin repeatedly while genuinely driving, so `recorded_at` stays the
+authority on the **position** and presence is the authority on the
+**connection**.
+
+One shared `fleet-presence` channel, not one per driver — the free tier allows
+200 concurrent connections, and one channel each is how a small island spends
+them. The topic carries no position and no customer data, only "driver X, of
+kind Y, is transmitting", so it is not a capability key; anything sensitive stays
+on the per-trip channel.
+
+### The recent path
+
+The trail an operator can see on a selected driver is accumulated **in their
+browser**, from positions already being received, and stored nowhere.
+
+That is deliberate. `driver_locations` is one row per driver, upserted,
+*precisely* so there is nowhere to keep a trail — the dispatch engine's own
+comment calls that the cheapest way to honour "do not track drivers forever".
+A breadcrumb table would quietly undo it. A trail that lives only as long as
+somebody is watching answers "did he really go via Mont Lubin" without building
+a history of anyone's movements. Capped at 300 points, near-duplicates skipped,
+and drawn quieter than the route — the route is what anyone acts on; the trail
+is evidence, and evidence that shouts drowns out the instruction.
 
 ### Which surface gets which tracking
 
