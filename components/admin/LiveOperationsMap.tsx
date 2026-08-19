@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { freshness, lastSeenLabel, type Freshness } from "@/lib/tracking/model";
 import { subscribeToTrip, watchFleetPresence, type DriverPresence } from "@/lib/tracking/channel";
+import { fleetDutyLabel, fleetFilterKey } from "@/lib/delivery/availability";
 import type { MapPin as Pin } from "@/components/tracking/TrackingMap";
 import LiveTripView from "@/components/tracking/LiveTripView";
 
@@ -58,7 +59,10 @@ type Filter = "all" | "available" | "busy" | "offline" | "taxi" | "transfer" | "
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "available", label: "Available" },
-  { key: "busy", label: "On a job" },
+  // "Busy" rather than "On a job": the bucket holds both a driver on a run and
+  // a taxi driver the office marked busy with no ride attached. The second kind
+  // used to match no chip at all.
+  { key: "busy", label: "Busy" },
   { key: "offline", label: "Offline" },
   { key: "taxi", label: "Taxi" },
   { key: "transfer", label: "Transfer" },
@@ -70,12 +74,16 @@ const REFRESH_MS = 10_000;
 function matches(d: Driver, f: Filter): boolean {
   switch (f) {
     case "all": return true;
-    // "Available" means available AND NOT already holding a job — an operator
-    // asking who can take this run does not want somebody mid-delivery whose
-    // switch happens to say available.
-    case "available": return d.availability === "available" && !d.job;
-    case "busy": return !!d.job;
-    case "offline": return d.availability === "off" || d.availability === "offline";
+    // "Available" still means available AND NOT already holding a job — an
+    // operator asking who can take this run does not want somebody mid-delivery
+    // whose switch happens to say available. What changed is that the three
+    // buckets now PARTITION the fleet: written as three independent predicates,
+    // a driver marked busy with no live job matched none of them and showed up
+    // only under "All".
+    case "available":
+    case "busy":
+    case "offline":
+      return fleetFilterKey(d.availability, !!d.job) === f;
     case "taxi": return d.kind === "taxi" && d.services.includes("taxi");
     case "transfer":
       return d.kind === "taxi" && (d.services.includes("transfer") || d.services.includes("airport"));
@@ -382,7 +390,7 @@ export default function LiveOperationsMap() {
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-dm text-[13px] text-offwhite">{d.name}</span>
                           <span className="block truncate font-dm text-[10px] text-muted">
-                            {d.job ? `On ${d.job.ref}` : d.availability === "available" ? "Free" : "Off"}
+                            {d.job ? `On ${d.job.ref}` : fleetDutyLabel(d.availability, false).short}
                             {d.positionSource === "base" && " · base only"}
                             {isTransmitting(d) && " · transmitting"}
                           </span>
@@ -579,7 +587,7 @@ function DriverDetail({
         </div>
       ) : (
         <p className="mt-3 rounded-xl border border-white/10 bg-dark px-3 py-2.5 font-dm text-xs text-muted">
-          {d.availability === "available" ? "Free — can be offered a job." : "Not working right now."}
+          {fleetDutyLabel(d.availability, false).long}
         </p>
       )}
 

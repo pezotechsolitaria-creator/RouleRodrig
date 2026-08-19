@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import AlertsToggle from "./AlertsToggle";
 import DeliveryTracking from "@/components/tracking/DeliveryTracking";
 import WhatsappAlerts from "./WhatsappAlerts";
+import { driverDutyState } from "@/lib/delivery/availability";
 
 // ── The driver's phone ──────────────────────────────────────────────────────
 //
@@ -195,10 +196,16 @@ export default function DriverDashboard() {
   }
 
   const d = dash?.driver;
-  const online = d?.availability !== "offline";
   const approved = d?.status === "approved";
   const active = dash?.active ?? [];
   const offers = dash?.offers ?? [];
+  // One source of truth, mirroring dispatch_candidates. `availability` alone
+  // cannot answer this: 'busy' means "on duty, holding a job", and whether that
+  // driver can take another is a COUNT against the owner's limit, not a value
+  // of the column. Reading it as a two-state flag is what let this screen show
+  // a green dot to a driver dispatch could not see (M116).
+  const duty = driverDutyState(d?.availability, active.length, dash?.limits?.maxActive);
+  const online = duty.onDuty;
 
   return (
     <div className="space-y-4">
@@ -221,8 +228,12 @@ export default function DriverDashboard() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="flex items-center gap-2 font-syne text-base font-bold">
-                  <span className={`h-2.5 w-2.5 rounded-full ${online ? "bg-green-400" : "bg-white/30"}`} />
-                  {online ? "Online — taking deliveries" : "Offline"}
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      duty.tone === "off" ? "bg-white/30" : duty.tone === "full" ? "bg-orange-300" : "bg-green-400"
+                    }`}
+                  />
+                  {duty.label}
                 </p>
                 <p className="mt-0.5 font-dm text-xs text-muted">{d?.name}</p>
               </div>
@@ -234,17 +245,17 @@ export default function DriverDashboard() {
                   online ? "border border-white/20 text-offwhite" : "bg-yellow text-dark"
                 }`}
               >
-                {busy === "online" ? <Loader2 size={16} className="animate-spin" /> : online ? "Go offline" : "Go online"}
+                {busy === "online" ? <Loader2 size={16} className="animate-spin" /> : duty.toggleLabel}
               </button>
             </div>
-            {!online && active.length > 0 && (
-              // Said plainly, because a driver going offline reasonably fears
-              // their current job vanishes.
-              <p className="mt-3 font-dm text-xs text-orange-300">
-                You still have {active.length} delivery{active.length === 1 ? "" : "ies"} to finish — going offline
-                only stops new ones.
-              </p>
-            )}
+            {/* Said plainly in EVERY state. The two questions a driver has are
+                "am I getting work?" and "what happens to what I'm holding?" —
+                and this line used to appear only when they went offline still
+                carrying something, so a driver at their limit was told nothing
+                at all. */}
+            <p className={`mt-3 font-dm text-xs ${duty.tone === "good" ? "text-muted" : "text-orange-300"}`}>
+              {duty.detail}
+            </p>
           </>
         )}
       </div>
@@ -493,8 +504,10 @@ export default function DriverDashboard() {
         );
       })}
 
-      {/* Offers */}
-      {approved && online && (
+      {/* Offers. Gated on `offerable`, not `online`: a driver at their limit is
+          still online, and showing them an empty "nothing available" panel
+          promises a job the capacity gate will refuse. */}
+      {approved && duty.offerable && (
         offers.length > 0 ? (
           <div className="space-y-3">
             <h2 className="font-syne text-lg font-bold">Available now</h2>
@@ -544,9 +557,9 @@ export default function DriverDashboard() {
           <div className="rounded-2xl border border-white/10 bg-dark-card p-6 text-center">
             <CheckCircle2 size={24} className="mx-auto text-muted" />
             <p className="mt-2 font-syne text-sm font-bold">Nothing available right now</p>
-            <p className="mt-1 font-dm text-xs text-muted">
-              You&apos;re online — we&apos;ll show a job here the moment one comes in.
-            </p>
+            {/* Not hardcoded any more: this panel used to promise a job was
+                coming to a driver dispatch could not reach. */}
+            <p className="mt-1 font-dm text-xs text-muted">{duty.detail}</p>
           </div>
         ) : null
       )}
