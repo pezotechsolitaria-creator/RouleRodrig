@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authorizeCron } from "@/lib/cron-auth";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { sendWhatsApp } from "@/lib/notifications/whatsapp";
-import {
-  notifyOfferedDrivers,
-  notifyDriverReleased,
-  notifyOwnerNoDriver,
-} from "@/lib/delivery/notify";
+import { notifySweepResult } from "@/lib/delivery/notify";
 import { notifyRideOffers, notifyOwnerRideUnassigned } from "@/lib/rides/notify";
 
 // ── The notification worker ─────────────────────────────────────────────────
@@ -85,20 +81,7 @@ async function run(req: NextRequest) {
       // step every round after the first was mute: offer rows appeared, no
       // driver was told, and a driver who came online mid-search learned
       // nothing until he happened to open the page.
-      const ids = (data ?? {}) as {
-        reofferedIds?: string[];
-        strandedIds?: string[];
-        releasedIds?: string[];
-      };
-      await Promise.allSettled([
-        ...(ids.reofferedIds ?? []).map((id) => notifyOfferedDrivers(id)),
-        // A driver riding toward a shop for a job he no longer holds is the
-        // most expensive silence in the system.
-        ...(ids.releasedIds ?? []).map((id) => notifyDriverReleased(id)),
-        // Nobody took it and the search gave up — that is now the owner's
-        // problem, and someone is waiting on an order that cannot arrive.
-        ...(ids.strandedIds ?? []).map((id) => notifyOwnerNoDriver(id)),
-      ]);
+      await notifySweepResult(data);
     }
   } catch (err) {
     console.error("sweep_delivery_escalations threw", err);

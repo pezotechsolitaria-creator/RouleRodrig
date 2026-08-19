@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
+import { notifySweepResult } from "@/lib/delivery/notify";
 
 // The delivery control centre's API. Read the board, or pull one of the two
 // levers. Every write is an RPC that validates and audits — this route decides
@@ -115,6 +116,13 @@ export async function POST(req: NextRequest) {
     console.error("delivery admin action failed", { action: input.action, error });
     return NextResponse.json({ error: "Something went wrong." }, { status: 500 });
   }
+
+  // The sweep's ids ARE the purpose of its return value: SQL cannot reach a
+  // phone. The cron path notifies; this path silently did not, so an owner who
+  // pressed the button himself got every write and none of the messages —
+  // including the one telling a driver his job had just been taken off him.
+  // The dedupe keys make a double-send from cron and button impossible.
+  if (input.action === "sweep") await notifySweepResult(data);
 
   return NextResponse.json(data);
 }

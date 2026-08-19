@@ -7,6 +7,7 @@ import {
   UserCheck, UserX, Clock, CheckCircle2,
 } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
+import { stallBoardLine } from "@/lib/delivery/escalation-copy";
 import { Button } from "@/components/ui/button";
 
 // ── The control centre ──────────────────────────────────────────────────────
@@ -208,10 +209,7 @@ export default function DeliveryBoard() {
                   {(isLate || isException) && (
                     <p className="mt-2 flex items-center gap-1.5 font-dm text-xs text-orange-200">
                       <AlertTriangle size={12} />
-                      {d.status === "requires_admin"
-                        ? `${d.driverName ?? "A driver"} still has the package and has stopped responding.`
-                        : d.lateBy > 0 ? `${d.lateBy} minutes past due.`
-                        : `No driver has taken it for ${d.unclaimedFor} minutes (${d.offersOut} offers out).`}
+                      {stallBoardLine(d)}
                     </p>
                   )}
 
