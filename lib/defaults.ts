@@ -628,6 +628,42 @@ export interface PromoSlide {
   enabled: boolean;
 }
 
+/**
+ * ── THE COMPANY'S OWN IDENTITY, EDITABLE WITHOUT A DEPLOY ──────────────────
+ *
+ * lib/legal.ts holds these same fields as code, and stays the FALLBACK. This
+ * block is what the owner fills in from /admin/legal — a BRN and a registered
+ * address are facts about a company registry that arrive on the owner's
+ * schedule, not the developer's, and requiring a deploy to publish them is how
+ * they end up never being published at all.
+ *
+ * Every field is optional and an empty string means "still outstanding", which
+ * is exactly how lib/legal.ts's OWNER_REQUIRED marker already behaves. So a
+ * half-filled block degrades to the same visible "outstanding" state rather
+ * than to a confident blank.
+ */
+export interface LegalContent {
+  /** Exact registered name on the certificate of incorporation. */
+  legalName?: string;
+  /** Business Registration Number from the Registrar of Companies. */
+  brn?: string;
+  /** Registered office as filed. */
+  registeredAddress?: string;
+  /** Where customers actually find you, if it differs from the code default. */
+  tradingAddress?: string;
+  /** Person responsible for what is published. */
+  publicationDirector?: string;
+  /**
+   * Private-bucket object path of the registration certificate photo.
+   *
+   * A PATH, never a URL: the certificate carries signatures and a company
+   * stamp, so it lives in the private bucket and is only ever shown through a
+   * short-lived signed URL minted for an authenticated admin. Storing a URL
+   * here would mean storing something that either expires or is public.
+   */
+  certificatePath?: string;
+}
+
 export interface SiteContent {
   hero: HeroContent;
   stats: StatItem[];
@@ -640,6 +676,7 @@ export interface SiteContent {
   testimonials: TestimonialItem[];
   social: SocialLinks;
   branding: BrandingContent;
+  legal?: LegalContent;
   announcement: AnnouncementContent;
   mapLocations: MapLocation[];
   plannerActivities: PlannerActivity[];
@@ -842,6 +879,11 @@ export const DEFAULT_CONTENT: SiteContent = {
   branding: {
     logo: '',
   },
+  // Empty, not invented. Every field here is a statement of legal identity on a
+  // site that takes payments, and a plausible-looking placeholder that escaped
+  // into production would be a false one. lib/legal.ts renders each blank as
+  // visibly outstanding until the owner fills it in from /admin/legal.
+  legal: {},
   announcement: {
     active: false,
     text: 'Book 3+ days and get a FREE helmet & lock upgrade!',

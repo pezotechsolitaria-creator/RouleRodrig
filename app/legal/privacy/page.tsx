@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getContent } from "@/lib/content";
 import { CONTACT_EMAIL } from "@/lib/site";
-import { LEGAL, isMissing } from "@/lib/legal";
+import { resolveLegal, isMissing } from "@/lib/legal";
 import LegalDoc, { Section, P, UL } from "@/components/LegalDoc";
 
 // ── WHAT WE ACTUALLY DO WITH PEOPLE'S DATA ──────────────────────────────────
@@ -32,6 +32,8 @@ export default async function PrivacyPage() {
   // Must be an address we own and that actually receives mail — a privacy
   // policy legally needs a working contact.
   const email = content.contact.email || CONTACT_EMAIL;
+  // Same read path as the notice page: admin block first, code default behind.
+  const LEGAL = resolveLegal(content.legal);
   const controller = isMissing(LEGAL.legalName) ? LEGAL.tradingName : (LEGAL.legalName as string);
 
   return (

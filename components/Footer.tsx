@@ -3,9 +3,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { InstagramIcon, FacebookIcon, TikTokIcon, WhatsAppIcon } from "@/lib/icons";
-import type { SocialLinks, BrandingContent } from "@/lib/defaults";
+import type { SocialLinks, BrandingContent, LegalContent } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
-import { LEGAL, isMissing } from "@/lib/legal";
+import { resolveLegal, isMissing } from "@/lib/legal";
 
 const SOCIAL_CONFIG = [
   { key: "instagram" as const, Icon: InstagramIcon,  label: "Instagram" },
@@ -17,11 +17,19 @@ const SOCIAL_CONFIG = [
 export default function Footer({
   social,
   branding,
+  legal,
 }: {
   social?: SocialLinks;
   branding?: BrandingContent;
+  /**
+   * The site_content legal block, so the company line shows what the owner
+   * entered at /admin/legal rather than the checked-in default. Passed down
+   * rather than read here because this is a client component.
+   */
+  legal?: LegalContent;
 }) {
   const { t, language } = useLanguage();
+  const LEGAL = resolveLegal(legal);
   const year = new Date().getFullYear();
   const activeSocial = SOCIAL_CONFIG.filter(({ key }) => social?.[key]);
   // Same rule as the navbar: prefer the square mark, fall back to the lockup.

@@ -72,8 +72,7 @@ import {
   MessageCircle,
   Boxes,
   Banknote,
-  ChevronRight,
-} from "lucide-react";
+  ChevronRight, ScrollText,} from "lucide-react";
 import type { TaxiDriver, TaxiDriverReview } from "@/lib/supabase/taxi-types";
 import type {
   SiteContent,
@@ -234,6 +233,10 @@ const MARKETPLACE_LINKS: { href: string; label: string; icon: React.ElementType 
   // owes Roulé Rodrigues, which never touches ticket money at all — putting the
   // two on one screen is the first step to netting them off somewhere.
   { href: "/admin/managed-ticketing", label: "Managed Ticketing Fees", icon: Handshake },
+  // Not marketplace either, but same reasoning as Events above: this is the only
+  // link list on the dashboard, and the legal identity screen is precisely the
+  // kind of page that gets built, never linked, and never filled in.
+  { href: "/admin/legal",          label: "Legal Identity & BRN",      icon: ScrollText },
 ];
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────

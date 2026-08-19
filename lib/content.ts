@@ -45,6 +45,10 @@ function mergeWithDefaults(parsed: Partial<SiteContent>): SiteContent {
     testimonials: parsed.testimonials ?? DEFAULT_CONTENT.testimonials,
     social: { ...DEFAULT_CONTENT.social, ...(parsed.social ?? {}) },
     branding: { ...DEFAULT_CONTENT.branding, ...(parsed.branding ?? {}) },
+    // MUST be listed here. This merge is a whitelist, not a spread of `parsed`,
+    // so a key that is missing from it is silently dropped on every read — the
+    // legal block would be saved and then never seen again.
+    legal: { ...(DEFAULT_CONTENT.legal ?? {}), ...(parsed.legal ?? {}) },
     announcement: { ...DEFAULT_CONTENT.announcement, ...(parsed.announcement ?? {}) },
     mapLocations: parsed.mapLocations ?? DEFAULT_CONTENT.mapLocations,
     plannerActivities:

@@ -274,7 +274,7 @@ export default async function Home() {
         footer={
           <>
             <Sponsors enabled={content.sponsorsEnabled} sponsors={content.sponsors} />
-            <Footer social={content.social} branding={content.branding} />
+            <Footer social={content.social} branding={content.branding} legal={content.legal} />
           </>
         }
         lookingFor={content.quickAccess}

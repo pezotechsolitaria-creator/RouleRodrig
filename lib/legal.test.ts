@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { LEGAL, isMissing, missingFacts, legalIdentityComplete } from "./legal";
+import {
+  LEGAL, isMissing, missingFacts, legalIdentityComplete,
+  resolveLegal, missingFactsFor, OWNER_REQUIRED,
+} from "./legal";
 
 // ── THE POLICY MUST NOT DRIFT AWAY FROM THE PRODUCT ─────────────────────────
 //
@@ -107,5 +110,81 @@ describe("the privacy policy matches what the code actually does", () => {
 
   it("says data leaves Mauritius, because it does", () => {
     expect(privacy()).toMatch(/outside Mauritius/i);
+  });
+});
+
+// ── THE ADMIN BLOCK MUST ACTUALLY REACH THE PUBLISHED PAGE (P1 #2) ──────────
+//
+// The trap this guards is specific and this codebase has hit it before:
+// lib/defaults.ts is NOT what the live site reads. The site_content row in
+// Supabase overrides it, so a fact "configured" only in code changes nothing a
+// visitor can see. resolveLegal() is the single read path that makes an admin
+// edit win, and these assert it behaves.
+
+describe("resolveLegal", () => {
+  it("publishes what the owner entered in admin, over the code default", () => {
+    const r = resolveLegal({ legalName: "Roulé Rodrigues Ltd", brn: "C12345678" });
+    expect(r.legalName).toBe("Roulé Rodrigues Ltd");
+    expect(r.brn).toBe("C12345678");
+    expect(isMissing(r.legalName)).toBe(false);
+  });
+
+  it("keeps a fact OUTSTANDING rather than blank when admin has not filled it", () => {
+    // The failure mode being prevented: an empty admin field silently erasing
+    // the "to be confirmed" row, so the notice page looks finished while the
+    // BRN is still missing.
+    const r = resolveLegal({ legalName: "Roulé Rodrigues Ltd" });
+    expect(isMissing(r.brn)).toBe(true);
+    expect(missingFactsFor({ legalName: "Roulé Rodrigues Ltd" })).toContain("brn");
+  });
+
+  it("treats whitespace and the marker itself as still outstanding", () => {
+    expect(isMissing(resolveLegal({ brn: "   " }).brn)).toBe(true);
+    expect(isMissing(resolveLegal({ brn: OWNER_REQUIRED }).brn)).toBe(true);
+  });
+
+  it("falls back to the confirmed trading address instead of going blank", () => {
+    // tradingAddress is one we genuinely know, so an empty admin field must not
+    // turn a correct published address into nothing.
+    expect(resolveLegal({ tradingAddress: "" }).tradingAddress).toBe(LEGAL.tradingAddress);
+    expect(resolveLegal(null).tradingAddress).toMatch(/Rodrigues/);
+  });
+
+  it("is complete once every required fact is supplied", () => {
+    expect(
+      missingFactsFor({
+        legalName: "Roulé Rodrigues Ltd",
+        brn: "C12345678",
+        registeredAddress: "Port Mathurin, Rodrigues",
+        publicationDirector: "A. Owner",
+      }),
+    ).toEqual([]);
+  });
+
+  it("never invents a value when given nothing at all", () => {
+    // The one behaviour that must never regress: no default may quietly become
+    // a plausible-looking BRN on a site that takes payments.
+    const r = resolveLegal(undefined);
+    expect(r.brn).toBe(OWNER_REQUIRED);
+    expect(r.legalName).toBe(OWNER_REQUIRED);
+    expect(missingFactsFor(undefined)).toEqual(missingFacts());
+  });
+});
+
+describe("the certificate never becomes public", () => {
+  it("stores a private-bucket PATH, and no page renders it as a URL", () => {
+    // A registration certificate carries signatures and a company stamp. The
+    // moment any published surface interpolates certificatePath into an <img>
+    // or an href, it is one guessable URL away from being public.
+    const notice = readFileSync(join(ROOT, "app/legal/notice/page.tsx"), "utf8");
+    const privacySrc = readFileSync(join(ROOT, "app/legal/privacy/page.tsx"), "utf8");
+    expect(notice).not.toMatch(/certificatePath/);
+    expect(privacySrc).not.toMatch(/certificatePath/);
+
+    // And it must not be routed through the PUBLIC upload endpoint.
+    const cert = readFileSync(join(ROOT, "app/api/admin/legal/certificate/route.ts"), "utf8");
+    expect(cert).toMatch(/legal-documents/);
+    expect(cert).toMatch(/createSignedUrl/);
+    expect(cert).not.toMatch(/getPublicUrl/);
   });
 });

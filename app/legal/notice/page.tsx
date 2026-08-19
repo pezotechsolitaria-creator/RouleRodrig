@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getContent } from "@/lib/content";
 import { CONTACT_EMAIL } from "@/lib/site";
-import { LEGAL, isMissing, type LegalFact } from "@/lib/legal";
+import { resolveLegal, isMissing, type LegalFact } from "@/lib/legal";
 import LegalDoc, { Section, P } from "@/components/LegalDoc";
 
 // ── Mentions légales / Legal notice ─────────────────────────────────────────
@@ -41,6 +41,10 @@ function Row({ label, value }: { label: string; value: LegalFact }) {
 
 export default async function LegalNoticePage() {
   const content = await getContent();
+  // Resolved through the site_content block so anything the owner fills in at
+  // /admin/legal is published immediately. Editing lib/legal.ts alone would
+  // change nothing here — the database row wins.
+  const LEGAL = resolveLegal(content.legal);
   const email = content.contact.email || CONTACT_EMAIL;
   const phone = content.contact.phone || "";
 

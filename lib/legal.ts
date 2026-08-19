@@ -68,3 +68,68 @@ export function missingFacts(): string[] {
 export function legalIdentityComplete(): boolean {
   return missingFacts().length === 0;
 }
+
+// ── THE READ PATH (P1 #2) ───────────────────────────────────────────────────
+//
+// LEGAL above is the fallback, not the source of truth for a running site.
+// Editing it changes nothing the public can see, because the site_content row
+// in Supabase overrides the checked-in defaults — the trap this codebase has
+// hit before. So every surface that publishes a legal fact must resolve it
+// THROUGH here, passing whatever the database returned.
+//
+// Pure on purpose: Footer is a client component and the two /legal pages are
+// server components, and all three have to agree. A resolver that reached for
+// a database client could not be shared by them.
+
+import type { LegalContent } from "./defaults";
+
+export type ResolvedLegal = {
+  legalName: LegalFact;
+  tradingName: string;
+  brn: LegalFact;
+  registeredAddress: LegalFact;
+  tradingAddress: string;
+  publicationDirector: LegalFact;
+  host: typeof LEGAL.host;
+  dataHost: typeof LEGAL.dataHost;
+};
+
+/** Blank, whitespace and the literal marker all mean "still outstanding". */
+function fact(value: string | undefined, fallback: LegalFact): LegalFact {
+  const v = (value ?? "").trim();
+  if (!v || v === OWNER_REQUIRED) return fallback;
+  return v;
+}
+
+/**
+ * The legal identity as it should actually be published.
+ *
+ * Admin value wins; the code default fills the gap; OWNER_REQUIRED survives
+ * both so an unfilled fact still renders as visibly outstanding rather than
+ * silently vanishing from the notice page.
+ */
+export function resolveLegal(legal?: LegalContent | null): ResolvedLegal {
+  return {
+    legalName: fact(legal?.legalName, LEGAL.legalName),
+    tradingName: LEGAL.tradingName,
+    brn: fact(legal?.brn, LEGAL.brn),
+    registeredAddress: fact(legal?.registeredAddress, LEGAL.registeredAddress),
+    // tradingAddress has a real, owner-confirmed default, so an empty admin
+    // field falls back to it rather than becoming outstanding.
+    tradingAddress: (fact(legal?.tradingAddress, LEGAL.tradingAddress) as string),
+    publicationDirector: fact(legal?.publicationDirector, LEGAL.publicationDirector),
+    host: LEGAL.host,
+    dataHost: LEGAL.dataHost,
+  };
+}
+
+/** Which facts are still outstanding AFTER the admin block is applied. */
+export function missingFactsFor(legal?: LegalContent | null): string[] {
+  const r = resolveLegal(legal);
+  const out: string[] = [];
+  if (isMissing(r.legalName)) out.push("legalName");
+  if (isMissing(r.brn)) out.push("brn");
+  if (isMissing(r.registeredAddress)) out.push("registeredAddress");
+  if (isMissing(r.publicationDirector)) out.push("publicationDirector");
+  return out;
+}
