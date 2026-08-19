@@ -166,6 +166,21 @@ export async function pushToMerchant(storeId: string, payload: PushPayload): Pro
   return deliver(targets, payload);
 }
 
+/**
+ * Wake the organisers of an event — a ticket sold, a payment confirmed.
+ *
+ * Keyed by STORE like the merchant one, but it cannot BE the merchant one:
+ * organisers hold scoped accounts (M43) and reach their events through an
+ * assignment to the platform merchant's store (M40), deliberately never
+ * becoming merchants. merchant_push_targets walks merchant_staff and an
+ * organiser is not staff, so it would find nobody and report success.
+ */
+export async function pushToOrganizer(storeId: string, payload: PushPayload): Promise<number> {
+  if (!storeId) return 0;
+  const targets = await targetsFrom("organizer_push_targets", { p_store_id: storeId });
+  return deliver(targets, payload);
+}
+
 /** Wake one specific driver — reassignment, cancellation, an admin nudge. */
 export async function pushToDriver(driverId: string, payload: PushPayload): Promise<number> {
   const targets = await targetsFrom("driver_push_targets_for_driver", { p_driver_id: driverId });

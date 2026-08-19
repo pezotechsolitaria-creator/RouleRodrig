@@ -1,7 +1,7 @@
 import "server-only";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { dispatchNotification } from "./dispatch";
-import { pushToAdmins, pushToMerchant } from "@/lib/push/send";
+import { pushToAdmins, pushToMerchant, pushToOrganizer } from "@/lib/push/send";
 import { SITE_URL } from "@/lib/site";
 import { centsToDecimalString } from "@/lib/money";
 import {
@@ -207,6 +207,27 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
       return 0;
     });
 
+    // ── AND THE ORGANISER, IF THIS STORE RUNS EVENTS (M125) ────────────────
+    //
+    // An organiser is not merchant_staff (M40/M43), so the push above finds
+    // nobody for them and reports success. Their own call, on the same store
+    // id: for a shop with no organisers it resolves to zero targets and costs
+    // one query, and for an event it is the message that actually matters —
+    // a ticket just sold.
+    //
+    // Same non-awaited, never-throws treatment: nobody's order fails because a
+    // notification did.
+    const organizerPush = pushToOrganizer(input.storeId, {
+      title: `Ticket sold — ${input.orderNumber}`,
+      body: `${rs(input.total)} · ${input.customerName}`,
+      url: "/organizer",
+      tag: `order:${input.orderNumber}`,
+      urgent: true,
+    }).catch((err) => {
+      console.error("pushToOrganizer failed", err);
+      return 0;
+    });
+
     // ── Customer side ──
     const customerSend = input.customerEmail
       ? dispatchNotification({
@@ -247,7 +268,8 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
         })
       : null;
 
-    const [merchantResults, ownerPinged, customerDelivered, merchantPushed] = await Promise.all([
+    const [merchantResults, ownerPinged, customerDelivered, merchantPushed, organizerPushed] =
+      await Promise.all([
       Promise.allSettled(merchantEmailSends),
       ownerPingSend,
       customerSend,
@@ -256,12 +278,19 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
       // is a push that sometimes never leaves. It still cannot fail the
       // function — it already catches to 0.
       merchantPush,
+      // Awaited for the same reason as the merchant push above: a floating
+      // promise in a serverless handler is a notification that sometimes never
+      // leaves. It already catches to 0, so it cannot fail the order.
+      organizerPush,
     ]);
     // The shop's own phone counts as reaching them, and counts FIRST: it is the
     // only channel that reaches the person who has to act, rather than the
     // platform owner watching every order on the island.
     const merchantReached =
       merchantPushed > 0 ||
+      // An organiser IS the person who has to act on a ticket sale, so their
+      // phone counts exactly as a merchant's does.
+      organizerPushed > 0 ||
       merchantResults.some((r) => r.status === "fulfilled" && r.value === true) ||
       ownerPinged === true;
 

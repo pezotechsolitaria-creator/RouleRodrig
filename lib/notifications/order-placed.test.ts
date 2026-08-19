@@ -15,9 +15,13 @@ const pushToAdmins = vi.fn(async (_payload?: unknown) => 1);
 // shop until somebody turns alerts on, and the function must behave correctly
 // there.
 const pushToMerchant = vi.fn(async (_storeId?: string, _payload?: unknown) => 0);
+// M125. Same default of 0: most stores run no events, and the ticket push must
+// resolve to "nobody subscribed" without making the order look unreported.
+const pushToOrganizer = vi.fn(async (_storeId?: string, _payload?: unknown) => 0);
 vi.mock("@/lib/push/send", () => ({
   pushToAdmins: (p: unknown) => pushToAdmins(p),
   pushToMerchant: (s: string, p: unknown) => pushToMerchant(s, p),
+  pushToOrganizer: (s: string, p: unknown) => pushToOrganizer(s, p),
 }));
 vi.mock("@/lib/supabase/admin", () => ({
   hasServiceRole: () => hasServiceRole(),
