@@ -281,8 +281,15 @@ export default function LiveTripView({
           </div>
         )}
 
-        {/* Floating status pill */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-2 p-3">
+        {/* ── Floating status stack ────────────────────────────────────
+            pr-[8.5rem] reserves the top-right corner for the Map/Satellite
+            switcher. Without it these children are centred across the full
+            width, and on a 375px phone a long status — "On the way to your
+            destination" — runs directly under the switch and swallows the tap.
+            That is the bug the owner hit, twice: a control can be perfectly
+            positioned and still be unreachable because something centred is
+            sitting on top of it. */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-2 p-3 pr-[8.5rem]">
           {headerSlot}
           <span
             className={`pointer-events-auto inline-flex items-center gap-2 rounded-full border px-4 py-2 font-dm text-[13px] font-bold shadow-lg ${

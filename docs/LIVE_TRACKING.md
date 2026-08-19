@@ -442,19 +442,30 @@ is no driver to track and no key. Taxi behaves the same way.
 
 ### Where the Map / Satellite switch is
 
-**Bottom-left of the map**, and the default is **Map (street)**.
+**Top-right of the map**, and the default is **Map (street)**.
 
-It was previously at `bottom: 10px`, which put it *under* the details sheet —
-the sheet overlaps the map's bottom 20px, and because the map is an `isolate`
-stacking context no z-index inside it can climb over that sheet. The control
-rendered and was unreachable. It is now raised to 38px, clear of the sheet,
-clear of the zoom control (top-left), clear of the status pill (top-centre) and
-clear of the attribution (bottom-right, a licence condition that must never be
-covered).
+It took three attempts to make one control reachable, and each failure looked
+fine in code:
 
-The "This is your route" banner used to sit at the bottom of the map and covered
-it — the buttons still fired when clicked in code, but a finger landed on the
-text. The banner now sits under the status pill and is `pointer-events-none`.
+1. `bottom: 10px` put it **under the details sheet**, which overlaps the map's
+   bottom 20px. The map is an `isolate` stacking context, so no z-index inside
+   it can climb over that sheet.
+2. Raised to 38px, the **"This is your route" banner** — floating at the bottom
+   of the map with `pointer-events-auto` — sat on top of it. Clicking the
+   buttons in code worked, which is exactly why it looked fixed;
+   `elementFromPoint` at the button centre returned the banner.
+3. Moved to **top-right**, the centred status stack would have run under it on a
+   narrow phone ("On the way to your destination" is wide). The stack therefore
+   carries `pr-[8.5rem]`, reserving that corner.
+
+The lesson, written down because it cost three passes: **a control is only
+reachable if `elementFromPoint` returns it** — position and z-index are not
+proof. It is now verified by probing five points on each button at 375px with
+the longest status AND the banner on screen.
+
+Top-right is also the only free corner: zoom is top-left, attribution is
+bottom-right (a licence condition that must never be covered), and bottom-left
+is under the sheet.
 
 Delivery keeps everything specific to it — the status sentence and the PIN — and
 drops its own driver row while the map is up, because `LiveTripView` already
