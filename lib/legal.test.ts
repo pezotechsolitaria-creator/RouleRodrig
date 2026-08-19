@@ -338,3 +338,55 @@ describe("published refund policy", () => {
     expect(refundsPage()).toContain("1. Who holds your money");
   });
 });
+
+// ── THE CANCELLATION RULE IS STATED IN THREE PLACES ────────────────────────
+//
+// The policy page, the booking form (the point of payment, in three languages)
+// and the homepage CTA. They drifted: the CTA promised "Free cancellation", the
+// booking form promised it "up to 48h", and the policy charged 50% inside 48
+// hours. Whichever way that contradiction was resolved, a customer had been
+// told something untrue.
+//
+// The owner's actual rule (confirmed 2026-08-19) is 80% back outside 48 hours,
+// nothing inside. Advertising free cancellation while retaining 20% is a
+// misleading commercial practice, so these assert the claim is not made
+// anywhere — this is the check that would have caught the original drift.
+
+describe("the cancellation rule agrees with itself everywhere", () => {
+  const bookingForm = () => readFileSync(join(ROOT, "components/BookingSection.tsx"), "utf8");
+  const i18nSrc = () => readFileSync(join(ROOT, "lib/i18n.ts"), "utf8");
+
+  it("nowhere promises free cancellation while a fee is retained", () => {
+    const fee = resolveRefunds(undefined).vehicleCancellationTiers.some((t) => /%/.test(t.outcome));
+    expect(fee).toBe(true); // a percentage IS retained, so the claim must not appear
+
+    expect(stripComments(i18nSrc())).not.toMatch(/Free cancellation/i);
+    expect(stripComments(i18nSrc())).not.toMatch(/Annulation gratuite/i);
+    expect(stripComments(bookingForm())).not.toMatch(/Free cancellation/i);
+    expect(stripComments(bookingForm())).not.toMatch(/Annulation gratuite/i);
+    expect(stripComments(bookingForm())).not.toMatch(/Anilasion gratis/i);
+  });
+
+  it("states the same 48-hour cutoff in the policy and at the point of payment", () => {
+    expect(resolveRefunds(undefined).vehicleCancellationTiers[0].window).toMatch(/48 hours/);
+    // All three languages of the booking form must carry the cutoff, not just English.
+    const form = stripComments(bookingForm());
+    expect(form).toMatch(/more than 48h before pickup/i);
+    expect(form).toMatch(/48 h avant le retrait/i);
+    expect(form).toMatch(/48 er avan retre/i);
+  });
+
+  it("does not advertise 'no deposit required' while the form charges one", () => {
+    // The booking form shows "Deposit to confirm (25%)" and a balance at
+    // pickup, and /legal/refunds says a deposit is taken to confirm. The old
+    // marketing line claimed the opposite. It sat in a block nothing renders,
+    // which is exactly how a false claim survives — dead copy gets revived.
+    const src = stripComments(i18nSrc());
+    expect(src).not.toMatch(/No deposit required/i);
+    expect(src).not.toMatch(/Aucun acompte requis/i);
+  });
+
+  it("keeps the 100%-if-we-cancel promise, which is not affected by the fee", () => {
+    expect(refundsPage()).toContain("you receive a 100% refund");
+  });
+});

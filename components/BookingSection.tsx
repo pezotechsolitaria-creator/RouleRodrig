@@ -881,21 +881,25 @@ export default function BookingSection({
                       {days >= 3 && (
                         <p className="text-green-400/80 text-xs font-dm">{t.booking.discountNote}</p>
                       )}
-                      {/* The refund policy is genuinely generous — a full
-                          refund more than 48h before pickup, and 100% if we or
-                          the owner cancel (/legal/refunds) — and it appeared
-                          NOWHERE in the booking flow. This is the cheapest
-                          reassurance available: the promise already exists,
-                          it was simply never shown at the moment money is
-                          asked for. */}
+                      {/* The cancellation terms, at the moment money is asked
+                          for — they used to appear NOWHERE in the booking flow.
+
+                          This line said "Free cancellation up to 48h before
+                          pickup", which the refund policy did not support even
+                          then and certainly does not now: outside 48 hours the
+                          refund is 80%, with 20% retained for administration.
+                          A cancellation promise shown at the point of payment
+                          is the one a customer relies on, so it states the fee
+                          rather than implying there is none. The 100%-if-we-
+                          cancel promise is separate and still holds. */}
                       <div className="flex items-start gap-2 border-t border-dark-border pt-3">
                         <ShieldCheck size={13} className="mt-0.5 shrink-0 text-green-400" />
                         <p className="font-dm text-[11px] leading-snug text-muted">
                           {language === "fr"
-                            ? "Annulation gratuite jusqu'à 48 h avant le retrait."
+                            ? "Annulez jusqu'à 48 h avant le retrait : remboursement de 80 %. Au-delà, non remboursable."
                             : language === "cr"
-                              ? "Anilasion gratis ziska 48 er avan retre."
-                              : "Free cancellation up to 48h before pickup."}{" "}
+                              ? "Anile ziska 48 er avan retre : 80 % ranbourse. Apre sa, pena ranbourseman."
+                              : "Cancel more than 48h before pickup for an 80% refund. Inside 48h it is non-refundable."}{" "}
                           <Link href="/legal/refunds" target="_blank" className="text-yellow hover:underline">
                             {language === "fr" ? "Détails" : language === "cr" ? "Detay" : "Details"}
                           </Link>

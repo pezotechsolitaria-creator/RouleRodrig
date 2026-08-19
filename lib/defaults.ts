@@ -695,7 +695,7 @@ export interface TermsContent {
 export interface CancellationTier {
   /** When, relative to pickup. "More than 48 hours before pickup". */
   window: string;
-  /** What the customer gets. "Full refund", "50% refund", "Non-refundable". */
+  /** What the customer gets. "80% refund...", "Non-refundable". */
   outcome: string;
 }
 
@@ -955,14 +955,23 @@ export const DEFAULT_CONTENT: SiteContent = {
   legal: {},
   // Same rule as `legal`: blank, never guessed. See TermsContent.
   terms: {},
-  // NOT blank — see RefundsContent. These are the words already published on
-  // /legal/refunds, kept as the default so making the page editable cannot
-  // accidentally unpublish a live consumer policy.
+  // NOT blank — see RefundsContent. A default here is what /legal/refunds
+  // publishes when the owner has not overridden it, so making the page editable
+  // can never accidentally unpublish a live consumer policy.
+  //
+  // The cancellation ladder below is the owner's stated policy (confirmed
+  // 2026-08-19): 80% back outside 48 hours, nothing inside it. It replaced a
+  // 100/50/0 ladder that the homepage and the booking form had both been
+  // contradicting — see lib/i18n.ts and components/BookingSection.tsx, which
+  // were corrected in the same change.
   refunds: {
     vehicleCancellationTiers: [
-      { window: 'More than 48 hours before pickup', outcome: 'full refund' },
-      { window: '24-48 hours before pickup', outcome: '50% refund' },
-      { window: 'Less than 24 hours / no-show', outcome: 'non-refundable' },
+      {
+        window: 'More than 48 hours before pickup',
+        outcome:
+          '80% of what you paid is refunded. We retain 20% as an administration and processing fee',
+      },
+      { window: 'Within 48 hours of pickup, or a no-show', outcome: 'non-refundable' },
     ],
     securityDeposit:
       'A refundable security deposit may be collected at pickup (cash or card hold). It is returned in full at drop-off, less any agreed charge for damage, missing fuel, or late return.',

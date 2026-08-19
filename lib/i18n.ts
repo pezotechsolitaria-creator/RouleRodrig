@@ -338,7 +338,7 @@ const translations = {
     cta: {
       eyebrow:  "GET STARTED",
       title:    "READY TO RIDE?",
-      subtitle: "Book your scooter online in 60 seconds. No deposit required. Free cancellation.",
+      subtitle: "Book your scooter online in 60 seconds. Cancel more than 48h before pickup for an 80% refund.",
       bookNow:  "Book Now",
     },
 
@@ -747,7 +747,7 @@ const translations = {
     cta: {
       eyebrow:  "COMMENCER",
       title:    "PRÊT À ROULER ?",
-      subtitle: "Réservez votre scooter en ligne en 60 secondes. Aucun acompte requis. Annulation gratuite.",
+      subtitle: "Réservez votre scooter en ligne en 60 secondes. Annulez plus de 48 h avant le retrait pour un remboursement de 80 %.",
       bookNow:  "Réserver",
     },
     reviews: {
