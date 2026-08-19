@@ -54,6 +54,15 @@ export type Activity = {
   statusLabel: string;
   /** Where tapping it goes. */
   href: string;
+  /**
+   * ISO deadline after which an unpaid order's stock is released and the order
+   * is cancelled — `orders.auto_release_at`.
+   *
+   * Null for anything that is not holding stock against a clock, which is most
+   * things: a rental, a place booking, and any order already paid for. The
+   * lookup card must show a countdown ONLY where one is genuinely running.
+   */
+  holdUntil?: string | null;
 };
 
 // ── Vehicle rentals ─────────────────────────────────────────────────────────
@@ -304,6 +313,7 @@ export type OrderRow = {
   placed_at?: string | null;
   created_at?: string | null;
   storeName?: string | null;
+  auto_release_at?: string | null;
 };
 
 export function orderToActivity(row: OrderRow, statusLabel?: string): Activity {
@@ -322,5 +332,11 @@ export function orderToActivity(row: OrderRow, statusLabel?: string): Activity {
     stage,
     statusLabel: activityLabel("order", stage, statusLabel),
     href: `/orders/${row.id}`,
+    // Only while the order is actually still holding stock. The column is
+    // cleared when an order moves past payment, but CANCELLED rows keep their
+    // old value (verified in production: 3 of 3 cancelled orders still carry
+    // one). Reading the column alone would therefore draw a live countdown on
+    // an order that is already dead, so the stage decides, not the column.
+    holdUntil: stage === "pending" ? (row.auto_release_at ?? null) : null,
   };
 }

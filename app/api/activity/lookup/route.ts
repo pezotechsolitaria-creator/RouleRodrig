@@ -130,6 +130,11 @@ export async function POST(req: NextRequest) {
         stage,
         statusLabel: activityLabel("order", stage, STATUS_LABEL[status as OrderStatus]),
         href: `/orders/track?ref=${encodeURIComponent(String(o.orderNumber ?? ref))}`,
+        // The reservation clock (backlog #53). lookup_order() already returned
+        // this and the card simply dropped it, so /track showed a customer
+        // "Pending" with no hint that the order dies on a deadline. Gated on
+        // the stage because cancelled rows keep a stale auto_release_at.
+        holdUntil: stage === "pending" ? ((o.autoReleaseAt as string | null) ?? null) : null,
       };
       return NextResponse.json({ activity, raw: o });
     }

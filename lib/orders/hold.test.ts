@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { holdInfo, holdRemaining, customerHoldCopy, merchantHoldCopy } from "./hold";
+import {
+  holdInfo, holdRemaining, customerHoldCopy, merchantHoldCopy,
+  checkoutHoldCopy, holdWindowLabel, projectedDeadline,
+} from "./hold";
 
 const NOW = Date.parse("2026-08-06T12:00:00Z");
 const at = (hoursFromNow: number) => new Date(NOW + hoursFromNow * 3_600_000).toISOString();
@@ -84,5 +87,67 @@ describe("merchantHoldCopy", () => {
 
   it("frames bank transfer as waiting on the customer instead", () => {
     expect(merchantHoldCopy("bank_transfer", holdInfo(at(20), NOW)!)).toMatch(/customer sends payment/i);
+  });
+});
+
+// ── THE CHECKOUT DISCLOSURE (backlog #53) ──────────────────────────────────
+//
+// The bug this closes: a bank-transfer customer read the checkout screen, saw
+// nothing about a deadline, wired the money on day three and found the order
+// already cancelled. These tests pin the two properties that make the new copy
+// worth anything — that it names a real moment in time, and that it never
+// quietly widens the window it promises.
+
+describe("holdWindowLabel", () => {
+  it("prefers days when the window divides evenly, hours otherwise", () => {
+    expect(holdWindowLabel(48)).toBe("2 days");
+    expect(holdWindowLabel(168)).toBe("7 days");
+    expect(holdWindowLabel(24)).toBe("1 day");
+    expect(holdWindowLabel(36)).toBe("36 hours");
+    expect(holdWindowLabel(1)).toBe("1 hour");
+  });
+});
+
+describe("projectedDeadline", () => {
+  it("projects from the moment asked, not from midnight or the epoch", () => {
+    expect(projectedDeadline(48, NOW).toISOString()).toBe("2026-08-08T12:00:00.000Z");
+  });
+});
+
+describe("checkoutHoldCopy", () => {
+  it("names an actual date and time, not just a duration", () => {
+    // The whole failure was that "48 hours" has no stated starting point. A
+    // date is the thing a customer can hold a bank appointment against.
+    const copy = checkoutHoldCopy("bank_transfer", 48, NOW);
+    expect(copy).toContain("2 days");
+    expect(copy).toMatch(/Sat 8 Aug, 16:00/);
+  });
+
+  it("tells a bank-transfer customer that missing it cancels the order", () => {
+    const copy = checkoutHoldCopy("bank_transfer", 48, NOW);
+    expect(copy).toMatch(/released|cancelled/);
+    // They must also know the site will not take the money by itself, or the
+    // warning reads as a threat of an automatic charge.
+    expect(copy).toContain("never charged automatically");
+  });
+
+  it("does not tell a cash customer to pay in time — they owe nothing yet", () => {
+    const copy = checkoutHoldCopy("cash", 168, NOW);
+    expect(copy).toContain("7 days");
+    expect(copy).not.toMatch(/transfer|proof of payment/);
+    expect(copy).toContain("nothing is owed");
+  });
+
+  it("uses the seller vocabulary it is given, so a kitchen is not called a shop", () => {
+    expect(checkoutHoldCopy("cash", 168, NOW, "kitchen")).toContain("kitchen");
+  });
+
+  it("agrees with the window the database will enforce", () => {
+    // The number is passed in from order_hold_hours() rather than re-derived,
+    // so a settings change moves the copy with it. If this ever starts failing,
+    // the checkout screen and create_order() have drifted apart.
+    const copy = checkoutHoldCopy("bank_transfer", 72, NOW);
+    expect(copy).toContain("3 days");
+    expect(copy).toMatch(/Sun 9 Aug, 16:00/);
   });
 });

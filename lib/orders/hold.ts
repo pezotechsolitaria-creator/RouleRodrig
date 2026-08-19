@@ -89,3 +89,59 @@ export function merchantHoldCopy(provider: PaymentProvider | undefined, h: HoldI
   }
   return `Confirm within ${left} or this reservation is released and the stock returns to your shelf. The customer pays you at handover.`;
 }
+
+// ── BEFORE THE ORDER EXISTS ────────────────────────────────────────────────
+//
+// Everything above reads an order's own auto_release_at, which is the honest
+// way to describe a clock that is already running. At CHECKOUT there is no
+// order and no auto_release_at yet, so the deadline has to be projected from
+// the window instead — and that projection is the last thing the customer sees
+// before they commit money, which is precisely where the disclosure was
+// missing.
+//
+// The window is NOT re-derived here. It is resolved by order_hold_hours() in
+// SQL, exactly as create_order() will resolve it moments later, and passed in.
+// Anything else would let the number on the checkout screen disagree with the
+// number the database enforces.
+
+/** Default windows, mirroring order_hold_hours()'s own fallback. */
+export const FALLBACK_HOLD_HOURS: Record<string, number> = { cash: 168, bank_transfer: 48, manual: 48 };
+
+/** The deadline a customer would get if they placed the order right now. */
+export function projectedDeadline(hours: number, now: number = Date.now()): Date {
+  return new Date(now + hours * 3_600_000);
+}
+
+/**
+ * What the customer is told at CHECKOUT, before the order exists.
+ *
+ * Deliberately states the window AND the resulting date. The window alone
+ * ("48 hours") is what the product said for months and it is the reason a
+ * bank-transfer customer could wire money on day three: "48 hours" from an
+ * unstated starting point is not a deadline anyone can act on. The date alone
+ * would be false precision, because the clock starts when they press the
+ * button, not when the page rendered — so it is marked as such.
+ */
+export function checkoutHoldCopy(
+  provider: PaymentProvider | undefined,
+  hours: number,
+  now: number = Date.now(),
+  /** "shop", "kitchen", "organiser" — checkout already carries this vocabulary. */
+  seller: string = "shop",
+): string {
+  const when = holdDeadlineLabel(holdInfo(projectedDeadline(hours, now).toISOString(), now)!);
+  const window = holdWindowLabel(hours);
+  if (provider === "bank_transfer") {
+    return `Placing this order reserves your items for ${window} — until about ${when}. Send the transfer and upload your proof of payment before then, or the reservation is released and the order is cancelled. You are never charged automatically.`;
+  }
+  return `Placing this order reserves your items for ${window} — until about ${when}. If the ${seller} has not confirmed by then, the reservation is released and nothing is owed.`;
+}
+
+/** "2 days", "7 days", "36 hours" — a duration, never a bare number. */
+export function holdWindowLabel(hours: number): string {
+  if (hours >= 24 && hours % 24 === 0) {
+    const days = hours / 24;
+    return `${days} day${days === 1 ? "" : "s"}`;
+  }
+  return `${hours} hour${hours === 1 ? "" : "s"}`;
+}

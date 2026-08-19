@@ -4,10 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Search, Loader2, Bike, UtensilsCrossed, Ticket, Store, MapPin,
-  ArrowRight, AlertTriangle, CalendarCheck,
+  ArrowRight, AlertTriangle, CalendarCheck, Clock,
 } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import type { Activity, ActivityKind, ActivityStage } from "@/lib/activity";
+import { holdInfo, holdDeadlineLabel, holdRemaining } from "@/lib/orders/hold";
 
 // ── ONE BOX FOR EVERYTHING ─────────────────────────────────────────────────
 //
@@ -168,6 +169,41 @@ function ActivityCard({ activity }: { activity: Activity }) {
           </span>
         )}
       </div>
+
+      {/* ── THE CLOCK, AT THE FIRST SURFACE THAT SEES IT (backlog #53) ────
+          This card was the first thing a guest saw after finding their order,
+          and it showed a status badge with no hint that the order expires. The
+          deadline was already in the lookup response; it was simply dropped.
+
+          Shown as an absolute date AND what is left of it: the date is what
+          you act on, the remaining time is what makes you act now. */}
+      {(() => {
+        const h = holdInfo(activity.holdUntil);
+        if (!h) return null;
+        return (
+          <p
+            className={`mt-3.5 flex items-start gap-2 rounded-xl border px-3.5 py-2.5 font-dm text-xs leading-relaxed ${
+              h.expired
+                ? "border-red-500/30 bg-red-500/10 text-red-200"
+                : h.urgent
+                  ? "border-orange-400/40 bg-orange-400/10 text-orange-100"
+                  : "border-yellow/25 bg-yellow/[0.06] text-offwhite"
+            }`}
+          >
+            <Clock size={13} className="mt-0.5 shrink-0" />
+            <span>
+              {h.expired ? (
+                "This reservation has lapsed. If it was not confirmed, the items have been released and you have not been charged."
+              ) : (
+                <>
+                  Reserved until <span className="font-bold">{holdDeadlineLabel(h)}</span> — {holdRemaining(h)} left
+                  to pay, or the order is cancelled.
+                </>
+              )}
+            </span>
+          </p>
+        );
+      })()}
 
       {/* Straight to the surface that owns this kind, which is where the real
           detail lives — the QR code, the bank details, the pickup address. */}

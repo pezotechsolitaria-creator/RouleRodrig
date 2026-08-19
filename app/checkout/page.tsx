@@ -7,6 +7,7 @@ import CheckoutForm from "@/components/checkout/CheckoutForm";
 // and a plain value imported from a "use client" module arrives as a client
 // reference that throws the moment it is used.
 import { toCartDomain, type CartDomain } from "@/lib/cart/domains";
+import { resolveHoldWindows } from "@/lib/orders/hold-window";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -46,9 +47,19 @@ export default async function CheckoutPage({
     : null;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const [
+    {
+      data: { user },
+    },
+    // THE CLOCK THE CUSTOMER COULD NOT SEE (backlog #53).
+    //
+    // create_order() stamps auto_release_at and a cron cancels the order when
+    // it passes. Until now that was disclosed nowhere before the order existed,
+    // so a bank-transfer customer could read this page, wire the money three
+    // days later and find the order already dead. Resolved here, on the server,
+    // from the same SQL create_order() will use.
+    holdWindows,
+  ] = await Promise.all([supabase.auth.getUser(), resolveHoldWindows()]);
 
   return (
     <main className="min-h-screen bg-dark px-4 pb-32 pt-10 text-offwhite md:pb-16">
@@ -65,6 +76,7 @@ export default async function CheckoutPage({
             defaultName={(user?.user_metadata?.full_name as string) ?? ""}
             defaultPhone=""
             signedInEmail={user?.email ?? null}
+            holdWindows={holdWindows}
           />
         </div>
       </div>

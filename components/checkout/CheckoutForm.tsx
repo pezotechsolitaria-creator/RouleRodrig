@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import posthog from "posthog-js";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, MapPin, AlertTriangle, RefreshCw, Check } from "lucide-react";
+import { Loader2, MapPin, AlertTriangle, RefreshCw, Check, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useCart, type CartDomain } from "@/lib/cart/CartContext";
 import { centsToDecimalString } from "@/lib/money";
@@ -18,6 +18,7 @@ import { readFulfillment as readFoodFulfillment } from "@/components/food/Fulfil
 import { vocabFor, domainFromFlags } from "@/lib/food/vocabulary";
 import { FULFILMENT } from "@/lib/shop/plain-words";
 import PickupLocationCard, { type PickupLocation } from "@/components/orders/PickupLocationCard";
+import { checkoutHoldCopy, type PaymentProvider } from "@/lib/orders/hold";
 
 type Provider = "cash" | "bank_transfer";
 type Fulfillment = "pickup" | "customer_delivery" | "rr_delivery";
@@ -36,7 +37,7 @@ type Zone = { id: string; name: string; covers: string | null; fee: number };
 const FULFILLMENT_COPY = FULFILMENT;
 
 export default function CheckoutForm({
-  domain, storeId, defaultName, defaultPhone, signedInEmail,
+  domain, storeId, defaultName, defaultPhone, signedInEmail, holdWindows,
 }: {
   domain: CartDomain;
   /** Which shop's basket, from ?store= — the marketplace holds several. */
@@ -44,6 +45,12 @@ export default function CheckoutForm({
   defaultName: string;
   defaultPhone: string;
   signedInEmail: string | null;
+  /**
+   * Hours a placed order holds its stock, per provider, resolved on the server
+   * by the same order_hold_hours() create_order() will call. Both are passed
+   * because the customer picks the provider here, in the browser.
+   */
+  holdWindows: Record<PaymentProvider, number>;
 }) {
   const { baskets, basketFor, hydrated, clear } = useCart(domain);
   const router = useRouter();
@@ -892,6 +899,25 @@ export default function CheckoutForm({
               : isGuest
                 ? `You'll see the ${v.seller}'s bank details on your tracking page after placing the order, and you tell the ${v.seller} once you've sent the transfer.`
                 : `You'll see the ${v.seller}'s bank details and upload your transfer receipt after placing the order.`}
+          </p>
+        )}
+
+        {/* ── THE RESERVATION CLOCK, SAID OUT LOUD (backlog #53) ──────────
+            create_order() stamps auto_release_at and a cron cancels whatever
+            is still unpaid when it passes. The customer was never told. The
+            only "48 hours" anywhere in the product is the RENTAL cancellation
+            policy, which is a different rule about a different thing — so a
+            bank-transfer customer had every reason to think they could pay
+            when they got to a bank on Monday.
+
+            Stated as a date and time rather than a duration, because "48
+            hours" from an unstated starting point is not something anyone can
+            act on. The hours come from order_hold_hours() on the server, so
+            this cannot drift from what the database will actually enforce. */}
+        {paymentReady && (
+          <p className="mt-3 flex items-start gap-2 rounded-xl border border-yellow/25 bg-yellow/[0.06] px-4 py-3 font-dm text-xs leading-relaxed text-offwhite">
+            <Clock size={14} className="mt-0.5 shrink-0 text-yellow" />
+            <span>{checkoutHoldCopy(provider, holdWindows[provider] ?? 48, Date.now(), v.seller)}</span>
           </p>
         )}
       </fieldset>
