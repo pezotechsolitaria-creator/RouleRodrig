@@ -3,7 +3,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getContentWithStatus, saveContent } from "@/lib/content";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
-import { missingFactsFor, missingClauses } from "@/lib/legal";
+import { missingFactsFor, missingClauses, resolveRefunds } from "@/lib/legal";
 
 // ── THE COMPANY'S OWN IDENTITY (P1 #2) ──────────────────────────────────────
 //
@@ -49,9 +49,29 @@ const termsSchema = z.object({
   ageRestrictedGoods: z.string().trim().max(600).optional(),
 });
 
+// The refund policy's commercial numbers. Unlike the terms clauses these have
+// a real published default, so an empty field means "keep publishing what is
+// already there" rather than "leave it blank" — resolveRefunds() decides that,
+// not this schema.
+const refundsSchema = z.object({
+  vehicleCancellationTiers: z
+    .array(
+      z.object({
+        window: z.string().trim().max(200),
+        outcome: z.string().trim().max(200),
+      }),
+    )
+    .max(8)
+    .optional(),
+  securityDeposit: z.string().trim().max(800).optional(),
+  lateReturnCharge: z.string().trim().max(800).optional(),
+  damageRule: z.string().trim().max(800).optional(),
+});
+
 const bodySchema = z.object({
   legal: legalSchema.optional(),
   terms: termsSchema.optional(),
+  refunds: refundsSchema.optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -65,9 +85,14 @@ export async function GET(req: NextRequest) {
   }
   const legal = content.legal ?? {};
   const terms = content.terms ?? {};
+  // Resolved, not raw: the editor should open showing the policy that is
+  // actually published, so an owner who has never touched it sees the live
+  // wording rather than empty boxes they might then save over.
+  const refunds = resolveRefunds(content.refunds);
   return NextResponse.json({
     legal,
     terms,
+    refunds,
     missing: missingFactsFor(legal),
     missingClauses: missingClauses(terms),
   });
@@ -105,7 +130,8 @@ export async function PUT(req: NextRequest) {
 
   const legal = { ...(content.legal ?? {}), ...(parsed.data.legal ?? {}) };
   const terms = { ...(content.terms ?? {}), ...(parsed.data.terms ?? {}) };
-  await saveContent({ ...content, legal, terms });
+  const refunds = { ...(content.refunds ?? {}), ...(parsed.data.refunds ?? {}) };
+  await saveContent({ ...content, legal, terms, refunds });
 
   try {
     const { getPrivileged, hasServiceRole } = await import("@/lib/supabase/admin");
@@ -117,6 +143,7 @@ export async function PUT(req: NextRequest) {
       const changed = [
         ...Object.keys(parsed.data.legal ?? {}).map((k) => `legal.${k}`),
         ...Object.keys(parsed.data.terms ?? {}).map((k) => `terms.${k}`),
+        ...Object.keys(parsed.data.refunds ?? {}).map((k) => `refunds.${k}`),
       ];
       await audit(await getPrivileged(), {
         action: "legal.save",
@@ -135,11 +162,13 @@ export async function PUT(req: NextRequest) {
   revalidatePath("/legal/notice");
   revalidatePath("/legal/privacy");
   revalidatePath("/legal/terms");
+  revalidatePath("/legal/refunds");
   revalidatePath("/");
 
   return NextResponse.json({
     legal,
     terms,
+    refunds: resolveRefunds(refunds),
     missing: missingFactsFor(legal),
     missingClauses: missingClauses(terms),
   });

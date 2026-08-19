@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { getContent } from "@/lib/content";
+import { resolveRefunds } from "@/lib/legal";
 import LegalDoc, { Section, P, UL } from "@/components/LegalDoc";
 
 export const metadata: Metadata = {
@@ -21,7 +23,26 @@ export const metadata: Metadata = {
 // the introducer, says so plainly. Section 6 is the one that matters most: it
 // describes the real M90 mechanism — the shop sends it back, we record it,
 // chase it, and the customer confirms it arrived.
-export default function RefundsPage() {
+// ── THE COMMERCIAL NUMBERS ARE THE OWNER'S, AND NOW EDITABLE ───────────────
+//
+// Sections 3, 6, 7 and 8 are business decisions, not descriptions of what the
+// software does, and they were only changeable by a deploy. They now come from
+// the `refunds` block on site_content via /admin/legal.
+//
+// They fall back to the wording published here before, NOT to a blank: these
+// tiers have been in force for months, so an empty admin field must keep
+// publishing them rather than replace a live consumer policy with "to be
+// confirmed". That is the opposite of how the Terms clauses resolve, and the
+// reason is that those had no published rule to lose.
+//
+// Everything else on this page stays hardcoded on purpose. Who holds the money,
+// how a refund is opened and chased, and what happens with a taxi are
+// descriptions of the M89/M90 mechanism — they are facts about the software,
+// and an owner must not be able to edit the page into disagreeing with it.
+export default async function RefundsPage() {
+  const content = await getContent();
+  const R = resolveRefunds(content.refunds);
+
   return (
     <LegalDoc
       title="Refund & Cancellation Policy"
@@ -50,10 +71,15 @@ export default function RefundsPage() {
 
       <Section heading="3. Cancellation tiers (vehicle rentals)">
         <UL>
-          <li><strong>More than 48 hours before pickup</strong> — full refund.</li>
-          <li><strong>24–48 hours before pickup</strong> — 50% refund.</li>
-          <li><strong>Less than 24 hours / no-show</strong> — non-refundable.</li>
+          {R.vehicleCancellationTiers.map((t) => (
+            <li key={t.window}>
+              <strong>{t.window}</strong> — {t.outcome}.
+            </li>
+          ))}
         </UL>
+        {/* Not editable, and deliberately so: "we cancelled, so you are made
+            whole" is not a commercial dial the owner should be able to turn
+            down. */}
         <P>If we or the owner cancel for any reason, you receive a 100% refund.</P>
       </Section>
 
@@ -96,24 +122,15 @@ export default function RefundsPage() {
       </Section>
 
       <Section heading="6. Security deposit (vehicle rentals)">
-        <P>
-          A refundable security deposit may be collected at pickup (cash or card hold). It is returned in full at
-          drop-off, less any agreed charge for damage, missing fuel, or late return.
-        </P>
+        <P>{R.securityDeposit}</P>
       </Section>
 
       <Section heading="7. Late returns (vehicle rentals)">
-        <P>
-          Please return on time so the next rider isn&rsquo;t affected. Late returns may be charged a pro-rata
-          hourly rate or a full extra day if significantly late.
-        </P>
+        <P>{R.lateReturnCharge}</P>
       </Section>
 
       <Section heading="8. Damage (vehicle rentals)">
-        <P>
-          You are responsible for damage caused during your rental. Minor wear is expected; the cost of repairs
-          for new damage may be deducted from the deposit, with photos shared for transparency.
-        </P>
+        <P>{R.damageRule}</P>
       </Section>
 
       <Section heading="9. How a refund actually reaches you">

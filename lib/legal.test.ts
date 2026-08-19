@@ -5,6 +5,7 @@ import {
   LEGAL, isMissing, missingFacts, legalIdentityComplete,
   resolveLegal, missingFactsFor, OWNER_REQUIRED,
   resolveTerms, missingClauses, TERMS_CLAUSES,
+  resolveRefunds,
 } from "./legal";
 
 // ── THE POLICY MUST NOT DRIFT AWAY FROM THE PRODUCT ─────────────────────────
@@ -267,5 +268,73 @@ describe("resolveTerms", () => {
 
   it("treats whitespace as still undecided", () => {
     expect(isMissing(resolveTerms({ vehicleMinAge: "   " }).vehicleMinAge)).toBe(true);
+  });
+});
+
+// ── THE REFUND POLICY MUST NEVER UNPUBLISH ITSELF ──────────────────────────
+//
+// resolveRefunds falls back the OPPOSITE way to resolveTerms, and that is the
+// whole risk of making this page editable: these tiers are a live consumer
+// policy, so an empty admin field must keep publishing them. A blank
+// cancellation ladder does not read as "unset" to a customer — it reads as
+// "there is no cancellation charge".
+
+const refundsPage = () => stripComments(readFileSync(join(ROOT, "app/legal/refunds/page.tsx"), "utf8"));
+
+describe("resolveRefunds", () => {
+  it("publishes the live policy when admin has never touched it", () => {
+    const r = resolveRefunds(undefined);
+    expect(r.vehicleCancellationTiers.length).toBeGreaterThan(0);
+    expect(r.securityDeposit).not.toBe("");
+    expect(r.lateReturnCharge).not.toBe("");
+    expect(r.damageRule).not.toBe("");
+  });
+
+  it("never leaves the cancellation ladder empty", () => {
+    // Blank, absent and an all-empty array must all keep the published ladder.
+    for (const input of [{}, { vehicleCancellationTiers: [] }, { vehicleCancellationTiers: [{ window: "", outcome: "" }] }]) {
+      expect(resolveRefunds(input).vehicleCancellationTiers.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("takes the owner's ladder when they supply a usable one", () => {
+    const r = resolveRefunds({
+      vehicleCancellationTiers: [
+        { window: "More than 7 days", outcome: "full refund" },
+        { window: "Inside 7 days", outcome: "no refund" },
+      ],
+    });
+    expect(r.vehicleCancellationTiers).toHaveLength(2);
+    expect(r.vehicleCancellationTiers[0].outcome).toBe("full refund");
+  });
+
+  it("drops half-written rows rather than publishing an unreadable rule", () => {
+    const r = resolveRefunds({
+      vehicleCancellationTiers: [
+        { window: "More than 7 days", outcome: "full refund" },
+        { window: "Inside 7 days", outcome: "   " },
+      ],
+    });
+    expect(r.vehicleCancellationTiers).toHaveLength(1);
+  });
+
+  it("restores the published wording when a text field is cleared", () => {
+    const cleared = resolveRefunds({ securityDeposit: "   " });
+    expect(cleared.securityDeposit).toBe(resolveRefunds(undefined).securityDeposit);
+  });
+});
+
+describe("published refund policy", () => {
+  it("keeps the platform's own promises out of the owner's hands", () => {
+    const p = refundsPage();
+    // If WE cancel, the customer is made whole. That is not a dial.
+    expect(p).toContain("you receive a 100% refund");
+    // And the M89/M90 mechanism stays described by code, not editable prose.
+    expect(p).toContain("never receives or holds that money");
+    expect(p).toMatch(/chase them every other day/);
+  });
+
+  it("still states who holds the money before anything else", () => {
+    expect(refundsPage()).toContain("1. Who holds your money");
   });
 });

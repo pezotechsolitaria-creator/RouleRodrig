@@ -691,6 +691,46 @@ export interface TermsContent {
   ageRestrictedGoods?: string;
 }
 
+/** One row of the vehicle cancellation ladder. */
+export interface CancellationTier {
+  /** When, relative to pickup. "More than 48 hours before pickup". */
+  window: string;
+  /** What the customer gets. "Full refund", "50% refund", "Non-refundable". */
+  outcome: string;
+}
+
+/**
+ * ── THE REFUND POLICY'S COMMERCIAL NUMBERS ─────────────────────────────────
+ *
+ * UNLIKE TermsContent, these are NOT blank by default.
+ *
+ * The distinction matters. The Terms clauses had no published rule at all, so
+ * an empty one is honest and OWNER_REQUIRED is right. The refund tiers have
+ * been published and in force for months — they are already the owner's stated
+ * policy. Emptying them to "to be confirmed" would DELETE a live consumer
+ * policy from a page customers rely on, which is a worse outcome than leaving
+ * it uneditable was.
+ *
+ * So the currently published wording is the default, and admin overrides it.
+ * Nothing here is invented: every default below is the text that is on
+ * /legal/refunds today.
+ *
+ * NOTE: no code computes these. The tiers are applied by a human when a refund
+ * is agreed, so editing them changes the published promise and nothing else —
+ * there is no calculation to keep in step. If a refund calculator is ever
+ * built, it must read THESE values rather than hardcode its own.
+ */
+export interface RefundsContent {
+  /** The vehicle cancellation ladder, in order from most to least notice. */
+  vehicleCancellationTiers?: CancellationTier[];
+  /** Security deposit rule for vehicle rentals. */
+  securityDeposit?: string;
+  /** What a late return costs. */
+  lateReturnCharge?: string;
+  /** How damage is assessed and charged. */
+  damageRule?: string;
+}
+
 export interface SiteContent {
   hero: HeroContent;
   stats: StatItem[];
@@ -705,6 +745,7 @@ export interface SiteContent {
   branding: BrandingContent;
   legal?: LegalContent;
   terms?: TermsContent;
+  refunds?: RefundsContent;
   announcement: AnnouncementContent;
   mapLocations: MapLocation[];
   plannerActivities: PlannerActivity[];
@@ -914,6 +955,22 @@ export const DEFAULT_CONTENT: SiteContent = {
   legal: {},
   // Same rule as `legal`: blank, never guessed. See TermsContent.
   terms: {},
+  // NOT blank — see RefundsContent. These are the words already published on
+  // /legal/refunds, kept as the default so making the page editable cannot
+  // accidentally unpublish a live consumer policy.
+  refunds: {
+    vehicleCancellationTiers: [
+      { window: 'More than 48 hours before pickup', outcome: 'full refund' },
+      { window: '24-48 hours before pickup', outcome: '50% refund' },
+      { window: 'Less than 24 hours / no-show', outcome: 'non-refundable' },
+    ],
+    securityDeposit:
+      'A refundable security deposit may be collected at pickup (cash or card hold). It is returned in full at drop-off, less any agreed charge for damage, missing fuel, or late return.',
+    lateReturnCharge:
+      'Please return on time so the next rider is not affected. Late returns may be charged a pro-rata hourly rate or a full extra day if significantly late.',
+    damageRule:
+      'You are responsible for damage caused during your rental. Minor wear is expected; the cost of repairs for new damage may be deducted from the deposit, with photos shared for transparency.',
+  },
   announcement: {
     active: false,
     text: 'Book 3+ days and get a FREE helmet & lock upgrade!',

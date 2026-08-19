@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Check, AlertTriangle, Upload, Eye, Trash2, ShieldCheck, Gavel } from "lucide-react";
+import { Loader2, Check, AlertTriangle, Upload, Eye, Trash2, ShieldCheck, Gavel, Undo2, Plus, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // The owner's own company details, editable without a deploy.
@@ -83,6 +83,39 @@ const TERMS_FIELDS: {
   },
 ];
 
+type Tier = { window: string; outcome: string };
+type RefundFields = {
+  vehicleCancellationTiers: Tier[];
+  securityDeposit: string;
+  lateReturnCharge: string;
+  damageRule: string;
+};
+
+const EMPTY_REFUNDS: RefundFields = {
+  vehicleCancellationTiers: [],
+  securityDeposit: "",
+  lateReturnCharge: "",
+  damageRule: "",
+};
+
+const REFUND_TEXT_FIELDS: { key: "securityDeposit" | "lateReturnCharge" | "damageRule"; label: string; hint: string }[] = [
+  {
+    key: "securityDeposit",
+    label: "Security deposit",
+    hint: "What you take at pickup, and what can be withheld from it at drop-off.",
+  },
+  {
+    key: "lateReturnCharge",
+    label: "Late returns",
+    hint: "What a late return costs. Be specific enough that a customer cannot be surprised by it.",
+  },
+  {
+    key: "damageRule",
+    label: "Damage",
+    hint: "How damage is assessed and charged, and what evidence the customer is shown.",
+  },
+];
+
 const EMPTY: LegalFields = {
   legalName: "",
   brn: "",
@@ -151,6 +184,9 @@ export default function AdminLegal() {
   const [terms, setTerms] = useState<TermsFields>(EMPTY_TERMS);
   const [savedTerms, setSavedTerms] = useState<TermsFields>(EMPTY_TERMS);
 
+  const [refunds, setRefunds] = useState<RefundFields>(EMPTY_REFUNDS);
+  const [savedRefunds, setSavedRefunds] = useState<RefundFields>(EMPTY_REFUNDS);
+
   const [certificatePath, setCertificatePath] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -182,6 +218,20 @@ export default function AdminLegal() {
       };
       setTerms(nextTerms);
       setSavedTerms(nextTerms);
+      // The API returns the RESOLVED policy, so an owner who has never edited
+      // this opens the screen showing the wording that is actually published
+      // rather than empty boxes they could unknowingly save over.
+      const r = body.refunds ?? {};
+      const nextRefunds: RefundFields = {
+        vehicleCancellationTiers: Array.isArray(r.vehicleCancellationTiers)
+          ? r.vehicleCancellationTiers.map((t: Tier) => ({ window: t.window ?? "", outcome: t.outcome ?? "" }))
+          : [],
+        securityDeposit: r.securityDeposit ?? "",
+        lateReturnCharge: r.lateReturnCharge ?? "",
+        damageRule: r.damageRule ?? "",
+      };
+      setRefunds(nextRefunds);
+      setSavedRefunds(nextRefunds);
       setCertificatePath(l.certificatePath ?? null);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Could not load the legal details.");
@@ -196,7 +246,13 @@ export default function AdminLegal() {
 
   const legalDirty = (Object.keys(fields) as (keyof LegalFields)[]).some((k) => fields[k] !== saved[k]);
   const termsDirty = (Object.keys(terms) as (keyof TermsFields)[]).some((k) => terms[k] !== savedTerms[k]);
-  const dirty = legalDirty || termsDirty;
+  const refundsDirty = JSON.stringify(refunds) !== JSON.stringify(savedRefunds);
+  const dirty = legalDirty || termsDirty || refundsDirty;
+  // A tier with only one half filled would publish a rule the customer cannot
+  // read, so it blocks the save rather than being silently dropped.
+  const tiersValid = refunds.vehicleCancellationTiers.every(
+    (t) => (t.window.trim() && t.outcome.trim()) || (!t.window.trim() && !t.outcome.trim()),
+  );
   const outstanding = REQUIRED.filter((k) => !fields[k].trim());
 
   async function save() {
@@ -205,13 +261,24 @@ export default function AdminLegal() {
       const res = await fetch("/api/admin/legal", {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ legal: fields, terms }),
+        body: JSON.stringify({
+          legal: fields,
+          terms,
+          refunds: {
+            ...refunds,
+            // Half-written rows never reach the policy.
+            vehicleCancellationTiers: refunds.vehicleCancellationTiers.filter(
+              (t) => t.window.trim() && t.outcome.trim(),
+            ),
+          },
+        }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Could not save.");
       setSaved({ ...fields });
       setSavedTerms({ ...terms });
-      toast.success("Saved — the legal notice and terms are already updated");
+      setSavedRefunds(JSON.parse(JSON.stringify(refunds)));
+      toast.success("Saved — the notice, terms and refund policy are already updated");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save.");
     } finally {
@@ -338,7 +405,7 @@ export default function AdminLegal() {
         </div>
 
         <div className="mt-5 flex items-center gap-3">
-          <Button onClick={() => void save()} disabled={!dirty || saving}>
+          <Button onClick={() => void save()} disabled={!dirty || !tiersValid || saving}>
             {saving ? <Loader2 size={16} className="mr-1.5 animate-spin" /> : null}
             Save
           </Button>
@@ -390,7 +457,7 @@ export default function AdminLegal() {
         </div>
 
         <div className="mt-5 flex items-center gap-3">
-          <Button onClick={() => void save()} disabled={!dirty || saving}>
+          <Button onClick={() => void save()} disabled={!dirty || !tiersValid || saving}>
             {saving ? <Loader2 size={16} className="mr-1.5 animate-spin" /> : null}
             Save
           </Button>
@@ -400,6 +467,152 @@ export default function AdminLegal() {
             </span>
           )}
         </div>
+      </section>
+
+      {/* ── The refund policy's commercial numbers ──────────────────────
+          Sections 3, 6, 7 and 8 of /legal/refunds. Everything else on that
+          page describes what the software does — who holds the money, how a
+          refund is opened and chased — and stays out of the owner's hands on
+          purpose, because the page must not be editable into disagreeing with
+          the mechanism it documents. */}
+      <section className="rounded-2xl border border-white/10 bg-dark-card p-5">
+        <h2 className="flex items-center gap-2 font-syne text-base font-bold text-offwhite">
+          <Undo2 size={16} className="text-yellow" /> Refund policy
+        </h2>
+        <p className="mt-1 font-dm text-sm text-muted">
+          The rental cancellation ladder and deposit rules published in your{" "}
+          <a href="/legal/refunds" target="_blank" rel="noreferrer" className="text-yellow hover:underline">
+            Refund &amp; Cancellation Policy
+          </a>
+          . These are already live, so the boxes start filled with what customers see today — clearing
+          one restores that wording rather than removing it.
+        </p>
+
+        <div className="mt-4">
+          <span className="block font-bebas text-[11px] tracking-[0.2em] text-muted">
+            CANCELLATION LADDER (VEHICLE RENTALS)
+          </span>
+          <p className="mt-1 font-dm text-[11px] leading-relaxed text-muted">
+            Most notice first. A customer reads this top to bottom to find their own situation.
+          </p>
+
+          <div className="mt-2.5 space-y-2">
+            {refunds.vehicleCancellationTiers.map((t, i) => (
+              <div key={i} className="flex flex-wrap items-center gap-2">
+                <input
+                  aria-label={`Cancellation window ${i + 1}`}
+                  value={t.window}
+                  placeholder="More than 48 hours before pickup"
+                  onChange={(e) =>
+                    setRefunds((p) => ({
+                      ...p,
+                      vehicleCancellationTiers: p.vehicleCancellationTiers.map((row, j) =>
+                        j === i ? { ...row, window: e.target.value } : row,
+                      ),
+                    }))
+                  }
+                  className="min-w-[220px] flex-1 rounded-xl border border-white/12 bg-dark px-3.5 py-2.5 font-dm text-sm text-offwhite placeholder:text-muted/50 focus:border-yellow/50 focus:outline-none"
+                />
+                <span className="font-dm text-sm text-muted">&mdash;</span>
+                <input
+                  aria-label={`Cancellation outcome ${i + 1}`}
+                  value={t.outcome}
+                  placeholder="full refund"
+                  onChange={(e) =>
+                    setRefunds((p) => ({
+                      ...p,
+                      vehicleCancellationTiers: p.vehicleCancellationTiers.map((row, j) =>
+                        j === i ? { ...row, outcome: e.target.value } : row,
+                      ),
+                    }))
+                  }
+                  className="min-w-[160px] flex-1 rounded-xl border border-white/12 bg-dark px-3.5 py-2.5 font-dm text-sm text-offwhite placeholder:text-muted/50 focus:border-yellow/50 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  aria-label={`Remove tier ${i + 1}`}
+                  onClick={() =>
+                    setRefunds((p) => ({
+                      ...p,
+                      vehicleCancellationTiers: p.vehicleCancellationTiers.filter((_, j) => j !== i),
+                    }))
+                  }
+                  className="rounded-xl border border-white/12 p-2.5 text-muted hover:border-red-500/40 hover:text-red-300"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {!tiersValid && (
+            <p role="alert" className="mt-2 font-dm text-xs text-red-400">
+              Every tier needs both a window and an outcome — a half-written row would publish a rule
+              nobody can read.
+            </p>
+          )}
+
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setRefunds((p) => ({
+                  ...p,
+                  vehicleCancellationTiers: [...p.vehicleCancellationTiers, { window: "", outcome: "" }],
+                }))
+              }
+            >
+              <Plus size={14} className="mr-1.5" /> Add a tier
+            </Button>
+            {refunds.vehicleCancellationTiers.length === 0 && (
+              <span className="font-dm text-xs text-yellow/80">
+                No tiers — the published policy will fall back to the current one rather than show none.
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-5 space-y-4">
+          {REFUND_TEXT_FIELDS.map((f) => (
+            <div key={f.key}>
+              <label htmlFor={`refunds-${f.key}`} className="block font-bebas text-[11px] tracking-[0.2em] text-muted">
+                {f.label.toUpperCase()}
+              </label>
+              <textarea
+                id={`refunds-${f.key}`}
+                rows={3}
+                value={refunds[f.key]}
+                onChange={(e) => setRefunds((p) => ({ ...p, [f.key]: e.target.value }))}
+                className={field}
+              />
+              <p className="mt-1 flex items-center gap-1.5 font-dm text-[11px] leading-relaxed text-muted">
+                {f.hint}
+                {!refunds[f.key].trim() && (
+                  <span className="inline-flex items-center gap-1 text-yellow/80">
+                    <RotateCcw size={11} /> blank — the current wording stays published
+                  </span>
+                )}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 flex items-center gap-3">
+          <Button onClick={() => void save()} disabled={!dirty || !tiersValid || saving}>
+            {saving ? <Loader2 size={16} className="mr-1.5 animate-spin" /> : null}
+            Save
+          </Button>
+          {!dirty && (
+            <span className="flex items-center gap-1.5 font-dm text-xs text-green-400">
+              <Check size={14} /> Saved
+            </span>
+          )}
+        </div>
+        <p className="mt-3 font-dm text-[11px] text-muted">
+          &ldquo;If we or the owner cancel, you receive a 100% refund&rdquo; is not editable — that is a
+          promise the platform makes, not a dial.
+        </p>
       </section>
 
       {/* ── The certificate. Private bucket, signed URLs, never published. ── */}

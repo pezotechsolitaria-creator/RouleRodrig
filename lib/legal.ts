@@ -81,7 +81,8 @@ export function legalIdentityComplete(): boolean {
 // server components, and all three have to agree. A resolver that reached for
 // a database client could not be shared by them.
 
-import type { LegalContent, TermsContent } from "./defaults";
+import type { LegalContent, TermsContent, RefundsContent, CancellationTier } from "./defaults";
+import { DEFAULT_CONTENT } from "./defaults";
 
 export type ResolvedLegal = {
   legalName: LegalFact;
@@ -168,4 +169,53 @@ export function resolveTerms(terms?: TermsContent | null): ResolvedTerms {
 export function missingClauses(terms?: TermsContent | null): TermsClause[] {
   const r = resolveTerms(terms);
   return TERMS_CLAUSES.filter((k) => isMissing(r[k]));
+}
+
+// ── THE REFUND POLICY'S COMMERCIAL NUMBERS ──────────────────────────────────
+//
+// Resolves the OPPOSITE way to resolveTerms above, and the difference is
+// deliberate. A Terms clause with no owner value stays OWNER_REQUIRED, because
+// no rule was ever published and a blank is the honest state. A refund tier
+// with no owner value falls back to the wording ALREADY PUBLISHED, because
+// those tiers have been in force for months — blanking them would delete a live
+// consumer policy from the page rather than reveal that one was missing.
+//
+// So this never returns OWNER_REQUIRED, and /legal/refunds has no "to be
+// confirmed" state. Making the page editable must not be able to unpublish it.
+
+export type ResolvedRefunds = {
+  vehicleCancellationTiers: CancellationTier[];
+  securityDeposit: string;
+  lateReturnCharge: string;
+  damageRule: string;
+};
+
+const REFUND_FALLBACK = DEFAULT_CONTENT.refunds ?? {};
+
+/** A tier row is only usable if BOTH halves say something. */
+function usableTiers(tiers?: CancellationTier[] | null): CancellationTier[] | null {
+  if (!Array.isArray(tiers)) return null;
+  const kept = tiers
+    .map((t) => ({ window: (t?.window ?? "").trim(), outcome: (t?.outcome ?? "").trim() }))
+    .filter((t) => t.window && t.outcome);
+  return kept.length ? kept : null;
+}
+
+export function resolveRefunds(refunds?: RefundsContent | null): ResolvedRefunds {
+  const text = (v: string | undefined, fallback: string | undefined) => {
+    const t = (v ?? "").trim();
+    return t || (fallback ?? "");
+  };
+  return {
+    // An empty or half-filled ladder falls back whole rather than publishing a
+    // partial one: a cancellation policy missing its middle tier is worse than
+    // the old one, because a customer reads the gap as "no charge".
+    vehicleCancellationTiers:
+      usableTiers(refunds?.vehicleCancellationTiers) ??
+      usableTiers(REFUND_FALLBACK.vehicleCancellationTiers) ??
+      [],
+    securityDeposit: text(refunds?.securityDeposit, REFUND_FALLBACK.securityDeposit),
+    lateReturnCharge: text(refunds?.lateReturnCharge, REFUND_FALLBACK.lateReturnCharge),
+    damageRule: text(refunds?.damageRule, REFUND_FALLBACK.damageRule),
+  };
 }

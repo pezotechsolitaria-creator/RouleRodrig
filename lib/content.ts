@@ -50,6 +50,7 @@ function mergeWithDefaults(parsed: Partial<SiteContent>): SiteContent {
     // legal block would be saved and then never seen again.
     legal: { ...(DEFAULT_CONTENT.legal ?? {}), ...(parsed.legal ?? {}) },
     terms: { ...(DEFAULT_CONTENT.terms ?? {}), ...(parsed.terms ?? {}) },
+    refunds: { ...(DEFAULT_CONTENT.refunds ?? {}), ...(parsed.refunds ?? {}) },
     announcement: { ...DEFAULT_CONTENT.announcement, ...(parsed.announcement ?? {}) },
     mapLocations: parsed.mapLocations ?? DEFAULT_CONTENT.mapLocations,
     plannerActivities:
