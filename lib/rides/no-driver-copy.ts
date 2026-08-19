@@ -54,6 +54,17 @@ export type RideUnassignedFacts = {
    * guessing.
    */
   driversAsked?: number | null;
+  /**
+   * One present-tense sentence saying WHY nobody was free, from
+   * rosterCauseSentence() in ./roster-copy.
+   *
+   * "No driver was free to ask" was true and useless: an empty driver list, a
+   * man marked not working, and a van set to four seats are three different
+   * problems with three different remedies, and the line below named none of
+   * them. Passed in rather than derived here, because deriving it means reading
+   * the driver list and this file has no database.
+   */
+  whyNobodyWasAsked?: string | null;
 };
 
 export type RideUnassignedAlert = {
@@ -68,7 +79,7 @@ export type RideUnassignedAlert = {
 /** Hardcoded, like the delivery board: this is read on a phone and must land on
  *  the real site. SITE_URL falls back to the old vercel.app host when
  *  NEXT_PUBLIC_SITE_URL is unset, and a dead link is worse than no link. */
-const BOARD = "https://roulerodrig.com/admin/rides";
+export const RIDES_BOARD = "https://roulerodrig.com/admin/rides";
 
 export const RIDE_NO_DRIVER_TYPE = "ride_no_driver";
 
@@ -148,6 +159,12 @@ export function rideUnassignedAlert(f: RideUnassignedFacts): RideUnassignedAlert
         ? `Call them now: ${f.customerPhone}`
         : "Call them now — their number is on the rides page.",
       asked,
+      // Only when nobody was asked. Once drivers HAVE been asked and refused,
+      // the driver list read back a minute later describes a different moment
+      // and would contradict the line above it.
+      f.driversAsked == null || f.driversAsked <= 0
+        ? (f.whyNobodyWasAsked ?? "").trim() || null
+        : null,
       pickup ? `Pickup: ${pickup}` : null,
       // Same sentence the driver's own message uses (lib/rides/model.ts), so a
       // day hire never reads as a broken field on either screen.
@@ -158,7 +175,7 @@ export function rideUnassignedAlert(f: RideUnassignedFacts): RideUnassignedAlert
           : "Drop-off: day hire — no fixed destination",
       `Ride ${rideReference(f.rideId)}`,
       "Give it to a driver yourself on the rides page, or call one you trust.",
-      BOARD,
+      RIDES_BOARD,
     ].filter((l): l is string => Boolean(l)),
   };
 }

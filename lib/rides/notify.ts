@@ -6,6 +6,15 @@ import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/
 import { SITE_URL } from "@/lib/site";
 import { offerMessage, rideReference, type RideService } from "./model";
 import { rideUnassignedAlert } from "./no-driver-copy";
+import { hourBucket } from "@/lib/notifications/escalation";
+import {
+  assessRoster,
+  rosterBlockedAlert,
+  rosterCauseSentence,
+  type RosterAssessment,
+  type RosterCandidate,
+  type RosterCause,
+} from "./roster-copy";
 
 // ── SENDING THE OFFER WITHOUT ANYBODY PRESSING ANYTHING ─────────────────────
 //
@@ -200,6 +209,134 @@ type UnassignedRow = {
 };
 
 /**
+ * Ask the engine why it passed over every driver.
+ *
+ * TWO reads, and the second is what makes the answer honest. p_stage enters
+ * ride_candidates in exactly one place — it sets v_radius, and v_radius feeds
+ * exactly one branch of the reason ladder, "N km away, outside this round".
+ * Every other reason is identical at every width. So:
+ *
+ *   skipped at this round's width, free at the widest  -> distance, and a
+ *                                                         later, wider round
+ *                                                         reaches him. Say
+ *                                                         nothing.
+ *   skipped at the widest width                        -> no width helps.
+ *                                                         Say it now.
+ *
+ * Diffing the two decides that without matching a word of the reason text and
+ * without this file knowing what the widths are, so a reworded reason or a
+ * fourth width cannot silently disarm the alarm.
+ *
+ * 99 is "widest": v_radius is null for any p_stage past the last width. It is
+ * the same read the rides desk already makes (app/api/admin/rides/route.ts).
+ * p_limit 40 must stay above the number of switched-on drivers — skipped rows
+ * sort LAST, so a small limit hides exactly the rows this is looking for.
+ *
+ * Returns null when the widest read fails: no alarm, and the give-up message
+ * still arrives. Silence on a failed read is today's behaviour, not a new bug.
+ */
+async function readWhyNobodyWasAsked(
+  admin: Awaited<ReturnType<typeof getPrivileged>>,
+  rideId: string,
+  stage: number | null,
+): Promise<RosterAssessment | null> {
+  const widest = await admin.rpc("ride_candidates", {
+    p_request_id: rideId, p_stage: 99, p_limit: 40,
+  });
+  if (widest.error) {
+    console.error("ride_candidates (widest) failed", { rideId, error: widest.error });
+    return null;
+  }
+
+  let atStage: RosterCandidate[] = [];
+  if (typeof stage === "number" && stage >= 1) {
+    const now = await admin.rpc("ride_candidates", {
+      p_request_id: rideId, p_stage: stage, p_limit: 40,
+    });
+    if (now.error) console.error("ride_candidates (this round) failed", { rideId, stage, error: now.error });
+    else atStage = (now.data ?? []) as RosterCandidate[];
+  }
+
+  return assessRoster({ atStage, atWidest: (widest.data ?? []) as RosterCandidate[] });
+}
+
+/**
+ * Tell the owner the DRIVER LIST cannot serve anybody — while the ladder is
+ * still running, not four and a half minutes later.
+ *
+ * -- WHY THIS IS NOT THE MESSAGE NEXT DOOR --------------------------------
+ * notifyOwnerRideUnassigned is about one customer and leads with their phone
+ * number. This is about the driver list and names no customer at all, because
+ * one of these messages may stand for three stranded people. They are keyed
+ * apart on purpose: a roster fault is one fact however many rides it strands,
+ * and a customer's number must never be swallowed by another ride's alarm.
+ *
+ * -- WHY IT DOES NOT SIMPLY FIRE ON THE FIRST EMPTY ROUND -----------------
+ * Because that is sometimes wrong. Ride c21cf582 found 0 drivers at 14:14:12
+ * and 1 driver at 14:15:26 — the widening search doing its job. assessRoster
+ * separates that from the case where no width can help.
+ *
+ * Returns what it did, so a cron run can answer "why did it or didn't it
+ * raise". NEVER throws: this rides inside the notification worker.
+ */
+export async function notifyOwnerRosterBlocked(
+  rides: { rideId: string; stage: number | null }[],
+): Promise<{ raised: number; queued: number; quiet: Record<string, number> }> {
+  const quiet: Record<string, number> = {};
+  if (!hasServiceRole() || rides.length === 0) return { raised: 0, queued: 0, quiet };
+  try {
+    const admin = await getPrivileged();
+
+    // Grouped by CAUSE before anything is sent. Three rides stranded by one
+    // switched-off driver are one message here, and the dedupe key catches the
+    // ones that arrive on later ticks.
+    const byCause = new Map<
+      RosterCause,
+      { rides: string[]; blockedName: string | null; mixed: boolean; reasons: string[] }
+    >();
+
+    for (const r of rides) {
+      const verdict = await readWhyNobodyWasAsked(admin, r.rideId, r.stage);
+      if (!verdict) { quiet.unreadable = (quiet.unreadable ?? 0) + 1; continue; }
+      if (!verdict.alarm) { quiet[verdict.why] = (quiet[verdict.why] ?? 0) + 1; continue; }
+      const g = byCause.get(verdict.cause) ?? {
+        rides: [], blockedName: verdict.blockedName, mixed: verdict.mixed, reasons: verdict.reasons,
+      };
+      g.rides.push(r.rideId);
+      // A name only survives while it is unambiguous across the whole group.
+      if (g.blockedName !== verdict.blockedName) g.blockedName = null;
+      g.mixed = g.mixed || verdict.mixed;
+      byCause.set(verdict.cause, g);
+    }
+
+    // One bucket for the whole tick, so two rides a millisecond either side of
+    // the hour cannot land in different buckets and send twice.
+    const bucket = hourBucket();
+    let queued = 0;
+    for (const [cause, g] of byCause) {
+      const alert = rosterBlockedAlert(
+        { cause, ridesWaiting: g.rides.length, blockedName: g.blockedName, mixed: g.mixed },
+        bucket,
+      );
+      queued += await enqueueNotification({
+        type: alert.type,
+        category: "rides",
+        message: formatWhatsAppMessage({ title: alert.title, lines: alert.lines }),
+        dedupeKey: alert.dedupeKey,
+        // The raw reasons live HERE and never in the message: they are the
+        // engine's own words and /admin/notifications is where an engineer
+        // reads them back.
+        payload: { cause, rides: g.rides, reasons: g.reasons.slice(0, 10) },
+      });
+    }
+    return { raised: byCause.size, queued, quiet };
+  } catch (err) {
+    console.error("notifyOwnerRosterBlocked threw", err);
+    return { raised: 0, queued: 0, quiet };
+  }
+}
+
+/**
  * Tell the owner a ride ran out of drivers.
  *
  * The one message that must reach a human, because a ride nobody took has a
@@ -263,8 +400,15 @@ export async function notifyOwnerRideUnassigned(rideId: string): Promise<number>
       console.error("notifyOwnerRideUnassigned: could not count offers", { rideId, countError });
     }
 
+    // WHY nobody was free. Read at the widest width with no round number: the
+    // ladder is over and its last round applied no distance limit anyway, so
+    // only the reasons no width can change are still relevant. A failure here
+    // costs one line of the message, never the message.
+    const why = await readWhyNobodyWasAsked(admin, rideId, null);
+
     const alert = rideUnassignedAlert({
       rideId,
+      whyNobodyWasAsked: why?.alarm ? rosterCauseSentence(why.cause, why.blockedName) : null,
       // The discriminator. Stamped by the same UPDATE that sets 'no_driver',
       // and again by a reopen — so a ride that strands twice alerts twice.
       stampedAt: ride.updated_at,

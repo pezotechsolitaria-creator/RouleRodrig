@@ -3,7 +3,7 @@ import { authorizeCron } from "@/lib/cron-auth";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { sendWhatsApp } from "@/lib/notifications/whatsapp";
 import { notifySweepResult } from "@/lib/delivery/notify";
-import { notifyRideOffers, notifyOwnerRideUnassigned } from "@/lib/rides/notify";
+import { notifyRideOffers, notifyOwnerRideUnassigned, notifyOwnerRosterBlocked } from "@/lib/rides/notify";
 
 // ── The notification worker ─────────────────────────────────────────────────
 //
@@ -200,20 +200,49 @@ async function run(req: NextRequest) {
   // leave no trace anywhere, so the run that raises it should be able to say
   // so. `queued` counts RECIPIENTS, not rides — two owner numbers, two jobs.
   // A queued of 0 is not an error: it also means the recipients already had it.
-  const rideAlerts = { rides: 0, queued: 0 };
+  const rideAlerts = {
+    rides: 0, queued: 0,
+    askedNobody: 0, rosterRaised: 0, rosterQueued: 0,
+    rosterQuiet: {} as Record<string, number>,
+  };
   try {
     const { data, error } = await admin.rpc("auto_dispatch_rides", { p_limit: 20 });
     if (error) {
       console.error("auto_dispatch_rides failed", error);
     } else {
       dispatched = data;
-      const rides = ((data as { rides?: { rideId: string; offered?: number }[] })?.rides ?? []);
+      const rides = ((data as {
+        rides?: { rideId: string; stage?: number; offered?: number; outcome?: string }[];
+      })?.rides ?? []);
       // Send each round's WhatsApp immediately rather than through the queue: an
       // offer expires in ten minutes, and a job that waits for the next worker
       // tick has already burnt a tenth of the driver's window.
       await Promise.allSettled(
         rides.filter((r) => (r.offered ?? 0) > 0).map((r) => notifyRideOffers(r.rideId)),
       );
+      // -- THE ROUND THAT ASKED NOBODY ----------------------------------
+      // These entries reached nothing at all until now. The offer fan-out above
+      // skips them (there is nobody to message) and the give-up branch below
+      // has not happened yet. RR-26A506 produced four of them, one a minute,
+      // and the owner heard nothing for 4m36s — then a message naming no cause.
+      //
+      // `r.offered === 0`, NOT `!r.offered`: the give-up entry carries no
+      // `offered` key at all and !undefined is true, so the loose test would
+      // double-alarm the exhaustion case the block below already handles.
+      //
+      // This does not fire on every empty round. A round that finds nobody
+      // because the only driver is at the other end of the island is the search
+      // working, and the next round widens it; notifyOwnerRosterBlocked asks
+      // the engine which of the two it is looking at.
+      const askedNobody = rides.filter((r) => !("outcome" in r) && r.offered === 0);
+      rideAlerts.askedNobody = askedNobody.length;
+      const roster = await notifyOwnerRosterBlocked(
+        askedNobody.map((r) => ({ rideId: r.rideId, stage: r.stage ?? null })),
+      );
+      rideAlerts.rosterRaised = roster.raised;
+      rideAlerts.rosterQueued = roster.queued;
+      rideAlerts.rosterQuiet = roster.quiet;
+
       // A ride nobody accepted is the one case that still needs a human, so it is
       // the one case that messages one.
       //
