@@ -299,6 +299,85 @@ and served as PMTiles from storage already paid for, answers licence, age and
 resolution at once. Point `NEXT_PUBLIC_MAP_SATELLITE_URL` +
 `NEXT_PUBLIC_MAP_SATELLITE_ATTRIBUTION` at it and no code changes.
 
+### The long-term satellite fix: one PMTiles file for Rodrigues
+
+**Not built. This is the plan, so the decision is ready when the 2016 imagery
+stops being good enough.**
+
+The constraint that forced EOX-2016 is not really a licence problem, it is a
+*hosting* problem. **Copernicus Sentinel data is free and open including for
+commercial use**, with attribution — it is EOX's hosted *service* that carries
+the non-commercial terms, not the imagery underneath. So newer, sharper imagery
+is already licensed for us; it just has to come from somewhere we control.
+
+Rodrigues is **~108 km²**. At 10 m/pixel that is a rounding error of a raster —
+small enough to ship as a single file.
+
+#### Shape
+
+```
+Copernicus Sentinel-2 (bbox 63.30,-19.82 → 63.53,-19.58)
+        ↓  mosaic / cloud-free composite
+     GeoTIFF (COG)
+        ↓  gdal2tiles / rio-mbtiles
+     MBTiles  z0–z15
+        ↓  pmtiles convert
+     rodrigues.pmtiles          ~tens of MB
+        ↓  upload once
+   R2 / S3 / Vercel Blob  (static, range-requested, no tile server)
+```
+
+PMTiles is a single-file tile archive read over HTTP **range requests** — no tile
+server, no per-tile function invocation, and it sits on storage this project
+already pays for. That is what makes the recurring cost genuinely zero rather
+than "cheap".
+
+#### Tools, with an honest read on each
+
+| tool | state | note |
+|---|---|---|
+| [`protomaps/PMTiles`](https://github.com/protomaps/PMTiles) | **~3.0k★**, actively maintained | the format + JS reader. Safe to depend on. |
+| [`protomaps/go-pmtiles`](https://github.com/protomaps/go-pmtiles) | **~580★**, actively maintained | the CLI: `pmtiles convert`, and `pmtiles extract --bbox` to cut a region out of a larger archive. Safe. |
+| [`chapmanjacobd/satmaps`](https://github.com/chapmanjacobd/satmaps) | **0★**, updated 2026-08 | "Sentinel-2 Global Mosaics to PMTiles pipeline" — exactly this job, but essentially unvetted. Read it before running it; treat it as a worked example rather than a dependency. |
+
+Plain GDAL (`gdalwarp` + `gdal2tiles.py`) does the same work with no new
+dependency and more steps, and is the fallback if `satmaps` disappoints.
+
+#### What it would cost us in code
+
+Less than it looks, because the seam already exists:
+
+```bash
+NEXT_PUBLIC_MAP_SATELLITE_URL="https://<bucket>/rodrigues/{z}/{x}/{y}.jpg"
+NEXT_PUBLIC_MAP_SATELLITE_ATTRIBUTION="Contains modified Copernicus Sentinel data 2025"
+NEXT_PUBLIC_MAP_SATELLITE_MAX_NATIVE_ZOOM="15"
+```
+
+`satelliteFromEnv()` in `lib/tracking/tiles.ts` already reads all three and
+overrides the basemap with no code change — **if** the tiles are served as plain
+`{z}/{x}/{y}` (an "unpacked" pyramid, or PMTiles behind a tiny range-request
+worker).
+
+**The one real integration cost:** reading a `.pmtiles` archive *directly* from
+Leaflet needs the `pmtiles` JS library plus a small `L.GridLayer` — `protomaps-leaflet`
+is for **vector** tiles and does not cover this. Two honest options:
+
+1. **Unpack to `{z}/{x}/{y}` on upload** — zero new dependencies, zero code, works
+   with the env vars above today. Costs more objects in the bucket.
+2. **Keep the single file** — one new client dependency and ~40 lines of
+   GridLayer. Tidier to host, more to maintain.
+
+Option 1 is the one to take first: it needs no code at all, and the file layout
+can change later without touching the app.
+
+#### Decision points for the owner
+
+- **Which year** of imagery, and how often to refresh it (annually is plenty here).
+- **Max zoom.** z15 at 10 m/pixel is already upscaled; going past it grows the
+  archive without adding detail. True street-level detail needs *aerial* imagery,
+  not satellite — a drone survey or a paid provider, and no free commercially-
+  licensed source has it for Rodrigues.
+
 ### Presence — who is transmitting right now
 
 Broadcast answers *where* a driver is. Presence answers a coarser question:

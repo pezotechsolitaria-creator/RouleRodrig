@@ -151,29 +151,59 @@ export async function POST(req: NextRequest) {
   // because the dials it uses live in dispatch_settings. `source` travels with
   // the number so the UI can label an approximation as one.
   let eta: { minutes: number; km: number; source: "route" | "approx" } | null = null;
-  // The DRIVEN LINE. A straight line between driver and destination is not a
-  // route, and on Rodrigues it is misleading by roughly a factor of two — the
-  // island is a ridge with a coast road, so Port Mathurin to the airport is
-  // 10.2 km as the crow flies and 18.9 km to drive.
+  // The BOOKED journey, pickup to drop-off — separate from `eta` on purpose.
+  // Its duration is how long the trip takes, NOT when anybody arrives, and
+  // presenting the two as the same number is the kind of false precision this
+  // screen exists to avoid.
+  let journey: { minutes: number; km: number; source: "route" | "approx" } | null = null;
   let route: [number, number][] | null = null;
+  let routeIs: "remaining" | "journey" | null = null;
+
+  // ── WHY THIS IS NOT GATED ON THE DRIVER ─────────────────────────────────
+  // It was, and that was the bug: the route — and with it the whole map — only
+  // appeared once a driver had transmitted a position. driver_locations has
+  // never held a row in production, so no customer had ever seen a road. The
+  // journey they booked is known the moment the trip exists; a passenger
+  // opening tracking before their driver sets off should see where they are
+  // going, not a paragraph explaining that they cannot.
+  const { roadFactor, avgSpeedKmh } = await dispatchDials(admin);
+
   const target = activeTarget(
     snap.status,
     { lat: snap.pickupLat, lng: snap.pickupLng },
     { lat: snap.dropoffLat, lng: snap.dropoffLng },
   );
-  if (snap.lat != null && snap.lng != null && target) {
-    const { roadFactor, avgSpeedKmh } = await dispatchDials(admin);
-    // A stale position produces a stale ETA. Better to show none than a number
-    // that quietly ages: the UI already says how old the fix is.
-    const fresh = snap.ageSeconds != null && snap.ageSeconds < snap.staleAfterSeconds;
-    if (fresh) {
-      const r = await routeBetween(snap.lat, snap.lng, target.lat, target.lng, roadFactor, avgSpeedKmh);
-      eta = r.eta;
-      route = r.polyline;
+  const driverIsLive =
+    snap.lat != null && snap.lng != null &&
+    snap.ageSeconds != null && snap.ageSeconds < snap.staleAfterSeconds;
+
+  if (driverIsLive && target) {
+    // The REMAINING leg: where the driver is now, to where they are going. This
+    // is the one that carries an arrival ETA, because there is something moving.
+    const r = await routeBetween(snap.lat!, snap.lng!, target.lat, target.lng, roadFactor, avgSpeedKmh);
+    eta = r.eta;
+    route = r.polyline;
+    routeIs = "remaining";
+  }
+
+  // The whole journey, drawn whenever both ends are known. Used as the map's
+  // content before anybody is driving, and as the trip-length figure after.
+  if (
+    snap.pickupLat != null && snap.pickupLng != null &&
+    snap.dropoffLat != null && snap.dropoffLng != null
+  ) {
+    const j = await routeBetween(
+      snap.pickupLat, snap.pickupLng, snap.dropoffLat, snap.dropoffLng,
+      roadFactor, avgSpeedKmh,
+    );
+    journey = j.eta;
+    if (!route) {
+      route = j.polyline;
+      routeIs = "journey";
     }
   }
 
-  return NextResponse.json({ ...snap, eta, route });
+  return NextResponse.json({ ...snap, eta, journey, route, routeIs });
 }
 
 /**

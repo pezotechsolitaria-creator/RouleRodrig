@@ -205,7 +205,11 @@
 // client left on v294 would keep requesting Esri tiles this platform is not
 // licensed to use commercially, so this bump is the thing that actually stops
 // that.
-const CACHE = "rr-cache-v295";
+// v296 — the road path is finally REACHABLE. The map and the OSRM call were
+// both gated on a driver position that has never existed in production, so no
+// customer had ever seen a route. A client left on v295 keeps the old gate and
+// keeps showing a paragraph where the map belongs.
+const CACHE = "rr-cache-v296";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

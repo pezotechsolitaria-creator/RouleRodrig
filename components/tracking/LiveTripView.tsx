@@ -169,12 +169,22 @@ export default function LiveTripView({
   // THE ROAD, when a router answered — and only a dashed hint when none did.
   // The two are drawn differently on purpose (TrackingMap): a solid line means
   // "this is the way", a faint dash means "this is the direction".
-  const showLine = Boolean(fix) && !stale && !finished;
-  const route = showLine ? (snapshot?.route ?? null) : null;
+  // The ROAD. Drawn whether or not anybody is on it yet: before a driver moves
+  // it is the booked journey, after that it is the leg still to go. A finished
+  // trip stops drawing one.
+  const route = finished ? null : (snapshot?.route ?? null);
+  // The dashed fallback only exists for the case where NO router answered and
+  // we still have two points to relate. It must never sit under a real road.
   const directLine =
-    showLine && !route && fix && target.lat != null && target.lng != null
+    !finished && !route && fix && !stale && target.lat != null && target.lng != null
       ? ([[fix.lat, fix.lng], [target.lat, target.lng]] as [[number, number], [number, number]])
       : null;
+
+  const hasEndpoints =
+    snapshot?.pickupLat != null && snapshot?.pickupLng != null &&
+    snapshot?.dropoffLat != null && snapshot?.dropoffLng != null;
+  // Anything at all: a driver, a road, or two ends to put pins on.
+  const hasSomethingToDraw = Boolean(fix) || Boolean(route) || hasEndpoints;
 
   const fitTo = useMemo(() => {
     // Frame the ROAD when we have one. A route that loops around a headland
@@ -184,8 +194,19 @@ export default function LiveTripView({
     const pts: [number, number][] = [];
     if (fix) pts.push([fix.lat, fix.lng]);
     if (target.lat != null && target.lng != null) pts.push([target.lat, target.lng]);
+    // With no driver and no road, frame the two ends — that is still the
+    // journey, and it is what the customer books.
+    if (!pts.length && snapshot?.pickupLat != null && snapshot?.pickupLng != null) {
+      pts.push([snapshot.pickupLat, snapshot.pickupLng]);
+    }
+    if (snapshot?.dropoffLat != null && snapshot?.dropoffLng != null) {
+      pts.push([snapshot.dropoffLat, snapshot.dropoffLng]);
+    }
     return pts.length ? pts : null;
-  }, [route, fix, target.lat, target.lng]);
+    // Depends on `snapshot` itself rather than four optional-chained fields: it
+    // is one object that changes identity per poll, and the React Compiler
+    // cannot reconcile `snapshot?.x` deps against the `snapshot.x` it infers.
+  }, [route, fix, target.lat, target.lng, snapshot]);
 
   const statusText =
     TRACKING_CUSTOMER_STATUS[status as keyof typeof TRACKING_CUSTOMER_STATUS] ?? "Tracking";
@@ -215,22 +236,33 @@ export default function LiveTripView({
           compared against the SHEET, and the attribution and place labels paint
           straight through the 20px overlap. Isolating the map contains them. */}
       <div className="relative isolate h-[46vh] max-h-[430px] min-h-[280px] w-full">
-        {fix ? (
+        {/* ── WHAT MAKES A MAP WORTH DRAWING ─────────────────────────────
+            The journey, not the driver. This used to require a live driver
+            position, and driver_locations has never held a row in production —
+            so the road was computed, the map was mounted and the polyline was
+            drawn exactly never. Every customer got the paragraph below instead.
+
+            A booked trip has two ends from the moment it exists. Showing the
+            road between them answers "where am I going" immediately, and the
+            driver's dot joins it when there is one. */}
+        {hasSomethingToDraw ? (
           <TrackingMap
-            driver={{
-              id: "driver", lat: fix.lat, lng: fix.lng, kind: "driver",
-              bearing: fix.heading, stale, vehicle: "car",
-            }}
+            driver={
+              fix
+                ? {
+                    id: "driver", lat: fix.lat, lng: fix.lng, kind: "driver",
+                    bearing: fix.heading, stale, vehicle: "car",
+                  }
+                : null
+            }
             pins={pins}
             route={route}
             directLine={directLine}
             fitTo={fitTo}
-            follow
-            // The pill that sits ON the route — the reference's "🚚 12 min".
-            // Null while stale, for the same reason the ETA is.
+            follow={Boolean(fix)}
+            // The pill that sits ON the route. Only for a live ETA — the
+            // journey's own duration is a trip length, not an arrival.
             bubble={eta ? { text: formatEta(eta.minutes) } : null}
-            // A finished trip keeps its map (people re-open it) but stops
-            // asserting movement.
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 bg-dark px-8 text-center">
@@ -241,11 +273,21 @@ export default function LiveTripView({
                 <MapPin size={26} className="text-muted" />
                 <p className="font-dm text-sm text-muted">
                   {active
-                    ? "Your driver hasn't shared their location yet. It appears here the moment they set off."
+                    ? "We don't have the map points for this trip yet."
                     : "This trip has finished."}
                 </p>
               </>
             )}
+          </div>
+        )}
+
+        {/* Said OVER the map now, not instead of it. The customer can see where
+            they are going while they wait for somebody to start driving. */}
+        {hasSomethingToDraw && !fix && active && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[500] p-3 pb-6">
+            <p className="pointer-events-auto mx-auto w-fit rounded-full border border-white/10 bg-dark-card px-3.5 py-2 font-dm text-[11px] text-muted shadow-lg">
+              Your driver hasn&apos;t shared their location yet
+            </p>
           </div>
         )}
 
@@ -346,6 +388,14 @@ export default function LiveTripView({
             {eta ? `${statusText} · arriving in ${formatEta(eta.minutes)}` : statusText}
             {eta && (
               <span className="font-bold text-offwhite"> · {formatDistance(eta.km)} left</span>
+            )}
+            {/* No driver yet, so no arrival time — but the trip's own length is
+                a real, useful number and is labelled as what it is. */}
+            {!eta && snapshot?.journey && (
+              <span className="text-muted">
+                {" · "}the drive is about {formatEta(snapshot.journey.minutes)},{" "}
+                {formatDistance(snapshot.journey.km)}
+              </span>
             )}
           </span>
         </p>

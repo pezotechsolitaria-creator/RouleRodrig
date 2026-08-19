@@ -513,15 +513,22 @@ export default function TrackingMap({
       // casing under a solid coloured core. The casing is not decoration — it
       // is what keeps a thin line readable over satellite imagery, where the
       // ground underneath is every colour at once.
+      // smoothFactor 0.3, not Leaflet's default 1.0. That default discards
+      // vertices aggressively for performance — sensible for a thousand-point
+      // GPS track, wrong here: the route arrives already simplified to ~64
+      // points by OSRM, and discarding more of them straightens the very bends
+      // that show this is a ROAD. Measured at island zoom: 48 supplied points
+      // rendered as 8 at the default. The cost of keeping them is nil at this
+      // size.
       const casing = leaflet
         .polyline(route, {
-          color: "#0a0a0a", weight: 9, opacity: 0.45,
+          color: "#0a0a0a", weight: 9, opacity: 0.45, smoothFactor: 0.3,
           lineCap: "round", lineJoin: "round", interactive: false,
         })
         .addTo(m);
       const core = leaflet
         .polyline(route, {
-          color: "#F5C842", weight: 5, opacity: 1,
+          color: "#F5C842", weight: 5, opacity: 1, smoothFactor: 0.3,
           lineCap: "round", lineJoin: "round", interactive: false,
         })
         .addTo(m);

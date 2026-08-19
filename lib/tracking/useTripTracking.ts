@@ -34,8 +34,16 @@ export type TripSnapshot = {
   pickupLabel: string | null; dropoffLabel: string | null;
   staleAfterSeconds: number;
   eta?: { minutes: number; km: number; source: "route" | "approx" } | null;
+  /** How long the BOOKED trip takes, pickup to drop-off. Not an arrival time. */
+  journey?: { minutes: number; km: number; source: "route" | "approx" } | null;
   /** The driven road, [lat,lng] pairs. Null when no router answered. */
   route?: [number, number][] | null;
+  /**
+   * Which road `route` is:
+   *   "remaining" — driver to their next stop; there is a live ETA
+   *   "journey"   — the whole booked trip; nobody is moving yet
+   */
+  routeIs?: "remaining" | "journey" | null;
 };
 
 export type TripTrackingState = {
