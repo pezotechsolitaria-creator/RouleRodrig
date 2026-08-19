@@ -179,6 +179,57 @@ describe("how long it has been", () => {
   });
 });
 
+describe("the owner is told where it is going", () => {
+  const PIN = { dropoffLat: -19.7024, dropoffLng: 63.4105 };
+  const line = (over: Partial<DeliveryStallFacts>) =>
+    deliveryStallAlert(facts(over)).lines.join("\n");
+
+  it("carries the note and the map in every stall kind", () => {
+    for (const kind of ALL) {
+      const t = line({ kind, dropoffNote: "Jean tac", ...PIN });
+      expect(t, kind).toContain("Drop-off: Jean tac");
+      expect(t, kind).toContain("Map: https://www.google.com/maps/search/");
+    }
+  });
+
+  it("still gives a map when the customer typed no note", () => {
+    // The note is optional; the pin is guaranteed on an order-sourced
+    // delivery, which is why the map is the line that can be relied on.
+    const t = line({ kind: "no_driver", dropoffNote: null, ...PIN });
+    expect(t).not.toContain("Drop-off:");
+    expect(t).toContain("Map: ");
+  });
+
+  it("never leaves a dangling label", () => {
+    for (const note of [null, undefined, "", "   "]) {
+      expect(line({ kind: "no_driver", dropoffNote: note, ...PIN })).not.toContain("Drop-off:");
+    }
+    const noPin = line({ kind: "no_driver", dropoffNote: "Jean tac", dropoffLat: null, dropoffLng: null });
+    expect(noPin).not.toContain("Map:");
+    expect(noPin).toContain("Drop-off: Jean tac");
+  });
+
+  it("refuses 0,0 — the field-defaulted-to-zero artefact", () => {
+    // The Gulf of Guinea. Sending the owner there is worse than sending him
+    // nowhere.
+    const t = line({ kind: "no_driver", dropoffNote: null, dropoffLat: 0, dropoffLng: 0 });
+    expect(t).not.toContain("Map:");
+  });
+
+  it("puts the location before the action, not after it", () => {
+    const lines = deliveryStallAlert(facts({ kind: "package_with_driver", dropoffNote: "Jean tac", ...PIN })).lines;
+    const where = lines.findIndex((l) => l.startsWith("Drop-off:"));
+    const stop = lines.findIndex((l) => l.startsWith("Do not send another driver"));
+    expect(where).toBeGreaterThan(-1);
+    expect(where).toBeLessThan(stop);
+  });
+
+  it("does not call a free-text note an address", () => {
+    expect(line({ kind: "no_driver", dropoffNote: "Jean tac", ...PIN }).toLowerCase())
+      .not.toContain("address");
+  });
+});
+
 describe("the board says the same thing as the message that links to it", () => {
   const row = (over: Partial<Parameters<typeof stallBoardLine>[0]> = {}) => ({
     status: "requires_admin",

@@ -55,7 +55,12 @@ export async function GET(req: NextRequest) {
     const d = data as { name: string; whatsapp: string | null; phone: string; driver_token: string };
     return NextResponse.json({
       name: d.name,
-      whatsapp: (d.whatsapp ?? d.phone).replace(/\D/g, ""),
+      // trim() before the fallback, not `??`. M119 now forbids a blank in the
+      // column, but this helper builds the wa.me link that carries the driver's
+      // permanent access token — a blank number there opens WhatsApp's contact
+      // CHOOSER with that token already composed, one mis-tap from the wrong
+      // person. Belt and braces is cheap on that particular message.
+      whatsapp: ((d.whatsapp ?? "").trim() || d.phone).replace(/\D/g, ""),
       link: `/d/${d.driver_token}`,
     });
   }

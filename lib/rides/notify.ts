@@ -5,6 +5,7 @@ import { pushToDriverEndpoints, type Target as PushTarget } from "@/lib/push/sen
 import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/queue";
 import { SITE_URL } from "@/lib/site";
 import { offerMessage, rideReference, type RideService } from "./model";
+import { classifyOfferTarget } from "./offer-outcome";
 import { rideUnassignedAlert } from "./no-driver-copy";
 import { hourBucket } from "@/lib/notifications/escalation";
 import {
@@ -46,6 +47,16 @@ export type OfferSendResult = {
   pushed: number;
   /** Offered, in their window, but with no CallMeBot key yet. */
   unreachable: { name: string; phone: string }[];
+  /** Offered, and the row has no number to send to at all.
+   *
+   *  A SEPARATE bucket from `unreachable` on purpose: the two look identical
+   *  in a total and need OPPOSITE actions — this one is fixed by editing the
+   *  driver, that one by walking him through the CallMeBot opt-in.
+   *
+   *  Until now they were merged into nothing at all: a blank phone returned one
+   *  line above the only writer of `unreachable`, so the result read as a clean
+   *  run that simply had nobody to ask. */
+  noContact: { name: string }[];
   /** Had a key and the send still failed. */
   failed: { name: string; error: string }[];
 };
@@ -74,7 +85,7 @@ type Target = {
  * caller is the dispatch path (once per round) rather than a poller.
  */
 export async function notifyRideOffers(rideId: string): Promise<OfferSendResult> {
-  const empty: OfferSendResult = { sent: 0, pushed: 0, unreachable: [], failed: [] };
+  const empty: OfferSendResult = { sent: 0, pushed: 0, unreachable: [], noContact: [], failed: [] };
   if (!hasServiceRole()) {
     // Local dev has no service key — say so once rather than failing a caller.
     console.warn("notifyRideOffers skipped: SUPABASE_SERVICE_ROLE_KEY is unset");
@@ -97,16 +108,24 @@ export async function notifyRideOffers(rideId: string): Promise<OfferSendResult>
     return empty;
   }
 
-  const result: OfferSendResult = { sent: 0, pushed: 0, unreachable: [], failed: [] };
+  const result: OfferSendResult = { sent: 0, pushed: 0, unreachable: [], noContact: [], failed: [] };
 
   await Promise.allSettled(
     targets.map(async (t) => {
       const name = t.driver_name ?? "driver";
-      if (!t.phone) return;
-      if (!t.api_key) {
+      const outcome = classifyOfferTarget(t);
+      if (outcome === "no_contact") {
+        // The bare `return` that used to be here sat one line ABOVE the only
+        // writer of result.unreachable, so a driver with no number produced no
+        // send, no counter, no console line and no Sentry event — a result
+        // object identical to a healthy dispatch with nobody to ask.
+        result.noContact.push({ name });
+        return;
+      }
+      if (outcome === "no_key") {
         // Not a failure to retry — this driver has never opted in, and trying
         // again in a minute fails identically. Surfaced so the desk can say who.
-        result.unreachable.push({ name, phone: t.phone });
+        result.unreachable.push({ name, phone: (t.phone ?? "").trim() });
         return;
       }
 
@@ -127,7 +146,11 @@ export async function notifyRideOffers(rideId: string): Promise<OfferSendResult>
         acceptUrl: `${SITE_URL}/r/${t.token}`,
       });
 
-      const sent = await sendWhatsApp({ phone: t.phone, apiKey: t.api_key, message });
+      const sent = await sendWhatsApp({
+        phone: (t.phone as string).trim(),
+        apiKey: (t.api_key as string).trim(),
+        message,
+      });
       if (sent.ok) result.sent += 1;
       else result.failed.push({ name, error: sent.error });
     }),

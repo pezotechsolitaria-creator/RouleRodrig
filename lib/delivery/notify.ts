@@ -4,6 +4,8 @@ import { sendWhatsApp } from "@/lib/notifications/whatsapp";
 import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/queue";
 import { centsToDecimalString } from "@/lib/money";
 import { deliveryStallAlert, type DeliveryStallKind } from "@/lib/delivery/escalation-copy";
+import { deliveryOfferLines, deliveryOfferTitle, type DeliveryOfferFacts } from "@/lib/delivery/offer-copy";
+import { googleMapsLink, hasUsablePin } from "@/lib/orders/location";
 
 // Everything that has to reach a human about a delivery. Two channels on
 // purpose: web push dies with the browser (cleared data, an iPhone never added
@@ -62,7 +64,7 @@ async function context(deliveryId: string) {
     const { data } = await admin
       .from("deliveries")
       .select(
-        "id, status, driver_earning, driver_id, reassignment_count, created_at, pickup_due_at, delivery_due_at, order:orders(order_number), store:stores(name, phone)",
+        "id, status, driver_earning, driver_id, reassignment_count, created_at, pickup_due_at, delivery_due_at, dropoff_note, dropoff_lat, dropoff_lng, order:orders(order_number), store:stores(name, phone)",
       )
       .eq("id", deliveryId)
       .maybeSingle();
@@ -75,6 +77,9 @@ async function context(deliveryId: string) {
       created_at: string | null;
       pickup_due_at: string | null;
       delivery_due_at: string | null;
+      dropoff_note: string | null;
+      dropoff_lat: number | null;
+      dropoff_lng: number | null;
       order: { order_number?: string | null } | { order_number?: string | null }[] | null;
       store:
         | { name?: string | null; phone?: string | null }
@@ -96,6 +101,12 @@ async function context(deliveryId: string) {
       createdAt: row.created_at,
       pickupDueAt: row.pickup_due_at,
       deliveryDueAt: row.delivery_due_at,
+      // Where it is going. The note is the customer's own words and is
+      // optional; the pin is guaranteed on an order-sourced delivery, which is
+      // why the map line is the one that can be relied on.
+      dropoffNote: row.dropoff_note,
+      dropoffLat: row.dropoff_lat,
+      dropoffLng: row.dropoff_lng,
     };
   } catch {
     return null;
@@ -137,9 +148,24 @@ export async function notifyOfferedDrivers(deliveryId: string): Promise<void> {
     const ctx = await context(deliveryId);
     if (!ctx || ctx.status !== "searching_driver") return;
 
+    const offer: DeliveryOfferFacts = {
+      shop: ctx.shop,
+      pay: ctx.pay,
+      dropoffNote: ctx.dropoffNote,
+      mapUrl:
+        hasUsablePin(ctx.dropoffLat, ctx.dropoffLng)
+          ? googleMapsLink(ctx.dropoffLat as number, ctx.dropoffLng as number)
+          : null,
+      driverPageUrl: "https://roulerodrig.com/driver",
+    };
+
     const payload: PushPayload = {
       // The two facts that decide whether they tap: what it pays, and from where.
-      title: ctx.pay ? `New delivery — ${ctx.pay}` : "New delivery available",
+      title: deliveryOfferTitle(offer),
+      // Deliberately NOT widened with the drop-off. This is a lock-screen line
+      // whose only job is "tap me", and it truncates; pushing the accept
+      // sentence off the screen to add a locality trades the action for a
+      // detail the tap itself reveals.
       body: `Pick up from ${ctx.shop}. Open to accept before it goes to someone else.`,
       url: "/driver",
       // Per delivery, so repeated rounds replace rather than stack.
@@ -148,12 +174,8 @@ export async function notifyOfferedDrivers(deliveryId: string): Promise<void> {
     };
 
     const message = formatWhatsAppMessage({
-      title: ctx.pay ? `New delivery — ${ctx.pay}` : "New delivery available",
-      lines: [
-        `Pick up from ${ctx.shop}.`,
-        "Open the driver page to accept — first to accept gets it.",
-        "https://roulerodrig.com/driver",
-      ],
+      title: deliveryOfferTitle(offer),
+      lines: deliveryOfferLines(offer),
     });
 
     // Both channels at once: a driver reachable on either should not wait for
@@ -262,6 +284,9 @@ export async function notifyOwnerDeliveryStalled(
       shopPhone: ctx?.shopPhone ?? null,
       driverName: driver?.name ?? null,
       driverPhone: driver?.phone ?? null,
+      dropoffNote: ctx?.dropoffNote ?? null,
+      dropoffLat: ctx?.dropoffLat ?? null,
+      dropoffLng: ctx?.dropoffLng ?? null,
       minutesOverdue: minutesSince(
         settled === "package_with_driver" ? ctx?.deliveryDueAt : ctx?.pickupDueAt,
       ),

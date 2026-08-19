@@ -20,6 +20,8 @@
 //
 // See M117.
 
+import { googleMapsLink, hasUsablePin } from "@/lib/orders/location";
+
 export type DeliveryStallKind =
   /** Offers ran out. Nobody ever accepted. Nothing left the shop. */
   | "no_driver"
@@ -39,6 +41,16 @@ export type DeliveryStallFacts = {
   shopPhone?: string | null;
   driverName?: string | null;
   driverPhone?: string | null;
+  /** deliveries.dropoff_note — the customer's own words for where it goes
+   *  ("Jean tac"). NOT a street address: checkout collects a GPS pin and says
+   *  so on screen, and the box beside it is optional, so this is null more
+   *  often than it is set. Never label it "Address". */
+  dropoffNote?: string | null;
+  /** deliveries.dropoff_lat / dropoff_lng. Guaranteed present on an
+   *  order-sourced delivery, which is why the MAP line — not the note — is the
+   *  one that can be relied on. */
+  dropoffLat?: number | null;
+  dropoffLng?: number | null;
   /** Whole minutes past when it should have been collected, or delivered. */
   minutesOverdue?: number | null;
   /** Whole minutes since the delivery was created. */
@@ -102,6 +114,28 @@ export function dedupeKeyFor(
 }
 
 /**
+ * Where it is going, in at most two lines.
+ *
+ * The note is the customer's words and is OPTIONAL; the pin is guaranteed on an
+ * order-sourced delivery. So the note leads when it exists, the map follows
+ * when the pin is usable, and neither ever leaves a label with nothing after
+ * it — a bare "Drop-off:" reads as a bug, and with an optional note it would be
+ * the common case.
+ *
+ * hasUsablePin also rejects 0,0 — the "field defaulted to zero" artefact, which
+ * is the Gulf of Guinea and worse than sending somebody nowhere.
+ */
+function dropoffLines(f: DeliveryStallFacts): string[] {
+  const out: string[] = [];
+  const note = f.dropoffNote?.trim();
+  if (note) out.push(`Drop-off: ${note}`);
+  if (hasUsablePin(f.dropoffLat, f.dropoffLng)) {
+    out.push(`Map: ${googleMapsLink(f.dropoffLat as number, f.dropoffLng as number)}`);
+  }
+  return out;
+}
+
+/**
  * Every message leads with WHERE THE PACKAGE IS, because that single fact
  * decides what the owner does next. Internal vocabulary is banned outright —
  * the reader runs a scooter business, not a database.
@@ -123,6 +157,7 @@ export function deliveryStallAlert(f: DeliveryStallFacts): DeliveryStallAlert {
           ? `It is ${plainDuration(f.minutesOverdue)} past the time it should have arrived.`
           : null,
         "The package is with him, not at the shop.",
+        ...dropoffLines(f),
         f.driverPhone
           ? `Call him now: ${f.driverPhone}`
           : "Call him now — his number is on the deliveries page.",
@@ -145,6 +180,7 @@ export function deliveryStallAlert(f: DeliveryStallFacts): DeliveryStallAlert {
           ? `That is ${plainDuration(f.minutesOverdue)} past the time it should have been collected.`
           : null,
         "Nothing was picked up — it is still on the shop counter.",
+        ...dropoffLines(f),
         f.driverPhone
           ? `Call him on ${f.driverPhone} to check, then give it to someone else.`
           : "Call him to check, then give it to someone else.",
@@ -161,6 +197,7 @@ export function deliveryStallAlert(f: DeliveryStallFacts): DeliveryStallAlert {
       `${ref} is waiting at ${shop}. No driver accepted it.`,
       f.minutesWaiting ? `It has been waiting ${plainDuration(f.minutesWaiting)}.` : null,
       "Nothing was collected — it is still on the shop counter.",
+      ...dropoffLines(f),
       "Send it out to drivers again from the deliveries page, or find someone yourself.",
       f.shopPhone ? `Shop: ${f.shopPhone}` : null,
       BOARD,
