@@ -143,9 +143,12 @@ export function missingFactsFor(legal?: LegalContent | null): string[] {
 // than being filled with something plausible, because a guessed term published
 // on a page a customer agrees to is a term the business would be held to.
 
+// experienceCancellationNotice USED to live here. It was retired once the
+// owner confirmed experiences cancel on the same ladder as rentals: the rule is
+// published once, from resolveRefunds(), and a second knob for the same rule is
+// only a way for the two to disagree.
 export const TERMS_CLAUSES = [
   "vehicleMinAge",
-  "experienceCancellationNotice",
   "deliveryFailedRule",
   "complaintWindow",
   "ageRestrictedGoods",
@@ -184,7 +187,7 @@ export function missingClauses(terms?: TermsContent | null): TermsClause[] {
 // confirmed" state. Making the page editable must not be able to unpublish it.
 
 export type ResolvedRefunds = {
-  vehicleCancellationTiers: CancellationTier[];
+  cancellationTiers: CancellationTier[];
   securityDeposit: string;
   lateReturnCharge: string;
   damageRule: string;
@@ -210,9 +213,9 @@ export function resolveRefunds(refunds?: RefundsContent | null): ResolvedRefunds
     // An empty or half-filled ladder falls back whole rather than publishing a
     // partial one: a cancellation policy missing its middle tier is worse than
     // the old one, because a customer reads the gap as "no charge".
-    vehicleCancellationTiers:
-      usableTiers(refunds?.vehicleCancellationTiers) ??
-      usableTiers(REFUND_FALLBACK.vehicleCancellationTiers) ??
+    cancellationTiers:
+      usableTiers(refunds?.cancellationTiers) ??
+      usableTiers(REFUND_FALLBACK.cancellationTiers) ??
       [],
     securityDeposit: text(refunds?.securityDeposit, REFUND_FALLBACK.securityDeposit),
     lateReturnCharge: text(refunds?.lateReturnCharge, REFUND_FALLBACK.lateReturnCharge),

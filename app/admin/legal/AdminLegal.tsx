@@ -25,7 +25,6 @@ type LegalFields = {
 
 type TermsFields = {
   vehicleMinAge: string;
-  experienceCancellationNotice: string;
   deliveryFailedRule: string;
   complaintWindow: string;
   ageRestrictedGoods: string;
@@ -33,7 +32,6 @@ type TermsFields = {
 
 const EMPTY_TERMS: TermsFields = {
   vehicleMinAge: "",
-  experienceCancellationNotice: "",
   deliveryFailedRule: "",
   complaintWindow: "",
   ageRestrictedGoods: "",
@@ -58,12 +56,6 @@ const TERMS_FIELDS: {
     placeholder: "e.g. 21, or 18 with a full licence held for 1 year",
   },
   {
-    key: "experienceCancellationNotice",
-    label: "Cancelling a boat trip, fishing trip or massage",
-    hint: "How much notice a customer must give. Weather cancellations are already covered separately and are always refundable.",
-    placeholder: "e.g. 24 hours' notice for a full refund, 50% within 24 hours",
-  },
-  {
     key: "deliveryFailedRule",
     label: "When a delivery cannot be completed",
     hint: "Nobody answers, the address is wrong, or the customer is not there. Say what happens to the goods and to the money.",
@@ -85,14 +77,14 @@ const TERMS_FIELDS: {
 
 type Tier = { window: string; outcome: string };
 type RefundFields = {
-  vehicleCancellationTiers: Tier[];
+  cancellationTiers: Tier[];
   securityDeposit: string;
   lateReturnCharge: string;
   damageRule: string;
 };
 
 const EMPTY_REFUNDS: RefundFields = {
-  vehicleCancellationTiers: [],
+  cancellationTiers: [],
   securityDeposit: "",
   lateReturnCharge: "",
   damageRule: "",
@@ -211,7 +203,6 @@ export default function AdminLegal() {
       const t = body.terms ?? {};
       const nextTerms: TermsFields = {
         vehicleMinAge: t.vehicleMinAge ?? "",
-        experienceCancellationNotice: t.experienceCancellationNotice ?? "",
         deliveryFailedRule: t.deliveryFailedRule ?? "",
         complaintWindow: t.complaintWindow ?? "",
         ageRestrictedGoods: t.ageRestrictedGoods ?? "",
@@ -223,8 +214,8 @@ export default function AdminLegal() {
       // rather than empty boxes they could unknowingly save over.
       const r = body.refunds ?? {};
       const nextRefunds: RefundFields = {
-        vehicleCancellationTiers: Array.isArray(r.vehicleCancellationTiers)
-          ? r.vehicleCancellationTiers.map((t: Tier) => ({ window: t.window ?? "", outcome: t.outcome ?? "" }))
+        cancellationTiers: Array.isArray(r.cancellationTiers)
+          ? r.cancellationTiers.map((t: Tier) => ({ window: t.window ?? "", outcome: t.outcome ?? "" }))
           : [],
         securityDeposit: r.securityDeposit ?? "",
         lateReturnCharge: r.lateReturnCharge ?? "",
@@ -250,7 +241,7 @@ export default function AdminLegal() {
   const dirty = legalDirty || termsDirty || refundsDirty;
   // A tier with only one half filled would publish a rule the customer cannot
   // read, so it blocks the save rather than being silently dropped.
-  const tiersValid = refunds.vehicleCancellationTiers.every(
+  const tiersValid = refunds.cancellationTiers.every(
     (t) => (t.window.trim() && t.outcome.trim()) || (!t.window.trim() && !t.outcome.trim()),
   );
   const outstanding = REQUIRED.filter((k) => !fields[k].trim());
@@ -267,7 +258,7 @@ export default function AdminLegal() {
           refunds: {
             ...refunds,
             // Half-written rows never reach the policy.
-            vehicleCancellationTiers: refunds.vehicleCancellationTiers.filter(
+            cancellationTiers: refunds.cancellationTiers.filter(
               (t) => t.window.trim() && t.outcome.trim(),
             ),
           },
@@ -480,7 +471,7 @@ export default function AdminLegal() {
           <Undo2 size={16} className="text-yellow" /> Refund policy
         </h2>
         <p className="mt-1 font-dm text-sm text-muted">
-          The rental cancellation ladder and deposit rules published in your{" "}
+          The cancellation ladder and deposit rules published in your{" "}
           <a href="/legal/refunds" target="_blank" rel="noreferrer" className="text-yellow hover:underline">
             Refund &amp; Cancellation Policy
           </a>
@@ -490,14 +481,18 @@ export default function AdminLegal() {
 
         <div className="mt-4">
           <span className="block font-bebas text-[11px] tracking-[0.2em] text-muted">
-            CANCELLATION LADDER (VEHICLE RENTALS)
+            CANCELLATION LADDER (RENTALS &amp; EXPERIENCES)
           </span>
           <p className="mt-1 font-dm text-[11px] leading-relaxed text-muted">
-            Most notice first. A customer reads this top to bottom to find their own situation.
+            Most notice first. A customer reads this top to bottom to find their own situation. One
+            ladder governs vehicle rentals and experiences — boat trips, fishing and massage — and it
+            is published on both the refund policy and the terms. It does not apply to food, shop or
+            ticket orders: those are not booked days ahead, and a paid order that is cancelled is
+            refunded in full automatically.
           </p>
 
           <div className="mt-2.5 space-y-2">
-            {refunds.vehicleCancellationTiers.map((t, i) => (
+            {refunds.cancellationTiers.map((t, i) => (
               <div key={i} className="flex flex-wrap items-center gap-2">
                 <input
                   aria-label={`Cancellation window ${i + 1}`}
@@ -506,7 +501,7 @@ export default function AdminLegal() {
                   onChange={(e) =>
                     setRefunds((p) => ({
                       ...p,
-                      vehicleCancellationTiers: p.vehicleCancellationTiers.map((row, j) =>
+                      cancellationTiers: p.cancellationTiers.map((row, j) =>
                         j === i ? { ...row, window: e.target.value } : row,
                       ),
                     }))
@@ -521,7 +516,7 @@ export default function AdminLegal() {
                   onChange={(e) =>
                     setRefunds((p) => ({
                       ...p,
-                      vehicleCancellationTiers: p.vehicleCancellationTiers.map((row, j) =>
+                      cancellationTiers: p.cancellationTiers.map((row, j) =>
                         j === i ? { ...row, outcome: e.target.value } : row,
                       ),
                     }))
@@ -534,7 +529,7 @@ export default function AdminLegal() {
                   onClick={() =>
                     setRefunds((p) => ({
                       ...p,
-                      vehicleCancellationTiers: p.vehicleCancellationTiers.filter((_, j) => j !== i),
+                      cancellationTiers: p.cancellationTiers.filter((_, j) => j !== i),
                     }))
                   }
                   className="rounded-xl border border-white/12 p-2.5 text-muted hover:border-red-500/40 hover:text-red-300"
@@ -559,13 +554,13 @@ export default function AdminLegal() {
               onClick={() =>
                 setRefunds((p) => ({
                   ...p,
-                  vehicleCancellationTiers: [...p.vehicleCancellationTiers, { window: "", outcome: "" }],
+                  cancellationTiers: [...p.cancellationTiers, { window: "", outcome: "" }],
                 }))
               }
             >
               <Plus size={14} className="mr-1.5" /> Add a tier
             </Button>
-            {refunds.vehicleCancellationTiers.length === 0 && (
+            {refunds.cancellationTiers.length === 0 && (
               <span className="font-dm text-xs text-yellow/80">
                 No tiers — the published policy will fall back to the current one rather than show none.
               </span>

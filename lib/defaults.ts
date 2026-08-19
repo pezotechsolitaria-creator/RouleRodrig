@@ -681,8 +681,6 @@ export interface LegalContent {
 export interface TermsContent {
   /** Minimum age to HIRE a vehicle, if it differs from the legal riding age. */
   vehicleMinAge?: string;
-  /** Notice required to cancel a boat trip, fishing trip or massage. */
-  experienceCancellationNotice?: string;
   /** What happens when a delivery cannot be completed at the address given. */
   deliveryFailedRule?: string;
   /** How long a customer has to raise a problem with an order. */
@@ -721,8 +719,21 @@ export interface CancellationTier {
  * built, it must read THESE values rather than hardcode its own.
  */
 export interface RefundsContent {
-  /** The vehicle cancellation ladder, in order from most to least notice. */
-  vehicleCancellationTiers?: CancellationTier[];
+  /**
+   * The cancellation ladder for anything BOOKED AHEAD AND PREPAID — vehicle
+   * rentals and experiences (boat trips, fishing, massage, on-site bookings).
+   *
+   * ONE ladder, not one per vertical, because the owner's rule is the same for
+   * both and two copies of a policy is two chances for them to drift. Ordered
+   * from most to least notice.
+   *
+   * It deliberately does NOT govern food, shop or ticket orders: those are not
+   * booked 48 hours ahead, and the software already opens a FULL refund
+   * automatically when a paid order is cancelled (M90). A notice-based ladder
+   * there would contradict the mechanism and mean a customer who changed their
+   * mind two minutes after ordering dinner got nothing back.
+   */
+  cancellationTiers?: CancellationTier[];
   /** Security deposit rule for vehicle rentals. */
   securityDeposit?: string;
   /** What a late return costs. */
@@ -965,7 +976,7 @@ export const DEFAULT_CONTENT: SiteContent = {
   // contradicting — see lib/i18n.ts and components/BookingSection.tsx, which
   // were corrected in the same change.
   refunds: {
-    vehicleCancellationTiers: [
+    cancellationTiers: [
       {
         window: 'More than 48 hours before pickup',
         outcome:

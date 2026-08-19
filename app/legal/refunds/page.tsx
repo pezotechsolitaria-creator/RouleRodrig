@@ -57,21 +57,25 @@ export default async function RefundsPage() {
           record the order, and hold both sides to it — but a refund is sent by the seller, not by us.
         </P>
         <P>
-          For <strong>vehicle rentals</strong>, a deposit is taken to confirm the booking. Where that
-          deposit was paid by card or PayPal it is returned by the same route.
+          For <strong>vehicle rentals and experiences</strong>, a deposit is taken to confirm the
+          booking. Where that deposit was paid by card or PayPal it is returned by the same route.
         </P>
       </Section>
 
-      <Section heading="2. Booking confirmation (vehicle rentals)">
+      <Section heading="2. Booking confirmation (rentals and experiences)">
         <P>
-          A booking is a <strong>request</strong> until the vehicle owner confirms availability. You are only
-          charged once the booking is confirmed.
+          A booking is a <strong>request</strong> until the vehicle owner or the operator confirms
+          availability. You are only charged once the booking is confirmed.
         </P>
       </Section>
 
-      <Section heading="3. Cancellation tiers (vehicle rentals)">
+      <Section heading="3. Cancellation (rentals and experiences)">
+        <P>
+          The same rule covers anything booked ahead and paid for in advance — a vehicle rental, and
+          a boat trip, fishing trip, massage or other bookable experience.
+        </P>
         <UL>
-          {R.vehicleCancellationTiers.map((t) => (
+          {R.cancellationTiers.map((t) => (
             <li key={t.window}>
               <strong>{t.window}</strong> — {t.outcome}.
             </li>

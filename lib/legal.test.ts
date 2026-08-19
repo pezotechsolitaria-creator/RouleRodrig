@@ -284,7 +284,7 @@ const refundsPage = () => stripComments(readFileSync(join(ROOT, "app/legal/refun
 describe("resolveRefunds", () => {
   it("publishes the live policy when admin has never touched it", () => {
     const r = resolveRefunds(undefined);
-    expect(r.vehicleCancellationTiers.length).toBeGreaterThan(0);
+    expect(r.cancellationTiers.length).toBeGreaterThan(0);
     expect(r.securityDeposit).not.toBe("");
     expect(r.lateReturnCharge).not.toBe("");
     expect(r.damageRule).not.toBe("");
@@ -292,30 +292,30 @@ describe("resolveRefunds", () => {
 
   it("never leaves the cancellation ladder empty", () => {
     // Blank, absent and an all-empty array must all keep the published ladder.
-    for (const input of [{}, { vehicleCancellationTiers: [] }, { vehicleCancellationTiers: [{ window: "", outcome: "" }] }]) {
-      expect(resolveRefunds(input).vehicleCancellationTiers.length).toBeGreaterThan(0);
+    for (const input of [{}, { cancellationTiers: [] }, { cancellationTiers: [{ window: "", outcome: "" }] }]) {
+      expect(resolveRefunds(input).cancellationTiers.length).toBeGreaterThan(0);
     }
   });
 
   it("takes the owner's ladder when they supply a usable one", () => {
     const r = resolveRefunds({
-      vehicleCancellationTiers: [
+      cancellationTiers: [
         { window: "More than 7 days", outcome: "full refund" },
         { window: "Inside 7 days", outcome: "no refund" },
       ],
     });
-    expect(r.vehicleCancellationTiers).toHaveLength(2);
-    expect(r.vehicleCancellationTiers[0].outcome).toBe("full refund");
+    expect(r.cancellationTiers).toHaveLength(2);
+    expect(r.cancellationTiers[0].outcome).toBe("full refund");
   });
 
   it("drops half-written rows rather than publishing an unreadable rule", () => {
     const r = resolveRefunds({
-      vehicleCancellationTiers: [
+      cancellationTiers: [
         { window: "More than 7 days", outcome: "full refund" },
         { window: "Inside 7 days", outcome: "   " },
       ],
     });
-    expect(r.vehicleCancellationTiers).toHaveLength(1);
+    expect(r.cancellationTiers).toHaveLength(1);
   });
 
   it("restores the published wording when a text field is cleared", () => {
@@ -357,7 +357,7 @@ describe("the cancellation rule agrees with itself everywhere", () => {
   const i18nSrc = () => readFileSync(join(ROOT, "lib/i18n.ts"), "utf8");
 
   it("nowhere promises free cancellation while a fee is retained", () => {
-    const fee = resolveRefunds(undefined).vehicleCancellationTiers.some((t) => /%/.test(t.outcome));
+    const fee = resolveRefunds(undefined).cancellationTiers.some((t) => /%/.test(t.outcome));
     expect(fee).toBe(true); // a percentage IS retained, so the claim must not appear
 
     expect(stripComments(i18nSrc())).not.toMatch(/Free cancellation/i);
@@ -368,7 +368,7 @@ describe("the cancellation rule agrees with itself everywhere", () => {
   });
 
   it("states the same 48-hour cutoff in the policy and at the point of payment", () => {
-    expect(resolveRefunds(undefined).vehicleCancellationTiers[0].window).toMatch(/48 hours/);
+    expect(resolveRefunds(undefined).cancellationTiers[0].window).toMatch(/48 hours/);
     // All three languages of the booking form must carry the cutoff, not just English.
     const form = stripComments(bookingForm());
     expect(form).toMatch(/more than 48h before pickup/i);
@@ -388,5 +388,43 @@ describe("the cancellation rule agrees with itself everywhere", () => {
 
   it("keeps the 100%-if-we-cancel promise, which is not affected by the fee", () => {
     expect(refundsPage()).toContain("you receive a 100% refund");
+  });
+});
+
+// ── ONE LADDER, TWO PAGES (experiences brought under the same rule) ─────────
+//
+// The owner confirmed experiences cancel on the same terms as rentals. That is
+// published on /legal/refunds AND in the Terms, so the risk is the classic one:
+// two copies of a rule that slowly stop agreeing. Both must render the SAME
+// resolveRefunds() ladder rather than restating it in prose.
+
+describe("the cancellation ladder is single-sourced", () => {
+  it("is rendered from resolveRefunds on both pages, not retyped", () => {
+    for (const src of [refundsPage(), terms()]) {
+      expect(src).toMatch(/cancellationTiers\.map/);
+    }
+    // And neither page hardcodes a percentage that could drift from the ladder.
+    expect(stripComments(terms())).not.toMatch(/80%/);
+    expect(stripComments(refundsPage())).not.toMatch(/80%/);
+  });
+
+  it("says the rule covers experiences, not just vehicles", () => {
+    expect(refundsPage()).toMatch(/Cancellation \(rentals and experiences\)/);
+    expect(refundsPage()).toMatch(/boat trip, fishing trip, massage/);
+    expect(terms()).toMatch(/booked ahead and paid for in advance/);
+  });
+
+  it("does not extend the notice ladder to food, shop or ticket orders", () => {
+    // Those are not booked days ahead and the software already opens a FULL
+    // refund when a paid order is cancelled (M90). A notice ladder there would
+    // contradict the mechanism — and every food order is inside 48 hours.
+    const p = refundsPage();
+    expect(p).toMatch(/4\. Shop and food orders/);
+    expect(p).toMatch(/Before the shop starts preparing/);
+    expect(p).toMatch(/5\. Event tickets/);
+  });
+
+  it("no longer carries a separate experience-cancellation clause to drift", () => {
+    expect(TERMS_CLAUSES).not.toContain("experienceCancellationNotice");
   });
 });

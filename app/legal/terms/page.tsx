@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getContent } from "@/lib/content";
 import { CONTACT_EMAIL } from "@/lib/site";
-import { resolveLegal, resolveTerms, isMissing, type LegalFact } from "@/lib/legal";
+import { resolveLegal, resolveTerms, resolveRefunds, isMissing, type LegalFact } from "@/lib/legal";
 import LegalDoc, { Section, P, UL } from "@/components/LegalDoc";
 
 // ── TERMS THAT DESCRIBE THE PRODUCT THAT ACTUALLY EXISTS ────────────────────
@@ -55,6 +55,10 @@ export default async function TermsPage() {
   const email = content.contact.email || CONTACT_EMAIL;
   const LEGAL = resolveLegal(content.legal);
   const T = resolveTerms(content.terms);
+  // The SAME ladder /legal/refunds publishes. Rendered from one source rather
+  // than restated here, because a cancellation rule written twice is a
+  // cancellation rule that will eventually say two things.
+  const R = resolveRefunds(content.refunds);
   const operator = isMissing(LEGAL.legalName) ? LEGAL.tradingName : (LEGAL.legalName as string);
 
   return (
@@ -157,9 +161,19 @@ export default async function TermsPage() {
           you are entitled to a full refund and that is not at their discretion.
         </P>
         <P>
-          To cancel an experience — a boat trip, fishing trip or massage — the notice required is{" "}
-          <Clause value={T.experienceCancellationNotice} />. Trips cancelled for weather or sea
-          conditions are always refundable in full or rescheduled at your choice.
+          Anything booked ahead and paid for in advance — a vehicle rental, or an experience such as a
+          boat trip, fishing trip or massage — is cancelled on the same terms:
+        </P>
+        <UL>
+          {R.cancellationTiers.map((t) => (
+            <li key={t.window}>
+              <strong>{t.window}</strong> — {t.outcome}.
+            </li>
+          ))}
+        </UL>
+        <P>
+          Trips cancelled for weather or sea conditions are always refundable in full or rescheduled
+          at your choice, and if we or the operator cancel for any other reason you receive 100% back.
         </P>
         <P>
           If a delivery cannot be completed at the address you gave:{" "}

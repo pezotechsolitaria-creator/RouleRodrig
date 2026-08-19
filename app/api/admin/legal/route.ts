@@ -43,7 +43,6 @@ const legalSchema = z.object({
 // the business would be held to.
 const termsSchema = z.object({
   vehicleMinAge: z.string().trim().max(200).optional(),
-  experienceCancellationNotice: z.string().trim().max(400).optional(),
   deliveryFailedRule: z.string().trim().max(600).optional(),
   complaintWindow: z.string().trim().max(200).optional(),
   ageRestrictedGoods: z.string().trim().max(600).optional(),
@@ -54,7 +53,7 @@ const termsSchema = z.object({
 // already there" rather than "leave it blank" — resolveRefunds() decides that,
 // not this schema.
 const refundsSchema = z.object({
-  vehicleCancellationTiers: z
+  cancellationTiers: z
     .array(
       z.object({
         window: z.string().trim().max(200),
