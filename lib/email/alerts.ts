@@ -57,27 +57,47 @@ const utcDate = () => new Date().toISOString().slice(0, 10);
 /**
  * Fires `body` at most once per `key` per UTC day. Returns true when sent.
  *
- * Claim-then-send: the state is written BEFORE the message goes out. A lost
- * alert is a missed notification; a lost claim is the same alert repeating from
- * every instance that handles a request today.
+ * ── SEND, THEN CLAIM (M118) ───────────────────────────────────────────────
+ * This used to write the claim BEFORE enqueueing, reasoning that "a lost claim
+ * is the same alert repeating from every instance". That reasoning does not
+ * apply, because the thing being called is not a send — it is an enqueue
+ * guarded by dedupeKey against a UNIQUE index. If two instances raced, the
+ * second would collide and return 0. The pre-write prevented no duplicate the
+ * database was not already preventing, and it cost every retry.
+ *
+ * What it did cost is on the record. On 2026-08-09 06:41 the daily cron raised
+ * "ticketing reserve may be too small", wrote the claim, and enqueued into a
+ * database whose first notification_slot would not exist until 2026-08-11.
+ * The loop matched nothing, returned 0 with no error and no log, and the claim
+ * was already spent — so every later attempt that day returned early without
+ * trying. The alert was never sent and never retried. The burned claim in
+ * app_secrets is the only surviving evidence it was ever raised.
+ *
+ * So the claim is now written only once the message is genuinely queued. The
+ * dedupe key still prevents a duplicate if two instances get there at once.
  */
 async function alertOncePerDay(key: string, body: string): Promise<boolean> {
   const today = utcDate();
   const state = await readState();
   if (state[key] === today) return false;
-  state[key] = today;
-  await writeState(state);
   try {
     // `system` category: an infrastructure alarm, not business activity —
     // the owner may well want this on a different phone at 3am.
-    // alertOncePerDay already guarantees one per key per day, and the key
-    // is reused here so the queue cannot re-add it either.
-    return (await enqueueNotification({
+    const queued = await enqueueNotification({
       type: `email.quota.${key}`,
       category: "system",
       message: body,
       dedupeKey: `email.quota:${key}:${today}`,
-    })) > 0;
+    });
+    if (queued <= 0) {
+      // Nothing was queued: either no recipient takes `system` (queue.ts has
+      // already reported that to Sentry) or the RPC failed. Either way the day
+      // is NOT claimed, so the next threshold crossing tries again.
+      return false;
+    }
+    state[key] = today;
+    await writeState(state);
+    return true;
   } catch (err) {
     console.error("[email] quota alert failed to send", err);
     return false;

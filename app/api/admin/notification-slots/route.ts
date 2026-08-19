@@ -76,14 +76,30 @@ export async function GET(req: NextRequest) {
     return { ...rest, hasKey: Boolean(key && String(key).trim()) };
   });
 
+  const JOB_COLUMNS =
+    "id, type, category, slot_id, status, attempts, error, sent_at, created_at, " +
+    "suppressed_count, last_suppressed_at";
+
   // Recent attempts, for the "is this actually working?" question. Bounded.
   const { data: jobs } = await admin
     .from("notification_jobs")
-    .select("id, type, category, slot_id, status, attempts, error, sent_at, created_at")
+    .select(JOB_COLUMNS)
     .order("created_at", { ascending: false })
     .limit(25);
 
-  return NextResponse.json({ slots, jobs: jobs ?? [] });
+  // M118. A suppressed duplicate writes NO new row — it bumps a counter on the
+  // row that already holds the key, which can be days older than these 25. The
+  // M117 case is exactly that shape: an urgent second alert colliding with an
+  // old one. Ordered by when it was last swallowed rather than when it was
+  // created, or the very thing this exists to surface stays off the screen.
+  const { data: suppressed } = await admin
+    .from("notification_jobs")
+    .select(JOB_COLUMNS)
+    .gt("suppressed_count", 0)
+    .order("last_suppressed_at", { ascending: false })
+    .limit(10);
+
+  return NextResponse.json({ slots, jobs: jobs ?? [], suppressed: suppressed ?? [] });
 }
 
 export async function POST(req: NextRequest) {

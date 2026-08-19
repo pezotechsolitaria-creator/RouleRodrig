@@ -70,7 +70,47 @@ export async function enqueueNotification(input: EnqueueInput): Promise<number> 
       console.error("enqueue_notification failed", { type: input.type, error });
       return 0;
     }
-    return (data as number | null) ?? 0;
+    const queued = (data as number | null) ?? 0;
+    if (queued < 0) {
+      // M118. -1 is NOT "nothing to do". It is "no active slot takes this
+      // category", so this message reached nobody and neither will the next
+      // one. Distinct from 0, which means the recipients already had it — and
+      // 0 needs no log here, because the row that won the dedupe key now
+      // carries suppressed_count and /admin/notifications renders it.
+      //
+      // This is not hypothetical: on 2026-08-09 the ticketing-reserve alarm was
+      // raised into a database with zero notification_slots, returned 0 with no
+      // error, and was destroyed after its once-per-day claim had been spent.
+      //
+      // Routed to Sentry rather than a new channel — Sentry is already what
+      // gets watched, and already scrubs. A category name is not PII.
+      console.error("enqueue_notification: no active slot takes this category", {
+        type: input.type,
+        category: input.category,
+      });
+      // Imported lazily on purpose. A static import pulls @sentry/nextjs into
+      // every module graph that reaches this file — and one of them is
+      // lib/email/send.ts -> alerts.ts -> here, which pushed lib/email's test
+      // import past its 30s budget. This branch is a misconfiguration, so the
+      // cost of resolving it here is irrelevant.
+      try {
+        const Sentry = await import("@sentry/nextjs");
+        Sentry.captureMessage(
+          `notification dropped: no active slot takes category "${input.category}"`,
+          {
+            level: "error",
+            tags: { check: "notification-enqueue", notification_category: input.category },
+          },
+        );
+      } catch {
+        // Sentry unavailable (local dev, or the SDK failed to load). The
+        // console.error above is still on the record.
+      }
+      // Normalised, so the public contract stays exactly "how many recipients
+      // were queued". No caller learns a new number, and none has to.
+      return 0;
+    }
+    return queued;
   } catch (err) {
     console.error("enqueue_notification threw", err);
     return 0;

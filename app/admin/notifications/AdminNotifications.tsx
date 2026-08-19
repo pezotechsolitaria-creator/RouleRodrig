@@ -7,6 +7,7 @@ import {
   MessageCircle, AlertTriangle, CircleCheck, CircleSlash,
 } from "lucide-react";
 import { NOTIFICATION_CATEGORIES, CATEGORY_LABEL, type NotificationCategory } from "@/lib/notifications/categories";
+import { uncoveredCategories } from "@/lib/notifications/coverage";
 
 function ChannelHeading({ n, title, blurb }: { n: number; title: string; blurb: string }) {
   return (
@@ -105,6 +106,10 @@ type Job = {
   error: string | null;
   sent_at: string | null;
   created_at: string;
+  // M118. A repeat of a message already queued does not create a row — it bumps
+  // these on the row that first claimed the dedupe key.
+  suppressed_count: number;
+  last_suppressed_at: string | null;
 };
 
 type Draft = {
@@ -125,6 +130,7 @@ const input =
 export default function AdminNotifications() {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [suppressed, setSuppressed] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -139,6 +145,7 @@ export default function AdminNotifications() {
       if (!res.ok) throw new Error(body.error || "Could not load recipients.");
       setSlots(body.slots ?? []);
       setJobs(body.jobs ?? []);
+      setSuppressed(body.suppressed ?? []);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load recipients.");
@@ -237,6 +244,12 @@ export default function AdminNotifications() {
       d ? { ...d, categories: d.categories.includes(c) ? d.categories.filter((x) => x !== c) : [...d.categories, c] } : d,
     );
   }
+
+  // The UNION across every active recipient. A gap here is the only thing that
+  // actually drops a message — narrowing one number while another stays
+  // catch-all changes nothing, so this must not warn about that. Two slots and
+  // nine categories: no memo needed.
+  const uncovered = uncoveredCategories(slots);
 
   return (
     <main className="min-h-screen bg-dark px-4 py-8 text-offwhite">
@@ -478,12 +491,64 @@ export default function AdminNotifications() {
                     : j.status === "failed" ? "text-red-400"
                     : j.status === "pending" ? "text-orange-300" : "text-muted"
                   }>
-                    {j.status}{j.attempts > 1 ? ` · ${j.attempts} tries` : ""}{j.error ? ` · ${j.error}` : ""}
+                    {j.status}{j.attempts > 1 ? ` · ${j.attempts} tries` : ""}{j.error ? ` · ${j.error}` : ""}{j.suppressed_count > 0 ? ` · asked again ${j.suppressed_count}×` : ""}
                   </span>
                 </li>
               ))}
             </ul>
           </section>
+        )}
+
+        {/* ── M118 · something tried to say this again ──────────────────────
+            A repeat of a message already queued leaves no new row — it bumps a
+            counter on the row that first claimed the key, which may be days
+            older than the list above. That is exactly how an urgent second
+            alert about one delivery disappeared: same key, silently dropped.
+            Ordered by when it was last swallowed, not when it was created. */}
+        {suppressed.length > 0 && (
+          <section className="mt-8">
+            <p className="font-syne text-sm font-bold text-offwhite">Repeated, not resent</p>
+            <p className="mt-0.5 font-dm text-[11px] leading-relaxed text-muted">
+              Something asked to send these again. They were already queued, so nothing new went
+              out — which is usually right. Worth a look if the count keeps climbing.
+            </p>
+            <ul className="mt-3 space-y-1.5">
+              {suppressed.map((j) => (
+                <li key={j.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-1.5 font-dm text-xs">
+                  <span className="text-muted">
+                    {j.type} · first sent {new Date(j.created_at).toLocaleString()}
+                  </span>
+                  <span className="text-orange-300">
+                    asked again {j.suppressed_count}×
+                    {j.last_suppressed_at ? ` · last ${new Date(j.last_suppressed_at).toLocaleString()}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {/* ── M118 · nobody is listening ────────────────────────────────────
+            A standing configuration fact, not an event: derivable from the slot
+            list before a single message is lost. It has cost a real alert here
+            already — a quota alarm raised at a moment when no recipient existed
+            was destroyed with no error and no log.
+
+            The union across slots is what matters. Narrowing ONE number is
+            harmless while another still takes everything, so this deliberately
+            does not warn about that. */}
+        {uncovered.length > 0 && (
+          <div className="mt-8 rounded-2xl border border-red-500/30 bg-red-500/[0.06] p-4">
+            <p className="flex items-center gap-1.5 font-syne text-sm font-bold text-red-400">
+              <AlertTriangle size={14} /> Nobody will be phoned about{" "}
+              {uncovered.map((c) => CATEGORY_LABEL[c]).join(", ")}
+            </p>
+            <p className="mt-1 font-dm text-xs leading-relaxed text-muted">
+              Every alert in {uncovered.length === 1 ? "that category" : "those categories"} is
+              being dropped without a trace. Tick {uncovered.length === 1 ? "it" : "them"} on one
+              of the numbers above, or leave a number&apos;s list empty to take everything.
+            </p>
+          </div>
         )}
 
         <div className="mt-10 rounded-2xl border border-white/10 bg-dark-card p-5">
