@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import InstallAppButton from "@/components/InstallAppButton";
 import DriverJobPanel from "@/components/tracking/DriverJobPanel";
-import { formatRidePrice } from "@/lib/rides/model";
+import { pickupTimeLabel, formatRidePrice } from "@/lib/rides/model";
 
 // ── THE DRIVER'S WHOLE APP ──────────────────────────────────────────────────
 //
@@ -344,9 +344,19 @@ export default function DriverHome({ token }: { token: string }) {
               <p className="font-bebas text-[10px] tracking-[0.24em] text-yellow/80">
                 {home.job.service === "ferry" ? "FERRY / BOAT" : "FLIGHT"}
               </p>
-              <p className="mt-0.5 font-syne text-2xl font-extrabold tracking-wide text-offwhite">
-                {home.job.flightRef}
-              </p>
+              <div className="mt-0.5 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                <p className="font-syne text-2xl font-extrabold tracking-wide text-offwhite">
+                  {home.job.flightRef}
+                </p>
+                {/* WHICH plane, and when to leave for it — the two facts a
+                    driver needs together. Formatted in Indian/Mauritius by
+                    pickupTimeLabel, because a server rendering in UTC would
+                    send him four hours early. */}
+                <p className="font-dm text-sm text-offwhite/85">
+                  <span className="font-bebas text-[10px] tracking-[0.24em] text-muted">PICK UP </span>
+                  {pickupTimeLabel(home.job.scheduledAt ? "later" : "now", home.job.scheduledAt)}
+                </p>
+              </div>
               {home.job.meetGreet && (
                 <p className="mt-1.5 font-dm text-sm text-yellow">
                   Wait inside with a sign — they asked to be met.

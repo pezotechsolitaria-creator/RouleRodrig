@@ -173,3 +173,45 @@ export function offerMessage(o: {
     o.acceptUrl,
   ].join("\n");
 }
+
+// ── WHEN TO BE THERE ────────────────────────────────────────────────────────
+//
+// The flight number tells a driver WHICH plane; this tells him when to leave.
+// Shown beside it on the job card and on the admin desk, from one function, so
+// the two can never render the same ride at different times.
+//
+// Always Indian/Mauritius: a driver reads this standing in Rodrigues, and a
+// server rendering in UTC would quietly send him four hours early.
+export function pickupTimeLabel(
+  whenKind: string | null | undefined,
+  scheduledAt: string | null | undefined,
+): string {
+  if (whenKind === "now" || !scheduledAt) return "As soon as possible";
+  const t = new Date(scheduledAt);
+  if (Number.isNaN(t.getTime())) return "As soon as possible";
+  return t.toLocaleString("en-GB", {
+    timeZone: "Indian/Mauritius",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+/** Just the clock part, for a tight space beside the flight number. */
+export function pickupClock(
+  whenKind: string | null | undefined,
+  scheduledAt: string | null | undefined,
+): string | null {
+  if (whenKind === "now" || !scheduledAt) return null;
+  const t = new Date(scheduledAt);
+  if (Number.isNaN(t.getTime())) return null;
+  return t.toLocaleTimeString("en-GB", {
+    timeZone: "Indian/Mauritius",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}

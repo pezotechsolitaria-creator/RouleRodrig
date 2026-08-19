@@ -8,7 +8,7 @@ import {
   AlertTriangle, MessageCircle, UserCheck, X, Ban, ChevronRight, Copy, Wallet,
   PlaneTakeoff,
 } from "lucide-react";
-import {
+import { pickupTimeLabel, pickupClock,
   ADMIN_STATUS, RIDE_SERVICE_META, RIDE_SERVICES, NEXT_STATUSES,
   formatRidePrice, rideReference, type RideStatus, type RideService,
 } from "@/lib/rides/model";
@@ -250,6 +250,8 @@ export default function RidesDesk() {
                           {r.flight_ref && (
                             <span className="ml-2 rounded-md border border-yellow/30 bg-yellow/10 px-1.5 py-0.5 font-dm text-[11px] text-yellow">
                               {r.flight_ref}
+                              {pickupClock(r.when_kind, r.scheduled_at) &&
+                                ` · ${pickupClock(r.when_kind, r.scheduled_at)}`}
                             </span>
                           )}
                         </p>
@@ -291,6 +293,8 @@ export default function RidesDesk() {
                         <span>
                           {ride.service === "ferry" ? "Ferry / boat" : "Flight"}{" "}
                           <strong>{ride.flight_ref}</strong>
+                          {" · pick up "}
+                          {pickupTimeLabel(ride.when_kind, ride.scheduled_at)}
                           {ride.meet_greet && " · wait inside with a sign"}
                         </span>
                       </p>

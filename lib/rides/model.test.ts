@@ -4,7 +4,7 @@ import { join } from "node:path";
 import {
   RIDE_STATUSES, RIDE_SERVICES, RIDE_SERVICE_META, CUSTOMER_STATUS, ADMIN_STATUS,
   NEXT_STATUSES, canTransition, isOpenRide, searchingMessage, rideReference,
-  formatRidePrice, offerMessage, type RideStatus,
+  formatRidePrice, offerMessage, pickupTimeLabel, pickupClock, type RideStatus,
 } from "./model";
 
 // A ride is a real-world commitment: somebody is standing by a road expecting a
@@ -285,5 +285,70 @@ describe("the flight number is shown where it is used", () => {
   it("surfaces the meet-and-greet request to the driver", () => {
     // Asked for at booking and never passed on is how someone waits outside.
     expect(at("app/d/[token]/DriverHome.tsx")).toMatch(/Wait inside with a sign/);
+  });
+});
+
+// ── WHEN TO BE THERE (M121) ─────────────────────────────────────────────────
+//
+// A driver reads this standing in Rodrigues. The island is UTC+4, so a server
+// formatting in UTC would tell him to leave four hours early — which is the
+// whole reason this is one function and not a toLocaleString in two components.
+describe("pickupTimeLabel", () => {
+  // 06:20 UTC is 10:20 in Rodrigues.
+  const iso = "2026-08-20T06:20:00Z";
+
+  it("renders the island's clock, not the server's", () => {
+    expect(pickupTimeLabel("later", iso)).toContain("10:20");
+    expect(pickupTimeLabel("later", iso)).not.toContain("06:20");
+  });
+
+  it("carries the day, because an airport run is often tomorrow", () => {
+    const out = pickupTimeLabel("later", iso);
+    expect(out).toMatch(/Thu/);
+    expect(out).toMatch(/20 Aug/);
+  });
+
+  it("says so plainly when there is no appointed time", () => {
+    expect(pickupTimeLabel("now", null)).toBe("As soon as possible");
+    expect(pickupTimeLabel("now", iso)).toBe("As soon as possible");
+    expect(pickupTimeLabel("later", null)).toBe("As soon as possible");
+  });
+
+  it("does not print Invalid Date when the timestamp is rubbish", () => {
+    expect(pickupTimeLabel("later", "not-a-date")).toBe("As soon as possible");
+  });
+
+  it("uses a 24-hour clock, so 14:20 is never read as 2am", () => {
+    expect(pickupTimeLabel("later", "2026-08-20T10:20:00Z")).toContain("14:20");
+    expect(pickupTimeLabel("later", "2026-08-20T10:20:00Z")).not.toMatch(/pm|PM/);
+  });
+});
+
+describe("pickupClock", () => {
+  it("is the time alone, for the admin chip", () => {
+    expect(pickupClock("later", "2026-08-20T06:20:00Z")).toBe("10:20");
+  });
+
+  it("is null when there is nothing to show, so no stray separator renders", () => {
+    expect(pickupClock("now", null)).toBeNull();
+    expect(pickupClock("later", "rubbish")).toBeNull();
+  });
+});
+
+describe("the pickup time is shown beside the flight", () => {
+  const at = (rel: string) => readFileSync(join(__dirname, "..", "..", rel), "utf8");
+
+  it("on the driver's job card", () => {
+    const card = at("app/d/[token]/DriverHome.tsx");
+    expect(card).toMatch(/pickupTimeLabel/);
+    expect(card).toMatch(/PICK UP/);
+  });
+
+  it("and on the admin desk, from the same function", () => {
+    // Two formatters would eventually disagree about the same ride.
+    const desk = at("app/admin/rides/RidesDesk.tsx");
+    expect(desk).toMatch(/pickupTimeLabel\(ride\.when_kind, ride\.scheduled_at\)/);
+    expect(desk).toMatch(/pickupClock\(r\.when_kind, r\.scheduled_at\)/);
+    expect(desk).not.toMatch(/toLocaleTimeString/);
   });
 });
