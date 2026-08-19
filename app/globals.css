@@ -1704,10 +1704,21 @@ html.light *:focus-visible {
    Bottom-left, clear of Leaflet's zoom control (top-left) and of the floating
    status pill (top-centre). Both options always visible: a toggle that hides
    the alternative behind an icon makes people hunt for it. */
+/* BOTTOM-LEFT, RAISED — and the raise is the bug fix.
+   At bottom:10px this control sat under the details sheet, which overlaps the
+   map's bottom 20px. Because the map is an `isolate` stacking context, no
+   z-index inside it can climb over that sheet: the switcher existed, rendered,
+   and was unreachable.
+
+   38px clears the overlap with room to spare. Bottom-LEFT rather than the
+   corners that look emptier: zoom is top-left, the live status pill is
+   top-centre (and on a narrow phone a long status runs most of the width), and
+   attribution — a licence condition — is bottom-right and must never be
+   covered. */
 .rr-basemap-switch {
   position: absolute;
   left: 10px;
-  bottom: 10px;
+  bottom: 38px;
   z-index: 500;               /* over tiles + markers, under Leaflet controls */
   display: flex;
   gap: 2px;

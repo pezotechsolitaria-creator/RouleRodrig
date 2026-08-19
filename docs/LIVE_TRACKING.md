@@ -427,6 +427,35 @@ move to the new live view; admin can watch too.**
 | Pickup | **unchanged** | `PickupCodeCard` + `PickupLocationCard`, untouched |
 | Admin | **new live view** | `/admin/live` → "See what the customer sees" |
 
+**Delivery gets everything taxi does**, through the same component and the same
+road-before-driver path. Verified against the real delivery in production:
+`ensure_trip_tracking('delivery', …)` fills `pickup_lat/lng` from the **store**
+and `dropoff_lat/lng` from the **customer's pin**, producing the identical shape
+the taxi path consumes (`lat/lng` null until a driver transmits), and OSRM
+returns a real 24-vertex road for those two points — Ti Kitchen → Jean tac,
+3.5 km, 5 min.
+
+The one difference is the trigger: a delivery map appears once a **driver is
+assigned** (`assigned` … `arrived`), because that is when
+`delivery_view_for_customer` mints the capability key. Before assignment there
+is no driver to track and no key. Taxi behaves the same way.
+
+### Where the Map / Satellite switch is
+
+**Bottom-left of the map**, and the default is **Map (street)**.
+
+It was previously at `bottom: 10px`, which put it *under* the details sheet —
+the sheet overlaps the map's bottom 20px, and because the map is an `isolate`
+stacking context no z-index inside it can climb over that sheet. The control
+rendered and was unreachable. It is now raised to 38px, clear of the sheet,
+clear of the zoom control (top-left), clear of the status pill (top-centre) and
+clear of the attribution (bottom-right, a licence condition that must never be
+covered).
+
+The "This is your route" banner used to sit at the bottom of the map and covered
+it — the buttons still fired when clicked in code, but a finger landed on the
+text. The banner now sits under the status pill and is `pointer-events-none`.
+
 Delivery keeps everything specific to it — the status sentence and the PIN — and
 drops its own driver row while the map is up, because `LiveTripView` already
 carries the driver, the contact buttons and the timeline. Admin opens the

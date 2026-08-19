@@ -180,8 +180,10 @@ function fromEnv(): Basemap | null {
 export function getBasemaps(): Basemap[] {
   const sat = satelliteFromEnv();
   const satellite: Basemap = sat ? { ...SATELLITE, base: sat } : SATELLITE;
-  const custom = fromEnv();
-  return custom ? [satellite, custom] : [satellite, STREETS];
+  const streets = fromEnv() ?? STREETS;
+  // Street first: it is the default, and a switcher whose default is not the
+  // leading option reads as though something has already been changed.
+  return [streets, satellite];
 }
 
 export function getBasemap(id: BasemapId): Basemap {
@@ -189,10 +191,20 @@ export function getBasemap(id: BasemapId): Basemap {
 }
 
 /**
- * Satellite by default — the owner's call, and the right one here: on an island
- * where most roads are unnamed, imagery is what makes a route recognisable.
+ * STREET by default — the owner's call, and the right one now that the imagery
+ * is 2016 Sentinel-2 at 10 m/pixel.
+ *
+ * The earlier default was satellite, chosen when the layer was Esri's sharp
+ * imagery. That layer had to go for licence reasons, and what replaced it is
+ * legally clean but visibly softer past z14. A street rendering has sharp roads
+ * and labels at every zoom, loads in a fraction of the bytes on a phone on
+ * mobile data, and is the better first impression for the thing this map is
+ * mostly used for: following a road.
+ *
+ * Satellite stays one tap away for the case it genuinely wins — recognising a
+ * beach, a track, or a building that no street map names.
  */
-export const DEFAULT_BASEMAP: BasemapId = "satellite";
+export const DEFAULT_BASEMAP: BasemapId = "streets";
 
 /** Remembered per browser, so a viewer's choice survives a reload. */
 export const BASEMAP_STORAGE_KEY = "rr-basemap";

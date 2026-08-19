@@ -281,20 +281,6 @@ export default function LiveTripView({
           </div>
         )}
 
-        {/* Said OVER the map now, not instead of it. The customer can see where
-            they are going while they wait for somebody to start driving. */}
-        {hasSomethingToDraw && !fix && active && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[500] p-3 pb-6">
-            {/* Names what IS on screen before it names what is missing. "Your
-                driver hasn't shared their location" alone reads as a fault;
-                said after "this is your route", it reads as a next step. */}
-            <p className="pointer-events-auto mx-auto w-fit max-w-[92%] rounded-2xl border border-white/10 bg-dark-card px-3.5 py-2 text-center font-dm text-[11px] leading-relaxed text-muted shadow-lg">
-              <span className="font-bold text-offwhite">This is your route.</span>{" "}
-              Your driver appears here as soon as they start sharing their location.
-            </p>
-          </div>
-        )}
-
         {/* Floating status pill */}
         <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-2 p-3">
           {headerSlot}
@@ -308,6 +294,23 @@ export default function LiveTripView({
             {!stale && <CircleDot size={13} className="animate-pulse" />}
             {statusText}
           </span>
+
+          {/* ── "THIS IS YOUR ROUTE" ───────────────────────────────────
+              Under the status pill, not floating at the bottom of the map.
+              It lived at the bottom and COVERED the Map/Satellite switcher:
+              the buttons still fired when clicked programmatically, but a
+              finger landed on this text instead. Informational copy must never
+              sit on top of a control.
+
+              It names what IS on screen before what is missing — "your driver
+              hasn't shared their location" alone reads as a fault; after "this
+              is your route" it reads as a next step. */}
+          {hasSomethingToDraw && !fix && active && (
+            <span className="pointer-events-none max-w-[92%] rounded-2xl border border-white/10 bg-dark-card px-3.5 py-2 text-center font-dm text-[11px] leading-relaxed text-muted shadow-lg">
+              <span className="font-bold text-offwhite">This is your route.</span>{" "}
+              Your driver appears here as soon as they start sharing their location.
+            </span>
+          )}
 
           {/* Said only when true — a permanent "connection" chip trains people
               to ignore it. */}
