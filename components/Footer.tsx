@@ -5,6 +5,7 @@ import Image from "next/image";
 import { InstagramIcon, FacebookIcon, TikTokIcon, WhatsAppIcon } from "@/lib/icons";
 import type { SocialLinks, BrandingContent } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
+import { LEGAL, isMissing } from "@/lib/legal";
 
 const SOCIAL_CONFIG = [
   { key: "instagram" as const, Icon: InstagramIcon,  label: "Instagram" },
@@ -135,6 +136,7 @@ export default function Footer({
             { label: t.footer.privacy,    href: "/legal/privacy" },
             { label: t.footer.refunds,    href: "/legal/refunds" },
             { label: t.footer.disclaimer, href: "/legal/disclaimer" },
+            { label: t.footer.notice,     href: "/legal/notice" },
           ].map((l) => (
             <Link key={l.href} href={l.href} className="text-muted hover:text-yellow transition-colors text-xs font-dm">
               {l.label}
@@ -143,7 +145,15 @@ export default function Footer({
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-dm text-muted">
-          <p>{t.footer.rights(year)}</p>
+          {/* The company line appears the moment lib/legal.ts is filled in.
+              Until then it renders nothing rather than printing a placeholder
+              at every customer — the Legal Notice is where the outstanding
+              facts are shown honestly. */}
+          <p>
+            {t.footer.rights(year)}
+            {!isMissing(LEGAL.legalName) && <> &middot; {LEGAL.legalName}</>}
+            {!isMissing(LEGAL.brn) && <> &middot; BRN {LEGAL.brn}</>}
+          </p>
           <p>{t.footer.location}</p>
         </div>
       </div>

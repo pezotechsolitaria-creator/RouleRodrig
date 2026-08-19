@@ -203,7 +203,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
     { url: `${SITE_URL}/taxi`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
     { url: `${SITE_URL}/list-your-scooter`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
-    ...["terms", "privacy", "refunds", "disclaimer"].map((slug) => ({
+    ...["notice", "terms", "privacy", "refunds", "disclaimer"].map((slug) => ({
       url: `${SITE_URL}/legal/${slug}`,
       lastModified: now,
       changeFrequency: "yearly" as const,

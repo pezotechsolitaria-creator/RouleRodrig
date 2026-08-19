@@ -174,6 +174,7 @@ const translations = {
       privacy:    "Privacy",
       refunds:    "Refunds",
       disclaimer: "Disclaimer",
+      notice:     "Legal notice",
       listScooter: "List your business",
     },
 
@@ -610,6 +611,7 @@ const translations = {
       privacy:    "Confidentialité",
       refunds:    "Remboursements",
       disclaimer: "Avertissement",
+      notice:     "Mentions légales",
       listScooter: "Référencez votre activité",
     },
     planner: {
@@ -1013,6 +1015,7 @@ const translations = {
       privacy:    "Konfidansialite",
       refunds:    "Ranbourseman",
       disclaimer: "Avertisman",
+      notice:     "Mansion legal",
       listScooter: "Met ou biznes lor sit",
     },
     planner: {
