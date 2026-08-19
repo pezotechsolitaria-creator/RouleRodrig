@@ -6,6 +6,7 @@ import { buildPickupQr } from "@/lib/orders/pickup-qr";
 import {
   Loader2, Send, RefreshCw, Plus, Car, MapPin, Navigation, Users, Clock,
   AlertTriangle, MessageCircle, UserCheck, X, Ban, ChevronRight, Copy, Wallet,
+  PlaneTakeoff,
 } from "lucide-react";
 import {
   ADMIN_STATUS, RIDE_SERVICE_META, RIDE_SERVICES, NEXT_STATUSES,
@@ -33,6 +34,9 @@ type Ride = {
   customer_name: string; customer_phone: string; quoted_price: number | null; currency: string;
   status: RideStatus; driver_id: string | null; offer_rounds: number; created_at: string;
   taxi_drivers?: { name: string; phone: string; whatsapp: string | null } | null;
+  // M120 — an airport or ferry run is planned around the flight, so the desk
+  // has to be able to see it without opening the row.
+  flight_ref?: string | null; meet_greet?: boolean | null;
 };
 type Driver = {
   id: string; name: string; phone: string; whatsapp: string | null; vehicle: string | null;
@@ -243,6 +247,11 @@ export default function RidesDesk() {
                         </p>
                         <p className="mt-0.5 truncate font-dm text-xs text-muted">
                           {r.pickup_label} → {r.dropoff_label ?? "day hire"}
+                          {r.flight_ref && (
+                            <span className="ml-2 rounded-md border border-yellow/30 bg-yellow/10 px-1.5 py-0.5 font-dm text-[11px] text-yellow">
+                              {r.flight_ref}
+                            </span>
+                          )}
                         </p>
                         <p className="mt-1 flex flex-wrap items-center gap-x-3 font-dm text-xs text-muted">
                           <span className="inline-flex items-center gap-1"><Users size={11} /> {r.passengers}</span>
@@ -276,6 +285,16 @@ export default function RidesDesk() {
                   <p className="font-syne text-base font-bold">{ride.customer_name}</p>
                   <a href={`tel:${ride.customer_phone}`} className="font-dm text-sm text-yellow">{ride.customer_phone}</a>
                   <div className="mt-3 space-y-1.5 font-dm text-sm">
+                    {ride.flight_ref && (
+                      <p className="flex items-start gap-2 font-dm text-sm text-yellow">
+                        <PlaneTakeoff size={14} className="mt-0.5 shrink-0" />
+                        <span>
+                          {ride.service === "ferry" ? "Ferry / boat" : "Flight"}{" "}
+                          <strong>{ride.flight_ref}</strong>
+                          {ride.meet_greet && " · wait inside with a sign"}
+                        </span>
+                      </p>
+                    )}
                     <p className="flex items-start gap-2"><MapPin size={14} className="mt-0.5 text-green-400" /> {ride.pickup_label}</p>
                     <p className="flex items-start gap-2">
                       <Navigation size={14} className="mt-0.5 text-yellow" />

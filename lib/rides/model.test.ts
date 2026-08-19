@@ -250,3 +250,40 @@ describe("flight and ferry numbers are required", () => {
     expect(api).toMatch(/RIDE_SERVICE_META\[v\.service\]/);
   });
 });
+
+// ── THE NUMBER REACHES THE PEOPLE WHO ACT ON IT (M120) ──────────────────────
+//
+// M119 collected it and M120 delivers it. The gap it closes: the offer screen
+// showed the flight, but once a driver ACCEPTED, his job card did not — so the
+// one person standing at Plaine Corail could not see which plane.
+describe("the flight number is shown where it is used", () => {
+  const at = (rel: string) => readFileSync(join(__dirname, "..", "..", rel), "utf8");
+
+  it("the RPC puts it on the driver's job and offer", () => {
+    const sql = at("supabase/migrations/20260819160000_m120_driver_job_carries_flight.sql");
+    // Both objects, or the driver only sees it before he commits.
+    expect(sql.match(/'flightRef', r?\.?v?_?r?\.?flight_ref/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(sql).toMatch(/'meetGreet', v_r\.meet_greet/);
+  });
+
+  it("the driver job card renders it", () => {
+    const card = at("app/d/[token]/DriverHome.tsx");
+    expect(card).toMatch(/flightRef\?: string \| null/);
+    expect(card).toMatch(/home\.job\.flightRef/);
+    // And says which kind, because a boat is not a flight.
+    expect(card).toMatch(/FERRY \/ BOAT/);
+  });
+
+  it("the admin desk selects and shows it", () => {
+    expect(at("app/api/admin/rides/route.ts")).toMatch(/flight_ref, meet_greet/);
+    const desk = at("app/admin/rides/RidesDesk.tsx");
+    expect(desk).toMatch(/flight_ref\?: string \| null/);
+    expect(desk).toMatch(/r\.flight_ref/);   // the list row
+    expect(desk).toMatch(/ride\.flight_ref/); // the opened ride
+  });
+
+  it("surfaces the meet-and-greet request to the driver", () => {
+    // Asked for at booking and never passed on is how someone waits outside.
+    expect(at("app/d/[token]/DriverHome.tsx")).toMatch(/Wait inside with a sign/);
+  });
+});

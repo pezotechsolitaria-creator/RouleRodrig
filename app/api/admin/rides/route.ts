@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
   let q = admin.from("ride_requests")
     .select("id, service, when_kind, scheduled_at, pickup_label, dropoff_label, passengers, luggage, " +
             "customer_name, customer_phone, quoted_price, currency, status, driver_id, offer_rounds, " +
-            "created_at, assigned_at, taxi_drivers(name, phone, whatsapp)")
+            "created_at, assigned_at, flight_ref, meet_greet, taxi_drivers(name, phone, whatsapp)")
     .order("created_at", { ascending: false })
     .limit(200);
   if (scope === "open") q = q.in("status", OPEN_RIDE_STATUSES);

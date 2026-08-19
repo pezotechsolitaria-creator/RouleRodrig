@@ -35,6 +35,10 @@ type Job = {
   kind?: "ride"; id?: string; channelKey?: string | null;
   pickupLat?: number | null; pickupLng?: number | null;
   dropoffLat?: number | null; dropoffLng?: number | null;
+  // M120 — what an arrival run needs. Optional for the same reason as above:
+  // a page served from a cache older than the migration must still render.
+  service?: string | null; flightRef?: string | null;
+  meetGreet?: boolean | null; scheduledAt?: string | null;
 };
 type Home = {
   ok: boolean; name?: string; driverId?: string;
@@ -329,6 +333,28 @@ export default function DriverHome({ token }: { token: string }) {
           ladder, live GPS, the map strip and Navigate. */}
       {home.job && (
         <>
+          {/* ── THE FLIGHT, ABOVE EVERYTHING ELSE (M120) ──────────────────────
+              M119 made this required at booking and it still stopped at the
+              database: the driver standing at Plaine Corail could not see WHICH
+              plane. It goes first and it is large, because it is the one fact
+              that decides whether he is waiting in the right place at the right
+              time. */}
+          {home.job.flightRef && (
+            <div className="mb-3 rounded-2xl border border-yellow/35 bg-yellow/[0.07] px-5 py-4">
+              <p className="font-bebas text-[10px] tracking-[0.24em] text-yellow/80">
+                {home.job.service === "ferry" ? "FERRY / BOAT" : "FLIGHT"}
+              </p>
+              <p className="mt-0.5 font-syne text-2xl font-extrabold tracking-wide text-offwhite">
+                {home.job.flightRef}
+              </p>
+              {home.job.meetGreet && (
+                <p className="mt-1.5 font-dm text-sm text-yellow">
+                  Wait inside with a sign — they asked to be met.
+                </p>
+              )}
+            </div>
+          )}
+
           <DriverJobPanel
             token={token}
             working={working}
