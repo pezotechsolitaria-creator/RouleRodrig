@@ -7,7 +7,7 @@ import {
   CheckCircle2, Clock, AlertCircle,
 } from "lucide-react";
 import {
-  CUSTOMER_STATUS, searchingMessage, formatRidePrice,
+  CUSTOMER_STATUS, searchingMessage, formatRidePrice, rideReference,
   RIDE_SERVICE_META, type RideStatus, type RideService,
 } from "@/lib/rides/model";
 import LiveTripView from "@/components/tracking/LiveTripView";
@@ -38,11 +38,18 @@ type Ride = {
   currency?: string;
   passengers?: number;
   rounds?: number;
-  driver?: { name: string; phone: string; vehicle: string | null; photo?: string | null } | null;
+  driver?: {
+    name: string; phone: string; vehicle: string | null; photo?: string | null;
+    // M110 — real standing or nothing. `rating` is NULL until somebody has
+    // actually left a review; ridesCompleted is the honest fallback.
+    rating?: number | null; ratingCount?: number | null; ridesCompleted?: number | null;
+  } | null;
   // M109 — what makes the map possible. channelKey is served ONLY while the ride
   // is live and has a driver, so it disappears the moment tracking should stop.
   tripId?: string | null;
   channelKey?: string | null;
+  /** M110 — shown back to the person who just proved the booking is theirs. */
+  customerName?: string | null;
 };
 
 const STEPS: { key: RideStatus; label: string }[] = [
@@ -57,6 +64,10 @@ const STEPS: { key: RideStatus; label: string }[] = [
 /** Where on the six-step line this ride sits. */
 function stepIndex(status: RideStatus): number {
   switch (status) {
+    // A cancelled ride is not at step one. Returning 0 lit "Requested" as
+    // IN PROGRESS directly under a headline that said "Cancelled" — the two
+    // halves of the screen contradicting each other. -1 lights nothing.
+    case "cancelled": return -1;
     case "new": case "dispatching": case "no_driver": return 0;
     case "assigned": return 1;
     case "driver_on_way": return 2;
@@ -88,8 +99,20 @@ export default function TrackRide({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ref: r, phone: p }),
         });
-        setRide(await res.json());
+        const body = (await res.json()) as Ride;
+        // ── A BACKGROUND POLL MAY NOT DESTROY THE SCREEN ─────────────────
+        // This overwrote `ride` on ANY outcome. One 429 from the rate limiter,
+        // or one dropped request in a lift, replaced a live tracking map with
+        // the "we couldn't find that" lookup form — and because the poll is
+        // keyed on `ride.status`, it then never restarted. The customer was
+        // left retyping their reference while their taxi was on the way.
+        //
+        // A quiet refresh that fails leaves what is on screen alone; the
+        // "last seen" line is already saying how old it is.
+        if (quiet && !body?.ok) return;
+        setRide(body);
       } catch {
+        if (quiet) return;
         setRide({ ok: false, error: "No connection. Please try again." });
       } finally {
         setBusy(false);
@@ -219,11 +242,19 @@ export default function TrackRide({
                       phone: ride.driver.phone,
                       vehicle: ride.driver.vehicle,
                       photo: ride.driver.photo ?? null,
+                      rating: ride.driver.rating ?? null,
+                      ratingCount: ride.driver.ratingCount ?? null,
+                      ridesCompleted: ride.driver.ridesCompleted ?? null,
                     }
                   : null
               }
               pickupLabel={ride.pickup ?? null}
               dropoffLabel={ride.dropoff ?? null}
+              // The same reference the confirmation email and the office use, so
+              // a customer reading it down a phone is read back the same string.
+              reference={ride.tripId ? rideReference(ride.tripId) : null}
+              fare={ride.price != null ? formatRidePrice(ride.price, ride.currency) : null}
+              passengerName={ride.customerName ?? null}
             />
           )}
 

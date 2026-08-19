@@ -1475,14 +1475,17 @@ main > section:not(:first-of-type) {
 /* The tile sheet is the one surface we do not control. A light-mode map inside
    a dark UI is a rectangle of glare, so the tiles are cooled and slightly
    desaturated to sit under the yellow markers instead of fighting them. */
+/* DARK IS THE BASE. This app has no `.dark` class — dark is the ABSENCE of
+   `.light` (app/layout.tsx stamps `light`; ThemeToggle toggles it). A
+   `.dark .rr-tiles` rule therefore matched NOTHING, and the map wore its
+   light-mode treatment inside the dark UI. Not a full invert: inverted OSM
+   tiles turn the lagoon orange. This keeps hue while dropping the sheet's
+   luminance, so the markers stay the brightest things on screen. */
 .rr-tiles {
-  filter: saturate(0.82) contrast(1.04) brightness(0.97);
-}
-.dark .rr-tiles {
-  /* Not a full invert — inverted OSM tiles turn the lagoon orange. This keeps
-     hue while dropping the sheet's luminance so the markers stay the brightest
-     things on screen. */
   filter: saturate(0.62) brightness(0.72) contrast(1.12) hue-rotate(178deg) invert(0.9);
+}
+html.light .rr-tiles {
+  filter: saturate(0.82) contrast(1.04) brightness(0.97);
 }
 
 .rr-divicon {
@@ -1542,14 +1545,38 @@ main > section:not(:first-of-type) {
   position: relative;
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 40px;
 }
+/* The teardrop's tip is its anchor, so its box is bottom-aligned; the square
+   flag sits centred on its spot. */
+.rr-place-to   { align-items: end; }
+.rr-place-from { align-items: center; }
+
+.rr-pin { display: grid; place-items: center; }
+
+/* A place you LEAVE: a small dark tile with a flag. */
+.rr-pin-from {
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  background: #0a0a0a;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.35), 0 0 0 2px rgb(255 255 255 / 0.9);
+}
+/* Where you are GOING: the accent, and the largest static thing on the map. */
+.rr-pin-to {
+  color: var(--color-yellow);
+  filter: drop-shadow(0 3px 6px rgb(0 0 0 / 0.42));
+}
+html.light .rr-pin-to { color: #1F5FBF; }
+
 .rr-place-lbl {
   position: absolute;
-  top: 32px;
+  top: 100%;
   left: 50%;
   transform: translateX(-50%);
+  margin-top: 3px;
   white-space: nowrap;
   font-family: var(--font-dm), system-ui, sans-serif;
   font-size: 10px;
@@ -1560,6 +1587,10 @@ main > section:not(:first-of-type) {
   padding: 2px 7px;
   border-radius: 999px;
   pointer-events: none;
+}
+html.light .rr-place-lbl {
+  color: #ffffff;
+  background: rgb(26 26 26 / 0.82);
 }
 
 /* ── Leaflet's own chrome, brought into the design system ──────────────── */
@@ -1604,4 +1635,115 @@ main > section:not(:first-of-type) {
   .rr-drv-live .rr-drv-halo { animation: none; opacity: 0.22; }
   .rr-drv-body { transition: none; }
   .rr-tiles { transition: none; }
+}
+
+/* ── The floating "12 min" pill on the route ───────────────────────────────
+   Sits ON the line rather than at either end, so it reads as "this is how long
+   the REST of the journey takes". Solid, not translucent: it has to stay legible
+   over any tile — a lagoon, a dark hillside, a town grid. */
+.rr-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  padding: 5px 11px 5px 9px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #0a0a0a;
+  font-family: var(--font-dm), system-ui, sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 0 3px 12px rgb(0 0 0 / 0.32), 0 0 0 1px rgb(0 0 0 / 0.06);
+  /* The marker box is 120px wide so any ETA fits; the pill itself must hug its
+     text and stay centred on the anchor rather than filling that box. */
+  transform: translateX(-50%);
+  margin-left: 50%;
+}
+.rr-bubble svg {
+  color: var(--color-yellow-dark);
+  flex-shrink: 0;
+}
+/* Stale: the number is no longer trustworthy, so the pill stops asserting it. */
+.rr-bubble-muted {
+  background: rgb(255 255 255 / 0.72);
+  color: #55504a;
+}
+.rr-bubble-muted svg { color: #8a8378; }
+
+
+/* ── LIGHT-MODE GAPS THE TRACKING SCREENS EXPOSED ──────────────────────────
+   The layer above covers the design TOKENS. These are raw Tailwind palette
+   colours already in use on customer-facing screens, and none had a light
+   entry — so each kept its dark-theme value on a white card:
+
+     text-orange-300  the "we couldn't find that" error   ~1.70:1 on #FFFFFF
+     text-green-400   the "your driver" heading + icons   ~1.75:1
+     bg-white/12      the step connector                  white on white
+
+   This file already rejects colours at 2.30:1 and 2.93:1 by name, so these are
+   failures by the project's own documented floor, not by taste. */
+html.light .text-orange-300 { color: #B45309; }   /* 5.9:1 on #FFFFFF */
+html.light .text-orange-200 { color: #92400E; }
+html.light .text-green-400  { color: #15803D; }   /* 5.1:1 on #FFFFFF */
+html.light .bg-white\/12     { background-color: #E5E7EB; }
+html.light .border-yellow\/25,
+html.light .border-yellow\/30,
+html.light .border-yellow\/50 { border-color: rgba(31, 95, 191, 0.35); }
+
+/* ── THE FOCUS RING ────────────────────────────────────────────────────────
+   The gold ring measures 12.47:1 on the dark ground and 1.59:1 on the light
+   one — under the 3:1 floor WCAG 2.4.11 sets for a focus indicator, so a
+   keyboard user in light mode could not see where they were. The accent is
+   already blue in light mode; the ring only has to follow it. */
+html.light *:focus-visible {
+  outline-color: #1F5FBF;
+}
+
+/* ── SATELLITE / MAP SWITCH ────────────────────────────────────────────────
+   Bottom-left, clear of Leaflet's zoom control (top-left) and of the floating
+   status pill (top-centre). Both options always visible: a toggle that hides
+   the alternative behind an icon makes people hunt for it. */
+.rr-basemap-switch {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 500;               /* over tiles + markers, under Leaflet controls */
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: rgb(10 10 10 / 0.72);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.35);
+}
+.rr-basemap-switch button {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  padding: 5px 11px;
+  border-radius: 8px;
+  background: transparent;
+  color: #f5f5f0;
+  font-family: var(--font-dm), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.rr-basemap-switch button:hover { background: rgb(255 255 255 / 0.12); }
+.rr-basemap-switch button.is-on {
+  background: var(--color-yellow);
+  color: #0a0a0a;
+}
+html.light .rr-basemap-switch button.is-on {
+  background: #1F5FBF;
+  color: #ffffff;
+}
+
+/* Imagery is never tinted — the whole point of it is seeing the ground. The
+   label overlay is left alone too, or the road names go muddy. */
+.rr-tiles-plain,
+.rr-tiles-labels {
+  filter: none;
 }

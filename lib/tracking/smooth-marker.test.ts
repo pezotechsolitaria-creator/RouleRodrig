@@ -30,8 +30,32 @@ function harness() {
     getElement: () => null,
   } as unknown as Marker;
 
+  // A fake viewport, so soft-follow can be exercised. `view` is the visible
+  // box; `pad(-0.25)` shrinks it the way Leaflet's does, and `contains` answers
+  // whether the marker is still comfortably inside.
+  let view = { n: -19.66, s: -19.72, w: 63.39, e: 63.45 };
+  const boundsFor = (v: typeof view, padRatio = 0) => {
+    const dLat = (v.n - v.s) * padRatio;
+    const dLng = (v.e - v.w) * padRatio;
+    const b = { n: v.n + dLat, s: v.s - dLat, w: v.w - dLng, e: v.e + dLng };
+    return {
+      pad: (r: number) => boundsFor(v, padRatio + r),
+      contains: (ll: [number, number]) =>
+        ll[0] <= b.n && ll[0] >= b.s && ll[1] >= b.w && ll[1] <= b.e,
+    };
+  };
   const map = {
-    panTo: (ll: [number, number]) => { panned.push({ lat: ll[0], lng: ll[1] }); },
+    getBounds: () => boundsFor(view),
+    panTo: (ll: [number, number]) => {
+      panned.push({ lat: ll[0], lng: ll[1] });
+      // Recentre the fake viewport, as a real pan would.
+      const h = (view.n - view.s) / 2, w = (view.e - view.w) / 2;
+      view = { n: ll[0] + h, s: ll[0] - h, w: ll[1] - w, e: ll[1] + w };
+    },
+    setView: (ll: [number, number]) => {
+      const h = (view.n - view.s) / 2, w = (view.e - view.w) / 2;
+      view = { n: ll[0] + h, s: ll[0] - h, w: ll[1] - w, e: ll[1] + w };
+    },
   } as unknown as LeafletMap;
 
   return { map, marker, path, panned, current: () => pos };
@@ -209,19 +233,36 @@ describe("createSmoothMarker — facing", () => {
   });
 });
 
-describe("createSmoothMarker — following", () => {
-  it("pans the map only while follow is on", () => {
+describe("createSmoothMarker — soft follow", () => {
+  it("does NOT pan while the driver is comfortably inside the view", () => {
+    // The bug this encodes: hard-following panned on every frame, which undid
+    // the map's framing and pushed the destination off the bottom of the
+    // screen. Movement well inside the viewport must leave the view alone.
     const h = harness();
     const sm = createSmoothMarker(h.map, h.marker, { durationMs: 500, follow: true });
-    sm.moveTo(-19.6822, 63.4186);
-    runFrames(10);
-    expect(h.panned.length).toBeGreaterThan(0);
+    sm.moveTo(-19.6845, 63.4190);   // a few hundred metres, still central
+    runFrames(80);
+    expect(h.panned.length).toBe(0);
+    sm.destroy();
+  });
 
-    const n = h.panned.length;
-    sm.setFollow(false);            // the user panned — never fight a thumb
-    sm.moveTo(-19.6810, 63.4186);
-    runFrames(40);
-    expect(h.panned.length).toBe(n);
+  it("pans once the driver leaves the comfortable inner rectangle", () => {
+    const h = harness();
+    const sm = createSmoothMarker(h.map, h.marker, { durationMs: 500, follow: true });
+    // Toward the south edge of the fake viewport (s = -19.72).
+    sm.moveTo(-19.7150, 63.4186);
+    runFrames(80);
+    expect(h.panned.length).toBeGreaterThan(0);
+    sm.destroy();
+  });
+
+  it("never pans while follow is off — a pan is the user's decision", () => {
+    const h = harness();
+    const sm = createSmoothMarker(h.map, h.marker, { durationMs: 500, follow: true });
+    sm.setFollow(false);
+    sm.moveTo(-19.7150, 63.4186);
+    runFrames(80);
+    expect(h.panned.length).toBe(0);
     sm.destroy();
   });
 });

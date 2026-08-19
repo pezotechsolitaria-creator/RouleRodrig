@@ -34,6 +34,8 @@ export type TripSnapshot = {
   pickupLabel: string | null; dropoffLabel: string | null;
   staleAfterSeconds: number;
   eta?: { minutes: number; km: number; source: "route" | "approx" } | null;
+  /** The driven road, [lat,lng] pairs. Null when no router answered. */
+  route?: [number, number][] | null;
 };
 
 export type TripTrackingState = {
@@ -77,6 +79,8 @@ export function useTripTracking(args: {
   // render reads has to be one React knows changed.
   const [lastBroadcastAt, setLastBroadcastAt] = useState(0);
   const [now, setNow] = useState(() => Date.now());
+  /** Our OWN clock reading at the moment the last snapshot landed. */
+  const [snapshotFetchedAt, setSnapshotFetchedAt] = useState(0);
 
   const fixRef = useRef<Fix | null>(null);
   // The same instant, readable inside callbacks without making them depend on
@@ -97,6 +101,7 @@ export function useTripTracking(args: {
       const body = (await res.json()) as TripSnapshot;
       if (!body?.ok) { setLoading(false); return; }
       setSnapshot(body);
+      setSnapshotFetchedAt(Date.now());
 
       if (body.lat != null && body.lng != null) {
         const snapFix: Fix = {
@@ -168,16 +173,22 @@ export function useTripTracking(args: {
   // Age is measured from the DATABASE's clock via ageSeconds, then advanced
   // locally by any broadcast frames since. Deriving it from a device timestamp
   // would make a driver with a wrong phone clock look permanently offline.
+  // ── NEVER COMPARE TWO CLOCKS ────────────────────────────────────────────
+  // The obvious version — Date.now() minus the server's `recordedAt` — silently
+  // measures the gap between the watcher's phone and the database as if it were
+  // the age of the position. A phone twenty minutes fast reports a permanent
+  // "we've lost their signal" over a driver who is broadcasting perfectly.
+  //
+  // Both terms below are skew-free. `ageSeconds` is computed entirely on the
+  // server, and the elapsed time since we received it is the difference between
+  // two readings of the SAME local clock. `recordedAt` is deliberately unused.
   const ageSeconds = (() => {
     if (lastBroadcastAt && now - lastBroadcastAt < 60_000) {
       return Math.round((now - lastBroadcastAt) / 1000);
     }
     if (snapshot?.ageSeconds == null) return null;
-    // The snapshot's age was true when it was fetched; add the time since.
-    const fetchedAgo = snapshot.recordedAt
-      ? Math.max(0, Math.round((now - Date.parse(snapshot.recordedAt)) / 1000))
-      : snapshot.ageSeconds;
-    return Math.max(snapshot.ageSeconds, fetchedAgo);
+    const sinceFetch = snapshotFetchedAt ? Math.max(0, (now - snapshotFetchedAt) / 1000) : 0;
+    return Math.round(snapshot.ageSeconds + sinceFetch);
   })();
 
   return {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
 import { guard } from "@/lib/rate-limit";
 import { routeBetween } from "@/lib/tracking/routing";
@@ -30,6 +31,9 @@ type Body = {
   phone?: string;
   token?: string;
   tripId?: string;
+  /** Delivery customer: the order, plus the address it was placed under. */
+  orderId?: string;
+  email?: string;
 };
 
 type Snapshot = {
@@ -79,6 +83,29 @@ export async function POST(req: NextRequest) {
     tripId = ctx.trip.id;
   }
 
+  // ── Delivery customer, by order + the email it was placed under ─────────
+  // The SAME door /api/orders/delivery uses. delivery_view_for_customer is the
+  // authority: a signed-in owner, or a guest proving the order with its own
+  // email. It returns null for both "no delivery" and "not yours", which is
+  // what makes those two indistinguishable from out here.
+  else if (body.orderId) {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("delivery_view_for_customer", {
+      p_order_id: body.orderId,
+      p_email: body.email ?? null,
+    });
+    if (error) {
+      console.error("delivery_view_for_customer failed", error);
+      return NextResponse.json({ ok: false, error: "Something went wrong." }, { status: 500 });
+    }
+    const view = data as { tripId?: string; channelKey?: string | null } | null;
+    if (!view?.tripId) {
+      return NextResponse.json({ ok: false, error: "We couldn't find that." });
+    }
+    tripKind = "delivery";
+    tripId = view.tripId;
+  }
+
   // ── Customer, by reference + phone ───────────────────────────────────────
   else if (body.ref && body.phone) {
     const { data, error } = await admin.rpc("lookup_ride", {
@@ -124,6 +151,11 @@ export async function POST(req: NextRequest) {
   // because the dials it uses live in dispatch_settings. `source` travels with
   // the number so the UI can label an approximation as one.
   let eta: { minutes: number; km: number; source: "route" | "approx" } | null = null;
+  // The DRIVEN LINE. A straight line between driver and destination is not a
+  // route, and on Rodrigues it is misleading by roughly a factor of two — the
+  // island is a ridge with a coast road, so Port Mathurin to the airport is
+  // 10.2 km as the crow flies and 18.9 km to drive.
+  let route: [number, number][] | null = null;
   const target = activeTarget(
     snap.status,
     { lat: snap.pickupLat, lng: snap.pickupLng },
@@ -137,10 +169,11 @@ export async function POST(req: NextRequest) {
     if (fresh) {
       const r = await routeBetween(snap.lat, snap.lng, target.lat, target.lng, roadFactor, avgSpeedKmh);
       eta = r.eta;
+      route = r.polyline;
     }
   }
 
-  return NextResponse.json({ ...snap, eta });
+  return NextResponse.json({ ...snap, eta, route });
 }
 
 /**

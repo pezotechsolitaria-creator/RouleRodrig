@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  createTripPublisher, PERSIST_MS, PUBLISH_MS,
+  createTripPublisher, PERSIST_MS,
 } from "./channel";
 import {
-  isOnRodrigues, POOR_ACCURACY_M, shouldAcceptFix, type Fix, type TrackingStatus,
+  filterFix, isOnRodrigues, publishIntervalMs,
+  type Fix, type TrackingStatus,
 } from "./model";
 
 // ── THE DRIVER'S HALF OF TRACKING ───────────────────────────────────────────
@@ -189,27 +190,41 @@ export function useDriverTracking({
           setGps("off_island");
           return;
         }
-        if (!shouldAcceptFix(fixRef.current, fix)) return;
-        if (fix.accuracyM != null && fix.accuracyM > POOR_ACCURACY_M) {
-          // Still recorded — an imprecise position beats none for dispatch — but
-          // named, so the driver knows why the dot is wandering.
-          setGps("poor");
-        } else {
-          setGps("live");
+        // ── THE QUALITY PIPELINE ──────────────────────────────────────
+        // Nothing is broadcast, drawn or written until it has survived this.
+        // The rules and their reasoning live in lib/tracking/model.ts and are
+        // unit-tested there; this is only where the answer is acted on.
+        const decision = filterFix(fixRef.current, fix);
+
+        if (!decision.accept) {
+          // A REFUSAL IS INFORMATION. Going quiet is what makes a driver think
+          // the app is broken when their signal is simply poor.
+          if (decision.reason === "imprecise") setGps("poor");
+          // Drift and out-of-order frames are normal and constant; they are not
+          // worth telling anybody about, and saying "weak signal" every time a
+          // parked car twitches would train drivers to ignore the message.
+          return;
         }
 
-        fixRef.current = fix;
-        setLastFix(fix);
+        const good = decision.fix;
+        setGps("live");
+        fixRef.current = good;
+        setLastFix(good);
 
         const now = Date.now();
         const c = ctx.current;
-        if (c.channelKey && now - lastPublish.current >= PUBLISH_MS) {
+        // Cadence follows SPEED, not a constant: 3 s on the open road where the
+        // customer is watching the dot travel, 15 s when stopped. A rank full
+        // of idling taxis is exactly how a 2,000,000-message monthly allowance
+        // gets spent on nothing happening.
+        const interval = publishIntervalMs(good.speedKmh);
+        if (c.channelKey && now - lastPublish.current >= interval) {
           lastPublish.current = now;
-          publisher.current?.publish(fix);
+          publisher.current?.publish(good);
         }
         if (now - lastPersist.current >= PERSIST_MS) {
           lastPersist.current = now;
-          void persist(fix);
+          void persist(good);
         }
       },
       (err) => {

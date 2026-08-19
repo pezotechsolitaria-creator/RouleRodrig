@@ -128,7 +128,7 @@ Applied to production as `m109a` … `m109d`.
 | `tracking_snapshot()` | the authoritative answer for a watcher |
 | `admin_live_map()` | the whole fleet in one query |
 | `sweep_trip_tracking()` | ends orphaned watches, erases old positions |
-| `lookup_ride()` (extended) | additively returns `tripId` + `channelKey` |
+| `lookup_ride()` (extended) | additively returns `tripId`, `channelKey`, the driver's real rating/review count/rides completed, and the customer's own name (M109c + M110) |
 | `taxi_driver_home()` (extended) | additively returns the job's id, key and coordinates |
 | `ride_candidates()` (changed) | **prefers a fresh live fix over the static base** |
 | `dispatch_candidates()` (changed) | one line: the `driver_locations` join now names `driver_kind` |
@@ -151,6 +151,7 @@ components/tracking/DriverGpsStatus.tsx  why the dot is or is not there
 components/tracking/DriverJobPanel.tsx   taxi Driver Mode
 components/tracking/DeliveryTracking.tsx delivery Driver Mode
 components/tracking/LiveTripView.tsx     the customer's screen
+components/tracking/JourneyTrack.tsx     the horizontal journey, vehicle on it
 components/admin/LiveOperationsMap.tsx   the admin board
 
 app/api/tracking/ping/route.ts     POST a position · DELETE go off duty
@@ -164,6 +165,156 @@ app/admin/live/page.tsx            /admin/live
 `app/taxi/track/TrackRide.tsx` · `app/api/driver-home/route.ts` ·
 `components/admin/AdminShell.tsx` · `components/admin/CommandPalette.tsx` ·
 `app/globals.css` · `public/sw.js` (v291) · `app/api/health/route.ts`
+
+### The customer screen's composition (M110)
+
+`/taxi/track` was a stack of text cards. It is now the composition of a tracking
+screen people already recognise, so nobody has to learn this one:
+
+```
+┌──────────────────────────────────────┐
+│              [ status pill ]         │
+│   ▪ pickup            MAP (hero)     │   ▪ dark tile + flag  = a place you leave
+│      ╲ ┈┈┈ (🚗 12 min) ┈┈┈ ▼         │   ▼ teardrop          = where you are going
+│         ● driver, pulsing            │   ● yellow, pulsing   = live
+├──────────────────────────────────────┤ ← sheet, lifted 20px over the map
+│ (photo)  142 rides with Roulé Rod.   │
+│          Jean-Marc Ravina    (📞)(💬) │
+│ ● On the way · arriving in 12 min    │
+│                          4.2 km left │
+│ ────────────────────────────────────  │
+│ BOOKING                  [ On trip ] │
+│ RR-4F2A91                            │
+│         ●──●───(🚗)───○   12 min away │
+│ FROM              TO                 │
+│ Port Mathurin     Plaine Corail      │
+│ FARE              PASSENGER          │
+│ Rs 1,200          Lucas              │
+└──────────────────────────────────────┘
+```
+
+**The driver's standing is never invented.** `taxi_driver_reviews` exists and holds
+**zero rows**, so `lookup_ride` returns `rating: null` (not `0` — the screen must
+tell "no reviews yet" from "rated zero"). With no reviews the screen shows the
+number the platform has actually counted since day one: rides completed.
+
+**The sheet is opaque, and that is a correctness decision.** `app/globals.css`
+implements light mode by *re-declaring a specific list of utilities* under
+`html.light`; anything not on that list stays dark. The previous floating card
+used `bg-dark/92` and `border-white/12`, neither of which is covered — a black
+card on a white page. Every class in the redesign is on the covered list, so the
+accent turns blue (`#1F5FBF`) and the sheet turns white by itself. Verified by
+toggling `html.light` and reading computed styles: sheet `#111111`→`#FFFFFF`,
+call button gold→`#1F5FBF`, reference text `#F2E9E0`→`#1A1A1A`.
+
+### A real bug the redesign's harness exposed
+
+`TrackingMap` loads Leaflet with a dynamic import (it touches `window` at module
+scope). That import resolves **after** React has run every dependent effect once
+— at which point `L.current` and `map.current` are still null and each effect
+returns having drawn nothing, with nothing to re-trigger it. In the live case the
+driver's position changes every few seconds and re-runs *that* effect, which hid
+the bug; but `pins` comes from a snapshot whose identity may never change again,
+so **the pickup and drop-off markers could be missing for an entire trip.** Fixed
+with a `ready` state flag (a ref would not schedule a render).
+
+Underneath it was a second one. Leaflet decides zoom from the container size it
+believes it has, formed at construction — routinely against a box that is not
+final. The same two points, framed three times, gave zoom **13, then 14, then
+15**, leaving the destination off the bottom of the map. Neither of Leaflet's own
+answers was reliable here: `fitBounds` reported the right size and then declined
+to move, and `getBoundsZoom` returned 14 for a span needing 12. The fix is not
+better arithmetic — it is re-framing when the size the framing was computed
+against stops matching the size we have. `shouldRefit()` / `isFramableSize()` in
+`lib/tracking/model.ts` hold that rule and are unit-tested; a `ResizeObserver`
+applies it (**not** `requestAnimationFrame`, which does not fire in a hidden tab —
+a page opened into a background tab would never finish setting up its map).
+
+### Satellite basemap and real road routing (M111/M112)
+
+Both were owner requirements, and both were **measured against Rodrigues before
+being relied on** — neither was a given.
+
+**Routing.** A straight line is not a route, and here it is wrong by about a
+factor of two: Port Mathurin → Plaine Corail Airport is 10.2 km as the crow
+flies and **18.9 km to drive**. Measured 2026-08-19:
+
+| provider | result |
+|---|---|
+| `routing.openstreetmap.de/routed-car` (FOSSGIS) | 18.9 km · 41 min · 881-point line |
+| `router.project-osrm.org` (demo) | 18.9 km · 41 min |
+| `valhalla1.openstreetmap.de` | 16.6 km · 44 min |
+
+OSM road coverage on Rodrigues is good enough to route on. **FOSSGIS is now the
+default** — it is the OSRM instance openstreetmap.org's own directions use,
+community-funded rather than a demo, and needs no key. The map draws the real
+road with a dark casing under a solid gold core, the way navigation apps do.
+
+`overview=simplified`, not `full`: **64 points / 255 chars instead of 881 /
+2175**, for the identical distance and duration. Routes are cached server-side
+for 30 s against a ~110 m-quantised origin, so a moving driver does not hammer a
+community service.
+
+That measurement also exposed a standing error: `dispatch_settings.road_factor`
+was **1.35** against a real **1.85**. Every approximate ETA had been ~35%
+optimistic since the dispatch engine was built. **M111 sets it to 1.80.**
+
+**Satellite.** Esri World Imagery + a transparent transportation-labels overlay
+— a true hybrid, as Google's is. Imagery alone is beautiful and unreadable; you
+cannot tell which grey line is the road you want. Verified over the island
+centre: Esri returns real tiles at z13/15/17 (14.5 / 16.3 / 10.5 KB). Sentinel-2
+cloudless also works but is 10 m/pixel, so past ~z14 it is upsampled mush — it is
+kept in `tiles.ts` as the licence-clean fallback, not as a choice offered to
+customers.
+
+Satellite is the **default**, with a Satellite/Map switch on the map, remembered
+per browser. Switching swaps two tile layers and touches nothing else — the map,
+route and markers all survive.
+
+> **Licence, stated plainly:** Esri's World Imagery service is publicly reachable
+> without a key and is the standard free satellite layer in the Leaflet
+> ecosystem, used with the attribution shown. It is **not** open-licensed the way
+> OpenStreetMap is — Esri's terms govern it, and a commercial deployment at scale
+> is an owner decision, not a code decision. It is swappable by env var, and
+> `EOX_SENTINEL` in `lib/tracking/tiles.ts` is the CC-BY alternative.
+
+### Which surface gets which tracking
+
+The owner's instruction: **pickup keeps what it has; delivery, taxi and transfer
+move to the new live view; admin can watch too.**
+
+| surface | tracking | how |
+|---|---|---|
+| Taxi · transfer | **new live view** | `/taxi/track` → `LiveTripView` (M109c/M110) |
+| Delivery | **new live view** | `DeliveryStatusCard` → `LiveTripView` (M112) |
+| Pickup | **unchanged** | `PickupCodeCard` + `PickupLocationCard`, untouched |
+| Admin | **new live view** | `/admin/live` → "See what the customer sees" |
+
+Delivery keeps everything specific to it — the status sentence and the PIN — and
+drops its own driver row while the map is up, because `LiveTripView` already
+carries the driver, the contact buttons and the timeline. Admin opens the
+**exact same component**, so what an operator sees cannot drift from what the
+customer is looking at when they phone in.
+
+### The GPS quality pipeline
+
+Every fix passes `filterFix()` before it is broadcast, drawn or written. Three
+kinds of rubbish, three different answers:
+
+| problem | rule | answer |
+|---|---|---|
+| **Imprecise** — a wifi/cell fallback | accuracy > **50 m** | refuse, and tell the driver "weak signal" |
+| **Impossible** — the "you are now in the Indian Ocean" sample | implied speed > **160 km/h** over >30 m | refuse silently |
+| **Drift** — a parked phone wandering | movement < **6 m** while speed < **2 km/h** | refuse silently |
+
+Accepted fixes are smoothed with a light **EMA (α = 0.35 on the previous
+point)** — not a Kalman filter, which needs a tuned motion model and mis-tuned
+lags worse than doing nothing. The marker animator already smooths the *visible*
+motion, so this only damps the samples.
+
+Broadcast cadence follows speed, not a constant: **3 s** on the open road, **5 s**
+in town, **15 s** stopped. A rank of idling taxis is exactly how a 2,000,000
+message monthly allowance gets spent on nothing happening.
 
 ### New dependencies
 **None.** Leaflet 1.9.4 and `@types/leaflet` were already in `package.json`.

@@ -4,11 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   Loader2, RefreshCw, Car, Truck, Phone, MessageCircle, MapPin, Navigation,
-  Signal, SignalLow, SignalZero, AlertTriangle, X,
+  Signal, SignalLow, SignalZero, AlertTriangle, X, Eye,
 } from "lucide-react";
 import { freshness, lastSeenLabel, type Freshness } from "@/lib/tracking/model";
 import { subscribeToTrip } from "@/lib/tracking/channel";
 import type { MapPin as Pin } from "@/components/tracking/TrackingMap";
+import LiveTripView from "@/components/tracking/LiveTripView";
 
 const TrackingMap = dynamic(() => import("@/components/tracking/TrackingMap"), {
   ssr: false,
@@ -98,6 +99,8 @@ export default function LiveOperationsMap() {
   const [streamed, setStreamed] = useState<
     { key: string; lat: number; lng: number; heading: number | null } | null
   >(null);
+  /** The driver whose customer-facing tracking screen the operator is watching. */
+  const [watching, setWatching] = useState<Driver | null>(null);
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
@@ -280,6 +283,7 @@ export default function LiveOperationsMap() {
               stale={stale}
               live={livePos}
               onClose={() => setSelectedId(null)}
+              onWatch={setWatching}
             />
           ) : (
             <>
@@ -319,6 +323,50 @@ export default function LiveOperationsMap() {
         </div>
       </div>
 
+      {/* ── THE CUSTOMER'S OWN SCREEN ────────────────────────────────────
+          Admin authorises with the ADMIN_PASSWORD cookie, which
+          /api/tracking/trip already accepts alongside a trip id — so this needs
+          no new endpoint and no new credential. */}
+      {watching?.job && (
+        <div className="rounded-2xl border border-white/10 bg-dark-card p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">
+                WHAT {watching.name.toUpperCase()}&apos;S CUSTOMER SEES
+              </p>
+              <p className="font-dm text-[11px] text-muted">
+                {watching.job.ref} · the same screen, live
+              </p>
+            </div>
+            <button
+              onClick={() => setWatching(null)}
+              aria-label="Close the customer view"
+              className="shrink-0 rounded-lg p-1.5 text-muted hover:bg-white/10 hover:text-offwhite"
+            >
+              <X size={15} />
+            </button>
+          </div>
+          <LiveTripView
+            lookup={{ kind: watching.job.kind, tripId: watching.job.id }}
+            channelKey={watching.job.channelKey}
+            active
+            driver={{
+              name: watching.name,
+              phone: watching.phone,
+              vehicle: watching.vehicle,
+              photo: null,
+              rating: null,
+              ratingCount: 0,
+              ridesCompleted: null,
+            }}
+            pickupLabel={watching.job.pickup}
+            dropoffLabel={watching.job.dropoff}
+            reference={watching.job.ref}
+            passengerName={watching.job.customerName}
+          />
+        </div>
+      )}
+
       {/* Drivers a map cannot show. Silently omitting them is how an operator
           concludes somebody is not working when they simply have no GPS. */}
       {withoutPosition.length > 0 && (
@@ -339,12 +387,13 @@ export default function LiveOperationsMap() {
 }
 
 function DriverDetail({
-  d, stale, live, onClose,
+  d, stale, live, onClose, onWatch,
 }: {
   d: Driver;
   stale: number;
   live: { lat: number; lng: number; heading: number | null } | null;
   onClose: () => void;
+  onWatch: (d: Driver) => void;
 }) {
   const f = d.positionSource === "live" ? freshness(d.ageSeconds, stale) : "unknown";
   return (
@@ -416,6 +465,22 @@ function DriverDetail({
               <Phone size={11} /> Call the customer
             </a>
           )}
+
+          {/* ── SEE WHAT THE CUSTOMER SEES ──────────────────────────────
+              The owner asked to be able to watch the tracking too. This opens
+              the EXACT screen the customer has — same map, same route, same
+              ETA, same stale wording — rather than an admin-flavoured
+              approximation of it. When a customer phones to say "it says he's
+              five minutes away and he isn't", the answer is on the same pixels
+              they are looking at.
+
+              It is the same component, so nothing here can drift from it. */}
+          <button
+            onClick={() => onWatch(d)}
+            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/15 py-2.5 font-dm text-[11px] font-bold text-offwhite hover:border-yellow/50 hover:text-yellow"
+          >
+            <Eye size={12} /> See what the customer sees
+          </button>
         </div>
       ) : (
         <p className="mt-3 rounded-xl border border-white/10 bg-dark px-3 py-2.5 font-dm text-xs text-muted">

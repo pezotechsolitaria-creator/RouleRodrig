@@ -251,3 +251,173 @@ export function activeTarget(
   const t = status === "on_trip" ? dropoff : pickup;
   return t.lat != null && t.lng != null ? { lat: t.lat, lng: t.lng } : null;
 }
+
+// ── SHOULD THE MAP RE-FRAME? ────────────────────────────────────────────────
+//
+// Extracted from TrackingMap so the rule can be tested without a browser, a
+// map, or a container that resizes. It encodes a bug that cost real debugging:
+//
+// Leaflet decides zoom from the container size it believes it has, and that
+// belief is formed when the map is constructed — inside a dynamic import that
+// lands mid-layout, so routinely against a box that is not final. Measured: the
+// same two points framed three times gave zoom 13, then 14, then 15, and the
+// destination sat off the bottom of the map.
+//
+// The fix is not better arithmetic. It is noticing that the size the framing was
+// computed against is no longer the size we have, and framing again.
+
+export type FitState = {
+  /** Have we framed at all yet? */
+  hasFitted: boolean;
+  /** The container size that framing was computed against, e.g. "446x318". */
+  fittedAt: string;
+  /** Has the user dragged the map? Their choice outranks ours, always. */
+  userPanned: boolean;
+};
+
+export function shouldRefit(state: FitState, currentSize: string): boolean {
+  // A pan is a decision. Never re-frame over it — a map that yanks itself back
+  // while somebody is looking at something is worse than one framed badly.
+  if (state.userPanned) return false;
+  if (!state.hasFitted) return true;
+  // An empty reading tells us nothing; do not act on it.
+  if (!currentSize) return false;
+  return currentSize !== state.fittedAt;
+}
+
+/** Is this container big enough to frame anything against? */
+export function isFramableSize(width: number, height: number): boolean {
+  return Number.isFinite(width) && Number.isFinite(height) && width >= 40 && height >= 40;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// THE GPS QUALITY PIPELINE
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Everything a phone reports passes through here before it is broadcast, drawn
+// or written. A consumer GPS on a moving vehicle produces three distinct kinds
+// of rubbish, and they need three different answers:
+//
+//   1. IMPRECISE   a cell-tower or wifi fix, accurate to hundreds of metres.
+//                  Answer: refuse it for tracking. A 400 m circle drawn as a
+//                  confident dot puts the driver on the wrong road.
+//   2. IMPOSSIBLE  a single wild sample — the classic "you are now in the
+//                  Indian Ocean". Answer: refuse it. Interpolating toward it
+//                  makes it worse, because the animation draws the whole
+//                  fictional journey.
+//   3. DRIFT       a stationary phone wandering 2-8 m as satellites come and
+//                  go. Answer: hold still. Drift is the most VISIBLE failure
+//                  of the three: a parked car that keeps twitching reads as a
+//                  broken app, and it burns broadcast messages and battery for
+//                  movement that is not happening.
+//
+// Kept pure so each rule is testable without a device, a socket or a map.
+
+/**
+ * Accuracy beyond which a fix is not good enough to TRACK with.
+ *
+ * 50 m is the working figure for vehicle tracking: a real GNSS fix outdoors is
+ * 3-15 m, a degraded one under trees or between buildings is 20-40 m, and
+ * anything past 50 m is almost always a wifi/cell fallback rather than
+ * satellites. Below this the dot is on the right road; above it, it is not.
+ */
+export const TRACKING_ACCURACY_M = 50;
+
+/**
+ * Movement under this, with no speed, is drift rather than travel.
+ *
+ * 6 m sits just above the noise floor of a good stationary fix and below the
+ * length of a car, so a vehicle that has genuinely pulled forward still
+ * registers.
+ */
+export const DRIFT_RADIUS_M = 6;
+
+/** Below this the device is, for our purposes, not moving. */
+export const STATIONARY_KMH = 2;
+
+/**
+ * How much of the PREVIOUS position to keep when smoothing (the EMA weight).
+ *
+ * An exponential moving average, not a Kalman filter. A real Kalman needs a
+ * motion model and tuned process/measurement covariances to beat this, and
+ * mis-tuned it lags worse than doing nothing — which on a tracking map means a
+ * driver who visibly turns the corner late. An EMA has ONE parameter, cannot
+ * diverge, and removes exactly the jitter this is here to remove.
+ *
+ * 0.35 is deliberately light: the marker animator is already smoothing the
+ * VISIBLE motion between fixes, so this only has to take the edge off the
+ * samples themselves. Heavier smoothing here would fight it and add lag.
+ */
+export const SMOOTHING_ALPHA = 0.35;
+
+export type FilterDecision =
+  | { accept: true; fix: Fix; reason: "first" | "moving" | "smoothed" }
+  | { accept: false; reason: "imprecise" | "impossible" | "drift" | "invalid" | "stale" };
+
+/**
+ * The whole pipeline, as one decision.
+ *
+ * Returns the fix to USE — which may be a smoothed blend of the reading and
+ * what came before — or a refusal with the reason, so the UI can tell a driver
+ * "weak signal" instead of going quiet.
+ */
+export function filterFix(prev: Fix | null, next: Fix): FilterDecision {
+  if (!Number.isFinite(next.lat) || !Number.isFinite(next.lng)) {
+    return { accept: false, reason: "invalid" };
+  }
+  if (Math.abs(next.lat) > 90 || Math.abs(next.lng) > 180) {
+    return { accept: false, reason: "invalid" };
+  }
+  // Too imprecise to place on a road.
+  if (next.accuracyM != null && next.accuracyM > TRACKING_ACCURACY_M) {
+    return { accept: false, reason: "imprecise" };
+  }
+  if (!prev) return { accept: true, fix: next, reason: "first" };
+
+  // Out-of-order callbacks happen. Accepting a late one walks the marker back.
+  if (next.at <= prev.at) return { accept: false, reason: "stale" };
+
+  const metres = haversineKm(prev.lat, prev.lng, next.lat, next.lng) * 1000;
+
+  // Drift: the device says it is not moving, and it has barely moved.
+  const speed = next.speedKmh ?? 0;
+  if (speed < STATIONARY_KMH && metres < DRIFT_RADIUS_M) {
+    return { accept: false, reason: "drift" };
+  }
+
+  // Impossible: no vehicle on this island does 160 km/h.
+  const hours = (next.at - prev.at) / 3_600_000;
+  if (hours > 0 && metres > 30) {
+    const impliedKmh = metres / 1000 / hours;
+    if (impliedKmh > 160) return { accept: false, reason: "impossible" };
+  }
+
+  // Real movement, lightly smoothed toward the reading.
+  const a = SMOOTHING_ALPHA;
+  return {
+    accept: true,
+    reason: metres >= DRIFT_RADIUS_M ? "moving" : "smoothed",
+    fix: {
+      ...next,
+      // EMA: a is the weight kept from the PREVIOUS position, so 0.35 means the
+      // new reading dominates and only the jitter is damped.
+      lat: prev.lat * a + next.lat * (1 - a),
+      lng: prev.lng * a + next.lng * (1 - a),
+    },
+  };
+}
+
+/**
+ * How often to broadcast, given how fast the driver is going.
+ *
+ * A parked car does not need four messages a minute — and Supabase's free tier
+ * is 2,000,000 realtime messages a month, so a fleet idling at a taxi rank all
+ * day is exactly how that gets spent on nothing. Moving gets the fast cadence
+ * because that is when the customer is watching the dot travel.
+ */
+export function publishIntervalMs(speedKmh: number | null | undefined): number {
+  const s = speedKmh ?? 0;
+  if (s >= 25) return 3000;   // open road
+  if (s >= STATIONARY_KMH) return 5000;   // town, or crawling
+  return 15000;               // stopped: a heartbeat, not a stream
+}

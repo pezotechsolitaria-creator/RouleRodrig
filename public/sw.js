@@ -196,7 +196,11 @@
 // advance their own ride, which is the one thing this release exists to give
 // them — so this bump is what actually delivers it. Stepping past 292 rather
 // than sharing it: a cache name that identifies two builds identifies neither.
-const CACHE = "rr-cache-v293";
+// v294 — satellite basemap, real road routing, the GPS quality pipeline, and
+// the live view on delivery and in admin. New client bundles everywhere and new
+// map CSS in globals.css; a client on v293 would keep drawing straight lines
+// over street tiles.
+const CACHE = "rr-cache-v294";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

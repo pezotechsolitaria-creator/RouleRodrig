@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   haversineKm, bearingDeg, shortestTurn, shouldAcceptFix, freshness,
   lastSeenLabel, approxEta, formatEta, formatDistance, isOnRodrigues,
-  activeTarget, TRACKING_CUSTOMER_STATUS, TRACKING_ADMIN_STATUS,
+  activeTarget, TRACKING_CUSTOMER_STATUS, TRACKING_ADMIN_STATUS, shouldRefit, isFramableSize, filterFix, publishIntervalMs,
   type Fix,
 } from "./model";
 
@@ -252,5 +252,145 @@ describe("what each audience is told", () => {
     const keys = Object.keys(TRACKING_CUSTOMER_STATUS).sort();
     expect(Object.keys(TRACKING_ADMIN_STATUS).sort()).toEqual(keys);
     expect(keys).toEqual(["at_pickup", "en_route_pickup", "ended", "on_trip", "pending"]);
+  });
+});
+
+describe("shouldRefit — the map must re-frame when its box changes", () => {
+  const base = { hasFitted: true, fittedAt: "446x318", userPanned: false };
+
+  it("frames when it never has", () => {
+    expect(shouldRefit({ ...base, hasFitted: false, fittedAt: "" }, "446x318")).toBe(true);
+  });
+
+  it("does nothing when the box is unchanged", () => {
+    expect(shouldRefit(base, "446x318")).toBe(false);
+  });
+
+  it("RE-FRAMES when the box it framed against is not the box we now have", () => {
+    // The measured bug: framing computed against a container that was still
+    // settling, leaving the destination off the bottom of the map.
+    expect(shouldRefit(base, "446x520")).toBe(true);
+    expect(shouldRefit(base, "390x318")).toBe(true);
+  });
+
+  it("never fights a user who has panned — not even to correct itself", () => {
+    // A pan is a decision. Both of these WOULD re-frame otherwise.
+    expect(shouldRefit({ ...base, userPanned: true }, "446x520")).toBe(false);
+    expect(shouldRefit({ ...base, userPanned: true, hasFitted: false }, "446x520")).toBe(false);
+  });
+
+  it("ignores an empty measurement rather than acting on it", () => {
+    expect(shouldRefit(base, "")).toBe(false);
+  });
+});
+
+describe("isFramableSize", () => {
+  it("accepts a real container", () => {
+    expect(isFramableSize(446, 318)).toBe(true);
+  });
+  it("rejects a container that has not been laid out", () => {
+    // Framing against this is what produced zoom 13/14/15 for identical inputs.
+    expect(isFramableSize(0, 0)).toBe(false);
+    expect(isFramableSize(446, 0)).toBe(false);
+    expect(isFramableSize(20, 20)).toBe(false);
+  });
+  it("rejects nonsense", () => {
+    expect(isFramableSize(Number.NaN, 318)).toBe(false);
+  });
+});
+
+describe("filterFix — the GPS quality pipeline", () => {
+  const base = (over: Partial<Fix> = {}): Fix => ({
+    lat: PORT_MATHURIN.lat, lng: PORT_MATHURIN.lng,
+    heading: null, speedKmh: 30, accuracyM: 8, at: 1_000_000, ...over,
+  });
+
+  it("accepts the first usable fix", () => {
+    const d = filterFix(null, base());
+    expect(d.accept).toBe(true);
+    if (d.accept) expect(d.reason).toBe("first");
+  });
+
+  it("REFUSES a fix too imprecise to place on a road", () => {
+    // A wifi/cell fallback. Drawn as a confident dot it puts the driver on the
+    // wrong road entirely.
+    expect(filterFix(null, base({ accuracyM: 120 })).accept).toBe(false);
+    expect(filterFix(null, base({ accuracyM: 51 })).accept).toBe(false);
+    expect(filterFix(null, base({ accuracyM: 50 })).accept).toBe(true);
+  });
+
+  it("REFUSES drift: a stationary phone wandering a few metres", () => {
+    const prev = base({ at: 1_000_000 });
+    // ~4 m north, reported speed 0. This is satellites coming and going, not a
+    // car moving, and it is the most visible failure of the three.
+    const drifted = base({ lat: PORT_MATHURIN.lat + 0.000036, speedKmh: 0, at: 1_005_000 });
+    const d = filterFix(prev, drifted);
+    expect(d.accept).toBe(false);
+    if (!d.accept) expect(d.reason).toBe("drift");
+  });
+
+  it("accepts a stationary phone that has genuinely pulled forward", () => {
+    const prev = base({ at: 1_000_000 });
+    // ~11 m — past the drift radius, so a car edging forward still registers.
+    expect(filterFix(prev, base({ lat: PORT_MATHURIN.lat + 0.0001, speedKmh: 0, at: 1_005_000 })).accept)
+      .toBe(true);
+  });
+
+  it("REFUSES the teleport — Port Mathurin to the airport in 4 seconds", () => {
+    const prev = base({ at: 1_000_000 });
+    const d = filterFix(prev, base({ ...AIRPORT, at: 1_004_000 }));
+    expect(d.accept).toBe(false);
+    if (!d.accept) expect(d.reason).toBe("impossible");
+  });
+
+  it("REFUSES an out-of-order callback rather than walking the marker back", () => {
+    const prev = base({ at: 2_000_000 });
+    const d = filterFix(prev, base({ at: 1_999_000 }));
+    expect(d.accept).toBe(false);
+    if (!d.accept) expect(d.reason).toBe("stale");
+  });
+
+  it("REFUSES nonsense coordinates", () => {
+    expect(filterFix(null, base({ lat: 999 })).accept).toBe(false);
+    expect(filterFix(null, base({ lat: Number.NaN })).accept).toBe(false);
+  });
+
+  it("SMOOTHS an accepted fix toward the reading without reaching it", () => {
+    const prev = base({ at: 1_000_000 });
+    const next = base({ lat: PORT_MATHURIN.lat + 0.0006, at: 1_004_000 });  // ~67 m, 60 km/h
+    const d = filterFix(prev, next);
+    expect(d.accept).toBe(true);
+    if (!d.accept) return;
+    // Strictly between the two — that is what smoothing IS. An implementation
+    // that returns `next` unchanged is a no-op filter (this caught exactly that).
+    expect(d.fix.lat).toBeGreaterThan(prev.lat);
+    expect(d.fix.lat).toBeLessThan(next.lat);
+    // And it must lean toward the new reading, not sit in the middle.
+    expect(d.fix.lat).toBeGreaterThan((prev.lat + next.lat) / 2);
+  });
+
+  it("converges on a steady position instead of lagging forever", () => {
+    let cur = base({ at: 1_000_000 });
+    const target = PORT_MATHURIN.lat + 0.0006;
+    for (let i = 1; i <= 12; i++) {
+      const d = filterFix(cur, base({ lat: target, at: 1_000_000 + i * 4000 }));
+      if (d.accept) cur = d.fix;
+    }
+    expect(cur.lat).toBeCloseTo(target, 6);
+  });
+});
+
+describe("publishIntervalMs — spend messages where somebody is watching", () => {
+  it("is fastest on the open road", () => {
+    expect(publishIntervalMs(60)).toBe(3000);
+  });
+  it("eases off in town", () => {
+    expect(publishIntervalMs(15)).toBe(5000);
+  });
+  it("drops to a heartbeat when stopped", () => {
+    // A rank full of idling taxis is exactly how 2,000,000 free realtime
+    // messages a month get spent on nothing happening.
+    expect(publishIntervalMs(0)).toBe(15000);
+    expect(publishIntervalMs(null)).toBe(15000);
   });
 });

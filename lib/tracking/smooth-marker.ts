@@ -85,12 +85,27 @@ export function createSmoothMarker(
 
   function place(lat: number, lng: number) {
     marker.setLatLng([lat, lng]);
-    if (follow) {
-      // panTo, not setView: setView re-renders every tile layer at the new
-      // centre, which on a 4-second cadence is a request storm against a tile
-      // server we are a guest of. panTo reuses what is already drawn.
-      map.panTo([lat, lng], { animate: true, duration: 0.5, noMoveStart: true });
-    }
+    if (!follow) return;
+
+    // ── SOFT FOLLOW ────────────────────────────────────────────────────────
+    // Hard-following — panning to the driver on every frame — silently UNDID
+    // the map's framing: the fit put the driver and the destination on screen
+    // together, and the very next animation frame re-centred on the driver and
+    // pushed the destination off the bottom. Measured at 375px: the fit ran,
+    // and the drop-off pin still ended up 163px below the map.
+    //
+    // So: keep the driver inside a comfortable inner rectangle and otherwise
+    // leave the view alone. The customer keeps their sense of the whole
+    // journey, the driver never sails off the edge, and the map stops
+    // re-requesting tiles every four seconds — which matters when the tile
+    // server is one we are a guest of.
+    const bounds = map.getBounds();
+    const inner = bounds.pad(-0.25);
+    if (inner.contains([lat, lng] as [number, number])) return;
+
+    // panTo, not setView: setView re-renders every tile layer at the new
+    // centre. panTo reuses what is already drawn.
+    map.panTo([lat, lng], { animate: true, duration: 0.6, noMoveStart: true });
   }
 
   function step(now: number) {
