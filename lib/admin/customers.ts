@@ -48,6 +48,11 @@ export type Person = {
   spentMinor: number;
   lastSeen: string | null;
   refs: string[];
+  /** EVERY number and address this person has transacted under, normalised.
+   *  One human orders from two email addresses and gives a different number
+   *  each time; keeping only the first made them unfindable by the second. */
+  phones: string[];
+  emails: string[];
 };
 
 /** RFC-reserved domains that can never receive mail. Every seeded fixture and
@@ -129,6 +134,8 @@ export function buildPeople(accounts: Account[], txns: Txn[]): Person[] {
         spentMinor: 0,
         lastSeen: null,
         refs: [],
+        phones: [],
+        emails: [],
       };
       byKey.set(key, p);
     }
@@ -139,6 +146,12 @@ export function buildPeople(accounts: Account[], txns: Txn[]): Person[] {
     if (!p.email && (normEmail(t.email) || viaAccount)) p.email = normEmail(t.email) || viaAccount;
     if (!p.phone && normPhone(t.phone)) p.phone = t.phone!.trim();
     if (!p.accountId && t.accountId) p.accountId = t.accountId;
+
+    // Record every identifier, so search can match any of them later.
+    const ph = normPhone(t.phone);
+    if (ph && !p.phones.includes(ph)) p.phones.push(ph);
+    const em = normEmail(t.email) || viaAccount;
+    if (em && !p.emails.includes(em)) p.emails.push(em);
 
     if (t.kind === "order") p.orders += 1;
     else if (t.kind === "rental") p.rentals += 1;
@@ -162,7 +175,56 @@ export function buildPeople(accounts: Account[], txns: Txn[]): Person[] {
     }
   }
 
-  return [...byKey.values()].sort((a, b) => (b.lastSeen ?? "").localeCompare(a.lastSeen ?? ""));
+  // ── ONE PHONE IS ONE PERSON (M118) ────────────────────────────────────────
+  //
+  // keyFor() prefers email, so the same human split into a separate row for
+  // every address he ordered from. Live data: one number, 58363401, appeared
+  // under three different Gmail addresses and one guest order with no email at
+  // all — four rows for one man. Each row then held one or two of his orders,
+  // which is why his history looked like it only went back a day.
+  //
+  // A phone number on this island is a person. Merging on it is what the owner
+  // means when he types a number in: show me everything this human has done.
+  return mergeBySharedPhone([...byKey.values()])
+    .sort((a, b) => (b.lastSeen ?? "").localeCompare(a.lastSeen ?? ""));
+}
+
+/** Fold together any people who share a phone number. Transitive: A shares with
+ *  B and B with C means all three are one person. */
+export function mergeBySharedPhone(people: Person[]): Person[] {
+  const ownerOf = new Map<string, number>(); // phone -> index of its group
+  const groups: Person[] = [];
+
+  for (const p of people) {
+    const hit = p.phones.map((ph) => ownerOf.get(ph)).find((i) => i !== undefined);
+    if (hit === undefined) {
+      const i = groups.length;
+      groups.push(p);
+      for (const ph of p.phones) ownerOf.set(ph, i);
+      continue;
+    }
+    const into = groups[hit];
+    // Keep the fullest identity, and never lose a way of finding them.
+    if (!into.name && p.name) into.name = p.name;
+    if (!into.email && p.email) into.email = p.email;
+    if (!into.phone && p.phone) into.phone = p.phone;
+    if (!into.accountId && p.accountId) into.accountId = p.accountId;
+    if (!into.joined && p.joined) into.joined = p.joined;
+    into.hasAccount = into.hasAccount || p.hasAccount;
+    into.orders += p.orders;
+    into.rentals += p.rentals;
+    into.experiences += p.experiences;
+    into.spentMinor += p.spentMinor;
+    if (p.lastSeen && (!into.lastSeen || p.lastSeen > into.lastSeen)) into.lastSeen = p.lastSeen;
+    for (const r of p.refs) if (!into.refs.includes(r)) into.refs.push(r);
+    for (const e of p.emails) if (!into.emails.includes(e)) into.emails.push(e);
+    for (const ph of p.phones) {
+      if (!into.phones.includes(ph)) into.phones.push(ph);
+      ownerOf.set(ph, hit);
+    }
+  }
+
+  return groups;
 }
 
 /** Accounts that have never transacted. Real, but not customers yet — and the
@@ -183,10 +245,16 @@ export function matchesQuery(p: Person, query: string): boolean {
   const q = fold(query);
   if (!q) return true;
   const digits = q.replace(/\D/g, "");
-  if (digits.length >= 4 && normPhone(p.phone).includes(digits)) return true;
+  // Every number they have used, not only the one on display: the owner types
+  // whichever number the person just read out to him.
+  if (digits.length >= 4) {
+    if (normPhone(p.phone).includes(digits)) return true;
+    if (p.phones.some((ph) => ph.includes(digits))) return true;
+  }
   return (
     fold(p.name).includes(q) ||
     fold(p.email).includes(q) ||
+    p.emails.some((e) => fold(e).includes(q)) ||
     p.refs.some((r) => fold(r).includes(q))
   );
 }

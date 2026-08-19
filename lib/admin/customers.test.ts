@@ -221,3 +221,80 @@ describe("matchesQuery", () => {
     expect(matchesQuery(p, "   ")).toBe(true);
   });
 });
+
+// ── ONE PHONE IS ONE PERSON (M118) ──────────────────────────────────────────
+//
+// Built from the real rows in production on 2026-08-19, which is why the owner
+// could not find anyone: the number 58363401 appeared under three different
+// Gmail addresses plus one guest order with no email, and keyFor() prefers
+// email — so one man was four rows, each holding one or two of his orders.
+describe("a customer who used several emails and numbers", () => {
+  const txn = (over: Partial<Txn>): Txn => ({
+    kind: "order", name: null, email: null, phone: null, accountId: null,
+    at: "2026-08-12T10:00:00Z", ref: null, amountMinor: 0, countsToSpend: false,
+    ...over,
+  } as Txn);
+
+  // The exact production shape.
+  const rohan: Txn[] = [
+    txn({ name: "Meunier Rohan", email: "emmanuelrohanmeunier@gmail.com", phone: "+230 5836 3401", ref: "RR260812-F7F582" }),
+    txn({ name: "Meunier Rohan", email: "ninjaespion23@gmail.com",        phone: "58363401",       ref: "RR260812-929350" }),
+    txn({ name: "Meunier Rohan", email: "roulerodrig@gmail.com",          phone: "58363401",       ref: "RR260812-5E134D" }),
+    txn({ name: "TEST — Rohan",  email: null,                             phone: "+230 58363401",  ref: "TEST-PICKUP-141319" }),
+    // A second number the same man used. He must be findable by this one too.
+    txn({ name: "Meunier Rohan", email: "emmanuelrohanmeunier@gmail.com", phone: "+230 5769 8834", ref: "RR260809-C1364A" }),
+  ];
+
+  it("is one person, not four", () => {
+    const people = buildPeople([], rohan);
+    expect(people).toHaveLength(1);
+  });
+
+  it("keeps every order, so his history is not truncated", () => {
+    const [p] = buildPeople([], rohan);
+    expect(p.orders).toBe(5);
+  });
+
+  it("is found by the number the owner typed", () => {
+    const [p] = buildPeople([], rohan);
+    expect(matchesQuery(p, "58363401")).toBe(true);
+  });
+
+  it("is found by the OTHER number he also used", () => {
+    // The first-phone-wins bug: only one of his numbers used to match.
+    const [p] = buildPeople([], rohan);
+    expect(matchesQuery(p, "57698834")).toBe(true);
+  });
+
+  it("is found by any of his email addresses", () => {
+    const [p] = buildPeople([], rohan);
+    for (const e of ["emmanuelrohanmeunier", "ninjaespion23", "roulerodrig"]) {
+      expect(matchesQuery(p, e), `missed ${e}`).toBe(true);
+    }
+  });
+
+  it("is found by name", () => {
+    const [p] = buildPeople([], rohan);
+    expect(matchesQuery(p, "meunier")).toBe(true);
+    expect(matchesQuery(p, "rohan")).toBe(true);
+  });
+
+  it("does not fold two different people together", () => {
+    const marie = txn({ name: "Marie Rhianna Aubdool", email: "rhiannaaubdool5@gmail.com", phone: "+230 5827 0562" });
+    const people = buildPeople([], [...rohan, marie]);
+    expect(people).toHaveLength(2);
+  });
+
+  it("merges transitively when a number links two groups", () => {
+    const a = txn({ email: "a@x.com", phone: "58000001" });
+    const bridge = txn({ email: "a@x.com", phone: "58000002" });
+    const c = txn({ email: "c@x.com", phone: "58000002" });
+    expect(buildPeople([], [a, bridge, c])).toHaveLength(1);
+  });
+
+  it("leaves people with no phone alone", () => {
+    const one = txn({ email: "one@x.com" });
+    const two = txn({ email: "two@x.com" });
+    expect(buildPeople([], [one, two])).toHaveLength(2);
+  });
+});
