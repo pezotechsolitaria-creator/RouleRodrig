@@ -60,7 +60,13 @@ async function deliver(targets: Target[], payload: PushPayload): Promise<number>
     urgent: payload.urgent ?? false,
   });
 
+  // 404/410: the row is worthless, delete it. Anything else — a 500 from the
+  // push service, a rejected VAPID key, a timeout — may recover, so it counts
+  // against fail_count instead. Until M130 nothing raised that column at all,
+  // so the `fail_count < 5` guard in all four target functions had never
+  // excluded a single endpoint.
   const dead: string[] = [];
+  const failing: string[] = [];
   const results = await Promise.allSettled(
     targets.map((t) =>
       webpush.sendNotification(
@@ -72,24 +78,36 @@ async function deliver(targets: Target[], payload: PushPayload): Promise<number>
       ).catch((err: unknown) => {
         const status = (err as { statusCode?: number })?.statusCode;
         if (status && GONE.has(status)) dead.push(t.endpoint);
+        else failing.push(t.endpoint);
         throw err;
       }),
     ),
   );
 
-  if (dead.length > 0) {
+  if (dead.length > 0 || failing.length > 0) {
     try {
       const admin = await getPrivileged();
-      await admin.from("push_subscriptions").delete().in("endpoint", dead);
+      // Through the RPCs rather than a table write, because a push endpoint can
+      // live in EITHER push_subscriptions or taxi_push_subscriptions and this
+      // function does not know which — it just has a list of targets. It used
+      // to delete from push_subscriptions alone, so a dead TAXI endpoint was
+      // pruned from a table it had never been in and was re-attempted on every
+      // ride offer for ever. The endpoint is a globally unique URL, so one call
+      // safely covers both.
+      if (dead.length > 0) await admin.rpc("record_push_gone", { p_endpoints: dead });
+      if (failing.length > 0) await admin.rpc("record_push_failures", { p_endpoints: failing });
     } catch (err) {
-      console.error("could not prune dead push subscriptions", err);
+      console.error("could not record dead or failing push subscriptions", err);
     }
   }
 
   const sent = results.filter((r) => r.status === "fulfilled").length;
   const failed = results.length - sent;
   if (failed > 0) {
-    console.error("push: %d of %d failed (%d pruned)", failed, results.length, dead.length);
+    console.error(
+      "push: %d of %d failed (%d pruned, %d marked failing)",
+      failed, results.length, dead.length, failing.length,
+    );
   }
   return sent;
 }
