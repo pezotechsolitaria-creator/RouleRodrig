@@ -268,9 +268,23 @@ export default function DriverHome({ token }: { token: string }) {
     return (
       <div className="rounded-2xl border border-orange-400/30 bg-orange-400/[0.07] p-6 text-center">
         <AlertCircle size={30} className="mx-auto text-orange-300" />
-        <h1 className="mt-3 font-syne text-xl font-extrabold text-offwhite">This link is not valid</h1>
+        <h1 className="mt-3 font-syne text-xl font-extrabold text-offwhite">This link has stopped working</h1>
         <p className="mt-2 font-dm text-sm text-muted">
-          Ask Roulé Rodrigues to send you your link again.
+          It was replaced with a new one, or it was never right. Ask Roulé Rodrigues for your new
+          link — the old six characters will not work either.
+        </p>
+        {/* The only screen in this app with nowhere to go. A driver who has been
+            re-keyed reads his new six characters down the phone and types them
+            here; without this he is looking at a dead end holding a code and no
+            box to put it in. */}
+        <a
+          href="/d"
+          className="mt-4 inline-block rounded-full bg-yellow px-5 py-2.5 font-syne text-sm font-bold text-dark"
+        >
+          I have a new code
+        </a>
+        <p className="mt-3 font-dm text-xs text-muted">
+          Your phone alerts are off until you open the new link and turn them back on.
         </p>
       </div>
     );

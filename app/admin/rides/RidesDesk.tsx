@@ -684,6 +684,10 @@ function DriverRow({
   // message to lose, nothing to distrust.
   const [qr, setQr] = useState<{ name: string; url: string; code: string } | null>(null);
   const [rotating, setRotating] = useState(false);
+  // True only when the handover card was opened BY a re-key, so the extra
+  // sentence about his alerts does not appear when the owner is simply
+  // showing an existing driver his QR.
+  const [rekeyed, setRekeyed] = useState(false);
 
   // The code IS the first six characters of the token — nothing to generate,
   // nothing to keep in sync, and it cannot point at a token that has since been
@@ -703,6 +707,7 @@ function DriverRow({
       const r = await fetch(`/api/admin/taxi?linkFor=${encodeURIComponent(id)}`);
       const b = await r.json();
       if (!r.ok) throw new Error(b.error || "Could not build that link.");
+      setRekeyed(false);
       openHandover(b);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not build that link.");
@@ -734,6 +739,11 @@ function DriverRow({
       const b = await r.json();
       if (!r.ok) throw new Error(b.error || "Could not change that link.");
       openHandover(b);
+      // M128 revokes the driver's push subscriptions along with the token,
+      // because one registered with the leaked link would otherwise keep
+      // receiving his ride offers. He cannot be told that by push — the channel
+      // is the thing being cut — so the owner has to say it.
+      setRekeyed(true);
       toast.success("New link ready — send it to him now.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not change that link.");
@@ -788,6 +798,16 @@ ${url}
             Or tell them to open <strong>roulerodrig.com/d</strong> and enter this code:
             <span className="mt-1 block font-mono text-lg tracking-[0.3em] text-black">{qr.code}</span>
           </p>
+          {/* Only after a re-key. Rotation deletes his push subscriptions —
+              one registered with the leaked link would otherwise keep receiving
+              his ride offers — and he cannot be told that BY push, because the
+              channel is the thing being cut. So the owner says it out loud. */}
+          {rekeyed && (
+            <p className="mt-3 rounded-xl bg-orange-100 px-3 py-2 text-left font-dm text-xs leading-relaxed text-orange-900">
+              His old link and his old code are dead. Tell him his phone alerts are off until he
+              opens this new link and presses <strong>Turn on</strong> again.
+            </p>
+          )}
           <svg
             viewBox={`0 0 ${qrArt.span} ${qrArt.span}`}
             className="mx-auto mt-4 h-auto w-full max-w-[260px]"
