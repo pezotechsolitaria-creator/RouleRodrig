@@ -66,6 +66,31 @@ small — the window between staging and committing is where the race happens.
 - **Booking reference** = `"RR-" + id.replace(/-/g,"").slice(0,6).toUpperCase()`
   (first 6 hex of the UUID). Same format in emails, admin, and `/manage-booking`.
 
+## Database migrations
+Applied with the Supabase MCP `apply_migration`, which is **transactional** — a
+failed assertion rolls the whole thing back, so assert loudly.
+
+- **`pg_get_functiondef()` is the truth, never the repo `.sql`.** Deployed bodies
+  have drifted. Building a `create or replace` from a stale file silently reverts
+  whatever else drifted in it.
+- **Preserve the signature byte-for-byte.** A differing argument list creates a
+  competing **overload**, not a replacement — and the old one keeps being called.
+  Assert the overload count is 1.
+- **A plpgsql body is not checked until it is CALLED.** A migration can "succeed"
+  and ship a function that fails on its first real use. Call every function you
+  changed in a `DO` block at the end.
+- **Supabase default grants reach `anon`.** `revoke … from public` alone is not a
+  boundary: name `anon, authenticated` too, then **assert** with
+  `has_function_privilege`. Many functions in this schema are anon-callable.
+- **A probe that calls a fan-out function touches every row that function can
+  reach**, not just the rows the probe made. A ride probe once charged the real
+  driver's `rides_offered` (M133). Make the probe *unreachable* instead — e.g. a
+  ride for 60 passengers, which no driver qualifies for (M132/M135).
+- **Clean up probe rows and assert they are gone.**
+- Write the repo file for every applied migration. It is a RECORD of what was
+  applied, not a mirror of what is deployed — but a migration with no file is the
+  drift above, one release later.
+
 ## Verify before you push
 1. `npm run build` — this generates ALL Tailwind CSS. (Turbopack **dev** lags on
    newly-added arbitrary classes like `h-[190px]` until a full restart + SW clear;
