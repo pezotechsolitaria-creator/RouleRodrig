@@ -120,7 +120,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       .limit(1)
       .maybeSingle();
 
-    if (variant) {
+    // ── A PRICE THAT DID NOT SAVE MUST NOT REPORT SUCCESS (M131) ──────────
+    //
+    // This was `if (variant) { ...write... }` with no else, and the handler
+    // returned { ok: true } either way. A product with no variant row — a
+    // half-finished creation, a deleted size — meant the merchant raised their
+    // price, saw it confirmed, and went on selling at the old one.
+    //
+    // Nothing was corrupted, which is why it survived: it is a lie in the
+    // interface rather than bad data. But a merchant undercharging every
+    // customer because a form told them it saved is a money bug with extra
+    // steps.
+    if (!variant) {
+      console.error("update product: no variant row for product", id);
+      return NextResponse.json(
+        { error: "This product has no size to price. Reload the page and try again." },
+        { status: 409 },
+      );
+    }
+
+    {
       const variantPatch: Record<string, unknown> = {};
       if (input.price !== undefined) {
         const cents = toCents(input.price);

@@ -290,6 +290,29 @@ export async function writeVariants(
 
   const keptIds = new Set<string>();
 
+  // ── A SIZE MUST ALREADY BELONG TO THIS DISH (M131) ──────────────────────
+  //
+  // The update below is scoped by `.eq("id", v.id)` while the payload sets
+  // product_id. So a size id belonging to a DIFFERENT dish did not fail — it
+  // MOVED that size onto this dish, taking its name and price with it, and
+  // deactivated this dish's real sizes on the way out because they were absent
+  // from the submission. Silently, with a success message.
+  //
+  // It needs no attacker: a stale tab, two people editing the menu at once, or
+  // a copy-pasted id is enough. The owner would find out weeks later from a
+  // customer charged the wrong price for the wrong portion.
+  //
+  // Checked up front rather than per row, so a bad submission changes NOTHING
+  // instead of half-applying and leaving the menu in a state nobody chose.
+  const ownIds = new Set((existing ?? []).map((e) => e.id as string));
+  for (const v of variants) {
+    if (v.id && !ownIds.has(v.id)) {
+      throw new Error(
+        "That size no longer belongs to this dish — reload the menu and try again.",
+      );
+    }
+  }
+
   for (const [index, v] of variants.entries()) {
     const payload = {
       product_id: productId,
@@ -301,7 +324,14 @@ export async function writeVariants(
 
     if (v.id) {
       keptIds.add(v.id);
-      const { error } = await admin.from("product_variants").update(payload).eq("id", v.id);
+      // Scoped by product too: the guard above is the rule, this is the
+      // backstop. An UPDATE that can reach another dish's row is one typo away
+      // from being a bug again.
+      const { error } = await admin
+        .from("product_variants")
+        .update(payload)
+        .eq("id", v.id)
+        .eq("product_id", productId);
       if (error) throw new Error(`Could not save a size: ${error.message}`);
       const current = existing?.find((e) => e.id === v.id)?.stock_quantity ?? 0;
       await adjustStock(admin, v.id, v.stock - current, "Menu edit");
