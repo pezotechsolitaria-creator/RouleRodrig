@@ -174,7 +174,14 @@ export default function PlaceBookingModal({
   return (
     <ModalPortal>
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
+      {/* It LOOKED like a dialog and behaved like one, but announced itself as
+          a plain div: a screen-reader user got no indication that a dialog had
+          opened, and nothing named it. Found by an end-to-end test that could
+          not locate it by role either — the same gap, from the other side. */}
       <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Book ${place.name}`}
         initial={{ opacity: 0, scale: 0.96, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.25 }}

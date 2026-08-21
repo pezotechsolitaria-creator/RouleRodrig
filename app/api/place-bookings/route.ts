@@ -70,22 +70,50 @@ export async function POST(req: NextRequest) {
   // The stay's own rates, kept aside so the nightly total can be worked out
   // below once the date range is known. Never taken from the client.
   let stayRates: { nightlyRate?: number; depositAmount?: number } | null = null;
+  // ── THE LISTING MUST EXIST (M128) ──────────────────────────────────────
+  //
+  // This used to be `if (item) { ... }` with no else, and a catch that fell
+  // back to "the provided name". So a POST naming a listing that does not
+  // exist was ACCEPTED: it created a reservation with a client-controlled
+  // place_name and depositAmount 0 — a free booking against nothing, and an
+  // invisible second capacity pool that no availability check knows about.
+  //
+  // /api/bookings had exactly this hole for vehicles and it was closed on
+  // 2026-08-08 for exactly these reasons. Found here by an end-to-end test
+  // posting place_id "playwright-does-not-exist" and getting a 200.
+  //
+  // A content read that FAILS is treated the same way. Falling back to client
+  // data on an outage turns a bad minute for Supabase into free bookings
+  // priced by whoever is asking.
+  let item;
   try {
     const content = await getContent();
-    const item = content.recommended.items.find((p) => p.id === place_id);
-    if (item) {
-      place_name = item.name;
-      category = item.category;
-      capacity = Math.max(1, item.capacity ?? 1);
-      slots = Array.isArray(item.timeSlots) ? item.timeSlots : [];
-      depositAmount = Number.isFinite(Number(item.depositAmount))
-        ? Math.max(0, Math.round(Number(item.depositAmount)))
-        : 0;
-      stayRates = { nightlyRate: item.nightlyRate, depositAmount: item.depositAmount };
-    }
-  } catch {
-    /* fall back to provided name */
+    item = content.recommended.items.find((p) => p.id === place_id);
+  } catch (err) {
+    console.error("place-bookings: could not read listings", err);
+    return NextResponse.json(
+      { error: "We can't take bookings right now. Please try again in a moment." },
+      { status: 503 },
+    );
   }
+
+  if (!item) {
+    // Deliberately the same wording as an unavailable vehicle: it tells the
+    // customer what to do without confirming whether an id exists.
+    return NextResponse.json(
+      { error: "That listing isn't available. Please pick another." },
+      { status: 400 },
+    );
+  }
+
+  place_name = item.name;
+  category = item.category;
+  capacity = Math.max(1, item.capacity ?? 1);
+  slots = Array.isArray(item.timeSlots) ? item.timeSlots : [];
+  depositAmount = Number.isFinite(Number(item.depositAmount))
+    ? Math.max(0, Math.round(Number(item.depositAmount)))
+    : 0;
+  stayRates = { nightlyRate: item.nightlyRate, depositAmount: item.depositAmount };
 
   const isStay = category === "hotel";
   // Hotels book a date range; restaurants/activities a single day.
