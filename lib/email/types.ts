@@ -153,6 +153,15 @@ export const EMAIL_TYPES = {
   // only thing standing between "we are checking" and silence forever.
   booking_availability_confirmed:   { category: "scooter_rental", priority: "critical" },
   booking_unavailable:              { category: "scooter_rental", priority: "critical" },
+  // M127 — the same two halves for stays and experiences. Critical for exactly
+  // the same reasons: the first carries a deadline the customer must act on,
+  // and the second is the only thing between "we are checking" and silence.
+  // Separate types rather than reusing the scooter pair, because these are
+  // categorised as accommodation/activity and the quota router reads category.
+  accommodation_availability_confirmed: { category: "accommodation", priority: "critical" },
+  accommodation_unavailable:            { category: "accommodation", priority: "critical" },
+  activity_availability_confirmed:      { category: "activity", priority: "critical" },
+  activity_unavailable:                 { category: "activity", priority: "critical" },
   owner_booking_alert:              { category: "operational", priority: "high" },
   owner_place_booking_alert:        { category: "operational", priority: "high" },
   owner_pickup_reminder:            { category: "operational", priority: "normal" },
@@ -243,7 +252,10 @@ export function vehicleEmailType(base: VehicleEmailBase, vehicleCategory?: strin
 // place_bookings.category distinguishes accommodation from everything else.
 // 'hotel' is the accommodation marker used throughout lib/email.ts (it picks
 // the "Rooms · Chambres" row label from the same value).
-type PlaceEmailBase = "booking_confirmation" | "reminder" | "status" | "feedback_request";
+type PlaceEmailBase =
+  | "booking_confirmation" | "reminder" | "status" | "feedback_request"
+  // M127. Availability is decided before payment, exactly as for vehicles.
+  | "availability_confirmed" | "unavailable";
 
 export function placeEmailType(base: PlaceEmailBase, placeCategory?: string | null): EmailType {
   const isStay = (placeCategory ?? "").toLowerCase() === "hotel";

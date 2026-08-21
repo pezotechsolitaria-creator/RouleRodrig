@@ -8,8 +8,6 @@ import { X, Loader2, AlertCircle, Send, User, Mail, Users, MessageSquare, Clock,
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import PhoneInput from "@/components/PhoneInput";
 import { quoteStay } from "@/lib/stay-pricing";
-import PayPalDeposit from "@/components/PayPalDeposit";
-import BankTransferDetails from "@/components/BankTransferDetails";
 import SuccessBurst from "@/components/SuccessBurst";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
 import { useLanguage } from "@/context/LanguageContext";
@@ -49,7 +47,10 @@ export default function PlaceBookingModal({
   // After a successful request: the created booking + whether a deposit is due,
   // and whether that deposit has been paid (→ confirmed celebration).
   const [result, setResult] = useState<{ bookingId: string; depositAmount: number | null } | null>(null);
-  const [paid, setPaid] = useState(false);
+  // Payment now happens after approval, not in this modal, so nothing here
+  // sets this any more — it still gates the celebration a returning
+  // customer sees on an already-paid booking.
+  const [paid] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -211,7 +212,13 @@ export default function PlaceBookingModal({
             <div className="text-center">
               <SuccessBurst />
               <p className="mt-4 font-syne font-extrabold text-offwhite text-xl">Booking request received!</p>
-              <p className="mt-1 text-muted font-dm text-sm">One quick step to lock it in — pay below and it&apos;s confirmed.</p>
+              {/* M127. It no longer says "pay below and it's confirmed", because
+                  we cannot confirm what we have not checked. The boats and
+                  guesthouses are not ours, and taking money for a slot we then
+                  cannot get is a refund, a PayPal fee and a lost customer. */}
+              <p className="mt-1 text-muted font-dm text-sm">
+                We&apos;re checking with {place.name} now — <strong className="text-offwhite">nothing has been charged.</strong>
+              </p>
             </div>
 
             <motion.div
@@ -239,14 +246,31 @@ export default function PlaceBookingModal({
                 </div>
               </dl>
 
-              <PayPalDeposit bookingId={result.bookingId} depositMur={result.depositAmount} kind="place" settlement="full" onPaid={() => setPaid(true)} />
-              <BankTransferDetails
-                name={form.name}
-                vehicle={place.name}
-                settlement="full"
-                bookingId={result.bookingId}
-                email={form.email}
-              />
+              {/* What happens next, in the order it happens. A customer told
+                  "we are checking" who is given no idea when, or what then, is
+                  worse off than one who was simply asked to pay. */}
+              <ol className="space-y-2.5 rounded-xl border border-yellow/25 bg-yellow/[0.05] p-4 font-dm text-sm text-offwhite/90">
+                <li className="flex gap-2.5">
+                  <span className="font-bebas text-yellow">1</span>
+                  <span>We check with {place.name} — usually the same day.</span>
+                </li>
+                <li className="flex gap-2.5">
+                  <span className="font-bebas text-yellow">2</span>
+                  <span>
+                    {form.email
+                      ? <>We email <strong className="text-offwhite">{form.email}</strong> either way — free or not.</>
+                      : <>We message you on WhatsApp either way — free or not.</>}
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <span className="font-bebas text-yellow">3</span>
+                  <span>
+                    If it&apos;s free, that message has a link to pay{" "}
+                    <strong className="text-yellow">Rs {result.depositAmount.toLocaleString()}</strong> and confirm.
+                    If it isn&apos;t, we suggest something else — and you&apos;ve paid nothing.
+                  </span>
+                </li>
+              </ol>
 
               {whatsapp && (
                 <a href={waLink("about my reservation")} target="_blank" rel="noopener noreferrer"
@@ -254,7 +278,7 @@ export default function PlaceBookingModal({
                   <MessageSquare size={15} /> Prefer to chat? Message us on WhatsApp
                 </a>
               )}
-              <p className="mt-3 text-muted/50 font-dm text-[11px] text-center">This is the full price — once it&apos;s paid there is nothing left to settle with {place.name}.</p>
+              <p className="mt-3 text-muted/50 font-dm text-[11px] text-center">Your reference is {result.bookingId.replace(/-/g, "").slice(0, 6).toUpperCase()}. Keep it — you can check this booking any time at /track.</p>
             </motion.div>
           </div>
         ) : formState === "success" ? (

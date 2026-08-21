@@ -820,6 +820,118 @@ export async function sendVehicleUnavailable(b: {
   });
 }
 
+// ── STAYS AND EXPERIENCES: THE SAME TWO HALVES (M127) ────────────────────
+//
+// The owner: "do like for vehicle, add a new step like AVAILABILITY then I
+// confirm in the admin dashboard and if available they go to the payment step,
+// if not send customers emails and propose them other suggestions."
+//
+// The boats, the therapist and the guesthouses are not his, so confirming a
+// charter he cannot get means taking money and giving it back. These are the
+// two outcomes of that check, and BOTH must exist: a customer told "we are
+// checking" who then gets nothing is worse off than under the old
+// pay-immediately flow, because at least that one ended.
+
+/** Available — pay by a stated deadline to confirm. */
+export async function sendPlaceAvailabilityConfirmed(b: {
+  id: string;
+  email: string | null;
+  name: string;
+  placeName: string;
+  category?: string | null;
+  when: string;
+  amountDue: number | null;
+  payBy: string;
+}): Promise<boolean> {
+  if (!b.email) return false;
+  const { wa, logo } = await getBrand();
+  const ref = "RR-" + b.id.replace(/-/g, "").slice(0, 6).toUpperCase();
+  const payUrl = `${SITE_URL}/track`;
+  const by = new Date(b.payBy);
+  const byEn = by.toLocaleString("en-GB", { dateStyle: "full", timeStyle: "short" });
+  const byFr = by.toLocaleString("fr-FR", { dateStyle: "full", timeStyle: "short" });
+  const amount = b.amountDue && b.amountDue > 0 ? `Rs ${b.amountDue.toLocaleString("en-US")}` : null;
+
+  const body = `
+    ${paragraph(`Good news ${escapeHtml(b.name)} — <strong>${escapeHtml(b.placeName)}</strong> is free for ${escapeHtml(b.when)}, and we are holding it for you.`)}
+    ${amount ? paragraph(`To confirm it, pay <strong>${amount}</strong> by <strong>${byEn}</strong>.`) : paragraph(`Confirm it by <strong>${byEn}</strong>.`)}
+    ${paragraph(`We can only hold it until then — after that the slot goes back to whoever wants it. Nothing has been charged yet.`)}
+    ${paragraph(`<a href="${payUrl}" style="color:${C.ink};font-weight:600">Confirm and pay (${ref})</a>`)}
+    ${sepFr()}
+    ${frHeading("Disponible")}
+    ${paragraph(`Bonne nouvelle ${escapeHtml(b.name)} — <strong>${escapeHtml(b.placeName)}</strong> est libre pour ${escapeHtml(b.when)}, et nous vous le réservons.`)}
+    ${amount ? paragraph(`Pour confirmer, réglez <strong>${amount}</strong> avant le <strong>${byFr}</strong>.`) : paragraph(`Confirmez avant le <strong>${byFr}</strong>.`)}
+    ${paragraph(`Passé ce délai, la réservation est relâchée. Rien ne vous a encore été débité.`)}
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! I'd like to confirm ${ref}.`, "💬 Confirm on WhatsApp")}</div>` : ""}`;
+
+  return send({
+    to: b.email,
+    subject: `Available — confirm by ${byEn} · Disponible — ${ref}`,
+    html: shell({
+      preheader: "It's free for your dates. Pay by the date inside to confirm.",
+      eyebrow: "Availability · Disponibilité",
+      title: "Good news — it's available",
+      body,
+      logo,
+    }),
+    // One resolved type, used for BOTH the router and the dedupe key — two
+    // different values here would let the same email send twice.
+    type: placeEmailType("availability_confirmed", b.category),
+    key: keyFor(placeEmailType("availability_confirmed", b.category), b.id),
+    relatedType: "place_booking",
+    relatedId: b.id,
+  });
+}
+
+/** Not available — say so quickly, and never leave them waiting. */
+export async function sendPlaceUnavailable(b: {
+  id: string;
+  email: string | null;
+  name: string;
+  placeName: string;
+  category?: string | null;
+  when: string;
+  note: string | null;
+}): Promise<boolean> {
+  if (!b.email) return false;
+  const { wa, logo } = await getBrand();
+  const ref = "RR-" + b.id.replace(/-/g, "").slice(0, 6).toUpperCase();
+  // Where to send them next depends on what they wanted. A guest who asked for
+  // a fishing trip is not helped by a list of guesthouses.
+  const isStay = (b.category ?? "").toLowerCase() === "hotel";
+  const nextUrl = isStay ? `${SITE_URL}/explore` : `${SITE_URL}/experiences/boat`;
+
+  const body = `
+    ${paragraph(`${escapeHtml(b.name)}, we are sorry — <strong>${escapeHtml(b.placeName)}</strong> is not free for ${escapeHtml(b.when)}. <strong>You have not been charged anything.</strong>`)}
+    ${b.note ? paragraph(`<strong style="color:${C.ink}">From us:</strong> ${escapeHtml(b.note)}`) : ""}
+    ${paragraph(`We would still like to sort you out. Reply to this email or message us on WhatsApp and we will find something that works for those dates.`)}
+    ${paragraph(`<a href="${nextUrl}" style="color:${C.ink};font-weight:600">See what else is available</a>`)}
+    ${sepFr()}
+    ${frHeading("Indisponible")}
+    ${paragraph(`${escapeHtml(b.name)}, nous sommes désolés — <strong>${escapeHtml(b.placeName)}</strong> n'est pas libre pour ${escapeHtml(b.when)}. <strong>Rien ne vous a été débité.</strong>`)}
+    ${b.note ? paragraph(`<strong style="color:${C.ink}">De notre part :</strong> ${escapeHtml(b.note)}`) : ""}
+    ${paragraph(`Écrivez-nous ou contactez-nous sur WhatsApp : nous vous trouverons une alternative pour ces dates.`)}
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! ${ref} wasn't available — what else do you suggest?`, "💬 Suggest me something")}</div>` : ""}`;
+
+  return send({
+    to: b.email,
+    subject: `Not available for those dates · Indisponible — ${ref}`,
+    html: shell({
+      preheader: "You have not been charged. Let's find you something else.",
+      eyebrow: "Availability · Disponibilité",
+      title: "We couldn't get you that one",
+      body,
+      logo,
+    }),
+    // One resolved type, used for BOTH the router and the dedupe key — two
+    // different values here would let the same email send twice.
+    type: placeEmailType("unavailable", b.category),
+    key: keyFor(placeEmailType("unavailable", b.category), b.id),
+    relatedType: "place_booking",
+    relatedId: b.id,
+  });
+}
+
 // ── Reminder / feedback emails (sent by the daily cron) ──────────────────
 
 /** Reminder sent the day before pickup. */
