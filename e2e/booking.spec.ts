@@ -163,10 +163,23 @@ test.describe("booking form on /browse/scooter", () => {
 
     await page.locator("#booking form button[type=submit]").click();
 
-    // Confirmation replaces the form: success copy + pay-deposit + receipt.
+    // ── THE CONFIRMATION IS NOW AN AVAILABILITY PROMISE, NOT A TILL (M91) ──
+    //
+    // This used to assert a "Pay deposit" button. M91 removed it: the owner
+    // checks with the partner BEFORE anybody pays, so payment moved to
+    // /manage-booking behind the approval email. The test kept asserting the
+    // button and had been failing ever since — a red test nobody read is worse
+    // than no test, because it hides the next real regression behind noise.
     await expect(page.getByText(/request sent|booking request/i).first()).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByRole("button", { name: /pay deposit/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /receipt/i })).toBeVisible();
+
+    // What must be there instead: the three steps, and the promise that
+    // nothing is charged for a vehicle we cannot supply.
+    await expect(page.getByText(/what happens next/i).first()).toBeVisible();
+    await expect(page.getByText(/we check the vehicle is free/i).first()).toBeVisible();
+    await expect(page.getByText(/never be charged/i).first()).toBeVisible();
+
+    // And what must NOT: no way to pay for a slot nobody has confirmed yet.
+    await expect(page.getByRole("button", { name: /pay deposit/i })).toHaveCount(0);
   });
 
   test("browse page offers a way back home", async ({ page }) => {

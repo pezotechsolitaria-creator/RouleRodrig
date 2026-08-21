@@ -33,7 +33,11 @@ import { downloadReceipt as saveReceiptPdf } from "@/lib/receipt";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
 // Pricing is SHARED with /api/bookings — the summary the customer sees here
 // and the figures the server stores are the same arithmetic by construction.
-import { priceBreakdown, todayInRodrigues } from "@/lib/booking-pricing";
+// rentalDays comes from the same module the SERVER prices with. This file
+// used to carry its own daysBetween(), and the two disagreed: the local one
+// returned 0 for a same-day booking where the server returned 1, so the
+// quote on screen could differ from the amount charged (RR012).
+import { priceBreakdown, rentalDays, todayInRodrigues } from "@/lib/booking-pricing";
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -52,12 +56,6 @@ const TIME_SLOTS: { value: string; label: string }[] = (() => {
 
 function timeLabel(value?: string | null): string {
   return TIME_SLOTS.find((s) => s.value === value)?.label ?? (value ?? "");
-}
-
-function daysBetween(a: string, b: string): number {
-  if (!a || !b) return 0;
-  const diff = new Date(b).getTime() - new Date(a).getTime();
-  return Math.max(0, Math.round(diff / 86_400_000));
 }
 
 export default function BookingSection({
@@ -116,10 +114,12 @@ export default function BookingSection({
   });
 
   const selectedScooter = scooters.find((s) => s.id === form.scooter);
-  // A single tap = a 1-day rental: if no return date is chosen, return is the
-  // next day so the customer isn't forced to pick two days for one day's hire.
-  const effectiveEnd = form.end_date || (form.start_date ? isoAddDays(form.start_date, 1) : "");
-  const days = daysBetween(form.start_date, effectiveEnd);
+  // A single tap = a 1-day rental. Now that rentalDays() counts BOTH ends, one
+  // day is start === end. It used to be start+1, which was the same 1 day under
+  // the old exclusive arithmetic — leaving it would silently have made every
+  // single-tap booking two days and charged for it.
+  const effectiveEnd = form.end_date || form.start_date;
+  const days = rentalDays(form.start_date, effectiveEnd);
   const breakdown = priceBreakdown(selectedScooter, days, categories);
   const estimatedTotal = breakdown ? `Rs ${breakdown.total.toLocaleString()}` : "";
   const activeUnits = (selectedScooter?.assets ?? []).filter((a) => a.active !== false).length;
@@ -147,7 +147,10 @@ export default function BookingSection({
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       const start = tomorrow.toISOString().split("T")[0];
-      setForm((f) => ({ ...f, start_date: start, end_date: isoAddDays(start, n) }));
+      // n DAYS inclusive, so the last day is start + (n - 1). Adding n would
+      // ask for n+1 days now that both ends are counted — the planner would
+      // quietly sell a day more than the customer chose.
+      setForm((f) => ({ ...f, start_date: start, end_date: isoAddDays(start, Math.max(0, n - 1)) }));
       setDesiredDays(n);
     }
     window.addEventListener("rr:prefill-booking", onPrefill);
@@ -166,7 +169,10 @@ export default function BookingSection({
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       const start = tomorrow.toISOString().split("T")[0];
-      setForm((f) => ({ ...f, start_date: start, end_date: isoAddDays(start, n) }));
+      // n DAYS inclusive, so the last day is start + (n - 1). Adding n would
+      // ask for n+1 days now that both ends are counted — the planner would
+      // quietly sell a day more than the customer chose.
+      setForm((f) => ({ ...f, start_date: start, end_date: isoAddDays(start, Math.max(0, n - 1)) }));
       setDesiredDays(n);
     } catch {
       /* ignore */

@@ -17,15 +17,6 @@ function waDate(iso: string | null | undefined): string {
   if (isNaN(d.getTime())) return iso;
   return `${String(d.getUTCDate()).padStart(2, "0")}/${WA_MONTHS[d.getUTCMonth()]}/${d.getUTCFullYear()}`;
 }
-// Days booked between two ISO dates (same-day pickup/return counts as 1).
-function bookedDays(start?: string | null, end?: string | null): number {
-  if (!start || !end) return 0;
-  const a = new Date(`${start}T00:00:00Z`).getTime();
-  const b = new Date(`${end}T00:00:00Z`).getTime();
-  if (isNaN(a) || isNaN(b) || b < a) return 0;
-  return Math.max(1, Math.round((b - a) / 86400000));
-}
-
 // ── Public: create a booking request + send confirmation emails ─────
 export async function POST(req: NextRequest) {
   // 8 booking requests per minute per IP
@@ -310,7 +301,10 @@ export async function POST(req: NextRequest) {
 
   // Free owner WhatsApp alert (CallMeBot) — owner only, best-effort
   try {
-    const nights = bookedDays(record.start_date, record.end_date);
+    // rentalDays(), not a local copy: this number is read off the owner's phone
+    // and must be the SAME number the price was calculated from. Three separate
+    // implementations of "how many days" is how they drift apart.
+    const nights = rentalDays(record.start_date, record.end_date);
     // Queued, not sent inline (M44): a rental confirmation must not depend
     // on CallMeBot being up, and `rentals` is a category the owner can route
     // to a different phone than deliveries or payments.

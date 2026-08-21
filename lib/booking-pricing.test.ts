@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   deliveryFee,
@@ -212,14 +214,71 @@ describe("depositPct — owner-set, per category", () => {
 });
 
 describe("rentalDays", () => {
-  it("counts whole days and treats same-day as 1", () => {
-    expect(rentalDays("2026-09-01", "2026-09-03")).toBe(2);
+  // ── THE OFF-BY-ONE THAT GAVE AWAY A DAY ON EVERY RENTAL ──────────────────
+  //
+  // Reported from a real WhatsApp alert: "01/AUG/2026 -> 08/AUG/2026 (7 days)".
+  // Someone who collects on the 1st and returns on the 8th has the bike on the
+  // 1st, 2nd, 3rd, 4th, 5th, 6th, 7th AND 8th. Seven is the number of NIGHTS,
+  // and a scooter is not a hotel room.
+  it("counts BOTH ends — the day you collect and the day you bring it back", () => {
+    expect(rentalDays("2026-08-01", "2026-08-08")).toBe(8);
+    expect(rentalDays("2026-09-01", "2026-09-03")).toBe(3);
+    expect(rentalDays("2026-09-01", "2026-09-02")).toBe(2);
+  });
+
+  it("still treats a same-day rental as one day", () => {
+    // This was the one case the old code got right, and only by accident:
+    // Math.max(1, 0) papered over the missing day.
     expect(rentalDays("2026-09-01", "2026-09-01")).toBe(1);
   });
+
+  it("never gives a day away across a month or a year boundary", () => {
+    expect(rentalDays("2026-08-30", "2026-09-02")).toBe(4);
+    expect(rentalDays("2026-12-30", "2027-01-02")).toBe(4);
+  });
+
   it("rejects reversed or malformed dates as 0", () => {
+    // 0 is what validateRentalWindow() reads as "the return is before pickup",
+    // so this must NOT become 1 now that the arithmetic adds a day.
     expect(rentalDays("2026-09-03", "2026-09-01")).toBe(0);
     expect(rentalDays("garbage", "2026-09-01")).toBe(0);
     expect(rentalDays("2026-9-1", "2026-09-03")).toBe(0);
+    expect(rentalDays("", "")).toBe(0);
+  });
+});
+
+describe("the whole platform agrees on how long a rental is", () => {
+  // Three separate implementations of "how many days" existed: this one, a
+  // daysBetween() inside BookingSection.tsx that returned 0 for a same-day
+  // booking where this returned 1, and a bookedDays() in the bookings route
+  // that fed the owner's WhatsApp alert. The quote on screen, the amount
+  // charged and the number on his phone could all disagree.
+  const src = (rel: string) =>
+    readFileSync(join(__dirname, "..", rel), "utf8");
+
+  it("the booking form prices with rentalDays, not a local copy", () => {
+    const form = src("components/BookingSection.tsx");
+    expect(form).toMatch(/rentalDays\(/);
+    expect(form).not.toMatch(/function daysBetween/);
+  });
+
+  it("the owner's WhatsApp alert counts the same days it charges for", () => {
+    const route = src("app/api/bookings/route.ts");
+    expect(route).not.toMatch(/function bookedDays/);
+    expect(route).toMatch(/rentalDays\(record\.start_date, record\.end_date\)/);
+  });
+
+  it("a single tap still means one day, not two", () => {
+    // effectiveEnd used to default to start+1, which was 1 day under the old
+    // exclusive maths. Left alone it would now silently charge for 2.
+    const form = src("components/BookingSection.tsx");
+    expect(form).toMatch(/const effectiveEnd = form\.end_date \|\| form\.start_date;/);
+  });
+
+  it("the trip planner asks for the number of days it promised", () => {
+    // "3 days" must set end = start + 2, not start + 3.
+    const form = src("components/BookingSection.tsx");
+    expect(form).toMatch(/isoAddDays\(start, Math\.max\(0, n - 1\)\)/);
   });
 });
 

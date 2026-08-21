@@ -151,13 +151,31 @@ export function todayInRodrigues(now: Date = new Date()): string {
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Whole days between two ISO dates; a same-day or single-tap booking is 1. */
+/**
+ * How many DAYS the customer has the vehicle — counted inclusively, both ends.
+ *
+ * ── THE OFF-BY-ONE THIS FIXES ─────────────────────────────────────────────
+ *
+ * This used to subtract the dates and stop: 01 Aug → 08 Aug came out as 7.
+ * That is the number of NIGHTS, and a scooter is not a hotel room. Someone who
+ * collects on the 1st and returns on the 8th has the bike on the 1st, 2nd,
+ * 3rd, 4th, 5th, 6th, 7th AND 8th — eight days. The owner reported it from a
+ * real booking alert reading "01/AUG/2026 -> 08/AUG/2026 (7 days)": the first
+ * day was being given away, on every single rental.
+ *
+ * So: subtract, then add the day you started on. A same-day rental is 1, which
+ * it always was — that case happened to be right for the wrong reason, because
+ * Math.max(1, 0) papered over the missing day.
+ *
+ * Reversed or malformed dates still return 0, which is what
+ * validateRentalWindow() reads as "the return is before the pickup".
+ */
 export function rentalDays(start: string, end: string): number {
   if (!ISO_DATE.test(start) || !ISO_DATE.test(end)) return 0;
   const a = new Date(`${start}T00:00:00Z`).getTime();
   const b = new Date(`${end}T00:00:00Z`).getTime();
   if (isNaN(a) || isNaN(b) || b < a) return 0;
-  return Math.max(1, Math.round((b - a) / 86_400_000));
+  return Math.round((b - a) / 86_400_000) + 1;
 }
 
 /**
