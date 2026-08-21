@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { guard } from "@/lib/rate-limit";
 import { isUuid } from "@/lib/file-signature";
 import { notifyOrderCustomer } from "@/lib/notifications/order-events";
+import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/queue";
 
 const NOT_FOUND_CODE = "RR003";
 const ILLEGAL_STATE_CODE = "RR004";
@@ -55,6 +56,49 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await notifyOrderCustomer(id, "payment_confirmed");
   } catch (err) {
     console.error("payment-confirmed notification failed", err);
+  }
+
+  // ── AND THE OWNER, ON WHATSAPP (M132) ─────────────────────────────────────
+  //
+  // Money arriving is the event he most wants to know about without opening
+  // anything, and it was the one that told him nothing: the customer was
+  // reassured, the ledger was written, and his phone stayed quiet.
+  //
+  // Category "payments", so it can go to a different number than the kitchen's
+  // — he is not the same person standing at the pass.
+  //
+  // Never inline-fails the confirmation: the money is confirmed either way, and
+  // a CallMeBot outage must not make a merchant press the button twice.
+  try {
+    // confirm_order_payment() returns only (order_id, status) — checked
+    // against pg_get_function_result, not assumed. Reading order_number and
+    // total off it would have silently produced "Order 3F2A91B4 - payment
+    // received", a truncated UUID and no amount, on every alert.
+    const { data: order } = await supabase
+      .from("orders")
+      .select("order_number, total")
+      .eq("id", id)
+      .maybeSingle();
+    const ref = (order?.order_number as string | null) ?? id.slice(0, 8).toUpperCase();
+    const amount =
+      typeof order?.total === "number" ? `Rs ${order.total.toLocaleString("en-US")}` : null;
+    await enqueueNotification({
+      type: "payment_confirmed",
+      category: "payments",
+      message: formatWhatsAppMessage({
+        title: "Payment confirmed",
+        lines: [
+          amount ? `Order ${ref} — ${amount} received.` : `Order ${ref} — payment received.`,
+          "https://roulerodrig.com/admin",
+        ],
+      }),
+      // One per order. Confirming twice is a real thing a merchant does when
+      // the first press seemed not to work; it must not ping twice.
+      dedupeKey: `payment:confirmed:${id}`,
+      orderId: id,
+    });
+  } catch (err) {
+    console.error("payment-confirmed WhatsApp failed", err);
   }
 
   return NextResponse.json(data);

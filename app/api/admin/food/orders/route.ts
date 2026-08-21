@@ -218,7 +218,15 @@ export async function PATCH(req: NextRequest) {
       // old behaviour) buried exactly this message in noise.
       await enqueueNotification({
         type: "food_ready",
-        category: "system",
+        // ── "food", NOT "system" (M132) ──────────────────────────────────
+        //
+        // This was the ONLY food WhatsApp on the platform and it was filed
+        // under the wrong category, so a notification slot subscribed to
+        // `food` — a restaurant's own phone, or a second number for the
+        // kitchen — never received it. The owner could configure food routing
+        // all day and nothing would route. It reached him only because a slot
+        // with NO categories set receives everything.
+        category: "food",
         message: formatWhatsAppMessage({
           title: "Food is ready",
           lines: [

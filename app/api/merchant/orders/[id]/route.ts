@@ -12,6 +12,7 @@ import { channelsForStatus } from "@/lib/orders/email-policy";
 import { notifyDriversOfNewOffer } from "@/lib/delivery/notify";
 import { pushToCustomer } from "@/lib/push/send";
 import { isPrepaymentOnly } from "@/lib/payments/prepayment";
+import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/queue";
 
 const NOT_FOUND_CODE = "RR003";
 const ILLEGAL_TRANSITION_CODE = "RR004";
@@ -157,6 +158,38 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // alerts depend on the customer having an email.
     if (targetStatus === "ready_for_pickup") {
       await notifyDriversOfNewOffer(id);
+
+      // ── AND THE OWNER'S PHONE (M132) ────────────────────────────────────
+      //
+      // /admin/food has sent this WhatsApp since M53, but restaurants do not
+      // work from /admin/food — M81 put them on this dashboard. So the one
+      // moment that has to interrupt whatever anyone is doing, food cooked and
+      // going cold, was silent whenever the kitchen marked it themselves,
+      // which is the normal case.
+      //
+      // Category "food", so the owner can route it to a different phone than
+      // deliveries or payments — or to the restaurant's own number.
+      //
+      // One per order: a status toggled back and forth cannot re-ping.
+      try {
+        await enqueueNotification({
+          type: "food_ready",
+          category: "food",
+          message: formatWhatsAppMessage({
+            title: "Food is ready",
+            lines: [
+              `Order ${current.order_number} is ready for collection.`,
+              "https://roulerodrig.com/admin/food",
+            ],
+          }),
+          dedupeKey: `food:ready:${id}`,
+          orderId: id,
+        });
+      } catch (err) {
+        // Never let an alert failure roll back a status the kitchen has acted
+        // on — the food is cooked either way.
+        console.error("merchant food-ready WhatsApp failed", err);
+      }
     }
     // ── THE CUSTOMER'S OWN PHONE, BEFORE THE EMAIL (M124) ──────────────────
     //
