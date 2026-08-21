@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPrivileged } from "@/lib/supabase/admin";
-import { getContent } from "@/lib/content";
+import { getContentWithStatus } from "@/lib/content";
 import { sendPlaceBookingEmails, upsertBrevoContact } from "@/lib/email";
 import { enqueueNotification } from "@/lib/notifications/queue";
 import { guard } from "@/lib/rate-limit";
@@ -85,17 +85,22 @@ export async function POST(req: NextRequest) {
   // A content read that FAILS is treated the same way. Falling back to client
   // data on an outage turns a bad minute for Supabase into free bookings
   // priced by whoever is asking.
-  let item;
-  try {
-    const content = await getContent();
-    item = content.recommended.items.find((p) => p.id === place_id);
-  } catch (err) {
-    console.error("place-bookings: could not read listings", err);
+  // getContentWithStatus(), not getContent(): the latter NEVER throws — it
+  // swallows a database failure and returns DEFAULT_CONTENT, whose
+  // recommended.items is an empty array. So a Supabase outage would have found
+  // no listing and told the customer "that listing isn't available", which is
+  // a lie about their booking rather than the truth about our database. The
+  // refusal was safe either way; the MESSAGE was not.
+  const { content, loaded } = await getContentWithStatus();
+  if (!loaded) {
+    console.error("place-bookings: site content unreachable, refusing rather than pricing from defaults");
     return NextResponse.json(
-      { error: "We can't take bookings right now. Please try again in a moment." },
+      { error: "We can't take bookings right now — please try again in a moment." },
       { status: 503 },
     );
   }
+
+  const item = content.recommended.items.find((p) => p.id === place_id);
 
   if (!item) {
     // Deliberately the same wording as an unavailable vehicle: it tells the
