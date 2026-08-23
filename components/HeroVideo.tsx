@@ -231,15 +231,40 @@ export default function HeroVideoLayer({
     // hidden tab — resuming video for a visitor who is not looking is exactly
     // the mobile data this component exists to protect.
     const watchdog = window.setInterval(() => {
-      if (playingNow.current) return;
       if (document.visibilityState !== "visible") return;
-      frameRef.current?.contentWindow?.postMessage(
-        JSON.stringify({ event: "command", func: "playVideo", args: [] }),
-        "*",
-      );
+      const w = frameRef.current?.contentWindow;
+      if (!w) return;
+
+      // ── KEEP THE SUBSCRIPTION ALIVE, NOT JUST THE NUDGE ──────────────────
+      //
+      // This line is the whole fix for "the video plays but never appears".
+      //
+      // YouTube reports `playerState` ONLY in reply to a `listening` message.
+      // The fast 400ms handshake below stops after 20s, which is right for a
+      // handshake — but it was also the only thing asking. So the sequence on
+      // any device that refuses autoplay was:
+      //
+      //   0–20s  handshake alive, player CUED, poster covering it. Correct.
+      //   20s    the knock stops. Nothing is asking for state any more.
+      //   later  this watchdog finally gets the player started — and nobody
+      //          hears about it. `everPlayed` never flips, the reveal never
+      //          fires, and the poster stays on top of a playing video.
+      //
+      // Measured on the running site: 56 seconds of playback at opacity 0.
+      // Re-sending `listening` here made the player answer `playerState: 1`
+      // on the very next message.
+      //
+      // The watchdog outlives the handshake, so the watchdog has to carry it.
+      w.postMessage(JSON.stringify({ event: "listening", id: "rr-hero" }), "*");
+
+      if (playingNow.current) return;
+      w.postMessage(JSON.stringify({ event: "command", func: "playVideo", args: [] }), "*");
     }, 2000);
-    // Stop knocking after 20s. By then it is either talking to us or it never
-    // will, and in that case the poster simply stays — which is a good hero.
+    // Stop the FAST knock after 20s. By then the player is either talking to us
+    // or it never will, and 400ms is only worth paying for the initial
+    // handshake. The subscription itself is NOT dropped here — the watchdog
+    // above keeps re-sending `listening` every 2s for as long as the hero
+    // lives, because playback can begin long after this expires.
     const giveUp = window.setTimeout(() => window.clearInterval(hello), 20_000);
 
     // NO TAP-TO-PLAY BUTTON. One was added here and the owner rejected it on
