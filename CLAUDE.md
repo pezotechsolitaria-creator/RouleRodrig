@@ -98,6 +98,34 @@ and `delivery_requests.contact_phone` both enforce strict E.164, so the form
 included) never regex the phone, which is why only this surface broke. Parse
 with `toE164()` from `lib/phone.ts` before any strict-E.164 field.
 
+**Who may carry what — TWO gates, not one**
+
+A job has a SIZE (does it fit) and a CARGO KIND (is this the right tool).
+`vehicle_can_handle(vehicle, size, cargo)` in SQL is the authority;
+`lib/delivery/vehicle.ts` mirrors it with tests. If they disagree, a screen is
+explaining a rule dispatch does not follow.
+
+    vehicle   general food fragile heavy  large
+    foot         y     y      y      n      n
+    bicycle      y     y      y      n      n
+    scooter      y     y      y      n      n
+    car          y     y      y      n      y
+    van          y     y      y      y      y
+    pickup       y     n      n      y      y
+    lorry        y     n      n      y      y
+
+- `enclosed` means **the load is contained** — a bag, a top box, a boot, a
+  closed van. NOT "the vehicle has a roof". Reading it the other way excluded
+  scooters from food, which is the most common food-delivery vehicle on earth.
+- `nimble` fails only for the lorry: too big for half the tracks here.
+- SIZE is judged **cautiously** (an unknown vehicle does not get the fridge);
+  SUITABILITY is judged **permissively** (an unknown cargo kind must not strand
+  a job nobody can be offered).
+- Gated in FOUR places or it is not a rule: `dispatch_candidates`,
+  `driver_open_requests`, the push/WhatsApp fan-outs, and both quote RPCs.
+- A kitchen order is tagged `food` automatically by
+  `set_delivery_size_from_order`, so `/food` is protected with no new input.
+
 **The two bugs that keep recurring**
 
 - **A direct job has no `store_id` and no `order_id`.** Anything reading
