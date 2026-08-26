@@ -64,12 +64,22 @@ export const border = {
 
 export const text = {
   primary: "text-offwhite",
-  /** Body copy and anything secondary. #888 on #0a0a0a is 5.6:1 — AA for body,
-   *  and the reason it is not lighter is that everything cannot be primary. */
+  /** Body copy and anything secondary. #888888 on #0a0a0a is 5.58:1 and on
+   *  #111111 is 5.33:1 — AA either way, and the reason it is not lighter is
+   *  that everything cannot be primary. */
   secondary: "text-muted",
-  /** Deliberately NOT text-muted at reduced opacity. Dimming a already-dim grey
-   *  is how dark UIs fail contrast without anybody noticing. */
-  faint: "text-white/45",
+  /** Deliberately NOT text-muted at reduced opacity. Dimming an already-dim
+   *  grey is how dark UIs fail contrast without anybody noticing -- which is
+   *  exactly what happened here: this was white/45, and white/45 composited
+   *  over #0a0a0a is 4.48:1. It FAILED AA by two hundredths while the comment
+   *  above it claimed otherwise. Measured, not eyeballed:
+   *
+   *      white/30  2.61     white/45  4.48  <- was here
+   *      white/35  3.15     white/55  6.28  <- is here
+   *      white/40  3.77     #888888   5.58  (text.secondary)
+   *
+   *  Anything below white/55 is for decoration only, never for words. */
+  faint: "text-white/55",
   accent: "text-yellow",
   danger: "text-red-400",
   onAccent: "text-dark",

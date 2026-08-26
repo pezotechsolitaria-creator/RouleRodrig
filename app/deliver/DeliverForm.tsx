@@ -138,11 +138,27 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
 
   // What the pinned button says right now. Never a bare "Next": the last step's
   // label has to carry that this asks for prices rather than booking anything.
-  const cta = !done[step]
-    ? { label: stepPrompt(step, kind), disabled: true }
-    : step !== "who"
-      ? { label: "Continue", disabled: false }
-      : { label: submitting ? "Posting…" : "Ask for prices", disabled: submitting };
+  // The FIRST group that is still unfinished, which is not always the open one:
+  // somebody can complete all three, reopen step 1, switch to "Buy & deliver"
+  // and leave the budget empty. The CTA used to keep saying "Ask for prices"
+  // and stay enabled, because it only ever looked at the step in front of it --
+  // and submit() then returned silently, so the tap did nothing at all.
+  const firstUnfinished = STEPS.find((sp) => !done[sp]) ?? null;
+
+  const cta =
+    step !== "who"
+      ? !done[step]
+        ? { label: stepPrompt(step, kind), disabled: true, fix: null }
+        : { label: "Continue", disabled: false, fix: null }
+      : firstUnfinished
+        ? {
+            // Names the missing thing and, when it is behind them, offers to go
+            // back to it rather than leaving a dead button.
+            label: stepPrompt(firstUnfinished, kind),
+            disabled: firstUnfinished === "who",
+            fix: firstUnfinished === "who" ? null : firstUnfinished,
+          }
+        : { label: submitting ? "Posting…" : "Ask for prices", disabled: submitting, fix: null };
 
   return (
     <>
@@ -333,7 +349,7 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
           {/* Said here rather than in the small print, because this is the
               field people hesitate over. There are no street numbers in most of
               Rodrigues and a form that seems to want one gets abandoned. */}
-          <p className={cn(t.meta, "mt-3 text-white/40")}>
+          <p className={cn(t.meta, "mt-3 text-white/55")}>
             A village and a landmark is enough. Drivers here navigate by them.
           </p>
         </Group>
@@ -413,7 +429,11 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
         <div className="mx-auto max-w-2xl">
           <button
             type="button"
-            onClick={() => (step === "who" ? void submit() : advance())}
+            onClick={() => {
+              if (cta.fix) return setStep(cta.fix);
+              if (step === "who") return void submit();
+              advance();
+            }}
             disabled={cta.disabled}
             className={cn(recipe.primaryAction, "inline-flex items-center justify-center gap-2")}
           >
@@ -422,7 +442,7 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
           </button>
           {/* The two facts that were below the fold. They are the reason
               somebody finishes this form, so they sit ON the button. */}
-          <p className={cn(t.meta, "mt-2 text-center text-white/45")}>
+          <p className={cn(t.meta, "mt-2 text-center text-white/55")}>
             Free to ask. You only pay once you accept a driver&apos;s price.
           </p>
         </div>

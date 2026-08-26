@@ -111,21 +111,38 @@ export default function RequestTracker({
   // Kept in a ref as well as state so the poller never closes over a stale one.
   const emailRef = useRef<string>("");
 
+  // ── Ordering ──────────────────────────────────────────────────────────────
+  // Responses can land out of order: a 20-second poll fired before the customer
+  // tapped Book can arrive AFTER the reload that follows it, on a bad connection
+  // or a cold serverless start. Without a sequence guard that stale body wins
+  // and the screen reverts from "Your driver is booked" to "Choose a driver" --
+  // with the quotes back, inviting them to book a second time.
+  const seq = useRef(0);
+
   const load = useCallback(
     async (opts: { silent?: boolean } = {}) => {
+      const mine = ++seq.current;
+      const stale = () => mine !== seq.current;
       try {
         const res = await fetch(`/api/delivery-requests/${id}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "view", email: emailRef.current || undefined }),
         });
+        if (stale()) return;
         if (res.status === 404) {
+          // A BACKGROUND poll must never tear down a working screen. A 404 on
+          // a silent refresh means the request was withdrawn or the row moved
+          // under us; the next foreground load will say so properly. Reacting
+          // here replaced a fully-rendered booked delivery with an email form.
+          if (opts.silent) return;
           // Signed in with nothing stored → this may simply be a request they
           // made as a guest. Ask for the email rather than declaring it gone.
           setPhase(emailRef.current ? "gone" : "needsEmail");
           return;
         }
         const json = (await res.json()) as { request?: RequestView; error?: string };
+        if (stale()) return;
         if (!res.ok || !json.request) {
           if (!opts.silent) toast.error(json.error ?? "Could not load that request.");
           // A failed FIRST load has to leave the skeleton. Toasting and
@@ -328,6 +345,14 @@ export default function RequestTracker({
   }
 
   if (phase === "gone") {
+    // Reachable by mistyping an email once. Without a route back it is a dead
+    // end for somebody who simply has two addresses and guessed wrong.
+    const retryEmail = () => {
+      emailRef.current = "";
+      setEmail("");
+      setEmailDraft("");
+      setPhase("needsEmail");
+    };
     return (
       <div className={cn(recipe.cardButton, "cursor-default text-center")}>
         <AlertTriangle size={22} className="mx-auto text-white/40" />
@@ -335,10 +360,15 @@ export default function RequestTracker({
         <p className={cn(t.bodySm, "mt-2 text-muted")}>
           The link may be wrong, or it was posted with a different email.
         </p>
-        <Link href="/deliver" className={cn(recipe.secondaryAction, "mt-5 inline-flex items-center py-2.5")}>
-          Back to Deliver anything
-        </Link>
-        <p className={cn(t.meta, "mt-3 text-white/40")}>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+          <button type="button" onClick={retryEmail} className={cn(recipe.secondaryAction, "py-2.5")}>
+            Try another email
+          </button>
+          <Link href="/deliver" className={cn(recipe.secondaryAction, "inline-flex items-center py-2.5")}>
+            Back to Deliver anything
+          </Link>
+        </div>
+        <p className={cn(t.meta, "mt-3 text-white/55")}>
           Lost the link? Find it there with your reference and email.
         </p>
       </div>
@@ -385,12 +415,12 @@ export default function RequestTracker({
         {/* The thread back. A guest gets no email and cannot memorise a uuid,
             so without this on screen the only route to this page is a link they
             still happen to have open. */}
-        <p className={cn(t.meta, "mt-2 font-mono tracking-widest text-white/40")}>
+        <p className={cn(t.meta, "mt-2 font-mono tracking-widest text-white/55")}>
           {requestRef(view.id)}
         </p>
         <p className={cn(t.body, "mt-2 text-muted")}>{status.detail}</p>
         {view.status === "open" && closes && (
-          <p className={cn(t.meta, "mt-3 inline-flex items-center gap-1.5 text-white/45")}>
+          <p className={cn(t.meta, "mt-3 inline-flex items-center gap-1.5 text-white/55")}>
             <Clock size={13} /> Drivers can quote until it closes {closes}
           </p>
         )}
@@ -404,7 +434,7 @@ export default function RequestTracker({
           </span>
           <div className="min-w-0">
             <p className={cn(t.cardTitle, "text-offwhite")}>{view.what}</p>
-            <p className={cn(t.meta, "mt-1 text-white/45")}>
+            <p className={cn(t.meta, "mt-1 text-white/55")}>
               {view.kind === "shop_and_deliver" ? "Buy & deliver" : "Collect & deliver"}
               {view.sizeClass === "large" && " · Large item"}
             </p>
@@ -459,7 +489,7 @@ export default function RequestTracker({
           type="button"
           onClick={withdraw}
           disabled={cancelling}
-          className={cn(t.bodySm, "self-start text-white/40 underline underline-offset-4 transition-colors hover:text-white/70 disabled:opacity-50")}
+          className={cn(t.bodySm, "self-start text-white/55 underline underline-offset-4 transition-colors hover:text-white/70 disabled:opacity-50")}
         >
           {cancelling
             ? "Cancelling…"
@@ -483,7 +513,7 @@ export default function RequestTracker({
       </AnimatePresence>
 
       {email && (
-        <p className={cn(t.meta, "text-white/30")}>
+        <p className={cn(t.meta, "text-white/55")}>
           Showing this request to {email}.
         </p>
       )}
@@ -498,7 +528,7 @@ function Leg({ label, place, note }: { label: string; place: string; note: strin
     <div className="flex items-start gap-3">
       <MapPin size={15} className="mt-0.5 shrink-0 text-white/30" />
       <div className="min-w-0">
-        <p className={cn(t.meta, "text-white/40")}>{label}</p>
+        <p className={cn(t.meta, "text-white/55")}>{label}</p>
         <p className={cn(t.bodySm, "text-offwhite")}>{place}</p>
         {note && <p className={cn(t.meta, "mt-0.5 text-muted")}>{note}</p>}
       </div>
@@ -635,14 +665,60 @@ function ConfirmSheet({
 }) {
   const pay = payAtDoor({ fee: quote.fee, kind: view.kind, spendCap: view.spendCap });
 
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+
+  // ── Escape, focus, and keeping the sheet honest ──────────────────────────
   // Escape closes it, because a sheet that can only be dismissed by finding a
   // small X is a sheet people confirm by accident.
+  //
+  // The focus half is not decoration. This element declares aria-modal but did
+  // nothing to enforce it, so keyboard focus stayed on the quote card BEHIND
+  // the overlay: Tab walked the hidden list, Enter selected a different driver,
+  // and the sheet in front of them still named the first one. Somebody could
+  // book a driver they had never read the price of.
   useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    const root = sheetRef.current;
+    const focusables = () =>
+      Array.from(
+        root?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), a[href], input, [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+
+    // Land on the confirm button: it is what they came here to press, and it
+    // also puts the price in front of a screen reader immediately.
+    focusables().at(-1)?.focus();
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busy) onClose();
+      if (e.key === "Escape" && !busy) {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      // Wrap, so Tab can never leave the sheet for the list underneath it.
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (root && !root.contains(document.activeElement)) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      // Back where they were, so closing the sheet does not dump them at the
+      // top of the page.
+      previous?.focus?.();
+    };
   }, [busy, onClose]);
 
   return (
@@ -656,9 +732,10 @@ function ConfirmSheet({
         className="fixed inset-0 z-40 bg-black/70 backdrop-blur-[2px]"
       />
       <motion.div
+        ref={sheetRef}
         role="dialog"
         aria-modal="true"
-        aria-label={`Book ${quote.driverName}`}
+        aria-label={`Book ${quote.driverName} for ${formatFee(quote.fee)}`}
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
@@ -701,7 +778,7 @@ function ConfirmSheet({
           </dl>
           {pay.note && <p className={cn(t.meta, "mt-2 text-muted")}>{pay.note}</p>}
 
-          <p className={cn(t.meta, "mt-4 flex items-start gap-2 text-white/45")}>
+          <p className={cn(t.meta, "mt-4 flex items-start gap-2 text-white/55")}>
             <ShieldCheck size={14} className="mt-px shrink-0 text-yellow/70" />
             You will get a 4-digit code. Read it out only once it is in your hands —
             it is what proves the delivery happened.
@@ -716,7 +793,7 @@ function ConfirmSheet({
             {busy && <Loader2 size={16} className="animate-spin" />}
             {busy ? "Booking…" : `Book for ${formatFee(quote.fee)}`}
           </button>
-          <p className={cn(t.meta, "mt-3 text-center text-white/35")}>
+          <p className={cn(t.meta, "mt-3 text-center text-white/55")}>
             The other prices are withdrawn once you book.
           </p>
         </div>
@@ -808,7 +885,7 @@ function BookedDriver({ view }: { view: RequestView }) {
                   className={cn(
                     t.bodySm,
                     "pb-5",
-                    now ? "font-semibold text-offwhite" : done ? "text-muted" : "text-white/30",
+                    now ? "font-semibold text-offwhite" : done ? "text-muted" : "text-white/55",
                   )}
                 >
                   {legCopy(step).label}

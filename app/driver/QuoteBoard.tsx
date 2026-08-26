@@ -57,7 +57,7 @@ export default function QuoteBoard({
 }: {
   requests: OpenRequest[];
   busy: string | null;
-  onQuote: (requestId: string, fee: number, note: string) => Promise<void>;
+  onQuote: (requestId: string, fee: number, note: string) => Promise<boolean>;
   onWithdraw: (quoteId: string) => Promise<void>;
 }) {
   if (requests.length === 0) return null;
@@ -96,7 +96,7 @@ function RequestCard({
 }: {
   request: OpenRequest;
   busy: string | null;
-  onQuote: (requestId: string, fee: number, note: string) => Promise<void>;
+  onQuote: (requestId: string, fee: number, note: string) => Promise<boolean>;
   onWithdraw: (quoteId: string) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
@@ -185,7 +185,7 @@ function RequestCard({
               type="button"
               disabled={busy !== null}
               onClick={() => void onWithdraw(r.myQuote!.id)}
-              className={cn(t.meta, "text-white/40 underline underline-offset-4 disabled:opacity-50")}
+              className={cn(t.meta, "text-white/55 underline underline-offset-4 disabled:opacity-50")}
             >
               {withdrawing ? "Withdrawing…" : "Withdraw"}
             </button>
@@ -257,7 +257,13 @@ function RequestCard({
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setOpen(false)}
+                  onClick={() => {
+                    // Put the draft back to the standing price, so Cancel means
+                    // cancel rather than "keep my half-typed number".
+                    setFee(r.myQuote ? centsToShortString(r.myQuote.fee) : "");
+                    setNote(r.myQuote?.note ?? "");
+                    setOpen(false);
+                  }}
                   disabled={quoting}
                   className="min-h-[52px] rounded-full border border-white/15 px-5 font-dm text-sm font-medium text-offwhite disabled:opacity-50"
                 >
@@ -267,8 +273,11 @@ function RequestCard({
                   type="button"
                   disabled={!valid || busy !== null}
                   onClick={async () => {
-                    await onQuote(r.id, cents as number, note.trim());
-                    setOpen(false);
+                    // Only collapse on SUCCESS. It used to close regardless, so
+                    // a refused quote -- request taken, wrong vehicle, a dropped
+                    // connection -- threw away the price the driver had just
+                    // typed and left them to work out what happened.
+                    if (await onQuote(r.id, cents as number, note.trim())) setOpen(false);
                   }}
                   className="flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-full bg-yellow font-syne text-base font-bold text-dark disabled:opacity-40"
                 >
@@ -281,7 +290,7 @@ function RequestCard({
                 </button>
               </div>
 
-              <p className={cn(t.meta, "text-white/40")}>
+              <p className={cn(t.meta, "text-white/55")}>
                 {/* Expectation-setting, so silence afterwards is not read as a
                     failure. This is the part of the model that is genuinely
                     unlike everything else they do on this app. */}
@@ -294,7 +303,7 @@ function RequestCard({
       </AnimatePresence>
 
       {r.expiresAt && (
-        <p className={cn(t.meta, "mt-3 inline-flex items-center gap-1.5 text-white/35")}>
+        <p className={cn(t.meta, "mt-3 inline-flex items-center gap-1.5 text-white/55")}>
           <Clock size={11} /> Closes {new Date(r.expiresAt).toLocaleString("en-GB", {
             weekday: "short",
             hour: "2-digit",

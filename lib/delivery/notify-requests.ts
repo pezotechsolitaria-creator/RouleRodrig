@@ -210,7 +210,12 @@ export async function notifyCustomerOfQuote(quoteId: string): Promise<void> {
         lines,
         action: quoteArrivedAction(customerPath(q.request.id)),
       }),
-      dedupeKey: `delivery.quote_offered:${quoteId}`,
+      // The FEE is in the key. offer_delivery_quote() updates a driver's quote
+      // in place and keeps its id, so keying on the id alone meant a driver
+      // dropping their price from Rs 400 to Rs 250 produced an identical key --
+      // and enqueue_notification's UNIQUE(dedupe_key) has no time window, so
+      // the customer was never told their price had improved.
+      dedupeKey: `delivery.quote_offered:${quoteId}:${q.fee}`,
       payload: {
         requestId: q.request.id,
         quoteId,

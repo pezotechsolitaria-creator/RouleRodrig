@@ -582,12 +582,16 @@ export default function DriverDashboard() {
           requests={openRequests}
           busy={busy}
           onQuote={async (requestId, fee, note) => {
-            await act(`quote-${requestId}`, {
+            // act() returns the body on success and undefined when it caught an
+            // error, so this is the board's signal to keep the editor open and
+            // the driver's typed price with it.
+            const out = await act(`quote-${requestId}`, {
               action: "quote",
               requestId,
               fee,
               note: note || undefined,
             });
+            return out !== undefined;
           }}
           onWithdraw={async (quoteId) => {
             await act(`withdraw-${quoteId}`, { action: "withdraw_quote", quoteId });
