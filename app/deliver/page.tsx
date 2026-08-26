@@ -49,7 +49,12 @@ export default async function DeliverPage() {
       />
       <AppPageHeader logo={content.branding.logo} />
 
-      <main className="min-h-screen bg-dark pb-52">
+      {/* The bottom padding must clear the pinned CTA bar, which itself grows by
+          env(safe-area-inset-bottom) on a notched phone. A fixed pb-52 (208px)
+          measured fine in a browser reporting a zero inset and would have been
+          ~9px short on an iPhone, clipping the last link. Derived from the same
+          inset so the two cannot disagree on any device. */}
+      <main className="min-h-screen bg-dark pb-[calc(13rem+env(safe-area-inset-bottom))]">
         <header className="border-b border-white/10 bg-gradient-to-b from-yellow/[0.06] to-transparent px-5 py-10 md:py-14">
           <div className="mx-auto max-w-2xl">
             <p className="font-bebas text-xs tracking-[0.3em] text-yellow">ROULÉ DELIVERY</p>

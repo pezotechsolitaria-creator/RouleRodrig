@@ -8,6 +8,8 @@ import {
   quoteAcceptedLines,
   cancelledTitle,
   cancelledLines,
+  lostQuoteTitle,
+  lostQuoteLines,
   type RequestFacts,
 } from "./request-copy";
 
@@ -234,5 +236,36 @@ describe("the driver whose job was called off", () => {
       /They said: Found another way/,
     );
     expect(cancelledLines({ ...base, reason: "  " }).join("\n")).not.toMatch(/They said/);
+  });
+});
+
+describe("the drivers who did not win", () => {
+  const base = { what: "2 gas bottles", pickupText: "Port Mathurin", dropoffText: "Fatima Bay" };
+
+  it("tells them apart: lost to a driver, or the customer pulled it", () => {
+    expect(lostQuoteTitle({ outcome: "taken" })).toMatch(/somebody else/i);
+    expect(lostQuoteTitle({ outcome: "cancelled" })).toMatch(/withdrawn/i);
+    expect(lostQuoteLines({ ...base, outcome: "cancelled" }).join("\n")).toMatch(/customer withdrew/i);
+    expect(lostQuoteLines({ ...base, outcome: "taken" }).join("\n")).toMatch(/chose another driver/i);
+  });
+
+  it("NEVER says what the winning price was", () => {
+    // Telling somebody they lost by Rs 30 invites a race to the bottom, and
+    // this island has few enough drivers that a price war costs everybody.
+    for (const outcome of ["taken", "cancelled"]) {
+      const all = lostQuoteLines({ ...base, outcome }).join(" ");
+      expect(all, outcome).not.toMatch(/Rs \d/);
+      expect(all, outcome).not.toMatch(/won at|beat|lower than|cheaper/i);
+    }
+  });
+
+  it("closes the loop instead of leaving them wondering", () => {
+    // The whole reason this message exists: a driver who quotes and hears
+    // nothing decides the board is not worth opening.
+    for (const outcome of ["taken", "cancelled"]) {
+      const lines = lostQuoteLines({ ...base, outcome });
+      expect(lines.at(-1), outcome).toMatch(/nothing to do/i);
+      expect(lines.join(" "), outcome).toContain("Port Mathurin to Fatima Bay");
+    }
   });
 });

@@ -213,3 +213,43 @@ export function cancelledLines(input: {
   lines.push("This does not count against you. You are free for the next job.");
   return lines;
 }
+
+// ── 5. The drivers who did not win ──────────────────────────────────────────
+
+/**
+ * What a driver is told when somebody else got the job, or the customer pulled
+ * it.
+ *
+ * A driver who quotes and then hears NOTHING learns that the board is a waste
+ * of their attention, and stops opening it. That is the quiet way a reverse
+ * auction dies: not with a complaint, but with fewer prices every week.
+ *
+ * The winning fee is deliberately NOT included. Telling somebody they lost by
+ * Rs 30 invites a race to the bottom, and this island has few enough drivers
+ * that a price war costs everybody. They are told THAT they lost, not by how
+ * much.
+ */
+export function lostQuoteTitle(input: { outcome: string }): string {
+  return input.outcome === "cancelled" ? "Request withdrawn" : "Somebody else got that one";
+}
+
+export function lostQuoteLines(input: {
+  what: string;
+  pickupText: string;
+  dropoffText: string;
+  outcome: string;
+}): string[] {
+  const where = `${input.pickupText.trim()} to ${input.dropoffText.trim()}`;
+  return input.outcome === "cancelled"
+    ? [
+        `The customer withdrew this one: ${input.what.trim()}`,
+        `Was: ${where}`,
+        "Your price is closed. Nothing to do.",
+      ]
+    : [
+        `The customer chose another driver for: ${input.what.trim()}`,
+        `Was: ${where}`,
+        // Says the thing that keeps them bidding.
+        "Your price is closed. Nothing to do — there will be more on the board.",
+      ];
+}

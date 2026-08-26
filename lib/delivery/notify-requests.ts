@@ -14,6 +14,8 @@ import {
   quoteAcceptedAction,
   cancelledTitle,
   cancelledLines,
+  lostQuoteTitle,
+  lostQuoteLines,
   type RequestFacts,
 } from "@/lib/delivery/request-copy";
 
@@ -356,5 +358,58 @@ export async function notifyDriverOfCancellation(requestId: string): Promise<voi
         fee: f.fee,
       },
     }),
+  ]);
+}
+
+// ── 5. The drivers who did not win ──────────────────────────────────────────
+
+type LosingFacts = {
+  requestId: string;
+  what: string;
+  pickupText: string;
+  dropoffText: string;
+  losers: number;
+  winningFee: number | null;
+  outcome: string;
+};
+
+/**
+ * Close the loop for everybody who quoted and lost.
+ *
+ * Until this existed a driver who priced a job heard nothing, ever — not when
+ * somebody else won it, not when the customer withdrew it. Their quote simply
+ * stopped existing. That is how a reverse auction loses its supply side: not
+ * through complaints, but through drivers quietly deciding the board is not
+ * worth opening.
+ *
+ * Called after acceptance and after cancellation, both of which set the losing
+ * quotes to 'declined'. Does nothing when there were none.
+ */
+export async function notifyLosingDrivers(requestId: string): Promise<void> {
+  const f = await facts<LosingFacts>("losing_quote_facts", { p_request_id: requestId });
+  if (!f || f.losers === 0) return;
+
+  const title = lostQuoteTitle({ outcome: f.outcome });
+  const lines = lostQuoteLines({
+    what: f.what,
+    pickupText: f.pickupText,
+    dropoffText: f.dropoffText,
+    outcome: f.outcome,
+  });
+
+  const [pushTargets, waTargets] = await Promise.all([
+    rpc<Target>("losing_quote_push_targets", { p_request_id: requestId }),
+    rpc<WaTarget>("losing_quote_whatsapp_targets", { p_request_id: requestId }),
+  ]);
+
+  await Promise.allSettled([
+    pushToDriverEndpoints(pushTargets, {
+      title,
+      body: lines[0],
+      url: "/driver",
+      // Replaces the board card for this job rather than stacking beside it.
+      tag: `delivery-request-${requestId}`,
+    }),
+    whatsappFan(waTargets, formatWhatsAppMessage({ title, lines })),
   ]);
 }

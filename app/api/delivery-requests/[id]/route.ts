@@ -3,7 +3,11 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { guardShared } from "@/lib/rate-limit";
-import { notifyQuoteAccepted, notifyDriverOfCancellation } from "@/lib/delivery/notify-requests";
+import {
+  notifyQuoteAccepted,
+  notifyDriverOfCancellation,
+  notifyLosingDrivers,
+} from "@/lib/delivery/notify-requests";
 
 // ── One request, from the customer's side ───────────────────────────────────
 //
@@ -159,6 +163,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // a job that no longer exists. Awaited, and it never throws. Does nothing
     // when the request was still open -- there is nobody to tell.
     await notifyDriverOfCancellation(id);
+    // And everybody whose standing price just died with the request. A driver
+    // who quotes and hears nothing stops opening the board.
+    await notifyLosingDrivers(id);
     return NextResponse.json({ ok: true });
   }
 
@@ -221,6 +228,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   // mid-flight, and a notification that dies there is exactly the silent
   // failure this whole flow exists to avoid. It cannot throw.
   await notifyQuoteAccepted(v.quoteId);
+  // The other drivers were just declined by accept_delivery_quote. Telling them
+  // is what keeps them quoting on the next one.
+  await notifyLosingDrivers(id);
 
   return NextResponse.json({ ok: true, deliveryId }, { status: 200 });
 }
