@@ -2,16 +2,26 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { InstagramIcon, FacebookIcon, TikTokIcon, WhatsAppIcon } from "@/lib/icons";
-import type { SocialLinks, BrandingContent, LegalContent } from "@/lib/defaults";
+import {
+  InstagramIcon,
+  FacebookIcon,
+  TikTokIcon,
+  WhatsAppIcon,
+} from "@/lib/icons";
+import type {
+  SocialLinks,
+  BrandingContent,
+  LegalContent,
+} from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import { resolveLegal, isMissing } from "@/lib/legal";
+import TourismOffice from "@/components/TourismOffice";
 
 const SOCIAL_CONFIG = [
-  { key: "instagram" as const, Icon: InstagramIcon,  label: "Instagram" },
-  { key: "facebook"  as const, Icon: FacebookIcon,   label: "Facebook"  },
-  { key: "tiktok"    as const, Icon: TikTokIcon,     label: "TikTok"    },
-  { key: "whatsapp"  as const, Icon: WhatsAppIcon,   label: "WhatsApp"  },
+  { key: "instagram" as const, Icon: InstagramIcon, label: "Instagram" },
+  { key: "facebook" as const, Icon: FacebookIcon, label: "Facebook" },
+  { key: "tiktok" as const, Icon: TikTokIcon, label: "TikTok" },
+  { key: "whatsapp" as const, Icon: WhatsAppIcon, label: "WhatsApp" },
 ];
 
 export default function Footer({
@@ -36,12 +46,19 @@ export default function Footer({
   const brandImage = branding?.logoMark || branding?.logo;
 
   return (
-    <footer className="bg-dark-card border-t border-dark-border" aria-label="Site footer">
+    <footer
+      className="bg-dark-card border-t border-dark-border"
+      aria-label="Site footer"
+    >
       <div className="max-w-7xl mx-auto px-6 pt-8 pb-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 md:gap-14 mb-8">
           {/* Brand */}
           <div>
-            <Link href="/" className="flex items-center gap-2.5 mb-5" aria-label="Roule Rodrigues home">
+            <Link
+              href="/"
+              className="flex items-center gap-2.5 mb-5"
+              aria-label="Roule Rodrigues home"
+            >
               {/* The MARK — h-9 is 36px, too small for the lockup's tagline. */}
               {brandImage ? (
                 <Image
@@ -50,7 +67,11 @@ export default function Footer({
                   width={140}
                   height={40}
                   className="h-9 w-auto object-contain"
-                  unoptimized={brandImage.startsWith("/uploads/") || (brandImage.startsWith("http") && !brandImage.includes("supabase.co"))}
+                  unoptimized={
+                    brandImage.startsWith("/uploads/") ||
+                    (brandImage.startsWith("http") &&
+                      !brandImage.includes("supabase.co"))
+                  }
                 />
               ) : (
                 <>
@@ -72,7 +93,9 @@ export default function Footer({
 
           {/* Social */}
           <div>
-            <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-5">{t.footer.follow}</p>
+            <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-5">
+              {t.footer.follow}
+            </p>
             {activeSocial.length > 0 ? (
               <div className="flex gap-3 mb-6">
                 {activeSocial.map(({ key, Icon, label }) => (
@@ -102,10 +125,20 @@ export default function Footer({
               </div>
             )}
             <p className="text-muted font-dm text-xs leading-relaxed">
-              {t.footer.tag}<br />
+              {t.footer.tag}
+              <br />
               <span className="text-yellow/70">#RouleRodrigues</span>
             </p>
           </div>
+        </div>
+
+        {/* The island's real tourism office. A link, not a partnership claim
+            — see the note at the top of components/TourismOffice.tsx. It sits
+            here rather than on the homepage because it belongs to the layer a
+            visitor reaches for when they want somebody official, and because
+            anything larger on the homepage would read as an advertisement. */}
+        <div className="pt-6 border-t border-dark-border mb-5">
+          <TourismOffice />
         </div>
 
         {/* Conservation badge — Rodrigues is proudly eco-conscious */}
@@ -124,29 +157,54 @@ export default function Footer({
             the URL — an approved driver had no way back to their own jobs, and
             nobody could discover that delivering was possible at all. */}
         <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 mb-4">
-          <Link href="/kitchen" className="text-muted hover:text-yellow transition-colors text-xs font-dm">
-            {language === "fr" ? "Espace cuisine" : language === "cr" ? "Espas lakwizinn" : "Kitchen"}
+          <Link
+            href="/kitchen"
+            className="text-muted hover:text-yellow transition-colors text-xs font-dm"
+          >
+            {language === "fr"
+              ? "Espace cuisine"
+              : language === "cr"
+                ? "Espas lakwizinn"
+                : "Kitchen"}
           </Link>
-          <Link href="/driver" className="text-muted hover:text-yellow transition-colors text-xs font-dm">
-            {language === "fr" ? "Espace livreur" : language === "cr" ? "Espas livrer" : "Driver dashboard"}
+          <Link
+            href="/driver"
+            className="text-muted hover:text-yellow transition-colors text-xs font-dm"
+          >
+            {language === "fr"
+              ? "Espace livreur"
+              : language === "cr"
+                ? "Espas livrer"
+                : "Driver dashboard"}
           </Link>
           {/* /partner was reachable only by typing the URL — the page that
               recruits every merchant on the platform. */}
-          <Link href="/partner" className="text-muted hover:text-yellow transition-colors text-xs font-dm">
-            {language === "fr" ? "Devenir partenaire" : language === "cr" ? "Vinn partener" : "Sell with us"}
+          <Link
+            href="/partner"
+            className="text-muted hover:text-yellow transition-colors text-xs font-dm"
+          >
+            {language === "fr"
+              ? "Devenir partenaire"
+              : language === "cr"
+                ? "Vinn partener"
+                : "Sell with us"}
           </Link>
         </div>
 
         {/* Legal links */}
         <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 mb-5">
           {[
-            { label: t.footer.terms,      href: "/legal/terms" },
-            { label: t.footer.privacy,    href: "/legal/privacy" },
-            { label: t.footer.refunds,    href: "/legal/refunds" },
+            { label: t.footer.terms, href: "/legal/terms" },
+            { label: t.footer.privacy, href: "/legal/privacy" },
+            { label: t.footer.refunds, href: "/legal/refunds" },
             { label: t.footer.disclaimer, href: "/legal/disclaimer" },
-            { label: t.footer.notice,     href: "/legal/notice" },
+            { label: t.footer.notice, href: "/legal/notice" },
           ].map((l) => (
-            <Link key={l.href} href={l.href} className="text-muted hover:text-yellow transition-colors text-xs font-dm">
+            <Link
+              key={l.href}
+              href={l.href}
+              className="text-muted hover:text-yellow transition-colors text-xs font-dm"
+            >
               {l.label}
             </Link>
           ))}
