@@ -4,6 +4,8 @@ import {
   legCopy,
   legIndex,
   LEG_ORDER,
+  TERMINAL_LEGS,
+  BROKEN_LEGS,
   sortQuotes,
   quoteBadges,
   formatFee,
@@ -89,6 +91,82 @@ describe("the state of a request, in words", () => {
     expect(c.tone).toBe("moving");
   });
 
+  // ── The delivery can go wrong AFTER the choice was made ──────────────────
+  // delivery_requests.status goes to 'accepted' and nothing ever moves it back:
+  // driver_cannot_complete() and admin_reassign_delivery() touch only the
+  // deliveries row. So the request says 'accepted' for ever and the DELIVERY is
+  // the only thing that knows the driver walked away.
+
+  it("stops claiming a driver is booked once that driver has dropped out", () => {
+    // The exact failure this whole surface exists to prevent, reached from the
+    // other end: a customer sitting and waiting for somebody nobody sent.
+    const c = requestStatusCopy({
+      status: "accepted",
+      quoteCount: 0,
+      deliveryStatus: "searching_driver",
+      now: NOW,
+    });
+    expect(c.headline).not.toMatch(/booked/i);
+    expect(c.headline).toMatch(/drop out/i);
+    expect(c.detail).toMatch(/nothing for you to do/i);
+    expect(c.tone).toBe("waiting");
+    expect(c.needsCustomer).toBe(false);
+  });
+
+  it("never says booked in ANY broken state", () => {
+    for (const leg of BROKEN_LEGS) {
+      const c = requestStatusCopy({
+        status: "accepted",
+        quoteCount: 0,
+        deliveryStatus: leg,
+        now: NOW,
+      });
+      expect(c.headline, leg).not.toMatch(/your driver is booked/i);
+      expect(c.tone, leg).not.toBe("moving");
+      // It is not the customer's to fix, and a call to action they cannot act
+      // on reads as blame.
+      expect(c.needsCustomer, leg).toBe(false);
+    }
+  });
+
+  it("reports a failed delivery as failed, not as in progress", () => {
+    // The enum label is failed_delivery. The code said "failed", so a delivery
+    // that had genuinely failed rendered as still on its way, for ever.
+    const c = requestStatusCopy({
+      status: "accepted",
+      quoteCount: 0,
+      deliveryStatus: "failed_delivery",
+      now: NOW,
+    });
+    expect(c.tone).toBe("dead");
+    expect(c.headline).toMatch(/could not be delivered/i);
+    expect(c.detail).toMatch(/not been charged/i);
+  });
+
+  it("marks a completed delivery done rather than moving", () => {
+    const c = requestStatusCopy({
+      status: "accepted",
+      quoteCount: 0,
+      deliveryStatus: "delivered",
+      now: NOW,
+    });
+    expect(c.tone).toBe("done");
+    expect(c.needsCustomer).toBe(false);
+  });
+
+  it("still says booked while the job is genuinely under way", () => {
+    for (const leg of ["assigned", "going_to_pickup", "picked_up", "out_for_delivery", "arrived"]) {
+      const c = requestStatusCopy({
+        status: "accepted",
+        quoteCount: 0,
+        deliveryStatus: leg,
+        now: NOW,
+      });
+      expect(c.tone, leg).toBe("moving");
+      expect(c.headline, leg).toMatch(/booked/i);
+    }
+  });
+
   it("says plainly that a cancelled request cost nothing", () => {
     const c = requestStatusCopy({ status: "cancelled", quoteCount: 2, now: NOW });
     expect(c.detail).toMatch(/nothing was charged/i);
@@ -128,6 +206,38 @@ describe("the driver's leg", () => {
 
   it("returns something readable for a status it has never met", () => {
     expect(legCopy("teleported").label).toBeTruthy();
+  });
+
+  it("has real copy for EVERY delivery_status the database can produce", () => {
+    // The guard against the whole class of bug. legCopy() falls back silently,
+    // so a label this file has never heard of does not throw -- it just renders
+    // "In progress" for ever. This list is the enum, verbatim.
+    const ENUM = [
+      "created", "searching_driver", "assigned", "going_to_pickup",
+      "arrived_at_pickup", "picked_up", "out_for_delivery", "arrived",
+      "delivered", "cancelled", "driver_unavailable", "driver_unresponsive",
+      "failed_delivery", "returned_to_merchant", "requires_admin",
+    ];
+    for (const label of ENUM) {
+      expect(legCopy(label).label, label).not.toBe("In progress");
+    }
+  });
+
+  it("treats every ending as terminal, so nothing polls for ever", () => {
+    for (const leg of TERMINAL_LEGS) {
+      expect(legCopy(leg).label, leg).not.toBe("In progress");
+    }
+    // The one that was missing, spelled the way the database spells it.
+    expect(TERMINAL_LEGS).toContain("failed_delivery");
+    expect(TERMINAL_LEGS as readonly string[]).not.toContain("failed");
+  });
+
+  it("keeps the broken states off the progress trail", () => {
+    // A trail is a route. A driver dropping out is not a rung on it, and
+    // showing it as one would imply the job is advancing.
+    for (const leg of BROKEN_LEGS) {
+      expect(LEG_ORDER as readonly string[], leg).not.toContain(leg);
+    }
   });
 });
 

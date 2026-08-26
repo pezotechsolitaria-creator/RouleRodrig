@@ -11,7 +11,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   requestStatusCopy, legCopy, legIndex, LEG_ORDER, sortQuotes, quoteBadges,
-  BADGE_LABEL, formatFee, payAtDoor, expiresIn, type Quote,
+  BADGE_LABEL, formatFee, payAtDoor, expiresIn, TERMINAL_LEGS, BROKEN_LEGS,
+  type Quote,
 } from "@/lib/delivery/request-status";
 import { emailFor, saveRequest } from "@/lib/delivery/my-requests";
 import { recipe, transition, travel, type as t } from "@/lib/delivery/tokens";
@@ -62,6 +63,14 @@ type RequestView = {
     assignedAt: string | null;
     pickedUpAt: string | null;
     deliveredAt: string | null;
+    // The driver who ACTUALLY holds the job right now (M141). Not the same as
+    // the driver on the accepted quote: a driver can bail before pickup and a
+    // different one can pick the job up, and reading the quote showed the
+    // customer a name and a phone number that were no longer anybody's.
+    driverId: string | null;
+    driverName: string | null;
+    driverPhone: string | null;
+    vehicleType: string | null;
   } | null;
 };
 
@@ -173,8 +182,12 @@ export default function RequestTracker({
     phase === "ready" &&
     view != null &&
     (view.status === "cancelled" ||
+      view.status === "expired" ||
       (view.status === "accepted" &&
-        ["delivered", "cancelled", "failed"].includes(view.delivery?.status ?? "")));
+        // Was a hand-written list containing "failed", which is not a label the
+        // delivery_status enum has -- so a genuinely failed delivery polled for
+        // ever. The list now comes from the same place the copy does.
+        (TERMINAL_LEGS as readonly string[]).includes(view.delivery?.status ?? "")));
 
   useEffect(() => {
     if (phase !== "ready" || settled) return;
@@ -323,12 +336,12 @@ export default function RequestTracker({
   if (phase === "loading" || !view) return <TrackerSkeleton />;
 
   const quotes = sortQuotes(view.quotes.filter((q) => q.status === "offered"));
-  const accepted = view.quotes.find((q) => q.status === "accepted") ?? null;
   const badges = quoteBadges(quotes);
   const status = requestStatusCopy({
     status: view.status,
     quoteCount: quotes.length,
     expiresAt: view.expiresAt,
+    deliveryStatus: view.delivery?.status,
   });
   const KindIcon = view.kind === "shop_and_deliver" ? ShoppingBasket : Package;
   const canWithdraw = view.status === "open";
@@ -411,9 +424,7 @@ export default function RequestTracker({
       )}
 
       {/* ── The driver who was chosen ───────────────────────────────────── */}
-      {view.status === "accepted" && accepted && view.delivery && (
-        <BookedDriver view={view} quote={accepted} />
-      )}
+      {view.status === "accepted" && view.delivery && <BookedDriver view={view} />}
 
       {/* ── Getting out ─────────────────────────────────────────────────── */}
       {canWithdraw && (
@@ -679,33 +690,54 @@ function ConfirmSheet({
   );
 }
 
-function BookedDriver({ view, quote }: { view: RequestView; quote: Quote }) {
+function BookedDriver({ view }: { view: RequestView }) {
   const d = view.delivery!;
   const here = legIndex(d.status);
   const pay = payAtDoor({ fee: d.fee, kind: view.kind, spendCap: view.spendCap });
   const leg = legCopy(d.status);
-  const Icon = VEHICLE_ICON[quote.vehicleType ?? ""] ?? Package;
+  const Icon = VEHICLE_ICON[d.vehicleType ?? ""] ?? Package;
+  // Everything here comes from the DELIVERY, never from the winning quote. A
+  // driver can bail before pickup and a different one can take the job on;
+  // reading the quote showed a name and a phone number that belonged to
+  // nobody, beside a call button that rang somebody who was not coming.
+  const broken = (BROKEN_LEGS as readonly string[]).includes(d.status);
+  const hasDriver = Boolean(d.driverName);
 
   return (
     <section className="flex flex-col gap-5">
       {/* ── Who is coming ───────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-yellow/25 bg-yellow/[0.05] p-4">
+      <div
+        className={cn(
+          "rounded-2xl border p-4",
+          broken ? "border-white/12 bg-white/[0.03]" : "border-yellow/25 bg-yellow/[0.05]",
+        )}
+      >
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-yellow text-dark">
-            <Icon size={19} />
+          <span
+            className={cn(
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
+              broken ? "bg-white/[0.06] text-white/50" : "bg-yellow text-dark",
+            )}
+          >
+            {broken ? <AlertTriangle size={19} /> : <Icon size={19} />}
           </span>
           <div className="min-w-0 flex-1">
-            <p className={cn(t.cardTitle, "truncate text-offwhite")}>{quote.driverName}</p>
-            <p className={cn(t.meta, "text-muted")}>{leg.label}</p>
+            <p className={cn(t.cardTitle, "truncate text-offwhite")}>
+              {hasDriver ? d.driverName : leg.label}
+            </p>
+            <p className={cn(t.meta, "text-muted")}>
+              {hasDriver ? leg.label : "No driver on this job right now"}
+            </p>
           </div>
-          {quote.driverPhone && (
-            // Released only now. Before a booking the customer is comparing
-            // prices, and handing out every driver's number invites the whole
-            // job to leave the platform — where nothing protects either side.
+          {/* Only while somebody actually holds the job. Released at booking and
+              not before: while comparing prices the customer has no reason for
+              a driver's number, and handing them all out invites the whole job
+              off the platform, where nothing protects either side. */}
+          {hasDriver && d.driverPhone && !broken && (
             <a
-              href={`tel:${quote.driverPhone.replace(/\s+/g, "")}`}
+              href={`tel:${d.driverPhone.replace(/\s+/g, "")}`}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-yellow/40 text-yellow transition-colors hover:bg-yellow/10"
-              aria-label={`Call ${quote.driverName}`}
+              aria-label={`Call ${d.driverName}`}
             >
               <Phone size={16} />
             </a>

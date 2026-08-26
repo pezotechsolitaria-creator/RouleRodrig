@@ -14,7 +14,13 @@ import { centsToShortString } from "@/lib/money";
 
 export type RequestStatus = "open" | "accepted" | "cancelled" | "expired";
 
+/** The delivery_status enum, verbatim. Getting a label wrong here is silent:
+ *  legCopy() falls through to "In progress" and the screen simply lies. That
+ *  is exactly what "failed" did -- the real label is "failed_delivery", so a
+ *  delivery that had genuinely failed rendered as still on its way. */
 export type DeliveryLeg =
+  | "created"
+  | "searching_driver"
   | "assigned"
   | "going_to_pickup"
   | "arrived_at_pickup"
@@ -23,7 +29,30 @@ export type DeliveryLeg =
   | "arrived"
   | "delivered"
   | "cancelled"
-  | "failed";
+  | "driver_unavailable"
+  | "driver_unresponsive"
+  | "failed_delivery"
+  | "returned_to_merchant"
+  | "requires_admin";
+
+/** States where the job is over, whatever the request row still says. Used to
+ *  stop the tracking poll, so it must not miss one -- a missed label means a
+ *  screen polling a finished delivery for ever. */
+export const TERMINAL_LEGS: readonly DeliveryLeg[] = [
+  "delivered",
+  "cancelled",
+  "failed_delivery",
+  "returned_to_merchant",
+];
+
+/** States where the driver is gone or the job needs a human. The customer must
+ *  never be shown "your driver is booked" in any of these. */
+export const BROKEN_LEGS: readonly DeliveryLeg[] = [
+  "searching_driver",
+  "driver_unavailable",
+  "driver_unresponsive",
+  "requires_admin",
+];
 
 export type StatusTone = "waiting" | "action" | "moving" | "done" | "dead";
 
@@ -50,6 +79,20 @@ export function requestStatusCopy(input: {
   status: RequestStatus | string;
   quoteCount: number;
   expiresAt?: string | null;
+  /**
+   * The DELIVERY's status, once one exists.
+   *
+   * Load-bearing, and its absence was a real defect. `delivery_requests.status`
+   * goes to 'accepted' and NOTHING EVER MOVES IT BACK: driver_cannot_complete()
+   * and admin_reassign_delivery() change only the deliveries row. So a request
+   * whose driver walked away at 10:20 still read 'accepted' at midnight, and
+   * this function cheerfully returned "Your driver is booked" beside a working
+   * call button for somebody who was not coming.
+   *
+   * The delivery is the truth about the journey. The request is only the truth
+   * about whether a choice has been made.
+   */
+  deliveryStatus?: string | null;
   now?: Date;
 }): StatusCopy {
   const now = input.now ?? new Date();
@@ -82,6 +125,57 @@ export function requestStatusCopy(input: {
   }
 
   if (input.status === "accepted") {
+    const leg = (input.deliveryStatus ?? "") as DeliveryLeg;
+
+    if (leg === "delivered") {
+      return {
+        label: "Delivered",
+        headline: "Delivered",
+        detail: "Handed over and confirmed with your code.",
+        tone: "done",
+        needsCustomer: false,
+      };
+    }
+
+    if (leg === "cancelled") {
+      return {
+        label: "Cancelled",
+        headline: "This delivery was cancelled",
+        detail: "Nobody is coming. Post it again if you still need it moved.",
+        tone: "dead",
+        needsCustomer: false,
+      };
+    }
+
+    if (leg === "failed_delivery" || leg === "returned_to_merchant") {
+      return {
+        label: legCopy(leg).label,
+        headline: "It could not be delivered",
+        detail: "We know, and we will be in touch. You have not been charged a delivery fee.",
+        tone: "dead",
+        needsCustomer: false,
+      };
+    }
+
+    // The driver is gone, or a human has to step in. Saying "booked" here is
+    // the exact failure this whole surface was written to prevent, reached
+    // from the other end — a customer waiting for somebody nobody sent.
+    if ((BROKEN_LEGS as readonly string[]).includes(leg)) {
+      const c = legCopy(leg);
+      return {
+        label: c.label,
+        headline:
+          leg === "searching_driver"
+            ? "Your driver had to drop out"
+            : "We are sorting this one out",
+        // Never asks the customer to do anything: it is not theirs to fix, and
+        // a call to action they cannot act on reads as blame.
+        detail: `${c.detail} Nothing for you to do — we will message you as soon as it moves.`,
+        tone: "waiting",
+        needsCustomer: false,
+      };
+    }
+
     return {
       label: "Driver booked",
       headline: "Your driver is booked",
@@ -116,6 +210,31 @@ export function requestStatusCopy(input: {
 
 /** The driver's leg of the journey, once one has been booked. */
 const LEG_COPY: Record<DeliveryLeg, { label: string; detail: string }> = {
+  created: { label: "Booked", detail: "Your delivery is being set up." },
+  searching_driver: {
+    label: "Finding another driver",
+    detail: "Your driver had to drop out. We are looking for someone else.",
+  },
+  driver_unavailable: {
+    label: "Driver unavailable",
+    detail: "Your driver can no longer come. We are sorting it out.",
+  },
+  driver_unresponsive: {
+    label: "We cannot reach your driver",
+    detail: "We are chasing them and will find someone else if we have to.",
+  },
+  requires_admin: {
+    label: "We are looking into it",
+    detail: "Something went wrong with this delivery. We have been alerted.",
+  },
+  returned_to_merchant: {
+    label: "Sent back",
+    detail: "It could not be delivered and has gone back to where it came from.",
+  },
+  failed_delivery: {
+    label: "Could not be delivered",
+    detail: "Your driver could not complete it. We will be in touch.",
+  },
   assigned: { label: "Booked", detail: "Your driver has the job and will set off shortly." },
   going_to_pickup: { label: "On the way to collect", detail: "Your driver is heading to the pickup." },
   arrived_at_pickup: { label: "At the pickup", detail: "Your driver has arrived to collect it." },
@@ -124,7 +243,6 @@ const LEG_COPY: Record<DeliveryLeg, { label: string; detail: string }> = {
   arrived: { label: "Outside", detail: "Your driver is at the drop-off. Have your 4-digit code ready." },
   delivered: { label: "Delivered", detail: "Handed over and confirmed with your code." },
   cancelled: { label: "Cancelled", detail: "This delivery was cancelled." },
-  failed: { label: "Could not be delivered", detail: "Your driver could not complete it. We will be in touch." },
 };
 
 export function legCopy(status: string): { label: string; detail: string } {
