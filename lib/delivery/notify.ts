@@ -17,6 +17,10 @@ import { googleMapsLink, hasUsablePin } from "@/lib/orders/location";
 
 type WaTarget = { phone: string | null; api_key: string | null; driver_name: string | null };
 
+/** The pickup facts of a Deliver Anything job — the shop-shaped fields a
+ *  direct delivery does not have. */
+type RequestPickup = { pickup_text: string; what: string; kind: string };
+
 async function rpc<T>(name: string, args: Record<string, string>): Promise<T[]> {
   if (!hasServiceRole()) return [];
   try {
@@ -64,7 +68,7 @@ async function context(deliveryId: string) {
     const { data } = await admin
       .from("deliveries")
       .select(
-        "id, status, driver_earning, driver_id, reassignment_count, created_at, pickup_due_at, delivery_due_at, dropoff_note, dropoff_lat, dropoff_lng, order:orders(order_number), store:stores(name, phone)",
+        "id, status, driver_earning, driver_id, reassignment_count, created_at, pickup_due_at, delivery_due_at, dropoff_note, dropoff_lat, dropoff_lng, request_id, order:orders(order_number), store:stores(name, phone)",
       )
       .eq("id", deliveryId)
       .maybeSingle();
@@ -78,6 +82,7 @@ async function context(deliveryId: string) {
       pickup_due_at: string | null;
       delivery_due_at: string | null;
       dropoff_note: string | null;
+      request_id: string | null;
       dropoff_lat: number | null;
       dropoff_lng: number | null;
       order: { order_number?: string | null } | { order_number?: string | null }[] | null;
@@ -88,10 +93,40 @@ async function context(deliveryId: string) {
     };
     const store = Array.isArray(row.store) ? row.store[0] : row.store;
     const order = Array.isArray(row.order) ? row.order[0] : row.order;
+
+    // ── A Deliver Anything job has no shop ────────────────────────────────
+    // Its pickup lives on delivery_requests, and without this every offer
+    // message for one read "Pick up from a shop." — no place, no item, nothing
+    // a driver could act on.
+    //
+    // A SEPARATE query on purpose, exactly like driverContact() below. Adding
+    // `request:delivery_requests(...)` to the select above would introduce a
+    // new relationship embed, and an unresolved or ambiguous embed 400s the
+    // WHOLE query — which the bare catch turns into null, which silently kills
+    // every driver offer message for store orders too. Worst case here is that
+    // one direct job keeps the old vague wording.
+    let request: RequestPickup | null = null;
+    if (row.request_id && !store) {
+      try {
+        const { data: req } = await admin
+          .from("delivery_requests")
+          .select("pickup_text, what, kind")
+          .eq("id", row.request_id)
+          .maybeSingle();
+        request = (req as RequestPickup | null) ?? null;
+      } catch {
+        request = null;
+      }
+    }
+
     return {
       status: row.status,
-      shop: store?.name ?? "a shop",
+      shop: store?.name ?? request?.pickup_text ?? "a shop",
       shopPhone: store?.phone ?? null,
+      /** What is being moved, on a direct job. Null for a store order, where
+       *  the order number is the identifier a driver needs instead. */
+      what: request?.what ?? null,
+      isDirect: Boolean(row.request_id),
       orderNumber: order?.order_number ?? null,
       pay: row.driver_earning ? `Rs ${centsToDecimalString(row.driver_earning)}` : null,
       // The discriminator. NULL means nobody ever accepted it, so the package
@@ -166,7 +201,9 @@ export async function notifyOfferedDrivers(deliveryId: string): Promise<void> {
       // whose only job is "tap me", and it truncates; pushing the accept
       // sentence off the screen to add a locality trades the action for a
       // detail the tap itself reveals.
-      body: `Pick up from ${ctx.shop}. Open to accept before it goes to someone else.`,
+      body: ctx.what
+        ? `${ctx.what} — pick up from ${ctx.shop}. Open to accept before it goes to someone else.`
+        : `Pick up from ${ctx.shop}. Open to accept before it goes to someone else.`,
       url: "/driver",
       // Per delivery, so repeated rounds replace rather than stack.
       tag: `delivery:${deliveryId}`,
