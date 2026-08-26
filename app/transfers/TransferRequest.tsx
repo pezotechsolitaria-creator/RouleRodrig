@@ -1,7 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plane, MapPin, CalendarDays, Users, Luggage, MessageCircle, ArrowRight, Check } from "lucide-react";
+import {
+  Plane,
+  MapPin,
+  CalendarDays,
+  Users,
+  Luggage,
+  MessageCircle,
+  ArrowRight,
+  Check,
+} from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 
 /**
@@ -70,7 +79,10 @@ export default function TransferRequest({ whatsapp }: { whatsapp?: string }) {
   const message = useMemo(
     () =>
       [
-        T("Transfer request — Roulé Rodrigues", "Demande de transfert — Roulé Rodrigues"),
+        T(
+          "Transfer request — Roulé Rodrigues",
+          "Demande de transfert — Roulé Rodrigues",
+        ),
         "",
         `${T("From", "De")}: ${from}`,
         `${T("To", "À")}: ${to}`,
@@ -91,16 +103,32 @@ export default function TransferRequest({ whatsapp }: { whatsapp?: string }) {
     // Fire-and-forget, exactly like the taxi and concierge CTAs: the WhatsApp
     // handoff must never wait on our own analytics, and a failed lead insert
     // must never cost the customer their request.
+    //
+    // ── THIS SENT `target` FOR TWO MONTHS AND RECORDED NOTHING ─────────────
+    // /api/leads reads `body.target_name`, and refuses with 400 when it is
+    // blank. So every transfer request since June was rejected. On production:
+    // taxi 11 events, food_concierge 8, stay_eat_do 6, tiroule_miss 2 — and
+    // transfer ZERO, the only caller of the four that used the wrong key.
+    //
+    // Two things hid it. `fetch` does not reject on 4xx, so `.catch` never
+    // fired; and nothing read the response. It is still fire-and-forget — that
+    // part was right, the customer's request must never wait on analytics —
+    // but a refusal now says so out loud instead of vanishing.
     void fetch("/api/leads", {
       method: "POST",
       headers: { "content-type": "application/json" },
+      keepalive: true,
       body: JSON.stringify({
         kind: "transfer",
-        target: `${from} → ${to}`,
+        target_name: `${from} → ${to}`,
         type: "whatsapp",
         ref: `${date} ${time} · ${passengers}p · ${bags} bags`,
       }),
-    }).catch(() => {});
+    })
+      .then((r) => {
+        if (!r.ok) console.warn(`lead refused: transfer (${r.status})`);
+      })
+      .catch(() => {});
     setSent(true);
     const href = waLink(whatsapp ?? "", message);
     // No number configured is not a dead end: the request is already recorded
@@ -118,24 +146,35 @@ export default function TransferRequest({ whatsapp }: { whatsapp?: string }) {
         <div>
           <span className={label}>{T("FROM", "DE")}</span>
           <div className="relative">
-            <MapPin size={15} className="pointer-events-none absolute left-3.5 top-1/2 mt-0.5 -translate-y-1/2 text-muted" />
+            <MapPin
+              size={15}
+              className="pointer-events-none absolute left-3.5 top-1/2 mt-0.5 -translate-y-1/2 text-muted"
+            />
             <input
               list="transfer-from"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              placeholder={T("Airport, hotel, address…", "Aéroport, hôtel, adresse…")}
+              placeholder={T(
+                "Airport, hotel, address…",
+                "Aéroport, hôtel, adresse…",
+              )}
               className={`${field} pl-9`}
             />
           </div>
           <datalist id="transfer-from">
-            {COMMON_FROM.map((x) => <option key={x} value={x} />)}
+            {COMMON_FROM.map((x) => (
+              <option key={x} value={x} />
+            ))}
           </datalist>
         </div>
 
         <div>
           <span className={label}>{T("TO", "À")}</span>
           <div className="relative">
-            <MapPin size={15} className="pointer-events-none absolute left-3.5 top-1/2 mt-0.5 -translate-y-1/2 text-yellow" />
+            <MapPin
+              size={15}
+              className="pointer-events-none absolute left-3.5 top-1/2 mt-0.5 -translate-y-1/2 text-yellow"
+            />
             <input
               list="transfer-to"
               value={to}
@@ -145,42 +184,71 @@ export default function TransferRequest({ whatsapp }: { whatsapp?: string }) {
             />
           </div>
           <datalist id="transfer-to">
-            {COMMON_TO.map((x) => <option key={x} value={x} />)}
+            {COMMON_TO.map((x) => (
+              <option key={x} value={x} />
+            ))}
           </datalist>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
             <span className={label}>{T("DATE", "DATE")}</span>
-            <input type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} className={field} />
+            <input
+              type="date"
+              min={today}
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className={field}
+            />
           </div>
           <div>
             <span className={label}>{T("TIME", "HEURE")}</span>
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={field} />
+            <input
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              className={field}
+            />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
             <span className={label}>
-              <Users size={11} className="mr-1 inline" /> {T("PASSENGERS", "PASSAGERS")}
+              <Users size={11} className="mr-1 inline" />{" "}
+              {T("PASSENGERS", "PASSAGERS")}
             </span>
             <input
-              type="number" min={1} max={20} value={passengers}
-              onChange={(e) => setPassengers(Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1)))}
+              type="number"
+              min={1}
+              max={20}
+              value={passengers}
+              onChange={(e) =>
+                setPassengers(
+                  Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1)),
+                )
+              }
               className={field}
             />
           </div>
           <div>
             <span className={label}>
-              <Luggage size={11} className="mr-1 inline" /> {T("LUGGAGE", "BAGAGES")}
+              <Luggage size={11} className="mr-1 inline" />{" "}
+              {T("LUGGAGE", "BAGAGES")}
             </span>
             {/* Luggage is asked BECAUSE it decides the vehicle. A family of five
                 with five suitcases is a van, not a car, and finding that out at
                 the kerb is how a transfer goes wrong. */}
             <input
-              type="number" min={0} max={20} value={bags}
-              onChange={(e) => setBags(Math.max(0, Math.min(20, parseInt(e.target.value, 10) || 0)))}
+              type="number"
+              min={0}
+              max={20}
+              value={bags}
+              onChange={(e) =>
+                setBags(
+                  Math.max(0, Math.min(20, parseInt(e.target.value, 10) || 0)),
+                )
+              }
               className={field}
             />
           </div>
@@ -188,7 +256,11 @@ export default function TransferRequest({ whatsapp }: { whatsapp?: string }) {
 
         <div>
           <span className={label}>{T("YOUR NAME", "VOTRE NOM")}</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} className={field} />
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className={field}
+          />
         </div>
 
         <div>
@@ -197,7 +269,10 @@ export default function TransferRequest({ whatsapp }: { whatsapp?: string }) {
             rows={2}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder={T("Flight number, child seat, surfboard…", "Numéro de vol, siège enfant, planche…")}
+            placeholder={T(
+              "Flight number, child seat, surfboard…",
+              "Numéro de vol, siège enfant, planche…",
+            )}
             className={field}
           />
         </div>
@@ -209,12 +284,17 @@ export default function TransferRequest({ whatsapp }: { whatsapp?: string }) {
         className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-yellow px-5 py-4 font-dm text-base font-bold text-dark transition-opacity hover:opacity-90 disabled:opacity-40"
       >
         {sent ? <Check size={17} /> : <MessageCircle size={17} />}
-        {sent ? T("Request sent", "Demande envoyée") : T("Request this transfer", "Demander ce transfert")}
+        {sent
+          ? T("Request sent", "Demande envoyée")
+          : T("Request this transfer", "Demander ce transfert")}
       </button>
 
       {!ready && (
         <p className="mt-2 text-center font-dm text-xs text-muted">
-          {T("Fill in where, when and what time.", "Indiquez le trajet, la date et l'heure.")}
+          {T(
+            "Fill in where, when and what time.",
+            "Indiquez le trajet, la date et l'heure.",
+          )}
         </p>
       )}
       {sent && (

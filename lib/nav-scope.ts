@@ -27,13 +27,13 @@
 
 /** Consoles. Each ships its own navigation; the visitor's tabs are wrong here. */
 export const CONSOLE_PREFIXES = [
-  "/admin",     // components/admin/AdminShell.tsx
-  "/merchant",  // components/merchant/MerchantNav.tsx
+  "/admin", // components/admin/AdminShell.tsx
+  "/merchant", // components/merchant/MerchantNav.tsx
   "/organizer", // app/organizer/layout.tsx
-  "/driver",    // app/driver/DriverDashboard.tsx
-  "/partner",   // app/partner/layout.tsx
-  "/kitchen",   // app/kitchen/KitchenBoard.tsx — a cook mid-service does not
-                // want "Order food" and a mascot over the order they are cooking.
+  "/driver", // app/driver/DriverDashboard.tsx
+  "/partner", // app/partner/layout.tsx
+  "/kitchen", // app/kitchen/KitchenBoard.tsx — a cook mid-service does not
+  // want "Order food" and a mascot over the order they are cooking.
 ] as const;
 
 /**
@@ -49,8 +49,26 @@ export const CONSOLE_PREFIXES = [
  * form were the single largest remaining block of a measured 534px budget.
  * Leaving is still one tap: the logo goes home and the account link is in the
  * header, which is sticky.
+ *
+ * `/taxi/book` and `/transfers` joined for the same reason and on the same
+ * measurements. Both are booking forms with a primary action at the bottom, and
+ * the floating pill was taking 138px off each of them: a 64px in-flow spacer
+ * that lengthens the document, plus a ~74px pill that hovers over exactly where
+ * a thumb reaches for the button. On /taxi/book step 2 that was most of the
+ * remaining scroll once the form itself had been fixed.
+ *
+ * Note the prefixes are deliberately narrow. `/taxi` is a DIRECTORY somebody
+ * browses — the tab bar belongs there. Only the booking path loses it, and
+ * `/taxi/track` keeps it too, because following a ride is not a form.
  */
-export const FOCUSED_PREFIXES = ["/checkout", "/login", "/auth", "/deliver"] as const;
+export const FOCUSED_PREFIXES = [
+  "/checkout",
+  "/login",
+  "/auth",
+  "/deliver",
+  "/taxi/book",
+  "/transfers",
+] as const;
 
 /**
  * Does the visitor's bottom tab bar belong on this path?
@@ -62,13 +80,18 @@ export const FOCUSED_PREFIXES = ["/checkout", "/login", "/auth", "/deliver"] as 
 export function showsVisitorNav(pathname: string): boolean {
   if (pathname === "/") return false;
   if (isConsole(pathname)) return false;
-  if (FOCUSED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return false;
+  if (
+    FOCUSED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+  )
+    return false;
   return true;
 }
 
 /** Is this a console — a screen for running the business rather than using it? */
 export function isConsole(pathname: string): boolean {
-  return CONSOLE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  return CONSOLE_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
 }
 
 /**
@@ -78,6 +101,12 @@ export function isConsole(pathname: string): boolean {
  * person came through, they can always get back to the one page that lists all
  * of their doors.
  */
-export function consoleOf(pathname: string): (typeof CONSOLE_PREFIXES)[number] | null {
-  return CONSOLE_PREFIXES.find((p) => pathname === p || pathname.startsWith(`${p}/`)) ?? null;
+export function consoleOf(
+  pathname: string,
+): (typeof CONSOLE_PREFIXES)[number] | null {
+  return (
+    CONSOLE_PREFIXES.find(
+      (p) => pathname === p || pathname.startsWith(`${p}/`),
+    ) ?? null
+  );
 }

@@ -8,17 +8,34 @@ import { showsVisitorNav, isConsole, consoleOf } from "./nav-scope";
 
 describe("showsVisitorNav", () => {
   it("shows on ordinary visitor pages", () => {
-    for (const p of ["/explore", "/shop", "/shop/miel-rodrigues", "/food", "/events", "/order", "/track", "/more", "/cart", "/taxi", "/guide/beaches"]) {
+    for (const p of [
+      "/explore",
+      "/shop",
+      "/shop/miel-rodrigues",
+      "/food",
+      "/events",
+      "/order",
+      "/track",
+      "/more",
+      "/cart",
+      "/taxi",
+      "/guide/beaches",
+    ]) {
       expect(showsVisitorNav(p), p).toBe(true);
     }
   });
 
   it("never shows on a console — each has its own navigation", () => {
     for (const p of [
-      "/admin", "/admin/food", "/admin/content",
-      "/merchant", "/merchant/orders",
-      "/organizer", "/organizer/summer-fest/scan",
-      "/driver", "/driver/apply",
+      "/admin",
+      "/admin/food",
+      "/admin/content",
+      "/merchant",
+      "/merchant/orders",
+      "/organizer",
+      "/organizer/summer-fest/scan",
+      "/driver",
+      "/driver/apply",
       "/partner",
     ]) {
       expect(showsVisitorNav(p), p).toBe(false);
@@ -26,7 +43,17 @@ describe("showsVisitorNav", () => {
   });
 
   it("never shows during a one-decision flow", () => {
-    for (const p of ["/checkout", "/checkout?cart=food", "/login", "/auth/callback", "/auth/reset-password", "/deliver", "/deliver/abc-123"]) {
+    for (const p of [
+      "/checkout",
+      "/checkout?cart=food",
+      "/login",
+      "/auth/callback",
+      "/auth/reset-password",
+      "/deliver",
+      "/deliver/abc-123",
+      "/taxi/book",
+      "/transfers",
+    ]) {
       expect(showsVisitorNav(p.split("?")[0]), p).toBe(false);
     }
   });
@@ -77,7 +104,14 @@ describe("every console screen is registered", () => {
   });
 
   it("covers every console the app actually has", () => {
-    for (const p of ["/admin", "/merchant", "/organizer", "/driver", "/partner", "/kitchen"]) {
+    for (const p of [
+      "/admin",
+      "/merchant",
+      "/organizer",
+      "/driver",
+      "/partner",
+      "/kitchen",
+    ]) {
       expect(isConsole(p), `${p} must be a console`).toBe(true);
       expect(showsVisitorNav(p), `${p} must not show visitor tabs`).toBe(false);
     }
@@ -86,8 +120,41 @@ describe("every console screen is registered", () => {
   it("still shows the tab bar on ordinary visitor pages", () => {
     // The inverse matters just as much: over-matching would strip the nav from
     // the pages that need it.
-    for (const p of ["/shop", "/food", "/events", "/orders/track", "/manage-booking"]) {
+    for (const p of [
+      "/shop",
+      "/food",
+      "/events",
+      "/orders/track",
+      "/manage-booking",
+    ]) {
       expect(showsVisitorNav(p), `${p} must keep the tabs`).toBe(true);
+    }
+  });
+});
+
+// ── The booking paths lose the bar; the browsing paths keep it ──────────────
+//
+// /taxi/book and /transfers are forms with a primary action at the bottom, and
+// the floating pill was costing each of them 138px — a 64px in-flow spacer plus
+// a ~74px pill hovering over the thumb's target. But the prefixes have to stay
+// narrow, because the neighbouring routes are not forms: /taxi is a directory
+// somebody browses, and /taxi/track is something they watch.
+describe("the taxi and transfer split", () => {
+  // Query stripped the way every test above does it: usePathname() never
+  // returns one, so a raw "?service=airport" is not an input this can receive.
+  it("takes the bar off the booking forms", () => {
+    for (const p of [
+      "/taxi/book",
+      "/taxi/book?service=airport",
+      "/transfers",
+    ]) {
+      expect(showsVisitorNav(p.split("?")[0]), p).toBe(false);
+    }
+  });
+
+  it("leaves it on the directory and the tracking screen", () => {
+    for (const p of ["/taxi", "/taxi/track", "/taxi/track?ref=abc"]) {
+      expect(showsVisitorNav(p.split("?")[0]), p).toBe(true);
     }
   });
 });
