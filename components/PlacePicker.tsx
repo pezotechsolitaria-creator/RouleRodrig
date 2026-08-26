@@ -1,7 +1,14 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
-import { Check, Clock, Loader2, LocateFixed, MapPin, Search } from "lucide-react";
+import {
+  Check,
+  Clock,
+  Loader2,
+  LocateFixed,
+  MapPin,
+  Search,
+} from "lucide-react";
 import type { RidePlace } from "@/lib/rides/places";
 import { commonPlaces, searchPlaces } from "@/lib/rides/places";
 import {
@@ -76,6 +83,7 @@ export default function PlacePicker({
   value,
   onPick,
   placeholder,
+  shortLabel,
   required,
   autoOpen = true,
   copy = DEFAULT_COPY,
@@ -85,6 +93,15 @@ export default function PlacePicker({
   value: RidePlace | null;
   onPick: (p: RidePlace | null) => void;
   placeholder: string;
+  /**
+   * The label for an ANSWERED place, shown on the SAME line as the value.
+   *
+   * MEASURED: stacking "Where do we collect it?" above "Port Mathurin" made a
+   * collapsed row 77px, and there are two of them on that screen. Inline, with
+   * a short word, it is 56px and it reads as a route rather than as two form
+   * fields that happen to be adjacent. Falls back to the full label.
+   */
+  shortLabel?: string;
   /** Draws the red mark the form's banner explains, and sets aria-required. */
   required?: boolean;
   /**
@@ -123,7 +140,10 @@ export default function PlacePicker({
     [recent],
   );
   const common = useMemo(
-    () => commonPlaces().filter((p) => !recentKeys.has(p.name.trim().toLowerCase())),
+    () =>
+      commonPlaces().filter(
+        (p) => !recentKeys.has(p.name.trim().toLowerCase()),
+      ),
     [recentKeys],
   );
 
@@ -162,11 +182,11 @@ export default function PlacePicker({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex min-h-16 w-full items-center gap-3 rounded-2xl border border-[#6E6E6E] bg-dark-card px-4 py-3.5 text-left"
+        className="flex min-h-14 w-full items-center gap-2.5 rounded-2xl border border-[#6E6E6E] bg-dark-card px-3.5 py-2.5 text-left"
       >
         <Icon size={18} className="shrink-0 text-yellow" aria-hidden />
-        <span className="min-w-0 flex-1 font-dm text-[18px] font-semibold text-offwhite">
-          {label}
+        <span className="min-w-0 flex-1 truncate font-dm text-[17px] font-semibold text-offwhite">
+          {shortLabel ?? label}
           {required && (
             <span className="font-bold text-red-400" aria-hidden>
               {" *"}
@@ -188,17 +208,16 @@ export default function PlacePicker({
           setOpen(true);
           setQ("");
         }}
-        className="flex min-h-16 w-full items-center gap-3 rounded-2xl border border-yellow/40 bg-dark-card px-4 py-3.5 text-left"
+        className="flex min-h-14 w-full items-center gap-2.5 rounded-2xl border border-yellow/40 bg-dark-card px-3.5 py-2.5 text-left"
       >
         {/* A CHECK, not only the amber. */}
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-yellow text-dark">
-          <Check size={18} aria-hidden />
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-yellow text-dark">
+          <Check size={16} aria-hidden />
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block font-dm text-[16px] text-[#B0B0B0]">{label}</span>
-          <span className="block truncate font-dm text-[18px] font-semibold text-offwhite">
-            {value.name}
-          </span>
+        {/* Label and value on ONE line. Stacked, this row was 77px, twice. */}
+        <span className="min-w-0 flex-1 truncate font-dm text-[17px] text-offwhite">
+          <span className="text-[#B0B0B0]">{shortLabel ?? label}: </span>
+          <span className="font-semibold">{value.name}</span>
         </span>
         <span className="shrink-0 font-dm text-[16px] text-yellow underline underline-offset-4">
           {copy.change}
@@ -208,7 +227,7 @@ export default function PlacePicker({
   }
 
   return (
-    <div className="rounded-2xl border border-yellow/30 bg-dark-card p-4">
+    <div className="rounded-2xl border border-yellow/30 bg-dark-card p-3.5">
       <p className="flex items-center gap-2 font-dm text-[18px] font-semibold text-offwhite">
         <Icon size={18} className="shrink-0 text-yellow" aria-hidden />
         <span>
@@ -232,18 +251,33 @@ export default function PlacePicker({
               the commonest answer is a single tap at the top of the panel. */}
           {recent.length > 0 && (
             <>
-              <p className="mt-3 font-dm text-[16px] text-[#B0B0B0]">{copy.recent}</p>
-              <div className="mt-1.5 grid grid-cols-2 gap-2">
+              <p className="mt-3 font-dm text-[16px] text-[#B0B0B0]">
+                {copy.recent}
+              </p>
+              <div className="mt-1.5 grid grid-cols-2 gap-1.5">
                 {recent.map((p) => (
-                  <Chip key={`r-${p.id}-${p.name}`} place={p} icon={Clock} onPick={choose} />
+                  <Chip
+                    key={`r-${p.id}-${p.name}`}
+                    place={p}
+                    icon={Clock}
+                    onPick={choose}
+                  />
                 ))}
               </div>
             </>
           )}
           {common.length > 0 && (
             <>
-              <p className="mt-3 font-dm text-[16px] text-[#B0B0B0]">{copy.nearby}</p>
-              <div className="mt-1.5 grid grid-cols-2 gap-2">
+              {/* The heading only earns its 30px when there is a SECOND list to
+                  tell it apart from. Under "Where do we collect it?" with
+                  nothing else on screen, "Common places" is a label for the
+                  only thing there. */}
+              {recent.length > 0 && (
+                <p className="mt-3 font-dm text-[16px] text-[#B0B0B0]">
+                  {copy.nearby}
+                </p>
+              )}
+              <div className="mt-2 grid grid-cols-2 gap-1.5">
                 {common.map((p) => (
                   <Chip key={p.id} place={p} icon={MapPin} onPick={choose} />
                 ))}
@@ -297,11 +331,19 @@ export default function PlacePicker({
               onClick={() => choose(p)}
               className="flex min-h-14 w-full items-center gap-3 border-b border-white/[0.06] px-1 text-left last:border-0"
             >
-              <MapPin size={16} className="shrink-0 text-[#B0B0B0]" aria-hidden />
+              <MapPin
+                size={16}
+                className="shrink-0 text-[#B0B0B0]"
+                aria-hidden
+              />
               <span className="min-w-0">
-                <span className="block truncate font-dm text-[18px] text-offwhite">{p.name}</span>
+                <span className="block truncate font-dm text-[18px] text-offwhite">
+                  {p.name}
+                </span>
                 {p.area && (
-                  <span className="block truncate font-dm text-[16px] text-[#B0B0B0]">{p.area}</span>
+                  <span className="block truncate font-dm text-[16px] text-[#B0B0B0]">
+                    {p.area}
+                  </span>
                 )}
               </span>
             </button>
@@ -314,12 +356,20 @@ export default function PlacePicker({
             <button
               type="button"
               onClick={() =>
-                choose({ id: "custom", name: q.trim(), area: "", lat: null, lng: null })
+                choose({
+                  id: "custom",
+                  name: q.trim(),
+                  area: "",
+                  lat: null,
+                  lng: null,
+                })
               }
               className="flex min-h-14 w-full items-center gap-3 px-1 text-left"
             >
               <MapPin size={16} className="shrink-0 text-yellow" aria-hidden />
-              <span className="font-dm text-[16px] text-yellow">{copy.useTyped(q.trim())}</span>
+              <span className="font-dm text-[16px] text-yellow">
+                {copy.useTyped(q.trim())}
+              </span>
             </button>
           )}
         </div>

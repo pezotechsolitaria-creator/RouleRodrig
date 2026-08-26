@@ -26,7 +26,7 @@ describe("showsVisitorNav", () => {
   });
 
   it("never shows during a one-decision flow", () => {
-    for (const p of ["/checkout", "/checkout?cart=food", "/login", "/auth/callback", "/auth/reset-password"]) {
+    for (const p of ["/checkout", "/checkout?cart=food", "/login", "/auth/callback", "/auth/reset-password", "/deliver", "/deliver/abc-123"]) {
       expect(showsVisitorNav(p.split("?")[0]), p).toBe(false);
     }
   });

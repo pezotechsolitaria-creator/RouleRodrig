@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import { getContent } from "@/lib/content";
 import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
@@ -9,10 +7,6 @@ import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import DeliverForm from "./DeliverForm";
 import MyRequests from "./MyRequests";
-import FindRequest from "./FindRequest";
-import NeedHelp from "./NeedHelp";
-import { cn } from "@/lib/utils";
-import { type as t } from "@/lib/delivery/tokens";
 
 export const dynamic = "force-dynamic";
 
@@ -84,8 +78,11 @@ export default async function DeliverPage() {
       {/* The bottom padding must clear the pinned CTA bar, which itself grows by
           env(safe-area-inset-bottom) on a notched phone. Derived from the same
           inset so the two cannot disagree on any device. */}
-      <main className="min-h-screen bg-dark pb-[calc(13rem+env(safe-area-inset-bottom))]">
-        <div className="mx-auto max-w-2xl px-5 pt-7">
+      {/* The pinned action no longer has to clear a floating tab bar — see
+          lib/nav-scope.ts — so the bottom padding is the bar itself plus the
+          notch, and not 80px of clearance for something that is not there. */}
+      <main className="min-h-screen bg-dark pb-[calc(8rem+env(safe-area-inset-bottom))]">
+        <div className="mx-auto max-w-2xl px-5 pt-3">
           {/* MEASURED, on a real 375x812 render. At text-3xl the title wrapped
               to three lines and stood 113px tall, with a 54px sentence under it
               and a tracked-capitals eyebrow above — 207px of a 599px budget,
@@ -97,15 +94,19 @@ export default async function DeliverPage() {
               somebody actually reads. The title is sized to wrap to two lines
               on a phone and keeps its presence on a desktop, where height is
               free. */}
-          <h1 className="font-syne text-2xl font-extrabold leading-tight text-offwhite md:text-4xl">
+          {/* MEASURED at 90px as three wrapped lines of text-2xl. It is the
+              page's title and its SEO heading, and on a phone it is also 90px
+              of a 534px budget spent before anybody can do anything — so it is
+              one line on mobile and keeps its presence where height is free. */}
+          <h1 className="font-syne text-base font-extrabold leading-tight text-offwhite md:text-4xl">
             Get anything moved on Rodrigues
           </h1>
 
-          <div className="mt-5">
+          <div className="mt-3">
             <MyRequests />
           </div>
 
-          <div className="mt-5">
+          <div className="mt-2">
             <DeliverForm
               signedInEmail={user?.email ?? null}
               helpPhone={phone}
@@ -113,36 +114,27 @@ export default async function DeliverPage() {
             />
           </div>
 
-          {/* Below the form on purpose: this is for somebody who came back
-              having lost their link, which is a thing you go looking for. */}
-          <div className="mt-12 border-t border-dark-border pt-8">
-            <FindRequest />
-          </div>
+          {/* ── WHAT USED TO BE HERE, AND WHY IT IS NOT ────────────────────
+              MEASURED: below a form that fits a phone sat 821px of other page
+              — a "find your request" panel, a "Rather talk to someone?" block
+              and three cross-sell links. Each screen of the form could fit
+              perfectly and the PAGE still scrolled, which is what the owner
+              was actually looking at. Measuring the form section rather than
+              document.scrollHeight was the wrong metric, and it hid this.
 
-          <NeedHelp phone={phone} whatsapp={whatsapp} />
+              "Rather talk to someone?" is GONE as a block, not as a feature:
+              the call and WhatsApp buttons live in the form's sticky bar now,
+              so they are on screen at every step instead of 334px below the
+              last one.
 
-          <nav className="mt-10 border-t border-dark-border pt-8">
-            <p className={cn(t.cardTitle, "text-offwhite")}>Already selling on Roulé?</p>
-            <ul className="mt-3 space-y-2">
-              {[
-                { href: "/shop", label: "Order from island shops — delivery included" },
-                { href: "/food", label: "Order food from local kitchens" },
-                { href: "/driver/apply", label: "Drive for Roulé and quote on these jobs" },
-              ].map((l) => (
-                <li key={l.href}>
-                  <Link
-                    href={l.href}
-                    className={cn(
-                      t.body,
-                      "inline-flex min-h-12 items-center gap-1.5 text-yellow transition-colors hover:text-offwhite",
-                    )}
-                  >
-                    {l.label} <ArrowRight size={14} />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
+              The cross-sells are gone outright. Somebody halfway through
+              asking for a delivery is not shopping, and three links inviting
+              them elsewhere are three ways to lose them. They belong on the
+              home page and in More.
+
+              What is left is the one thing a person might come here looking
+              for that is not the form: getting back to a request whose link
+              they lost. It is a single line. */}
         </div>
       </main>
     </>

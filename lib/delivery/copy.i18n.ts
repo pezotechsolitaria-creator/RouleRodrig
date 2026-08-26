@@ -44,6 +44,9 @@ const EN = {
       "Fields marked * are required — drivers need them to price accurately.",
     /** Read out by screen readers in place of the asterisk glyph. */
     srMark: "required",
+    /** The sticky-bar version: one line at the 16px floor. The long one is
+     *  said once, on screen one, where the asterisk is first met. */
+    short: "= required for an accurate price",
   },
 
   progress: (step: number, total: number) => `Step ${step} of ${total}`,
@@ -166,6 +169,11 @@ const EN = {
     phone: "Your phone",
     email: "Your email",
     emailHelp: "How you get back to this request from another phone.",
+    /** For an ANSWERED place, where the label shares a line with the
+     *  value: "From: Port Mathurin" reads as a route, and the two-line
+     *  version of the same row measured 77px against a 56px floor. */
+    fromShort: "From",
+    toShort: "To",
     searchPlaceholder: "Village, shop or landmark",
     useMyLocation: "Use where I am now",
     nearby: "Common places",
@@ -186,10 +194,10 @@ const EN = {
     rowContact: "You",
     rowBudget: "Shopping limit",
     promises: [
-      "Drivers send you their own price. You choose one.",
-      "Free to ask — you pay nothing until you accept.",
-      "Pay in cash at the door, or by bank transfer — you choose when you accept a price.",
-      "A 4-digit code proves it was really delivered.",
+      "Drivers send their price — you choose.",
+      "Free to ask, and nothing to pay yet.",
+      "Pay cash at the door, or by transfer.",
+      "A 4-digit code proves delivery.",
     ],
     post: "Post request — free",
     posting: "Posting…",
@@ -204,7 +212,8 @@ const EN = {
     missingWhere: "Add where it starts and ends",
     missingDropoff: "Say where to deliver it",
     missingContact: "Add your name and number",
-    freeToAsk: "Free to ask. You only pay once you accept a driver’s price.",
+    /** ONE line at 16px on a 375px phone. */
+    freeToAsk: "Free to ask — pay only when you accept.",
   },
 
   // ── Getting out, and getting help ────────────────────────────────────────
@@ -259,6 +268,7 @@ const FR: DeliverCopy = {
     warning:
       "Les champs marqués * sont obligatoires — les chauffeurs en ont besoin pour un prix juste.",
     srMark: "obligatoire",
+    short: "= obligatoire pour un prix juste",
   },
 
   progress: (step: number, total: number) => `Étape ${step} sur ${total}`,
@@ -267,7 +277,10 @@ const FR: DeliverCopy = {
 
   what: {
     step: "Quoi",
-    question: "Que transportons-nous ?",
+    /** Short enough for ONE line at 26px on a 375px phone. The longer
+     *  "Que transportons-nous ?" wrapped to two and put screen 1 over the
+     *  fold in French only. */
+    question: "Que transporter ?",
     kind: {
       package: {
         title: "Récupérer et livrer",
@@ -387,6 +400,8 @@ const FR: DeliverCopy = {
     phone: "Votre téléphone",
     email: "Votre e-mail",
     emailHelp: "Pour retrouver cette demande depuis un autre téléphone.",
+    fromShort: "De",
+    toShort: "À",
     searchPlaceholder: "Village, magasin ou lieu-dit",
     useMyLocation: "Utiliser où je suis maintenant",
     nearby: "Lieux courants",
@@ -406,10 +421,10 @@ const FR: DeliverCopy = {
     rowContact: "Vous",
     rowBudget: "Limite d’achat",
     promises: [
-      "Les chauffeurs vous envoient leur propre prix. Vous en choisissez un.",
-      "Demander est gratuit — vous ne payez rien avant d’accepter.",
-      "Payez en espèces à la porte, ou par virement — vous choisissez en acceptant un prix.",
-      "Un code à 4 chiffres prouve que la livraison a bien eu lieu.",
+      "Les chauffeurs proposent leur prix — vous choisissez.",
+      "Gratuit, et rien à payer pour l’instant.",
+      "En espèces à la porte, ou par virement.",
+      "Un code à 4 chiffres prouve la livraison.",
     ],
     post: "Publier la demande — gratuit",
     posting: "Publication…",
@@ -423,8 +438,7 @@ const FR: DeliverCopy = {
     missingWhere: "Indiquez le départ et l’arrivée",
     missingDropoff: "Dites où le livrer",
     missingContact: "Ajoutez votre nom et votre numéro",
-    freeToAsk:
-      "Demander est gratuit. Vous ne payez qu’après avoir accepté un prix.",
+    freeToAsk: "Gratuit — vous ne payez qu’en acceptant.",
   },
 
   help: {
@@ -468,6 +482,7 @@ const CR: DeliverCopy = {
     warning:
       "Bann kaz ar * obligatwar — bann sofer bizin sa pou donn enn bon pri.",
     srMark: "obligatwar",
+    short: "= obligatwar pou enn bon pri",
   },
 
   progress: (step: number, total: number) => `Etap ${step} lor ${total}`,
@@ -582,6 +597,8 @@ const CR: DeliverCopy = {
     phone: "Ou telefonn",
     email: "Ou email",
     emailHelp: "Pou retrouv sa demann la depi enn lot telefonn.",
+    fromShort: "Depi",
+    toShort: "Ver",
     searchPlaceholder: "Vilaz, laboutik ou landrwa",
     useMyLocation: "Servi kot mo ete la",
     nearby: "Bann plas kouran",
@@ -601,10 +618,10 @@ const CR: DeliverCopy = {
     rowContact: "Ou",
     rowBudget: "Limit aste",
     promises: [
-      "Bann sofer avoy ou zot prop pri. Ou swazir enn.",
-      "Demann la gratis — ou pa peye nanye avan ou aksepte.",
-      "Peye kas kot laport, ouswa par vireman — ou swazir kan ou aksepte enn pri.",
-      "Enn kod 4 sif prouve ki livrezon la finn vremem fer.",
+      "Bann sofer propoz zot pri — ou swazir.",
+      "Gratis, ek nanye pou peye ankor.",
+      "Kas kot laport, ouswa par vireman.",
+      "Enn kod 4 sif prouve livrezon.",
     ],
     post: "Avoy demann — gratis",
     posting: "Pe avoye…",
@@ -618,7 +635,7 @@ const CR: DeliverCopy = {
     missingWhere: "Met kot li koumanse ek kot li fini",
     missingDropoff: "Dir kot bizin livre li",
     missingContact: "Met ou non ek ou nimero",
-    freeToAsk: "Demann la gratis. Ou peye zis apre ki ou finn aksepte enn pri.",
+    freeToAsk: "Gratis — ou peye zis kan ou aksepte.",
   },
 
   help: {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -15,6 +15,7 @@ import {
   CalendarClock,
   CalendarDays,
   Clock,
+  MessageCircle,
   Pencil,
   Phone,
   Zap,
@@ -27,6 +28,7 @@ import { toast } from "sonner";
 import PhoneInput from "@/components/PhoneInput";
 import PlacePicker from "@/components/PlacePicker";
 import PhotoInput from "./PhotoInput";
+import FindRequest from "./FindRequest";
 import type { RidePlace } from "@/lib/rides/places";
 import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -168,7 +170,8 @@ export default function DeliverForm({
   const [dropoff, setDropoff] = useState<RidePlace | null>(null);
   const [pickupNote, setPickupNote] = useState("");
   const [dropoffNote, setDropoffNote] = useState("");
-  const [showPickupNote, setShowPickupNote] = useState(false);
+  // ONE flag: the notes are a single affordance opening both fields, so a
+  // second boolean would only ever be the same value under another name.
   const [showDropoffNote, setShowDropoffNote] = useState(false);
   // A shopping run does not need a pickup: "buy 2 gas bottles" is a job whose
   // whole value is that the DRIVER works out where to get them.
@@ -205,6 +208,24 @@ export default function DeliverForm({
   const phoneE164 = useMemo(() => toE164(phone), [phone]);
 
   const reduced = prefersReducedMotion();
+
+  // ── GOING TO A STEP MEANS GOING TO THE TOP OF IT ────────────────────────
+  // Without this, tapping Continue two-thirds of the way down one screen drops
+  // you two-thirds of the way down the next — mid-question, with the heading
+  // above the fold. It reads as the page having jumped rather than advanced,
+  // and it is the single jerkiest thing about a stepped form.
+  const formRef = useRef<HTMLDivElement | null>(null);
+  const goTo = useCallback((n: number) => {
+    setScreen(n);
+    const el = formRef.current;
+    if (!el) return;
+    // Land just UNDER the sticky site header, or the first line hides behind it.
+    const y = el.getBoundingClientRect().top + window.scrollY - 68;
+    window.scrollTo({
+      top: Math.max(0, y),
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+    });
+  }, []);
 
   // Which slots are still worth offering. Only TODAY is eroded by the clock —
   // and a DATE that happens to be today is the same thing wearing a different
@@ -319,9 +340,9 @@ export default function DeliverForm({
     setPickup(d.pickup as RidePlace | null);
     setDropoff(d.dropoff as RidePlace | null);
     setPickupNote(d.pickupNote);
-    setShowPickupNote(Boolean(d.pickupNote));
     setDropoffNote(d.dropoffNote);
-    setShowDropoffNote(Boolean(d.dropoffNote));
+    // Open if EITHER was filled, so a restored draft shows what it kept.
+    setShowDropoffNote(Boolean(d.pickupNote || d.dropoffNote));
     setNamesShop(d.namesShop);
     // Only where the draft actually HAS something. A draft abandoned on screen
     // one carries three empty contact strings, and writing those over the
@@ -570,8 +591,11 @@ export default function DeliverForm({
   // ── What the pinned button says right now ────────────────────────────────
   const cta = (() => {
     if (screen === 1) {
-      if (!kind) return { label: c.what.question, disabled: true };
-      if (!item) return { label: c.what.itemQuestion, disabled: true };
+      // NOT the question — that is the h2 six inches above the button, and
+      // repeating it made the screen look like it was asking twice. Naming the
+      // missing thing earns its place only when that thing is NOT the heading
+      // you are looking at, which on a one-question screen it always is.
+      if (!kind || !item) return { label: c.cta.next, disabled: true };
       if (
         kind === "shop_and_deliver" &&
         !(budgetCents !== null && budgetCents > 0)
@@ -582,11 +606,11 @@ export default function DeliverForm({
       return { label: c.cta.next, disabled: false };
     }
     if (screen === 2) {
-      if (!scheduleKind) return { label: c.when.question, disabled: true };
+      if (!scheduleKind) return { label: c.cta.next, disabled: true };
       if (scheduleKind === "date" && !neededDate) {
         return { label: c.when.dateLabel, disabled: true };
       }
-      if (!whenDone) return { label: c.when.slotQuestion, disabled: true };
+      if (!whenDone) return { label: c.cta.next, disabled: true };
       return { label: c.cta.next, disabled: false };
     }
     if (screen === 3) {
@@ -612,43 +636,44 @@ export default function DeliverForm({
 
   return (
     <>
-      {/* ── The required-field contract, permanent ─────────────────────── */}
-      {/* The owner asked for this by name and it earns its height: on a flow
-          where the button names the missing thing, this is the rule the button
-          is enforcing, said once up front instead of discovered per tap. */}
-      <p
-        className={cn(
-          t.bodySm,
-          "flex items-start gap-2 rounded-xl border border-red-500/25 bg-red-500/[0.06] px-4 py-3 text-[#B0B0B0]",
-        )}
+      {/* ── ONE STICKY STRIP, WHERE THREE BLOCKS USED TO BE ──────────────
+          MEASURED on a 375x812 phone: the required banner, the "Step 2 of 4"
+          row and the progress dashes cost 170px, on EVERY screen, before a
+          single question — out of a real budget of 534px once the sticky site
+          header and the pinned action are taken off. That is a third of the
+          screen spent on chrome four times over.
+
+          They are one 84px bar now, and it is STICKY: it costs its height once
+          instead of scrolling away and leaving somebody four steps in with no
+          idea which step. Which is also the answer to "make the step easily
+          noticeable" — a numbered stepper that is always on screen beats a
+          bigger one that is not.
+
+          top-16 puts it directly under AppPageHeader, which is sticky at 65px.
+          If that header ever changes height these two overlap, so it is worth
+          knowing they are a pair. */}
+      <div
+        ref={formRef}
+        className="sticky top-16 z-20 -mx-5 border-b border-white/10 bg-dark/95 px-5 py-2 backdrop-blur-md"
       >
-        <span className="mt-0.5 shrink-0 font-bold text-red-400" aria-hidden>
-          *
-        </span>
-        {c.required.warning}
-      </p>
-
-      {/* ── Where you are, and the way out ─────────────────────────────── */}
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <p className={cn(t.eyebrow, "text-yellow")}>
-          {c.progress(screen, SCREENS)}
-        </p>
-        {/* Always visible, never blocking. Somebody the form is failing does
-            not file a complaint — they close the tab, and nothing records that
-            they tried.
-
-            Rendered only when there is actually a number behind it, which is
-            the rule NeedHelp has always followed: nothing configured means no
-            dead buttons, and a tel: link to the empty string is worse than no
-            link because it looks like a route out. */}
-        <span className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <Stepper
+            current={screen}
+            total={SCREENS}
+            label={c.progress(screen, SCREENS)}
+          />
+          {/* Always reachable, never blocking. Somebody the form is failing
+              does not file a complaint — they close the tab, and nothing
+              records that they tried. Rendered only when a number is actually
+              configured: a tel: link to the empty string looks like a route
+              out and is not one. */}
           {tel && (
             <a
               href={`tel:${tel}`}
               aria-label={c.help.call}
-              className="flex min-h-12 min-w-12 items-center justify-center rounded-full border border-[#6E6E6E] text-offwhite"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#6E6E6E] text-offwhite"
             >
-              <Phone size={18} aria-hidden />
+              <Phone size={17} aria-hidden />
             </a>
           )}
           {wa && (
@@ -657,26 +682,22 @@ export default function DeliverForm({
               target="_blank"
               rel="noopener noreferrer"
               aria-label={c.help.whatsapp}
-              className="flex min-h-12 items-center gap-2 rounded-full border border-[#6E6E6E] px-4 font-dm text-[16px] text-offwhite"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#6E6E6E] text-offwhite"
             >
-              {c.help.whatsapp}
+              <MessageCircle size={17} aria-hidden />
             </a>
           )}
-        </span>
-      </div>
-
-      {/* Three dashes, not a number line. It says how far without adding a
-          second thing to read. */}
-      <div className="mt-2 flex gap-1.5" aria-hidden>
-        {[1, 2, 3, 4].map((n) => (
-          <span
-            key={n}
-            className={cn(
-              "h-1 flex-1 rounded-full transition-colors",
-              n <= screen ? "bg-yellow" : "bg-white/12",
-            )}
-          />
-        ))}
+        </div>
+        {/* The permanent required-field rule the owner asked for, kept as one
+            line at the 16px floor. The long version is said once, on screen
+            one, under the first question — repeated four times it was 74px of
+            box on every screen for a sentence people read once. */}
+        <p className={cn(t.meta, "mt-1.5 text-[#B0B0B0]")}>
+          <span className="font-bold text-red-400" aria-hidden>
+            *
+          </span>{" "}
+          {c.required.short}
+        </p>
       </div>
 
       {restored && (
@@ -687,7 +708,7 @@ export default function DeliverForm({
       {!online && <Notice icon={CloudOff}>{c.offline.banner}</Notice>}
       {queuedNotice && <Notice icon={CloudOff}>{c.offline.queued}</Notice>}
 
-      <div className="mt-5">
+      <div className="mt-4">
         {/* ── NO AnimatePresence HERE, AND THAT IS THE FIX ─────────────────
             This was `<AnimatePresence mode="wait">` around a keyed child, for
             a crossfade between screens. It STUCK: `mode="wait"` holds the
@@ -704,9 +725,9 @@ export default function DeliverForm({
             meaning anyway — it says which direction you moved. */}
         <motion.div
           key={screen}
-          initial={reduced ? false : { opacity: 0, x: 12 }}
+          initial={reduced ? false : { opacity: 0, x: 8 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={transition.step}
+          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
         >
           {/* ── SCREEN 1 — what ──────────────────────────────────────── */}
           {screen === 1 && (
@@ -1227,7 +1248,7 @@ export default function DeliverForm({
                 {c.where.question}
               </h2>
 
-              <div className="mt-4 flex flex-col gap-2.5">
+              <div className="mt-3 flex flex-col gap-2">
                 {kind === "shop_and_deliver" ? (
                   <>
                     <p className={cn(t.label, "text-offwhite")}>
@@ -1296,6 +1317,7 @@ export default function DeliverForm({
                     {namesShop && (
                       <PlacePicker
                         label={c.where.pickupShop}
+                        shortLabel={c.where.fromShort}
                         required
                         icon={MapPin}
                         value={pickup}
@@ -1309,6 +1331,7 @@ export default function DeliverForm({
                   <>
                     <PlacePicker
                       label={c.where.pickup}
+                      shortLabel={c.where.fromShort}
                       required
                       icon={MapPin}
                       value={pickup}
@@ -1316,21 +1339,12 @@ export default function DeliverForm({
                       placeholder={c.where.searchPlaceholder}
                       copy={c.where}
                     />
-                    {pickup && (
-                      <NoteField
-                        open={showPickupNote}
-                        onOpen={() => setShowPickupNote(true)}
-                        openLabel={c.where.addNote}
-                        value={pickupNote}
-                        onChange={setPickupNote}
-                        placeholder={c.where.pickupNote}
-                      />
-                    )}
                   </>
                 )}
 
                 <PlacePicker
                   label={c.where.dropoff}
+                  shortLabel={c.where.toShort}
                   required
                   icon={Navigation}
                   value={dropoff}
@@ -1341,16 +1355,6 @@ export default function DeliverForm({
                   autoOpen={pickupDone}
                   copy={c.where}
                 />
-                {dropoff && (
-                  <NoteField
-                    open={showDropoffNote}
-                    onOpen={() => setShowDropoffNote(true)}
-                    openLabel={c.where.addNote}
-                    value={dropoffNote}
-                    onChange={setDropoffNote}
-                    placeholder={c.where.dropoffNote}
-                  />
-                )}
               </div>
 
               {/* Contact lives here rather than on its own screen, which is
@@ -1360,10 +1364,14 @@ export default function DeliverForm({
                   the pinned button names whichever one is outstanding. */}
               {placesDone && (
                 <>
-                  <h3 className={cn(t.label, "mt-6 text-offwhite")}>
-                    {c.where.contact}
-                  </h3>
-                  <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {/* ONE column, and it stays that way. Side by side, the phone
+                      field measured 54px wide with 36px of left padding - TWO
+                      PIXELS for the number - because PhoneInput carries a
+                      40-country selector this site genuinely needs (Reunion and
+                      France are real customers here). A phone field you cannot
+                      read is worse than a short scroll. The 88px came off the
+                      notes instead; see the review screen. */}
+                  <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                     <div>
                       <Label
                         htmlFor="d-name"
@@ -1419,9 +1427,6 @@ export default function DeliverForm({
                         autoComplete="email"
                         aria-required
                       />
-                      <p className={cn(t.meta, "mt-1.5 text-[#B0B0B0]")}>
-                        {c.where.emailHelp}
-                      </p>
                     </div>
                   )}
                 </>
@@ -1450,14 +1455,14 @@ export default function DeliverForm({
                   ]
                     .filter(Boolean)
                     .join(" · ")}
-                  onEdit={() => setScreen(1)}
+                  onEdit={() => goTo(1)}
                   editLabel={c.edit}
                 />
                 {kind === "shop_and_deliver" && budgetCents !== null && (
                   <ReviewRow
                     label={c.review.rowBudget}
                     value={`Rs ${(budgetCents / 100).toLocaleString("en-GB")}`}
-                    onEdit={() => setScreen(1)}
+                    onEdit={() => goTo(1)}
                     editLabel={c.edit}
                   />
                 )}
@@ -1474,29 +1479,69 @@ export default function DeliverForm({
                           .filter(Boolean)
                           .join(" · ")
                   }
-                  onEdit={() => setScreen(2)}
+                  onEdit={() => goTo(2)}
                   editLabel={c.edit}
                 />
                 <ReviewRow
                   label={c.review.rowRoute}
                   value={`${pickup?.name ?? c.where.anywhere} → ${dropoff?.name ?? ""}`}
-                  onEdit={() => setScreen(3)}
+                  onEdit={() => goTo(3)}
                   editLabel={c.edit}
                 />
                 <ReviewRow
                   label={c.review.rowContact}
                   value={`${name.trim()} · ${phone.trim()}`}
-                  onEdit={() => setScreen(3)}
+                  onEdit={() => goTo(3)}
                   editLabel={c.edit}
                   last
                 />
               </dl>
 
+              {/* ── The notes, asked HERE ─────────────────────────
+                  They were on the previous screen beside the places, competing
+                  with the name, the phone and the email for a fold that could
+                  not hold all five. A note about a gate colour is an
+                  afterthought you have while checking your answers, not while
+                  choosing a village — so it is asked on the screen made for
+                  checking answers. */}
+              {!showDropoffNote ? (
+                <button
+                  type="button"
+                  onClick={() => setShowDropoffNote(true)}
+                  className={cn(
+                    t.meta,
+                    "mt-3 flex min-h-10 items-center gap-1.5 self-start text-yellow underline underline-offset-4",
+                  )}
+                >
+                  <Pencil size={14} aria-hidden />
+                  {c.where.addNote}
+                </button>
+              ) : (
+                <div className="mt-3 flex flex-col gap-2">
+                  {kind !== "shop_and_deliver" && (
+                    <input
+                      value={pickupNote}
+                      onChange={(e) => setPickupNote(e.target.value)}
+                      className={recipe.field}
+                      placeholder={c.where.pickupNote}
+                      aria-label={c.where.pickupNote}
+                    />
+                  )}
+                  <input
+                    value={dropoffNote}
+                    onChange={(e) => setDropoffNote(e.target.value)}
+                    className={recipe.field}
+                    placeholder={c.where.dropoffNote}
+                    aria-label={c.where.dropoffNote}
+                  />
+                </div>
+              )}
+
               {/* The four facts that decide whether somebody finishes. They
                     used to be three cards ABOVE the form, read by people who
                     had not yet decided to care. */}
               <ul className="mt-4 flex flex-col gap-2">
-                {c.review.promises.map((p) => (
+                {c.review.promises.slice(2).map((p) => (
                   <li key={p} className="flex items-start gap-2.5">
                     <Check
                       size={18}
@@ -1512,15 +1557,34 @@ export default function DeliverForm({
         </motion.div>
       </div>
 
+      {/* ── "I already asked" ───────────────────────────────────────────
+          MEASURED: as a sibling below the form this was the LAST element on
+          the page and sat 71-138px under the fold on every screen but the
+          first — so the page scrolled, on a form whose every step fitted.
+          Measuring the form section instead of the page's real content bottom
+          is what hid that.
+
+          It belongs at the ENTRY anyway. Somebody three steps into describing
+          a parcel is not looking for a request they posted last week, and the
+          entry state has 158px of room to spare. */}
+      {screen === 1 && kind === null && (
+        <div className="mt-5">
+          <FindRequest />
+        </div>
+      )}
+
       {/* ── The action, pinned ─────────────────────────────────────────── */}
       {/* Always in the thumb's reach, always saying what it will do. It clears
           the app's floating bottom nav, which owns the strip below it. */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-dark/95 px-5 pb-[max(5rem,calc(env(safe-area-inset-bottom)+5rem))] pt-3 backdrop-blur-md md:pb-4">
+      {/* 80px of this used to be clearance for the floating tab bar. That bar
+          is gone from this flow (lib/nav-scope.ts), so what is left is the
+          button, its caption and the notch. 213px -> ~133px. */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-dark/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md">
         <div className="mx-auto flex max-w-2xl items-center gap-2.5">
           {screen > 1 && (
             <button
               type="button"
-              onClick={() => setScreen((s) => s - 1)}
+              onClick={() => goTo(screen - 1)}
               aria-label={c.back}
               className="flex min-h-16 shrink-0 items-center gap-1.5 rounded-full border border-[#6E6E6E] px-5 font-dm text-[16px] text-offwhite"
             >
@@ -1531,7 +1595,7 @@ export default function DeliverForm({
           <button
             type="button"
             onClick={() =>
-              screen === SCREENS ? void submit() : setScreen((s) => s + 1)
+              screen === SCREENS ? void submit() : goTo(screen + 1)
             }
             disabled={cta.disabled}
             className={cn(
@@ -1553,6 +1617,70 @@ export default function DeliverForm({
         </p>
       </div>
     </>
+  );
+}
+
+/**
+ * Where you are, as four numbers you can see without reading.
+ *
+ * The bar this sits in used to be a row of four flat dashes — honest, and
+ * completely unnoticeable at 4px tall. The owner's words were "make step easily
+ * noticeable", so: the current step is a filled amber disc a third larger than
+ * the others and carries its number; finished steps carry a check; the ones
+ * ahead are outlined. Three states, distinguishable by SHAPE and not only by
+ * colour, because roughly one man in twelve here cannot rely on the amber.
+ *
+ * `aria-hidden` on the whole thing, with a single sentence for a screen reader
+ * instead: "Step 2 of 4" said once is worth more than four list items whose
+ * numbers have to be reassembled into a position.
+ */
+function Stepper({
+  current,
+  total,
+  label,
+}: {
+  current: number;
+  total: number;
+  /** Translated. This said "Step 4 of 4" in English to a French reader. */
+  label: string;
+}) {
+  return (
+    <div className="flex min-w-0 flex-1 items-center">
+      <span className="sr-only">{label}</span>
+      <span className="flex flex-1 items-center" aria-hidden>
+        {Array.from({ length: total }, (_, i) => i + 1).map((n) => {
+          const done = n < current;
+          const now = n === current;
+          return (
+            <span
+              key={n}
+              className={cn("flex items-center", n < total && "flex-1")}
+            >
+              <span
+                className={cn(
+                  "flex shrink-0 items-center justify-center rounded-full font-dm font-bold transition-all",
+                  now
+                    ? "h-8 w-8 bg-yellow text-[15px] text-dark shadow-[0_0_16px_-4px] shadow-yellow/60"
+                    : done
+                      ? "h-6 w-6 bg-yellow/85 text-dark"
+                      : "h-6 w-6 border border-[#6E6E6E] text-[13px] text-[#B0B0B0]",
+                )}
+              >
+                {done ? <Check size={13} strokeWidth={3} /> : n}
+              </span>
+              {n < total && (
+                <span
+                  className={cn(
+                    "mx-1 h-0.5 flex-1 rounded-full transition-colors",
+                    done ? "bg-yellow/85" : "bg-white/15",
+                  )}
+                />
+              )}
+            </span>
+          );
+        })}
+      </span>
+    </div>
   );
 }
 
@@ -1679,52 +1807,6 @@ function ChosenLine({
   );
 }
 
-// ── A field that is a link until somebody wants it ──────────────────────────
-// "Gate colour, floor, anything that helps" is a real field that almost nobody
-// fills. As a field it costs 80px on every visit; as a link it costs 48px and
-// still gets filled by the people who need it.
-
-function NoteField({
-  open,
-  onOpen,
-  openLabel,
-  value,
-  onChange,
-  placeholder,
-}: {
-  open: boolean;
-  onOpen: () => void;
-  openLabel: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-}) {
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={onOpen}
-        className={cn(
-          t.meta,
-          "flex min-h-12 items-center gap-1.5 self-start text-yellow underline underline-offset-4",
-        )}
-      >
-        <Pencil size={14} aria-hidden />
-        {openLabel}
-      </button>
-    );
-  }
-  return (
-    <input
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={recipe.field}
-      placeholder={placeholder}
-      aria-label={placeholder}
-    />
-  );
-}
-
 function ReviewRow({
   label,
   value,
@@ -1741,7 +1823,7 @@ function ReviewRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 px-4 py-3",
+        "flex items-center gap-3 px-4 py-2",
         !last && "border-b border-white/10",
       )}
     >

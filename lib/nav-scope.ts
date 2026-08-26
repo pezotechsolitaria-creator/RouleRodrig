@@ -36,8 +36,21 @@ export const CONSOLE_PREFIXES = [
                 // want "Order food" and a mascot over the order they are cooking.
 ] as const;
 
-/** One-decision screens. A tab bar here is an exit, not a convenience. */
-export const FOCUSED_PREFIXES = ["/checkout", "/login", "/auth"] as const;
+/**
+ * One-decision screens. A tab bar here is an exit, not a convenience.
+ *
+ * `/deliver` joined this list once the request flow became four steps with a
+ * pinned primary action. It is the same shape the comment above describes for
+ * `/checkout`: one decision on screen, and a floating bar sitting beside the
+ * button competing for the same thumb.
+ *
+ * It is also 80px. On a 812px phone the header takes 65 and the pinned action
+ * takes the bottom, and those 80px of clearance for a bar nobody taps during a
+ * form were the single largest remaining block of a measured 534px budget.
+ * Leaving is still one tap: the logo goes home and the account link is in the
+ * header, which is sticky.
+ */
+export const FOCUSED_PREFIXES = ["/checkout", "/login", "/auth", "/deliver"] as const;
 
 /**
  * Does the visitor's bottom tab bar belong on this path?

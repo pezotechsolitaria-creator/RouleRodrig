@@ -120,7 +120,8 @@ export const text = {
 
 export const type = {
   /** Page title. One per screen. */
-  display: "font-syne text-3xl font-extrabold leading-[1.1] tracking-tight md:text-4xl",
+  display:
+    "font-syne text-3xl font-extrabold leading-[1.1] tracking-tight md:text-4xl",
   /** THE one question on a screen. Sentence case, never caps. */
   question: "font-syne text-[26px] font-bold leading-[1.25]",
   /** Section heading inside a screen. */
@@ -255,7 +256,7 @@ export const recipe = {
     radius.card,
     surface.card,
     "border " + border.interactive,
-    "p-4",
+    "p-3.5",
     touch.comfortable,
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow/70 focus-visible:ring-offset-2 focus-visible:ring-offset-dark",
   ].join(" "),
@@ -267,7 +268,7 @@ export const recipe = {
     radius.card,
     surface.accent,
     "border " + border.selected,
-    "p-4",
+    "p-3.5",
     touch.comfortable,
   ].join(" "),
 
@@ -328,7 +329,9 @@ export const recipe = {
  */
 export function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return false;
-  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  return (
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false
+  );
 }
 
 /** The breakpoints this surface actually designs for. Mobile is not a

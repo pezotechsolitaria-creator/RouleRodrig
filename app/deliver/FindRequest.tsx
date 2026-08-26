@@ -39,7 +39,10 @@ export default function FindRequest() {
       const res = await fetch("/api/delivery-requests/lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ref: ref.trim(), email: email.trim().toLowerCase() }),
+        body: JSON.stringify({
+          ref: ref.trim(),
+          email: email.trim().toLowerCase(),
+        }),
       });
       const json = (await res.json()) as { id?: string; error?: string };
       if (!res.ok || !json.id) {
@@ -61,7 +64,7 @@ export default function FindRequest() {
         onClick={() => setOpen(true)}
         className={cn(
           t.bodySm,
-          "mb-9 inline-flex items-center gap-1.5 text-[#B0B0B0] underline underline-offset-4 transition-colors hover:text-offwhite",
+          "inline-flex items-center gap-1.5 text-[#B0B0B0] underline underline-offset-4 transition-colors hover:text-offwhite",
         )}
       >
         <Search size={14} /> Already asked for prices? Find your request
@@ -70,16 +73,19 @@ export default function FindRequest() {
   }
 
   return (
-    <section className="mb-9 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+    <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
       <h2 className={cn(t.cardTitle, "text-offwhite")}>Find your request</h2>
       <p className={cn(t.bodySm, "mt-1.5 text-[#B0B0B0]")}>
-        The reference is on the request page, like RR-3F9A2B. We check it against the
-        email you used, so neither one on its own opens anything.
+        The reference is on the request page, like RR-3F9A2B. We check it
+        against the email you used, so neither one on its own opens anything.
       </p>
 
       <form className="mt-4 flex flex-col gap-3" onSubmit={submit}>
         <div>
-          <label htmlFor="find-ref" className={cn(t.meta, "mb-1.5 block text-[#B0B0B0]")}>
+          <label
+            htmlFor="find-ref"
+            className={cn(t.meta, "mb-1.5 block text-[#B0B0B0]")}
+          >
             Reference
           </label>
           <input
@@ -101,7 +107,10 @@ export default function FindRequest() {
         </div>
 
         <div>
-          <label htmlFor="find-email" className={cn(t.meta, "mb-1.5 block text-[#B0B0B0]")}>
+          <label
+            htmlFor="find-email"
+            className={cn(t.meta, "mb-1.5 block text-[#B0B0B0]")}
+          >
             The email you used
           </label>
           <input
@@ -132,7 +141,10 @@ export default function FindRequest() {
           <button
             type="submit"
             disabled={busy || !refOk || !emailOk}
-            className={cn(recipe.primaryAction, "inline-flex flex-1 items-center justify-center gap-2")}
+            className={cn(
+              recipe.primaryAction,
+              "inline-flex flex-1 items-center justify-center gap-2",
+            )}
           >
             {busy && <Loader2 size={16} className="animate-spin" />}
             {busy ? "Looking…" : "Find it"}
