@@ -2,8 +2,19 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  Loader2, Package, MapPin, Phone, Navigation, CheckCircle2,
-  AlertTriangle, Clock, Wallet, XCircle,
+  Loader2,
+  Package,
+  MapPin,
+  Phone,
+  Navigation,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
+  Wallet,
+  XCircle,
+  Landmark,
+  Banknote,
+  FileText,
 } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import { Button } from "@/components/ui/button";
@@ -12,6 +23,11 @@ import DeliveryTracking from "@/components/tracking/DeliveryTracking";
 import WhatsappAlerts from "./WhatsappAlerts";
 import { driverDutyState } from "@/lib/delivery/availability";
 import QuoteBoard, { type OpenRequest } from "./QuoteBoard";
+import { formatWindow } from "@/lib/delivery/schedule";
+import {
+  canStartDelivery,
+  paymentCardState,
+} from "@/lib/delivery/payment-state";
 
 // ── The driver's phone ──────────────────────────────────────────────────────
 //
@@ -26,24 +42,66 @@ import QuoteBoard, { type OpenRequest } from "./QuoteBoard";
 // trust in the whole network.
 
 type Offer = {
-  id: string; earning: number; storeName: string;
-  storeAddress: string | null; dropoffNote: string | null; expiresAt: string | null;
+  id: string;
+  earning: number;
+  storeName: string;
+  storeAddress: string | null;
+  dropoffNote: string | null;
+  expiresAt: string | null;
 };
 type Active = {
-  id: string; status: string; earning: number;
-  storeName: string; storePhone: string | null; storeAddress: string | null;
-  orderNumber: string; customerName: string | null; customerPhone: string | null;
-  dropoffLat: number | null; dropoffLng: number | null; dropoffNote: string | null;
-  pickupDueAt: string | null; deliveryDueAt: string | null; pinAttempts: number;
-  /** M79c — cash still owed on the order, to take at the door. Minor units. */
+  id: string;
+  status: string;
+  earning: number;
+  storeName: string;
+  storePhone: string | null;
+  storeAddress: string | null;
+  orderNumber: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  dropoffLat: number | null;
+  dropoffLng: number | null;
+  dropoffNote: string | null;
+  pickupDueAt: string | null;
+  deliveryDueAt: string | null;
+  pinAttempts: number;
+  /** M79c — cash still owed on the order, to take at the door. Minor units.
+   *  M157: this is ZERO for a bank transfer, because the money is already in.
+   *  It used to read the fee unconditionally, which told a driver to collect a
+   *  bill the customer had already settled. */
   collectCash?: number;
+  /** M155/M157 — how this job is being paid, and whether the receipt landed. */
+  paymentMethod?: string | null;
+  paymentProofAt?: string | null;
+  paymentReference?: string | null;
+  hasProof?: boolean;
+  /** A shopping run: the driver fronts the till and is repaid at the door. */
+  requestKind?: string | null;
+  spendCap?: number | null;
+  /** M152 — when the customer needs it. */
+  windowStart?: string | null;
+  windowEnd?: string | null;
+  scheduleKind?: string | null;
+  timeSlot?: string | null;
 };
 type Dash = {
   isDriver: boolean;
-  driver?: { id: string; name: string; status: string; availability: string; statusReason: string | null };
+  driver?: {
+    id: string;
+    name: string;
+    status: string;
+    availability: string;
+    statusReason: string | null;
+  };
   limits?: { maxActive: number };
   today?: { completed: number; earned: number };
-  metrics?: { completed: number; accepted: number; offers: number; cancellations: number; onTime: number };
+  metrics?: {
+    completed: number;
+    accepted: number;
+    offers: number;
+    cancellations: number;
+    onTime: number;
+  };
   active?: Active[];
   offers?: Offer[];
   // A boolean only. The key itself is never returned by any endpoint.
@@ -57,7 +115,10 @@ type Dash = {
 // chain of ifs is what guarantees there is never more than one.
 const NEXT: Record<string, { to: string; label: string } | undefined> = {
   assigned: { to: "going_to_pickup", label: "Start — going to pick up" },
-  going_to_pickup: { to: "arrived_at_pickup", label: "I've arrived at the shop" },
+  going_to_pickup: {
+    to: "arrived_at_pickup",
+    label: "I've arrived at the shop",
+  },
   arrived_at_pickup: { to: "picked_up", label: "I have the order" },
   picked_up: { to: "out_for_delivery", label: "Start delivery" },
   out_for_delivery: { to: "arrived", label: "I've arrived at the customer" },
@@ -82,7 +143,14 @@ function timeLeft(iso: string | null): { text: string; late: boolean } | null {
 
 // The whole journey, so "where am I up to" is answered by looking rather than
 // by remembering which button was pressed last.
-const STEPS = ["assigned", "going_to_pickup", "arrived_at_pickup", "picked_up", "out_for_delivery", "arrived"];
+const STEPS = [
+  "assigned",
+  "going_to_pickup",
+  "arrived_at_pickup",
+  "picked_up",
+  "out_for_delivery",
+  "arrived",
+];
 const STEP_LABEL: Record<string, string> = {
   assigned: "Accepted",
   going_to_pickup: "To shop",
@@ -96,7 +164,11 @@ function Progress({ status }: { status: string }) {
   const at = STEPS.indexOf(status);
   return (
     <div className="mt-3">
-      <div className="flex items-center gap-1" role="img" aria-label={`Step ${at + 1} of ${STEPS.length}: ${STEP_LABEL[status] ?? status}`}>
+      <div
+        className="flex items-center gap-1"
+        role="img"
+        aria-label={`Step ${at + 1} of ${STEPS.length}: ${STEP_LABEL[status] ?? status}`}
+      >
         {STEPS.map((st, i) => (
           <div
             key={st}
@@ -154,7 +226,7 @@ export default function DriverDashboard() {
   }, [load]);
 
   async function act(key: string, payload: Record<string, unknown>) {
-    if (busy) return;                       // one action at a time, always
+    if (busy) return; // one action at a time, always
     setBusy(key);
     setError(null);
     try {
@@ -188,11 +260,16 @@ export default function DriverDashboard() {
     return (
       <div className="rounded-2xl border border-white/10 bg-dark-card p-6 text-center">
         <Package size={30} className="mx-auto text-yellow" />
-        <h2 className="mt-3 font-syne text-xl font-bold">Become a delivery partner</h2>
+        <h2 className="mt-3 font-syne text-xl font-bold">
+          Become a delivery partner
+        </h2>
         <p className="mx-auto mt-2 max-w-sm font-dm text-sm text-muted">
           Deliver orders around Rodrigues on your own schedule. Free to join.
         </p>
-        <a href="/driver/apply" className="mt-5 inline-block rounded-full bg-yellow px-6 py-3 font-syne text-sm font-bold text-dark">
+        <a
+          href="/driver/apply"
+          className="mt-5 inline-block rounded-full bg-yellow px-6 py-3 font-syne text-sm font-bold text-dark"
+        >
           Apply now
         </a>
       </div>
@@ -209,7 +286,11 @@ export default function DriverDashboard() {
   // driver can take another is a COUNT against the owner's limit, not a value
   // of the column. Reading it as a two-state flag is what let this screen show
   // a green dot to a driver dispatch could not see (M116).
-  const duty = driverDutyState(d?.availability, active.length, dash?.limits?.maxActive);
+  const duty = driverDutyState(
+    d?.availability,
+    active.length,
+    dash?.limits?.maxActive,
+  );
   const online = duty.onDuty;
 
   return (
@@ -221,10 +302,13 @@ export default function DriverDashboard() {
             <Clock size={18} className="mt-0.5 shrink-0 text-orange-300" />
             <div>
               <p className="font-syne text-sm font-bold text-orange-300">
-                {d?.status === "pending" ? "Application under review" : `Account ${d?.status}`}
+                {d?.status === "pending"
+                  ? "Application under review"
+                  : `Account ${d?.status}`}
               </p>
               <p className="mt-1 font-dm text-xs text-muted">
-                {d?.statusReason ?? "We'll message you as soon as it's checked. You can't take deliveries yet."}
+                {d?.statusReason ??
+                  "We'll message you as soon as it's checked. You can't take deliveries yet."}
               </p>
             </div>
           </div>
@@ -235,7 +319,11 @@ export default function DriverDashboard() {
                 <p className="flex items-center gap-2 font-syne text-base font-bold">
                   <span
                     className={`h-2.5 w-2.5 rounded-full ${
-                      duty.tone === "off" ? "bg-white/30" : duty.tone === "full" ? "bg-orange-300" : "bg-green-400"
+                      duty.tone === "off"
+                        ? "bg-white/30"
+                        : duty.tone === "full"
+                          ? "bg-orange-300"
+                          : "bg-green-400"
                     }`}
                   />
                   {duty.label}
@@ -243,14 +331,22 @@ export default function DriverDashboard() {
                 <p className="mt-0.5 font-dm text-xs text-muted">{d?.name}</p>
               </div>
               <button
-                onClick={() => void act("online", { action: "online", online: !online })}
+                onClick={() =>
+                  void act("online", { action: "online", online: !online })
+                }
                 disabled={busy !== null}
                 aria-pressed={online}
                 className={`min-h-[44px] rounded-full px-5 font-syne text-sm font-bold transition-colors disabled:opacity-50 ${
-                  online ? "border border-white/20 text-offwhite" : "bg-yellow text-dark"
+                  online
+                    ? "border border-white/20 text-offwhite"
+                    : "bg-yellow text-dark"
                 }`}
               >
-                {busy === "online" ? <Loader2 size={16} className="animate-spin" /> : duty.toggleLabel}
+                {busy === "online" ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  duty.toggleLabel
+                )}
               </button>
             </div>
             {/* Said plainly in EVERY state. The two questions a driver has are
@@ -258,7 +354,9 @@ export default function DriverDashboard() {
                 and this line used to appear only when they went offline still
                 carrying something, so a driver at their limit was told nothing
                 at all. */}
-            <p className={`mt-3 font-dm text-xs ${duty.tone === "good" ? "text-muted" : "text-orange-300"}`}>
+            <p
+              className={`mt-3 font-dm text-xs ${duty.tone === "good" ? "text-muted" : "text-orange-300"}`}
+            >
               {duty.detail}
             </p>
           </>
@@ -271,17 +369,26 @@ export default function DriverDashboard() {
           meant they could not subscribe until after the notification they
           wanted had already been sent. */}
       <AlertsToggle />
-      <WhatsappAlerts configured={Boolean(dash?.whatsappConfigured)} onSaved={() => void load()} />
+      <WhatsappAlerts
+        configured={Boolean(dash?.whatsappConfigured)}
+        onSaved={() => void load()}
+      />
 
       {approved && (
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl border border-white/10 bg-dark-card p-4">
-            <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">TODAY</p>
-            <p className="mt-1 font-syne text-2xl font-extrabold">{dash?.today?.completed ?? 0}</p>
+            <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">
+              TODAY
+            </p>
+            <p className="mt-1 font-syne text-2xl font-extrabold">
+              {dash?.today?.completed ?? 0}
+            </p>
             <p className="font-dm text-xs text-muted">delivered</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-dark-card p-4">
-            <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">EARNED TODAY</p>
+            <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">
+              EARNED TODAY
+            </p>
             <p className="mt-1 flex items-center gap-1.5 font-syne text-2xl font-extrabold">
               <Wallet size={17} className="text-yellow" />
               {centsToDecimalString(dash?.today?.earned ?? 0)}
@@ -309,7 +416,10 @@ export default function DriverDashboard() {
       )}
 
       {error && (
-        <p role="alert" className="rounded-xl border border-red-500/25 bg-red-500/[0.07] px-4 py-3 font-dm text-sm text-red-400">
+        <p
+          role="alert"
+          className="rounded-xl border border-red-500/25 bg-red-500/[0.07] px-4 py-3 font-dm text-sm text-red-400"
+        >
           {error}
         </p>
       )}
@@ -318,12 +428,24 @@ export default function DriverDashboard() {
           taking more, and it is what the driver opened the app for. */}
       {active.map((a) => {
         const next = NEXT[a.status];
-        const atDoor = a.status === "arrived" || a.status === "out_for_delivery";
+        const atDoor =
+          a.status === "arrived" || a.status === "out_for_delivery";
+        // The exact condition advance_delivery() refuses on, so the button
+        // can say so instead of throwing RR087 after the tap. Kept in
+        // lib/delivery/payment-state.ts with a test naming the SQL it mirrors,
+        // because a screen that disagrees with the gate is worse than no
+        // screen at all.
+        const waitingOnPayment = !canStartDelivery(a);
         return (
-          <div key={a.id} className="rounded-2xl border border-yellow/30 bg-yellow/[0.05] p-4">
+          <div
+            key={a.id}
+            className="rounded-2xl border border-yellow/30 bg-yellow/[0.05] p-4"
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">{a.orderNumber}</p>
+                <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">
+                  {a.orderNumber}
+                </p>
                 <p className="font-syne text-base font-bold">{a.storeName}</p>
               </div>
               <span className="shrink-0 font-syne text-base font-bold text-yellow">
@@ -336,7 +458,9 @@ export default function DriverDashboard() {
                 once is noise; showing neither is what shipped. */}
             {(() => {
               const due = timeLeft(
-                ["assigned", "going_to_pickup", "arrived_at_pickup"].includes(a.status)
+                ["assigned", "going_to_pickup", "arrived_at_pickup"].includes(
+                  a.status,
+                )
                   ? a.pickupDueAt
                   : a.deliveryDueAt,
               );
@@ -344,11 +468,17 @@ export default function DriverDashboard() {
               return (
                 <p
                   className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-dm text-xs ${
-                    due.late ? "bg-red-500/15 text-red-300" : "bg-white/[0.06] text-muted"
+                    due.late
+                      ? "bg-red-500/15 text-red-300"
+                      : "bg-white/[0.06] text-muted"
                   }`}
                 >
                   <Clock size={12} />
-                  {["assigned", "going_to_pickup", "arrived_at_pickup"].includes(a.status)
+                  {[
+                    "assigned",
+                    "going_to_pickup",
+                    "arrived_at_pickup",
+                  ].includes(a.status)
                     ? "Pickup"
                     : "Delivery"}{" "}
                   {due.text}
@@ -361,25 +491,40 @@ export default function DriverDashboard() {
             <div className="mt-3 space-y-1.5 font-dm text-sm">
               {a.storeAddress && (
                 <p className="flex items-start gap-2 text-muted">
-                  <Package size={14} className="mt-0.5 shrink-0 text-yellow" /> {a.storeAddress}
+                  <Package size={14} className="mt-0.5 shrink-0 text-yellow" />{" "}
+                  {a.storeAddress}
                 </p>
               )}
               {a.dropoffNote && (
                 <p className="flex items-start gap-2 text-muted">
-                  <MapPin size={14} className="mt-0.5 shrink-0 text-yellow" /> {a.dropoffNote}
+                  <MapPin size={14} className="mt-0.5 shrink-0 text-yellow" />{" "}
+                  {a.dropoffNote}
                 </p>
               )}
             </div>
 
-            {/* M79c — a split payment: the customer still owes cash and the
-                driver is the one who has to ask for it. Loud, and stated in
-                money rather than as a status, because this is the only thing
-                on the card that costs somebody real money if it is missed. */}
-            {(a.collectCash ?? 0) > 0 && (
-              <p className="mt-3 rounded-xl border border-red-400/40 bg-red-500/[0.09] px-3 py-2 font-syne text-sm font-bold text-red-300">
-                Collect Rs {centsToDecimalString(a.collectCash!)} in cash at the door
+            {/* M152 — WHEN the customer needs it. Until this landed a driver
+                could only find out by ringing them. */}
+            {a.windowStart && (
+              <p className="mt-3 flex items-center gap-2 font-dm text-sm text-offwhite">
+                <Clock size={14} className="shrink-0 text-yellow" aria-hidden />
+                <span className="text-muted">Needed</span>{" "}
+                {formatWindow(
+                  a.windowStart,
+                  a.windowEnd ?? null,
+                  a.scheduleKind ?? null,
+                  a.timeSlot ?? null,
+                  "en",
+                )}
               </p>
             )}
+
+            {/* ── HOW THIS ONE IS BEING PAID ───────────────────────────────
+                Three states, and the driver must never have to guess which.
+                Getting this wrong costs somebody real money in one direction
+                or holds up a job in the other, so each says the amount or the
+                blocker in words rather than as a status. */}
+            <PaymentState delivery={a} />
 
             {/* Calling and navigating are the two things a driver reaches for
                 mid-job; they are links, not buried in a menu. */}
@@ -387,41 +532,72 @@ export default function DriverDashboard() {
               {a.dropoffLat != null && a.dropoffLng != null && (
                 <a
                   href={`https://www.google.com/maps/search/?api=1&query=${a.dropoffLat},${a.dropoffLng}`}
-                  target="_blank" rel="noopener noreferrer"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/20 px-4 font-dm text-sm"
                 >
                   <Navigation size={14} /> Navigate
                 </a>
               )}
               {a.customerPhone && atDoor && (
-                <a href={`tel:${a.customerPhone.replace(/\s+/g, "")}`}
-                   className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/20 px-4 font-dm text-sm">
+                <a
+                  href={`tel:${a.customerPhone.replace(/\s+/g, "")}`}
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/20 px-4 font-dm text-sm"
+                >
                   <Phone size={14} /> Call customer
                 </a>
               )}
               {a.storePhone && !atDoor && (
-                <a href={`tel:${a.storePhone.replace(/\s+/g, "")}`}
-                   className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/20 px-4 font-dm text-sm">
+                <a
+                  href={`tel:${a.storePhone.replace(/\s+/g, "")}`}
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/20 px-4 font-dm text-sm"
+                >
                   <Phone size={14} /> Call shop
                 </a>
               )}
             </div>
 
-            {/* THE one next action. */}
+            {/* THE one next action.
+                M157: held shut while a bank transfer has no receipt on it. The
+                gate itself lives in advance_delivery() and always did — what
+                was missing was any way to know BEFORE tapping. A driver got
+                RR087 and an error toast with no idea what to do about it. */}
             {next && (
-              <Button
-                className="mt-4 min-h-[52px] w-full text-base"
-                disabled={busy !== null}
-                onClick={() => void act(`adv-${a.id}`, { action: "advance", deliveryId: a.id, to: next.to })}
-              >
-                {busy === `adv-${a.id}` ? <Loader2 size={18} className="animate-spin" /> : next.label}
-              </Button>
+              <>
+                <Button
+                  className="mt-4 min-h-[52px] w-full text-base"
+                  disabled={busy !== null || waitingOnPayment}
+                  onClick={() =>
+                    void act(`adv-${a.id}`, {
+                      action: "advance",
+                      deliveryId: a.id,
+                      to: next.to,
+                    })
+                  }
+                >
+                  {busy === `adv-${a.id}` ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : waitingOnPayment ? (
+                    "Waiting for payment"
+                  ) : (
+                    next.label
+                  )}
+                </Button>
+                {waitingOnPayment && (
+                  <p className="mt-2 text-center font-dm text-xs text-muted">
+                    You will be able to start the moment their receipt arrives.
+                  </p>
+                )}
+              </>
             )}
 
             {/* At the door the next action is the PIN, and nothing else. */}
             {a.status === "arrived" && (
               <div className="mt-4 rounded-xl border border-white/12 bg-dark p-3">
-                <label htmlFor={`pin-${a.id}`} className="block font-dm text-xs text-muted">
+                <label
+                  htmlFor={`pin-${a.id}`}
+                  className="block font-dm text-xs text-muted"
+                >
                   Ask {a.customerName ?? "the customer"} for their 4-digit code
                 </label>
                 <div className="mt-2 flex gap-2">
@@ -431,21 +607,37 @@ export default function DriverDashboard() {
                     autoComplete="off"
                     maxLength={4}
                     value={pin[a.id] ?? ""}
-                    onChange={(e) => setPin({ ...pin, [a.id]: e.target.value.replace(/\D/g, "").slice(0, 4) })}
+                    onChange={(e) =>
+                      setPin({
+                        ...pin,
+                        [a.id]: e.target.value.replace(/\D/g, "").slice(0, 4),
+                      })
+                    }
                     placeholder="0000"
                     className="w-28 rounded-xl border border-dark-border bg-dark-card px-3 py-3 text-center font-syne text-2xl font-bold tracking-[0.3em] text-offwhite placeholder:text-muted/40 focus:border-yellow focus:outline-none"
                   />
                   <Button
                     className="min-h-[52px] flex-1 text-base"
                     disabled={busy !== null || (pin[a.id] ?? "").length !== 4}
-                    onClick={() => void act(`pin-${a.id}`, { action: "complete", deliveryId: a.id, pin: pin[a.id] })}
+                    onClick={() =>
+                      void act(`pin-${a.id}`, {
+                        action: "complete",
+                        deliveryId: a.id,
+                        pin: pin[a.id],
+                      })
+                    }
                   >
-                    {busy === `pin-${a.id}` ? <Loader2 size={18} className="animate-spin" /> : "Complete delivery"}
+                    {busy === `pin-${a.id}` ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                      "Complete delivery"
+                    )}
                   </Button>
                 </div>
                 {a.pinAttempts > 0 && (
                   <p className="mt-2 font-dm text-xs text-orange-300">
-                    {5 - a.pinAttempts} tries left before this has to be finished by the office.
+                    {5 - a.pinAttempts} tries left before this has to be
+                    finished by the office.
                   </p>
                 )}
               </div>
@@ -462,7 +654,11 @@ export default function DriverDashboard() {
                   onChange={(e) => setReason(e.target.value)}
                   className="mt-2 min-h-[44px] w-full rounded-lg border border-dark-border bg-dark px-3 font-dm text-sm text-offwhite"
                 >
-                  {REASONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  {REASONS.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
                 </select>
                 {reason === "other" && (
                   <textarea
@@ -475,25 +671,41 @@ export default function DriverDashboard() {
                 )}
                 <div className="mt-3 flex gap-2">
                   <Button
-                    variant="outline" className="min-h-[44px] flex-1"
-                    onClick={() => { setExcuseFor(null); setNote(""); }}
+                    variant="outline"
+                    className="min-h-[44px] flex-1"
+                    onClick={() => {
+                      setExcuseFor(null);
+                      setNote("");
+                    }}
                   >
                     Keep it
                   </Button>
                   <button
-                    disabled={busy !== null || (reason === "other" && !note.trim())}
+                    disabled={
+                      busy !== null || (reason === "other" && !note.trim())
+                    }
                     onClick={async () => {
                       const r = await act(`cx-${a.id}`, {
-                        action: "cannot_complete", deliveryId: a.id, reason, note: note.trim() || undefined,
+                        action: "cannot_complete",
+                        deliveryId: a.id,
+                        reason,
+                        note: note.trim() || undefined,
                       });
-                      setExcuseFor(null); setNote("");
+                      setExcuseFor(null);
+                      setNote("");
                       if (r?.afterPickup) {
-                        setError("Thanks — because you already have the package, the office will contact you to arrange the handover. Please keep it safe.");
+                        setError(
+                          "Thanks — because you already have the package, the office will contact you to arrange the handover. Please keep it safe.",
+                        );
                       }
                     }}
                     className="min-h-[44px] flex-1 rounded-xl bg-red-500 px-4 font-syne text-sm font-bold text-white disabled:opacity-40"
                   >
-                    {busy === `cx-${a.id}` ? <Loader2 size={16} className="animate-spin" /> : "Confirm"}
+                    {busy === `cx-${a.id}` ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      "Confirm"
+                    )}
                   </button>
                 </div>
               </div>
@@ -512,19 +724,30 @@ export default function DriverDashboard() {
       {/* Offers. Gated on `offerable`, not `online`: a driver at their limit is
           still online, and showing them an empty "nothing available" panel
           promises a job the capacity gate will refuse. */}
-      {approved && duty.offerable && (
-        offers.length > 0 ? (
+      {approved &&
+        duty.offerable &&
+        (offers.length > 0 ? (
           <div className="space-y-3">
             <h2 className="font-syne text-lg font-bold">Available now</h2>
             {offers.map((o) => (
-              <div key={o.id} className="rounded-2xl border border-white/10 bg-dark-card p-4">
+              <div
+                key={o.id}
+                className="rounded-2xl border border-white/10 bg-dark-card p-4"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-syne text-base font-bold">{o.storeName}</p>
-                    {o.storeAddress && <p className="font-dm text-xs text-muted">{o.storeAddress}</p>}
+                    <p className="font-syne text-base font-bold">
+                      {o.storeName}
+                    </p>
+                    {o.storeAddress && (
+                      <p className="font-dm text-xs text-muted">
+                        {o.storeAddress}
+                      </p>
+                    )}
                     {o.dropoffNote && (
                       <p className="mt-1 flex items-start gap-1.5 font-dm text-xs text-muted">
-                        <MapPin size={12} className="mt-0.5 shrink-0" /> {o.dropoffNote}
+                        <MapPin size={12} className="mt-0.5 shrink-0" />{" "}
+                        {o.dropoffNote}
                       </p>
                     )}
                   </div>
@@ -541,19 +764,31 @@ export default function DriverDashboard() {
                   return (
                     <p
                       className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-dm text-xs ${
-                        left.late ? "bg-red-500/15 text-red-300" : "bg-yellow/15 text-yellow"
+                        left.late
+                          ? "bg-red-500/15 text-red-300"
+                          : "bg-yellow/15 text-yellow"
                       }`}
                     >
-                      <Clock size={12} /> {left.late ? "Expiring now" : left.text}
+                      <Clock size={12} />{" "}
+                      {left.late ? "Expiring now" : left.text}
                     </p>
                   );
                 })()}
                 <Button
                   className="mt-3 min-h-[52px] w-full text-base"
                   disabled={busy !== null}
-                  onClick={() => void act(`acc-${o.id}`, { action: "accept", deliveryId: o.id })}
+                  onClick={() =>
+                    void act(`acc-${o.id}`, {
+                      action: "accept",
+                      deliveryId: o.id,
+                    })
+                  }
                 >
-                  {busy === `acc-${o.id}` ? <Loader2 size={18} className="animate-spin" /> : "Accept delivery"}
+                  {busy === `acc-${o.id}` ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    "Accept delivery"
+                  )}
                 </Button>
               </div>
             ))}
@@ -561,13 +796,14 @@ export default function DriverDashboard() {
         ) : active.length === 0 ? (
           <div className="rounded-2xl border border-white/10 bg-dark-card p-6 text-center">
             <CheckCircle2 size={24} className="mx-auto text-muted" />
-            <p className="mt-2 font-syne text-sm font-bold">Nothing available right now</p>
+            <p className="mt-2 font-syne text-sm font-bold">
+              Nothing available right now
+            </p>
             {/* Not hardcoded any more: this panel used to promise a job was
                 coming to a driver dispatch could not reach. */}
             <p className="mt-1 font-dm text-xs text-muted">{duty.detail}</p>
           </div>
-        ) : null
-      )}
+        ) : null)}
 
       {/* The quote board. Gated on `online` rather than `duty.offerable`: a
           driver already holding their maximum active deliveries can still name
@@ -594,7 +830,10 @@ export default function DriverDashboard() {
             return out !== undefined;
           }}
           onWithdraw={async (quoteId) => {
-            await act(`withdraw-${quoteId}`, { action: "withdraw_quote", quoteId });
+            await act(`withdraw-${quoteId}`, {
+              action: "withdraw_quote",
+              quoteId,
+            });
           }}
         />
       )}
@@ -602,9 +841,140 @@ export default function DriverDashboard() {
       {approved && !online && active.length === 0 && (
         <div className="rounded-2xl border border-white/10 bg-dark-card p-6 text-center">
           <XCircle size={24} className="mx-auto text-muted" />
-          <p className="mt-2 font-syne text-sm font-bold">You&apos;re offline</p>
-          <p className="mt-1 font-dm text-xs text-muted">Go online to start receiving deliveries.</p>
+          <p className="mt-2 font-syne text-sm font-bold">
+            You&apos;re offline
+          </p>
+          <p className="mt-1 font-dm text-xs text-muted">
+            Go online to start receiving deliveries.
+          </p>
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * How this job is being paid, on the card the driver works from.
+ *
+ * ── THREE STATES, AND NEVER A GUESS ───────────────────────────────────────
+ * Getting this wrong costs somebody real money in one direction and holds up a
+ * job in the other, so each state names the amount or the blocker in words.
+ *
+ *   CASH             — collect it at the door. Loud, in red, in money.
+ *   TRANSFER, unpaid — the job is held; say so before they tap Start.
+ *   TRANSFER, paid   — say it is settled, so nobody asks for it twice.
+ *
+ * ── THE SHOPPING-RUN SENTENCE ─────────────────────────────────────────────
+ * On a "buy & deliver" job the driver puts their own money across the counter
+ * and is repaid at the door. Nothing in this system knows the real till total —
+ * `spendCap` is a CAP the customer set, not an amount — so the card says "plus
+ * what you spent, up to Rs X" rather than printing the cap as though it were a
+ * figure to collect. A cap shown as an amount is the same double-charge bug
+ * pointing the other way.
+ */
+function PaymentState({ delivery: a }: { delivery: Active }) {
+  const [busy, setBusy] = useState(false);
+  // Its own error state rather than the page's: this component sits inside a
+  // map over the active jobs, so a failure belongs on the card it happened on
+  // and not at the top of a screen that may be showing two.
+  const [error, setError] = useState<string | null>(null);
+  const shopping = a.requestKind === "shop_and_deliver";
+  const cap =
+    shopping && a.spendCap
+      ? `, up to Rs ${centsToDecimalString(a.spendCap)}`
+      : "";
+  const plusTill = shopping ? ` Plus whatever you paid at the shop${cap}.` : "";
+
+  async function openReceipt() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      setError(null);
+      const res = await fetch(`/api/driver/payment-proof/${a.id}`);
+      const json = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !json.url) {
+        setError(json.error ?? "Could not open the receipt.");
+        return;
+      }
+      // A five-minute signed URL. Opened, never stored.
+      window.open(json.url, "_blank", "noopener,noreferrer");
+    } catch {
+      setError("Could not open the receipt. Check your connection.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const state = paymentCardState(a);
+
+  // ── Cash ────────────────────────────────────────────────────────────────
+  if (state === "cash") {
+    return (
+      <p className="mt-3 flex items-start gap-2 rounded-xl border border-red-400/40 bg-red-500/[0.09] px-3 py-2 font-syne text-sm font-bold text-red-300">
+        <Banknote size={15} className="mt-0.5 shrink-0" aria-hidden />
+        <span>
+          Collect Rs {centsToDecimalString(a.collectCash!)} in cash at the door.
+          {plusTill}
+        </span>
+      </p>
+    );
+  }
+
+  if (state === "none") return null;
+
+  // ── Transfer, still waiting ─────────────────────────────────────────────
+  if (state === "awaiting") {
+    return (
+      <p className="mt-3 flex items-start gap-2 rounded-xl border border-yellow/45 bg-yellow/[0.08] px-3 py-2 font-dm text-sm text-offwhite">
+        <Clock size={15} className="mt-0.5 shrink-0 text-yellow" aria-hidden />
+        <span>
+          <strong className="font-syne">
+            Waiting for their transfer receipt.
+          </strong>{" "}
+          Do not set off yet — you will be able to start as soon as it arrives.
+        </span>
+      </p>
+    );
+  }
+
+  // ── Transfer, settled ───────────────────────────────────────────────────
+  return (
+    <div className="mt-3 rounded-xl border border-emerald-500/35 bg-emerald-500/[0.08] px-3 py-2">
+      <p className="flex items-start gap-2 font-dm text-sm text-offwhite">
+        <Landmark
+          size={15}
+          className="mt-0.5 shrink-0 text-emerald-300"
+          aria-hidden
+        />
+        <span>
+          <strong className="font-syne">Paid by bank transfer.</strong> Nothing
+          to collect for the delivery.{plusTill}
+          {a.paymentReference && (
+            <span className="mt-0.5 block text-xs text-muted">
+              Reference {a.paymentReference}
+            </span>
+          )}
+        </span>
+      </p>
+      {a.hasProof && (
+        <button
+          type="button"
+          onClick={() => void openReceipt()}
+          disabled={busy}
+          className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-full border border-white/20 px-4 font-dm text-sm text-offwhite disabled:opacity-50"
+        >
+          {busy ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <FileText size={14} aria-hidden />
+          )}
+          View receipt
+        </button>
+      )}
+      {error && (
+        <p role="alert" className="mt-2 font-dm text-xs text-red-300">
+          {error}
+        </p>
       )}
     </div>
   );
