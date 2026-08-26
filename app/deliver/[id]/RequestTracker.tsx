@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import OrderAlerts from "@/components/orders/OrderAlerts";
+import LiveTripView from "@/components/tracking/LiveTripView";
 import { cn } from "@/lib/utils";
 import {
   requestStatusCopy, legCopy, legIndex, LEG_ORDER, sortQuotes, quoteBadges,
@@ -73,6 +74,11 @@ type RequestView = {
     driverName: string | null;
     driverPhone: string | null;
     vehicleType: string | null;
+    /** Minted by the server only once there is a trip row to watch, so its
+     *  presence is the honest test for "there is something to plot" — better
+     *  than guessing from a status. */
+    tripId: string | null;
+    channelKey: string | null;
   } | null;
 };
 
@@ -108,6 +114,8 @@ export default function RequestTracker({
   const [busyQuote, setBusyQuote] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<Quote | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [rating, setRating] = useState<number | null>(null);
+  const [ratingSaved, setRatingSaved] = useState(false);
 
   // Kept in a ref as well as state so the poller never closes over a stale one.
   const emailRef = useRef<string>("");
@@ -508,8 +516,67 @@ export default function RequestTracker({
         </section>
       )}
 
+      {/* ── Where the driver actually is ────────────────────────────────── */}
+      {/* Gated on channelKey, not on status: the key exists only once the
+          server has a trip row with a driver on it, so this cannot render an
+          empty map for a job that has nothing to plot. Somebody whose driver
+          has not opened their phone yet gets the honest text trail below
+          instead. Same component the taxi flow uses. */}
+      {view.status === "accepted" && view.delivery?.channelKey && (
+        <LiveTripView
+          lookup={{ requestId: view.id, email: emailRef.current || "" }}
+          channelKey={view.delivery.channelKey}
+          active={!(TERMINAL_LEGS as readonly string[]).includes(view.delivery.status)}
+          driver={
+            view.delivery.driverName
+              ? {
+                  name: view.delivery.driverName,
+                  phone: view.delivery.driverPhone,
+                  vehicle: view.delivery.vehicleType,
+                  photo: null,
+                  rating: null,
+                  ratingCount: null,
+                }
+              : null
+          }
+          pickupLabel={view.pickupText}
+          dropoffLabel={view.dropoffText}
+          reference={requestRef(view.id)}
+          fare={formatFee(view.delivery.fee)}
+          passengerName={view.contactName}
+        />
+      )}
+
       {/* ── The driver who was chosen ───────────────────────────────────── */}
       {view.status === "accepted" && view.delivery && <BookedDriver view={view} />}
+
+      {/* ── How was it? ─────────────────────────────────────────────────── */}
+      {view.delivery?.status === "delivered" && view.delivery.driverName && (
+        <RateDriver
+          driverName={view.delivery.driverName}
+          value={rating}
+          saved={ratingSaved}
+          onRate={async (stars) => {
+            setRating(stars);
+            const res = await fetch(`/api/delivery-requests/${id}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "rate",
+                rating: stars,
+                email: emailRef.current || undefined,
+              }),
+            });
+            if (res.ok) {
+              setRatingSaved(true);
+            } else {
+              const j = (await res.json()) as { error?: string };
+              toast.error(j.error ?? "Could not save that.");
+              setRating(null);
+            }
+          }}
+        />
+      )}
 
       {/* ── Getting out ─────────────────────────────────────────────────── */}
       {canWithdraw && (
@@ -964,5 +1031,62 @@ function TrackerSkeleton() {
       <div className="h-28 rounded-2xl bg-white/[0.04]" />
       <div className="h-20 rounded-2xl bg-white/[0.04]" />
     </div>
+  );
+}
+
+/**
+ * Rating the driver, once the thing has actually arrived.
+ *
+ * Five taps, no typing, no "submit". On a surface where 44% of the intended
+ * users cannot write (2022 census Vol. VI Table E2a), a review box asking for
+ * prose is a review nobody leaves — and a rating nobody leaves is a rating
+ * nobody can rely on when choosing between prices.
+ *
+ * Each star is a 56px target with its own accessible name, because a row of
+ * icons is otherwise a row of unlabelled guesses.
+ */
+function RateDriver({
+  driverName,
+  value,
+  saved,
+  onRate,
+}: {
+  driverName: string;
+  value: number | null;
+  saved: boolean;
+  onRate: (stars: number) => Promise<void>;
+}) {
+  return (
+    <section className="rounded-2xl border border-white/12 bg-dark-card p-4">
+      <h2 className={cn(t.heading, "text-offwhite")}>
+        {saved ? "Thank you" : `How was ${driverName}?`}
+      </h2>
+      <p className={cn(t.bodySm, "mt-1 text-[#B0B0B0]")}>
+        {saved
+          ? "Your rating helps the next customer choose."
+          : "Tap a star. It helps the next person choose a driver."}
+      </p>
+      <div className="mt-3 flex gap-1" role="group" aria-label={`Rate ${driverName}`}>
+        {[1, 2, 3, 4, 5].map((n) => {
+          const on = (value ?? 0) >= n;
+          return (
+            <button
+              key={n}
+              type="button"
+              onClick={() => void onRate(n)}
+              aria-label={`${n} ${n === 1 ? "star" : "stars"}`}
+              aria-pressed={on}
+              className="flex h-14 w-14 items-center justify-center rounded-xl transition-colors hover:bg-white/[0.05]"
+            >
+              <Star
+                size={30}
+                className={on ? "fill-yellow text-yellow" : "text-[#6E6E6E]"}
+                aria-hidden
+              />
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }

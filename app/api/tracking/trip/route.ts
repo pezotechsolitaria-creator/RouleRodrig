@@ -33,6 +33,9 @@ type Body = {
   tripId?: string;
   /** Delivery customer: the order, plus the address it was placed under. */
   orderId?: string;
+  /** Deliver Anything customer: the REQUEST, plus the email it was posted
+   *  under. A direct job has no order to be identified by. */
+  requestId?: string;
   email?: string;
 };
 
@@ -104,6 +107,29 @@ export async function POST(req: NextRequest) {
     }
     tripKind = "delivery";
     tripId = view.tripId;
+  }
+
+  // ── Deliver Anything customer, by request + the email it was posted under ─
+  // A direct job has no order, so the orderId door above cannot let them in --
+  // which is why the customer of a Deliver Anything delivery could not watch it
+  // at all. Same credential shape, same silence: delivery_request_trip returns
+  // null for "no such request" and for "not yours" alike.
+  else if (body.requestId) {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("delivery_request_trip", {
+      p_request_id: body.requestId,
+      p_email: body.email ?? null,
+    });
+    if (error) {
+      console.error("delivery_request_trip failed", error);
+      return NextResponse.json({ ok: false, error: "Something went wrong." }, { status: 500 });
+    }
+    const trip = data as { tripId?: string } | null;
+    if (!trip?.tripId) {
+      return NextResponse.json({ ok: false, error: "We couldn't find that." });
+    }
+    tripKind = "delivery";
+    tripId = trip.tripId;
   }
 
   // ── Customer, by reference + phone ───────────────────────────────────────

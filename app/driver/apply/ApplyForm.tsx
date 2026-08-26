@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { VEHICLE_TYPES, VEHICLE_LABEL, vehicleEligibilityNote } from "@/lib/delivery/vehicle";
 
 // Deliberately short. Every extra field on a form like this loses applicants,
 // and the network needs drivers more than it needs their life story — the
@@ -11,13 +12,12 @@ import { Button } from "@/components/ui/button";
 // vehicle. Licence details are asked for but optional at this stage: the admin
 // checks documents in person on an island this size, and demanding an upload
 // before anyone has agreed to anything would stop applications dead.
-const VEHICLES = [
-  { value: "scooter", label: "Scooter or motorbike" },
-  { value: "car", label: "Car" },
-  { value: "van", label: "Van or pickup" },
-  { value: "bicycle", label: "Bicycle" },
-  { value: "foot", label: "On foot" },
-];
+// Driven from the shared source of truth rather than a second hardcoded list.
+// lib/delivery/vehicle.ts is what the screens explain and what the SQL mirrors,
+// and a copy here would drift the first time a vehicle is added -- as it just
+// had: this list still said "Van or pickup", which is exactly the conflation
+// M149 had to undo (an open bed protects nothing; a van does).
+const VEHICLES = VEHICLE_TYPES.map((value) => ({ value, label: VEHICLE_LABEL[value] }));
 
 const input =
   "w-full min-h-[48px] rounded-xl border border-dark-border bg-dark px-4 font-dm text-base text-offwhite placeholder:text-muted/50 focus:border-yellow focus:outline-none";
@@ -103,6 +103,11 @@ export default function ApplyForm({ existingStatus }: { existingStatus: string |
         <select id="d-vehicle" className={input} value={vehicleType} onChange={(e) => setVehicleType(e.target.value)}>
           {VEHICLES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
         </select>
+        {/* Said BEFORE they choose, not discovered later from an empty board.
+            A lorry driver who is never sent food should learn that here. */}
+        <p className="mt-1.5 font-dm text-sm text-[#B0B0B0]">
+          {vehicleEligibilityNote(vehicleType)}
+        </p>
       </div>
 
       <div>

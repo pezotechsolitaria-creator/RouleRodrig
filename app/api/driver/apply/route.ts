@@ -14,7 +14,11 @@ const NOT_SIGNED_IN = "RR080";
 const schema = z.object({
   fullName: z.string().trim().min(1, "Please give your full name.").max(120),
   phone: z.string().trim().min(6, "Please give your number.").max(24),
-  vehicleType: z.enum(["scooter", "car", "van", "bicycle", "foot"]),
+  // Widened in M149. A pickup is not a van (an open bed protects nothing) and
+  // a lorry is not a bigger van (it cannot reach half the tracks here, and
+  // nobody wants their dinner delivered in one) -- so both are their own type,
+  // and vehicle_can_handle() decides what reaches each of them.
+  vehicleType: z.enum(["foot", "bicycle", "scooter", "car", "van", "pickup", "lorry"]),
   vehicleDetails: z.string().trim().max(160).optional(),
   licenceReference: z.string().trim().max(80).optional(),
   preferredHours: z.string().trim().max(160).optional(),

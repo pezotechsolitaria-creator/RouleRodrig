@@ -25,6 +25,9 @@ const schema = z
     dropoffText: z.string().trim().min(2, "Where should we deliver it?").max(200),
     dropoffNote: z.string().trim().max(300).optional(),
     sizeClass: z.enum(["standard", "large"]).default("standard"),
+    // WHAT it is, which decides which vehicles may carry it. The SQL
+    // (vehicle_can_handle) is the authority; this only has to pass it on.
+    cargoKind: z.enum(["general", "food", "fragile", "heavy"]).default("general"),
     // Minor units, like every other amount in this system. Bounded by int4,
     // which is what the column is.
     maxBudget: z.number().int().min(0).max(2_147_483_647).optional(),
@@ -132,6 +135,7 @@ export async function POST(req: NextRequest) {
     // Ignored by the RPC whenever auth.uid() is set.
     p_guest_email: isGuest ? v.guestEmail : null,
     p_photo_url: v.photoPath ?? null,
+    p_cargo_kind: v.cargoKind,
   });
 
   if (error) {

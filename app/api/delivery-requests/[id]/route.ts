@@ -51,6 +51,12 @@ const schema = z.discriminatedUnion("action", [
     email: z.string().trim().toLowerCase().email().max(254).optional(),
   }),
   z.object({
+    action: z.literal("rate"),
+    rating: z.number().int().min(1).max(5),
+    body: z.string().trim().max(500).optional(),
+    email: z.string().trim().toLowerCase().email().max(254).optional(),
+  }),
+  z.object({
     action: z.literal("cancel"),
     email: z.string().trim().toLowerCase().email().max(254).optional(),
     reason: z.string().trim().max(300).optional(),
@@ -144,6 +150,28 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
     if (!data) return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
     return NextResponse.json({ request: data });
+  }
+
+  if (v.action === "rate") {
+    // Ownership and the "only once it is delivered" rule both live in the RPC.
+    // A guest goes through the service role holding their proven email, the
+    // same split every other guest action here uses.
+    const client = user ? supabase : await getPrivileged();
+    const { data, error } = await client.rpc("rate_delivery_driver", {
+      p_request_id: id,
+      p_rating: v.rating,
+      p_body: v.body ?? null,
+      p_email: user ? null : v.email ?? null,
+    });
+    if (error) {
+      if (error.code === SAFE_RPC_ERROR) {
+        return NextResponse.json({ error: error.message }, { status: 409 });
+      }
+      console.error("rate_delivery_driver failed", error);
+      return NextResponse.json({ error: "Could not save your rating." }, { status: 500 });
+    }
+    if (!data) return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
+    return NextResponse.json({ ok: true });
   }
 
   if (v.action === "cancel") {

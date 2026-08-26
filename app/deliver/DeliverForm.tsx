@@ -3,7 +3,10 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Package, ShoppingBasket, Check, Pencil, MapPin, Navigation, User } from "lucide-react";
+import {
+  Loader2, Package, ShoppingBasket, Check, Pencil, MapPin, Navigation, User,
+  UtensilsCrossed, Umbrella, Boxes,
+} from "lucide-react";
 import { toast } from "sonner";
 import PhoneInput from "@/components/PhoneInput";
 import PlacePicker from "@/components/PlacePicker";
@@ -13,6 +16,9 @@ import { cn } from "@/lib/utils";
 import { toCents } from "@/lib/money";
 import { toE164 } from "@/lib/phone";
 import { saveRequest } from "@/lib/delivery/my-requests";
+import {
+  CARGO_HELP, CARGO_LABEL, VEHICLE_LABEL, vehiclesFor, type CargoKind,
+} from "@/lib/delivery/vehicle";
 import { recipe, transition, type as t } from "@/lib/delivery/tokens";
 
 // ── Asking for something to be moved ────────────────────────────────────────
@@ -54,6 +60,10 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
   const [what, setWhat] = useState("");
   const [budget, setBudget] = useState("");
   const [sizeClass, setSizeClass] = useState<"standard" | "large">("standard");
+  // WHAT IT IS decides who may carry it. "Is this a large item?" was a
+  // judgement call we asked the customer to make on our behalf; this is a
+  // question about their own life, which is the kind people answer right.
+  const [cargoKind, setCargoKind] = useState<CargoKind>("general");
   // A storage PATH in a private bucket, never a URL.
   const [photoPath, setPhotoPath] = useState<string | null>(null);
   // A PLACE, not a string. The picker yields a name AND coordinates for the ~40
@@ -139,6 +149,7 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
           dropoffLat: dropoff?.lat ?? undefined,
           dropoffLng: dropoff?.lng ?? undefined,
           sizeClass,
+          cargoKind,
           // Rupees on screen, minor units on the wire — the same convention as
           // every other amount in this system.
           maxBudget: kind === "shop_and_deliver" ? budgetCents ?? undefined : undefined,
@@ -200,7 +211,7 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
           index={1}
           icon={kind === "shop_and_deliver" ? ShoppingBasket : Package}
           title="What do you need moved?"
-          summary={summaryWhat(kind, what, sizeClass, photoPath !== null)}
+          summary={summaryWhat(kind, what, sizeClass, photoPath !== null, cargoKind)}
           open={step === "what"}
           complete={done.what}
           onOpen={() => setStep("what")}
@@ -307,25 +318,93 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
             )}
           </AnimatePresence>
 
-          {/* Same words and same consequence as the checkout box — the M103
-              gate. A large job is only ever quoted by a car or a van. */}
-          <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3.5 transition-colors hover:border-yellow/40">
-            <input
-              type="checkbox"
-              checked={sizeClass === "large"}
-              onChange={(e) => setSizeClass(e.target.checked ? "large" : "standard")}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-yellow"
-            />
-            <span>
-              <span className={cn(t.bodySm, "block font-semibold text-offwhite")}>
-                This is a large item — it needs a car
-              </span>
-              <span className={cn(t.meta, "mt-0.5 block leading-relaxed text-[#B0B0B0]")}>
-                Furniture, a gas bottle, an appliance, several big boxes. Only drivers with
-                a car or a van will be able to quote.
-              </span>
-            </span>
-          </label>
+          {/* ── What kind of thing is it? ──────────────────────────────────
+              This is the question that decides WHO may carry it, and it is
+              deliberately about the object rather than about our fleet. A
+              lorry is refused food here; a bicycle is refused a gas bottle.
+              See lib/delivery/vehicle.ts — the SQL mirrors it exactly. */}
+          <fieldset className="mt-5">
+            <legend className={cn(t.label, "mb-2 text-offwhite")}>
+              What kind of thing is it?
+            </legend>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {(
+                [
+                  { k: "general" as const, icon: Package },
+                  { k: "food" as const, icon: UtensilsCrossed },
+                  { k: "fragile" as const, icon: Umbrella },
+                  { k: "heavy" as const, icon: Boxes },
+                ]
+              ).map((o) => {
+                const on = cargoKind === o.k;
+                return (
+                  <button
+                    key={o.k}
+                    type="button"
+                    onClick={() => setCargoKind(o.k)}
+                    aria-pressed={on}
+                    className={on ? recipe.cardButtonSelected : recipe.cardButton}
+                  >
+                    <span className="flex items-center justify-between">
+                      <o.icon size={22} className={on ? "text-yellow" : "text-[#B0B0B0]"} aria-hidden />
+                      {on && <Check size={18} className="text-yellow" />}
+                    </span>
+                    <span className={cn(t.body, "mt-2 block font-semibold text-offwhite")}>
+                      {CARGO_LABEL[o.k]}
+                    </span>
+                    <span className={cn(t.bodySm, "mt-1 block text-[#B0B0B0]")}>
+                      {CARGO_HELP[o.k]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          {/* Size is a SEPARATE question because it is a separate fact: a gas
+              bottle is heavy and small, a mattress is large and light. */}
+          <fieldset className="mt-5">
+            <legend className={cn(t.label, "mb-2 text-offwhite")}>Will it fit in a car?</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  { big: false, label: "Yes, it fits" },
+                  { big: true, label: "No, it is bigger" },
+                ]
+              ).map((o) => {
+                const on = (sizeClass === "large") === o.big;
+                return (
+                  <button
+                    key={o.label}
+                    type="button"
+                    onClick={() => setSizeClass(o.big ? "large" : "standard")}
+                    aria-pressed={on}
+                    className={on ? recipe.cardButtonSelected : recipe.cardButton}
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className={cn(t.body, "font-semibold text-offwhite")}>{o.label}</span>
+                      {on && <Check size={18} className="shrink-0 text-yellow" />}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          {/* Said BEFORE they post, not after nobody quotes. Somebody choosing
+              "food" and "bigger than a car" has narrowed the island to almost
+              nobody, and they deserve to know while they can still change it. */}
+          <p className={cn(t.bodySm, "mt-3 text-[#B0B0B0]")}>
+            {(() => {
+              const fleet = vehiclesFor(sizeClass, cargoKind);
+              if (fleet.length === 0) {
+                return "No vehicle on the island can take that combination — try again.";
+              }
+              return `Drivers who can take this: ${fleet
+                .map((v) => VEHICLE_LABEL[v].toLowerCase())
+                .join(", ")}.`;
+            })()}
+          </p>
         </Group>
 
         {/* ── 2. Where ─────────────────────────────────────────────────── */}
@@ -624,9 +703,17 @@ function stepPrompt(step: Step, kind: Kind): string {
   return "Add your name and number";
 }
 
-function summaryWhat(kind: Kind, what: string, sizeClass: string, hasPhoto = false): string | null {
+function summaryWhat(
+  kind: Kind,
+  what: string,
+  sizeClass: string,
+  hasPhoto = false,
+  cargoKind: CargoKind = "general",
+): string | null {
   const body = what.trim() || (hasPhoto ? "Photo added" : "");
   if (!body) return null;
   const label = kind === "shop_and_deliver" ? "Buy & deliver" : "Collect & deliver";
-  return `${label} · ${body}${sizeClass === "large" ? " · Large" : ""}`;
+  const extra = [cargoKind === "general" ? null : CARGO_LABEL[cargoKind],
+                 sizeClass === "large" ? "Large" : null].filter(Boolean).join(" · ");
+  return `${label} · ${body}${extra ? ` · ${extra}` : ""}`;
 }
