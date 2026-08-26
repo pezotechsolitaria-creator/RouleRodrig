@@ -48,6 +48,10 @@ const schema = z.discriminatedUnion("action", [
     // keeps its id, so without this the id they tapped could carry a different
     // number by the time it arrived.
     expectedFee: z.number().int().min(0).max(5_000_000).optional(),
+    // M155. Which way the money moves, chosen at the moment a price is taken.
+    // The CAP is the server's to enforce — a client that picks "cash" for a
+    // Rs 9,000 shopping run is refused in SQL, not here.
+    paymentMethod: z.enum(["cash", "bank_transfer"]).default("cash"),
     email: z.string().trim().toLowerCase().email().max(254).optional(),
   }),
   z.object({
@@ -55,6 +59,14 @@ const schema = z.discriminatedUnion("action", [
     rating: z.number().int().min(1).max(5),
     body: z.string().trim().max(500).optional(),
     email: z.string().trim().toLowerCase().email().max(254).optional(),
+  }),
+  z.object({
+    action: z.literal("attachProof"),
+    email: z.string().trim().email().max(200).optional(),
+    // A path this server minted during the upload. Validated AGAIN in SQL
+    // against the bucket prefix, so a forged one cannot point elsewhere.
+    path: z.string().trim().max(300),
+    reference: z.string().trim().max(120).optional(),
   }),
   z.object({
     action: z.literal("cancel"),
@@ -174,6 +186,30 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     return NextResponse.json({ ok: true });
   }
 
+  if (v.action === "attachProof") {
+    // Ownership, the "this one is cash" refusal and the "already under way"
+    // refusal all live in the RPC. Same guest split as everything else here.
+    const client = user ? supabase : await getPrivileged();
+    const { data, error } = await client.rpc("attach_delivery_payment_proof", {
+      p_request_id: id,
+      p_path: v.path,
+      p_reference: v.reference ?? null,
+      p_email: user ? null : v.email ?? null,
+    });
+    if (error) {
+      if (error.code === SAFE_RPC_ERROR) {
+        return NextResponse.json({ error: error.message }, { status: 409 });
+      }
+      console.error("attach_delivery_payment_proof failed", error);
+      return NextResponse.json(
+        { error: "Could not attach that receipt." },
+        { status: 500 },
+      );
+    }
+    if (!data) return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
+    return NextResponse.json({ ok: true });
+  }
+
   if (v.action === "cancel") {
     const client = user ? supabase : await getPrivileged();
     const { data, error } = await client.rpc("cancel_delivery_request", {
@@ -228,6 +264,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const { data, error } = await supabase.rpc("customer_accept_delivery_quote", {
       p_quote_id: v.quoteId,
       p_expected_fee: v.expectedFee ?? null,
+      p_payment_method: v.paymentMethod,
     });
     if (!error) {
       deliveryId = data as string;
@@ -238,6 +275,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         p_quote_id: v.quoteId,
         p_email: v.email,
         p_expected_fee: v.expectedFee ?? null,
+      p_payment_method: v.paymentMethod,
       });
       if (gErr) {
         if (gErr.code === SAFE_RPC_ERROR) {
@@ -260,6 +298,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       p_quote_id: v.quoteId,
       p_email: v.email,
       p_expected_fee: v.expectedFee ?? null,
+      p_payment_method: v.paymentMethod,
     });
     if (error) {
       if (error.code === SAFE_RPC_ERROR) {

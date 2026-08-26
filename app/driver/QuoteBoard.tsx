@@ -1,13 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Loader2, Package, ShoppingBasket, MapPin, Users, Check, Clock, Gavel,
+  Loader2,
+  Package,
+  ShoppingBasket,
+  MapPin,
+  Users,
+  Check,
+  Clock,
+  Gavel,
+  CalendarClock,
+  Navigation,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toCents, centsToShortString } from "@/lib/money";
 import { transition, type as t } from "@/lib/delivery/tokens";
+import { formatWindow, urgencyOf, type Urgency } from "@/lib/delivery/schedule";
 
 // ── The board a driver names their own price on ─────────────────────────────
 //
@@ -33,6 +44,17 @@ export type OpenRequest = {
   kind: string;
   what: string;
   sizeClass: string;
+  /** M152. WHEN the customer needs it — the single most useful fact on this
+   *  card, and the one the board had no column for until now. */
+  scheduleKind: string | null;
+  timeSlot: string | null;
+  windowStart: string | null;
+  windowEnd: string | null;
+  /** The window is open already, so this is startable this minute. */
+  startsNow?: boolean;
+  /** From the driver's last reported position to the pickup. Null when either
+   *  end is unknown — which is normal, and must not read as "0 km away". */
+  distanceKm?: number | null;
   pickupText: string;
   pickupNote: string | null;
   dropoffText: string;
@@ -49,6 +71,8 @@ export type OpenRequest = {
   offDuty?: boolean;
 };
 
+type Filter = "all" | "soon" | "later";
+
 export default function QuoteBoard({
   requests,
   busy,
@@ -60,13 +84,38 @@ export default function QuoteBoard({
   onQuote: (requestId: string, fee: number, note: string) => Promise<boolean>;
   onWithdraw: (quoteId: string) => Promise<void>;
 }) {
+  const [filter, setFilter] = useState<Filter>("all");
+
+  // ── The filter is CLIENT-SIDE, and that is deliberate ───────────────────
+  // driver_open_requests() takes a date range, and this could send one. It does
+  // not, because the board is not paginated: the whole list is already here, so
+  // filtering in the browser is instant and cannot disagree with the ordering
+  // the server just applied. The server parameters exist for the day this list
+  // is long enough to page — that day is not today, with one driver.
+  const shown = useMemo(() => {
+    if (filter === "all") return requests;
+    return requests.filter((r) => {
+      const u = urgencyOf(r.windowStart);
+      return filter === "soon"
+        ? u === "now" || u === "today" || u === "tomorrow"
+        : u === "later";
+    });
+  }, [requests, filter]);
+
+  const laterCount = useMemo(
+    () => requests.filter((r) => urgencyOf(r.windowStart) === "later").length,
+    [requests],
+  );
+
   if (requests.length === 0) return null;
 
   return (
     <div className="space-y-3">
       <div>
         <h2 className="font-syne text-lg font-bold">
-          {requests.every((r) => r.offDuty) ? "Your prices are still out" : "Jobs you can quote on"}
+          {requests.every((r) => r.offDuty)
+            ? "Your prices are still out"
+            : "Jobs you can quote on"}
         </h2>
         {/* The sentence that stops this being mistaken for dispatch. */}
         <p className={cn(t.meta, "mt-0.5 text-[#B0B0B0]")}>
@@ -74,8 +123,65 @@ export default function QuoteBoard({
             ? "You are off duty, but these customers can still book you. Withdraw any you cannot do."
             : "No fixed price on these. Name yours — the customer picks who they want."}
         </p>
+        {/* ── SAYING THE ORDER OUT LOUD ──────────────────────────────────
+            A sorted list that does not explain itself gets read as a random
+            one, and a driver who thinks the order is arbitrary scrolls to the
+            bottom looking for the good jobs — which is precisely how the
+            urgent ones get missed. */}
+        <p
+          className={cn(t.meta, "mt-2 flex items-start gap-1.5 text-[#B0B0B0]")}
+        >
+          <Zap size={13} className="mt-1 shrink-0 text-yellow" aria-hidden />
+          Soonest delivery time first, then nearest to you — so urgent jobs are
+          never buried under ones booked weeks ahead.
+        </p>
       </div>
-      {requests.map((r) => (
+
+      {/* Only worth showing once there is actually something far out to hide. */}
+      {laterCount > 0 && (
+        <div
+          className="flex flex-wrap gap-2"
+          role="group"
+          aria-label="Filter by when"
+        >
+          {[
+            { k: "all" as const, label: `All (${requests.length})` },
+            {
+              k: "soon" as const,
+              label: `Next 2 days (${requests.length - laterCount})`,
+            },
+            { k: "later" as const, label: `Later (${laterCount})` },
+          ].map((o) => (
+            <button
+              key={o.k}
+              type="button"
+              onClick={() => setFilter(o.k)}
+              aria-pressed={filter === o.k}
+              className={cn(
+                "min-h-11 rounded-full border px-4 font-dm text-sm transition-colors",
+                filter === o.k
+                  ? "border-yellow/60 bg-yellow/[0.10] text-offwhite"
+                  : "border-white/15 text-[#B0B0B0]",
+              )}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {shown.length === 0 && (
+        <p
+          className={cn(
+            t.meta,
+            "rounded-xl border border-white/10 p-4 text-[#B0B0B0]",
+          )}
+        >
+          Nothing in that range right now.
+        </p>
+      )}
+
+      {shown.map((r) => (
         <RequestCard
           key={r.id}
           request={r}
@@ -100,7 +206,9 @@ function RequestCard({
   onWithdraw: (quoteId: string) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
-  const [fee, setFee] = useState(r.myQuote ? centsToShortString(r.myQuote.fee) : "");
+  const [fee, setFee] = useState(
+    r.myQuote ? centsToShortString(r.myQuote.fee) : "",
+  );
   const [note, setNote] = useState(r.myQuote?.note ?? "");
 
   const cents = fee.trim() ? toCents(fee) : null;
@@ -122,8 +230,45 @@ function RequestCard({
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-syne text-base font-bold leading-snug">{r.what}</p>
-          <p className={cn(t.meta, "mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[#B0B0B0]")}>
-            <span>{r.kind === "shop_and_deliver" ? "Buy & deliver" : "Collect & deliver"}</span>
+          {/* ── WHEN, ABOVE EVERYTHING ELSE ──────────────────────────────
+              This is the fact a driver decides on. It goes first, in the
+              accent, and carries a badge for anything that is not "later" —
+              because a list sorted by urgency still needs each row to say why
+              it is where it is. */}
+          <p className="mt-1.5 flex flex-wrap items-center gap-2">
+            <UrgencyBadge
+              urgency={urgencyOf(r.windowStart)}
+              startsNow={r.startsNow}
+            />
+            <span className={cn(t.meta, "text-offwhite")}>
+              {formatWindow(
+                r.windowStart,
+                r.windowEnd,
+                r.scheduleKind,
+                r.timeSlot,
+                "en",
+              )}
+            </span>
+          </p>
+          <p
+            className={cn(
+              t.meta,
+              "mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[#B0B0B0]",
+            )}
+          >
+            {typeof r.distanceKm === "number" && (
+              <>
+                <span className="inline-flex items-center gap-1">
+                  <Navigation size={11} aria-hidden /> {r.distanceKm} km away
+                </span>
+                <span aria-hidden>·</span>
+              </>
+            )}
+            <span>
+              {r.kind === "shop_and_deliver"
+                ? "Buy & deliver"
+                : "Collect & deliver"}
+            </span>
             {r.sizeClass === "large" && (
               <>
                 <span aria-hidden>·</span>
@@ -155,10 +300,17 @@ function RequestCard({
       {r.kind === "shop_and_deliver" && r.spendCap != null && (
         // Never merged with the fee. A driver who reads the shopping cap as
         // their pay quotes against the wrong number and loses money at the till.
-        <p className={cn(t.meta, "mt-3 rounded-lg bg-white/[0.03] px-3 py-2 text-[#B0B0B0]")}>
+        <p
+          className={cn(
+            t.meta,
+            "mt-3 rounded-lg bg-white/[0.03] px-3 py-2 text-[#B0B0B0]",
+          )}
+        >
           They repay what you spend, up to{" "}
-          <span className="text-offwhite">Rs {centsToShortString(r.spendCap)}</span>. Your fee
-          is separate.
+          <span className="text-offwhite">
+            Rs {centsToShortString(r.spendCap)}
+          </span>
+          . Your fee is separate.
         </p>
       )}
 
@@ -176,7 +328,10 @@ function RequestCard({
               <button
                 type="button"
                 onClick={() => setOpen(true)}
-                className={cn(t.meta, "text-yellow/80 underline underline-offset-4")}
+                className={cn(
+                  t.meta,
+                  "text-yellow/80 underline underline-offset-4",
+                )}
               >
                 Change
               </button>
@@ -185,7 +340,10 @@ function RequestCard({
               type="button"
               disabled={busy !== null}
               onClick={() => void onWithdraw(r.myQuote!.id)}
-              className={cn(t.meta, "text-[#B0B0B0] underline underline-offset-4 disabled:opacity-50")}
+              className={cn(
+                t.meta,
+                "text-[#B0B0B0] underline underline-offset-4 disabled:opacity-50",
+              )}
             >
               {withdrawing ? "Withdrawing…" : "Withdraw"}
             </button>
@@ -277,7 +435,8 @@ function RequestCard({
                     // a refused quote -- request taken, wrong vehicle, a dropped
                     // connection -- threw away the price the driver had just
                     // typed and left them to work out what happened.
-                    if (await onQuote(r.id, cents as number, note.trim())) setOpen(false);
+                    if (await onQuote(r.id, cents as number, note.trim()))
+                      setOpen(false);
                   }}
                   className="flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-full bg-yellow font-syne text-base font-bold text-dark disabled:opacity-40"
                 >
@@ -303,8 +462,14 @@ function RequestCard({
       </AnimatePresence>
 
       {r.expiresAt && (
-        <p className={cn(t.meta, "mt-3 inline-flex items-center gap-1.5 text-[#B0B0B0]")}>
-          <Clock size={11} /> Closes {new Date(r.expiresAt).toLocaleString("en-GB", {
+        <p
+          className={cn(
+            t.meta,
+            "mt-3 inline-flex items-center gap-1.5 text-[#B0B0B0]",
+          )}
+        >
+          <Clock size={11} /> Closes{" "}
+          {new Date(r.expiresAt).toLocaleString("en-GB", {
             weekday: "short",
             hour: "2-digit",
             minute: "2-digit",
@@ -315,7 +480,61 @@ function RequestCard({
   );
 }
 
-function Where({ label, place, note }: { label: string; place: string; note: string | null }) {
+/**
+ * How soon, as a chip.
+ *
+ * "Later" gets no badge at all: a badge on every row is a badge on none, and
+ * the whole point is that the top of this list should stand out from the
+ * bottom of it.
+ */
+function UrgencyBadge({
+  urgency,
+  startsNow,
+}: {
+  urgency: Urgency;
+  startsNow?: boolean;
+}) {
+  if (urgency === "later") return null;
+  const style =
+    urgency === "now"
+      ? "bg-yellow text-dark"
+      : urgency === "today"
+        ? "bg-yellow/15 text-yellow"
+        : "bg-white/[0.07] text-[#B0B0B0]";
+  const label =
+    urgency === "now"
+      ? startsNow
+        ? "Can start now"
+        : "Needed now"
+      : urgency === "today"
+        ? "Today"
+        : "Tomorrow";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-dm text-xs font-semibold",
+        style,
+      )}
+    >
+      {urgency === "now" ? (
+        <Zap size={11} aria-hidden />
+      ) : (
+        <CalendarClock size={11} aria-hidden />
+      )}
+      {label}
+    </span>
+  );
+}
+
+function Where({
+  label,
+  place,
+  note,
+}: {
+  label: string;
+  place: string;
+  note: string | null;
+}) {
   return (
     <div className="flex items-start gap-2">
       <MapPin size={13} className="mt-0.5 shrink-0 text-white/30" />

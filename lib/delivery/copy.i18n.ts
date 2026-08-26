@@ -40,7 +40,8 @@ const EN = {
   // ── The required-field contract, stated once and kept on screen ──────────
   required: {
     /** Sits above every screen of the form, permanently. */
-    warning: "Fields marked * are required — drivers need them to price accurately.",
+    warning:
+      "Fields marked * are required — drivers need them to price accurately.",
     /** Read out by screen readers in place of the asterisk glyph. */
     srMark: "required",
   },
@@ -67,7 +68,10 @@ const EN = {
     item: {
       general: { label: "Parcel", help: "A box, a bag, anything ordinary." },
       food: { label: "Hot food", help: "A meal, a takeaway." },
-      fragile: { label: "Fragile", help: "Glass, papers, a cake — must stay dry." },
+      fragile: {
+        label: "Fragile",
+        help: "Glass, papers, a cake — must stay dry.",
+      },
       heavy: { label: "Heavy", help: "Gas bottle, cement, tools." },
       large: { label: "Bigger than a car", help: "Furniture, a mattress." },
     },
@@ -87,10 +91,62 @@ const EN = {
     /** When EVERY vehicle qualifies, naming all seven ran to three lines and
      *  said nothing — the list is only information when it is a restriction. */
     fleetAny: "Any driver can take this.",
-    fleetNone: "No vehicle on the island can take that combination — try again.",
+    fleetNone:
+      "No vehicle on the island can take that combination — try again.",
   },
 
-  // ── Screen 2 ─────────────────────────────────────────────────────────────
+  // ── Screen 2 — the question the flow never asked ─────────────────────────
+  when: {
+    step: "When",
+    question: "When do you need it?",
+    kind: {
+      asap: {
+        label: "As soon as possible",
+        help: "A driver comes as soon as one takes it.",
+      },
+      today: { label: "Today", help: "Later on today." },
+      tomorrow: { label: "Tomorrow", help: "Any time tomorrow." },
+      date: { label: "Pick a day", help: "Up to three months ahead." },
+    },
+    dateLabel: "Which day?",
+    slotQuestion: "What time of day?",
+    slotAny: "Any time between 8am and 8pm.",
+    helper: "Drivers only quote if they can make your time.",
+    todayGone: "Everything for today has closed — the last slot ends at 8pm.",
+    chosen: (window: string) => `Needed ${window}`,
+  },
+
+  // ── Choosing how to pay, at the moment a price is accepted ───────────────
+  pay: {
+    question: "How will you pay?",
+    cash: {
+      label: "Cash at the door",
+      help: "Pay the driver when it arrives.",
+    },
+    transfer: {
+      label: "Bank transfer",
+      help: "Send it now, then attach the receipt.",
+    },
+    cashCapped: (limit: string) =>
+      `Over ${limit} we ask for a bank transfer — that is a lot of cash for a driver to carry.`,
+    cashTotal: (total: string) =>
+      `The driver will collect ${total} at the door.`,
+    proofTitle: "Send your transfer receipt",
+    proofHelp: "A photo or PDF of the transfer, up to 4 MB.",
+    proofWhy: "Your driver cannot set off until this arrives.",
+    proofChoose: "Choose a file or take a photo",
+    proofSubmit: "I have sent the money",
+    proofSending: "Sending…",
+    proofDone: "Received. Your driver can start now.",
+    referenceLabel: "Reference number",
+    referenceHelp: "Optional — it helps us match your transfer.",
+    waiting: "Waiting for your transfer receipt.",
+    tooBig: "That file is too large — the limit is 4 MB.",
+    badType: "Use a JPG, PNG, WebP or PDF.",
+    failed: "We could not send that. Please try again.",
+  },
+
+  // ── Screen 3 ─────────────────────────────────────────────────────────────
   where: {
     step: "Where",
     question: "Where is it going?",
@@ -125,13 +181,14 @@ const EN = {
     step: "Review",
     question: "Ready to post?",
     rowItem: "What",
+    rowWhen: "When",
     rowRoute: "From → to",
     rowContact: "You",
     rowBudget: "Shopping limit",
     promises: [
       "Drivers send you their own price. You choose one.",
       "Free to ask — you pay nothing until you accept.",
-      "You pay the driver at the door, in cash.",
+      "Pay in cash at the door, or by bank transfer — you choose when you accept a price.",
       "A 4-digit code proves it was really delivered.",
     ],
     post: "Post request — free",
@@ -223,17 +280,27 @@ const FR: DeliverCopy = {
     },
     itemQuestion: "De quel genre de chose s’agit-il ?",
     item: {
-      general: { label: "Colis", help: "Un carton, un sac, quelque chose d’ordinaire." },
+      general: {
+        label: "Colis",
+        help: "Un carton, un sac, quelque chose d’ordinaire.",
+      },
       food: { label: "Plat chaud", help: "Un repas, un plat à emporter." },
-      fragile: { label: "Fragile", help: "Verre, papiers, un gâteau — doit rester au sec." },
+      fragile: {
+        label: "Fragile",
+        help: "Verre, papiers, un gâteau — doit rester au sec.",
+      },
       heavy: { label: "Lourd", help: "Bouteille de gaz, ciment, outils." },
-      large: { label: "Plus grand qu’une voiture", help: "Meubles, un matelas." },
+      large: {
+        label: "Plus grand qu’une voiture",
+        help: "Meubles, un matelas.",
+      },
     },
     largeHeavy: "C’est lourd aussi",
     describeLabel: "Décrivez-le",
     describeLabelShop: "Que faut-il acheter ?",
     describePlaceholder: "ex. Un carton moyen, environ 10 kg, de ma sœur",
-    describePlaceholderShop: "ex. 2 bouteilles de gaz, 12 kg, n’importe quelle marque",
+    describePlaceholderShop:
+      "ex. 2 bouteilles de gaz, 12 kg, n’importe quelle marque",
     describeOrPhoto: "Quelques mots, ou une photo — l’un ou l’autre suffit.",
     budgetLabel: "Le maximum que nous pouvons dépenser (Rs)",
     budgetPlaceholder: "ex. 1500",
@@ -242,7 +309,62 @@ const FR: DeliverCopy = {
     budgetBad: "Entrez un montant en roupies, comme 1500.",
     fleet: (list: string) => `Chauffeurs qui peuvent le prendre : ${list}.`,
     fleetAny: "N’importe quel chauffeur peut le prendre.",
-    fleetNone: "Aucun véhicule de l’île ne peut prendre cette combinaison — réessayez.",
+    fleetNone:
+      "Aucun véhicule de l’île ne peut prendre cette combinaison — réessayez.",
+  },
+
+  when: {
+    step: "Quand",
+    question: "Quand en avez-vous besoin ?",
+    kind: {
+      asap: {
+        label: "Dès que possible",
+        help: "Un chauffeur vient dès qu’il accepte.",
+      },
+      today: { label: "Aujourd’hui", help: "Plus tard dans la journée." },
+      tomorrow: { label: "Demain", help: "À n’importe quelle heure demain." },
+      date: {
+        label: "Choisir un jour",
+        help: "Jusqu’à trois mois à l’avance.",
+      },
+    },
+    dateLabel: "Quel jour ?",
+    slotQuestion: "À quel moment de la journée ?",
+    slotAny: "N’importe quand entre 8h et 20h.",
+    helper:
+      "Les chauffeurs ne proposent un prix que s’ils peuvent respecter votre horaire.",
+    todayGone:
+      "Tout est terminé pour aujourd’hui — le dernier créneau finit à 20h.",
+    chosen: (window: string) => `Pour ${window}`,
+  },
+
+  pay: {
+    question: "Comment allez-vous payer ?",
+    cash: {
+      label: "Espèces à la porte",
+      help: "Vous payez le chauffeur à l’arrivée.",
+    },
+    transfer: {
+      label: "Virement bancaire",
+      help: "Envoyez maintenant, puis joignez le reçu.",
+    },
+    cashCapped: (limit: string) =>
+      `Au-delà de ${limit} nous demandons un virement — cela fait beaucoup d’espèces à transporter.`,
+    cashTotal: (total: string) =>
+      `Le chauffeur encaissera ${total} à la porte.`,
+    proofTitle: "Envoyez votre reçu de virement",
+    proofHelp: "Une photo ou un PDF du virement, jusqu’à 4 Mo.",
+    proofWhy: "Votre chauffeur ne peut pas partir avant de l’avoir reçu.",
+    proofChoose: "Choisir un fichier ou prendre une photo",
+    proofSubmit: "J’ai envoyé l’argent",
+    proofSending: "Envoi…",
+    proofDone: "Bien reçu. Votre chauffeur peut partir.",
+    referenceLabel: "Numéro de référence",
+    referenceHelp: "Facultatif — cela nous aide à retrouver votre virement.",
+    waiting: "En attente de votre reçu de virement.",
+    tooBig: "Ce fichier est trop lourd — la limite est de 4 Mo.",
+    badType: "Utilisez un JPG, PNG, WebP ou PDF.",
+    failed: "L’envoi n’a pas abouti. Veuillez réessayer.",
   },
 
   where: {
@@ -252,7 +374,8 @@ const FR: DeliverCopy = {
     pickupShop: "Où faut-il l’acheter ?",
     dropoff: "Où faut-il le livrer ?",
     anywhere: "N’importe où vous le trouvez",
-    anywhereHelp: "Le chauffeur choisit le magasin. La plupart des gens choisissent ceci.",
+    anywhereHelp:
+      "Le chauffeur choisit le magasin. La plupart des gens choisissent ceci.",
     namedShop: "À un endroit précis",
     namedShopHelp: "Dites lequel, si cela doit venir d’un endroit particulier.",
     addNote: "Ajouter une précision pour le chauffeur",
@@ -278,13 +401,14 @@ const FR: DeliverCopy = {
     step: "Vérifier",
     question: "Prêt à publier ?",
     rowItem: "Quoi",
+    rowWhen: "Quand",
     rowRoute: "De → à",
     rowContact: "Vous",
     rowBudget: "Limite d’achat",
     promises: [
       "Les chauffeurs vous envoient leur propre prix. Vous en choisissez un.",
       "Demander est gratuit — vous ne payez rien avant d’accepter.",
-      "Vous payez le chauffeur à la porte, en espèces.",
+      "Payez en espèces à la porte, ou par virement — vous choisissez en acceptant un prix.",
       "Un code à 4 chiffres prouve que la livraison a bien eu lieu.",
     ],
     post: "Publier la demande — gratuit",
@@ -299,7 +423,8 @@ const FR: DeliverCopy = {
     missingWhere: "Indiquez le départ et l’arrivée",
     missingDropoff: "Dites où le livrer",
     missingContact: "Ajoutez votre nom et votre numéro",
-    freeToAsk: "Demander est gratuit. Vous ne payez qu’après avoir accepté un prix.",
+    freeToAsk:
+      "Demander est gratuit. Vous ne payez qu’après avoir accepté un prix.",
   },
 
   help: {
@@ -318,11 +443,13 @@ const FR: DeliverCopy = {
     added: "Photo ajoutée. Les chauffeurs la verront.",
     remove: "Retirer",
     failed: "Impossible d’enregistrer la photo.",
-    failedNetwork: "Impossible d’enregistrer la photo. Vérifiez votre connexion.",
+    failedNetwork:
+      "Impossible d’enregistrer la photo. Vérifiez votre connexion.",
   },
 
   offline: {
-    banner: "Vous êtes hors ligne. Tout ce que vous tapez est gardé sur ce téléphone.",
+    banner:
+      "Vous êtes hors ligne. Tout ce que vous tapez est gardé sur ce téléphone.",
     queued: "Enregistré. Nous publierons dès votre retour en ligne.",
     resumed: "Nous avons gardé ce que vous aviez commencé.",
     discard: "Recommencer",
@@ -331,7 +458,8 @@ const FR: DeliverCopy = {
 
   error: {
     generic: "Une erreur s’est produite. Veuillez réessayer.",
-    network: "Impossible de nous joindre. Vérifiez votre connexion et réessayez.",
+    network:
+      "Impossible de nous joindre. Vérifiez votre connexion et réessayez.",
   },
 };
 
@@ -361,9 +489,15 @@ const CR: DeliverCopy = {
     },
     itemQuestion: "Ki kalite zafer sa ete ?",
     item: {
-      general: { label: "Pake", help: "Enn kartron, enn sak, nenport ki zafer ordiner." },
+      general: {
+        label: "Pake",
+        help: "Enn kartron, enn sak, nenport ki zafer ordiner.",
+      },
       food: { label: "Manze so", help: "Enn repa, enn plat pou amene." },
-      fragile: { label: "Frazil", help: "Ver, papie, enn gato — bizin res sek." },
+      fragile: {
+        label: "Frazil",
+        help: "Ver, papie, enn gato — bizin res sek.",
+      },
       heavy: { label: "Lour", help: "Boutey gaz, siman, zouti." },
       large: { label: "Pli gro ki enn loto", help: "Mebl, enn matla." },
     },
@@ -380,7 +514,53 @@ const CR: DeliverCopy = {
     budgetBad: "Met enn montan an roupi, kouma 1500.",
     fleet: (list: string) => `Bann sofer ki kapav pran sa : ${list}.`,
     fleetAny: "Nenport ki sofer kapav pran sa.",
-    fleetNone: "Okenn veikil lor zil la pa kapav pran sa konbinezon la — esey ankor.",
+    fleetNone:
+      "Okenn veikil lor zil la pa kapav pran sa konbinezon la — esey ankor.",
+  },
+
+  when: {
+    step: "Kan",
+    question: "Kan ou bizin li ?",
+    kind: {
+      asap: {
+        label: "Pli vit posib",
+        help: "Enn sofer vini deswit ki li aksepte.",
+      },
+      today: { label: "Zordi", help: "Pli tar zordi." },
+      tomorrow: { label: "Demen", help: "Nenport ler demen." },
+      date: { label: "Swazir enn zour", help: "Ziska trwa mwa alavans." },
+    },
+    dateLabel: "Ki zour ?",
+    slotQuestion: "Ki moman dan lazourne ?",
+    slotAny: "Nenport ler ant 8er gramatin ek 8er aswar.",
+    helper: "Bann sofer donn enn pri zis si zot kapav respekte ou ler.",
+    todayGone: "Tou finn ferme pou zordi — dernie kreno fini 8er aswar.",
+    chosen: (window: string) => `Bizin ${window}`,
+  },
+
+  pay: {
+    question: "Kouma ou pou peye ?",
+    cash: { label: "Kas kot laport", help: "Ou peye sofer la kan li arive." },
+    transfer: {
+      label: "Vireman banker",
+      help: "Avoy kas la aster, apre zwenn resi la.",
+    },
+    cashCapped: (limit: string) =>
+      `Plis ki ${limit} nou demann enn vireman — sa fer boukou kas pou enn sofer transporte.`,
+    cashTotal: (total: string) => `Sofer la pou pran ${total} kot laport.`,
+    proofTitle: "Avoy ou resi vireman",
+    proofHelp: "Enn foto ouswa PDF vireman la, ziska 4 Mo.",
+    proofWhy: "Ou sofer pa kapav demare avan li ariv.",
+    proofChoose: "Swazir enn fisye ouswa pran enn foto",
+    proofSubmit: "Mo finn avoy kas la",
+    proofSending: "Pe avoye…",
+    proofDone: "Nou finn gagne li. Ou sofer kapav koumanse.",
+    referenceLabel: "Nimero referans",
+    referenceHelp: "Opsionel — sa ed nou retrouv ou vireman.",
+    waiting: "Pe atann ou resi vireman.",
+    tooBig: "Sa fisye la tro lour — limit se 4 Mo.",
+    badType: "Servi enn JPG, PNG, WebP ouswa PDF.",
+    failed: "Nou pa finn kapav avoy sa. Esey ankor.",
   },
 
   where: {
@@ -416,13 +596,14 @@ const CR: DeliverCopy = {
     step: "Verifie",
     question: "Pare pou avoye ?",
     rowItem: "Ki",
+    rowWhen: "Kan",
     rowRoute: "Depi → ziska",
     rowContact: "Ou",
     rowBudget: "Limit aste",
     promises: [
       "Bann sofer avoy ou zot prop pri. Ou swazir enn.",
       "Demann la gratis — ou pa peye nanye avan ou aksepte.",
-      "Ou peye sofer la kot laport, kas dan lame.",
+      "Peye kas kot laport, ouswa par vireman — ou swazir kan ou aksepte enn pri.",
       "Enn kod 4 sif prouve ki livrezon la finn vremem fer.",
     ],
     post: "Avoy demann — gratis",
@@ -494,9 +675,15 @@ export const DELIVER_COPY: Record<Language, DeliverCopy> = {
 export function itemToColumns(
   item: ItemChoice,
   largeAndHeavy = false,
-): { sizeClass: "standard" | "large"; cargoKind: "general" | "food" | "fragile" | "heavy" } {
+): {
+  sizeClass: "standard" | "large";
+  cargoKind: "general" | "food" | "fragile" | "heavy";
+} {
   if (item === "large") {
-    return { sizeClass: "large", cargoKind: largeAndHeavy ? "heavy" : "general" };
+    return {
+      sizeClass: "large",
+      cargoKind: largeAndHeavy ? "heavy" : "general",
+    };
   }
   return { sizeClass: "standard", cargoKind: item };
 }
@@ -506,7 +693,8 @@ export function columnsToItem(
   sizeClass: string,
   cargoKind: string,
 ): { item: ItemChoice; largeAndHeavy: boolean } {
-  if (sizeClass === "large") return { item: "large", largeAndHeavy: cargoKind === "heavy" };
+  if (sizeClass === "large")
+    return { item: "large", largeAndHeavy: cargoKind === "heavy" };
   const k = cargoKind as ItemChoice;
   return {
     item: k === "food" || k === "fragile" || k === "heavy" ? k : "general",
@@ -514,4 +702,10 @@ export function columnsToItem(
   };
 }
 
-export const ITEM_CHOICES: ItemChoice[] = ["general", "food", "fragile", "heavy", "large"];
+export const ITEM_CHOICES: ItemChoice[] = [
+  "general",
+  "food",
+  "fragile",
+  "heavy",
+  "large",
+];

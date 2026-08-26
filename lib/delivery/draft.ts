@@ -43,6 +43,9 @@ export type RequestPayload = {
   dropoffLng?: number;
   sizeClass: "standard" | "large";
   cargoKind: "general" | "food" | "fragile" | "heavy";
+  scheduleKind: "asap" | "today" | "tomorrow" | "date";
+  timeSlot: "any" | "morning" | "afternoon" | "evening";
+  neededDate?: string;
   maxBudget?: number;
   photoPath?: string;
   contactName: string;
@@ -59,6 +62,9 @@ export type Draft = {
   budget: string;
   item: string;
   largeAndHeavy: boolean;
+  scheduleKind: string;
+  timeSlot: string;
+  neededDate: string;
   photoPath: string | null;
   pickup: PlaceLite | null;
   dropoff: PlaceLite | null;

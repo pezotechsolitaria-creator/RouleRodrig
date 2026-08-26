@@ -12,8 +12,12 @@ import {
   MapPin,
   Navigation,
   Package,
+  CalendarClock,
+  CalendarDays,
+  Clock,
   Pencil,
   Phone,
+  Zap,
   ShoppingBasket,
   UtensilsCrossed,
   Umbrella,
@@ -52,6 +56,16 @@ import {
   rememberContact,
   rememberPlace,
 } from "@/lib/delivery/remembered";
+import {
+  islandDate,
+  maxBookableDate,
+  slotHoursLabel,
+  slotLabel,
+  slotsFor,
+  todayIsStillPossible,
+  type ScheduleKind,
+  type TimeSlot,
+} from "@/lib/delivery/schedule";
 import {
   VEHICLE_LABEL,
   VEHICLE_TYPES,
@@ -102,7 +116,9 @@ import {
 // third screen must be able to change the first answer without losing the rest.
 
 type Kind = "package" | "shop_and_deliver";
-const SCREENS = 3;
+// FOUR now. "When do you need it?" was never asked — delivery_requests had
+// no column for it — so every request read to a driver as "now". See M152.
+const SCREENS = 4;
 
 const ITEM_ICON: Record<ItemChoice, typeof Package> = {
   general: Package,
@@ -141,6 +157,12 @@ export default function DeliverForm({
   // is a 48px line. See the disclosure note on the render below.
   const [item, setItem] = useState<ItemChoice | null>(null);
   const [largeAndHeavy, setLargeAndHeavy] = useState(false);
+  // NULL, like kind and item: "when" is the question this flow never asked, and
+  // defaulting it to ASAP would answer it on the customer's behalf with the one
+  // answer that puts the most pressure on a driver.
+  const [scheduleKind, setScheduleKind] = useState<ScheduleKind | null>(null);
+  const [timeSlot, setTimeSlot] = useState<TimeSlot | null>(null);
+  const [neededDate, setNeededDate] = useState("");
   const [photoPath, setPhotoPath] = useState<string | null>(null);
   const [pickup, setPickup] = useState<RidePlace | null>(null);
   const [dropoff, setDropoff] = useState<RidePlace | null>(null);
@@ -184,6 +206,25 @@ export default function DeliverForm({
 
   const reduced = prefersReducedMotion();
 
+  // Which slots are still worth offering. Only TODAY is eroded by the clock —
+  // and a DATE that happens to be today is the same thing wearing a different
+  // hat, which is the case a "today" check alone would miss.
+  const slotChoices = useMemo(() => {
+    if (scheduleKind === null || scheduleKind === "asap") return [];
+    const isToday =
+      scheduleKind === "today" ||
+      (scheduleKind === "date" && neededDate === islandDate());
+    return slotsFor(isToday ? "today" : "tomorrow");
+  }, [scheduleKind, neededDate]);
+
+  // ASAP needs no time of day; everything else does. A dated request also needs
+  // the date. Kept as one expression so the CTA and the gate cannot disagree.
+  const whenDone =
+    scheduleKind === "asap" ||
+    (scheduleKind !== null &&
+      timeSlot !== null &&
+      (scheduleKind !== "date" || neededDate !== ""));
+
   // Screen 2 asks three things — collect where, deliver where, and how to reach
   // you — and they are strictly ordered. These two say which one is live, so
   // exactly one place picker stands open and the contact fields do not appear
@@ -208,7 +249,8 @@ export default function DeliverForm({
       (what.trim().length >= 3 || photoPath !== null) &&
       (kind !== "shop_and_deliver" ||
         (budgetCents !== null && budgetCents > 0)),
-    2:
+    2: whenDone,
+    3:
       dropoff !== null &&
       (kind === "shop_and_deliver"
         ? !namesShop || pickup !== null
@@ -217,7 +259,7 @@ export default function DeliverForm({
       // Not "they typed something" — "the server will accept it".
       phoneE164 !== null &&
       (!isGuest || guestEmailValid),
-    3: true,
+    4: true,
   } as const;
 
   // ── The draft, restored — and the person, remembered ─────────────────────
@@ -258,6 +300,21 @@ export default function DeliverForm({
         : null,
     );
     setLargeAndHeavy(d.largeAndHeavy);
+    setScheduleKind(
+      (["asap", "today", "tomorrow", "date"] as string[]).includes(
+        d.scheduleKind,
+      )
+        ? (d.scheduleKind as ScheduleKind)
+        : null,
+    );
+    setTimeSlot(
+      (["any", "morning", "afternoon", "evening"] as string[]).includes(
+        d.timeSlot,
+      )
+        ? (d.timeSlot as TimeSlot)
+        : null,
+    );
+    setNeededDate(d.neededDate ?? "");
     setPhotoPath(d.photoPath);
     setPickup(d.pickup as RidePlace | null);
     setDropoff(d.dropoff as RidePlace | null);
@@ -305,6 +362,9 @@ export default function DeliverForm({
       budget,
       item: item ?? "",
       largeAndHeavy,
+      scheduleKind: scheduleKind ?? "",
+      timeSlot: timeSlot ?? "",
+      neededDate,
       photoPath,
       pickup,
       dropoff,
@@ -322,6 +382,9 @@ export default function DeliverForm({
     budget,
     item,
     largeAndHeavy,
+    scheduleKind,
+    timeSlot,
+    neededDate,
     photoPath,
     pickup,
     dropoff,
@@ -414,7 +477,16 @@ export default function DeliverForm({
   }, [c, post, router]);
 
   async function submit() {
-    if (submitting || !done[1] || !done[2] || !kind || !phoneE164 || !dropoff)
+    if (
+      submitting ||
+      !done[1] ||
+      !done[2] ||
+      !done[3] ||
+      !kind ||
+      !scheduleKind ||
+      !phoneE164 ||
+      !dropoff
+    )
       return;
     setSubmitting(true);
 
@@ -441,6 +513,12 @@ export default function DeliverForm({
       dropoffLng: dropoff.lng ?? undefined,
       sizeClass,
       cargoKind,
+      // The CHOICE, never a timestamp. The server turns it into a window in
+      // island time — a client that computes its own can send one in the past
+      // or one ten years out, and every promise downstream is built on it.
+      scheduleKind,
+      timeSlot: timeSlot ?? "any",
+      neededDate: scheduleKind === "date" ? neededDate : undefined,
       // Rupees on screen, minor units on the wire.
       maxBudget:
         kind === "shop_and_deliver" ? (budgetCents ?? undefined) : undefined,
@@ -504,6 +582,14 @@ export default function DeliverForm({
       return { label: c.cta.next, disabled: false };
     }
     if (screen === 2) {
+      if (!scheduleKind) return { label: c.when.question, disabled: true };
+      if (scheduleKind === "date" && !neededDate) {
+        return { label: c.when.dateLabel, disabled: true };
+      }
+      if (!whenDone) return { label: c.when.slotQuestion, disabled: true };
+      return { label: c.cta.next, disabled: false };
+    }
+    if (screen === 3) {
       if (!dropoff || !pickupDone) {
         return {
           label:
@@ -513,12 +599,12 @@ export default function DeliverForm({
           disabled: true,
         };
       }
-      if (!done[2]) return { label: c.cta.missingContact, disabled: true };
+      if (!done[3]) return { label: c.cta.missingContact, disabled: true };
       return { label: c.cta.next, disabled: false };
     }
     return {
       label: submitting ? c.review.posting : c.review.post,
-      disabled: submitting || !done[1] || !done[2],
+      disabled: submitting || !done[1] || !done[2] || !done[3],
     };
   })();
 
@@ -582,7 +668,7 @@ export default function DeliverForm({
       {/* Three dashes, not a number line. It says how far without adding a
           second thing to read. */}
       <div className="mt-2 flex gap-1.5" aria-hidden>
-        {[1, 2, 3].map((n) => (
+        {[1, 2, 3, 4].map((n) => (
           <span
             key={n}
             className={cn(
@@ -940,10 +1026,204 @@ export default function DeliverForm({
             </section>
           )}
 
-          {/* ── SCREEN 2 — where, and who ────────────────────────────── */}
+          {/* ── SCREEN 2 — when ──────────────────────────────────────────
+              THE QUESTION THIS FLOW NEVER ASKED. delivery_requests had no
+              column for it, so every request reached a driver reading as
+              "now" — and the board, having nothing else to sort on, ordered
+              by when the request was POSTED. That is how a job for Christmas
+              came out above one needed this afternoon. See M152 and M153. */}
           {screen === 2 && (
             <section aria-labelledby="d-q2">
               <h2 id="d-q2" className={cn(t.question, "text-offwhite")}>
+                {c.when.question}
+              </h2>
+
+              {scheduleKind === null ? (
+                <fieldset className="mt-4">
+                  {/* Distinct from the h2 above it — repeating the heading
+                      verbatim made a screen reader announce the same sentence
+                      twice, the same defect as screen 1's group. */}
+                  <legend className="sr-only">
+                    {`${c.when.kind.asap.label} / ${c.when.kind.today.label} / ${c.when.kind.tomorrow.label} / ${c.when.kind.date.label}`}
+                  </legend>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { k: "asap" as const, icon: Zap },
+                      { k: "today" as const, icon: Clock },
+                      { k: "tomorrow" as const, icon: CalendarClock },
+                      { k: "date" as const, icon: CalendarDays },
+                    ]
+                      // After 8pm every slot for today has closed, so the chip
+                      // would be a dead target. Dropped rather than disabled:
+                      // a control you cannot use is a question you have to
+                      // read twice.
+                      .filter((o) => o.k !== "today" || todayIsStillPossible())
+                      .map((o) => (
+                        <button
+                          key={o.k}
+                          type="button"
+                          onClick={() => {
+                            setScheduleKind(o.k);
+                            setTimeSlot(o.k === "asap" ? "any" : null);
+                          }}
+                          className={cn(
+                            recipe.cardButton,
+                            "flex items-center gap-3 !p-3",
+                          )}
+                        >
+                          <o.icon
+                            size={22}
+                            className="shrink-0 text-yellow"
+                            aria-hidden
+                          />
+                          <span className="min-w-0">
+                            <span
+                              className={cn(
+                                t.bodySm,
+                                "block font-semibold text-offwhite",
+                              )}
+                            >
+                              {c.when.kind[o.k].label}
+                            </span>
+                            <span
+                              className={cn(t.meta, "block text-[#B0B0B0]")}
+                            >
+                              {c.when.kind[o.k].help}
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                  </div>
+                  {!todayIsStillPossible() && (
+                    <p className={cn(t.meta, "mt-3 text-[#B0B0B0]")}>
+                      {c.when.todayGone}
+                    </p>
+                  )}
+                </fieldset>
+              ) : (
+                <>
+                  <ChosenLine
+                    icon={
+                      scheduleKind === "asap"
+                        ? Zap
+                        : scheduleKind === "today"
+                          ? Clock
+                          : scheduleKind === "tomorrow"
+                            ? CalendarClock
+                            : CalendarDays
+                    }
+                    label={c.when.kind[scheduleKind].label}
+                    change={c.edit}
+                    onChange={() => {
+                      setScheduleKind(null);
+                      setTimeSlot(null);
+                      setNeededDate("");
+                    }}
+                  />
+
+                  {scheduleKind === "date" && (
+                    <div className="mt-4">
+                      <Label
+                        htmlFor="d-date"
+                        required
+                        srMark={c.required.srMark}
+                      >
+                        {c.when.dateLabel}
+                      </Label>
+                      {/* min/max in ISLAND time, matching the server's horizon
+                          exactly. A visitor whose phone is set to Paris would
+                          otherwise be offered a "today" that is yesterday
+                          here. */}
+                      <input
+                        id="d-date"
+                        type="date"
+                        value={neededDate}
+                        min={islandDate()}
+                        max={maxBookableDate()}
+                        aria-required
+                        onChange={(e) => {
+                          setNeededDate(e.target.value);
+                          setTimeSlot(null);
+                        }}
+                        className={recipe.field}
+                      />
+                      <p className={cn(t.meta, "mt-1.5 text-[#B0B0B0]")}>
+                        {c.when.kind.date.help}
+                      </p>
+                    </div>
+                  )}
+
+                  {scheduleKind !== "asap" && (
+                    <fieldset className="mt-4">
+                      <legend className={cn(t.label, "mb-2 text-offwhite")}>
+                        {c.when.slotQuestion}
+                        <span className="font-bold text-red-400" aria-hidden>
+                          {" *"}
+                        </span>
+                      </legend>
+                      <div className="grid grid-cols-2 gap-2">
+                        {slotChoices.map((sl) => {
+                          const on = timeSlot === sl;
+                          return (
+                            <button
+                              key={sl}
+                              type="button"
+                              onClick={() => setTimeSlot(sl)}
+                              aria-pressed={on}
+                              className={cn(
+                                on
+                                  ? recipe.cardButtonSelected
+                                  : recipe.cardButton,
+                                "!p-3",
+                              )}
+                            >
+                              <span className="flex items-center justify-between gap-2">
+                                <span
+                                  className={cn(
+                                    t.bodySm,
+                                    "font-semibold text-offwhite",
+                                  )}
+                                >
+                                  {slotLabel(sl, language)}
+                                </span>
+                                {on && (
+                                  <Check
+                                    size={16}
+                                    className="shrink-0 text-yellow"
+                                  />
+                                )}
+                              </span>
+                              <span
+                                className={cn(
+                                  t.meta,
+                                  "mt-0.5 block text-[#B0B0B0]",
+                                )}
+                              >
+                                {slotHoursLabel(sl)}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+                  )}
+
+                  {/* The promise a window makes, said once. */}
+                  <p
+                    className={cn(t.meta, "mt-4 text-[#B0B0B0]")}
+                    aria-live="polite"
+                  >
+                    {c.when.helper}
+                  </p>
+                </>
+              )}
+            </section>
+          )}
+
+          {/* ── SCREEN 3 — where, and who ────────────────────────────── */}
+          {screen === 3 && (
+            <section aria-labelledby="d-q3">
+              <h2 id="d-q3" className={cn(t.question, "text-offwhite")}>
                 {c.where.question}
               </h2>
 
@@ -1149,10 +1429,10 @@ export default function DeliverForm({
             </section>
           )}
 
-          {/* ── SCREEN 3 — review ────────────────────────────────────── */}
-          {screen === 3 && (
-            <section aria-labelledby="d-q3">
-              <h2 id="d-q3" className={cn(t.question, "text-offwhite")}>
+          {/* ── SCREEN 4 — review ────────────────────────────────────── */}
+          {screen === 4 && (
+            <section aria-labelledby="d-q4">
+              <h2 id="d-q4" className={cn(t.question, "text-offwhite")}>
                 {c.review.question}
               </h2>
 
@@ -1182,15 +1462,31 @@ export default function DeliverForm({
                   />
                 )}
                 <ReviewRow
+                  label={c.review.rowWhen}
+                  value={
+                    scheduleKind === "asap"
+                      ? c.when.kind.asap.label
+                      : [
+                          c.when.kind[scheduleKind ?? "asap"].label,
+                          timeSlot ? slotLabel(timeSlot, language) : "",
+                          scheduleKind === "date" ? neededDate : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")
+                  }
+                  onEdit={() => setScreen(2)}
+                  editLabel={c.edit}
+                />
+                <ReviewRow
                   label={c.review.rowRoute}
                   value={`${pickup?.name ?? c.where.anywhere} → ${dropoff?.name ?? ""}`}
-                  onEdit={() => setScreen(2)}
+                  onEdit={() => setScreen(3)}
                   editLabel={c.edit}
                 />
                 <ReviewRow
                   label={c.review.rowContact}
                   value={`${name.trim()} · ${phone.trim()}`}
-                  onEdit={() => setScreen(2)}
+                  onEdit={() => setScreen(3)}
                   editLabel={c.edit}
                   last
                 />
@@ -1313,21 +1609,28 @@ function resumeScreen(d: Draft, email: string, isGuest: boolean): number {
     (d.kind !== "shop_and_deliver" || (budget !== null && budget > 0));
   if (!oneDone) return 1;
 
+  const twoDone =
+    d.scheduleKind === "asap" ||
+    (["today", "tomorrow", "date"].includes(d.scheduleKind) &&
+      ["any", "morning", "afternoon", "evening"].includes(d.timeSlot) &&
+      (d.scheduleKind !== "date" || Boolean(d.neededDate)));
+  if (!twoDone) return 2;
+
   const pickupDone =
     d.kind === "shop_and_deliver"
       ? !d.namesShop || d.pickup !== null
       : d.pickup !== null;
-  const twoDone =
+  const threeDone =
     pickupDone &&
     d.dropoff !== null &&
     d.name.trim().length >= 2 &&
     toE164(d.phone) !== null &&
     (!isGuest || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()));
-  if (!twoDone) return 2;
+  if (!threeDone) return 3;
 
   return Number.isFinite(wanted) && wanted >= 1 && wanted <= SCREENS
     ? wanted
-    : 3;
+    : SCREENS;
 }
 
 function ChosenLine({

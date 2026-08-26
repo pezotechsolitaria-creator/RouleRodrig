@@ -5,22 +5,50 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Loader2, Package, ShoppingBasket, MapPin, Check, X, Phone, Star,
-  Bike, Car, Truck, ShieldCheck, Clock, AlertTriangle, ChevronRight,
+  Loader2,
+  Package,
+  ShoppingBasket,
+  MapPin,
+  Check,
+  X,
+  Phone,
+  Star,
+  Bike,
+  Car,
+  Truck,
+  ShieldCheck,
+  Clock,
+  Banknote,
+  Landmark,
+  UploadCloud,
+  AlertTriangle,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import OrderAlerts from "@/components/orders/OrderAlerts";
 import LiveTripView from "@/components/tracking/LiveTripView";
 import { cn } from "@/lib/utils";
 import {
-  requestStatusCopy, legCopy, legIndex, LEG_ORDER, sortQuotes, quoteBadges,
-  BADGE_LABEL, formatFee, payAtDoor, expiresIn, TERMINAL_LEGS, BROKEN_LEGS,
-  PRE_PICKUP_LEGS, requestRef,
+  requestStatusCopy,
+  legCopy,
+  legIndex,
+  LEG_ORDER,
+  sortQuotes,
+  quoteBadges,
+  BADGE_LABEL,
+  formatFee,
+  payAtDoor,
+  expiresIn,
+  TERMINAL_LEGS,
+  BROKEN_LEGS,
+  PRE_PICKUP_LEGS,
+  requestRef,
   type Quote,
 } from "@/lib/delivery/request-status";
 import { emailFor, saveRequest } from "@/lib/delivery/my-requests";
 import { columnsToItem } from "@/lib/delivery/copy.i18n";
 import { writeDraft } from "@/lib/delivery/draft";
+import { formatWindow } from "@/lib/delivery/schedule";
 import { recipe, transition, travel, type as t } from "@/lib/delivery/tokens";
 
 // ── Where a Deliver Anything job is actually decided ────────────────────────
@@ -55,6 +83,10 @@ type RequestView = {
   // at dispatch with no origin — the exact regression M145 had to fix.
   cargoKind: string | null;
   photoPath: string | null;
+  scheduleKind: string | null;
+  timeSlot: string | null;
+  windowStart: string | null;
+  windowEnd: string | null;
   pickupLat: number | null;
   pickupLng: number | null;
   dropoffLat: number | null;
@@ -65,6 +97,10 @@ type RequestView = {
   dropoffText: string;
   dropoffNote: string | null;
   spendCap: number | null;
+  /** M155/M156. The most a driver may be asked to settle in cash, in minor
+   *  units. Known BEFORE the choice is offered, so cash is never offered and
+   *  then refused. */
+  cashLimit: number | null;
   contactName: string;
   contactPhone: string;
   createdAt: string;
@@ -92,8 +128,16 @@ type RequestView = {
      *  than guessing from a status. */
     tripId: string | null;
     channelKey: string | null;
+    /** M155. The PATH is deliberately never sent to the browser — the object is
+     *  private and the customer already knows what they uploaded. Only whether
+     *  it landed, which is what the screen has to say. */
+    paymentMethod: string | null;
+    paymentProofAt: string | null;
+    paymentReference: string | null;
   } | null;
 };
+
+type PaymentMethod = "cash" | "bank_transfer";
 
 const VEHICLE_ICON: Record<string, typeof Bike> = {
   scooter: Bike,
@@ -150,7 +194,10 @@ export default function RequestTracker({
         const res = await fetch(`/api/delivery-requests/${id}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "view", email: emailRef.current || undefined }),
+          body: JSON.stringify({
+            action: "view",
+            email: emailRef.current || undefined,
+          }),
         });
         if (stale()) return;
         if (res.status === 404) {
@@ -164,10 +211,14 @@ export default function RequestTracker({
           setPhase(emailRef.current ? "gone" : "needsEmail");
           return;
         }
-        const json = (await res.json()) as { request?: RequestView; error?: string };
+        const json = (await res.json()) as {
+          request?: RequestView;
+          error?: string;
+        };
         if (stale()) return;
         if (!res.ok || !json.request) {
-          if (!opts.silent) toast.error(json.error ?? "Could not load that request.");
+          if (!opts.silent)
+            toast.error(json.error ?? "Could not load that request.");
           // A failed FIRST load has to leave the skeleton. Toasting and
           // returning left the screen pulsing for ever on any non-404 --
           // a 503 while the service key is missing, a 500, an outage --
@@ -236,7 +287,9 @@ export default function RequestTracker({
         // Was a hand-written list containing "failed", which is not a label the
         // delivery_status enum has -- so a genuinely failed delivery polled for
         // ever. The list now comes from the same place the copy does.
-        (TERMINAL_LEGS as readonly string[]).includes(view.delivery?.status ?? "")));
+        (TERMINAL_LEGS as readonly string[]).includes(
+          view.delivery?.status ?? "",
+        )));
 
   useEffect(() => {
     if (phase !== "ready" || settled) return;
@@ -281,14 +334,19 @@ export default function RequestTracker({
     return true;
   }
 
-  async function book(quote: Quote) {
+  async function book(quote: Quote, paymentMethod: PaymentMethod) {
     setBusyQuote(quote.id);
     try {
       // expectedFee is the number on the sheet in front of them. The server
       // still reads the real price from the quote row -- the browser never sets
       // one -- but it refuses if the two disagree, so nobody is committed to a
       // price a driver changed while they were reading it.
-      const ok = await act({ action: "accept", quoteId: quote.id, expectedFee: quote.fee });
+      const ok = await act({
+        action: "accept",
+        quoteId: quote.id,
+        expectedFee: quote.fee,
+        paymentMethod,
+      });
       if (ok) {
         setConfirming(null);
         toast.success(`${quote.driverName} is booked.`);
@@ -319,10 +377,12 @@ export default function RequestTracker({
   if (phase === "needsEmail") {
     return (
       <div className={cn(recipe.cardButton, "cursor-default")}>
-        <h1 className={cn(t.heading, "text-offwhite")}>Which email did you use?</h1>
+        <h1 className={cn(t.heading, "text-offwhite")}>
+          Which email did you use?
+        </h1>
         <p className={cn(t.bodySm, "mt-2 text-[#B0B0B0]")}>
-          This request was posted without an account, so we check the email against it
-          before showing you anything.
+          This request was posted without an account, so we check the email
+          against it before showing you anything.
         </p>
         <form
           className="mt-4 flex flex-col gap-3"
@@ -357,7 +417,9 @@ export default function RequestTracker({
     return (
       <div className={cn(recipe.cardButton, "cursor-default text-center")}>
         <AlertTriangle size={22} className="mx-auto text-white/40" />
-        <h1 className={cn(t.heading, "mt-3 text-offwhite")}>We couldn&apos;t load this</h1>
+        <h1 className={cn(t.heading, "mt-3 text-offwhite")}>
+          We couldn&apos;t load this
+        </h1>
         <p className={cn(t.bodySm, "mt-2 text-[#B0B0B0]")}>
           Your request is safe — this is us, not you. Try again in a moment.
         </p>
@@ -367,7 +429,10 @@ export default function RequestTracker({
             setPhase("loading");
             void load();
           }}
-          className={cn(recipe.secondaryAction, "mt-5 inline-flex items-center py-2.5")}
+          className={cn(
+            recipe.secondaryAction,
+            "mt-5 inline-flex items-center py-2.5",
+          )}
         >
           Try again
         </button>
@@ -387,15 +452,27 @@ export default function RequestTracker({
     return (
       <div className={cn(recipe.cardButton, "cursor-default text-center")}>
         <AlertTriangle size={22} className="mx-auto text-white/40" />
-        <h1 className={cn(t.heading, "mt-3 text-offwhite")}>We couldn&apos;t find that request</h1>
+        <h1 className={cn(t.heading, "mt-3 text-offwhite")}>
+          We couldn&apos;t find that request
+        </h1>
         <p className={cn(t.bodySm, "mt-2 text-[#B0B0B0]")}>
           The link may be wrong, or it was posted with a different email.
         </p>
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-          <button type="button" onClick={retryEmail} className={cn(recipe.secondaryAction, "py-2.5")}>
+          <button
+            type="button"
+            onClick={retryEmail}
+            className={cn(recipe.secondaryAction, "py-2.5")}
+          >
             Try another email
           </button>
-          <Link href="/deliver" className={cn(recipe.secondaryAction, "inline-flex items-center py-2.5")}>
+          <Link
+            href="/deliver"
+            className={cn(
+              recipe.secondaryAction,
+              "inline-flex items-center py-2.5",
+            )}
+          >
             Back to Deliver anything
           </Link>
         </div>
@@ -425,7 +502,9 @@ export default function RequestTracker({
   //                breaks.
   const prePickup =
     view.status === "accepted" &&
-    (PRE_PICKUP_LEGS as readonly string[]).includes(view.delivery?.status ?? "");
+    (PRE_PICKUP_LEGS as readonly string[]).includes(
+      view.delivery?.status ?? "",
+    );
   const canWithdraw = view.status === "open" || prePickup;
   const closes = expiresIn(view.expiresAt);
 
@@ -453,11 +532,18 @@ export default function RequestTracker({
         >
           {status.label}
         </span>
-        <h1 className={cn(t.display, "mt-3 text-offwhite")}>{status.headline}</h1>
+        <h1 className={cn(t.display, "mt-3 text-offwhite")}>
+          {status.headline}
+        </h1>
         {/* The thread back. A guest gets no email and cannot memorise a uuid,
             so without this on screen the only route to this page is a link they
             still happen to have open. */}
-        <p className={cn(t.meta, "mt-2 font-mono tracking-widest text-[#B0B0B0]")}>
+        <p
+          className={cn(
+            t.meta,
+            "mt-2 font-mono tracking-widest text-[#B0B0B0]",
+          )}
+        >
           {requestRef(view.id)}
         </p>
         <p className={cn(t.body, "mt-2 text-[#B0B0B0]")}>{status.detail}</p>
@@ -484,14 +570,21 @@ export default function RequestTracker({
         )}
 
         {view.status === "open" && closes && (
-          <p className={cn(t.meta, "mt-3 inline-flex items-center gap-1.5 text-[#B0B0B0]")}>
+          <p
+            className={cn(
+              t.meta,
+              "mt-3 inline-flex items-center gap-1.5 text-[#B0B0B0]",
+            )}
+          >
             <Clock size={13} /> Drivers can quote until it closes {closes}
           </p>
         )}
       </header>
 
       {/* ── What was asked for ──────────────────────────────────────────── */}
-      <section className={cn("rounded-2xl border border-white/10 bg-dark-card p-4")}>
+      <section
+        className={cn("rounded-2xl border border-white/10 bg-dark-card p-4")}
+      >
         <div className="flex items-start gap-3">
           <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-yellow/12 text-yellow">
             <KindIcon size={17} />
@@ -499,15 +592,45 @@ export default function RequestTracker({
           <div className="min-w-0">
             <p className={cn(t.cardTitle, "text-offwhite")}>{view.what}</p>
             <p className={cn(t.meta, "mt-1 text-[#B0B0B0]")}>
-              {view.kind === "shop_and_deliver" ? "Buy & deliver" : "Collect & deliver"}
+              {view.kind === "shop_and_deliver"
+                ? "Buy & deliver"
+                : "Collect & deliver"}
               {view.sizeClass === "large" && " · Large item"}
             </p>
           </div>
         </div>
 
         <div className="mt-4 flex flex-col gap-3">
-          <Leg label="Collect from" place={view.pickupText} note={view.pickupNote} />
-          <Leg label="Deliver to" place={view.dropoffText} note={view.dropoffNote} />
+          {/* WHEN, above where. M152 gave the request a window and this screen
+              had no line for it — so a customer who asked for "tomorrow
+              afternoon" could not see, anywhere, that we had understood. */}
+          {view.windowStart && (
+            <p
+              className={cn(t.bodySm, "flex items-center gap-2 text-offwhite")}
+            >
+              <Clock size={15} className="shrink-0 text-yellow" aria-hidden />
+              <span>
+                <span className="text-[#B0B0B0]">Needed </span>
+                {formatWindow(
+                  view.windowStart,
+                  view.windowEnd,
+                  view.scheduleKind,
+                  view.timeSlot,
+                  "en",
+                )}
+              </span>
+            </p>
+          )}
+          <Leg
+            label="Collect from"
+            place={view.pickupText}
+            note={view.pickupNote}
+          />
+          <Leg
+            label="Deliver to"
+            place={view.dropoffText}
+            note={view.dropoffNote}
+          />
         </div>
       </section>
 
@@ -554,7 +677,9 @@ export default function RequestTracker({
         <LiveTripView
           lookup={{ requestId: view.id, email: email || "" }}
           channelKey={view.delivery.channelKey}
-          active={!(TERMINAL_LEGS as readonly string[]).includes(view.delivery.status)}
+          active={
+            !(TERMINAL_LEGS as readonly string[]).includes(view.delivery.status)
+          }
           driver={
             view.delivery.driverName
               ? {
@@ -576,7 +701,23 @@ export default function RequestTracker({
       )}
 
       {/* ── The driver who was chosen ───────────────────────────────────── */}
-      {view.status === "accepted" && view.delivery && <BookedDriver view={view} />}
+      {view.status === "accepted" && view.delivery && (
+        <BookedDriver view={view} />
+      )}
+
+      {/* ── The transfer receipt ────────────────────────────────────────
+          Shown only while it is actually outstanding, and it is the one thing
+          on this screen holding the delivery up — so it sits directly under
+          the driver who is waiting for it. */}
+      {view.delivery?.paymentMethod === "bank_transfer" && (
+        <PaymentProof
+          requestId={view.id}
+          email={email}
+          attachedAt={view.delivery.paymentProofAt}
+          reference={view.delivery.paymentReference}
+          onDone={() => void load()}
+        />
+      )}
 
       {/* ── How was it? ─────────────────────────────────────────────────── */}
       {view.delivery?.status === "delivered" && view.delivery.driverName && (
@@ -643,6 +784,14 @@ export default function RequestTracker({
               budget: view.spendCap ? String(view.spendCap / 100) : "",
               item,
               largeAndHeavy,
+              // THE SLOT COMES BACK, THE DAY DOES NOT. Somebody who always
+              // sends things in the morning wants morning again; nobody wants
+              // last month's date. Leaving the day unanswered lands the
+              // restored draft on the "when" screen, which is the one question
+              // a repeat genuinely has to ask again.
+              scheduleKind: "",
+              timeSlot: view.timeSlot ?? "",
+              neededDate: "",
               // DELIBERATELY not carried over. A photo of last month's parcel
               // is a photo of last month's parcel, and a driver quoting from it
               // would be quoting on the wrong thing.
@@ -669,10 +818,11 @@ export default function RequestTracker({
               name: view.contactName,
               phone: view.contactPhone,
               guestEmail: emailRef.current ?? "",
-              // Lands on the REVIEW screen: everything is already answered, so
-              // opening on question one would be asking somebody to walk back
-              // through three screens of their own answers to reach a button.
-              step: "3",
+              // Aims at the REVIEW screen. resumeScreen() clamps it back to
+              // the "when" question, because that is the one thing a repeat
+              // cannot inherit — so the person answers exactly one question and
+              // lands on the button.
+              step: "4",
             });
             router.push("/deliver");
           }}
@@ -688,7 +838,10 @@ export default function RequestTracker({
           type="button"
           onClick={withdraw}
           disabled={cancelling}
-          className={cn(t.bodySm, "self-start text-[#B0B0B0] underline underline-offset-4 transition-colors hover:text-[#B0B0B0] disabled:opacity-50")}
+          className={cn(
+            t.bodySm,
+            "self-start text-[#B0B0B0] underline underline-offset-4 transition-colors hover:text-[#B0B0B0] disabled:opacity-50",
+          )}
         >
           {cancelling
             ? "Cancelling…"
@@ -706,7 +859,7 @@ export default function RequestTracker({
             view={view}
             busy={busyQuote === confirming.id}
             onClose={() => setConfirming(null)}
-            onConfirm={() => void book(confirming)}
+            onConfirm={(method) => void book(confirming, method)}
           />
         )}
       </AnimatePresence>
@@ -722,7 +875,15 @@ export default function RequestTracker({
 
 // ── Pieces ──────────────────────────────────────────────────────────────────
 
-function Leg({ label, place, note }: { label: string; place: string; note: string | null }) {
+function Leg({
+  label,
+  place,
+  note,
+}: {
+  label: string;
+  place: string;
+  note: string | null;
+}) {
   return (
     <div className="flex items-start gap-3">
       <MapPin size={15} className="mt-0.5 shrink-0 text-white/30" />
@@ -750,19 +911,24 @@ function WaitingForQuotes() {
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-yellow/70" />
           <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-yellow" />
         </span>
-        <p className={cn(t.bodySm, "text-offwhite")}>Drivers are being shown your job</p>
+        <p className={cn(t.bodySm, "text-offwhite")}>
+          Drivers are being shown your job
+        </p>
       </div>
       <p className={cn(t.bodySm, "mt-3 text-[#B0B0B0]")}>
         {/* No invented statistic: not one request has ever been priced, so a
             number here would be a promise made up out of nothing. And no
             promise of a message, because nothing enrols this customer in any
             channel — see requestStatusCopy. */}
-        Prices appear here as drivers send them. Keep this page open, or come back to
-        it any time with your reference.
+        Prices appear here as drivers send them. Keep this page open, or come
+        back to it any time with your reference.
       </p>
       <div className="mt-4 flex flex-col gap-2" aria-hidden>
         {[0, 1].map((i) => (
-          <div key={i} className="h-14 animate-pulse rounded-xl bg-white/[0.03]" />
+          <div
+            key={i}
+            className="h-14 animate-pulse rounded-xl bg-white/[0.03]"
+          />
         ))}
       </div>
     </div>
@@ -780,7 +946,11 @@ function QuoteCard({
 }) {
   const Icon = VEHICLE_ICON[quote.vehicleType ?? ""] ?? Package;
   return (
-    <button type="button" onClick={onChoose} className={cn(recipe.cardButton, "group")}>
+    <button
+      type="button"
+      onClick={onChoose}
+      className={cn(recipe.cardButton, "group")}
+    >
       <div className="flex items-start gap-3">
         <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.05] text-[#B0B0B0]">
           <Icon size={17} />
@@ -788,15 +958,29 @@ function QuoteCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-3">
-            <p className={cn(t.cardTitle, "truncate text-offwhite")}>{quote.driverName}</p>
+            <p className={cn(t.cardTitle, "truncate text-offwhite")}>
+              {quote.driverName}
+            </p>
             {/* Tabular, so a column of prices does not shimmer as it updates. */}
-            <p className={cn(t.numeric, "shrink-0 font-syne text-lg font-bold text-yellow")}>
+            <p
+              className={cn(
+                t.numeric,
+                "shrink-0 font-syne text-lg font-bold text-yellow",
+              )}
+            >
               {formatFee(quote.fee)}
             </p>
           </div>
 
-          <p className={cn(t.meta, "mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[#B0B0B0]")}>
-            {quote.vehicleType && <span className="capitalize">{quote.vehicleType}</span>}
+          <p
+            className={cn(
+              t.meta,
+              "mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[#B0B0B0]",
+            )}
+          >
+            {quote.vehicleType && (
+              <span className="capitalize">{quote.vehicleType}</span>
+            )}
             {quote.completed > 0 && (
               <>
                 <span aria-hidden>·</span>
@@ -815,7 +999,9 @@ function QuoteCard({
           </p>
 
           {quote.note && (
-            <p className={cn(t.bodySm, "mt-2 text-[#B0B0B0]")}>&ldquo;{quote.note}&rdquo;</p>
+            <p className={cn(t.bodySm, "mt-2 text-[#B0B0B0]")}>
+              &ldquo;{quote.note}&rdquo;
+            </p>
           )}
 
           {badge && (
@@ -860,9 +1046,25 @@ function ConfirmSheet({
   view: RequestView;
   busy: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (method: PaymentMethod) => void;
 }) {
-  const pay = payAtDoor({ fee: quote.fee, kind: view.kind, spendCap: view.spendCap });
+  // ── THE CAP IS CHECKED BEFORE THE CHOICE IS OFFERED ───────────────────
+  // The driver's exposure on a cash job is their fee PLUS whatever they front
+  // at the till on a shopping run. Conflating the two is how a "Rs 300
+  // delivery" quietly becomes a Rs 9,300 cash risk. accept_delivery_quote()
+  // refuses over the limit regardless; doing the same arithmetic here means
+  // the option is greyed with a reason instead of failing on the tap.
+  const exposure = quote.fee + (view.spendCap ?? 0);
+  const cashAllowed = view.cashLimit === null || exposure <= view.cashLimit;
+  const [method, setMethod] = useState<PaymentMethod>(
+    cashAllowed ? "cash" : "bank_transfer",
+  );
+
+  const pay = payAtDoor({
+    fee: quote.fee,
+    kind: view.kind,
+    spendCap: view.spendCap,
+  });
 
   const sheetRef = useRef<HTMLDivElement | null>(null);
 
@@ -941,11 +1143,16 @@ function ConfirmSheet({
         transition={transition.sheet}
         className="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl border-t border-white/12 bg-dark-card px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3"
       >
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/15" aria-hidden />
+        <div
+          className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/15"
+          aria-hidden
+        />
         <div className="mx-auto w-full max-w-md">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className={cn(t.heading, "text-offwhite")}>Book {quote.driverName}?</h2>
+              <h2 className={cn(t.heading, "text-offwhite")}>
+                Book {quote.driverName}?
+              </h2>
               <p className={cn(t.bodySm, "mt-1 text-[#B0B0B0]")}>
                 They will be told straight away and will come for it.
               </p>
@@ -963,31 +1170,122 @@ function ConfirmSheet({
 
           <dl className="mt-5 flex flex-col gap-2 rounded-xl bg-white/[0.03] p-4">
             {pay.lines.map((l) => (
-              <div key={l.label} className="flex items-baseline justify-between gap-4">
+              <div
+                key={l.label}
+                className="flex items-baseline justify-between gap-4"
+              >
                 <dt className={cn(t.bodySm, "text-[#B0B0B0]")}>{l.label}</dt>
-                <dd className={cn(t.numeric, "text-sm text-offwhite")}>{l.value}</dd>
+                <dd className={cn(t.numeric, "text-sm text-offwhite")}>
+                  {l.value}
+                </dd>
               </div>
             ))}
             <div className="mt-1 flex items-baseline justify-between gap-4 border-t border-white/10 pt-2.5">
-              <dt className={cn(t.bodySm, "font-semibold text-offwhite")}>You pay at the door</dt>
-              <dd className={cn(t.numeric, "font-syne text-base font-bold text-yellow")}>
+              <dt className={cn(t.bodySm, "font-semibold text-offwhite")}>
+                You pay at the door
+              </dt>
+              <dd
+                className={cn(
+                  t.numeric,
+                  "font-syne text-base font-bold text-yellow",
+                )}
+              >
                 {pay.total}
               </dd>
             </div>
           </dl>
-          {pay.note && <p className={cn(t.meta, "mt-2 text-[#B0B0B0]")}>{pay.note}</p>}
+          {pay.note && (
+            <p className={cn(t.meta, "mt-2 text-[#B0B0B0]")}>{pay.note}</p>
+          )}
 
-          <p className={cn(t.meta, "mt-4 flex items-start gap-2 text-[#B0B0B0]")}>
+          <p
+            className={cn(t.meta, "mt-4 flex items-start gap-2 text-[#B0B0B0]")}
+          >
             <ShieldCheck size={14} className="mt-px shrink-0 text-yellow/70" />
-            You will get a 4-digit code. Read it out only once it is in your hands —
-            it is what proves the delivery happened.
+            You will get a 4-digit code. Read it out only once it is in your
+            hands — it is what proves the delivery happened.
           </p>
+
+          {/* ── How the money moves ────────────────────────────────────
+              Asked here, at the one moment it is a real question: a price has
+              been chosen and nothing has been committed yet. */}
+          <fieldset className="mt-5">
+            <legend className={cn(t.label, "mb-2 text-offwhite")}>
+              How will you pay?
+            </legend>
+            <div className="grid grid-cols-1 gap-2">
+              {[
+                {
+                  k: "cash" as const,
+                  icon: Banknote,
+                  title: "Cash at the door",
+                  body: cashAllowed
+                    ? `Pay ${pay.total} when it arrives.`
+                    : `Over ${formatFee(view.cashLimit ?? 0)} we ask for a transfer — that is a lot of cash for a driver to carry.`,
+                  disabled: !cashAllowed,
+                },
+                {
+                  k: "bank_transfer" as const,
+                  icon: Landmark,
+                  title: "Bank transfer",
+                  body: "Send it now, then attach the receipt. Your driver sets off once it arrives.",
+                  disabled: false,
+                },
+              ].map((o) => {
+                const on = method === o.k;
+                return (
+                  <button
+                    key={o.k}
+                    type="button"
+                    disabled={o.disabled}
+                    onClick={() => setMethod(o.k)}
+                    aria-pressed={on}
+                    className={cn(
+                      "w-full rounded-2xl border p-3 text-left transition-colors",
+                      on
+                        ? "border-yellow/60 bg-yellow/[0.07]"
+                        : "border-[#6E6E6E]",
+                      o.disabled && "cursor-not-allowed opacity-45",
+                    )}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <o.icon
+                        size={18}
+                        className={cn(
+                          "shrink-0",
+                          on ? "text-yellow" : "text-[#B0B0B0]",
+                        )}
+                        aria-hidden
+                      />
+                      <span
+                        className={cn(t.bodySm, "font-semibold text-offwhite")}
+                      >
+                        {o.title}
+                      </span>
+                      {on && (
+                        <Check
+                          size={16}
+                          className="ml-auto shrink-0 text-yellow"
+                        />
+                      )}
+                    </span>
+                    <span className={cn(t.meta, "mt-1 block text-[#B0B0B0]")}>
+                      {o.body}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
 
           <button
             type="button"
-            onClick={onConfirm}
+            onClick={() => onConfirm(method)}
             disabled={busy}
-            className={cn(recipe.primaryAction, "mt-5 inline-flex items-center justify-center gap-2")}
+            className={cn(
+              recipe.primaryAction,
+              "mt-5 inline-flex items-center justify-center gap-2",
+            )}
           >
             {busy && <Loader2 size={16} className="animate-spin" />}
             {busy ? "Booking…" : `Book for ${formatFee(quote.fee)}`}
@@ -1001,10 +1299,197 @@ function ConfirmSheet({
   );
 }
 
+/**
+ * Proof that the money moved.
+ *
+ * ── WHY THIS IS THE ONLY DOCUMENT THIS FLOW ASKS FOR ──────────────────────
+ * The brief also asked for a photo of the customer's national identity card on
+ * cash orders. That is not built, and the reasoning is written out in full in
+ * migration M155 — briefly: it is disproportionate for a Rs 250 parcel, it
+ * would be shown to a private individual on an island where the customer is
+ * likely to be recognised, it is sensitive personal data under the Mauritius
+ * Data Protection Act 2017, and it would stop the very people this rebuild is
+ * for. It also does not solve the driver's actual risk, which is not being paid
+ * — a copy of an ID does not prevent that. The cash CAP does, by moving large
+ * amounts to this screen instead.
+ *
+ * A transfer receipt is a different thing entirely: it is evidence of a
+ * transaction the customer chose to make, it is what a Mauritian bank hands you
+ * for exactly this purpose, and the driver needs it before setting off.
+ *
+ * Mirrors components/BookingReceiptUpload deliberately — same 4 MB ceiling,
+ * same types, same camera-first input — because somebody photographing a bank
+ * slip on island data should not meet two different uploaders on one site.
+ */
+function PaymentProof({
+  requestId,
+  email,
+  attachedAt,
+  reference,
+  onDone,
+}: {
+  requestId: string;
+  email: string;
+  attachedAt: string | null;
+  reference: string | null;
+  onDone: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [ref, setRef] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  if (attachedAt) {
+    return (
+      <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.06] p-4">
+        <p className={cn(t.body, "flex items-start gap-2.5 text-offwhite")}>
+          <Check
+            size={18}
+            className="mt-1 shrink-0 text-emerald-300"
+            aria-hidden
+          />
+          <span>
+            Receipt received. Your driver can set off.
+            {reference && (
+              <span className={cn(t.meta, "mt-0.5 block text-[#B0B0B0]")}>
+                Reference {reference}
+              </span>
+            )}
+          </span>
+        </p>
+      </div>
+    );
+  }
+
+  async function send() {
+    if (!file || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      if (email) fd.append("email", email);
+      const up = await fetch(
+        `/api/delivery-requests/${requestId}/payment-proof`,
+        {
+          method: "POST",
+          body: fd,
+        },
+      );
+      const upJson = (await up.json()) as { path?: string; error?: string };
+      if (!up.ok || !upJson.path) {
+        setError(upJson.error ?? "Could not send that. Please try again.");
+        return;
+      }
+      // TWO steps on purpose: the upload proves the file is real and the
+      // attach proves it is YOURS and that this delivery is still waiting for
+      // it. Doing both in one endpoint would mean writing the row from a
+      // handler that had not re-read the delivery's state.
+      const res = await fetch(`/api/delivery-requests/${requestId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "attachProof",
+          path: upJson.path,
+          reference: ref.trim() || undefined,
+          email: email || undefined,
+        }),
+      });
+      const json = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        setError(json.error ?? "Could not attach that receipt.");
+        return;
+      }
+      toast.success("Receipt received.");
+      onDone();
+    } catch {
+      setError("Network problem — check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-yellow/40 bg-yellow/[0.05] p-4">
+      <h3 className={cn(t.cardTitle, "text-offwhite")}>
+        Send your transfer receipt
+      </h3>
+      <p className={cn(t.bodySm, "mt-1 text-[#B0B0B0]")}>
+        Your driver cannot set off until this arrives. A photo or PDF, up to 4
+        MB.
+      </p>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,application/pdf"
+        className="sr-only"
+        aria-label="Choose your transfer receipt"
+        onChange={(e) => {
+          const f = e.target.files?.[0] ?? null;
+          setError(null);
+          if (f && f.size > 4 * 1024 * 1024) {
+            setError("That file is too large — the limit is 4 MB.");
+            return;
+          }
+          setFile(f);
+        }}
+      />
+
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="mt-3 flex min-h-14 w-full items-center justify-center gap-2.5 rounded-xl border border-[#6E6E6E] px-4 font-dm text-[16px] text-offwhite"
+      >
+        <UploadCloud size={18} aria-hidden />
+        {file ? file.name.slice(0, 34) : "Choose a file or take a photo"}
+      </button>
+
+      <label
+        htmlFor="proof-ref"
+        className={cn(t.meta, "mt-3 block text-[#B0B0B0]")}
+      >
+        Reference number (optional)
+      </label>
+      <input
+        id="proof-ref"
+        value={ref}
+        onChange={(e) => setRef(e.target.value)}
+        placeholder="e.g. MCB-8891"
+        className={cn(recipe.field, "mt-1")}
+      />
+
+      {error && (
+        <p role="alert" className={cn(t.bodySm, "mt-2 text-red-400")}>
+          {error}
+        </p>
+      )}
+
+      <button
+        type="button"
+        onClick={() => void send()}
+        disabled={!file || busy}
+        className={cn(
+          recipe.primaryAction,
+          "mt-3 inline-flex items-center justify-center gap-2",
+        )}
+      >
+        {busy && <Loader2 size={16} className="animate-spin" />}
+        {busy ? "Sending…" : "I have sent the money"}
+      </button>
+    </div>
+  );
+}
+
 function BookedDriver({ view }: { view: RequestView }) {
   const d = view.delivery!;
   const here = legIndex(d.status);
-  const pay = payAtDoor({ fee: d.fee, kind: view.kind, spendCap: view.spendCap });
+  const pay = payAtDoor({
+    fee: d.fee,
+    kind: view.kind,
+    spendCap: view.spendCap,
+  });
   const leg = legCopy(d.status);
   const Icon = VEHICLE_ICON[d.vehicleType ?? ""] ?? Package;
   // Everything here comes from the DELIVERY, never from the winning quote. A
@@ -1020,7 +1505,9 @@ function BookedDriver({ view }: { view: RequestView }) {
       <div
         className={cn(
           "rounded-2xl border p-4",
-          broken ? "border-white/12 bg-white/[0.03]" : "border-yellow/25 bg-yellow/[0.05]",
+          broken
+            ? "border-white/12 bg-white/[0.03]"
+            : "border-yellow/25 bg-yellow/[0.05]",
         )}
       >
         <div className="flex items-center gap-3">
@@ -1054,7 +1541,9 @@ function BookedDriver({ view }: { view: RequestView }) {
             </a>
           )}
         </div>
-        {leg.detail && <p className={cn(t.bodySm, "mt-3 text-[#B0B0B0]")}>{leg.detail}</p>}
+        {leg.detail && (
+          <p className={cn(t.bodySm, "mt-3 text-[#B0B0B0]")}>{leg.detail}</p>
+        )}
       </div>
 
       {/* ── How far along ───────────────────────────────────────────────── */}
@@ -1074,17 +1563,30 @@ function BookedDriver({ view }: { view: RequestView }) {
                       !done && !now && "border-white/12 text-[#B0B0B0]",
                     )}
                   >
-                    {done ? <Check size={12} /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
+                    {done ? (
+                      <Check size={12} />
+                    ) : (
+                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                    )}
                   </span>
                   {i < LEG_ORDER.length - 1 && (
-                    <span className={cn("w-px flex-1", i < here ? "bg-yellow/40" : "bg-white/10")} />
+                    <span
+                      className={cn(
+                        "w-px flex-1",
+                        i < here ? "bg-yellow/40" : "bg-white/10",
+                      )}
+                    />
                   )}
                 </div>
                 <p
                   className={cn(
                     t.bodySm,
                     "pb-5",
-                    now ? "font-semibold text-offwhite" : done ? "text-[#B0B0B0]" : "text-[#B0B0B0]",
+                    now
+                      ? "font-semibold text-offwhite"
+                      : done
+                        ? "text-[#B0B0B0]"
+                        : "text-[#B0B0B0]",
                   )}
                 >
                   {legCopy(step).label}
@@ -1110,19 +1612,33 @@ function BookedDriver({ view }: { view: RequestView }) {
 
       <dl className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-dark-card p-4">
         {pay.lines.map((l) => (
-          <div key={l.label} className="flex items-baseline justify-between gap-4">
+          <div
+            key={l.label}
+            className="flex items-baseline justify-between gap-4"
+          >
             <dt className={cn(t.bodySm, "text-[#B0B0B0]")}>{l.label}</dt>
-            <dd className={cn(t.numeric, "text-sm text-offwhite")}>{l.value}</dd>
+            <dd className={cn(t.numeric, "text-sm text-offwhite")}>
+              {l.value}
+            </dd>
           </div>
         ))}
         <div className="mt-1 flex items-baseline justify-between gap-4 border-t border-white/10 pt-2.5">
           <dt className={cn(t.bodySm, "font-semibold text-offwhite")}>
             {d.status === "delivered" ? "You paid" : "Pay at the door"}
           </dt>
-          <dd className={cn(t.numeric, "font-syne text-base font-bold text-yellow")}>{pay.total}</dd>
+          <dd
+            className={cn(
+              t.numeric,
+              "font-syne text-base font-bold text-yellow",
+            )}
+          >
+            {pay.total}
+          </dd>
         </div>
       </dl>
-      {pay.note && <p className={cn(t.meta, "-mt-3 text-[#B0B0B0]")}>{pay.note}</p>}
+      {pay.note && (
+        <p className={cn(t.meta, "-mt-3 text-[#B0B0B0]")}>{pay.note}</p>
+      )}
     </section>
   );
 }
@@ -1170,7 +1686,11 @@ function RateDriver({
           ? "Your rating helps the next customer choose."
           : "Tap a star. It helps the next person choose a driver."}
       </p>
-      <div className="mt-3 flex gap-1" role="group" aria-label={`Rate ${driverName}`}>
+      <div
+        className="mt-3 flex gap-1"
+        role="group"
+        aria-label={`Rate ${driverName}`}
+      >
         {[1, 2, 3, 4, 5].map((n) => {
           const on = (value ?? 0) >= n;
           return (

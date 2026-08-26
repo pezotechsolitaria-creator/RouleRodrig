@@ -44,8 +44,17 @@ const DRAFT: Omit<Draft, "v" | "savedAt"> = {
   budget: "",
   item: "general",
   largeAndHeavy: false,
+  scheduleKind: "tomorrow",
+  timeSlot: "afternoon",
+  neededDate: "",
   photoPath: null,
-  pickup: { id: "port-mathurin", name: "Port Mathurin", area: "Town", lat: -19.68, lng: 63.41 },
+  pickup: {
+    id: "port-mathurin",
+    name: "Port Mathurin",
+    area: "Town",
+    lat: -19.68,
+    lng: 63.41,
+  },
   dropoff: null,
   pickupNote: "",
   dropoffNote: "",
@@ -63,6 +72,8 @@ const PAYLOAD: RequestPayload = {
   dropoffText: "Mont Lubin",
   sizeClass: "standard",
   cargoKind: "general",
+  scheduleKind: "tomorrow",
+  timeSlot: "afternoon",
   contactName: "Marie",
   contactPhone: "+23057123456",
 };
@@ -101,7 +112,9 @@ describe("the draft survives a closed tab", () => {
 
   it("drops a draft written by an older version of this file", () => {
     // The version gate is what lets the shape change without a migration.
-    const s = fakeStore({ rr_delivery_draft: JSON.stringify({ v: 0, what: "old" }) });
+    const s = fakeStore({
+      rr_delivery_draft: JSON.stringify({ v: 0, what: "old" }),
+    });
     expect(readDraft(s)).toBeNull();
   });
 
@@ -161,7 +174,9 @@ describe("only a draft with something in it is worth offering back", () => {
   });
 
   it("says yes to any real answer", () => {
-    expect(draftHasContent({ ...DRAFT, v: 1, savedAt: new Date().toISOString() })).toBe(true);
+    expect(
+      draftHasContent({ ...DRAFT, v: 1, savedAt: new Date().toISOString() }),
+    ).toBe(true);
   });
 });
 

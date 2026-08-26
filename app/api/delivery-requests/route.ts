@@ -28,6 +28,21 @@ const schema = z
     // WHAT it is, which decides which vehicles may carry it. The SQL
     // (vehicle_can_handle) is the authority; this only has to pass it on.
     cargoKind: z.enum(["general", "food", "fragile", "heavy"]).default("general"),
+    // ── WHEN, as a CHOICE — never as a timestamp ────────────────────────
+    // The client says "tomorrow, afternoon"; compute_delivery_window() turns
+    // that into two absolute times in Indian/Mauritius. A client trusted to
+    // send its own window can send one in the past, one ten years out, or one
+    // a minute wide, and the board's ordering, the expiry and every promise
+    // made to a driver are all built on it. Same rule as the fee (§38).
+    scheduleKind: z.enum(["asap", "today", "tomorrow", "date"]).default("asap"),
+    timeSlot: z.enum(["any", "morning", "afternoon", "evening"]).default("any"),
+    // Shape only. Whether the DAY is in the past, or past the 90-day horizon,
+    // is the database's judgement — it owns the clock and the timezone.
+    neededDate: z
+      .string()
+      .trim()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a day.")
+      .optional(),
     // Minor units, like every other amount in this system. Bounded by int4,
     // which is what the column is.
     maxBudget: z.number().int().min(0).max(2_147_483_647).optional(),
@@ -136,6 +151,9 @@ export async function POST(req: NextRequest) {
     p_guest_email: isGuest ? v.guestEmail : null,
     p_photo_url: v.photoPath ?? null,
     p_cargo_kind: v.cargoKind,
+    p_schedule_kind: v.scheduleKind,
+    p_time_slot: v.timeSlot,
+    p_needed_date: v.scheduleKind === "date" ? (v.neededDate ?? null) : null,
   });
 
   if (error) {
