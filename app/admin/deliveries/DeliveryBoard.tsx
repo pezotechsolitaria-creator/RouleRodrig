@@ -27,6 +27,11 @@ type Live = {
   createdAt: string; assignedAt: string | null;
   reassignments: number; failureReason: string | null; adminNote: string | null;
   lateBy: number; unclaimedFor: number; offersOut: number;
+  /** 'direct' = a Deliver Anything job: no shop and no order behind it, so
+   *  storeName is the pickup place and orderNumber is derived from the
+   *  request id. Everything else on the card reads identically. */
+  jobKind?: "store" | "direct";
+  what?: string | null; requestKind?: string | null; spendCap?: number | null;
 };
 type Driver = {
   id: string; name: string; phone: string; status: string; availability: string;
@@ -34,9 +39,27 @@ type Driver = {
   active: number; completed: number; onTime: number;
   cancellations: number; unresponsive: number; offers: number; accepted: number;
 };
+// M136 — a Deliver Anything job, before anybody has been chosen. It is NOT a
+// delivery yet: there is no driver, no price and nothing to dispatch, so it
+// cannot appear in `live` and needs its own shape.
+type Req = {
+  id: string; kind: string; what: string; sizeClass: string; status: string;
+  pickupText: string; dropoffText: string;
+  contactName: string; contactPhone: string;
+  spendCap: number | null;
+  createdAt: string; expiresAt: string | null;
+  waitingMinutes: number; quoteCount: number; bestQuote: number | null;
+  /** How many approved, on-duty drivers could carry it. Zero is the answer to
+   *  "why has nobody quoted", and without it the owner cannot tell a quiet
+   *  marketplace from a broken one. */
+  eligibleDrivers: number;
+};
 type Board = {
-  live: Live[]; drivers: Driver[];
-  counts: { searching: number; inFlight: number; exceptions: number; pendingDrivers: number };
+  live: Live[]; drivers: Driver[]; requests?: Req[];
+  counts: {
+    searching: number; inFlight: number; exceptions: number; pendingDrivers: number;
+    openRequests?: number; requestsWithoutQuotes?: number;
+  };
 };
 
 const EXCEPTION = new Set([
@@ -68,7 +91,7 @@ export default function DeliveryBoard() {
   const [closing, setClosing] = useState<string | null>(null);
   const [closeStatus, setCloseStatus] = useState("returned_to_merchant");
   const [note, setNote] = useState("");
-  const [tab, setTab] = useState<"live" | "drivers">("live");
+  const [tab, setTab] = useState<"live" | "requests" | "drivers">("live");
 
   const load = useCallback(async () => {
     try {
@@ -127,20 +150,32 @@ export default function DeliveryBoard() {
 
   const live = board?.live ?? [];
   const drivers = board?.drivers ?? [];
+  const requests = board?.requests ?? [];
   const c = board?.counts;
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-2">
-          {(["live", "drivers"] as const).map((t) => (
+          {(["live", "requests", "drivers"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`rounded-full px-4 py-2 font-dm text-sm font-medium transition-colors ${
                 tab === t ? "bg-yellow text-dark" : "border border-white/12 text-muted hover:text-offwhite"}`}>
-              {t === "live" ? `Deliveries (${live.length})` : `Drivers (${drivers.length})`}
+              {t === "live"
+                ? `Deliveries (${live.length})`
+                : t === "requests"
+                  ? `Quote requests (${requests.length})`
+                  : `Drivers (${drivers.length})`}
               {t === "drivers" && (c?.pendingDrivers ?? 0) > 0 && (
                 <span className="ml-1.5 rounded-full bg-orange-400 px-1.5 text-[10px] font-bold text-dark">
                   {c?.pendingDrivers}
+                </span>
+              )}
+              {/* Only requests NOBODY has quoted are worth a badge. A request
+                  with prices on it is the system working, not a task. */}
+              {t === "requests" && (c?.requestsWithoutQuotes ?? 0) > 0 && (
+                <span className="ml-1.5 rounded-full bg-orange-400 px-1.5 text-[10px] font-bold text-dark">
+                  {c?.requestsWithoutQuotes}
                 </span>
               )}
             </button>
@@ -193,8 +228,21 @@ export default function DeliveryBoard() {
                     : "border-white/10 bg-dark-card"}`}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">{d.orderNumber}</p>
+                      <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">
+                        {d.orderNumber}
+                        {/* Which kind of job this is. Without it an operator
+                            reads "Port Mathurin" as a shop name and rings a
+                            number that belongs to the customer. */}
+                        {d.jobKind === "direct" && (
+                          <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 tracking-normal text-offwhite">
+                            Deliver Anything
+                          </span>
+                        )}
+                      </p>
                       <p className="font-syne text-base font-bold">{d.storeName}</p>
+                      {d.jobKind === "direct" && d.what && (
+                        <p className="font-dm text-xs text-muted">{d.what}</p>
+                      )}
                       {d.dropoffNote && <p className="font-dm text-xs text-muted">→ {d.dropoffNote}</p>}
                     </div>
                     <span className={`shrink-0 rounded-full px-3 py-1 font-dm text-[11px] font-semibold ${
@@ -292,6 +340,94 @@ export default function DeliveryBoard() {
                         </button>
                       </div>
                     </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )
+      ) : tab === "requests" ? (
+        // ── Deliver Anything, before a driver exists ──────────────────────
+        // Not deliveries: no driver, no price, nothing to dispatch. The owner's
+        // question here is not "who is late" but "is anybody quoting at all",
+        // so the card leads with the quote count and with how many drivers
+        // could even see it.
+        requests.length === 0 ? (
+          <div className="mt-6 rounded-2xl border border-white/10 bg-dark-card p-8 text-center">
+            <CheckCircle2 size={26} className="mx-auto text-green-400" />
+            <p className="mt-2 font-syne text-base font-bold">No open requests</p>
+            <p className="mt-1 font-dm text-xs text-muted">
+              Jobs posted at /deliver wait here until a customer books one of the prices.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-5 space-y-3">
+            {requests.map((r) => {
+              // Two different problems that look the same on a count of zero.
+              const unreachable = r.eligibleDrivers === 0;
+              const ignored = !unreachable && r.quoteCount === 0 && r.waitingMinutes > 60;
+              return (
+                <div
+                  key={r.id}
+                  className={`rounded-2xl border p-4 ${
+                    unreachable
+                      ? "border-red-500/40 bg-red-500/[0.07]"
+                      : ignored
+                        ? "border-orange-400/40 bg-orange-400/[0.06]"
+                        : "border-white/10 bg-dark-card"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-syne text-base font-bold">{r.what}</p>
+                      <p className="mt-0.5 font-dm text-xs text-muted">
+                        {r.kind === "shop_and_deliver" ? "Buy & deliver" : "Collect & deliver"}
+                        {r.sizeClass === "large" && " · Large item"}
+                        {r.spendCap != null && ` · up to Rs ${centsToDecimalString(r.spendCap)}`}
+                      </p>
+                      <p className="mt-1.5 font-dm text-xs text-muted">
+                        {r.pickupText} → {r.dropoffText}
+                      </p>
+                      <p className="mt-1 font-dm text-xs text-muted">
+                        {r.contactName} · {r.contactPhone}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="font-syne text-2xl font-extrabold text-yellow">{r.quoteCount}</p>
+                      <p className="font-dm text-[11px] text-muted">
+                        {r.quoteCount === 1 ? "price in" : "prices in"}
+                      </p>
+                      {r.bestQuote != null && (
+                        <p className="mt-1 font-dm text-xs tabular-nums text-offwhite">
+                          from Rs {centsToDecimalString(r.bestQuote)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <p className="mt-3 font-dm text-[11px] text-muted">
+                    Waiting {r.waitingMinutes < 60
+                      ? `${r.waitingMinutes} min`
+                      : `${Math.floor(r.waitingMinutes / 60)}h`}
+                    {" · "}
+                    {r.eligibleDrivers} driver{r.eligibleDrivers === 1 ? "" : "s"} could take it
+                  </p>
+
+                  {/* The two diagnoses, said in words. A bare "0 quotes" leaves
+                      the owner guessing which of these it is, and they need
+                      opposite responses: recruit, or go and ask. */}
+                  {unreachable && (
+                    <p className="mt-2 flex items-start gap-1.5 font-dm text-xs text-red-300">
+                      <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                      No approved driver is on duty with a vehicle that can carry this. Nobody
+                      can quote until one goes online.
+                    </p>
+                  )}
+                  {ignored && (
+                    <p className="mt-2 flex items-start gap-1.5 font-dm text-xs text-orange-200">
+                      <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                      Drivers can see it and none has quoted. Worth a call.
+                    </p>
                   )}
                 </div>
               );

@@ -89,7 +89,9 @@ export default function RequestTracker({
   signedIn: boolean;
 }) {
   const [view, setView] = useState<RequestView | null>(null);
-  const [phase, setPhase] = useState<"loading" | "ready" | "needsEmail" | "gone">("loading");
+  const [phase, setPhase] = useState<
+    "loading" | "ready" | "needsEmail" | "gone" | "error"
+  >("loading");
   const [email, setEmail] = useState("");
   const [emailDraft, setEmailDraft] = useState("");
   const [busyQuote, setBusyQuote] = useState<string | null>(null);
@@ -116,6 +118,13 @@ export default function RequestTracker({
         const json = (await res.json()) as { request?: RequestView; error?: string };
         if (!res.ok || !json.request) {
           if (!opts.silent) toast.error(json.error ?? "Could not load that request.");
+          // A failed FIRST load has to leave the skeleton. Toasting and
+          // returning left the screen pulsing for ever on any non-404 --
+          // a 503 while the service key is missing, a 500, an outage --
+          // which reads as a broken page rather than a retryable one. A
+          // silent poll failure is different: there is already good data
+          // on screen and replacing it with an error would be a downgrade.
+          if (!opts.silent) setPhase((p) => (p === "ready" ? p : "error"));
           return;
         }
         setView(json.request);
@@ -127,7 +136,10 @@ export default function RequestTracker({
           what: json.request.what,
         });
       } catch {
-        if (!opts.silent) toast.error("Could not reach us. Check your connection.");
+        if (!opts.silent) {
+          toast.error("Could not reach us. Check your connection.");
+          setPhase((p) => (p === "ready" ? p : "error"));
+        }
       }
     },
     [id],
@@ -267,6 +279,28 @@ export default function RequestTracker({
             Show my request
           </button>
         </form>
+      </div>
+    );
+  }
+
+  if (phase === "error") {
+    return (
+      <div className={cn(recipe.cardButton, "cursor-default text-center")}>
+        <AlertTriangle size={22} className="mx-auto text-white/40" />
+        <h1 className={cn(t.heading, "mt-3 text-offwhite")}>We couldn&apos;t load this</h1>
+        <p className={cn(t.bodySm, "mt-2 text-muted")}>
+          Your request is safe — this is us, not you. Try again in a moment.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setPhase("loading");
+            void load();
+          }}
+          className={cn(recipe.secondaryAction, "mt-5 inline-flex items-center py-2.5")}
+        >
+          Try again
+        </button>
       </div>
     );
   }
