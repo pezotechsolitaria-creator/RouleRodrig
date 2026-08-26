@@ -81,7 +81,28 @@ export default async function DeliverPage() {
       {/* The pinned action no longer has to clear a floating tab bar — see
           lib/nav-scope.ts — so the bottom padding is the bar itself plus the
           notch, and not 80px of clearance for something that is not there. */}
-      <main className="min-h-screen bg-dark pb-[calc(8rem+env(safe-area-inset-bottom))]">
+      {/* MEASURED, 375x812, review screen, French. This <main> was
+          `min-h-screen` — 100vh — while starting 64px down the page, under the
+          sticky AppPageHeader. 100vh of content beginning at y=64 ends at 876
+          in an 812 viewport, so the page scrolled 64px before a single word was
+          written into it. Subtracting the header is the whole fix.
+
+          The bottom padding was a hardcoded 8rem guessing at the pinned bar's
+          height. The bar is 125px in English and 145px in French, where its
+          caption wraps to two lines — so the guess was 17px short in French and
+          that much of the review screen sat under the bar with no way to reach
+          it.
+
+          9.5rem is the tallest the bar gets — 145px, measured on the French
+          review screen, which is the only combination that shows a Back button,
+          the long "Publier la demande" label AND a caption that wraps to two
+          lines. Slack rather than a live measurement because the surplus is
+          FREE: min-height above means that whenever the content is short enough
+          for the padding to matter, main is already taller than its contents
+          and the padding costs no scroll at all. It is only load-bearing on the
+          screens where content overflows anyway, and there it is what lets the
+          last line be scrolled out from under the bar. */}
+      <main className="min-h-[calc(100vh-4rem)] bg-dark pb-[calc(9.5rem+env(safe-area-inset-bottom))]">
         <div className="mx-auto max-w-2xl px-5 pt-3">
           {/* MEASURED, on a real 375x812 render. At text-3xl the title wrapped
               to three lines and stood 113px tall, with a 54px sentence under it

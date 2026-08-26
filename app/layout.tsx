@@ -265,7 +265,7 @@ export default async function RootLayout({
           were all declared sticky and none of them stuck. The stylesheet keeps
           the guard and upgrades it to `overflow-x: clip`, which clips the same
           overflow without creating a container. */}
-      <body className="bg-dark text-offwhite font-dm pb-16 md:pb-0">
+      <body className="bg-dark text-offwhite font-dm">
         {/* iOS PWA launch images (hoisted to <head> by React) */}
         {IOS_SPLASH.map((s) => (
           <link
