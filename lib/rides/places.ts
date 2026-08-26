@@ -138,3 +138,44 @@ export function searchPlaces(query: string, limit = 40): RidePlace[] {
 export function placeById(id: string): RidePlace | null {
   return RIDE_PLACES.find((p) => p.id === id) ?? null;
 }
+
+/**
+ * The handful worth showing before anybody types.
+ *
+ * ── WHY A SHORTLIST AND NOT THE WHOLE LIST ────────────────────────────────
+ * searchPlaces("") returns all 35, which is right for a ride — a visitor is
+ * browsing where they could go. A delivery is not browsing: it starts or ends
+ * at the place you live, and thirty-five rows of beaches and viewpoints is a
+ * list you have to READ before you can answer, which is the single slowest
+ * moment on the form.
+ *
+ * These eight are chosen on one rule: WHERE PEOPLE ARE, not where people visit.
+ * The town and the market, the centre of the island, the four inhabited coasts,
+ * and the hospital — which is not a landmark here but one of the commonest real
+ * destinations for somebody sending something to a relative.
+ *
+ * Everything else is still one letter of typing away, and anything not on the
+ * list at all still goes through as free text. This ORDERS the list; it does
+ * not shorten it.
+ *
+ * ── THE GAP THIS DOES NOT CLOSE ───────────────────────────────────────────
+ * 35 named places against 182 localities in the 2022 census, and NO SHOPS AT
+ * ALL. A shortcut list makes the existing entries faster to reach; it cannot
+ * invent the ones that are missing. That list is the owner's to write.
+ */
+export const COMMON_PLACE_IDS = [
+  "port-mathurin",
+  "mont-lubin",
+  "la-ferme",
+  "oyster-bay",
+  "riviere-cocos",
+  "grand-baie",
+  "port-sud-est",
+  "hospital",
+] as const;
+
+export function commonPlaces(): RidePlace[] {
+  // Mapped through placeById rather than filtered, so the ORDER above is the
+  // order on screen — a filter would silently re-sort them into file order.
+  return COMMON_PLACE_IDS.map(placeById).filter((p): p is RidePlace => p !== null);
+}

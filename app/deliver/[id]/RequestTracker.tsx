@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Loader2, Package, ShoppingBasket, MapPin, Check, X, Phone, Star,
@@ -18,6 +19,8 @@ import {
   type Quote,
 } from "@/lib/delivery/request-status";
 import { emailFor, saveRequest } from "@/lib/delivery/my-requests";
+import { columnsToItem } from "@/lib/delivery/copy.i18n";
+import { writeDraft } from "@/lib/delivery/draft";
 import { recipe, transition, travel, type as t } from "@/lib/delivery/tokens";
 
 // ── Where a Deliver Anything job is actually decided ────────────────────────
@@ -46,6 +49,16 @@ type RequestView = {
   kind: string;
   what: string;
   sizeClass: string;
+  // Returned by delivery_request_view since M148/M149 and never declared here,
+  // so nothing on this screen could read them. Reorder needs all six: without
+  // the coordinates a repeat request is a DOWNGRADE of the original, arriving
+  // at dispatch with no origin — the exact regression M145 had to fix.
+  cargoKind: string | null;
+  photoPath: string | null;
+  pickupLat: number | null;
+  pickupLng: number | null;
+  dropoffLat: number | null;
+  dropoffLng: number | null;
   status: string;
   pickupText: string;
   pickupNote: string | null;
@@ -116,6 +129,7 @@ export default function RequestTracker({
   const [cancelling, setCancelling] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
   const [ratingSaved, setRatingSaved] = useState(false);
+  const router = useRouter();
 
   // Kept in a ref as well as state so the poller never closes over a stale one.
   const emailRef = useRef<string>("");
@@ -182,6 +196,13 @@ export default function RequestTracker({
   );
 
   // First load: use whatever this device already knows.
+  //
+  // An on-mount setState, and it stays one. localStorage cannot be read during
+  // render — the server has no idea what is in it, so the two renders disagree
+  // and React discards the tree. This fires once, with an empty dependency
+  // list. (The same call, and the same reasoning, as the draft restore in
+  // app/deliver/DeliverForm.tsx.)
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const known = emailFor(id);
     if (known) {
@@ -200,6 +221,7 @@ export default function RequestTracker({
     }
     void load();
   }, [id, load, signedIn]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // ── The poll ──────────────────────────────────────────────────────────────
   // Stops when the tab is hidden and stops for good once the job is settled.
@@ -447,10 +469,16 @@ export default function RequestTracker({
             permission has actually been granted, so the promise lives where it
             is earned. Shown while the request is still live: after a driver is
             booked the trail is the thing to watch. */}
+        {/* `email` is the STATE, not emailRef. The ref exists so the poller
+            never closes over a stale value; reading it during render is a
+            different thing and a wrong one — a ref changing does not
+            re-render, so this prop could hold a value the screen has moved
+            past. The state is the same value with the subscription React
+            needs. Same below, for the live map's lookup. */}
         {view.status === "open" && status.tone !== "dead" && (
           <OrderAlerts
             requestId={view.id}
-            email={emailRef.current || undefined}
+            email={email || undefined}
             className="mt-4"
           />
         )}
@@ -524,7 +552,7 @@ export default function RequestTracker({
           instead. Same component the taxi flow uses. */}
       {view.status === "accepted" && view.delivery?.channelKey && (
         <LiveTripView
-          lookup={{ requestId: view.id, email: emailRef.current || "" }}
+          lookup={{ requestId: view.id, email: email || "" }}
           channelKey={view.delivery.channelKey}
           active={!(TERMINAL_LEGS as readonly string[]).includes(view.delivery.status)}
           driver={
@@ -576,6 +604,82 @@ export default function RequestTracker({
             }
           }}
         />
+      )}
+
+      {/* ── Again ───────────────────────────────────────────────────────
+          One tap to repeat a job, which is the commonest shape of demand on a
+          small island: the same parcel from the same sister to the same house,
+          every month. DoorDash calls it Reorder and keeps it in an account; it
+          does not need an account, because everything it needs is already on
+          this screen.
+
+          `settled` is reused rather than a new flag: it already means exactly
+          "there is nothing left to wait for here" — delivered, cancelled or
+          expired — and a second predicate for the same idea is a second thing
+          to keep in step.
+
+          It lives HERE and not in the history list on /deliver, which is a
+          deliberate limitation rather than an oversight. my_delivery_requests
+          returns the place NAMES but not their coordinates, so a one-tap repeat
+          from that list would quietly post a worse request than the one it
+          copied. This screen has the whole row. */}
+      {settled && (
+        <button
+          type="button"
+          onClick={() => {
+            const { item, largeAndHeavy } = columnsToItem(
+              view.sizeClass,
+              view.cargoKind ?? "general",
+            );
+            // A shopping run that never named a shop must come back as
+            // "anywhere", not as a place called "Anywhere you can find it".
+            const shopping = view.kind === "shop_and_deliver";
+            const named = !shopping || view.pickupLat != null;
+            writeDraft({
+              kind: shopping ? "shop_and_deliver" : "package",
+              what: view.what,
+              // Minor units on the wire, rupees on screen — the same convention
+              // as every other amount in this system.
+              budget: view.spendCap ? String(view.spendCap / 100) : "",
+              item,
+              largeAndHeavy,
+              // DELIBERATELY not carried over. A photo of last month's parcel
+              // is a photo of last month's parcel, and a driver quoting from it
+              // would be quoting on the wrong thing.
+              photoPath: null,
+              pickup: named
+                ? {
+                    id: "reorder-pickup",
+                    name: view.pickupText,
+                    area: "",
+                    lat: view.pickupLat,
+                    lng: view.pickupLng,
+                  }
+                : null,
+              dropoff: {
+                id: "reorder-dropoff",
+                name: view.dropoffText,
+                area: "",
+                lat: view.dropoffLat,
+                lng: view.dropoffLng,
+              },
+              pickupNote: view.pickupNote ?? "",
+              dropoffNote: view.dropoffNote ?? "",
+              namesShop: shopping && named,
+              name: view.contactName,
+              phone: view.contactPhone,
+              guestEmail: emailRef.current ?? "",
+              // Lands on the REVIEW screen: everything is already answered, so
+              // opening on question one would be asking somebody to walk back
+              // through three screens of their own answers to reach a button.
+              step: "3",
+            });
+            router.push("/deliver");
+          }}
+          className={cn(recipe.secondaryAction, "self-start")}
+        >
+          Post this again
+        </button>
       )}
 
       {/* ── Getting out ─────────────────────────────────────────────────── */}

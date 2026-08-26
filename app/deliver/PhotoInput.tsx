@@ -22,12 +22,28 @@ import { type as t } from "@/lib/delivery/tokens";
 // send the person straight where they meant to go, and each says which in
 // words rather than relying on an icon.
 
+export type PhotoCopy = {
+  help: string;
+  take: string;
+  choose: string;
+  takeAria: string;
+  chooseAria: string;
+  added: string;
+  remove: string;
+  failed: string;
+  failedNetwork: string;
+};
+
 export default function PhotoInput({
   path,
   onChange,
+  copy,
 }: {
   path: string | null;
   onChange: (path: string | null) => void;
+  /** From lib/delivery/copy.i18n.ts. This control matters most to the people
+   *  least likely to be reading English, so it is translated like the rest. */
+  copy: PhotoCopy;
 }) {
   const cameraRef = useRef<HTMLInputElement | null>(null);
   const galleryRef = useRef<HTMLInputElement | null>(null);
@@ -48,13 +64,13 @@ export default function PhotoInput({
       const res = await fetch("/api/delivery-requests/photo", { method: "POST", body: fd });
       const json = (await res.json()) as { path?: string; error?: string };
       if (!res.ok || !json.path) {
-        setError(json.error ?? "Could not save the photo.");
+        setError(json.error ?? copy.failed);
         return;
       }
       setPreview(URL.createObjectURL(file));
       onChange(json.path);
     } catch {
-      setError("Could not save the photo. Check your connection.");
+      setError(copy.failedNetwork);
     } finally {
       setBusy(false);
     }
@@ -63,11 +79,13 @@ export default function PhotoInput({
   if (path) {
     return (
       <div className="mt-4 flex items-center gap-3 rounded-2xl border border-yellow/40 bg-dark-card p-3">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         {preview ? (
+          // A blob: URL from the file the person just chose. next/image cannot
+          // optimise a local object URL, and this never leaves the device.
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={preview}
-            alt="The photo you added"
+            alt={copy.added}
             className="h-20 w-20 shrink-0 rounded-xl object-cover"
           />
         ) : (
@@ -75,9 +93,7 @@ export default function PhotoInput({
             <ImageIcon size={22} aria-hidden />
           </span>
         )}
-        <p className={cn(t.bodySm, "min-w-0 flex-1 text-offwhite")}>
-          Photo added. Drivers will see this.
-        </p>
+        <p className={cn(t.bodySm, "min-w-0 flex-1 text-offwhite")}>{copy.added}</p>
         <button
           type="button"
           onClick={() => {
@@ -85,9 +101,9 @@ export default function PhotoInput({
             onChange(null);
           }}
           // A real word beside the glyph: an icon-only control is a guess.
-          className="flex min-h-[56px] shrink-0 items-center gap-1.5 rounded-full border border-white/20 px-4 font-dm text-sm text-offwhite"
+          className="flex min-h-14 shrink-0 items-center gap-1.5 rounded-full border border-[#6E6E6E] px-4 font-dm text-[16px] text-offwhite"
         >
-          <X size={16} aria-hidden /> Remove
+          <X size={16} aria-hidden /> {copy.remove}
         </button>
       </div>
     );
@@ -95,27 +111,25 @@ export default function PhotoInput({
 
   return (
     <div className="mt-4">
-      <p className={cn(t.meta, "mb-2 text-[#B0B0B0]")}>
-        A photo helps more than words — drivers can see exactly what it is.
-      </p>
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <p className={cn(t.meta, "mb-2 text-[#B0B0B0]")}>{copy.help}</p>
+      <div className="flex gap-2">
         <button
           type="button"
           disabled={busy}
           onClick={() => cameraRef.current?.click()}
-          className="flex min-h-[56px] flex-1 items-center justify-center gap-2.5 rounded-xl border border-white/20 px-4 font-dm text-[15px] text-offwhite disabled:opacity-50"
+          className="flex min-h-14 flex-1 items-center justify-center gap-2 rounded-xl border border-[#6E6E6E] px-3 font-dm text-[16px] text-offwhite disabled:opacity-50"
         >
           {busy ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} aria-hidden />}
-          Take a photo
+          {copy.take}
         </button>
         <button
           type="button"
           disabled={busy}
           onClick={() => galleryRef.current?.click()}
-          className="flex min-h-[56px] flex-1 items-center justify-center gap-2.5 rounded-xl border border-white/20 px-4 font-dm text-[15px] text-offwhite disabled:opacity-50"
+          className="flex min-h-14 flex-1 items-center justify-center gap-2 rounded-xl border border-[#6E6E6E] px-3 font-dm text-[16px] text-offwhite disabled:opacity-50"
         >
           <ImageIcon size={18} aria-hidden />
-          Choose a photo
+          {copy.choose}
         </button>
       </div>
 
@@ -126,7 +140,7 @@ export default function PhotoInput({
         accept="image/*"
         capture="environment"
         className="sr-only"
-        aria-label="Take a photo of the item"
+        aria-label={copy.takeAria}
         onChange={(e) => void upload(e.target.files?.[0])}
       />
       <input
@@ -134,7 +148,7 @@ export default function PhotoInput({
         type="file"
         accept="image/*"
         className="sr-only"
-        aria-label="Choose a photo of the item"
+        aria-label={copy.chooseAria}
         onChange={(e) => void upload(e.target.files?.[0])}
       />
 

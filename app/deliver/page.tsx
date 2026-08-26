@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, ShieldCheck, Wallet, Users } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { getContent } from "@/lib/content";
 import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
@@ -33,12 +33,39 @@ export const metadata: Metadata = {
   },
 };
 
+// ── The page around the form ────────────────────────────────────────────────
+//
+// ── WHAT WAS ABOVE THE FIRST QUESTION, AND IS NOT ANY MORE ─────────────────
+// A three-screen form that fits a phone is worth nothing if you have to scroll
+// past half a page to reach screen one. This page used to open with a 14-unit
+// hero, a four-line paragraph and three explainer cards — roughly 450px of
+// reading before the first thing anybody could DO.
+//
+// The three cards ("drivers set the price", "free to ask", "a code proves
+// delivery") were the right facts in the wrong place. They were being read by
+// people who had not yet decided to care, and they were gone from the screen by
+// the time somebody was deciding whether to press post. They now live on the
+// review screen, where that decision is actually made — see the `promises` list
+// in lib/delivery/copy.i18n.ts.
+//
+// What is left above the form is a title and one sentence. Everything else —
+// finding a request you lost the link to, talking to a human instead — moved
+// BELOW it, because those are things you go looking for and the form is the
+// thing you arrived for.
+//
+// The one exception is MyRequests, which stays on top and renders NOTHING for a
+// first-time visitor. Somebody coming back to check on a job should not have to
+// scroll past the form asking them to post another.
+
 export default async function DeliverPage() {
   const content = await getContent();
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const phone = content.contact.phone ?? "";
+  const whatsapp = content.contact.whatsappNumbers?.[0]?.number ?? phone;
 
   return (
     <>
@@ -50,71 +77,51 @@ export default async function DeliverPage() {
           ]),
         ]}
       />
+      {/* Carries the language cycle (EN → FR → Kreol) that this whole flow
+          reads from. One control for the site, not a second one per page. */}
       <AppPageHeader logo={content.branding.logo} />
 
       {/* The bottom padding must clear the pinned CTA bar, which itself grows by
-          env(safe-area-inset-bottom) on a notched phone. A fixed pb-52 (208px)
-          measured fine in a browser reporting a zero inset and would have been
-          ~9px short on an iPhone, clipping the last link. Derived from the same
+          env(safe-area-inset-bottom) on a notched phone. Derived from the same
           inset so the two cannot disagree on any device. */}
       <main className="min-h-screen bg-dark pb-[calc(13rem+env(safe-area-inset-bottom))]">
-        <header className="border-b border-white/10 bg-gradient-to-b from-yellow/[0.06] to-transparent px-5 py-10 md:py-14">
-          <div className="mx-auto max-w-2xl">
-            <p className={cn(t.eyebrow, "text-yellow")}>Roulé delivery</p>
-            <h1 className="mt-3 font-syne text-4xl font-extrabold leading-tight text-offwhite md:text-5xl">
-              Get anything moved on Rodrigues
-            </h1>
-            {/* The promise, and its limit, in the same breath. This is not a
-                shop — there is no catalogue and no price list, because the
-                thing being moved is whatever the customer says it is. */}
-            <p className={cn(t.body, "mt-4 text-[#B0B0B0]")}>
-              A parcel your family sent. Something you left at the other end of the
-              island. A gas bottle nobody will carry on a scooter. Tell us what you
-              need and where, and local drivers will send you their price.
-            </p>
+        <div className="mx-auto max-w-2xl px-5 pt-7">
+          {/* MEASURED, on a real 375x812 render. At text-3xl the title wrapped
+              to three lines and stood 113px tall, with a 54px sentence under it
+              and a tracked-capitals eyebrow above — 207px of a 599px budget,
+              spent before anybody could do anything.
+
+              The sentence is gone: the form's own first question says it
+              better, three taps earlier. The eyebrow is gone: it read "ROULÉ
+              DELIVERY" directly above an h1 saying the same thing in words
+              somebody actually reads. The title is sized to wrap to two lines
+              on a phone and keeps its presence on a desktop, where height is
+              free. */}
+          <h1 className="font-syne text-2xl font-extrabold leading-tight text-offwhite md:text-4xl">
+            Get anything moved on Rodrigues
+          </h1>
+
+          <div className="mt-5">
+            <MyRequests />
           </div>
-        </header>
 
-        <div className="mx-auto max-w-2xl px-5 py-10">
-          {/* How the money works, said before the form rather than after it.
-              Drivers set their own prices here — the platform takes a
-              commission and does not set the fee — and a customer who does not
-              know that will read the first quote as our price and judge us on
-              it. */}
-          <ul className="mb-9 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {[
-              { icon: Users, t: "Drivers set the price", d: "Each one quotes their own. You pick." },
-              { icon: Wallet, t: "Free to ask", d: "You pay only once you accept a price." },
-              { icon: ShieldCheck, t: "A code proves delivery", d: "You read out a 4-digit PIN at the door." },
-            ].map((f) => (
-              <li key={f.t} className="rounded-xl border border-dark-border bg-white/[0.02] p-4">
-                <f.icon size={20} className="text-yellow" aria-hidden />
-                <p className={cn(t.cardTitle, "mt-2 text-offwhite")}>{f.t}</p>
-                {/* Was 12px on the three sentences that explain the whole
-                    pricing model. Nothing that carries a word sits below 16px
-                    now — see lib/delivery/tokens.ts. */}
-                <p className={cn(t.bodySm, "mt-1 text-[#B0B0B0]")}>{f.d}</p>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-5">
+            <DeliverForm
+              signedInEmail={user?.email ?? null}
+              helpPhone={phone}
+              helpWhatsapp={whatsapp}
+            />
+          </div>
 
-          {/* Before the form, because somebody arriving to CHECK a request
-              should not have to scroll past the one that asks them to post
-              another. */}
-          <MyRequests />
-          <FindRequest />
+          {/* Below the form on purpose: this is for somebody who came back
+              having lost their link, which is a thing you go looking for. */}
+          <div className="mt-12 border-t border-dark-border pt-8">
+            <FindRequest />
+          </div>
 
-          <DeliverForm signedInEmail={user?.email ?? null} />
+          <NeedHelp phone={phone} whatsapp={whatsapp} />
 
-          {/* The escape hatch, ON the page. Somebody the form is failing does
-              not file a complaint -- they close the tab, and nothing records
-              that they tried. */}
-          <NeedHelp
-            phone={content.contact.phone}
-            whatsapp={content.contact.whatsappNumbers?.[0]?.number ?? content.contact.phone}
-          />
-
-          <nav className="mt-12 border-t border-dark-border pt-8">
+          <nav className="mt-10 border-t border-dark-border pt-8">
             <p className={cn(t.cardTitle, "text-offwhite")}>Already selling on Roulé?</p>
             <ul className="mt-3 space-y-2">
               {[
@@ -125,7 +132,10 @@ export default async function DeliverPage() {
                 <li key={l.href}>
                   <Link
                     href={l.href}
-                    className={cn(t.body, "inline-flex min-h-12 items-center gap-1.5 text-yellow transition-colors hover:text-offwhite")}
+                    className={cn(
+                      t.body,
+                      "inline-flex min-h-12 items-center gap-1.5 text-yellow transition-colors hover:text-offwhite",
+                    )}
                   >
                     {l.label} <ArrowRight size={14} />
                   </Link>
