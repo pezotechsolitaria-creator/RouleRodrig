@@ -59,11 +59,28 @@ const SERVICE_ICON: Record<RideService, React.ElementType> = {
   private: Crown,
 };
 
-// Airport and ferry runs have a fixed end, so asking is wasted work.
-const FIXED_DROPOFF: Partial<Record<RideService, string>> = {
+// Airport and ferry runs have one end already known, so asking for it is
+// wasted work. WHICH end it is depends on the direction of travel.
+const FIXED_END: Partial<Record<RideService, string>> = {
   airport: "Plaine Corail Airport",
   ferry: "Port Mathurin ferry terminal",
 };
+
+/**
+ * Which way an airport or ferry run goes.
+ *
+ * This was missing entirely, and it was not a small gap: the fixed end was
+ * hardcoded as the DROP-OFF, so the flow could only ever express "take me TO
+ * the airport". The arrival — landing at Plaine Corail and needing to reach a
+ * hotel — is the more common half of an airport transfer and the one /transfers
+ * exists for. Its own page says "Plan your journey before you land" and "Met at
+ * arrivals", over a form that could not say it.
+ *
+ * The database needed nothing for this: `service` stays "airport", and pickup
+ * and drop-off carry the direction the way they always did. lib/rides/model.ts
+ * already described both — "To or from Plaine Corail".
+ */
+export type RideDirection = "to" | "from";
 
 type Quote = {
   ok: boolean;
@@ -78,9 +95,13 @@ type Quote = {
 
 export default function BookRide({
   initialService,
+  initialDirection = "to",
 }: {
   initialService: RideService;
+  /** "from" starts an ARRIVAL — what /transfers wants by default. */
+  initialDirection?: RideDirection;
 }) {
+  const [direction, setDirection] = useState<RideDirection>(initialDirection);
   const [step, setStep] = useState(initialService === "taxi" ? 1 : 2);
   const [service, setService] = useState<RideService>(initialService);
   const [pickup, setPickup] = useState<RidePlace | null>(null);
@@ -105,16 +126,32 @@ export default function BookRide({
   } | null>(null);
 
   const meta = RIDE_SERVICE_META[service];
-  const fixedDrop = FIXED_DROPOFF[service];
+  const fixedEnd = FIXED_END[service];
+  // Which side the known place sits on. Everything else reads this.
+  const fixedIsPickup = Boolean(fixedEnd) && direction === "from";
+  const fixedIsDropoff = Boolean(fixedEnd) && direction === "to";
 
-  // The fixed end of an airport or ferry run, filled in so nobody types it.
+  // The known end, filled in so nobody types it — onto whichever side the
+  // direction puts it, and cleared off the other so a reversed journey cannot
+  // keep the airport at both ends.
   useEffect(() => {
-    if (!fixedDrop) return;
-    const known = searchPlaces(fixedDrop)[0] ?? null;
-    setDropoff(
-      known ?? { id: "fixed", name: fixedDrop, area: "", lat: null, lng: null },
-    );
-  }, [fixedDrop]);
+    if (!fixedEnd) return;
+    const known = searchPlaces(fixedEnd)[0] ?? null;
+    const place = known ?? {
+      id: "fixed",
+      name: fixedEnd,
+      area: "",
+      lat: null,
+      lng: null,
+    };
+    if (direction === "from") {
+      setPickup(place);
+      setDropoff(null);
+    } else {
+      setDropoff(place);
+      setPickup(null);
+    }
+  }, [fixedEnd, direction]);
 
   // Re-quote whenever anything that changes the fare changes. Debounced, because a
   // customer stepping the passenger count from 1 to 6 should cost one request.
@@ -320,27 +357,72 @@ export default function BookRide({
             {meta.label}
           </h2>
 
-          {/* ── ONE QUESTION OPEN AT A TIME ───────────────────────────
+          {/* ── WHICH WAY ─────────────────────────────────────────────────
+              Two 48px halves, because an arrival and a departure are not the
+              same journey and this flow could previously only say one of them. */}
+          {fixedEnd && (
+            <div
+              role="group"
+              aria-label="Direction of travel"
+              className="grid grid-cols-2 gap-2"
+            >
+              {(["from", "to"] as RideDirection[]).map((d) => {
+                const on = direction === d;
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setDirection(d)}
+                    aria-pressed={on}
+                    className={`min-h-12 rounded-xl border px-3 font-dm text-sm font-semibold transition-colors ${
+                      on
+                        ? "border-yellow bg-yellow/[0.12] text-yellow"
+                        : "border-[#6E6E6E] text-offwhite"
+                    }`}
+                  >
+                    {d === "from" ? "From" : "To"} the{" "}
+                    {service === "ferry" ? "ferry" : "airport"}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── ONE QUESTION OPEN AT A TIME ───────────────────────────────
               Neither picker was given `autoOpen`, so both defaulted to true and
               both stood open. PlacePicker's own doc comment measured exactly
               this mistake at 1661px against 599px of usable space — each open
               panel is a search box, a location button and eight village chips,
               and two at once is two lists to read before answering either.
 
-              Pickup asks first. Answering it collapses pickup to a 64px row and
-              opens the next question. Nothing is hidden; only one thing asks. */}
-          <PlacePicker
-            label="PICK ME UP AT"
-            icon={MapPin}
-            value={pickup}
-            onPick={setPickup}
-            placeholder="Hotel, beach, village…"
-            required
-            autoOpen={!pickup}
-          />
+              Whichever end is NOT already known asks first; the known one is
+              stated. Nothing is hidden, and only one thing asks. */}
+          {fixedIsPickup ? (
+            <div className="flex items-center gap-3 rounded-2xl border border-white/12 bg-dark-card px-4 py-3.5">
+              <MapPin size={18} className="shrink-0 text-yellow" />
+              <span>
+                <span className="block font-bebas text-[10px] tracking-[0.22em] text-muted">
+                  PICKING YOU UP AT
+                </span>
+                <span className="block font-dm text-base text-offwhite">
+                  {fixedEnd}
+                </span>
+              </span>
+            </div>
+          ) : (
+            <PlacePicker
+              label="PICK ME UP AT"
+              icon={MapPin}
+              value={pickup}
+              onPick={setPickup}
+              placeholder="Hotel, beach, village…"
+              required
+              autoOpen={!pickup}
+            />
+          )}
 
-          {/* An airport or ferry run has a fixed end, so it is stated rather than asked. */}
-          {fixedDrop ? (
+          {/* The other end: stated when it is already known, asked when not. */}
+          {fixedIsDropoff ? (
             <div className="flex items-center gap-3 rounded-2xl border border-white/12 bg-dark-card px-4 py-3.5">
               <Navigation size={18} className="shrink-0 text-yellow" />
               <span>
@@ -348,7 +430,7 @@ export default function BookRide({
                   GOING TO
                 </span>
                 <span className="block font-dm text-base text-offwhite">
-                  {fixedDrop}
+                  {fixedEnd}
                 </span>
               </span>
             </div>

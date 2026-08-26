@@ -102,14 +102,10 @@ describe("the /api/leads request shape", () => {
   });
 });
 
-describe("a refused lead is not silent", () => {
-  it("the transfer caller reports a non-ok response", () => {
-    // Not a demand that it AWAIT the call — it must not, the WhatsApp handoff
-    // cannot wait on analytics. Only that a refusal is visible to somebody.
-    const src = readFileSync(
-      join(ROOT, "app", "transfers", "TransferRequest.tsx"),
-      "utf8",
-    );
-    expect(src).toMatch(/r\.ok/);
-  });
-});
+// The file that carried the bug, app/transfers/TransferRequest.tsx, is gone:
+// /transfers now renders BookRide against the real ride engine instead of
+// POSTing a lead and opening wa.me. The four remaining callers are all
+// deliberate fire-and-forget analytics on paths where a refusal costs the
+// visitor nothing, so this asserts the SHAPE they send and not what they do
+// with the reply. The shape is what was wrong, and the shape is what silently
+// threw two months of enquiries away.

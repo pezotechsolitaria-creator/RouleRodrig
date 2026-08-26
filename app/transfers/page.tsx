@@ -1,18 +1,51 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowLeft, Plane, Clock, ShieldCheck, Car } from "lucide-react";
-import { getFleetView } from "@/lib/site-data";
 import { SITE_URL } from "@/lib/site";
-import Navbar from "@/components/Navbar";
-import ScrollToTop from "@/components/ScrollToTop";
-import TransferRequest from "./TransferRequest";
+import AppPageHeader from "@/components/AppPageHeader";
+import BookRide from "@/app/taxi/book/BookRide";
 
 // /transfers — the "planning ahead" half of getting around.
 //
 // It exists because /taxi could not do this job. That page is a DIRECTORY of
 // drivers to ring right now; this one is a journey you arrange before you
-// arrive. Both quick actions used to point at /taxi, which is why the homepage
-// looked like it had a duplicate tile.
+// arrive.
+//
+// ── WHAT THIS PAGE USED TO BE, AND WHY NONE OF IT IS LEFT ───────────────────
+//
+// It was a WhatsApp form that touched none of the ride engine. It collected
+// from/to as FREE TEXT with no coordinates, so it could never be priced —
+// quote_ride() refuses with `need_locations` unless both ends carry lat/lng. It
+// captured no phone number, produced no reference, could not be dispatched and
+// could not be tracked. Its only real output was a wa.me link.
+//
+// It also recorded nothing at all: it POSTed `target` where /api/leads reads
+// `target_name`, so every enquiry since June was refused with a 400 that
+// nothing ever looked at. On production the day it was found — taxi 11 leads,
+// food_concierge 8, stay_eat_do 6, tiroule_miss 2, transfer ZERO.
+//
+// Meanwhile `ride_requests` already modelled every field a transfer needs:
+// service, scheduled_at, both ends with coordinates, passengers, luggage,
+// flight_ref, meet_greet, name, phone, email — and ride_pricing already carried
+// a seeded flat fare for `airport`. There was a working engine, and a parallel
+// form beside it that ignored the whole thing.
+//
+// So this page keeps its URL and its metadata, which it earns on search, and
+// everything between the header and the form is gone: a 126px h1 that wrapped
+// to four lines, a 29px eyebrow, a 48px subtitle restating the h1, a 136px
+// reassurance grid sitting between the visitor and the first field, and a 118px
+// cross-sell offering a way out of a form already started. 457px of chrome
+// around a form that could not work.
+//
+// One of those reassurances was also untrue: "Vehicle sized to your luggage".
+// taxi_drivers.luggage_capacity is stored and never gates anything — only seats
+// and the handles_* booleans do. It is not a promise the data can keep.
+//
+// ── AND THE DIRECTION ───────────────────────────────────────────────────────
+// The old page said "Plan your journey before you land" and "Met at arrivals"
+// above a form that could not express an arrival. BookRide hardcoded the
+// airport as the DROP-OFF, so the only journey either surface could describe
+// was one LEAVING the island. `initialDirection="from"` starts this page where
+// its own visitors start: at Plaine Corail, needing to get somewhere.
+
 export const revalidate = 600;
 
 const DESCRIPTION =
@@ -31,73 +64,32 @@ export const metadata: Metadata = {
   },
 };
 
-const POINTS = [
-  { icon: Plane, en: "Met at arrivals", fr: "Accueil à l'arrivée" },
-  { icon: Car, en: "Vehicle sized to your luggage", fr: "Véhicule adapté aux bagages" },
-  { icon: Clock, en: "Fixed time, agreed ahead", fr: "Horaire fixé à l'avance" },
-  { icon: ShieldCheck, en: "Local drivers we know", fr: "Chauffeurs locaux de confiance" },
-];
-
-export default async function TransfersPage() {
-  const { content, businessWhatsApp } = await getFleetView();
-
+export default function TransfersPage() {
   return (
     <>
-      <Navbar
-        branding={content.branding}
-        announcementActive={false}
-        showStayEatDo={content.recommended.enabled && content.recommended.items.length > 0}
-        showRoutes={content.rideRoutes.length > 0}
-        showEvents={content.events.some((e) => e.title)}
-      />
+      {/* Was the marketing <Navbar>: fixed, 78px, and on a phone it carried no
+          back control at all — only a saved-hearts icon and a burger. The 96px
+          of pt-24 underneath existed solely to clear it. */}
+      <AppPageHeader showBack backHref="/" />
 
-      <main className="min-h-screen bg-dark px-4 pb-28 pt-24 text-offwhite md:pt-28">
+      <main className="min-h-[calc(100vh-3.5rem)] bg-dark px-4 pb-10 pt-3 text-offwhite">
         <div className="mx-auto max-w-lg">
-          <Link href="/" className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow">
-            <ArrowLeft size={14} /> Home
-          </Link>
-
-          <p className="mt-3 font-bebas text-[11px] tracking-[0.3em] text-yellow">TRANSFERS</p>
-          <h1 className="mt-1 font-syne text-3xl font-extrabold leading-[1.05] sm:text-4xl">
-            Plan your journey
-            <br />
-            <span className="text-yellow">before you land.</span>
+          <h1 className="font-syne text-base font-extrabold leading-tight text-offwhite md:text-3xl">
+            Airport transfer
           </h1>
-          <p className="mt-2 font-dm text-sm text-muted">
-            Airport pickups, hotel transfers and island trips arranged ahead of time.
+
+          <p className="mt-1.5 font-dm text-[13px] leading-snug text-[#B0B0B0]">
+            <span className="font-bold text-red-400" aria-hidden="true">
+              *
+            </span>{" "}
+            = required, or we cannot price your transfer.
           </p>
 
-          <ul className="mt-5 grid grid-cols-2 gap-2">
-            {POINTS.map((p) => {
-              const Icon = p.icon;
-              return (
-                <li
-                  key={p.en}
-                  className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 font-dm text-xs text-offwhite/90"
-                >
-                  <Icon size={14} className="shrink-0 text-yellow" /> {p.en}
-                </li>
-              );
-            })}
-          </ul>
-
-          <div className="mt-6">
-            <TransferRequest whatsapp={businessWhatsApp} />
-          </div>
-
-          {/* The other intent, one tap away and clearly labelled as different —
-              this is the distinction the two identical tiles used to hide. */}
-          <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-dark-card px-5 py-4">
-            <p className="font-dm text-sm text-muted">
-              Need a ride <span className="text-offwhite">right now</span> instead?
-            </p>
-            <Link href="/taxi" className="font-dm text-sm font-bold text-yellow hover:underline">
-              See taxi drivers →
-            </Link>
+          <div className="mt-3">
+            <BookRide initialService="airport" initialDirection="from" />
           </div>
         </div>
       </main>
-      <ScrollToTop />
     </>
   );
 }
