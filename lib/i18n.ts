@@ -479,6 +479,12 @@ const translations = {
       loading: "Loading drivers…",
       empty: "No drivers listed yet — check back soon.",
       topDriver: "TOP DRIVER",
+      // The booking entry, in the page's own language. These three were
+      // hardcoded English in a page otherwise fully translated, so a Kreol
+      // reader met "FASTEST WAY / Tell us where you're going" mid-sentence.
+      bookRide: "Book a ride",
+      airportTransfer: "Airport transfer",
+      followRide: "Already booked? Follow your ride",
       // M96: Roulé Rodrigues does not set taxi fares. Every driver charges
       // differently, so a number here would be a quote the platform cannot
       // honour — priceNote replaces it on every taxi surface.
@@ -982,6 +988,9 @@ const translations = {
       loading: "Chargement des chauffeurs…",
       empty: "Aucun chauffeur pour le moment — revenez bientôt.",
       topDriver: "TOP CHAUFFEUR",
+      bookRide: "Réserver une course",
+      airportTransfer: "Transfert aéroport",
+      followRide: "Déjà réservé ? Suivez votre course",
       from: "À partir de",
       priceNote:
         "Nous confirmerons le prix avec vous — rien n’est débité avant votre accord.",
@@ -1474,6 +1483,9 @@ const translations = {
       loading: "Pe sarz bann chofer…",
       empty: "Pankor ena chofer — revini biento.",
       topDriver: "TOP CHOFER",
+      bookRide: "Rezerv enn kours",
+      airportTransfer: "Transfer erport",
+      followRide: "Ou fin deza rezerve ? Swiv ou kours",
       from: "Apartir",
       priceNote:
         "Nou pou konfirm pri-la ar ou — nanye pa debite avan ou dakor.",
