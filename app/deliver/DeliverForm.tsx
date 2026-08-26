@@ -7,6 +7,7 @@ import { Loader2, Package, ShoppingBasket, Check, Pencil, MapPin, Navigation, Us
 import { toast } from "sonner";
 import PhoneInput from "@/components/PhoneInput";
 import PlacePicker from "@/components/PlacePicker";
+import PhotoInput from "./PhotoInput";
 import type { RidePlace } from "@/lib/rides/places";
 import { cn } from "@/lib/utils";
 import { toCents } from "@/lib/money";
@@ -53,6 +54,8 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
   const [what, setWhat] = useState("");
   const [budget, setBudget] = useState("");
   const [sizeClass, setSizeClass] = useState<"standard" | "large">("standard");
+  // A storage PATH in a private bucket, never a URL.
+  const [photoPath, setPhotoPath] = useState<string | null>(null);
   // A PLACE, not a string. The picker yields a name AND coordinates for the ~40
   // named Rodriguan landmarks, which is what dispatch needs and what free text
   // never gave it — a Deliver Anything job had no origin at all, and M145 had
@@ -81,8 +84,11 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
   const phoneE164 = useMemo(() => toE164(phone), [phone]);
 
   const done: Record<Step, boolean> = {
+    // A PHOTO COUNTS. For the 44% of Rodriguans over 60 who cannot write
+    // (2022 census Vol. VI Table E2a), holding up a phone is the description --
+    // so either a few words or a picture unlocks the step, not both.
     what:
-      what.trim().length >= 3 &&
+      (what.trim().length >= 3 || photoPath !== null) &&
       (kind !== "shop_and_deliver" || (budgetCents !== null && budgetCents > 0)),
     where: pickup !== null && dropoff !== null,
     who:
@@ -124,6 +130,7 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
           // Rupees on screen, minor units on the wire — the same convention as
           // every other amount in this system.
           maxBudget: kind === "shop_and_deliver" ? budgetCents ?? undefined : undefined,
+          photoPath: photoPath ?? undefined,
           contactName: name.trim(),
           contactPhone: phoneE164,
           guestEmail: isGuest ? guestEmail.trim().toLowerCase() : undefined,
@@ -181,7 +188,7 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
           index={1}
           icon={kind === "shop_and_deliver" ? ShoppingBasket : Package}
           title="What do you need moved?"
-          summary={summaryWhat(kind, what, sizeClass)}
+          summary={summaryWhat(kind, what, sizeClass, photoPath !== null)}
           open={step === "what"}
           complete={done.what}
           onOpen={() => setStep("what")}
@@ -247,6 +254,8 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
               }
             />
           </div>
+
+          <PhotoInput path={photoPath} onChange={setPhotoPath} />
 
           <AnimatePresence initial={false}>
             {kind === "shop_and_deliver" && (
@@ -534,14 +543,16 @@ function Group({
 
 function stepPrompt(step: Step, kind: Kind): string {
   if (step === "what") {
-    return kind === "shop_and_deliver" ? "Say what to buy, and your limit" : "Say what needs moving";
+    return kind === "shop_and_deliver"
+      ? "Say what to buy, and your limit"
+      : "Say what it is, or add a photo";
   }
   if (step === "where") return "Add where it starts and ends";
   return "Add your name and number";
 }
 
-function summaryWhat(kind: Kind, what: string, sizeClass: string): string | null {
-  const body = what.trim();
+function summaryWhat(kind: Kind, what: string, sizeClass: string, hasPhoto = false): string | null {
+  const body = what.trim() || (hasPhoto ? "Photo added" : "");
   if (!body) return null;
   const label = kind === "shop_and_deliver" ? "Buy & deliver" : "Collect & deliver";
   return `${label} · ${body}${sizeClass === "large" ? " · Large" : ""}`;

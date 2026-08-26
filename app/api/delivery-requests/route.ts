@@ -17,7 +17,9 @@ const SAFE_RPC_ERROR = "P0001";
 const schema = z
   .object({
     kind: z.enum(["package", "shop_and_deliver"]),
-    what: z.string().trim().min(3, "Say what needs moving.").max(500),
+    // Allowed to be short when a PHOTO carries it -- refined below. The 44% of
+    // Rodriguans over 60 who cannot write are the reason this is not min(3).
+    what: z.string().trim().max(500),
     pickupText: z.string().trim().min(2, "Where should we collect it?").max(200),
     pickupNote: z.string().trim().max(300).optional(),
     dropoffText: z.string().trim().min(2, "Where should we deliver it?").max(200),
@@ -40,6 +42,10 @@ const schema = z
         message: "Enter a phone number with its country code, e.g. +230…",
       }),
     guestEmail: z.string().trim().email().max(200).optional(),
+    // A storage path in the PRIVATE delivery-photos bucket, as returned by
+    // /api/delivery-requests/photo. Never a URL, and never displayable without
+    // a signature.
+    photoPath: z.string().trim().max(300).regex(/^[A-Za-z0-9._-]+$/).optional(),
     pickupLat: z.number().min(-90).max(90).optional(),
     pickupLng: z.number().min(-180).max(180).optional(),
     dropoffLat: z.number().min(-90).max(90).optional(),
@@ -47,6 +53,10 @@ const schema = z
   })
   // Mirrored from the table CHECK and the RPC. Caught here first only so the
   // customer gets the message beside the field rather than as a failed request.
+  .refine((v) => v.what.length >= 3 || Boolean(v.photoPath), {
+    message: "Tell us what it is, or add a photo.",
+    path: ["what"],
+  })
   .refine((v) => v.kind !== "shop_and_deliver" || (v.maxBudget ?? 0) > 0, {
     message: "Set the most we may spend on the item.",
     path: ["maxBudget"],
@@ -103,7 +113,10 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await client.rpc("create_delivery_request", {
     p_kind: v.kind,
-    p_what: v.what,
+    // delivery_requests.what carries CHECK (btrim(what) <> ''), so a
+    // photo-only request needs SOMETHING here. "See photo" is what a driver
+    // reading their board should see, and it is the truth.
+    p_what: v.what.length >= 3 ? v.what : "See photo",
     p_pickup_text: v.pickupText,
     p_dropoff_text: v.dropoffText,
     p_contact_name: v.contactName,
@@ -118,6 +131,7 @@ export async function POST(req: NextRequest) {
     p_dropoff_lng: v.dropoffLng ?? null,
     // Ignored by the RPC whenever auth.uid() is set.
     p_guest_email: isGuest ? v.guestEmail : null,
+    p_photo_url: v.photoPath ?? null,
   });
 
   if (error) {
