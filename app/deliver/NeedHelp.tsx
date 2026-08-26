@@ -33,7 +33,7 @@ export default function NeedHelp({
   return (
     <section className="mt-10 rounded-2xl border border-white/12 bg-white/[0.03] p-5">
       <h2 className={cn(t.heading, "text-offwhite")}>Rather talk to someone?</h2>
-      <p className={cn(t.body, "mt-2 text-muted")}>
+      <p className={cn(t.body, "mt-2 text-[#B0B0B0]")}>
         Call or message us and we will post the request for you. It costs the same,
         and drivers send their prices exactly as they would here.
       </p>

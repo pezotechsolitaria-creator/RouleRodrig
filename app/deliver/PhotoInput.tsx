@@ -71,7 +71,7 @@ export default function PhotoInput({
             className="h-20 w-20 shrink-0 rounded-xl object-cover"
           />
         ) : (
-          <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-white/50">
+          <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-[#B0B0B0]">
             <ImageIcon size={22} aria-hidden />
           </span>
         )}
@@ -95,7 +95,7 @@ export default function PhotoInput({
 
   return (
     <div className="mt-4">
-      <p className={cn(t.meta, "mb-2 text-muted")}>
+      <p className={cn(t.meta, "mb-2 text-[#B0B0B0]")}>
         A photo helps more than words — drivers can see exactly what it is.
       </p>
       <div className="flex flex-col gap-2 sm:flex-row">

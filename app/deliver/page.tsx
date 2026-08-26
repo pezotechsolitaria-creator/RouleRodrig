@@ -11,6 +11,8 @@ import DeliverForm from "./DeliverForm";
 import MyRequests from "./MyRequests";
 import FindRequest from "./FindRequest";
 import NeedHelp from "./NeedHelp";
+import { cn } from "@/lib/utils";
+import { type as t } from "@/lib/delivery/tokens";
 
 export const dynamic = "force-dynamic";
 
@@ -58,14 +60,14 @@ export default async function DeliverPage() {
       <main className="min-h-screen bg-dark pb-[calc(13rem+env(safe-area-inset-bottom))]">
         <header className="border-b border-white/10 bg-gradient-to-b from-yellow/[0.06] to-transparent px-5 py-10 md:py-14">
           <div className="mx-auto max-w-2xl">
-            <p className="font-bebas text-xs tracking-[0.3em] text-yellow">ROULÉ DELIVERY</p>
+            <p className={cn(t.eyebrow, "text-yellow")}>Roulé delivery</p>
             <h1 className="mt-3 font-syne text-4xl font-extrabold leading-tight text-offwhite md:text-5xl">
               Get anything moved on Rodrigues
             </h1>
             {/* The promise, and its limit, in the same breath. This is not a
                 shop — there is no catalogue and no price list, because the
                 thing being moved is whatever the customer says it is. */}
-            <p className="mt-4 font-dm leading-relaxed text-muted">
+            <p className={cn(t.body, "mt-4 text-[#B0B0B0]")}>
               A parcel your family sent. Something you left at the other end of the
               island. A gas bottle nobody will carry on a scooter. Tell us what you
               need and where, and local drivers will send you their price.
@@ -86,9 +88,12 @@ export default async function DeliverPage() {
               { icon: ShieldCheck, t: "A code proves delivery", d: "You read out a 4-digit PIN at the door." },
             ].map((f) => (
               <li key={f.t} className="rounded-xl border border-dark-border bg-white/[0.02] p-4">
-                <f.icon size={16} className="text-yellow" />
-                <p className="mt-2 font-syne text-sm font-bold text-offwhite">{f.t}</p>
-                <p className="mt-1 font-dm text-xs leading-relaxed text-muted">{f.d}</p>
+                <f.icon size={20} className="text-yellow" aria-hidden />
+                <p className={cn(t.cardTitle, "mt-2 text-offwhite")}>{f.t}</p>
+                {/* Was 12px on the three sentences that explain the whole
+                    pricing model. Nothing that carries a word sits below 16px
+                    now — see lib/delivery/tokens.ts. */}
+                <p className={cn(t.bodySm, "mt-1 text-[#B0B0B0]")}>{f.d}</p>
               </li>
             ))}
           </ul>
@@ -110,7 +115,7 @@ export default async function DeliverPage() {
           />
 
           <nav className="mt-12 border-t border-dark-border pt-8">
-            <p className="font-syne text-sm font-bold text-offwhite">Already selling on Roulé?</p>
+            <p className={cn(t.cardTitle, "text-offwhite")}>Already selling on Roulé?</p>
             <ul className="mt-3 space-y-2">
               {[
                 { href: "/shop", label: "Order from island shops — delivery included" },
@@ -120,7 +125,7 @@ export default async function DeliverPage() {
                 <li key={l.href}>
                   <Link
                     href={l.href}
-                    className="inline-flex items-center gap-1.5 font-dm text-sm text-yellow/80 transition-colors hover:text-yellow"
+                    className={cn(t.body, "inline-flex min-h-12 items-center gap-1.5 text-yellow transition-colors hover:text-offwhite")}
                   >
                     {l.label} <ArrowRight size={14} />
                   </Link>

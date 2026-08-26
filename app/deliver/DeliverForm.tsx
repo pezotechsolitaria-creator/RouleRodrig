@@ -228,7 +228,7 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
                       {on && <Check size={15} className="text-yellow" />}
                     </span>
                     <span className={cn(t.cardTitle, "mt-2 block text-offwhite")}>{o.title}</span>
-                    <span className={cn(t.meta, "mt-1 block leading-relaxed text-muted")}>
+                    <span className={cn(t.meta, "mt-1 block leading-relaxed text-[#B0B0B0]")}>
                       {o.body}
                     </span>
                   </button>
@@ -238,7 +238,7 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
           </fieldset>
 
           <div className="mt-4">
-            <label htmlFor="d-what" className={cn(t.meta, "mb-1.5 block text-muted")}>
+            <label htmlFor="d-what" className={cn(t.meta, "mb-1.5 block text-[#B0B0B0]")}>
               {kind === "package" ? "What are we collecting?" : "What should we buy?"}
             </label>
             <textarea
@@ -267,7 +267,7 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
                 className="overflow-hidden"
               >
                 <div className="mt-4">
-                  <label htmlFor="d-budget" className={cn(t.meta, "mb-1.5 block text-muted")}>
+                  <label htmlFor="d-budget" className={cn(t.meta, "mb-1.5 block text-[#B0B0B0]")}>
                     The most we may spend on it (Rs)
                   </label>
                   <input
@@ -281,7 +281,7 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
                   />
                   {/* The two numbers, kept apart. Conflating them is how a
                       driver ends up out of pocket at the till. */}
-                  <p className={cn(t.meta, "mt-1.5 text-muted")}>
+                  <p className={cn(t.meta, "mt-1.5 text-[#B0B0B0]")}>
                     You repay what was actually spent, up to this. The delivery fee is
                     separate and each driver names their own.
                   </p>
@@ -308,7 +308,7 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
               <span className={cn(t.bodySm, "block font-semibold text-offwhite")}>
                 This is a large item — it needs a car
               </span>
-              <span className={cn(t.meta, "mt-0.5 block leading-relaxed text-muted")}>
+              <span className={cn(t.meta, "mt-0.5 block leading-relaxed text-[#B0B0B0]")}>
                 Furniture, a gas bottle, an appliance, several big boxes. Only drivers with
                 a car or a van will be able to quote.
               </span>
@@ -381,7 +381,7 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="d-name" className={cn(t.meta, "mb-1.5 block text-muted")}>
+              <label htmlFor="d-name" className={cn(t.meta, "mb-1.5 block text-[#B0B0B0]")}>
                 Your name
               </label>
               <input
@@ -396,7 +396,7 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
             <div>
               {/* htmlFor + id, or the field has no accessible name — the exact
                   failure PhoneInput's `id` prop exists to prevent. */}
-              <label htmlFor="d-phone" className={cn(t.meta, "mb-1.5 block text-muted")}>
+              <label htmlFor="d-phone" className={cn(t.meta, "mb-1.5 block text-[#B0B0B0]")}>
                 Your phone
               </label>
               <PhoneInput
@@ -411,7 +411,7 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
 
           {isGuest && (
             <div className="mt-4">
-              <label htmlFor="d-email" className={cn(t.meta, "mb-1.5 block text-muted")}>
+              <label htmlFor="d-email" className={cn(t.meta, "mb-1.5 block text-[#B0B0B0]")}>
                 Your email
               </label>
               <input
@@ -423,7 +423,7 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
                 placeholder="you@example.com"
                 autoComplete="email"
               />
-              <p className={cn(t.meta, "mt-1.5 text-muted")}>
+              <p className={cn(t.meta, "mt-1.5 text-[#B0B0B0]")}>
                 This is how you get back to your request from another phone — we check
                 it against your reference. Prices appear on the request page.
               </p>
@@ -457,7 +457,7 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
           </button>
           {/* The two facts that were below the fold. They are the reason
               somebody finishes this form, so they sit ON the button. */}
-          <p className={cn(t.meta, "mt-2 text-center text-white/55")}>
+          <p className={cn(t.meta, "mt-2 text-center text-[#B0B0B0]")}>
             Free to ask. You only pay once you accept a driver&apos;s price.
           </p>
         </div>
@@ -506,7 +506,7 @@ function Group({
         <span
           className={cn(
             "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors",
-            complete ? "bg-yellow text-dark" : open ? "bg-yellow/15 text-yellow" : "bg-white/[0.06] text-white/40",
+            complete ? "bg-yellow text-dark" : open ? "bg-yellow/15 text-yellow" : "bg-white/[0.06] text-[#B0B0B0]",
           )}
         >
           {complete ? <Check size={15} /> : index}
@@ -514,7 +514,7 @@ function Group({
         <span className="min-w-0 flex-1">
           <span className={cn(t.cardTitle, "block text-offwhite")}>{title}</span>
           {!open && summary && (
-            <span className={cn(t.meta, "mt-0.5 block truncate text-muted")}>{summary}</span>
+            <span className={cn(t.meta, "mt-0.5 block truncate text-[#B0B0B0]")}>{summary}</span>
           )}
         </span>
         {!open && <Pencil size={14} className="shrink-0 text-white/25" aria-hidden />}

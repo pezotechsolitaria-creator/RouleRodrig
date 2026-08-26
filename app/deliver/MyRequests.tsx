@@ -167,7 +167,7 @@ export default function MyRequests() {
                 <span
                   className={cn(
                     "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                    wants ? "bg-yellow text-dark" : "bg-white/[0.05] text-white/50",
+                    wants ? "bg-yellow text-dark" : "bg-white/[0.05] text-[#B0B0B0]",
                   )}
                 >
                   <Icon size={15} />
@@ -177,7 +177,7 @@ export default function MyRequests() {
                   <span className={cn(t.bodySm, "block truncate text-offwhite")}>{r.what}</span>
                   {copy && (
                     <span
-                      className={cn(t.meta, "block truncate", wants ? "text-yellow" : "text-muted")}
+                      className={cn(t.meta, "block truncate", wants ? "text-yellow" : "text-[#B0B0B0]")}
                     >
                       {copy.label}
                       {r.live?.bestQuote != null && ` · from ${formatFee(r.live.bestQuote)}`}
@@ -189,7 +189,7 @@ export default function MyRequests() {
                   size={15}
                   className={cn(
                     "shrink-0 transition-transform group-hover:translate-x-0.5",
-                    wants ? "text-yellow" : "text-white/25",
+                    wants ? "text-yellow" : "text-[#B0B0B0]",
                   )}
                 />
               </Link>

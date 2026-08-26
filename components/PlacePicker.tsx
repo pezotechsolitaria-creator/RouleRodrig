@@ -94,9 +94,9 @@ export default function PlacePicker({
           <Check size={18} aria-hidden />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-bebas text-[11px] tracking-[0.22em] text-muted">{label}</span>
+          <span className="block font-bebas text-[11px] tracking-[0.22em] text-[#B0B0B0]">{label}</span>
           <span className="block truncate font-dm text-[17px] text-offwhite">{value.name}</span>
-          {value.area && <span className="block truncate font-dm text-sm text-muted">{value.area}</span>}
+          {value.area && <span className="block truncate font-dm text-sm text-[#B0B0B0]">{value.area}</span>}
         </span>
         <span className="shrink-0 font-dm text-sm text-yellow underline underline-offset-4">Change</span>
       </button>
@@ -117,7 +117,7 @@ export default function PlacePicker({
           onChange={(e) => setQ(e.target.value)}
           placeholder={placeholder}
           aria-label={label}
-          className="min-h-[56px] w-full rounded-xl border border-white/12 bg-dark py-3 pl-11 pr-3 font-dm text-[17px] text-offwhite placeholder:text-muted focus:border-yellow/60 focus:outline-none"
+          className="min-h-[56px] w-full rounded-xl border border-white/12 bg-dark py-3 pl-11 pr-3 font-dm text-[17px] text-offwhite placeholder:text-[#B0B0B0] focus:border-yellow/60 focus:outline-none"
         />
       </div>
 
@@ -149,7 +149,7 @@ export default function PlacePicker({
             <MapPin size={16} className="shrink-0 text-muted" aria-hidden />
             <span className="min-w-0">
               <span className="block truncate font-dm text-[17px] text-offwhite">{p.name}</span>
-              {p.area && <span className="block truncate font-dm text-sm text-muted">{p.area}</span>}
+              {p.area && <span className="block truncate font-dm text-sm text-[#B0B0B0]">{p.area}</span>}
             </span>
           </button>
         ))}

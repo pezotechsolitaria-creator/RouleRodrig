@@ -69,7 +69,7 @@ export default function QuoteBoard({
           {requests.every((r) => r.offDuty) ? "Your prices are still out" : "Jobs you can quote on"}
         </h2>
         {/* The sentence that stops this being mistaken for dispatch. */}
-        <p className={cn(t.meta, "mt-0.5 text-muted")}>
+        <p className={cn(t.meta, "mt-0.5 text-[#B0B0B0]")}>
           {requests.every((r) => r.offDuty)
             ? "You are off duty, but these customers can still book you. Withdraw any you cannot do."
             : "No fixed price on these. Name yours — the customer picks who they want."}
@@ -117,12 +117,12 @@ function RequestCard({
       )}
     >
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.05] text-white/60">
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.05] text-[#B0B0B0]">
           <Icon size={17} />
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-syne text-base font-bold leading-snug">{r.what}</p>
-          <p className={cn(t.meta, "mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-muted")}>
+          <p className={cn(t.meta, "mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[#B0B0B0]")}>
             <span>{r.kind === "shop_and_deliver" ? "Buy & deliver" : "Collect & deliver"}</span>
             {r.sizeClass === "large" && (
               <>
@@ -155,7 +155,7 @@ function RequestCard({
       {r.kind === "shop_and_deliver" && r.spendCap != null && (
         // Never merged with the fee. A driver who reads the shopping cap as
         // their pay quotes against the wrong number and loses money at the till.
-        <p className={cn(t.meta, "mt-3 rounded-lg bg-white/[0.03] px-3 py-2 text-muted")}>
+        <p className={cn(t.meta, "mt-3 rounded-lg bg-white/[0.03] px-3 py-2 text-[#B0B0B0]")}>
           They repay what you spend, up to{" "}
           <span className="text-offwhite">Rs {centsToShortString(r.spendCap)}</span>. Your fee
           is separate.
@@ -185,7 +185,7 @@ function RequestCard({
               type="button"
               disabled={busy !== null}
               onClick={() => void onWithdraw(r.myQuote!.id)}
-              className={cn(t.meta, "text-white/55 underline underline-offset-4 disabled:opacity-50")}
+              className={cn(t.meta, "text-[#B0B0B0] underline underline-offset-4 disabled:opacity-50")}
             >
               {withdrawing ? "Withdrawing…" : "Withdraw"}
             </button>
@@ -216,7 +216,7 @@ function RequestCard({
               <div>
                 <label
                   htmlFor={`fee-${r.id}`}
-                  className={cn(t.meta, "mb-1.5 block text-muted")}
+                  className={cn(t.meta, "mb-1.5 block text-[#B0B0B0]")}
                 >
                   Your price for this delivery (Rs)
                 </label>
@@ -228,7 +228,7 @@ function RequestCard({
                   onChange={(e) => setFee(e.target.value)}
                   placeholder="250"
                   autoFocus
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 font-dm text-lg tabular-nums text-offwhite placeholder:text-white/30 focus:border-yellow/50 focus:outline-none focus:ring-2 focus:ring-yellow/25"
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 font-dm text-lg tabular-nums text-offwhite placeholder:text-[#B0B0B0] focus:border-yellow/50 focus:outline-none focus:ring-2 focus:ring-yellow/25"
                 />
                 {fee.trim() && !valid && (
                   <p className={cn(t.meta, "mt-1.5 text-red-400")}>
@@ -240,7 +240,7 @@ function RequestCard({
               <div>
                 <label
                   htmlFor={`note-${r.id}`}
-                  className={cn(t.meta, "mb-1.5 block text-muted")}
+                  className={cn(t.meta, "mb-1.5 block text-[#B0B0B0]")}
                 >
                   Anything to tell them? (optional)
                 </label>
@@ -250,7 +250,7 @@ function RequestCard({
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="e.g. I can come this afternoon"
                   maxLength={300}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 font-dm text-sm text-offwhite placeholder:text-white/30 focus:border-yellow/50 focus:outline-none focus:ring-2 focus:ring-yellow/25"
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 font-dm text-sm text-offwhite placeholder:text-[#B0B0B0] focus:border-yellow/50 focus:outline-none focus:ring-2 focus:ring-yellow/25"
                 />
               </div>
 
@@ -290,7 +290,7 @@ function RequestCard({
                 </button>
               </div>
 
-              <p className={cn(t.meta, "text-white/55")}>
+              <p className={cn(t.meta, "text-[#B0B0B0]")}>
                 {/* Expectation-setting, so silence afterwards is not read as a
                     failure. This is the part of the model that is genuinely
                     unlike everything else they do on this app. */}
@@ -303,7 +303,7 @@ function RequestCard({
       </AnimatePresence>
 
       {r.expiresAt && (
-        <p className={cn(t.meta, "mt-3 inline-flex items-center gap-1.5 text-white/55")}>
+        <p className={cn(t.meta, "mt-3 inline-flex items-center gap-1.5 text-[#B0B0B0]")}>
           <Clock size={11} /> Closes {new Date(r.expiresAt).toLocaleString("en-GB", {
             weekday: "short",
             hour: "2-digit",
@@ -320,9 +320,9 @@ function Where({ label, place, note }: { label: string; place: string; note: str
     <div className="flex items-start gap-2">
       <MapPin size={13} className="mt-0.5 shrink-0 text-white/30" />
       <p className={cn(t.bodySm, "min-w-0 text-offwhite")}>
-        <span className="text-white/40">{label}: </span>
+        <span className="text-[#B0B0B0]">{label}: </span>
         {place}
-        {note && <span className="text-muted"> — {note}</span>}
+        {note && <span className="text-[#B0B0B0]"> — {note}</span>}
       </p>
     </div>
   );

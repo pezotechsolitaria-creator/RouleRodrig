@@ -85,11 +85,11 @@ const VEHICLE_ICON: Record<string, typeof Bike> = {
 };
 
 const TONE_CLASS = {
-  waiting: "bg-white/[0.06] text-muted",
+  waiting: "bg-white/[0.06] text-[#B0B0B0]",
   action: "bg-yellow text-dark",
   moving: "bg-yellow/15 text-yellow",
   done: "bg-emerald-500/15 text-emerald-300",
-  dead: "bg-white/[0.06] text-white/50",
+  dead: "bg-white/[0.06] text-[#B0B0B0]",
 } as const;
 
 export default function RequestTracker({
@@ -290,7 +290,7 @@ export default function RequestTracker({
     return (
       <div className={cn(recipe.cardButton, "cursor-default")}>
         <h1 className={cn(t.heading, "text-offwhite")}>Which email did you use?</h1>
-        <p className={cn(t.bodySm, "mt-2 text-muted")}>
+        <p className={cn(t.bodySm, "mt-2 text-[#B0B0B0]")}>
           This request was posted without an account, so we check the email against it
           before showing you anything.
         </p>
@@ -328,7 +328,7 @@ export default function RequestTracker({
       <div className={cn(recipe.cardButton, "cursor-default text-center")}>
         <AlertTriangle size={22} className="mx-auto text-white/40" />
         <h1 className={cn(t.heading, "mt-3 text-offwhite")}>We couldn&apos;t load this</h1>
-        <p className={cn(t.bodySm, "mt-2 text-muted")}>
+        <p className={cn(t.bodySm, "mt-2 text-[#B0B0B0]")}>
           Your request is safe — this is us, not you. Try again in a moment.
         </p>
         <button
@@ -358,7 +358,7 @@ export default function RequestTracker({
       <div className={cn(recipe.cardButton, "cursor-default text-center")}>
         <AlertTriangle size={22} className="mx-auto text-white/40" />
         <h1 className={cn(t.heading, "mt-3 text-offwhite")}>We couldn&apos;t find that request</h1>
-        <p className={cn(t.bodySm, "mt-2 text-muted")}>
+        <p className={cn(t.bodySm, "mt-2 text-[#B0B0B0]")}>
           The link may be wrong, or it was posted with a different email.
         </p>
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
@@ -369,7 +369,7 @@ export default function RequestTracker({
             Back to Deliver anything
           </Link>
         </div>
-        <p className={cn(t.meta, "mt-3 text-white/55")}>
+        <p className={cn(t.meta, "mt-3 text-[#B0B0B0]")}>
           Lost the link? Find it there with your reference and email.
         </p>
       </div>
@@ -427,10 +427,10 @@ export default function RequestTracker({
         {/* The thread back. A guest gets no email and cannot memorise a uuid,
             so without this on screen the only route to this page is a link they
             still happen to have open. */}
-        <p className={cn(t.meta, "mt-2 font-mono tracking-widest text-white/55")}>
+        <p className={cn(t.meta, "mt-2 font-mono tracking-widest text-[#B0B0B0]")}>
           {requestRef(view.id)}
         </p>
-        <p className={cn(t.body, "mt-2 text-muted")}>{status.detail}</p>
+        <p className={cn(t.body, "mt-2 text-[#B0B0B0]")}>{status.detail}</p>
         {/* ── The alert, exactly where it is worth something ──────────────
             A quote marketplace's whole value arrives MINUTES later. Without
             this the customer had to sit and watch the page poll, and the copy
@@ -448,7 +448,7 @@ export default function RequestTracker({
         )}
 
         {view.status === "open" && closes && (
-          <p className={cn(t.meta, "mt-3 inline-flex items-center gap-1.5 text-white/55")}>
+          <p className={cn(t.meta, "mt-3 inline-flex items-center gap-1.5 text-[#B0B0B0]")}>
             <Clock size={13} /> Drivers can quote until it closes {closes}
           </p>
         )}
@@ -462,7 +462,7 @@ export default function RequestTracker({
           </span>
           <div className="min-w-0">
             <p className={cn(t.cardTitle, "text-offwhite")}>{view.what}</p>
-            <p className={cn(t.meta, "mt-1 text-white/55")}>
+            <p className={cn(t.meta, "mt-1 text-[#B0B0B0]")}>
               {view.kind === "shop_and_deliver" ? "Buy & deliver" : "Collect & deliver"}
               {view.sizeClass === "large" && " · Large item"}
             </p>
@@ -517,7 +517,7 @@ export default function RequestTracker({
           type="button"
           onClick={withdraw}
           disabled={cancelling}
-          className={cn(t.bodySm, "self-start text-white/55 underline underline-offset-4 transition-colors hover:text-white/70 disabled:opacity-50")}
+          className={cn(t.bodySm, "self-start text-[#B0B0B0] underline underline-offset-4 transition-colors hover:text-[#B0B0B0] disabled:opacity-50")}
         >
           {cancelling
             ? "Cancelling…"
@@ -541,7 +541,7 @@ export default function RequestTracker({
       </AnimatePresence>
 
       {email && (
-        <p className={cn(t.meta, "text-white/55")}>
+        <p className={cn(t.meta, "text-[#B0B0B0]")}>
           Showing this request to {email}.
         </p>
       )}
@@ -556,9 +556,9 @@ function Leg({ label, place, note }: { label: string; place: string; note: strin
     <div className="flex items-start gap-3">
       <MapPin size={15} className="mt-0.5 shrink-0 text-white/30" />
       <div className="min-w-0">
-        <p className={cn(t.meta, "text-white/55")}>{label}</p>
+        <p className={cn(t.meta, "text-[#B0B0B0]")}>{label}</p>
         <p className={cn(t.bodySm, "text-offwhite")}>{place}</p>
-        {note && <p className={cn(t.meta, "mt-0.5 text-muted")}>{note}</p>}
+        {note && <p className={cn(t.meta, "mt-0.5 text-[#B0B0B0]")}>{note}</p>}
       </div>
     </div>
   );
@@ -581,7 +581,7 @@ function WaitingForQuotes() {
         </span>
         <p className={cn(t.bodySm, "text-offwhite")}>Drivers are being shown your job</p>
       </div>
-      <p className={cn(t.bodySm, "mt-3 text-muted")}>
+      <p className={cn(t.bodySm, "mt-3 text-[#B0B0B0]")}>
         {/* No invented statistic: not one request has ever been priced, so a
             number here would be a promise made up out of nothing. And no
             promise of a message, because nothing enrols this customer in any
@@ -611,7 +611,7 @@ function QuoteCard({
   return (
     <button type="button" onClick={onChoose} className={cn(recipe.cardButton, "group")}>
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.05] text-white/60">
+        <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.05] text-[#B0B0B0]">
           <Icon size={17} />
         </span>
 
@@ -624,7 +624,7 @@ function QuoteCard({
             </p>
           </div>
 
-          <p className={cn(t.meta, "mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-muted")}>
+          <p className={cn(t.meta, "mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[#B0B0B0]")}>
             {quote.vehicleType && <span className="capitalize">{quote.vehicleType}</span>}
             {quote.completed > 0 && (
               <>
@@ -644,7 +644,7 @@ function QuoteCard({
           </p>
 
           {quote.note && (
-            <p className={cn(t.bodySm, "mt-2 text-white/60")}>&ldquo;{quote.note}&rdquo;</p>
+            <p className={cn(t.bodySm, "mt-2 text-[#B0B0B0]")}>&ldquo;{quote.note}&rdquo;</p>
           )}
 
           {badge && (
@@ -663,7 +663,7 @@ function QuoteCard({
 
         <ChevronRight
           size={16}
-          className="mt-3 shrink-0 text-white/25 transition-transform group-hover:translate-x-0.5"
+          className="mt-3 shrink-0 text-[#B0B0B0] transition-transform group-hover:translate-x-0.5"
         />
       </div>
     </button>
@@ -775,7 +775,7 @@ function ConfirmSheet({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className={cn(t.heading, "text-offwhite")}>Book {quote.driverName}?</h2>
-              <p className={cn(t.bodySm, "mt-1 text-muted")}>
+              <p className={cn(t.bodySm, "mt-1 text-[#B0B0B0]")}>
                 They will be told straight away and will come for it.
               </p>
             </div>
@@ -784,7 +784,7 @@ function ConfirmSheet({
               onClick={onClose}
               disabled={busy}
               aria-label="Close"
-              className="-mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white/40 transition-colors hover:bg-white/5 hover:text-offwhite"
+              className="-mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#B0B0B0] transition-colors hover:bg-white/5 hover:text-offwhite"
             >
               <X size={17} />
             </button>
@@ -793,7 +793,7 @@ function ConfirmSheet({
           <dl className="mt-5 flex flex-col gap-2 rounded-xl bg-white/[0.03] p-4">
             {pay.lines.map((l) => (
               <div key={l.label} className="flex items-baseline justify-between gap-4">
-                <dt className={cn(t.bodySm, "text-muted")}>{l.label}</dt>
+                <dt className={cn(t.bodySm, "text-[#B0B0B0]")}>{l.label}</dt>
                 <dd className={cn(t.numeric, "text-sm text-offwhite")}>{l.value}</dd>
               </div>
             ))}
@@ -804,9 +804,9 @@ function ConfirmSheet({
               </dd>
             </div>
           </dl>
-          {pay.note && <p className={cn(t.meta, "mt-2 text-muted")}>{pay.note}</p>}
+          {pay.note && <p className={cn(t.meta, "mt-2 text-[#B0B0B0]")}>{pay.note}</p>}
 
-          <p className={cn(t.meta, "mt-4 flex items-start gap-2 text-white/55")}>
+          <p className={cn(t.meta, "mt-4 flex items-start gap-2 text-[#B0B0B0]")}>
             <ShieldCheck size={14} className="mt-px shrink-0 text-yellow/70" />
             You will get a 4-digit code. Read it out only once it is in your hands —
             it is what proves the delivery happened.
@@ -821,7 +821,7 @@ function ConfirmSheet({
             {busy && <Loader2 size={16} className="animate-spin" />}
             {busy ? "Booking…" : `Book for ${formatFee(quote.fee)}`}
           </button>
-          <p className={cn(t.meta, "mt-3 text-center text-white/55")}>
+          <p className={cn(t.meta, "mt-3 text-center text-[#B0B0B0]")}>
             The other prices are withdrawn once you book.
           </p>
         </div>
@@ -856,7 +856,7 @@ function BookedDriver({ view }: { view: RequestView }) {
           <span
             className={cn(
               "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
-              broken ? "bg-white/[0.06] text-white/50" : "bg-yellow text-dark",
+              broken ? "bg-white/[0.06] text-[#B0B0B0]" : "bg-yellow text-dark",
             )}
           >
             {broken ? <AlertTriangle size={19} /> : <Icon size={19} />}
@@ -865,7 +865,7 @@ function BookedDriver({ view }: { view: RequestView }) {
             <p className={cn(t.cardTitle, "truncate text-offwhite")}>
               {hasDriver ? d.driverName : leg.label}
             </p>
-            <p className={cn(t.meta, "text-muted")}>
+            <p className={cn(t.meta, "text-[#B0B0B0]")}>
               {hasDriver ? leg.label : "No driver on this job right now"}
             </p>
           </div>
@@ -883,7 +883,7 @@ function BookedDriver({ view }: { view: RequestView }) {
             </a>
           )}
         </div>
-        {leg.detail && <p className={cn(t.bodySm, "mt-3 text-muted")}>{leg.detail}</p>}
+        {leg.detail && <p className={cn(t.bodySm, "mt-3 text-[#B0B0B0]")}>{leg.detail}</p>}
       </div>
 
       {/* ── How far along ───────────────────────────────────────────────── */}
@@ -900,7 +900,7 @@ function BookedDriver({ view }: { view: RequestView }) {
                       "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors",
                       done && "border-yellow/50 bg-yellow/20 text-yellow",
                       now && "border-yellow bg-yellow text-dark",
-                      !done && !now && "border-white/12 text-white/25",
+                      !done && !now && "border-white/12 text-[#B0B0B0]",
                     )}
                   >
                     {done ? <Check size={12} /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
@@ -913,7 +913,7 @@ function BookedDriver({ view }: { view: RequestView }) {
                   className={cn(
                     t.bodySm,
                     "pb-5",
-                    now ? "font-semibold text-offwhite" : done ? "text-muted" : "text-white/55",
+                    now ? "font-semibold text-offwhite" : done ? "text-[#B0B0B0]" : "text-[#B0B0B0]",
                   )}
                 >
                   {legCopy(step).label}
@@ -931,7 +931,7 @@ function BookedDriver({ view }: { view: RequestView }) {
           <p className="mt-2 font-syne text-4xl font-extrabold tracking-[0.3em] text-offwhite">
             {d.pin}
           </p>
-          <p className={cn(t.bodySm, "mt-2 text-muted")}>
+          <p className={cn(t.bodySm, "mt-2 text-[#B0B0B0]")}>
             Read this out only when it is in your hands.
           </p>
         </div>
@@ -940,7 +940,7 @@ function BookedDriver({ view }: { view: RequestView }) {
       <dl className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-dark-card p-4">
         {pay.lines.map((l) => (
           <div key={l.label} className="flex items-baseline justify-between gap-4">
-            <dt className={cn(t.bodySm, "text-muted")}>{l.label}</dt>
+            <dt className={cn(t.bodySm, "text-[#B0B0B0]")}>{l.label}</dt>
             <dd className={cn(t.numeric, "text-sm text-offwhite")}>{l.value}</dd>
           </div>
         ))}
@@ -951,7 +951,7 @@ function BookedDriver({ view }: { view: RequestView }) {
           <dd className={cn(t.numeric, "font-syne text-base font-bold text-yellow")}>{pay.total}</dd>
         </div>
       </dl>
-      {pay.note && <p className={cn(t.meta, "-mt-3 text-muted")}>{pay.note}</p>}
+      {pay.note && <p className={cn(t.meta, "-mt-3 text-[#B0B0B0]")}>{pay.note}</p>}
     </section>
   );
 }

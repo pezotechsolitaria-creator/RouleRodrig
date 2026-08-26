@@ -55,31 +55,40 @@ export const surface = {
 } as const;
 
 export const border = {
+  /** Decorative separation only - a card edge, a divider. Non-text contrast
+   *  does not apply to something that is not a control boundary. */
   hairline: "border-white/10",
-  /** A card the user can act on. Slightly stronger, so it reads as a target. */
-  interactive: "border-white/[0.14]",
+  /** THE EDGE OF A CONTROL. WCAG 2.2 SC 1.4.11 Non-text Contrast wants 3:1 for
+   *  the boundary of an input, and border-white/10 is about 1.4:1 - a
+   *  dark-on-dark field whose edge nobody can find is the commonest dark-theme
+   *  failure. #6E6E6E measures 3.88:1 on #0a0a0a and 3.70:1 on #111111. */
+  interactive: "border-[#6E6E6E]",
   selected: "border-yellow/60",
   danger: "border-red-500/40",
 } as const;
 
+// -- GREYS ARE MEASURED, AND THERE ARE ONLY TWO ----------------------------
+// WCAG AA (4.5:1) is calibrated to roughly 20/40 acuity, which W3C describes as
+// "typical of elders at roughly age 80". This audience IS that calibration
+// point rather than comfortably inside it, so the order path is held to AAA.
+//
+//     #888888 (was)  5.58:1 on #0a0a0a   - AA, and only just
+//     #B0B0B0 (now)  9.13:1 on #0a0a0a   - AAA with room
+//     #6E6E6E        3.88:1              - control boundaries only, never text
+//
+// Opacity-derived text tokens are GONE. text-white/45 shipped here at 4.48:1
+// with a comment claiming it passed; a grey you cannot measure at a glance is
+// a grey that fails quietly. Everything below is a hex somebody can check.
 export const text = {
   primary: "text-offwhite",
-  /** Body copy and anything secondary. #888888 on #0a0a0a is 5.58:1 and on
-   *  #111111 is 5.33:1 — AA either way, and the reason it is not lighter is
-   *  that everything cannot be primary. */
-  secondary: "text-muted",
-  /** Deliberately NOT text-muted at reduced opacity. Dimming an already-dim
-   *  grey is how dark UIs fail contrast without anybody noticing -- which is
-   *  exactly what happened here: this was white/45, and white/45 composited
-   *  over #0a0a0a is 4.48:1. It FAILED AA by two hundredths while the comment
-   *  above it claimed otherwise. Measured, not eyeballed:
-   *
-   *      white/30  2.61     white/45  4.48  <- was here
-   *      white/35  3.15     white/55  6.28  <- is here
-   *      white/40  3.77     #888888   5.58  (text.secondary)
-   *
-   *  Anything below white/55 is for decoration only, never for words. */
-  faint: "text-white/55",
+  /** Body copy and anything secondary. 9.13:1 on #0a0a0a. */
+  secondary: "text-[#B0B0B0]",
+  /** Deliberately the SAME as secondary. There used to be a third, dimmer
+   *  grey for "less important" text - which on a surface built for people with
+   *  reduced contrast sensitivity is a distinction that costs legibility and
+   *  buys nothing. Two greys: what you read, and what you read slightly less.
+   *  Kept as a name so callers need not all change at once. */
+  faint: "text-[#B0B0B0]",
   accent: "text-yellow",
   danger: "text-red-400",
   onAccent: "text-dark",
@@ -112,21 +121,30 @@ export const text = {
 export const type = {
   /** Page title. One per screen. */
   display: "font-syne text-3xl font-extrabold leading-[1.1] tracking-tight md:text-4xl",
+  /** THE one question on a screen. Sentence case, never caps. */
+  question: "font-syne text-[26px] font-bold leading-[1.25]",
   /** Section heading inside a screen. */
   heading: "font-syne text-xl font-bold leading-snug",
   /** A card's own title. */
   cardTitle: "font-syne text-lg font-bold leading-snug",
-  /** The small tracked capitals above a section. A signpost, never a sentence —
-   *  Bebas has no lowercase worth reading at this size. */
-  eyebrow: "font-bebas text-[11px] tracking-[0.3em] uppercase",
-  /** Anything read to make a decision. 17px is the intensive-reading size for
-   *  57–70 year olds in Hou et al. (2020); it was 15px. */
-  body: "font-dm text-[17px] leading-relaxed",
-  bodySm: "font-dm text-[15px] leading-relaxed",
-  /** Field labels, hints, timestamps. 14px is the information-search floor from
-   *  the same review; it was 12px, which is where every label on the form sat.
-   *  Nothing below this may carry a word somebody needs. */
-  meta: "font-dm text-sm leading-normal",
+  /** The small tracked capitals above a section. A SIGNPOST of three words at
+   *  most, never a sentence and never a field label: condensed faces cost
+   *  ~11% more reading time and all-caps passages cost more again (NN/g). The
+   *  caps come from CSS uppercase, not from the string, so a reader who
+   *  overrides text-transform gets sentence case back. Raised 11px to 14px. */
+  eyebrow: "font-bebas text-sm tracking-[0.3em] uppercase",
+  /** Anything read to make a decision. 18px sits INSIDE the 13-14.5pt band Hou
+   *  et al. (2020) report for 57-70 year olds rather than at its floor. */
+  body: "font-dm text-[18px] leading-[1.5]",
+  /** A field label. The SAME size as body and never smaller - a label is not
+   *  secondary to the thing it labels. */
+  label: "font-dm text-[18px] font-semibold leading-[1.4]",
+  /** Per-question help, one line. */
+  bodySm: "font-dm text-[16px] leading-[1.5]",
+  /** The floor. NOTHING below 16px carries a word somebody needs. This was
+   *  12px, then 14px, and is now the same as help - the distinction between
+   *  "help" and "hint" was never worth a legibility step. */
+  meta: "font-dm text-[16px] leading-normal",
   /** Money and quantities. Tabular so a column of prices does not shimmer as it
    *  updates — the single most common polish failure in a checkout. */
   numeric: "font-dm tabular-nums",
@@ -183,12 +201,16 @@ export const elevation = {
 // WCAG 2.2 SC 2.5.8 (AA) asks 24x24 and SC 2.5.5 (AAA) asks 44x44. AAA is the
 // floor here, not the ceiling: reduced dexterity and tremor are common in the
 // cohort this is for, and every one of these targets is a whole decision.
+// Material puts its floor at 48dp (~9mm physical), and a measured study of
+// older users found their optimum target ~20mm against ~15mm for younger ones
+// - about 1.33x. Android dominates here, so 48 is the floor and the main path
+// gets more.
 export const touch = {
-  /** The AAA minimum. Only for controls that are not part of the main path. */
-  min: "min-h-11", // 44px — WCAG 2.5.5
-  comfortable: "min-h-14", // 56px — anything on the path to ordering
+  /** The floor. Only for controls off the main path. */
+  min: "min-h-12", // 48px - Material's accessibility minimum
+  comfortable: "min-h-14", // 56px - anything on the path to ordering
   /** The primary action. Big enough to hit without looking, in the sun. */
-  primary: "min-h-[60px]",
+  primary: "min-h-16", // 64px
 } as const;
 
 // ── MOTION ──────────────────────────────────────────────────────────────────

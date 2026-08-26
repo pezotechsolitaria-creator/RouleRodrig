@@ -61,7 +61,7 @@ export default function FindRequest() {
         onClick={() => setOpen(true)}
         className={cn(
           t.bodySm,
-          "mb-9 inline-flex items-center gap-1.5 text-muted underline underline-offset-4 transition-colors hover:text-offwhite",
+          "mb-9 inline-flex items-center gap-1.5 text-[#B0B0B0] underline underline-offset-4 transition-colors hover:text-offwhite",
         )}
       >
         <Search size={14} /> Already asked for prices? Find your request
@@ -72,14 +72,14 @@ export default function FindRequest() {
   return (
     <section className="mb-9 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
       <h2 className={cn(t.cardTitle, "text-offwhite")}>Find your request</h2>
-      <p className={cn(t.bodySm, "mt-1.5 text-muted")}>
+      <p className={cn(t.bodySm, "mt-1.5 text-[#B0B0B0]")}>
         The reference is on the request page, like RR-3F9A2B. We check it against the
         email you used, so neither one on its own opens anything.
       </p>
 
       <form className="mt-4 flex flex-col gap-3" onSubmit={submit}>
         <div>
-          <label htmlFor="find-ref" className={cn(t.meta, "mb-1.5 block text-muted")}>
+          <label htmlFor="find-ref" className={cn(t.meta, "mb-1.5 block text-[#B0B0B0]")}>
             Reference
           </label>
           <input
@@ -101,7 +101,7 @@ export default function FindRequest() {
         </div>
 
         <div>
-          <label htmlFor="find-email" className={cn(t.meta, "mb-1.5 block text-muted")}>
+          <label htmlFor="find-email" className={cn(t.meta, "mb-1.5 block text-[#B0B0B0]")}>
             The email you used
           </label>
           <input
