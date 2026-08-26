@@ -91,6 +91,13 @@ sentence with a test.
     driver is told        notifyQuoteAccepted()
     from here it is an ordinary delivery: advance_delivery(), PIN at the door.
 
+**Check this first if a submission fails.** `PhoneInput` hands back
+`formatInternational()` — `"+230 5712 3456"`, WITH SPACES. `/api/delivery-requests`
+and `delivery_requests.contact_phone` both enforce strict E.164, so the form
+400d on its last tap for everybody until M145. Most other endpoints (checkout
+included) never regex the phone, which is why only this surface broke. Parse
+with `toE164()` from `lib/phone.ts` before any strict-E.164 field.
+
 **The two bugs that keep recurring**
 
 - **A direct job has no `store_id` and no `order_id`.** Anything reading
@@ -143,6 +150,18 @@ sentence with a test.
 - **The reference is `RR-` + the first six hex of the request id** (M144), built
   identically in SQL and in `requestRef()`. Paired with the email it is the
   guest's way back in; alone it is worth nothing.
+- **A quote's id survives a re-price.** `offer_delivery_quote` UPDATES in place,
+  so the id on a customer's confirm sheet can carry a price they never saw.
+  `accept_delivery_quote` takes `p_expected_fee` and refuses a mismatch (M145),
+  and the notification dedupe key includes the fee or a price cut is swallowed.
+- **Never promise a message.** Nothing in this flow enrols a customer in any
+  channel — a guest has no push subscription and is deliberately not emailed.
+  A test walks every state and fails on "we will message you" or on any
+  statistic about our own speed. If enrolment is ever built, change that test
+  first.
+- **Contrast is measured, not eyeballed.** `text-white/45` over `#0a0a0a` is
+  4.48:1 and fails AA; the table is in `lib/delivery/tokens.ts`. Nothing below
+  `white/55` may carry words.
 
 ## Database migrations
 Applied with the Supabase MCP `apply_migration`, which is **transactional** — a
