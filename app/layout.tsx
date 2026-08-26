@@ -62,7 +62,8 @@ export async function generateMetadata(): Promise<Metadata> {
   try {
     const { getContent } = await import("@/lib/content");
     const content = await getContent();
-    if (content?.hero?.backgroundImage) shareImage = content.hero.backgroundImage;
+    if (content?.hero?.backgroundImage)
+      shareImage = content.hero.backgroundImage;
   } catch {
     /* keep the fallback — metadata must never be able to fail a page render */
   }
@@ -71,89 +72,91 @@ export async function generateMetadata(): Promise<Metadata> {
 
 function buildMetadata(shareImage: string): Metadata {
   return {
-  metadataBase: new URL(SITE_URL),
-  // NO `alternates.canonical` here. Next MERGES metadata down the tree, so a
-  // canonical set on the root layout is inherited by every page that does not
-  // override it — and most don't. Verified live before removal: /shop/<store>,
-  // /cart, /login and /manage-booking all emitted
-  // <link rel="canonical" href="https://roulerodrig.com">, i.e. every
-  // marketplace store and product page was telling Google it was a duplicate
-  // of the homepage and should be dropped from the index. The homepage now
-  // declares its own canonical in app/page.tsx; each page owns its own.
-  // 56 chars / 159 — the old pair was 67/186 and Google truncated BOTH, so the
-  // half that got cut never reached anyone.
-  //
-  // The old description named only scooters, cars and restaurants. That's why
-  // Google's AI Overview calls this "une plateforme de location de scooters":
-  // it can only describe what we tell it, and we never mentioned the trip
-  // planner, the island guide or the food concierge anywhere it could read.
-  // Everything claimed here is real and reachable from the homepage hub.
-  title: "Roule Rodrigues | Scooter & Car Rental, Rodrigues Island",
-  description:
-    "Scooter and car rental in Rodrigues from Rs 599/day, no minimum. Plus a free island guide, trip planner and WhatsApp food concierge. Booked direct with locals.",
-  keywords: [
-    "scooter rental Rodrigues",
-    "car rental Rodrigues",
-    "location scooter Rodrigues",
-    "location voiture Rodrigues",
-    "Rodrigues Island travel guide",
-    "things to do in Rodrigues",
-    "Rodrigues Island",
-    "Mauritius",
-  ],
-  openGraph: {
-    title: "Roule Rodrigues | Vehicle Rentals & Island Experiences",
+    metadataBase: new URL(SITE_URL),
+    // NO `alternates.canonical` here. Next MERGES metadata down the tree, so a
+    // canonical set on the root layout is inherited by every page that does not
+    // override it — and most don't. Verified live before removal: /shop/<store>,
+    // /cart, /login and /manage-booking all emitted
+    // <link rel="canonical" href="https://roulerodrig.com">, i.e. every
+    // marketplace store and product page was telling Google it was a duplicate
+    // of the homepage and should be dropped from the index. The homepage now
+    // declares its own canonical in app/page.tsx; each page owns its own.
+    // 56 chars / 159 — the old pair was 67/186 and Google truncated BOTH, so the
+    // half that got cut never reached anyone.
+    //
+    // The old description named only scooters, cars and restaurants. That's why
+    // Google's AI Overview calls this "une plateforme de location de scooters":
+    // it can only describe what we tell it, and we never mentioned the trip
+    // planner, the island guide or the food concierge anywhere it could read.
+    // Everything claimed here is real and reachable from the homepage hub.
+    title: "Roule Rodrigues | Scooter & Car Rental, Rodrigues Island",
     description:
-      "Discover Rodrigues on your own terms — scooters, cars, restaurants, activities and local transport. Flexible hours and local support.",
-    type: "website",
-    locale: "en_US",
-    siteName: "Roule Rodrigues",
-    images: [
-      {
-        url: shareImage,
-        width: 1200,
-        height: 630,
-        alt: "Roule Rodrigues — rent a scooter or car and explore Rodrigues Island",
-      },
+      "Scooter and car rental in Rodrigues from Rs 599/day, no minimum. Plus a free island guide, trip planner and WhatsApp food concierge. Booked direct with locals.",
+    keywords: [
+      "scooter rental Rodrigues",
+      "car rental Rodrigues",
+      "location scooter Rodrigues",
+      "location voiture Rodrigues",
+      "Rodrigues Island travel guide",
+      "things to do in Rodrigues",
+      "Rodrigues Island",
+      "Mauritius",
     ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Roule Rodrigues | Vehicle Rentals & Island Experiences",
-    description:
-      "Discover Rodrigues on your own terms — scooters, cars, restaurants, activities and local transport. Flexible hours, local support.",
-    images: [shareImage],
-  },
-  // Explicit icon set so Google shows the Roule Rodrigues logo beside the
-  // search result, not a generic globe. app/favicon.ico was the default Next.js
-  // "N" (25931 bytes) — now regenerated from the real logo at 16/32/48px. The
-  // .ico is listed first because Google's favicon crawler probes /favicon.ico
-  // before reading <link>. icon-192/512 cover higher-DPI and PWA use.
-  icons: {
-    icon: [
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
-      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
-    ],
-    apple: "/apple-icon.png",
-    shortcut: "/favicon.ico",
-  },
-  appleWebApp: {
-    capable: true,
-    title: "Roule Rodrigues",
-    statusBarStyle: "black-translucent",
-  },
-  // Search Console ownership is verified by DNS TXT record on roulerodrig.com
-  // (a Domain property, which covers www, non-www, http, https and every
-  // subdomain at once). The hardcoded meta tag that used to live here belonged
-  // to a Google account that isn't the owner's — it's what made the earlier
-  // verification attempt fail. Removed rather than left as a decoy.
-  //
-  // Only set NEXT_PUBLIC_GOOGLE_VERIFICATION if a URL-prefix property is ever
-  // needed alongside the DNS one; leave it unset otherwise.
-  ...(process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION
-    ? { verification: { google: process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION } }
-    : {}),
+    openGraph: {
+      title: "Roule Rodrigues | Vehicle Rentals & Island Experiences",
+      description:
+        "Discover Rodrigues on your own terms — scooters, cars, restaurants, activities and local transport. Flexible hours and local support.",
+      type: "website",
+      locale: "en_US",
+      siteName: "Roule Rodrigues",
+      images: [
+        {
+          url: shareImage,
+          width: 1200,
+          height: 630,
+          alt: "Roule Rodrigues — rent a scooter or car and explore Rodrigues Island",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "Roule Rodrigues | Vehicle Rentals & Island Experiences",
+      description:
+        "Discover Rodrigues on your own terms — scooters, cars, restaurants, activities and local transport. Flexible hours, local support.",
+      images: [shareImage],
+    },
+    // Explicit icon set so Google shows the Roule Rodrigues logo beside the
+    // search result, not a generic globe. app/favicon.ico was the default Next.js
+    // "N" (25931 bytes) — now regenerated from the real logo at 16/32/48px. The
+    // .ico is listed first because Google's favicon crawler probes /favicon.ico
+    // before reading <link>. icon-192/512 cover higher-DPI and PWA use.
+    icons: {
+      icon: [
+        { url: "/favicon.ico", sizes: "any" },
+        { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+        { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
+      ],
+      apple: "/apple-icon.png",
+      shortcut: "/favicon.ico",
+    },
+    appleWebApp: {
+      capable: true,
+      title: "Roule Rodrigues",
+      statusBarStyle: "black-translucent",
+    },
+    // Search Console ownership is verified by DNS TXT record on roulerodrig.com
+    // (a Domain property, which covers www, non-www, http, https and every
+    // subdomain at once). The hardcoded meta tag that used to live here belonged
+    // to a Google account that isn't the owner's — it's what made the earlier
+    // verification attempt fail. Removed rather than left as a decoy.
+    //
+    // Only set NEXT_PUBLIC_GOOGLE_VERIFICATION if a URL-prefix property is ever
+    // needed alongside the DNS one; leave it unset otherwise.
+    ...(process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION
+      ? {
+          verification: { google: process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION },
+        }
+      : {}),
   };
 }
 
@@ -165,15 +168,42 @@ export const viewport: Viewport = {
 // an installed iPhone PWA never shows a blank/black launch screen. Generated for
 // the common iPhone portrait resolutions.
 const IOS_SPLASH: { m: string; h: string }[] = [
-  { m: "(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)", h: "/splash/apple-splash-1290-2796.png" },
-  { m: "(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)", h: "/splash/apple-splash-1179-2556.png" },
-  { m: "(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)", h: "/splash/apple-splash-1284-2778.png" },
-  { m: "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)", h: "/splash/apple-splash-1170-2532.png" },
-  { m: "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)", h: "/splash/apple-splash-1242-2688.png" },
-  { m: "(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)", h: "/splash/apple-splash-1125-2436.png" },
-  { m: "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)", h: "/splash/apple-splash-828-1792.png" },
-  { m: "(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)", h: "/splash/apple-splash-750-1334.png" },
-  { m: "(device-width: 360px) and (device-height: 780px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)", h: "/splash/apple-splash-1080-2340.png" },
+  {
+    m: "(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)",
+    h: "/splash/apple-splash-1290-2796.png",
+  },
+  {
+    m: "(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)",
+    h: "/splash/apple-splash-1179-2556.png",
+  },
+  {
+    m: "(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)",
+    h: "/splash/apple-splash-1284-2778.png",
+  },
+  {
+    m: "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)",
+    h: "/splash/apple-splash-1170-2532.png",
+  },
+  {
+    m: "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)",
+    h: "/splash/apple-splash-1242-2688.png",
+  },
+  {
+    m: "(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)",
+    h: "/splash/apple-splash-1125-2436.png",
+  },
+  {
+    m: "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)",
+    h: "/splash/apple-splash-828-1792.png",
+  },
+  {
+    m: "(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)",
+    h: "/splash/apple-splash-750-1334.png",
+  },
+  {
+    m: "(device-width: 360px) and (device-height: 780px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)",
+    h: "/splash/apple-splash-1080-2340.png",
+  },
 ];
 
 export default async function RootLayout({
@@ -188,10 +218,18 @@ export default async function RootLayout({
     .filter((f) => (f.category ?? "scooter") === "scooter")
     .map((f) => priceNumber(f.price))
     .filter((n): n is number => n != null && n > 0);
-  const scooterDailyMur = scooterPrices.length ? Math.min(...scooterPrices) : undefined;
+  const scooterDailyMur = scooterPrices.length
+    ? Math.min(...scooterPrices)
+    : undefined;
   const tiData = {
-    beaches: content.mapLocations.filter((l) => l.category === "beach").slice(0, 3).map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
-    viewpoints: content.mapLocations.filter((l) => l.category === "viewpoint").slice(0, 3).map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
+    beaches: content.mapLocations
+      .filter((l) => l.category === "beach")
+      .slice(0, 3)
+      .map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
+    viewpoints: content.mapLocations
+      .filter((l) => l.category === "viewpoint")
+      .slice(0, 3)
+      .map((l) => ({ name: l.name, nameFr: l.nameFr, nameCr: l.nameCr })),
   };
 
   return (
@@ -223,7 +261,12 @@ export default async function RootLayout({
       <body className="bg-dark text-offwhite font-dm overflow-x-hidden pb-16 md:pb-0">
         {/* iOS PWA launch images (hoisted to <head> by React) */}
         {IOS_SPLASH.map((s) => (
-          <link key={s.h} rel="apple-touch-startup-image" media={s.m} href={s.h} />
+          <link
+            key={s.h}
+            rel="apple-touch-startup-image"
+            media={s.m}
+            href={s.h}
+          />
         ))}
         {/* ── Installed-app splash ─────────────────────────────────────
             Gate script runs before first paint: shows the splash only when
@@ -257,17 +300,39 @@ export default async function RootLayout({
         <div id="rr-splash" aria-hidden="true">
           <svg className="rr-sp-rings" viewBox="0 0 600 600" fill="none">
             {[70, 130, 190, 250, 310, 370].map((r) => (
-              <ellipse key={r} cx="300" cy="300" rx={r} ry={r * 0.82} stroke="#F5C842" strokeWidth="1" />
+              <ellipse
+                key={r}
+                cx="300"
+                cy="300"
+                rx={r}
+                ry={r * 0.82}
+                stroke="#F5C842"
+                strokeWidth="1"
+              />
             ))}
           </svg>
           <div className="rr-sp-particles" aria-hidden="true">
-            <i /><i /><i /><i /><i /><i /><i /><i /><i />
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
           </div>
           <div className="rr-sp-icon-wrap">
             <span className="rr-sp-burst" />
             <span className="rr-sp-glow" />
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="rr-sp-icon" src="/icon-192.png" alt="" width={104} height={104} />
+            <img
+              className="rr-sp-icon"
+              src="/icon-192.png"
+              alt=""
+              width={104}
+              height={104}
+            />
             <span className="rr-sp-shine" />
           </div>
           <p className="rr-sp-name">
@@ -286,14 +351,36 @@ export default async function RootLayout({
             <circle cx="204" cy="10" r="3.5" fill="#F5C842" />
           </svg>
           <div className="rr-sp-ocean" aria-hidden="true">
-            <svg className="rr-sp-wave-a" viewBox="0 0 2880 60" preserveAspectRatio="none">
-              <path d="M0,34 C240,14 480,54 720,34 C960,14 1200,54 1440,34 C1680,14 1920,54 2160,34 C2400,14 2640,54 2880,34" fill="none" stroke="#F5C842" strokeWidth="2.5" strokeLinecap="round" />
+            <svg
+              className="rr-sp-wave-a"
+              viewBox="0 0 2880 60"
+              preserveAspectRatio="none"
+            >
+              <path
+                d="M0,34 C240,14 480,54 720,34 C960,14 1200,54 1440,34 C1680,14 1920,54 2160,34 C2400,14 2640,54 2880,34"
+                fill="none"
+                stroke="#F5C842"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              />
             </svg>
-            <svg className="rr-sp-wave-b" viewBox="0 0 2880 60" preserveAspectRatio="none">
-              <path d="M0,30 C240,50 480,10 720,30 C960,50 1200,10 1440,30 C1680,50 1920,10 2160,30 C2400,50 2640,10 2880,30" fill="none" stroke="#F5C842" strokeWidth="1.5" strokeLinecap="round" />
+            <svg
+              className="rr-sp-wave-b"
+              viewBox="0 0 2880 60"
+              preserveAspectRatio="none"
+            >
+              <path
+                d="M0,30 C240,50 480,10 720,30 C960,50 1200,10 1440,30 C1680,50 1920,10 2160,30 C2400,50 2640,10 2880,30"
+                fill="none"
+                stroke="#F5C842"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
             </svg>
           </div>
-          <span className="rr-sp-bar"><span /></span>
+          <span className="rr-sp-bar">
+            <span />
+          </span>
           <span className="rr-sp-skip">TAP TO SKIP</span>
         </div>
 
@@ -304,23 +391,23 @@ export default async function RootLayout({
             query never sees. reducedMotion="user" makes every motion component
             in the tree honour the OS setting without touching a single one. */}
         <MotionProvider>
-        <LanguageProvider>
-          {/* The world is chosen inside the language provider because the
+          <LanguageProvider>
+            {/* The world is chosen inside the language provider because the
               gateway speaks all three languages, and above everything else
               because the choice colours the entire site. */}
-          <ExperienceWorldProvider>
-          <CurrencyProvider>
-            <FavoritesProvider>
-            <CartProvider>
-              <LanguagePicker />
-              {/* NO first-visit gateway. Removed on the owner's instruction:
+            <ExperienceWorldProvider>
+              <CurrencyProvider>
+                <FavoritesProvider>
+                  <CartProvider>
+                    <LanguagePicker />
+                    {/* NO first-visit gateway. Removed on the owner's instruction:
                   a full-screen question in front of the homepage taxes every
                   visitor to serve a preference most do not have yet. Everyone
                   starts in Authentic and discovers Curated from the switcher in
                   the header. components/world/ExperienceGateway is kept but
                   unmounted — see the note in that file. */}
-              <RefCapture />
-              {/* ── The announcement bar, finally connected ──────────────────
+                    <RefCapture />
+                    {/* ── The announcement bar, finally connected ──────────────────
                   Admin has been able to write one since long before this, and
                   every page passed announcementActive={false} hardcoded — so
                   the owner could compose a message, switch it on, and it
@@ -336,50 +423,57 @@ export default async function RootLayout({
                   It renders nothing at all unless the owner has ticked active
                   AND written a message, so a site with no announcement is
                   byte-identical to before. */}
-              <AnnouncementBar announcement={content.announcement} />
-              {children}
-              <ReturnWelcome />
-              <FavoritesPanel />
-              <BottomNav />
-              <GlobalTiRoule
-                image={content.branding.mascotImage}
-                poses={content.branding.mascotPoses}
-                whatsapp={content.contact.whatsappNumbers?.[0]?.number || content.social.whatsapp || content.contact.phone}
-                scooterDailyMur={scooterDailyMur}
-                data={tiData}
-              />
-              <PWARegister />
-              {/* Mounted ONCE, globally. Every toast outside /shop, /admin and
+                    <AnnouncementBar announcement={content.announcement} />
+                    {children}
+                    <ReturnWelcome />
+                    <FavoritesPanel />
+                    <BottomNav />
+                    <GlobalTiRoule
+                      image={content.branding.mascotImage}
+                      poses={content.branding.mascotPoses}
+                      whatsapp={
+                        content.contact.whatsappNumbers?.[0]?.number ||
+                        content.social.whatsapp ||
+                        content.contact.phone
+                      }
+                      scooterDailyMur={scooterDailyMur}
+                      data={tiData}
+                    />
+                    <PWARegister />
+                    {/* Mounted ONCE, globally. Every toast outside /shop, /admin and
                   /merchant was a silent no-op: checkout's "Order placed!", the
                   receipt uploader's confirmation and the cart conflict notices
                   all called toast() on routes where no Toaster existed. The
                   app/shop/layout.tsx copy documents fixing this for one
                   segment; this fixes it for the whole site. */}
-              <Toaster
-                position="top-center"
-                theme="dark"
-                toastOptions={{
-                  classNames: {
-                    toast: "bg-dark-card! border-white/10! text-offwhite! font-dm!",
-                    title: "text-offwhite!",
-                    description: "text-muted!",
-                    actionButton: "bg-yellow! text-dark!",
-                    cancelButton: "bg-white/10! text-offwhite!",
-                  },
-                }}
-              />
-            </CartProvider>
-            </FavoritesProvider>
-          </CurrencyProvider>
-          </ExperienceWorldProvider>
-        </LanguageProvider>
+                    <Toaster
+                      position="top-center"
+                      theme="dark"
+                      toastOptions={{
+                        classNames: {
+                          toast:
+                            "bg-dark-card! border-white/10! text-offwhite! font-dm!",
+                          title: "text-offwhite!",
+                          description: "text-muted!",
+                          actionButton: "bg-yellow! text-dark!",
+                          cancelButton: "bg-white/10! text-offwhite!",
+                        },
+                      }}
+                    />
+                  </CartProvider>
+                </FavoritesProvider>
+              </CurrencyProvider>
+            </ExperienceWorldProvider>
+          </LanguageProvider>
         </MotionProvider>
         <Analytics />
         <SpeedInsights />
         {/* Reloads a device that is running an older build than the server is
             serving. A stale device looks exactly like a bug, and diagnosing
             that from a screenshot has cost more time than any real defect. */}
-        <BuildWatcher commit={process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 8) ?? "dev"} />
+        <BuildWatcher
+          commit={process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 8) ?? "dev"}
+        />
       </body>
     </html>
   );

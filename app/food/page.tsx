@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Search, UtensilsCrossed, MessageCircle, ArrowLeft, SlidersHorizontal } from "lucide-react";
+import {
+  Search,
+  UtensilsCrossed,
+  MessageCircle,
+  ArrowLeft,
+  SlidersHorizontal,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
 import { getFoodHome, browseFood } from "@/lib/food/queries";
@@ -45,13 +51,21 @@ export const metadata: Metadata = {
   },
 };
 
-const first = (v: string | string[] | undefined): string => (Array.isArray(v) ? (v[0] ?? "") : (v ?? ""));
+const first = (v: string | string[] | undefined): string =>
+  Array.isArray(v) ? (v[0] ?? "") : (v ?? "");
 
-const chip = "shrink-0 rounded-full border px-3.5 py-2 font-dm text-xs font-medium transition-colors";
+const chip =
+  "shrink-0 rounded-full border px-3.5 py-2 font-dm text-xs font-medium transition-colors";
 const chipOn = `${chip} border-yellow/60 bg-yellow/15 text-yellow`;
 const chipOff = `${chip} border-white/10 bg-dark-card text-muted hover:border-white/25 hover:text-offwhite`;
 
-type Filters = { q: string; category: string; diet: string; sort: string; open: boolean };
+type Filters = {
+  q: string;
+  category: string;
+  diet: string;
+  sort: string;
+  open: boolean;
+};
 
 // Every control is a plain GET link or form: the URL is the whole state, so a
 // filtered menu is shareable, survives a refresh, and works before the JS has
@@ -77,13 +91,19 @@ export default async function FoodPage({
   const f: Filters = {
     q: first(sp.q).slice(0, 100),
     category: first(sp.category).slice(0, 60),
-    diet: (DIETARY_TAGS as readonly string[]).includes(first(sp.diet)) ? first(sp.diet) : "",
-    sort: ["recommended", "price_asc", "fastest", "newest"].includes(first(sp.sort))
+    diet: (DIETARY_TAGS as readonly string[]).includes(first(sp.diet))
+      ? first(sp.diet)
+      : "",
+    sort: ["recommended", "price_asc", "fastest", "newest"].includes(
+      first(sp.sort),
+    )
       ? first(sp.sort)
       : "recommended",
     open: first(sp.open) === "1",
   };
-  const searching = Boolean(f.q || f.category || f.diet || f.open || f.sort !== "recommended");
+  const searching = Boolean(
+    f.q || f.category || f.diet || f.open || f.sort !== "recommended",
+  );
 
   const supabase = await createClient();
   // The home payload is always fetched: even in search mode the page needs the
@@ -132,14 +152,20 @@ export default async function FoodPage({
               ? [
                   itemListLd(
                     "Food in Rodrigues",
-                    results.items.map((i) => ({ name: i.name, url: `${SITE_URL}/food/${i.slug}` })),
+                    results.items.map((i) => ({
+                      name: i.name,
+                      url: `${SITE_URL}/food/${i.slug}`,
+                    })),
                   ),
                 ]
               : home.rails[0]?.items.length
                 ? [
                     itemListLd(
                       "Food in Rodrigues",
-                      home.rails[0].items.map((i) => ({ name: i.name, url: `${SITE_URL}/food/${i.slug}` })),
+                      home.rails[0].items.map((i) => ({
+                        name: i.name,
+                        url: `${SITE_URL}/food/${i.slug}`,
+                      })),
                     ),
                   ]
                 : []),
@@ -148,7 +174,10 @@ export default async function FoodPage({
       )}
 
       <div className="mx-auto max-w-2xl lg:max-w-5xl">
-        <Link href="/" className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow"
+        >
           <ArrowLeft size={14} /> Home
         </Link>
 
@@ -158,7 +187,8 @@ export default async function FoodPage({
         </h1>
         {!empty && (
           <p className="mt-1 font-dm text-xs text-muted">
-            {home.dishCount} dish{home.dishCount === 1 ? "" : "es"} from island kitchens
+            {home.dishCount} dish{home.dishCount === 1 ? "" : "es"} from island
+            kitchens
             {home.kitchensOpen > 0 && <> · {home.kitchensOpen} cooking now</>}
           </p>
         )}
@@ -167,7 +197,12 @@ export default async function FoodPage({
           <EmptyLaunchState />
         ) : (
           <>
-            <form action="/food" method="get" role="search" className="mt-3 flex gap-2">
+            <form
+              action="/food"
+              method="get"
+              role="search"
+              className="mt-3 flex gap-2"
+            >
               <div className="relative flex-1">
                 <Search
                   size={16}
@@ -181,7 +216,9 @@ export default async function FoodPage({
                   className="w-full rounded-2xl border border-white/10 bg-dark-card py-3.5 pl-10 pr-4 font-dm text-sm text-offwhite placeholder:text-muted focus:border-yellow/50 focus:outline-none"
                 />
               </div>
-              {f.category && <input type="hidden" name="category" value={f.category} />}
+              {f.category && (
+                <input type="hidden" name="category" value={f.category} />
+              )}
               {f.diet && <input type="hidden" name="diet" value={f.diet} />}
               <button
                 type="submit"
@@ -206,13 +243,18 @@ export default async function FoodPage({
                 aria-label="Food categories"
                 className="mt-5 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
-                <Link href={foodHref(f, { category: "" })} className={f.category === "" ? chipOn : chipOff}>
+                <Link
+                  href={foodHref(f, { category: "" })}
+                  className={f.category === "" ? chipOn : chipOff}
+                >
                   Everything
                 </Link>
                 {home.categories.map((c) => (
                   <Link
                     key={c.slug}
-                    href={foodHref(f, { category: f.category === c.slug ? "" : c.slug })}
+                    href={foodHref(f, {
+                      category: f.category === c.slug ? "" : c.slug,
+                    })}
                     className={f.category === c.slug ? chipOn : chipOff}
                   >
                     <span aria-hidden>{c.emoji} </span>
@@ -223,17 +265,24 @@ export default async function FoodPage({
             )}
 
             <div className="mt-2.5 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <Link href={foodHref(f, { open: !f.open })} className={f.open ? chipOn : chipOff}>
+              <Link
+                href={foodHref(f, { open: !f.open })}
+                className={f.open ? chipOn : chipOff}
+              >
                 Ready now
               </Link>
               <Link
-                href={foodHref(f, { sort: f.sort === "fastest" ? "recommended" : "fastest" })}
+                href={foodHref(f, {
+                  sort: f.sort === "fastest" ? "recommended" : "fastest",
+                })}
                 className={f.sort === "fastest" ? chipOn : chipOff}
               >
                 Quickest
               </Link>
               <Link
-                href={foodHref(f, { sort: f.sort === "price_asc" ? "recommended" : "price_asc" })}
+                href={foodHref(f, {
+                  sort: f.sort === "price_asc" ? "recommended" : "price_asc",
+                })}
                 className={f.sort === "price_asc" ? chipOn : chipOff}
               >
                 Cheapest
@@ -245,15 +294,17 @@ export default async function FoodPage({
                   admin since the vocabulary shipped, but no customer could ever
                   filter for it — the tag existed and the way to find it did
                   not, which is the same as it not existing. */}
-              {(["halal", "vegetarian", "seafood", "gluten_free"] as const).map((tag) => (
-                <Link
-                  key={tag}
-                  href={foodHref(f, { diet: f.diet === tag ? "" : tag })}
-                  className={f.diet === tag ? chipOn : chipOff}
-                >
-                  {DIETARY_LABEL[tag]}
-                </Link>
-              ))}
+              {(["halal", "vegetarian", "seafood", "gluten_free"] as const).map(
+                (tag) => (
+                  <Link
+                    key={tag}
+                    href={foodHref(f, { diet: f.diet === tag ? "" : tag })}
+                    className={f.diet === tag ? chipOn : chipOff}
+                  >
+                    {DIETARY_LABEL[tag]}
+                  </Link>
+                ),
+              )}
             </div>
 
             {searching ? (
@@ -262,7 +313,9 @@ export default async function FoodPage({
               <div className="mt-8 space-y-9">
                 {home.rails.map((rail) => (
                   <section key={rail.key}>
-                    <h2 className="font-syne text-lg font-extrabold text-offwhite">{rail.title}</h2>
+                    <h2 className="font-syne text-lg font-extrabold text-offwhite">
+                      {rail.title}
+                    </h2>
                     {/* A SWIPE RAIL, AND THE PEEK IS THE POINT.
                         c7f03e7 read "half the next dish is off the edge" as a
                         bug and went to one full-width card per row. It is not a
@@ -277,7 +330,10 @@ export default async function FoodPage({
                         by making the cards enormous. */}
                     <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-pl-4 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] lg:grid lg:grid-cols-4 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
                       {rail.items.map((item, i) => (
-                        <div key={`${rail.key}-${item.id}`} className="lg:w-auto">
+                        <div
+                          key={`${rail.key}-${item.id}`}
+                          className="lg:w-auto"
+                        >
                           <FoodCard item={item} variant="rail" index={i} />
                         </div>
                       ))}
@@ -298,7 +354,8 @@ export default async function FoodPage({
 }
 
 function SearchResults({
-  filters, results,
+  filters,
+  results,
 }: {
   filters: Filters;
   results: { total: number; items: import("@/lib/food/types").FoodCard[] };
@@ -309,15 +366,20 @@ function SearchResults({
         <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow/10 text-yellow">
           <SlidersHorizontal size={20} />
         </span>
-        <p className="mt-4 font-syne text-lg font-bold text-offwhite">Nothing delicious matched that</p>
+        <p className="mt-4 font-syne text-lg font-bold text-offwhite">
+          Nothing delicious matched that
+        </p>
         <p className="mx-auto mt-2 max-w-sm font-dm text-sm text-muted">
           {filters.q ? (
             <>
-              Try a shorter word — &ldquo;fish&rdquo;, &ldquo;curry&rdquo;, &ldquo;ourite&rdquo; — or browse a
-              category above.
+              Try a shorter word — &ldquo;fish&rdquo;, &ldquo;curry&rdquo;,
+              &ldquo;ourite&rdquo; — or browse a category above.
             </>
           ) : (
-            <>Nothing is filed under those filters yet. Clear them to see the whole menu.</>
+            <>
+              Nothing is filed under those filters yet. Clear them to see the
+              whole menu.
+            </>
           )}
         </p>
         <Link
@@ -354,10 +416,12 @@ function EmptyLaunchState() {
       <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-yellow/10 text-yellow ring-1 ring-inset ring-yellow/20">
         <UtensilsCrossed size={26} />
       </span>
-      <h2 className="mt-5 font-syne text-2xl font-extrabold text-offwhite">We&apos;re between kitchens</h2>
+      <h2 className="mt-5 font-syne text-2xl font-extrabold text-offwhite">
+        We&apos;re between kitchens
+      </h2>
       <p className="mx-auto mt-3 max-w-md font-dm text-sm leading-relaxed text-muted">
-        Island cooks are joining one by one — ourite rougaille, grilled fish, Creole curries. Ordering
-        opens here the moment the first menu goes live.
+        Island cooks are joining one by one — ourite rougaille, grilled fish,
+        Creole curries. Ordering opens here the moment the first menu goes live.
       </p>
       <Link
         href="/food/concierge"
@@ -376,9 +440,13 @@ function ConciergeFooter() {
   return (
     <div className="mt-12 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-dark-card px-5 py-4">
       <p className="font-dm text-sm text-muted">
-        Want a <span className="text-offwhite">table at a restaurant</span> instead? A local books it for you.
+        Want a <span className="text-offwhite">table at a restaurant</span>{" "}
+        instead? A local books it for you.
       </p>
-      <Link href="/food/concierge" className="font-dm text-sm font-bold text-yellow hover:underline">
+      <Link
+        href="/food/concierge"
+        className="font-dm text-sm font-bold text-yellow hover:underline"
+      >
         Food concierge →
       </Link>
     </div>
