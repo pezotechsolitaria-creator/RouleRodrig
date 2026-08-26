@@ -3,6 +3,7 @@ import { SITE_URL } from "@/lib/site";
 import AppPageHeader from "@/components/AppPageHeader";
 import BookRide from "./BookRide";
 import { RIDE_SERVICES, type RideService } from "@/lib/rides/model";
+import BookingHeading from "@/app/taxi/book/BookingHeading";
 
 // ── ONE SCREEN FOR TAXI *AND* EVERY TRANSFER ────────────────────────────────
 //
@@ -50,21 +51,16 @@ export default async function BookRidePage({
           is the same defect /deliver had. */}
       <main className="min-h-[calc(100vh-3.5rem)] bg-dark px-4 pb-10 pt-3 text-offwhite">
         <div className="mx-auto max-w-lg">
-          <h1 className="font-syne text-base font-extrabold leading-tight text-offwhite md:text-3xl">
-            Book a ride
-          </h1>
-
           {/* ── THE REQUIRED CONTRACT, STATED ONCE ──────────────────────
               Not one field on this flow carried a mark, on a form that cannot
               price a ride without both ends of the journey. The mark is only
-              honest if something explains it, so it is explained here, once,
-              rather than repeated beside every field. */}
-          <p className="mt-1.5 font-dm text-[13px] leading-snug text-[#B0B0B0]">
-            <span className="font-bold text-red-400" aria-hidden="true">
-              *
-            </span>{" "}
-            = required, or we cannot price your ride.
-          </p>
+              honest if something explains it, so it is explained once here
+              rather than repeated beside every field.
+
+              A client component because this page is a server one, and these
+              two lines were the last English left on the screen after the
+              wizard itself was translated. */}
+          <BookingHeading />
 
           <div className="mt-3">
             <BookRide initialService={initial} />

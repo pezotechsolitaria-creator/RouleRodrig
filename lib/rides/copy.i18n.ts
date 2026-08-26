@@ -51,6 +51,10 @@ import type { Language } from "@/lib/i18n";
 
 const EN = {
   book: {
+    chrome: {
+      heading: "Book a ride",
+      requiredNote: "= required, or we cannot price your ride.",
+    },
     services: {
       taxi: {
         label: "Taxi",
@@ -241,6 +245,11 @@ export type RidesCopy = typeof EN;
 
 const FR: RidesCopy = {
   book: {
+    chrome: {
+      heading: "Réserver une course",
+      requiredNote:
+        "= obligatoire, sans quoi nous ne pouvons pas calculer votre prix.",
+    },
     services: {
       taxi: {
         label: "Taxi",
@@ -430,6 +439,10 @@ const FR: RidesCopy = {
 
 const CR: RidesCopy = {
   book: {
+    chrome: {
+      heading: "Rezerv enn kours",
+      requiredNote: "= obligatwar, sinon nou pa kapav kalkil ou pri.",
+    },
     services: {
       taxi: {
         label: "Taksi",

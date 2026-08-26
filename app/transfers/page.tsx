@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { SITE_URL } from "@/lib/site";
 import AppPageHeader from "@/components/AppPageHeader";
 import BookRide from "@/app/taxi/book/BookRide";
+import BookingHeading from "@/app/taxi/book/BookingHeading";
 
 // /transfers — the "planning ahead" half of getting around.
 //
@@ -74,16 +75,7 @@ export default function TransfersPage() {
 
       <main className="min-h-[calc(100vh-3.5rem)] bg-dark px-4 pb-10 pt-3 text-offwhite">
         <div className="mx-auto max-w-lg">
-          <h1 className="font-syne text-base font-extrabold leading-tight text-offwhite md:text-3xl">
-            Airport transfer
-          </h1>
-
-          <p className="mt-1.5 font-dm text-[13px] leading-snug text-[#B0B0B0]">
-            <span className="font-bold text-red-400" aria-hidden="true">
-              *
-            </span>{" "}
-            = required, or we cannot price your transfer.
-          </p>
+          <BookingHeading variant="transfer" />
 
           <div className="mt-3">
             <BookRide initialService="airport" initialDirection="from" />

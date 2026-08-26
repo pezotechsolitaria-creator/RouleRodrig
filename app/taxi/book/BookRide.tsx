@@ -27,6 +27,8 @@ import {
 import type { RidePlace } from "@/lib/rides/places";
 import { searchPlaces } from "@/lib/rides/places";
 import PlacePicker from "@/components/PlacePicker";
+import { useLanguage } from "@/context/LanguageContext";
+import { RIDES_COPY } from "@/lib/rides/copy.i18n";
 
 // ── THE CUSTOMER BOOKS THEIR OWN RIDE ───────────────────────────────────────
 //
@@ -59,9 +61,17 @@ const SERVICE_ICON: Record<RideService, React.ElementType> = {
   private: Crown,
 };
 
-// Airport and ferry runs have one end already known, so asking for it is
-// wasted work. WHICH end it is depends on the direction of travel.
-const FIXED_END: Partial<Record<RideService, string>> = {
+// ── THESE ARE SEARCH KEYS, NOT LABELS ──────────────────────────────
+// Airport and ferry runs have one end already known, so asking for it is wasted
+// work. WHICH end depends on the direction of travel.
+//
+// Each string below is passed to searchPlaces() to resolve real COORDINATES,
+// and matches `name` in lib/rides/places.ts exactly. quote_ride() refuses with
+// `need_locations` unless both ends carry lat/lng, so translating these would
+// not have produced a French label — it would have produced a ride nobody could
+// price, silently. They stay English forever. What the customer READS comes from
+// the dictionary, keyed by service.
+const FIXED_END_KEY: Partial<Record<RideService, string>> = {
   airport: "Plaine Corail Airport",
   ferry: "Port Mathurin ferry terminal",
 };
@@ -78,7 +88,7 @@ const FIXED_END: Partial<Record<RideService, string>> = {
  *
  * The database needed nothing for this: `service` stays "airport", and pickup
  * and drop-off carry the direction the way they always did. lib/rides/model.ts
- * already described both — "To or from Plaine Corail".
+ * already described both — c.services.airport.blurb.
  */
 export type RideDirection = "to" | "from";
 
@@ -101,6 +111,9 @@ export default function BookRide({
   /** "from" starts an ARRIVAL — what /transfers wants by default. */
   initialDirection?: RideDirection;
 }) {
+  const { language } = useLanguage();
+  const c = RIDES_COPY[language].book;
+
   const [direction, setDirection] = useState<RideDirection>(initialDirection);
   const [step, setStep] = useState(initialService === "taxi" ? 1 : 2);
   const [service, setService] = useState<RideService>(initialService);
@@ -126,20 +139,27 @@ export default function BookRide({
   } | null>(null);
 
   const meta = RIDE_SERVICE_META[service];
-  const fixedEnd = FIXED_END[service];
+  const fixedKey = FIXED_END_KEY[service];
+  // What the customer reads. Never the search key.
+  const fixedEndLabel =
+    service === "airport"
+      ? c.step2.fixedEnd.airport
+      : service === "ferry"
+        ? c.step2.fixedEnd.ferry
+        : "";
   // Which side the known place sits on. Everything else reads this.
-  const fixedIsPickup = Boolean(fixedEnd) && direction === "from";
-  const fixedIsDropoff = Boolean(fixedEnd) && direction === "to";
+  const fixedIsPickup = Boolean(fixedKey) && direction === "from";
+  const fixedIsDropoff = Boolean(fixedKey) && direction === "to";
 
   // The known end, filled in so nobody types it — onto whichever side the
   // direction puts it, and cleared off the other so a reversed journey cannot
   // keep the airport at both ends.
   useEffect(() => {
-    if (!fixedEnd) return;
-    const known = searchPlaces(fixedEnd)[0] ?? null;
+    if (!fixedKey) return;
+    const known = searchPlaces(fixedKey)[0] ?? null;
     const place = known ?? {
       id: "fixed",
-      name: fixedEnd,
+      name: fixedKey,
       area: "",
       lat: null,
       lng: null,
@@ -151,7 +171,7 @@ export default function BookRide({
       setDropoff(place);
       setPickup(null);
     }
-  }, [fixedEnd, direction]);
+  }, [fixedKey, direction]);
 
   // Re-quote whenever anything that changes the fare changes. Debounced, because a
   // customer stepping the passenger count from 1 to 6 should cost one request.
@@ -224,14 +244,14 @@ export default function BookRide({
       });
       const b = await r.json();
       if (!r.ok || !b.ok)
-        throw new Error(b.error || "Something went wrong. Please try again.");
+        // b.error is English prose from the route. A customer reading French
+        // cannot use it, and it is not actionable to them in any language, so
+        // the sentence they see is ours. The raw text still reaches the console.
+        if (b.error) console.warn("ride request refused:", b.error);
+      throw new Error(c.errors.generic);
       setDone({ reference: b.reference, price: b.price ?? null });
     } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "Something went wrong. Please try again.",
-      );
+      setError(e instanceof Error ? e.message : c.errors.generic);
     } finally {
       setBusy(false);
     }
@@ -245,14 +265,14 @@ export default function BookRide({
           <Check size={28} />
         </span>
         <h2 className="mt-4 font-syne text-2xl font-extrabold text-offwhite">
-          We&apos;re finding your driver
+          {c.done.heading}
         </h2>
         <p className="mt-2 font-dm text-sm text-muted">
           No need to call anyone. A driver will accept in the next few minutes
           and you&apos;ll see their name and number here.
         </p>
         <p className="mt-4 font-bebas text-[11px] tracking-[0.28em] text-yellow">
-          YOUR REFERENCE
+          {c.done.referenceEyebrow}
         </p>
         <p className="font-syne text-3xl font-extrabold text-offwhite">
           {done.reference}
@@ -266,7 +286,7 @@ export default function BookRide({
           href={`/taxi/track?ref=${encodeURIComponent(done.reference)}&phone=${encodeURIComponent(phone)}`}
           className="mt-6 flex items-center justify-center gap-2 rounded-2xl bg-yellow px-5 py-4 font-dm text-base font-bold text-dark"
         >
-          Follow my ride <ArrowRight size={18} />
+          {c.done.follow} <ArrowRight size={18} />
         </Link>
         <p className="mt-3 font-dm text-xs text-muted">
           Keep this reference. You&apos;ll need it and this phone number to
@@ -314,12 +334,11 @@ export default function BookRide({
       {step === 1 && (
         <div>
           <h2 className="font-syne text-xl font-extrabold text-offwhite">
-            What do you need?
+            {c.step1.heading}
           </h2>
           <div className="mt-4 space-y-2.5">
             {(Object.keys(RIDE_SERVICE_META) as RideService[]).map((s) => {
               const Icon = SERVICE_ICON[s];
-              const m = RIDE_SERVICE_META[s];
               return (
                 <button
                   key={s}
@@ -336,10 +355,10 @@ export default function BookRide({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block font-syne text-base font-bold text-offwhite">
-                      {m.label}
+                      {c.services[s].label}
                     </span>
                     <span className="block font-dm text-xs text-muted">
-                      {m.blurb}
+                      {c.services[s].blurb}
                     </span>
                   </span>
                   <ArrowRight size={18} className="shrink-0 text-muted" />
@@ -354,16 +373,16 @@ export default function BookRide({
       {step === 2 && (
         <div className="space-y-3">
           <h2 className="font-syne text-xl font-extrabold text-offwhite">
-            {meta.label}
+            {c.services[service].label}
           </h2>
 
           {/* ── WHICH WAY ─────────────────────────────────────────────────
               Two 48px halves, because an arrival and a departure are not the
               same journey and this flow could previously only say one of them. */}
-          {fixedEnd && (
+          {fixedKey && (
             <div
               role="group"
-              aria-label="Direction of travel"
+              aria-label={c.step2.directionGroupLabel}
               className="grid grid-cols-2 gap-2"
             >
               {(["from", "to"] as RideDirection[]).map((d) => {
@@ -380,8 +399,19 @@ export default function BookRide({
                         : "border-[#6E6E6E] text-offwhite"
                     }`}
                   >
-                    {d === "from" ? "From" : "To"} the{" "}
-                    {service === "ferry" ? "ferry" : "airport"}
+                    {/* Whole strings, one per combination. It read
+                        `{from|to} the {ferry|airport}` — four sentences glued
+                        from three fragments, which works in English and in no
+                        other language here: French needs "Depuis l'aéroport"
+                        but "Depuis le ferry", and the article elides for one
+                        and not the other. No amount of glue supplies that. */}
+                    {service === "ferry"
+                      ? d === "from"
+                        ? c.step2.direction.fromFerry
+                        : c.step2.direction.toFerry
+                      : d === "from"
+                        ? c.step2.direction.fromAirport
+                        : c.step2.direction.toAirport}
                   </button>
                 );
               })}
@@ -402,20 +432,20 @@ export default function BookRide({
               <MapPin size={18} className="shrink-0 text-yellow" />
               <span>
                 <span className="block font-bebas text-[10px] tracking-[0.22em] text-muted">
-                  PICKING YOU UP AT
+                  {c.step2.pickupFixedEyebrow}
                 </span>
                 <span className="block font-dm text-base text-offwhite">
-                  {fixedEnd}
+                  {fixedEndLabel}
                 </span>
               </span>
             </div>
           ) : (
             <PlacePicker
-              label="PICK ME UP AT"
+              label={c.step2.pickupLabel}
               icon={MapPin}
               value={pickup}
               onPick={setPickup}
-              placeholder="Hotel, beach, village…"
+              placeholder={c.step2.pickupPlaceholder}
               required
               autoOpen={!pickup}
             />
@@ -427,20 +457,20 @@ export default function BookRide({
               <Navigation size={18} className="shrink-0 text-yellow" />
               <span>
                 <span className="block font-bebas text-[10px] tracking-[0.22em] text-muted">
-                  GOING TO
+                  {c.step2.dropoffFixedEyebrow}
                 </span>
                 <span className="block font-dm text-base text-offwhite">
-                  {fixedEnd}
+                  {fixedEndLabel}
                 </span>
               </span>
             </div>
           ) : needsDropoff ? (
             <PlacePicker
-              label="TAKE ME TO"
+              label={c.step2.dropoffLabel}
               icon={Navigation}
               value={dropoff}
               onPick={setDropoff}
-              placeholder="Where are you going?"
+              placeholder={c.step2.dropoffPlaceholder}
               required
               // Waits its turn: a 64px row until pickup is answered.
               autoOpen={Boolean(pickup) && !dropoff}
@@ -451,9 +481,7 @@ export default function BookRide({
                dealt with, and a day hire has no answer to give — the customer
                was inventing a place just to get past the step. */
             <p className="rounded-2xl border border-white/10 bg-dark-card px-4 py-3.5 font-dm text-sm leading-snug text-muted">
-              Your driver stays with you — tell them where you would like to go
-              on the day. We will confirm the price with you; no charge until
-              you agree.
+              {c.step2.privateHireNote}
             </p>
           )}
 
@@ -463,14 +491,14 @@ export default function BookRide({
               onClick={() => setWhenKind("now")}
               className={`rounded-xl border px-3 py-3 font-dm text-sm ${whenKind === "now" ? "border-yellow bg-yellow/10 text-yellow" : "border-white/12 text-offwhite/80"}`}
             >
-              As soon as possible
+              {c.step3.summaryWhenNow}
             </button>
             <button
               type="button"
               onClick={() => setWhenKind("scheduled")}
               className={`rounded-xl border px-3 py-3 font-dm text-sm ${whenKind === "scheduled" ? "border-yellow bg-yellow/10 text-yellow" : "border-white/12 text-offwhite/80"}`}
             >
-              Book for later
+              {c.step2.whenLater}
             </button>
           </div>
           {whenKind === "scheduled" && (
@@ -478,14 +506,16 @@ export default function BookRide({
               type="datetime-local"
               value={when}
               onChange={(e) => setWhen(e.target.value)}
-              aria-label="When do you need it"
+              aria-label={c.step2.whenFieldLabel}
               className="w-full rounded-xl border border-white/12 bg-dark-card px-3 py-3 font-dm text-base text-offwhite focus:border-yellow/60 focus:outline-none"
             />
           )}
 
           <div className="grid grid-cols-2 gap-2">
             <Stepper
-              label="PEOPLE"
+              label={c.step2.passengersLabel}
+              fewerLabel={c.step2.fewerPassengers}
+              moreLabel={c.step2.morePassengers}
               icon={Users}
               value={passengers}
               setValue={setPassengers}
@@ -493,7 +523,9 @@ export default function BookRide({
               max={12}
             />
             <Stepper
-              label="BAGS"
+              label={c.step2.luggageLabel}
+              fewerLabel={c.step2.fewerLuggage}
+              moreLabel={c.step2.moreLuggage}
               icon={Luggage}
               value={luggage}
               setValue={setLuggage}
@@ -510,13 +542,19 @@ export default function BookRide({
                 className="block font-bebas text-[10px] tracking-[0.22em] text-muted"
                 htmlFor="flight"
               >
-                {service === "ferry" ? "FERRY OR BOAT NUMBER" : "FLIGHT NUMBER"}
+                {service === "ferry"
+                  ? c.step2.ferryRefLabel
+                  : c.step2.flightRefLabel}
               </label>
               <input
                 id="flight"
                 value={flightRef}
                 onChange={(e) => setFlightRef(e.target.value)}
-                placeholder={service === "ferry" ? "e.g. Anna M" : "e.g. MK034"}
+                placeholder={
+                  service === "ferry"
+                    ? "e.g. Anna M"
+                    : c.step2.flightRefPlaceholder
+                }
                 required
                 aria-describedby="flight-why"
                 aria-invalid={!flightRefOk}
@@ -531,8 +569,8 @@ export default function BookRide({
                 className="mt-1.5 font-dm text-xs leading-snug text-muted"
               >
                 {service === "ferry"
-                  ? "Your driver watches the boat, so they are there when it docks — not an hour early."
-                  : "Your driver watches the flight, so they are there when you land — even if you are delayed."}
+                  ? c.step2.ferryRefWhy
+                  : c.step2.flightRefWhy}
               </p>
               <label className="mt-3 flex items-center gap-2 font-dm text-sm text-offwhite/85">
                 <input
@@ -541,7 +579,7 @@ export default function BookRide({
                   onChange={(e) => setMeetGreet(e.target.checked)}
                   className="accent-yellow"
                 />
-                Wait for me inside with a sign
+                {c.step2.meetGreet}
               </label>
             </div>
           )}
@@ -554,7 +592,7 @@ export default function BookRide({
               onClick={() => setStep(1)}
               className="flex items-center gap-1.5 rounded-2xl border border-white/15 px-4 py-4 font-dm text-sm text-muted"
             >
-              <ArrowLeft size={16} /> Back
+              <ArrowLeft size={16} /> {c.cta.back}
             </button>
             <button
               type="button"
@@ -562,7 +600,7 @@ export default function BookRide({
               onClick={() => setStep(3)}
               className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-yellow py-4 font-dm text-base font-bold text-dark disabled:opacity-40"
             >
-              Continue <ArrowRight size={18} />
+              {c.cta.continue} <ArrowRight size={18} />
             </button>
           </div>
         </div>
@@ -572,48 +610,45 @@ export default function BookRide({
       {step === 3 && (
         <div className="space-y-3">
           <h2 className="font-syne text-xl font-extrabold text-offwhite">
-            Almost done
+            {c.step3.heading}
           </h2>
-          <p className="font-dm text-sm text-muted">
-            Your driver needs a name and a number to find you. No account, no
-            password.
-          </p>
+          <p className="font-dm text-sm text-muted">{c.step3.intro}</p>
 
-          <Field label="YOUR NAME">
+          <Field label={c.step3.nameLabel}>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoComplete="name"
               className={inputCls}
-              placeholder="e.g. Marie Perrine"
+              placeholder={c.step3.namePlaceholder}
             />
           </Field>
-          <Field label="YOUR PHONE">
+          <Field label={c.step3.phoneLabel}>
             <input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               inputMode="tel"
               autoComplete="tel"
               className={inputCls}
-              placeholder="+230 5XXX XXXX"
+              placeholder={c.step3.phonePlaceholder}
             />
           </Field>
-          <Field label="EMAIL (OPTIONAL)">
+          <Field label={c.step3.emailLabel}>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               inputMode="email"
               autoComplete="email"
               className={inputCls}
-              placeholder="you@example.com"
+              placeholder={c.step3.emailPlaceholder}
             />
           </Field>
-          <Field label="ANYTHING THE DRIVER SHOULD KNOW (OPTIONAL)">
+          <Field label={c.step3.notesLabel}>
             <input
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className={inputCls}
-              placeholder="e.g. baby seat, wheelchair, two stops"
+              placeholder={c.step3.notesPlaceholder}
             />
           </Field>
 
@@ -625,7 +660,7 @@ export default function BookRide({
             </p>
             <p className="mt-0.5 text-muted">
               {whenKind === "now"
-                ? "As soon as possible"
+                ? c.step2.whenNow
                 : new Date(when).toLocaleString("en-GB", {
                     timeZone: "Indian/Mauritius",
                   })}
@@ -661,11 +696,11 @@ export default function BookRide({
               ) : (
                 <Check size={20} />
               )}
-              Find me a driver
+              {c.cta.book}
             </button>
           </div>
           <p className="text-center font-dm text-xs text-muted">
-            You pay the driver directly. Nothing is charged here.
+            {c.step3.payNote}
           </p>
         </div>
       )}
@@ -697,6 +732,8 @@ function Field({
 // nobody over fifty can hit on a phone.
 function Stepper({
   label,
+  fewerLabel,
+  moreLabel,
   icon: Icon,
   value,
   setValue,
@@ -704,6 +741,9 @@ function Stepper({
   max,
 }: {
   label: string;
+  /** Whole sentences, not "Fewer " + label. French needs the partitive. */
+  fewerLabel: string;
+  moreLabel: string;
   icon: React.ElementType;
   value: number;
   setValue: (n: number) => void;
@@ -718,7 +758,7 @@ function Stepper({
       <div className="mt-1.5 flex items-center justify-between">
         <button
           type="button"
-          aria-label={`Fewer ${label.toLowerCase()}`}
+          aria-label={fewerLabel}
           onClick={() => setValue(Math.max(min, value - 1))}
           className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/15 font-syne text-xl text-offwhite"
         >
@@ -729,7 +769,7 @@ function Stepper({
         </span>
         <button
           type="button"
-          aria-label={`More ${label.toLowerCase()}`}
+          aria-label={moreLabel}
           onClick={() => setValue(Math.min(max, value + 1))}
           className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/15 font-syne text-xl text-offwhite"
         >
@@ -747,11 +787,13 @@ function PriceCard({
   quote: Quote | null;
   quoting: boolean;
 }) {
+  const { language } = useLanguage();
+  const c = RIDES_COPY[language].book;
   if (quoting && !quote) {
     return (
       <div className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-dark-card py-5 font-dm text-sm text-muted">
-        <Loader2 size={15} className="animate-spin text-yellow" /> Working out
-        the price…
+        <Loader2 size={15} className="animate-spin text-yellow" />{" "}
+        {c.price.working}
       </div>
     );
   }
@@ -766,9 +808,7 @@ function PriceCard({
           <PhoneCall size={15} className="text-yellow" />
           {quote.message ?? "We'll confirm the price with you."}
         </p>
-        <p className="mt-1 font-dm text-xs text-muted">
-          Nothing is charged until you agree.
-        </p>
+        <p className="mt-1 font-dm text-xs text-muted">{c.price.noCharge}</p>
       </div>
     );
   }
@@ -776,7 +816,7 @@ function PriceCard({
   return (
     <div className="rounded-2xl border border-yellow/30 bg-yellow/[0.07] px-5 py-4 text-center">
       <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">
-        YOUR FARE
+        {c.price.eyebrow}
       </p>
       <p className="font-syne text-3xl font-extrabold text-offwhite">
         {formatRidePrice(quote.price, quote.currency)}
@@ -788,10 +828,12 @@ function PriceCard({
             <Clock size={11} /> ~{quote.tripMinutes} min
           </span>
         )}
-        {quote.night && <span className="text-yellow/90">night rate</span>}
+        {quote.night && (
+          <span className="text-yellow/90">{c.price.nightRate}</span>
+        )}
       </p>
       <p className="mt-1.5 font-dm text-xs text-muted">
-        Paid directly to your driver
+        {c.price.paidToDriver}
       </p>
     </div>
   );
