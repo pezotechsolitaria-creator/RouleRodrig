@@ -29,6 +29,9 @@ export type PaymentFacts = {
   collectCash?: number | null;
   paymentMethod?: string | null;
   paymentProofAt?: string | null;
+  /** M158. Cash jobs wait on the customer's ID the way transfers wait on a
+   *  receipt — same gate, same screen, different document. */
+  idDocumentAt?: string | null;
 };
 
 /**
@@ -64,6 +67,16 @@ export function canStartDelivery(
   d: PaymentFacts & { status: string },
 ): boolean {
   if (d.status !== "assigned") return true;
-  if (d.paymentMethod !== "bank_transfer") return true;
-  return Boolean(d.paymentProofAt);
+  if (d.paymentMethod === "bank_transfer") return Boolean(d.paymentProofAt);
+  if (d.paymentMethod === "cash") return Boolean(d.idDocumentAt);
+  // No method recorded: every delivery predating M155. Unchanged behaviour.
+  return true;
+}
+
+/** What the job is waiting on, if anything. Drives the wording, not the gate. */
+export function waitingOn(
+  d: PaymentFacts & { status: string },
+): "receipt" | "id" | null {
+  if (canStartDelivery(d)) return null;
+  return d.paymentMethod === "bank_transfer" ? "receipt" : "id";
 }

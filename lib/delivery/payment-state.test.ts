@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { canStartDelivery, paymentCardState } from "./payment-state";
+import {
+  canStartDelivery,
+  paymentCardState,
+  waitingOn,
+} from "./payment-state";
 
 const PROOF = "2026-08-27T09:00:00Z";
 
@@ -52,9 +56,12 @@ describe("the start gate, mirroring advance_delivery()", () => {
     ).toBe(true);
   });
 
-  it("never holds a cash job", () => {
-    expect(canStartDelivery({ status: "assigned", paymentMethod: "cash" })).toBe(true);
-    // And never holds a job from before payment methods existed.
+  it("never holds a job from before payment methods existed", () => {
+    // This test used to read "never holds a cash job", and M158 deliberately
+    // changed that: a cash job now waits on the customer's ID, exactly as a
+    // transfer waits on a receipt. The half that has NOT changed, and must not,
+    // is the null-method case — every delivery predating M155 — which was never
+    // asked to carry a document and would otherwise be frozen.
     expect(canStartDelivery({ status: "assigned", paymentMethod: null })).toBe(true);
     expect(canStartDelivery({ status: "assigned" })).toBe(true);
   });
@@ -86,5 +93,55 @@ describe("the start gate, mirroring advance_delivery()", () => {
     expect(paymentCardState(held)).toBe("awaiting");
     expect(canStartDelivery(ok)).toBe(true);
     expect(paymentCardState(ok)).toBe("settled");
+  });
+});
+
+describe("a cash job waits on the customer's ID (M158)", () => {
+  const ID = "2026-08-27T10:00:00Z";
+
+  it("holds an assigned cash job until the ID arrives", () => {
+    expect(canStartDelivery({ status: "assigned", paymentMethod: "cash" })).toBe(false);
+    expect(
+      canStartDelivery({ status: "assigned", paymentMethod: "cash", idDocumentAt: ID }),
+    ).toBe(true);
+  });
+
+  it("does NOT hold a job from before payment methods existed", () => {
+    // Every delivery predating M155 has a null method. Gating those would stop
+    // work that was never asked to carry a document.
+    expect(canStartDelivery({ status: "assigned", paymentMethod: null })).toBe(true);
+    expect(canStartDelivery({ status: "assigned" })).toBe(true);
+  });
+
+  it("does not confuse the two documents", () => {
+    // A receipt on a cash job is not an ID, and an ID on a transfer is not a
+    // receipt. Each method waits on its own.
+    expect(
+      canStartDelivery({ status: "assigned", paymentMethod: "cash", paymentProofAt: ID }),
+    ).toBe(false);
+    expect(
+      canStartDelivery({ status: "assigned", paymentMethod: "bank_transfer", idDocumentAt: ID }),
+    ).toBe(false);
+  });
+
+  it("gates only the first transition, like the receipt", () => {
+    for (const status of ["going_to_pickup", "picked_up", "out_for_delivery", "arrived"]) {
+      expect(canStartDelivery({ status, paymentMethod: "cash" }), status).toBe(true);
+    }
+  });
+
+  it("names WHICH document is missing, so the card can say so", () => {
+    expect(waitingOn({ status: "assigned", paymentMethod: "cash" })).toBe("id");
+    expect(waitingOn({ status: "assigned", paymentMethod: "bank_transfer" })).toBe("receipt");
+    expect(waitingOn({ status: "assigned", paymentMethod: "cash", idDocumentAt: ID })).toBeNull();
+    expect(waitingOn({ status: "picked_up", paymentMethod: "cash" })).toBeNull();
+  });
+
+  it("still shows the cash amount while the ID is outstanding", () => {
+    // The gate and the card are separate questions: the driver is held, and
+    // they still need to know what they will be collecting when they go.
+    expect(
+      paymentCardState({ collectCash: 25000, paymentMethod: "cash", idDocumentAt: null }),
+    ).toBe("cash");
   });
 });

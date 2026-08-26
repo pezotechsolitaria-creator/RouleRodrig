@@ -134,6 +134,8 @@ type RequestView = {
     paymentMethod: string | null;
     paymentProofAt: string | null;
     paymentReference: string | null;
+    /** M158. WHETHER the ID landed, never where it is. */
+    idDocumentAt: string | null;
   } | null;
 };
 
@@ -709,6 +711,21 @@ export default function RequestTracker({
           Shown only while it is actually outstanding, and it is the one thing
           on this screen holding the delivery up — so it sits directly under
           the driver who is waiting for it. */}
+      {/* ── The ID, on a cash job ────────────────────────────────────────
+          Asked for by the owner, twice, having read the case against it. What
+          is built around it is the part that makes it survivable: it goes to
+          its own private bucket, it is readable only by the driver currently
+          holding the job and only until the job ends, and it is DELETED after
+          the retention window. See M158 and /api/cron/purge-documents. */}
+      {view.delivery?.paymentMethod === "cash" && (
+        <IdDocument
+          requestId={view.id}
+          email={email}
+          attachedAt={view.delivery.idDocumentAt}
+          onDone={() => void load()}
+        />
+      )}
+
       {view.delivery?.paymentMethod === "bank_transfer" && (
         <PaymentProof
           requestId={view.id}
@@ -1477,6 +1494,157 @@ function PaymentProof({
       >
         {busy && <Loader2 size={16} className="animate-spin" />}
         {busy ? "Sending…" : "I have sent the money"}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * A photograph of the customer's identity card, for a cash delivery.
+ *
+ * ── SAYING WHY, BEFORE ASKING ─────────────────────────────────────────────
+ * This is the largest thing this flow asks anybody for, and the one most
+ * likely to end a session. So the panel leads with the reason, names exactly
+ * who will look at it, and says when it is deleted — in that order, before the
+ * button. A request for a government document with no explanation attached is
+ * one people are right to refuse.
+ *
+ * The delete date is not decoration: delivery_settings.id_document_retention_days
+ * and a nightly purge make it true.
+ */
+function IdDocument({
+  requestId,
+  email,
+  attachedAt,
+  onDone,
+}: {
+  requestId: string;
+  email: string;
+  attachedAt: string | null;
+  onDone: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  if (attachedAt) {
+    return (
+      <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.06] p-4">
+        <p className={cn(t.bodySm, "flex items-start gap-2.5 text-offwhite")}>
+          <Check
+            size={18}
+            className="mt-0.5 shrink-0 text-emerald-300"
+            aria-hidden
+          />
+          ID received. Your driver can start now.
+        </p>
+      </div>
+    );
+  }
+
+  async function send() {
+    if (!file || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      if (email) fd.append("email", email);
+      const up = await fetch(
+        `/api/delivery-requests/${requestId}/id-document`,
+        {
+          method: "POST",
+          body: fd,
+        },
+      );
+      const upJson = (await up.json()) as { path?: string; error?: string };
+      if (!up.ok || !upJson.path) {
+        setError(upJson.error ?? "Could not send that. Please try again.");
+        return;
+      }
+      const res = await fetch(`/api/delivery-requests/${requestId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "attachId",
+          path: upJson.path,
+          email: email || undefined,
+        }),
+      });
+      const json = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        setError(json.error ?? "Could not attach that.");
+        return;
+      }
+      toast.success("ID received.");
+      onDone();
+    } catch {
+      setError("Network problem — check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-yellow/40 bg-yellow/[0.05] p-4">
+      <h3 className={cn(t.cardTitle, "text-offwhite")}>
+        Send a photo of your ID
+        <span className="font-bold text-red-400" aria-hidden>
+          {" *"}
+        </span>
+      </h3>
+      {/* The reason, who sees it, and when it goes — before the button. */}
+      <p className={cn(t.bodySm, "mt-1.5 text-[#B0B0B0]")}>
+        For cash payments we ask for your ID. Only the driver bringing this
+        delivery can see it, only until it arrives, and it is deleted 30 days
+        later.
+      </p>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        capture="environment"
+        className="sr-only"
+        aria-label="Take a photo of your ID"
+        onChange={(e) => {
+          const f = e.target.files?.[0] ?? null;
+          setError(null);
+          if (f && f.size > 4 * 1024 * 1024) {
+            setError("That photo is too large — the limit is 4 MB.");
+            return;
+          }
+          setFile(f);
+        }}
+      />
+
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="mt-3 flex min-h-14 w-full items-center justify-center gap-2.5 rounded-xl border border-[#6E6E6E] px-4 font-dm text-[16px] text-offwhite"
+      >
+        <UploadCloud size={18} aria-hidden />
+        {file ? file.name.slice(0, 34) : "Take a photo of your ID"}
+      </button>
+
+      {error && (
+        <p role="alert" className={cn(t.bodySm, "mt-2 text-red-400")}>
+          {error}
+        </p>
+      )}
+
+      <button
+        type="button"
+        onClick={() => void send()}
+        disabled={!file || busy}
+        className={cn(
+          recipe.primaryAction,
+          "mt-3 inline-flex items-center justify-center gap-2",
+        )}
+      >
+        {busy && <Loader2 size={16} className="animate-spin" />}
+        {busy ? "Sending…" : "Send it"}
       </button>
     </div>
   );

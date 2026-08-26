@@ -61,6 +61,11 @@ const schema = z.discriminatedUnion("action", [
     email: z.string().trim().toLowerCase().email().max(254).optional(),
   }),
   z.object({
+    action: z.literal("attachId"),
+    email: z.string().trim().email().max(200).optional(),
+    path: z.string().trim().max(300),
+  }),
+  z.object({
     action: z.literal("attachProof"),
     email: z.string().trim().email().max(200).optional(),
     // A path this server minted during the upload. Validated AGAIN in SQL
@@ -75,9 +80,13 @@ const schema = z.discriminatedUnion("action", [
   }),
 ]);
 
-const NOT_FOUND = "We couldn't find that request. Check the link and the email you used.";
+const NOT_FOUND =
+  "We couldn't find that request. Check the link and the email you used.";
 
-export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function POST(
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> },
+) {
   const { id } = await ctx.params;
   if (!z.string().uuid().safeParse(id).success) {
     return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
@@ -131,26 +140,36 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   // A guest cannot reach any of these RPCs without the key.
   if (!user && !hasServiceRole()) {
     console.error("delivery-requests/[id]: SUPABASE_SERVICE_ROLE_KEY missing");
-    return NextResponse.json({ error: "This is temporarily unavailable." }, { status: 503 });
+    return NextResponse.json(
+      { error: "This is temporarily unavailable." },
+      { status: 503 },
+    );
   }
 
   if (v.action === "view") {
     // The session path first. It needs no email and cannot be pointed at
     // somebody else's request.
     if (user) {
-      const { data, error } = await supabase.rpc("delivery_request_view", { p_id: id });
+      const { data, error } = await supabase.rpc("delivery_request_view", {
+        p_id: id,
+      });
       if (error) {
         console.error("delivery_request_view failed", error);
-        return NextResponse.json({ error: "Could not load that request." }, { status: 500 });
+        return NextResponse.json(
+          { error: "Could not load that request." },
+          { status: 500 },
+        );
       }
       if (data) return NextResponse.json({ request: data });
       // Not theirs by account — but a request posted as a GUEST before they
       // signed in still belongs to them in every sense that matters. Falling
       // through to the email path is what stops signing in from losing it.
-      if (!v.email) return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
+      if (!v.email)
+        return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
     }
 
-    if (!v.email) return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
+    if (!v.email)
+      return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
     const admin = await getPrivileged();
     const { data, error } = await admin.rpc("delivery_request_view", {
       p_id: id,
@@ -158,7 +177,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     });
     if (error) {
       console.error("delivery_request_view (guest) failed", error);
-      return NextResponse.json({ error: "Could not load that request." }, { status: 500 });
+      return NextResponse.json(
+        { error: "Could not load that request." },
+        { status: 500 },
+      );
     }
     if (!data) return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
     return NextResponse.json({ request: data });
@@ -173,14 +195,40 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       p_request_id: id,
       p_rating: v.rating,
       p_body: v.body ?? null,
-      p_email: user ? null : v.email ?? null,
+      p_email: user ? null : (v.email ?? null),
     });
     if (error) {
       if (error.code === SAFE_RPC_ERROR) {
         return NextResponse.json({ error: error.message }, { status: 409 });
       }
       console.error("rate_delivery_driver failed", error);
-      return NextResponse.json({ error: "Could not save your rating." }, { status: 500 });
+      return NextResponse.json(
+        { error: "Could not save your rating." },
+        { status: 500 },
+      );
+    }
+    if (!data) return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (v.action === "attachId") {
+    // Ownership, "this one is by transfer" and "already under way" all live in
+    // the RPC. Same guest split as everything else here.
+    const client = user ? supabase : await getPrivileged();
+    const { data, error } = await client.rpc("attach_delivery_id_document", {
+      p_request_id: id,
+      p_path: v.path,
+      p_email: user ? null : (v.email ?? null),
+    });
+    if (error) {
+      if (error.code === SAFE_RPC_ERROR) {
+        return NextResponse.json({ error: error.message }, { status: 409 });
+      }
+      console.error("attach_delivery_id_document failed", error);
+      return NextResponse.json(
+        { error: "Could not attach that." },
+        { status: 500 },
+      );
     }
     if (!data) return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
     return NextResponse.json({ ok: true });
@@ -194,7 +242,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       p_request_id: id,
       p_path: v.path,
       p_reference: v.reference ?? null,
-      p_email: user ? null : v.email ?? null,
+      p_email: user ? null : (v.email ?? null),
     });
     if (error) {
       if (error.code === SAFE_RPC_ERROR) {
@@ -214,7 +262,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const client = user ? supabase : await getPrivileged();
     const { data, error } = await client.rpc("cancel_delivery_request", {
       p_id: id,
-      p_email: user ? null : v.email ?? null,
+      p_email: user ? null : (v.email ?? null),
       p_reason: v.reason ?? null,
     });
     if (error) {
@@ -222,7 +270,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         return NextResponse.json({ error: error.message }, { status: 409 });
       }
       console.error("cancel_delivery_request failed", error);
-      return NextResponse.json({ error: "Could not withdraw that request." }, { status: 500 });
+      return NextResponse.json(
+        { error: "Could not withdraw that request." },
+        { status: 500 },
+      );
     }
     // The RPC answers false for "not yours" and for "no such request" alike —
     // deliberately indistinguishable, so this stays a non-oracle.
@@ -261,38 +312,51 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   let deliveryId: string | null = null;
 
   if (user) {
-    const { data, error } = await supabase.rpc("customer_accept_delivery_quote", {
-      p_quote_id: v.quoteId,
-      p_expected_fee: v.expectedFee ?? null,
-      p_payment_method: v.paymentMethod,
-    });
+    const { data, error } = await supabase.rpc(
+      "customer_accept_delivery_quote",
+      {
+        p_quote_id: v.quoteId,
+        p_expected_fee: v.expectedFee ?? null,
+        p_payment_method: v.paymentMethod,
+      },
+    );
     if (!error) {
       deliveryId = data as string;
     } else if (error.code === SAFE_RPC_ERROR && v.email) {
       // Posted as a guest, accepted while signed in.
       const admin = await getPrivileged();
-      const { data: g, error: gErr } = await admin.rpc("guest_accept_delivery_quote", {
-        p_quote_id: v.quoteId,
-        p_email: v.email,
-        p_expected_fee: v.expectedFee ?? null,
-      p_payment_method: v.paymentMethod,
-      });
+      const { data: g, error: gErr } = await admin.rpc(
+        "guest_accept_delivery_quote",
+        {
+          p_quote_id: v.quoteId,
+          p_email: v.email,
+          p_expected_fee: v.expectedFee ?? null,
+          p_payment_method: v.paymentMethod,
+        },
+      );
       if (gErr) {
         if (gErr.code === SAFE_RPC_ERROR) {
           return NextResponse.json({ error: gErr.message }, { status: 409 });
         }
         console.error("guest_accept_delivery_quote failed", gErr);
-        return NextResponse.json({ error: "Could not book that driver." }, { status: 500 });
+        return NextResponse.json(
+          { error: "Could not book that driver." },
+          { status: 500 },
+        );
       }
       deliveryId = g as string;
     } else if (error.code === SAFE_RPC_ERROR) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     } else {
       console.error("customer_accept_delivery_quote failed", error);
-      return NextResponse.json({ error: "Could not book that driver." }, { status: 500 });
+      return NextResponse.json(
+        { error: "Could not book that driver." },
+        { status: 500 },
+      );
     }
   } else {
-    if (!v.email) return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
+    if (!v.email)
+      return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
     const admin = await getPrivileged();
     const { data, error } = await admin.rpc("guest_accept_delivery_quote", {
       p_quote_id: v.quoteId,
@@ -305,7 +369,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         return NextResponse.json({ error: error.message }, { status: 409 });
       }
       console.error("guest_accept_delivery_quote failed", error);
-      return NextResponse.json({ error: "Could not book that driver." }, { status: 500 });
+      return NextResponse.json(
+        { error: "Could not book that driver." },
+        { status: 500 },
+      );
     }
     deliveryId = data as string;
   }

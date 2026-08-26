@@ -15,6 +15,7 @@ import {
   Landmark,
   Banknote,
   FileText,
+  IdCard,
 } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ import { formatWindow } from "@/lib/delivery/schedule";
 import {
   canStartDelivery,
   paymentCardState,
+  waitingOn,
 } from "@/lib/delivery/payment-state";
 
 // ── The driver's phone ──────────────────────────────────────────────────────
@@ -75,6 +77,9 @@ type Active = {
   paymentProofAt?: string | null;
   paymentReference?: string | null;
   hasProof?: boolean;
+  /** M158 — the customer's ID on a cash job, checked at the door. */
+  idDocumentAt?: string | null;
+  hasIdDocument?: boolean;
   /** A shopping run: the driver fronts the till and is repaid at the door. */
   requestKind?: string | null;
   spendCap?: number | null;
@@ -585,7 +590,9 @@ export default function DriverDashboard() {
                 </Button>
                 {waitingOnPayment && (
                   <p className="mt-2 text-center font-dm text-xs text-muted">
-                    You will be able to start the moment their receipt arrives.
+                    {waitingOn(a) === "id"
+                      ? "You will be able to start the moment their ID arrives."
+                      : "You will be able to start the moment their receipt arrives."}
                   </p>
                 )}
               </>
@@ -878,7 +885,29 @@ function PaymentState({ delivery: a }: { delivery: Active }) {
   // map over the active jobs, so a failure belongs on the card it happened on
   // and not at the top of a screen that may be showing two.
   const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState(false);
   const shopping = a.requestKind === "shop_and_deliver";
+
+  // Two minutes, not five: an ID is meant to be opened where the customer is
+  // standing, not saved. See /api/driver/id-document.
+  async function openId() {
+    if (busyId) return;
+    setBusyId(true);
+    try {
+      setError(null);
+      const res = await fetch(`/api/driver/id-document/${a.id}`);
+      const json = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !json.url) {
+        setError(json.error ?? "Could not open it.");
+        return;
+      }
+      window.open(json.url, "_blank", "noopener,noreferrer");
+    } catch {
+      setError("Could not open it. Check your connection.");
+    } finally {
+      setBusyId(false);
+    }
+  }
   const cap =
     shopping && a.spendCap
       ? `, up to Rs ${centsToDecimalString(a.spendCap)}`
@@ -910,13 +939,49 @@ function PaymentState({ delivery: a }: { delivery: Active }) {
   // ── Cash ────────────────────────────────────────────────────────────────
   if (state === "cash") {
     return (
-      <p className="mt-3 flex items-start gap-2 rounded-xl border border-red-400/40 bg-red-500/[0.09] px-3 py-2 font-syne text-sm font-bold text-red-300">
-        <Banknote size={15} className="mt-0.5 shrink-0" aria-hidden />
-        <span>
-          Collect Rs {centsToDecimalString(a.collectCash!)} in cash at the door.
-          {plusTill}
-        </span>
-      </p>
+      <div className="mt-3 rounded-xl border border-red-400/40 bg-red-500/[0.09] px-3 py-2">
+        <p className="flex items-start gap-2 font-syne text-sm font-bold text-red-300">
+          <Banknote size={15} className="mt-0.5 shrink-0" aria-hidden />
+          <span>
+            Collect Rs {centsToDecimalString(a.collectCash!)} in cash at the
+            door.
+            {plusTill}
+          </span>
+        </p>
+        {/* M158. The card is checked WITH the PIN, at the door, on the same
+            row as the amount — that is the one moment it means anything, and
+            the only window in which it is readable at all. */}
+        {a.paymentMethod === "cash" && (
+          <p className="mt-2 flex items-start gap-2 border-t border-red-400/25 pt-2 font-dm text-xs text-muted">
+            <IdCard size={14} className="mt-0.5 shrink-0" aria-hidden />
+            <span className="flex-1">
+              {a.idDocumentAt
+                ? "Check their ID against the name on this job, together with the 4-digit code."
+                : "Waiting for their ID. You cannot start until it arrives."}
+            </span>
+          </p>
+        )}
+        {a.hasIdDocument && (
+          <button
+            type="button"
+            onClick={() => void openId()}
+            disabled={busyId}
+            className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-full border border-white/20 px-4 font-dm text-sm text-offwhite disabled:opacity-50"
+          >
+            {busyId ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <IdCard size={14} aria-hidden />
+            )}
+            View ID
+          </button>
+        )}
+        {error && (
+          <p role="alert" className="mt-2 font-dm text-xs text-red-300">
+            {error}
+          </p>
+        )}
+      </div>
     );
   }
 
