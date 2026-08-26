@@ -10,6 +10,7 @@ import AppPageHeader from "@/components/AppPageHeader";
 import DeliverForm from "./DeliverForm";
 import MyRequests from "./MyRequests";
 import FindRequest from "./FindRequest";
+import NeedHelp from "./NeedHelp";
 
 export const dynamic = "force-dynamic";
 
@@ -99,6 +100,14 @@ export default async function DeliverPage() {
           <FindRequest />
 
           <DeliverForm signedInEmail={user?.email ?? null} />
+
+          {/* The escape hatch, ON the page. Somebody the form is failing does
+              not file a complaint -- they close the tab, and nothing records
+              that they tried. */}
+          <NeedHelp
+            phone={content.contact.phone}
+            whatsapp={content.contact.whatsappNumbers?.[0]?.number ?? content.contact.phone}
+          />
 
           <nav className="mt-12 border-t border-dark-border pt-8">
             <p className="font-syne text-sm font-bold text-offwhite">Already selling on Roulé?</p>
