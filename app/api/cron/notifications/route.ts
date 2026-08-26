@@ -4,6 +4,7 @@ import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { sendWhatsApp } from "@/lib/notifications/whatsapp";
 import { notifySweepResult } from "@/lib/delivery/notify";
 import { notifyRideOffers, notifyOwnerRideUnassigned, notifyOwnerRosterBlocked } from "@/lib/rides/notify";
+import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/queue";
 
 // ── The notification worker ─────────────────────────────────────────────────
 //
@@ -19,6 +20,13 @@ import { notifyRideOffers, notifyOwnerRideUnassigned, notifyOwnerRosterBlocked }
 //
 // Fails CLOSED without CRON_SECRET, same as the reminders cron: an open
 // endpoint that sends WhatsApp messages is a spam cannon.
+
+/** What sweep_delivery_requests() hands back. */
+type RequestSweep = {
+  requestsExpired: number;
+  quotesExpired: number;
+  expiredWithQuotes: number;
+};
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -85,6 +93,52 @@ async function run(req: NextRequest) {
     }
   } catch (err) {
     console.error("sweep_delivery_escalations threw", err);
+  }
+
+  // ── Deliver Anything requests that have run out of time (M139) ───────────
+  //
+  // Rides this cron for the same reason the escalation sweep does: it is
+  // already pinged every minute and a second scheduler is a second thing that
+  // can stop without anyone noticing.
+  //
+  // Until this existed, `expires_at` was decoration. Nothing closed a request,
+  // so a job posted six weeks ago still sat in the customer's 5-open-request
+  // cap and its quotes were still live -- and accept_delivery_quote had no
+  // clock of its own, so somebody could book a driver at a price named in
+  // another month. The guard inside the RPC is the real protection; this is
+  // what stops the board and the cap filling with the dead.
+  let requestSweep: RequestSweep = { requestsExpired: 0, quotesExpired: 0, expiredWithQuotes: 0 };
+  try {
+    const { data, error } = await admin.rpc("sweep_delivery_requests");
+    if (error) console.error("sweep_delivery_requests failed", error);
+    else if (data) {
+      requestSweep = data as RequestSweep;
+      // Only worth the owner's attention when somebody was QUOTED and never
+      // booked. A request nobody answered is a supply problem the board
+      // already shows; a request that got prices and expired anyway is the
+      // marketplace failing at the last step, which is the one worth a nudge.
+      if (requestSweep.expiredWithQuotes > 0) {
+        await enqueueNotification({
+          type: "delivery.requests_expired",
+          category: "deliveries",
+          message: formatWhatsAppMessage({
+            title: `${requestSweep.expiredWithQuotes} delivery request${
+              requestSweep.expiredWithQuotes === 1 ? "" : "s"
+            } expired with prices waiting`,
+            lines: [
+              `${requestSweep.requestsExpired} closed, ${requestSweep.quotesExpired} prices withdrawn.`,
+              "Somebody was quoted and never booked. Worth asking why.",
+            ],
+          }),
+          // The hour, so running every minute still means at most one message
+          // per hour however many sweeps find something.
+          dedupeKey: `delivery.requests_expired:${new Date().toISOString().slice(0, 13)}`,
+          payload: requestSweep as unknown as Record<string, unknown>,
+        });
+      }
+    }
+  } catch (err) {
+    console.error("sweep_delivery_requests threw", err);
   }
 
   // ── Nothing has happened SINCE (M93) ─────────────────────────────────────
@@ -270,6 +324,7 @@ async function run(req: NextRequest) {
     dispatched,
     requeued: (requeued as number | null) ?? 0,
     deliverySweep: sweep,
+    requestSweep,
     // Reported so the response is enough to answer "why did/didn't he get a
     // WhatsApp?" without opening the database.
     staleWork: stale,
