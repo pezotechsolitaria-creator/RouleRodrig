@@ -9,6 +9,7 @@ import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import DeliverForm from "./DeliverForm";
 import MyRequests from "./MyRequests";
+import FindRequest from "./FindRequest";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +91,7 @@ export default async function DeliverPage() {
               should not have to scroll past the one that asks them to post
               another. */}
           <MyRequests />
+          <FindRequest />
 
           <DeliverForm signedInEmail={user?.email ?? null} />
 

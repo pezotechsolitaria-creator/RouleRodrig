@@ -8,6 +8,8 @@ import {
   BROKEN_LEGS,
   ACTIVE_LEGS,
   PRE_PICKUP_LEGS,
+  requestRef,
+  normaliseRef,
   sortQuotes,
   quoteBadges,
   formatFee,
@@ -375,5 +377,36 @@ describe("how long is left", () => {
   it("rounds a nearly-gone window up to a minute rather than to nothing", () => {
     // "in 0 minutes" is worse than useless — it reads as broken.
     expect(expiresIn("2026-08-26T10:00:30Z", NOW)).toBe("in 1 minute");
+  });
+});
+
+describe("the reference a person writes down", () => {
+  const ID = "3f9a2b1c-4d5e-4f60-8a7b-9c0d1e2f3a4b";
+
+  it("is short, sayable, and matches what the driver and owner see", () => {
+    // The boards build it as 'RR-' || upper(left(id::text, 6)). If these two
+    // ever disagree, a customer reads out a code nobody can find.
+    expect(requestRef(ID)).toBe("RR-3F9A2B");
+  });
+
+  it("survives however badly somebody writes it down", () => {
+    for (const typed of [
+      "RR-3F9A2B", "rr-3f9a2b", "3F9A2B", "3f9a2b",
+      "RR 3F9A2B", "rr3f9a2b", "  RR-3f9a2b  ",
+    ]) {
+      expect(normaliseRef(typed), typed).toBe("3F9A2B");
+    }
+  });
+
+  it("refuses anything that is not six hex characters", () => {
+    // Said before a request is spent, so the form can explain rather than
+    // returning a bare "we couldn't find that".
+    for (const bad of ["", "RR-", "12345", "1234567", "ZZZZZZ", "RR-3F9A2G", "hello"]) {
+      expect(normaliseRef(bad), bad).toBeNull();
+    }
+  });
+
+  it("round-trips its own output", () => {
+    expect(normaliseRef(requestRef(ID))).toBe("3F9A2B");
   });
 });

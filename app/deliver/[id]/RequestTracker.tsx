@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import {
   requestStatusCopy, legCopy, legIndex, LEG_ORDER, sortQuotes, quoteBadges,
   BADGE_LABEL, formatFee, payAtDoor, expiresIn, TERMINAL_LEGS, BROKEN_LEGS,
-  PRE_PICKUP_LEGS,
+  PRE_PICKUP_LEGS, requestRef,
   type Quote,
 } from "@/lib/delivery/request-status";
 import { emailFor, saveRequest } from "@/lib/delivery/my-requests";
@@ -327,9 +327,12 @@ export default function RequestTracker({
         <p className={cn(t.bodySm, "mt-2 text-muted")}>
           The link may be wrong, or it was posted with a different email.
         </p>
-        <Link href="/deliver" className={cn(recipe.secondaryAction, "mt-5 inline-flex items-center")}>
-          Post a new request
+        <Link href="/deliver" className={cn(recipe.secondaryAction, "mt-5 inline-flex items-center py-2.5")}>
+          Back to Deliver anything
         </Link>
+        <p className={cn(t.meta, "mt-3 text-white/40")}>
+          Lost the link? Find it there with your reference and email.
+        </p>
       </div>
     );
   }
@@ -371,6 +374,12 @@ export default function RequestTracker({
           {status.label}
         </span>
         <h1 className={cn(t.display, "mt-3 text-offwhite")}>{status.headline}</h1>
+        {/* The thread back. A guest gets no email and cannot memorise a uuid,
+            so without this on screen the only route to this page is a link they
+            still happen to have open. */}
+        <p className={cn(t.meta, "mt-2 font-mono tracking-widest text-white/40")}>
+          {requestRef(view.id)}
+        </p>
         <p className={cn(t.body, "mt-2 text-muted")}>{status.detail}</p>
         {view.status === "open" && closes && (
           <p className={cn(t.meta, "mt-3 inline-flex items-center gap-1.5 text-white/45")}>

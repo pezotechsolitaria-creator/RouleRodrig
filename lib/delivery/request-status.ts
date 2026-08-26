@@ -416,3 +416,38 @@ export function expiresIn(iso: string | null | undefined, now: Date = new Date()
   if (hours < 24) return say(hours, "hour");
   return say(Math.floor(hours / 24), "day");
 }
+
+// ── The reference a person can write down ───────────────────────────────────
+//
+// A request is identified by a uuid, which is unguessable and completely
+// unsayable. A guest who loses the link — a different phone, cleared storage, a
+// tab closed on the bus — had NO route back: they get no email (the shared mail
+// budget is spent on password resets, M41), so the localStorage entry was the
+// only thread. Cut it and the request was unreachable for ever.
+//
+// So the first six hex of the id becomes a short reference, the same one the
+// driver and the owner already see on their boards. Paired with the email it
+// is the credential lookup_delivery_request() checks — the identical shape
+// /api/orders/lookup has always used, and the reference ALONE is worth nothing.
+
+/** "RR-3F9A2B" — what the customer is shown and asked to keep. */
+export function requestRef(id: string): string {
+  return `RR-${id.replace(/-/g, "").slice(0, 6).toUpperCase()}`;
+}
+
+/**
+ * What somebody actually types, reduced to the six characters that matter.
+ *
+ * People write it down badly: lowercase, with or without the prefix, with a
+ * space instead of a hyphen, with the O/0 confusion that hex invites. Returns
+ * null when it cannot be six hex characters, so the form can say so before
+ * spending a request.
+ */
+export function normaliseRef(input: string): string | null {
+  const bare = input
+    .trim()
+    .toUpperCase()
+    .replace(/^RR[-\s]?/, "")
+    .replace(/[^0-9A-F]/g, "");
+  return bare.length === 6 ? bare : null;
+}
