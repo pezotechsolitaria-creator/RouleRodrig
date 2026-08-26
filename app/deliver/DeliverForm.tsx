@@ -1,58 +1,90 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2, Package, ShoppingBasket, Check } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { Loader2, Package, ShoppingBasket, Check, Pencil, MapPin, User } from "lucide-react";
 import { toast } from "sonner";
 import PhoneInput from "@/components/PhoneInput";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import { toCents } from "@/lib/money";
+import { saveRequest } from "@/lib/delivery/my-requests";
+import { recipe, transition, type as t } from "@/lib/delivery/tokens";
 
 // ── Asking for something to be moved ────────────────────────────────────────
 //
-// Deliberately ONE screen, not a wizard. A wizard is right when each step
-// depends on the last; here the whole ask is six short facts, and a traveller
-// on island data should not pay four round trips to give them.
+// ── WHY THIS WAS REBUILT ───────────────────────────────────────────────────
+// delivery_requests has never had a single row. Three of the reasons were in
+// the database and are fixed in M136 — nobody could quote, nobody could accept,
+// and the winning driver could not see the job. The fourth reason was THIS
+// FORM: about ten fields on one scroll, with the only button below all of them.
+// A visitor had to read the whole thing before finding out what it would cost
+// them (nothing) or commit them to (nothing). Both facts lived past the fold.
 //
-// The two kinds are the first question because everything else reads
-// differently underneath them: a collection has nothing to buy, a shopping run
-// needs a ceiling. That is enforced in the database too — the customer cannot
-// talk their way past it from here.
+// ── What changed, and what deliberately did not ────────────────────────────
+// It is still ONE screen and still ONE request. The old file's objection to a
+// wizard was right and is preserved: "a traveller on island data should not pay
+// four round trips". Staging here is pure client state — no navigation, no
+// extra fetch, and every answer stays on the page.
+//
+// What changed is DISCLOSURE. One group is open at a time; a finished group
+// collapses to a line you can tap to reopen. And the action is pinned above the
+// fold-line at the bottom of the thumb's reach, saying at every moment what it
+// will do and what it will cost. That is the DoorDash checkout pattern, which
+// is worth taking; their palette and their fixed-menu model are not, and are
+// not taken. See lib/delivery/tokens.ts.
+//
+// On success this now LEAVES, to /deliver/<id>. The old version showed a
+// "posted!" panel that went nowhere, which was honest at the time — there was
+// nowhere to go.
 
 type Kind = "package" | "shop_and_deliver";
-
-// Byte-for-byte the vehicle booking form's field (components/BookingSection.tsx
-// `inputCls`), because that is the field design this site already uses for
-// every serious form — and this page was the odd one out: bg-dark instead of
-// bg-dark-card, py-3 instead of py-3.5. Small differences, but they are what
-// made the phone box look like it belonged to another site.
-//
-// Not "similar to" — copied, so the two cannot drift apart the next time either
-// is touched.
-const input =
-  "w-full bg-dark-card border border-dark-border rounded-xl px-4 py-3.5 text-offwhite text-sm font-dm placeholder:text-muted/50 focus:border-yellow focus:outline-none transition-colors";
-const label = "mb-1.5 block font-dm text-xs text-muted";
+type Step = "what" | "where" | "who";
+const STEPS: Step[] = ["what", "where", "who"];
 
 export default function DeliverForm({ signedInEmail }: { signedInEmail: string | null }) {
+  const router = useRouter();
+
+  const [step, setStep] = useState<Step>("what");
   const [kind, setKind] = useState<Kind>("package");
   const [what, setWhat] = useState("");
+  const [budget, setBudget] = useState("");
+  const [sizeClass, setSizeClass] = useState<"standard" | "large">("standard");
   const [pickupText, setPickupText] = useState("");
   const [pickupNote, setPickupNote] = useState("");
   const [dropoffText, setDropoffText] = useState("");
   const [dropoffNote, setDropoffNote] = useState("");
-  const [sizeClass, setSizeClass] = useState<"standard" | "large">("standard");
-  const [budget, setBudget] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(false);
 
   const isGuest = !signedInEmail;
   const guestEmailValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(guestEmail.trim());
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (submitting) return;
+  // Money never touches a float. toCents() works on the decimal string, because
+  // Math.round(parseFloat("9.995") * 100) is 999, not 1000 — see lib/money.ts.
+  const budgetCents = useMemo(() => (budget.trim() ? toCents(budget) : null), [budget]);
+
+  const done: Record<Step, boolean> = {
+    what:
+      what.trim().length >= 3 &&
+      (kind !== "shop_and_deliver" || (budgetCents !== null && budgetCents > 0)),
+    where: pickupText.trim().length >= 2 && dropoffText.trim().length >= 2,
+    who:
+      name.trim().length >= 2 &&
+      phone.trim().length > 0 &&
+      (!isGuest || guestEmailValid),
+  };
+  const allDone = done.what && done.where && done.who;
+
+  function advance() {
+    const next = STEPS[STEPS.indexOf(step) + 1];
+    if (next) setStep(next);
+  }
+
+  async function submit() {
+    if (submitting || !allDone) return;
     setSubmitting(true);
     try {
       const res = await fetch("/api/delivery-requests", {
@@ -68,18 +100,25 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
           sizeClass,
           // Rupees on screen, minor units on the wire — the same convention as
           // every other amount in this system.
-          maxBudget: kind === "shop_and_deliver" ? Math.round(Number(budget) * 100) : undefined,
+          maxBudget: kind === "shop_and_deliver" ? budgetCents ?? undefined : undefined,
           contactName: name.trim(),
           contactPhone: phone.trim(),
           guestEmail: isGuest ? guestEmail.trim().toLowerCase() : undefined,
         }),
       });
       const json = (await res.json()) as { id?: string; error?: string };
-      if (!res.ok) {
+      if (!res.ok || !json.id) {
         toast.error(json.error ?? "Something went wrong. Please try again.");
         return;
       }
-      setDone(true);
+      // Remember it on this device BEFORE navigating, so a guest who closes the
+      // tab and comes back is not asked to prove anything.
+      saveRequest({
+        id: json.id,
+        email: isGuest ? guestEmail.trim().toLowerCase() : undefined,
+        what: what.trim(),
+      });
+      router.push(`/deliver/${json.id}`);
     } catch {
       toast.error("Could not reach us. Check your connection and try again.");
     } finally {
@@ -87,198 +126,387 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
     }
   }
 
-  if (done) {
-    return (
-      <div className="rounded-2xl border border-yellow/30 bg-yellow/[0.06] p-6 text-center">
-        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-yellow text-dark">
-          <Check size={22} />
-        </span>
-        <h2 className="mt-4 font-syne text-lg font-bold text-offwhite">Your request is posted</h2>
-        {/* Says what happens next AND what does not: nobody is on the way yet,
-            and the price is not set. Both are the opposite of how ordering
-            works everywhere else on this site, so leaving it implied would
-            invite somebody to sit and wait for a driver who was never sent. */}
-        <p className="mt-2 font-dm text-sm leading-relaxed text-muted">
-          Drivers who can carry it will send you a price. You choose the one you want —
-          nobody is on the way until you do. We will message you on{" "}
-          <span className="text-offwhite/80">{phone || "your number"}</span> when the
-          first quote arrives.
-        </p>
-      </div>
-    );
-  }
+  // What the pinned button says right now. Never a bare "Next": the last step's
+  // label has to carry that this asks for prices rather than booking anything.
+  const cta = !done[step]
+    ? { label: stepPrompt(step, kind), disabled: true }
+    : step !== "who"
+      ? { label: "Continue", disabled: false }
+      : { label: submitting ? "Posting…" : "Ask for prices", disabled: submitting };
 
   return (
-    <form onSubmit={submit} className="space-y-6">
-      {/* ── What kind of job ─────────────────────────────────────────────── */}
-      <fieldset>
-        <legend className="mb-2 font-bebas text-[11px] tracking-[0.3em] text-yellow">
-          WHAT DO YOU NEED
-        </legend>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {(
-            [
-              { k: "package" as const, icon: Package, t: "Collect & deliver",
-                d: "It already exists somewhere. A parcel from family, something you left behind." },
-              { k: "shop_and_deliver" as const, icon: ShoppingBasket, t: "Buy & deliver",
-                d: "Someone buys it for you first, then brings it. You set the most they may spend." },
-            ]
-          ).map((o) => (
-            <button
-              key={o.k}
-              type="button"
-              onClick={() => setKind(o.k)}
-              aria-pressed={kind === o.k}
-              className={`rounded-xl border p-4 text-left transition-colors ${
-                kind === o.k
-                  ? "border-yellow/60 bg-yellow/10"
-                  : "border-white/10 bg-dark-card hover:border-white/25"
-              }`}
-            >
-              <o.icon size={18} className={kind === o.k ? "text-yellow" : "text-muted"} />
-              <span className="mt-2 block font-syne text-sm font-bold text-offwhite">{o.t}</span>
-              <span className="mt-1 block font-dm text-xs leading-relaxed text-muted">{o.d}</span>
-            </button>
-          ))}
-        </div>
-      </fieldset>
+    <>
+      <div className="flex flex-col gap-3">
+        {/* ── 1. What ──────────────────────────────────────────────────── */}
+        <Group
+          index={1}
+          icon={kind === "shop_and_deliver" ? ShoppingBasket : Package}
+          title="What do you need moved?"
+          summary={summaryWhat(kind, what, sizeClass)}
+          open={step === "what"}
+          complete={done.what}
+          onOpen={() => setStep("what")}
+        >
+          <fieldset>
+            <legend className="sr-only">What kind of job</legend>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {(
+                [
+                  {
+                    k: "package" as const,
+                    icon: Package,
+                    title: "Collect & deliver",
+                    body: "It already exists somewhere. A parcel from family, something you left behind.",
+                  },
+                  {
+                    k: "shop_and_deliver" as const,
+                    icon: ShoppingBasket,
+                    title: "Buy & deliver",
+                    body: "Someone buys it for you first, then brings it. You set the most they may spend.",
+                  },
+                ]
+              ).map((o) => {
+                const on = kind === o.k;
+                return (
+                  <button
+                    key={o.k}
+                    type="button"
+                    onClick={() => setKind(o.k)}
+                    aria-pressed={on}
+                    className={on ? recipe.cardButtonSelected : recipe.cardButton}
+                  >
+                    <span className="flex items-center justify-between">
+                      <o.icon size={18} className={on ? "text-yellow" : "text-muted"} />
+                      {/* Not colour alone: roughly one man in twelve here cannot
+                          rely on the yellow to tell him which one is chosen. */}
+                      {on && <Check size={15} className="text-yellow" />}
+                    </span>
+                    <span className={cn(t.cardTitle, "mt-2 block text-offwhite")}>{o.title}</span>
+                    <span className={cn(t.meta, "mt-1 block leading-relaxed text-muted")}>
+                      {o.body}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
 
-      <div>
-        <label htmlFor="d-what" className={label}>
-          {kind === "package" ? "What are we collecting?" : "What should we buy?"}
-        </label>
-        <Textarea
-          id="d-what"
-          value={what}
-          onChange={(e) => setWhat(e.target.value)}
-          rows={2}
-          className={input}
-          placeholder={
-            kind === "package"
-              ? "e.g. A medium box, about 10 kg, from my sister"
-              : "e.g. 2 gas bottles, 12 kg, any brand"
+          <div className="mt-4">
+            <label htmlFor="d-what" className={cn(t.meta, "mb-1.5 block text-muted")}>
+              {kind === "package" ? "What are we collecting?" : "What should we buy?"}
+            </label>
+            <textarea
+              id="d-what"
+              rows={2}
+              value={what}
+              onChange={(e) => setWhat(e.target.value)}
+              className={cn(recipe.field, "resize-none")}
+              placeholder={
+                kind === "package"
+                  ? "e.g. A medium box, about 10 kg, from my sister"
+                  : "e.g. 2 gas bottles, 12 kg, any brand"
+              }
+            />
+          </div>
+
+          <AnimatePresence initial={false}>
+            {kind === "shop_and_deliver" && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={transition.step}
+                className="overflow-hidden"
+              >
+                <div className="mt-4">
+                  <label htmlFor="d-budget" className={cn(t.meta, "mb-1.5 block text-muted")}>
+                    The most we may spend on it (Rs)
+                  </label>
+                  <input
+                    id="d-budget"
+                    type="text"
+                    inputMode="decimal"
+                    value={budget}
+                    onChange={(e) => setBudget(e.target.value)}
+                    className={recipe.field}
+                    placeholder="e.g. 1500"
+                  />
+                  {/* The two numbers, kept apart. Conflating them is how a
+                      driver ends up out of pocket at the till. */}
+                  <p className={cn(t.meta, "mt-1.5 text-muted")}>
+                    You repay what was actually spent, up to this. The delivery fee is
+                    separate and each driver names their own.
+                  </p>
+                  {budget.trim() && budgetCents === null && (
+                    <p className={cn(t.meta, "mt-1.5 text-red-400")}>
+                      Enter an amount in rupees, like 1500.
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Same words and same consequence as the checkout box — the M103
+              gate. A large job is only ever quoted by a car or a van. */}
+          <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3.5 transition-colors hover:border-yellow/40">
+            <input
+              type="checkbox"
+              checked={sizeClass === "large"}
+              onChange={(e) => setSizeClass(e.target.checked ? "large" : "standard")}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-yellow"
+            />
+            <span>
+              <span className={cn(t.bodySm, "block font-semibold text-offwhite")}>
+                This is a large item — it needs a car
+              </span>
+              <span className={cn(t.meta, "mt-0.5 block leading-relaxed text-muted")}>
+                Furniture, a gas bottle, an appliance, several big boxes. Only drivers with
+                a car or a van will be able to quote.
+              </span>
+            </span>
+          </label>
+        </Group>
+
+        {/* ── 2. Where ─────────────────────────────────────────────────── */}
+        <Group
+          index={2}
+          icon={MapPin}
+          title="Where is it going?"
+          summary={
+            done.where ? `${pickupText.trim()} → ${dropoffText.trim()}` : null
           }
-        />
+          open={step === "where"}
+          complete={done.where}
+          onOpen={() => setStep("where")}
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="d-from" className={cn(t.meta, "mb-1.5 block text-muted")}>
+                Collect from
+              </label>
+              <input
+                id="d-from"
+                value={pickupText}
+                onChange={(e) => setPickupText(e.target.value)}
+                className={recipe.field}
+                placeholder="Village, shop or landmark"
+              />
+              <input
+                value={pickupNote}
+                onChange={(e) => setPickupNote(e.target.value)}
+                className={cn(recipe.field, "mt-2")}
+                placeholder="Who to ask for, or how to find it"
+                aria-label="How to find the pickup"
+              />
+            </div>
+            <div>
+              <label htmlFor="d-to" className={cn(t.meta, "mb-1.5 block text-muted")}>
+                Deliver to
+              </label>
+              <input
+                id="d-to"
+                value={dropoffText}
+                onChange={(e) => setDropoffText(e.target.value)}
+                className={recipe.field}
+                placeholder="Village, hotel or landmark"
+              />
+              <input
+                value={dropoffNote}
+                onChange={(e) => setDropoffNote(e.target.value)}
+                className={cn(recipe.field, "mt-2")}
+                placeholder="Gate colour, floor, anything that helps"
+                aria-label="How to find the drop-off"
+              />
+            </div>
+          </div>
+          {/* Said here rather than in the small print, because this is the
+              field people hesitate over. There are no street numbers in most of
+              Rodrigues and a form that seems to want one gets abandoned. */}
+          <p className={cn(t.meta, "mt-3 text-white/40")}>
+            A village and a landmark is enough. Drivers here navigate by them.
+          </p>
+        </Group>
+
+        {/* ── 3. Who ───────────────────────────────────────────────────── */}
+        <Group
+          index={3}
+          icon={User}
+          title="How do drivers reach you?"
+          summary={done.who ? `${name.trim()} · ${phone.trim()}` : null}
+          open={step === "who"}
+          complete={done.who}
+          onOpen={() => setStep("who")}
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="d-name" className={cn(t.meta, "mb-1.5 block text-muted")}>
+                Your name
+              </label>
+              <input
+                id="d-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={recipe.field}
+                placeholder="Marie"
+                autoComplete="name"
+              />
+            </div>
+            <div>
+              {/* htmlFor + id, or the field has no accessible name — the exact
+                  failure PhoneInput's `id` prop exists to prevent. */}
+              <label htmlFor="d-phone" className={cn(t.meta, "mb-1.5 block text-muted")}>
+                Your phone
+              </label>
+              <PhoneInput
+                id="d-phone"
+                value={phone}
+                onChange={setPhone}
+                disabled={submitting}
+                inputClassName={cn(recipe.field, "pl-10")}
+              />
+            </div>
+          </div>
+
+          {isGuest && (
+            <div className="mt-4">
+              <label htmlFor="d-email" className={cn(t.meta, "mb-1.5 block text-muted")}>
+                Your email
+              </label>
+              <input
+                id="d-email"
+                type="email"
+                value={guestEmail}
+                onChange={(e) => setGuestEmail(e.target.value)}
+                className={recipe.field}
+                placeholder="you@example.com"
+                autoComplete="email"
+              />
+              <p className={cn(t.meta, "mt-1.5 text-muted")}>
+                So we can send you the prices, and so you can get back to this request
+                from another phone.
+              </p>
+            </div>
+          )}
+        </Group>
       </div>
 
-      {kind === "shop_and_deliver" && (
-        <div>
-          <label htmlFor="d-budget" className={label}>
-            The most we may spend on it (Rs)
-          </label>
-          <input
-            id="d-budget"
-            type="number"
-            min={1}
-            inputMode="decimal"
-            value={budget}
-            onChange={(e) => setBudget(e.target.value)}
-            className={input}
-            placeholder="e.g. 1500"
-          />
-          {/* The two numbers are separated here because conflating them is how
-              a driver ends up out of pocket. */}
-          <p className="mt-1.5 font-dm text-xs text-muted">
-            You repay what was actually spent, up to this. The delivery fee is separate
-            and each driver names their own.
+      {/* ── The action, pinned ─────────────────────────────────────────── */}
+      {/* The single most important structural change. It was below ten fields,
+          so nobody saw it while deciding whether this was worth their time. It
+          clears the floating bottom nav, which owns the strip below it. */}
+      <div
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-dark/95 px-5 pb-[max(5.5rem,calc(env(safe-area-inset-bottom)+5.5rem))] pt-3 backdrop-blur-md md:pb-4",
+        )}
+      >
+        <div className="mx-auto max-w-2xl">
+          <button
+            type="button"
+            onClick={() => (step === "who" ? void submit() : advance())}
+            disabled={cta.disabled}
+            className={cn(recipe.primaryAction, "inline-flex items-center justify-center gap-2")}
+          >
+            {submitting && <Loader2 size={16} className="animate-spin" />}
+            {cta.label}
+          </button>
+          {/* The two facts that were below the fold. They are the reason
+              somebody finishes this form, so they sit ON the button. */}
+          <p className={cn(t.meta, "mt-2 text-center text-white/45")}>
+            Free to ask. You only pay once you accept a driver&apos;s price.
           </p>
         </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor="d-from" className={label}>Collect from</label>
-          <input id="d-from" value={pickupText} onChange={(e) => setPickupText(e.target.value)}
-                 className={input} placeholder="Village, shop or landmark" />
-          <input value={pickupNote} onChange={(e) => setPickupNote(e.target.value)}
-                 className={`${input} mt-2`} placeholder="Who to ask for, or how to find it" />
-        </div>
-        <div>
-          <label htmlFor="d-to" className={label}>Deliver to</label>
-          <input id="d-to" value={dropoffText} onChange={(e) => setDropoffText(e.target.value)}
-                 className={input} placeholder="Village, hotel or landmark" />
-          <input value={dropoffNote} onChange={(e) => setDropoffNote(e.target.value)}
-                 className={`${input} mt-2`} placeholder="Gate colour, floor, anything that helps" />
-        </div>
       </div>
-
-      {/* Same question, same words and same consequence as the checkout box —
-          this is the M103 gate, and a large job is only quoted by drivers with
-          a car or a van. */}
-      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-dark-card p-3.5 transition-colors hover:border-yellow/40">
-        <input
-          type="checkbox"
-          checked={sizeClass === "large"}
-          onChange={(e) => setSizeClass(e.target.checked ? "large" : "standard")}
-          className="mt-0.5 h-4 w-4 shrink-0 accent-yellow"
-        />
-        <span>
-          <span className="block font-dm text-sm font-semibold text-offwhite">
-            This is a large item — it needs a car
-          </span>
-          <span className="mt-0.5 block font-dm text-xs leading-relaxed text-muted">
-            Furniture, a gas bottle, an appliance, several big boxes. Only drivers with a
-            car or a van will be able to quote.
-          </span>
-        </span>
-      </label>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor="d-name" className={label}>Your name</label>
-          <input id="d-name" value={name} onChange={(e) => setName(e.target.value)}
-                 className={input} placeholder="Marie" autoComplete="name" />
-        </div>
-        <div>
-          {/* htmlFor + id, or the field has no accessible name — the exact
-              failure PhoneInput's `id` prop exists to prevent. */}
-          <label htmlFor="d-phone" className={label}>Your phone</label>
-          {/* The component now styles itself if given nothing, which is the
-              safety net — but this page's other fields sit on bg-dark, so it is
-              passed explicitly to match them exactly. pl-10 clears the glyph. */}
-          <PhoneInput
-            id="d-phone"
-            value={phone}
-            onChange={setPhone}
-            disabled={submitting}
-            inputClassName={`${input} pl-10`}
-          />
-        </div>
-      </div>
-
-      {isGuest && (
-        <div>
-          <label htmlFor="d-email" className={label}>Your email</label>
-          <input id="d-email" type="email" value={guestEmail}
-                 onChange={(e) => setGuestEmail(e.target.value)} className={input}
-                 placeholder="you@example.com" autoComplete="email" />
-          <p className="mt-1.5 font-dm text-xs text-muted">So we can send you the quotes.</p>
-        </div>
-      )}
-
-      <Button
-        type="submit"
-        disabled={
-          submitting ||
-          what.trim().length < 3 ||
-          pickupText.trim().length < 2 ||
-          dropoffText.trim().length < 2 ||
-          name.trim().length < 2 ||
-          !phone.trim() ||
-          (isGuest && !guestEmailValid) ||
-          (kind === "shop_and_deliver" && !(Number(budget) > 0))
-        }
-        className="w-full"
-      >
-        {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
-        {submitting ? "Posting…" : "Ask for prices"}
-      </Button>
-
-      {/* The button says "ask for prices", not "book", because that is what it
-          does. Nobody is dispatched and nothing is charged here. */}
-      <p className="text-center font-dm text-xs text-muted">
-        Free to ask. You only pay once you accept a driver&apos;s price.
-      </p>
-    </form>
+    </>
   );
+}
+
+// ── An accordion group ──────────────────────────────────────────────────────
+//
+// Closed, it is a one-line answer you can tap to change. Open, it is the only
+// thing asking anything. That is what turns ten fields into three decisions.
+
+function Group({
+  index,
+  icon: Icon,
+  title,
+  summary,
+  open,
+  complete,
+  onOpen,
+  children,
+}: {
+  index: number;
+  icon: typeof Package;
+  title: string;
+  summary: string | null;
+  open: boolean;
+  complete: boolean;
+  onOpen: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      className={cn(
+        "rounded-2xl border transition-colors",
+        open ? "border-white/[0.14] bg-dark-card" : "border-white/10 bg-white/[0.02]",
+      )}
+    >
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 p-4 text-left"
+      >
+        <span
+          className={cn(
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors",
+            complete ? "bg-yellow text-dark" : open ? "bg-yellow/15 text-yellow" : "bg-white/[0.06] text-white/40",
+          )}
+        >
+          {complete ? <Check size={15} /> : index}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className={cn(t.cardTitle, "block text-offwhite")}>{title}</span>
+          {!open && summary && (
+            <span className={cn(t.meta, "mt-0.5 block truncate text-muted")}>{summary}</span>
+          )}
+        </span>
+        {!open && <Pencil size={14} className="shrink-0 text-white/25" aria-hidden />}
+        {open && <Icon size={16} className="shrink-0 text-white/25" aria-hidden />}
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={transition.step}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </section>
+  );
+}
+
+// ── What the pinned button says while a step is unfinished ──────────────────
+// Naming the missing thing beats a greyed-out "Next" that explains nothing.
+
+function stepPrompt(step: Step, kind: Kind): string {
+  if (step === "what") {
+    return kind === "shop_and_deliver" ? "Say what to buy, and your limit" : "Say what needs moving";
+  }
+  if (step === "where") return "Add where it starts and ends";
+  return "Add your name and number";
+}
+
+function summaryWhat(kind: Kind, what: string, sizeClass: string): string | null {
+  const body = what.trim();
+  if (!body) return null;
+  const label = kind === "shop_and_deliver" ? "Buy & deliver" : "Collect & deliver";
+  return `${label} · ${body}${sizeClass === "large" ? " · Large" : ""}`;
 }

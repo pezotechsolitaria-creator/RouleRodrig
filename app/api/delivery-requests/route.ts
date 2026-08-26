@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { guardShared } from "@/lib/rate-limit";
+import { notifyDriversOfNewRequest } from "@/lib/delivery/notify-requests";
 
 // POST /api/delivery-requests — post a Deliver Anything job.
 //
@@ -120,6 +121,12 @@ export async function POST(req: NextRequest) {
     console.error("create_delivery_request failed", error);
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
+
+  // Until now this was where the flow ENDED: a row was written and no driver
+  // on the island was told it existed. Awaited, not fired and forgotten -- a
+  // serverless function that has returned can be frozen mid-flight, and a job
+  // nobody hears about is a job nobody answers. It never throws.
+  await notifyDriversOfNewRequest(data as string);
 
   return NextResponse.json({ id: data as string }, { status: 201 });
 }

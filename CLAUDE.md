@@ -66,6 +66,55 @@ small — the window between staging and committing is where the race happens.
 - **Booking reference** = `"RR-" + id.replace(/-/g,"").slice(0,6).toUpperCase()`
   (first 6 hex of the UUID). Same format in emails, admin, and `/manage-booking`.
 
+## Deliver Anything — a quote marketplace, not a shop
+
+`/deliver` is the ONLY delivery product with real customers ahead of it: the
+marketplace (`/shop`) has zero live stores, so store-order dispatch is currently
+theoretical. Treat `/deliver` as the delivery section.
+
+It is a **reverse auction**, and that is the thing to hold on to. Every other
+order on this site is committed when it is placed. Here the customer describes a
+job, drivers name their own prices, and **nobody is dispatched until the customer
+picks one**. Any copy that lets someone believe a driver is already coming is a
+bug, not a wording preference — `lib/delivery/request-status.ts` pins that
+sentence with a test.
+
+**The shape**
+
+    customer posts        create_delivery_request()      -> delivery_requests
+    drivers are told      notifyDriversOfNewRequest()
+    a driver quotes       offer_delivery_quote()         -> delivery_quotes
+    customer is told      notifyCustomerOfQuote()
+    customer accepts      customer_accept_delivery_quote()  (signed in)
+                          guest_accept_delivery_quote()     (service role only)
+                                                         -> deliveries
+    driver is told        notifyQuoteAccepted()
+    from here it is an ordinary delivery: advance_delivery(), PIN at the door.
+
+**Rules that are easy to break**
+
+- **A direct job has no `store_id` and no `order_id`.** Anything reading
+  `deliveries` must LEFT JOIN `stores`/`orders` and fall back to
+  `delivery_requests`. Inner joins made an accepted job invisible to the driver
+  who won it for as long as this feature existed (M136).
+- **`accept_delivery_quote()` does not check who is calling.** It is an engine,
+  granted to nobody. Always go through a wrapper that proves ownership. Do not
+  add an email argument to it — a different signature makes an OVERLOAD, not a
+  replacement.
+- **A guest's credential is the pair (request id, email)**, checked in the RPC,
+  reached only with the service-role key — the same shape as
+  `/api/orders/lookup`. Never put the email in a URL; the read is a POST for
+  exactly that reason.
+- **The fee and the shopping cap are two different numbers.** On a
+  `shop_and_deliver` job the customer repays what was actually spent AND pays
+  the fee. Merging them leaves a driver out of pocket at the till;
+  `payAtDoor()` exists so no screen can show one without the other.
+- **Driver phone numbers are withheld until a quote is accepted.** Before that
+  the customer is comparing prices, and a board of phone numbers moves the whole
+  job off the platform.
+- **Money is minor units on the wire, decimal strings on screen.** Parse with
+  `toCents()`, never `parseFloat`.
+
 ## Database migrations
 Applied with the Supabase MCP `apply_migration`, which is **transactional** — a
 failed assertion rolls the whole thing back, so assert loudly.

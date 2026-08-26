@@ -11,6 +11,7 @@ import AlertsToggle from "./AlertsToggle";
 import DeliveryTracking from "@/components/tracking/DeliveryTracking";
 import WhatsappAlerts from "./WhatsappAlerts";
 import { driverDutyState } from "@/lib/delivery/availability";
+import QuoteBoard, { type OpenRequest } from "./QuoteBoard";
 
 // ── The driver's phone ──────────────────────────────────────────────────────
 //
@@ -47,6 +48,9 @@ type Dash = {
   offers?: Offer[];
   // A boolean only. The key itself is never returned by any endpoint.
   whatsappConfigured?: boolean;
+  /** M136 — Deliver Anything jobs this driver may name a price on. A board,
+   *  not a dispatch queue: no price is set and the customer chooses. */
+  openRequests?: OpenRequest[];
 };
 
 // The single next step for each state. Keeping this as data rather than a
@@ -199,6 +203,7 @@ export default function DriverDashboard() {
   const approved = d?.status === "approved";
   const active = dash?.active ?? [];
   const offers = dash?.offers ?? [];
+  const openRequests = dash?.openRequests ?? [];
   // One source of truth, mirroring dispatch_candidates. `availability` alone
   // cannot answer this: 'busy' means "on duty, holding a job", and whether that
   // driver can take another is a COUNT against the owner's limit, not a value
@@ -562,6 +567,28 @@ export default function DriverDashboard() {
             <p className="mt-1 font-dm text-xs text-muted">{duty.detail}</p>
           </div>
         ) : null
+      )}
+
+      {/* The quote board. Gated on `online` rather than `duty.offerable`: a
+          driver already holding their maximum active deliveries can still name
+          a price on a job for later, because quoting commits them to nothing —
+          the capacity gate applies when the CUSTOMER accepts, not now. */}
+      {approved && online && (
+        <QuoteBoard
+          requests={openRequests}
+          busy={busy}
+          onQuote={async (requestId, fee, note) => {
+            await act(`quote-${requestId}`, {
+              action: "quote",
+              requestId,
+              fee,
+              note: note || undefined,
+            });
+          }}
+          onWithdraw={async (quoteId) => {
+            await act(`withdraw-${quoteId}`, { action: "withdraw_quote", quoteId });
+          }}
+        />
       )}
 
       {approved && !online && active.length === 0 && (

@@ -157,10 +157,11 @@ export const touch = {
 // Framer Motion configs, not class strings, because these are passed to the
 // library. Every one of them communicates something; none of them decorate.
 //
-// prefers-reduced-motion is honoured by `motionSafe()` below rather than by
-// each component remembering to check.
+// Named `transition` rather than `motion` on purpose: every component that
+// uses these also imports framer-motion's `motion`, and two things called the
+// same in one file is an import alias somebody eventually gets wrong.
 
-export const motion = {
+export const transition = {
   /** A sheet or drawer arriving. Spring, because it is a physical object being
    *  pulled into place and a linear tween reads as a slideshow. */
   sheet: { type: "spring", stiffness: 380, damping: 34, mass: 0.9 },

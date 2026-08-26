@@ -8,6 +8,7 @@ import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import DeliverForm from "./DeliverForm";
+import MyRequests from "./MyRequests";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,7 @@ export default async function DeliverPage() {
       />
       <AppPageHeader logo={content.branding.logo} />
 
-      <main className="min-h-screen bg-dark pb-28">
+      <main className="min-h-screen bg-dark pb-52">
         <header className="border-b border-white/10 bg-gradient-to-b from-yellow/[0.06] to-transparent px-5 py-10 md:py-14">
           <div className="mx-auto max-w-2xl">
             <p className="font-bebas text-xs tracking-[0.3em] text-yellow">ROULÉ DELIVERY</p>
@@ -84,6 +85,11 @@ export default async function DeliverPage() {
               </li>
             ))}
           </ul>
+
+          {/* Before the form, because somebody arriving to CHECK a request
+              should not have to scroll past the one that asks them to post
+              another. */}
+          <MyRequests />
 
           <DeliverForm signedInEmail={user?.email ?? null} />
 
