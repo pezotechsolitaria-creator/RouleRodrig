@@ -12,6 +12,8 @@ import {
   quoteAcceptedTitle,
   quoteAcceptedLines,
   quoteAcceptedAction,
+  cancelledTitle,
+  cancelledLines,
   type RequestFacts,
 } from "@/lib/delivery/request-copy";
 
@@ -279,6 +281,74 @@ export async function notifyQuoteAccepted(quoteId: string): Promise<void> {
         deliveryId: q.deliveryId,
         driverId: q.driverId,
         fee: q.fee,
+      },
+    }),
+  ]);
+}
+
+// ── 4. The customer changed their mind ──────────────────────────────────────
+
+type CancelFacts = {
+  requestId: string;
+  what: string;
+  pickupText: string;
+  dropoffText: string;
+  contactName: string | null;
+  cancelReason: string | null;
+  deliveryId: string | null;
+  driverId: string | null;
+  driverName: string | null;
+  fee: number | null;
+};
+
+/**
+ * Tell the driver their booked job is off.
+ *
+ * The most time-critical message in the whole flow: they may already be on the
+ * road, and every minute they keep driving is a minute of their fuel spent on
+ * a job that no longer exists. Push and WhatsApp together, no delay.
+ *
+ * Silently does nothing when there is no driver — a request cancelled while
+ * still open has nobody to tell, and the caller should not have to know which
+ * case it is in.
+ */
+export async function notifyDriverOfCancellation(requestId: string): Promise<void> {
+  const f = await facts<CancelFacts>("delivery_cancel_facts", { p_request_id: requestId });
+  if (!f?.driverId) return;
+
+  const title = cancelledTitle({ what: f.what });
+  const lines = cancelledLines({
+    pickupText: f.pickupText,
+    dropoffText: f.dropoffText,
+    contactName: f.contactName,
+    reason: f.cancelReason,
+  });
+
+  const waTargets = await rpc<WaTarget>("driver_whatsapp_target_for_driver", {
+    p_driver_id: f.driverId,
+  });
+
+  await Promise.allSettled([
+    pushToDriver(f.driverId, {
+      title,
+      body: lines[0],
+      url: "/driver",
+      // Replaces the "you won" card for the same job rather than stacking a
+      // second one beside it, so the lock screen cannot show both at once.
+      tag: `delivery-won-${f.requestId}`,
+      urgent: true,
+    }),
+    whatsappFan(waTargets, formatWhatsAppMessage({ title, lines })),
+    enqueueNotification({
+      type: "delivery.cancelled_by_customer",
+      category: "deliveries",
+      message: formatWhatsAppMessage({ title, lines }),
+      dedupeKey: `delivery.cancelled_by_customer:${f.deliveryId ?? requestId}`,
+      payload: {
+        requestId: f.requestId,
+        deliveryId: f.deliveryId,
+        driverId: f.driverId,
+        fee: f.fee,
       },
     }),
   ]);

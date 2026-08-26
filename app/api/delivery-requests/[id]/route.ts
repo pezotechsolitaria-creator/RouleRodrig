@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { guardShared } from "@/lib/rate-limit";
-import { notifyQuoteAccepted } from "@/lib/delivery/notify-requests";
+import { notifyQuoteAccepted, notifyDriverOfCancellation } from "@/lib/delivery/notify-requests";
 
 // ── One request, from the customer's side ───────────────────────────────────
 //
@@ -141,10 +141,18 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           p_email: v.email,
           p_reason: v.reason ?? null,
         });
-        if (retry) return NextResponse.json({ ok: true });
+        if (retry) {
+          await notifyDriverOfCancellation(id);
+          return NextResponse.json({ ok: true });
+        }
       }
       return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
     }
+    // The most time-critical message in the flow: a booked driver may already
+    // be on the road, and every minute they keep going is their fuel spent on
+    // a job that no longer exists. Awaited, and it never throws. Does nothing
+    // when the request was still open -- there is nobody to tell.
+    await notifyDriverOfCancellation(id);
     return NextResponse.json({ ok: true });
   }
 

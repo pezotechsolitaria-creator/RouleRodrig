@@ -7,6 +7,7 @@ import {
   TERMINAL_LEGS,
   BROKEN_LEGS,
   ACTIVE_LEGS,
+  PRE_PICKUP_LEGS,
   sortQuotes,
   quoteBadges,
   formatFee,
@@ -248,6 +249,18 @@ describe("the driver's leg", () => {
     }
     for (const leg of BROKEN_LEGS) {
       expect(ACTIVE_LEGS as readonly string[], leg).not.toContain(leg);
+    }
+  });
+
+  it("lets a customer out only before the driver has collected", () => {
+    // After pickup the driver is holding the goods and the database refuses,
+    // so offering the button there would be a promise the server breaks.
+    for (const leg of ["picked_up", "out_for_delivery", "arrived", "delivered"]) {
+      expect(PRE_PICKUP_LEGS as readonly string[], leg).not.toContain(leg);
+    }
+    // And every state in it is one a driver is genuinely holding.
+    for (const leg of PRE_PICKUP_LEGS) {
+      expect(ACTIVE_LEGS as readonly string[], leg).toContain(leg);
     }
   });
 

@@ -6,6 +6,8 @@ import {
   quoteArrivedLines,
   quoteAcceptedTitle,
   quoteAcceptedLines,
+  cancelledTitle,
+  cancelledLines,
   type RequestFacts,
 } from "./request-copy";
 
@@ -199,5 +201,38 @@ describe("the driver who won", () => {
     }).join("\n");
     expect(lines).not.toMatch(/Customer:/);
     expect(lines).not.toMatch(/ · $/m);
+  });
+});
+
+describe("the driver whose job was called off", () => {
+  const base = { pickupText: "Port Mathurin", dropoffText: "Fatima Bay" };
+
+  it("leads with the fact that the job is off", () => {
+    // They may be reading this at a junction. The first two seconds have to
+    // carry the only thing that matters.
+    expect(cancelledTitle({ what: "2 gas bottles" })).toMatch(/^Cancelled:/);
+    expect(cancelledLines(base)[0]).toMatch(/cancelled this one before pickup/i);
+    expect(cancelledLines(base)[0]).toMatch(/do not collect/i);
+  });
+
+  it("ALWAYS says it is not held against them", () => {
+    // driver_cancellations is deliberately not incremented for a customer
+    // cancellation, and saying so is the only way a driver would ever know. A
+    // driver who thinks this dents their standing stops taking marginal work.
+    for (const reason of [undefined, "Changed my mind", "   "]) {
+      const lines = cancelledLines({ ...base, reason });
+      expect(lines.at(-1), String(reason)).toMatch(/does not count against you/i);
+    }
+  });
+
+  it("says where it was, so they can stop driving to it", () => {
+    expect(cancelledLines(base).join("\n")).toContain("Port Mathurin to Fatima Bay");
+  });
+
+  it("passes on a reason when there is one, and stays quiet otherwise", () => {
+    expect(cancelledLines({ ...base, reason: "Found another way" }).join("\n")).toMatch(
+      /They said: Found another way/,
+    );
+    expect(cancelledLines({ ...base, reason: "  " }).join("\n")).not.toMatch(/They said/);
   });
 });

@@ -63,6 +63,18 @@ export const ACTIVE_LEGS: readonly DeliveryLeg[] = [
   "arrived",
 ];
 
+/** A booked job the driver has NOT yet collected.
+ *
+ *  The window in which a customer may still call it off themselves. Once the
+ *  driver is holding the goods it stops being a self-service decision --
+ *  something physical has to happen to them, and a button cannot decide what --
+ *  so cancel_delivery_request() refuses past this point and says who to call. */
+export const PRE_PICKUP_LEGS: readonly DeliveryLeg[] = [
+  "assigned",
+  "going_to_pickup",
+  "arrived_at_pickup",
+];
+
 /** States where the driver is gone or the job needs a human. The customer must
  *  never be shown "your driver is booked" in any of these. */
 export const BROKEN_LEGS: readonly DeliveryLeg[] = [

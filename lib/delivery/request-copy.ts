@@ -180,3 +180,36 @@ export function quoteAcceptedLines(input: {
 export function quoteAcceptedAction(driverUrl: string): string {
   return `Open the job: ${driverUrl}`;
 }
+
+// ── 4. The customer changed their mind ──────────────────────────────────────
+
+/**
+ * What the driver is told when a customer cancels before pickup.
+ *
+ * Written to be read by somebody who may already be on the road. It leads with
+ * the fact that the job is off — that is the only thing they need in the first
+ * two seconds — and it says explicitly that this is not held against them,
+ * because a driver who thinks a cancellation dents their standing is a driver
+ * who stops accepting the marginal job.
+ */
+export function cancelledTitle(input: { what: string }): string {
+  return `Cancelled: ${input.what.trim()}`;
+}
+
+export function cancelledLines(input: {
+  pickupText: string;
+  dropoffText: string;
+  contactName?: string | null;
+  reason?: string | null;
+}): string[] {
+  const lines = [
+    "The customer cancelled this one before pickup. Do not collect it.",
+    `Was: ${input.pickupText.trim()} to ${input.dropoffText.trim()}`,
+  ];
+  if (input.reason?.trim()) lines.push(`They said: ${input.reason.trim()}`);
+  // The sentence that keeps a driver taking work. driver_cancellations is
+  // deliberately not incremented for this, and saying so out loud is the only
+  // way they would ever know.
+  lines.push("This does not count against you. You are free for the next job.");
+  return lines;
+}

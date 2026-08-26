@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import {
   requestStatusCopy, legCopy, legIndex, LEG_ORDER, sortQuotes, quoteBadges,
   BADGE_LABEL, formatFee, payAtDoor, expiresIn, TERMINAL_LEGS, BROKEN_LEGS,
+  PRE_PICKUP_LEGS,
   type Quote,
 } from "@/lib/delivery/request-status";
 import { emailFor, saveRequest } from "@/lib/delivery/my-requests";
@@ -344,7 +345,16 @@ export default function RequestTracker({
     deliveryStatus: view.delivery?.status,
   });
   const KindIcon = view.kind === "shop_and_deliver" ? ShoppingBasket : Package;
-  const canWithdraw = view.status === "open";
+  // Getting out. Two different acts behind one control:
+  //   open      -> withdraw the request. Nobody is committed; costs nothing.
+  //   accepted  -> cancel a booked driver, but ONLY before they collect. After
+  //                that the database refuses and names who to call instead, so
+  //                offering the button there would be a promise the server
+  //                breaks.
+  const prePickup =
+    view.status === "accepted" &&
+    (PRE_PICKUP_LEGS as readonly string[]).includes(view.delivery?.status ?? "");
+  const canWithdraw = view.status === "open" || prePickup;
   const closes = expiresIn(view.expiresAt);
 
   return (
@@ -434,7 +444,11 @@ export default function RequestTracker({
           disabled={cancelling}
           className={cn(t.bodySm, "self-start text-white/40 underline underline-offset-4 transition-colors hover:text-white/70 disabled:opacity-50")}
         >
-          {cancelling ? "Withdrawing…" : "Withdraw this request"}
+          {cancelling
+            ? "Cancelling…"
+            : prePickup
+              ? "Cancel this delivery"
+              : "Withdraw this request"}
         </button>
       )}
 
