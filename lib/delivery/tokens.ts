@@ -89,20 +89,44 @@ export const text = {
 // Three faces, each with exactly one job. Syne is the voice, Bebas is the
 // signpost, DM Sans is everything a person actually reads.
 
+// ── THE SIZES CHANGED, AND HERE IS THE EVIDENCE ────────────────────────────
+// The owner's brief is that an older person must be able to order unaided. On
+// Rodrigues that is not an edge case: the 2022 census counts 5,548 people aged
+// 60+ on an island of 43,604 — 12.7% — and 96.8% of them own a mobile phone
+// while only 12.6% can use a computer (CMPHS 2024). This surface is their
+// computer.
+//
+// A systematic review of mobile font size for older adults (Hou et al. 2020,
+// participants aged 57–70) reports ~14px for information search and ~17px for
+// intensive reading on smartphones, and stresses there is a critical size below
+// which readability falls away. The previous scale put field LABELS and the
+// single most consequential sentence on the form — the one explaining that a
+// shopping budget is repaid separately from the fee — at 12px.
+//
+// So the floor is raised: nothing a person must read in order to answer a
+// question sits below 14px, and body copy is at the intensive-reading size.
+// This is set for EVERYONE rather than behind a "large text" switch, because a
+// mode that has to be discovered will not be discovered by the people who need
+// it.
+
 export const type = {
   /** Page title. One per screen. */
   display: "font-syne text-3xl font-extrabold leading-[1.1] tracking-tight md:text-4xl",
   /** Section heading inside a screen. */
-  heading: "font-syne text-lg font-bold leading-snug",
+  heading: "font-syne text-xl font-bold leading-snug",
   /** A card's own title. */
-  cardTitle: "font-syne text-base font-bold leading-snug",
+  cardTitle: "font-syne text-lg font-bold leading-snug",
   /** The small tracked capitals above a section. A signpost, never a sentence —
    *  Bebas has no lowercase worth reading at this size. */
   eyebrow: "font-bebas text-[11px] tracking-[0.3em] uppercase",
-  body: "font-dm text-[15px] leading-relaxed",
-  bodySm: "font-dm text-[13px] leading-relaxed",
-  /** Field labels, metadata, timestamps. */
-  meta: "font-dm text-xs leading-normal",
+  /** Anything read to make a decision. 17px is the intensive-reading size for
+   *  57–70 year olds in Hou et al. (2020); it was 15px. */
+  body: "font-dm text-[17px] leading-relaxed",
+  bodySm: "font-dm text-[15px] leading-relaxed",
+  /** Field labels, hints, timestamps. 14px is the information-search floor from
+   *  the same review; it was 12px, which is where every label on the form sat.
+   *  Nothing below this may carry a word somebody needs. */
+  meta: "font-dm text-sm leading-normal",
   /** Money and quantities. Tabular so a column of prices does not shimmer as it
    *  updates — the single most common polish failure in a checkout. */
   numeric: "font-dm tabular-nums",
@@ -156,11 +180,15 @@ export const elevation = {
 // WCAG 2.2 AA asks 24×24 minimum. 44 is the real-world floor for a thumb, and
 // this is an app used one-handed, outdoors, sometimes in the rain.
 
+// WCAG 2.2 SC 2.5.8 (AA) asks 24x24 and SC 2.5.5 (AAA) asks 44x44. AAA is the
+// floor here, not the ceiling: reduced dexterity and tremor are common in the
+// cohort this is for, and every one of these targets is a whole decision.
 export const touch = {
-  min: "min-h-11", // 44px
-  comfortable: "min-h-12", // 48px
-  /** The primary action. Big enough to hit without looking. */
-  primary: "min-h-14", // 56px
+  /** The AAA minimum. Only for controls that are not part of the main path. */
+  min: "min-h-11", // 44px — WCAG 2.5.5
+  comfortable: "min-h-14", // 56px — anything on the path to ordering
+  /** The primary action. Big enough to hit without looking, in the sun. */
+  primary: "min-h-[60px]",
 } as const;
 
 // ── MOTION ──────────────────────────────────────────────────────────────────

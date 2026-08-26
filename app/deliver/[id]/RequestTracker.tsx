@@ -401,6 +401,17 @@ export default function RequestTracker({
 
   return (
     <div className="flex flex-col gap-6 pb-40">
+      {/* ── Spoken, for somebody who cannot see it change ───────────────── */}
+      {/* This screen refreshes itself every twenty seconds and rewrites the
+          headline in place. Without a live region a screen-reader user is
+          never told that a price arrived — the one event the whole surface
+          exists to deliver. "polite" rather than "assertive" because a quote
+          landing is news, not an emergency, and it should not cut across
+          whatever they are reading. */}
+      <p aria-live="polite" role="status" className="sr-only">
+        {status.headline}. {status.detail}
+      </p>
+
       {/* ── Where this stands ───────────────────────────────────────────── */}
       <header>
         <span
