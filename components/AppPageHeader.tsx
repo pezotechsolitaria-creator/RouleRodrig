@@ -20,34 +20,68 @@ import WorldSwitcher from "@/components/world/WorldSwitcher";
  */
 export default function AppPageHeader({
   title,
+  showBack = false,
   backHref = "/",
   logo,
 }: {
   title?: string;
+  /**
+   * A back control on a PRIMARY page — one that carries its own h1 and so does
+   * not want the header's.
+   *
+   * MEASURED, 375x812: giving /deliver a `title` to get its back arrow moved
+   * the world switch onto its own row and took the header from 64px to 110px,
+   * which put 46px of scroll onto a flow whose entire brief is that it must not
+   * scroll. This shape keeps the single row and spends the logo's slot on the
+   * arrow instead — on a four-step flow a wordmark is decoration and a way out
+   * is not.
+   */
+  showBack?: boolean;
   backHref?: string;
   logo?: string;
 }) {
   const { language, setLanguage } = useLanguage();
-  const cycle = () => setLanguage(language === "en" ? "fr" : language === "fr" ? "cr" : "en");
+  const cycle = () =>
+    setLanguage(language === "en" ? "fr" : language === "fr" ? "cr" : "en");
   const back = loc(language, "Back", "Retour", "Retour");
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-dark/85 backdrop-blur-xl">
       <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2.5">
-        {title ? (
+        {title || showBack ? (
           <Link
             href={backHref}
             aria-label={back}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-muted transition-colors hover:border-yellow/50 hover:text-yellow"
+            // 36px of circle, 52px of target. The ring stays small because the
+            // header's height is load-bearing — the delivery step bar pins to
+            // `top-16` against it — so the extra reach is an invisible
+            // pseudo-element that overhangs instead of a bigger box.
+            className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-muted transition-colors after:absolute after:-inset-2 after:content-[''] hover:border-yellow/50 hover:text-yellow"
           >
             <ArrowLeft size={16} />
           </Link>
         ) : (
-          <Link href="/" className="flex items-center" aria-label="Roule Rodrigues home">
+          <Link
+            href="/"
+            className="flex items-center"
+            aria-label="Roule Rodrigues home"
+          >
             <span className="rr-logo-anim inline-flex">
               <span className="rr-logo-bob inline-flex">
                 {logo ? (
-                  <Image src={logo} alt="Roule Rodrigues" width={120} height={32} priority sizes="120px" className="h-8 w-auto object-contain" unoptimized={logo.startsWith("/uploads/") || (logo.startsWith("http") && !logo.includes("supabase.co"))} />
+                  <Image
+                    src={logo}
+                    alt="Roule Rodrigues"
+                    width={120}
+                    height={32}
+                    priority
+                    sizes="120px"
+                    className="h-8 w-auto object-contain"
+                    unoptimized={
+                      logo.startsWith("/uploads/") ||
+                      (logo.startsWith("http") && !logo.includes("supabase.co"))
+                    }
+                  />
                 ) : (
                   <span className="flex items-baseline gap-1.5 font-syne font-extrabold leading-none">
                     <span className="text-lg text-offwhite">Roulé</span>

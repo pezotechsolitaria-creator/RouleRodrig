@@ -73,7 +73,16 @@ export default async function DeliverPage() {
       />
       {/* Carries the language cycle (EN → FR → Kreol) that this whole flow
           reads from. One control for the site, not a second one per page. */}
-      <AppPageHeader logo={content.branding.logo} />
+      {/* ── A WAY BACK ─────────────────────────────────────────
+          This was `<AppPageHeader logo={...} />` with no title, which is the
+          component's PRIMARY mode: a brand wordmark and no back control. The
+          wordmark does link home, but a logo is not a way out and nobody reads
+          it as one — the owner reported twice that there was no back button on
+          this page, and they were right.
+
+          /deliver is a four-step flow, not a top-level destination, so it takes
+          the same sub-page header /order and /shop already use. */}
+      <AppPageHeader showBack backHref="/" />
 
       {/* The bottom padding must clear the pinned CTA bar, which itself grows by
           env(safe-area-inset-bottom) on a notched phone. Derived from the same
@@ -118,7 +127,12 @@ export default async function DeliverPage() {
           {/* MEASURED at 90px as three wrapped lines of text-2xl. It is the
               page's title and its SEO heading, and on a phone it is also 90px
               of a 534px budget spent before anybody can do anything — so it is
-              one line on mobile and keeps its presence where height is free. */}
+              one line on mobile and keeps its presence where height is free.
+
+              It stays HERE rather than moving into the header: the header's
+              title slot also moves the world switch onto a second row, and that
+              costs 46px of scroll. The arrow does not need the title to exist
+              — see the `showBack` prop. */}
           <h1 className="font-syne text-base font-extrabold leading-tight text-offwhite md:text-4xl">
             Get anything moved on Rodrigues
           </h1>
