@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Store as StoreIcon, ArrowRight, ChevronRight, Truck } from "lucide-react";
+import {
+  Store as StoreIcon,
+  ArrowRight,
+  ChevronRight,
+  Truck,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
 import { centsToShortString } from "@/lib/money";
@@ -11,7 +16,11 @@ import CategoryStrip from "@/components/shop/CategoryStrip";
 import MarketProductCard from "@/components/shop/MarketProductCard";
 import HomeAnalytics from "@/components/shop/HomeAnalytics";
 import AddressLink from "@/components/AddressLink";
-import { browseProducts, getMarketplaceHome, productsByIds } from "@/lib/marketplace/catalog";
+import {
+  browseProducts,
+  getMarketplaceHome,
+  productsByIds,
+} from "@/lib/marketplace/catalog";
 import { sellerPitch, type MonetizationModel } from "@/lib/marketplace/fees";
 
 // ── /shop — the shelf, not the shopfront speech ─────────────────────────────
@@ -62,9 +71,14 @@ const RAIL_THRESHOLD = 16;
 function RowHeading({ title, href }: { title: string; href?: string }) {
   return (
     <div className="mt-6 mb-2 flex items-baseline justify-between gap-3">
-      <h2 className="font-syne text-base font-extrabold text-offwhite">{title}</h2>
+      <h2 className="font-syne text-base font-extrabold text-offwhite">
+        {title}
+      </h2>
       {href && (
-        <Link href={href} className="shrink-0 font-dm text-xs font-semibold text-yellow hover:underline">
+        <Link
+          href={href}
+          className="shrink-0 font-dm text-xs font-semibold text-yellow hover:underline"
+        >
           See all <ChevronRight size={12} className="inline -translate-y-px" />
         </Link>
       )}
@@ -72,7 +86,8 @@ function RowHeading({ title, href }: { title: string; href?: string }) {
   );
 }
 
-const GRID = "grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6";
+const GRID =
+  "grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6";
 
 // The launch state IS the empty state: with nothing listed, this page's job is
 // to recruit the first shops, not to apologise to customers for a bare shelf.
@@ -86,14 +101,17 @@ function LaunchState({ pitch }: { pitch: string }) {
         The island&apos;s shops are coming online
       </h2>
       <p className="mx-auto mt-3 max-w-md font-dm text-sm leading-relaxed text-muted">
-        Rodrigues honey, lemon and chilli, hand-woven baskets, embroidery — the marketplace is opening
-        shop by shop. The first products will appear right here.
+        Rodrigues honey, lemon and chilli, hand-woven baskets, embroidery — the
+        marketplace is opening shop by shop. The first products will appear
+        right here.
       </p>
       <div className="mx-auto mt-8 max-w-md rounded-2xl border border-white/10 bg-dark-card p-6 text-left">
-        <p className="font-syne text-lg font-bold text-offwhite">Run a shop in Rodrigues?</p>
+        <p className="font-syne text-lg font-bold text-offwhite">
+          Run a shop in Rodrigues?
+        </p>
         <p className="mt-2 font-dm text-sm leading-relaxed text-muted">
-          List your products, take orders online, and get paid directly by bank transfer before you
-          hand anything over — {pitch}.
+          List your products, take orders online, and get paid directly by bank
+          transfer before you hand anything over — {pitch}.
         </p>
         <Link
           href="/merchant/login"
@@ -104,7 +122,10 @@ function LaunchState({ pitch }: { pitch: string }) {
       </div>
       <p className="mt-6 font-dm text-sm text-muted">
         Just visiting?{" "}
-        <Link href="/explore" className="font-semibold text-yellow hover:underline">
+        <Link
+          href="/explore"
+          className="font-semibold text-yellow hover:underline"
+        >
           Explore the island →
         </Link>
       </p>
@@ -127,7 +148,10 @@ export default async function MarketplaceHomePage() {
       .maybeSingle(),
   ]);
 
-  const settings = settingsRes.data as { monetization_model?: string; default_commission_rate?: number } | null;
+  const settings = settingsRes.data as {
+    monetization_model?: string;
+    default_commission_rate?: number;
+  } | null;
   const pitch = sellerPitch(
     (settings?.monetization_model as MonetizationModel) ?? "subscription",
     Number(settings?.default_commission_rate ?? 0),
@@ -146,13 +170,19 @@ export default async function MarketplaceHomePage() {
   const [bestsellers, newest] = big
     ? await Promise.all([
         productsByIds(supabase, home?.bestsellerIds ?? [], 6),
-        browseProducts(supabase, { limit: 6, sort: "newest" }).then((r) => r.products),
+        browseProducts(supabase, { limit: 6, sort: "newest" }).then(
+          (r) => r.products,
+        ),
       ])
     : [[], []];
 
   return (
     <main className="min-h-screen bg-dark px-4 pb-44 pt-0 text-offwhite md:pb-28">
-      <MarketHeader />
+      {/* MarketHeader has taken a `back` prop all along and this page never
+          passed one — so the marketplace had a sticky bar with search and a
+          cart badge and no way out of it. /shop/saved and the category pages
+          pass it; the front door did not. */}
+      <MarketHeader back={{ href: "/", label: "Home" }} />
       <HomeAnalytics
         productCount={productCount}
         categoryCount={categories.length}
@@ -180,7 +210,9 @@ export default async function MarketplaceHomePage() {
       <div className="mx-auto max-w-7xl">
         {/* The page still needs a heading for a screen reader and for search —
             it does not need to spend a screenful of a phone saying it. */}
-        <h1 className="sr-only">Rodrigues Marketplace — buy from the island&apos;s shops</h1>
+        <h1 className="sr-only">
+          Rodrigues Marketplace — buy from the island&apos;s shops
+        </h1>
 
         <CategoryStrip categories={categories} />
 
@@ -190,7 +222,9 @@ export default async function MarketplaceHomePage() {
         {productCount > 0 && (
           <p className="mt-2 flex items-center gap-1.5 truncate font-dm text-[11px] text-muted">
             <Truck size={12} className="shrink-0 text-yellow/70" />
-            {deliveryFrom !== null && <>Delivery from Rs {centsToShortString(deliveryFrom)}</>}
+            {deliveryFrom !== null && (
+              <>Delivery from Rs {centsToShortString(deliveryFrom)}</>
+            )}
             {deliveryFrom !== null && <span className="text-muted/50">·</span>}
             <span>Pay the shop direct, no card</span>
           </p>
@@ -204,7 +238,8 @@ export default async function MarketplaceHomePage() {
                 in one line, instead of leaving six badges unexplained. */}
             {sellingStoreCount === 0 && (
               <p className="mt-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 font-dm text-[11px] text-muted">
-                Online ordering is paused — browse now, or contact a shop to buy today.
+                Online ordering is paused — browse now, or contact a shop to buy
+                today.
               </p>
             )}
 
@@ -213,7 +248,12 @@ export default async function MarketplaceHomePage() {
                 <RowHeading title="People are buying" href="/shop/search" />
                 <div className={GRID}>
                   {bestsellers.map((p, i) => (
-                    <MarketProductCard key={p.id} product={p} priority={i < 6} index={i} />
+                    <MarketProductCard
+                      key={p.id}
+                      product={p}
+                      priority={i < 6}
+                      index={i}
+                    />
                   ))}
                 </div>
               </>
@@ -221,7 +261,10 @@ export default async function MarketplaceHomePage() {
 
             {big && newest.length >= 2 && (
               <>
-                <RowHeading title="New arrivals" href="/shop/search?sort=newest" />
+                <RowHeading
+                  title="New arrivals"
+                  href="/shop/search?sort=newest"
+                />
                 <div className={GRID}>
                   {newest.map((p) => (
                     <MarketProductCard key={p.id} product={p} />
@@ -236,12 +279,21 @@ export default async function MarketplaceHomePage() {
             {big ? (
               <RowHeading
                 title="Everything on the marketplace"
-                href={everything.total > everything.products.length ? "/shop/search" : undefined}
+                href={
+                  everything.total > everything.products.length
+                    ? "/shop/search"
+                    : undefined
+                }
               />
             ) : null}
             <div className={`${big ? "" : "mt-2.5 "}${GRID}`}>
               {everything.products.map((p, i) => (
-                <MarketProductCard key={p.id} product={p} priority={!big && i < 6} index={i} />
+                <MarketProductCard
+                  key={p.id}
+                  product={p}
+                  priority={!big && i < 6}
+                  index={i}
+                />
               ))}
             </div>
 
@@ -264,7 +316,12 @@ export default async function MarketplaceHomePage() {
                     >
                       {s.logoUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={s.logoUrl} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+                        <img
+                          src={s.logoUrl}
+                          alt=""
+                          loading="lazy"
+                          className="h-9 w-9 shrink-0 rounded-lg object-cover"
+                        />
                       ) : (
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-yellow/10 text-yellow">
                           <StoreIcon size={16} />
@@ -279,7 +336,8 @@ export default async function MarketplaceHomePage() {
                         </Link>
                         <div className="flex min-w-0 items-center gap-1.5 font-dm text-[11px] text-muted">
                           <span className="shrink-0">
-                            {s.productCount} product{s.productCount === 1 ? "" : "s"}
+                            {s.productCount} product
+                            {s.productCount === 1 ? "" : "s"}
                           </span>
                           {s.address && (
                             <>
@@ -313,7 +371,10 @@ export default async function MarketplaceHomePage() {
               <p className="font-dm text-xs text-muted">
                 Run a shop in Rodrigues? Sell here — {pitch}.
               </p>
-              <Link href="/merchant/login" className="font-dm text-xs font-bold text-yellow hover:underline">
+              <Link
+                href="/merchant/login"
+                className="font-dm text-xs font-bold text-yellow hover:underline"
+              >
                 Open your shop →
               </Link>
             </div>

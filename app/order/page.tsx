@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { UtensilsCrossed, Store, Ticket, ChevronRight, ClipboardList } from "lucide-react";
+import {
+  UtensilsCrossed,
+  Store,
+  Ticket,
+  ChevronRight,
+  ClipboardList,
+} from "lucide-react";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
-import Navbar from "@/components/Navbar";
+import AppPageHeader from "@/components/AppPageHeader";
 import OrderHubBaskets from "./OrderHubBaskets";
 
 // ── "What would you like to order?" ─────────────────────────────────────────
@@ -74,15 +80,31 @@ export default function OrderHubPage() {
   return (
     <>
       <JsonLd data={jsonLd} />
-      <Navbar />
-      <main className="min-h-screen bg-dark px-4 pb-28 pt-24 text-offwhite">
+      {/* ── A WAY BACK ─────────────────────────────────────────────────────
+          This hub is reached from a homepage card and from the bottom tab bar,
+          and it had no back control at all — the marketing <Navbar> gives a
+          logo that happens to be a link, which is not the same thing as a way
+          back and is not read as one.
+
+          A TITLED AppPageHeader is what puts the circular arrow there, which is
+          the same pattern /experiences already uses for the same reason. It
+          also suits this page better than the marketing bar did: the note at
+          the top of this file says it is the screen an 80-year-old lands on and
+          that nothing should compete for attention, and a nav listing scooters,
+          pricing, routes and the island map is nine things competing.
+
+          pt-24 went with it. That was clearing a FIXED navbar; this header is
+          sticky and sits in the flow, so the old padding would have left 96px
+          of nothing under it. */}
+      <AppPageHeader title="Order" backHref="/" />
+      <main className="min-h-screen bg-dark px-4 pb-28 pt-6 text-offwhite">
         <div className="mx-auto max-w-2xl">
           <h1 className="font-syne text-3xl font-extrabold leading-tight sm:text-4xl">
             What would you like to order?
           </h1>
           <p className="mt-2 font-dm text-sm text-muted">
-            Three ways to buy from Rodrigues. Pick one — you pay by bank transfer, and the seller
-            confirms before your order is prepared.
+            Three ways to buy from Rodrigues. Pick one — you pay by bank
+            transfer, and the seller confirms before your order is prepared.
           </p>
 
           <OrderHubBaskets />
@@ -103,10 +125,17 @@ export default function OrderHubPage() {
                     <span className="block font-syne text-xl font-bold text-offwhite group-hover:text-yellow">
                       {d.title}
                     </span>
-                    <span className="block font-dm text-sm text-offwhite/80">{d.line}</span>
-                    <span className="mt-0.5 block font-dm text-xs text-muted">{d.detail}</span>
+                    <span className="block font-dm text-sm text-offwhite/80">
+                      {d.line}
+                    </span>
+                    <span className="mt-0.5 block font-dm text-xs text-muted">
+                      {d.detail}
+                    </span>
                   </span>
-                  <ChevronRight size={20} className="shrink-0 text-muted group-hover:text-yellow" />
+                  <ChevronRight
+                    size={20}
+                    className="shrink-0 text-muted group-hover:text-yellow"
+                  />
                 </Link>
               );
             })}
