@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ACTIVE_LEGS } from "@/lib/delivery/request-status";
 import { guardAdminApi, readJson, failed } from "@/lib/admin/api-guard";
 import { audit } from "@/lib/admin/audit";
 import {
@@ -211,7 +212,7 @@ async function loadDetail(
       .from("deliveries")
       .select("id, status, created_at")
       .eq("driver_id", id)
-      .in("status", ["assigned", "picked_up", "en_route"])
+      .in("status", [...ACTIVE_LEGS])
       .limit(5);
 
     // No metrics row means nothing has been measured yet — NOT zero of

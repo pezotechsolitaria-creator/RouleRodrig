@@ -45,6 +45,24 @@ export const TERMINAL_LEGS: readonly DeliveryLeg[] = [
   "returned_to_merchant",
 ];
 
+/** A delivery a driver is currently holding. The same set the database uses in
+ *  driver_dashboard(), accept_delivery() and the capacity check -- written once
+ *  here so the TypeScript side stops hand-copying it and getting it wrong.
+ *
+ *  app/api/admin/people/route.ts had ["assigned","picked_up","en_route"].
+ *  `en_route` is not a delivery_status label at all, so PostgREST failed the
+ *  enum cast, 400d the whole query, and the owner's driver panel reported zero
+ *  active assignments for a driver who was mid-delivery -- the exact question
+ *  they had opened it to answer. It also silently dropped four real states. */
+export const ACTIVE_LEGS: readonly DeliveryLeg[] = [
+  "assigned",
+  "going_to_pickup",
+  "arrived_at_pickup",
+  "picked_up",
+  "out_for_delivery",
+  "arrived",
+];
+
 /** States where the driver is gone or the job needs a human. The customer must
  *  never be shown "your driver is booked" in any of these. */
 export const BROKEN_LEGS: readonly DeliveryLeg[] = [

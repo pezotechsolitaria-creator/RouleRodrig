@@ -6,6 +6,7 @@ import {
   LEG_ORDER,
   TERMINAL_LEGS,
   BROKEN_LEGS,
+  ACTIVE_LEGS,
   sortQuotes,
   quoteBadges,
   formatFee,
@@ -230,6 +231,24 @@ describe("the driver's leg", () => {
     // The one that was missing, spelled the way the database spells it.
     expect(TERMINAL_LEGS).toContain("failed_delivery");
     expect(TERMINAL_LEGS as readonly string[]).not.toContain("failed");
+  });
+
+  it("lists every state a driver is actually holding a job in", () => {
+    // The list app/api/admin/people/route.ts used to hand-write. It had
+    // "en_route", which is not a delivery_status label, so PostgREST failed the
+    // enum cast and 400d the query -- the owner's driver panel reported zero
+    // active assignments for a driver who was mid-delivery.
+    expect(ACTIVE_LEGS as readonly string[]).not.toContain("en_route");
+    for (const leg of ACTIVE_LEGS) {
+      expect(legCopy(leg).label, leg).not.toBe("In progress");
+    }
+    // Holding a job and being finished with it are disjoint by definition.
+    for (const leg of TERMINAL_LEGS) {
+      expect(ACTIVE_LEGS as readonly string[], leg).not.toContain(leg);
+    }
+    for (const leg of BROKEN_LEGS) {
+      expect(ACTIVE_LEGS as readonly string[], leg).not.toContain(leg);
+    }
   });
 
   it("keeps the broken states off the progress trail", () => {
