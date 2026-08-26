@@ -29,6 +29,25 @@ export default function GlobalError({
     );
   }, [error]);
 
+  // The root layout is what threw, so its pre-paint language script never ran
+  // and this <html lang="en"> below would stand. Someone whose site is in Kreol
+  // should not be read an English apology in an English voice because the page
+  // that failed was the one that sets the language.
+  //
+  // The mapping is inline rather than imported from lib/i18n: this boundary is
+  // the last thing standing when everything else has broken, and importing the
+  // whole translation dictionary into it to read three letters is a dependency
+  // it should not have. lib/i18n.test.ts asserts this copy still agrees.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("rr_language");
+      document.documentElement.lang =
+        saved === "cr" ? "mfe" : saved === "fr" ? "fr" : "en";
+    } catch {
+      /* localStorage unavailable — the served lang="en" stands */
+    }
+  }, []);
+
   return (
     <html lang="en">
       <body
@@ -46,8 +65,16 @@ export default function GlobalError({
         }}
       >
         <div>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 800 }}>Service temporarily unavailable</h1>
-          <p style={{ color: "#9a9a93", marginTop: "0.75rem", fontSize: "0.9rem" }}>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 800 }}>
+            Service temporarily unavailable
+          </h1>
+          <p
+            style={{
+              color: "#9a9a93",
+              marginTop: "0.75rem",
+              fontSize: "0.9rem",
+            }}
+          >
             We hit an unexpected error. Please refresh in a moment.
           </p>
           <button

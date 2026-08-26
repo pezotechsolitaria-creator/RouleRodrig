@@ -20,7 +20,11 @@ export function websiteLd() {
     name: BRAND,
     alternateName: ["Roule Rodrig", "roulerodrig"],
     url: SITE_URL,
-    inLanguage: ["en", "fr"],
+    // Was ["en", "fr"] while app/page.tsx published knowsLanguage
+    // ["en", "fr", "mfe"] into the SAME document — two blocks of structured data
+    // on one page disagreeing about how many languages the site speaks. mfe is
+    // Kreol; see the note on LANGUAGE_TAGS in lib/i18n.ts for why not "cr".
+    inLanguage: ["en", "fr", "mfe"],
     publisher: { "@id": `${SITE_URL}/#organization` },
   };
 }
@@ -68,7 +72,10 @@ export function breadcrumbLd(trail: { name: string; url: string }[]) {
 
 // A collection page listing N items (fleet, stays, activities). Helps Google
 // treat the page as a real listing rather than thin content.
-export function itemListLd(name: string, items: { name: string; url?: string }[]) {
+export function itemListLd(
+  name: string,
+  items: { name: string; url?: string }[],
+) {
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
@@ -140,7 +147,9 @@ export function placeLd(p: PlaceInput) {
       addressCountry: "MU",
     },
     ...(typeof p.lat === "number" && typeof p.lng === "number"
-      ? { geo: { "@type": "GeoCoordinates", latitude: p.lat, longitude: p.lng } }
+      ? {
+          geo: { "@type": "GeoCoordinates", latitude: p.lat, longitude: p.lng },
+        }
       : {}),
   };
 }
@@ -191,7 +200,12 @@ function brandOf(name: string): string | null {
 // invent a rating: fake stars are the fastest way to lose rich results.
 export function productLd(p: ProductInput) {
   const brand = brandOf(p.name);
-  const type = p.category === "car" ? "Car" : p.category === "scooter" ? "Motorcycle" : "Product";
+  const type =
+    p.category === "car"
+      ? "Car"
+      : p.category === "scooter"
+        ? "Motorcycle"
+        : "Product";
   return {
     "@type": type,
     name: p.name,
@@ -216,7 +230,9 @@ export function productLd(p: ProductInput) {
             price: p.price,
             priceCurrency: "MUR",
             availability:
-              p.available === false ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
+              p.available === false
+                ? "https://schema.org/OutOfStock"
+                : "https://schema.org/InStock",
             url: p.url,
             seller: { "@id": `${SITE_URL}/#business` },
           },
@@ -245,7 +261,12 @@ export function storeLd(s: {
   address?: string | null;
   phone?: string | null;
   rating?: { avg: number; count: number } | null;
-  products?: { name: string; url: string; price?: number; image?: string | null }[];
+  products?: {
+    name: string;
+    url: string;
+    price?: number;
+    image?: string | null;
+  }[];
 }) {
   const url = `${SITE_URL}/shop/${s.slug}`;
   return {
@@ -334,12 +355,23 @@ export function marketplaceProductLd(p: {
   inStock: boolean;
   offerCount: number;
   rating?: { avg: number; count: number } | null;
-  reviews?: { rating: number; body: string | null; author: string | null; createdAt: string }[];
+  reviews?: {
+    rating: number;
+    body: string | null;
+    author: string | null;
+    createdAt: string;
+  }[];
 }) {
   const url = `${SITE_URL}/shop/${p.storeSlug}/${p.slug}`;
   const money = (cents: number) => (cents / 100).toFixed(2);
-  const availability = p.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
-  const seller = { "@type": "Organization", name: p.storeName, url: `${SITE_URL}/shop/${p.storeSlug}` };
+  const availability = p.inStock
+    ? "https://schema.org/InStock"
+    : "https://schema.org/OutOfStock";
+  const seller = {
+    "@type": "Organization",
+    name: p.storeName,
+    url: `${SITE_URL}/shop/${p.storeSlug}`,
+  };
 
   return {
     "@context": "https://schema.org",
@@ -389,9 +421,16 @@ export function marketplaceProductLd(p: {
       ? {
           review: p.reviews.slice(0, 5).map((r) => ({
             "@type": "Review",
-            reviewRating: { "@type": "Rating", ratingValue: r.rating, bestRating: 5, worstRating: 1 },
+            reviewRating: {
+              "@type": "Rating",
+              ratingValue: r.rating,
+              bestRating: 5,
+              worstRating: 1,
+            },
             ...(r.body ? { reviewBody: r.body } : {}),
-            ...(r.author ? { author: { "@type": "Person", name: r.author } } : {}),
+            ...(r.author
+              ? { author: { "@type": "Person", name: r.author } }
+              : {}),
             datePublished: r.createdAt.slice(0, 10),
           })),
         }
@@ -401,7 +440,9 @@ export function marketplaceProductLd(p: {
 
 // The business. Referenced by @id from other blocks so Google links them into
 // one entity instead of treating each page as a separate company.
-export function organizationLd(opts: { logo?: string; sameAs?: string[] } = {}) {
+export function organizationLd(
+  opts: { logo?: string; sameAs?: string[] } = {},
+) {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
