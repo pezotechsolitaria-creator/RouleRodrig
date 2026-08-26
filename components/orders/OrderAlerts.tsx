@@ -12,6 +12,7 @@ import { pushSupported, currentPushState, type PushState } from "@/lib/push/subs
 export default function OrderAlerts({
   orderId,
   bookingRef,
+  requestId,
   email,
   className = "",
 }: {
@@ -19,6 +20,11 @@ export default function OrderAlerts({
   orderId?: string;
   /** A vehicle or place booking, identified as the customer sees it (RR-XXXXXX). */
   bookingRef?: string;
+  /** A Deliver Anything request. Mutually exclusive with the other two.
+   *  Its whole value arrives minutes later as quotes, so this is the one
+   *  surface where the alert is not a nicety -- without it a customer has to
+   *  sit and watch the page poll. */
+  requestId?: string;
   email?: string | null;
   className?: string;
 }) {
@@ -53,17 +59,23 @@ export default function OrderAlerts({
       // Two transaction kinds, two credentials: an order proves itself with its
       // id, a booking with the reference the customer was given. Each route
       // verifies its own against the matching email.
-      const res = bookingRef
-        ? await fetch("/api/bookings/push", {
+      const res = requestId
+        ? await fetch(`/api/delivery-requests/${requestId}/push`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ref: bookingRef, email, endpoint: json.endpoint, keys: json.keys }),
+            body: JSON.stringify({ email: email || undefined, endpoint: json.endpoint, keys: json.keys }),
           })
-        : await fetch("/api/orders/push", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderId, email: email || undefined, endpoint: json.endpoint, keys: json.keys }),
-          });
+        : bookingRef
+          ? await fetch("/api/bookings/push", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ref: bookingRef, email, endpoint: json.endpoint, keys: json.keys }),
+            })
+          : await fetch("/api/orders/push", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ orderId, email: email || undefined, endpoint: json.endpoint, keys: json.keys }),
+            });
 
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -82,11 +94,18 @@ export default function OrderAlerts({
   // A browser that cannot receive push gets no dead switch.
   if (state === null || state === "unsupported" || !pushSupported()) return null;
 
+  // Three kinds, three nouns. "We will tell you when this order changes" is the
+  // wrong sentence for a job that has not been booked yet -- the thing a
+  // delivery customer is waiting for is a PRICE, not a change of status.
+  const noun = requestId ? "request" : bookingRef ? "booking" : "order";
+
   if (state === "on") {
     return (
       <p className={`flex items-center gap-1.5 font-dm text-xs text-green-400 ${className}`}>
-        <BellRing size={13} /> You&apos;ll get a notification when this{" "}
-        {bookingRef ? "booking" : "order"} changes.
+        <BellRing size={13} />{" "}
+        {requestId
+          ? "You'll get a notification the moment a driver sends a price."
+          : `You'll get a notification when this ${noun} changes.`}
       </p>
     );
   }
@@ -108,7 +127,7 @@ export default function OrderAlerts({
         className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full border border-white/20 px-5 font-syne text-sm font-bold text-offwhite disabled:opacity-50"
       >
         {busy ? <Loader2 size={16} className="animate-spin" /> : <Bell size={15} />}
-        Notify me when this {bookingRef ? "booking" : "order"} changes
+        {requestId ? "Tell me when a price arrives" : `Notify me when this ${noun} changes`}
       </button>
       <p className="mt-1.5 text-center font-dm text-[11px] text-muted">
         No account needed. Works even with this page closed.

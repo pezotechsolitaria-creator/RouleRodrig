@@ -8,6 +8,7 @@ import {
   Bike, Car, Truck, ShieldCheck, Clock, AlertTriangle, ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import OrderAlerts from "@/components/orders/OrderAlerts";
 import { cn } from "@/lib/utils";
 import {
   requestStatusCopy, legCopy, legIndex, LEG_ORDER, sortQuotes, quoteBadges,
@@ -419,6 +420,22 @@ export default function RequestTracker({
           {requestRef(view.id)}
         </p>
         <p className={cn(t.body, "mt-2 text-muted")}>{status.detail}</p>
+        {/* ── The alert, exactly where it is worth something ──────────────
+            A quote marketplace's whole value arrives MINUTES later. Without
+            this the customer had to sit and watch the page poll, and the copy
+            around it was careful never to promise a message — because nothing
+            sent one. OrderAlerts makes that promise itself, and only once
+            permission has actually been granted, so the promise lives where it
+            is earned. Shown while the request is still live: after a driver is
+            booked the trail is the thing to watch. */}
+        {view.status === "open" && status.tone !== "dead" && (
+          <OrderAlerts
+            requestId={view.id}
+            email={emailRef.current || undefined}
+            className="mt-4"
+          />
+        )}
+
         {view.status === "open" && closes && (
           <p className={cn(t.meta, "mt-3 inline-flex items-center gap-1.5 text-white/55")}>
             <Clock size={13} /> Drivers can quote until it closes {closes}
