@@ -258,7 +258,14 @@ export default async function RootLayout({
       // only silences <html>'s own attributes — nothing inside it.
       suppressHydrationWarning
     >
-      <body className="bg-dark text-offwhite font-dm overflow-x-hidden pb-16 md:pb-0">
+      {/* `overflow-x-hidden` was here as well as in globals.css, and the utility
+          won. Hidden on any axis makes <body> a scroll container, which makes
+          every `position: sticky` inside it stick to a scrollport that never
+          moves — the site header, the marketplace bar and the delivery step bar
+          were all declared sticky and none of them stuck. The stylesheet keeps
+          the guard and upgrades it to `overflow-x: clip`, which clips the same
+          overflow without creating a container. */}
+      <body className="bg-dark text-offwhite font-dm pb-16 md:pb-0">
         {/* iOS PWA launch images (hoisted to <head> by React) */}
         {IOS_SPLASH.map((s) => (
           <link

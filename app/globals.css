@@ -133,10 +133,27 @@ section[id],
   html { scroll-behavior: auto; }
 }
 
-/* Never let the page scroll sideways on mobile */
+/* ── Never let the page scroll sideways — without killing sticky ──────────
+   This was `overflow-x: hidden` alone. It did the first half and silently did
+   the second: `hidden` on ANY axis makes the element a scroll container, so
+   <body> became one, and every `position: sticky` inside it stuck to a
+   scrollport that never moves. The site header, the marketplace bar and the
+   delivery step bar were all declared sticky and MEASURED moving 1:1 with the
+   page — 130px of scroll put the header at -130 instead of 0.
+
+   `clip` clips exactly the same overflow and does NOT create a scroll
+   container, so `overflow-y` stays `visible` and sticky works. The two
+   declarations are the plain fallback idiom rather than @supports: an engine
+   that does not know `clip` ignores the second line and keeps `hidden`, which
+   is the behaviour it has today. Chrome 90+, Firefox 81+, Safari 16+.
+
+   (`overflow-x-hidden` was ALSO on <body> as a Tailwind utility in
+   app/layout.tsx, where it won the cascade. It is gone; this is the one
+   place that guard lives now.) */
 html, body {
   max-width: 100%;
   overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Ti Roulé mascot — gentle idle bob (transform-only, GPU-composited) */

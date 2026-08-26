@@ -5,7 +5,6 @@ import {
   Search,
   UtensilsCrossed,
   MessageCircle,
-  ArrowLeft,
   SlidersHorizontal,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -17,6 +16,7 @@ import JsonLd from "@/components/JsonLd";
 import FoodCard from "@/components/food/FoodCard";
 import FulfillmentBar from "@/components/food/FulfillmentBar";
 import FoodCartBar from "@/components/food/FoodCartBar";
+import { ShopHeader } from "@/components/shop/ShopChrome";
 
 // /food — a food-first ordering surface.
 //
@@ -140,7 +140,23 @@ export default async function FoodPage({
   if (empty && first(sp.preview) !== "1") redirect("/food/concierge");
 
   return (
-    <main className="min-h-screen bg-dark px-4 pb-56 pt-6 text-offwhite md:pb-44">
+    <main className="min-h-screen bg-dark px-4 pb-56 pt-0 text-offwhite md:pb-44">
+      {/* ── A WAY BACK, THAT STAYS ─────────────────────────────
+          There WAS one: a 14px arrow and the word Home, at text-sm, inside the
+          scroll. It worked and it scrolled away — which on the page somebody
+          browses longest is the same as not being there.
+
+          ShopHeader is the house chrome for a commerce page and /events
+          already uses it exactly like this. Its 44px arrow is the largest of
+          the three back controls on the site, which suits the page that gets
+          the most scrolling.
+
+          Its cart badge is NOT a duplicate of FoodCartBar below: that pill
+          reads useCart("food") and answers "what is in this order", while the
+          badge counts EVERY basket and answers "do I have something waiting
+          anywhere" — the question somebody who wandered in from /shop is
+          carrying. */}
+      <ShopHeader backHref="/" backLabel="Home" />
       {!empty && (
         <JsonLd
           data={[
@@ -174,15 +190,8 @@ export default async function FoodPage({
       )}
 
       <div className="mx-auto max-w-2xl lg:max-w-5xl">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow"
-        >
-          <ArrowLeft size={14} /> Home
-        </Link>
-
         {/* ── The question, asked plainly. Everything under it is an answer. ── */}
-        <h1 className="mt-2 font-syne text-2xl font-extrabold leading-[1.05] sm:text-3xl">
+        <h1 className="font-syne text-2xl font-extrabold leading-[1.05] sm:text-3xl">
           What are you <span className="text-yellow">hungry for?</span>
         </h1>
         {!empty && (
