@@ -4,11 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   MapPin, Navigation, Users, Luggage, Clock, Loader2, ArrowRight, ArrowLeft,
-  Check, Car, PlaneTakeoff, Ship, Hotel, Crown, Search, LocateFixed, PhoneCall,
+  Check, Car, PlaneTakeoff, Ship, Hotel, Crown, PhoneCall,
 } from "lucide-react";
 import { RIDE_SERVICE_META, formatRidePrice, type RideService } from "@/lib/rides/model";
 import type { RidePlace } from "@/lib/rides/places";
 import { searchPlaces } from "@/lib/rides/places";
+import PlacePicker from "@/components/PlacePicker";
 
 // ── THE CUSTOMER BOOKS THEIR OWN RIDE ───────────────────────────────────────
 //
@@ -47,114 +48,6 @@ type Quote = {
   ok: boolean; price?: number; currency?: string; roadKm?: number | null;
   tripMinutes?: number | null; night?: boolean; message?: string; reason?: string;
 };
-
-function PlacePicker({
-  label, icon: Icon, value, onPick, placeholder,
-}: {
-  label: string; icon: React.ElementType; value: RidePlace | null;
-  onPick: (p: RidePlace | null) => void; placeholder: string;
-}) {
-  const [q, setQ] = useState("");
-  const [open, setOpen] = useState(false);
-  const [locating, setLocating] = useState(false);
-  const results = useMemo(() => searchPlaces(q), [q]);
-
-  // Their own position, when they are standing where they want collecting from.
-  function useMyLocation() {
-    if (!navigator.geolocation) return;
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        onPick({
-          id: "gps", name: "My current location", area: "",
-          lat: pos.coords.latitude, lng: pos.coords.longitude,
-        });
-        setLocating(false);
-        setOpen(false);
-      },
-      // A refused permission is not an error worth shouting about — the list is
-      // right there.
-      () => setLocating(false),
-      { timeout: 8000 },
-    );
-  }
-
-  if (value && !open) {
-    return (
-      <button
-        type="button"
-        onClick={() => { setOpen(true); setQ(""); }}
-        className="flex w-full items-center gap-3 rounded-2xl border border-white/12 bg-dark-card px-4 py-3.5 text-left"
-      >
-        <Icon size={18} className="shrink-0 text-yellow" />
-        <span className="min-w-0 flex-1">
-          <span className="block font-bebas text-[10px] tracking-[0.22em] text-muted">{label}</span>
-          <span className="block truncate font-dm text-base text-offwhite">{value.name}</span>
-          {value.area && <span className="block truncate font-dm text-xs text-muted">{value.area}</span>}
-        </span>
-        <span className="font-dm text-xs text-yellow">Change</span>
-      </button>
-    );
-  }
-
-  return (
-    <div className="rounded-2xl border border-yellow/30 bg-dark-card p-4">
-      <p className="font-bebas text-[10px] tracking-[0.22em] text-yellow">{label}</p>
-      <div className="relative mt-2">
-        <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-        <input
-          autoFocus
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={placeholder}
-          aria-label={label}
-          className="w-full rounded-xl border border-white/12 bg-dark py-3 pl-9 pr-3 font-dm text-base text-offwhite placeholder:text-muted focus:border-yellow/60 focus:outline-none"
-        />
-      </div>
-
-      <button
-        type="button"
-        onClick={useMyLocation}
-        disabled={locating}
-        className="mt-2 flex w-full items-center gap-2 rounded-xl border border-white/12 px-3 py-2.5 font-dm text-sm text-offwhite/85 disabled:opacity-50"
-      >
-        {locating ? <Loader2 size={15} className="animate-spin text-yellow" /> : <LocateFixed size={15} className="text-yellow" />}
-        Use where I am now
-      </button>
-
-      <div className="mt-2 max-h-64 overflow-y-auto">
-        {results.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => { onPick(p); setOpen(false); }}
-            className="flex w-full items-center gap-2.5 border-b border-white/[0.06] px-1 py-3 text-left last:border-0"
-          >
-            <MapPin size={14} className="shrink-0 text-muted" />
-            <span className="min-w-0">
-              <span className="block truncate font-dm text-sm text-offwhite">{p.name}</span>
-              {p.area && <span className="block truncate font-dm text-xs text-muted">{p.area}</span>}
-            </span>
-          </button>
-        ))}
-        {/* Anywhere we have not named. The ride still goes out; it just prices on
-            request rather than refusing somebody who lives up a track. */}
-        {q.trim().length > 2 && (
-          <button
-            type="button"
-            onClick={() => { onPick({ id: "custom", name: q.trim(), area: "", lat: null, lng: null }); setOpen(false); }}
-            className="flex w-full items-center gap-2.5 px-1 py-3 text-left"
-          >
-            <MapPin size={14} className="shrink-0 text-yellow" />
-            <span className="font-dm text-sm text-yellow">
-              Use &ldquo;{q.trim()}&rdquo; — we&apos;ll confirm the price
-            </span>
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export default function BookRide({ initialService }: { initialService: RideService }) {
   const [step, setStep] = useState(initialService === "taxi" ? 1 : 2);
