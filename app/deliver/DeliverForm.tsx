@@ -3,9 +3,11 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Package, ShoppingBasket, Check, Pencil, MapPin, User } from "lucide-react";
+import { Loader2, Package, ShoppingBasket, Check, Pencil, MapPin, Navigation, User } from "lucide-react";
 import { toast } from "sonner";
 import PhoneInput from "@/components/PhoneInput";
+import PlacePicker from "@/components/PlacePicker";
+import type { RidePlace } from "@/lib/rides/places";
 import { cn } from "@/lib/utils";
 import { toCents } from "@/lib/money";
 import { toE164 } from "@/lib/phone";
@@ -51,9 +53,14 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
   const [what, setWhat] = useState("");
   const [budget, setBudget] = useState("");
   const [sizeClass, setSizeClass] = useState<"standard" | "large">("standard");
-  const [pickupText, setPickupText] = useState("");
+  // A PLACE, not a string. The picker yields a name AND coordinates for the ~40
+  // named Rodriguan landmarks, which is what dispatch needs and what free text
+  // never gave it — a Deliver Anything job had no origin at all, and M145 had
+  // to stop a null origin excluding every driver who had ever reported a
+  // position. Anywhere unnamed still goes through with lat/lng null.
+  const [pickup, setPickup] = useState<RidePlace | null>(null);
+  const [dropoff, setDropoff] = useState<RidePlace | null>(null);
   const [pickupNote, setPickupNote] = useState("");
-  const [dropoffText, setDropoffText] = useState("");
   const [dropoffNote, setDropoffNote] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -77,7 +84,7 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
     what:
       what.trim().length >= 3 &&
       (kind !== "shop_and_deliver" || (budgetCents !== null && budgetCents > 0)),
-    where: pickupText.trim().length >= 2 && dropoffText.trim().length >= 2,
+    where: pickup !== null && dropoff !== null,
     who:
       name.trim().length >= 2 &&
       // Not "they typed something" -- "the server will accept it". The old
@@ -103,10 +110,16 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
         body: JSON.stringify({
           kind,
           what: what.trim(),
-          pickupText: pickupText.trim(),
+          pickupText: pickup?.name.trim(),
           pickupNote: pickupNote.trim() || undefined,
-          dropoffText: dropoffText.trim(),
+          dropoffText: dropoff?.name.trim(),
           dropoffNote: dropoffNote.trim() || undefined,
+          // Sent at last. The API has accepted these since it was written and
+          // the form never had any to send.
+          pickupLat: pickup?.lat ?? undefined,
+          pickupLng: pickup?.lng ?? undefined,
+          dropoffLat: dropoff?.lat ?? undefined,
+          dropoffLng: dropoff?.lng ?? undefined,
           sizeClass,
           // Rupees on screen, minor units on the wire — the same convention as
           // every other amount in this system.
@@ -299,59 +312,52 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
           index={2}
           icon={MapPin}
           title="Where is it going?"
-          summary={
-            done.where ? `${pickupText.trim()} → ${dropoffText.trim()}` : null
-          }
+          summary={done.where ? `${pickup?.name} → ${dropoff?.name}` : null}
           open={step === "where"}
           complete={done.where}
           onOpen={() => setStep("where")}
         >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="d-from" className={cn(t.meta, "mb-1.5 block text-muted")}>
-                Collect from
-              </label>
-              <input
-                id="d-from"
-                value={pickupText}
-                onChange={(e) => setPickupText(e.target.value)}
-                className={recipe.field}
-                placeholder="Village, shop or landmark"
-              />
+          {/* Pick a name, do not type an address. This is the field people
+              hesitate over most: there are no street numbers in most of
+              Rodrigues, and a box that looks like it wants one gets abandoned.
+              The list is the same forty landmarks the ride flow uses, it
+              matches French and old spellings, and it offers "use where I am
+              now" for somebody standing at the door. */}
+          <div className="flex flex-col gap-3">
+            <PlacePicker
+              label="COLLECT FROM"
+              icon={MapPin}
+              value={pickup}
+              onPick={setPickup}
+              placeholder="Village, shop or landmark"
+            />
+            {pickup && (
               <input
                 value={pickupNote}
                 onChange={(e) => setPickupNote(e.target.value)}
-                className={cn(recipe.field, "mt-2")}
-                placeholder="Who to ask for, or how to find it"
+                className={recipe.field}
+                placeholder="Who to ask for, or how to find it (optional)"
                 aria-label="How to find the pickup"
               />
-            </div>
-            <div>
-              <label htmlFor="d-to" className={cn(t.meta, "mb-1.5 block text-muted")}>
-                Deliver to
-              </label>
-              <input
-                id="d-to"
-                value={dropoffText}
-                onChange={(e) => setDropoffText(e.target.value)}
-                className={recipe.field}
-                placeholder="Village, hotel or landmark"
-              />
+            )}
+
+            <PlacePicker
+              label="DELIVER TO"
+              icon={Navigation}
+              value={dropoff}
+              onPick={setDropoff}
+              placeholder="Village, hotel or landmark"
+            />
+            {dropoff && (
               <input
                 value={dropoffNote}
                 onChange={(e) => setDropoffNote(e.target.value)}
-                className={cn(recipe.field, "mt-2")}
-                placeholder="Gate colour, floor, anything that helps"
+                className={recipe.field}
+                placeholder="Gate colour, floor, anything that helps (optional)"
                 aria-label="How to find the drop-off"
               />
-            </div>
+            )}
           </div>
-          {/* Said here rather than in the small print, because this is the
-              field people hesitate over. There are no street numbers in most of
-              Rodrigues and a form that seems to want one gets abandoned. */}
-          <p className={cn(t.meta, "mt-3 text-white/55")}>
-            A village and a landmark is enough. Drivers here navigate by them.
-          </p>
         </Group>
 
         {/* ── 3. Who ───────────────────────────────────────────────────── */}
