@@ -64,6 +64,11 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
   const [pickup, setPickup] = useState<RidePlace | null>(null);
   const [dropoff, setDropoff] = useState<RidePlace | null>(null);
   const [pickupNote, setPickupNote] = useState("");
+  // A shopping run does not need a pickup. "Buy 2 gas bottles" is a job whose
+  // whole value is that the DRIVER works out where to get them -- and the
+  // place list has no shops in it to choose from anyway, so asking was
+  // promising a list we do not have. Default: anywhere.
+  const [namesShop, setNamesShop] = useState(false);
   const [dropoffNote, setDropoffNote] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -90,7 +95,11 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
     what:
       (what.trim().length >= 3 || photoPath !== null) &&
       (kind !== "shop_and_deliver" || (budgetCents !== null && budgetCents > 0)),
-    where: pickup !== null && dropoff !== null,
+    // A collection must say where FROM -- something exists somewhere. A
+    // shopping run need not, unless the customer wants a particular shop.
+    where:
+      dropoff !== null &&
+      (kind === "shop_and_deliver" ? (!namesShop || pickup !== null) : pickup !== null),
     who:
       name.trim().length >= 2 &&
       // Not "they typed something" -- "the server will accept it". The old
@@ -116,7 +125,10 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
         body: JSON.stringify({
           kind,
           what: what.trim(),
-          pickupText: pickup?.name.trim(),
+          // delivery_requests.pickup_text is NOT NULL with a non-empty
+          // CHECK, and a driver reading their board needs a sentence rather
+          // than a blank.
+          pickupText: pickup?.name.trim() ?? "Anywhere you can find it",
           pickupNote: pickupNote.trim() || undefined,
           dropoffText: dropoff?.name.trim(),
           dropoffNote: dropoffNote.trim() || undefined,
@@ -321,7 +333,11 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
           index={2}
           icon={MapPin}
           title="Where is it going?"
-          summary={done.where ? `${pickup?.name} → ${dropoff?.name}` : null}
+          summary={
+            done.where
+              ? `${pickup?.name ?? "Anywhere"} → ${dropoff?.name}`
+              : null
+          }
           open={step === "where"}
           complete={done.where}
           onOpen={() => setStep("where")}
@@ -333,25 +349,80 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
               matches French and old spellings, and it offers "use where I am
               now" for somebody standing at the door. */}
           <div className="flex flex-col gap-3">
-            <PlacePicker
-              label="COLLECT FROM"
-              icon={MapPin}
-              value={pickup}
-              onPick={setPickup}
-              placeholder="Village, shop or landmark"
-            />
-            {pickup && (
-              <input
-                value={pickupNote}
-                onChange={(e) => setPickupNote(e.target.value)}
-                className={recipe.field}
-                placeholder="Who to ask for, or how to find it (optional)"
-                aria-label="How to find the pickup"
-              />
+            {kind === "shop_and_deliver" ? (
+              <div className="flex flex-col gap-2">
+                <p className={cn(t.label, "text-offwhite")}>Where should they buy it?</p>
+                {/* Two taps, not a search box. The honest default for a
+                    shopping run is that the driver decides -- they know which
+                    shop has gas bottles today and the customer does not. */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNamesShop(false);
+                    setPickup(null);
+                  }}
+                  aria-pressed={!namesShop}
+                  className={!namesShop ? recipe.cardButtonSelected : recipe.cardButton}
+                >
+                  <span className="flex items-center justify-between gap-3">
+                    <span className={cn(t.body, "font-semibold text-offwhite")}>
+                      Anywhere you can find it
+                    </span>
+                    {!namesShop && <Check size={20} className="shrink-0 text-yellow" />}
+                  </span>
+                  <span className={cn(t.bodySm, "mt-1 block text-[#B0B0B0]")}>
+                    The driver picks the shop. Most people choose this.
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNamesShop(true)}
+                  aria-pressed={namesShop}
+                  className={namesShop ? recipe.cardButtonSelected : recipe.cardButton}
+                >
+                  <span className="flex items-center justify-between gap-3">
+                    <span className={cn(t.body, "font-semibold text-offwhite")}>
+                      From one particular place
+                    </span>
+                    {namesShop && <Check size={20} className="shrink-0 text-yellow" />}
+                  </span>
+                  <span className={cn(t.bodySm, "mt-1 block text-[#B0B0B0]")}>
+                    Say which, if it has to come from somewhere specific.
+                  </span>
+                </button>
+                {namesShop && (
+                  <PlacePicker
+                    label="Buy it at"
+                    icon={MapPin}
+                    value={pickup}
+                    onPick={setPickup}
+                    placeholder="Village, shop or landmark"
+                  />
+                )}
+              </div>
+            ) : (
+              <>
+                <PlacePicker
+                  label="Where do we collect it?"
+                  icon={MapPin}
+                  value={pickup}
+                  onPick={setPickup}
+                  placeholder="Village, shop or landmark"
+                />
+                {pickup && (
+                  <input
+                    value={pickupNote}
+                    onChange={(e) => setPickupNote(e.target.value)}
+                    className={recipe.field}
+                    placeholder="Who to ask for, or how to find it (optional)"
+                    aria-label="How to find the pickup"
+                  />
+                )}
+              </>
             )}
 
             <PlacePicker
-              label="DELIVER TO"
+              label="Where should it go?"
               icon={Navigation}
               value={dropoff}
               onPick={setDropoff}
@@ -547,7 +618,9 @@ function stepPrompt(step: Step, kind: Kind): string {
       ? "Say what to buy, and your limit"
       : "Say what it is, or add a photo";
   }
-  if (step === "where") return "Add where it starts and ends";
+  if (step === "where") {
+    return kind === "shop_and_deliver" ? "Say where to deliver it" : "Add where it starts and ends";
+  }
   return "Add your name and number";
 }
 
