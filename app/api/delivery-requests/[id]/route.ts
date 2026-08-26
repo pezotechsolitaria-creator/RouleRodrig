@@ -77,18 +77,38 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   }
   const v = parsed.data;
 
-  // Reading is polled by the tracking screen, so it gets room to breathe.
-  // Accepting and cancelling change the world and get almost none.
-  const limited =
-    v.action === "view"
-      ? await guardShared(req, "delivery-request-view", 60, 60_000)
-      : await guardShared(req, "delivery-request-act", 10, 60_000);
-  if (limited) return limited;
-
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // ── Two different budgets, because they are two different risks ──────────
+  // A SIGNED-IN read is proved by the session and is polled every 20 seconds by
+  // the tracking screen, so it needs room to breathe: 60/min.
+  //
+  // A GUEST read is a GUESS. Whoever holds the request link supplies an email,
+  // and a hit returns the delivery PIN — the code that proves the parcel
+  // reached the right person. 60 attempts a minute at somebody's email address
+  // is a brute-force budget, so the guest branch gets the same 8/min as
+  // /api/orders/lookup, which is the site's established ceiling for exactly
+  // this shape of credential.
+  //
+  // Accepting and cancelling change the world and get almost none.
+  // Keyed on whether an EMAIL was supplied, not on whether there is a session.
+  // The signed-in branch below deliberately falls through to the email path
+  // when the session does not own the request -- so gating on `user` would have
+  // handed a logged-in attacker the 60/min budget for exactly the guess this
+  // is meant to slow down. A signed-in customer polling their own request
+  // sends no email and keeps the roomy budget; anyone supplying one is
+  // guessing until proven otherwise.
+  const guessing = v.action === "view" && Boolean(v.email);
+  const limited =
+    v.action !== "view"
+      ? await guardShared(req, "delivery-request-act", 10, 60_000)
+      : guessing
+        ? await guardShared(req, "delivery-request-guest-view", 8, 60_000)
+        : await guardShared(req, "delivery-request-view", 60, 60_000);
+  if (limited) return limited;
 
   // A guest cannot reach any of these RPCs without the key.
   if (!user && !hasServiceRole()) {
