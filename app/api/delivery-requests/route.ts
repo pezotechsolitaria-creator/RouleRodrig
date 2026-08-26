@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { guardShared } from "@/lib/rate-limit";
+import { toE164 } from "@/lib/phone";
 import { notifyDriversOfNewRequest } from "@/lib/delivery/notify-requests";
 
 // POST /api/delivery-requests — post a Deliver Anything job.
@@ -26,10 +27,18 @@ const schema = z
     // which is what the column is.
     maxBudget: z.number().int().min(0).max(2_147_483_647).optional(),
     contactName: z.string().trim().min(2, "Tell us your name.").max(120),
+    // Normalised BEFORE the shape is checked. PhoneInput produces a
+    // human-readable "+230 5712 3456" and this endpoint (and the table's CHECK)
+    // want strict E.164, so validating the raw string rejected every browser
+    // that used the site's own phone field. Transform, then verify -- a client
+    // being wrong about spacing is not a reason to refuse somebody's delivery.
     contactPhone: z
       .string()
       .trim()
-      .regex(/^\+[1-9][0-9]{6,15}$/, "Enter a phone number with its country code, e.g. +230…"),
+      .transform((v) => toE164(v) ?? v)
+      .refine((v) => /^\+[1-9][0-9]{6,15}$/.test(v), {
+        message: "Enter a phone number with its country code, e.g. +230…",
+      }),
     guestEmail: z.string().trim().email().max(200).optional(),
     pickupLat: z.number().min(-90).max(90).optional(),
     pickupLng: z.number().min(-180).max(180).optional(),

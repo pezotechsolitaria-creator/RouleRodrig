@@ -573,7 +573,11 @@ export default function DriverDashboard() {
           driver already holding their maximum active deliveries can still name
           a price on a job for later, because quoting commits them to nothing —
           the capacity gate applies when the CUSTOMER accepts, not now. */}
-      {approved && online && (
+      {/* Shown while OFFLINE too when the board has rows: driver_open_requests
+          returns an off-duty driver only the requests they have a live quote
+          on, precisely so they can withdraw it. Hiding the board there left
+          those prices standing and bookable with no way to pull them. */}
+      {approved && (online || openRequests.length > 0) && (
         <QuoteBoard
           requests={openRequests}
           busy={busy}

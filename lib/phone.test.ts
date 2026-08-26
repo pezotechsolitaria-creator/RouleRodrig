@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { absorbCountryCode, isValidPhone } from "./phone";
+import { absorbCountryCode, isValidPhone, toE164 } from "./phone";
 
 describe("absorbCountryCode", () => {
   it("takes a pasted +230 number out of the box and into the picker", () => {
@@ -72,5 +72,52 @@ describe("isValidPhone (unchanged behaviour)", () => {
   it("still rejects nothing and rubbish", () => {
     expect(isValidPhone("")).toBe(false);
     expect(isValidPhone("12345")).toBe(false);
+  });
+});
+
+describe("strict E.164", () => {
+  it("strips the spaces PhoneInput puts in", () => {
+    // The exact shape formatInternational() produces, which the delivery
+    // endpoint and its table both reject.
+    expect(toE164("+230 5712 3456")).toBe("+23057123456");
+    expect(toE164("+44 7700 900123")).toBe("+447700900123");
+  });
+
+  it("survives however a person punctuates a number", () => {
+    expect(toE164("+230-5712-3456")).toBe("+23057123456");
+    expect(toE164("+230 (5712) 3456")).toBe("+23057123456");
+    expect(toE164("  +230 5712 3456  ")).toBe("+23057123456");
+    // A non-breaking space, which some mobile keyboards insert.
+    expect(toE164("+230 5712 3456")).toBe("+23057123456");
+  });
+
+  it("adds the plus when somebody omits it", () => {
+    expect(toE164("230 5712 3456")).toBe("+23057123456");
+  });
+
+  it("keeps an already-clean number untouched", () => {
+    expect(toE164("+23057123456")).toBe("+23057123456");
+  });
+
+  it("returns null rather than something the server will reject", () => {
+    // The caller needs to tell "empty" from "wrong"; both mean do not send.
+    expect(toE164("")).toBeNull();
+    expect(toE164("   ")).toBeNull();
+    expect(toE164(null)).toBeNull();
+    expect(toE164(undefined)).toBeNull();
+    expect(toE164("+0123456789")).toBeNull();   // E.164 has no leading zero
+    expect(toE164("+123")).toBeNull();          // too short
+    expect(toE164("+12345678901234567")).toBeNull(); // too long
+    expect(toE164("not a phone")).toBeNull();
+  });
+
+  it("produces something the delivery endpoint's own regex accepts", () => {
+    // The two must agree, or this helper is decorative.
+    const SERVER = /^\+[1-9][0-9]{6,15}$/;
+    for (const typed of ["+230 5712 3456", "230-5712-3456", "+44 7700 900123"]) {
+      const out = toE164(typed);
+      expect(out, typed).not.toBeNull();
+      expect(SERVER.test(out as string), typed).toBe(true);
+    }
   });
 });

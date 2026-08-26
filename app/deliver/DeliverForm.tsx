@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import PhoneInput from "@/components/PhoneInput";
 import { cn } from "@/lib/utils";
 import { toCents } from "@/lib/money";
+import { toE164 } from "@/lib/phone";
 import { saveRequest } from "@/lib/delivery/my-requests";
 import { recipe, transition, type as t } from "@/lib/delivery/tokens";
 
@@ -66,6 +67,12 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
   // Math.round(parseFloat("9.995") * 100) is 999, not 1000 — see lib/money.ts.
   const budgetCents = useMemo(() => (budget.trim() ? toCents(budget) : null), [budget]);
 
+  // PhoneInput hands back formatInternational() -- "+230 5712 3456", with
+  // spaces -- and both /api/delivery-requests and the table underneath enforce
+  // strict E.164. Sending it as typed 400d EVERY submission, for everybody,
+  // on the last tap of the form.
+  const phoneE164 = useMemo(() => toE164(phone), [phone]);
+
   const done: Record<Step, boolean> = {
     what:
       what.trim().length >= 3 &&
@@ -73,7 +80,10 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
     where: pickupText.trim().length >= 2 && dropoffText.trim().length >= 2,
     who:
       name.trim().length >= 2 &&
-      phone.trim().length > 0 &&
+      // Not "they typed something" -- "the server will accept it". The old
+      // check passed on any non-empty string and handed the failure to the
+      // submit button.
+      phoneE164 !== null &&
       (!isGuest || guestEmailValid),
   };
   const allDone = done.what && done.where && done.who;
@@ -102,7 +112,7 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
           // every other amount in this system.
           maxBudget: kind === "shop_and_deliver" ? budgetCents ?? undefined : undefined,
           contactName: name.trim(),
-          contactPhone: phone.trim(),
+          contactPhone: phoneE164,
           guestEmail: isGuest ? guestEmail.trim().toLowerCase() : undefined,
         }),
       });
@@ -383,8 +393,8 @@ export default function DeliverForm({ signedInEmail }: { signedInEmail: string |
                 autoComplete="email"
               />
               <p className={cn(t.meta, "mt-1.5 text-muted")}>
-                So we can send you the prices, and so you can get back to this request
-                from another phone.
+                This is how you get back to your request from another phone — we check
+                it against your reference. Prices appear on the request page.
               </p>
             </div>
           )}

@@ -91,6 +91,21 @@ sentence with a test.
     driver is told        notifyQuoteAccepted()
     from here it is an ordinary delivery: advance_delivery(), PIN at the door.
 
+**The two bugs that keep recurring**
+
+- **A direct job has no `store_id` and no `order_id`.** Anything reading
+  `deliveries` must LEFT JOIN `stores`/`orders` and fall back to
+  `delivery_requests`. Found in SIX places so far: `driver_dashboard` twice
+  (`active` in M136, `offers` in M140), `admin_delivery_board` (M138),
+  `admin_operations_feed`, `admin_live_map` and `ensure_trip_tracking` (M142).
+  Check this FIRST in anything new that touches `deliveries`.
+- **Hand-copied `delivery_status` strings.** `LEG_COPY` had `failed` (the label
+  is `failed_delivery`) and the admin people panel had `en_route` (not a label
+  at all — PostgREST 400d the query and the panel silently showed nothing).
+  `ACTIVE_LEGS` / `TERMINAL_LEGS` / `BROKEN_LEGS` / `PRE_PICKUP_LEGS` in
+  `lib/delivery/request-status.ts` exist so the TypeScript side stops guessing,
+  and a test walks the real enum.
+
 **Rules that are easy to break**
 
 - **A direct job has no `store_id` and no `order_id`.** Anything reading
@@ -114,6 +129,20 @@ sentence with a test.
   job off the platform.
 - **Money is minor units on the wire, decimal strings on screen.** Parse with
   `toCents()`, never `parseFloat`.
+- **`accept_delivery_quote()` must stay in step with `accept_delivery()`.** They
+  are two doors into the same state. The quote door was missing the due-at
+  clocks (so no escalation could ever fire), the `max_active_deliveries` check
+  and `sync_driver_availability()` — all three fixed in M140. If you change one,
+  read the other.
+- **`expires_at` is enforced in the RPC, not only by the sweep.** M139 added the
+  guard because `status` stays `open` until `sweep_delivery_requests()` runs,
+  and a cron that has not fired is not a security boundary.
+- **A customer can cancel only before pickup** (M143). After that the driver is
+  holding the goods and the database refuses. `driver_cancellations` is NOT
+  incremented for a customer cancellation — it feeds the driver's standing.
+- **The reference is `RR-` + the first six hex of the request id** (M144), built
+  identically in SQL and in `requestRef()`. Paired with the email it is the
+  guest's way back in; alone it is worth nothing.
 
 ## Database migrations
 Applied with the Supabase MCP `apply_migration`, which is **transactional** — a

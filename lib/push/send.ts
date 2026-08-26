@@ -146,8 +146,12 @@ export async function pushToCustomer(
 ): Promise<number> {
   if (!identity.email && !identity.userId) return 0;
   const targets = await targetsFrom("customer_push_targets", {
-    p_email: identity.email ?? "",
-    p_user_id: identity.userId ?? "",
+    // NULL, not "". p_user_id is a uuid, and PostgREST cannot cast an empty
+    // string to one -- so the whole call errored before it looked anything up
+    // and EVERY GUEST notification silently reached nobody. A guest has no user
+    // id by definition, which made this the only branch that was always broken.
+    p_email: identity.email ?? null,
+    p_user_id: identity.userId ?? null,
   });
   return deliver(targets, payload);
 }

@@ -38,6 +38,12 @@ const schema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("accept"),
     quoteId: z.string().uuid(),
+    // The price the customer actually SAW on the confirm sheet. Not the price
+    // they are charged -- that still comes from the quote row in the database
+    // -- but the one they agreed to. A re-quote updates the existing row and
+    // keeps its id, so without this the id they tapped could carry a different
+    // number by the time it arrived.
+    expectedFee: z.number().int().min(0).max(5_000_000).optional(),
     email: z.string().trim().toLowerCase().email().max(254).optional(),
   }),
   z.object({
@@ -166,6 +172,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   if (user) {
     const { data, error } = await supabase.rpc("customer_accept_delivery_quote", {
       p_quote_id: v.quoteId,
+      p_expected_fee: v.expectedFee ?? null,
     });
     if (!error) {
       deliveryId = data as string;
@@ -175,6 +182,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       const { data: g, error: gErr } = await admin.rpc("guest_accept_delivery_quote", {
         p_quote_id: v.quoteId,
         p_email: v.email,
+        p_expected_fee: v.expectedFee ?? null,
       });
       if (gErr) {
         if (gErr.code === SAFE_RPC_ERROR) {
@@ -196,6 +204,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const { data, error } = await admin.rpc("guest_accept_delivery_quote", {
       p_quote_id: v.quoteId,
       p_email: v.email,
+      p_expected_fee: v.expectedFee ?? null,
     });
     if (error) {
       if (error.code === SAFE_RPC_ERROR) {

@@ -42,6 +42,11 @@ export type OpenRequest = {
   expiresAt: string | null;
   quoteCount: number;
   myQuote: { id: string; fee: number; note: string | null } | null;
+  /** This driver is OFF DUTY and the row is here for one reason only: so they
+   *  can take their price back. Going offline is how a driver says they cannot
+   *  come; leaving a live quote unreachable means a customer books somebody who
+   *  will not turn up, and the driver is then marked unresponsive for it. */
+  offDuty?: boolean;
 };
 
 export default function QuoteBoard({
@@ -60,10 +65,14 @@ export default function QuoteBoard({
   return (
     <div className="space-y-3">
       <div>
-        <h2 className="font-syne text-lg font-bold">Jobs you can quote on</h2>
+        <h2 className="font-syne text-lg font-bold">
+          {requests.every((r) => r.offDuty) ? "Your prices are still out" : "Jobs you can quote on"}
+        </h2>
         {/* The sentence that stops this being mistaken for dispatch. */}
         <p className={cn(t.meta, "mt-0.5 text-muted")}>
-          No fixed price on these. Name yours — the customer picks who they want.
+          {requests.every((r) => r.offDuty)
+            ? "You are off duty, but these customers can still book you. Withdraw any you cannot do."
+            : "No fixed price on these. Name yours — the customer picks who they want."}
         </p>
       </div>
       {requests.map((r) => (
@@ -163,13 +172,15 @@ function RequestCard({
             </span>
           </p>
           <div className="flex shrink-0 items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setOpen(true)}
-              className={cn(t.meta, "text-yellow/80 underline underline-offset-4")}
-            >
-              Change
-            </button>
+            {!r.offDuty && (
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className={cn(t.meta, "text-yellow/80 underline underline-offset-4")}
+              >
+                Change
+              </button>
+            )}
             <button
               type="button"
               disabled={busy !== null}
@@ -182,7 +193,7 @@ function RequestCard({
         </div>
       )}
 
-      {!r.myQuote && !open && (
+      {!r.myQuote && !open && !r.offDuty && (
         <button
           type="button"
           onClick={() => setOpen(true)}

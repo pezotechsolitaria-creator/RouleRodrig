@@ -87,3 +87,30 @@ export function isValidEmail(email: string | null | undefined): boolean {
   if (!v || v.length > 254) return false;
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
 }
+
+/**
+ * A number in strict E.164: a plus, then digits, and nothing else.
+ *
+ * ── WHY THIS EXISTS ────────────────────────────────────────────────────────
+ * PhoneInput hands its caller `formatInternational()`, which is deliberately
+ * HUMAN-readable: "+230 5712 3456", with spaces. Most endpoints on this site
+ * accept that and store it as typed.
+ *
+ * /api/delivery-requests does not, and neither does the table underneath it:
+ * both enforce /^\+[1-9][0-9]{6,15}$/. So every Deliver Anything submission
+ * failed validation before it reached the database — a 400 on the last tap of
+ * the form, for everybody, always. `delivery_requests` having zero rows was
+ * partly the dead loop behind it and partly this.
+ *
+ * Returns null when there is nothing usable, so a caller can tell "empty" from
+ * "wrong" rather than sending a string the server will certainly reject.
+ */
+export function toE164(input: string | null | undefined): string | null {
+  const raw = (input ?? "").trim();
+  if (!raw) return null;
+  // Keep a leading plus, drop every other non-digit: spaces, hyphens,
+  // brackets and the non-breaking space some keyboards insert.
+  const digits = raw.replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "");
+  const withPlus = digits.startsWith("+") ? digits : `+${digits}`;
+  return /^\+[1-9]\d{6,15}$/.test(withPlus) ? withPlus : null;
+}

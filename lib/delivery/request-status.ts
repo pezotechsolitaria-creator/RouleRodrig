@@ -200,7 +200,7 @@ export function requestStatusCopy(input: {
             : "We are sorting this one out",
         // Never asks the customer to do anything: it is not theirs to fix, and
         // a call to action they cannot act on reads as blame.
-        detail: `${c.detail} Nothing for you to do — we will message you as soon as it moves.`,
+        detail: `${c.detail} Nothing for you to do — this page shows it the moment it moves.`,
         tone: "waiting",
         needsCustomer: false,
       };
@@ -231,8 +231,13 @@ export function requestStatusCopy(input: {
   return {
     label: "Waiting for prices",
     headline: "Your request is with the drivers",
+    // Says what is TRUE. Nothing in this flow enrols a customer in any
+    // channel: a guest has no push subscription and is deliberately not
+    // emailed (the shared mail budget pays for password resets, M41). Four
+    // screens promised a message nobody sends, which is the one kind of copy
+    // that turns a working feature into a broken-feeling one.
     detail:
-      "Drivers who can carry it are being shown your job now. We will message you the moment the first price arrives.",
+      "Drivers who can carry it are being shown your job now. Every price lands on this page — keep it open, or come back with your reference.",
     tone: "waiting",
     needsCustomer: false,
   };

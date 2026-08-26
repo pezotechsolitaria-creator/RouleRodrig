@@ -44,6 +44,11 @@ type ServerRow = {
   expiresAt: string | null;
   quoteCount: number;
   bestQuote: number | null;
+  /** The live delivery, once one exists. Without it this list said "Driver
+   *  booked" for ever -- including for jobs already delivered, cancelled, or
+   *  whose driver had walked away. The same defect M141 fixed on the tracker,
+   *  which this list quietly reproduced. */
+  deliveryStatus: string | null;
 };
 
 type Row = {
@@ -51,7 +56,13 @@ type Row = {
   what: string;
   kind?: string;
   /** Absent for a device-only row: nothing local knows the live status. */
-  live?: { status: string; quoteCount: number; bestQuote: number | null; expiresAt: string | null };
+  live?: {
+    status: string;
+    quoteCount: number;
+    bestQuote: number | null;
+    expiresAt: string | null;
+    deliveryStatus: string | null;
+  };
 };
 
 export default function MyRequests() {
@@ -89,6 +100,7 @@ export default function MyRequests() {
             quoteCount: s.quoteCount,
             bestQuote: s.bestQuote,
             expiresAt: s.expiresAt,
+            deliveryStatus: s.deliveryStatus,
           },
         });
       }
@@ -98,9 +110,14 @@ export default function MyRequests() {
       // actually waiting on the customer.
       const all = [...merged.values()];
       const dead = new Set(["cancelled", "expired"]);
+      const finished = new Set([
+        "delivered", "cancelled", "failed_delivery", "returned_to_merchant",
+      ]);
       all.sort((a, b) => {
-        const aDead = a.live ? (dead.has(a.live.status) ? 1 : 0) : 0;
-        const bDead = b.live ? (dead.has(b.live.status) ? 1 : 0) : 0;
+        const isDone = (r: Row) =>
+          r.live && (dead.has(r.live.status) || finished.has(r.live.deliveryStatus ?? "")) ? 1 : 0;
+        const aDead = isDone(a);
+        const bDead = isDone(b);
         if (aDead !== bDead) return aDead - bDead;
         // Then whoever is waiting on the customer.
         const aWants = a.live && a.live.status === "open" && a.live.quoteCount > 0 ? 0 : 1;
@@ -129,6 +146,7 @@ export default function MyRequests() {
                 status: r.live.status,
                 quoteCount: r.live.quoteCount,
                 expiresAt: r.live.expiresAt,
+                deliveryStatus: r.live.deliveryStatus,
               })
             : null;
           // Only the state that is WAITING ON THEM earns the accent. Everything

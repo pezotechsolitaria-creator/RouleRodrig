@@ -171,6 +171,40 @@ describe("the state of a request, in words", () => {
     }
   });
 
+  it("NEVER promises a message, because nothing sends one", () => {
+    // Nothing in this flow enrols a customer in any channel: a guest has no
+    // push subscription and is deliberately not emailed (the shared Supabase
+    // mail budget pays for password resets, M41). Four screens used to say "we
+    // will message you", which is the one kind of copy that makes a working
+    // feature feel broken -- somebody waits for a message that never comes
+    // instead of opening the page where the prices already are.
+    //
+    // If enrolment is ever built, this test is the thing to change first.
+    const states = [
+      { status: "open", quoteCount: 0 },
+      { status: "open", quoteCount: 3 },
+      { status: "accepted", quoteCount: 0, deliveryStatus: "assigned" },
+      { status: "accepted", quoteCount: 0, deliveryStatus: "searching_driver" },
+      { status: "accepted", quoteCount: 0, deliveryStatus: "requires_admin" },
+      { status: "cancelled", quoteCount: 0 },
+      { status: "expired", quoteCount: 0 },
+    ];
+    for (const st of states) {
+      const c = requestStatusCopy({ ...st, now: NOW });
+      const all = `${c.headline} ${c.detail}`;
+      expect(all, JSON.stringify(st)).not.toMatch(/we will (message|email|text|notify)/i);
+      expect(all, JSON.stringify(st)).not.toMatch(/send you (a|the) (message|email)/i);
+    }
+  });
+
+  it("quotes no statistic it cannot have", () => {
+    // delivery_requests has never held a row, so any "most requests are priced
+    // within N" is invented. Numbers about our own performance need a source.
+    const c = requestStatusCopy({ status: "open", quoteCount: 0, now: NOW });
+    expect(c.detail).not.toMatch(/within (the |an )?(hour|day|minute)/i);
+    expect(c.detail).not.toMatch(/most (requests|customers|jobs)/i);
+  });
+
   it("says plainly that a cancelled request cost nothing", () => {
     const c = requestStatusCopy({ status: "cancelled", quoteCount: 2, now: NOW });
     expect(c.detail).toMatch(/nothing was charged/i);

@@ -236,12 +236,20 @@ export default function RequestTracker({
   async function book(quote: Quote) {
     setBusyQuote(quote.id);
     try {
-      const ok = await act({ action: "accept", quoteId: quote.id });
+      // expectedFee is the number on the sheet in front of them. The server
+      // still reads the real price from the quote row -- the browser never sets
+      // one -- but it refuses if the two disagree, so nobody is committed to a
+      // price a driver changed while they were reading it.
+      const ok = await act({ action: "accept", quoteId: quote.id, expectedFee: quote.fee });
       if (ok) {
         setConfirming(null);
         toast.success(`${quote.driverName} is booked.`);
-        await load();
+      } else {
+        // Most likely the price moved. Close the sheet and refresh so the new
+        // one is on screen rather than leaving them staring at a stale figure.
+        setConfirming(null);
       }
+      await load();
     } finally {
       setBusyQuote(null);
     }
@@ -516,8 +524,12 @@ function WaitingForQuotes() {
         <p className={cn(t.bodySm, "text-offwhite")}>Drivers are being shown your job</p>
       </div>
       <p className={cn(t.bodySm, "mt-3 text-muted")}>
-        Most requests get their first price within the hour. You can close this page —
-        we will message you when one arrives.
+        {/* No invented statistic: not one request has ever been priced, so a
+            number here would be a promise made up out of nothing. And no
+            promise of a message, because nothing enrols this customer in any
+            channel — see requestStatusCopy. */}
+        Prices appear here as drivers send them. Keep this page open, or come back to
+        it any time with your reference.
       </p>
       <div className="mt-4 flex flex-col gap-2" aria-hidden>
         {[0, 1].map((i) => (
