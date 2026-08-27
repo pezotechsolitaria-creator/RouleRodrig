@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import { SITE_URL } from "@/lib/site";
-import { getFleetView, buildBrowseCategories, priceNumber } from "@/lib/site-data";
+import {
+  getFleetView,
+  buildBrowseCategories,
+  priceNumber,
+  fleetFromPrice,
+} from "@/lib/site-data";
 import { organizationLd, touristDestinationLd, websiteLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -43,8 +48,14 @@ const SERVICE_NAME: Record<string, string> = {
 const FREE_TOOLS = [
   { name: "Rodrigues Island travel guide", href: "/guide/rodrigues" },
   { name: "Rodrigues trip planner", href: "/trip-planner" },
-  { name: "Interactive island map — beaches & viewpoints", href: "/guide/beaches" },
-  { name: "Ti Roulé — AI island guide (English, French, Creole)", href: "/guide/rodrigues" },
+  {
+    name: "Interactive island map — beaches & viewpoints",
+    href: "/guide/beaches",
+  },
+  {
+    name: "Ti Roulé — AI island guide (English, French, Creole)",
+    href: "/guide/rodrigues",
+  },
 ];
 
 export default async function Home() {
@@ -58,24 +69,43 @@ export default async function Home() {
   // so the rail links there rather than dumping every one of them into the
   // generic activities list where they appeared twice and lost their price.
   const experiences = content.recommended.items
-    .filter((p) => p.category === "activity" && p.name.trim() && (p.image || ""))
+    .filter(
+      (p) => p.category === "activity" && p.name.trim() && (p.image || ""),
+    )
     .map((p) => ({
-      id: p.id, name: p.name, image: p.image, price: p.priceNote ?? null,
-      href: p.serviceType ? `/experiences/${p.serviceType}` : p.isTour ? "/browse/tours" : "/browse/activities",
+      id: p.id,
+      name: p.name,
+      image: p.image,
+      price: p.priceNote ?? null,
+      href: p.serviceType
+        ? `/experiences/${p.serviceType}`
+        : p.isTour
+          ? "/browse/tours"
+          : "/browse/activities",
       // The world fields travel with the card. They used to be dropped here,
       // which is why tagging content in admin changed /experiences but left the
       // homepage identical in both worlds — the data never arrived.
-      world: p.world, worldPriority: p.worldPriority,
-      featuredAuthentic: p.featuredAuthentic, featuredCurated: p.featuredCurated,
-      heroAuthentic: p.heroAuthentic, heroCurated: p.heroCurated,
+      world: p.world,
+      worldPriority: p.worldPriority,
+      featuredAuthentic: p.featuredAuthentic,
+      featuredCurated: p.featuredCurated,
+      heroAuthentic: p.heroAuthentic,
+      heroCurated: p.heroCurated,
     }));
   const stays = content.recommended.items
     .filter((p) => p.category === "hotel" && (p.image || ""))
     .map((p) => ({
-      id: p.id, name: p.name, image: p.image, price: p.priceNote ?? null, href: "/browse/stays",
-      world: p.world, worldPriority: p.worldPriority,
-      featuredAuthentic: p.featuredAuthentic, featuredCurated: p.featuredCurated,
-      heroAuthentic: p.heroAuthentic, heroCurated: p.heroCurated,
+      id: p.id,
+      name: p.name,
+      image: p.image,
+      price: p.priceNote ?? null,
+      href: "/browse/stays",
+      world: p.world,
+      worldPriority: p.worldPriority,
+      featuredAuthentic: p.featuredAuthentic,
+      featuredCurated: p.featuredCurated,
+      heroAuthentic: p.heroAuthentic,
+      heroCurated: p.heroCurated,
     }));
   // ── THE AUTHENTIC TAXONOMY, AS RAILS ────────────────────────────────────
   //
@@ -93,13 +123,21 @@ export default async function Home() {
   // Discover narrows to LANDSCAPES so the landmarks can lead their own rail
   // rather than being the tail of somebody else's.
   const discover = content.mapLocations
-    .filter((l) => (l.image || l.images?.[0]) && l.story && ["beach", "viewpoint"].includes(l.category))
+    .filter(
+      (l) =>
+        (l.image || l.images?.[0]) &&
+        l.story &&
+        ["beach", "viewpoint"].includes(l.category),
+    )
     .slice(0, 10)
     .map((l) => ({
       id: l.id,
       name: l.name,
       image: l.image ?? l.images?.[0],
-      href: l.category === "beach" ? `/guide/beaches#${l.id}` : `/guide/viewpoints#${l.id}`,
+      href:
+        l.category === "beach"
+          ? `/guide/beaches#${l.id}`
+          : `/guide/viewpoints#${l.id}`,
       tag: l.category,
     }));
 
@@ -107,7 +145,10 @@ export default async function Home() {
   // and craft shops are the two things the owner records that are about PEOPLE
   // rather than scenery, so this is where they belong.
   const islandLife = content.mapLocations
-    .filter((l) => (l.image || l.images?.[0]) && ["landmark", "shop"].includes(l.category))
+    .filter(
+      (l) =>
+        (l.image || l.images?.[0]) && ["landmark", "shop"].includes(l.category),
+    )
     .slice(0, 10)
     .map((l) => ({
       id: l.id,
@@ -131,29 +172,49 @@ export default async function Home() {
         href: "/guide/routes",
       })),
     ...content.recommended.items
-      .filter((p) => (p.serviceType === "fishing" || p.serviceType === "boat") && (p.image || p.images?.[0]))
+      .filter(
+        (p) =>
+          (p.serviceType === "fishing" || p.serviceType === "boat") &&
+          (p.image || p.images?.[0]),
+      )
       .map((p) => ({
         id: p.id,
         name: p.name,
         image: p.image ?? p.images?.[0],
         price: p.priceNote ?? null,
         href: `/experiences/${p.serviceType}`,
-        world: p.world, worldPriority: p.worldPriority,
-        featuredAuthentic: p.featuredAuthentic, featuredCurated: p.featuredCurated,
-        heroAuthentic: p.heroAuthentic, heroCurated: p.heroCurated,
+        world: p.world,
+        worldPriority: p.worldPriority,
+        featuredAuthentic: p.featuredAuthentic,
+        featuredCurated: p.featuredCurated,
+        heroAuthentic: p.heroAuthentic,
+        heroCurated: p.heroCurated,
       })),
   ].slice(0, 10);
 
   // Per-card image galleries so the homepage cards auto-cycle through the real
   // photos of each category's contents (all scooters, all cars, all stays…).
   const galleryOf = (items: { image?: string; images?: string[] }[]) =>
-    items.flatMap((it) => (it.images?.length ? it.images : it.image ? [it.image] : [])).filter((s): s is string => !!s).slice(0, 6);
+    items
+      .flatMap((it) =>
+        it.images?.length ? it.images : it.image ? [it.image] : [],
+      )
+      .filter((s): s is string => !!s)
+      .slice(0, 6);
   const cardImages = {
-    scooter: galleryOf(fleet.filter((f) => (f.category ?? "scooter") === "scooter")),
+    scooter: galleryOf(
+      fleet.filter((f) => (f.category ?? "scooter") === "scooter"),
+    ),
     car: galleryOf(fleet.filter((f) => f.category === "car")),
-    stays: galleryOf(content.recommended.items.filter((p) => p.category === "hotel")),
-    exp: galleryOf(content.recommended.items.filter((p) => p.category === "activity")),
-    stores: galleryOf(content.mapLocations.filter((l) => l.category === "shop")),
+    stays: galleryOf(
+      content.recommended.items.filter((p) => p.category === "hotel"),
+    ),
+    exp: galleryOf(
+      content.recommended.items.filter((p) => p.category === "activity"),
+    ),
+    stores: galleryOf(
+      content.mapLocations.filter((l) => l.category === "shop"),
+    ),
     // Real dish photos, so the Restaurant card cycles food rather than sitting
     // on a gradient. Read through the public catalog RPC, so it can only ever
     // show a dish a customer could actually open. A failure costs the card its
@@ -182,20 +243,37 @@ export default async function Home() {
   // (the hub + map + planner are all about Rodrigues) and the visible FAQ.
   // Per-vehicle Product markup lives on /browse/[category], where the vehicles
   // are really rendered — marking up off-page content gets it ignored.
-  const sameAs = [content.social.instagram, content.social.facebook, content.social.tiktok].filter((u) => u && u.trim());
+  const sameAs = [
+    content.social.instagram,
+    content.social.facebook,
+    content.social.tiktok,
+  ].filter((u) => u && u.trim());
 
   // Real daily rates, straight from the fleet. Google's AI Overview was quoting
   // a competitor's "Rs 800/day" for us because we never stated our own price in
   // a machine-readable way — "Rs" as a priceRange says nothing. The hub tiles
-  // already show "From Rs 599/day" on this page, so this matches what's visible.
-  const dayRates = fleet.map((f) => priceNumber(f.price)).filter((n): n is number => n != null && n > 0);
+  // already show the "From Rs …" price on this page, so this matches what is
+  // visible. (That sentence used to name Rs 599 and was wrong: the tiles have
+  // rendered the derived minimum for a long time. A comment quoting a hardcoded
+  // number is the same drift as the code doing it.)
+  const dayRates = fleet
+    .map((f) => priceNumber(f.price))
+    .filter((n): n is number => n != null && n > 0);
+  // The number the JSON-LD description quotes. Derived from the same fleet the
+  // page renders, because the hardcoded "Rs 599" here was 100 rupees under the
+  // real minimum and this sentence is what an AI Overview paraphrases.
+  const fromPrice = fleetFromPrice(fleet);
+
   const priceRange = dayRates.length
     ? `Rs ${Math.min(...dayRates).toLocaleString("en-US")}–${Math.max(...dayRates).toLocaleString("en-US")} per day`
     : undefined;
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
-      organizationLd({ logo: `${SITE_URL}/icon-192.png`, sameAs: sameAs as string[] }),
+      organizationLd({
+        logo: `${SITE_URL}/icon-192.png`,
+        sameAs: sameAs as string[],
+      }),
       // Names the site "Roule Rodrigues" in results instead of falling back to
       // the domain (which is why it used to read "Vercel").
       websiteLd(),
@@ -213,8 +291,7 @@ export default async function Home() {
         // restaurants — so the AI called us "une plateforme de location de
         // scooters" and stopped there. Everything named here is real and
         // reachable from this page's hub.
-        description:
-          "Roule Rodrigues rents scooters and cars on Rodrigues Island, direct from local owners, from Rs 599 a day with no minimum rental. It is also a free island guide: a trip planner, an interactive map of beaches and viewpoints, recommended places to stay and things to do, a WhatsApp food concierge that books your table, and Ti Roulé — an AI island guide answering in English, French and Creole.",
+        description: `Roule Rodrigues rents scooters and cars on Rodrigues Island, direct from local owners, from Rs ${fromPrice} a day with no minimum rental. It is also a free island guide: a trip planner, an interactive map of beaches and viewpoints, recommended places to stay and things to do, a WhatsApp food concierge that books your table, and Ti Roulé — an AI island guide answering in English, French and Creole.`,
         knowsLanguage: ["en", "fr", "mfe"],
         url: SITE_URL,
         image: `${SITE_URL}/og-image.jpg`,
@@ -227,7 +304,11 @@ export default async function Home() {
           addressRegion: "Rodrigues",
           addressCountry: "MU",
         },
-        geo: { "@type": "GeoCoordinates", latitude: -19.6833, longitude: 63.4167 },
+        geo: {
+          "@type": "GeoCoordinates",
+          latitude: -19.6833,
+          longitude: 63.4167,
+        },
         areaServed: { "@type": "Place", name: "Rodrigues Island, Mauritius" },
         ...(sameAs.length ? { sameAs } : {}),
         // Built from the live hub tiles + the free tools that are actually on
@@ -243,14 +324,21 @@ export default async function Home() {
                 "@type": "Service",
                 name: SERVICE_NAME[c.slug] ?? c.label,
                 url: `${SITE_URL}${c.href ?? `/browse/${c.slug}`}`,
-                areaServed: { "@type": "Place", name: "Rodrigues Island, Mauritius" },
+                areaServed: {
+                  "@type": "Place",
+                  name: "Rodrigues Island, Mauritius",
+                },
               },
             })),
             ...FREE_TOOLS.map((s) => ({
               "@type": "Offer",
               price: 0,
               priceCurrency: "MUR",
-              itemOffered: { "@type": "Service", name: s.name, url: `${SITE_URL}${s.href}` },
+              itemOffered: {
+                "@type": "Service",
+                name: s.name,
+                url: `${SITE_URL}${s.href}`,
+              },
             })),
           ],
         },
@@ -273,8 +361,15 @@ export default async function Home() {
         // has a logo, so a site without sponsors is unchanged.
         footer={
           <>
-            <Sponsors enabled={content.sponsorsEnabled} sponsors={content.sponsors} />
-            <Footer social={content.social} branding={content.branding} legal={content.legal} />
+            <Sponsors
+              enabled={content.sponsorsEnabled}
+              sponsors={content.sponsors}
+            />
+            <Footer
+              social={content.social}
+              branding={content.branding}
+              legal={content.legal}
+            />
           </>
         }
         lookingFor={content.quickAccess}

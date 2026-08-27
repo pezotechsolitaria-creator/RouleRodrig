@@ -26,7 +26,9 @@ export interface ReviewCard {
 export async function getFleetView() {
   const content = await getContent();
 
-  const todayIsland = new Date(Date.now() + 4 * 3600 * 1000).toISOString().slice(0, 10); // Rodrigues = UTC+4
+  const todayIsland = new Date(Date.now() + 4 * 3600 * 1000)
+    .toISOString()
+    .slice(0, 10); // Rodrigues = UTC+4
   const heldToday: Record<string, number> = {};
   const recentBookings: Record<string, number> = {};
   const ratings: Record<string, { avg: number; count: number }> = {};
@@ -47,7 +49,10 @@ export async function getFleetView() {
         .select("scooter, created_at, status")
         .gte("created_at", sevenAgo)
         .neq("status", "cancelled"),
-      supabase.from("product_reviews").select("scooter_id, rating").eq("status", "approved"),
+      supabase
+        .from("product_reviews")
+        .select("scooter_id, rating")
+        .eq("status", "approved"),
       supabase
         .from("product_reviews")
         .select("id, name, origin, rating, text, scooter_name")
@@ -69,18 +74,28 @@ export async function getFleetView() {
       const id = r.scooter_id as string | null;
       const rating = Number(r.rating);
       if (!id || !Number.isFinite(rating)) continue;
-      acc[id] = { sum: (acc[id]?.sum ?? 0) + rating, count: (acc[id]?.count ?? 0) + 1 };
+      acc[id] = {
+        sum: (acc[id]?.sum ?? 0) + rating,
+        count: (acc[id]?.count ?? 0) + 1,
+      };
     }
     for (const [id, v] of Object.entries(acc)) {
-      ratings[id] = { avg: Math.round((v.sum / v.count) * 10) / 10, count: v.count };
+      ratings[id] = {
+        avg: Math.round((v.sum / v.count) * 10) / 10,
+        count: v.count,
+      };
     }
-    reviews = ((reviewRes.data ?? []) as ReviewCard[]).filter((r) => r.text && r.name);
+    reviews = ((reviewRes.data ?? []) as ReviewCard[]).filter(
+      (r) => r.text && r.name,
+    );
   } catch {
     /* best-effort — never block the page */
   }
 
   const fleet: FleetView[] = content.fleet.map((s) => {
-    const activeUnits = (s.assets ?? []).filter((a) => a.active !== false).length;
+    const activeUnits = (s.assets ?? []).filter(
+      (a) => a.active !== false,
+    ).length;
     const capacity = activeUnits > 0 ? activeUnits : Math.max(1, s.units ?? 1);
     return { ...s, soldOutToday: (heldToday[s.id] ?? 0) >= capacity };
   });
@@ -109,7 +124,9 @@ export function priceNumber(price: string): number | null {
   const n = extractDailyPrice(price);
   return n > 0 ? n : null;
 }
-function firstImage(items: { image?: string; images?: string[] }[]): string | undefined {
+function firstImage(
+  items: { image?: string; images?: string[] }[],
+): string | undefined {
   for (const it of items) {
     const img = it.images?.[0] || it.image;
     if (img) return img;
@@ -127,15 +144,22 @@ export function buildBrowseCategories(
   for (const vc of content.vehicleCategories.filter((c) => c.enabled)) {
     const items = fleet.filter((f) => (f.category ?? "scooter") === vc.id);
     if (!items.length) continue;
-    const prices = items.map((it) => priceNumber(it.price)).filter((n): n is number => n != null);
+    const prices = items
+      .map((it) => priceNumber(it.price))
+      .filter((n): n is number => n != null);
     const min = prices.length ? Math.min(...prices) : null;
-    vehicleBookings[vc.id] = items.reduce((n, it) => n + (recentBookings[it.id] ?? 0), 0);
+    vehicleBookings[vc.id] = items.reduce(
+      (n, it) => n + (recentBookings[it.id] ?? 0),
+      0,
+    );
     cats.push({
       slug: vc.id,
       label: vc.label,
       image: firstImage(items),
       count: items.length,
-      ...(min != null ? { priceFrom: `From Rs ${min.toLocaleString()}/day` } : {}),
+      ...(min != null
+        ? { priceFrom: `From Rs ${min.toLocaleString()}/day` }
+        : {}),
     });
   }
   // "Popular" = the most-booked vehicle category (real data). With no bookings
@@ -143,7 +167,8 @@ export function buildBrowseCategories(
   const vehicleSlugs = Object.keys(vehicleBookings);
   if (vehicleSlugs.length) {
     let top = vehicleSlugs[0];
-    for (const s of vehicleSlugs) if (vehicleBookings[s] > vehicleBookings[top]) top = s;
+    for (const s of vehicleSlugs)
+      if (vehicleBookings[s] > vehicleBookings[top]) top = s;
     const winner = cats.find((c) => c.slug === top);
     if (winner) winner.popular = true;
   }
@@ -158,7 +183,9 @@ export function buildBrowseCategories(
     // the whole food business off the hub with it. The concierge still has its
     // own surface at /food/concierge, and /food falls back to it by itself
     // while no dish is published.
-    const rest = content.recommended.items.filter((p) => p.category === "restaurant");
+    const rest = content.recommended.items.filter(
+      (p) => p.category === "restaurant",
+    );
     cats.push({
       slug: "food",
       href: "/food",
@@ -167,23 +194,95 @@ export function buildBrowseCategories(
       count: 0,
       tagline: "Order island food · pick up or delivered",
     });
-    const act = content.recommended.items.filter((p) => p.category === "activity" && !p.isTour);
-    if (act.length) cats.push({ slug: "activities", label: "Activities", image: firstImage(act), count: act.length });
-    const tours = content.recommended.items.filter((p) => p.category === "activity" && p.isTour);
-    if (tours.length) cats.push({ slug: "tours", label: "Guided Tours", image: firstImage(tours), count: tours.length });
-    const stays = content.recommended.items.filter((p) => p.category === "hotel");
-    if (stays.length) cats.push({ slug: "stays", label: "Stay", image: firstImage(stays), count: stays.length });
+    const act = content.recommended.items.filter(
+      (p) => p.category === "activity" && !p.isTour,
+    );
+    if (act.length)
+      cats.push({
+        slug: "activities",
+        label: "Activities",
+        image: firstImage(act),
+        count: act.length,
+      });
+    const tours = content.recommended.items.filter(
+      (p) => p.category === "activity" && p.isTour,
+    );
+    if (tours.length)
+      cats.push({
+        slug: "tours",
+        label: "Guided Tours",
+        image: firstImage(tours),
+        count: tours.length,
+      });
+    const stays = content.recommended.items.filter(
+      (p) => p.category === "hotel",
+    );
+    if (stays.length)
+      cats.push({
+        slug: "stays",
+        label: "Stay",
+        image: firstImage(stays),
+        count: stays.length,
+      });
   }
   // Local stores — the shops the owner maintains as map locations (category
   // "shop"). Opens the shops guide. (The old "Getting around" tile was retired
   // in favour of a Taxi quick action.)
   const shops = content.mapLocations.filter((l) => l.category === "shop");
   if (shops.length) {
-    cats.push({ slug: "stores", href: "/guide/shops", label: "Local stores", image: firstImage(shops), count: shops.length });
+    cats.push({
+      slug: "stores",
+      href: "/guide/shops",
+      label: "Local stores",
+      image: firstImage(shops),
+      count: shops.length,
+    });
   }
   const events = content.events.filter((e) => e.title);
   if (events.length) {
-    cats.push({ slug: "events", label: "What's on", image: firstImage(events), count: events.length });
+    cats.push({
+      slug: "events",
+      label: "What's on",
+      image: firstImage(events),
+      count: events.length,
+    });
   }
   return cats;
+}
+
+// ── THE "FROM" PRICE, DERIVED ONCE ──────────────────────────────────────────
+//
+// Three places hardcoded "Rs 599": the site-wide meta description
+// (app/layout.tsx), the homepage's JSON-LD description (app/page.tsx) and the
+// French scooter landing page's title AND description. Meanwhile the fleet's
+// real minimum had moved to Rs 699, and every one of those pages RENDERED 699
+// while ADVERTISING 599.
+//
+// That is the worst shape this bug can take. The number Google shows in the
+// search result is the one a stranger decides on, and the number they find on
+// arrival is 17% higher. It reads as bait-and-switch, and nobody on the team
+// would ever see it — the visible page was right the whole time.
+//
+// The French page already computed the real value for its <h1> and then
+// contradicted itself six lines later in its own metadata. So the arithmetic
+// was never the problem; having it in four places was.
+export const FLEET_PRICE_FALLBACK = 699;
+
+/**
+ * The cheapest advertised daily price in a category, or the fallback.
+ *
+ * Callers pass `fleet` from getFleetView(). Kept synchronous and pure so a
+ * metadata function can use it without another round trip.
+ */
+export function fleetFromPrice(
+  fleet: { price: string; category?: string | null }[],
+  category?: string,
+): number {
+  const inScope = category
+    ? fleet.filter((f) => (f.category ?? "scooter") === category)
+    : fleet;
+  const prices = inScope
+    .map((f) => priceNumber(f.price))
+    .filter((n): n is number => n != null && n > 0);
+  return prices.length ? Math.min(...prices) : FLEET_PRICE_FALLBACK;
 }

@@ -18,7 +18,7 @@ import { ExperienceWorldProvider } from "@/context/ExperienceWorldContext";
 import BottomNav from "@/components/BottomNav";
 import GlobalTiRoule from "@/components/GlobalTiRoule";
 import { getContent } from "@/lib/content";
-import { priceNumber } from "@/lib/site-data";
+import { priceNumber, FLEET_PRICE_FALLBACK } from "@/lib/site-data";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SITE_URL } from "@/lib/site";
@@ -91,7 +91,18 @@ function buildMetadata(shareImage: string): Metadata {
     // Everything claimed here is real and reachable from the homepage hub.
     title: "Roule Rodrigues | Scooter & Car Rental, Rodrigues Island",
     description:
-      "Scooter and car rental in Rodrigues from Rs 599/day, no minimum. Plus a free island guide, trip planner and WhatsApp food concierge. Booked direct with locals.",
+      // Rs 599 here for months while every page RENDERED Rs 699 — so the
+      // number a stranger decided on in Google was 100 rupees under the one
+      // they met on arrival. It reads as bait-and-switch and nobody on the
+      // team would ever see it, because the visible page was right.
+      //
+      // NOT derived from the fleet, deliberately: this is the root layout, so
+      // generateMetadata() runs for every route on the site, and getFleetView()
+      // is not memoised — deriving here would add a database round-trip to
+      // every page render to set a default that most pages override anyway.
+      // FLEET_PRICE_FALLBACK is the shared constant; the pages that actually
+      // advertise a price derive the real minimum with fleetFromPrice().
+      `Scooter and car rental in Rodrigues from Rs ${FLEET_PRICE_FALLBACK}/day, no minimum. Plus a free island guide, trip planner and WhatsApp food concierge. Booked direct with locals.`,
     keywords: [
       "scooter rental Rodrigues",
       "car rental Rodrigues",

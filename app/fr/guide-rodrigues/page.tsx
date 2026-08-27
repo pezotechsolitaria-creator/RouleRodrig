@@ -7,6 +7,7 @@ import { RODRIGUES_KNOWLEDGE } from "@/lib/rodrigues-knowledge";
 import { breadcrumbLd, touristDestinationLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
+import PageLanguage from "@/components/PageLanguage";
 
 export const revalidate = 3600;
 
@@ -98,20 +99,28 @@ export default async function GuideFrPage() {
 
   return (
     <>
+      {/* This page is written in French; `lang` describes its CONTENT,
+          not the reader's preference. See components/PageLanguage.tsx. */}
+      <PageLanguage lang="fr" />
       <JsonLd
         data={[
           faqLd,
           touristDestinationLd(),
           breadcrumbLd([
             { name: "Accueil", url: SITE_URL },
-            { name: "Guide de Rodrigues", url: `${SITE_URL}/fr/guide-rodrigues` },
+            {
+              name: "Guide de Rodrigues",
+              url: `${SITE_URL}/fr/guide-rodrigues`,
+            },
           ]),
         ]}
       />
       <Navbar
         branding={content.branding}
         announcementActive={false}
-        showStayEatDo={content.recommended.enabled && content.recommended.items.length > 0}
+        showStayEatDo={
+          content.recommended.enabled && content.recommended.items.length > 0
+        }
         showRoutes={content.rideRoutes.length > 0}
         showEvents={content.events.some((e) => e.title)}
       />
@@ -121,15 +130,23 @@ export default async function GuideFrPage() {
       <main className="bg-dark min-h-screen" lang="fr">
         <header className="border-b border-dark-border bg-gradient-to-b from-yellow/[0.06] to-transparent px-5 py-16 md:py-24">
           <div className="mx-auto max-w-3xl">
-            <p className="font-bebas text-yellow text-xs tracking-[0.3em]">GUIDE DE L&apos;ÎLE</p>
+            <p className="font-bebas text-yellow text-xs tracking-[0.3em]">
+              GUIDE DE L&apos;ÎLE
+            </p>
             <h1 className="mt-3 font-syne text-4xl md:text-5xl font-extrabold text-offwhite leading-tight">
               Le guide de l&apos;île Rodrigues par les locaux
             </h1>
-            <p className="mt-4 font-dm text-muted leading-relaxed max-w-2xl">{DESCRIPTION}</p>
+            <p className="mt-4 font-dm text-muted leading-relaxed max-w-2xl">
+              {DESCRIPTION}
+            </p>
             {/* The way back to English. hreflang tells a crawler the pair
                 exists; it gives a reader nothing to click. */}
             <p className="mt-3 font-dm text-sm">
-              <Link href="/guide/rodrigues" hrefLang="en" className="text-yellow underline underline-offset-4 hover:opacity-80">
+              <Link
+                href="/guide/rodrigues"
+                hrefLang="en"
+                className="text-yellow underline underline-offset-4 hover:opacity-80"
+              >
                 Read this guide in English
               </Link>
             </p>
@@ -157,7 +174,9 @@ export default async function GuideFrPage() {
                 <h2 className="font-syne text-xl md:text-2xl font-bold text-offwhite">
                   {TITRES[k.id] ?? humanize(k.id)}
                 </h2>
-                <p className="mt-3 font-dm text-muted leading-relaxed">{k.fr}</p>
+                <p className="mt-3 font-dm text-muted leading-relaxed">
+                  {k.fr}
+                </p>
                 {k.place && (
                   <a
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(k.place)}`}
@@ -173,13 +192,27 @@ export default async function GuideFrPage() {
           </article>
 
           <nav className="mt-14 border-t border-dark-border pt-8">
-            <p className="font-syne text-sm font-bold text-offwhite">À découvrir aussi</p>
+            <p className="font-syne text-sm font-bold text-offwhite">
+              À découvrir aussi
+            </p>
             <ul className="mt-3 space-y-2">
               {[
-                { href: "/fr/location-scooter-rodrigues", label: "Location de scooter à Rodrigues" },
-                { href: "/fr/plages-rodrigues", label: "Les plus belles plages de Rodrigues" },
-                { href: "/guide/routes", label: "Itinéraires en scooter & randonnées" },
-                { href: "/browse/car", label: "Location de voiture à Rodrigues" },
+                {
+                  href: "/fr/location-scooter-rodrigues",
+                  label: "Location de scooter à Rodrigues",
+                },
+                {
+                  href: "/fr/plages-rodrigues",
+                  label: "Les plus belles plages de Rodrigues",
+                },
+                {
+                  href: "/guide/routes",
+                  label: "Itinéraires en scooter & randonnées",
+                },
+                {
+                  href: "/browse/car",
+                  label: "Location de voiture à Rodrigues",
+                },
               ].map((l) => (
                 <li key={l.href}>
                   <Link

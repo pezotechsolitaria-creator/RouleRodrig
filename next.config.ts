@@ -40,13 +40,25 @@ function validateEnv() {
   // the wrong one of the two is exactly the mistake this check exists to stop,
   // and it is the mistake the first version of this check made.
   const REQUIRED = ["NEXT_PUBLIC_SUPABASE_URL"];
-  const BROWSER_KEYS = ["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY"];
+  const BROWSER_KEYS = [
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  ];
   const WARNED = [
-    ["SUPABASE_SERVICE_ROLE_KEY", "admin routes will return 503 and E2E fixtures cannot run"],
+    [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "admin routes will return 503 and E2E fixtures cannot run",
+    ],
     ["SESSION_SECRET", "admin login cannot issue a session"],
     ["ADMIN_PASSWORD", "nobody can sign in to /admin"],
-    ["CRON_SECRET", "the daily reminder job will refuse to run (503) — it fails closed"],
-    ["NEXT_PUBLIC_SITE_URL", "absolute links in emails and SEO metadata may be wrong"],
+    [
+      "CRON_SECRET",
+      "the daily reminder job will refuse to run (503) — it fails closed",
+    ],
+    [
+      "NEXT_PUBLIC_SITE_URL",
+      "absolute links in emails and SEO metadata may be wrong",
+    ],
   ] as const;
 
   const missing = REQUIRED.filter((k) => !process.env[k]?.trim());
@@ -116,7 +128,10 @@ const ContentSecurityPolicy = [
 
 const securityHeaders = [
   // Force HTTPS for 2 years, include subdomains, allow preload-list submission
-  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains; preload",
+  },
   // Stop MIME-type sniffing (defense against drive-by content-type confusion)
   { key: "X-Content-Type-Options", value: "nosniff" },
   // Belt-and-braces clickjacking protection alongside frame-ancestors
@@ -126,13 +141,35 @@ const securityHeaders = [
   // Drop access to powerful browser features the site never uses
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(self), browsing-topics=(), interest-cohort=()",
+    value:
+      "camera=(), microphone=(), geolocation=(self), browsing-topics=(), interest-cohort=()",
   },
   { key: "X-DNS-Prefetch-Control", value: "on" },
   { key: "Content-Security-Policy", value: ContentSecurityPolicy },
 ];
 
 const nextConfig: NextConfig = {
+  // ── GOOGLEBOT GETS ITS METADATA IN THE HEAD, LIKE EVERY OTHER BOT ───────
+  //
+  // Next streams metadata for user agents it believes execute JavaScript, and
+  // Googlebot is on that list by default because it usually does. MEASURED on
+  // the live site, /browse/scooter:
+  //
+  //     curl -A "Googlebot/2.1" … | head -c 12000 | grep -c "<title"  -> 0
+  //     curl -A "bingbot/2.0"   … | head -c 12000 | grep -c "<title"  -> 1
+  //
+  // The title, canonical and all three hreflang links do not appear until far
+  // past </head>. Bing, WhatsApp, Facebook and Twitter all get them inline.
+  //
+  // "Usually renders" is a fine bet on a blog. These are the five highest-value
+  // commercial pages on the site — /browse/scooter, /car, /stays, /activities,
+  // /tours, sitemap priority 0.9 — plus five dish pages, and they are exactly
+  // the dynamically rendered routes (Cache-Control: private, no-store) where a
+  // render-budget miss costs the most. The trade is a slightly later first byte
+  // for Google's crawlers only.
+  htmlLimitedBots:
+    /Googlebot|Google-InspectionTool|Storebot-Google|GoogleOther|AdsBot-Google/,
+
   // Don't advertise the framework/version to attackers
   poweredByHeader: false,
   reactStrictMode: true,
@@ -160,12 +197,16 @@ const nextConfig: NextConfig = {
         // Keep the admin area out of search engines even if a link leaks
         // (belt-and-braces with robots.txt, which crawlers may ignore)
         source: "/admin/:path*",
-        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" }],
+        headers: [
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+        ],
       },
       {
         // The service worker must never be cached aggressively
         source: "/sw.js",
-        headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }],
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
+        ],
       },
     ];
   },

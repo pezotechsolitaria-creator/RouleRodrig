@@ -57,6 +57,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // button is a cycle (en -> fr -> cr), and without this the attribute would go
   // stale the moment somebody pressed it.
   useEffect(() => {
+    // A page written IN a language owns the attribute — see
+    // components/PageLanguage.tsx. The /fr landing pages stay French for a
+    // reader whose switcher says English, because their words do not change.
+    if (document.documentElement.dataset.langLocked === "1") return;
     document.documentElement.lang = languageTag(language);
   }, [language]);
 

@@ -5,6 +5,7 @@ import { breadcrumbLd, itemListLd, placeLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import PlaceGuide from "@/components/PlaceGuide";
+import PageLanguage from "@/components/PageLanguage";
 
 export const revalidate = 3600;
 
@@ -55,13 +56,22 @@ export default async function PlagesPage() {
 
   return (
     <>
+      {/* This page is written in French; `lang` describes its CONTENT,
+          not the reader's preference. See components/PageLanguage.tsx. */}
+      <PageLanguage lang="fr" />
       <JsonLd
         data={[
           breadcrumbLd([
             { name: "Accueil", url: SITE_URL },
-            { name: "Plages de Rodrigues", url: `${SITE_URL}/fr/plages-rodrigues` },
+            {
+              name: "Plages de Rodrigues",
+              url: `${SITE_URL}/fr/plages-rodrigues`,
+            },
           ]),
-          itemListLd("Plages de l'île Rodrigues", places.map((p) => ({ name: p.name.trim() }))),
+          itemListLd(
+            "Plages de l'île Rodrigues",
+            places.map((p) => ({ name: p.name.trim() })),
+          ),
           ...places.map((p) =>
             placeLd({
               name: p.name.trim(),
@@ -77,7 +87,9 @@ export default async function PlagesPage() {
       <Navbar
         branding={content.branding}
         announcementActive={false}
-        showStayEatDo={content.recommended.enabled && content.recommended.items.length > 0}
+        showStayEatDo={
+          content.recommended.enabled && content.recommended.items.length > 0
+        }
         showRoutes={content.rideRoutes.length > 0}
         showEvents={content.events.some((e) => e.title)}
       />
@@ -95,9 +107,18 @@ export default async function PlagesPage() {
           keepExploring: "À découvrir aussi",
         }}
         related={[
-          { href: "/fr/location-scooter-rodrigues", label: "Location de scooter à Rodrigues" },
-          { href: "/guide/viewpoints", label: "Points de vue & sites remarquables" },
-          { href: "/guide/routes", label: "Itinéraires en scooter & randonnées" },
+          {
+            href: "/fr/location-scooter-rodrigues",
+            label: "Location de scooter à Rodrigues",
+          },
+          {
+            href: "/guide/viewpoints",
+            label: "Points de vue & sites remarquables",
+          },
+          {
+            href: "/guide/routes",
+            label: "Itinéraires en scooter & randonnées",
+          },
           { href: "/browse/stays", label: "Où dormir à Rodrigues" },
         ]}
       />

@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Check, MessageCircle } from "lucide-react";
-import { getFleetView, priceNumber } from "@/lib/site-data";
+import { getFleetView, fleetFromPrice } from "@/lib/site-data";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
+import PageLanguage from "@/components/PageLanguage";
 
 export const revalidate = 3600;
 
@@ -27,13 +28,26 @@ export const revalidate = 3600;
 
 // 60 chars / 156 chars — inside the 50–60 and 140–160 targets. Measured, not
 // eyeballed: the first draft was 65/161 and would have been truncated.
-const TITLE = "Location Scooter Rodrigues dès Rs 599/jour | Roule Rodrigues";
-const DESCRIPTION =
-  "Louez un scooter à l’île Rodrigues à partir de Rs 599 par jour. Casque et assurance inclus, livraison à votre hôtel, sans durée minimale. Réservez en ligne.";
+// Was "dès Rs 599/jour" while line 88 computed the real minimum and rendered
+// Rs 699 in the <h1> — one document contradicting itself. generateMetadata()
+// below derives it from the same fleet the page already reads.
+const TITLE = (from: number) =>
+  `Location Scooter Rodrigues dès Rs ${from}/jour | Roule Rodrigues`;
+const DESCRIPTION = (from: number) =>
+  `Louez un scooter à l’île Rodrigues à partir de Rs ${from} par jour. Casque et assurance inclus, livraison à votre hôtel, sans durée minimale. Réservez en ligne.`;
 
-export const metadata: Metadata = {
-  title: TITLE,
-  description: DESCRIPTION,
+// Async, because the price in the title has to come from the same fleet the
+// page renders. A static `metadata` object cannot read it, which is exactly how
+// the two drifted apart in the first place.
+export async function generateMetadata(): Promise<Metadata> {
+  const { fleet } = await getFleetView();
+  const from = fleetFromPrice(fleet, "scooter");
+  return metadataFor(from);
+}
+
+const metadataFor = (from: number): Metadata => ({
+  title: TITLE(from),
+  description: DESCRIPTION(from),
   alternates: {
     canonical: `${SITE_URL}/fr/location-scooter-rodrigues`,
     // Tells Google these two URLs are the same page in two languages, so they
@@ -45,14 +59,14 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: TITLE,
-    description: DESCRIPTION,
+    title: TITLE(from),
+    description: DESCRIPTION(from),
     url: `${SITE_URL}/fr/location-scooter-rodrigues`,
     type: "website",
     locale: "fr_FR",
     images: [`${SITE_URL}/og-image.jpg`],
   },
-};
+});
 
 // Every answer here is traced to real data or real code — never asserted.
 // Price: the live fleet. "Sans durée minimale": no minimum-day logic exists
@@ -83,9 +97,7 @@ const FAQ = (from: number) => [
 export default async function LocationScooterPage() {
   const { content, fleet, businessWhatsApp } = await getFleetView();
 
-  const scooters = fleet.filter((f) => (f.category ?? "scooter") === "scooter");
-  const prices = scooters.map((s) => priceNumber(s.price)).filter((n): n is number => n != null && n > 0);
-  const from = prices.length ? Math.min(...prices) : 599;
+  const from = fleetFromPrice(fleet, "scooter");
   const faq = FAQ(from);
 
   const wa = (businessWhatsApp ?? "").replace(/\D/g, "");
@@ -95,6 +107,9 @@ export default async function LocationScooterPage() {
 
   return (
     <>
+      {/* This page is written in French; `lang` describes its CONTENT,
+          not the reader's preference. See components/PageLanguage.tsx. */}
+      <PageLanguage lang="fr" />
       <JsonLd
         data={[
           {
@@ -109,14 +124,19 @@ export default async function LocationScooterPage() {
           },
           breadcrumbLd([
             { name: "Accueil", url: SITE_URL },
-            { name: "Location de scooter à Rodrigues", url: `${SITE_URL}/fr/location-scooter-rodrigues` },
+            {
+              name: "Location de scooter à Rodrigues",
+              url: `${SITE_URL}/fr/location-scooter-rodrigues`,
+            },
           ]),
         ]}
       />
       <Navbar
         branding={content.branding}
         announcementActive={false}
-        showStayEatDo={content.recommended.enabled && content.recommended.items.length > 0}
+        showStayEatDo={
+          content.recommended.enabled && content.recommended.items.length > 0
+        }
         showRoutes={content.rideRoutes.length > 0}
         showEvents={content.events.some((e) => e.title)}
       />
@@ -132,15 +152,18 @@ export default async function LocationScooterPage() {
       <main className="bg-dark min-h-screen" lang="fr">
         <header className="border-b border-dark-border bg-gradient-to-b from-yellow/[0.06] to-transparent px-5 py-16 md:py-24">
           <div className="mx-auto max-w-3xl">
-            <p className="font-bebas text-yellow text-xs tracking-[0.3em]">ÎLE RODRIGUES</p>
+            <p className="font-bebas text-yellow text-xs tracking-[0.3em]">
+              ÎLE RODRIGUES
+            </p>
             <h1 className="mt-3 font-syne text-4xl md:text-5xl font-extrabold text-offwhite leading-tight">
-              Location de scooter à Rodrigues, dès Rs {from.toLocaleString("en-US")} par jour
+              Location de scooter à Rodrigues, dès Rs{" "}
+              {from.toLocaleString("en-US")} par jour
             </h1>
             <p className="mt-4 font-dm text-muted leading-relaxed max-w-2xl">
-              Rodrigues se découvre en scooter : peu de circulation, de bonnes routes et des
-              paysages à couper le souffle. Nous louons nos scooters directement, sans
-              intermédiaire — casque et assurance inclus, livraison à votre hôtel, et aucune
-              durée minimale.
+              Rodrigues se découvre en scooter : peu de circulation, de bonnes
+              routes et des paysages à couper le souffle. Nous louons nos
+              scooters directement, sans intermédiaire — casque et assurance
+              inclus, livraison à votre hôtel, et aucune durée minimale.
             </p>
 
             <ul className="mt-7 space-y-2.5">
@@ -151,7 +174,10 @@ export default async function LocationScooterPage() {
                 "Livraison et récupération à votre hôtel, partout sur l'île",
                 "Assistance en français, anglais et créole",
               ].map((li) => (
-                <li key={li} className="flex items-start gap-2.5 font-dm text-sm text-offwhite/90">
+                <li
+                  key={li}
+                  className="flex items-start gap-2.5 font-dm text-sm text-offwhite/90"
+                >
                   <Check size={16} className="mt-0.5 shrink-0 text-yellow" />
                   {li}
                 </li>
@@ -184,20 +210,36 @@ export default async function LocationScooterPage() {
           <div className="mt-6 space-y-7">
             {faq.map((f) => (
               <section key={f.q}>
-                <h3 className="font-syne text-lg font-bold text-offwhite">{f.q}</h3>
+                <h3 className="font-syne text-lg font-bold text-offwhite">
+                  {f.q}
+                </h3>
                 <p className="mt-2 font-dm text-muted leading-relaxed">{f.a}</p>
               </section>
             ))}
           </div>
 
           <nav className="mt-14 border-t border-dark-border pt-8">
-            <p className="font-syne text-sm font-bold text-offwhite">À découvrir aussi</p>
+            <p className="font-syne text-sm font-bold text-offwhite">
+              À découvrir aussi
+            </p>
             <ul className="mt-3 space-y-2">
               {[
-                { href: "/browse/scooter", label: "Nos scooters et disponibilités" },
-                { href: "/browse/car", label: "Location de voiture à Rodrigues" },
-                { href: "/guide/beaches", label: "Les plus belles plages de Rodrigues" },
-                { href: "/guide/rodrigues", label: "Le guide de Rodrigues par les locaux" },
+                {
+                  href: "/browse/scooter",
+                  label: "Nos scooters et disponibilités",
+                },
+                {
+                  href: "/browse/car",
+                  label: "Location de voiture à Rodrigues",
+                },
+                {
+                  href: "/guide/beaches",
+                  label: "Les plus belles plages de Rodrigues",
+                },
+                {
+                  href: "/guide/rodrigues",
+                  label: "Le guide de Rodrigues par les locaux",
+                },
               ].map((l) => (
                 <li key={l.href}>
                   <Link
