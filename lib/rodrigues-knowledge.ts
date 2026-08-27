@@ -26,9 +26,24 @@ export const RODRIGUES_KNOWLEDGE: KnowledgeEntry[] = [
     kw: ["get to rodrigues", "getting to rodrigues", "how to get", "how do i get", "fly to", "flight to", "flights", "airport", "plane", "air mauritius", "ferry", "boat from mauritius", "from mauritius", "reach rodrigues", "travel to rodrigues"],
     pose: "holdingMap",
     cta: "plan",
-    en: "Easiest is a short flight from Mauritius — about 1h30 with Air Mauritius into Plaine Corail airport, several times a day. There's also a ferry from Port Louis to Port Mathurin (roughly weekly, about a day and a half at sea).",
-    fr: "Le plus simple : un vol court depuis Maurice — environ 1h30 avec Air Mauritius jusqu'à l'aéroport de Plaine Corail, plusieurs fois par jour. Il y a aussi un ferry de Port-Louis à Port Mathurin (environ une fois par semaine, un jour et demi en mer).",
-    cr: "Pli fasil se enn ti vol depi Moris — apepre 1er30 ek Air Mauritius ziska laeropor Plaine Corail, plizir fwa par zour. Ena osi enn ferry depi Port-Louis ziska Port Mathurin (apepre enn fwa par semenn, enn zour edmi lor lamer).",
+    // ── CORRECTED: the ferry is roughly MONTHLY, not weekly ─────────────
+    // This said "roughly weekly" in all three languages, and Ti Roulé has been
+    // answering with it. The operator's own live timetable (Mauritius Shipping
+    // Corporation, MV Mauritius Trochetia) lists FOUR passenger voyages across
+    // September to December 2026 — about one a month. Their marketing page
+    // says "3 to 4 voyages per month", which almost certainly counts cargo
+    // sailings by both vessels; the timetable is the thing a traveller can
+    // actually board.
+    //
+    // The crossing is also asymmetric and that is real, not a rounding: about
+    // 36 hours out from Port Louis, about 24 hours back. Checked against the
+    // operator's own sailing times, not just their prose.
+    //
+    // No frequency is promised harder than "roughly monthly" on purpose — a
+    // visitor who plans around a weekly boat that runs monthly misses a week.
+    en: "Easiest is a short flight from Mauritius — about an hour and a half with Air Mauritius into Plaine Corail airport, daily. There's also a passenger ferry from Port Louis to Port Mathurin, roughly monthly and about 36 hours out (nearer 24 coming back) — check the Mauritius Shipping Corporation schedule, as sailings are few and berths are limited.",
+    fr: "Le plus simple : un vol court depuis Maurice — environ une heure et demie avec Air Mauritius jusqu'à l'aéroport de Plaine Corail, tous les jours. Il existe aussi un ferry passagers de Port-Louis à Port Mathurin, environ une fois par mois et quelque 36 heures de mer à l'aller (plutôt 24 au retour) — vérifiez le calendrier de la Mauritius Shipping Corporation, les départs sont rares et les places limitées.",
+    cr: "Pli fasil se enn ti vol depi Moris — apepre enn er edmi ek Air Mauritius ziska laeropor Plaine Corail, tou le zour. Ena osi enn ferry pasaze depi Port-Louis ziska Port Mathurin, apepre enn fwa par mwa ek apepre 36 er lor lamer pou ale (plito 24 pou retourne) — verifie orer Mauritius Shipping Corporation, ena tigit depar ek tigit plas.",
   },
   {
     id: "bestTime",

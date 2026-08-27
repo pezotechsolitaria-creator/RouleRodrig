@@ -66,11 +66,13 @@ const FAQ = (scooter: number, car: number) => [
   },
   {
     q: `Y a-t-il des transports en commun à Rodrigues${NB}?`,
-    a: "Oui, mais pas pensés pour les visiteurs. Les bus desservent les villages depuis Port Mathurin ; ils sont lents, peu fréquents, et les derniers partent en début de soirée. Pour une journée à la plage ou un point de vue à l'écart, ils ne suffisent pas.",
+    // The airport figures come from the airport operator's own page
+    // (arl.aero), which is the only primary source we found for them.
+    a: "Oui : un réseau d'une vingtaine de lignes, presque toutes au départ de Port Mathurin. Deux d'entre elles desservent l'aéroport — l'arrêt est à trois minutes à pied du terminal, en face du poste de police, avec un service de 6h à 16h30 pour environ Rs 29. C'est utile à savoir et c'est aussi la limite : sur un vol tardif, le bus n'est plus une option, et aucune ligne ne va aux plages isolées.",
   },
   {
     q: `Combien coûte un taxi à Rodrigues${NB}?`,
-    a: "Les taxis rodriguais ne sont pas au compteur et aucun tarif officiel n'est publié. Mettez-vous d'accord sur le prix AVANT de monter — c'est l'usage, et personne ne le prendra mal. Nous listons des chauffeurs locaux avec leur numéro pour que vous puissiez demander directement.",
+    a: "Aucun tarif officiel n'est publié pour les taxis à Rodrigues. Mettez-vous d'accord sur le prix AVANT de monter — c'est l'usage, et personne ne le prendra mal. Nous listons des chauffeurs locaux avec leur numéro pour que vous puissiez demander directement.",
   },
   {
     q: `De quel côté roule-t-on${NB}?`,
@@ -78,7 +80,7 @@ const FAQ = (scooter: number, car: number) => [
   },
   {
     q: `Comment rejoindre Rodrigues depuis Maurice${NB}?`,
-    a: "Le plus simple est l'avion : environ 1h30 avec Air Mauritius jusqu'à l'aéroport de Plaine Corail, plusieurs vols par jour. Il existe aussi un ferry depuis Port-Louis vers Port Mathurin, environ une fois par semaine et un jour et demi de mer.",
+    a: "Le plus simple est l'avion : environ une heure et demie avec Air Mauritius jusqu'à l'aéroport de Plaine Corail, tous les jours. Il existe aussi un ferry passagers depuis Port-Louis vers Port Mathurin, mais environ une fois par MOIS et quelque 36 heures de mer à l'aller — vérifiez le calendrier de la Mauritius Shipping Corporation avant de compter dessus.",
   },
   {
     q: `Les routes sont-elles difficiles${NB}?`,
@@ -214,13 +216,12 @@ export default async function SeDeplacerPage() {
                 site cannot write because it does not know the custom. */}
             <div className="mt-5 rounded-2xl border border-yellow/30 bg-yellow/[0.06] p-4">
               <p className="font-dm text-sm leading-relaxed text-offwhite/90">
-                Les taxis ne sont pas au compteur et aucun tarif officiel
-                n&apos;est publié à Rodrigues. Convenez du prix avant de monter
-                : c&apos;est l&apos;usage, tout le monde le fait, et personne ne
-                le prendra mal. Nous ne publions pas de grille tarifaire ici
-                parce que nous n&apos;en avons pas de fiable — un chiffre
-                inventé serait ensuite opposé à un chauffeur qui ne l&apos;a
-                jamais accepté.
+                Aucun tarif officiel n&apos;est publié pour les taxis à
+                Rodrigues. Convenez du prix avant de monter : c&apos;est
+                l&apos;usage, tout le monde le fait, et personne ne le prendra
+                mal. Nous ne publions pas de grille tarifaire ici parce que nous
+                n&apos;en avons pas de fiable — un chiffre inventé serait
+                ensuite opposé à un chauffeur qui ne l&apos;a jamais accepté.
               </p>
             </div>
           </section>
