@@ -11,12 +11,12 @@
   --font-dm: var(--font-dm-var);
 
   /* Brand colors */
-  --color-yellow: #F5C842;
+  --color-yellow: #f5c842;
   --color-yellow-dark: #d4a800;
   --color-dark: #0a0a0a;
   --color-dark-card: #111111;
   --color-dark-border: #222222;
-  --color-offwhite: #F5F5F0;
+  --color-offwhite: #f5f5f0;
   --color-muted: #888888;
 
   /* Marquee animation */
@@ -69,19 +69,32 @@
 }
 
 @keyframes marquee {
-  0%   { transform: translateX(0%); }
-  100% { transform: translateX(-50%); }
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }
 
 @keyframes bounce-slow {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(8px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(8px);
+  }
 }
 
 /* Cinematic slow zoom for hero imagery (premium travel-site feel) */
 @keyframes rr-kenburns {
-  from { transform: scale(1.02); }
-  to   { transform: scale(1.13); }
+  from {
+    transform: scale(1.02);
+  }
+  to {
+    transform: scale(1.13);
+  }
 }
 .rr-kenburns {
   animation: rr-kenburns 26s ease-in-out infinite alternate;
@@ -89,13 +102,19 @@
   will-change: transform;
 }
 @media (prefers-reduced-motion: reduce) {
-  .rr-kenburns { animation: none; }
+  .rr-kenburns {
+    animation: none;
+  }
 }
 
 /* Skeleton shimmer for loading states (classier than a plain pulse) */
 @keyframes rr-shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 .rr-shimmer {
   background-color: rgba(255, 255, 255, 0.04);
@@ -110,7 +129,9 @@
   animation: rr-shimmer 1.5s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .rr-shimmer { animation: none; }
+  .rr-shimmer {
+    animation: none;
+  }
 }
 
 /* ── Base ───────────────────────────────────────────── */
@@ -130,7 +151,9 @@ section[id],
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 /* ── Never let the page scroll sideways — without killing sticky ──────────
@@ -150,7 +173,8 @@ section[id],
    (`overflow-x-hidden` was ALSO on <body> as a Tailwind utility in
    app/layout.tsx, where it won the cascade. It is gone; this is the one
    place that guard lives now.) */
-html, body {
+html,
+body {
   max-width: 100%;
   overflow-x: hidden;
   overflow-x: clip;
@@ -158,19 +182,32 @@ html, body {
 
 /* Ti Roulé mascot — gentle idle bob (transform-only, GPU-composited) */
 @keyframes rr-mascot-bob {
-  0%, 100% { transform: translateY(0) rotate(-1deg); }
-  50%      { transform: translateY(-5px) rotate(1.5deg); }
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-5px) rotate(1.5deg);
+  }
 }
-.rr-mascot-bob { animation: rr-mascot-bob 3.2s ease-in-out infinite; will-change: transform; }
+.rr-mascot-bob {
+  animation: rr-mascot-bob 3.2s ease-in-out infinite;
+  will-change: transform;
+}
 @media (prefers-reduced-motion: reduce) {
-  .rr-mascot-bob { animation: none; }
+  .rr-mascot-bob {
+    animation: none;
+  }
 }
 
 /* ── Headings: never split a word across lines ──────────
    Words wrap as whole units (keep-all) with no hyphenation.
    Combined with responsive clamp() sizes, this guarantees
    every word stays intact and readable on small phones.    */
-h1, h2, h3, h4 {
+h1,
+h2,
+h3,
+h4 {
   overflow-wrap: normal;
   word-break: keep-all;
   hyphens: none;
@@ -178,30 +215,53 @@ h1, h2, h3, h4 {
 }
 
 *:focus-visible {
-  outline: 2px solid #F5C842;
+  outline: 2px solid #f5c842;
   outline-offset: 2px;
 }
 
 /* Custom scrollbar */
-::-webkit-scrollbar       { width: 3px; }
-::-webkit-scrollbar-track { background: #0a0a0a; }
-::-webkit-scrollbar-thumb { background: #F5C842; border-radius: 2px; }
+::-webkit-scrollbar {
+  width: 3px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+::-webkit-scrollbar-thumb {
+  background: #f5c842;
+  border-radius: 2px;
+}
 
 /* Anchor jumps land below the fixed navbar instead of underneath it */
-section[id], [id="booking"], [id="fleet"], [id="map"], [id="routes"], [id="recommended"], [id="contact"] {
+section[id],
+[id="booking"],
+[id="fleet"],
+[id="map"],
+[id="routes"],
+[id="recommended"],
+[id="contact"] {
   scroll-margin-top: 88px;
 }
 
 /* Respect users who prefer reduced motion: no auto-scrolling ticker,
    no smooth scrolling — content stays fully readable. */
 @media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  .animate-marquee { animation: none !important; }
+  html {
+    scroll-behavior: auto;
+  }
+  .animate-marquee {
+    animation: none !important;
+  }
   /* Splash: show it as a clean STATIC branded screen (no motion) rather than
      a frozen mid-animation. Everything is visible by default, so this just
      stops the animations; the inline script still removes it on its timer. */
-  #rr-splash *, #rr-splash::before { animation: none !important; }
-  #rr-splash .rr-sp-particles, #rr-splash .rr-sp-burst { display: none !important; }
+  #rr-splash *,
+  #rr-splash::before {
+    animation: none !important;
+  }
+  #rr-splash .rr-sp-particles,
+  #rr-splash .rr-sp-burst {
+    display: none !important;
+  }
 }
 
 /* ── Installed-app splash (#rr-splash) ─────────────────────────────────
@@ -209,7 +269,9 @@ section[id], [id="booking"], [id="fleet"], [id="map"], [id="routes"], [id="recom
    loads — which is what shrinks the OS splash to a blink. Toggled on by an
    inline script in layout.tsx only when running as an installed app
    (Android standalone / iOS Add-to-Home-Screen), once per session.        */
-#rr-splash { display: none; }
+#rr-splash {
+  display: none;
+}
 html[data-splash="on"] #rr-splash {
   display: flex;
   position: fixed;
@@ -220,8 +282,16 @@ html[data-splash="on"] #rr-splash {
   justify-content: center;
   text-align: center;
   background:
-    radial-gradient(ellipse 70% 45% at 50% -10%, rgba(245, 200, 66,0.10), transparent 60%),
-    radial-gradient(ellipse 60% 40% at 85% 110%, rgba(249,115,22,0.08), transparent 60%),
+    radial-gradient(
+      ellipse 70% 45% at 50% -10%,
+      rgba(245, 200, 66, 0.1),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 85% 110%,
+      rgba(249, 115, 22, 0.08),
+      transparent 60%
+    ),
     #0a0a0a;
   animation: rr-splash-exit 0.6s ease 2.4s forwards;
   /* Stop Samsung/Chrome font boosting from inflating the wordmark */
@@ -234,17 +304,19 @@ html[data-splash="on"] #rr-splash {
   position: absolute;
   width: min(150vw, 900px);
   height: min(150vw, 900px);
-  opacity: 0.10;
+  opacity: 0.1;
   animation: rr-sp-slowspin 60s linear infinite;
 }
 
 /* Icon with glow */
-#rr-splash .rr-sp-icon-wrap { position: relative; }
+#rr-splash .rr-sp-icon-wrap {
+  position: relative;
+}
 #rr-splash .rr-sp-glow {
   position: absolute;
   inset: -46px;
   border-radius: 9999px;
-  background: radial-gradient(circle, rgba(245, 200, 66,0.30), transparent 65%);
+  background: radial-gradient(circle, rgba(245, 200, 66, 0.3), transparent 65%);
   filter: blur(18px);
   animation: rr-sp-glowpulse 2.6s ease-in-out 0.3s infinite;
 }
@@ -253,7 +325,7 @@ html[data-splash="on"] #rr-splash {
   width: 104px;
   height: 104px;
   border-radius: 26px;
-  box-shadow: 0 22px 70px rgba(245, 200, 66,0.22);
+  box-shadow: 0 22px 70px rgba(245, 200, 66, 0.22);
   opacity: 1; /* visible by default — shows even if the OS freezes animations */
   animation:
     rr-sp-pop 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.1s,
@@ -284,8 +356,12 @@ html[data-splash="on"] #rr-splash {
   font-size: clamp(30px, 9vw, 48px);
   text-align: center;
 }
-#rr-splash .rr-sp-name span { color: #f5f5f0; }
-#rr-splash .rr-sp-name em { color: #F5C842; }
+#rr-splash .rr-sp-name span {
+  color: #f5f5f0;
+}
+#rr-splash .rr-sp-name em {
+  color: #f5c842;
+}
 #rr-splash .rr-sp-tag {
   margin-top: 10px;
   font-family: var(--font-bebas), sans-serif;
@@ -298,7 +374,12 @@ html[data-splash="on"] #rr-splash {
 }
 
 /* Route line drawing across */
-#rr-splash .rr-sp-route { margin-top: 30px; width: 210px; height: 26px; overflow: visible; }
+#rr-splash .rr-sp-route {
+  margin-top: 30px;
+  width: 210px;
+  height: 26px;
+  overflow: visible;
+}
 #rr-splash .rr-sp-route path {
   stroke-dasharray: 10 8;
   stroke-dashoffset: 0; /* drawn by default; flows like live navigation */
@@ -319,7 +400,7 @@ html[data-splash="on"] #rr-splash {
   width: 148px;
   height: 3px;
   border-radius: 9999px;
-  background: rgba(255,255,255,0.10);
+  background: rgba(255, 255, 255, 0.1);
   overflow: hidden;
 }
 #rr-splash .rr-sp-bar span {
@@ -327,7 +408,7 @@ html[data-splash="on"] #rr-splash {
   height: 100%;
   width: 100%;
   border-radius: 9999px;
-  background: #F5C842;
+  background: #f5c842;
   transform: translateX(-100%);
   animation: rr-sp-fill 2.3s cubic-bezier(0.4, 0, 0.2, 1) 0.15s forwards;
 }
@@ -378,32 +459,84 @@ html[data-splash="on"] #rr-splash {
   left: -70%;
   width: 45%;
   height: 180%;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgba(255, 255, 255, 0.5),
+    transparent
+  );
   transform: rotate(16deg);
   animation: rr-sp-shine 3.4s ease-in-out 1.4s infinite;
 }
 
 /* Rising ember particles */
-#rr-splash .rr-sp-particles { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+#rr-splash .rr-sp-particles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
 #rr-splash .rr-sp-particles i {
   position: absolute;
   bottom: 24%;
   width: 4px;
   height: 4px;
   border-radius: 9999px;
-  background: #F5C842;
+  background: #f5c842;
   opacity: 0;
   animation: rr-sp-particle 5s ease-in-out infinite;
 }
-#rr-splash .rr-sp-particles i:nth-child(1) { left: 12%; animation-delay: 0.2s; animation-duration: 5.2s; }
-#rr-splash .rr-sp-particles i:nth-child(2) { left: 24%; animation-delay: 1.4s; animation-duration: 4.4s; }
-#rr-splash .rr-sp-particles i:nth-child(3) { left: 36%; animation-delay: 0.7s; animation-duration: 5.8s; width: 3px; height: 3px; }
-#rr-splash .rr-sp-particles i:nth-child(4) { left: 46%; animation-delay: 2.1s; animation-duration: 4.8s; }
-#rr-splash .rr-sp-particles i:nth-child(5) { left: 56%; animation-delay: 0.9s; animation-duration: 5.4s; width: 5px; height: 5px; }
-#rr-splash .rr-sp-particles i:nth-child(6) { left: 66%; animation-delay: 1.8s; animation-duration: 4.6s; }
-#rr-splash .rr-sp-particles i:nth-child(7) { left: 78%; animation-delay: 0.4s; animation-duration: 5.6s; width: 3px; height: 3px; }
-#rr-splash .rr-sp-particles i:nth-child(8) { left: 88%; animation-delay: 2.4s; animation-duration: 5s; }
-#rr-splash .rr-sp-particles i:nth-child(9) { left: 30%; animation-delay: 3s; animation-duration: 5.3s; }
+#rr-splash .rr-sp-particles i:nth-child(1) {
+  left: 12%;
+  animation-delay: 0.2s;
+  animation-duration: 5.2s;
+}
+#rr-splash .rr-sp-particles i:nth-child(2) {
+  left: 24%;
+  animation-delay: 1.4s;
+  animation-duration: 4.4s;
+}
+#rr-splash .rr-sp-particles i:nth-child(3) {
+  left: 36%;
+  animation-delay: 0.7s;
+  animation-duration: 5.8s;
+  width: 3px;
+  height: 3px;
+}
+#rr-splash .rr-sp-particles i:nth-child(4) {
+  left: 46%;
+  animation-delay: 2.1s;
+  animation-duration: 4.8s;
+}
+#rr-splash .rr-sp-particles i:nth-child(5) {
+  left: 56%;
+  animation-delay: 0.9s;
+  animation-duration: 5.4s;
+  width: 5px;
+  height: 5px;
+}
+#rr-splash .rr-sp-particles i:nth-child(6) {
+  left: 66%;
+  animation-delay: 1.8s;
+  animation-duration: 4.6s;
+}
+#rr-splash .rr-sp-particles i:nth-child(7) {
+  left: 78%;
+  animation-delay: 0.4s;
+  animation-duration: 5.6s;
+  width: 3px;
+  height: 3px;
+}
+#rr-splash .rr-sp-particles i:nth-child(8) {
+  left: 88%;
+  animation-delay: 2.4s;
+  animation-duration: 5s;
+}
+#rr-splash .rr-sp-particles i:nth-child(9) {
+  left: 30%;
+  animation-delay: 3s;
+  animation-duration: 5.3s;
+}
 
 /* ── Ocean waves — gentle continuous motion for the long intro ── */
 #rr-splash .rr-sp-ocean {
@@ -424,8 +557,14 @@ html[data-splash="on"] #rr-splash {
   width: 200%;
   height: 100%;
 }
-#rr-splash .rr-sp-wave-a { opacity: 0.55; animation: rr-sp-wave 7s linear infinite; }
-#rr-splash .rr-sp-wave-b { opacity: 0.28; animation: rr-sp-wave 12s linear infinite reverse; }
+#rr-splash .rr-sp-wave-a {
+  opacity: 0.55;
+  animation: rr-sp-wave 7s linear infinite;
+}
+#rr-splash .rr-sp-wave-b {
+  opacity: 0.28;
+  animation: rr-sp-wave 12s linear infinite reverse;
+}
 
 /* Fast exit when the user taps to skip */
 html[data-splash="on"] #rr-splash.rr-skip {
@@ -433,63 +572,164 @@ html[data-splash="on"] #rr-splash.rr-skip {
 }
 
 @keyframes rr-sp-pop {
-  0%   { opacity: 0; transform: scale(0.62) translateY(12px); }
-  60%  { opacity: 1; transform: scale(1.06) translateY(0); }
-  100% { opacity: 1; transform: scale(1) translateY(0); }
+  0% {
+    opacity: 0;
+    transform: scale(0.62) translateY(12px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.06) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 @keyframes rr-sp-rise {
-  from { opacity: 0; transform: translateY(26px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-@keyframes rr-sp-fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes rr-sp-draw { to { stroke-dashoffset: 0; } }
-@keyframes rr-sp-pin  { to { transform: scale(1); } }
-@keyframes rr-sp-fill { to { transform: translateX(0); } }
+@keyframes rr-sp-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes rr-sp-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes rr-sp-pin {
+  to {
+    transform: scale(1);
+  }
+}
+@keyframes rr-sp-fill {
+  to {
+    transform: translateX(0);
+  }
+}
 @keyframes rr-sp-float {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-7px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
 }
 @keyframes rr-sp-flow {
   /* after the draw completes, the solid line becomes flowing dashes,
      like live navigation guiding you into the island */
-  from { stroke-dasharray: 10 8; stroke-dashoffset: 0; }
-  to   { stroke-dasharray: 10 8; stroke-dashoffset: -36; }
+  from {
+    stroke-dasharray: 10 8;
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dasharray: 10 8;
+    stroke-dashoffset: -36;
+  }
 }
 @keyframes rr-sp-pinpulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50%      { transform: scale(1.45); opacity: 0.75; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.45);
+    opacity: 0.75;
+  }
 }
 @keyframes rr-sp-wave {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }
 @keyframes rr-sp-burst {
-  0%   { transform: scale(0.6); opacity: 0.85; }
-  100% { transform: scale(2.6); opacity: 0; }
+  0% {
+    transform: scale(0.6);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
 }
 @keyframes rr-sp-shine {
-  0%       { left: -70%; }
-  55%, 100% { left: 150%; }
+  0% {
+    left: -70%;
+  }
+  55%,
+  100% {
+    left: 150%;
+  }
 }
 @keyframes rr-sp-particle {
-  0%   { transform: translateY(0) scale(0.5); opacity: 0; }
-  15%  { opacity: 0.85; }
-  85%  { opacity: 0.5; }
-  100% { transform: translateY(-320px) scale(1); opacity: 0; }
+  0% {
+    transform: translateY(0) scale(0.5);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.85;
+  }
+  85% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateY(-320px) scale(1);
+    opacity: 0;
+  }
 }
 @keyframes rr-sp-skip {
-  0%   { opacity: 0; }
-  20%  { opacity: 0.6; }
-  60%  { opacity: 0.28; }
-  100% { opacity: 0.6; }
+  0% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.6;
+  }
+  60% {
+    opacity: 0.28;
+  }
+  100% {
+    opacity: 0.6;
+  }
 }
 @keyframes rr-sp-glowpulse {
-  0%, 100% { opacity: 0.55; transform: scale(1); }
-  50%      { opacity: 1; transform: scale(1.12); }
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
 }
-@keyframes rr-sp-slowspin { to { transform: rotate(360deg); } }
+@keyframes rr-sp-slowspin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 @keyframes rr-splash-exit {
-  to { opacity: 0; transform: scale(1.05); visibility: hidden; pointer-events: none; }
+  to {
+    opacity: 0;
+    transform: scale(1.05);
+    visibility: hidden;
+    pointer-events: none;
+  }
 }
 
 /* ── App-header logo — elegant & premium without distracting from booking.
@@ -497,38 +737,67 @@ html[data-splash="on"] #rr-splash.rr-skip {
    every 12s, and a subtle 3D tilt + 1.05× scale on hover/tap. GPU-only props
    (transform/opacity/filter) for 60fps; fully off under reduced-motion. ────── */
 @keyframes rr-logo-float {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-3px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
 }
 @keyframes rr-logo-glow {
-  0%, 100% { filter: drop-shadow(0 0 0 rgba(245, 200, 66, 0)); }
-  50%      { filter: drop-shadow(0 0 7px rgba(245, 200, 66, 0.45)); }
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 rgba(245, 200, 66, 0));
+  }
+  50% {
+    filter: drop-shadow(0 0 7px rgba(245, 200, 66, 0.45));
+  }
 }
 @keyframes rr-logo-sweep {
-  0%   { opacity: 0; transform: translateX(-130%) skewX(-20deg); }
-  4%   { opacity: 0.7; }
-  12%  { opacity: 0; transform: translateX(250%) skewX(-20deg); }
-  100% { opacity: 0; transform: translateX(250%) skewX(-20deg); }
+  0% {
+    opacity: 0;
+    transform: translateX(-130%) skewX(-20deg);
+  }
+  4% {
+    opacity: 0.7;
+  }
+  12% {
+    opacity: 0;
+    transform: translateX(250%) skewX(-20deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(250%) skewX(-20deg);
+  }
 }
 .rr-logo-anim {
   transform-style: preserve-3d;
   transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
 }
-.rr-logo-anim:hover, .rr-logo-anim:active {
+.rr-logo-anim:hover,
+.rr-logo-anim:active {
   transform: perspective(600px) rotateY(9deg) rotateX(-5deg) scale(1.05);
 }
 .rr-logo-bob {
   position: relative;
   display: inline-flex;
-  animation: rr-logo-float 4s ease-in-out infinite, rr-logo-glow 5.5s ease-in-out infinite;
+  animation:
+    rr-logo-float 4s ease-in-out infinite,
+    rr-logo-glow 5.5s ease-in-out infinite;
 }
 .rr-logo-bob::after {
   content: "";
   position: absolute;
   inset: -1px;
   border-radius: 9px;
-  background: linear-gradient(100deg, transparent 40%, rgba(245, 200, 66, 0.6) 50%, transparent 60%);
+  background: linear-gradient(
+    100deg,
+    transparent 40%,
+    rgba(245, 200, 66, 0.6) 50%,
+    transparent 60%
+  );
   mix-blend-mode: screen;
   pointer-events: none;
   animation: rr-logo-sweep 12s ease-in-out infinite;
@@ -610,15 +879,37 @@ html[data-splash="on"] #rr-splash.rr-skip {
    accelerates and settles like a real object; the rest segments hold the same
    value and therefore cannot move whatever curve is applied to them. */
 @keyframes rr-cube-turn {
-  0%      { transform: rotateX(-7deg) rotateY(0deg); }
-  16.667% { transform: rotateX(-7deg) rotateY(0deg);   animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
-  25%     { transform: rotateX(-7deg) rotateY(90deg); }
-  41.667% { transform: rotateX(-7deg) rotateY(90deg);  animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
-  50%     { transform: rotateX(-7deg) rotateY(180deg); }
-  66.667% { transform: rotateX(-7deg) rotateY(180deg); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
-  75%     { transform: rotateX(-7deg) rotateY(270deg); }
-  91.667% { transform: rotateX(-7deg) rotateY(270deg); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
-  100%    { transform: rotateX(-7deg) rotateY(360deg); }
+  0% {
+    transform: rotateX(-7deg) rotateY(0deg);
+  }
+  16.667% {
+    transform: rotateX(-7deg) rotateY(0deg);
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  25% {
+    transform: rotateX(-7deg) rotateY(90deg);
+  }
+  41.667% {
+    transform: rotateX(-7deg) rotateY(90deg);
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  50% {
+    transform: rotateX(-7deg) rotateY(180deg);
+  }
+  66.667% {
+    transform: rotateX(-7deg) rotateY(180deg);
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  75% {
+    transform: rotateX(-7deg) rotateY(270deg);
+  }
+  91.667% {
+    transform: rotateX(-7deg) rotateY(270deg);
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  100% {
+    transform: rotateX(-7deg) rotateY(360deg);
+  }
 }
 .rr-logo-cube-face {
   position: absolute;
@@ -667,20 +958,40 @@ html[data-splash="on"] #rr-splash.rr-skip {
 /* The caps never face the viewer, so they are lit statically by their own
    background colour (top catches the light, underside falls away) and must not
    take part in the rotation-synced shading. */
-.rr-cube-top::after, .rr-cube-bottom::after { animation: none; opacity: 0; }
+.rr-cube-top::after,
+.rr-cube-bottom::after {
+  animation: none;
+  opacity: 0;
+}
 
-.rr-cube-front::after { animation-delay: 0s; }
-.rr-cube-left::after  { animation-delay: -9s; }  /* lags 3s  → lit at 90deg  */
-.rr-cube-back::after  { animation-delay: -6s; }  /* lags 6s  → lit at 180deg */
-.rr-cube-right::after { animation-delay: -3s; }  /* lags 9s  → lit at 270deg */
+.rr-cube-front::after {
+  animation-delay: 0s;
+}
+.rr-cube-left::after {
+  animation-delay: -9s;
+} /* lags 3s  → lit at 90deg  */
+.rr-cube-back::after {
+  animation-delay: -6s;
+} /* lags 6s  → lit at 180deg */
+.rr-cube-right::after {
+  animation-delay: -3s;
+} /* lags 9s  → lit at 270deg */
 
 @keyframes rr-cube-shade {
   /* Lit through this face's own rest window… */
-  0%, 16.667% { opacity: 0; }
+  0%,
+  16.667% {
+    opacity: 0;
+  }
   /* …then dark for the three quarters it spends turned away… */
-  25%, 91.667% { opacity: 0.5; }
+  25%,
+  91.667% {
+    opacity: 0.5;
+  }
   /* …easing back up as it swings home. */
-  100% { opacity: 0; }
+  100% {
+    opacity: 0;
+  }
 }
 /* scale(1.17) is measured, not eyeballed. The mark is an APP ICON: its corners
    are rounded and — critically — the pixels outside that radius are opaque
@@ -699,16 +1010,30 @@ html[data-splash="on"] #rr-splash.rr-skip {
   transform: scale(1.17);
 }
 
-.rr-cube-front  { transform: translateZ(var(--rr-cube-half)); }
-.rr-cube-right  { transform: rotateY(90deg)  translateZ(var(--rr-cube-half)); }
-.rr-cube-back   { transform: rotateY(180deg) translateZ(var(--rr-cube-half)); }
-.rr-cube-left   { transform: rotateY(-90deg) translateZ(var(--rr-cube-half)); }
+.rr-cube-front {
+  transform: translateZ(var(--rr-cube-half));
+}
+.rr-cube-right {
+  transform: rotateY(90deg) translateZ(var(--rr-cube-half));
+}
+.rr-cube-back {
+  transform: rotateY(180deg) translateZ(var(--rr-cube-half));
+}
+.rr-cube-left {
+  transform: rotateY(-90deg) translateZ(var(--rr-cube-half));
+}
 /* Top and bottom carry no artwork — the mark would be unreadable edge-on. They
    close the solid, lit as if the light sits above the header: the top plane
    catches it, the underside falls away. That shading is the whole reason the
    shape reads as a cube and not as four images in a carousel. */
-.rr-cube-top    { transform: rotateX(90deg)  translateZ(var(--rr-cube-half)); background: #0aa25c; }
-.rr-cube-bottom { transform: rotateX(-90deg) translateZ(var(--rr-cube-half)); background: #01502d; }
+.rr-cube-top {
+  transform: rotateX(90deg) translateZ(var(--rr-cube-half));
+  background: #0aa25c;
+}
+.rr-cube-bottom {
+  transform: rotateX(-90deg) translateZ(var(--rr-cube-half));
+  background: #01502d;
+}
 
 /* Nonessential loops must not burn battery while nobody is looking. The class
    is toggled by an IntersectionObserver in AppHome when the header scrolls out
@@ -718,11 +1043,19 @@ html[data-splash="on"] #rr-splash.rr-skip {
    the faces continuing to darken and brighten on a cube that had stopped
    turning — a slow pulse in the corner of the header, which is worse than the
    animation it was meant to stop. */
-.rr-logo-cube-inner.is-paused .rr-logo-cube-face::after { animation-play-state: paused; }
+.rr-logo-cube-inner.is-paused .rr-logo-cube-face::after {
+  animation-play-state: paused;
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .rr-logo-anim, .rr-logo-bob, .rr-logo-bob::after { animation: none; }
-  .rr-logo-bob::after { display: none; }
+  .rr-logo-anim,
+  .rr-logo-bob,
+  .rr-logo-bob::after {
+    animation: none;
+  }
+  .rr-logo-bob::after {
+    display: none;
+  }
   /* Parked at an angle rather than reset to none. `transform: none` would
      collapse all six faces onto one plane at the centre of the box, stacking
      the back and underside on top of the front — the cube would not simply
@@ -734,7 +1067,10 @@ html[data-splash="on"] #rr-splash.rr-skip {
   }
   /* Frozen mid-cycle the shade keyframes could leave the front face parked at
      half-dark. Lit, flat and still is the correct reduced-motion answer. */
-  .rr-logo-cube-face::after { animation: none; opacity: 0; }
+  .rr-logo-cube-face::after {
+    animation: none;
+    opacity: 0;
+  }
 }
 
 /* ── Short-viewport home (iPhone Safari & small phones) ─────────────────────
@@ -745,18 +1081,34 @@ html[data-splash="on"] #rr-splash.rr-skip {
    so the same content fits the way it does on Android — taller screens are
    untouched. Height-keyed so it never fires on desktop/tablet. */
 @media (max-height: 745px) {
-  .rr-home-hero { min-height: 116px !important; }
-  .rr-home-cards > * { aspect-ratio: 1 / 1 !important; }
-  .rr-home-cards-sec { padding-top: 0.5rem !important; }
-  .rr-home-tiles-sec { margin-top: 0.625rem !important; }
+  .rr-home-hero {
+    min-height: 116px !important;
+  }
+  .rr-home-cards > * {
+    aspect-ratio: 1 / 1 !important;
+  }
+  .rr-home-cards-sec {
+    padding-top: 0.5rem !important;
+  }
+  .rr-home-tiles-sec {
+    margin-top: 0.625rem !important;
+  }
 }
 
 /* Very short viewports (iPhone SE / mini in Safari): go further — a shorter
    hero and a tighter bottom bar so the tiles still clear it. */
 @media (max-height: 620px) {
-  .rr-home-hero { min-height: 84px !important; }
-  .rr-tools-row { padding-top: 0.3rem !important; padding-bottom: 0.3rem !important; }
-  .rr-nav-row { padding-top: 0.25rem !important; padding-bottom: 0.25rem !important; }
+  .rr-home-hero {
+    min-height: 84px !important;
+  }
+  .rr-tools-row {
+    padding-top: 0.3rem !important;
+    padding-bottom: 0.3rem !important;
+  }
+  .rr-nav-row {
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+  }
 }
 
 /* Roule Rodrigues has no light/dark toggle — one theme, always dark/gold
@@ -765,39 +1117,39 @@ html[data-splash="on"] #rr-splash.rr-skip {
    second, parallel gray theme — a shadcn Button/Input/Dialog should render
    indistinguishably from hand-built components elsewhere in the app. */
 :root {
-  --background: #0a0a0a;       /* --color-dark */
-  --foreground: #F5F5F0;       /* --color-offwhite */
-  --card: #111111;             /* --color-dark-card */
-  --card-foreground: #F5F5F0;
+  --background: #0a0a0a; /* --color-dark */
+  --foreground: #f5f5f0; /* --color-offwhite */
+  --card: #111111; /* --color-dark-card */
+  --card-foreground: #f5f5f0;
   --popover: #111111;
-  --popover-foreground: #F5F5F0;
-  --primary: #F5C842;          /* --color-yellow — the one primary action per view */
+  --popover-foreground: #f5f5f0;
+  --primary: #f5c842; /* --color-yellow — the one primary action per view */
   --primary-foreground: #0a0a0a;
-  --secondary: #1a1a1a;        /* neutral surface — secondary actions are NOT gold (Gold-Is-Information Rule) */
-  --secondary-foreground: #F5F5F0;
+  --secondary: #1a1a1a; /* neutral surface — secondary actions are NOT gold (Gold-Is-Information Rule) */
+  --secondary-foreground: #f5f5f0;
   --muted: #111111;
   --muted-foreground: #888888; /* --color-muted */
   --accent: rgba(255, 255, 255, 0.06);
-  --accent-foreground: #F5F5F0;
+  --accent-foreground: #f5f5f0;
   --destructive: #ef4444;
-  --destructive-foreground: #F5F5F0;
-  --border: rgba(255, 255, 255, 0.10);   /* hairline-of-light, not a shadow */
-  --input: rgba(255, 255, 255, 0.10);
-  --ring: #F5C842;              /* matches the global :focus-visible gold outline */
-  --chart-1: #F5C842;
+  --destructive-foreground: #f5f5f0;
+  --border: rgba(255, 255, 255, 0.1); /* hairline-of-light, not a shadow */
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: #f5c842; /* matches the global :focus-visible gold outline */
+  --chart-1: #f5c842;
   --chart-2: #d4a800;
   --chart-3: #888888;
   --chart-4: #444444;
   --chart-5: #222222;
-  --radius: 0.75rem;             /* 12px — inputs/small tiles per DESIGN.md's shape scale */
+  --radius: 0.75rem; /* 12px — inputs/small tiles per DESIGN.md's shape scale */
   --sidebar: #0a0a0a;
-  --sidebar-foreground: #F5F5F0;
-  --sidebar-primary: #F5C842;
+  --sidebar-foreground: #f5f5f0;
+  --sidebar-primary: #f5c842;
   --sidebar-primary-foreground: #0a0a0a;
   --sidebar-accent: rgba(255, 255, 255, 0.06);
-  --sidebar-accent-foreground: #F5F5F0;
-  --sidebar-border: rgba(255, 255, 255, 0.10);
-  --sidebar-ring: #F5C842;
+  --sidebar-accent-foreground: #f5f5f0;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #f5c842;
 }
 
 @layer base {
@@ -832,8 +1184,16 @@ html[data-splash="on"] #rr-splash.rr-skip {
     z-index: 0;
     pointer-events: none;
     background:
-      radial-gradient(ellipse 90% 50% at 50% -15%, rgba(245, 200, 66, 0.055), transparent 62%),
-      radial-gradient(ellipse 75% 45% at 85% 112%, rgba(249, 115, 22, 0.045), transparent 60%);
+      radial-gradient(
+        ellipse 90% 50% at 50% -15%,
+        rgba(245, 200, 66, 0.055),
+        transparent 62%
+      ),
+      radial-gradient(
+        ellipse 75% 45% at 85% 112%,
+        rgba(249, 115, 22, 0.045),
+        transparent 60%
+      );
   }
 
   body::after {
@@ -886,16 +1246,29 @@ html[data-splash="on"] #rr-splash.rr-skip {
    Palette is the owner's light system: #F8F9FA / #FFFFFF / #F1F3F5 / #E5E7EB /
    #1A1A1A / #6B7280 / #D4A017. */
 
-html.light body { background-color: #F8F9FA; color: #1A1A1A; }
+html.light body {
+  background-color: #f8f9fa;
+  color: #1a1a1a;
+}
 
 /* Grounds and surfaces */
-html.light .bg-dark            { background-color: #F8F9FA; }
-html.light .bg-dark-card       { background-color: #FFFFFF; }
-html.light .border-dark-border { border-color: #E5E7EB; }
+html.light .bg-dark {
+  background-color: #f8f9fa;
+}
+html.light .bg-dark-card {
+  background-color: #ffffff;
+}
+html.light .border-dark-border {
+  border-color: #e5e7eb;
+}
 
 /* Type */
-html.light .text-offwhite { color: #1A1A1A; }
-html.light .text-muted    { color: #6B7280; }
+html.light .text-offwhite {
+  color: #1a1a1a;
+}
+html.light .text-muted {
+  color: #6b7280;
+}
 
 /* ── OPACITY VARIANTS ARE DIFFERENT CLASSES ────────────────────────────────
  * `text-offwhite/90` is not `.text-offwhite` with an opacity applied — Tailwind
@@ -910,17 +1283,37 @@ html.light .text-muted    { color: #6B7280; }
  * layer. The faded steps keep their hierarchy by landing on muted rather than
  * on ink.
  */
-html.light .text-offwhite\/90 { color: #1A1A1A; }
-html.light .text-offwhite\/85 { color: #1A1A1A; }
-html.light .text-offwhite\/80 { color: #1A1A1A; }
-html.light .text-offwhite\/75 { color: #4B5563; }
-html.light .text-offwhite\/70 { color: #4B5563; }
-html.light .text-offwhite\/60 { color: #6B7280; }
-html.light .text-offwhite\/55 { color: #6B7280; }
-html.light .text-offwhite\/50 { color: #6B7280; }
-html.light .text-offwhite\/40 { color: #9CA3AF; }
+html.light .text-offwhite\/90 {
+  color: #1a1a1a;
+}
+html.light .text-offwhite\/85 {
+  color: #1a1a1a;
+}
+html.light .text-offwhite\/80 {
+  color: #1a1a1a;
+}
+html.light .text-offwhite\/75 {
+  color: #4b5563;
+}
+html.light .text-offwhite\/70 {
+  color: #4b5563;
+}
+html.light .text-offwhite\/60 {
+  color: #6b7280;
+}
+html.light .text-offwhite\/55 {
+  color: #6b7280;
+}
+html.light .text-offwhite\/50 {
+  color: #6b7280;
+}
+html.light .text-offwhite\/40 {
+  color: #9ca3af;
+}
 html.light .text-muted\/80,
-html.light .text-muted\/70    { color: #6B7280; }
+html.light .text-muted\/70 {
+  color: #6b7280;
+}
 
 /* ── THE ACCENT IS BLUE ON LIGHT, GOLD ON DARK ─────────────────────────────
    Owner's call, and it is the right one twice over. Gold is the brand on the
@@ -934,13 +1327,26 @@ html.light .text-muted\/70    { color: #6B7280; }
 
    The utility is still named `yellow` because renaming it across the app would
    be a thousand-line diff for no behaviour. Read it as "the accent". */
-html.light .text-yellow      { color: #1F5FBF; }
-html.light .bg-yellow        { background-color: #1F5FBF; color: #FFFFFF; }
-html.light .border-yellow    { border-color: #1F5FBF; }
-html.light .fill-yellow      { fill: #1F5FBF; }
-html.light .text-yellow-dark { color: #17499A; }
+html.light .text-yellow {
+  color: #1f5fbf;
+}
+html.light .bg-yellow {
+  background-color: #1f5fbf;
+  color: #ffffff;
+}
+html.light .border-yellow {
+  border-color: #1f5fbf;
+}
+html.light .fill-yellow {
+  fill: #1f5fbf;
+}
+html.light .text-yellow-dark {
+  color: #17499a;
+}
 html.light .from-yellow\/10,
-html.light .from-yellow\/\[0\.08\] { --tw-gradient-from: rgba(47,128,237,0.10); }
+html.light .from-yellow\/\[0\.08\] {
+  --tw-gradient-from: rgba(47, 128, 237, 0.1);
+}
 
 /* ── TEXT ON PHOTOGRAPHS NEVER FLIPS ──────────────────────────────────────
    `text-white` in this codebase almost always means "on top of an image" — a
@@ -958,25 +1364,37 @@ html.light .from-yellow\/\[0\.08\] { --tw-gradient-from: rgba(47,128,237,0.10); 
    ground-colour utility (the hero headline is text-offwhite, because it is a
    heading first and happens to sit on a photo). */
 html.light .rr-on-media,
-html.light .rr-on-media * { color: #FFFFFF; }
+html.light .rr-on-media * {
+  color: #ffffff;
+}
 html.light .bg-white\/5,
 html.light .bg-white\/10,
 html.light .bg-white\/\[0\.02\],
 html.light .bg-white\/\[0\.03\],
 html.light .bg-white\/\[0\.04\],
-html.light .bg-white\/\[0\.06\]  { background-color: #F1F3F5; }
+html.light .bg-white\/\[0\.06\] {
+  background-color: #f1f3f5;
+}
 html.light .border-white\/5,
 html.light .border-white\/10,
 html.light .border-white\/15,
 html.light .border-white\/20,
-html.light .border-white\/25    { border-color: #E5E7EB; }
+html.light .border-white\/25 {
+  border-color: #e5e7eb;
+}
 
 /* Gradients built from the dark ground read as dirt on a light one. */
 html.light .from-white\/\[0\.04\],
-html.light .from-white\/\[0\.06\] { --tw-gradient-from: #F1F3F5; }
+html.light .from-white\/\[0\.06\] {
+  --tw-gradient-from: #f1f3f5;
+}
 html.light .to-white\/\[0\.01\],
-html.light .to-white\/\[0\.015\]  { --tw-gradient-to: #FFFFFF; }
-html.light .from-yellow\/\[0\.06\] { --tw-gradient-from: rgba(245, 200, 66,0.08); }
+html.light .to-white\/\[0\.015\] {
+  --tw-gradient-to: #ffffff;
+}
+html.light .from-yellow\/\[0\.06\] {
+  --tw-gradient-from: rgba(245, 200, 66, 0.08);
+}
 
 /* Chrome that assumes a dark page */
 /* ── TRANSLUCENT DARK SURFACES ────────────────────────────────────────────
@@ -988,24 +1406,46 @@ html.light .from-yellow\/\[0\.06\] { --tw-gradient-from: rgba(245, 200, 66,0.08)
 
    Every step is listed rather than a few, because the ones that were missed
    are the ones that showed. Same translucency, opposite colour. */
-html.light .bg-dark\/95 { background-color: rgba(255,255,255,0.95); }
-html.light .bg-dark\/90 { background-color: rgba(255,255,255,0.92); }
-html.light .bg-dark\/85 { background-color: rgba(255,255,255,0.90); }
-html.light .bg-dark\/80 { background-color: rgba(255,255,255,0.88); }
-html.light .bg-dark\/70 { background-color: rgba(255,255,255,0.85); }
-html.light .bg-dark\/60 { background-color: rgba(255,255,255,0.80); }
-html.light .bg-dark\/45 { background-color: rgba(255,255,255,0.70); }
-html.light .bg-dark\/40 { background-color: rgba(255,255,255,0.66); }
-html.light .bg-dark\/10 { background-color: rgba(0,0,0,0.04); }
+html.light .bg-dark\/95 {
+  background-color: rgba(255, 255, 255, 0.95);
+}
+html.light .bg-dark\/90 {
+  background-color: rgba(255, 255, 255, 0.92);
+}
+html.light .bg-dark\/85 {
+  background-color: rgba(255, 255, 255, 0.9);
+}
+html.light .bg-dark\/80 {
+  background-color: rgba(255, 255, 255, 0.88);
+}
+html.light .bg-dark\/70 {
+  background-color: rgba(255, 255, 255, 0.85);
+}
+html.light .bg-dark\/60 {
+  background-color: rgba(255, 255, 255, 0.8);
+}
+html.light .bg-dark\/45 {
+  background-color: rgba(255, 255, 255, 0.7);
+}
+html.light .bg-dark\/40 {
+  background-color: rgba(255, 255, 255, 0.66);
+}
+html.light .bg-dark\/10 {
+  background-color: rgba(0, 0, 0, 0.04);
+}
 
 /* Their hairlines are white-on-dark; on light they have to be ink-on-light. */
-html.light .border-white\/12 { border-color: #E5E7EB; }
+html.light .border-white\/12 {
+  border-color: #e5e7eb;
+}
 
 /* Text ON a translucent dark surface was white because the surface was dark.
    Now the surface is light, so the text follows the ground. */
 html.light .bg-dark\/80 .text-offwhite,
 html.light .bg-dark\/85 .text-offwhite,
-html.light .bg-dark\/90 .text-offwhite { color: #1A1A1A; }
+html.light .bg-dark\/90 .text-offwhite {
+  color: #1a1a1a;
+}
 
 /* ══════════════════════════════════════════════════════════════════════════
    THE TWO WORLDS
@@ -1031,24 +1471,38 @@ html.light .bg-dark\/90 .text-offwhite { color: #1A1A1A; }
    to sand here: #B4541E is 2.1:1 on near-black and unusable, while #E8A87C
    clears 8:1 and still reads as sun-baked earth rather than as gold. */
 html[data-world="authentic"] {
-  --rr-world-accent: #E8A87C;      /* warm sand — 8.4:1 on #0a0a0a */
-  --rr-world-accent-soft: #B4541E;
-  --rr-world-ink: #F2E9E0;         /* warm off-white, never clinical */
-  --rr-world-line: rgba(232,168,124,0.16);
-  --rr-world-surface: #14100D;     /* near-black with earth in it */
+  --rr-world-accent: #e8a87c; /* warm sand — 8.4:1 on #0a0a0a */
+  --rr-world-accent-soft: #b4541e;
+  --rr-world-ink: #f2e9e0; /* warm off-white, never clinical */
+  --rr-world-line: rgba(232, 168, 124, 0.16);
+  --rr-world-surface: #14100d; /* near-black with earth in it */
 }
 
-html[data-world="authentic"]:not(.light) body { background-color: #0d0a08; }
-html[data-world="authentic"]:not(.light) .text-yellow { color: var(--rr-world-accent); }
-html[data-world="authentic"]:not(.light) .bg-yellow { background-color: var(--rr-world-accent); }
-html[data-world="authentic"]:not(.light) .text-offwhite { color: var(--rr-world-ink); }
+html[data-world="authentic"]:not(.light) body {
+  background-color: #0d0a08;
+}
+html[data-world="authentic"]:not(.light) .text-yellow {
+  color: var(--rr-world-accent);
+}
+html[data-world="authentic"]:not(.light) .bg-yellow {
+  background-color: var(--rr-world-accent);
+}
+html[data-world="authentic"]:not(.light) .text-offwhite {
+  color: var(--rr-world-ink);
+}
 html[data-world="authentic"]:not(.light) .border-white\/10,
-html[data-world="authentic"]:not(.light) .border-white\/12 { border-color: var(--rr-world-line); }
+html[data-world="authentic"]:not(.light) .border-white\/12 {
+  border-color: var(--rr-world-line);
+}
 
 /* Organic corners and editorial headings — the two cheapest signals that this
    is a page about a place rather than a product surface. */
-html[data-world="authentic"]:not(.light) .rounded-2xl { border-radius: 1.15rem 1.15rem 1.35rem 1.35rem; }
-html[data-world="authentic"]:not(.light) .font-syne { letter-spacing: -0.015em; }
+html[data-world="authentic"]:not(.light) .rounded-2xl {
+  border-radius: 1.15rem 1.15rem 1.35rem 1.35rem;
+}
+html[data-world="authentic"]:not(.light) .font-syne {
+  letter-spacing: -0.015em;
+}
 
 /* ── CURATED — cinematic, restrained, bronze, and LIGHT ───────────────────
    Curated is the world that CHANGES, which is what makes it read as elevated:
@@ -1075,43 +1529,69 @@ html[data-world="authentic"]:not(.light) .font-syne { letter-spacing: -0.015em; 
    #E3C8A2 measures 13.9:1 on #0a0a0a — the accent can carry ordinary body type
    here, which the bronze never could on white. */
 html[data-world="curated"] {
-  --rr-world-accent: #E3C8A2;      /* champagne — 13.9:1 on the dark ground */
-  --rr-world-accent-soft: #C08457; /* copper, for the quieter half */
-  --rr-world-ink: #F2EBE1;         /* warm ivory */
+  --rr-world-accent: #e3c8a2; /* champagne — 13.9:1 on the dark ground */
+  --rr-world-accent-soft: #c08457; /* copper, for the quieter half */
+  --rr-world-ink: #f2ebe1; /* warm ivory */
   --rr-world-line: rgba(227, 200, 162, 0.16);
-  --rr-world-surface: #100D0B;
+  --rr-world-surface: #100d0b;
 }
 
-html[data-world="curated"]:not(.light) body { background-color: #0A0908; }
-html[data-world="curated"]:not(.light) .text-yellow { color: var(--rr-world-accent); }
-html[data-world="curated"]:not(.light) .bg-yellow { background-color: var(--rr-world-accent); }
-html[data-world="curated"]:not(.light) .text-offwhite { color: var(--rr-world-ink); }
+html[data-world="curated"]:not(.light) body {
+  background-color: #0a0908;
+}
+html[data-world="curated"]:not(.light) .text-yellow {
+  color: var(--rr-world-accent);
+}
+html[data-world="curated"]:not(.light) .bg-yellow {
+  background-color: var(--rr-world-accent);
+}
+html[data-world="curated"]:not(.light) .text-offwhite {
+  color: var(--rr-world-ink);
+}
 html[data-world="curated"]:not(.light) .border-white\/10,
-html[data-world="curated"]:not(.light) .border-white\/12 { border-color: var(--rr-world-line); }
+html[data-world="curated"]:not(.light) .border-white\/12 {
+  border-color: var(--rr-world-line);
+}
 
 /* Tighter corners than Authentic's, and wider caps. Restraint is the product. */
-html[data-world="curated"]:not(.light) .rounded-2xl { border-radius: 0.85rem; }
-html[data-world="curated"]:not(.light) .font-bebas { letter-spacing: 0.34em; }
+html[data-world="curated"]:not(.light) .rounded-2xl {
+  border-radius: 0.85rem;
+}
+html[data-world="curated"]:not(.light) .font-bebas {
+  letter-spacing: 0.34em;
+}
 
 /* The retired light values, kept only so the dormant `.light` rules below
    cannot repaint themselves with dark tokens if the theme is ever forced. */
 html[data-world="curated"].light {
-  --rr-world-accent: #856B24;
-  --rr-world-accent-soft: #C9A227;
-  --rr-world-ink: #1A1613;
-  --rr-world-line: #E7E2D8;
-  --rr-world-surface: #FFFFFF;
+  --rr-world-accent: #856b24;
+  --rr-world-accent-soft: #c9a227;
+  --rr-world-ink: #1a1613;
+  --rr-world-line: #e7e2d8;
+  --rr-world-surface: #ffffff;
 }
 
-html[data-world="curated"].light body { background-color: #FAF9F6; }
-html[data-world="curated"].light .text-yellow { color: var(--rr-world-accent); }
-html[data-world="curated"].light .bg-yellow { background-color: var(--rr-world-accent); }
+html[data-world="curated"].light body {
+  background-color: #faf9f6;
+}
+html[data-world="curated"].light .text-yellow {
+  color: var(--rr-world-accent);
+}
+html[data-world="curated"].light .bg-yellow {
+  background-color: var(--rr-world-accent);
+}
 html[data-world="curated"].light .border-white\/10,
-html[data-world="curated"].light .border-white\/12 { border-color: var(--rr-world-line); }
+html[data-world="curated"].light .border-white\/12 {
+  border-color: var(--rr-world-line);
+}
 
 /* Tighter corners, wider caps, more air. Restraint is the product. */
-html[data-world="curated"].light .rounded-2xl { border-radius: 0.5rem; }
-html[data-world="curated"].light .font-bebas { letter-spacing: 0.34em; }
+html[data-world="curated"].light .rounded-2xl {
+  border-radius: 0.5rem;
+}
+html[data-world="curated"].light .font-bebas {
+  letter-spacing: 0.34em;
+}
 
 /* ── CURATED, REFINED ──────────────────────────────────────────────────────
    What actually separates a luxury hospitality site from a competent one is
@@ -1131,7 +1611,7 @@ html[data-world="curated"].light {
   /* Cards on a near-white page need a ground of their own, or the whole screen
      reads as one undifferentiated sheet. Pure white against #FAF9F6 is the
      quietest possible separation — visible, never a box. */
-  --rr-card: #FFFFFF;
+  --rr-card: #ffffff;
 }
 
 /* Section headings: smaller, wider, quieter. The single most reliable signal. */
@@ -1142,16 +1622,22 @@ html[data-world="curated"].light h3 {
 }
 
 /* Body copy earns its space. */
-html[data-world="curated"].light p { line-height: 1.7; }
+html[data-world="curated"].light p {
+  line-height: 1.7;
+}
 
 /* Hairlines, everywhere. */
 html[data-world="curated"].light .border-white\/10,
 html[data-world="curated"].light .border-white\/12,
-html[data-world="curated"].light .border-white\/20 { border-color: #EDE8DF; }
+html[data-world="curated"].light .border-white\/20 {
+  border-color: #ede8df;
+}
 
 /* Photography sits calmer: luxury imagery is desaturated a touch and never
    shouts against the type sitting on it. */
-html[data-world="curated"].light img { filter: saturate(0.94); }
+html[data-world="curated"].light img {
+  filter: saturate(0.94);
+}
 
 /* One property, slowly. Replaces the site's snappier default inside this
    world only, so nothing outside Curated changes pace. */
@@ -1170,11 +1656,33 @@ html[data-world="curated"].light button {
    that is most of the work it was doing on every frame. contain-intrinsic-size
    supplies a placeholder height so the scrollbar does not jump as sections are
    realised — the one bug this technique is famous for, and the reason it is
-   given here rather than left to the browser to guess. */
+   given here rather than left to the browser to guess.
+
+   ── AND THE PLACEHOLDER WAS CAUSING THE BUG IT PREVENTS ─────────────────
+   420px was roughly double the truth. MEASURED on the homepage at 375x812, each
+   section scrolled into view and read while rendered:
+
+     What are you looking for?   192px      Real island life        214px
+     (curated)                   115px      Featured Experiences    228px
+     Buy tickets                 215px      Top Stays               244px
+     Discover Rodrigues          198px      Reviews & contact       521px
+     On foot & on the water      244px
+
+   Nine sections, 2171px of real content against 3780px reserved: 1609px of
+   scrollbar that is not there, and every section shrinking by about 200px at
+   the moment it renders — which drags everything below it upward, under the
+   reader's thumb. That is precisely the jump the placeholder exists to stop.
+
+   240px is the median of the eight rails. The `auto` keyword means the browser
+   uses the REAL size once it has seen it, so this value only governs the first
+   pass — which is the visit that matters. The reviews section is the one
+   outlier at 521px; it under-estimates now, and under-estimating is the gentler
+   error: the page grows downward ahead of the reader instead of collapsing
+   upward beneath them. */
 .rr-home-tiles-sec,
 main > section:not(:first-of-type) {
   content-visibility: auto;
-  contain-intrinsic-size: auto 420px;
+  contain-intrinsic-size: auto 240px;
 }
 
 /* Horizontal rails scroll with real momentum on iOS and stop handing the
@@ -1215,31 +1723,44 @@ main > section:not(:first-of-type) {
 .rr-worldpage {
   /* Deep, warm, layered — never a flat #000. Each surface is a step, so cards
      read as depth rather than as outlined boxes. */
-  --cur-bg: #0A0908;
-  --cur-bg-raised: #100D0B;
+  --cur-bg: #0a0908;
+  --cur-bg-raised: #100d0b;
   --cur-bg-card: rgba(255, 250, 244, 0.035);
   --cur-line: rgba(227, 200, 162, 0.14);
   --cur-line-strong: rgba(227, 200, 162, 0.32);
 
-  --cur-ivory: #F2EBE1;
-  --cur-dim: #A2968A;
-  --cur-faint: #6E655C;
+  --cur-ivory: #f2ebe1;
+  --cur-dim: #a2968a;
+  --cur-faint: #6e655c;
 
-  --cur-copper: #C08457;
-  --cur-champagne: #E3C8A2;
-  --cur-peach: #D9A87C;
+  --cur-copper: #c08457;
+  --cur-champagne: #e3c8a2;
+  --cur-peach: #d9a87c;
 
   --cur-serif: var(--font-cormorant-var), Georgia, "Times New Roman", serif;
 
   /* Roles, not colours. Everything a world needs to repaint goes through one
      of these, so a second world is a list of values rather than a second
      stylesheet. */
-  --cur-on-accent: #0A0908;           /* type ON the accent (the one real button) */
-  --cur-veil: rgba(10, 9, 8, 0.82);   /* the sticky header's frosted ground */
+  --cur-on-accent: #0a0908; /* type ON the accent (the one real button) */
+  --cur-veil: rgba(10, 9, 8, 0.82); /* the sticky header's frosted ground */
   --cur-panel: rgba(13, 11, 9, 0.96); /* the world menu */
-  --cur-tint: linear-gradient(180deg, rgba(227, 200, 162, 0.12), rgba(227, 200, 162, 0.02));
-  --cur-fallback: linear-gradient(150deg, rgba(192, 132, 87, 0.22), rgba(10, 9, 8, 1) 70%);
-  --cur-invite: radial-gradient(120% 140% at 50% 0%, rgba(192, 132, 87, 0.16) 0%, rgba(16, 13, 11, 0.9) 46%, rgba(10, 9, 8, 1) 100%);
+  --cur-tint: linear-gradient(
+    180deg,
+    rgba(227, 200, 162, 0.12),
+    rgba(227, 200, 162, 0.02)
+  );
+  --cur-fallback: linear-gradient(
+    150deg,
+    rgba(192, 132, 87, 0.22),
+    rgba(10, 9, 8, 1) 70%
+  );
+  --cur-invite: radial-gradient(
+    120% 140% at 50% 0%,
+    rgba(192, 132, 87, 0.16) 0%,
+    rgba(16, 13, 11, 0.9) 46%,
+    rgba(10, 9, 8, 1) 100%
+  );
 
   background-color: var(--cur-bg);
   color: var(--cur-ivory);
@@ -1263,25 +1784,38 @@ main > section:not(:first-of-type) {
    visitor arriving from the switcher meets a page painted in the colour the
    control that brought them here was painted in. */
 .rr-worldpage[data-world-page="authentic"] {
-  --cur-bg: #0C0907;
-  --cur-bg-raised: #150F0B;
+  --cur-bg: #0c0907;
+  --cur-bg-raised: #150f0b;
   --cur-bg-card: rgba(255, 244, 232, 0.04);
   --cur-line: rgba(232, 168, 124, 0.16);
   --cur-line-strong: rgba(232, 168, 124, 0.34);
 
-  --cur-ivory: #F4EBE2;
-  --cur-dim: #A99384;
+  --cur-ivory: #f4ebe2;
+  --cur-dim: #a99384;
   --cur-faint: #756254;
 
-  --cur-copper: #C97B4A;
-  --cur-champagne: #E8A87C;
-  --cur-peach: #E09A6B;
+  --cur-copper: #c97b4a;
+  --cur-champagne: #e8a87c;
+  --cur-peach: #e09a6b;
 
   --cur-veil: rgba(12, 9, 7, 0.84);
   --cur-panel: rgba(16, 12, 9, 0.96);
-  --cur-tint: linear-gradient(180deg, rgba(232, 168, 124, 0.13), rgba(232, 168, 124, 0.02));
-  --cur-fallback: linear-gradient(150deg, rgba(201, 123, 74, 0.24), rgba(12, 9, 7, 1) 70%);
-  --cur-invite: radial-gradient(120% 140% at 50% 0%, rgba(201, 123, 74, 0.18) 0%, rgba(21, 15, 11, 0.9) 46%, rgba(12, 9, 7, 1) 100%);
+  --cur-tint: linear-gradient(
+    180deg,
+    rgba(232, 168, 124, 0.13),
+    rgba(232, 168, 124, 0.02)
+  );
+  --cur-fallback: linear-gradient(
+    150deg,
+    rgba(201, 123, 74, 0.24),
+    rgba(12, 9, 7, 1) 70%
+  );
+  --cur-invite: radial-gradient(
+    120% 140% at 50% 0%,
+    rgba(201, 123, 74, 0.18) 0%,
+    rgba(21, 15, 11, 0.9) 46%,
+    rgba(12, 9, 7, 1) 100%
+  );
 }
 
 /* Softer corners are half of how Authentic reads as the generous world. The
@@ -1358,15 +1892,23 @@ main > section:not(:first-of-type) {
 }
 
 @keyframes rr-cur-fadein {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* A slower, gentler Ken Burns than the homepage's: 40s and 6% of travel, so on
    a still photograph it reads as the room breathing rather than as a zoom. */
 @keyframes rr-cur-drift {
-  from { transform: scale(1.015) translate3d(0, 0, 0); }
-  to   { transform: scale(1.075) translate3d(0, -1.2%, 0); }
+  from {
+    transform: scale(1.015) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.075) translate3d(0, -1.2%, 0);
+  }
 }
 .rr-cur-drift {
   animation: rr-cur-drift 40s ease-in-out infinite alternate;
@@ -1398,9 +1940,15 @@ main > section:not(:first-of-type) {
 
 /* The favourite heart: one confident beat, then still. */
 @keyframes rr-cur-heart {
-  0%   { transform: scale(1); }
-  38%  { transform: scale(1.28); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  38% {
+    transform: scale(1.28);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 .rr-cur-heart-on {
   animation: rr-cur-heart 420ms cubic-bezier(0.3, 1.4, 0.5, 1);
@@ -1499,7 +2047,8 @@ main > section:not(:first-of-type) {
    tiles turn the lagoon orange. This keeps hue while dropping the sheet's
    luminance, so the markers stay the brightest things on screen. */
 .rr-tiles {
-  filter: saturate(0.62) brightness(0.72) contrast(1.12) hue-rotate(178deg) invert(0.9);
+  filter: saturate(0.62) brightness(0.72) contrast(1.12) hue-rotate(178deg)
+    invert(0.9);
 }
 html.light .rr-tiles {
   filter: saturate(0.82) contrast(1.04) brightness(0.97);
@@ -1517,7 +2066,9 @@ html.light .rr-tiles {
   height: 44px;
   display: grid;
   place-items: center;
-  transition: opacity 0.4s ease, filter 0.4s ease;
+  transition:
+    opacity 0.4s ease,
+    filter 0.4s ease;
 }
 .rr-drv-body {
   position: relative;
@@ -1528,7 +2079,9 @@ html.light .rr-tiles {
   place-items: center;
   border-radius: 999px;
   background: var(--color-yellow);
-  box-shadow: 0 3px 10px rgb(0 0 0 / 0.45), 0 0 0 2.5px #0a0a0a;
+  box-shadow:
+    0 3px 10px rgb(0 0 0 / 0.45),
+    0 0 0 2.5px #0a0a0a;
   /* Matched to the 4s publish cadence: the icon finishes turning at about the
      moment the next fix lands, so the rotation never visibly snaps. */
   transition: transform 0.9s cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -1549,12 +2102,24 @@ html.light .rr-tiles {
   animation: rr-drv-pulse 2.4s ease-out infinite;
 }
 @keyframes rr-drv-pulse {
-  0%   { opacity: 0.45; transform: scale(0.62); }
-  70%  { opacity: 0;    transform: scale(1.5); }
-  100% { opacity: 0;    transform: scale(1.5); }
+  0% {
+    opacity: 0.45;
+    transform: scale(0.62);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
 }
 .rr-drv-sel .rr-drv-body {
-  box-shadow: 0 3px 12px rgb(0 0 0 / 0.5), 0 0 0 3px #0a0a0a, 0 0 0 6px var(--color-yellow);
+  box-shadow:
+    0 3px 12px rgb(0 0 0 / 0.5),
+    0 0 0 3px #0a0a0a,
+    0 0 0 6px var(--color-yellow);
 }
 
 /* ── Pickup / drop-off ─────────────────────────────────────────────────── */
@@ -1567,10 +2132,17 @@ html.light .rr-tiles {
 }
 /* The teardrop's tip is its anchor, so its box is bottom-aligned; the square
    flag sits centred on its spot. */
-.rr-place-to   { align-items: end; }
-.rr-place-from { align-items: center; }
+.rr-place-to {
+  align-items: end;
+}
+.rr-place-from {
+  align-items: center;
+}
 
-.rr-pin { display: grid; place-items: center; }
+.rr-pin {
+  display: grid;
+  place-items: center;
+}
 
 /* A place you LEAVE: a small dark tile with a flag. */
 .rr-pin-from {
@@ -1579,14 +2151,18 @@ html.light .rr-tiles {
   border-radius: 9px;
   background: #0a0a0a;
   color: #ffffff;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.35), 0 0 0 2px rgb(255 255 255 / 0.9);
+  box-shadow:
+    0 2px 8px rgb(0 0 0 / 0.35),
+    0 0 0 2px rgb(255 255 255 / 0.9);
 }
 /* Where you are GOING: the accent, and the largest static thing on the map. */
 .rr-pin-to {
   color: var(--color-yellow);
   filter: drop-shadow(0 3px 6px rgb(0 0 0 / 0.42));
 }
-html.light .rr-pin-to { color: #1F5FBF; }
+html.light .rr-pin-to {
+  color: #1f5fbf;
+}
 
 .rr-place-lbl {
   position: absolute;
@@ -1649,9 +2225,16 @@ html.light .rr-place-lbl {
    a page in a moving car, both benefit from motion. Somebody who has asked the
    OS to stop animations has not. */
 @media (prefers-reduced-motion: reduce) {
-  .rr-drv-live .rr-drv-halo { animation: none; opacity: 0.22; }
-  .rr-drv-body { transition: none; }
-  .rr-tiles { transition: none; }
+  .rr-drv-live .rr-drv-halo {
+    animation: none;
+    opacity: 0.22;
+  }
+  .rr-drv-body {
+    transition: none;
+  }
+  .rr-tiles {
+    transition: none;
+  }
 }
 
 /* ── The floating "12 min" pill on the route ───────────────────────────────
@@ -1671,7 +2254,9 @@ html.light .rr-place-lbl {
   font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.01em;
-  box-shadow: 0 3px 12px rgb(0 0 0 / 0.32), 0 0 0 1px rgb(0 0 0 / 0.06);
+  box-shadow:
+    0 3px 12px rgb(0 0 0 / 0.32),
+    0 0 0 1px rgb(0 0 0 / 0.06);
   /* The marker box is 120px wide so any ETA fits; the pill itself must hug its
      text and stay centred on the anchor rather than filling that box. */
   transform: translateX(-50%);
@@ -1686,8 +2271,9 @@ html.light .rr-place-lbl {
   background: rgb(255 255 255 / 0.72);
   color: #55504a;
 }
-.rr-bubble-muted svg { color: #8a8378; }
-
+.rr-bubble-muted svg {
+  color: #8a8378;
+}
 
 /* ── LIGHT-MODE GAPS THE TRACKING SCREENS EXPOSED ──────────────────────────
    The layer above covers the design TOKENS. These are raw Tailwind palette
@@ -1700,13 +2286,23 @@ html.light .rr-place-lbl {
 
    This file already rejects colours at 2.30:1 and 2.93:1 by name, so these are
    failures by the project's own documented floor, not by taste. */
-html.light .text-orange-300 { color: #B45309; }   /* 5.9:1 on #FFFFFF */
-html.light .text-orange-200 { color: #92400E; }
-html.light .text-green-400  { color: #15803D; }   /* 5.1:1 on #FFFFFF */
-html.light .bg-white\/12     { background-color: #E5E7EB; }
+html.light .text-orange-300 {
+  color: #b45309;
+} /* 5.9:1 on #FFFFFF */
+html.light .text-orange-200 {
+  color: #92400e;
+}
+html.light .text-green-400 {
+  color: #15803d;
+} /* 5.1:1 on #FFFFFF */
+html.light .bg-white\/12 {
+  background-color: #e5e7eb;
+}
 html.light .border-yellow\/25,
 html.light .border-yellow\/30,
-html.light .border-yellow\/50 { border-color: rgba(31, 95, 191, 0.35); }
+html.light .border-yellow\/50 {
+  border-color: rgba(31, 95, 191, 0.35);
+}
 
 /* ── THE FOCUS RING ────────────────────────────────────────────────────────
    The gold ring measures 12.47:1 on the dark ground and 1.59:1 on the light
@@ -1714,7 +2310,7 @@ html.light .border-yellow\/50 { border-color: rgba(31, 95, 191, 0.35); }
    keyboard user in light mode could not see where they were. The accent is
    already blue in light mode; the ring only has to follow it. */
 html.light *:focus-visible {
-  outline-color: #1F5FBF;
+  outline-color: #1f5fbf;
 }
 
 /* ── SATELLITE / MAP SWITCH ────────────────────────────────────────────────
@@ -1736,7 +2332,7 @@ html.light *:focus-visible {
   position: absolute;
   right: 10px;
   top: 10px;
-  z-index: 500;               /* over tiles + markers, under Leaflet controls */
+  z-index: 500; /* over tiles + markers, under Leaflet controls */
   display: flex;
   gap: 2px;
   padding: 2px;
@@ -1757,15 +2353,19 @@ html.light *:focus-visible {
   font-size: 11px;
   font-weight: 700;
   line-height: 1.4;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
-.rr-basemap-switch button:hover { background: rgb(255 255 255 / 0.12); }
+.rr-basemap-switch button:hover {
+  background: rgb(255 255 255 / 0.12);
+}
 .rr-basemap-switch button.is-on {
   background: var(--color-yellow);
   color: #0a0a0a;
 }
 html.light .rr-basemap-switch button.is-on {
-  background: #1F5FBF;
+  background: #1f5fbf;
   color: #ffffff;
 }
 
@@ -1792,6 +2392,7 @@ html.light .rr-basemap-switch button.is-on {
   letter-spacing: 0.02em;
   color: #ffffff;
   text-shadow:
-    0 0 3px rgb(0 0 0 / 0.95), 0 0 6px rgb(0 0 0 / 0.8),
+    0 0 3px rgb(0 0 0 / 0.95),
+    0 0 6px rgb(0 0 0 / 0.8),
     0 1px 2px rgb(0 0 0 / 0.9);
 }
