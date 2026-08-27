@@ -340,6 +340,10 @@ export default async function QueFaireRodriguesPage() {
                   label: "Guide de l'île Rodrigues",
                 },
                 {
+                  href: "/fr/se-deplacer-a-rodrigues",
+                  label: "Se déplacer à Rodrigues",
+                },
+                {
                   href: "/fr/location-voiture-rodrigues",
                   label: "Location de voiture à Rodrigues",
                 },

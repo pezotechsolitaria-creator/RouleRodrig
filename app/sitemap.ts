@@ -343,6 +343,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.8,
     },
+    // "Se déplacer à Rodrigues". The English query already returns this site;
+    // the French one returned nothing of ours.
+    {
+      url: `${SITE_URL}/fr/se-deplacer-a-rodrigues`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
     // Real search targets: "what's on in Rodrigues", "airport transfer Rodrigues".
     {
       url: `${SITE_URL}/events`,
