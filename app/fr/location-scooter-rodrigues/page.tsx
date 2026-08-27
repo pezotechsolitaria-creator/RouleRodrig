@@ -10,6 +10,9 @@ import PageLanguage from "@/components/PageLanguage";
 
 export const revalidate = 3600;
 
+/** Rs, written the way a French reader writes it: 1 500, never 1,500. */
+const rs = (n: number) => n.toLocaleString("fr-FR");
+
 // ── Why this page exists ────────────────────────────────────────────────────
 // Rodrigues searches in French. "location scooter Rodrigues" returns French
 // sites (ecolidays, 2000tours, petitfute) — and we were invisible to all of it,
@@ -74,7 +77,7 @@ const metadataFor = (from: number): Metadata => ({
 const FAQ = (from: number) => [
   {
     q: "Combien coûte la location d'un scooter à Rodrigues ?",
-    a: `Nos scooters sont proposés à partir de Rs ${from.toLocaleString("en-US")} par jour, avec un casque pour chaque passager et l'assurance au tiers inclus. Le prix affiché est le prix final : aucun frais de réservation, aucune commission.`,
+    a: `Nos scooters sont proposés à partir de Rs ${rs(from)} par jour, avec un casque pour chaque passager et l'assurance au tiers inclus. Le prix affiché est le prix final : aucun frais de réservation, aucune commission.`,
   },
   {
     q: "Y a-t-il une durée minimale de location ?",
@@ -156,8 +159,7 @@ export default async function LocationScooterPage() {
               ÎLE RODRIGUES
             </p>
             <h1 className="mt-3 font-syne text-4xl md:text-5xl font-extrabold text-offwhite leading-tight">
-              Location de scooter à Rodrigues, dès Rs{" "}
-              {from.toLocaleString("en-US")} par jour
+              Location de scooter à Rodrigues, dès Rs {rs(from)} par jour
             </h1>
             <p className="mt-4 font-dm text-muted leading-relaxed max-w-2xl">
               Rodrigues se découvre en scooter : peu de circulation, de bonnes
@@ -168,7 +170,7 @@ export default async function LocationScooterPage() {
 
             <ul className="mt-7 space-y-2.5">
               {[
-                `À partir de Rs ${from.toLocaleString("en-US")} par jour — le prix affiché est le prix final`,
+                `À partir de Rs ${rs(from)} par jour — le prix affiché est le prix final`,
                 "Aucune durée minimale : louez pour une seule journée si vous voulez",
                 "Casque inclus pour chaque passager + assurance au tiers",
                 "Livraison et récupération à votre hôtel, partout sur l'île",

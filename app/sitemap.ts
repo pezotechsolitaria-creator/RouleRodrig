@@ -328,6 +328,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.8,
     },
+    // The French half of /browse/car. "location voiture Rodrigues" is a
+    // commercial head term the site had no French page for.
+    {
+      url: `${SITE_URL}/fr/location-voiture-rodrigues`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
     // Real search targets: "what's on in Rodrigues", "airport transfer Rodrigues".
     {
       url: `${SITE_URL}/events`,

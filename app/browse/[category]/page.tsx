@@ -3,7 +3,11 @@ import { notFound, redirect } from "next/navigation";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, itemListLd, productLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
-import { getFleetView, buildBrowseCategories, priceNumber } from "@/lib/site-data";
+import {
+  getFleetView,
+  buildBrowseCategories,
+  priceNumber,
+} from "@/lib/site-data";
 import AppPageHeader from "@/components/AppPageHeader";
 import BrowseTabs from "@/components/BrowseTabs";
 import Fleet from "@/components/Fleet";
@@ -21,10 +25,22 @@ export const revalidate = 60;
 // Special (non-vehicle) place categories → which items render on each page.
 // Activities and Guided Tours share the "activity" category, split by isTour.
 type Place = { category: string; isTour?: boolean };
-const PLACE_SLUGS: Record<string, { label: string; filter: (p: Place) => boolean }> = {
-  restaurants: { label: "Restaurants", filter: (p) => p.category === "restaurant" },
-  activities: { label: "Activities", filter: (p) => p.category === "activity" && !p.isTour },
-  tours: { label: "Guided Tours", filter: (p) => p.category === "activity" && !!p.isTour },
+const PLACE_SLUGS: Record<
+  string,
+  { label: string; filter: (p: Place) => boolean }
+> = {
+  restaurants: {
+    label: "Restaurants",
+    filter: (p) => p.category === "restaurant",
+  },
+  activities: {
+    label: "Activities",
+    filter: (p) => p.category === "activity" && !p.isTour,
+  },
+  tours: {
+    label: "Guided Tours",
+    filter: (p) => p.category === "activity" && !!p.isTour,
+  },
   stays: { label: "Accommodations", filter: (p) => p.category === "hotel" },
 };
 
@@ -36,7 +52,10 @@ const PLACE_SLUGS: Record<string, { label: string; filter: (p: Place) => boolean
 // `fr` = the URL of this page's French equivalent. hreflang only works if BOTH
 // pages point at each other — a one-way annotation is silently ignored, so this
 // must stay in sync with the `languages` block on the French page.
-const META: Record<string, { title: string; description: string; fr?: string }> = {
+const META: Record<
+  string,
+  { title: string; description: string; fr?: string }
+> = {
   scooter: {
     title: "Scooter Rental in Rodrigues Island",
     description:
@@ -47,6 +66,7 @@ const META: Record<string, { title: string; description: string; fr?: string }> 
     title: "Car Rental in Rodrigues Island, Mauritius",
     description:
       "Hire a car in Rodrigues for the family or a longer stay. Local owners, clear daily rates, island-wide pickup. Compare vehicles and book yours online today.",
+    fr: "/fr/location-voiture-rodrigues",
   },
   stays: {
     title: "Where to Stay in Rodrigues Island",
@@ -99,7 +119,14 @@ function pageMeta(
           }
         : {}),
     },
-    openGraph: { title, description, url, siteName: "Roule Rodrigues", type: "website", images },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: "Roule Rodrigues",
+      type: "website",
+      images,
+    },
     twitter: { card: "summary_large_image", title, description, images },
   };
 }
@@ -119,14 +146,26 @@ export async function generateMetadata({
   try {
     const { content, fleet, recentBookings } = await getFleetView();
     cats = buildBrowseCategories(content, fleet, recentBookings);
-    const first = fleet.find((f) => (f.category ?? "scooter") === category && f.image);
-    if (first?.image) ogImage = first.image.startsWith("http") ? first.image : `${SITE_URL}${first.image}`;
+    const first = fleet.find(
+      (f) => (f.category ?? "scooter") === category && f.image,
+    );
+    if (first?.image)
+      ogImage = first.image.startsWith("http")
+        ? first.image
+        : `${SITE_URL}${first.image}`;
   } catch {
     /* fall back to default image / no live cats */
   }
 
   const m = META[category];
-  if (m) return pageMeta(`${m.title} | Roule Rodrigues`, m.description, category, m.fr, ogImage);
+  if (m)
+    return pageMeta(
+      `${m.title} | Roule Rodrigues`,
+      m.description,
+      category,
+      m.fr,
+      ogImage,
+    );
 
   // Not in the curated map — it may still be a real category the owner added in
   // admin (e.g. "Kayaks"). Use its live label so it gets a unique title rather
@@ -144,10 +183,17 @@ export async function generateMetadata({
 
   // Genuinely unknown slug → this renders the not-found page, so don't hand
   // Google a canonical for a URL that isn't a real page.
-  return { title: "Page not found | Roule Rodrigues", robots: { index: false, follow: false } };
+  return {
+    title: "Page not found | Roule Rodrigues",
+    robots: { index: false, follow: false },
+  };
 }
 
-export default async function BrowsePage({ params }: { params: Promise<{ category: string }> }) {
+export default async function BrowsePage({
+  params,
+}: {
+  params: Promise<{ category: string }>;
+}) {
   const { category } = await params;
   // Restaurants are handled by the WhatsApp food concierge, not a listing.
   if (category === "restaurants") redirect("/food");
@@ -156,7 +202,8 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
   // thing called Events, and it called notFound() whenever the notice list was
   // empty — so an Events link could land on "Lost on the island".
   if (category === "events") redirect("/events");
-  const { content, fleet, ratings, recentBookings, businessWhatsApp } = await getFleetView();
+  const { content, fleet, ratings, recentBookings, businessWhatsApp } =
+    await getFleetView();
   const cats = buildBrowseCategories(content, fleet, recentBookings);
 
   // Breadcrumb trail (Home › This page) + the listing itself, so Google shows
@@ -175,7 +222,9 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
 
   // App-style top bar (back to Explore + page title + language). Replaces the
   // marketing navbar on this redesigned surface; the global BottomNav does the rest.
-  const header = (title: string) => <AppPageHeader title={title} backHref="/#explore" />;
+  const header = (title: string) => (
+    <AppPageHeader title={title} backHref="/#explore" />
+  );
   const footer = (
     <>
       <WhatsAppButton
@@ -188,13 +237,18 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
   );
 
   // ── Vehicles (scooters / cars / other) ──
-  const vcat = content.vehicleCategories.find((c) => c.id === category && c.enabled);
+  const vcat = content.vehicleCategories.find(
+    (c) => c.id === category && c.enabled,
+  );
   if (vcat) {
     const items = fleet.filter((f) => (f.category ?? "scooter") === vcat.id);
     if (items.length === 0) notFound();
     return (
       <>
-        {seo(vcat.label, items.map((i) => ({ name: i.name })))}
+        {seo(
+          vcat.label,
+          items.map((i) => ({ name: i.name })),
+        )}
         {/* The vehicles are rendered on THIS page, so this is where their
             Product markup belongs — with real ratings where reviews exist. */}
         <JsonLd
@@ -220,7 +274,11 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
         />
         {header(vcat.label)}
         <main>
-          <BrowseTabs categories={cats} active={category} stickyTop="top-[56px]" />
+          <BrowseTabs
+            categories={cats}
+            active={category}
+            stickyTop="top-[56px]"
+          />
           {/* The scooter price-value banner was removed from this booking page to
               keep it focused on the fleet. Its content lives, server-rendered in
               French for SEO, on /fr/location-scooter-rodrigues (hreflang-paired). */}
@@ -260,12 +318,24 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
     if (items.length === 0) notFound();
     return (
       <>
-        {seo(place.label, items.map((i) => ({ name: i.name })))}
+        {seo(
+          place.label,
+          items.map((i) => ({ name: i.name })),
+        )}
         {header(place.label)}
         <main>
-          <BrowseTabs categories={cats} active={category} stickyTop="top-[56px]" />
+          <BrowseTabs
+            categories={cats}
+            active={category}
+            stickyTop="top-[56px]"
+          />
           <RecommendedPlaces
-            content={{ enabled: true, title: place.label, subtitle: content.recommended.subtitle, items }}
+            content={{
+              enabled: true,
+              title: place.label,
+              subtitle: content.recommended.subtitle,
+              items,
+            }}
             whatsapp={businessWhatsApp}
           />
         </main>
@@ -281,10 +351,17 @@ export default async function BrowsePage({ params }: { params: Promise<{ categor
     const opts = (ga.options ?? []).filter((o) => o.icon !== "bus");
     return (
       <>
-        {seo("Getting around", opts.map((o) => ({ name: o.title })))}
+        {seo(
+          "Getting around",
+          opts.map((o) => ({ name: o.title })),
+        )}
         {header("Getting around")}
         <main>
-          <BrowseTabs categories={cats} active={category} stickyTop="top-[56px]" />
+          <BrowseTabs
+            categories={cats}
+            active={category}
+            stickyTop="top-[56px]"
+          />
           <GettingAround content={{ ...ga, options: opts }} />
         </main>
         {footer}
