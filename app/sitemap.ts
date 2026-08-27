@@ -336,6 +336,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.9,
     },
+    // "Que faire à Rodrigues" — the French half of /experiences.
+    {
+      url: `${SITE_URL}/fr/que-faire-a-rodrigues`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
     // Real search targets: "what's on in Rodrigues", "airport transfer Rodrigues".
     {
       url: `${SITE_URL}/events`,

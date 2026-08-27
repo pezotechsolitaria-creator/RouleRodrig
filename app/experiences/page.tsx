@@ -15,7 +15,16 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
-  alternates: { canonical: `${SITE_URL}/experiences` },
+  alternates: {
+    canonical: `${SITE_URL}/experiences`,
+    // Mirrors /fr/que-faire-a-rodrigues, which is this page in French. A
+    // one-way hreflang is silently ignored.
+    languages: {
+      "en-US": `${SITE_URL}/experiences`,
+      "fr-FR": `${SITE_URL}/fr/que-faire-a-rodrigues`,
+      "x-default": `${SITE_URL}/experiences`,
+    },
+  },
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,
@@ -36,7 +45,8 @@ export default async function ExperiencesHubPage() {
   // A name and a photo is the bar: a listing with neither is an admin
   // placeholder, not an experience, and the hub is the wrong place to find out.
   const places = content.recommended.items.filter(
-    (p) => p.category === "activity" && p.name.trim() && (p.image || p.images?.[0]),
+    (p) =>
+      p.category === "activity" && p.name.trim() && (p.image || p.images?.[0]),
   );
 
   return (
@@ -56,7 +66,11 @@ export default async function ExperiencesHubPage() {
       {/* A titled header, which is what gives it the back control — the hub is
           reached from a homepage card, so there has to be a way home that is
           not the browser button. */}
-      <AppPageHeader title="Experiences" backHref="/" logo={content.branding.logo} />
+      <AppPageHeader
+        title="Experiences"
+        backHref="/"
+        logo={content.branding.logo}
+      />
       <ExperiencesHub places={places} />
     </>
   );

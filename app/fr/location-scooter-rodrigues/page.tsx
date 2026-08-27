@@ -230,9 +230,15 @@ export default async function LocationScooterPage() {
                   href: "/browse/scooter",
                   label: "Nos scooters et disponibilités",
                 },
+                // Was /browse/car: a French label pointing at the English
+                // page, from before the French one existed.
                 {
-                  href: "/browse/car",
+                  href: "/fr/location-voiture-rodrigues",
                   label: "Location de voiture à Rodrigues",
+                },
+                {
+                  href: "/fr/que-faire-a-rodrigues",
+                  label: "Que faire à Rodrigues",
                 },
                 {
                   href: "/guide/beaches",
