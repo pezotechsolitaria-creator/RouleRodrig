@@ -312,6 +312,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.8,
     },
+    // The island's best-known excursion, and the thing people search before
+    // they search anything else about Rodrigues.
+    {
+      url: `${SITE_URL}/guide/ile-aux-cocos`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
     // Real search targets: "what's on in Rodrigues", "airport transfer Rodrigues".
     {
       url: `${SITE_URL}/events`,

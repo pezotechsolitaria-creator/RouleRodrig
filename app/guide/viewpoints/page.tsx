@@ -30,8 +30,15 @@ export default async function ViewpointsPage() {
   const content = await getContent();
   // Viewpoints and landmarks share this page: both are "go and look at it"
   // stops, and splitting eight places across two pages makes both of them thin.
+  //
+  // Requires PROSE, not the `story` column specifically. Demanding one
+  // particular field silently hid Trou d'Argent from /guide/beaches even though
+  // the owner had written a description for it — see the note there. The same
+  // filter shape was here, so the same fix is.
   const places = content.mapLocations.filter(
-    (l) => (l.category === "viewpoint" || l.category === "landmark") && l.story,
+    (l) =>
+      (l.category === "viewpoint" || l.category === "landmark") &&
+      Boolean(l.story?.trim() || l.description?.trim()),
   );
 
   return (
@@ -68,9 +75,15 @@ export default async function ViewpointsPage() {
         places={places}
         related={[
           { href: "/guide/beaches", label: "The best beaches in Rodrigues" },
-          { href: "/guide/rodrigues", label: "The full local's guide to Rodrigues" },
+          {
+            href: "/guide/rodrigues",
+            label: "The full local's guide to Rodrigues",
+          },
           { href: "/browse/scooter", label: "Rent a scooter to reach them" },
-          { href: "/browse/getting-around", label: "How to get around Rodrigues" },
+          {
+            href: "/browse/getting-around",
+            label: "How to get around Rodrigues",
+          },
         ]}
       />
     </>

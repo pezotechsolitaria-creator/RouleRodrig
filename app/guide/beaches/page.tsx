@@ -11,11 +11,28 @@ export const revalidate = 3600;
 const DESCRIPTION =
   "Every beach in Rodrigues worth your time, mapped by locals: Pointe Coton, Baladirou, St François and more. Real photos, directions and honest advice.";
 
-// Only beaches with a written story make the page — a name and a pin isn't a
-// guide entry. Same filter feeds the title's count and the H1, so the number is
+// Only beaches with WRITING make the page — a name and a pin isn't a guide
+// entry. Same filter feeds the title's count and the H1, so the number is
 // always the truth and can never drift when the owner edits content in admin.
-const beaches = (locations: { category: string; story?: string }[]) =>
-  locations.filter((l) => l.category === "beach" && l.story);
+//
+// ── IT USED TO REQUIRE `story` SPECIFICALLY, AND THAT HID THE BEST BEACH ───
+// Trou d'Argent — the island's most photographed beach, and the one visitors
+// arrive already wanting to see — was silently absent from /guide/beaches.
+// So were Graviers and Anse Mourouk. Not because nobody had written about
+// them: all three carry a `description` the owner wrote, and PlaceGuide renders
+// `description` and `story` as two independent paragraphs, so any of them
+// displays perfectly well with only one.
+//
+// The rule was never "must have a story field". It was "must have prose", and
+// requiring one particular column threw away the column that is always filled.
+// A filter that drops content silently is worse than one that is strict: the
+// owner had already done the work and had no way to know it was not showing.
+const hasWriting = (l: { story?: string; description?: string }) =>
+  Boolean(l.story?.trim() || l.description?.trim());
+
+const beaches = (
+  locations: { category: string; story?: string; description?: string }[],
+) => locations.filter((l) => l.category === "beach" && hasWriting(l));
 
 export async function generateMetadata(): Promise<Metadata> {
   const content = await getContent();
@@ -50,7 +67,7 @@ export default async function BeachesPage() {
   // Same gate /guide/viewpoints applies to its own list — a name and a pin is
   // not a guide entry — so the band and that page can never disagree.
   const viewpointCount = content.mapLocations.filter(
-    (l) => l.category === "viewpoint" && l.story,
+    (l) => l.category === "viewpoint" && hasWriting(l),
   ).length;
 
   return (
@@ -62,7 +79,10 @@ export default async function BeachesPage() {
             { name: "Island guide", url: `${SITE_URL}/guide/rodrigues` },
             { name: "Beaches", url: `${SITE_URL}/guide/beaches` },
           ]),
-          itemListLd("Beaches in Rodrigues Island", places.map((p) => ({ name: p.name.trim() }))),
+          itemListLd(
+            "Beaches in Rodrigues Island",
+            places.map((p) => ({ name: p.name.trim() })),
+          ),
           ...places.map((p) =>
             placeLd({
               name: p.name.trim(),
@@ -95,10 +115,16 @@ export default async function BeachesPage() {
             : "Looking for viewpoints instead?",
         }}
         related={[
-          { href: "/guide/viewpoints", label: "Viewpoints & landmarks in Rodrigues" },
+          {
+            href: "/guide/viewpoints",
+            label: "Viewpoints & landmarks in Rodrigues",
+          },
           { href: "/guide/routes", label: "Scooter routes around the island" },
           { href: "/guide/hiking", label: "Hiking trails in Rodrigues" },
-          { href: "/guide/rodrigues", label: "The full local's guide to Rodrigues" },
+          {
+            href: "/guide/rodrigues",
+            label: "The full local's guide to Rodrigues",
+          },
           { href: "/browse/scooter", label: "Rent a scooter to reach them" },
           { href: "/browse/stays", label: "Where to stay in Rodrigues" },
         ]}
