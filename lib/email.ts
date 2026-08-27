@@ -15,8 +15,16 @@ import { SITE_URL, CONTACT_EMAIL, PAYPAL_FEE_PERCENT } from "./site";
 // Emails must show "BURGMAN 125cc", never the "burgman" ID the DB stores.
 import { withVehicleName, vehicleCategory } from "./vehicle-name";
 import { sendTransactionalEmail } from "./email/send";
-import { placeEmailType, vehicleEmailType, type EmailType } from "./email/types";
-import { getBrevoCredentials, invalidateBrevoCredentials, upsertBrevoContactRaw } from "./email/providers/brevo";
+import {
+  placeEmailType,
+  vehicleEmailType,
+  type EmailType,
+} from "./email/types";
+import {
+  getBrevoCredentials,
+  invalidateBrevoCredentials,
+  upsertBrevoContactRaw,
+} from "./email/providers/brevo";
 import { invalidateEmailConfigCache } from "./email/config";
 import { resendProvider } from "./email/providers/resend";
 import { brevoProvider } from "./email/providers/brevo";
@@ -76,7 +84,11 @@ const LOCATION = "Port Mathurin, Rodrigues Island, Mauritius";
 function waDigits(phone?: string | null): string {
   return (phone ?? "").replace(/\D/g, "");
 }
-function waButton(phone: string | null | undefined, text: string, label: string): string {
+function waButton(
+  phone: string | null | undefined,
+  text: string,
+  label: string,
+): string {
   const d = waDigits(phone);
   if (!d) return "";
   const href = `https://wa.me/${d}?text=${encodeURIComponent(text)}`;
@@ -91,7 +103,8 @@ function waButton(phone: string | null | undefined, text: string, label: string)
 // button and header logo work with no extra configuration. Cached briefly.
 let brandCache: { wa: string; logo: string; at: number } | null = null;
 async function getBrand(): Promise<{ wa: string; logo: string }> {
-  if (brandCache && Date.now() - brandCache.at < EMAIL_CFG_TTL) return brandCache;
+  if (brandCache && Date.now() - brandCache.at < EMAIL_CFG_TTL)
+    return brandCache;
   let wa = process.env.OWNER_WHATSAPP || process.env.OWNER_PHONE || "";
   let logo = process.env.EMAIL_LOGO_URL || "";
   try {
@@ -111,7 +124,9 @@ async function getBrand(): Promise<{ wa: string; logo: string }> {
         .select("data")
         .eq("id", "main")
         .maybeSingle();
-      const branding = (data?.data as { branding?: { logo?: string; logoMark?: string } } | null)?.branding;
+      const branding = (
+        data?.data as { branding?: { logo?: string; logoMark?: string } } | null
+      )?.branding;
       // The MARK first. This header renders the image at height:38px — the full
       // lockup's tagline lines ("TOURS · RENTALS · ACTIVITIES · EXPERIENCES")
       // are illegible at that size, and an email header is the one place a
@@ -139,7 +154,11 @@ function fmtTime(t?: string | null): string {
 
 function fmtDate(d: string): string {
   try {
-    return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+    return new Date(d).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
   } catch {
     return d;
   }
@@ -243,7 +262,13 @@ function PAYMENT_ROWS(b: BookingEmailData): string {
  * dark branded header (logo lockup when available, else wordmark) with tagline
  * + gold rule, content area, and a footer with the business identity.
  */
-function shell(opts: { preheader?: string; eyebrow?: string; title: string; body: string; logo?: string }): string {
+function shell(opts: {
+  preheader?: string;
+  eyebrow?: string;
+  title: string;
+  body: string;
+  logo?: string;
+}): string {
   const { preheader: pre = "", eyebrow = "", title, body, logo = "" } = opts;
   const lockup = logo
     ? `<span style="display:inline-block;background:#ffffff;border-radius:12px;padding:9px 16px">
@@ -294,14 +319,20 @@ function buildCalendar(b: BookingEmailData): { gcal: string; ics: string } {
   const desc =
     "Your Roule Rodrigues rental — bring your driver's licence and booking confirmation. / " +
     "Votre location Roule Rodrigues — apportez votre permis de conduire et votre confirmation.";
-  const fUtc = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+  const fUtc = (d: Date) =>
+    d
+      .toISOString()
+      .replace(/[-:]/g, "")
+      .replace(/\.\d{3}Z$/, "Z");
   const m = /^(\d{1,2}):(\d{2})$/.exec((b.pickup_time ?? "").trim());
 
   let dtStartLine: string;
   let dtEndLine: string;
   let gdates: string;
   if (m) {
-    const start = new Date(`${b.start_date}T${m[1].padStart(2, "0")}:${m[2]}:00+04:00`);
+    const start = new Date(
+      `${b.start_date}T${m[1].padStart(2, "0")}:${m[2]}:00+04:00`,
+    );
     const end = new Date(start.getTime() + 30 * 60000);
     dtStartLine = `DTSTART:${fUtc(start)}`;
     dtEndLine = `DTEND:${fUtc(end)}`;
@@ -403,10 +434,10 @@ export async function upsertBrevoContact(c: {
   phone?: string | null;
   vehicle?: string | null;
   bookingId?: string | null;
-  pickupDate?: string | null;  // ISO date
-  pickupTime?: string | null;  // HH:MM
-  returnDate?: string | null;  // ISO date
-  returnTime?: string | null;  // HH:MM
+  pickupDate?: string | null; // ISO date
+  pickupTime?: string | null; // HH:MM
+  returnDate?: string | null; // ISO date
+  returnTime?: string | null; // HH:MM
   /** Which audience to join. Defaults to transactional — the safe choice, so a
    *  new call site cannot subscribe someone to marketing by omission. */
   list?: "transactional" | "marketing" | "none";
@@ -420,8 +451,8 @@ export async function upsertBrevoContact(c: {
   if (c.vehicle) attributes.VEHICLE = c.vehicle.slice(0, 80);
   if (c.bookingId) attributes.BOOKING_ID = c.bookingId.slice(0, 40);
   if (c.pickupDate) {
-    attributes.PICKUP_DATE = fmtDate(c.pickupDate);       // display text, e.g. "12 Jul 2026"
-    attributes.PICKUP_ON = c.pickupDate.slice(0, 10);      // ISO date for date-triggered automations
+    attributes.PICKUP_DATE = fmtDate(c.pickupDate); // display text, e.g. "12 Jul 2026"
+    attributes.PICKUP_ON = c.pickupDate.slice(0, 10); // ISO date for date-triggered automations
   }
   if (c.pickupTime) attributes.PICKUP_TIME = fmtTime(c.pickupTime);
   if (c.returnDate) {
@@ -429,7 +460,11 @@ export async function upsertBrevoContact(c: {
     attributes.RETURN_ON = c.returnDate.slice(0, 10);
   }
   if (c.returnTime) attributes.RETURN_TIME = fmtTime(c.returnTime);
-  return upsertBrevoContactRaw({ email: c.email, attributes, list: c.list ?? "transactional" });
+  return upsertBrevoContactRaw({
+    email: c.email,
+    attributes,
+    list: c.list ?? "transactional",
+  });
 }
 
 /**
@@ -454,14 +489,19 @@ export async function upsertBrevoContact(c: {
  * identical is what stops this from reporting a provider that isn't the one
  * doing the work.
  */
-export async function emailProviderName(): Promise<"resend" | "brevo" | "unconfigured"> {
+export async function emailProviderName(): Promise<
+  "resend" | "brevo" | "unconfigured"
+> {
   try {
     const { getEmailConfig } = await import("./email/config");
     const cfg = await getEmailConfig();
     // Report the DEFAULT provider first when it can actually send — that is the
     // one carrying almost all traffic. Falls through to the other so a partially
     // configured setup still reports the provider that would do the work.
-    const order = cfg.defaultProvider === "resend" ? ["resend", "brevo"] : ["brevo", "resend"];
+    const order =
+      cfg.defaultProvider === "resend"
+        ? ["resend", "brevo"]
+        : ["brevo", "resend"];
     for (const name of order) {
       const impl = name === "resend" ? resendProvider : brevoProvider;
       if (!cfg.providers[name as "resend" | "brevo"].enabled) continue;
@@ -515,22 +555,38 @@ async function send(opts: SendOpts): Promise<boolean> {
  *  the row id. Both derive from the same UUID, so either identifies the booking
  *  uniquely and forever. Returns null when neither is available, which disables
  *  idempotency for that send rather than inventing a key that could collide. */
-function bookingKeyPart(b: { ref?: string | null; id?: string | null }): string | null {
+function bookingKeyPart(b: {
+  ref?: string | null;
+  id?: string | null;
+}): string | null {
   return (b.ref ?? "").trim() || (b.id ?? "").trim() || null;
 }
 
-const keyFor = (type: EmailType, part: string | null): string | null => (part ? `${type}:${part}` : null);
+const keyFor = (type: EmailType, part: string | null): string | null =>
+  part ? `${type}:${part}` : null;
 
 // Bilingual "Label EN · Label FR" rows so a single detail card serves both
 // languages without duplicating the whole table.
 function summaryRows(b: BookingEmailData): string {
   const pairs: [string, string][] = [];
-  if (b.ref) pairs.push(["Booking reference · Référence", `<b>${b.ref}</b> — manage at roulerodrig.com/manage-booking`]);
+  if (b.ref)
+    pairs.push([
+      "Booking reference · Référence",
+      `<b>${b.ref}</b> — manage at roulerodrig.com/manage-booking`,
+    ]);
   pairs.push(["Vehicle · Véhicule", b.scooter]);
   if (b.asset_label) pairs.push(["Unit · Unité", b.asset_label]);
   pairs.push(
-    ["Pickup · Retrait", fmtDate(b.start_date) + (b.pickup_time ? ` · ${fmtTime(b.pickup_time)}` : "")],
-    ["Return · Retour", fmtDate(b.end_date) + (b.return_time ? ` · ${fmtTime(b.return_time)}` : "")],
+    [
+      "Pickup · Retrait",
+      fmtDate(b.start_date) +
+        (b.pickup_time ? ` · ${fmtTime(b.pickup_time)}` : ""),
+    ],
+    [
+      "Return · Retour",
+      fmtDate(b.end_date) +
+        (b.return_time ? ` · ${fmtTime(b.return_time)}` : ""),
+    ],
     ["Duration · Durée", `${b.days} day${b.days !== 1 ? "s" : ""}`],
   );
 
@@ -542,7 +598,10 @@ function summaryRows(b: BookingEmailData): string {
 
   if (total != null && delivery != null) {
     const rental = total - delivery;
-    pairs.push([`Rental · Location (${b.days} day${b.days !== 1 ? "s" : ""})`, rs(rental)]);
+    pairs.push([
+      `Rental · Location (${b.days} day${b.days !== 1 ? "s" : ""})`,
+      rs(rental),
+    ]);
     pairs.push([
       "Delivery · Livraison",
       delivery > 0 ? `${rs(delivery)} (drop-off + pickup)` : "Free · Gratuite",
@@ -550,8 +609,14 @@ function summaryRows(b: BookingEmailData): string {
     pairs.push(["Total · Total", rs(total)]);
     if (typeof b.deposit_amount === "number" && b.deposit_amount > 0) {
       const pct = b.deposit_pct ?? 0;
-      pairs.push([`Deposit to confirm · Acompte (${pct}%)`, rs(b.deposit_amount)]);
-      pairs.push(["Balance at pickup · Solde au retrait", rs(total - b.deposit_amount)]);
+      pairs.push([
+        `Deposit to confirm · Acompte (${pct}%)`,
+        rs(b.deposit_amount),
+      ]);
+      pairs.push([
+        "Balance at pickup · Solde au retrait",
+        rs(total - b.deposit_amount),
+      ]);
     }
   } else if (b.total_price) {
     // Fallback for older/edge bookings without the numeric breakdown.
@@ -593,7 +658,9 @@ export function ownerInboxIsExplicit(): boolean {
  * notification to the business owner (if OWNER_EMAIL is set).
  * Never throws — returns a small status object.
  */
-export async function sendBookingEmails(raw: BookingEmailData): Promise<{ customer: boolean; owner: boolean }> {
+export async function sendBookingEmails(
+  raw: BookingEmailData,
+): Promise<{ customer: boolean; owner: boolean }> {
   const b = await withVehicleName(raw);
   const result = { customer: false, owner: false };
   const { wa, logo } = await getBrand();
@@ -611,8 +678,12 @@ export async function sendBookingEmails(raw: BookingEmailData): Promise<{ custom
     // paid (scooters 25%, cars 50%), balance at pickup. Falls back to the old
     // "no payment due yet" wording when there's no numeric deposit.
     const hasDeposit =
-      typeof b.deposit_amount === "number" && b.deposit_amount > 0 && typeof b.total_amount === "number";
-    const balance = hasDeposit ? (b.total_amount as number) - (b.deposit_amount as number) : 0;
+      typeof b.deposit_amount === "number" &&
+      b.deposit_amount > 0 &&
+      typeof b.total_amount === "number";
+    const balance = hasDeposit
+      ? (b.total_amount as number) - (b.deposit_amount as number)
+      : 0;
     // PayPal fee, passed to the customer — stated plainly, never hidden.
     const payPalFeeNote =
       hasDeposit && b.deposit_amount
@@ -653,7 +724,8 @@ export async function sendBookingEmails(raw: BookingEmailData): Promise<{ custom
       to: b.email,
       subject: "Your booking request · Votre réservation 🛵",
       html: shell({
-        preheader: "We've received your booking · Nous avons bien reçu votre réservation.",
+        preheader:
+          "We've received your booking · Nous avons bien reçu votre réservation.",
         eyebrow: "Booking received · Réservation reçue",
         title: `Thank you, ${b.name}!`,
         body,
@@ -664,7 +736,10 @@ export async function sendBookingEmails(raw: BookingEmailData): Promise<{ custom
       relatedType: "booking",
       relatedId: keyPart,
       attachments: [
-        { name: "roule-rodrigues-booking.ics", content: Buffer.from(cal.ics, "utf8").toString("base64") },
+        {
+          name: "roule-rodrigues-booking.ics",
+          content: Buffer.from(cal.ics, "utf8").toString("base64"),
+        },
       ],
     });
   }
@@ -686,7 +761,12 @@ export async function sendBookingEmails(raw: BookingEmailData): Promise<{ custom
     result.owner = await send({
       to: owner,
       subject: `New booking: ${b.name} — ${b.scooter}`,
-      html: shell({ eyebrow: "New booking request", title: b.name, body, logo }),
+      html: shell({
+        eyebrow: "New booking request",
+        title: b.name,
+        body,
+        logo,
+      }),
       type: "owner_booking_alert",
       key: keyFor("owner_booking_alert", keyPart),
       relatedType: "booking",
@@ -738,8 +818,14 @@ export async function sendAvailabilityConfirmed(b: {
   const ref = "RR-" + b.id.replace(/-/g, "").slice(0, 6).toUpperCase();
   const payUrl = `${SITE_URL}/manage-booking`;
   const by = new Date(b.payBy);
-  const byEn = by.toLocaleString("en-GB", { dateStyle: "full", timeStyle: "short" });
-  const byFr = by.toLocaleString("fr-FR", { dateStyle: "full", timeStyle: "short" });
+  const byEn = by.toLocaleString("en-GB", {
+    dateStyle: "full",
+    timeStyle: "short",
+  });
+  const byFr = by.toLocaleString("fr-FR", {
+    dateStyle: "full",
+    timeStyle: "short",
+  });
 
   const body = `
     ${paragraph(`Good news ${b.name} — <strong>${b.scooter}</strong> is free for your dates and we're holding it for you.`)}
@@ -748,7 +834,9 @@ export async function sendAvailabilityConfirmed(b: {
         ["Reference", ref],
         ["Vehicle", b.scooter],
         ["Dates", `${fmtDate(b.start_date)} → ${fmtDate(b.end_date)}`],
-        ...(b.amountDue != null ? ([["To pay now", rs(b.amountDue)]] as [string, string][]) : []),
+        ...(b.amountDue != null
+          ? ([["To pay now", rs(b.amountDue)]] as [string, string][])
+          : []),
         ["Held until", byEn],
       ]),
     )}
@@ -848,9 +936,18 @@ export async function sendPlaceAvailabilityConfirmed(b: {
   const ref = "RR-" + b.id.replace(/-/g, "").slice(0, 6).toUpperCase();
   const payUrl = `${SITE_URL}/track`;
   const by = new Date(b.payBy);
-  const byEn = by.toLocaleString("en-GB", { dateStyle: "full", timeStyle: "short" });
-  const byFr = by.toLocaleString("fr-FR", { dateStyle: "full", timeStyle: "short" });
-  const amount = b.amountDue && b.amountDue > 0 ? `Rs ${b.amountDue.toLocaleString("en-US")}` : null;
+  const byEn = by.toLocaleString("en-GB", {
+    dateStyle: "full",
+    timeStyle: "short",
+  });
+  const byFr = by.toLocaleString("fr-FR", {
+    dateStyle: "full",
+    timeStyle: "short",
+  });
+  const amount =
+    b.amountDue && b.amountDue > 0
+      ? `Rs ${b.amountDue.toLocaleString("en-US")}`
+      : null;
 
   const body = `
     ${paragraph(`Good news ${escapeHtml(b.name)} — <strong>${escapeHtml(b.placeName)}</strong> is free for ${escapeHtml(b.when)}, and we are holding it for you.`)}
@@ -899,7 +996,9 @@ export async function sendPlaceUnavailable(b: {
   // Where to send them next depends on what they wanted. A guest who asked for
   // a fishing trip is not helped by a list of guesthouses.
   const isStay = (b.category ?? "").toLowerCase() === "hotel";
-  const nextUrl = isStay ? `${SITE_URL}/explore` : `${SITE_URL}/experiences/boat`;
+  const nextUrl = isStay
+    ? `${SITE_URL}/explore`
+    : `${SITE_URL}/experiences/boat`;
 
   const body = `
     ${paragraph(`${escapeHtml(b.name)}, we are sorry — <strong>${escapeHtml(b.placeName)}</strong> is not free for ${escapeHtml(b.when)}. <strong>You have not been charged anything.</strong>`)}
@@ -935,7 +1034,9 @@ export async function sendPlaceUnavailable(b: {
 // ── Reminder / feedback emails (sent by the daily cron) ──────────────────
 
 /** Reminder sent the day before pickup. */
-export async function sendPickupReminder(raw: BookingEmailData): Promise<boolean> {
+export async function sendPickupReminder(
+  raw: BookingEmailData,
+): Promise<boolean> {
   const to = raw.email;
   if (!to) return false;
   const b = await withVehicleName(raw);
@@ -948,11 +1049,20 @@ export async function sendPickupReminder(raw: BookingEmailData): Promise<boolean
     ${frHeading("À demain !")}
     ${paragraph(`Bonjour ${b.name}, petit rappel : votre location commence <strong>demain</strong>. 🛵 Merci d'apporter votre permis de conduire et d'arriver quelques minutes en avance. Nous avons hâte de vous aider à découvrir l'île Rodrigues — à demain !`)}
     ${wa ? `<div style="text-align:center">${waButton(wa, `Hi! About my Roule Rodrigues pickup tomorrow (${b.scooter}) — `, "💬 WhatsApp")}</div>` : ""}`;
-  const type = vehicleEmailType("pickup_reminder", await vehicleCategory(raw.scooter));
+  const type = vehicleEmailType(
+    "pickup_reminder",
+    await vehicleCategory(raw.scooter),
+  );
   return send({
     to,
     subject: "Your rental is tomorrow · Votre location, c'est demain 🛵",
-    html: shell({ preheader: "Pickup is tomorrow · Le retrait, c'est demain.", eyebrow: "Pickup reminder · Rappel de retrait", title: "See you tomorrow!", body, logo }),
+    html: shell({
+      preheader: "Pickup is tomorrow · Le retrait, c'est demain.",
+      eyebrow: "Pickup reminder · Rappel de retrait",
+      title: "See you tomorrow!",
+      body,
+      logo,
+    }),
     type,
     key: keyFor(type, bookingKeyPart(raw)),
     relatedType: "booking",
@@ -961,7 +1071,9 @@ export async function sendPickupReminder(raw: BookingEmailData): Promise<boolean
 }
 
 /** Reminder sent the day before the return is due. */
-export async function sendReturnReminder(raw: BookingEmailData): Promise<boolean> {
+export async function sendReturnReminder(
+  raw: BookingEmailData,
+): Promise<boolean> {
   const to = raw.email;
   if (!to) return false;
   const b = await withVehicleName(raw);
@@ -987,11 +1099,21 @@ export async function sendReturnReminder(raw: BookingEmailData): Promise<boolean
     ])}
     ${paragraph(`Merci d'avoir choisi Roule Rodrigues — nous espérons que vous avez passé un moment inoubliable à Rodrigues, et au plaisir de vous revoir lors de votre prochaine visite ! 💛`)}
     ${wa ? `<div style="text-align:center">${waButton(wa, `Hi! About my Roule Rodrigues return (${b.scooter}) — `, "💬 WhatsApp")}</div>` : ""}`;
-  const type = vehicleEmailType("return_reminder", await vehicleCategory(raw.scooter));
+  const type = vehicleEmailType(
+    "return_reminder",
+    await vehicleCategory(raw.scooter),
+  );
   return send({
     to,
     subject: "Your return is tomorrow · Votre retour, c'est demain",
-    html: shell({ preheader: "Your vehicle is due back tomorrow · Retour du véhicule demain.", eyebrow: "Return reminder · Rappel de retour", title: "Return reminder", body, logo }),
+    html: shell({
+      preheader:
+        "Your vehicle is due back tomorrow · Retour du véhicule demain.",
+      eyebrow: "Return reminder · Rappel de retour",
+      title: "Return reminder",
+      body,
+      logo,
+    }),
     type,
     key: keyFor(type, bookingKeyPart(raw)),
     relatedType: "booking",
@@ -1000,12 +1122,26 @@ export async function sendReturnReminder(raw: BookingEmailData): Promise<boolean
 }
 
 // ── Post-rental feedback request (sent the day after return) ──────────────
-export async function sendFeedbackRequest(raw: BookingEmailData): Promise<boolean> {
+export async function sendFeedbackRequest(
+  raw: BookingEmailData,
+): Promise<boolean> {
   const to = raw.email;
   if (!to) return false;
   const b = await withVehicleName(raw);
   const { wa, logo } = await getBrand();
-  const reviewUrl = process.env.GOOGLE_REVIEW_URL || `${SITE_URL}/#reviews`;
+  // ── #reviews DOES NOT EXIST ───────────────────────────────────
+  // Checked against the live homepage: the only ids on it are #contact,
+  // #explore, #rr-splash and #rto-compact. So every "Leave a review" button
+  // this platform has ever emailed dropped the customer at the top of the
+  // homepage with no idea what to do next — which is the whole review funnel,
+  // silently broken, on a site whose reviews section reads
+  // "Be the first to leave a review".
+  //
+  // #contact is the section that actually holds the reviews and the button
+  // that opens the form. GOOGLE_REVIEW_URL still wins when it is set, and a
+  // Google Business Profile review link is the better destination once one
+  // exists — see the profile recommendation in the audit.
+  const reviewUrl = process.env.GOOGLE_REVIEW_URL || `${SITE_URL}/#contact`;
   const body = `
     ${paragraph(`Hi ${b.name}, we hope you loved exploring Rodrigues! 🌴 How was your ride with the ${b.scooter}?`)}
     ${paragraph(`A quick review means the world to a small island business — it takes about 30 seconds and helps other travellers discover us.`)}
@@ -1014,11 +1150,21 @@ export async function sendFeedbackRequest(raw: BookingEmailData): Promise<boolea
     ${paragraph(`Bonjour ${b.name}, nous espérons que vous avez adoré Rodrigues ! 🌴 Comment s'est passée votre balade avec le ${b.scooter} ? Un petit avis compte énormément pour une petite entreprise locale — cela prend 30 secondes et aide d'autres voyageurs à nous découvrir.`)}
     <div style="text-align:center">${primaryButton(reviewUrl, "⭐ Leave a review · Laisser un avis")}</div>
     ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! Here's my feedback on the ${b.scooter}: `, "💬 WhatsApp")}</div>` : ""}`;
-  const type = vehicleEmailType("feedback_request", await vehicleCategory(raw.scooter));
+  const type = vehicleEmailType(
+    "feedback_request",
+    await vehicleCategory(raw.scooter),
+  );
   return send({
     to,
     subject: "How was your ride? · Votre avis ? 🛵",
-    html: shell({ preheader: "A 30-second review helps other travellers · Votre avis compte.", eyebrow: "Your feedback · Votre avis", title: "Thanks for riding with us!", body, logo }),
+    html: shell({
+      preheader:
+        "A 30-second review helps other travellers · Votre avis compte.",
+      eyebrow: "Your feedback · Votre avis",
+      title: "Thanks for riding with us!",
+      body,
+      logo,
+    }),
     type,
     key: keyFor(type, bookingKeyPart(raw)),
     relatedType: "booking",
@@ -1027,18 +1173,29 @@ export async function sendFeedbackRequest(raw: BookingEmailData): Promise<boolea
 }
 
 // ── Owner / admin reminders (sent the day before, internal English) ───────
-function ownerActionEmail(b: BookingEmailData, kind: "deliver" | "collect", logo: string): string {
+function ownerActionEmail(
+  b: BookingEmailData,
+  kind: "deliver" | "collect",
+  logo: string,
+): string {
   const verb = kind === "deliver" ? "Deliver" : "Collect";
   const when = kind === "deliver" ? fmtDate(b.start_date) : fmtDate(b.end_date);
   const body = `
     ${paragraph(`<strong style="color:${C.ink}">${verb} tomorrow</strong> (${when}) for <strong>${b.name}</strong>.`)}
     ${detailCard(summaryRows(b) + rows(b.phone ? ([["Phone", b.phone]] as [string, string][]) : []))}
     ${b.phone ? `<div style="text-align:center">${waButton(b.phone, `Hi ${b.name}, this is Roule Rodrigues about your ${b.scooter} ${kind === "deliver" ? "pickup" : "return"} tomorrow — `, "💬 Message " + b.name)}</div>` : ""}`;
-  return shell({ eyebrow: `${verb} reminder`, title: `${verb} tomorrow`, body, logo });
+  return shell({
+    eyebrow: `${verb} reminder`,
+    title: `${verb} tomorrow`,
+    body,
+    logo,
+  });
 }
 
 /** Owner reminder: a scooter needs delivering tomorrow. */
-export async function sendAdminPickupReminder(raw: BookingEmailData): Promise<boolean> {
+export async function sendAdminPickupReminder(
+  raw: BookingEmailData,
+): Promise<boolean> {
   const owner = ownerInbox();
   const b = await withVehicleName(raw);
   const { logo } = await getBrand();
@@ -1054,7 +1211,9 @@ export async function sendAdminPickupReminder(raw: BookingEmailData): Promise<bo
 }
 
 /** Owner reminder: a scooter is due back tomorrow. */
-export async function sendAdminReturnReminder(raw: BookingEmailData): Promise<boolean> {
+export async function sendAdminReturnReminder(
+  raw: BookingEmailData,
+): Promise<boolean> {
   const owner = ownerInbox();
   const b = await withVehicleName(raw);
   const { logo } = await getBrand();
@@ -1090,14 +1249,23 @@ interface PlaceBookingEmailData {
 function placeRows(b: PlaceBookingEmailData): string {
   const sameDay = b.start_date === b.end_date;
   const pairs: [string, string][] = [];
-  if (b.ref) pairs.push(["Booking reference · Référence", `<b>${b.ref}</b> — manage at roulerodrig.com/manage-booking`]);
+  if (b.ref)
+    pairs.push([
+      "Booking reference · Référence",
+      `<b>${b.ref}</b> — manage at roulerodrig.com/manage-booking`,
+    ]);
   pairs.push(["Place · Lieu", b.place_name]);
   pairs.push([sameDay ? "Date" : "Check-in · Arrivée", fmtDate(b.start_date)]);
   if (!sameDay) pairs.push(["Check-out · Départ", fmtDate(b.end_date)]);
   if (b.time_slot) pairs.push(["Time · Heure", b.time_slot]);
   const qty = b.quantity ?? 0;
   if (qty > 0) {
-    const unit = b.category === "hotel" ? "Rooms · Chambres" : b.category === "restaurant" ? "Party size · Couverts" : "People · Personnes";
+    const unit =
+      b.category === "hotel"
+        ? "Rooms · Chambres"
+        : b.category === "restaurant"
+          ? "Party size · Couverts"
+          : "People · Personnes";
     pairs.push([unit, String(qty)]);
   }
   if (b.guests) pairs.push(["Guests · Invités", String(b.guests)]);
@@ -1134,7 +1302,11 @@ export async function sendPaymentReportedAlert(input: {
   const { logo } = await getBrand();
 
   const where =
-    input.kind === "vehicle" ? "Bookings" : input.kind === "activity" ? "Stay & Activity Bookings" : "Orders";
+    input.kind === "vehicle"
+      ? "Bookings"
+      : input.kind === "activity"
+        ? "Stay & Activity Bookings"
+        : "Orders";
 
   const body = `
     ${paragraph(
@@ -1146,10 +1318,23 @@ export async function sendPaymentReportedAlert(input: {
       rows([
         ["Reference", input.reference],
         ...(input.item ? ([["What", input.item]] as [string, string][]) : []),
-        ...(input.amount != null ? ([["Amount they owe", `Rs ${input.amount.toLocaleString("en-US")}`]] as [string, string][]) : []),
-        ["Proof attached", input.hasReceipt ? "Yes — open it in admin" : "NO FILE — worth chasing"],
-        ...(input.phone ? ([["Phone", input.phone]] as [string, string][]) : []),
-        ...(input.email ? ([["Email", input.email]] as [string, string][]) : []),
+        ...(input.amount != null
+          ? ([
+              ["Amount they owe", `Rs ${input.amount.toLocaleString("en-US")}`],
+            ] as [string, string][])
+          : []),
+        [
+          "Proof attached",
+          input.hasReceipt
+            ? "Yes — open it in admin"
+            : "NO FILE — worth chasing",
+        ],
+        ...(input.phone
+          ? ([["Phone", input.phone]] as [string, string][])
+          : []),
+        ...(input.email
+          ? ([["Email", input.email]] as [string, string][])
+          : []),
       ]),
     )}
     ${input.phone ? `<div style="text-align:center">${waButton(input.phone, `Hi ${input.customer}, thanks — checking your transfer now.`, "💬 Message " + input.customer)}</div>` : ""}`;
@@ -1158,7 +1343,9 @@ export async function sendPaymentReportedAlert(input: {
     to: owner,
     subject: `Payment reported: ${input.customer} — ${input.reference}`,
     html: shell({
-      preheader: input.hasReceipt ? "A customer sent proof of payment." : "A customer says they paid — no file attached.",
+      preheader: input.hasReceipt
+        ? "A customer sent proof of payment."
+        : "A customer says they paid — no file attached.",
       eyebrow: "Payment reported",
       title: input.customer,
       body,
@@ -1174,7 +1361,9 @@ export async function sendPaymentReportedAlert(input: {
 }
 
 /** Customer confirmation + owner notification for a Stay·Eat·Do reservation. */
-export async function sendPlaceBookingEmails(b: PlaceBookingEmailData): Promise<{ customer: boolean; owner: boolean }> {
+export async function sendPlaceBookingEmails(
+  b: PlaceBookingEmailData,
+): Promise<{ customer: boolean; owner: boolean }> {
   const result = { customer: false, owner: false };
   const { wa, logo } = await getBrand();
 
@@ -1192,7 +1381,13 @@ export async function sendPlaceBookingEmails(b: PlaceBookingEmailData): Promise<
     result.customer = await send({
       to: b.email,
       subject: `Your ${b.place_name} reservation · Votre réservation 🌴`,
-      html: shell({ preheader: "We've received your reservation · Réservation bien reçue.", eyebrow: "Reservation received · Réservation reçue", title: "Thanks for your reservation!", body, logo }),
+      html: shell({
+        preheader: "We've received your reservation · Réservation bien reçue.",
+        eyebrow: "Reservation received · Réservation reçue",
+        title: "Thanks for your reservation!",
+        body,
+        logo,
+      }),
       type,
       key: keyFor(type, bookingKeyPart(b)),
       relatedType: "place_booking",
@@ -1217,7 +1412,12 @@ export async function sendPlaceBookingEmails(b: PlaceBookingEmailData): Promise<
     result.owner = await send({
       to: owner,
       subject: `New reservation: ${b.name} — ${b.place_name}`,
-      html: shell({ eyebrow: "New reservation request", title: b.name, body, logo }),
+      html: shell({
+        eyebrow: "New reservation request",
+        title: b.name,
+        body,
+        logo,
+      }),
       type: "owner_place_booking_alert",
       key: keyFor("owner_place_booking_alert", bookingKeyPart(b)),
       relatedType: "place_booking",
@@ -1229,7 +1429,9 @@ export async function sendPlaceBookingEmails(b: PlaceBookingEmailData): Promise<
 }
 
 /** Customer reminder the day before a Stay·Eat·Do reservation. */
-export async function sendPlaceReminder(b: PlaceBookingEmailData): Promise<boolean> {
+export async function sendPlaceReminder(
+  b: PlaceBookingEmailData,
+): Promise<boolean> {
   if (!b.email) return false;
   const { wa, logo } = await getBrand();
   const body = `
@@ -1243,7 +1445,14 @@ export async function sendPlaceReminder(b: PlaceBookingEmailData): Promise<boole
   return send({
     to: b.email,
     subject: `Reservation tomorrow · Réservation demain — ${b.place_name} 🌴`,
-    html: shell({ preheader: "Your reservation is tomorrow · Votre réservation, c'est demain.", eyebrow: "Reservation reminder · Rappel", title: "See you tomorrow!", body, logo }),
+    html: shell({
+      preheader:
+        "Your reservation is tomorrow · Votre réservation, c'est demain.",
+      eyebrow: "Reservation reminder · Rappel",
+      title: "See you tomorrow!",
+      body,
+      logo,
+    }),
     type,
     key: keyFor(type, bookingKeyPart(b)),
     relatedType: "place_booking",
@@ -1252,10 +1461,24 @@ export async function sendPlaceReminder(b: PlaceBookingEmailData): Promise<boole
 }
 
 /** Customer feedback request the day after a Stay·Eat·Do reservation. */
-export async function sendPlaceFeedbackRequest(b: PlaceBookingEmailData): Promise<boolean> {
+export async function sendPlaceFeedbackRequest(
+  b: PlaceBookingEmailData,
+): Promise<boolean> {
   if (!b.email) return false;
   const { wa, logo } = await getBrand();
-  const reviewUrl = process.env.GOOGLE_REVIEW_URL || `${SITE_URL}/#reviews`;
+  // ── #reviews DOES NOT EXIST ───────────────────────────────────
+  // Checked against the live homepage: the only ids on it are #contact,
+  // #explore, #rr-splash and #rto-compact. So every "Leave a review" button
+  // this platform has ever emailed dropped the customer at the top of the
+  // homepage with no idea what to do next — which is the whole review funnel,
+  // silently broken, on a site whose reviews section reads
+  // "Be the first to leave a review".
+  //
+  // #contact is the section that actually holds the reviews and the button
+  // that opens the form. GOOGLE_REVIEW_URL still wins when it is set, and a
+  // Google Business Profile review link is the better destination once one
+  // exists — see the profile recommendation in the audit.
+  const reviewUrl = process.env.GOOGLE_REVIEW_URL || `${SITE_URL}/#contact`;
   const body = `
     ${paragraph(`Hi ${b.name}, how was <strong>${b.place_name}</strong>? We'd love to hear about it — a quick review helps other travellers and the local business. 💛`)}
     ${sepFr()}
@@ -1267,7 +1490,13 @@ export async function sendPlaceFeedbackRequest(b: PlaceBookingEmailData): Promis
   return send({
     to: b.email,
     subject: `How was ${b.place_name}? · Votre avis ? 🌴`,
-    html: shell({ preheader: "A quick review helps other travellers · Votre avis compte.", eyebrow: "Your feedback · Votre avis", title: "Thanks for visiting!", body, logo }),
+    html: shell({
+      preheader: "A quick review helps other travellers · Votre avis compte.",
+      eyebrow: "Your feedback · Votre avis",
+      title: "Thanks for visiting!",
+      body,
+      logo,
+    }),
     type,
     key: keyFor(type, bookingKeyPart(b)),
     relatedType: "place_booking",
@@ -1276,7 +1505,9 @@ export async function sendPlaceFeedbackRequest(b: PlaceBookingEmailData): Promis
 }
 
 /** Owner reminder: a Stay·Eat·Do reservation is happening tomorrow. */
-export async function sendAdminPlaceReminder(b: PlaceBookingEmailData): Promise<boolean> {
+export async function sendAdminPlaceReminder(
+  b: PlaceBookingEmailData,
+): Promise<boolean> {
   const owner = ownerInbox();
   const { logo } = await getBrand();
   const body = `
@@ -1286,7 +1517,12 @@ export async function sendAdminPlaceReminder(b: PlaceBookingEmailData): Promise<
   return send({
     to: owner,
     subject: `🌴 Reservation tomorrow: ${b.name} — ${b.place_name}`,
-    html: shell({ eyebrow: "Reservation reminder", title: "Reservation tomorrow", body, logo }),
+    html: shell({
+      eyebrow: "Reservation reminder",
+      title: "Reservation tomorrow",
+      body,
+      logo,
+    }),
     type: "owner_place_reminder",
     key: keyFor("owner_place_reminder", bookingKeyPart(b)),
     relatedType: "place_booking",
@@ -1295,7 +1531,10 @@ export async function sendAdminPlaceReminder(b: PlaceBookingEmailData): Promise<
 }
 
 // ── Instant enquiry auto-reply (bilingual) ───────────────────────────────
-export async function sendEnquiryAck(to: string, name: string | null): Promise<boolean> {
+export async function sendEnquiryAck(
+  to: string,
+  name: string | null,
+): Promise<boolean> {
   const { wa, logo } = await getBrand();
   const hiEn = name ? `Hi ${name},` : "Hi there,";
   const hiFr = name ? `Bonjour ${name},` : "Bonjour,";
@@ -1314,7 +1553,14 @@ export async function sendEnquiryAck(to: string, name: string | null): Promise<b
   return send({
     to,
     subject: "We've got your message · Message bien reçu 🛵",
-    html: shell({ preheader: "We've received your message · Nous avons bien reçu votre message.", eyebrow: "Message received · Message reçu", title: "Thanks for getting in touch!", body, logo }),
+    html: shell({
+      preheader:
+        "We've received your message · Nous avons bien reçu votre message.",
+      eyebrow: "Message received · Message reçu",
+      title: "Thanks for getting in touch!",
+      body,
+      logo,
+    }),
     type: "enquiry_ack",
     key: `enquiry_ack:${to.toLowerCase()}:${new Date().toISOString().slice(0, 10)}`,
   });
@@ -1349,15 +1595,23 @@ export async function sendWaitlistWelcome(
     ${wa ? `<div style="text-align:center">${waButton(wa, "Hi Roule Rodrigues! I'd love some help planning my trip. ", "💬 WhatsApp")}</div>` : ""}`;
   return send({
     to,
-    subject: savedList ? "Your list is saved · Votre liste est enregistrée 🛵" : "Welcome to Roule Rodrigues · Bienvenue 🛵🌴",
+    subject: savedList
+      ? "Your list is saved · Votre liste est enregistrée 🛵"
+      : "Welcome to Roule Rodrigues · Bienvenue 🛵🌴",
     type: opts?.test ? "admin_test" : "waitlist_welcome",
     // Source is part of the key: joining the waitlist and saving a list are two
     // different emails, and one must not suppress the other.
-    key: opts?.test ? null : `waitlist_welcome:${source ?? "default"}:${to.toLowerCase()}`,
+    key: opts?.test
+      ? null
+      : `waitlist_welcome:${source ?? "default"}:${to.toLowerCase()}`,
     ...(opts?.provider ? { forceProvider: opts.provider } : {}),
     html: shell({
-      preheader: savedList ? "Your saved list is waiting · Votre liste vous attend." : "Island tips, deals and hidden spots · Conseils et offres de Rodrigues.",
-      eyebrow: savedList ? "Your saved list · Votre liste" : "Welcome aboard · Bienvenue",
+      preheader: savedList
+        ? "Your saved list is waiting · Votre liste vous attend."
+        : "Island tips, deals and hidden spots · Conseils et offres de Rodrigues.",
+      eyebrow: savedList
+        ? "Your saved list · Votre liste"
+        : "Welcome aboard · Bienvenue",
       title: savedList ? "Your saved list is waiting" : "Welcome aboard!",
       body,
       logo,
@@ -1369,9 +1623,19 @@ export async function sendWaitlistWelcome(
  * Weekly digest of questions Ti Roulé couldn't answer, so the owner can grow the
  * knowledge base (and SEO). Sent from the daily cron, once a week.
  */
-export async function sendTiRouleMissesDigest(to: string, rows: { question: string; count: number }[]): Promise<boolean> {
+export async function sendTiRouleMissesDigest(
+  to: string,
+  rows: { question: string; count: number }[],
+): Promise<boolean> {
   if (!to || !rows.length) return false;
-  const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+  const esc = (s: string) =>
+    s.replace(
+      /[&<>"]/g,
+      (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[
+          c
+        ] as string,
+    );
   const items = rows
     .slice(0, 25)
     .map(
@@ -1416,11 +1680,15 @@ export async function sendVehicleUnavailableEmail(o: {
   vehicleId?: string | null;
 }): Promise<boolean> {
   const first = (o.name ?? "").trim().split(/\s+/)[0] || "there";
-  const dates = o.start === o.end ? fmtDate(o.start) : `${fmtDate(o.start)} → ${fmtDate(o.end)}`;
+  const dates =
+    o.start === o.end
+      ? fmtDate(o.start)
+      : `${fmtDate(o.start)} → ${fmtDate(o.end)}`;
   const html = shell({
     eyebrow: "Booking update · Mise à jour",
     title: "That vehicle was just booked",
-    preheader: "The vehicle you requested has been taken — you were not charged.",
+    preheader:
+      "The vehicle you requested has been taken — you were not charged.",
     body: `
       <p>Hi ${first},</p>
       <p>The <b>${o.vehicle}</b> you requested for <b>${dates}</b> has just been secured by another
@@ -1432,7 +1700,10 @@ export async function sendVehicleUnavailableEmail(o: {
       vient d'être réservé par un autre client. Aucun montant ne vous a été débité —
       <a href="https://roulerodrig.com/browse/scooter" style="color:#F5C842">réservez-en un autre</a>.</p>`,
   });
-  const type = vehicleEmailType("booking_status", await vehicleCategory(o.vehicleId ?? o.vehicle));
+  const type = vehicleEmailType(
+    "booking_status",
+    await vehicleCategory(o.vehicleId ?? o.vehicle),
+  );
   return send({
     to: o.to,
     subject: "Update on your Roule Rodrigues booking",
@@ -1472,7 +1743,9 @@ export async function sendOrderNotificationEmail(o: {
 }): Promise<boolean> {
   const { logo } = await getBrand();
   const pairs: [string, string][] = [
-    ...(o.orderNumber ? ([["Order", o.orderNumber]] as [string, string][]) : []),
+    ...(o.orderNumber
+      ? ([["Order", o.orderNumber]] as [string, string][])
+      : []),
     ...(o.details ?? []),
   ];
   const body = `

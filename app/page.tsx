@@ -264,6 +264,12 @@ export default async function Home() {
   // real minimum and this sentence is what an AI Overview paraphrases.
   const fromPrice = fleetFromPrice(fleet);
 
+  // The locality the PAGE shows, so the structured data cannot contradict it.
+  // content.contact.location is a free-text line like "Baie Aux Huîtres,Rodrigues";
+  // the first part is the village.
+  const addressLocality =
+    (content.contact.location ?? "").split(",")[0].trim() || "Rodrigues";
+
   const priceRange = dayRates.length
     ? `Rs ${Math.min(...dayRates).toLocaleString("en-US")}–${Math.max(...dayRates).toLocaleString("en-US")} per day`
     : undefined;
@@ -298,17 +304,27 @@ export default async function Home() {
         ...(priceRange ? { priceRange } : {}),
         currenciesAccepted: "MUR",
         ...(content.contact.phone ? { telephone: content.contact.phone } : {}),
+        // ── THE VISIBLE ADDRESS AND THE STRUCTURED ONE DISAGREED ───────────
+        // This said "Port Mathurin" while the page rendered
+        // "Baie Aux Huîtres, Rodrigues" from content.contact.location — two
+        // different villages. Google cross-checks structured data against the
+        // visible text and against the business profile, and a locality
+        // mismatch is one of the things that keeps a business out of the map
+        // pack. It now reads the SAME field the page shows, so the two cannot
+        // drift again.
         address: {
           "@type": "PostalAddress",
-          addressLocality: "Port Mathurin",
+          addressLocality: addressLocality,
           addressRegion: "Rodrigues",
           addressCountry: "MU",
         },
-        geo: {
-          "@type": "GeoCoordinates",
-          latitude: -19.6833,
-          longitude: 63.4167,
-        },
+        // `geo` REMOVED, deliberately. It carried -19.6833, 63.4167 — Port
+        // Mathurin's coordinates, for a business the same block now says is in
+        // Baie aux Huîtres. A precise point that contradicts the stated
+        // locality is worse than no point: it drops the map pin in the wrong
+        // village. The right coordinates are the ones on the Google Business
+        // Profile, and inventing them here to fill the field would be making
+        // up a fact about where somebody's business is.
         areaServed: { "@type": "Place", name: "Rodrigues Island, Mauritius" },
         ...(sameAs.length ? { sameAs } : {}),
         // Built from the live hub tiles + the free tools that are actually on
