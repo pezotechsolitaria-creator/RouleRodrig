@@ -3,14 +3,27 @@
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import {
-  Phone, MessageCircle, Car, Loader2, WifiOff, MapPin, Navigation, Star,
-  CircleDot, ChevronDown,
+  Phone,
+  MessageCircle,
+  Car,
+  Loader2,
+  WifiOff,
+  MapPin,
+  Navigation,
+  Star,
+  CircleDot,
+  ChevronDown,
 } from "lucide-react";
 import { useTripTracking } from "@/lib/tracking/useTripTracking";
 import {
-  formatDistance, formatEta, lastSeenLabel, TRACKING_CUSTOMER_STATUS,
+  formatDistance,
+  formatEta,
+  lastSeenLabel,
+  TRACKING_CUSTOMER_STATUS,
 } from "@/lib/tracking/model";
 import JourneyTrack, { type JourneyStage } from "./JourneyTrack";
+import { useLanguage } from "@/context/LanguageContext";
+import { RIDES_COPY } from "@/lib/rides/copy.i18n";
 
 const TrackingMap = dynamic(() => import("./TrackingMap"), {
   ssr: false,
@@ -70,31 +83,54 @@ export type TripDriver = {
  * them spends a quarter of the track on history. What is left is the part still
  * to happen.
  */
-const STAGES: (JourneyStage & { status: string })[] = [
-  { key: "pending", status: "pending", label: "Confirmed" },
-  { key: "en_route_pickup", status: "en_route_pickup", label: "On the way" },
-  { key: "at_pickup", status: "at_pickup", label: "At pickup" },
-  { key: "on_trip", status: "on_trip", label: "On trip" },
-  { key: "ended", status: "ended", label: "Arrived" },
-];
+type LiveCopy = (typeof RIDES_COPY)["en"]["track"]["live"];
+
+const STAGE_KEYS = [
+  { key: "pending", status: "pending", copy: "confirmed" },
+  { key: "en_route_pickup", status: "en_route_pickup", copy: "onTheWay" },
+  { key: "at_pickup", status: "at_pickup", copy: "atPickup" },
+  { key: "on_trip", status: "on_trip", copy: "onTrip" },
+  { key: "ended", status: "ended", copy: "arrived" },
+] as const satisfies readonly {
+  key: string;
+  status: string;
+  copy: keyof LiveCopy;
+}[];
+
+/** The stages, in the visitor's language. */
+function stagesFor(c: LiveCopy): (JourneyStage & { status: string })[] {
+  return STAGE_KEYS.map((s) => ({
+    key: s.key,
+    status: s.status,
+    label: c[s.copy],
+  }));
+}
 
 function stageIndex(status: string): number {
-  const i = STAGES.findIndex((s) => s.status === status);
+  const i = STAGE_KEYS.findIndex((s) => s.status === status);
   return i < 0 ? 0 : i;
 }
 
 /** The dark chip on the right of the booking row. Two words, never a sentence. */
-const BADGE: Record<string, string> = {
-  pending: "Confirmed",
-  en_route_pickup: "On the way",
-  at_pickup: "At pickup",
-  on_trip: "On trip",
-  ended: "Complete",
+const BADGE_COPY: Record<string, keyof LiveCopy> = {
+  pending: "confirmed",
+  en_route_pickup: "onTheWay",
+  at_pickup: "atPickup",
+  on_trip: "onTrip",
+  ended: "complete",
 };
 
 export default function LiveTripView({
-  lookup, channelKey, driver, active, pickupLabel, dropoffLabel,
-  reference, fare, passengerName, headerSlot,
+  lookup,
+  channelKey,
+  driver,
+  active,
+  pickupLabel,
+  dropoffLabel,
+  reference,
+  fare,
+  passengerName,
+  headerSlot,
 }: {
   /** The credential that authorised this watcher, replayed on every poll. */
   lookup: Record<string, string> | null;
@@ -110,9 +146,14 @@ export default function LiveTripView({
   passengerName?: string | null;
   headerSlot?: React.ReactNode;
 }) {
-  const { snapshot, fix, freshness, ageSeconds, channel, loading } = useTripTracking({
-    lookup, channelKey, active,
-  });
+  const { language } = useLanguage();
+  const c = RIDES_COPY[language].track.live;
+  const { snapshot, fix, freshness, ageSeconds, channel, loading } =
+    useTripTracking({
+      lookup,
+      channelKey,
+      active,
+    });
   const [open, setOpen] = useState(true);
 
   const stale = freshness === "stale" || freshness === "unknown";
@@ -141,18 +182,34 @@ export default function LiveTripView({
   const finished = status === "ended" || Boolean(snapshot?.endedAt);
 
   const pins = useMemo(() => {
-    const out: { id: string; lat: number; lng: number; kind: "pickup" | "dropoff"; label?: string }[] = [];
+    const out: {
+      id: string;
+      lat: number;
+      lng: number;
+      kind: "pickup" | "dropoff";
+      label?: string;
+    }[] = [];
     // The pickup stops mattering the moment the passenger is aboard.
-    if (snapshot?.pickupLat != null && snapshot.pickupLng != null && status !== "on_trip") {
+    if (
+      snapshot?.pickupLat != null &&
+      snapshot.pickupLng != null &&
+      status !== "on_trip"
+    ) {
       out.push({
-        id: "pickup", lat: snapshot.pickupLat, lng: snapshot.pickupLng,
-        kind: "pickup", label: pickupLabel ?? snapshot.pickupLabel ?? undefined,
+        id: "pickup",
+        lat: snapshot.pickupLat,
+        lng: snapshot.pickupLng,
+        kind: "pickup",
+        label: pickupLabel ?? snapshot.pickupLabel ?? undefined,
       });
     }
     if (snapshot?.dropoffLat != null && snapshot.dropoffLng != null) {
       out.push({
-        id: "dropoff", lat: snapshot.dropoffLat, lng: snapshot.dropoffLng,
-        kind: "dropoff", label: dropoffLabel ?? snapshot.dropoffLabel ?? undefined,
+        id: "dropoff",
+        lat: snapshot.dropoffLat,
+        lng: snapshot.dropoffLng,
+        kind: "dropoff",
+        label: dropoffLabel ?? snapshot.dropoffLabel ?? undefined,
       });
     }
     return out;
@@ -176,13 +233,23 @@ export default function LiveTripView({
   // The dashed fallback only exists for the case where NO router answered and
   // we still have two points to relate. It must never sit under a real road.
   const directLine =
-    !finished && !route && fix && !stale && target.lat != null && target.lng != null
-      ? ([[fix.lat, fix.lng], [target.lat, target.lng]] as [[number, number], [number, number]])
+    !finished &&
+    !route &&
+    fix &&
+    !stale &&
+    target.lat != null &&
+    target.lng != null
+      ? ([
+          [fix.lat, fix.lng],
+          [target.lat, target.lng],
+        ] as [[number, number], [number, number]])
       : null;
 
   const hasEndpoints =
-    snapshot?.pickupLat != null && snapshot?.pickupLng != null &&
-    snapshot?.dropoffLat != null && snapshot?.dropoffLng != null;
+    snapshot?.pickupLat != null &&
+    snapshot?.pickupLng != null &&
+    snapshot?.dropoffLat != null &&
+    snapshot?.dropoffLng != null;
   // Anything at all: a driver, a road, or two ends to put pins on.
   const hasSomethingToDraw = Boolean(fix) || Boolean(route) || hasEndpoints;
 
@@ -193,10 +260,15 @@ export default function LiveTripView({
     if (route && route.length > 1) return route;
     const pts: [number, number][] = [];
     if (fix) pts.push([fix.lat, fix.lng]);
-    if (target.lat != null && target.lng != null) pts.push([target.lat, target.lng]);
+    if (target.lat != null && target.lng != null)
+      pts.push([target.lat, target.lng]);
     // With no driver and no road, frame the two ends — that is still the
     // journey, and it is what the customer books.
-    if (!pts.length && snapshot?.pickupLat != null && snapshot?.pickupLng != null) {
+    if (
+      !pts.length &&
+      snapshot?.pickupLat != null &&
+      snapshot?.pickupLng != null
+    ) {
       pts.push([snapshot.pickupLat, snapshot.pickupLng]);
     }
     if (snapshot?.dropoffLat != null && snapshot?.dropoffLng != null) {
@@ -209,17 +281,24 @@ export default function LiveTripView({
   }, [route, fix, target.lat, target.lng, snapshot]);
 
   const statusText =
-    TRACKING_CUSTOMER_STATUS[status as keyof typeof TRACKING_CUSTOMER_STATUS] ?? "Tracking";
+    TRACKING_CUSTOMER_STATUS[status as keyof typeof TRACKING_CUSTOMER_STATUS] ??
+    c.tracking;
 
   // The driver's standing, and never an invented one. A rating only exists once
   // somebody has actually left one; until then the honest number is the count of
   // rides they have completed, which the platform has tracked since day one.
   const standing =
     driver?.rating != null && (driver.ratingCount ?? 0) > 0
-      ? { star: true, text: `${driver.rating.toFixed(1)} · ${driver.ratingCount} review${driver.ratingCount === 1 ? "" : "s"}` }
+      ? {
+          star: true,
+          text: `${driver.rating.toFixed(1)} · ${driver.ratingCount} review${driver.ratingCount === 1 ? "" : "s"}`,
+        }
       : (driver?.ridesCompleted ?? 0) > 0
-        ? { star: false, text: `${driver!.ridesCompleted} rides with Roulé Rodrigues` }
-        : { star: false, text: "Your driver" };
+        ? {
+            star: false,
+            text: `${driver!.ridesCompleted} rides with Roulé Rodrigues`,
+          }
+        : { star: false, text: c.yourDriver };
 
   return (
     <div className="overflow-hidden rounded-3xl border border-white/10 bg-dark-card">
@@ -250,8 +329,13 @@ export default function LiveTripView({
             driver={
               fix
                 ? {
-                    id: "driver", lat: fix.lat, lng: fix.lng, kind: "driver",
-                    bearing: fix.heading, stale, vehicle: "car",
+                    id: "driver",
+                    lat: fix.lat,
+                    lng: fix.lng,
+                    kind: "driver",
+                    bearing: fix.heading,
+                    stale,
+                    vehicle: "car",
                   }
                 : null
             }
@@ -272,9 +356,7 @@ export default function LiveTripView({
               <>
                 <MapPin size={26} className="text-muted" />
                 <p className="font-dm text-sm text-muted">
-                  {active
-                    ? "We don't have the map points for this trip yet."
-                    : "This trip has finished."}
+                  {active ? c.noPoints : c.finished}
                 </p>
               </>
             )}
@@ -314,8 +396,11 @@ export default function LiveTripView({
               is your route" it reads as a next step. */}
           {hasSomethingToDraw && !fix && active && (
             <span className="pointer-events-none max-w-[92%] rounded-2xl border border-white/10 bg-dark-card px-3.5 py-2 text-center font-dm text-[11px] leading-relaxed text-muted shadow-lg">
-              <span className="font-bold text-offwhite">This is your route.</span>{" "}
-              Your driver appears here as soon as they start sharing their location.
+              <span className="font-bold text-offwhite">
+                {c.thisIsYourRoute}
+              </span>{" "}
+              Your driver appears here as soon as they start sharing their
+              location.
             </span>
           )}
 
@@ -323,7 +408,7 @@ export default function LiveTripView({
               to ignore it. */}
           {channel === "error" && active && (
             <span className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-dark-card px-3 py-1.5 font-dm text-[11px] text-muted">
-              <WifiOff size={11} /> Reconnecting — the map may lag
+              <WifiOff size={11} /> {c.reconnecting}
             </span>
           )}
         </div>
@@ -333,14 +418,21 @@ export default function LiveTripView({
           Lifted 20px over the map with a 28px rounded top. That overlap is the
           whole reason it reads as a sheet rather than a second box. */}
       <div className="relative z-10 -mt-5 rounded-t-[28px] bg-dark-card px-5 pb-5 pt-3">
-        <div className="mx-auto h-1 w-9 rounded-full bg-white/10" aria-hidden="true" />
+        <div
+          className="mx-auto h-1 w-9 rounded-full bg-white/10"
+          aria-hidden="true"
+        />
 
         {/* ── Who is driving ─────────────────────────────────────────── */}
         <div className="mt-4 flex items-center gap-3">
           <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full bg-white/5">
             {driver?.photo ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={driver.photo} alt="" className="h-full w-full object-cover" />
+              <img
+                src={driver.photo}
+                alt=""
+                className="h-full w-full object-cover"
+              />
             ) : (
               <Car size={20} className="text-yellow" />
             )}
@@ -348,17 +440,21 @@ export default function LiveTripView({
 
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-1 font-dm text-[11px] text-muted">
-              {standing.star && <Star size={11} className="shrink-0 fill-yellow text-yellow" />}
+              {standing.star && (
+                <Star size={11} className="shrink-0 fill-yellow text-yellow" />
+              )}
               <span className="min-w-0 break-words">{standing.text}</span>
             </p>
             {/* NOT truncated. A person's name is the one string on this screen
                 that must arrive whole — "Jean-Marc Ravina" cut to "Jean-…" is
                 worse than two lines. */}
             <p className="font-syne text-lg font-extrabold leading-tight text-offwhite">
-              {driver?.name ?? "Your driver"}
+              {driver?.name ?? c.yourDriver}
             </p>
             {driver?.vehicle && (
-              <p className="break-words font-dm text-[11px] text-muted">{driver.vehicle}</p>
+              <p className="break-words font-dm text-[11px] text-muted">
+                {driver.vehicle}
+              </p>
             )}
           </div>
 
@@ -399,9 +495,14 @@ export default function LiveTripView({
             aria-hidden="true"
           />
           <span className="min-w-0">
-            {eta ? `${statusText} · arriving in ${formatEta(eta.minutes)}` : statusText}
+            {eta
+              ? `${statusText} · arriving in ${formatEta(eta.minutes)}`
+              : statusText}
             {eta && (
-              <span className="font-bold text-offwhite"> · {formatDistance(eta.km)} left</span>
+              <span className="font-bold text-offwhite">
+                {" "}
+                · {formatDistance(eta.km)} left
+              </span>
             )}
             {/* No driver yet, so no arrival time — but the trip's own length is
                 a real, useful number and is labelled as what it is. */}
@@ -418,7 +519,7 @@ export default function LiveTripView({
             updating ten minutes ago. */}
         <p className="mt-1.5 font-dm text-[11px] text-muted">
           {freshness === "live" ? (
-            <span className="text-yellow">Live</span>
+            <span className="text-yellow">{c.liveBadge}</span>
           ) : (
             <>
               {lastSeenLabel(ageSeconds)}
@@ -435,7 +536,9 @@ export default function LiveTripView({
         {reference && (
           <div className="mt-4 flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="font-bebas text-[10px] tracking-[0.25em] text-muted">BOOKING</p>
+              <p className="font-bebas text-[10px] tracking-[0.25em] text-muted">
+                {c.booking}
+              </p>
               {/* 22px, and never truncated: rideReference() is always exactly
                   "RR-" + 6 characters, and a booking number missing its last
                   character is the one thing on this screen a customer will
@@ -445,7 +548,7 @@ export default function LiveTripView({
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-white/10 px-3 py-1.5 font-dm text-[11px] font-bold text-offwhite">
-              {BADGE[status] ?? "Tracking"}
+              {c[BADGE_COPY[status] ?? "tracking"]}
             </span>
           </div>
         )}
@@ -454,7 +557,7 @@ export default function LiveTripView({
           <>
             {/* ── How far along ───────────────────────────────────────── */}
             <JourneyTrack
-              stages={STAGES}
+              stages={stagesFor(c)}
               at={at}
               calloutLabel={eta ? `${formatEta(eta.minutes)} away` : null}
               stalled={stale}
@@ -463,7 +566,9 @@ export default function LiveTripView({
             {/* ── Where ───────────────────────────────────────────────── */}
             <div className="mt-5 grid grid-cols-2 gap-4">
               <div className="min-w-0">
-                <p className="font-bebas text-[10px] tracking-[0.25em] text-muted">FROM</p>
+                <p className="font-bebas text-[10px] tracking-[0.25em] text-muted">
+                  {c.from}
+                </p>
                 <p
                   className={`mt-1 flex items-start gap-1.5 font-dm text-[13px] ${
                     status === "on_trip" ? "text-muted" : "text-offwhite"
@@ -471,16 +576,21 @@ export default function LiveTripView({
                 >
                   <MapPin size={12} className="mt-0.5 shrink-0 text-yellow" />
                   <span className="min-w-0 break-words">
-                    {pickupLabel ?? snapshot?.pickupLabel ?? "Pickup"}
+                    {pickupLabel ?? snapshot?.pickupLabel ?? c.pickup}
                   </span>
                 </p>
               </div>
               <div className="min-w-0">
-                <p className="font-bebas text-[10px] tracking-[0.25em] text-muted">TO</p>
+                <p className="font-bebas text-[10px] tracking-[0.25em] text-muted">
+                  TO
+                </p>
                 <p className="mt-1 flex items-start gap-1.5 font-dm text-[13px] text-offwhite">
-                  <Navigation size={12} className="mt-0.5 shrink-0 text-yellow" />
+                  <Navigation
+                    size={12}
+                    className="mt-0.5 shrink-0 text-yellow"
+                  />
                   <span className="min-w-0 break-words">
-                    {dropoffLabel ?? snapshot?.dropoffLabel ?? "Destination"}
+                    {dropoffLabel ?? snapshot?.dropoffLabel ?? c.destination}
                   </span>
                 </p>
               </div>
@@ -491,7 +601,9 @@ export default function LiveTripView({
               <div className="mt-4 grid grid-cols-2 gap-4 border-t border-white/10 pt-4">
                 {fare && (
                   <div className="min-w-0">
-                    <p className="font-bebas text-[10px] tracking-[0.25em] text-muted">FARE</p>
+                    <p className="font-bebas text-[10px] tracking-[0.25em] text-muted">
+                      {c.fare}
+                    </p>
                     <p className="mt-0.5 truncate font-syne text-base font-extrabold text-offwhite">
                       {fare}
                     </p>
@@ -499,7 +611,9 @@ export default function LiveTripView({
                 )}
                 {passengerName && (
                   <div className="min-w-0">
-                    <p className="font-bebas text-[10px] tracking-[0.25em] text-muted">PASSENGER</p>
+                    <p className="font-bebas text-[10px] tracking-[0.25em] text-muted">
+                      {c.passenger}
+                    </p>
                     <p className="mt-0.5 truncate font-syne text-base font-extrabold text-offwhite">
                       {passengerName}
                     </p>
@@ -517,7 +631,7 @@ export default function LiveTripView({
           // only control for the whole details section, and too small to hit.
           className="mt-2 flex w-full items-center justify-center gap-1 py-3.5 font-dm text-[11px] text-muted hover:text-yellow"
         >
-          {open ? "Hide details" : "Show details"}
+          {open ? c.hideDetails : c.showDetails}
           <ChevronDown
             size={13}
             className={`transition-transform ${open ? "rotate-180" : ""}`}

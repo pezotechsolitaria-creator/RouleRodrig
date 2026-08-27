@@ -36,25 +36,45 @@ export async function POST(req: NextRequest) {
   const phone = (body.phone ?? "").toString().trim();
   if (!ref || !phone) {
     return NextResponse.json(
-      { ok: false, error: "Enter your reference and the phone number you booked with." },
+      // A CODE, not a sentence. The client renders whatever arrives here, and
+      // it cannot translate prose it did not author — a French customer was
+      // being shown an English sentence at the one moment they were stuck.
+      // `error` stays for anything still reading it.
+      {
+        ok: false,
+        code: "missing_fields",
+        error: "Enter your reference and the phone number you booked with.",
+      },
       { status: 400 },
     );
   }
 
   const admin = await getPrivileged();
-  const { data, error } = await admin.rpc("lookup_ride", { p_ref: ref, p_phone: phone });
+  const { data, error } = await admin.rpc("lookup_ride", {
+    p_ref: ref,
+    p_phone: phone,
+  });
   if (error) {
     // A database fault must not be reported as "not found" — that would tell a
     // real customer their taxi has vanished.
     console.error("lookup_ride failed", error);
-    return NextResponse.json({ ok: false, error: "Something went wrong. Please try again." }, { status: 500 });
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "server",
+        error: "Something went wrong. Please try again.",
+      },
+      { status: 500 },
+    );
   }
 
   const found = (data as { ok?: boolean } | null)?.ok === true;
   if (!found) {
     return NextResponse.json({
       ok: false,
-      error: "We couldn't find that. Check the reference and the phone number you used.",
+      code: "not_found",
+      error:
+        "We couldn't find that. Check the reference and the phone number you used.",
     });
   }
   return NextResponse.json(data);
