@@ -44,7 +44,16 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   title: `${TITLE} | Roule Rodrigues`,
   description: DESCRIPTION,
-  alternates: { canonical: `${SITE_URL}/guide/ile-aux-cocos` },
+  alternates: {
+    canonical: `${SITE_URL}/guide/ile-aux-cocos`,
+    // Must mirror the block on /fr/ile-aux-cocos. A one-way hreflang is
+    // silently ignored — the same note /guide/beaches already carries.
+    languages: {
+      "en-US": `${SITE_URL}/guide/ile-aux-cocos`,
+      "fr-FR": `${SITE_URL}/fr/ile-aux-cocos`,
+      "x-default": `${SITE_URL}/guide/ile-aux-cocos`,
+    },
+  },
   openGraph: {
     title: `${TITLE} | Roule Rodrigues`,
     description: DESCRIPTION,
@@ -274,6 +283,14 @@ export default async function IleAuxCocosPage() {
             <p className="mt-3 font-dm text-xs text-muted/70">
               Prices and access rules change. If you find something here out of
               date, tell us — {content.contact.email || "and we will fix it"}.
+            </p>
+            <p className="mt-3 font-dm text-xs text-muted/70">
+              <Link
+                href="/fr/ile-aux-cocos"
+                className="underline hover:text-yellow"
+              >
+                Lire cette page en français
+              </Link>
             </p>
           </section>
         </article>

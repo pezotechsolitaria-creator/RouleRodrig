@@ -320,6 +320,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.8,
     },
+    // French counterpart. The audit's finding was three French pages for a
+    // market that searches almost entirely in French.
+    {
+      url: `${SITE_URL}/fr/ile-aux-cocos`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
     // Real search targets: "what's on in Rodrigues", "airport transfer Rodrigues".
     {
       url: `${SITE_URL}/events`,
