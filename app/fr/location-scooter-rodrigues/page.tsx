@@ -74,7 +74,26 @@ const metadataFor = (from: number): Metadata => ({
 // Every answer here is traced to real data or real code — never asserted.
 // Price: the live fleet. "Sans durée minimale": no minimum-day logic exists
 // anywhere, and the booking form explicitly supports a 1-day rental.
-const FAQ = (from: number) => [
+// ── THE QUESTION THE LAST ANSWER CREATES (M136) ────────────────────────────
+//
+// This page works — roughly ten customers — and the rule has been not to touch
+// its formula. This is not a rewrite: it is the answer to the question the
+// existing FAQ leaves hanging.
+//
+// The last answer ends "nos scooters 125cc accueillent confortablement deux
+// personnes". A family of four reads that and their next thought is "so not
+// us". Until now the page had nothing to say to them except a link fifth in a
+// list at the very bottom, below the fold, after everything else.
+//
+// So the car price is passed in and the answer is honest: a scooter carries
+// two, here is what a car costs, here is where to look. That serves the reader
+// first — and it puts a contextual link from the page that ranks to the page
+// that does not, in the place where the need actually arises rather than in a
+// footer nobody scrolls to.
+//
+// It is also the shape an assistant quotes when asked "is a scooter enough for
+// a family in Rodrigues?" — a real question, answered with a real price.
+const FAQ = (from: number, carFrom: number) => [
   {
     q: "Combien coûte la location d'un scooter à Rodrigues ?",
     a: `Nos scooters sont proposés à partir de Rs ${rs(from)} par jour, avec un casque pour chaque passager et l'assurance au tiers inclus. Le prix affiché est le prix final : aucun frais de réservation, aucune commission.`,
@@ -95,13 +114,21 @@ const FAQ = (from: number) => [
     q: "Le casque est-il fourni ?",
     a: "Oui, gratuitement. Un casque est inclus pour chaque conducteur, ainsi qu'un second casque pour le passager. Nos scooters 125cc accueillent confortablement deux personnes.",
   },
+  {
+    q: "Nous sommes plus de deux, ou nous voyageons avec des enfants — le scooter convient-il ?",
+    a: `Un scooter 125cc transporte deux personnes, casques compris. À trois ou plus, avec de jeunes enfants, ou avec des valises à récupérer à l'aéroport de Plaine Corail, prenez une voiture : nos voitures sont proposées à partir de Rs ${rs(carFrom)} par jour, boîte automatique et climatisation, livrées à votre hôtel comme les scooters. Beaucoup de familles louent les deux : une voiture pour arriver et repartir, un scooter pour faire le tour de l'île.`,
+  },
 ];
 
 export default async function LocationScooterPage() {
   const { content, fleet, businessWhatsApp } = await getFleetView();
 
   const from = fleetFromPrice(fleet, "scooter");
-  const faq = FAQ(from);
+  // Read from the same live fleet as the scooter price. A car price typed by
+  // hand here would drift from /fr/location-voiture-rodrigues the first time
+  // the owner changed it, and the two pages would advertise different numbers.
+  const carFrom = fleetFromPrice(fleet, "car");
+  const faq = FAQ(from, carFrom);
 
   const wa = (businessWhatsApp ?? "").replace(/\D/g, "");
   const waHref = wa

@@ -40,8 +40,13 @@ const rs = (n: number) => n.toLocaleString("fr-FR");
 // 57 chars / 155 — inside the 50–60 and 140–160 targets.
 const TITLE = (from: number) =>
   `Location voiture Rodrigues dès Rs ${rs(from)}/jour | Roule Rodrigues`;
+// "livraison à l'aéroport ou à votre hôtel", not just the hotel: somebody
+// searching "location voiture aéroport Rodrigues" has already booked a flight
+// and is looking for the word aéroport. It is also true — the FAQ commits to
+// it — and a description promising something the page does not answer is the
+// bounce that teaches the ranking this result was wrong.
 const DESCRIPTION = (from: number) =>
-  `Louez une voiture à l'île Rodrigues à partir de Rs ${rs(from)} par jour. Boîte automatique, climatisation, assurance incluse et livraison à votre hôtel. Réservez en ligne.`;
+  `Louez une voiture à Rodrigues dès Rs ${rs(from)}/jour. Automatique, climatisation, assurance incluse. Livraison à l'aéroport de Plaine Corail ou à votre hôtel.`;
 
 export async function generateMetadata(): Promise<Metadata> {
   const { fleet } = await getFleetView();
@@ -93,6 +98,23 @@ const FAQ = (from: number, minAge: string | null) => [
   {
     q: "Livrez-vous la voiture à mon hôtel ?",
     a: "Oui. Nous livrons et récupérons le véhicule à votre hôtel ou pension, partout sur l'île. Indiquez-nous simplement où vous logez au moment de la réservation.",
+  },
+  {
+    // ── THE HIGHEST-INTENT QUESTION THIS PAGE DID NOT ANSWER (M136) ────────
+    //
+    // "Location voiture aéroport Rodrigues" is the query of somebody who has
+    // already booked a flight. They are not browsing; they are arriving, with
+    // luggage, and they need to know whether a car will be there. The page
+    // mentioned Plaine Corail exactly zero times.
+    //
+    // Every fact here is one the site already commits to elsewhere: delivery
+    // anywhere on the island is promised in the FAQ two entries up, and the
+    // flight number is what the taxi booking already asks for (M119), so the
+    // driver can track a delayed plane. Nothing about parking, desks or
+    // opening hours, because none of that is written down anywhere and a page
+    // that invents it is how somebody lands at 6am expecting a counter.
+    q: "Puis-je récupérer la voiture à l'aéroport de Plaine Corail ?",
+    a: "Oui. Nous livrons la voiture à l'aéroport de Plaine Corail à votre arrivée, comme nous la livrons à votre hôtel — sans supplément de livraison. Donnez-nous votre numéro de vol au moment de réserver : nous suivons l'avion, donc un retard ne vous laisse pas sans voiture. Si vous préférez ne pas conduire le jour même, nous assurons aussi le transfert depuis l'aéroport, et la voiture vous est livrée le lendemain à votre hébergement.",
   },
   {
     q: "Voiture ou scooter à Rodrigues ?",
