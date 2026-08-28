@@ -23,6 +23,7 @@ import {
   PlaneTakeoff,
 } from "lucide-react";
 import AppPageHeader from "@/components/AppPageHeader";
+import type { T } from "@/lib/i18n";
 import type { TaxiDriver, TaxiDriverReview } from "@/lib/supabase/taxi-types";
 
 const VEHICLE_EMOJI: Record<string, string> = {
@@ -50,6 +51,44 @@ function fmtDate(s: string): string {
     });
   } catch {
     return s;
+  }
+}
+
+// ── THE SENTENCE A STUCK CUSTOMER READS ──────────────────────────────────────
+//
+// The review modal used to render whatever /api/taxi/reviews put in `error`:
+// finished English, down to the raw Postgres message on a failed insert. So a
+// traveller who had chosen French or Kreol met English at the one moment they
+// were already stuck, and a database fault described the schema to them.
+//
+// A client cannot translate a sentence it did not author. Same fix as
+// /api/rides/track (see lib/rides/track-errors.ts): the route sends a CODE and
+// the words come from the dictionary. It lives here rather than in lib/ because
+// this form is its only caller.
+type ReviewFailure = { code?: string | null; error?: string | null };
+
+function reviewErrorMessage(
+  tx: T["taxi"],
+  status: number,
+  failure: ReviewFailure,
+): string {
+  // guard() answers 429 without a code of its own, and it earns its own line:
+  // "wait a moment and try again" is advice, "something went wrong" is not.
+  if (status === 429) return tx.errBusy;
+  switch (failure.code) {
+    case "driver_required":
+      return tx.errDriver;
+    case "name_required":
+      return tx.errName;
+    case "text_required":
+      return tx.errText;
+    case "rating_required":
+      return tx.errRating;
+    default:
+      // Deliberately NOT failure.error — unlike the ride tracker, which can
+      // fall through to the server's prose. This route's `error` is where the
+      // Postgres text used to arrive, and no customer should ever read it.
+      return tx.errServer;
   }
 }
 
@@ -121,16 +160,20 @@ function DriverReviewsModal({
         }),
       });
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || "Something went wrong.");
+        const j: ReviewFailure = await res.json().catch(() => ({}));
+        setError(reviewErrorMessage(tx, res.status, j));
+        return;
       }
       setDone(true);
       setName("");
       setOrigin("");
       setRating(0);
       setText("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } catch {
+      // fetch() only rejects when the request never completed at all — a
+      // dropped connection, not an answer. Say so in the reader's language
+      // rather than repeating the browser's own English.
+      setError(tx.errOffline);
     } finally {
       setSubmitting(false);
     }
@@ -472,7 +515,7 @@ export default function TaxiPage() {
                         more there are, like the shop and place cards do. */}
                     {(d.photos?.length ?? 0) > 1 && (
                       <span className="absolute bottom-3 right-3 rounded-full bg-black/70 px-2 py-0.5 font-dm text-[10px] text-white">
-                        {d.photos!.length} photos
+                        {tx.photosCount(d.photos!.length)}
                       </span>
                     )}
                   </div>

@@ -5,6 +5,7 @@ import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
+import DeliverTitle from "./DeliverTitle";
 import DeliverForm from "./DeliverForm";
 import MyRequests from "./MyRequests";
 
@@ -133,9 +134,12 @@ export default async function DeliverPage() {
               title slot also moves the world switch onto a second row, and that
               costs 46px of scroll. The arrow does not need the title to exist
               — see the `showBack` prop. */}
-          <h1 className="font-syne text-base font-extrabold leading-tight text-offwhite md:text-4xl">
-            Get anything moved on Rodrigues
-          </h1>
+          {/* The h1 and its classes live in DeliverTitle, which is a client
+              component for one reason: this page is a server component and the
+              language lives in localStorage, so the heading was the last
+              English string in a flow that is otherwise fully trilingual. It
+              still server-renders the English. */}
+          <DeliverTitle />
 
           <div className="mt-3">
             <MyRequests />

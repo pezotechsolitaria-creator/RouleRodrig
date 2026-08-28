@@ -98,6 +98,28 @@ const EN = {
       dropoffFixedEyebrow: "GOING TO",
       dropoffLabel: "TAKE ME TO",
       dropoffPlaceholder: "Where are you going?",
+      /**
+       * The strings INSIDE the place picker, which this screen was not
+       * passing. components/PlacePicker.tsx falls back to English literals
+       * when `copy` is absent, so a French or Kreol customer picked where to
+       * be collected from an English control — the "Common places" heading,
+       * the eight village chips' "Choose"/"Change", and the "Use where I am
+       * now" button — in the middle of an otherwise translated form.
+       *
+       * The wordings are /deliver's, verbatim (lib/delivery/copy.i18n.ts
+       * `where`). It is the SAME control asking the SAME question, and two
+       * house translations of "Use where I am now" would be a bug that only
+       * shows up to somebody who uses both flows.
+       */
+      picker: {
+        useMyLocation: "Use where I am now",
+        nearby: "Common places",
+        recent: "You used recently",
+        choose: "Choose",
+        change: "Change",
+        myLocation: "My current location",
+        useTyped: (q: string) => `Use “${q}” — we’ll confirm the price`,
+      },
       privateHireNote:
         "Your driver stays with you — tell them where you would like to go on the day. We will confirm the price with you; no charge until you agree.",
       whenNow: "As soon as possible",
@@ -316,6 +338,16 @@ const FR: RidesCopy = {
       dropoffFixedEyebrow: "DESTINATION",
       dropoffLabel: "OÙ VOUS EMMENER",
       dropoffPlaceholder: "Où allez-vous ?",
+      picker: {
+        useMyLocation: "Utiliser où je suis maintenant",
+        nearby: "Lieux courants",
+        recent: "Utilisés récemment",
+        choose: "Choisir",
+        change: "Modifier",
+        myLocation: "Ma position actuelle",
+        useTyped: (q: string) =>
+          `Utiliser « ${q} » — nous confirmerons le prix`,
+      },
       privateHireNote:
         "Votre chauffeur reste avec vous — dites-lui le jour même où vous voulez aller. Nous confirmerons le prix avec vous — rien n’est débité avant votre accord.",
       whenNow: "Dès que possible",
@@ -532,6 +564,15 @@ const CR: RidesCopy = {
       dropoffFixedEyebrow: "KOT OU PE ALE",
       dropoffLabel: "KOT AMENN OU",
       dropoffPlaceholder: "Kot ou pe ale ?",
+      picker: {
+        useMyLocation: "Servi kot mo ete la",
+        nearby: "Bann plas kouran",
+        recent: "Servi dernierman",
+        choose: "Swazir",
+        change: "Sanze",
+        myLocation: "Kot mo ete la",
+        useTyped: (q: string) => `Servi « ${q} » — nou pou konfirm pri la`,
+      },
       privateHireNote:
         "Ou sofer res ar ou — dir li lor plas kot ou anvi ale. Nou pou konfirm pri-la ar ou — nanye pa debite avan ou dakor.",
       whenNow: "Pli vit posib",

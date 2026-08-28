@@ -479,6 +479,10 @@ const translations = {
       loading: "Loading drivers…",
       empty: "No drivers listed yet — check back soon.",
       topDriver: "TOP DRIVER",
+      // M72 — the driver card shows a cover photo and says how many more there
+      // are. That count was a literal "photos" in the JSX, so it stayed English
+      // on a French or Kreol card. Vocabulary from components/IslandMap.tsx.
+      photosCount: (n: number) => `${n} photo${n !== 1 ? "s" : ""}`,
       // The booking entry, in the page's own language. These three were
       // hardcoded English in a page otherwise fully translated, so a Kreol
       // reader met "FASTEST WAY / Tell us where you're going" mid-sentence.
@@ -519,6 +523,14 @@ const translations = {
       errRating: "Please choose a star rating.",
       errName: "Please enter your name.",
       errText: "Please write a short review.",
+      // /api/taxi/reviews used to answer with finished English prose — down to
+      // the raw Postgres message on a failed insert — and the review modal
+      // rendered whatever arrived. The route sends a code now and these are the
+      // words that go with it. See reviewErrorMessage in app/taxi/page.tsx.
+      errDriver: "Please choose a driver.",
+      errBusy: "Too many attempts. Please wait a moment and try again.",
+      errServer: "Something went wrong. Please try again.",
+      errOffline: "No connection. Please try again.",
     },
 
     // Stay · Eat · Do (recommended places)
@@ -988,6 +1000,7 @@ const translations = {
       loading: "Chargement des chauffeurs…",
       empty: "Aucun chauffeur pour le moment — revenez bientôt.",
       topDriver: "TOP CHAUFFEUR",
+      photosCount: (n: number) => `${n} photo${n > 1 ? "s" : ""}`,
       bookRide: "Réserver une course",
       airportTransfer: "Transfert aéroport",
       followRide: "Déjà réservé ? Suivez votre course",
@@ -1024,6 +1037,10 @@ const translations = {
       errRating: "Veuillez choisir une note.",
       errName: "Veuillez saisir votre nom.",
       errText: "Veuillez écrire un court avis.",
+      errDriver: "Veuillez choisir un chauffeur.",
+      errBusy: "Trop de tentatives. Veuillez patienter un instant et réessayer.",
+      errServer: "Une erreur s’est produite. Veuillez réessayer.",
+      errOffline: "Pas de connexion. Vérifiez votre réseau et réessayez.",
     },
 
     // Loger · Manger · Faire (lieux recommandés)
@@ -1483,6 +1500,7 @@ const translations = {
       loading: "Pe sarz bann chofer…",
       empty: "Pankor ena chofer — revini biento.",
       topDriver: "TOP CHOFER",
+      photosCount: (n: number) => `${n} foto`,
       bookRide: "Rezerv enn kours",
       airportTransfer: "Transfer erport",
       followRide: "Ou fin deza rezerve ? Swiv ou kours",
@@ -1516,6 +1534,10 @@ const translations = {
       errRating: "Silvouple swazi enn not.",
       errName: "Silvouple met ou non.",
       errText: "Silvouple ekrir enn ti lavi.",
+      errDriver: "Silvouple swazi enn chofer.",
+      errBusy: "Ou finn esey tro boukou fwa. Atann enn ti moman ek esey ankor.",
+      errServer: "Enn zafer finn mal pase. Esey ankor.",
+      errOffline: "Pa ena koneksion. Verifie ou koneksion ek esey ankor.",
     },
 
     // Reste · Manze · Fer (bann landrwa rekomande)

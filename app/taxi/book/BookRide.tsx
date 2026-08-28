@@ -468,6 +468,10 @@ export default function BookRide({
               placeholder={c.step2.pickupPlaceholder}
               required
               autoOpen={!pickup}
+              // Without this the panel's own strings — "Common places",
+              // "Choose", "Use where I am now" — fall back to the English
+              // literals in PlacePicker, inside an otherwise translated form.
+              copy={c.step2.picker}
             />
           )}
 
@@ -494,6 +498,7 @@ export default function BookRide({
               required
               // Waits its turn: a 64px row until pickup is answered.
               autoOpen={Boolean(pickup) && !dropoff}
+              copy={c.step2.picker}
             />
           ) : (
             /* Private hire asks where to COLLECT you and nothing else. An

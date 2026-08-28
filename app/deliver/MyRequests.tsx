@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Package, ShoppingBasket } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
 import { readSaved } from "@/lib/delivery/my-requests";
+import { DELIVER_COPY } from "@/lib/delivery/copy.i18n";
 import { requestStatusCopy, formatFee } from "@/lib/delivery/request-status";
 import { type as t } from "@/lib/delivery/tokens";
 
@@ -66,6 +68,8 @@ type Row = {
 };
 
 export default function MyRequests() {
+  const { language } = useLanguage();
+  const c = DELIVER_COPY[language];
   const [rows, setRows] = useState<Row[] | null>(null);
 
   useEffect(() => {
@@ -137,7 +141,7 @@ export default function MyRequests() {
 
   return (
     <section className="mb-9">
-      <h2 className={cn(t.heading, "text-offwhite")}>Your requests</h2>
+      <h2 className={cn(t.heading, "text-offwhite")}>{c.mine.title}</h2>
       <ul className="mt-3 flex flex-col gap-2">
         {rows.slice(0, 5).map((r) => {
           const Icon = r.kind === "shop_and_deliver" ? ShoppingBasket : Package;
@@ -179,8 +183,13 @@ export default function MyRequests() {
                     <span
                       className={cn(t.meta, "block truncate", wants ? "text-yellow" : "text-[#B0B0B0]")}
                     >
+                      {/* copy.label is still English in every language:
+                          requestStatusCopy() in lib/delivery/request-status.ts
+                          is a one-language module and translating it is its own
+                          piece of work, not this one. */}
                       {copy.label}
-                      {r.live?.bestQuote != null && ` · from ${formatFee(r.live.bestQuote)}`}
+                      {r.live?.bestQuote != null &&
+                        ` · ${c.mine.fromPrice(formatFee(r.live.bestQuote))}`}
                     </span>
                   )}
                 </span>

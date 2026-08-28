@@ -53,6 +53,11 @@ const EN = {
   back: "Back",
   edit: "Change",
 
+  /** The page's h1. /deliver is a server component and the chosen language
+   *  lives in localStorage, so this one string is read by a tiny client child
+   *  — see app/deliver/DeliverTitle.tsx. */
+  pageTitle: "Get anything moved on Rodrigues",
+
   // ── Screen 1 ─────────────────────────────────────────────────────────────
   what: {
     step: "What",
@@ -232,6 +237,29 @@ const EN = {
     whatsapp: "WhatsApp us",
   },
 
+  // ── Coming back to something already posted ─────────────────────────────
+  mine: {
+    title: "Your requests",
+    /** Sits after the live status, so it is a fragment and not a sentence. */
+    fromPrice: (fee: string) => `from ${fee}`,
+  },
+
+  // ── Getting back to a request whose link is gone ─────────────────────────
+  find: {
+    /** The collapsed line — all this is until somebody opens it. */
+    open: "Already asked for prices? Find your request",
+    title: "Find your request",
+    help:
+      "The reference is on the request page, like RR-3F9A2B. We check it against the email you used, so neither one on its own opens anything.",
+    refLabel: "Reference",
+    refBad: "That should be six characters, like RR-3F9A2B.",
+    emailLabel: "The email you used",
+    cancel: "Cancel",
+    submit: "Find it",
+    submitting: "Looking…",
+    notFound: "We couldn't find that.",
+  },
+
   // ── The photo, which for many people IS the description ─────────────────
   photo: {
     help: "A photo is enough on its own.",
@@ -282,6 +310,8 @@ const FR: DeliverCopy = {
   progress: (step: number, total: number) => `Étape ${step} sur ${total}`,
   back: "Retour",
   edit: "Modifier",
+
+  pageTitle: "Faites transporter n’importe quoi à Rodrigues",
 
   what: {
     step: "Quoi",
@@ -464,6 +494,25 @@ const FR: DeliverCopy = {
     whatsapp: "Écrivez sur WhatsApp",
   },
 
+  mine: {
+    title: "Vos demandes",
+    fromPrice: (fee: string) => `à partir de ${fee}`,
+  },
+
+  find: {
+    open: "Déjà demandé des prix ? Trouvez votre demande",
+    title: "Trouvez votre demande",
+    help:
+      "La référence est sur la page de la demande, comme RR-3F9A2B. Nous la vérifions avec l’e-mail que vous avez utilisé : aucun des deux n’ouvre quoi que ce soit tout seul.",
+    refLabel: "Référence",
+    refBad: "Cela doit faire six caractères, comme RR-3F9A2B.",
+    emailLabel: "L’e-mail que vous avez utilisé",
+    cancel: "Annuler",
+    submit: "Trouver ma demande",
+    submitting: "Recherche…",
+    notFound: "Nous n’avons pas trouvé cette demande.",
+  },
+
   photo: {
     help: "Une photo suffit à elle seule.",
     take: "Prendre une photo",
@@ -504,6 +553,8 @@ const CR: DeliverCopy = {
   progress: (step: number, total: number) => `Etap ${step} lor ${total}`,
   back: "Retour",
   edit: "Sanze",
+
+  pageTitle: "Fer transporte nenport ki zafer dan Rodrig",
 
   what: {
     step: "Ki",
@@ -667,6 +718,25 @@ const CR: DeliverCopy = {
     body: "Apel nou ou ekrir nou, ek nou pou avoy demann la pou ou.",
     call: "Apel nou",
     whatsapp: "Ekrir lor WhatsApp",
+  },
+
+  mine: {
+    title: "Ou bann demann",
+    fromPrice: (fee: string) => `apartir ${fee}`,
+  },
+
+  find: {
+    open: "Ou fin deza demann pri ? Trouv ou demann",
+    title: "Trouv ou demann",
+    help:
+      "Referans la lor paz demann la, kouma RR-3F9A2B. Nou verifie li ar email ki ou finn servi : okenn ladan pa ouver nanye tousel.",
+    refLabel: "Referans",
+    refBad: "Sa bizin ena sis karakter, kouma RR-3F9A2B.",
+    emailLabel: "Email ki ou finn servi",
+    cancel: "Anile",
+    submit: "Trouv mo demann",
+    submitting: "Pe rode…",
+    notFound: "Nou pa finn trouv sa demann la.",
   },
 
   photo: {

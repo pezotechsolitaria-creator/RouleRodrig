@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Search } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
+import { DELIVER_COPY } from "@/lib/delivery/copy.i18n";
 import { normaliseRef } from "@/lib/delivery/request-status";
 import { recipe, type as t } from "@/lib/delivery/tokens";
 
@@ -21,6 +23,8 @@ import { recipe, type as t } from "@/lib/delivery/tokens";
 
 export default function FindRequest() {
   const router = useRouter();
+  const { language } = useLanguage();
+  const c = DELIVER_COPY[language];
   const [open, setOpen] = useState(false);
   const [ref, setRef] = useState("");
   const [email, setEmail] = useState("");
@@ -44,14 +48,19 @@ export default function FindRequest() {
           email: email.trim().toLowerCase(),
         }),
       });
-      const json = (await res.json()) as { id?: string; error?: string };
+      const json = (await res.json()) as { id?: string };
       if (!res.ok || !json.id) {
-        setError(json.error ?? "We couldn't find that.");
+        // The route answers in English only, so its `error` cannot be shown to
+        // a reader in French or Kreol. 404 is the one status this form can
+        // actually reach — the button stays disabled until the reference and
+        // the email both parse — so it gets the exact words and everything
+        // else gets the sentence we already say for a server that failed.
+        setError(res.status === 404 ? c.find.notFound : c.error.generic);
         return;
       }
       router.push(`/deliver/${json.id}`);
     } catch {
-      setError("Could not reach us. Check your connection.");
+      setError(c.error.network);
     } finally {
       setBusy(false);
     }
@@ -67,18 +76,15 @@ export default function FindRequest() {
           "inline-flex items-center gap-1.5 text-[#B0B0B0] underline underline-offset-4 transition-colors hover:text-offwhite",
         )}
       >
-        <Search size={14} /> Already asked for prices? Find your request
+        <Search size={14} /> {c.find.open}
       </button>
     );
   }
 
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-      <h2 className={cn(t.cardTitle, "text-offwhite")}>Find your request</h2>
-      <p className={cn(t.bodySm, "mt-1.5 text-[#B0B0B0]")}>
-        The reference is on the request page, like RR-3F9A2B. We check it
-        against the email you used, so neither one on its own opens anything.
-      </p>
+      <h2 className={cn(t.cardTitle, "text-offwhite")}>{c.find.title}</h2>
+      <p className={cn(t.bodySm, "mt-1.5 text-[#B0B0B0]")}>{c.find.help}</p>
 
       <form className="mt-4 flex flex-col gap-3" onSubmit={submit}>
         <div>
@@ -86,7 +92,7 @@ export default function FindRequest() {
             htmlFor="find-ref"
             className={cn(t.meta, "mb-1.5 block text-[#B0B0B0]")}
           >
-            Reference
+            {c.find.refLabel}
           </label>
           <input
             id="find-ref"
@@ -101,7 +107,7 @@ export default function FindRequest() {
               rather than coming back as a bare "we couldn't find that". */}
           {ref.trim().length > 0 && !refOk && (
             <p className={cn(t.meta, "mt-1.5 text-red-400")}>
-              That should be six characters, like RR-3F9A2B.
+              {c.find.refBad}
             </p>
           )}
         </div>
@@ -111,7 +117,7 @@ export default function FindRequest() {
             htmlFor="find-email"
             className={cn(t.meta, "mb-1.5 block text-[#B0B0B0]")}
           >
-            The email you used
+            {c.find.emailLabel}
           </label>
           <input
             id="find-email"
@@ -136,7 +142,7 @@ export default function FindRequest() {
             onClick={() => setOpen(false)}
             className={cn(recipe.secondaryAction, "py-2.5")}
           >
-            Cancel
+            {c.find.cancel}
           </button>
           <button
             type="submit"
@@ -147,7 +153,7 @@ export default function FindRequest() {
             )}
           >
             {busy && <Loader2 size={16} className="animate-spin" />}
-            {busy ? "Looking…" : "Find it"}
+            {busy ? c.find.submitting : c.find.submit}
           </button>
         </div>
       </form>
