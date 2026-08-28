@@ -357,6 +357,55 @@ export function experienceLd(e: {
   };
 }
 
+/**
+ * A place to stay — a guesthouse, a lodge, a villa.
+ *
+ * Typed LodgingBusiness, not Product and not Service. It is a real business
+ * with a location that a traveller sleeps in, and that type is what carries a
+ * nightly rate into a search result and into an assistant's answer to "where
+ * can I stay on Rodrigues and what does it cost".
+ *
+ * priceRange rather than a hard Offer price: these listings are quoted per day
+ * or per night by the owner, and the total depends on how long somebody stays.
+ * Asserting a single `price` would be claiming a total the booking does not
+ * charge. An unpriced listing carries no price at all rather than a zero.
+ *
+ * No aggregateRating unless real reviews exist — the same rule as everything
+ * else in this file.
+ */
+export function stayLd(s: {
+  name: string;
+  /** The owner's own nightly or daily figure, when set. */
+  price?: number | null;
+  description?: string;
+  image?: string;
+  url: string;
+}) {
+  return {
+    "@type": "LodgingBusiness",
+    name: s.name,
+    ...(s.description ? { description: s.description } : {}),
+    ...(s.image ? { image: s.image } : {}),
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: "Rodrigues",
+      addressCountry: "MU",
+    },
+    ...(s.price
+      ? {
+          priceRange: `From Rs ${s.price.toLocaleString("en-US")}`,
+          makesOffer: {
+            "@type": "Offer",
+            priceCurrency: "MUR",
+            price: s.price,
+            availability: "https://schema.org/InStock",
+            url: s.url,
+          },
+        }
+      : {}),
+  };
+}
+
 // A marketplace shop. Typed `Store` (a LocalBusiness subtype) because that is
 // what it is — a real trader on Rodrigues with a name, a phone and opening
 // hours, not a product listing.

@@ -239,3 +239,94 @@ export function fromPriceOf(places: { depositAmount?: number | null }[]): number
     .filter((n): n is number => n !== null && n > 0);
   return prices.length ? Math.min(...prices) : null;
 }
+
+
+/** One question and its answer, the shape both the page and the schema read. */
+export type ExperienceFaq = { q: string; a: string };
+
+/**
+ * The five questions somebody actually has before booking an experience.
+ *
+ * ── WHY THIS EXISTS ────────────────────────────────────────────────────────
+ *
+ * The two pages on this site that produce customers — the French scooter and
+ * car landing pages — both carry a visible FAQ wired to FAQPage schema. The
+ * experience pages carried none. A search engine had no questions to match a
+ * query against, and an assistant asked "how much is a boat trip in Rodrigues"
+ * had a list of names to work from.
+ *
+ * ── WHY IT IS BUILT FROM THE LISTINGS, NOT WRITTEN OUT ─────────────────────
+ *
+ * Hardcoded answers rot. The moment the owner changes a price in admin, a
+ * hand-written "from Rs 700" becomes a promise the booking does not honour —
+ * which is the Rs 599/699 bug this codebase already fixed once. Every number
+ * below is read from the listings, and a question with no data to answer it is
+ * omitted rather than answered vaguely.
+ *
+ * Each answer is written to survive being quoted with no context: it restates
+ * its own subject and ends on a concrete fact. "Yes, it's included" is true and
+ * worthless once an assistant lifts it out of the page.
+ */
+export function experienceFaq(
+  copy: ExperienceCopy,
+  places: {
+    name: string;
+    depositAmount?: number | null;
+    providerName?: string | null;
+    durationMinutes?: number | null;
+  }[],
+): ExperienceFaq[] {
+  const faq: ExperienceFaq[] = [];
+  const rs = (n: number) => `Rs ${n.toLocaleString("en-US")}`;
+  const thing = copy.title.toLowerCase().replace(/ in rodrigues$/, "");
+  const from = fromPriceOf(places);
+
+  if (from !== null) {
+    const cheapest = places.find((p) => p.depositAmount === from);
+    faq.push({
+      q: `How much does ${thing} cost in Rodrigues?`,
+      a: `${copy.title} starts at ${rs(from)} per person${
+        cheapest ? ` — that is ${cheapest.name}` : ""
+      }. The price you see is the price you pay: no booking fee and no commission on top.`,
+    });
+  }
+
+  // The availability-first flow (M127) is a real differentiator and a real
+  // answer to the worry that precedes every online booking abroad.
+  faq.push({
+    q: "Do I pay before it is confirmed?",
+    a: `No. You send a request, we check the date with the ${
+      copy.slug === "massage" ? "therapist" : "operator"
+    }, and only once it is confirmed do you pay to secure it. If it is not free that day we say so and suggest an alternative — you are never charged for something we cannot provide.`,
+  });
+
+  const named = places.filter((p) => p.providerName);
+  if (named.length > 0) {
+    const who = Array.from(new Set(named.map((p) => p.providerName as string)));
+    faq.push({
+      q: `Who runs the ${thing} in Rodrigues?`,
+      a: `Local operators we know personally — ${who.join(", ")}. Rodrigues is an island of about 43,000 people; you are booking a named person, not a call centre, and you deal with them directly on the day.`,
+    });
+  }
+
+  const timed = places.filter((p) => typeof p.durationMinutes === "number" && p.durationMinutes! > 0);
+  if (timed.length > 0) {
+    const mins = timed.map((p) => p.durationMinutes as number);
+    const lo = Math.min(...mins);
+    const hi = Math.max(...mins);
+    const fmt = (m: number) => (m >= 60 ? `${(m / 60).toFixed(m % 60 ? 1 : 0)}h` : `${m} min`);
+    faq.push({
+      q: `How long does it take?`,
+      a: lo === hi
+        ? `About ${fmt(lo)}. The exact time is shown on each listing before you book, so you can plan the rest of the day around it.`
+        : `Between ${fmt(lo)} and ${fmt(hi)}, depending which you choose. The exact duration is on each listing before you book.`,
+    });
+  }
+
+  faq.push({
+    q: "Can I book from abroad before I arrive?",
+    a: `Yes. Book online before you travel and it is arranged for the date you choose. You can also message us on WhatsApp if you would rather ask first — we answer in English, French and Kreol.`,
+  });
+
+  return faq;
+}

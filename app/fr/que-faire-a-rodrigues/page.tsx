@@ -335,6 +335,22 @@ export default async function QueFaireRodriguesPage() {
             </p>
             <ul className="mt-4 space-y-3">
               {[
+                // ── THE PAGE ABOUT ACTIVITIES NOW LINKS TO THE BOOKABLE
+                //    ACTIVITIES (M137) ──────────────────────────────────────
+                //
+                // This page describes what to do on Rodrigues and linked to
+                // guides, scooters and cars — but never to /experiences, where
+                // the boat trips, the fishing and the massage it is describing
+                // can actually be booked. The same gap the car vertical had:
+                // the ranking page passed its traffic everywhere except to the
+                // thing it was about.
+                //
+                // First in the list, because it is the only commercial
+                // destination here and the reader arrived asking exactly this.
+                {
+                  href: "/experiences",
+                  label: "Réserver une activité : bateau, pêche, massage",
+                },
                 {
                   href: "/fr/guide-rodrigues",
                   label: "Guide de l'île Rodrigues",

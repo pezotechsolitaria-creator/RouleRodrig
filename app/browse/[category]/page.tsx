@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { SITE_URL } from "@/lib/site";
-import { breadcrumbLd, itemListLd, productLd } from "@/lib/schema";
+import { breadcrumbLd, itemListLd, productLd, stayLd, experienceLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import {
   getFleetView,
@@ -322,6 +322,47 @@ export default async function BrowsePage({
           place.label,
           items.map((i) => ({ name: i.name })),
         )}
+        {/* ── THE PRICE, WHERE A MACHINE CAN READ IT (M137) ─────────────────
+            This branch serves stays, activities and tours, and emitted a
+            breadcrumb and a list of names — while the page's own description
+            promises "See photos and prices". So the prices were on the screen
+            and nowhere in the markup: no rich result, and nothing for an
+            assistant asked "where can I stay on Rodrigues and what does it
+            cost" to quote.
+
+            Typed by what the thing actually is. A guesthouse is a
+            LodgingBusiness somebody sleeps in; a boat trip is a Service nobody
+            takes home. A listing with no price set carries none rather than a
+            zero — free and unpriced are different claims. */}
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@graph": items.map((i) => {
+              const image = i.image
+                ? i.image.startsWith("http")
+                  ? i.image
+                  : `${SITE_URL}${i.image}`
+                : undefined;
+              const price =
+                typeof i.depositAmount === "number" && i.depositAmount > 0
+                  ? i.depositAmount
+                  : null;
+              const url = `${SITE_URL}/browse/${category}`;
+              return i.category === "hotel"
+                ? stayLd({ name: i.name, price, description: i.description, image, url })
+                : experienceLd({
+                    name: i.name,
+                    price,
+                    description: i.description,
+                    image,
+                    url,
+                    providerName: i.providerName ?? null,
+                    durationMinutes:
+                      typeof i.durationMinutes === "number" ? i.durationMinutes : null,
+                  });
+            }),
+          }}
+        />
         {header(place.label)}
         <main>
           <BrowseTabs

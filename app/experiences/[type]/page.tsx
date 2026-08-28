@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { getFleetView } from "@/lib/site-data";
 import { SITE_URL } from "@/lib/site";
 import { SERVICE_TYPES, type ServiceType } from "@/lib/defaults";
-import { EXPERIENCES, experiencesOfType, fromPriceOf } from "@/lib/experiences";
+import { EXPERIENCES, experiencesOfType, fromPriceOf, experienceFaq } from "@/lib/experiences";
 import { breadcrumbLd, itemListLd, experienceLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import ExperienceMarket from "@/components/experiences/ExperienceMarket";
@@ -97,6 +97,11 @@ export default async function ExperiencePage({ params }: { params: Promise<{ typ
 
   const { content, businessWhatsApp } = await getFleetView();
   const places = experiencesOfType(content.recommended.items, copy.slug);
+  // ONE array, read twice — by the schema below and by the visible section at
+  // the bottom. It is impossible for the FAQPage markup to describe a question
+  // a human cannot read on the page, which is both a Google requirement and
+  // the reason this pattern is worth copying from the scooter page.
+  const faq = experienceFaq(copy, places);
 
   return (
     <>
@@ -136,6 +141,15 @@ export default async function ExperiencePage({ params }: { params: Promise<{ typ
               // Every value is read off the listing the owner wrote. A listing
               // with no price emits no Offer rather than a zero, because free
               // and unpriced are not the same claim.
+              {
+                "@context": "https://schema.org",
+                "@type": "FAQPage",
+                mainEntity: faq.map((f) => ({
+                  "@type": "Question",
+                  name: f.q,
+                  acceptedAnswer: { "@type": "Answer", text: f.a },
+                })),
+              },
               ...places.map((p) =>
                 experienceLd({
                   name: p.name,
@@ -163,6 +177,22 @@ export default async function ExperiencePage({ params }: { params: Promise<{ typ
           <p className="mt-2 max-w-2xl font-dm text-sm text-muted">{copy.subtitle}</p>
 
           <ExperienceMarket copy={copy} places={places} whatsapp={businessWhatsApp} />
+
+          {faq.length > 0 && (
+            <section className="mt-16 border-t border-dark-border pt-10">
+              <h2 className="font-syne text-2xl font-bold text-offwhite md:text-3xl">
+                Questions fréquentes · Common questions
+              </h2>
+              <div className="mt-6 space-y-7">
+                {faq.map((f) => (
+                  <div key={f.q}>
+                    <h3 className="font-syne text-lg font-bold text-offwhite">{f.q}</h3>
+                    <p className="mt-2 font-dm leading-relaxed text-muted">{f.a}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       </main>
       <ScrollToTop />
