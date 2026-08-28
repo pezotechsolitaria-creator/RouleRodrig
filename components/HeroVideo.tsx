@@ -85,15 +85,44 @@ export default function HeroVideoLayer({
     //    setting exists to suppress, and it is not a preference to negotiate.
     const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-    // 2. Data Saver / metered connection. Chrome exposes both; when the visitor
-    //    has told the browser to spend less data, a decorative video is the
-    //    first thing that should go.
+    // 2. Data Saver — and ONLY Data Saver.
+    //
+    // ── WHY effectiveType IS NO LONGER CONSULTED (M141) ────────────────────
+    //
+    // This used to also suppress the video whenever
+    // navigator.connection.effectiveType read "2g" or "slow-2g". The owner
+    // reported the hero never appearing on his phone, on Rodrigues, on island
+    // mobile data — which is the entire market this site serves.
+    //
+    // effectiveType is not a fact about the connection. It is a rolling
+    // estimate of recent round-trip time, and on a small island it dips into
+    // "2g" constantly on a link that streams video perfectly well. So the
+    // check suppressed the hero exactly where the site lives, and only there:
+    // it never fired on the office wifi where it was written, which is why it
+    // survived. `return null` below means a failed gate renders NOTHING, so
+    // the symptom was a poster that stayed forever with nothing in the console.
+    //
+    // saveData stays, because that is different in kind: the visitor has gone
+    // into settings and asked the browser to spend less of their data. That is
+    // a decision to honour, not a guess to make on their behalf.
     const conn = (navigator as Navigator & {
       connection?: { saveData?: boolean; effectiveType?: string };
     }).connection;
-    const cheap = !conn?.saveData && !/(^|-)2g$/.test(conn?.effectiveType ?? "");
+    const saveData = conn?.saveData === true;
 
-    const decide = () => setAllowed(!calm.matches && cheap);
+    const decide = () => {
+      const ok = !calm.matches && !saveData;
+      // Say why, once, when it is off. A hero that silently declines to exist
+      // is undiagnosable on somebody else's phone — which is how this took two
+      // rounds of "it does not appear" to pin down.
+      if (!ok && process.env.NODE_ENV !== "production") {
+        console.info(
+          "[hero] video suppressed:",
+          calm.matches ? "prefers-reduced-motion" : "Data Saver",
+        );
+      }
+      setAllowed(ok);
+    };
     decide();
     calm.addEventListener("change", decide);
     return () => calm.removeEventListener("change", decide);
