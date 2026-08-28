@@ -114,6 +114,24 @@ export default function BookingSection({
   });
 
   const selectedScooter = scooters.find((s) => s.id === form.scooter);
+
+  // ── "INCLUDED" MUST DESCRIBE THE VEHICLE IN FRONT OF YOU ────────────────
+  //
+  // This panel rendered t.booking.included — a hardcoded scooter list — on
+  // every category. So /browse/car promised "Helmet & lock" and "Full tank of
+  // fuel" with a Suzuki Swift, which is not a joke to the customer who turns up
+  // expecting a helmet for a car, and is the sort of small false promise that
+  // costs more trust than the feature was ever worth.
+  //
+  // Every fleet item already carries its own `included`, and the detail modal
+  // has always rendered it correctly. Use the selected vehicle's list; before
+  // one is chosen, borrow the first vehicle in THIS category, so a car page
+  // never shows scooter kit. The i18n list survives only as a last resort for
+  // a category whose vehicles carry no inclusions at all.
+  const includedItems =
+    selectedScooter?.included?.length
+      ? selectedScooter.included
+      : scooters.find((s) => s.included?.length)?.included ?? t.booking.included;
   // A single tap = a 1-day rental. Now that rentalDays() counts BOTH ends, one
   // day is start === end. It used to be start+1, which was the same 1 day under
   // the old exclusive arithmetic — leaving it would silently have made every
@@ -511,8 +529,11 @@ export default function BookingSection({
             {/* The form disappears once the request is sent — the confirmation
                 (with the Pay-deposit button) replaces it, so payment never sits
                 below a now-irrelevant calendar. */}
+            {/* The id lets the portal'd mobile bar submit this form from
+                outside its DOM subtree: a button carrying form="rr-booking-form"
+                is the native way to do it, with no extra handler or ref. */}
             {formState !== "success" && (
-            <form ref={formTopRef} onSubmit={handleSubmit} className="space-y-5" noValidate>
+            <form id="rr-booking-form" ref={formTopRef} onSubmit={handleSubmit} className="space-y-5" noValidate>
               {/* Trip Planner pre-fill banner */}
               {desiredDays && (
                 <motion.div
@@ -944,7 +965,7 @@ export default function BookingSection({
               <div className="bg-dark-card border border-dark-border rounded-2xl p-6">
                 <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-4">{t.booking.includedTitle}</p>
                 <ul className="space-y-2">
-                  {t.booking.included.map((item) => (
+                  {includedItems.map((item) => (
                     <li key={item} className="flex items-center gap-2.5 text-xs font-dm text-offwhite/70">
                       <CheckCircle size={12} className="text-yellow shrink-0" />
                       {item}
@@ -986,24 +1007,42 @@ export default function BookingSection({
           readers already reach; announcing them twice would be noise. */}
       {breakdown && formState !== "success" && mounted && createPortal(
         <div
-          aria-hidden="true"
           /* 7rem clears the floating nav pill (~74px tall, ~12px above the safe
-             area); measured overlapping it by 45px at 5.5rem. */
+             area); measured overlapping it by 45px at 5.5rem.
+             The STRIP stays pointer-events-none so it never swallows taps
+             either side of the bar; the card re-enables them for the button. */
           className="pointer-events-none fixed inset-x-0 bottom-[calc(7rem+env(safe-area-inset-bottom))] z-30 flex justify-center px-4 lg:hidden"
         >
-          <div className="flex w-full max-w-md items-center justify-between gap-3 rounded-2xl border border-white/10 bg-dark/90 px-4 py-2.5 shadow-[0_16px_44px_-12px_rgba(0,0,0,0.75)] backdrop-blur-xl">
-            <div>
-              <p className="font-bebas text-[9px] tracking-[0.25em] text-muted">{t.booking.summaryTotal}</p>
-              <p className="font-syne text-base font-extrabold text-offwhite">{convert(estimatedTotal)}</p>
+          <div className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-2xl border border-white/10 bg-dark/90 px-4 py-2.5 shadow-[0_16px_44px_-12px_rgba(0,0,0,0.75)] backdrop-blur-xl">
+            {/* The FIGURES stay aria-hidden — the same numbers are in the
+                summary <dl> a screen reader already reaches, and announcing
+                them twice is noise. The BUTTON must not be: this bar used to be
+                aria-hidden and pointer-events-none in its entirety, which made
+                the only thumb-reachable thing on the booking screen a picture
+                of a price. On the one flow with proven revenue, on the device
+                travellers actually book from, there was nothing to press. */}
+            <div aria-hidden="true" className="flex min-w-0 flex-1 items-center justify-between gap-3">
+              <div>
+                <p className="font-bebas text-[9px] tracking-[0.25em] text-muted">{t.booking.summaryTotal}</p>
+                <p className="font-syne text-base font-extrabold text-offwhite">{convert(estimatedTotal)}</p>
+              </div>
+              <div className="text-right">
+                <p className="font-bebas text-[9px] tracking-[0.25em] text-muted">
+                  {t.booking.depositToConfirm(breakdown.pct)}
+                </p>
+                <p className="font-syne text-base font-extrabold text-yellow">
+                  {convert(`Rs ${breakdown.deposit.toLocaleString()}`)}
+                </p>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="font-bebas text-[9px] tracking-[0.25em] text-muted">
-                {t.booking.depositToConfirm(breakdown.pct)}
-              </p>
-              <p className="font-syne text-base font-extrabold text-yellow">
-                {convert(`Rs ${breakdown.deposit.toLocaleString()}`)}
-              </p>
-            </div>
+            <button
+              type="submit"
+              form="rr-booking-form"
+              disabled={formState === "loading"}
+              className="shrink-0 rounded-xl bg-yellow px-4 py-2.5 font-syne text-sm font-bold text-dark transition-colors hover:bg-yellow-dark disabled:opacity-60"
+            >
+              {formState === "loading" ? t.booking.sending : t.booking.submit}
+            </button>
           </div>
         </div>,
         document.body,

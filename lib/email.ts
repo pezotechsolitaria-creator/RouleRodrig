@@ -674,39 +674,46 @@ export async function sendBookingEmails(
   if (b.email) {
     const cal = buildCalendar(b);
 
-    // Deposit-aware payment copy: a booking is confirmed once the deposit is
-    // paid (scooters 25%, cars 50%), balance at pickup. Falls back to the old
-    // "no payment due yet" wording when there's no numeric deposit.
-    const hasDeposit =
-      typeof b.deposit_amount === "number" &&
-      b.deposit_amount > 0 &&
-      typeof b.total_amount === "number";
-    const balance = hasDeposit
-      ? (b.total_amount as number) - (b.deposit_amount as number)
-      : 0;
-    // PayPal fee, passed to the customer — stated plainly, never hidden.
-    const payPalFeeNote =
-      hasDeposit && b.deposit_amount
-        ? ` <b>By bank transfer the deposit is exactly ${rs(b.deposit_amount)}. If you pay by PayPal a ${PAYPAL_FEE_PERCENT}% processing fee is added (≈ ${rs(Math.round((b.deposit_amount * PAYPAL_FEE_PERCENT) / 100))}).</b>`
-        : "";
-    const payPalFeeNoteFr =
-      hasDeposit && b.deposit_amount
-        ? ` <b>Par virement bancaire, l'acompte est exactement de ${rs(b.deposit_amount)}. Par PayPal, des frais de traitement de ${PAYPAL_FEE_PERCENT}% s'ajoutent (≈ ${rs(Math.round((b.deposit_amount * PAYPAL_FEE_PERCENT) / 100))}).</b>`
-        : "";
-    const payEn = hasDeposit
-      ? `To confirm your booking, please pay a ${b.deposit_pct}% deposit of <b>${rs(b.deposit_amount as number)}</b> by bank transfer or PayPal using the details above.${payPalFeeNote} The remaining <b>${rs(balance)}</b> is paid at pickup. Quote your name as the payment reference so we can match it, and keep the receipt to show on the day. Any question about payment? Email <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a> and a real person will answer.`
-      : `No payment is due yet. We'll confirm availability first — once confirmed, you can settle by bank transfer or PayPal using the details above. Please quote your name as the payment reference, and keep the receipt to show at pickup. Any question about payment? Email <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a>.`;
-    const payFr = hasDeposit
-      ? `Pour confirmer votre réservation, merci de régler un acompte de ${b.deposit_pct}% soit <b>${rs(b.deposit_amount as number)}</b> par virement bancaire ou PayPal avec les coordonnées ci-dessus.${payPalFeeNoteFr} Le solde de <b>${rs(balance)}</b> se règle lors du retrait. Indiquez votre nom en référence du paiement et conservez le reçu à présenter le jour même. Une question sur le paiement ? Écrivez à <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a>.`
-      : `Aucun paiement n'est dû pour l'instant. Nous confirmons d'abord la disponibilité — une fois confirmée, vous pourrez régler par virement bancaire ou PayPal. Merci d'indiquer votre nom en référence et de conserver le reçu. Une question ? Écrivez à <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a>.`;
+    // ── A BOOKING REQUEST IS NOT AN INVOICE ────────────────────────────────
+    //
+    // M91 made vehicle bookings owner-approved: submitting ASKS for the
+    // vehicle, and /manage-booking refuses to show a pay button until the owner
+    // says yes ("Nothing is charged until then"). This template has exactly one
+    // caller — POST /api/bookings, at creation — so the booking is ALWAYS
+    // `pending` when this email is sent.
+    //
+    // It used to branch on `deposit_amount > 0`, which /api/bookings ALWAYS
+    // sets (route.ts writes serverBreakdown.deposit unconditionally). So the
+    // "please pay a X% deposit … using the details above" line fired on every
+    // single booking, above a card printing the bank and account number, while
+    // the page it sent people to refused to take the money. A customer who did
+    // as they were told wired a deposit for a vehicle nobody had confirmed was
+    // free — the exact involuntary refund M91 was built to prevent. The correct
+    // branch existed directly below it and was unreachable.
+    //
+    // The deposit is now quoted as a figure to EXPECT, never as an instruction,
+    // and the account details appear only in sendAvailabilityConfirmed() below
+    // — sent after approval, linking straight to /manage-booking.
+    const depositKnown =
+      typeof b.deposit_amount === "number" && b.deposit_amount > 0;
+    const expectEn = depositKnown
+      ? ` When it is confirmed, a ${b.deposit_pct}% deposit of <b>${rs(b.deposit_amount as number)}</b> secures the vehicle and the rest is paid at pickup.`
+      : "";
+    const expectFr = depositKnown
+      ? ` Une fois confirmée, un acompte de ${b.deposit_pct}% soit <b>${rs(b.deposit_amount as number)}</b> réserve le véhicule, le solde se règle au retrait.`
+      : "";
+    const payEn = `<b>No payment is due yet.</b> We check the vehicle is free for your dates first — usually within a few hours.${expectEn} We will then email you a link to pay by bank transfer or PayPal. You will never be charged for a vehicle we cannot provide. Any question? Email <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a> and a real person will answer.`;
+    const payFr = `<b>Aucun paiement n'est dû pour l'instant.</b> Nous vérifions d'abord que le véhicule est libre à ces dates — généralement sous quelques heures.${expectFr} Nous vous enverrons ensuite un lien pour régler par virement bancaire ou PayPal. Vous ne serez jamais débité pour un véhicule que nous ne pouvons pas fournir. Une question ? Écrivez à <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a>.`;
 
     const body = `
       ${paragraph(`Thank you for choosing Roule Rodrigues. We've received your booking request — our team will confirm availability and payment details shortly, usually within a few hours (often via WhatsApp).`)}
       ${sectionLabel("Your booking · Votre réservation")}
       ${detailCard(summaryRows(b))}
       <div style="text-align:center;margin-bottom:6px">${primaryButton(cal.gcal, "📅 Add to calendar · Ajouter au calendrier")}</div>
-      ${sectionLabel("How to pay")}
-      ${detailCard(PAYMENT_ROWS(b))}
+      ${/* The bank and account number used to sit here, in the email that goes
+            out BEFORE anyone has confirmed the vehicle is free. They now live
+            only in sendAvailabilityConfirmed(), which is sent after approval. */ ""}
+      ${sectionLabel("What happens next")}
       ${paragraph(payEn)}
       ${sectionLabel("Before your pickup, please bring")}
       ${checkList(["A valid driver's licence", "Your booking confirmation", "A valid ID or passport if requested"])}
@@ -714,7 +721,7 @@ export async function sendBookingEmails(
       ${sepFr()}
       ${frHeading(`Merci, ${b.name} !`)}
       ${paragraph(`Merci d'avoir choisi Roule Rodrigues. Nous avons bien reçu votre demande de réservation — notre équipe confirmera la disponibilité et les modalités de paiement très bientôt, généralement sous quelques heures (souvent via WhatsApp).`)}
-      ${sectionLabel("Comment payer")}
+      ${sectionLabel("La suite")}
       ${paragraph(payFr)}
       ${sectionLabel("À apporter le jour du retrait")}
       ${checkList(["Un permis de conduire valide", "Votre confirmation de réservation", "Une pièce d'identité ou un passeport si demandé"])}

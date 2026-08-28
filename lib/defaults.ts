@@ -875,8 +875,16 @@ export const DEFAULT_CONTENT: SiteContent = {
     subheadline: "Rent a scooter in minutes and unlock the whole island — hidden beaches, scenic routes and the best local spots, all in one place.",
     backgroundImage: '/images/burgman-sunset.jpeg',
   },
+  // "500+ Happy Riders" shipped here as a seeded headline number. It was never
+  // measured — it was typed — and the business it describes has ten reviews.
+  // A number nobody can source is the fastest way to lose the trust the rest of
+  // this file is trying to build, and the honest version is stronger anyway:
+  // "Rated 5.0 from 10 reviews across five countries" is computable from
+  // product_reviews at any moment and gets better on its own.
+  //
+  // The two survivors are facts. A rider count belongs here only when something
+  // counts it.
   stats: [
-    { value: 500, suffix: '+', label: 'Happy Riders' },
     { value: 2, suffix: '', label: 'Scooter Models' },
     { value: 24, suffix: '/7', label: 'Support' },
   ],
@@ -927,29 +935,25 @@ export const DEFAULT_CONTENT: SiteContent = {
     whatsappNumbers: [],
   },
   gallery: [],
-  testimonials: [
-    {
-      id: 'testimonial-1',
-      name: 'Sophie Laurent',
-      origin: 'Paris, France',
-      rating: 5,
-      text: 'Renting from Roule Rodrigues was the best decision of our trip. The Burgman was spotless, powerful, and the whole island opened up to us. We found hidden beaches we would never have reached otherwise.',
-    },
-    {
-      id: 'testimonial-2',
-      name: 'James Okoye',
-      origin: 'London, UK',
-      rating: 5,
-      text: "Incredible service from start to finish. The scooter was delivered to our guesthouse, fully fuelled and helmets included. The team was available on WhatsApp whenever we needed anything — I cannot recommend them enough.",
-    },
-    {
-      id: 'testimonial-3',
-      name: 'Anika van der Berg',
-      origin: 'Cape Town, South Africa',
-      rating: 5,
-      text: 'We spent a week on the Avenis and covered every corner of Rodrigues. The cliffs at Pointe Cotton, the lagoon at Saint-François — all unforgettable. And the price is absolutely unbeatable for this level of service.',
-    },
-  ],
+  // ── EMPTY ON PURPOSE ────────────────────────────────────────────────────
+  //
+  // This array used to ship three invented five-star testimonials — "Sophie
+  // Laurent, Paris", "James Okoye, London", "Anika van der Berg, Cape Town" —
+  // written as seed content and never marked as fake anywhere a reader would
+  // see. PRODUCT.md's own rule is "no invented ratings, prices, reviews or
+  // testimonials", and the admin editor labels this field "testimonials you
+  // control and display on the site", so a single wiring commit would have
+  // published all three as real customer voices.
+  //
+  // One of them was a live hazard rather than a hypothetical: the invented
+  // "Sophie Laurent, Paris, France" sat one row away from a REAL reviewer,
+  // "Sophie.L, Paris, France", in product_reviews. Nobody comparing the two
+  // could have told which was the customer.
+  //
+  // The genuine article is already better than the fake: ten approved 5★
+  // reviews from France, Réunion, Germany, England and Mauritius, in
+  // product_reviews, served by /api/reviews. Seed nothing here.
+  testimonials: [],
   social: {
     instagram: '',
     facebook: '',

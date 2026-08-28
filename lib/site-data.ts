@@ -14,6 +14,7 @@ export interface ReviewCard {
   rating: number;
   text: string;
   scooter_name: string | null;
+  created_at: string;
 }
 
 /**
@@ -55,7 +56,7 @@ export async function getFleetView() {
         .eq("status", "approved"),
       supabase
         .from("product_reviews")
-        .select("id, name, origin, rating, text, scooter_name")
+        .select("id, name, origin, rating, text, scooter_name, created_at")
         .eq("status", "approved")
         .order("created_at", { ascending: false })
         .limit(12),

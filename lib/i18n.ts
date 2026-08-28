@@ -159,7 +159,11 @@ const translations = {
         "Third-party insurance",
       ],
       requestNote:
-        "Sending this does not hold the vehicle — the deposit does. Another traveller can still book these dates until it is paid.",
+        // Rewritten for M91. It read "Sending this does not hold the vehicle —
+        // the deposit does", which is now wrong in both halves: an APPROVED
+        // booking holds the vehicle until payment_due_by (lib/holds.ts), and no
+        // deposit can be paid until the owner has approved it.
+        "Sending this asks us to hold the vehicle. We check it is free for your dates and reply, usually within a few hours — and once we confirm, it is yours while you pay.",
       bookedDatesLabel: "ALREADY BOOKED",
       overlapWarning:
         "These dates overlap an existing booking. Please choose different dates.",
@@ -711,7 +715,7 @@ const translations = {
         "Assurance responsabilité civile",
       ],
       requestNote:
-        "Envoyer ce formulaire ne bloque pas le véhicule — c'est l'acompte qui le bloque. Un autre voyageur peut encore réserver ces dates.",
+        "Envoyer ce formulaire nous demande de réserver le véhicule. Nous vérifions qu'il est libre à ces dates et vous répondons, généralement sous quelques heures — une fois confirmé, il est à vous le temps du paiement.",
       bookedDatesLabel: "DÉJÀ RÉSERVÉ",
       overlapWarning:
         "Ces dates chevauchent une réservation existante. Veuillez choisir d'autres dates.",
@@ -1218,7 +1222,7 @@ const translations = {
         "Assirans responsabilite sivil",
       ],
       requestNote:
-        "Avoy sa form la pa blok veikil la — se depo ki blok li. Enn lot vwayazer kapav ankor rezerv sa bann dat la.",
+        "Avoy sa form la, nou demann pou gard veikil la pou ou. Nou verifie si li lib sa bann dat la ek nou reponn ou, dabitid dan detrwa er — kan nou konfirme, li pou ou pandan ou peye.",
       bookedDatesLabel: "DEZA REZERVE",
       overlapWarning:
         "Sa bann dat la pe sevose ar enn lot rezervasion. Silvouple swazi lezot dat.",

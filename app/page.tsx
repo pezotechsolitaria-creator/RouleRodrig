@@ -59,7 +59,7 @@ const FREE_TOOLS = [
 ];
 
 export default async function Home() {
-  const { content, fleet, recentBookings } = await getFleetView();
+  const { content, fleet, recentBookings, reviews } = await getFleetView();
 
   // "What are you looking for?" categories (shared with the /browse pages).
   const browseCats = buildBrowseCategories(content, fleet, recentBookings);
@@ -367,7 +367,7 @@ export default async function Home() {
       <JsonLd data={jsonLd} />
       <AppHome
         hero={<Hero hero={content.hero} compact />}
-        reviews={<ReviewsContact contact={content.contact} fleet={fleet} />}
+        reviews={<ReviewsContact contact={content.contact} fleet={fleet} initialReviews={reviews} />}
         // Sponsors sit immediately above the footer, which is where the admin
         // panel has always SAID they appear ("shown near the footer") — the
         // component was simply never mounted, so a paying sponsor could be

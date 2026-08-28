@@ -141,6 +141,7 @@ const COPY = {
     namePh: "Your name",
     originPh: "e.g. France",
     reviewPh: "How was your ride?",
+    whichVehicle: "Which vehicle? (optional)",
     errRate: "Please pick a rating.",
     errName: "Please enter your name.",
     errText: "Please write a short review.",
@@ -175,6 +176,7 @@ const COPY = {
     namePh: "Votre nom",
     originPh: "ex. France",
     reviewPh: "Comment était votre balade ?",
+    whichVehicle: "Quel véhicule ? (facultatif)",
     errRate: "Choisissez une note.",
     errName: "Entrez votre nom.",
     errText: "Écrivez un court avis.",
@@ -209,6 +211,7 @@ const COPY = {
     namePh: "Ou nom",
     originPh: "ex. Frans",
     reviewPh: "Kouma ti ou balad?",
+    whichVehicle: "Ki veikil? (opsyonel)",
     errRate: "Swazir enn not.",
     errName: "Met ou nom.",
     errText: "Ekrir enn ti komanter.",
@@ -226,21 +229,38 @@ const COPY = {
 
 export default function ReviewsContact({
   contact,
+  fleet,
+  initialReviews,
 }: {
   contact?: ContactContent;
   fleet?: FleetItem[];
+  /**
+   * Reviews rendered on the SERVER, so they exist in the HTML.
+   *
+   * This component fetched /api/reviews inside an effect, so the ten real
+   * five-star reviews — France, Réunion, Germany, England, Mauritius — appeared
+   * only after hydration. A crawler, an AI assistant, or anyone on a slow
+   * connection got a page with no proof on it, and /api is Disallow-ed in
+   * robots.txt, so the data was unreachable twice over. The strongest asset
+   * this business owns was invisible to everyone deciding whether to trust it.
+   *
+   * getFleetView() has always fetched these rows and no caller ever read them.
+   * Passing them in costs nothing and puts them in the first paint.
+   */
+  initialReviews?: PublicReview[];
 }) {
   const { language } = useLanguage();
   const L = COPY[language as keyof typeof COPY] ?? COPY.en;
   const c = contact ?? DEFAULT_CONTENT.contact;
 
-  const [reviews, setReviews] = useState<PublicReview[]>([]);
+  const [reviews, setReviews] = useState<PublicReview[]>(initialReviews ?? []);
   const [open, setOpen] = useState(false);
   const rail = useRef<HTMLDivElement>(null);
 
   // write-review form
   const [name, setName] = useState("");
   const [origin, setOrigin] = useState("");
+  const [scooterId, setScooterId] = useState("");
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
   const [text, setText] = useState("");
@@ -248,12 +268,17 @@ export default function ReviewsContact({
   const [done, setDone] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // Only fetch when the server did not supply them. A page that was rendered
+  // with reviews already has the current set; re-fetching would replace
+  // identical data and, on a slow connection, briefly blank the carousel that
+  // had already painted.
   useEffect(() => {
+    if (initialReviews?.length) return;
     fetch("/api/reviews")
       .then((r) => (r.ok ? r.json() : []))
       .then((d: PublicReview[]) => setReviews(Array.isArray(d) ? d : []))
       .catch(() => {});
-  }, []);
+  }, [initialReviews]);
 
   const avg = reviews.length
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
@@ -280,7 +305,7 @@ export default function ReviewsContact({
       const res = await fetch("/api/reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, origin, rating, text }),
+        body: JSON.stringify({ name, origin, rating, text, scooter_id: scooterId || null }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -289,6 +314,7 @@ export default function ReviewsContact({
       setDone(true);
       setName("");
       setOrigin("");
+      setScooterId("");
       setRating(0);
       setText("");
     } catch (e2) {
@@ -587,6 +613,31 @@ export default function ReviewsContact({
                       className="w-full bg-dark border border-dark-border rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none"
                     />
                   </div>
+                  {/* ── WHICH VEHICLE ──────────────────────────────────────
+                      Optional, and the reason every existing review has a null
+                      scooter_id. The API has always accepted scooter_id,
+                      lib/site-data.ts aggregates ratings by it, and Fleet.tsx
+                      renders per-vehicle stars from that map — but this form
+                      never asked, so the map is permanently empty and no
+                      vehicle can ever show a rating. One <select> closes the
+                      loop for every review from here on.
+                      Left blank for the reviewers writing about the service
+                      rather than a bike; attributing those to a vehicle would
+                      put a website compliment inside a Motorcycle's rating. */}
+                  {(fleet?.length ?? 0) > 0 && (
+                    <select
+                      value={scooterId}
+                      onChange={(e) => setScooterId(e.target.value)}
+                      className="w-full bg-dark border border-dark-border rounded-xl px-4 py-3 text-offwhite text-sm font-dm focus:border-yellow focus:outline-none"
+                    >
+                      <option value="">{L.whichVehicle}</option>
+                      {fleet!.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <textarea
                     value={text}
                     onChange={(e) => setText(e.target.value)}
