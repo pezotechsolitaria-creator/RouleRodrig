@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { showsVisitorNav, isConsole, consoleOf } from "./nav-scope";
+import {
+  showsVisitorNav,
+  showsSiteFooter,
+  isConsole,
+  consoleOf,
+} from "./nav-scope";
 
 // The bug this locks down: the customer's tab bar rendered on every path except
 // "/" and "/merchant", because those were the only two anyone had thought to
@@ -156,5 +161,57 @@ describe("the taxi and transfer split", () => {
     for (const p of ["/taxi", "/taxi/track", "/taxi/track?ref=abc"]) {
       expect(showsVisitorNav(p.split("?")[0]), p).toBe(true);
     }
+  });
+});
+
+describe("showsSiteFooter", () => {
+  it("is on the ordinary pages a visitor reads", () => {
+    for (const p of [
+      "/taxi",
+      "/food",
+      "/shop",
+      "/events",
+      "/more",
+      "/guide/beaches",
+      "/fr/plages-rodrigues",
+      "/emergency",
+    ]) {
+      expect(showsSiteFooter(p), p).toBe(true);
+    }
+  });
+
+  it("is NOT on the homepage, which renders its own", () => {
+    // app/page.tsx passes <Footer> in itself, under the sponsor strip. Without
+    // this the site would print two footers on its most visited page.
+    expect(showsSiteFooter("/")).toBe(false);
+  });
+
+  it("is NOT on any console", () => {
+    for (const p of [
+      "/admin",
+      "/admin/availability",
+      "/merchant",
+      "/merchant/orders",
+      "/organizer",
+      "/driver",
+      "/partner",
+      "/kitchen",
+    ]) {
+      expect(showsSiteFooter(p), p).toBe(false);
+    }
+  });
+
+  it("IS on focused flows, unlike the tab bar", () => {
+    // The distinction this rule exists for. A floating pill over the pay button
+    // is a competing target; a footer below the fold is not.
+    for (const p of ["/checkout", "/deliver", "/taxi/book", "/transfers", "/login"]) {
+      expect(showsVisitorNav(p), `tab bar on ${p}`).toBe(false);
+      expect(showsSiteFooter(p), `footer on ${p}`).toBe(true);
+    }
+  });
+
+  it("does not mistake a page that merely starts with a console name", () => {
+    expect(showsSiteFooter("/administration")).toBe(true);
+    expect(showsSiteFooter("/drivers-guide")).toBe(true);
   });
 });

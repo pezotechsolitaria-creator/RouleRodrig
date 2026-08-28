@@ -87,6 +87,30 @@ export function showsVisitorNav(pathname: string): boolean {
   return true;
 }
 
+/**
+ * Does the site footer belong on this path?
+ *
+ * A SEPARATE RULE FROM showsVisitorNav, on purpose. That one keeps the tab bar
+ * off focused flows because a FLOATING pill sits over the primary action and
+ * competes for the same thumb. A footer is the opposite kind of object: it is
+ * in normal document flow, at the end, below the fold. It cannot compete with
+ * a button it is not covering, so /checkout, /deliver and /taxi/book keep it —
+ * and those are pages where the company line and the legal links have the most
+ * reason to be reachable.
+ *
+ * Two exclusions remain, for two different reasons:
+ *
+ *  1. CONSOLES. A marketing footer under the order queue is the same mistake
+ *     the comment at the top of this file describes: chrome for visiting the
+ *     site, put on a screen for running it.
+ *  2. `/`. The homepage renders <Footer> itself, with the sponsor strip above
+ *     it (app/page.tsx). Mounting it globally too would print it twice.
+ */
+export function showsSiteFooter(pathname: string): boolean {
+  if (pathname === "/") return false;
+  return !isConsole(pathname);
+}
+
 /** Is this a console — a screen for running the business rather than using it? */
 export function isConsole(pathname: string): boolean {
   return CONSOLE_PREFIXES.some(

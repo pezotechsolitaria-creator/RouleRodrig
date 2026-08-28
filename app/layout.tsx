@@ -16,6 +16,7 @@ import AnnouncementBar from "@/components/AnnouncementBar";
 import BuildWatcher from "@/components/BuildWatcher";
 import { ExperienceWorldProvider } from "@/context/ExperienceWorldContext";
 import BottomNav from "@/components/BottomNav";
+import SiteFooter from "@/components/SiteFooter";
 import GlobalTiRoule from "@/components/GlobalTiRoule";
 import { getContent } from "@/lib/content";
 import { priceNumber, FLEET_PRICE_FALLBACK } from "@/lib/site-data";
@@ -449,6 +450,14 @@ export default async function RootLayout({
                   byte-identical to before. */}
                     <AnnouncementBar announcement={content.announcement} />
                     {children}
+                    {/* In normal flow, directly after the page, so it is the
+                        last thing in the document rather than an overlay —
+                        everything below this line is fixed or floating. */}
+                    <SiteFooter
+                      social={content.social}
+                      branding={content.branding}
+                      legal={content.legal}
+                    />
                     <ReturnWelcome />
                     <FavoritesPanel />
                     <BottomNav />
