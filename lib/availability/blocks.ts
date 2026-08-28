@@ -37,6 +37,20 @@ export type Block = {
  * deposit on the same scooter.
  *
  * Callers must treat null as "cannot confirm availability" — never as "free".
+ *
+ * ── AND ONE WAY IT STILL FAILED OPEN, OBSERVED IN PRODUCTION ─────────────
+ * The guard above only works if a broken read ARRIVES as an error. On the first
+ * deploy after this table was created it did not. A block that the database
+ * could see — verified, one row, under `set role service_role` with these exact
+ * filters — came back through PostgREST as an empty list and no error, so this
+ * function returned [] and the site cheerfully offered dates that were gone.
+ * `notify pgrst, 'reload schema'` fixed it immediately and permanently.
+ *
+ * The lesson is for the NEXT table, because no code here can tell an empty
+ * result from an invisible one: after any migration that creates a table the
+ * availability engine reads, reload the PostgREST schema cache and then prove
+ * the new rows travel all the way to the public endpoint. A green test suite
+ * cannot see this — it lives between Postgres and PostgREST, not in our code.
  */
 export async function blocksOverlapping(
   startDate: string,
