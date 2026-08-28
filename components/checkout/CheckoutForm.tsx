@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { Loader2, MapPin, AlertTriangle, RefreshCw, Check, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useCart, type CartDomain } from "@/lib/cart/CartContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { CHECKOUT_COPY, sellerWords } from "@/lib/checkout/copy.i18n";
 import { centsToDecimalString } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -54,6 +56,11 @@ export default function CheckoutForm({
 }) {
   const { baskets, basketFor, hydrated, clear } = useCart(domain);
   const router = useRouter();
+  // Every word on this form, in the language chosen at the door. It lives in
+  // localStorage via context/LanguageContext, so it can only be read here in
+  // the browser — which is why the page's own h1 is a separate client child.
+  const { language } = useLanguage();
+  const c = CHECKOUT_COPY[language];
 
   // WHICH basket this checkout is placing. The marketplace holds one per shop,
   // so the shop travels in the URL; food and ticketing hold exactly one, so the
@@ -146,7 +153,7 @@ export default function CheckoutForm({
       router.replace("/login?next=/checkout");
       router.refresh();
     } catch {
-      toast.error("Could not sign out. Please try again.");
+      toast.error(c.form.signedIn.signOutFailed);
       setSwitching(false);
     }
   }
@@ -172,7 +179,7 @@ export default function CheckoutForm({
     })
       .then(async (r) => {
         const body = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(body.error || "We couldn't load your cart.");
+        if (!r.ok) throw new Error(body.error || c.form.errors.cartLoad);
         return body;
       })
       .then((body) => {
@@ -213,7 +220,7 @@ export default function CheckoutForm({
         if (cancelled) return;
         // Leave `resolved` null so nothing renders a price.
         setResolved(null);
-        setCartError(e instanceof Error ? e.message : "We couldn't load your cart.");
+        setCartError(e instanceof Error ? e.message : c.form.errors.cartLoad);
       })
       .finally(() => {
         if (!cancelled) setLoadingCart(false);
@@ -249,15 +256,17 @@ export default function CheckoutForm({
         body: JSON.stringify({ storeId: cart.storeId, items: cart.items, fulfillment, deliveryZoneId: zoneId || undefined }),
       });
       const body = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(body.error || "We couldn't price your order.");
+      if (!r.ok) throw new Error(body.error || c.form.errors.quote);
       setQuote(body);
     } catch (e) {
       setQuote(null);
-      setQuoteError(e instanceof Error ? e.message : "We couldn't price your order.");
+      setQuoteError(e instanceof Error ? e.message : c.form.errors.quote);
     } finally {
       setQuoting(false);
     }
-  }, [cart, fulfillment, zoneId]);
+    // `c` only ever changes when the reader switches language; the effect that
+    // calls this does not list it, so nothing re-fetches on a language change.
+  }, [cart, fulfillment, zoneId, c]);
 
   useEffect(() => {
     if (!hydrated || cartError || !resolved || resolved.length === 0) return;
@@ -267,7 +276,7 @@ export default function CheckoutForm({
 
   function shareLocation() {
     if (!navigator.geolocation) {
-      setLocationError("This device can't share a location. Choose pickup instead.");
+      setLocationError(c.form.location.unsupported);
       return;
     }
     setLocating(true);
@@ -278,7 +287,7 @@ export default function CheckoutForm({
         setLocating(false);
       },
       () => {
-        setLocationError("We couldn't get your location. Allow location access and try again.");
+        setLocationError(c.form.location.denied);
         setLocating(false);
       },
       { enableHighAccuracy: true, timeout: 15_000 },
@@ -289,7 +298,7 @@ export default function CheckoutForm({
   if (!hydrated || loadingCart) {
     return (
       <div className="space-y-3" aria-busy="true" aria-live="polite">
-        <span className="sr-only">Loading your cart…</span>
+        <span className="sr-only">{c.form.loading}</span>
         <Skeleton className="h-24 w-full rounded-xl bg-white/[0.04]" />
         <Skeleton className="h-40 w-full rounded-xl bg-white/[0.04]" />
       </div>
@@ -300,10 +309,10 @@ export default function CheckoutForm({
     return (
       <div role="alert" className="rounded-2xl border border-red-500/25 bg-red-500/[0.05] p-6 text-center">
         <AlertTriangle className="mx-auto text-red-400" size={22} />
-        <h2 className="mt-3 font-syne text-base font-bold text-offwhite">We couldn&apos;t load your cart</h2>
+        <h2 className="mt-3 font-syne text-base font-bold text-offwhite">{c.form.loadFailedTitle}</h2>
         <p className="mx-auto mt-1 max-w-xs font-dm text-sm text-muted">{cartError}</p>
         <Button variant="outline" className="mt-4" onClick={() => setReloadKey((k) => k + 1)}>
-          <RefreshCw size={15} className="mr-1.5" /> Try again
+          <RefreshCw size={15} className="mr-1.5" /> {c.form.tryAgain}
         </Button>
       </div>
     );
@@ -312,12 +321,17 @@ export default function CheckoutForm({
   // Declared before the first early return that needs it: the empty-cart branch
   // below already links away, and it must link to the MENU for a food order.
   const v = vocabFor(sellerDomain);
+  // The same seller, in the reader's language and in the grammatical forms the
+  // sentences below need. `v` still supplies the words this package does not
+  // own — the browse link, the pickup hint, and the noun handed to
+  // checkoutHoldCopy() — all of which are still English.
+  const s = sellerWords(language, sellerDomain);
 
   if (!cart || cart.items.length === 0 || (resolved && resolved.length === 0)) {
     return (
       <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-10 text-center">
-        <h2 className="font-syne text-lg font-bold text-offwhite">Your cart is empty</h2>
-        <p className="mx-auto mt-1 max-w-xs font-dm text-sm text-muted">Add something to your cart before checking out.</p>
+        <h2 className="font-syne text-lg font-bold text-offwhite">{c.form.emptyTitle}</h2>
+        <p className="mx-auto mt-1 max-w-xs font-dm text-sm text-muted">{c.form.emptyBody}</p>
         {/* Was "/" — a link labelled "Browse shops" that went to the homepage,
             contradicting itself and the cart page, which correctly returns to
             the marketplace directory. */}
@@ -366,14 +380,14 @@ export default function CheckoutForm({
   // the page said so. Ordered so the first thing the customer can actually act
   // on is named, rather than reporting a server-side condition they cannot fix.
   const blockedReason = submitting || quoting || hasIssue ? null
-    : !identityReady ? "Enter a valid email so we can send your order confirmation."
-    : !name.trim() ? "Enter your full name to continue."
-    : !phone.trim() ? v.phoneReason
-    : !locationReady ? "Share your delivery location to continue."
-    : !zoneReady ? "Choose your delivery area to continue."
-    : !paymentReady ? `This ${v.seller} does not accept the selected payment method.`
-    : !scheduleReady ? `The ${v.seller} is closed for this option right now.`
-    : !quote ? `Waiting for the ${v.seller} to confirm your price…`
+    : !identityReady ? c.form.blocked.email
+    : !name.trim() ? c.form.blocked.name
+    : !phone.trim() ? c.form.blocked.phone(s)
+    : !locationReady ? c.form.blocked.location
+    : !zoneReady ? c.form.blocked.zone
+    : !paymentReady ? c.form.blocked.payment(s)
+    : !scheduleReady ? c.form.blocked.closed(s)
+    : !quote ? c.form.blocked.quote(s)
     : null;
 
   async function submit(e: React.FormEvent) {
@@ -414,9 +428,9 @@ export default function CheckoutForm({
         // figure and can decide, instead of being left on a dead number.
         if (body.code === "RR012") {
           await fetchQuote();
-          throw new Error(body.error || "The price changed. Please review the new total.");
+          throw new Error(body.error || c.form.errors.priceChanged);
         }
-        throw new Error(body.error || "Checkout failed.");
+        throw new Error(body.error || c.form.errors.failed);
       }
       posthog.capture("checkout_order_placed", {
         item_count: cart.items.reduce((count, item) => count + item.quantity, 0),
@@ -428,7 +442,7 @@ export default function CheckoutForm({
       // the other baskets a marketplace shopper is deliberately holding — they
       // paid one shop, not all of them.
       clear(cart.storeId);
-      toast.success("Order placed!");
+      toast.success(c.form.errors.placed);
       // A GUEST has no session, so /orders/[id] — which filters on
       // customer_id = auth.uid() — would bounce them straight to /login after
       // they had just paid. They go to the account-free tracking page instead,
@@ -449,7 +463,7 @@ export default function CheckoutForm({
         router.push(`/orders/${body.order_id}`);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Checkout failed.");
+      setError(e instanceof Error ? e.message : c.form.errors.failed);
     } finally {
       setSubmitting(false);
     }
@@ -459,7 +473,7 @@ export default function CheckoutForm({
     <form onSubmit={submit} className="space-y-6">
       {/* Items */}
       <section aria-labelledby="items-h">
-        <h2 id="items-h" className="font-bebas text-[11px] tracking-[0.3em] text-yellow">ITEMS</h2>
+        <h2 id="items-h" className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{c.form.items.eyebrow}</h2>
         <div className="mt-2 space-y-1 rounded-xl border border-white/10 bg-dark-card p-3">
           {items.map((i) => (
             <div key={i.variantId} className="flex justify-between font-dm text-sm">
@@ -470,7 +484,7 @@ export default function CheckoutForm({
         </div>
         {hasIssue && (
           <p role="alert" className="mt-2 font-dm text-xs text-red-400">
-            Some items are no longer available. <Link href="/cart" className="underline">Review your cart</Link>.
+            {c.form.items.issue} <Link href="/cart" className="underline">{c.form.items.issueLink}</Link>.
           </p>
         )}
       </section>
@@ -478,16 +492,20 @@ export default function CheckoutForm({
       {/* Opening hours — stated up front, because a closed shop blocks everything. */}
       {shopClosed && (
         <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/[0.06] px-4 py-3">
-          <p className="font-dm text-sm text-red-300">This {v.seller} is closed right now.</p>
+          <p className="font-dm text-sm text-red-300">{c.form.schedule.closedNow(s)}</p>
           <p className="mt-0.5 font-dm text-xs text-muted">
-            {nextOpenLabel(schedule) || "Please try again during opening hours."}
-            {todayLine(schedule) !== "Closed today" && ` · Today ${todayLine(schedule)}`}
+            {nextOpenLabel(schedule) || c.form.schedule.tryOpeningHours}
+            {/* "Closed today" is NOT display here — it is compared against what
+                todayLine() returns (lib/schedule.ts, asserted in
+                lib/schedule.test.ts). Translating it would make the condition
+                always true and append " · Today Closed today". */}
+            {todayLine(schedule) !== "Closed today" && `${c.form.schedule.todayPrefix}${todayLine(schedule)}`}
           </p>
         </div>
       )}
       {!shopClosed && schedule?.has_schedule && (
         <p className="font-dm text-xs text-muted">
-          <span className="text-green-400">Open now</span> · today {todayLine(schedule)}
+          <span className="text-green-400">{c.form.schedule.openNow}</span>{c.form.schedule.todayLower}{todayLine(schedule)}
         </p>
       )}
 
@@ -500,15 +518,14 @@ export default function CheckoutForm({
           right answer. */}
       {isTicket ? (
         <section>
-          <h2 className="font-bebas text-[11px] tracking-[0.3em] text-yellow">HOW IT WORKS</h2>
+          <h2 className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{c.form.ticket.eyebrow}</h2>
           <p className="mt-2 rounded-xl border border-white/10 bg-dark-card p-4 font-dm text-sm text-offwhite/85">
-            Your tickets arrive by email with a QR code. Show it at the gate — nothing is posted
-            or delivered.
+            {c.form.ticket.body}
           </p>
         </section>
       ) : (
       <fieldset>
-        <legend className="font-bebas text-[11px] tracking-[0.3em] text-yellow">DELIVERY METHOD</legend>
+        <legend className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{c.form.fulfilment.legend}</legend>
         <div className="mt-2 space-y-2">
           {(Object.keys(FULFILLMENT_COPY) as Fulfillment[]).map((f) => {
             // A shut delivery window disables ONLY rr_delivery — pickup and a
@@ -521,9 +538,9 @@ export default function CheckoutForm({
                   ? !offersRrDelivery || deliveryOffNow
                   : f !== "pickup" && !storeOffersDelivery;
             const reason =
-              shopClosed ? `The ${v.seller} is closed right now.`
-                : f === "rr_delivery" && !offersRrDelivery ? `This ${v.seller} doesn't use our delivery team.`
-                : f === "rr_delivery" && deliveryOffNow ? "Delivery isn't running right now."
+              shopClosed ? c.form.fulfilment.closed(s)
+                : f === "rr_delivery" && !offersRrDelivery ? c.form.fulfilment.noRrDelivery(s)
+                : f === "rr_delivery" && deliveryOffNow ? c.form.fulfilment.deliveryOff
                 : null;
             return (
               <label
@@ -565,16 +582,16 @@ export default function CheckoutForm({
           the gate, and the venue is on the event page, not the seller's row. */}
 
       {fulfillment === "pickup" && sellerDomain !== "events" && pickup && (
-        <PickupLocationCard location={pickup} title="You'll collect from" />
+        <PickupLocationCard location={pickup} title={c.form.fulfilment.pickupTitle} />
       )}
 
       {/* Region — decides the delivery fee */}
       {fulfillment === "rr_delivery" && (
         <section aria-labelledby="zone-h">
-          <h2 id="zone-h" className="font-bebas text-[11px] tracking-[0.3em] text-yellow">DELIVERY AREA</h2>
+          <h2 id="zone-h" className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{c.form.zone.eyebrow}</h2>
           <div className="mt-2 rounded-xl border border-white/10 bg-dark-card p-4">
             <label htmlFor="zone" className="mb-1.5 block font-dm text-xs text-muted">
-              Which part of Rodrigues are we delivering to?
+              {c.form.zone.question}
             </label>
             <select
               id="zone"
@@ -582,7 +599,7 @@ export default function CheckoutForm({
               onChange={(e) => setZoneId(e.target.value)}
               className="w-full rounded-xl border border-dark-border bg-dark px-4 py-3 font-dm text-sm text-offwhite focus:border-yellow focus:outline-none"
             >
-              <option value="">Choose your area…</option>
+              <option value="">{c.form.zone.choose}</option>
               {(zones ?? []).map((z) => (
                 <option key={z.id} value={z.id}>
                   {z.name} — Rs {centsToDecimalString(z.fee)}
@@ -591,12 +608,12 @@ export default function CheckoutForm({
             </select>
             {zones?.find((z) => z.id === zoneId)?.covers && (
               <p className="mt-2 font-dm text-xs text-muted">
-                Covers: {zones.find((z) => z.id === zoneId)!.covers}
+                {c.form.zone.covers}{zones.find((z) => z.id === zoneId)!.covers}
               </p>
             )}
             {zones && zones.length === 0 && (
               <p role="alert" className="mt-2 font-dm text-xs text-red-400">
-                No delivery areas are set up yet. Choose pickup or your own delivery.
+                {c.form.zone.none}
               </p>
             )}
             {/* ── Will it go on a scooter? ─────────────────────────────────
@@ -618,12 +635,10 @@ export default function CheckoutForm({
               />
               <span>
                 <span className="block font-dm text-sm font-semibold text-offwhite">
-                  This is a large item — it needs a car
+                  {c.form.zone.largeLabel}
                 </span>
                 <span className="mt-0.5 block font-dm text-xs leading-relaxed text-muted">
-                  Tick this for anything that will not fit on a scooter — furniture, a
-                  gas bottle, an appliance, several big boxes. We will only send a
-                  driver with a car or a van. It does not change the price.
+                  {c.form.zone.largeHelp}
                 </span>
               </span>
             </label>
@@ -631,19 +646,19 @@ export default function CheckoutForm({
             {/* Roulé Rodrigues does not promise a time — this is an upper bound,
                 and the customer settles the exact timing with the driver. */}
             <p className="mt-3 font-dm text-xs text-muted">
-              Usually delivered within {Math.round(maxMinutes / 60)} hours.
+              {c.form.zone.within(Math.round(maxMinutes / 60))}
             </p>
             {sizeClass === "large" && (
               <p className="font-dm text-xs text-muted">
-                Large items can take longer — fewer drivers have a car.
+                {c.form.zone.largeSlower}
               </p>
             )}
             <p className="font-dm text-xs text-muted">
-              The exact delivery time is agreed between you and the driver.
+              {c.form.zone.agreed}
             </p>
             {deliveryLine(schedule) && (
               <p className="mt-1 font-dm text-xs text-muted">
-                Delivery today: {deliveryLine(schedule)}
+                {c.form.zone.today}{deliveryLine(schedule)}
               </p>
             )}
           </div>
@@ -653,27 +668,27 @@ export default function CheckoutForm({
       {/* GPS — the delivery address */}
       {needsLocation && (
         <section aria-labelledby="loc-h">
-          <h2 id="loc-h" className="font-bebas text-[11px] tracking-[0.3em] text-yellow">YOUR LOCATION</h2>
+          <h2 id="loc-h" className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{c.form.location.eyebrow}</h2>
           <div className="mt-2 rounded-xl border border-white/10 bg-dark-card p-4">
             {coords ? (
               <p className="flex items-center gap-2 font-dm text-sm text-green-400">
-                <Check size={15} /> Location shared ({coords.lat.toFixed(5)}, {coords.lng.toFixed(5)})
+                <Check size={15} /> {c.form.location.shared(coords.lat.toFixed(5), coords.lng.toFixed(5))}
               </p>
             ) : (
               <p className="font-dm text-sm text-muted">
-                We deliver to a GPS pin, not a street address — it&apos;s far more reliable here.
+                {c.form.location.why}
               </p>
             )}
             <Button type="button" variant="outline" className="mt-3" onClick={shareLocation} disabled={locating}>
               {locating ? <Loader2 size={15} className="mr-1.5 animate-spin" /> : <MapPin size={15} className="mr-1.5" />}
-              {coords ? "Update location" : "Share my location"}
+              {coords ? c.form.location.update : c.form.location.share}
             </Button>
             {locationError && <p role="alert" className="mt-2 font-dm text-xs text-red-400">{locationError}</p>}
             <Textarea
               value={deliveryInstructions}
               onChange={(e) => setDeliveryInstructions(e.target.value)}
-              placeholder="Landmark or directions (optional)"
-              aria-label="Delivery directions"
+              placeholder={c.form.location.notesPlaceholder}
+              aria-label={c.form.location.notesAria}
               rows={2}
               maxLength={500}
               className="mt-3"
@@ -694,14 +709,14 @@ export default function CheckoutForm({
           className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-4"
         >
           <h2 id="who-h" className="font-bebas text-[11px] tracking-[0.3em] text-yellow">
-            CHECKING OUT AS A GUEST
+            {c.form.guest.eyebrow}
           </h2>
           <p className="mt-1.5 font-dm text-sm text-muted">
-            No account needed. We&apos;ll email your confirmation and a link to track this order.
+            {c.form.guest.intro}
           </p>
           <div className="mt-3">
             <label htmlFor="co-email" className="mb-1 block font-dm text-xs text-muted">
-              Email <span className="text-yellow">*</span>
+              {c.form.guest.emailLabel} <span className="text-yellow">*</span>
             </label>
             <input
               id="co-email"
@@ -709,7 +724,7 @@ export default function CheckoutForm({
               required
               value={guestEmail}
               onChange={(e) => setGuestEmail(e.target.value)}
-              placeholder="you@email.com"
+              placeholder={c.form.guest.emailPlaceholder}
               autoComplete="email"
               inputMode="email"
               aria-invalid={guestEmail.length > 0 && !guestEmailValid}
@@ -722,16 +737,16 @@ export default function CheckoutForm({
             />
             <p id="co-email-hint" className="mt-1.5 font-dm text-[11px] text-muted">
               {guestEmail.length > 0 && !guestEmailValid
-                ? "That email address doesn't look right."
-                : "Your order confirmation goes here — please check it's correct."}
+                ? c.form.guest.emailBad
+                : c.form.guest.emailHint}
             </p>
           </div>
           <p className="mt-3 font-dm text-xs text-muted">
-            Already have an account?{" "}
+            {c.form.guest.haveAccount}{" "}
             <Link href="/login?next=/checkout" className="font-semibold text-yellow hover:underline">
-              Sign in
+              {c.form.guest.signIn}
             </Link>{" "}
-            to save this order to your history.
+            {c.form.guest.toSave}
           </p>
         </section>
       ) : (
@@ -741,8 +756,8 @@ export default function CheckoutForm({
         >
           <Check size={15} className="shrink-0 text-green-400" />
           <p className="min-w-0 flex-1 font-dm text-sm text-muted">
-            <span className="sr-only" id="who-h">Signed in</span>
-            Ordering as <span className="truncate font-medium text-offwhite">{signedInEmail}</span>
+            <span className="sr-only" id="who-h">{c.form.signedIn.srLabel}</span>
+            {c.form.signedIn.orderingAs}<span className="truncate font-medium text-offwhite">{signedInEmail}</span>
           </p>
           {/* A shared phone, a stale Google session, or simply the wrong
               account — without a way out, the only options were to abandon the
@@ -759,30 +774,30 @@ export default function CheckoutForm({
             disabled={switching}
             className="shrink-0 rounded-lg px-2 py-1 font-dm text-xs font-medium text-yellow underline underline-offset-2 transition-colors hover:text-yellow-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow/60 disabled:opacity-50"
           >
-            {switching ? "Signing out…" : "Not you?"}
+            {switching ? c.form.signedIn.signingOut : c.form.signedIn.notYou}
           </button>
         </section>
       )}
 
       <section aria-labelledby="you-h">
-        <h2 id="you-h" className="font-bebas text-[11px] tracking-[0.3em] text-yellow">YOUR DETAILS</h2>
+        <h2 id="you-h" className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{c.form.details.eyebrow}</h2>
         <div className="mt-2 space-y-3">
           {/* Both fields gate canSubmit, but nothing said so — the Place order
               button simply stayed dark with no explanation. Labelling them
               Required is the cheapest possible fix for "why can't I order?". */}
           <div>
             <label htmlFor="co-name" className="mb-1 block font-dm text-xs text-muted">
-              Full name <span className="text-yellow">*</span>
+              {c.form.details.nameLabel} <span className="text-yellow">*</span>
             </label>
             <input
               id="co-name" required value={name} onChange={(e) => setName(e.target.value)}
-              placeholder="Full name" autoComplete="name"
+              placeholder={c.form.details.namePlaceholder} autoComplete="name"
               className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 font-dm text-sm text-offwhite placeholder:text-muted/50 focus:border-yellow focus:outline-none"
             />
           </div>
           <div>
             <label htmlFor="co-phone" className="mb-1 block font-dm text-xs text-muted">
-              Phone number <span className="text-yellow">*</span>
+              {c.form.details.phoneLabel} <span className="text-yellow">*</span>
             </label>
             {/* The same PhoneInput the vehicle-rental flow uses, so the country
                 picker (+230 Mauritius first) and libphonenumber validation are
@@ -793,13 +808,13 @@ export default function CheckoutForm({
               value={phone}
               onChange={setPhone}
               disabled={submitting}
-              placeholder="Phone number"
+              placeholder={c.form.details.phonePlaceholder}
               inputClassName="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 pl-10 font-dm text-sm text-offwhite placeholder:text-muted/50 focus:border-yellow focus:outline-none"
             />
           </div>
           <Textarea
             value={notes} onChange={(e) => setNotes(e.target.value)}
-            placeholder={v.notesPlaceholder} aria-label="Order notes"
+            placeholder={c.form.details.notesPlaceholder(s)} aria-label={c.form.details.notesAria}
             rows={2} maxLength={1000}
           />
         </div>
@@ -809,7 +824,7 @@ export default function CheckoutForm({
           M89 turned cash off platform-wide (marketplace_settings.prepayment_only)
           so that nothing is ever handed over before the money has arrived. */}
       <fieldset>
-        <legend className="font-bebas text-[11px] tracking-[0.3em] text-yellow">PAYMENT</legend>
+        <legend className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{c.form.payment.legend}</legend>
         {/* A CHOICE IS ONLY DRAWN WHEN THERE IS ONE TO MAKE.
             With cash off, the two-tile radio rendered a permanently disabled
             "Cash" on every checkout — advertising a method that no longer
@@ -819,7 +834,9 @@ export default function CheckoutForm({
             choice without another change here. */}
         {acceptsCash && bankTransferAvailable ? (
           <div className="mt-2 grid grid-cols-2 gap-2">
-            {([["cash", "Cash"], ["bank_transfer", "Bank transfer"]] as const).map(([value, label]) => (
+            {/* The FIRST element of each tuple is the value create_order() is
+                sent — it is data, never a word, and is not translated. */}
+            {([["cash", c.form.payment.cash], ["bank_transfer", c.form.payment.bankTransfer]] as const).map(([value, label]) => (
               <label
                 key={value}
                 className={`cursor-pointer rounded-xl border px-4 py-3 text-center font-dm text-sm transition-colors ${
@@ -836,12 +853,15 @@ export default function CheckoutForm({
           </div>
         ) : bankTransferAvailable ? (
           <p className="mt-2 rounded-xl border border-yellow/25 bg-yellow/[0.06] px-4 py-3 font-dm text-sm text-offwhite">
-            Paid by <span className="font-bold text-yellow">bank transfer</span> before your order is
-            prepared.
+            {c.form.payment.transferOnlyBefore}
+            <span className="font-bold text-yellow">{c.form.payment.transferOnlyWord}</span>
+            {c.form.payment.transferOnlyAfter}
           </p>
         ) : acceptsCash ? (
           <p className="mt-2 rounded-xl border border-white/15 px-4 py-3 font-dm text-sm text-offwhite">
-            Paid in <span className="font-bold text-yellow">cash</span>.
+            {c.form.payment.cashOnlyBefore}
+            <span className="font-bold text-yellow">{c.form.payment.cashOnlyWord}</span>
+            {c.form.payment.cashOnlyAfter}
           </p>
         ) : null}
         {!acceptsCash && !acceptsBankTransfer && (
@@ -850,8 +870,7 @@ export default function CheckoutForm({
           // is actually wrong rather than "no payment method", which reads to a
           // customer as a fault on their side.
           <p role="alert" className="mt-2 font-dm text-xs text-red-400">
-            This {v.seller} has not published bank details yet, so it cannot take orders. Please
-            contact them directly.
+            {c.form.payment.noBankDetails(s)}
           </p>
         )}
 
@@ -869,12 +888,10 @@ export default function CheckoutForm({
         {pickup?.whatsapp && (
           <details className="mt-3 rounded-xl border border-white/12 bg-dark-card px-4 py-3">
             <summary className="cursor-pointer font-dm text-sm text-offwhite marker:text-yellow">
-              No local bank account?
+              {c.form.payment.noLocalAccount}
             </summary>
             <p className="mt-2 font-dm text-xs leading-relaxed text-muted">
-              Bank transfers are hard from abroad. Message {pickup.storeName ?? `the ${v.seller}`}{" "}
-              directly and they will arrange payment with you — many take cash on collection or a
-              card in person.
+              {c.form.payment.noLocalAccountBody(pickup.storeName ?? s.the)}
             </p>
             <a
               href={`https://wa.me/${pickup.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(
@@ -884,7 +901,7 @@ export default function CheckoutForm({
               rel="noopener noreferrer"
               className="mt-2.5 inline-flex min-h-[40px] items-center gap-2 rounded-xl bg-[#25D366] px-3.5 font-syne text-sm font-bold text-black"
             >
-              Message the {v.seller}
+              {c.form.payment.messageSeller(s)}
             </a>
           </details>
         )}
@@ -894,11 +911,11 @@ export default function CheckoutForm({
                 change, and adds the receipt case a guest can now satisfy. */}
             {requiresReceipt
               ? isGuest
-                ? `You'll see the ${v.seller}'s bank details on your tracking page after placing the order. This ${v.seller} asks for a photo of your transfer, which you can attach there.`
-                : `You'll see the ${v.seller}'s bank details after placing the order. This ${v.seller} asks for a photo of your transfer.`
+                ? c.form.payment.expect.guestReceipt(s)
+                : c.form.payment.expect.receipt(s)
               : isGuest
-                ? `You'll see the ${v.seller}'s bank details on your tracking page after placing the order, and you tell the ${v.seller} once you've sent the transfer.`
-                : `You'll see the ${v.seller}'s bank details and upload your transfer receipt after placing the order.`}
+                ? c.form.payment.expect.guest(s)
+                : c.form.payment.expect.plain(s)}
           </p>
         )}
 
@@ -917,6 +934,10 @@ export default function CheckoutForm({
         {paymentReady && (
           <p className="mt-3 flex items-start gap-2 rounded-xl border border-yellow/25 bg-yellow/[0.06] px-4 py-3 font-dm text-xs leading-relaxed text-offwhite">
             <Clock size={14} className="mt-0.5 shrink-0 text-yellow" />
+            {/* Still English in every language: lib/orders/hold.ts builds this
+                paragraph itself and is outside this change. It takes the raw
+                English noun from lib/food/vocabulary.ts, not the translated
+                seller words, so the two stay consistent with each other. */}
             <span>{checkoutHoldCopy(provider, holdWindows[provider] ?? 48, Date.now(), v.seller)}</span>
           </p>
         )}
@@ -924,31 +945,31 @@ export default function CheckoutForm({
 
       {/* Server-priced summary */}
       <section aria-labelledby="total-h" className="rounded-xl border border-white/10 bg-dark-card p-4">
-        <h2 id="total-h" className="font-bebas text-[11px] tracking-[0.3em] text-yellow">SUMMARY</h2>
+        <h2 id="total-h" className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{c.form.summary.eyebrow}</h2>
         {quoteError ? (
           <div role="alert" className="mt-2">
             <p className="font-dm text-sm text-red-400">{quoteError}</p>
             <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => void fetchQuote()}>
-              <RefreshCw size={14} className="mr-1.5" /> Retry
+              <RefreshCw size={14} className="mr-1.5" /> {c.form.summary.retry}
             </Button>
           </div>
         ) : !quote || quoting ? (
           <div className="mt-2 space-y-2" aria-busy="true" aria-live="polite">
-            <span className="sr-only">Calculating your total…</span>
+            <span className="sr-only">{c.form.summary.working}</span>
             <Skeleton className="h-4 w-full bg-white/[0.06]" />
             <Skeleton className="h-5 w-1/2 bg-white/[0.06]" />
           </div>
         ) : (
           <dl className="mt-2 space-y-1 font-dm text-sm" aria-live="polite">
-            <div className="flex justify-between text-muted"><dt>Subtotal</dt><dd>Rs {centsToDecimalString(quote.subtotal)}</dd></div>
+            <div className="flex justify-between text-muted"><dt>{c.form.summary.subtotal}</dt><dd>Rs {centsToDecimalString(quote.subtotal)}</dd></div>
             {quote.tax > 0 && (
-              <div className="flex justify-between text-muted"><dt>Tax</dt><dd>Rs {centsToDecimalString(quote.tax)}</dd></div>
+              <div className="flex justify-between text-muted"><dt>{c.form.summary.tax}</dt><dd>Rs {centsToDecimalString(quote.tax)}</dd></div>
             )}
             {quote.delivery_fee > 0 && (
-              <div className="flex justify-between text-muted"><dt>Delivery</dt><dd>Rs {centsToDecimalString(quote.delivery_fee)}</dd></div>
+              <div className="flex justify-between text-muted"><dt>{c.form.summary.delivery}</dt><dd>Rs {centsToDecimalString(quote.delivery_fee)}</dd></div>
             )}
             <div className="flex justify-between border-t border-white/10 pt-1 font-bold text-offwhite">
-              <dt>Total</dt><dd className="text-yellow">Rs {centsToDecimalString(quote.total)}</dd>
+              <dt>{c.form.summary.total}</dt><dd className="text-yellow">Rs {centsToDecimalString(quote.total)}</dd>
             </div>
           </dl>
         )}
@@ -956,7 +977,7 @@ export default function CheckoutForm({
 
       {error && <p role="alert" className="font-dm text-sm text-red-400">{error}</p>}
       {needsLocation && !coords && (
-        <p className="font-dm text-xs text-muted">Share your location to continue.</p>
+        <p className="font-dm text-xs text-muted">{c.form.location.needed}</p>
       )}
 
       {blockedReason && (
@@ -965,7 +986,7 @@ export default function CheckoutForm({
         </p>
       )}
       <Button type="submit" size="xl" className="w-full" disabled={!canSubmit}>
-        {submitting ? <Loader2 size={16} className="animate-spin" /> : quote ? `Place order — Rs ${centsToDecimalString(quote.total)}` : "Place order"}
+        {submitting ? <Loader2 size={16} className="animate-spin" /> : quote ? c.form.submit.placeWithTotal(centsToDecimalString(quote.total)) : c.form.submit.place}
       </Button>
     </form>
   );

@@ -8,6 +8,8 @@ import {
   UtensilsCrossed, Store, Ticket, ChevronRight,
 } from "lucide-react";
 import { useCarts, useCart, CART_DOMAINS, type CartDomain, type Basket } from "@/lib/cart/CartContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { CHECKOUT_COPY } from "@/lib/checkout/copy.i18n";
 import { centsToDecimalString } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,26 +34,24 @@ import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 // at the bottom would be the one piece of information on this page that is not
 // true. The header counts baskets and items instead.
 
+// The two things about a section that are NOT words: which icon it wears and
+// where its browse link goes. The title and the browse label are words, so they
+// live with every other word on this screen in lib/checkout/copy.i18n.ts and
+// are read there in the reader's language.
 const SECTION: Record<CartDomain, {
-  title: string; icon: React.ElementType; browseHref: string; browseLabel: string;
+  icon: React.ElementType; browseHref: string;
 }> = {
   food: {
-    title: "Your food order",
     icon: UtensilsCrossed,
     browseHref: "/food",
-    browseLabel: "Add more dishes",
   },
   shop: {
-    title: "From",
     icon: Store,
     browseHref: "/shop",
-    browseLabel: "Keep shopping",
   },
   events: {
-    title: "Your tickets",
     icon: Ticket,
     browseHref: "/events",
-    browseLabel: "See what's on",
   },
 };
 
@@ -59,6 +59,8 @@ type Section = { domain: CartDomain; basket: Basket };
 
 export default function CartPage() {
   const { baskets, hydrated } = useCarts();
+  const { language } = useLanguage();
+  const c = CHECKOUT_COPY[language].cart;
   const sections: Section[] = CART_DOMAINS.flatMap((domain) =>
     (baskets[domain] ?? []).map((basket) => ({ domain, basket })),
   );
@@ -71,15 +73,16 @@ export default function CartPage() {
     <main className="min-h-screen bg-dark px-4 pb-32 pt-10 text-offwhite">
       <div className="mx-auto max-w-2xl">
         <Link href="/" className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow">
-          <ArrowLeft size={14} /> Home
+          <ArrowLeft size={14} /> {c.home}
         </Link>
 
-        <h1 className="mt-3 font-syne text-2xl font-extrabold text-offwhite">Your bag</h1>
+        <h1 className="mt-3 font-syne text-2xl font-extrabold text-offwhite">{c.heading}</h1>
         {hydrated && sections.length > 0 && (
           <p className="mt-1 font-dm text-sm text-muted">
-            {itemCount} item{itemCount === 1 ? "" : "s"} from {sections.length} seller
-            {sections.length === 1 ? "" : "s"}
-            {sections.length > 1 && <> · each is paid for separately</>}
+            {/* One function, not two strings glued together: English adds an
+                "s", French adds one to a different word, and Kreol adds none. */}
+            {c.count(itemCount, sections.length)}
+            {sections.length > 1 && <>{c.separately}</>}
           </p>
         )}
 
@@ -104,14 +107,16 @@ export default function CartPage() {
 }
 
 function EmptyEverything() {
+  const { language } = useLanguage();
+  const c = CHECKOUT_COPY[language].cart;
   return (
     <div className="mt-8 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-10 text-center">
       <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow/10 text-yellow ring-1 ring-inset ring-yellow/20">
         <ShoppingBag size={22} />
       </span>
-      <h2 className="mt-4 font-syne text-lg font-bold text-offwhite">Your bag is waiting for something good</h2>
+      <h2 className="mt-4 font-syne text-lg font-bold text-offwhite">{c.empty.title}</h2>
       <p className="mx-auto mt-1 max-w-xs font-dm text-sm text-muted">
-        Food, shops and tickets each keep their own basket.
+        {c.empty.body}
       </p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">
         {CART_DOMAINS.map((d) => {
@@ -123,7 +128,11 @@ function EmptyEverything() {
               href={s.browseHref}
               className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 px-4 py-2.5 font-dm text-sm font-semibold text-offwhite transition-colors hover:border-yellow/40 hover:text-yellow"
             >
-              <Icon size={15} /> {d === "shop" ? "Browse products" : s.browseLabel}
+              {/* The shop tile says something different from its own section
+                  link — a third English wording for one action. Frozen as
+                  found rather than tidied: this change is words moving, not
+                  words changing. */}
+              <Icon size={15} /> {d === "shop" ? c.empty.browseProducts : c.section[d].browseLabel}
             </Link>
           );
         })}
@@ -134,6 +143,8 @@ function EmptyEverything() {
 
 function CartSection({ domain, basket }: { domain: CartDomain; basket: Basket }) {
   const { updateQuantity, removeItem } = useCart(domain);
+  const { language } = useLanguage();
+  const c = CHECKOUT_COPY[language].cart;
   const router = useRouter();
   const [resolved, setResolved] = useState<ResolvedCartItem[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -166,7 +177,7 @@ function CartSection({ domain, basket }: { domain: CartDomain; basket: Basket })
       .catch((err) => {
         if (cancelled) return;
         console.error("cart resolve failed", err);
-        setCartError("We couldn't load this basket just now. Your items are safe — please try again.");
+        setCartError(c.error);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -192,14 +203,14 @@ function CartSection({ domain, basket }: { domain: CartDomain; basket: Basket })
         <h2 className="inline-flex min-w-0 items-baseline gap-2 font-syne text-base font-extrabold text-offwhite">
           <Icon size={16} className="translate-y-0.5 text-yellow" />
           <span className="truncate">
-            {domain === "shop" ? basket.storeName : meta.title}
+            {domain === "shop" ? basket.storeName : c.section[domain].title}
           </span>
         </h2>
         <Link href={backHref} className="shrink-0 font-dm text-xs text-yellow hover:underline">
-          {meta.browseLabel}
+          {c.section[domain].browseLabel}
         </Link>
       </div>
-      {domain !== "shop" && <p className="mt-0.5 font-dm text-sm text-muted">from {basket.storeName}</p>}
+      {domain !== "shop" && <p className="mt-0.5 font-dm text-sm text-muted">{c.from}{basket.storeName}</p>}
 
       {loading ? (
         <div className="mt-3 space-y-2">
@@ -214,7 +225,7 @@ function CartSection({ domain, basket }: { domain: CartDomain; basket: Basket })
           </span>
           <p className="mx-auto mt-3 max-w-xs font-dm text-sm text-muted">{cartError}</p>
           <Button size="lg" className="mt-4" onClick={() => setReloadKey((k) => k + 1)}>
-            Try again
+            {c.tryAgain}
           </Button>
         </div>
       ) : (
@@ -241,17 +252,17 @@ function CartSection({ domain, basket }: { domain: CartDomain; basket: Basket })
                       Rs {centsToDecimalString(item.price)}
                     </p>
                     {unavailable && (
-                      <p className="mt-0.5 font-dm text-xs text-red-300">No longer available — remove it to continue.</p>
+                      <p className="mt-0.5 font-dm text-xs text-red-300">{c.unavailable}</p>
                     )}
                     {insufficientStock && (
                       <p className="mt-0.5 font-dm text-xs text-orange-300">
-                        Only {item.stockQuantity} left — reduce the quantity to continue.
+                        {c.lowStock(item.stockQuantity)}
                       </p>
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
                     <button
-                      aria-label={`One fewer ${item.productName}`}
+                      aria-label={c.fewer(item.productName)}
                       onClick={() => updateQuantity(item.variantId, item.requestedQuantity - 1)}
                       className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 text-offwhite"
                     >
@@ -259,7 +270,7 @@ function CartSection({ domain, basket }: { domain: CartDomain; basket: Basket })
                     </button>
                     <span className="min-w-6 text-center font-dm text-sm tabular-nums">{item.requestedQuantity}</span>
                     <button
-                      aria-label={`One more ${item.productName}`}
+                      aria-label={c.more(item.productName)}
                       onClick={() => updateQuantity(item.variantId, item.requestedQuantity + 1)}
                       disabled={item.requestedQuantity >= item.stockQuantity}
                       className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 text-offwhite disabled:opacity-30"
@@ -267,7 +278,7 @@ function CartSection({ domain, basket }: { domain: CartDomain; basket: Basket })
                       <Plus size={14} />
                     </button>
                     <button
-                      aria-label={`Remove ${item.productName}`}
+                      aria-label={c.remove(item.productName)}
                       onClick={() => removeItem(item.variantId)}
                       className="ml-1 flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 text-muted hover:text-red-300"
                     >
@@ -281,11 +292,11 @@ function CartSection({ domain, basket }: { domain: CartDomain; basket: Basket })
 
           <div className="mt-3 rounded-2xl border border-white/10 bg-dark-card p-4">
             <div className="flex items-center justify-between font-dm text-sm">
-              <span className="text-muted">Subtotal</span>
+              <span className="text-muted">{c.subtotal}</span>
               <span className="font-semibold text-offwhite">Rs {centsToDecimalString(subtotal)}</span>
             </div>
             <p className="mt-1 font-dm text-xs text-muted">
-              Delivery, if you choose it, is added at checkout.
+              {c.deliveryNote}
             </p>
             <Button
               size="xl"
@@ -297,10 +308,10 @@ function CartSection({ domain, basket }: { domain: CartDomain; basket: Basket })
               onClick={() => router.push(`/checkout?cart=${domain}&store=${basket.storeId}`)}
             >
               {hasIssue ? (
-                "Fix the items above to continue"
+                c.fixItems
               ) : (
                 <>
-                  Checkout{domain === "shop" ? " with this shop" : ""} <ChevronRight size={16} className="ml-1" />
+                  {c.checkout}{domain === "shop" ? c.checkoutShopSuffix : ""} <ChevronRight size={16} className="ml-1" />
                 </>
               )}
             </Button>

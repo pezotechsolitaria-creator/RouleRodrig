@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import CheckoutForm from "@/components/checkout/CheckoutForm";
+// The back link and the h1 only. This page cannot read the chosen language —
+// it lives in localStorage — so those two strings move into a client child
+// rather than the whole page moving across the boundary. See the file itself.
+import CheckoutHeading from "./CheckoutHeading";
 // From lib/cart/domains, NOT lib/cart/CartContext: this is a server component,
 // and a plain value imported from a "use client" module arrives as a client
 // reference that throws the moment it is used.
@@ -64,10 +66,7 @@ export default async function CheckoutPage({
   return (
     <main className="min-h-screen bg-dark px-4 pb-32 pt-10 text-offwhite md:pb-16">
       <div className="mx-auto max-w-lg">
-        <Link href="/cart" className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow">
-          <ArrowLeft size={14} /> Back to your bag
-        </Link>
-        <h1 className="mt-3 font-syne text-2xl font-extrabold text-offwhite">Checkout</h1>
+        <CheckoutHeading />
 
         <div className="mt-6">
           <CheckoutForm
