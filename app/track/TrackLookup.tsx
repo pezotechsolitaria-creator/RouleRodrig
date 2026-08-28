@@ -4,11 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Search, Loader2, Bike, UtensilsCrossed, Ticket, Store, MapPin,
-  ArrowRight, AlertTriangle, CalendarCheck, Clock,
+  ArrowRight, ArrowLeft, AlertTriangle, CalendarCheck, Clock, User,
 } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import type { Activity, ActivityKind, ActivityStage } from "@/lib/activity";
 import { holdInfo, holdDeadlineLabel, holdRemaining } from "@/lib/orders/hold";
+import { useLanguage } from "@/context/LanguageContext";
+import { TRACK_COPY } from "@/lib/track/copy.i18n";
 
 // ── ONE BOX FOR EVERYTHING ─────────────────────────────────────────────────
 //
@@ -36,6 +38,8 @@ const STAGE_STYLE: Record<ActivityStage, string> = {
 };
 
 export default function TrackLookup({ initialRef = "" }: { initialRef?: string }) {
+  const { language } = useLanguage();
+  const c = TRACK_COPY[language];
   const [ref, setRef] = useState(initialRef);
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -57,10 +61,13 @@ export default function TrackLookup({ initialRef = "" }: { initialRef?: string }
         body: JSON.stringify({ ref: ref.trim(), email: email.trim() }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || "We couldn't find that.");
+      // `body.error` is the route's own finished English prose — see note 2 in
+      // lib/track/copy.i18n.ts. It is still preferred over ours, because a
+      // sentence that names the actual problem beats a translated generic one.
+      if (!res.ok) throw new Error(body.error || c.errors.notFound);
       setActivity(body.activity as Activity);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setError(err instanceof Error ? err.message : c.errors.generic);
     } finally {
       setBusy(false);
     }
@@ -74,7 +81,7 @@ export default function TrackLookup({ initialRef = "" }: { initialRef?: string }
     <>
       <form onSubmit={submit} className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent p-5">
         <div>
-          <span className={label}>REFERENCE</span>
+          <span className={label}>{c.form.refLabel}</span>
           <div className="relative">
             <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 mt-0.5 -translate-y-1/2 text-muted" />
             <input
@@ -82,25 +89,25 @@ export default function TrackLookup({ initialRef = "" }: { initialRef?: string }
               onChange={(e) => setRef(e.target.value)}
               autoCapitalize="characters"
               spellCheck={false}
-              placeholder="RR-A1B2C3 or RR260811-D9220F"
+              placeholder={c.form.refPlaceholder}
               className={`${field} pl-9`}
             />
           </div>
           {/* Says plainly that ONE box takes all of them — otherwise a customer
               holding an order number assumes this is the rentals page. */}
           <p className="mt-1.5 font-dm text-[11px] text-muted">
-            Rentals, boat trips, massages, shop orders, food and tickets — all of them.
+            {c.form.refHelp}
           </p>
         </div>
 
         <div className="mt-4">
-          <span className={label}>THE EMAIL YOU USED</span>
+          <span className={label}>{c.form.emailLabel}</span>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
-            placeholder="you@example.com"
+            placeholder={c.form.emailPlaceholder}
             className={field}
           />
         </div>
@@ -111,14 +118,14 @@ export default function TrackLookup({ initialRef = "" }: { initialRef?: string }
           className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-yellow px-5 py-4 font-dm text-base font-bold text-dark transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           {busy ? <Loader2 size={17} className="animate-spin" /> : <Search size={17} />}
-          Find it
+          {c.form.submit}
         </button>
       </form>
 
       {error && (
         <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-4">
           <p className="flex items-center gap-2 font-syne text-base font-bold text-red-200">
-            <AlertTriangle size={17} /> Not found
+            <AlertTriangle size={17} /> {c.errors.heading}
           </p>
           <p className="mt-1 font-dm text-sm text-red-200/90">{error}</p>
         </div>
@@ -130,23 +137,28 @@ export default function TrackLookup({ initialRef = "" }: { initialRef?: string }
 }
 
 function ActivityCard({ activity }: { activity: Activity }) {
+  const { language } = useLanguage();
+  const c = TRACK_COPY[language];
   const Icon = KIND_ICON[activity.kind];
-  const KIND_WORD: Record<ActivityKind, string> = {
-    vehicle: "Rental",
-    place: "Booking",
-    order: "Order",
-  };
 
   return (
     <article className="mt-4 rounded-2xl border border-white/10 bg-dark-card p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 font-bebas text-[11px] tracking-[0.25em] text-yellow">
-            <Icon size={13} /> {KIND_WORD[activity.kind].toUpperCase()}
+            <Icon size={13} /> {c.card.kind[activity.kind].toUpperCase()}
           </p>
           <h2 className="mt-1 font-syne text-xl font-extrabold text-offwhite">{activity.title}</h2>
           <p className="mt-0.5 font-dm text-sm text-muted">{activity.reference}</p>
         </div>
+        {/* STILL ENGLISH, DELIBERATELY. `statusLabel` is written by
+            activityLabel() in lib/activity.ts and arrives from the route as
+            finished prose — the client cannot translate a sentence it did not
+            author, and a second copy of that vocabulary here would be two
+            vocabularies drifting apart. The fix is the one
+            lib/rides/track-errors.ts already made for the ride lookup: send the
+            machine value, look the word up in the dictionary. That is a change
+            to lib/activity.ts and the route, not to this screen. */}
         <span
           className={`shrink-0 rounded-full border px-3 py-1.5 font-dm text-xs font-semibold ${STAGE_STYLE[activity.stage]}`}
         >
@@ -193,11 +205,17 @@ function ActivityCard({ activity }: { activity: Activity }) {
             <Clock size={13} className="mt-0.5 shrink-0" />
             <span>
               {h.expired ? (
-                "This reservation has lapsed. If it was not confirmed, the items have been released and you have not been charged."
+                c.card.hold.expired
               ) : (
                 <>
-                  Reserved until <span className="font-bold">{holdDeadlineLabel(h)}</span> — {holdRemaining(h)} left
-                  to pay, or the order is cancelled.
+                  {c.card.hold.reservedBefore}
+                  <span className="font-bold">{holdDeadlineLabel(h)}</span>
+                  {/* holdDeadlineLabel() formats in "en-GB" and holdRemaining()
+                      answers "2 days" / "under an hour": both are shared
+                      helpers in lib/orders/hold.ts with other callers, so the
+                      sentence around them is translated and those two values
+                      are not. Reported rather than duplicated here. */}
+                  {c.card.hold.reservedAfter(holdRemaining(h))}
                 </>
               )}
             </span>
@@ -211,8 +229,97 @@ function ActivityCard({ activity }: { activity: Activity }) {
         href={activity.href}
         className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-yellow px-5 py-3.5 font-dm text-sm font-bold text-dark transition-opacity hover:opacity-90"
       >
-        See the full details <ArrowRight size={15} />
+        {c.card.cta} <ArrowRight size={15} />
       </Link>
     </article>
+  );
+}
+
+// ── THE WORDS AROUND THE BOX ───────────────────────────────────────────────
+//
+// app/track/page.tsx is a server component — it owns the metadata and reads
+// ?ref= — and the chosen language is neither a cookie nor a route segment:
+// context/LanguageContext.tsx keeps it in localStorage and restores it after
+// mount, so there is nothing on the server to read it from. Same problem
+// app/deliver/DeliverTitle.tsx met, and the same answer: the text moves across
+// the boundary, the page does not.
+//
+// These three are the whole page apart from the form, which is why they live
+// beside it. The page keeps its own layout and composes them in order, so the
+// markup a reader gets is byte-for-byte what it was.
+//
+// It still server-renders: the provider starts on "en" and corrects itself
+// after hydration, so a reader with no JavaScript gets the English the page's
+// metadata already promises — and /track is noindex, so no crawler is being
+// told anything either way.
+
+/** Back link, eyebrow, h1 and the one-line promise. */
+export function TrackIntro() {
+  const { language } = useLanguage();
+  const c = TRACK_COPY[language].page;
+
+  return (
+    <>
+      <Link href="/" className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow">
+        <ArrowLeft size={14} /> {c.home}
+      </Link>
+
+      <p className="mt-3 font-bebas text-[11px] tracking-[0.3em] text-yellow">{c.eyebrow}</p>
+      <h1 className="mt-1 font-syne text-3xl font-extrabold leading-[1.05] sm:text-4xl">
+        {c.title}
+      </h1>
+      <p className="mt-2 font-dm text-sm text-muted">
+        {c.subtitle}
+      </p>
+    </>
+  );
+}
+
+// Naming everything this covers is the point: the old tab implied it was only
+// for rentals, so nobody tried it for anything else.
+//
+// The KEYS are the machine side and never move; only the labels are read.
+const COVERS = [
+  { icon: Bike, key: "vehicle" },
+  { icon: MapPin, key: "place" },
+  { icon: UtensilsCrossed, key: "food" },
+  { icon: Store, key: "shop" },
+  { icon: Ticket, key: "event" },
+] as const;
+
+/** The five things this one box covers. */
+export function TrackCovers() {
+  const { language } = useLanguage();
+  const c = TRACK_COPY[language].page;
+
+  return (
+    <ul className="mt-6 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+      {COVERS.map((cover) => {
+        const Icon = cover.icon;
+        return (
+          <li key={cover.key} className="flex items-center gap-2 font-dm text-xs text-muted">
+            <Icon size={13} className="shrink-0 text-yellow/70" /> {c.covers[cover.key]}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** For the customer who does have an account and need not type anything. */
+export function TrackAccountCard() {
+  const { language } = useLanguage();
+  const c = TRACK_COPY[language].page;
+
+  return (
+    <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-dark-card px-5 py-4">
+      <p className="inline-flex items-center gap-2 font-dm text-sm text-muted">
+        <User size={15} className="text-yellow" />
+        {c.accountNote}
+      </p>
+      <Link href="/orders" className="font-dm text-sm font-bold text-yellow hover:underline">
+        {c.accountCta}
+      </Link>
+    </div>
   );
 }
