@@ -25,6 +25,12 @@ export type EmailCategory =
   | "car_rental"
   | "accommodation"
   | "activity"
+  // Taxis, airport/ferry/hotel transfers and private hire (ride_requests).
+  // Its own domain rather than a rental or an activity: nothing is rented, the
+  // partner is a driver rather than a venue, and the money never touches the
+  // platform — so a dashboard that files rides under scooters answers "what is
+  // eating Brevo's quota today?" with the wrong name.
+  | "ride"
   | "account"
   | "operational"
   | "marketing";
@@ -124,6 +130,17 @@ export const EMAIL_TYPES = {
   activity_status:                  { category: "activity", priority: "high" },
   activity_feedback_request:        { category: "activity", priority: "low" },
 
+  // ── Rides (taxi, transfers, private hire — ride_requests) ────────────────
+  // Until this existed a ride was the ONE way of buying from this business that
+  // emailed nobody: /api/rides wrote the row and stopped, while every other
+  // public route told the customer, the owner, or both.
+  //
+  // `high`, like every other booking confirmation. It carries the reference,
+  // and it is the only written record the customer gets — /taxi/book takes no
+  // login and the email address is optional, so there is no account to look it
+  // up in afterwards.
+  ride_request_confirmation:        { category: "ride", priority: "high" },
+
   // ── Account / security ───────────────────────────────────────────────────
   // IMPORTANT: these three are declared but the application does NOT send
   // them. Supabase Auth does, over its own SMTP transport (see
@@ -148,6 +165,15 @@ export const EMAIL_TYPES = {
   // these sit below customer mail in priority: the owner has a second channel,
   // the customer does not.
   enquiry_ack:                      { category: "operational", priority: "normal" },
+  // The other half of enquiry_ack, and the half that never existed. The ack
+  // tells the sender "a real person will get back to you within a few hours";
+  // nothing told the real person, so an enquiry was visible only as a badge in
+  // /admin, which is exactly as reliable as remembering to look.
+  //
+  // `high` rather than `normal` like its neighbours: those are backed by the
+  // CallMeBot WhatsApp ping, this one is not, and a lead nobody reads is lost
+  // in silence with a promise already made in the customer's inbox.
+  owner_enquiry_alert:              { category: "operational", priority: "high" },
   // M91 — the two halves of the availability check. Both are CRITICAL: the
   // first carries a deadline the customer must act on, and the second is the
   // only thing standing between "we are checking" and silence forever.
@@ -164,6 +190,10 @@ export const EMAIL_TYPES = {
   activity_unavailable:                 { category: "activity", priority: "critical" },
   owner_booking_alert:              { category: "operational", priority: "high" },
   owner_place_booking_alert:        { category: "operational", priority: "high" },
+  // A ride is the shortest-fused thing this platform sells — "as soon as
+  // possible" is a real answer on the booking form — so the owner hearing about
+  // it sits with the other new-request alerts, not below them.
+  owner_ride_alert:                 { category: "operational", priority: "high" },
   owner_pickup_reminder:            { category: "operational", priority: "normal" },
   owner_return_reminder:            { category: "operational", priority: "normal" },
   owner_place_reminder:             { category: "operational", priority: "normal" },

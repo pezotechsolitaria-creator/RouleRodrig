@@ -11,9 +11,21 @@ import "server-only";
 //
 // Still true, and still important: nothing here throws. A booking must never
 // fail because a mail provider did.
+import { createHash } from "node:crypto";
 import { SITE_URL, CONTACT_EMAIL, PAYPAL_FEE_PERCENT } from "./site";
 // Emails must show "BURGMAN 125cc", never the "burgman" ID the DB stores.
 import { withVehicleName, vehicleCategory } from "./vehicle-name";
+// A ride email must never invent its own words for a service, its own clock or
+// its own price format: lib/rides/model.ts already owns all three, and the
+// admin desk and the driver's WhatsApp offer read the same module. One
+// authority, so an email can never describe a ride differently from the screen
+// the owner is looking at.
+import {
+  RIDE_SERVICE_META,
+  formatRidePrice,
+  pickupTimeLabel,
+  type RideService,
+} from "./rides/model";
 import { sendTransactionalEmail } from "./email/send";
 import {
   placeEmailType,
@@ -1537,6 +1549,184 @@ export async function sendAdminPlaceReminder(
   });
 }
 
+// ── RIDES: TAXI, TRANSFERS AND PRIVATE HIRE ──────────────────────────────
+//
+// A ride was the one way of buying from this business that emailed nobody.
+// /api/rides created the request and stopped: the customer who typed their
+// address got no confirmation, and the owner learned about the job only if he
+// happened to open /admin/rides. Every other public route tells somebody.
+//
+// So: the same two emails as every other booking flow — a bilingual
+// confirmation to the customer, and an English-only alert to the owner — built
+// from the same shell, cards and rows, because a taxi request is not a
+// different company from a scooter rental.
+interface RideEmailData {
+  /** RR-XXXXXX, returned by create_ride_request(). The only handle the customer
+   *  has, and the idempotency part for both sends. Null disables idempotency
+   *  rather than inventing a key that could collide — same rule as
+   *  bookingKeyPart(). */
+  reference: string | null;
+  service: RideService;
+  whenKind: string | null;
+  scheduledAt: string | null;
+  pickup: string;
+  /** Null for a private day hire — there is genuinely nowhere to go (M98). */
+  dropoff: string | null;
+  passengers: number;
+  luggage: number;
+  /** Minor units, computed server-side by quote_ride(). Null when the ride
+   *  cannot be priced, which is still a ride worth taking. */
+  price: number | null;
+  flightRef: string | null;
+  meetGreet: boolean;
+  notes: string | null;
+  name: string;
+  phone: string;
+  email: string | null;
+}
+
+/** Bilingual "Label EN · Label FR" rows, shared by both ride emails exactly as
+ *  summaryRows() and placeRows() are shared by theirs. */
+function rideRows(b: RideEmailData): string {
+  const meta = RIDE_SERVICE_META[b.service];
+  const pairs: [string, string][] = [];
+  if (b.reference)
+    pairs.push([
+      "Reference · Référence",
+      `<b>${b.reference}</b> — follow at roulerodrig.com/taxi/track`,
+    ]);
+  pairs.push(["Service", meta ? meta.label : b.service]);
+  pairs.push(["Pickup · Prise en charge", escapeHtml(b.pickup)]);
+  pairs.push([
+    "Drop-off · Destination",
+    b.dropoff
+      ? escapeHtml(b.dropoff)
+      : "Day hire — no fixed destination · Mise à disposition",
+  ]);
+  // pickupTimeLabel() owns the scheduled rendering, in Indian/Mauritius, so
+  // this email can never show a different time from the admin desk or from the
+  // WhatsApp the driver is holding. Only the "now" case is restated here, to
+  // carry its French half.
+  pairs.push([
+    "When · Quand",
+    b.whenKind === "now" || !b.scheduledAt
+      ? "As soon as possible · Dès que possible"
+      : pickupTimeLabel(b.whenKind, b.scheduledAt),
+  ]);
+  pairs.push(["Passengers · Passagers", String(b.passengers)]);
+  if (b.luggage > 0) pairs.push(["Luggage · Bagages", String(b.luggage)]);
+  if (b.flightRef)
+    pairs.push(["Flight / ferry · Vol ou ferry", escapeHtml(b.flightRef)]);
+  if (b.meetGreet)
+    pairs.push(["Meet & greet · Accueil à l'arrivée", "Yes · Oui"]);
+  pairs.push([
+    "Price · Prix",
+    b.price != null
+      ? formatRidePrice(b.price)
+      : "Price on request · Prix sur demande",
+  ]);
+  return rows(pairs);
+}
+
+/**
+ * Customer confirmation (only when an email was given — the field is optional
+ * on /taxi/book and most people leave it blank) + owner alert for a taxi,
+ * transfer or private hire request.
+ * Never throws — returns a small status object, like every sender here.
+ */
+export async function sendRideEmails(
+  b: RideEmailData,
+): Promise<{ customer: boolean; owner: boolean }> {
+  const result = { customer: false, owner: false };
+  const { wa, logo } = await getBrand();
+  const meta = RIDE_SERVICE_META[b.service];
+  const label = meta ? meta.label : b.service;
+  const what = label.toLowerCase();
+  const trackUrl = `${SITE_URL}/taxi/track${b.reference ? `?ref=${encodeURIComponent(b.reference)}` : ""}`;
+
+  // ── Customer confirmation (bilingual EN + FR) ──
+  // The phone number is the channel that always exists — the email address is
+  // optional and the driver never sees it — which is why the copy points at the
+  // phone rather than promising a reply to this message.
+  if (b.email) {
+    const body = `
+      ${paragraph(`Hi ${escapeHtml(b.name)}, we've received your ${what} request. This is a <strong>request</strong>, not a confirmed ride yet — we're offering it to drivers now, and one of them usually accepts within a few minutes.`)}
+      ${sectionLabel("Your ride · Votre course")}
+      ${detailCard(rideRows(b))}
+      ${paragraph(`We'll reach you on <strong>${escapeHtml(b.phone)}</strong> — by call or WhatsApp — as soon as a driver takes it, and your driver will use that same number to find you. Please keep your phone nearby.`)}
+      ${checkList([
+        "Your driver's name and number appear on the tracking page the moment they accept",
+        "You pay the driver directly at the end of the trip — nothing is charged here",
+        "Need to change or cancel? Reply to this email, or message us on WhatsApp",
+      ])}
+      <div style="text-align:center">${primaryButton(trackUrl, "Follow my ride · Suivre ma course")}</div>
+      ${b.reference ? paragraph(`<span style="color:${C.muted};font-size:13px">You'll need your reference <b>${b.reference}</b> and the phone number above to open it.</span>`) : ""}
+      ${sepFr()}
+      ${frHeading("Nous cherchons votre chauffeur")}
+      ${paragraph(`Bonjour ${escapeHtml(b.name)}, nous avons bien reçu votre demande de course. Il s'agit d'une <strong>demande</strong>, pas encore d'une course confirmée — nous la proposons aux chauffeurs maintenant, et l'un d'eux l'accepte généralement en quelques minutes.`)}
+      ${paragraph(`Nous vous joindrons au <strong>${escapeHtml(b.phone)}</strong> — par appel ou WhatsApp — dès qu'un chauffeur l'accepte, et il utilisera ce même numéro pour vous retrouver. Gardez votre téléphone à portée de main.`)}
+      ${checkList([
+        "Le nom et le numéro de votre chauffeur s'affichent sur la page de suivi dès qu'il accepte",
+        "Vous réglez le chauffeur directement à la fin de la course — rien n'est débité ici",
+        "Besoin de modifier ou d'annuler ? Répondez à cet e-mail ou écrivez-nous sur WhatsApp",
+      ])}
+      ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! About my ride${b.reference ? ` ${b.reference}` : ""} — `, "💬 WhatsApp")}</div>` : ""}`;
+    result.customer = await send({
+      to: b.email,
+      subject: "Your ride request · Votre demande de course 🚕",
+      html: shell({
+        preheader:
+          "We're finding your driver · Nous cherchons votre chauffeur.",
+        eyebrow: "Request received · Demande reçue",
+        title: "We're finding your driver",
+        body,
+        logo,
+      }),
+      type: "ride_request_confirmation",
+      key: keyFor("ride_request_confirmation", b.reference),
+      relatedType: "ride",
+      relatedId: b.reference,
+    });
+  }
+
+  // ── Owner alert (internal, English — same convention as every other one) ──
+  const owner = ownerInbox();
+  if (owner) {
+    const body = `
+      ${paragraph(`New <strong>${label}</strong> request from <strong>${escapeHtml(b.name)}</strong>. Drivers are being offered it automatically — open <strong>Rides</strong> in your admin dashboard to watch it, or to place it by hand if nobody accepts.`)}
+      ${detailCard(
+        rideRows(b) +
+          rows([
+            ...(b.phone
+              ? ([["Phone", escapeHtml(b.phone)]] as [string, string][])
+              : []),
+            ...(b.email
+              ? ([["Email", escapeHtml(b.email)]] as [string, string][])
+              : []),
+          ]),
+      )}
+      ${b.notes ? paragraph(`<strong style="color:${C.ink}">Note:</strong> ${escapeHtml(b.notes)}`) : ""}
+      ${b.phone ? `<div style="text-align:center">${waButton(b.phone, `Hi ${b.name}, this is Roule Rodrigues about your ${what} request — `, "💬 Message " + b.name)}</div>` : ""}
+      ${paragraph(`<span style="color:${C.muted};font-size:12px">Manage this in your admin dashboard → Rides.</span>`)}`;
+    result.owner = await send({
+      to: owner,
+      subject: `New ride: ${b.name} — ${label}`,
+      html: shell({
+        eyebrow: "New ride request",
+        title: escapeHtml(b.name),
+        body,
+        logo,
+      }),
+      type: "owner_ride_alert",
+      key: keyFor("owner_ride_alert", b.reference),
+      relatedType: "ride",
+      relatedId: b.reference,
+    });
+  }
+
+  return result;
+}
+
 // ── Instant enquiry auto-reply (bilingual) ───────────────────────────────
 export async function sendEnquiryAck(
   to: string,
@@ -1570,6 +1760,86 @@ export async function sendEnquiryAck(
     }),
     type: "enquiry_ack",
     key: `enquiry_ack:${to.toLowerCase()}:${new Date().toISOString().slice(0, 10)}`,
+  });
+}
+
+/**
+ * The other half of the enquiry: tell the owner a lead arrived.
+ *
+ * sendEnquiryAck promises the sender that "a real person will get back to you
+ * within a few hours". Nothing told the real person. The enquiry sat in
+ * contact_submissions behind a badge in /admin, which is exactly as reliable as
+ * remembering to look — and unlike a booking there is no row anywhere else to
+ * trip over later.
+ *
+ * Owner-facing, so English only, like every other internal alert here.
+ */
+export async function sendOwnerEnquiryAlert(e: {
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  scooter?: string | null;
+  dates?: string | null;
+  message: string | null;
+}): Promise<boolean> {
+  const owner = ownerInbox();
+  if (!owner) return false;
+  const { logo } = await getBrand();
+  const who = (e.name ?? "").trim() || (e.email ?? "").trim() || "Someone";
+  const reply = (e.email ?? "").trim();
+
+  const body = `
+    ${paragraph(`<strong>${escapeHtml(who)}</strong> sent an enquiry through the website.${reply ? ` They have had the automatic acknowledgement, which promises a reply from a real person within a few hours.` : ` They left no email address, so nothing has answered them — the phone number below is the only way back.`}`)}
+    ${detailCard(
+      rows([
+        ...(e.name
+          ? ([["Name", escapeHtml(e.name)]] as [string, string][])
+          : []),
+        ...(reply
+          ? ([
+              [
+                "Email",
+                `<a href="mailto:${encodeURI(reply)}" style="color:${C.ink};font-weight:600">${escapeHtml(reply)}</a>`,
+              ],
+            ] as [string, string][])
+          : []),
+        ...(e.phone
+          ? ([["Phone", escapeHtml(e.phone)]] as [string, string][])
+          : []),
+        ...(e.scooter
+          ? ([["Interested in", escapeHtml(e.scooter)]] as [string, string][])
+          : []),
+        ...(e.dates
+          ? ([["Dates", escapeHtml(e.dates)]] as [string, string][])
+          : []),
+      ]),
+    )}
+    ${e.message ? paragraph(`<strong style="color:${C.ink}">Message:</strong> ${escapeHtml(e.message)}`) : ""}
+    ${e.phone ? `<div style="text-align:center">${waButton(e.phone, `Hi ${who}, this is Roule Rodrigues — thanks for your message. `, "💬 Message " + who)}</div>` : ""}
+    ${paragraph(`<span style="color:${C.muted};font-size:12px">Manage this in your admin dashboard → Enquiries.</span>`)}`;
+
+  return send({
+    to: owner,
+    subject: `New enquiry: ${who}`,
+    html: shell({
+      eyebrow: "New enquiry",
+      title: escapeHtml(who),
+      body,
+      logo,
+    }),
+    type: "owner_enquiry_alert",
+    // Keyed on the CONTENT, not on the address + day the acknowledgement uses.
+    // A double-tapped Send must not mail the owner twice; a second, DIFFERENT
+    // enquiry from the same person the same afternoon is a second lead and has
+    // to arrive. Keying it the way the ack is keyed would silently swallow it,
+    // which is the exact failure this email exists to end. The contact INSERT is
+    // anonymous and returns no id under RLS, so there is no row id to key on.
+    key: `owner_enquiry_alert:${createHash("sha256")
+      .update(
+        `${(e.email ?? "").toLowerCase()}|${e.phone ?? ""}|${e.name ?? ""}|${e.message ?? ""}`,
+      )
+      .digest("hex")
+      .slice(0, 16)}:${new Date().toISOString().slice(0, 10)}`,
   });
 }
 

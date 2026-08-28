@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { guard } from "@/lib/rate-limit";
+import { sendRideEmails } from "@/lib/email";
 import { RIDE_SERVICES, RIDE_SERVICE_META } from "@/lib/rides/model";
 
 // ── THE CUSTOMER'S OWN BOOKING ──────────────────────────────────────────────
@@ -120,6 +121,44 @@ export async function POST(req: NextRequest) {
       { error: "Something went wrong saving that. Please try again." },
       { status: 500 },
     );
+  }
+
+  // ── SOMEBODY IS TOLD ───────────────────────────────────────────────────────
+  //
+  // Until this call, booking a ride was the only purchase on this platform that
+  // emailed nobody: the row was written and the request sat there until someone
+  // opened /admin/rides. The customer gets a confirmation when they gave an
+  // address (the field is optional), and the owner always gets the alert.
+  //
+  // NEVER BLOCKS OR FAILS THE REQUEST. The ride already exists — the RPC has
+  // committed and the reference is minted — so a customer's taxi request must
+  // still succeed if Brevo is down. Same guarantee as app/api/bookings.
+  const created = (data ?? {}) as {
+    reference?: string | null;
+    price?: number | null;
+  };
+  try {
+    await sendRideEmails({
+      reference: created.reference ?? null,
+      service: v.service,
+      whenKind: v.whenKind,
+      scheduledAt: v.whenKind === "scheduled" ? (v.scheduledAt ?? null) : null,
+      pickup: v.pickupLabel,
+      dropoff: v.dropoffLabel ?? null,
+      passengers: v.passengers,
+      luggage: v.luggage,
+      // The price the SERVER computed, never one the caller sent — the same rule
+      // the RPC follows, so the email cannot quote a number nobody will honour.
+      price: created.price ?? null,
+      flightRef: v.flightRef ?? null,
+      meetGreet: v.meetGreet,
+      notes: v.notes ?? null,
+      name: v.name,
+      phone: v.phone,
+      email: v.email || null,
+    });
+  } catch {
+    /* ignore email failures */
   }
 
   // The reference is all that comes back. No id, so nothing here can be used to

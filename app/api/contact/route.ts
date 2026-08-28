@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { guardShared } from "@/lib/rate-limit";
-import { sendEnquiryAck } from "@/lib/email";
+import { sendEnquiryAck, sendOwnerEnquiryAlert } from "@/lib/email";
 import { isValidPhone } from "@/lib/phone";
 
 // ── Public: contact / enquiry submission ─────────────────────────────────────
@@ -61,6 +61,17 @@ export async function POST(req: NextRequest) {
     } catch {
       /* ignore email failures */
     }
+  }
+
+  // And tell the owner, which nothing did until now: the acknowledgement above
+  // promises a reply from a real person within a few hours, while the enquiry
+  // itself was visible only as a badge in /admin. Sent even when no email was
+  // given — a phone-only enquiry is still a lead, and one nobody can chase.
+  // Never blocks: the submission is already saved.
+  try {
+    await sendOwnerEnquiryAlert(record);
+  } catch {
+    /* ignore email failures */
   }
 
   return NextResponse.json({ ok: true });
