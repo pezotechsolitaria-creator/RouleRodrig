@@ -10,7 +10,7 @@ import { centsToDecimalString } from "@/lib/money";
 import type { Activity, ActivityKind, ActivityStage } from "@/lib/activity";
 import { holdInfo, holdDeadlineLabel, holdRemaining } from "@/lib/orders/hold";
 import { useLanguage } from "@/context/LanguageContext";
-import { TRACK_COPY } from "@/lib/track/copy.i18n";
+import { TRACK_COPY, type TrackCopy } from "@/lib/track/copy.i18n";
 
 // ── ONE BOX FOR EVERYTHING ─────────────────────────────────────────────────
 //
@@ -136,6 +136,27 @@ export default function TrackLookup({ initialRef = "" }: { initialRef?: string }
   );
 }
 
+/**
+ * The badge word, in the reader's language.
+ *
+ * Orders are keyed by their own status because `stage` collapses "Preparing"
+ * and "Ready" into one word, and which of the two it is, is the whole question
+ * somebody waiting on food is asking. Vehicles and places are keyed by stage,
+ * which is what their English label was derived from in the first place.
+ *
+ * Falls back to the server's English rather than showing nothing: a status
+ * added to the database before it is added here should still read.
+ */
+function statusWord(c: TrackCopy, a: Activity): string {
+  const s = c.card.status;
+  if (a.kind === "order") {
+    const k = a.orderStatus as keyof typeof s.order | undefined;
+    return (k && s.order[k]) || a.statusLabel;
+  }
+  const table = a.kind === "vehicle" ? s.vehicle : s.place;
+  return table[a.stage] || a.statusLabel;
+}
+
 function ActivityCard({ activity }: { activity: Activity }) {
   const { language } = useLanguage();
   const c = TRACK_COPY[language];
@@ -151,18 +172,15 @@ function ActivityCard({ activity }: { activity: Activity }) {
           <h2 className="mt-1 font-syne text-xl font-extrabold text-offwhite">{activity.title}</h2>
           <p className="mt-0.5 font-dm text-sm text-muted">{activity.reference}</p>
         </div>
-        {/* STILL ENGLISH, DELIBERATELY. `statusLabel` is written by
-            activityLabel() in lib/activity.ts and arrives from the route as
-            finished prose — the client cannot translate a sentence it did not
-            author, and a second copy of that vocabulary here would be two
-            vocabularies drifting apart. The fix is the one
-            lib/rides/track-errors.ts already made for the ride lookup: send the
-            machine value, look the word up in the dictionary. That is a change
-            to lib/activity.ts and the route, not to this screen. */}
+        {/* The machine value now travels beside the finished English, so the
+            word comes from the dictionary — the treatment
+            lib/rides/track-errors.ts already made for the ride lookup.
+            statusLabel remains the fallback: a status the dictionary has not
+            caught up with should read in English rather than vanish. */}
         <span
           className={`shrink-0 rounded-full border px-3 py-1.5 font-dm text-xs font-semibold ${STAGE_STYLE[activity.stage]}`}
         >
-          {activity.statusLabel}
+          {statusWord(c, activity)}
         </span>
       </div>
 

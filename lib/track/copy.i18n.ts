@@ -61,7 +61,8 @@
 // Both ship; the French is the one that has to be genuinely good.
 
 import type { Language } from "@/lib/i18n";
-import type { ActivityKind } from "@/lib/activity";
+import type { ActivityKind, ActivityStage } from "@/lib/activity";
+import type { OrderStatus } from "@/lib/orders/status";
 
 const EN = {
   // ── The page around the box (app/track/page.tsx) ──────────────────────────
@@ -114,6 +115,46 @@ const EN = {
       place: "Booking",
       order: "Order",
     } as Record<ActivityKind, string>,
+    // ── THE BADGE ───────────────────────────────────────────────
+    // The one word on this screen that says whether anything is wrong, and it
+    // used to arrive from the server as finished English prose — so a French
+    // reader got "Awaiting confirmation" on an otherwise French card, at the
+    // moment they were already anxious enough to come looking.
+    //
+    // The KEYS are machine values from lib/activity.ts and lib/orders/status.ts
+    // and never change; only the words do. English is byte-identical to what
+    // activityLabel() and STATUS_LABEL returned, so the English screen is
+    // exactly as it was.
+    status: {
+      // Vehicles and places are keyed by STAGE, which the route already sends.
+      vehicle: {
+        pending: "Awaiting confirmation",
+        confirmed: "Confirmed",
+        active: "Out now",
+        done: "Returned",
+        cancelled: "Cancelled",
+      } as Record<ActivityStage, string>,
+      place: {
+        pending: "Requested",
+        confirmed: "Confirmed",
+        active: "Today",
+        done: "Completed",
+        cancelled: "Cancelled",
+      } as Record<ActivityStage, string>,
+      // Orders are keyed by their own STATUS, not by stage: stage would collapse
+      // "Preparing" and "Ready" into one word, and which of the two it is, is
+      // the entire question somebody waiting for food is asking.
+      order: {
+        pending_payment: "Pending payment",
+        awaiting_payment_confirmation: "Awaiting confirmation",
+        paid: "Confirmed",
+        preparing: "Preparing",
+        ready_for_pickup: "Ready",
+        collected: "Completed",
+        cancelled: "Cancelled",
+        refunded: "Refunded",
+      } as Record<OrderStatus, string>,
+    },
     cta: "See the full details",
     /** The reservation clock. Split around the deadline because the screen
      *  bolds it — the same before/after shape lib/i18n.ts already uses for
@@ -178,6 +219,32 @@ const FR: TrackCopy = {
       place: "Réservation",
       order: "Commande",
     },
+    status: {
+      vehicle: {
+        pending: "En attente de confirmation",
+        confirmed: "Confirmé",
+        active: "En cours",
+        done: "Rendu",
+        cancelled: "Annulé",
+      },
+      place: {
+        pending: "Demandé",
+        confirmed: "Confirmé",
+        active: "Aujourd’hui",
+        done: "Terminé",
+        cancelled: "Annulé",
+      },
+      order: {
+        pending_payment: "Paiement en attente",
+        awaiting_payment_confirmation: "En attente de confirmation",
+        paid: "Confirmé",
+        preparing: "En préparation",
+        ready_for_pickup: "Prêt",
+        collected: "Terminé",
+        cancelled: "Annulé",
+        refunded: "Remboursé",
+      },
+    },
     cta: "Voir tous les détails",
     hold: {
       expired:
@@ -228,6 +295,32 @@ const CR: TrackCopy = {
       vehicle: "Lokasion",
       place: "Rezervasion",
       order: "Komann",
+    },
+    status: {
+      vehicle: {
+        pending: "Pe atann konfirmasion",
+        confirmed: "Konfirme",
+        active: "Deor la",
+        done: "Finn rande",
+        cancelled: "Anile",
+      },
+      place: {
+        pending: "Finn demande",
+        confirmed: "Konfirme",
+        active: "Zordi",
+        done: "Finn fini",
+        cancelled: "Anile",
+      },
+      order: {
+        pending_payment: "Peyman pe atann",
+        awaiting_payment_confirmation: "Pe atann konfirmasion",
+        paid: "Konfirme",
+        preparing: "Pe prepare",
+        ready_for_pickup: "Pare",
+        collected: "Finn fini",
+        cancelled: "Anile",
+        refunded: "Finn ranbourse",
+      },
     },
     cta: "Get tou bann detay",
     hold: {

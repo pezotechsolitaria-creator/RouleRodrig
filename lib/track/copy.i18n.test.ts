@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { TRACK_COPY } from "./copy.i18n";
-import { ACTIVITY_KINDS } from "@/lib/activity";
+import { ACTIVITY_KINDS, ACTIVITY_STAGES, activityLabel } from "@/lib/activity";
+import { STATUS_LABEL } from "@/lib/orders/status";
 
 const LANGS = ["en", "fr", "cr"] as const;
 
@@ -85,6 +86,71 @@ describe("the reservation clock still says what is left", () => {
     const noCharge = { en: /charged/i, fr: /débité/i, cr: /debite/i };
     for (const l of LANGS) {
       expect(TRACK_COPY[l].card.hold.expired, l).toMatch(noCharge[l]);
+    }
+  });
+});
+
+// ── THE BADGE, AND WHY THESE ASSERTIONS EXIST ───────────────────────────────
+//
+// The badge word used to arrive from the server as finished English. Moving it
+// into the dictionary creates the one risk worth testing: a SECOND vocabulary
+// that slowly stops agreeing with the first. So the English side is pinned to
+// the server's own labels, and the other two are pinned to being complete.
+describe("the status badge", () => {
+
+  it("has a word for every stage a vehicle or a place can be in", () => {
+    for (const lang of LANGS) {
+      for (const stage of ACTIVITY_STAGES) {
+        expect(TRACK_COPY[lang].card.status.vehicle[stage], `vehicle/${stage}/${lang}`)
+          .toBeTruthy();
+        expect(TRACK_COPY[lang].card.status.place[stage], `place/${stage}/${lang}`)
+          .toBeTruthy();
+      }
+    }
+  });
+
+  it("has a word for every order status, in all three languages", () => {
+    for (const lang of LANGS) {
+      for (const status of Object.keys(STATUS_LABEL) as (keyof typeof STATUS_LABEL)[]) {
+        expect(TRACK_COPY[lang].card.status.order[status], `order/${status}/${lang}`)
+          .toBeTruthy();
+      }
+    }
+  });
+
+  it("says EXACTLY what the server said, in English", () => {
+    // The guarantee that this change did not quietly reword the English screen,
+    // and the tripwire if lib/activity.ts or lib/orders/status.ts ever changes
+    // a word without this file following.
+    for (const stage of ACTIVITY_STAGES) {
+      expect(TRACK_COPY.en.card.status.vehicle[stage], `vehicle/${stage}`)
+        .toBe(activityLabel("vehicle", stage));
+      expect(TRACK_COPY.en.card.status.place[stage], `place/${stage}`)
+        .toBe(activityLabel("place", stage));
+    }
+    for (const [status, label] of Object.entries(STATUS_LABEL)) {
+      expect(
+        TRACK_COPY.en.card.status.order[status as keyof typeof STATUS_LABEL],
+        `order/${status}`,
+      ).toBe(label);
+    }
+  });
+
+  it("keeps Preparing and Ready apart, which stage alone cannot", () => {
+    // Both are stage "active". Collapsing them would answer the only question
+    // somebody waiting on food is actually asking.
+    for (const lang of LANGS) {
+      const o = TRACK_COPY[lang].card.status.order;
+      expect(o.preparing, lang).not.toBe(o.ready_for_pickup);
+    }
+  });
+
+  it("translates — the badge is not English in French or Kreol", () => {
+    for (const lang of ["fr", "cr"] as const) {
+      expect(TRACK_COPY[lang].card.status.vehicle.pending, lang)
+        .not.toBe(TRACK_COPY.en.card.status.vehicle.pending);
+      expect(TRACK_COPY[lang].card.status.order.ready_for_pickup, lang)
+        .not.toBe(TRACK_COPY.en.card.status.order.ready_for_pickup);
     }
   });
 });

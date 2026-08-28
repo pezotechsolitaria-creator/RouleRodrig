@@ -129,6 +129,10 @@ export async function POST(req: NextRequest) {
         currency: (o.currency as string) ?? "MUR",
         stage,
         statusLabel: activityLabel("order", stage, STATUS_LABEL[status as OrderStatus]),
+        // The value the label was derived FROM. /track translates the badge
+        // from this; statusLabel stays as the English fallback for any status
+        // a dictionary has not caught up with yet.
+        orderStatus: status,
         href: `/orders/track?ref=${encodeURIComponent(String(o.orderNumber ?? ref))}`,
         // The reservation clock (backlog #53). lookup_order() already returned
         // this and the card simply dropped it, so /track showed a customer

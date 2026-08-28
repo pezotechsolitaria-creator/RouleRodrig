@@ -50,8 +50,19 @@ export type Activity = {
   amount: number | null;
   currency: string;
   stage: ActivityStage;
-  /** The kind-specific word shown on the badge. */
+  /** The kind-specific word shown on the badge, in English. */
   statusLabel: string;
+  /**
+   * The RAW order status, for orders only — the machine value behind
+   * `statusLabel`, so a client can look the word up in its own language
+   * instead of rendering prose this module already finished.
+   *
+   * `stage` is not enough on its own here: it flattens "Ready" and "Preparing"
+   * into one word, which is exactly the distinction a customer waiting for
+   * food is looking for. Vehicles and places need no equivalent — their label
+   * IS derived from `stage`, which is already on the wire.
+   */
+  orderStatus?: string | null;
   /** Where tapping it goes. */
   href: string;
   /**
