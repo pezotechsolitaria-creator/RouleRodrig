@@ -55,7 +55,21 @@ export default defineConfig({
     baseURL: BASE_URL,
     trace: "on-first-retry",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // ── TWO PROJECTS, BECAUSE THE CUSTOMERS ARE ON PHONES ──────────────────
+  //
+  // This ran Desktop Chrome alone, so every mobile decision in the codebase was
+  // unverified: the portal'd price bar, the safe-area insets, every `md:` and
+  // `lg:hidden` breakpoint. The bar that prices a booking shipped aria-hidden
+  // and pointer-events-none — a picture of a price where the only
+  // thumb-reachable button should be — and no test could have caught it,
+  // because nothing ever rendered this site at phone width.
+  //
+  // Tourists book from a phone. A suite that never opens one is testing the
+  // minority case.
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "mobile", use: { ...devices["Pixel 7"] } },
+  ],
   // Pointing at an external URL means there is nothing to start.
   webServer: process.env.E2E_BASE_URL
     ? undefined

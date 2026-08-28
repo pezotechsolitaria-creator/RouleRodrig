@@ -13,6 +13,7 @@ import {
   sendPlaceFeedbackRequest,
   sendAdminPlaceReminder,
   sendTiRouleMissesDigest,
+  sendRequestExpired,
 } from "@/lib/email";
 import type { Booking, PlaceBooking } from "@/lib/supabase/types";
 import { holdCutoffMs } from "@/lib/holds";
@@ -61,6 +62,8 @@ export async function GET(req: NextRequest) {
   let returnSent = 0;
   let feedbackSent = 0;
   let holdsReleased = 0;
+  // Requests that aged out unanswered AND whose customer was told so.
+  let expiredNotified = 0;
   // Sends that were attempted and failed. Reported, and turns the run red — a
   // job that silently swallows delivery failures is indistinguishable from one
   // with nothing to do.
@@ -132,14 +135,33 @@ export async function GET(req: NextRequest) {
   const holdCutoff = holdCutoffMs();
   const { data: stale } = await supabase
     .from("bookings")
-    .select("id, start_date, created_at")
+    .select("id, name, email, scooter, start_date, end_date, created_at")
     .eq("status", "pending");
 
-  for (const b of (stale ?? []) as { id: string; start_date: string; created_at: string }[]) {
+  for (const b of (stale ?? []) as {
+    id: string; name: string; email: string | null; scooter: string;
+    start_date: string; end_date: string; created_at: string;
+  }[]) {
     const expired = new Date(b.created_at).getTime() < holdCutoff || b.start_date < today;
     if (!expired) continue;
     await supabase.from("bookings").update({ status: "cancelled" }).eq("id", b.id);
     holdsReleased++;
+    // ── AND TELL THEM ────────────────────────────────────────────────────
+    // This closed the request in silence: somebody asked for a scooter, nobody
+    // replied, and two days later it was cancelled without a word. The M91
+    // block directly below states that letting a booking lapse in silence is a
+    // defect and refuses to do it for approved rows — pending rows were getting
+    // exactly that treatment. The person who tried to give us money is the last
+    // one who should hear nothing.
+    //
+    // Best-effort and after the update: a mail provider having a bad night must
+    // never leave a vehicle held.
+    try {
+      if (await sendRequestExpired(b)) expiredNotified++;
+    } catch (err) {
+      console.error("request-expired email failed", b.id, err);
+      emailFailures++;
+    }
   }
 
   // ── M91: release approved reservations nobody paid for ────────────────
@@ -547,6 +569,7 @@ export async function GET(req: NextRequest) {
       placeRemindersSent,
       placeFeedbackSent,
       holdsReleased,
+      expiredNotified,
       ordersExpired,
       paymentRemindersSent,
       missesEmailed,

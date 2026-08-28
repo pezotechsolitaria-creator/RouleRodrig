@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Check, ChevronRight } from "lucide-react";
 import { SITE_URL } from "@/lib/site";
 import { getFleetView, priceNumber } from "@/lib/site-data";
-import { breadcrumbLd, productLd } from "@/lib/schema";
+import { breadcrumbLd, productLd, sellerLd } from "@/lib/schema";
 import { pickConditions } from "@/lib/rental-conditions";
 import { findVehicle, vehicleSlug } from "@/lib/vehicle-slug";
 import JsonLd from "@/components/JsonLd";
@@ -88,6 +88,9 @@ export default async function VehiclePage({ params }: Props) {
             { name: category === "car" ? "Cars" : "Scooters", url: `${SITE_URL}/browse/${category}` },
             { name: item.name, url },
           ]),
+          // The Offer below names this seller; without the node the reference
+          // resolves to nothing on the page carrying the price.
+          { "@context": "https://schema.org", ...sellerLd() },
           {
             "@context": "https://schema.org",
             // The offer finally advertises the vehicle's OWN url. Every vehicle

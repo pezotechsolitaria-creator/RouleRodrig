@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { SITE_URL } from "@/lib/site";
 import { fromPriceOf } from "@/lib/experiences";
-import { breadcrumbLd, itemListLd, productLd, stayLd, experienceLd } from "@/lib/schema";
+import { breadcrumbLd, itemListLd, productLd, stayLd, experienceLd, sellerLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import {
   getFleetView,
@@ -15,6 +15,7 @@ import Fleet from "@/components/Fleet";
 import TrustBar from "@/components/TrustBar";
 import BookingSection from "@/components/BookingSection";
 import { pickConditions } from "@/lib/rental-conditions";
+import { vehicleHref } from "@/lib/vehicle-slug";
 import RecommendedPlaces from "@/components/RecommendedPlaces";
 import GettingAround from "@/components/GettingAround";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -317,22 +318,35 @@ export default async function BrowsePage({
         <JsonLd
           data={{
             "@context": "https://schema.org",
-            "@graph": items.map((s) =>
-              productLd({
-                name: s.name,
-                description: s.description,
-                image: s.image
-                  ? s.image.startsWith("http")
-                    ? s.image
-                    : `${SITE_URL}${s.image}`
-                  : undefined,
-                price: priceNumber(s.price),
-                available: !(s.available === false || s.soldOutToday),
-                url: `${SITE_URL}/browse/${category}`,
-                rating: ratings[s.id],
-                category: s.category ?? "scooter",
-              }),
-            ),
+            "@graph": [
+              // The seller every Offer below points at. Verified live before
+              // this: /browse/scooter referenced the #business @id once and
+              // defined it zero times, because the node lived only in the
+              // homepage graph. On the page that actually sells a scooter, the
+              // one thing an Offer exists to state — who is selling — was a
+              // dangling pointer.
+              sellerLd(),
+              ...items.map((s) =>
+                productLd({
+                  name: s.name,
+                  description: s.description,
+                  image: s.image
+                    ? s.image.startsWith("http")
+                      ? s.image
+                      : `${SITE_URL}${s.image}`
+                    : undefined,
+                  price: priceNumber(s.price),
+                  available: !(s.available === false || s.soldOutToday),
+                  // The vehicle's OWN page, now that it has one. Every Offer
+                  // used to advertise this category grid, so a shopping result
+                  // for the Avenis landed on a list of everything and the
+                  // customer had to find it again.
+                  url: `${SITE_URL}${vehicleHref(s)}`,
+                  rating: ratings[s.id],
+                  category: s.category ?? "scooter",
+                }),
+              ),
+            ],
           }}
         />
         {header(vcat.label)}

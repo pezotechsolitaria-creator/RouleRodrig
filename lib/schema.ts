@@ -619,3 +619,29 @@ export function organizationLd(
     areaServed: { "@type": "Place", name: "Rodrigues Island, Mauritius" },
   };
 }
+
+/**
+ * The seller node, for pages that reference it but do not define it.
+ *
+ * Every rental Offer carries `seller: { "@id": SITE_URL/#business }`, and that
+ * node was defined in exactly ONE place: the homepage graph in app/page.tsx.
+ * Verified against the live site — /browse/scooter references the id once and
+ * defines it zero times, so on the page that actually sells a scooter the
+ * seller is a dangling pointer. A crawler reading that Offer cannot say who is
+ * selling, which is the one thing an Offer exists to state.
+ *
+ * Deliberately minimal. The homepage carries the full description, opening
+ * hours, catalogue and rating; this states identity only. Same @id, so the two
+ * are one entity and the richer definition wins wherever both are seen — a
+ * partial node is how JSON-LD is meant to work, and repeating the homepage's
+ * prose here would create a second copy to drift.
+ */
+export function sellerLd(): Record<string, unknown> {
+  return {
+    "@type": "AutoRental",
+    "@id": `${SITE_URL}/#business`,
+    name: "Roule Rodrigues",
+    url: SITE_URL,
+    areaServed: { "@type": "Place", name: "Rodrigues Island, Mauritius" },
+  };
+}

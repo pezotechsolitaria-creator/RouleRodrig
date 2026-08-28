@@ -927,6 +927,61 @@ export async function sendVehicleUnavailable(b: {
   });
 }
 
+/**
+ * A request that expired before anyone answered it.
+ *
+ * The nightly sweep cancels a pending booking after HOLD_EXPIRY_HOURS and did
+ * it in total silence: the customer asked for a scooter, nobody replied, and 48
+ * hours later the request was closed without a word. The block immediately
+ * below that one in the cron says plainly that letting a booking lapse in
+ * silence is a defect and refuses to repeat it for approved rows — pending rows
+ * were getting exactly that treatment anyway.
+ *
+ * Deliberately NOT sendVehicleUnavailable(): that email says the vehicle is not
+ * free for those dates, which in this case nobody ever checked. Saying it to
+ * cover a missed reply invents an availability fact and blames the fleet for a
+ * human delay. This says the true thing, which is also the more repairable one
+ * — the dates may well still be open.
+ */
+export async function sendRequestExpired(b: {
+  id: string;
+  email: string | null;
+  name: string;
+  scooter: string;
+  start_date: string;
+  end_date: string;
+}): Promise<boolean> {
+  if (!b.email) return false;
+  const { wa, logo } = await getBrand();
+  const ref = "RR-" + b.id.replace(/-/g, "").slice(0, 6).toUpperCase();
+
+  const body = `
+    ${paragraph(`${b.name}, your request for <strong>${b.scooter}</strong> (${fmtDate(b.start_date)} → ${fmtDate(b.end_date)}) has expired because we did not get back to you in time. That one is on us, and <strong>you have not been charged anything</strong>.`)}
+    ${paragraph(`If you still want it, reply to this email or message us on WhatsApp and we will sort it today — those dates may well still be free.`)}
+    ${paragraph(`<a href="${SITE_URL}/browse/scooter" style="color:${C.ink};font-weight:600">Book again in a minute</a>`)}
+    ${sepFr()}
+    ${frHeading("Demande expirée")}
+    ${paragraph(`${b.name}, votre demande pour <strong>${b.scooter}</strong> (${fmtDate(b.start_date)} → ${fmtDate(b.end_date)}) a expiré : nous ne vous avons pas répondu à temps. Cela vient de nous, et <strong>rien ne vous a été débité</strong>.`)}
+    ${paragraph(`Si vous le voulez toujours, répondez à cet e-mail ou écrivez-nous sur WhatsApp — les dates sont peut-être encore libres.`)}
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! My request ${ref} expired — is the ${b.scooter} still free?`, "💬 Ask again")}</div>` : ""}`;
+
+  return send({
+    to: b.email,
+    subject: `Your request expired — sorry · Demande expirée — ${ref}`,
+    html: shell({
+      preheader: "We did not reply in time. Nothing was charged.",
+      eyebrow: "Booking request · Demande",
+      title: "We didn't get back to you in time",
+      body,
+      logo,
+    }),
+    type: "booking_request_expired",
+    key: keyFor("booking_request_expired", b.id),
+    relatedType: "booking",
+    relatedId: b.id,
+  });
+}
+
 // ── STAYS AND EXPERIENCES: THE SAME TWO HALVES (M127) ────────────────────
 //
 // The owner: "do like for vehicle, add a new step like AVAILABILITY then I

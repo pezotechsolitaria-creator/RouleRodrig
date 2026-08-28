@@ -6,7 +6,7 @@ import { getFleetView } from "@/lib/site-data";
 import { SITE_URL } from "@/lib/site";
 import { SERVICE_TYPES, type ServiceType } from "@/lib/defaults";
 import { EXPERIENCES, experiencesOfType, fromPriceOf, experienceFaq } from "@/lib/experiences";
-import { breadcrumbLd, itemListLd, experienceLd } from "@/lib/schema";
+import { breadcrumbLd, itemListLd, experienceLd, sellerLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import ExperienceMarket from "@/components/experiences/ExperienceMarket";
 import Navbar from "@/components/Navbar";
@@ -141,6 +141,10 @@ export default async function ExperiencePage({ params }: { params: Promise<{ typ
               // Every value is read off the listing the owner wrote. A listing
               // with no price emits no Offer rather than a zero, because free
               // and unpriced are not the same claim.
+              // The provider/seller each experience Offer points at. Defined
+              // only in the homepage graph until now, so on every experience
+              // page the reference resolved to nothing.
+              { "@context": "https://schema.org", ...sellerLd() },
               {
                 "@context": "https://schema.org",
                 "@type": "FAQPage",

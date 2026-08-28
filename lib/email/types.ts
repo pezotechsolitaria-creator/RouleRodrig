@@ -179,6 +179,12 @@ export const EMAIL_TYPES = {
   // only thing standing between "we are checking" and silence forever.
   booking_availability_confirmed:   { category: "scooter_rental", priority: "critical" },
   booking_unavailable:              { category: "scooter_rental", priority: "critical" },
+  // The third outcome nobody wrote a mail for. The two above cover "yes" and
+  // "no"; a pending request that simply ages out got neither and was cancelled
+  // in silence by the nightly sweep. Critical for the same reason as its
+  // siblings — it is the last thing somebody who tried to give us money ever
+  // hears, and unlike "no" it is still recoverable.
+  booking_request_expired:          { category: "scooter_rental", priority: "critical" },
   // M127 — the same two halves for stays and experiences. Critical for exactly
   // the same reasons: the first carries a deadline the customer must act on,
   // and the second is the only thing between "we are checking" and silence.
