@@ -251,6 +251,47 @@ export default async function VehiclePage({ params }: Props) {
             <RentalConditions items={conditions} />
           </div>
 
+          {/* ── WHERE PEOPLE TAKE IT ────────────────────────────────────────
+              The money pages linked to no editorial content at all: ~4,000
+              words of guides, four blog posts and eight French pages sat
+              orphaned from the pages that sell, and a git grep found exactly
+              ONE inbound link to the blog site-wide. That costs twice — a
+              visitor who is not ready to book has nowhere to go but away, and
+              the guides never inherit any authority from the commercial pages.
+
+              Hand-picked per category rather than generated: three real
+              destinations a person renting this vehicle would actually want,
+              each verified 200 before being linked. A "related content" widget
+              that guesses is how sites end up linking a car to a hiking trail. */}
+          <div className="mt-8">
+            <p className="mb-3 font-bebas text-[10px] tracking-[0.3em] text-muted">
+              WHERE PEOPLE TAKE IT
+            </p>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {(category === "car"
+                ? [
+                    { href: "/guide/routes", label: "Island routes" },
+                    { href: "/guide/beaches", label: "Best beaches" },
+                    { href: "/blog/how-many-days-in-rodrigues", label: "How many days you need" },
+                  ]
+                : [
+                    { href: "/guide/routes", label: "Scooter routes" },
+                    { href: "/guide/beaches", label: "Best beaches" },
+                    { href: "/guide/viewpoints", label: "Hidden viewpoints" },
+                  ]
+              ).map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-dark-card px-4 py-3 font-dm text-xs text-offwhite/80 transition hover:border-yellow/40 hover:text-yellow"
+                >
+                  {l.label}
+                  <ChevronRight size={14} className="shrink-0 opacity-60" />
+                </Link>
+              ))}
+            </div>
+          </div>
+
           {/* The booking form lives on the category page and pre-fills from the
               hash, so this hands the customer straight to it with the vehicle
               already chosen rather than duplicating a second form here. */}
