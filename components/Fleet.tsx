@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { vehicleHref } from "@/lib/vehicle-slug";
 import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban, ChevronLeft, ChevronRight, Star, Maximize2, Snowflake, Fuel, MapPin, Bluetooth, DoorOpen, Check, LifeBuoy, Flame } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { DEFAULT_CONTENT, type FleetItem, type VehicleCategory } from "@/lib/defaults";
@@ -414,8 +415,19 @@ export default function Fleet({
                   <p className="font-bebas text-muted text-[11px] tracking-[0.2em] mb-1 uppercase">
                     {loc(language, scooter.tagline, scooter.taglineFr, scooter.taglineCr)}
                   </p>
+                  {/* The name is a real link to the vehicle's own page. The
+                      Details button below still opens the modal — comparing a
+                      grid is faster than loading three pages — but until now
+                      there was no crawlable path to the vehicle pages at all,
+                      and a URL nothing links to is a URL Google discovers late
+                      and ranks lower. */}
                   <h3 className="font-syne font-extrabold text-offwhite uppercase leading-none mb-2 text-xl md:text-2xl">
-                    {scooter.name}
+                    <Link
+                      href={vehicleHref(scooter)}
+                      className="hover:text-yellow transition-colors"
+                    >
+                      {scooter.name}
+                    </Link>
                   </h3>
                   {(() => {
                     const r = ratings?.[scooter.id];
