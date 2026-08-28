@@ -31,18 +31,7 @@ export type NavTab = {
   match?: (pathname: string) => boolean;
 };
 
-// ── FOUR TABS, ALL DESTINATIONS ─────────────────────────────────────────────
-//
-// Ti Roulé was the fifth, drawn as a raised gold button dead centre. The owner
-// asked for it out: "the design was better before". It is a REMOVAL FROM THIS
-// BAR ONLY — the assistant itself, its API, the site-wide chat and the blog
-// button are all untouched, and openTiRoule() below still opens it. Putting the
-// tab back is re-adding one object to this array.
-//
-// With no action tab left, every tab here is somewhere you can go, which is
-// what makes the "lights nothing on /account" rule below coherent.
-//
-// ── AND NO ACCOUNT AMONG THEM ───────────────────────────────────────────────
+// ── FIVE TABS, AND NO ACCOUNT AMONG THEM ────────────────────────────────────
 //
 // This bar answers WHERE YOU ARE GOING. An account is WHO YOU ARE, so it lives
 // top-right beside the language toggle and the saved heart — components/
@@ -79,6 +68,23 @@ export const NAV_TABS: readonly NavTab[] = [
     match: (p) =>
       p === "/order" || p.startsWith("/food") || p.startsWith("/shop") ||
       p.startsWith("/events") || p.startsWith("/cart") || p.startsWith("/checkout"),
+  },
+  {
+    // ── DEAD CENTRE, AND IT HAS TO STAY THERE ────────────────────────────────
+    // Ti Roulé is the only tab rendered as a raised gold button rather than an
+    // icon and a word, and that treatment only reads as "this is the special
+    // one" from the middle of the row. It WAS third of five — then the Order tab
+    // was added ahead of it and pushed it to fourth, where a gold button just
+    // looks like a tab someone got wrong. The comment in BottomNav.tsx still
+    // claimed it sat in the centre, which is how the drift went unnoticed.
+    //
+    // A test now asserts the centre position, so the next tab added cannot
+    // quietly displace it again.
+    key: "tiroule",
+    icon: Bot,
+    action: "tiroule",
+    // Ti Roulé is a name, so it is the same word in all three languages.
+    label: ["Ti Roulé", "Ti Roulé", "Ti Roulé"],
   },
   {
     key: "explore",

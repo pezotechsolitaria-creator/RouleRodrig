@@ -52,27 +52,26 @@ describe("isTabActive", () => {
     expect(lit("/explore")).toEqual(["explore"]);
   });
 
-  it("no longer carries Ti Roulé", () => {
-    // The owner asked for it out of this bar: "the design was better before".
-    // A removal from the BAR only — openTiRoule() still exists, the site-wide
-    // chat still works, and the blog button still opens it.
-    expect(NAV_TABS.map((t) => t.key)).not.toContain("tiroule");
+  it("keeps Ti Roulé dead centre — it is the only tab drawn as a gold button", () => {
+    // It was third of five, then the Order tab was added ahead of it and pushed
+    // it to fourth, where a raised gold button reads as a mistake rather than as
+    // the special one. Nothing enforced the position, so nothing caught it.
+    const i = NAV_TABS.findIndex((t) => t.key === "tiroule");
+    expect(NAV_TABS.length % 2, "an even number of tabs has no centre").toBe(1);
+    expect(i).toBe((NAV_TABS.length - 1) / 2);
   });
 
-  it("is now four destinations and no action tab", () => {
-    // Ti Roulé was the only tab that performed an action instead of going
-    // somewhere. With it gone every tab is a place, which is what makes the
-    // "lights nothing on /account" rule below coherent rather than an exception.
-    expect(NAV_TABS.filter((t) => t.action)).toHaveLength(0);
-    expect(NAV_TABS.every((t) => typeof t.href === "string")).toBe(true);
+  it("draws exactly one tab as an action rather than a destination", () => {
+    // The centre rule above only means anything while there is one such tab.
+    expect(NAV_TABS.filter((t) => t.action).map((t) => t.key)).toEqual(["tiroule"]);
   });
 
-  it("has exactly four tabs, and none of them is the account", () => {
+  it("has exactly five tabs, and none of them is the account", () => {
     // The account moved to the top-right corner (components/AccountButton.tsx),
     // beside the language toggle and the saved heart. This bar answers WHERE you
     // are going; an account is WHO you are. Six tabs also left 50px each at
     // 375px, the smallest target on the screen.
-    expect(NAV_TABS.map((t) => t.key)).toEqual(["home", "order", "explore", "more"]);
+    expect(NAV_TABS.map((t) => t.key)).toEqual(["home", "order", "tiroule", "explore", "more"]);
   });
 
   it("lights NO tab on the account's own pages", () => {
@@ -86,6 +85,12 @@ describe("isTabActive", () => {
   it("lights More and Explore on their own sections", () => {
     expect(lit("/more")).toEqual(["more"]);
     expect(lit("/explore/beaches")).toEqual(["explore"]);
+  });
+
+  it("never lights the Ti Roulé action tab", () => {
+    for (const p of ["/", "/explore", "/orders", "/more", "/shop"]) {
+      expect(lit(p)).not.toContain("tiroule");
+    }
   });
 
   it("lights Order across all three commerce surfaces and the basket", () => {
