@@ -102,6 +102,33 @@ export function whatsappHandoff(context: string) {
 }
 
 /**
+ * Somebody opened the island assistant.
+ *
+ * `source_path` is where they were standing when they gave up looking and
+ * asked instead — which is a list of pages that did not answer their question,
+ * ranked by how often it happens.
+ */
+export function tirouleOpened(sourcePath: string) {
+  capture("tiroule_opened", { source_path: sourcePath });
+}
+
+/**
+ * A question was asked, and whether anything was found for it.
+ *
+ * `matched: false` is the valuable half. It is a content backlog written by the
+ * island's own visitors: every question the site could not answer, in the words
+ * they used. lead_events already records the miss TEXT; this records the RATE,
+ * so "is Ti Roulé getting better" becomes a question with an answer.
+ *
+ * The question itself is deliberately NOT sent here — free text is where
+ * somebody types a phone number or a hotel room. The text already has a home in
+ * lead_events, behind the admin password.
+ */
+export function tirouleQuestionAsked(matched: boolean) {
+  capture("tiroule_question_asked", { matched });
+}
+
+/**
  * The language was changed.
  *
  * The switcher is a cycle, so `from` and `to` are both needed: "how many people
