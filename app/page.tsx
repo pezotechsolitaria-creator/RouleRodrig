@@ -327,6 +327,39 @@ export default async function Home() {
         // up a fact about where somebody's business is.
         areaServed: { "@type": "Place", name: "Rodrigues Island, Mauritius" },
         ...(sameAs.length ? { sameAs } : {}),
+        // ── THE RATING BELONGS TO THE BUSINESS, NOT TO A BIKE ──────────────
+        //
+        // Ten approved five-star reviews exist and no page has ever emitted a
+        // rating, so no search result and no AI answer has ever carried a star
+        // for this business.
+        //
+        // The obvious fix was to backfill product_reviews.scooter_id and let
+        // productLd's aggregateRating fire per vehicle. Reading the reviews says
+        // otherwise: not one names a model. Five describe a rental ("scooters en
+        // très bon état", "la moto était présent dès notre arrivée") and five are
+        // about the website, the trip planning, or the service in general.
+        // Choosing a bike for each would invent the very fact the schema exists
+        // to assert, and putting "great job on the website" inside a
+        // Motorcycle's rating is worse than shipping no rating at all.
+        //
+        // Every one of them IS about this business, so the average lives here on
+        // the AutoRental node, where it is true. Per-vehicle stars stay dark
+        // until reviews arrive carrying a vehicle — which the review form now
+        // asks for, so the count starts with the next one.
+        ...(reviews.length
+          ? {
+              aggregateRating: {
+                "@type": "AggregateRating",
+                ratingValue:
+                  Math.round(
+                    (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10,
+                  ) / 10,
+                reviewCount: reviews.length,
+                bestRating: 5,
+                worstRating: 1,
+              },
+            }
+          : {}),
         // Built from the live hub tiles + the free tools that are actually on
         // this page, so it can never claim a service we don't offer — and a
         // category the owner adds in admin shows up here on its own.
