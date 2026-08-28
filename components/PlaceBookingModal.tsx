@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import ModalPortal from "@/components/ModalPortal";
 import posthog from "posthog-js";
 import { motion } from "framer-motion";
-import { X, Loader2, AlertCircle, Send, User, Mail, Users, MessageSquare, Clock, BedDouble } from "lucide-react";
+import { X, Loader2, AlertCircle, Send, User, Mail, Users, MessageSquare, Clock, BedDouble, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { DEFAULT_CONTENT } from "@/lib/defaults";
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import PhoneInput from "@/components/PhoneInput";
 import { quoteStay } from "@/lib/stay-pricing";
@@ -12,6 +14,10 @@ import SuccessBurst from "@/components/SuccessBurst";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
 import { useLanguage } from "@/context/LanguageContext";
 import type { RecommendedPlace } from "@/lib/defaults";
+
+// The published cancellation tiers, read rather than restated. See the block
+// that renders them for why this component reads the defaults directly.
+const CANCELLATION_TIERS = DEFAULT_CONTENT.refunds?.cancellationTiers ?? [];
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -473,6 +479,40 @@ export default function PlaceBookingModal({
                 )}
                 <p className="mt-1 font-dm text-[10px] text-muted/60">
                   Paid in full to confirm. Nothing further to settle on arrival.
+                </p>
+              </div>
+            )}
+
+            {/* ── WHAT HAPPENS IF THEY CANCEL ──────────────────────────────
+                This flow asks for the FULL amount up front — a bigger ask than
+                the vehicle flow, which takes 25–50% — and said nothing at all
+                about cancelling. The vehicle summary has carried "free
+                cancellation up to 48h" with a link since it was written; the
+                experience modal, asking for a larger sum and having taken zero
+                bookings ever, offered no reassurance whatsoever.
+
+                Read from DEFAULT_CONTENT.refunds rather than retyped, so this
+                states the real published policy. The canonical copy stays
+                /legal/refunds, linked below; there is no admin editor for these
+                tiers today, so the two cannot drift apart without a code change
+                that touches this line. */}
+            {CANCELLATION_TIERS.length > 0 && (
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                <p className="mb-1.5 flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.2em] text-muted">
+                  <ShieldCheck size={11} /> IF YOU NEED TO CANCEL
+                </p>
+                <ul className="space-y-0.5">
+                  {CANCELLATION_TIERS.map((t) => (
+                    <li key={t.window} className="font-dm text-[11px] leading-snug text-offwhite/70">
+                      <span className="text-offwhite/90">{t.window}</span> — {t.outcome}.
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1.5 font-dm text-[11px] text-muted/70">
+                  If we or the owner cancel, you are refunded in full.{" "}
+                  <Link href="/legal/refunds" target="_blank" className="underline hover:text-yellow">
+                    Full policy
+                  </Link>
                 </p>
               </div>
             )}
