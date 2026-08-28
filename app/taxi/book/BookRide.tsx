@@ -29,6 +29,7 @@ import { searchPlaces } from "@/lib/rides/places";
 import PlacePicker from "@/components/PlacePicker";
 import { useLanguage } from "@/context/LanguageContext";
 import { RIDES_COPY } from "@/lib/rides/copy.i18n";
+import { rideQuoteShown, rideRequestSubmitted } from "@/lib/analytics/flows";
 
 // ── THE CUSTOMER BOOKS THEIR OWN RIDE ───────────────────────────────────────
 //
@@ -199,7 +200,11 @@ export default function BookRide({
               : null,
         }),
       });
-      setQuote(await r.json());
+      const quoted = await r.json();
+      setQuote(quoted);
+      if (quoted?.ok) {
+        rideQuoteShown({ service, flat: Boolean(quoted.flat) });
+      }
     } catch {
       setQuote({ ok: false, message: "We'll confirm the price with you." });
     } finally {
@@ -243,12 +248,27 @@ export default function BookRide({
         }),
       });
       const b = await r.json();
-      if (!r.ok || !b.ok)
+      // ── BRACES. THIS BLOCK SHIPPED WITHOUT THEM AND BROKE EVERY BOOKING ──
+      // The original was a brace-less single-statement if:
+      //     if (!r.ok || !b.ok) throw new Error(b.error || "…");
+      // Replacing that one statement with two, and forgetting the braces, left
+      // the `throw` OUTSIDE the condition — so every submission threw, setDone
+      // below was unreachable, and the customer saw an error for a ride the
+      // server had just created. TypeScript does not flag either half: a
+      // dangling if is valid, and unreachable code after a throw is not an
+      // error. Only driving the flow finds it.
+      if (!r.ok || !b.ok) {
         // b.error is English prose from the route. A customer reading French
         // cannot use it, and it is not actionable to them in any language, so
         // the sentence they see is ours. The raw text still reaches the console.
         if (b.error) console.warn("ride request refused:", b.error);
-      throw new Error(c.errors.generic);
+        throw new Error(c.errors.generic);
+      }
+      rideRequestSubmitted({
+        service,
+        direction: fixedKey ? direction : null,
+        whenKind,
+      });
       setDone({ reference: b.reference, price: b.price ?? null });
     } catch (e) {
       setError(e instanceof Error ? e.message : c.errors.generic);

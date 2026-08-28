@@ -42,6 +42,10 @@ import {
   type ItemChoice,
 } from "@/lib/delivery/copy.i18n";
 import {
+  deliverStepAdvanced,
+  deliverRequestPosted,
+} from "@/lib/analytics/flows";
+import {
   clearDraft,
   clearQueued,
   draftHasContent,
@@ -216,7 +220,13 @@ export default function DeliverForm({
   // and it is the single jerkiest thing about a stepped form.
   const formRef = useRef<HTMLDivElement | null>(null);
   const goTo = useCallback((n: number) => {
-    setScreen(n);
+    // Per-step, because the useful finding is WHICH screen loses people. This
+    // flow was rebuilt to fit a phone without scrolling; a single completion
+    // rate cannot tell whether that worked.
+    setScreen((prev) => {
+      if (prev !== n) deliverStepAdvanced(prev, n);
+      return n;
+    });
     const el = formRef.current;
     if (!el) return;
     // Land just UNDER the sticky site header, or the first line hides behind it.
@@ -575,6 +585,13 @@ export default function DeliverForm({
       // Remember it on this device BEFORE navigating, so a guest who closes the
       // tab is not asked to prove anything.
       clearDraft();
+      // The server accepted it, so it now exists for drivers to see. Enums and
+      // a boolean only — never the place, the name or the phone.
+      deliverRequestPosted({
+        kind: payload.kind,
+        scheduleKind: payload.scheduleKind,
+        hasPhoto: Boolean(payload.photoPath),
+      });
       saveRequest({ id: r.id, email: payload.guestEmail, what: payload.what });
       router.push(`/deliver/${r.id}`);
       return;
