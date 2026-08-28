@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SITE_URL } from "@/lib/site";
+import { SITE_URL, OPENING_HOURS } from "@/lib/site";
 import {
   getFleetView,
   buildBrowseCategories,
@@ -325,6 +325,19 @@ export default async function Home() {
         // village. The right coordinates are the ones on the Google Business
         // Profile, and inventing them here to fill the field would be making
         // up a fact about where somebody's business is.
+        // ── WHEN WE ARE OPEN (M143) ────────────────────────────────────────
+        // Owner-supplied, and the same constant the contact block renders, so
+        // the structured hours and the visible ones cannot drift apart. Google
+        // cross-checks them, and a mismatch is the same class of fault as the
+        // locality disagreement fixed above.
+        openingHoursSpecification: [
+          {
+            "@type": "OpeningHoursSpecification",
+            dayOfWeek: [...OPENING_HOURS.days],
+            opens: OPENING_HOURS.opens,
+            closes: OPENING_HOURS.closes,
+          },
+        ],
         areaServed: { "@type": "Place", name: "Rodrigues Island, Mauritius" },
         ...(sameAs.length ? { sameAs } : {}),
         // ── THE RATING BELONGS TO THE BUSINESS, NOT TO A BIKE ──────────────
