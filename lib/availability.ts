@@ -1,5 +1,6 @@
 import { getPrivileged } from "@/lib/supabase/admin";
 import { getContent } from "@/lib/content";
+import { blocksOverlapping, blockedOn } from "@/lib/availability/blocks";
 import { isActiveHold, HOLDING_STATUSES } from "@/lib/holds";
 
 // Is a vehicle still free for a date range, counting ONLY active holds (paid
@@ -13,15 +14,25 @@ export async function isVehicleFree(
   excludeId?: string,
 ): Promise<boolean> {
   if (!scooter || !start_date || !end_date) return true;
-  const [content, supabase] = await Promise.all([getContent(), getPrivileged()]);
+  const [content, supabase] = await Promise.all([
+    getContent(),
+    getPrivileged(),
+  ]);
 
-  const item = content.fleet.find((f) => f.id === scooter || f.name === scooter);
+  const item = content.fleet.find(
+    (f) => f.id === scooter || f.name === scooter,
+  );
   const activeAssets = (item?.assets ?? []).filter((a) => a.active !== false);
-  const units = activeAssets.length > 0 ? activeAssets.length : Math.max(1, item?.units ?? 1);
+  const units =
+    activeAssets.length > 0
+      ? activeAssets.length
+      : Math.max(1, item?.units ?? 1);
 
   const { data, error } = await supabase
     .from("bookings")
-    .select("id, start_date, end_date, status, created_at, deposit_paid_at, payment_due_by")
+    .select(
+      "id, start_date, end_date, status, created_at, deposit_paid_at, payment_due_by",
+    )
     .eq("scooter", scooter)
     .in("status", [...HOLDING_STATUSES])
     .gte("end_date", start_date)
@@ -35,17 +46,45 @@ export async function isVehicleFree(
   // now" costs one booking; saying "free" when it isn't costs a booking AND a
   // refund AND the customer's trip.
   if (error) {
-    console.error(`isVehicleFree: availability check FAILED for ${scooter} — treating as unavailable`, error);
+    console.error(
+      `isVehicleFree: availability check FAILED for ${scooter} — treating as unavailable`,
+      error,
+    );
     return false;
   }
 
-  const ranges = ((data ?? []) as { id: string; start_date: string; end_date: string; status: string; created_at: string | null; deposit_paid_at: string | null }[])
-    .filter((r) => r.id !== excludeId && isActiveHold(r));
+  const ranges = (
+    (data ?? []) as {
+      id: string;
+      start_date: string;
+      end_date: string;
+      status: string;
+      created_at: string | null;
+      deposit_paid_at: string | null;
+    }[]
+  ).filter((r) => r.id !== excludeId && isActiveHold(r));
 
-  for (let d = new Date(start_date); d <= new Date(end_date); d.setDate(d.getDate() + 1)) {
+  // Dates the owner has taken out by hand — lent, in for service, rented over
+  // the counter. They occupy a unit exactly as a held booking does, which is
+  // why they are simply added to the per-day count below.
+  //
+  // FAILS CLOSED for the same reason the query above does: null means "could
+  // not confirm", and answering "free" when we do not know is how two people
+  // pay a deposit on one scooter.
+  const blocks = await blocksOverlapping(start_date, end_date, scooter);
+  if (blocks === null) return false;
+
+  for (
+    let d = new Date(start_date);
+    d <= new Date(end_date);
+    d.setDate(d.getDate() + 1)
+  ) {
     const day = d.toISOString().slice(0, 10);
-    const held = ranges.reduce((n, r) => (day >= r.start_date && day <= r.end_date ? n + 1 : n), 0);
-    if (held >= units) return false;
+    const held = ranges.reduce(
+      (n, r) => (day >= r.start_date && day <= r.end_date ? n + 1 : n),
+      0,
+    );
+    if (held + blockedOn(blocks, day) >= units) return false;
   }
   return true;
 }

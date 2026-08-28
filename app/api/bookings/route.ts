@@ -7,10 +7,32 @@ import { enqueueNotification } from "@/lib/notifications/queue";
 import { guardShared } from "@/lib/rate-limit";
 import { isActiveHold, HOLDING_STATUSES } from "@/lib/holds";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
-import { priceBreakdown, rentalDays, validateRentalWindow } from "@/lib/booking-pricing";
+import {
+  priceBreakdown,
+  rentalDays,
+  validateRentalWindow,
+} from "@/lib/booking-pricing";
+import {
+  blocksOverlapping,
+  blockedOn,
+  blockedAssetIds,
+} from "@/lib/availability/blocks";
 
 // Owner-friendly date for the WhatsApp alert: 2026-01-01 → 01/JAN/2026.
-const WA_MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const WA_MONTHS = [
+  "JAN",
+  "FEB",
+  "MAR",
+  "APR",
+  "MAY",
+  "JUN",
+  "JUL",
+  "AUG",
+  "SEP",
+  "OCT",
+  "NOV",
+  "DEC",
+];
 function waDate(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(`${iso}T00:00:00Z`);
@@ -52,7 +74,10 @@ export async function POST(req: NextRequest) {
   const end_date = (body.end_date ?? "").trim();
 
   if (!name || !scooter || !start_date || !end_date) {
-    return NextResponse.json({ error: "Missing required booking details." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing required booking details." },
+      { status: 400 },
+    );
   }
   // The window is validated and the day count derived HERE — a client cannot
   // book the past, a malformed string, or a year-long hold, and cannot lie
@@ -66,11 +91,17 @@ export async function POST(req: NextRequest) {
   // A valid, reachable phone is required (blocks typos + fake/troll numbers)
   const phone = (body.phone ?? "").toString().trim();
   if (!isValidPhone(phone)) {
-    return NextResponse.json({ error: "A valid phone number is required." }, { status: 400 });
+    return NextResponse.json(
+      { error: "A valid phone number is required." },
+      { status: 400 },
+    );
   }
   const email = (body.email ?? "").toString().trim();
   if (email && !isValidEmail(email)) {
-    return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Please enter a valid email address." },
+      { status: 400 },
+    );
   }
 
   // ── Resolve the fleet model for capacity + asset tracking ──
@@ -93,14 +124,19 @@ export async function POST(req: NextRequest) {
   try {
     const content = await getContent();
     vehicleCategories = content.vehicleCategories;
-    const item = content.fleet.find((f) => f.id === scooter || f.name === scooter);
+    const item = content.fleet.find(
+      (f) => f.id === scooter || f.name === scooter,
+    );
     if (item?.name) scooterName = item.name;
     fleetItem = item;
     activeAssets = (item?.assets ?? [])
       .filter((a) => a.active !== false)
       .map((a) => ({ id: a.id, label: a.label, color: a.color }));
     // Capacity = number of physical units (assets) if tracked, else the unit count.
-    units = activeAssets.length > 0 ? activeAssets.length : Math.max(1, item?.units ?? 1);
+    units =
+      activeAssets.length > 0
+        ? activeAssets.length
+        : Math.max(1, item?.units ?? 1);
   } catch (err) {
     // getContent() swallows DB failures and returns DEFAULT_CONTENT, so a
     // Supabase outage makes every real vehicle "unresolvable" rather than
@@ -126,7 +162,10 @@ export async function POST(req: NextRequest) {
   // on a vehicle nobody knows is taken.
   if (!fleetItem) {
     return NextResponse.json(
-      { error: "That vehicle isn't available right now. Please pick another from the list." },
+      {
+        error:
+          "That vehicle isn't available right now. Please pick another from the list.",
+      },
       { status: 400 },
     );
   }
@@ -139,7 +178,9 @@ export async function POST(req: NextRequest) {
     const priv = await getPrivileged();
     const { data: active, error: availabilityError } = await priv
       .from("bookings")
-      .select("start_date, end_date, status, created_at, asset_id, deposit_paid_at, payment_due_by")
+      .select(
+        "start_date, end_date, status, created_at, asset_id, deposit_paid_at, payment_due_by",
+      )
       .eq("scooter", scooter)
       .in("status", [...HOLDING_STATUSES])
       .gte("end_date", start_date)
@@ -157,13 +198,47 @@ export async function POST(req: NextRequest) {
         availabilityError,
       );
     }
-    const ranges = ((active ?? []) as { start_date: string; end_date: string; status: string; created_at: string; asset_id: string | null; deposit_paid_at: string | null }[])
-      .filter((r) => isActiveHold(r));
+    const ranges = (
+      (active ?? []) as {
+        start_date: string;
+        end_date: string;
+        status: string;
+        created_at: string;
+        asset_id: string | null;
+        deposit_paid_at: string | null;
+      }[]
+    ).filter((r) => isActiveHold(r));
+    // Dates the owner took out by hand. A block occupies a unit exactly as a
+    // held booking does, so it simply joins the per-day count.
+    //
+    // Unlike the bookings query above this does NOT fail open: a block exists
+    // because the vehicle is genuinely gone, and letting a request through on a
+    // blocked date is how the customer ends up at the counter for a scooter
+    // that was lent out last week. isVehicleFree() would catch it at payment
+    // time, but by then they have chosen their dates and told their friends.
+    const blocks = await blocksOverlapping(start_date, end_date, scooter);
+    if (blocks === null) {
+      return NextResponse.json(
+        {
+          error:
+            "We can't confirm availability right now. Please try again in a moment.",
+        },
+        { status: 503 },
+      );
+    }
+
     const heldOn = (day: string) =>
-      ranges.reduce((n, r) => (day >= r.start_date && day <= r.end_date ? n + 1 : n), 0);
-    for (let d = new Date(start_date); d <= new Date(end_date); d.setDate(d.getDate() + 1)) {
+      ranges.reduce(
+        (n, r) => (day >= r.start_date && day <= r.end_date ? n + 1 : n),
+        0,
+      );
+    for (
+      let d = new Date(start_date);
+      d <= new Date(end_date);
+      d.setDate(d.getDate() + 1)
+    ) {
       const day = d.toISOString().slice(0, 10);
-      if (heldOn(day) >= units) {
+      if (heldOn(day) + blockedOn(blocks, day) >= units) {
         return NextResponse.json(
           { error: "Those dates were just taken. Please pick another range." },
           { status: 409 },
@@ -172,7 +247,12 @@ export async function POST(req: NextRequest) {
     }
     // Assign the first physical unit that isn't already taken for these dates.
     if (activeAssets.length > 0) {
-      const busy = new Set(ranges.map((r) => r.asset_id).filter(Boolean) as string[]);
+      const busy = new Set(
+        ranges.map((r) => r.asset_id).filter(Boolean) as string[],
+      );
+      // A unit named in a block is out too — otherwise the guard passes on
+      // capacity and then hands the customer the exact bike that is away.
+      for (const id of blockedAssetIds(blocks)) busy.add(id);
       const free = activeAssets.find((a) => !busy.has(a.id));
       if (free) {
         asset_id = free.id;
@@ -183,7 +263,10 @@ export async function POST(req: NextRequest) {
     // Same reasoning as above — an unpaid request holds nothing, so a crashed
     // guard must not stop a customer booking. But it is logged, because a
     // permanently-throwing guard would otherwise be invisible.
-    console.error("bookings: double-booking guard threw — request allowed through", err);
+    console.error(
+      "bookings: double-booking guard threw — request allowed through",
+      err,
+    );
   }
 
   // ── Server-authoritative money ──
@@ -201,12 +284,17 @@ export async function POST(req: NextRequest) {
       `bookings: cannot price ${scooter} (price="${fleetItem.price}", days=${days}) — refusing rather than trusting the client`,
     );
     return NextResponse.json(
-      { error: "We couldn't price that rental. Please contact us on WhatsApp and we'll sort it out." },
+      {
+        error:
+          "We couldn't price that rental. Please contact us on WhatsApp and we'll sort it out.",
+      },
       { status: 409 },
     );
   }
   const clientTotal =
-    typeof body.total_amount === "number" && Number.isFinite(body.total_amount) && body.total_amount >= 0
+    typeof body.total_amount === "number" &&
+    Number.isFinite(body.total_amount) &&
+    body.total_amount >= 0
       ? Math.round(body.total_amount)
       : null;
   if (clientTotal !== null && clientTotal !== serverBreakdown.total) {
@@ -239,25 +327,32 @@ export async function POST(req: NextRequest) {
     scooter: (fleetItem.id || scooter).slice(0, 120),
     start_date,
     end_date,
-    pickup_time: (body.pickup_time ?? "")?.toString().trim().slice(0, 10) || null,
-    return_time: (body.return_time ?? "")?.toString().trim().slice(0, 10) || null,
+    pickup_time:
+      (body.pickup_time ?? "")?.toString().trim().slice(0, 10) || null,
+    return_time:
+      (body.return_time ?? "")?.toString().trim().slice(0, 10) || null,
     days,
     // Display string kept consistent with the authoritative number.
-    total_price: total_amount != null ? `Rs ${total_amount.toLocaleString("en-US")}` : (body.total_price ?? null),
+    total_price:
+      total_amount != null
+        ? `Rs ${total_amount.toLocaleString("en-US")}`
+        : (body.total_price ?? null),
     total_amount,
     delivery_fee,
     deposit_amount,
     deposit_pct: total_amount != null ? depositPct : null,
     message: (body.message ?? "")?.toString().trim() || null,
     status: "pending" as const,
-    partner_code: (body.partner_code ?? "")?.toString().trim().toUpperCase() || null,
+    partner_code:
+      (body.partner_code ?? "")?.toString().trim().toUpperCase() || null,
     asset_id,
     asset_label,
   };
 
   const supabase = await createClient();
   const { error } = await supabase.from("bookings").insert([record]);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Booking reference (RR-XXXXXX, derived from the id) — shown in the
   // confirmation email and used by the guest Manage-Booking lookup. One format
@@ -266,7 +361,11 @@ export async function POST(req: NextRequest) {
 
   // Fire emails — never block or fail the booking on email errors
   try {
-    await sendBookingEmails({ ...record, scooter: scooterName, ref: bookingRef });
+    await sendBookingEmails({
+      ...record,
+      scooter: scooterName,
+      ref: bookingRef,
+    });
   } catch {
     /* ignore email failures */
   }
@@ -314,7 +413,7 @@ export async function POST(req: NextRequest) {
       bookingId: record.id,
       dedupeKey: `booking.created:${record.id}`,
       message:
-      `🛵 New booking\n${record.name} — ${scooterName}` +
+        `🛵 New booking\n${record.name} — ${scooterName}` +
         (record.asset_label ? ` (${record.asset_label})` : "") +
         `\n${waDate(record.start_date)} → ${waDate(record.end_date)}` +
         (nights ? ` (${nights} ${nights === 1 ? "day" : "days"})` : "") +
@@ -330,5 +429,9 @@ export async function POST(req: NextRequest) {
     /* ignore */
   }
 
-  return NextResponse.json({ ok: true, bookingId: id, depositAmount: deposit_amount });
+  return NextResponse.json({
+    ok: true,
+    bookingId: id,
+    depositAmount: deposit_amount,
+  });
 }

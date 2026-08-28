@@ -8,6 +8,7 @@ import {
   Banknote,
   ClipboardList,
   CalendarCheck,
+  CalendarOff,
   Inbox,
   Zap,
 } from "lucide-react";
@@ -456,6 +457,29 @@ export default async function CommandCenterPage() {
                 ))}
               </div>
             )}
+
+            {/* ── The entrance for offline bookings ────────────────────
+                Above the shortcuts, because a scooter that is on sale while it
+                sits in somebody else's yard costs a real booking. It is not a
+                queue — nothing lands here asking for a decision — so it cannot
+                live in "requires attention". */}
+            <Link
+              href="/admin/availability"
+              className="mt-8 flex min-h-14 items-center justify-between gap-3 rounded-2xl border border-yellow/30 bg-yellow/[0.06] px-4 py-3 transition-colors hover:border-yellow/60"
+            >
+              <span className="flex items-center gap-2.5">
+                <CalendarOff size={16} className="shrink-0 text-yellow" />
+                <span>
+                  <span className="block font-syne text-sm font-bold text-offwhite">
+                    Take a vehicle off the calendar
+                  </span>
+                  <span className="block font-dm text-xs text-muted">
+                    Lent out, in for a service, or rented at the counter
+                  </span>
+                </span>
+              </span>
+              <ArrowRight size={14} className="shrink-0 text-yellow" />
+            </Link>
 
             {/* ── Shortcuts ── */}
             <h2 className="mt-8 flex items-center gap-2 font-syne text-base font-extrabold">
