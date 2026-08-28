@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import posthog from "posthog-js";
 import { createPortal } from "react-dom";
+import RentalConditions, { type ConditionItem } from "./RentalConditions";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -62,8 +63,13 @@ export default function BookingSection({
   fleet,
   categories,
   whatsapp,
+  conditions,
 }: {
   fleet?: FleetItem[];
+  /** The FAQ entries answering "am I allowed to rent this, and what am I
+   *  agreeing to". Passed from the server so the panel shows the owner's own
+   *  words instead of a second copy that drifts out of date. */
+  conditions?: ConditionItem[];
   /** The owner's vehicle categories — where the delivery fee lives. The booking
    *  API prices the same rental from the same list, so a summary rendered
    *  without this would quote one figure and charge another. */
@@ -960,6 +966,11 @@ export default function BookingSection({
                   ))}
                 </div>
               </div>
+
+              {/* The terms, beside the form rather than on another page. See
+                  components/RentalConditions.tsx for why they are read from the
+                  FAQ instead of restated here. */}
+              {conditions?.length ? <RentalConditions items={conditions} /> : null}
 
               {/* What's included */}
               <div className="bg-dark-card border border-dark-border rounded-2xl p-6">

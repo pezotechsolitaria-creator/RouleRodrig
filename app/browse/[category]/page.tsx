@@ -334,6 +334,11 @@ export default async function BrowsePage({
             fleet={items}
             categories={content.vehicleCategories}
             whatsapp={businessWhatsApp}
+            /* The rental terms the customer needs BEFORE committing — age,
+               licence, insurance, fuel — read from the FAQ the owner already
+               maintains. Verified absent from this page: "licence" and
+               "deposit" each appeared zero times in the live HTML. */
+            conditions={content.faq?.items ?? []}
           />
         </main>
         {footer}
