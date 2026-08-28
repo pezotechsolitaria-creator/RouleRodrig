@@ -186,6 +186,40 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
                       screen. */}
                   <p className="text-muted/85 font-dm text-sm leading-snug line-clamp-2 flex-1">{loc(language, p.description, p.descriptionFr, p.descriptionCr)}</p>
 
+                  {/* ── THE PRICE, AND WHAT YOU GET, ON THE CARD (M146) ──────
+                      Both of these already existed on every listing and
+                      neither reached this card: priceNote was shown only
+                      inside the booking form, highlights only in the detail
+                      modal. So /browse/stays served 635 characters of unique
+                      text, carried no price at all while its own meta
+                      description promised "See photos and prices", and never
+                      used a single word a guest searches with — sea view,
+                      breakfast, per night. Google indexed it and gave it zero
+                      impressions for an accommodation query in 90 days,
+                      because there was nothing on the page to match one.
+
+                      priceNote is printed verbatim. It is the owner's own
+                      wording ("from Rs 2500 per night (for one person)"), and
+                      paraphrasing a price is how you end up publishing one
+                      the owner does not honour. */}
+                  {p.priceNote && (
+                    <p className="mt-2 font-syne text-sm font-bold text-yellow">
+                      {p.priceNote}
+                    </p>
+                  )}
+                  {p.highlights && p.highlights.length > 0 && (
+                    <ul className="mt-2 flex flex-wrap gap-1.5">
+                      {p.highlights.slice(0, 4).map((h) => (
+                        <li
+                          key={h}
+                          className="rounded-full border border-dark-border px-2 py-0.5 font-dm text-[11px] leading-relaxed text-muted/80"
+                        >
+                          {h}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
                   <div className="flex items-center gap-2 flex-wrap mt-4">
                     <button
                       onClick={() => setDetailPlace(p)}

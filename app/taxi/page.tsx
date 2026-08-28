@@ -619,10 +619,13 @@ export default function TaxiPage() {
             that, so it folds. The summary is a 44px target and the text is in
             the DOM either way, so it is still findable and still indexable.
 
-            The disclaimer also still calls this "a scooter-rental platform",
-            which stopped being the whole truth several sections ago — flagged
-            rather than rewritten here, because it is legal wording and the
-            owner's to settle. */}
+            The disclaimer used to open by calling this "a scooter-rental
+            platform", which stopped being the whole truth several sections ago
+            and told a search engine the wrong thing about the page it sits on.
+            The owner settled it on 2026-08-29: the sentence now names Roule
+            Rodrigues as not a transport operator, so the liability wording is
+            if anything more direct than before, and only the self-description
+            is gone. */}
         <details className="mt-8 text-center">
           <summary className="mx-auto inline-flex min-h-11 cursor-pointer items-center justify-center font-dm text-xs text-muted/50 transition-colors hover:text-muted">
             {tx.priceNote}

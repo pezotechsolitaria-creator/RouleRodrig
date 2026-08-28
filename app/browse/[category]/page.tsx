@@ -30,7 +30,20 @@ export const revalidate = 60;
 type Place = { category: string; isTour?: boolean };
 const PLACE_SLUGS: Record<
   string,
-  { label: string; filter: (p: Place) => boolean }
+  {
+    label: string;
+    filter: (p: Place) => boolean;
+    /**
+     * Heading shown above the cards. Separate from `label` because `label`
+     * also fills the top bar, whose h1 is `max-w-[62%] truncate` at a
+     * measured 375x812 — a descriptive heading put there would render as
+     * "Where to Stay in Rod...". So the short one stays in the bar and the
+     * one that answers the search sits in the page.
+     */
+    heading?: string;
+    /** Intro paragraph above the cards, in place of the shared subtitle. */
+    intro?: string;
+  }
 > = {
   restaurants: {
     label: "Restaurants",
@@ -44,7 +57,19 @@ const PLACE_SLUGS: Record<
     label: "Guided Tours",
     filter: (p) => p.category === "activity" && !!p.isTour,
   },
-  stays: { label: "Accommodations", filter: (p) => p.category === "hotel" },
+  // ── WHY THIS ONE CARRIES COPY AND THE OTHERS DO NOT (M146) ───────────
+  // /browse/stays was indexed and drew zero impressions for any
+  // accommodation query in 90 days — not a ranking problem, an absence:
+  // 635 characters of unique text, headed "Accommodations", with no price
+  // and not one of the words a guest actually types. Every claim below is
+  // taken from the live listings, not invented to fill space.
+  stays: {
+    label: "Accommodations",
+    filter: (p) => p.category === "hotel",
+    heading: "Where to Stay in Rodrigues",
+    intro:
+      "Guesthouses, self-catering villas and small hotels across Rodrigues — among them sea views, breakfast, air conditioning and a pool. Each is run by an independent local owner: see the nightly price on the card, then book or enquire with them directly.",
+  },
 };
 
 // ── SEO ──────────────────────────────────────────────────────────────
@@ -455,8 +480,8 @@ export default async function BrowsePage({
           <RecommendedPlaces
             content={{
               enabled: true,
-              title: place.label,
-              subtitle: content.recommended.subtitle,
+              title: place.heading ?? place.label,
+              subtitle: place.intro ?? content.recommended.subtitle,
               items,
             }}
             whatsapp={businessWhatsApp}

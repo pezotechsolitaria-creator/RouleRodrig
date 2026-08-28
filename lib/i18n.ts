@@ -578,7 +578,7 @@ const translations = {
       fareNote:
         "We will confirm the price with you — no charge until you agree. Every driver sets their own fare; Roulé Rodrigues never takes payment for a ride.",
       disclaimer:
-        "Roule Rodrigues is a scooter-rental platform. Taxi drivers are independent third parties listed for your convenience — we are not a transport operator and are not responsible for their service.",
+        "Taxi drivers are independent third parties listed for your convenience — Roule Rodrigues is not a transport operator and is not responsible for their service.",
       feedback: "DRIVER FEEDBACK",
       review: "review",
       reviews: "reviews",
@@ -624,7 +624,7 @@ const translations = {
       viewMap: "View on map",
       sponsored: "SPONSORED",
       disclaimer:
-        "These are independent businesses listed for your convenience. Roule Rodrigues is a scooter-rental platform and is not responsible for their services or bookings.",
+        "These are independent businesses listed for your convenience. Roule Rodrigues lists them so you can find them and is not responsible for their services or bookings.",
     },
 
     // Getting Around card
@@ -1141,7 +1141,7 @@ const translations = {
       fareNote:
         "Nous confirmerons le prix avec vous — rien n’est débité avant votre accord. Chaque chauffeur fixe son tarif ; Roulé Rodrigues n’encaisse jamais une course.",
       disclaimer:
-        "Roule Rodrigues est une plateforme de location de scooters. Les chauffeurs de taxi sont des tiers indépendants listés pour votre commodité — nous ne sommes pas un opérateur de transport et ne sommes pas responsables de leur service.",
+        "Les chauffeurs de taxi sont des tiers indépendants listés pour votre commodité — Roule Rodrigues n'est pas un opérateur de transport et n'est pas responsable de leur service.",
       feedback: "AVIS CHAUFFEUR",
       review: "avis",
       reviews: "avis",
@@ -1185,7 +1185,7 @@ const translations = {
       viewMap: "Voir sur la carte",
       sponsored: "SPONSORISÉ",
       disclaimer:
-        "Ce sont des entreprises indépendantes listées pour votre commodité. Roule Rodrigues est une plateforme de location de scooters et n'est pas responsable de leurs services ou réservations.",
+        "Ce sont des entreprises indépendantes listées pour votre commodité. Roule Rodrigues les référence pour vous aider à les trouver et n'est pas responsable de leurs services ou réservations.",
     },
 
     // Carte Se déplacer
@@ -1691,7 +1691,7 @@ const translations = {
       fareNote:
         "Nou pou konfirm pri-la ar ou — nanye pa debite avan ou dakor. Sak chofer fixe so prop pri; Roulé Rodrigues zame pran kas pou enn kours.",
       disclaimer:
-        "Roule Rodrigues enn plateform lokasion skooter. Bann chofer taksi zot bann tiers indepandan liste pou ou konvenians — nou pa enn operater transpor ek nou pa responsab pou zot servis.",
+        "Bann chofer taksi zot bann tiers indepandan liste pou ou konvenians — Roule Rodrigues pa enn operater transpor ek nou pa responsab pou zot servis.",
       feedback: "LAVI CHOFER",
       review: "lavi",
       reviews: "lavi",
@@ -1732,7 +1732,7 @@ const translations = {
       viewMap: "Get lor kart",
       sponsored: "SPONSORIZE",
       disclaimer:
-        "Sa bann biznes indepandan liste pou ou konvenians. Roule Rodrigues enn plateform lokasion skooter ek nou pa responsab pou zot servis ouswa rezervasion.",
+        "Sa bann biznes indepandan liste pou ou konvenians. Roule Rodrigues zis liste zot pou ou kapav trouv zot ek nou pa responsab pou zot servis ouswa rezervasion.",
     },
 
     // Kart Pou Deplase
