@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { Loader2, Minus, Plus, Ticket, Check, X, ArrowRight } from "lucide-react";
 import { useCart } from "@/lib/cart/CartContext";
 import { centsToDecimalString } from "@/lib/money";
+import { useLanguage } from "@/context/LanguageContext";
+import { EVENTS_COPY, type EventsCopy } from "@/lib/events/copy.i18n";
 import { Button } from "@/components/ui/button";
 import type { EventTicketType } from "@/lib/events/queries";
 
@@ -44,6 +46,8 @@ export default function PackagePicker({
   disabled?: boolean;
 }) {
   const router = useRouter();
+  const { language } = useLanguage();
+  const c = EVENTS_COPY[language].picker;
   const { addItem, clear, cart } = useCart("events");
   const [open, setOpen] = useState<EventTicketType | null>(null);
   const [qty, setQty] = useState(1);
@@ -84,7 +88,7 @@ export default function PackagePicker({
       // not get past, and no explanation. Now the conflict is a question.
       const result = addItem({ storeId, storeName, variantId: open.variantId, quantity: qty });
       if (result === "conflict") {
-        setHeld(cart?.storeName ?? "another event");
+        setHeld(cart?.storeName ?? c.heldFallback);
         setBusy(false);
         return;
       }
@@ -95,7 +99,7 @@ export default function PackagePicker({
       // concert-goer to choose a delivery zone.
       router.push(`/events/${slug}/checkout`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not reserve those tickets.");
+      setError(e instanceof Error ? e.message : c.reserveFailed);
       setBusy(false);
     }
   }
@@ -104,10 +108,8 @@ export default function PackagePicker({
     return (
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
         <Ticket className="mx-auto text-muted" size={22} />
-        <p className="mt-3 font-syne text-base font-bold text-offwhite">Tickets aren&apos;t on sale yet</p>
-        <p className="mx-auto mt-1 max-w-xs font-dm text-sm text-muted">
-          Check back soon — or follow Roulé Rodrigues to hear when they go live.
-        </p>
+        <p className="mt-3 font-syne text-base font-bold text-offwhite">{c.noneTitle}</p>
+        <p className="mx-auto mt-1 max-w-xs font-dm text-sm text-muted">{c.noneBody}</p>
       </div>
     );
   }
@@ -138,26 +140,31 @@ export default function PackagePicker({
   );
 }
 
-function availability(t: EventTicketType): { label: string; tone: string } | null {
-  if (t.soldOut) return { label: "Sold out", tone: "text-red-300 border-red-500/25 bg-red-500/10" };
+function availability(
+  t: EventTicketType,
+  c: EventsCopy["picker"],
+): { label: string; tone: string } | null {
+  if (t.soldOut) return { label: c.soldOut, tone: "text-red-300 border-red-500/25 bg-red-500/10" };
   if (!t.salesOpen) {
     const notYet = t.salesStart && new Date(t.salesStart) > new Date();
     return notYet
-      ? { label: "Not on sale yet", tone: "text-orange-300 border-orange-400/30 bg-orange-400/10" }
-      : { label: "Sales closed", tone: "text-muted border-white/15 bg-white/5" };
+      ? { label: c.notYet, tone: "text-orange-300 border-orange-400/30 bg-orange-400/10" }
+      : { label: c.salesClosed, tone: "text-muted border-white/15 bg-white/5" };
   }
   // Scarcity, but only when it is true. A permanent "only a few left!" is the
   // fastest way to stop being believed.
   if (t.remaining <= 10) {
-    return { label: `Only ${t.remaining} left`, tone: "text-yellow border-yellow/30 bg-yellow/10" };
+    return { label: c.onlyLeft(t.remaining), tone: "text-yellow border-yellow/30 bg-yellow/10" };
   }
-  return { label: `${t.remaining} remaining`, tone: "text-muted border-white/15 bg-white/5" };
+  return { label: c.remaining(t.remaining), tone: "text-muted border-white/15 bg-white/5" };
 }
 
 function PackageCard({
   pkg: t, disabled, onOpen,
 }: { pkg: EventTicketType; disabled?: boolean; onOpen: () => void }) {
-  const avail = availability(t);
+  const { language } = useLanguage();
+  const c = EVENTS_COPY[language].picker;
+  const avail = availability(t, c);
   const unavailable = t.soldOut || !t.salesOpen || disabled;
 
   return (
@@ -200,7 +207,7 @@ function PackageCard({
               </li>
             ))}
             {t.inclusions.length > 3 && (
-              <li className="font-dm text-xs text-muted/70">+{t.inclusions.length - 3} more</li>
+              <li className="font-dm text-xs text-muted/70">{c.moreInclusions(t.inclusions.length - 3)}</li>
             )}
           </ul>
         )}
@@ -210,7 +217,7 @@ function PackageCard({
             Rs {centsToDecimalString(t.price)}
           </p>
           <Button size="sm" variant={unavailable ? "outline" : "default"} disabled={unavailable} onClick={onOpen}>
-            {t.soldOut ? "Sold out" : !t.salesOpen ? "Not available" : <>View details <ArrowRight size={14} className="ml-1" /></>}
+            {t.soldOut ? c.soldOut : !t.salesOpen ? c.notAvailable : <>{c.viewDetails} <ArrowRight size={14} className="ml-1" /></>}
           </Button>
         </div>
       </div>
@@ -228,6 +235,8 @@ function PackageSheet({
   held: string | null;
   onStartFresh: () => void;
 }) {
+  const { language } = useLanguage();
+  const c = EVENTS_COPY[language].picker;
   // The ceiling is whichever runs out first: what the organiser allows per
   // order, or what is actually left. create_order enforces both again (RR016 /
   // RR007) — this only stops the customer reaching a refusal.
@@ -238,7 +247,7 @@ function PackageSheet({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center"
-      role="dialog" aria-modal="true" aria-label={`${t.name} details`}
+      role="dialog" aria-modal="true" aria-label={c.detailsAria(t.name)}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       {/* Bottom sheet on a phone, centred dialog on a desktop. Most of this
@@ -252,7 +261,7 @@ function PackageSheet({
           )}
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={c.close}
             className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/60 text-offwhite backdrop-blur-sm transition-colors hover:text-yellow"
           >
             <X size={18} />
@@ -272,7 +281,7 @@ function PackageSheet({
 
           {t.inclusions.length > 0 && (
             <div className="mt-5">
-              <h3 className="font-bebas text-[11px] tracking-[0.3em] text-yellow">WHAT&apos;S INCLUDED</h3>
+              <h3 className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{c.included}</h3>
               <ul className="mt-2 space-y-1.5">
                 {t.inclusions.map((inc, i) => (
                   <li key={i} className="flex items-start gap-2 font-dm text-sm text-offwhite/85">
@@ -285,17 +294,17 @@ function PackageSheet({
 
           <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-4">
             <p className="font-dm text-xs text-muted">
-              {t.remaining <= 10 ? `Only ${t.remaining} tickets remaining` : `${t.remaining} tickets remaining`}
+              {t.remaining <= 10 ? c.ticketsLeftLow(t.remaining) : c.ticketsLeft(t.remaining)}
             </p>
 
             <div className="mt-3 flex items-center justify-between gap-4">
-              <span className="font-dm text-sm text-offwhite">Quantity</span>
+              <span className="font-dm text-sm text-offwhite">{c.quantity}</span>
               <div className="flex items-center gap-3">
                 {/* 44px targets — WCAG 2.5.5, and this is a one-handed flow. */}
                 <button
                   onClick={() => setQty(Math.max(floor, qty - 1))}
                   disabled={qty <= floor}
-                  aria-label="One fewer ticket"
+                  aria-label={c.oneFewer}
                   className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 text-offwhite transition-colors hover:border-yellow/50 disabled:opacity-40"
                 >
                   <Minus size={16} />
@@ -304,7 +313,7 @@ function PackageSheet({
                 <button
                   onClick={() => setQty(Math.min(ceiling, qty + 1))}
                   disabled={qty >= ceiling}
-                  aria-label="One more ticket"
+                  aria-label={c.oneMore}
                   className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 text-offwhite transition-colors hover:border-yellow/50 disabled:opacity-40"
                 >
                   <Plus size={16} />
@@ -315,15 +324,15 @@ function PackageSheet({
             {/* Never disable a control without saying why. */}
             {qty >= ceiling && t.maxPerOrder !== null && ceiling === t.maxPerOrder && (
               <p className="mt-2 font-dm text-xs text-muted">
-                Maximum {t.maxPerOrder} per order for this package.
+                {c.maxPerOrder(t.maxPerOrder)}
               </p>
             )}
             {floor > 1 && (
-              <p className="mt-2 font-dm text-xs text-muted">This package is sold in {floor}s or more.</p>
+              <p className="mt-2 font-dm text-xs text-muted">{c.minPerOrder(floor)}</p>
             )}
 
             <div className="mt-4 flex items-baseline justify-between border-t border-white/10 pt-3">
-              <span className="font-dm text-sm text-muted">Total</span>
+              <span className="font-dm text-sm text-muted">{c.total}</span>
               <span className="font-syne text-xl font-extrabold text-yellow">Rs {centsToDecimalString(total)}</span>
             </div>
           </div>
@@ -336,22 +345,19 @@ function PackageSheet({
           {held && (
             <div role="alert" className="mt-3 rounded-xl border border-orange-400/40 bg-orange-400/[0.08] p-4">
               <p className="font-dm text-sm text-offwhite">
-                You already have tickets for <strong className="text-yellow">{held}</strong> waiting.
-                One order covers one event.
+                {c.conflictBefore} <strong className="text-yellow">{held}</strong> {c.conflictAfter}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button size="sm" onClick={onStartFresh}>Start again with {t.name}</Button>
-                <Button size="sm" variant="secondary" onClick={onClose}>Keep {held}</Button>
+                <Button size="sm" onClick={onStartFresh}>{c.startFresh(t.name)}</Button>
+                <Button size="sm" variant="secondary" onClick={onClose}>{c.keep(held)}</Button>
               </div>
             </div>
           )}
 
           <Button size="xl" className="mt-4 w-full" disabled={busy || disabled || t.soldOut} onClick={onReserve}>
-            {busy ? <Loader2 size={16} className="animate-spin" /> : `Reserve ${t.name}`}
+            {busy ? <Loader2 size={16} className="animate-spin" /> : c.reserveCta(t.name)}
           </Button>
-          <p className="mt-2 text-center font-dm text-[11px] text-muted">
-            You&apos;ll confirm your details and see how to pay on the next step.
-          </p>
+          <p className="mt-2 text-center font-dm text-[11px] text-muted">{c.nextStep}</p>
         </div>
       </div>
     </div>

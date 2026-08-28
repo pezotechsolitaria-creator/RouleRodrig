@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import posthog from "posthog-js";
@@ -8,6 +8,8 @@ import { Loader2, Ticket, CalendarDays, MapPin, ShieldCheck, AlertTriangle } fro
 import { useCart } from "@/lib/cart/CartContext";
 import { centsToDecimalString } from "@/lib/money";
 import { eventDateTime } from "@/lib/events/format";
+import { useLanguage } from "@/context/LanguageContext";
+import { EVENTS_COPY } from "@/lib/events/copy.i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
@@ -52,6 +54,15 @@ export default function EventCheckout({
   defaultName: string;
 }) {
   const router = useRouter();
+  const { language } = useLanguage();
+  const c = EVENTS_COPY[language].form;
+  // The fallback wording has to follow the reader's language, but it must not
+  // become a DEPENDENCY of the fetch below: the effect would then re-run — and
+  // re-hit /api/cart/resolve — every time somebody pressed the language button
+  // mid-checkout. A ref carries the current words in without joining the
+  // dependency list. It is only ever READ from an async callback or a click
+  // handler, never during render.
+  const copyRef = useRef(c);
   // `hydrated` matters here, not just `cart`: SSR and the first paint always see
   // a null cart because localStorage is not readable yet. Treating that as
   // "no tickets selected" would flash an empty state at every buyer who has in
@@ -82,6 +93,12 @@ export default function EventCheckout({
   // ticket order would be worse than saying so.
   const cartMatchesEvent = !!cart && cart.storeId === event.storeId && cart.items.length > 0;
 
+  // Point the ref at the current language's words. See the note where it is
+  // declared for why this is an effect and not a dependency.
+  useEffect(() => {
+    copyRef.current = c;
+  }, [c]);
+
   useEffect(() => {
     if (!cartMatchesEvent || !cart) return;
     let cancelled = false;
@@ -92,7 +109,7 @@ export default function EventCheckout({
     })
       .then(async (r) => {
         const body = await r.json();
-        if (!r.ok) throw new Error(body.error || "Could not load your tickets.");
+        if (!r.ok) throw new Error(body.error || copyRef.current.loadFailed);
         return body;
       })
       .then((body) => {
@@ -111,7 +128,7 @@ export default function EventCheckout({
       .catch((e) => {
         if (cancelled) return;
         setItems(null);
-        setLoadError(e instanceof Error ? e.message : "Could not load your tickets.");
+        setLoadError(e instanceof Error ? e.message : copyRef.current.loadFailed);
       });
     return () => {
       cancelled = true;
@@ -160,7 +177,7 @@ export default function EventCheckout({
         }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || "We couldn't reserve those tickets.");
+      if (!res.ok) throw new Error(body.error || copyRef.current.submitFailed);
 
       posthog.capture?.("event_tickets_ordered", {
         store_id: event.storeId,
@@ -189,7 +206,7 @@ export default function EventCheckout({
         router.push(`/orders/${body.order_id}`);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "We couldn't reserve those tickets.");
+      setError(e instanceof Error ? e.message : copyRef.current.submitFailed);
       setSubmitting(false);
     }
   }, [
@@ -209,15 +226,13 @@ export default function EventCheckout({
     return (
       <div className="rounded-2xl border border-white/10 bg-dark-card p-8 text-center">
         <Ticket className="mx-auto text-muted" size={22} />
-        <p className="mt-3 font-syne text-base font-bold text-offwhite">No tickets selected</p>
-        <p className="mx-auto mt-1 max-w-xs font-dm text-sm text-muted">
-          Choose a package first and it will appear here.
-        </p>
+        <p className="mt-3 font-syne text-base font-bold text-offwhite">{c.noneTitle}</p>
+        <p className="mx-auto mt-1 max-w-xs font-dm text-sm text-muted">{c.noneBody}</p>
         <Link
           href={`/events/${event.slug}`}
           className="mt-4 inline-block font-dm text-sm font-semibold text-yellow hover:underline"
         >
-          Back to {event.name}
+          {EVENTS_COPY[language].back.toEvent(event.name)}
         </Link>
       </div>
     );
@@ -227,7 +242,7 @@ export default function EventCheckout({
     <div className="space-y-5">
       {/* What they are actually buying, in event terms. */}
       <section className="rounded-2xl border border-white/10 bg-dark-card p-5">
-        <h2 className="font-bebas text-[11px] tracking-[0.3em] text-yellow">YOUR TICKETS</h2>
+        <h2 className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{c.yourTickets}</h2>
         <p className="mt-2 font-syne text-lg font-extrabold text-offwhite">{event.name}</p>
         <p className="mt-1 flex items-center gap-1.5 font-dm text-sm text-muted">
           <CalendarDays size={13} /> {eventDateTime(event.startsAt, event.timezone)}
@@ -243,7 +258,7 @@ export default function EventCheckout({
           <p role="alert" className="mt-4 font-dm text-sm text-red-400">{loadError}</p>
         ) : items === null ? (
           <p className="mt-4 flex items-center gap-2 font-dm text-sm text-muted">
-            <Loader2 size={14} className="animate-spin" /> Checking availability…
+            <Loader2 size={14} className="animate-spin" /> {c.checking}
           </p>
         ) : (
           <>
@@ -261,7 +276,7 @@ export default function EventCheckout({
               ))}
             </ul>
             <div className="mt-3 flex items-baseline justify-between border-t border-white/10 pt-3">
-              <span className="font-syne text-base font-bold text-offwhite">Total</span>
+              <span className="font-syne text-base font-bold text-offwhite">{c.total}</span>
               <span className="font-syne text-lg font-extrabold text-yellow">
                 Rs {centsToDecimalString(total)}
               </span>
@@ -273,14 +288,14 @@ export default function EventCheckout({
       {/* Who is coming. The name and phone are what the door and the organiser
           use; the email is where the ticket goes. */}
       <section className="rounded-2xl border border-white/10 bg-dark-card p-5">
-        <h2 className="font-bebas text-[11px] tracking-[0.3em] text-yellow">WHO&apos;S COMING</h2>
+        <h2 className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{c.whosComing}</h2>
         <div className="mt-3 space-y-3">
           <label className="block">
-            <span className="font-dm text-xs text-muted">Full name</span>
+            <span className="font-dm text-xs text-muted">{c.fullName}</span>
             <Input value={name} onChange={(e) => setName(e.target.value)} className="mt-1" autoComplete="name" />
           </label>
           <label className="block">
-            <span className="font-dm text-xs text-muted">Phone</span>
+            <span className="font-dm text-xs text-muted">{c.phone}</span>
             <Input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
@@ -291,7 +306,7 @@ export default function EventCheckout({
           </label>
           {isGuest ? (
             <label className="block">
-              <span className="font-dm text-xs text-muted">Email — your ticket goes here</span>
+              <span className="font-dm text-xs text-muted">{c.email}</span>
               <Input
                 value={guestEmail}
                 onChange={(e) => setGuestEmail(e.target.value)}
@@ -300,14 +315,12 @@ export default function EventCheckout({
                 autoComplete="email"
                 aria-invalid={guestEmail.length > 0 && !emailValid}
               />
-              <span className="mt-1 block font-dm text-xs text-muted">
-                No account needed. You&apos;ll use this address and your order number to find your
-                tickets again.
-              </span>
+              <span className="mt-1 block font-dm text-xs text-muted">{c.emailHelp}</span>
             </label>
           ) : (
             <p className="font-dm text-xs text-muted">
-              Your ticket goes to <span className="text-offwhite">{signedInEmail}</span>.
+              {c.ticketGoesToBefore} <span className="text-offwhite">{signedInEmail}</span>
+              {c.ticketGoesToAfter}
             </p>
           )}
         </div>
@@ -316,13 +329,13 @@ export default function EventCheckout({
       {/* How they pay. Roulé Rodrigues never holds ticket money — the organiser
           is paid directly, which is why the confirmation is theirs to give. */}
       <section className="rounded-2xl border border-white/10 bg-dark-card p-5">
-        <h2 className="font-bebas text-[11px] tracking-[0.3em] text-yellow">PAYMENT</h2>
+        <h2 className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{c.payment}</h2>
         {payment === null ? (
-          <p className="mt-3 font-dm text-sm text-muted">Loading…</p>
+          <p className="mt-3 font-dm text-sm text-muted">{c.loading}</p>
         ) : !payment.acceptsCash && !payment.acceptsBankTransfer ? (
           <p role="alert" className="mt-3 flex items-start gap-2 font-dm text-sm text-red-400">
             <AlertTriangle size={15} className="mt-0.5 shrink-0" />
-            The organiser hasn&apos;t set up a way to be paid yet, so tickets can&apos;t be sold.
+            {c.noPayment}
           </p>
         ) : (
           <>
@@ -331,24 +344,23 @@ export default function EventCheckout({
                 <PayOption
                   checked={provider === "bank_transfer"}
                   onSelect={() => setProvider("bank_transfer")}
-                  title="Bank transfer"
-                  detail="You'll get the organiser's account details on the next screen, then tell them once you've sent it."
+                  title={c.transferTitle}
+                  detail={c.transferDetail}
                 />
               )}
               {payment.acceptsCash && (
                 <PayOption
                   checked={provider === "cash"}
                   onSelect={() => setProvider("cash")}
-                  title="Cash"
-                  detail="Pay the organiser directly. Your place is held until then."
+                  title={c.cashTitle}
+                  detail={c.cashDetail}
                 />
               )}
             </div>
             {provider === "bank_transfer" && payment.requiresReceipt && (
               <p className="mt-3 flex items-start gap-2 font-dm text-xs text-muted">
                 <ShieldCheck size={14} className="mt-0.5 shrink-0 text-yellow" />
-                This organiser asks for a photo or PDF of your transfer. You can attach it on the
-                next screen — no account needed.
+                {c.receiptNote}
               </p>
             )}
           </>
@@ -367,17 +379,11 @@ export default function EventCheckout({
         {submitting ? (
           <Loader2 size={16} className="animate-spin" />
         ) : (
-          <>
-            Reserve {ticketCount > 0 ? `${ticketCount} ` : ""}
-            {ticketCount === 1 ? "ticket" : "tickets"}
-          </>
+          c.reserve(ticketCount)
         )}
       </Button>
 
-      <p className="text-center font-dm text-xs text-muted">
-        Your place is held while you pay. Nothing is charged automatically —
-        {" "}the organiser confirms your payment and your ticket is issued then.
-      </p>
+      <p className="text-center font-dm text-xs text-muted">{c.held}</p>
     </div>
   );
 }

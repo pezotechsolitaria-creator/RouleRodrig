@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPublicEvent } from "@/lib/events/queries";
 import EventCheckout from "@/components/events/EventCheckout";
+import {
+  EventCheckoutClosed,
+  EventCheckoutHeader,
+} from "@/components/events/EventCheckoutChrome";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -48,31 +50,10 @@ export default async function EventCheckoutPage({
   return (
     <main className="min-h-screen bg-dark px-4 pb-32 pt-10 text-offwhite md:pb-16">
       <div className="mx-auto max-w-lg">
-        <Link
-          href={`/events/${event.slug}`}
-          className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow"
-        >
-          <ArrowLeft size={14} /> Back to {event.name}
-        </Link>
-
-        <h1 className="mt-3 font-syne text-2xl font-extrabold text-offwhite">
-          {closed ? "Tickets are closed" : "Get your tickets"}
-        </h1>
+        <EventCheckoutHeader slug={event.slug} name={event.name} closed={closed} />
 
         {closed ? (
-          <div className="mt-6 rounded-2xl border border-white/10 bg-dark-card p-6">
-            <p className="font-dm text-sm text-muted">
-              {event.cancelledAt
-                ? "This event has been cancelled, so tickets are no longer on sale."
-                : "This event has already taken place."}
-            </p>
-            <Link
-              href="/events"
-              className="mt-4 inline-block font-dm text-sm font-semibold text-yellow hover:underline"
-            >
-              See what else is on
-            </Link>
-          </div>
+          <EventCheckoutClosed cancelled={!!event.cancelledAt} />
         ) : (
           <div className="mt-6">
             <EventCheckout
