@@ -14,6 +14,7 @@ import BrowseTabs from "@/components/BrowseTabs";
 import Fleet from "@/components/Fleet";
 import TrustBar from "@/components/TrustBar";
 import BookingSection from "@/components/BookingSection";
+import { pickConditions } from "@/lib/rental-conditions";
 import RecommendedPlaces from "@/components/RecommendedPlaces";
 import GettingAround from "@/components/GettingAround";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -236,6 +237,13 @@ export default async function BrowsePage({
     await getFleetView();
   const cats = buildBrowseCategories(content, fleet, recentBookings);
 
+  // The rental terms shown beside the booking form AND described in the
+  // FAQPage markup below. One call, so the structured data can never claim a
+  // question the visible panel does not render — which is the exact thing
+  // Google's FAQ guideline forbids, and the exact thing that happens when two
+  // lists are maintained separately.
+  const conditionItems = pickConditions(content.faq?.items);
+
   // Breadcrumb trail (Home › This page) + the listing itself, so Google shows
   // a real trail under the result instead of a bare URL.
   const seo = (label: string, items: { name: string }[]) => (
@@ -246,6 +254,31 @@ export default async function BrowsePage({
           { name: label, url: `${SITE_URL}/browse/${category}` },
         ]),
         itemListLd(label, items),
+        // ── FAQPage, and only now that it is honest ────────────────────────
+        //
+        // Google requires the questions and answers to be VISIBLE on the page
+        // carrying this markup — schema for content a visitor cannot read is
+        // exactly what the guideline exists to stop. Until RentalConditions
+        // landed there was nothing to point at here, which is why FAQPage was
+        // live on twelve guide pages and zero conversion pages.
+        //
+        // Same source as the panel, so the two can never disagree: if the owner
+        // edits an answer in admin, the visible text and the structured data
+        // move together.
+        ...(conditionItems.length
+          ? [
+              {
+                "@context": "https://schema.org",
+                "@type": "FAQPage",
+                "@id": `${SITE_URL}/browse/${category}#faq`,
+                mainEntity: conditionItems.map((f) => ({
+                  "@type": "Question",
+                  name: f.question,
+                  acceptedAnswer: { "@type": "Answer", text: f.answer },
+                })),
+              },
+            ]
+          : []),
       ]}
     />
   );
@@ -338,7 +371,7 @@ export default async function BrowsePage({
                licence, insurance, fuel — read from the FAQ the owner already
                maintains. Verified absent from this page: "licence" and
                "deposit" each appeared zero times in the live HTML. */
-            conditions={content.faq?.items ?? []}
+            conditions={conditionItems}
           />
         </main>
         {footer}

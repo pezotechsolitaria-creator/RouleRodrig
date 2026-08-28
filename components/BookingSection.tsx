@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import posthog from "posthog-js";
 import { createPortal } from "react-dom";
-import RentalConditions, { type ConditionItem } from "./RentalConditions";
+import RentalConditions from "./RentalConditions";
+import type { ConditionItem } from "@/lib/rental-conditions";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
