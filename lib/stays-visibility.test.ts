@@ -111,3 +111,33 @@ describe("no page tells a search engine this is only a scooter site", () => {
     expect(i18n).toContain("pa enn operater transpor ek nou pa responsab pou zot servis");
   });
 });
+
+describe("the stays copy exists in French, not only English", () => {
+  const card = code(read("components/RecommendedPlaces.tsx"));
+
+  it("carries a French heading and intro", () => {
+    expect(page).toMatch(/headingFr:\s*"Où loger à Rodrigues"/);
+    const fr = page.match(/introFr:\s*"([^"]+)"/)?.[1] ?? "";
+    expect(fr.length).toBeGreaterThan(120);
+  });
+
+  it("uses the words a French visitor actually searches with", () => {
+    const fr = (page.match(/introFr:\s*"([^"]+)"/)?.[1] ?? "").toLowerCase();
+    // "hébergement Rodrigues" and "chambre d'hôtes" are the queries; the page
+    // that ranks best on this whole site is a French one, at position 3.6.
+    for (const w of ["chambres d", "hôtels", "hébergement", "vue sur mer",
+                     "petit-déjeuner", "climatisation", "piscine", "prix par nuit"]) {
+      expect(fr).toContain(w);
+    }
+  });
+
+  it("resolves both headings through loc(), like every other localised field", () => {
+    expect(card).toMatch(/loc\(language, content\.title, content\.titleFr, content\.titleCr\)/);
+    expect(card).toMatch(/loc\(language, content\.subtitle, content\.subtitleFr, content\.subtitleCr\)/);
+  });
+
+  it("passes the French strings from the page into the component", () => {
+    expect(page).toMatch(/titleFr:\s*place\.headingFr/);
+    expect(page).toMatch(/subtitleFr:\s*place\.introFr/);
+  });
+});

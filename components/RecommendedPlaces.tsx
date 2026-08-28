@@ -84,10 +84,10 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
         <div className="mb-6">
           <p className="font-bebas text-yellow text-[11px] tracking-[0.3em] mb-1.5 uppercase">{ts.eyebrow}</p>
           <h2 className="font-syne font-extrabold text-offwhite uppercase leading-tight text-2xl md:text-3xl">
-            {content.title}
+            {loc(language, content.title, content.titleFr, content.titleCr)}
           </h2>
           {content.subtitle && (
-            <p className="text-muted font-dm text-sm mt-2 max-w-xl leading-relaxed">{content.subtitle}</p>
+            <p className="text-muted font-dm text-sm mt-2 max-w-xl leading-relaxed">{loc(language, content.subtitle, content.subtitleFr, content.subtitleCr)}</p>
           )}
         </div>
 

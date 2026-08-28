@@ -553,6 +553,18 @@ export interface RecommendedContent {
   enabled: boolean;
   title: string;
   subtitle: string;
+  /**
+   * Optional translations of the two headings above, resolved with loc().
+   *
+   * The stays page shipped an English-only heading and intro on a site whose
+   * FRENCH pages rank best of anything it has — /fr/guide-rodrigues sits at
+   * position 3.6 — so the copy written to answer "where to stay in Rodrigues"
+   * was answering it in one language only.
+   */
+  titleFr?: string;
+  titleCr?: string;
+  subtitleFr?: string;
+  subtitleCr?: string;
   items: RecommendedPlace[];
 }
 

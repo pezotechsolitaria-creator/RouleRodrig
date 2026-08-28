@@ -43,6 +43,9 @@ const PLACE_SLUGS: Record<
     heading?: string;
     /** Intro paragraph above the cards, in place of the shared subtitle. */
     intro?: string;
+    /** French versions of both. The FR pages outrank everything else here. */
+    headingFr?: string;
+    introFr?: string;
   }
 > = {
   restaurants: {
@@ -69,6 +72,9 @@ const PLACE_SLUGS: Record<
     heading: "Where to Stay in Rodrigues",
     intro:
       "Guesthouses, self-catering villas and small hotels across Rodrigues — among them sea views, breakfast, air conditioning and a pool. Each is run by an independent local owner: see the nightly price on the card, then book or enquire with them directly.",
+    headingFr: "Où loger à Rodrigues",
+    introFr:
+      "Chambres d’hôtes, villas avec cuisine et petits hôtels à Rodrigues — vue sur mer, petit-déjeuner, climatisation et piscine selon les adresses. Chaque hébergement est tenu par un propriétaire local indépendant : le prix par nuit est indiqué sur la fiche, puis vous réservez ou vous vous renseignez directement auprès de lui.",
   },
 };
 
@@ -482,6 +488,8 @@ export default async function BrowsePage({
               enabled: true,
               title: place.heading ?? place.label,
               subtitle: place.intro ?? content.recommended.subtitle,
+              titleFr: place.headingFr,
+              subtitleFr: place.introFr,
               items,
             }}
             whatsapp={businessWhatsApp}

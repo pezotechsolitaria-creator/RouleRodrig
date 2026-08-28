@@ -10,7 +10,42 @@ import { BLOG_POSTS } from "@/lib/blog";
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const now = new Date();
+  // ── A DATE WE CAN DEFEND, OR NO DATE (M148) ──────────────────────────────
+  //
+  // Every one of the 67 URLs used to carry the same lastmod — the moment the
+  // sitemap was generated — which re-stamped the whole site as "changed" once
+  // an hour whether or not anything had. Google discounts a lastmod it cannot
+  // trust, and it discounts it for the WHOLE FILE: the genuinely accurate
+  // dates already on the shops, the products and the blog were being drowned
+  // by 40-odd fabricated ones.
+  //
+  // So there are now exactly two cases. A page rendered from the site_content
+  // row gets that row's updated_at, which is true by construction — edit a
+  // listing in admin and the row moves. Everything else gets NO lastmod at
+  // all, and Google falls back to its own crawl history, which is the correct
+  // behaviour when we genuinely do not know.
+  //
+  // Not guessed at: /food and /events dishes would need listFoodSlugs() and
+  // listPublicEvents() to carry updated_at through, and both are used
+  // elsewhere. Their columns exist (food_items.updated_at, events.updated_at)
+  // whenever that is worth doing.
+  //
+  // Read here rather than through getContent(), which selects only `data`.
+  // Cookieless for the reason the dish block below spells out: the
+  // session-carrying client turns this static route dynamic, and the failure
+  // is silent.
+  let contentAt: Date | undefined;
+  try {
+    const { createAnonClient } = await import("@/lib/supabase/anon");
+    const { data } = await createAnonClient()
+      .from("site_content")
+      .select("updated_at")
+      .eq("id", "main")
+      .maybeSingle();
+    if (data?.updated_at) contentAt = new Date(data.updated_at);
+  } catch {
+    // No date is the honest fallback, and the one this file now prefers.
+  }
 
   // Browse pages are the commercial entry points — highest priority after home.
   let browse: MetadataRoute.Sitemap = [];
@@ -34,7 +69,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const slugs = await listFoodSlugs(createAnonClient());
     dishes = slugs.map((slug) => ({
       url: `${SITE_URL}/food/${slug}`,
-      lastModified: now,
       changeFrequency: "weekly" as const,
       priority: 0.7,
     }));
@@ -64,7 +98,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const published = await listPublicEvents(createAnonClient());
     events = published.map((e) => ({
       url: `${SITE_URL}/events/${e.slug}`,
-      lastModified: now,
       changeFrequency: "weekly" as const,
       priority: 0.7,
     }));
@@ -77,7 +110,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const { content, fleet, recentBookings } = await getFleetView();
     browse = buildBrowseCategories(content, fleet, recentBookings).map((c) => ({
       url: `${SITE_URL}${c.href ?? `/browse/${c.slug}`}`,
-      lastModified: now,
+      lastModified: contentAt,
       changeFrequency: "weekly" as const,
       priority: 0.9,
     }));
@@ -90,7 +123,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     browse.push(
       ...fleet.map((v) => ({
         url: `${SITE_URL}${vehicleHref(v)}`,
-        lastModified: now,
+        lastModified: contentAt,
         changeFrequency: "weekly" as const,
         priority: 0.85,
       })),
@@ -98,7 +131,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (content.mapLocations.some((l) => l.category === "shop")) {
       extra.push({
         url: `${SITE_URL}/guide/shops`,
-        lastModified: now,
+        lastModified: contentAt,
         changeFrequency: "monthly",
         priority: 0.7,
       });
@@ -137,7 +170,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     shops = (data ?? []).map(
       (s: { slug: string; updated_at: string | null }) => ({
         url: `${SITE_URL}/shop/${s.slug}`,
-        lastModified: s.updated_at ? new Date(s.updated_at) : now,
+        lastModified: s.updated_at ? new Date(s.updated_at) : undefined,
         changeFrequency: "weekly" as const,
         // Under the browse pages (0.9) that carry the core rental revenue, above
         // the guides: a shop is commercial, but the marketplace is not yet the
@@ -182,7 +215,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }[]
     ).map((p) => ({
       url: `${SITE_URL}/shop/${p.store_slug}/${p.product_slug}`,
-      lastModified: p.updated_at ? new Date(p.updated_at) : now,
+      lastModified: p.updated_at ? new Date(p.updated_at) : undefined,
       changeFrequency: "weekly" as const,
       priority: 0.7,
     }));
@@ -195,7 +228,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .filter((c) => c.count > 0)
       .map((c) => ({
         url: `${SITE_URL}/shop/c/${c.slug}`,
-        lastModified: now,
         changeFrequency: "weekly" as const,
         priority: 0.8,
       }));
@@ -217,7 +249,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = [
     {
       url: SITE_URL,
-      lastModified: now,
+      lastModified: contentAt,
       changeFrequency: "weekly",
       priority: 1,
     },
@@ -226,7 +258,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // merchants), so it is not data-gated like /guide/shops below.
     {
       url: `${SITE_URL}/shop`,
-      lastModified: now,
       changeFrequency: "daily",
       priority: 0.9,
     },
@@ -242,7 +273,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // is a real commercial landing page for "ourite rodrigues" and the like.
     {
       url: `${SITE_URL}/food`,
-      lastModified: now,
       changeFrequency: "daily",
       priority: 0.9,
     },
@@ -250,7 +280,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...events,
     {
       url: `${SITE_URL}/food/concierge`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,
     },
@@ -262,38 +291,33 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...(Object.keys(EXPERIENCES) as (keyof typeof EXPERIENCES)[]).map(
       (type) => ({
         url: `${SITE_URL}/experiences/${type}`,
-        lastModified: now,
+        lastModified: contentAt,
         changeFrequency: "weekly" as const,
         priority: 0.8,
       }),
     ),
     {
       url: `${SITE_URL}/guide/rodrigues`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.8,
     },
     {
       url: `${SITE_URL}/guide/beaches`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.8,
     },
     {
       url: `${SITE_URL}/guide/viewpoints`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.8,
     },
     {
       url: `${SITE_URL}/guide/routes`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.8,
     },
     {
       url: `${SITE_URL}/guide/hiking`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.8,
     },
@@ -302,25 +326,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Rodrigues"), so this is a commercial page, not a translation afterthought.
     {
       url: `${SITE_URL}/fr/location-scooter-rodrigues`,
-      lastModified: now,
       changeFrequency: "weekly",
       priority: 0.9,
     },
     {
       url: `${SITE_URL}/fr/plages-rodrigues`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.8,
     },
     {
       url: `${SITE_URL}/fr/guide-rodrigues`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.8,
     },
     {
       url: `${SITE_URL}/blog`,
-      lastModified: now,
       changeFrequency: "weekly",
       priority: 0.7,
     },
@@ -332,13 +352,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
     {
       url: `${SITE_URL}/taxi`,
-      lastModified: now,
+      lastModified: contentAt,
       changeFrequency: "weekly",
       priority: 0.7,
     },
     {
       url: `${SITE_URL}/list-your-scooter`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.5,
     },
@@ -355,7 +374,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // for an AI answer — and it was invisible to the crawl that would find it.
     {
       url: `${SITE_URL}/faq`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.8,
     },
@@ -363,14 +381,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // they search anything else about Rodrigues.
     {
       url: `${SITE_URL}/guide/ile-aux-cocos`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.8,
     },
     // The site sells ten dishes and had no page explaining any of them.
     {
       url: `${SITE_URL}/guide/rodriguan-food`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.8,
     },
@@ -378,7 +394,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // market that searches almost entirely in French.
     {
       url: `${SITE_URL}/fr/ile-aux-cocos`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.8,
     },
@@ -386,7 +401,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // commercial head term the site had no French page for.
     {
       url: `${SITE_URL}/fr/location-voiture-rodrigues`,
-      lastModified: now,
       changeFrequency: "weekly",
       priority: 0.9,
     },
@@ -394,14 +408,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // à Rodrigues" are commercial head terms the site answered only in English.
     {
       url: `${SITE_URL}/fr/hebergement-rodrigues`,
-      lastModified: now,
       changeFrequency: "weekly",
       priority: 0.9,
     },
     // "Que faire à Rodrigues" — the French half of /experiences.
     {
       url: `${SITE_URL}/fr/que-faire-a-rodrigues`,
-      lastModified: now,
       changeFrequency: "weekly",
       priority: 0.8,
     },
@@ -409,83 +421,72 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // the French one returned nothing of ours.
     {
       url: `${SITE_URL}/fr/se-deplacer-a-rodrigues`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.8,
     },
     // Real search targets: "what's on in Rodrigues", "airport transfer Rodrigues".
     {
       url: `${SITE_URL}/events`,
-      lastModified: now,
       changeFrequency: "daily",
       priority: 0.8,
     },
     {
       url: `${SITE_URL}/transfers`,
-      lastModified: now,
       changeFrequency: "weekly",
       priority: 0.7,
     },
     {
       url: `${SITE_URL}/deliver`,
-      lastModified: now,
       changeFrequency: "weekly",
       priority: 0.7,
     },
     // The hub whose five children were already listed without it.
     {
       url: `${SITE_URL}/experiences`,
-      lastModified: now,
+      lastModified: contentAt,
       changeFrequency: "weekly",
       priority: 0.7,
     },
     // Planning tools — the reason somebody bookmarks a destination site.
     {
       url: `${SITE_URL}/trip-planner`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.6,
     },
     {
       url: `${SITE_URL}/map`,
-      lastModified: now,
+      lastModified: contentAt,
       changeFrequency: "monthly",
       priority: 0.6,
     },
     {
       url: `${SITE_URL}/explore`,
-      lastModified: now,
       changeFrequency: "weekly",
       priority: 0.6,
     },
     {
       url: `${SITE_URL}/emergency`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.6,
     },
     {
       url: `${SITE_URL}/curated`,
-      lastModified: now,
       changeFrequency: "weekly",
       priority: 0.4,
     },
     {
       url: `${SITE_URL}/more`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.4,
     },
     {
       url: `${SITE_URL}/legal/owner-agreement`,
-      lastModified: now,
       changeFrequency: "yearly",
       priority: 0.2,
     },
 
     ...["notice", "terms", "privacy", "refunds", "disclaimer"].map((slug) => ({
       url: `${SITE_URL}/legal/${slug}`,
-      lastModified: now,
       changeFrequency: "yearly" as const,
       priority: 0.2,
     })),
