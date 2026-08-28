@@ -1338,6 +1338,15 @@ export const DEFAULT_CONTENT: SiteContent = {
         answer: 'Call or WhatsApp us any time — we offer support and, if needed, a replacement scooter so your trip is never interrupted.',
       },
       {
+        // Live copy, written by the owner. It was saved into site_content but
+        // never added here, so CONDITION_IDS listed a condition the defaults
+        // could not supply — the "Minimum rental" row would have vanished from
+        // both the panel and the FAQPage markup on any reset or fresh deploy.
+        id: 'faq-min-duration',
+        question: 'Is there a minimum rental duration?',
+        answer: 'No. You can rent for a single day if that is all you need. There is no three-day minimum and no long-stay requirement, so you can book exactly the dates you want.',
+      },
+      {
         id: 'passengers',
         question: 'Can two people ride together?',
         answer: 'Yes, our scooters comfortably seat two riders, and we provide a second helmet at no extra cost.',

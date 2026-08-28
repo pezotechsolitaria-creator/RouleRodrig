@@ -50,3 +50,27 @@ export function pickConditions(
     )
     .map((i) => ({ id: i.id, question: i.question, answer: i.answer }));
 }
+
+/**
+ * The collapsed preview for one condition row.
+ *
+ * One sentence is usually exactly right — "You must be 18 or older." But an
+ * answer that opens with a bare "No." collapsed the live row down to
+ *
+ *   Minimum rental      No.
+ *
+ * which tells a reader nothing and, under a noun-phrase label, reads as though
+ * the vehicle cannot be rented at all. So keep taking sentences until there is
+ * enough text to carry meaning.
+ */
+export function conditionPreview(answer: string, minChars = 24): string {
+  const text = answer.trim();
+  const sentences = text.match(/[^.!?]*[.!?]|[^.!?]+$/g);
+  if (!sentences) return text;
+  let out = "";
+  for (const s of sentences) {
+    out += s;
+    if (out.trim().length >= minChars) break;
+  }
+  return out.trim() || text;
+}

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronDown, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
-import { CONDITION_LABELS, type ConditionItem } from "@/lib/rental-conditions";
+import { CONDITION_LABELS, conditionPreview, type ConditionItem } from "@/lib/rental-conditions";
 
 // ── THE TERMS, WHERE THE MONEY IS COMMITTED ─────────────────────────────────
 //
@@ -30,13 +30,6 @@ const COPY = {
   cr: { title: "AVAN OU REZERVE", more: "Tou bann kestion", terms: "Kondision konple" },
 };
 
-/** First sentence, so the closed state is scannable. Falls back to the whole
- *  answer when the text carries no sentence break. */
-function firstSentence(s: string): string {
-  const m = s.match(/^[^.!?]*[.!?]/);
-  return (m ? m[0] : s).trim();
-}
-
 export default function RentalConditions({ items }: { items: ConditionItem[] }) {
   const { language } = useLanguage();
   const L = COPY[language as keyof typeof COPY] ?? COPY.en;
@@ -54,7 +47,7 @@ export default function RentalConditions({ items }: { items: ConditionItem[] }) 
       <ul className="divide-y divide-white/5">
         {items.map((item) => {
           const isOpen = open === item.id;
-          const short = firstSentence(item.answer);
+          const short = conditionPreview(item.answer);
           const hasMore = short.length < item.answer.trim().length;
           const label = CONDITION_LABELS[item.id];
           return (
