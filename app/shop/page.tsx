@@ -15,6 +15,7 @@ import MarketHeader from "@/components/shop/MarketHeader";
 import CategoryStrip from "@/components/shop/CategoryStrip";
 import MarketProductCard from "@/components/shop/MarketProductCard";
 import HomeAnalytics from "@/components/shop/HomeAnalytics";
+import { T, TCount, TName, LabelledLink } from "@/components/shop/ShopCopy";
 import AddressLink from "@/components/AddressLink";
 import {
   browseProducts,
@@ -68,7 +69,7 @@ export const metadata: Metadata = {
 const RAIL_THRESHOLD = 16;
 
 /** One row, one line, no subtitle. Section headings are overhead, not content. */
-function RowHeading({ title, href }: { title: string; href?: string }) {
+function RowHeading({ title, href }: { title: React.ReactNode; href?: string }) {
   return (
     <div className="mt-6 mb-2 flex items-baseline justify-between gap-3">
       <h2 className="font-syne text-base font-extrabold text-offwhite">
@@ -79,7 +80,8 @@ function RowHeading({ title, href }: { title: string; href?: string }) {
           href={href}
           className="shrink-0 font-dm text-xs font-semibold text-yellow hover:underline"
         >
-          See all <ChevronRight size={12} className="inline -translate-y-px" />
+          <T k="home.seeAll" />{" "}
+          <ChevronRight size={12} className="inline -translate-y-px" />
         </Link>
       )}
     </div>
@@ -98,35 +100,36 @@ function LaunchState({ pitch }: { pitch: string }) {
         <StoreIcon size={26} />
       </span>
       <h2 className="mt-5 font-syne text-2xl font-extrabold text-offwhite">
-        The island&apos;s shops are coming online
+        <T k="home.launch.title" />
       </h2>
       <p className="mx-auto mt-3 max-w-md font-dm text-sm leading-relaxed text-muted">
-        Rodrigues honey, lemon and chilli, hand-woven baskets, embroidery — the
-        marketplace is opening shop by shop. The first products will appear
-        right here.
+        <T k="home.launch.body" />
       </p>
       <div className="mx-auto mt-8 max-w-md rounded-2xl border border-white/10 bg-dark-card p-6 text-left">
         <p className="font-syne text-lg font-bold text-offwhite">
-          Run a shop in Rodrigues?
+          <T k="home.launch.sellerTitle" />
         </p>
+        {/* `pitch` is generated English prose from lib/marketplace/fees.ts,
+            driven by the live monetization model — see the note in
+            lib/shop/copy.i18n.ts. Interpolated unchanged, so in French and
+            Kreol this sentence still ends in an English clause. */}
         <p className="mt-2 font-dm text-sm leading-relaxed text-muted">
-          List your products, take orders online, and get paid directly by bank
-          transfer before you hand anything over — {pitch}.
+          <TName k="home.launch.sellerBody" v={pitch} />
         </p>
         <Link
           href="/merchant/login"
           className="mt-4 inline-flex items-center gap-2 rounded-xl bg-yellow px-5 py-3 font-dm text-sm font-bold text-dark transition-opacity hover:opacity-90"
         >
-          Open your shop <ArrowRight size={15} />
+          <T k="home.launch.openShop" /> <ArrowRight size={15} />
         </Link>
       </div>
       <p className="mt-6 font-dm text-sm text-muted">
-        Just visiting?{" "}
+        <T k="home.launch.visiting" />{" "}
         <Link
           href="/explore"
           className="font-semibold text-yellow hover:underline"
         >
-          Explore the island →
+          <T k="home.launch.explore" />
         </Link>
       </p>
     </div>
@@ -182,7 +185,7 @@ export default async function MarketplaceHomePage() {
           passed one — so the marketplace had a sticky bar with search and a
           cart badge and no way out of it. /shop/saved and the category pages
           pass it; the front door did not. */}
-      <MarketHeader back={{ href: "/", label: "Home" }} />
+      <MarketHeader back={{ href: "/", label: "Home", labelKey: "home" }} />
       <HomeAnalytics
         productCount={productCount}
         categoryCount={categories.length}
@@ -211,7 +214,7 @@ export default async function MarketplaceHomePage() {
         {/* The page still needs a heading for a screen reader and for search —
             it does not need to spend a screenful of a phone saying it. */}
         <h1 className="sr-only">
-          Rodrigues Marketplace — buy from the island&apos;s shops
+          <T k="home.srTitle" />
         </h1>
 
         <CategoryStrip categories={categories} />
@@ -223,10 +226,15 @@ export default async function MarketplaceHomePage() {
           <p className="mt-2 flex items-center gap-1.5 truncate font-dm text-[11px] text-muted">
             <Truck size={12} className="shrink-0 text-yellow/70" />
             {deliveryFrom !== null && (
-              <>Delivery from Rs {centsToShortString(deliveryFrom)}</>
+              <TName
+                k="home.deliveryFrom"
+                v={centsToShortString(deliveryFrom)}
+              />
             )}
             {deliveryFrom !== null && <span className="text-muted/50">·</span>}
-            <span>Pay the shop direct, no card</span>
+            <span>
+              <T k="home.payDirect" />
+            </span>
           </p>
         )}
 
@@ -238,14 +246,16 @@ export default async function MarketplaceHomePage() {
                 in one line, instead of leaving six badges unexplained. */}
             {sellingStoreCount === 0 && (
               <p className="mt-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 font-dm text-[11px] text-muted">
-                Online ordering is paused — browse now, or contact a shop to buy
-                today.
+                <T k="home.paused" />
               </p>
             )}
 
             {big && bestsellers.length >= 2 && (
               <>
-                <RowHeading title="People are buying" href="/shop/search" />
+                <RowHeading
+                  title={<T k="home.railBuying" />}
+                  href="/shop/search"
+                />
                 <div className={GRID}>
                   {bestsellers.map((p, i) => (
                     <MarketProductCard
@@ -262,7 +272,7 @@ export default async function MarketplaceHomePage() {
             {big && newest.length >= 2 && (
               <>
                 <RowHeading
-                  title="New arrivals"
+                  title={<T k="home.railNew" />}
                   href="/shop/search?sort=newest"
                 />
                 <div className={GRID}>
@@ -278,7 +288,7 @@ export default async function MarketplaceHomePage() {
                 grid on the page is a label for something already obvious. */}
             {big ? (
               <RowHeading
-                title="Everything on the marketplace"
+                title={<T k="home.railEverything" />}
                 href={
                   everything.total > everything.products.length
                     ? "/shop/search"
@@ -303,7 +313,7 @@ export default async function MarketplaceHomePage() {
                 it AFTER seeing something they want, not before. */}
             {sellers.length > 0 && (
               <>
-                <RowHeading title="Island shops" />
+                <RowHeading title={<T k="home.railShops" />} />
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {/* NOT one big link. The address is its own link now (tapping
                       it opens the shop's pin), and an <a> inside an <a> is
@@ -336,8 +346,7 @@ export default async function MarketplaceHomePage() {
                         </Link>
                         <div className="flex min-w-0 items-center gap-1.5 font-dm text-[11px] text-muted">
                           <span className="shrink-0">
-                            {s.productCount} product
-                            {s.productCount === 1 ? "" : "s"}
+                            <TCount k="counts.products" n={s.productCount} />
                           </span>
                           {s.address && (
                             <>
@@ -354,13 +363,14 @@ export default async function MarketplaceHomePage() {
                           )}
                         </div>
                       </div>
-                      <Link
+                      <LabelledLink
                         href={`/shop/${s.slug}`}
-                        aria-label={`Open ${s.name}`}
+                        k="home.openStore"
+                        v={s.name}
                         className="shrink-0 text-muted hover:text-yellow"
                       >
                         <ChevronRight size={15} />
-                      </Link>
+                      </LabelledLink>
                     </div>
                   ))}
                 </div>
@@ -369,13 +379,13 @@ export default async function MarketplaceHomePage() {
 
             <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-dark-card px-4 py-3">
               <p className="font-dm text-xs text-muted">
-                Run a shop in Rodrigues? Sell here — {pitch}.
+                <TName k="home.sellHere" v={pitch} />
               </p>
               <Link
                 href="/merchant/login"
                 className="font-dm text-xs font-bold text-yellow hover:underline"
               >
-                Open your shop →
+                <T k="home.openYourShopShort" />
               </Link>
             </div>
           </>

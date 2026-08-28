@@ -17,6 +17,7 @@ import SaveButton from "@/components/shop/SaveButton";
 import AddressLink from "@/components/AddressLink";
 import ProductAnalytics from "@/components/shop/ProductAnalytics";
 import MarketHeader from "@/components/shop/MarketHeader";
+import { T, TCount, TName, LabelledNav } from "@/components/shop/ShopCopy";
 import { getProductDetail, relatedProducts } from "@/lib/marketplace/catalog";
 
 // ── The product page ────────────────────────────────────────────────────────
@@ -171,8 +172,8 @@ export default async function ProductPage({
       <div className="mx-auto max-w-5xl">
         {/* A visible breadcrumb, not just markup. It is the only way back to
             "more things like this" without using the browser's back button. */}
-        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1 font-dm text-xs text-muted">
-          <Link href="/shop" className="hover:text-yellow">Marketplace</Link>
+        <LabelledNav k="product.breadcrumbLabel" className="flex flex-wrap items-center gap-1 font-dm text-xs text-muted">
+          <Link href="/shop" className="hover:text-yellow"><T k="nav.marketplaceTitle" /></Link>
           {p.category && (
             <>
               <ChevronRight size={12} className="opacity-50" />
@@ -181,7 +182,7 @@ export default async function ProductPage({
           )}
           <ChevronRight size={12} className="opacity-50" />
           <span className="truncate text-offwhite/70">{p.name}</span>
-        </nav>
+        </LabelledNav>
 
         <div className="mt-4 grid gap-8 md:grid-cols-2">
           <div className="md:sticky md:top-20 md:self-start">
@@ -222,7 +223,7 @@ export default async function ProductPage({
                 <StarRating value={Number(p.ratingAvg)} size={14} />
                 {Number(p.ratingAvg).toFixed(1)}
                 <span className="text-muted">
-                  ({p.ratingCount} review{p.ratingCount === 1 ? "" : "s"})
+                  <TCount k="counts.reviews" n={p.ratingCount} />
                 </span>
               </a>
             )}
@@ -244,11 +245,11 @@ export default async function ProductPage({
                     {maxPrice > minPrice && <span className="font-dm text-sm text-muted"> – {centsToDecimalString(maxPrice)}</span>}
                   </p>
                   <p className="mt-3 font-dm text-sm font-medium text-offwhite">
-                    This shop isn&apos;t selling online yet
+                    <T k="product.notSellingTitle" />
                   </p>
                   {(p.store.address || p.store.lat != null) && (
                     <div className="mt-1 font-dm text-xs text-muted">
-                      You can still visit them:{" "}
+                      <T k="product.stillVisit" />{" "}
                       <AddressLink
                         address={p.store.address}
                         lat={p.store.lat}
@@ -268,7 +269,12 @@ export default async function ProductPage({
               <div className="mt-3 rounded-xl border border-white/10 bg-dark-card p-3.5">
                 {/* The option names alone. Each one used to carry a sentence of
                     explanation under it — three sentences for a choice made
-                    once, at checkout, where the explanations still live. */}
+                    once, at checkout, where the explanations still live.
+                    STILL ENGLISH: `w.chip` comes from lib/shop/plain-words.ts,
+                    and the icon below is chosen by comparing it to
+                    FULFILMENT.*.chip — both sides have to be the same string.
+                    That file is shared with /checkout and lib/food and is not
+                    this package's to translate. */}
                 <ul className="space-y-2">
                   {ways.map((w) => (
                     <li key={w.chip} className="flex items-center gap-2">
@@ -287,8 +293,10 @@ export default async function ProductPage({
                 </ul>
                 {p.store.offersRrDelivery && p.deliveryFeeFrom !== null && (
                   <p className="mt-2.5 border-t border-white/10 pt-2.5 font-dm text-xs text-muted">
-                    Delivery from Rs {centsToShortString(p.deliveryFeeFrom)} — you pick your area at
-                    checkout.
+                    <TName
+                      k="product.deliveryFrom"
+                      v={centsToShortString(p.deliveryFeeFrom)}
+                    />
                   </p>
                 )}
                 {status.badge && (
@@ -305,7 +313,7 @@ export default async function ProductPage({
                 has not chosen yet and will be walked through at checkout. */}
             <p className="mt-3 flex items-center gap-2 font-dm text-xs text-muted">
               <ShieldCheck size={13} className="shrink-0 text-yellow/70" />
-              Pay {p.store.name} direct by bank transfer. No card details.
+              <TName k="product.payDirect" v={p.store.name} />
             </p>
 
             {p.description && (
@@ -318,7 +326,9 @@ export default async function ProductPage({
 
             {specs.length > 0 && (
               <section className="mt-6">
-                <h2 className="font-syne text-base font-bold text-offwhite">Details</h2>
+                <h2 className="font-syne text-base font-bold text-offwhite">
+                  <T k="product.details" />
+                </h2>
                 <dl className="mt-2 divide-y divide-white/[0.06] rounded-xl border border-white/10">
                   {specs.map(([k, v]) => (
                     <div key={k} className="flex gap-4 px-3.5 py-2.5">
@@ -342,9 +352,11 @@ export default async function ProductPage({
             rating, silent ones included. */}
         {p.reviews.filter((r) => r.body).length > 0 && (
           <section id="reviews" className="mt-12 scroll-mt-24">
-            <h2 className="font-syne text-lg font-extrabold text-offwhite">What buyers said</h2>
+            <h2 className="font-syne text-lg font-extrabold text-offwhite">
+              <T k="product.reviewsTitle" />
+            </h2>
             <p className="mt-1 font-dm text-xs text-muted">
-              Every review here comes from someone who collected this product.
+              <T k="product.reviewsNote" />
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {p.reviews.filter((r) => r.body).map((r) => (
@@ -355,7 +367,7 @@ export default async function ProductPage({
                   </blockquote>
                   <figcaption className="mt-2 flex items-center gap-1.5 font-dm text-xs text-muted">
                     <Star size={10} className="fill-yellow/60 text-yellow/60" />
-                    {r.author ?? "Verified buyer"} ·{" "}
+                    {r.author ?? <T k="store.verifiedBuyer" />} ·{" "}
                     {new Date(r.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })}
                   </figcaption>
                 </figure>
@@ -367,10 +379,14 @@ export default async function ProductPage({
         {related.length > 0 && (
           <section className="mt-12">
             <h2 className="font-syne text-lg font-extrabold text-offwhite">
-              {p.category ? `More ${p.category.name.toLowerCase()}` : "More from the marketplace"}
+              {p.category ? (
+                <TName k="product.moreIn" v={p.category.name.toLowerCase()} />
+              ) : (
+                <T k="product.moreMarketplace" />
+              )}
             </h2>
             <p className="mt-0.5 font-dm text-xs text-muted">
-              From every shop on the island, not only this one.
+              <T k="product.relatedNote" />
             </p>
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {related.map((r) => (

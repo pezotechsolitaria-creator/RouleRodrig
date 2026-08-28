@@ -11,9 +11,11 @@ import StarRating from "@/components/shop/StarRating";
 import SellerAnalytics from "@/components/shop/SellerAnalytics";
 import AddressLink from "@/components/AddressLink";
 import MarketHeader from "@/components/shop/MarketHeader";
+import { T, TCount, TName } from "@/components/shop/ShopCopy";
 import JsonLd from "@/components/JsonLd";
 import { storeLd, breadcrumbLd } from "@/lib/schema";
 import { fulfilmentWords } from "@/lib/shop/plain-words";
+import { UNCATEGORISED } from "@/lib/shop/copy.i18n";
 import { browseProducts } from "@/lib/marketplace/catalog";
 
 // ── The seller storefront ───────────────────────────────────────────────────
@@ -106,14 +108,18 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
   const reviews = ((reviewData as StoreReview[] | null) ?? []).filter((r) => r.body);
   const products = catalogue.products;
 
-  // Group into category sections, "More" always last — a storefront reads as a
-  // catalogue with a jump rail, not one undifferentiated grid.
-  const sections = [...new Set(products.map((p) => p.categoryName ?? "More"))]
-    .sort((a, b) => (a === "More" ? 1 : b === "More" ? -1 : a.localeCompare(b)))
+  // Group into category sections, UNCATEGORISED always last — a storefront
+  // reads as a catalogue with a jump rail, not one undifferentiated grid.
+  //
+  // The sentinel is a KEY, not copy: it sorts the bucket last and it seeds the
+  // #cat-more anchor CategoryRail scroll-spies against, so its VALUE is frozen
+  // in lib/shop/copy.i18n.ts and only its label (store.moreSection) translates.
+  const sections = [...new Set(products.map((p) => p.categoryName ?? UNCATEGORISED))]
+    .sort((a, b) => (a === UNCATEGORISED ? 1 : b === UNCATEGORISED ? -1 : a.localeCompare(b)))
     .map((name) => ({
       id: slugify(name),
       name,
-      items: products.filter((p) => (p.categoryName ?? "More") === name),
+      items: products.filter((p) => (p.categoryName ?? UNCATEGORISED) === name),
     }));
 
   const since = new Date(store.created_at);
@@ -164,7 +170,7 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
           ]),
         ]}
       />
-      <MarketHeader back={{ href: "/shop", label: "the marketplace" }} />
+      <MarketHeader back={{ href: "/shop", label: "the marketplace", labelKey: "marketplace" }} />
       <SellerAnalytics storeId={store.id} storeName={store.name} productCount={products.length} />
 
       <div className="mx-auto max-w-6xl">
@@ -198,7 +204,7 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
                 <StarRating value={Number(store.rating_avg)} />
                 {Number(store.rating_avg).toFixed(1)}
                 <span className="text-muted">
-                  ({store.rating_count} review{store.rating_count === 1 ? "" : "s"})
+                  <TCount k="counts.reviews" n={store.rating_count} />
                 </span>
               </a>
             ) : (
@@ -206,7 +212,7 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
               // shop is new, not that the page forgot to load something — and it
               // says who is allowed to change that.
               <p className="mt-1.5 font-dm text-xs text-muted">
-                No reviews yet — buyers can rate after collecting an order.
+                <T k="store.noReviews" />
               </p>
             )}
 
@@ -217,16 +223,19 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
                 buyers to distrust the real ones too. */}
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 font-dm text-xs text-muted">
               <span className="inline-flex items-center gap-1.5">
-                <StoreIcon size={12} /> {products.length} product{products.length === 1 ? "" : "s"}
+                <StoreIcon size={12} /> <TCount k="counts.products" n={products.length} />
               </span>
               {(completed ?? 0) > 0 && (
                 <span className="inline-flex items-center gap-1.5">
-                  <PackageCheck size={12} /> {completed} order{completed === 1 ? "" : "s"} completed
+                  <PackageCheck size={12} /> <TCount k="store.ordersCompleted" n={completed ?? 0} />
                 </span>
               )}
+              {/* `sinceLabel` is an en-GB month name computed above; formatting
+                  dates in the reader's language is a lib/schedule-shaped change
+                  this package does not own. */}
               {sinceLabel && (
                 <span className="inline-flex items-center gap-1.5">
-                  <CalendarClock size={12} /> Since {sinceLabel}
+                  <CalendarClock size={12} /> <TName k="store.since" v={sinceLabel} />
                 </span>
               )}
               {store.phone && (
@@ -281,22 +290,28 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
       <div className="mx-auto max-w-6xl">
         {products.length === 0 ? (
           <div className="mt-8 rounded-2xl border border-white/10 bg-dark-card px-6 py-10 text-center">
-            <p className="font-syne text-lg font-bold text-offwhite">Nothing listed yet</p>
+            <p className="font-syne text-lg font-bold text-offwhite">
+              <T k="store.emptyTitle" />
+            </p>
             <p className="mx-auto mt-1.5 max-w-sm font-dm text-sm text-muted">
-              This shop hasn&apos;t put anything on the marketplace so far.
+              <T k="store.emptyBody" />
             </p>
             <Link
               href="/shop"
               className="mt-4 inline-flex items-center gap-1.5 font-dm text-sm font-bold text-yellow hover:underline"
             >
-              Browse the marketplace <ChevronRight size={14} />
+              <T k="store.browseMarketplace" /> <ChevronRight size={14} />
             </Link>
           </div>
         ) : (
           sections.map((section) => (
             <section key={section.id} id={section.id} className="mt-8 scroll-mt-32">
               {sections.length > 1 && (
-                <h2 className="font-syne text-lg font-bold text-offwhite">{section.name}</h2>
+                <h2 className="font-syne text-lg font-bold text-offwhite">
+                  {/* Category names are the owner's words and stay put; the
+                      UNCATEGORISED bucket is ours to name. */}
+                  {section.name === UNCATEGORISED ? <T k="store.moreSection" /> : section.name}
+                </h2>
               )}
               <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                 {section.items.map((p, i) => (
@@ -315,9 +330,11 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
             every rating, including the silent ones. */}
         {reviews.length > 0 && (
           <section id="reviews" className="mt-12 scroll-mt-32">
-            <h2 className="font-syne text-lg font-extrabold text-offwhite">What buyers say</h2>
+            <h2 className="font-syne text-lg font-extrabold text-offwhite">
+              <T k="store.reviewsTitle" />
+            </h2>
             <p className="mt-1 font-dm text-xs text-muted">
-              Every review here comes from a collected order at this shop.
+              <T k="store.reviewsNote" />
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {reviews.map((r) => (
@@ -325,7 +342,7 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
                   <StarRating value={r.rating} size={13} />
                   <blockquote className="mt-2 font-dm text-sm leading-relaxed text-offwhite/90">{r.body}</blockquote>
                   <figcaption className="mt-2 font-dm text-xs text-muted">
-                    {r.author ?? "Verified buyer"} ·{" "}
+                    {r.author ?? <T k="store.verifiedBuyer" />} ·{" "}
                     {new Date(r.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })}
                   </figcaption>
                 </figure>

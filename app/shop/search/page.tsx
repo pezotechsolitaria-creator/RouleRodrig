@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
 import MarketHeader from "@/components/shop/MarketHeader";
 import ProductListing from "@/components/shop/ProductListing";
+import { T, TName } from "@/components/shop/ShopCopy";
 import { browseProducts, getMarketplaceHome, PRODUCTS_PER_PAGE } from "@/lib/marketplace/catalog";
 import { readFilters } from "@/lib/marketplace/urls";
 
@@ -49,14 +50,14 @@ export default async function MarketplaceSearchPage({
 
   return (
     <main className="min-h-screen bg-dark px-4 pb-44 pt-0 text-offwhite md:pb-28">
-      <MarketHeader back={{ href: "/shop", label: "the marketplace" }} defaultQuery={f.q} />
+      <MarketHeader back={{ href: "/shop", label: "the marketplace", labelKey: "marketplace" }} defaultQuery={f.q} />
       <ProductListing
         base="/shop/search"
         filters={f}
         result={result}
         perPage={PRODUCTS_PER_PAGE}
         categories={home?.categories ?? []}
-        heading={f.q ? `“${f.q}”` : "All products"}
+        heading={f.q ? <TName k="listing.query" v={f.q} /> : <T k="listing.allProducts" />}
       />
     </main>
   );

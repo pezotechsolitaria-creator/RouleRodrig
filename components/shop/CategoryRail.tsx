@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { UNCATEGORISED } from "@/lib/shop/copy.i18n";
+import { useShopCopy } from "./ShopCopy";
 
 // The sticky category rail every serious storefront pins under its header
 // (Wolt's is 68px and never leaves): one glance tells you what the shop sells,
@@ -8,6 +10,7 @@ import { useEffect, useState } from "react";
 // links underneath — works without JS, the scrollspy is progressive polish.
 export default function CategoryRail({ sections }: { sections: { id: string; name: string }[] }) {
   const [active, setActive] = useState(sections[0]?.id ?? "");
+  const copy = useShopCopy();
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -38,7 +41,7 @@ export default function CategoryRail({ sections }: { sections: { id: string; nam
 
   return (
     <nav
-      aria-label="Product categories"
+      aria-label={copy.categories.railLabel}
       className="sticky top-14 z-20 -mx-4 border-b border-white/5 bg-dark/85 px-4 backdrop-blur-xl"
     >
       <div className="mx-auto flex max-w-4xl gap-2 overflow-x-auto py-2.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -53,7 +56,11 @@ export default function CategoryRail({ sections }: { sections: { id: string; nam
                 : "shrink-0 rounded-full border border-white/10 px-3.5 py-1.5 font-dm text-xs font-medium text-muted transition-colors hover:text-offwhite"
             }
           >
-            {s.name}
+            {/* Every other name here is a CATEGORY out of the database and
+                stays as the owner wrote it. UNCATEGORISED is the one that is
+                ours: it is a grouping key, not copy, so the storefront and this
+                rail translate it the same way in the same two places. */}
+            {s.name === UNCATEGORISED ? copy.store.moreSection : s.name}
           </a>
         ))}
       </div>

@@ -96,7 +96,7 @@ export default async function CategoryPage({
   return (
     <main className="min-h-screen bg-dark px-4 pb-44 pt-0 text-offwhite md:pb-28">
       <MarketHeader
-        back={{ href: "/shop", label: "the marketplace" }}
+        back={{ href: "/shop", label: "the marketplace", labelKey: "marketplace" }}
         defaultQuery={f.q}
         // Searching from a category page searches WITHIN it: someone on the
         // honey shelf typing "citron" means honey with lemon, not a fresh

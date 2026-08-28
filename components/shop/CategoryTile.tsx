@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import type { CategoryFacet } from "@/lib/marketplace/types";
 import { productArt } from "@/lib/marketplace/product-art";
+import { TCount } from "./ShopCopy";
 
 // A category tile: an icon, the name, and how many things are actually in it.
 //
@@ -50,7 +51,7 @@ export default function CategoryTile({ category }: { category: CategoryFacet }) 
           {category.name}
         </span>
         <span className="block font-dm text-xs text-muted">
-          {category.count} item{category.count === 1 ? "" : "s"}
+          <TCount k="counts.items" n={category.count} />
         </span>
       </span>
     </Link>

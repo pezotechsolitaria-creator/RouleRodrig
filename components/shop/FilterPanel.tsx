@@ -3,6 +3,7 @@ import { centsToDecimalString } from "@/lib/money";
 import { fulfilmentChip } from "@/lib/shop/plain-words";
 import type { CategoryFacet, SellerFacet } from "@/lib/marketplace/types";
 import { listingHref, type ProductFilters } from "@/lib/marketplace/urls";
+import { T, TName } from "./ShopCopy";
 
 // The filter controls, as plain links. Rendered twice — once in the desktop
 // sidebar and once inside the mobile sheet — from ONE definition, because two
@@ -29,10 +30,13 @@ const row =
 const rowOff = `${row} text-muted hover:bg-white/[0.04] hover:text-offwhite`;
 const rowOn = `${row} bg-yellow/10 font-semibold text-yellow`;
 
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
+// The title arrives as a translated client leaf, so the capitals now come from
+// CSS rather than from String.toUpperCase() on a literal. Same pixels — Bebas
+// Neue has no lower case — and a screen reader gets the word, not the shout.
+function Group({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
     <div>
-      <p className="px-3 font-bebas text-[11px] tracking-[0.28em] text-muted/70">{title.toUpperCase()}</p>
+      <p className="px-3 font-bebas text-[11px] uppercase tracking-[0.28em] text-muted/70">{title}</p>
       <div className="mt-1.5 space-y-0.5">{children}</div>
     </div>
   );
@@ -80,9 +84,9 @@ export default function FilterPanel({
   return (
     <div className="space-y-6">
       {!categoryLocked && categories.length > 0 && (
-        <Group title="Category">
+        <Group title={<T k="filters.category" />}>
           <Link href={listingHref(base, f, { category: "" })} className={f.category ? rowOff : rowOn}>
-            All categories
+            <T k="filters.allCategories" />
           </Link>
           {categories.map((c) => (
             <Link
@@ -97,50 +101,54 @@ export default function FilterPanel({
         </Group>
       )}
 
-      <Group title="How you get it">
+      <Group title={<T k="filters.howYouGetIt" />}>
         {(["pickup", "rr_delivery", "own_delivery"] as const).map((kind) => (
           <Link
             key={kind}
             href={listingHref(base, f, { fulfillment: f.fulfillment === kind ? "" : kind })}
             className={f.fulfillment === kind ? rowOn : rowOff}
           >
-            {/* Same words as the cards and the checkout — lib/shop/plain-words.ts. */}
+            {/* Same words as the cards and the checkout — lib/shop/plain-words.ts.
+                STILL ENGLISH on purpose: that file is shared with /checkout and
+                lib/food, and app/shop/[storeSlug]/[productSlug] picks a
+                fulfilment icon by comparing this exact string to
+                FULFILMENT.*.chip. It translates once, there, or not at all. */}
             {fulfilmentChip(kind === "own_delivery" ? "customer_delivery" : kind)}
           </Link>
         ))}
       </Group>
 
-      <Group title="Availability">
+      <Group title={<T k="filters.availability" />}>
         <Link
           href={listingHref(base, f, { inStock: !f.inStock })}
           className={f.inStock ? rowOn : rowOff}
         >
-          In stock only
+          <T k="filters.inStockOnly" />
         </Link>
         <Link
           href={listingHref(base, f, { openNow: !f.openNow })}
           className={f.openNow ? rowOn : rowOff}
         >
-          Shop open now
+          <T k="filters.openNow" />
         </Link>
       </Group>
 
       {bands.length > 0 && (
-        <Group title="Price">
+        <Group title={<T k="filters.price" />}>
           {bands.map((v) => (
             <Link
               key={v}
               href={listingHref(base, f, { maxPrice: f.maxPrice === v ? null : v })}
               className={f.maxPrice === v ? rowOn : rowOff}
             >
-              Under Rs {centsToDecimalString(v)}
+              <TName k="filters.under" v={centsToDecimalString(v)} />
             </Link>
           ))}
         </Group>
       )}
 
       {sellers.length > 1 && (
-        <Group title="Seller">
+        <Group title={<T k="filters.seller" />}>
           {sellers.slice(0, 8).map((s) => (
             <Link
               key={s.slug}

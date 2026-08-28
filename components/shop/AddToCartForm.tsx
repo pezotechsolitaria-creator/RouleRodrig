@@ -7,6 +7,7 @@ import { useCart } from "@/lib/cart/CartContext";
 import { centsToDecimalString } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { trackAddToCart } from "@/lib/marketplace/analytics";
+import { useShopCopy } from "./ShopCopy";
 
 export type CartableVariant = {
   id: string;
@@ -33,6 +34,7 @@ export default function AddToCartForm({
   storeId: string; storeName: string; productName: string; variants: CartableVariant[];
 }) {
   const { addItem, basketFor } = useCart("shop");
+  const copy = useShopCopy();
   const purchasable = variants.filter((v) => v.isActive);
   // The first variant with stock, so a product whose small size sold out opens
   // on the size you can actually buy.
@@ -62,9 +64,9 @@ export default function AddToCartForm({
       storeId, storeName, variantId: variant.id, productName,
       price: variant.price, quantity, surface: "product_page",
     });
-    toast.success(`${quantity} × ${productName} added`, {
-      description: `In your basket from ${storeName}.`,
-      action: { label: "View bag", onClick: () => { window.location.href = "/cart"; } },
+    toast.success(copy.buy.addedToast(quantity, productName), {
+      description: copy.buy.inBasketFrom(storeName),
+      action: { label: copy.header.viewBag, onClick: () => { window.location.href = "/cart"; } },
     });
     setJustAdded(true);
     if (addedTimer.current) clearTimeout(addedTimer.current);
@@ -74,7 +76,7 @@ export default function AddToCartForm({
   if (purchasable.length === 0) {
     return (
       <p className="font-dm text-sm text-muted">
-        This product isn&apos;t available right now.
+        {copy.buy.unavailable}
       </p>
     );
   }
@@ -83,7 +85,7 @@ export default function AddToCartForm({
     <div>
       {purchasable.length > 1 && (
         <fieldset className="mb-4">
-          <legend className="mb-2 font-dm text-xs font-medium text-muted">Choose an option</legend>
+          <legend className="mb-2 font-dm text-xs font-medium text-muted">{copy.buy.chooseOption}</legend>
           <div className="flex flex-wrap gap-2">
             {purchasable.map((v) => {
               const selected = v.id === variant?.id;
@@ -101,9 +103,11 @@ export default function AddToCartForm({
                       : "border-white/15 text-muted hover:border-white/30 hover:text-offwhite"
                   } ${gone ? "cursor-not-allowed opacity-40" : ""}`}
                 >
-                  <span className="block font-medium">{v.name ?? "Option"}</span>
+                  {/* v.name is the merchant's own word for the size or the
+                      colour — data. Only the fallback is ours. */}
+                  <span className="block font-medium">{v.name ?? copy.buy.option}</span>
                   <span className={`block text-xs ${selected ? "text-yellow" : "text-muted"}`}>
-                    {gone ? "Sold out" : `Rs ${centsToDecimalString(v.price)}`}
+                    {gone ? copy.card.soldOut : `Rs ${centsToDecimalString(v.price)}`}
                   </span>
                 </button>
               );
@@ -123,7 +127,7 @@ export default function AddToCartForm({
                 Rs {centsToDecimalString(variant.compareAt)}
               </p>
               <span className="rounded-full bg-yellow px-2 py-0.5 font-dm text-[11px] font-bold text-dark">
-                Save Rs {centsToDecimalString(variant.compareAt - variant.price)}
+                {copy.buy.save(centsToDecimalString(variant.compareAt - variant.price))}
               </span>
             </>
           )}
@@ -132,21 +136,19 @@ export default function AddToCartForm({
 
       {outOfStock ? (
         <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-          <p className="font-dm text-sm font-medium text-offwhite">This one has sold out</p>
+          <p className="font-dm text-sm font-medium text-offwhite">{copy.buy.soldOutTitle}</p>
           <p className="mt-0.5 font-dm text-xs text-muted">
-            {purchasable.length > 1
-              ? "Another option above may still be available."
-              : "The shop restocks it from time to time — check back, or ask them directly."}
+            {purchasable.length > 1 ? copy.buy.anotherOption : copy.buy.restock}
           </p>
         </div>
       ) : (
         <>
           <div className="mb-4 flex flex-wrap items-center gap-3">
-            <span className="font-dm text-xs font-medium text-muted">Quantity</span>
+            <span className="font-dm text-xs font-medium text-muted">{copy.buy.quantity}</span>
             <div className="flex items-center rounded-full border border-white/15">
               <button
                 type="button"
-                aria-label="Decrease quantity"
+                aria-label={copy.buy.decrease}
                 onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                 disabled={quantity <= 1}
                 className="flex h-10 w-10 items-center justify-center text-offwhite transition-colors hover:text-yellow disabled:opacity-30"
@@ -156,7 +158,7 @@ export default function AddToCartForm({
               <span className="w-8 text-center font-dm text-sm text-offwhite" aria-live="polite">{quantity}</span>
               <button
                 type="button"
-                aria-label="Increase quantity"
+                aria-label={copy.buy.increase}
                 onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
                 disabled={quantity >= maxQty}
                 className="flex h-10 w-10 items-center justify-center text-offwhite transition-colors hover:text-yellow disabled:opacity-30"
@@ -168,7 +170,7 @@ export default function AddToCartForm({
                 is the cheapest trick in ecommerce and it is not on this site. */}
             {variant && variant.stockQuantity <= 5 && (
               <span className="font-dm text-xs text-orange-300">
-                Only {variant.stockQuantity} left
+                {copy.buy.onlyLeft(variant.stockQuantity)}
               </span>
             )}
           </div>
@@ -176,18 +178,18 @@ export default function AddToCartForm({
           <Button onClick={commitAdd} size="xl" className="w-full" aria-live="polite">
             {justAdded ? (
               <>
-                <Check size={15} className="mr-1.5" /> Added to your bag
+                <Check size={15} className="mr-1.5" /> {copy.buy.added}
               </>
             ) : (
               <>
-                <ShoppingCart size={15} className="mr-1.5" /> Add to bag
+                <ShoppingCart size={15} className="mr-1.5" /> {copy.buy.addToBag}
               </>
             )}
           </Button>
 
           {alreadyInBasket > 0 && (
             <p className="mt-2 text-center font-dm text-xs text-muted">
-              {alreadyInBasket} already in your basket from {storeName}.
+              {copy.buy.alreadyInBasket(alreadyInBasket, storeName)}
             </p>
           )}
         </>

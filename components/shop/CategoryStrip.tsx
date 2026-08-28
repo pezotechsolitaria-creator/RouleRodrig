@@ -4,6 +4,7 @@ import {
   Home, Shirt, Hammer, LayoutGrid, type LucideIcon,
 } from "lucide-react";
 import type { CategoryFacet } from "@/lib/marketplace/types";
+import { T, LabelledNav } from "./ShopCopy";
 
 // ── Categories as a swipeable rail, directly under the search field ─────────
 //
@@ -49,8 +50,8 @@ export default function CategoryStrip({
     "flex h-14 w-14 items-center justify-center rounded-2xl border transition-colors";
 
   return (
-    <nav
-      aria-label="Shop by category"
+    <LabelledNav
+      k="categories.stripLabel"
       className="-mx-4 flex snap-x snap-mandatory gap-1 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       <Link href={allHref} className={item} aria-current={!activeSlug ? "page" : undefined}>
@@ -64,7 +65,7 @@ export default function CategoryStrip({
           <LayoutGrid size={20} />
         </span>
         <span className={`font-dm text-[11px] leading-tight ${!activeSlug ? "text-yellow" : "text-muted"}`}>
-          All
+          <T k="categories.all" />
         </span>
       </Link>
 
@@ -102,6 +103,6 @@ export default function CategoryStrip({
           </Link>
         );
       })}
-    </nav>
+    </LabelledNav>
   );
 }

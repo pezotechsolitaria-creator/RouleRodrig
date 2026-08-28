@@ -8,6 +8,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useCart, useCarts } from "@/lib/cart/CartContext";
 import { useSaved } from "@/lib/marketplace/saved";
 import AccountButton from "@/components/AccountButton";
+import { useShopCopy } from "./ShopCopy";
 import { centsToDecimalString } from "@/lib/money";
 import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 
@@ -33,10 +34,16 @@ import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 // that add work?", and the shopper does not know which of three carts the
 // platform filed their thing under. Total is the only honest answer, and /cart
 // (where it leads) already separates them.
+// `backLabel` stays a plain string the caller owns: /food and /events render
+// this same header and pass their own words, and those pages are not this
+// package's to translate. Everything the header says for ITSELF — the two
+// badge labels a screen reader announces — comes from SHOP_COPY, so it is
+// translated on all three surfaces at once.
 export function ShopHeader({ backHref, backLabel }: { backHref: string; backLabel: string }) {
   const { totalItemCount: itemCount, hydrated } = useCarts();
   const { count: savedCount, hydrated: savedHydrated } = useSaved();
   const reduce = useReducedMotion();
+  const copy = useShopCopy();
 
   return (
     <div className="sticky top-0 z-30 -mx-4 mb-4 border-b border-white/10 bg-dark/85 px-4 backdrop-blur-xl">
@@ -58,7 +65,7 @@ export function ShopHeader({ backHref, backLabel }: { backHref: string; backLabe
         {savedHydrated && savedCount > 0 && (
           <Link
             href="/shop/saved"
-            aria-label={`Saved, ${savedCount} product${savedCount === 1 ? "" : "s"}`}
+            aria-label={copy.header.savedLabel(savedCount)}
             className="relative flex h-11 w-11 items-center justify-center rounded-full border border-white/15 text-offwhite transition-colors hover:border-yellow/50 hover:text-yellow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow"
           >
             <Heart size={16} />
@@ -69,7 +76,7 @@ export function ShopHeader({ backHref, backLabel }: { backHref: string; backLabe
         )}
         <Link
           href="/cart"
-          aria-label={hydrated && itemCount > 0 ? `Bag, ${itemCount} item${itemCount === 1 ? "" : "s"}` : "Bag, empty"}
+          aria-label={hydrated && itemCount > 0 ? copy.header.bagLabel(itemCount) : copy.header.bagEmpty}
           className="relative flex h-11 w-11 items-center justify-center rounded-full border border-white/15 text-offwhite transition-colors hover:border-yellow/50 hover:text-yellow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow"
         >
           <ShoppingBag size={16} />
@@ -98,6 +105,7 @@ export function CartBar() {
   const { baskets, itemCount, hydrated } = useCart("shop");
   const pathname = usePathname() || "/";
   const reduce = useReducedMotion();
+  const copy = useShopCopy();
   const [subtotal, setSubtotal] = useState<number | null>(null);
 
   // ── ONE BAR, SEVERAL BASKETS ─────────────────────────────────────────────
@@ -145,7 +153,7 @@ export function CartBar() {
   const where =
     baskets.length === 1
       ? baskets[0].storeName
-      : `${baskets.length} shops`;
+      : copy.header.shops(baskets.length);
 
   return (
     <AnimatePresence>
@@ -165,7 +173,8 @@ export function CartBar() {
               {itemCount > 99 ? "99+" : itemCount}
             </span>
             <span className="min-w-0 flex-1 truncate">
-              View bag <span className="font-medium opacity-70">· {where}</span>
+              {copy.header.viewBag}{" "}
+              <span className="font-medium opacity-70">· {where}</span>
             </span>
             {subtotal !== null && <span className="shrink-0">Rs {centsToDecimalString(subtotal)}</span>}
           </Link>

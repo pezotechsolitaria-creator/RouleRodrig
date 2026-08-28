@@ -4,6 +4,7 @@ import { centsToShortString } from "@/lib/money";
 import type { MarketProduct } from "@/lib/marketplace/types";
 import ProductImage from "./ProductImage";
 import QuickAdd from "./QuickAdd";
+import { T, TCount } from "./ShopCopy";
 
 // ── The marketplace product card ────────────────────────────────────────────
 //
@@ -83,14 +84,18 @@ export default function MarketProductCard({
           <span className={`${badge} left-1.5 top-1.5 bg-yellow text-dark`}>−{discount}%</span>
         )}
         {!p.inStock ? (
-          <span className={`${badge} right-1.5 top-1.5 bg-dark/85 text-muted`}>Sold out</span>
+          <span className={`${badge} right-1.5 top-1.5 bg-dark/85 text-muted`}>
+            <T k="card.soldOut" />
+          </span>
         ) : !p.acceptingOrders ? (
           // The cause is a lapsed subscription. The customer gets the
           // consequence — see lib/shop/plain-words.ts.
-          <span className={`${badge} right-1.5 top-1.5 bg-dark/85 text-muted`}>Not selling</span>
+          <span className={`${badge} right-1.5 top-1.5 bg-dark/85 text-muted`}>
+            <T k="card.notSelling" />
+          </span>
         ) : lowStock ? (
           <span className={`${badge} right-1.5 top-1.5 bg-dark/85 text-orange-300`}>
-            {p.stockTotal} left
+            <TCount k="card.left" n={p.stockTotal} />
           </span>
         ) : null}
 
@@ -111,7 +116,9 @@ export default function MarketProductCard({
         <p className="flex flex-wrap items-baseline gap-x-1.5 leading-none">
           <span className="font-syne text-[17px] font-extrabold tracking-tight text-yellow">
             {p.variantCount > 1 && p.minPrice !== p.maxPrice && (
-              <span className="font-dm text-[11px] font-medium text-muted">from </span>
+              <span className="font-dm text-[11px] font-medium text-muted">
+                <T k="card.from" />{" "}
+              </span>
             )}
             Rs {centsToShortString(p.minPrice)}
           </span>

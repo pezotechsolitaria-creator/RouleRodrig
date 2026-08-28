@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import ProductImage from "./ProductImage";
+import { useShopCopy } from "./ShopCopy";
 
 // The product gallery.
 //
@@ -23,6 +24,7 @@ export default function ProductGallery({
   categoryName?: string | null;
 }) {
   const [index, setIndex] = useState(0);
+  const copy = useShopCopy();
   const current = media[index] ?? media[0] ?? null;
 
   return (
@@ -50,7 +52,7 @@ export default function ProductGallery({
               key={m.url}
               type="button"
               onClick={() => setIndex(i)}
-              aria-label={`Photo ${i + 1} of ${media.length}`}
+              aria-label={copy.gallery.photo(i + 1, media.length)}
               aria-pressed={i === index}
               className={`aspect-square overflow-hidden rounded-lg border transition-colors ${
                 i === index ? "border-yellow" : "border-white/10 hover:border-white/30"

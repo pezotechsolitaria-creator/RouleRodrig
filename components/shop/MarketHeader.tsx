@@ -5,6 +5,7 @@ import { ChevronLeft, Search, ShoppingBag, Heart } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useCarts } from "@/lib/cart/CartContext";
 import { useSaved } from "@/lib/marketplace/saved";
+import { useShopCopy } from "./ShopCopy";
 
 // ── The commerce header: search IS the navigation ───────────────────────────
 //
@@ -25,7 +26,13 @@ import { useSaved } from "@/lib/marketplace/saved";
 export default function MarketHeader({
   back, defaultQuery = "", action = "/shop/search",
 }: {
-  back?: { href: string; label: string };
+  /**
+   * `label` is a PLACE, and on the product page it is the shop's own name —
+   * data, which never translates. `labelKey` is the additive opt-in for the
+   * places that are ours to word ("Home", "the marketplace"); when it is set it
+   * wins, and when it is absent the English `label` is used exactly as before.
+   */
+  back?: { href: string; label: string; labelKey?: "home" | "marketplace" };
   defaultQuery?: string;
   /** Category pages search within themselves; everything else hits /shop/search. */
   action?: string;
@@ -33,6 +40,7 @@ export default function MarketHeader({
   const { totalItemCount, hydrated } = useCarts();
   const { count: savedCount, hydrated: savedHydrated } = useSaved();
   const reduce = useReducedMotion();
+  const copy = useShopCopy();
 
   return (
     <div className="sticky top-0 z-30 -mx-4 mb-3 border-b border-white/10 bg-dark/90 px-4 backdrop-blur-xl">
@@ -40,7 +48,9 @@ export default function MarketHeader({
         {back && (
           <Link
             href={back.href}
-            aria-label={`Back to ${back.label}`}
+            aria-label={copy.header.backTo(
+              back.labelKey ? copy.nav[back.labelKey] : back.label,
+            )}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 text-offwhite transition-colors hover:border-white/30"
           >
             <ChevronLeft size={18} />
@@ -62,8 +72,8 @@ export default function MarketHeader({
               name="q"
               defaultValue={defaultQuery}
               enterKeyHint="search"
-              placeholder="Search Rodrigues"
-              aria-label="Search the marketplace"
+              placeholder={copy.header.searchPlaceholder}
+              aria-label={copy.header.searchLabel}
               className="h-10 w-full rounded-full border border-white/15 bg-dark-card pl-9 pr-3 font-dm text-sm text-offwhite placeholder:text-muted focus:border-yellow/60 focus:outline-none"
             />
           </div>
@@ -72,7 +82,7 @@ export default function MarketHeader({
         {savedHydrated && savedCount > 0 && (
           <Link
             href="/shop/saved"
-            aria-label={`Saved, ${savedCount} product${savedCount === 1 ? "" : "s"}`}
+            aria-label={copy.header.savedLabel(savedCount)}
             className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 text-offwhite transition-colors hover:border-yellow/50 hover:text-yellow"
           >
             <Heart size={17} />
@@ -84,7 +94,7 @@ export default function MarketHeader({
 
         <Link
           href="/cart"
-          aria-label={hydrated && totalItemCount > 0 ? `Bag, ${totalItemCount} item${totalItemCount === 1 ? "" : "s"}` : "Bag, empty"}
+          aria-label={hydrated && totalItemCount > 0 ? copy.header.bagLabel(totalItemCount) : copy.header.bagEmpty}
           className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 text-offwhite transition-colors hover:border-yellow/50 hover:text-yellow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow"
         >
           <ShoppingBag size={17} />

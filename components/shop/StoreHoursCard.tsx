@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { Clock, ChevronDown } from "lucide-react";
 import {
-  WEEK_ORDER, WEEKDAYS, hhmm, nowInRodrigues,
+  WEEK_ORDER, hhmm, nowInRodrigues,
   type DaySchedule, type ScheduleStatus,
 } from "@/lib/schedule";
+import { useShopCopy } from "./ShopCopy";
 
 // Opening hours on the storefront.
 //
@@ -24,6 +25,11 @@ export default function StoreHoursCard({
 }: { days: DaySchedule[]; initialStatus: ScheduleStatus | null }) {
   const [open, setOpen] = useState(false);
   const [tick, setTick] = useState(0);
+  // The day names come from SHOP_COPY rather than lib/schedule's WEEKDAYS: that
+  // constant is the merchant desk's and the API's too, and it is indexed by the
+  // DB's Sunday-zero weekday, which `copy.hours.weekdays` matches exactly. Same
+  // order, same indices, same rows — only the words change.
+  const copy = useShopCopy();
 
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 60_000);
@@ -57,7 +63,7 @@ export default function StoreHoursCard({
 
   const fmt = (t: string | null, fallback: string | null) => hhmm(t) || hhmm(fallback) || "";
   const todayText = !today || today.is_closed
-    ? "Closed today"
+    ? copy.hours.closedToday
     : `${hhmm(today.opens_at)} – ${hhmm(today.closes_at)}`;
 
   return (
@@ -72,7 +78,7 @@ export default function StoreHoursCard({
           <Clock size={15} className="text-yellow" />
           <span className="font-dm text-sm text-offwhite">
             <span className={isOpen ? "text-green-400" : "text-red-400"}>
-              {isOpen ? "Open now" : "Closed"}
+              {isOpen ? copy.hours.openNow : copy.hours.closed}
             </span>
             <span className="text-muted"> · {todayText}</span>
           </span>
@@ -86,12 +92,12 @@ export default function StoreHoursCard({
       {/* Delivery is a separate promise from being open, so it gets its own line. */}
       {today && !today.is_closed && !today.delivery_closed && dOpen !== null && (
         <p className="mt-1.5 font-dm text-xs text-muted">
-          Delivery {deliveryOn ? "available" : "unavailable"} ·{" "}
+          {deliveryOn ? copy.hours.deliveryOn : copy.hours.deliveryOff} ·{" "}
           {fmt(today.delivery_opens_at, today.opens_at)} – {fmt(today.delivery_closes_at, today.closes_at)}
         </p>
       )}
       {today && !today.is_closed && today.delivery_closed && (
-        <p className="mt-1.5 font-dm text-xs text-muted">No delivery today</p>
+        <p className="mt-1.5 font-dm text-xs text-muted">{copy.hours.noDeliveryToday}</p>
       )}
 
       {open && (
@@ -100,9 +106,9 @@ export default function StoreHoursCard({
             const d = days.find((x) => x.weekday === wd);
             return (
               <li key={wd} className="flex justify-between gap-3 font-dm text-xs">
-                <span className={wd === dow ? "text-offwhite" : "text-muted"}>{WEEKDAYS[wd]}</span>
+                <span className={wd === dow ? "text-offwhite" : "text-muted"}>{copy.hours.weekdays[wd]}</span>
                 <span className={wd === dow ? "text-offwhite" : "text-muted"}>
-                  {!d || d.is_closed ? "Closed" : `${hhmm(d.opens_at)} – ${hhmm(d.closes_at)}`}
+                  {!d || d.is_closed ? copy.hours.closed : `${hhmm(d.opens_at)} – ${hhmm(d.closes_at)}`}
                 </span>
               </li>
             );
@@ -110,10 +116,10 @@ export default function StoreHoursCard({
         </ul>
       )}
       <span className="sr-only" aria-live="polite">
-        {isOpen ? "Shop is open" : "Shop is closed"}
+        {isOpen ? copy.hours.srOpen : copy.hours.srClosed}
       </span>
       {initialStatus && !initialStatus.has_schedule && (
-        <p className="mt-2 font-dm text-xs text-muted">This shop hasn&apos;t published its hours yet.</p>
+        <p className="mt-2 font-dm text-xs text-muted">{copy.hours.noHours}</p>
       )}
     </div>
   );

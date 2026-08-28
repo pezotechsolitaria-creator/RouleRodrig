@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Store as StoreIcon, MapPin } from "lucide-react";
 import { statusWords, fulfilmentWords, notSellingNote } from "@/lib/shop/plain-words";
 import StarRating from "./StarRating";
+import { TCount } from "./ShopCopy";
 
 // One row of browse_stores()'s `stores` array, exactly as the RPC names them.
 // The open/closed verdict is the SERVER's (computed inside the same query at
@@ -110,7 +111,7 @@ export default function StoreCard({ store }: { store: BrowseStoreCard }) {
             </span>
           )}
           <span>
-            {store.productCount} product{store.productCount === 1 ? "" : "s"}
+            <TCount k="counts.products" n={store.productCount} />
           </span>
           {store.categories.length > 0 && <span className="truncate">{store.categories.slice(0, 2).join(" · ")}</span>}
         </div>

@@ -4,6 +4,7 @@ import { Heart } from "lucide-react";
 import { toast } from "sonner";
 import { useSaved } from "@/lib/marketplace/saved";
 import { trackSaveToggled } from "@/lib/marketplace/analytics";
+import { useShopCopy } from "./ShopCopy";
 
 // Save for later.
 //
@@ -22,20 +23,21 @@ export default function SaveButton({
   className?: string;
 }) {
   const { isSaved, toggle, hydrated } = useSaved();
+  const copy = useShopCopy();
   const saved = hydrated && isSaved(productId);
 
   return (
     <button
       type="button"
       aria-pressed={saved}
-      aria-label={saved ? `Remove ${productName} from saved` : `Save ${productName} for later`}
+      aria-label={saved ? copy.save.removeAria(productName) : copy.save.saveAria(productName)}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
         const nowSaved = toggle(productId);
         trackSaveToggled({ productId, productName, saved: nowSaved });
-        toast.success(nowSaved ? "Saved for later" : "Removed from saved", {
-          description: nowSaved ? "Find it again under Saved in the marketplace." : undefined,
+        toast.success(nowSaved ? copy.save.savedToast : copy.save.removedToast, {
+          description: nowSaved ? copy.save.savedHint : undefined,
         });
       }}
       className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow ${

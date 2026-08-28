@@ -7,6 +7,7 @@ import { useSaved } from "@/lib/marketplace/saved";
 import type { MarketProduct } from "@/lib/marketplace/types";
 import MarketProductCard from "@/components/shop/MarketProductCard";
 import { ShopHeader } from "@/components/shop/ShopChrome";
+import { useShopCopy } from "@/components/shop/ShopCopy";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Saved products.
@@ -20,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 // empty for a crawler, which is the definition of a page not worth indexing.
 export default function SavedPage() {
   const { ids, hydrated, count } = useSaved();
+  const copy = useShopCopy();
   const [products, setProducts] = useState<MarketProduct[] | null>(null);
   const [missing, setMissing] = useState(0);
   const [failed, setFailed] = useState(false);
@@ -58,14 +60,12 @@ export default function SavedPage() {
 
   return (
     <main className="min-h-screen bg-dark px-4 pb-44 pt-0 text-offwhite md:pb-28">
-      <ShopHeader backHref="/shop" backLabel="Marketplace" />
+      <ShopHeader backHref="/shop" backLabel={copy.nav.marketplaceTitle} />
 
       <div className="mx-auto max-w-5xl">
-        <h1 className="font-syne text-2xl font-extrabold text-offwhite sm:text-3xl">Saved</h1>
+        <h1 className="font-syne text-2xl font-extrabold text-offwhite sm:text-3xl">{copy.savedPage.title}</h1>
         <p className="mt-1.5 font-dm text-sm text-muted">
-          {count > 0
-            ? `${count} product${count === 1 ? "" : "s"} you kept for later. Prices and stock are live.`
-            : "Products you keep for later live here."}
+          {count > 0 ? copy.savedPage.countLine(count) : copy.savedPage.emptyLine}
         </p>
 
         {!hydrated || (products === null && !failed) ? (
@@ -76,9 +76,9 @@ export default function SavedPage() {
           </div>
         ) : failed ? (
           <div className="mt-8 rounded-2xl border border-white/10 bg-dark-card px-6 py-10 text-center">
-            <p className="font-syne text-lg font-bold text-offwhite">We couldn&apos;t load your saved items</p>
+            <p className="font-syne text-lg font-bold text-offwhite">{copy.savedPage.failTitle}</p>
             <p className="mx-auto mt-1.5 max-w-sm font-dm text-sm text-muted">
-              Nothing has been lost — they are still saved on this device. Try again in a moment.
+              {copy.savedPage.failBody}
             </p>
           </div>
         ) : products && products.length > 0 ? (
@@ -91,7 +91,7 @@ export default function SavedPage() {
             {missing > 0 && (
               <p className="mt-5 flex items-center justify-center gap-2 font-dm text-xs text-muted">
                 <PackageX size={13} />
-                {missing} saved item{missing === 1 ? " is" : "s are"} no longer on sale.
+                {copy.savedPage.gone(missing)}
               </p>
             )}
           </>
@@ -100,22 +100,22 @@ export default function SavedPage() {
             <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow/10 text-yellow ring-1 ring-inset ring-yellow/20">
               <Heart size={22} />
             </span>
-            <h2 className="mt-4 font-syne text-lg font-bold text-offwhite">Nothing saved yet</h2>
+            <h2 className="mt-4 font-syne text-lg font-bold text-offwhite">{copy.savedPage.emptyTitle}</h2>
             <p className="mx-auto mt-1.5 max-w-sm font-dm text-sm text-muted">
-              Tap the heart on any product to keep it here while you think about it.
+              {copy.savedPage.emptyBody}
             </p>
             <Link
               href="/shop"
               className="mt-5 inline-block rounded-xl bg-yellow px-5 py-3 font-dm text-sm font-bold text-dark transition-opacity hover:opacity-90"
             >
-              Browse the marketplace
+              {copy.store.browseMarketplace}
             </Link>
           </div>
         )}
 
         {count > 0 && (
           <p className="mt-8 text-center font-dm text-xs text-muted/70">
-            Saved on this device only — clearing your browser data clears this list.
+            {copy.savedPage.deviceOnly}
           </p>
         )}
       </div>

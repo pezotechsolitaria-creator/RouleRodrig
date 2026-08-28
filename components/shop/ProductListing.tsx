@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PackageSearch, ArrowUpDown } from "lucide-react";
 import type { BrowseProductsResult, CategoryFacet } from "@/lib/marketplace/types";
-import { SORT_LABEL, PRODUCT_SORTS } from "@/lib/marketplace/types";
+import { PRODUCT_SORTS } from "@/lib/marketplace/types";
 import {
   listingHref, hasActiveFilters, activeFilterCount, type ProductFilters,
 } from "@/lib/marketplace/urls";
@@ -10,6 +10,7 @@ import CategoryStrip from "./CategoryStrip";
 import FilterPanel from "./FilterPanel";
 import FilterSheet from "./FilterSheet";
 import ListingAnalytics from "./ListingAnalytics";
+import { T, TCount, TName, TPage, TSort, LabelledNav } from "./ShopCopy";
 
 // ── One listing, two entrances ──────────────────────────────────────────────
 //
@@ -38,7 +39,8 @@ export default function ProductListing({
   base: string;
   filters: ProductFilters;
   result: BrowseProductsResult;
-  heading: string;
+  /** A category NAME (data, never translated) or a translated client leaf. */
+  heading: React.ReactNode;
   categoryLocked?: boolean;
   perPage: number;
   /** The rail, so a shopper can switch shelf without going back. */
@@ -83,10 +85,12 @@ export default function ProductListing({
         <aside className="hidden w-56 shrink-0 lg:block">
           <div className="sticky top-20">
             <div className="mb-3 flex items-center justify-between px-3">
-              <span className="font-syne text-sm font-bold text-offwhite">Filter</span>
+              <span className="font-syne text-sm font-bold text-offwhite">
+                <T k="listing.filter" />
+              </span>
               {filtering && (
                 <Link href={clearAllHref} className="font-dm text-xs text-yellow hover:underline">
-                  Clear
+                  <T k="listing.clear" />
                 </Link>
               )}
             </div>
@@ -99,7 +103,7 @@ export default function ProductListing({
           <div className="flex items-center gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <FilterSheet activeCount={filterCount}>{panel}</FilterSheet>
             <span className="shrink-0 font-dm text-xs text-muted">
-              {result.total} item{result.total === 1 ? "" : "s"}
+              <TCount k="counts.items" n={result.total} />
             </span>
             <span className="ml-auto hidden shrink-0 items-center gap-1 font-dm text-[11px] text-muted sm:inline-flex">
               <ArrowUpDown size={11} />
@@ -114,7 +118,7 @@ export default function ProductListing({
                     : "border-white/10 bg-dark-card text-muted hover:border-white/25 hover:text-offwhite"
                 }`}
               >
-                {SORT_LABEL[s]}
+                <TSort sort={s} />
               </Link>
             ))}
           </div>
@@ -128,23 +132,23 @@ export default function ProductListing({
               </div>
 
               {totalPages > 1 && (
-                <nav aria-label="Pagination" className="mt-7 flex items-center justify-center gap-4 font-dm text-sm">
+                <LabelledNav k="listing.paginationLabel" className="mt-7 flex items-center justify-center gap-4 font-dm text-sm">
                   {f.page > 1 ? (
                     <Link href={listingHref(base, f, { page: f.page - 1 })} className="font-semibold text-yellow hover:underline">
-                      ← Previous
+                      ← <T k="listing.previous" />
                     </Link>
                   ) : (
-                    <span className="text-muted/40">← Previous</span>
+                    <span className="text-muted/40">← <T k="listing.previous" /></span>
                   )}
-                  <span className="text-muted">Page {f.page} of {totalPages}</span>
+                  <span className="text-muted"><TPage page={f.page} total={totalPages} /></span>
                   {f.page < totalPages ? (
                     <Link href={listingHref(base, f, { page: f.page + 1 })} className="font-semibold text-yellow hover:underline">
-                      Next →
+                      <T k="listing.next" /> →
                     </Link>
                   ) : (
-                    <span className="text-muted/40">Next →</span>
+                    <span className="text-muted/40"><T k="listing.next" /> →</span>
                   )}
-                </nav>
+                </LabelledNav>
               )}
             </>
           ) : (
@@ -178,12 +182,10 @@ function NoResults({
     <div className="mt-3 rounded-xl border border-white/10 bg-dark-card px-6 py-10 text-center">
       <PackageSearch size={22} className="mx-auto text-muted" />
       <h2 className="mt-3 font-syne text-base font-bold text-offwhite">
-        {f.q ? <>Nothing for &ldquo;{f.q}&rdquo;</> : "Nothing matches those filters"}
+        {f.q ? <TName k="listing.nothingFor" v={f.q} /> : <T k="listing.nothingMatches" />}
       </h2>
       <p className="mx-auto mt-1 max-w-sm font-dm text-xs text-muted">
-        {filtering
-          ? "Try removing a filter, or open a shelf that has stock right now."
-          : "Nothing is listed here yet."}
+        {filtering ? <T k="listing.tryRemoving" /> : <T k="listing.nothingListed" />}
       </p>
 
       <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -192,14 +194,14 @@ function NoResults({
             href={clearAllHref}
             className="rounded-lg border border-yellow/50 px-3.5 py-2 font-dm text-xs font-bold text-yellow transition-colors hover:bg-yellow/10"
           >
-            Clear filters
+            <T k="listing.clearFilters" />
           </Link>
         )}
         <Link
           href="/shop"
           className="rounded-lg border border-white/15 px-3.5 py-2 font-dm text-xs font-semibold text-offwhite transition-colors hover:border-white/30"
         >
-          Browse everything
+          <T k="listing.browseEverything" />
         </Link>
       </div>
 

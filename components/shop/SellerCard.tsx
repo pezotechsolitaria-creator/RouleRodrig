@@ -3,6 +3,7 @@ import { Store as StoreIcon, PackageCheck, CalendarClock, ChevronRight } from "l
 import type { ProductSeller } from "@/lib/marketplace/types";
 import StarRating from "./StarRating";
 import AddressLink from "@/components/AddressLink";
+import { T, TCount, TName } from "./ShopCopy";
 
 // ── The trust block ─────────────────────────────────────────────────────────
 //
@@ -35,7 +36,9 @@ export default function SellerCard({
 
   return (
     <div className="rounded-2xl border border-white/10 bg-dark-card p-4">
-      <p className="font-bebas text-[11px] tracking-[0.28em] text-muted/70">SOLD BY</p>
+      <p className="font-bebas text-[11px] tracking-[0.28em] text-muted/70">
+        <T k="seller.soldBy" />
+      </p>
 
       <div className="mt-2 flex items-center gap-3">
         {seller.logoUrl ? (
@@ -53,12 +56,12 @@ export default function SellerCard({
               <StarRating value={Number(seller.ratingAvg)} size={12} />
               {Number(seller.ratingAvg).toFixed(1)}
               <span className="text-muted">
-                ({seller.ratingCount} review{seller.ratingCount === 1 ? "" : "s"})
+                <TCount k="counts.reviews" n={seller.ratingCount} />
               </span>
             </span>
           ) : (
             <span className="mt-0.5 block font-dm text-xs text-muted">
-              No reviews yet — buyers can rate after collecting an order.
+              <T k="store.noReviews" />
             </span>
           )}
         </div>
@@ -87,15 +90,19 @@ export default function SellerCard({
           <div className="flex items-center gap-2">
             <PackageCheck size={12} className="shrink-0 text-muted/70" />
             <dd>
-              {seller.completedOrders} order{seller.completedOrders === 1 ? "" : "s"} completed through
-              Roulé Rodrigues
+              <TCount k="seller.ordersThrough" n={seller.completedOrders} />
             </dd>
           </div>
         )}
+        {/* `sinceLabel` is an en-GB month name from the line above. Formatting
+            it in the reader's language would be a behaviour change in a date
+            helper this package does not own — flagged, not fixed. */}
         {sinceLabel && (
           <div className="flex items-center gap-2">
             <CalendarClock size={12} className="shrink-0 text-muted/70" />
-            <dd>On the marketplace since {sinceLabel}</dd>
+            <dd>
+              <TName k="seller.onMarketplaceSince" v={sinceLabel} />
+            </dd>
           </div>
         )}
       </dl>
@@ -105,7 +112,7 @@ export default function SellerCard({
           href={`/shop/${seller.slug}`}
           className="mt-4 flex items-center justify-between rounded-xl border border-white/10 px-3.5 py-2.5 font-dm text-sm font-semibold text-offwhite transition-colors hover:border-yellow/40 hover:text-yellow"
         >
-          See all {seller.productCount} product{seller.productCount === 1 ? "" : "s"}
+          <TCount k="seller.seeAllProducts" n={seller.productCount} />
           <ChevronRight size={15} />
         </Link>
       )}

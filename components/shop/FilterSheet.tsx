@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { SlidersHorizontal, X } from "lucide-react";
+import { useShopCopy } from "./ShopCopy";
 
 // The mobile filter sheet.
 //
@@ -29,6 +30,7 @@ export default function FilterSheet({
 }) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const copy = useShopCopy();
 
   useEffect(() => setMounted(true), []);
 
@@ -58,7 +60,7 @@ export default function FilterSheet({
         className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-dark-card px-4 py-2.5 font-dm text-sm font-medium text-offwhite transition-colors hover:border-yellow/40 lg:hidden"
       >
         <SlidersHorizontal size={15} />
-        Filters
+        {copy.filters.sheetTitle}
         {activeCount > 0 && (
           <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-yellow px-1.5 font-dm text-[11px] font-bold text-dark">
             {activeCount}
@@ -68,20 +70,20 @@ export default function FilterSheet({
 
       {mounted && open
         ? createPortal(
-            <div className="fixed inset-0 z-[100] lg:hidden" role="dialog" aria-modal="true" aria-label="Filters">
+            <div className="fixed inset-0 z-[100] lg:hidden" role="dialog" aria-modal="true" aria-label={copy.filters.sheetTitle}>
               <button
                 type="button"
-                aria-label="Close filters"
+                aria-label={copy.filters.closeSheet}
                 onClick={() => setOpen(false)}
                 className="absolute inset-0 h-full w-full bg-black/70 backdrop-blur-sm"
               />
               <div className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-3xl border-t border-white/10 bg-dark pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-[0_-20px_60px_rgba(0,0,0,0.6)]">
                 <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-dark/95 px-5 py-4 backdrop-blur-xl">
-                  <span className="font-syne text-lg font-extrabold text-offwhite">Filters</span>
+                  <span className="font-syne text-lg font-extrabold text-offwhite">{copy.filters.sheetTitle}</span>
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
-                    aria-label="Close filters"
+                    aria-label={copy.filters.closeSheet}
                     className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-offwhite"
                   >
                     <X size={17} />

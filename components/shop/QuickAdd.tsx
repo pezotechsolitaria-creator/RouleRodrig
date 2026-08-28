@@ -4,6 +4,7 @@ import { Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart/CartContext";
 import { trackAddToCart, trackRemoveFromCart } from "@/lib/marketplace/analytics";
+import { useShopCopy } from "./ShopCopy";
 
 export type QuickAddVariant = { id: string; price: number; stockQuantity: number };
 
@@ -29,6 +30,7 @@ export default function QuickAdd({
   storeId: string; storeName: string; productName: string; variant: QuickAddVariant;
 }) {
   const { basketFor, addItem, updateQuantity } = useCart("shop");
+  const copy = useShopCopy();
   const inCart = basketFor(storeId)?.items.find((i) => i.variantId === variant.id)?.quantity ?? 0;
 
   function add(e: React.MouseEvent) {
@@ -41,7 +43,9 @@ export default function QuickAdd({
       price: variant.price, quantity: 1, surface: "quick_add",
     });
     if (inCart === 0) {
-      toast.success(`${productName} added`, { description: `In your basket from ${storeName}.` });
+      toast.success(copy.quickAdd.addedToast(productName), {
+        description: copy.buy.inBasketFrom(storeName),
+      });
     }
   }
 
@@ -56,7 +60,7 @@ export default function QuickAdd({
     return (
       <button
         type="button"
-        aria-label={`Add ${productName} to your basket`}
+        aria-label={copy.quickAdd.addAria(productName)}
         onClick={add}
         className="flex h-9 w-9 items-center justify-center rounded-full bg-yellow text-dark shadow-[0_6px_18px_-4px_rgba(245,200,66,0.55)] transition-transform hover:scale-110 active:scale-95"
       >
@@ -69,7 +73,7 @@ export default function QuickAdd({
     <div className="flex h-9 items-center rounded-full bg-yellow text-dark shadow-[0_6px_18px_-4px_rgba(245,200,66,0.55)]">
       <button
         type="button"
-        aria-label={`One fewer ${productName}`}
+        aria-label={copy.quickAdd.oneFewer(productName)}
         onClick={remove}
         className="flex h-9 w-8 items-center justify-center rounded-l-full transition-transform active:scale-90"
       >
@@ -80,7 +84,7 @@ export default function QuickAdd({
       </span>
       <button
         type="button"
-        aria-label={`One more ${productName}`}
+        aria-label={copy.quickAdd.oneMore(productName)}
         onClick={add}
         disabled={inCart >= variant.stockQuantity}
         className="flex h-9 w-8 items-center justify-center rounded-r-full transition-transform active:scale-90 disabled:opacity-40"
