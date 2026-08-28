@@ -29,8 +29,8 @@ describe("dishArt", () => {
     // called — matching only on the English would put a generic plate on the
     // signature dish of the menu.
     expect(dishArt("x", "Ourite Rougaille").glyph).toBe("🐙");
-    expect(dishArt("x", "Mine Frit Legume").glyph).toBe("🍜");
-    expect(dishArt("x", "Coconut Napolitain").glyph).toBe("🍰");
+    expect(dishArt("x", "Mine Frite Légumes").glyph).toBe("🍜");
+    expect(dishArt("x", "Coconut Napolitaine").glyph).toBe("🍰");
     expect(dishArt("x", "Boulettes (8 pieces)").glyph).toBe("🥟");
   });
 

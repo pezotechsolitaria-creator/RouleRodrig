@@ -83,6 +83,12 @@ describe("parseFoodQuery", () => {
   it("keeps an unknown word as itself rather than discarding it", () => {
     // A dish the vocabulary has never heard of must still be findable by name.
     expect(parseFoodQuery("mine frit").q).toContain('"frit"');
+    // The menu now spells it "Mine Frite Légumes". `simple` does not fold
+    // accents and does not stem, so without these expansions the dish would be
+    // unreachable by either of the two words a customer actually types.
+    expect(parseFoodQuery("mine frit").q).toContain('"frite"');
+    expect(parseFoodQuery("legume").q).toContain('"légumes"');
+    expect(parseFoodQuery("vegetables").q).toContain('"légumes"');
   });
 
   it("combines a dish, a meal and a budget from one sentence", () => {

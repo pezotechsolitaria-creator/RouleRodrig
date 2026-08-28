@@ -54,6 +54,20 @@ const SYNONYM_GROUPS: string[][] = [
   ["rice", "riz", "diri"],
   ["noodles", "mine", "mien", "nouilles"],
   ["salad", "salade", "salad"],
+  // ── ACCENTS THE MENU HAS AND THE SEARCH BOX DOES NOT ──────────────────────
+  // normalize() strips accents from what the customer types, but the product
+  // search_vector is to_tsvector('simple', ...), which keeps them. So the menu
+  // spelling "Mine Frite Légumes" indexes as `frite` and `légumes` while a
+  // customer's "mine frit legume" arrives as `frit` and `legume` — three near
+  // misses in one dish name. Correcting the menu's French would have quietly
+  // made that dish unfindable by the word it is named after.
+  //
+  // Fixed HERE rather than by keeping the misspelling, because this is the file
+  // whose whole job is that the customer's word and the menu's word do not have
+  // to be the same word. Note "veg" is absent on purpose: DIETARY_WORDS claims
+  // it as a vegetarian filter before synonyms are ever consulted.
+  ["vegetable", "vegetables", "legume", "legumes", "légumes", "bredes"],
+  ["fried", "frit", "frite", "frits", "frites"],
   ["sandwich", "sandwiches", "burger", "burgers"],
   ["cake", "gateau", "gato"],
   ["juice", "jus", "dilo"],
