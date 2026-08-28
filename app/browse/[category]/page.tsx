@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { SITE_URL } from "@/lib/site";
+import { fromPriceOf } from "@/lib/experiences";
 import { breadcrumbLd, itemListLd, productLd, stayLd, experienceLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import {
@@ -72,6 +73,9 @@ const META: Record<
     title: "Where to Stay in Rodrigues Island",
     description:
       "Guesthouses, lodges and hotels across Rodrigues, recommended by locals. See photos and prices, then book directly with the owner — no booking fees.",
+    // A one-way hreflang is silently ignored, so this half matters as much as
+    // the one the French page declares.
+    fr: "/fr/hebergement-rodrigues",
   },
   activities: {
     title: "Things to Do in Rodrigues Island",
@@ -143,9 +147,14 @@ export async function generateMetadata({
   // photo for both. Non-vehicle categories fall back to the site OG image.
   let ogImage: string | undefined;
   let cats: ReturnType<typeof buildBrowseCategories> | null = null;
+  // Hoisted out of the try: the title below needs the listings to price itself,
+  // and a content read that half-failed must leave it null so the page falls
+  // back to its plain title rather than to a price nobody honours.
+  let listings: Parameters<typeof buildBrowseCategories>[0]["recommended"]["items"] | null = null;
   try {
     const { content, fleet, recentBookings } = await getFleetView();
     cats = buildBrowseCategories(content, fleet, recentBookings);
+    listings = content.recommended.items;
     const first = fleet.find(
       (f) => (f.category ?? "scooter") === category && f.image,
     );
@@ -158,14 +167,35 @@ export async function generateMetadata({
   }
 
   const m = META[category];
-  if (m)
+  if (m) {
+    // ── PRICE IN THE TITLE, THE WAY THE PAGES THAT SELL DO IT (M138) ───────
+    //
+    // "Location scooter Rodrigues dès Rs 699/jour" converts; "Where to Stay in
+    // Rodrigues Island" does not. A price pre-qualifies the click: somebody who
+    // sees Rs 1,000 and taps is a customer, and somebody who taps a priceless
+    // title, meets Rs 7,000 and leaves teaches the ranking that this result did
+    // not answer the question.
+    //
+    // Only for the place categories, and only when the listings actually carry
+    // a price. The vehicle categories already say it in their French siblings,
+    // and a category with nothing priced keeps its plain title rather than
+    // inventing a figure to look consistent.
+    const placeFilter = PLACE_SLUGS[category]?.filter ?? null;
+    const from =
+      placeFilter !== null && listings !== null
+        ? fromPriceOf(listings.filter(placeFilter))
+        : null;
+    const title = from
+      ? `${m.title} from Rs ${from.toLocaleString("en-US")}`
+      : m.title;
     return pageMeta(
-      `${m.title} | Roule Rodrigues`,
-      m.description,
+      `${title} | Roule Rodrigues`,
+      from ? `${m.description} From Rs ${from.toLocaleString("en-US")}.` : m.description,
       category,
       m.fr,
       ogImage,
     );
+  }
 
   // Not in the curated map — it may still be a real category the owner added in
   // admin (e.g. "Kayaks"). Use its live label so it gets a unique title rather
