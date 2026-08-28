@@ -19,8 +19,29 @@ export const revalidate = 3600;
 const DESCRIPTION =
   "Toutes les plages de Rodrigues qui valent le détour, repérées par des locaux : Pointe Coton, Baladirou, St François. Photos réelles, accès et conseils honnêtes.";
 
-const beaches = (locations: { category: string; story?: string }[]) =>
-  locations.filter((l) => l.category === "beach" && l.story);
+// ── WHICH BEACHES THIS PAGE CAN HONESTLY SHOW ─────────────────────────
+//
+// This used to filter on `story` — the ENGLISH field — on a page written in
+// French. It gave the right answer today only by coincidence: the twelve
+// beaches with an English story happen to be the twelve with a French one.
+// The day the owner writes a French description for a beach that has no
+// English story, the beach would stay invisible here and nothing would say why.
+//
+// So the test is what this page actually needs: prose IT can render. The
+// English twin at /guide/beaches asks the same question of its own fields.
+//
+// This deliberately does NOT fall back to the English text. Six beaches
+// (Anse Raffin, Gravier Second, Île Michel, Mourouk First, Mourouk Second and
+// Sandy Patate Bay) are on the English page and have no French writing at all;
+// listing them here would put English paragraphs on a French page, which is
+// worse for a reader and worse for the hreflang pair than a shorter list.
+// They appear the moment the owner fills in a French description in admin.
+const hasFrenchWriting = (l: { storyFr?: string; descriptionFr?: string }) =>
+  Boolean(l.storyFr?.trim() || l.descriptionFr?.trim());
+
+const beaches = (
+  locations: { category: string; storyFr?: string; descriptionFr?: string }[],
+) => locations.filter((l) => l.category === "beach" && hasFrenchWriting(l));
 
 export async function generateMetadata(): Promise<Metadata> {
   const content = await getContent();

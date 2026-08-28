@@ -11,6 +11,7 @@ import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
+import TourismOffice from "@/components/TourismOffice";
 
 export const revalidate = 3600;
 
@@ -126,6 +127,15 @@ export default async function MorePage() {
                 </div>
               </section>
             ))}
+          </div>
+
+          {/* The one destination on this page that is not ours. Its own
+              contract asks for the full card on /emergency and here — the two
+              screens somebody opens when they want a human who knows the
+              answer — and /emergency already had it. Last, below the links,
+              because it leaves the site. */}
+          <div className="mt-8">
+            <TourismOffice variant="full" />
           </div>
         </div>
         <div className="h-24" />
