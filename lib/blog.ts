@@ -76,11 +76,256 @@ export const BLOG_POSTS: BlogPost[] = [
       },
     ],
     related: [
-      { href: "/browse/scooter", label: "Rent a scooter to explore the island" },
+      {
+        href: "/browse/scooter",
+        label: "Rent a scooter to explore the island",
+      },
       { href: "/guide/beaches", label: "The best beaches in Rodrigues" },
       { href: "/guide/routes", label: "Scooter routes around the island" },
       { href: "/guide/hiking", label: "Hiking trails in Rodrigues" },
-      { href: "/guide/rodrigues", label: "The full local's guide to Rodrigues" },
+      {
+        href: "/guide/rodrigues",
+        label: "The full local's guide to Rodrigues",
+      },
+    ],
+  },
+
+  // ── Every figure below was verified against a primary source before it was
+  //    written, and the ones that could NOT be verified are named as such in
+  //    the prose rather than quietly dropped. Sources: Mauritius Meteorological
+  //    Services, Statistics Mauritius, the Rodrigues Regional Assembly's own
+  //    regulations, the Mauritius Shipping Corporation timetable, and the
+  //    airport operator. Where two official Mauritian bodies disagree — and on
+  //    the distance to Rodrigues they disagree by 50 km — the post says so
+  //    rather than picking the prettier number.
+  {
+    slug: "how-to-get-around-rodrigues",
+    title: "How to Get Around Rodrigues",
+    metaTitle: "How to Get Around Rodrigues Island | Roule Rodrigues",
+    description:
+      "Buses, taxis, scooters and cars in Rodrigues — what each costs, what it actually reaches, and the airport bus timetable almost nobody publishes.",
+    keyword: "how to get around Rodrigues",
+    published: "2026-08-27",
+    updated: "2026-08-27",
+    readMinutes: 6,
+    intro:
+      "Rodrigues is about 18 km long and you can drive its length in well under an hour. That makes it tempting to assume getting around will sort itself out. It will not: there are buses, but they were built for Rodriguans going to work, not for visitors going to beaches, and the last one leaves earlier than you think.",
+    sections: [
+      {
+        heading: "The short answer",
+        paragraphs: [
+          "Hire something. A scooter if there are two of you with light bags; a car if you are a family, have luggage, or want air conditioning and a roof when a shower comes through. Buses exist and are worth knowing about, but no bus goes to the beach you came here for.",
+          "The distances are short and the roads are good. What makes them slow is that they climb, drop and turn constantly — the island is hilly in a way the map does not show.",
+        ],
+      },
+      {
+        heading: "The bus, honestly",
+        paragraphs: [
+          "There is a real network: about twenty licensed routes, almost all radiating from the traffic centre at Port Mathurin, regulated by the National Land Transport Authority. It is a proper public service and Rodriguans use it every day.",
+          "Two of those routes serve the airport. The stop is a three-minute walk from the terminal, opposite the Plaine Corail police station, running from 06:00 to 16:30, at a fare of about Rs 29 — figures published by the airport operator itself, which is the only place we could find them stated.",
+          "That 16:30 is the fact worth carrying. If your flight lands late afternoon, the airport bus is not an option and you will be taking a taxi whether you planned to or not.",
+        ],
+      },
+      {
+        heading: "Taxis, and the thing nobody tells you",
+        paragraphs: [
+          "Taxis meet every scheduled flight from the airport car park. They carry yellow roof signage and a sticker on the front doors, and they may be a car, an SUV or a pick-up. A door-to-door shuttle also meets each flight.",
+          "No official fare table is published anywhere in Rodrigues. So agree the price before you get in. That is not haggling and nobody will take it badly — it is simply how it works here, and asking is what a local does.",
+          "We deliberately do not print a price list on this site. Any number we invented would end up quoted at a driver who never agreed to it, and the person who loses that argument is a Rodriguan taxi driver rather than a website.",
+        ],
+      },
+      {
+        heading: "Scooter or car",
+        paragraphs: [
+          "A scooter is cheaper, parks anywhere, and gets you down the narrow coastal lanes where the good swimming is. Two people with day bags need nothing more.",
+          "A car earns its money the moment you add a third person, a suitcase, a child, or a wet afternoon. Rodrigues gets rain in short bursts, and the difference between a shower on a scooter and a shower in a car is the difference between a story and a ruined day.",
+          "Plenty of visitors do both: a car for the week, a scooter for one day of poking about.",
+        ],
+      },
+      {
+        heading: "Driving here",
+        paragraphs: [
+          "Traffic drives on the LEFT, as in Mauritius. If you are arriving from France or Réunion that is the opposite of your habit, and the first few junctions deserve your full attention.",
+          "A licence issued by a competent foreign authority is legally accepted for driving in Mauritius, so you do not need a Mauritian one. The statutory minimum age to drive a car is 18 — note that rental companies commonly set a higher minimum of their own, which is company policy rather than law, so ask whoever you are hiring from.",
+          "Speeding is an offence under section 124 of the Road Traffic Act, penalised in bands. We are not printing specific km/h limits here: we could confirm the regulation that sets them, but not the numbers themselves, from any government source — and a made-up speed limit is a worse thing to publish than none.",
+        ],
+      },
+      {
+        heading: "Getting here in the first place",
+        paragraphs: [
+          "Air Mauritius flies daily from SSR International to Plaine Corail (RRG) — about an hour and a half. The airline says 1h35 and the tourism office says 1h30; either way you are there before you have finished a coffee. Air Austral also runs a seasonal service from Réunion, so Rodrigues is not only reachable via Mauritius.",
+          "There is a passenger ferry, the MV Mauritius Trochetia, run by the Mauritius Shipping Corporation. It is roughly MONTHLY rather than weekly — the operator's own timetable shows four passenger voyages across September to December 2026 — and the crossing is about 36 hours out from Port Louis and nearer 24 coming back. She carries 108 passengers. Check the schedule before you build a plan around it.",
+          "The airport is officially Plaine Corail, renamed in 2017, but the operator's own website still calls it Sir Gaëtan Duval. Both names are in live use and you will hear both.",
+        ],
+      },
+    ],
+    related: [
+      {
+        href: "/browse/scooter",
+        label: "Scooters, with prices and availability",
+      },
+      { href: "/browse/car", label: "Cars for families and longer stays" },
+      { href: "/taxi", label: "Local taxi drivers" },
+      {
+        href: "/fr/se-deplacer-a-rodrigues",
+        label: "Lire cette page en français",
+      },
+      {
+        href: "/guide/rodrigues",
+        label: "The full local's guide to Rodrigues",
+      },
+    ],
+  },
+  {
+    slug: "rodrigues-vs-mauritius",
+    title: "Rodrigues vs Mauritius: An Honest Comparison",
+    metaTitle:
+      "Rodrigues vs Mauritius: Is It Worth Visiting? | Roule Rodrigues",
+    description:
+      "Rodrigues has 8 hotels to Mauritius's 109, and a lagoon twice the size of the island. The honest case for and against, with the numbers, from people who live here.",
+    keyword: "Rodrigues vs Mauritius",
+    published: "2026-08-27",
+    updated: "2026-08-27",
+    readMinutes: 7,
+    intro:
+      "We rent scooters on Rodrigues, so you would expect us to tell you to come. Instead, here is the case against — first, and with numbers — because the visitors who have a bad time here are almost always the ones who arrived expecting Mauritius and found something else.",
+    sections: [
+      {
+        heading: "Do not come here for a resort",
+        paragraphs: [
+          "Statistics Mauritius counts 109 licensed hotels on the Island of Mauritius, with 14,112 rooms between them, and classes a hotel as 'large' at more than 80 rooms — 61 of them qualify.",
+          "The Rodrigues Tourism Office lists eight hotels for the entire island, and the best known of them, Constance Tekoma, has 32 rooms. Not one Rodrigues property reaches that 'large' threshold. Official hotel statistics do not even cover Rodrigues: there is no published room-capacity series for the island at all.",
+          "There is no golf, effectively no nightlife, and no shopping beyond the market and the village shops. If any of that is what a holiday means to you, go to Mauritius. You will have a better time, and we would rather say so now than take your booking.",
+        ],
+      },
+      {
+        heading: "What you get instead",
+        paragraphs: [
+          "A lagoon of roughly 240 km² wrapped around an island of about 110 km² — so there is more than twice as much water as land. You will also read that Rodrigues has the largest lagoon in the Indian Ocean. It does not: the Great Chagos Bank, in the same ocean, is 12,642 km². The true figure is impressive enough without the superlative.",
+          "Beaches you will have to yourself on a weekday, and the arithmetic makes that inevitable rather than lucky. Of 141,738 arrivals in 2024, 86,889 were residents of the Island of Mauritius and another 28,053 were Rodriguans coming home. The United Kingdom accounted for 532 people. The United States, 290.",
+          "That is the real character of the place. Rodrigues is where Mauritius goes on holiday, not where the world does.",
+        ],
+      },
+      {
+        heading: "It is not simply a smaller Mauritius",
+        paragraphs: [
+          "Rodrigues has been an autonomous region since 2001–02, under Chapter VIA of the Constitution, with its own Regional Assembly of 18 elected members and its own Capital and Consolidated Funds. It makes its own law in the areas listed in the Fourth Schedule of the Rodrigues Regional Assembly Act — fisheries, agriculture, environment, marine parks, forestry.",
+          "That is not a technicality a visitor can ignore. The octopus closed season that shapes the island's most famous dish is Rodriguan law, made here, and it is the reason there is still octopus to eat.",
+          "Language differs too. At the 2022 census, Creole was the language usually spoken at home for 42,832 of 43,604 Rodriguans — 98.2%, against 77.9% on Mauritius. Sixteen people gave English and 117 gave French. Bhojpuri, spoken at home by tens of thousands of Mauritians, is essentially absent here.",
+        ],
+      },
+      {
+        heading: "The size of the place",
+        paragraphs: [
+          "The 2022 census counted 43,604 residents; the official estimate at the end of 2024 was 44,313. Mauritius has 1,189,493 people on 1,868 km².",
+          "How far apart are they? Officially, nobody agrees. Published figures run from 553 km to 650 km, and two Mauritian government bodies disagree with each other by 50 km. We are not going to pick one for the look of it. It is a short flight and a long ferry, and that is the part that affects your plans.",
+          "Fishing is the economy in a way it simply is not on the mainland: 2,504 registered fishing boats and 1,179 registered fishermen — including 159 professional fisherwomen — among 44,000 people.",
+        ],
+      },
+      {
+        heading: "So who should come?",
+        paragraphs: [
+          "People who want an island rather than a hotel. If your idea of a good week is a scooter, a lagoon, a walk down to a beach with nobody on it, and dinner cooked by whoever's house you booked, Rodrigues is close to unimprovable.",
+          "People who want to be looked after by staff in uniform will find the island bewildering and slightly boring, and the honest advice is to spend that money in Mauritius.",
+          "Plenty of people do both, and it is the sensible answer: Rodrigues is a short hop from Mauritius, and a week split between them shows you two genuinely different countries inside one republic.",
+        ],
+      },
+    ],
+    related: [
+      {
+        href: "/guide/rodrigues",
+        label: "The full local's guide to Rodrigues",
+      },
+      {
+        href: "/blog/how-many-days-in-rodrigues",
+        label: "How many days do you need?",
+      },
+      { href: "/guide/beaches", label: "Every beach worth your time" },
+      {
+        href: "/guide/ile-aux-cocos",
+        label: "Île aux Cocos, the island's best excursion",
+      },
+    ],
+  },
+  {
+    slug: "best-time-to-visit-rodrigues",
+    title: "The Best Time to Visit Rodrigues",
+    metaTitle: "Best Time to Visit Rodrigues: Month by Month | Roule Rodrigues",
+    description:
+      "Rodrigues weather month by month from the official climate record: temperatures, rainfall, cyclone season, and when the island's own festivals actually fall.",
+    keyword: "best time to visit Rodrigues",
+    published: "2026-08-27",
+    updated: "2026-08-27",
+    readMinutes: 7,
+    intro:
+      "Rodrigues has no bad season, which is an unhelpful thing to be told when you are booking flights. So here is the actual climate record from the Mauritius Meteorological Services, what it means for a week here, and the dates worth planning around.",
+    sections: [
+      {
+        heading: "The short answer",
+        paragraphs: [
+          "September to December is the driest stretch and the easiest weather to plan around. January to March is hottest, wettest, and when cyclones are most likely. May to October is cooler, and it is the window the tourism office recommends for kitesurfing.",
+          "None of those is a season to avoid. The temperature range across the whole year is small enough that your choice is about rain and wind, not about warmth.",
+        ],
+      },
+      {
+        heading: "Temperature: a narrow band all year",
+        paragraphs: [
+          "The Meteorological Services give a mean summer temperature of 25.9 °C for Rodrigues and a mean winter temperature of about 22.3 °C — a difference of 3.6 degrees across the entire year.",
+          "Average daily maximums run from 24.8 °C in August, the coolest month, to 29.4 °C in March. Average minimums run from 18.8 °C in August to 23.8 °C in February. January to March are the hottest months.",
+          "The extremes ever recorded at the Rodrigues station are 34.0 °C in February and 14.5 °C in July. In other words: you will not be cold, and you will not be dangerously hot.",
+        ],
+      },
+      {
+        heading: "Rain: less than Mauritius, but not as little as people say",
+        paragraphs: [
+          "Rodrigues averages about 1,116 mm of rain a year, roughly 55% of the island-wide Mauritius mean of about 2,010 mm. So the shorthand that Rodrigues is drier is true.",
+          "It deserves one caveat. Measured against the west coast of Mauritius, where most beach hotels sit, Rodrigues is actually WETTER — Medine records about 781 mm a year. Drier than Mauritius overall; wetter than the part of Mauritius most visitors experience.",
+          "February is the wettest month and September–October the driest. The more useful number, though, is rain DAYS: October, November and December see 8, 7 and 8 days a month with more than 1 mm, against 15 days in July. A wet July here means many small interruptions; a wet February means fewer, heavier ones.",
+          "Humidity sits between 74% and 81% all year, peaking in February.",
+        ],
+      },
+      {
+        heading: "Cyclones, without the scaremongering",
+        paragraphs: [
+          "You will read that the cyclone season 'officially runs 15 November to 15 May'. We could not find that in any primary source. What we could verify: the World Meteorological Organization defines the South-West Indian Ocean season as 1 July to 30 June; Mauritius's own National Disaster Risk Reduction and Management Centre gives 1 November to 15 May; and the Meteorological Services publish no start or end date at all on their cyclone pages.",
+          "Météo-France La Réunion recorded 13 named storms in the 2024–25 season against a normal of 10, with activity peaking between late January and mid-March. That peak is the part worth planning around.",
+          "The warning system is worth understanding before you need it. A Class I warning comes 36 to 48 hours before gusts of 120 km/h are expected, Class II with about 12 hours of daylight left, Class III with about 6, and Class IV once those gusts are actually recorded. It is clear, well run, and it gives you time.",
+          "For scale: during Cyclone Joaninha in March 2019, Port Mathurin gusted over 100 km/h for more than 33 hours, peaking at 161 km/h. That is rare, and it is why the warnings exist.",
+        ],
+      },
+      {
+        heading: "Wind, and the kitesurfing question",
+        paragraphs: [
+          "The tourism office recommends May to October for kitesurfing, says wind typically reaches at least 10 knots year-round, and names Mourouk as the main spot, with a lagoon about 1.5 m deep.",
+          "One honest note, because kite schools quote bigger numbers. The official monthly wind record for Rodrigues varies only between 16.9 km/h in May and 19.6 km/h in August, and it shows no clean winter peak — January, February and July all sit at 19.3 km/h. Figures like '20–25 knots' or '220 windy days a year' come from operators, not from the meteorological record.",
+        ],
+      },
+      {
+        heading: "Dates worth planning around",
+        paragraphs: [
+          "The Fête du Poisson, which marks the opening of the seine fishing season, is held on 1 March. It is a fixed date and it is the most Rodriguan day of the year.",
+          "The Rodrigues Kreol Festival runs in late November and early December — not October, as several travel sites claim — and its dates move each year. The 25th edition ran 1–7 December 2024 and the 26th ran 30 November to 7 December 2025. Check before you book around it.",
+          "The Rodrigues International Kitesurf Festival is NOT running in 2026: the organising association has taken a sabbatical year after ten editions. A separate competition runs 2–5 July 2026 at Anse Mourouk under a different club.",
+        ],
+      },
+    ],
+    related: [
+      {
+        href: "/guide/rodrigues",
+        label: "The full local's guide to Rodrigues",
+      },
+      {
+        href: "/blog/how-many-days-in-rodrigues",
+        label: "How many days do you need?",
+      },
+      {
+        href: "/blog/how-to-get-around-rodrigues",
+        label: "How to get around the island",
+      },
+      {
+        href: "/browse/scooter",
+        label: "Scooters, with prices and availability",
+      },
     ],
   },
 ];

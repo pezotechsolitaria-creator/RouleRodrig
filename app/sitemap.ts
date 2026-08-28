@@ -320,6 +320,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.8,
     },
+    // The site sells ten dishes and had no page explaining any of them.
+    {
+      url: `${SITE_URL}/guide/rodriguan-food`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
     // French counterpart. The audit's finding was three French pages for a
     // market that searches almost entirely in French.
     {

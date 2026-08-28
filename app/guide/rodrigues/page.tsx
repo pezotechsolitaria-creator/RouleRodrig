@@ -203,6 +203,15 @@ export default async function RodriguesGuidePage() {
                   had no route in from the guide that mentions it by name. */}
               <li>
                 <Link
+                  href="/guide/rodriguan-food"
+                  className="inline-flex items-center gap-2 font-dm text-sm text-yellow/80 hover:text-yellow transition-colors"
+                >
+                  Rodriguan food, and why the octopus has a season{" "}
+                  <ArrowRight size={14} />
+                </Link>
+              </li>
+              <li>
+                <Link
                   href="/guide/ile-aux-cocos"
                   className="inline-flex items-center gap-2 font-dm text-sm text-yellow/80 hover:text-yellow transition-colors"
                 >
