@@ -220,3 +220,22 @@ export function matchesFilter(place: RecommendedPlace, filterKey: string): boole
     .replace(/[^a-z0-9]+/g, " ");
   return haystack.includes(needle);
 }
+
+
+/**
+ * The cheapest real price across a set of listings, or null when none is set.
+ *
+ * Used for the "from Rs …" in a page title. Returns null rather than 0 for an
+ * unpriced vertical, because "from Rs 0" in a search result is worse than no
+ * price at all — it reads as either free or broken, and both cost the click.
+ *
+ * Reads depositAmount, which is what the owner actually fills in per listing
+ * and what the booking charges. A title priced from anything else would be a
+ * number no customer is ever asked for.
+ */
+export function fromPriceOf(places: { depositAmount?: number | null }[]): number | null {
+  const prices = places
+    .map((p) => (typeof p.depositAmount === "number" ? p.depositAmount : null))
+    .filter((n): n is number => n !== null && n > 0);
+  return prices.length ? Math.min(...prices) : null;
+}

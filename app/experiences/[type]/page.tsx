@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { getFleetView } from "@/lib/site-data";
 import { SITE_URL } from "@/lib/site";
 import { SERVICE_TYPES, type ServiceType } from "@/lib/defaults";
-import { EXPERIENCES, experiencesOfType } from "@/lib/experiences";
+import { EXPERIENCES, experiencesOfType, fromPriceOf } from "@/lib/experiences";
 import { breadcrumbLd, itemListLd, experienceLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import ExperienceMarket from "@/components/experiences/ExperienceMarket";
@@ -38,17 +38,55 @@ export async function generateMetadata({
   const { type } = await params;
   const copy = copyFor(type);
   if (!copy) return { title: "Not found" };
+
+  // ── PRICE IN THE TITLE, BECAUSE THAT IS WHAT WORKS (M135) ────────────────
+  //
+  // The comparison the owner handed us: scooters bring customers, experiences
+  // bring none. The page that works is titled "Location scooter Rodrigues dès
+  // Rs 699/jour". This page was titled "Sea trips in Rodrigues".
+  //
+  // A price in the title pre-qualifies the click. Someone who sees Rs 700 and
+  // taps is a customer; someone who taps a priceless title and meets Rs 2,000
+  // leaves, and every one of those teaches the ranking that this result did not
+  // answer the question. It is also the number an assistant repeats when asked
+  // what a boat trip costs.
+  //
+  // Only when a real price exists. A vertical with nothing priced keeps the
+  // plain title rather than inventing a figure to look consistent.
+  const { content } = await getFleetView();
+  const places = experiencesOfType(content.recommended.items, copy.slug);
+  const from = fromPriceOf(places);
+
+  const title = from
+    ? `${copy.title} from Rs ${from.toLocaleString("en-US")} | Roulé Rodrigues`
+    : `${copy.title} | Roulé Rodrigues`;
+
+  const description = from
+    ? `${copy.description} From Rs ${from.toLocaleString("en-US")} per person.`
+    : copy.description;
+
+  // The real photograph of a real boat, not the site's generic card. A shared
+  // link showing the same picture for a massage and a fishing trip tells
+  // whoever sees it that nobody looked.
+  const hero = places.find((p) => p.image)?.image;
+  const image = hero
+    ? hero.startsWith("http")
+      ? hero
+      : `${SITE_URL}${hero}`
+    : `${SITE_URL}/og-image.jpg`;
+
   return {
-    title: `${copy.title} | Roulé Rodrigues`,
-    description: copy.description,
+    title,
+    description,
     alternates: { canonical: `${SITE_URL}/experiences/${copy.slug}` },
     openGraph: {
-      title: copy.title,
-      description: copy.description,
+      title,
+      description,
       url: `${SITE_URL}/experiences/${copy.slug}`,
       type: "website",
-      images: [`${SITE_URL}/og-image.jpg`],
+      images: [image],
     },
+    twitter: { card: "summary_large_image", title, description, images: [image] },
   };
 }
 
