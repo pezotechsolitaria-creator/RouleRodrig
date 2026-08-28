@@ -81,7 +81,7 @@ PostHog → Settings → Personal API keys → create one scoped to **Query: Rea
 
 Nothing else in the panel needs changing. It will populate on the next admin page load.
 
-### 2.2 Make it genuinely cookieless — the brief's actual requirement
+### 2.2 Make it genuinely cookieless — the brief's actual requirement — **DONE**
 
 **This is the real privacy gap.** `posthog.init` sets no `persistence` option, so it uses the default `localStorage+cookie`. The site _does_ set an analytics cookie today.
 
@@ -103,7 +103,7 @@ person_profiles: "identified_only",
 
 Then confirm no consent banner is needed. With `persistence: "memory"` and session replay already off, there is nothing stored on the visitor's device.
 
-### 2.3 Send Core Web Vitals to PostHog so they sit beside the traffic
+### 2.3 Send Core Web Vitals to PostHog so they sit beside the traffic — **DONE**
 
 Vercel Speed Insights already measures them, but in a different dashboard from everything else — so nobody correlates a slow page with its bounce rate.
 
@@ -264,14 +264,14 @@ Keep the list short. An alert that fires weekly without anyone acting on it trai
 
 ## 7. Order of work
 
-| #   | Task                           | Effort                | Unblocks                          |
-| --- | ------------------------------ | --------------------- | --------------------------------- |
-| 1   | Set `POSTHOG_PERSONAL_API_KEY` | minutes               | The whole panel                   |
-| 2   | Cookieless persistence (§2.2)  | < 1 hour              | The privacy requirement           |
-| 3   | Web Vitals into PostHog (§2.3) | 1–2 hours             | Health tile, slow pages           |
-| 4   | The eight events (§2.4)        | half a day            | Every funnel                      |
-| 5   | Funnels (§4)                   | 1 hour, in PostHog UI | Drop-off                          |
-| 6   | Dashboard rows 1–4 (§3)        | 2–3 days              | The full picture                  |
-| 7   | Weekly digest (§5)             | 1 day                 | Owner reads it without logging in |
+| #     | Task                                        | Effort                | Unblocks                          |
+| ----- | ------------------------------------------- | --------------------- | --------------------------------- |
+| 1     | Set `POSTHOG_PERSONAL_API_KEY`              | minutes               | The whole panel                   |
+| ~~2~~ | ~~Cookieless persistence (§2.2)~~ **done**  | < 1 hour              | The privacy requirement           |
+| ~~3~~ | ~~Web Vitals into PostHog (§2.3)~~ **done** | 1–2 hours             | Health tile, slow pages           |
+| 4     | The eight events (§2.4)                     | half a day            | Every funnel                      |
+| 5     | Funnels (§4)                                | 1 hour, in PostHog UI | Drop-off                          |
+| 6     | Dashboard rows 1–4 (§3)                     | 2–3 days              | The full picture                  |
+| 7     | Weekly digest (§5)                          | 1 day                 | Owner reads it without logging in |
 
 **Do 1 first and stop.** The panel that exists will start showing real numbers, and those numbers should shape everything after it. Building rows 2–4 before seeing a single real figure is how dashboards get built for questions nobody asked.

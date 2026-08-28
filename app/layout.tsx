@@ -22,6 +22,7 @@ import { priceNumber, FLEET_PRICE_FALLBACK } from "@/lib/site-data";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SITE_URL } from "@/lib/site";
+import WebVitals from "@/components/WebVitals";
 
 const syne = Syne({
   subsets: ["latin"],
@@ -491,6 +492,9 @@ export default async function RootLayout({
         </MotionProvider>
         <Analytics />
         <SpeedInsights />
+        {/* The same metrics, also into PostHog, so page speed can be ranked
+            beside the traffic it costs. See components/WebVitals.tsx. */}
+        <WebVitals />
         {/* Reloads a device that is running an older build than the server is
             serving. A stale device looks exactly like a bug, and diagnosing
             that from a screenshot has cost more time than any real defect. */}

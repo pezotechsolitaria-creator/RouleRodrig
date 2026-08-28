@@ -83,6 +83,35 @@ if (!posthogProjectToken) {
     // traffic — $pageview arrives for /, /food, /more, /map, /explore.
     defaults: "2026-01-30",
 
+    // ── COOKIELESS ──────────────────────────────────────────────────
+    // posthog-js defaults to "localStorage+cookie", so until now this site set
+    // an analytics cookie on every visitor. `memory` keeps the distinct id for
+    // the tab and nothing else: no cookie, no localStorage entry, nothing that
+    // survives the visit or that a consent banner would have to ask about.
+    //
+    // TWO CONSEQUENCES, both real and both accepted deliberately:
+    //
+    //  1. A returning visitor counts as new. "Unique visitors" is really
+    //     "unique visits" from here on, and any comparison across this change
+    //     is a comparison of two different measures. For an audience that
+    //     visits a handful of times before one trip and then never again, that
+    //     is a cheap trade for removing device storage entirely.
+    //
+    //  2. A signed-in user is re-identified on each load rather than once per
+    //     session, because the previous identity no longer persists. That is
+    //     harmless — identify() is idempotent and PWARegister already guards it
+    //     with a ref — but it does mean more $identify events and a wider
+    //     alias graph in PostHog. The alternative was keeping a cookie, and a
+    //     tidier identity graph is not worth one.
+    persistence: "memory",
+
+    // No person profile for anonymous traffic. Signed-in users still get one
+    // through the deliberate posthog.identify(user.id) in PWARegister.tsx —
+    // an opaque Supabase UUID and nothing else, which section 2 of the privacy
+    // policy describes. This setting makes the existing intent explicit rather
+    // than changing it: before, every anonymous visitor also got a profile.
+    person_profiles: "identified_only",
+
     // Session Replay off, in code rather than by dashboard toggle. It records
     // the DOM, which on this site means a customer's name, phone number and
     // delivery address as they type them into checkout. Same reasoning as the
