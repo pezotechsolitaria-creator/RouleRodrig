@@ -246,7 +246,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         // pickup code is meaningless to them — a driver is bringing the order,
         // and the code they need is the delivery PIN on their order page.
         const isRrDelivery = current.fulfillment_method === "rr_delivery";
-        if (targetStatus === "ready_for_pickup" && isRrDelivery) {
+        // THE REVIEW ASK (M115). The marketplace has a full verified-purchase
+        // review system — one-review-per-order, buyer-only, feeding the rating
+        // that drives "Top rated" — and it had produced zero reviews across
+        // eleven collected orders. Not because customers refused, but because
+        // nothing ever asked: the rating card only appears if someone
+        // independently navigates back to their order page after collecting,
+        // which nobody does. This is the one message they are guaranteed to
+        // read, so the ask belongs here.
+        if (targetStatus === "collected") {
+          extra =
+            " Enjoyed it? Rate the shop on your order page — only real buyers can review, so yours is the one the next customer trusts.";
+        } else if (targetStatus === "ready_for_pickup" && isRrDelivery) {
           extra = " A driver is on the way to collect it. Track it on your order page for the PIN to give them.";
         } else if (targetStatus === "ready_for_pickup") {
 

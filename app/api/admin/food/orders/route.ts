@@ -297,7 +297,13 @@ export async function PATCH(req: NextRequest) {
         // looking at the site at the moment food becomes ready, and arriving at
         // the kitchen is exactly when they need it.
         let extra = "";
-        if (targetStatus === "ready_for_pickup") {
+        // The review ask — see app/api/merchant/orders/[id]/route.ts (M115).
+        // Admin can move an order to collected too, so the ask lives on every
+        // path or it silently depends on who clicked the button.
+        if (targetStatus === "collected") {
+          extra =
+            " Enjoyed it? Rate the kitchen on your order page — only real buyers can review, so yours is the one the next customer trusts.";
+        } else if (targetStatus === "ready_for_pickup") {
           const { data: token } = await admin
             .from("qr_pickup_tokens")
             .select("code")

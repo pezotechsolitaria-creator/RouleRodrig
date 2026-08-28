@@ -215,7 +215,10 @@ export async function PATCH(req: NextRequest) {
         const label = STATUS_LABEL[targetStatus as OrderStatus] ?? targetStatus;
         let extra = "";
         const isRrDelivery = (current as { fulfillment_method?: string }).fulfillment_method === "rr_delivery";
-        if (targetStatus === "ready_for_pickup" && isRrDelivery) {
+        if (targetStatus === "collected") {
+          extra =
+            " Enjoyed it? Rate the shop on your order page — only real buyers can review, so yours is the one the next customer trusts.";
+        } else if (targetStatus === "ready_for_pickup" && isRrDelivery) {
           extra = " A driver is on the way to collect it. Track it on your order page for the PIN to give them.";
         } else if (targetStatus === "ready_for_pickup") {
           // The pickup code belongs IN the email: the customer is usually not
