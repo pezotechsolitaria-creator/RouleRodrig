@@ -274,6 +274,18 @@ export default async function LocationVoiturePage() {
               Aussi sur Roulé Rodrigues
             </p>
             <ul className="mt-4 space-y-3">
+              {/* Somebody who has just sorted out transport still needs a bed,
+                  and this was the only route into the French stays page — a
+                  page in the sitemap that nothing linked to is a page Google
+                  finds and visitors never do. */}
+              <li>
+                <Link
+                  href="/fr/hebergement-rodrigues"
+                  className="inline-flex items-center gap-2 font-dm text-sm text-yellow/80 hover:text-yellow transition-colors"
+                >
+                  Où dormir à Rodrigues <ArrowRight size={14} />
+                </Link>
+              </li>
               <li>
                 <Link
                   href="/fr/location-scooter-rodrigues"

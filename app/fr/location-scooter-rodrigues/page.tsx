@@ -264,6 +264,10 @@ export default async function LocationScooterPage() {
                   label: "Location de voiture à Rodrigues",
                 },
                 {
+                  href: "/fr/hebergement-rodrigues",
+                  label: "Où dormir à Rodrigues",
+                },
+                {
                   href: "/fr/que-faire-a-rodrigues",
                   label: "Que faire à Rodrigues",
                 },

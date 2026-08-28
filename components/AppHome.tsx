@@ -528,44 +528,6 @@ export default function AppHome({
               {L(["See all", "Voir tout", "Get tou"])} <ArrowRight size={13} />
             </Link>
           </div>
-          {/* ── ASK, IF NONE OF THE TILES IS IT ───────────────────────────
-              MEASURED on a phone: Ti Roulé had exactly one entry point, the tab
-              bar. The two in-page buttons are `hidden md:flex` — desktop only —
-              so the assistant that answers anything was reachable from a 56px
-              icon and nowhere else on the page.
-
-              It goes HERE because this heading already asks the question Ti
-              Roulé exists to answer, and because the ten tiles below it are a
-              closed list: the moment somebody wants a thing that is not one of
-              them, this is the row they need. 56px, one line, above the grid
-              rather than after it — an answer offered after the options have
-              been exhausted is an answer nobody reaches. */}
-          <button
-            type="button"
-            onClick={() =>
-              window.dispatchEvent(new CustomEvent("tiroule:open"))
-            }
-            className="mb-2 flex min-h-14 w-full items-center gap-3 rounded-2xl border border-yellow/30 bg-yellow/[0.06] px-3.5 text-left transition-colors hover:border-yellow/50"
-          >
-            <Bot size={18} className="shrink-0 text-yellow" aria-hidden />
-            <span className="min-w-0 flex-1">
-              <span className="block font-dm text-sm font-semibold text-offwhite">
-                {L(["Ask Ti Roulé", "Demandez à Ti Roulé", "Demann Ti Roulé"])}
-              </span>
-              <span className="block truncate font-dm text-xs text-muted">
-                {L([
-                  "Say what you need, in your own words",
-                  "Dites ce qu'il vous faut, avec vos mots",
-                  "Dir seki ou bizin, dan ou prop mo",
-                ])}
-              </span>
-            </span>
-            <ArrowRight
-              size={15}
-              className="shrink-0 text-yellow"
-              aria-hidden
-            />
-          </button>
 
           {/* A GRID, not a scroller.
               As a horizontal rail this showed four and a half of ten tiles, and
