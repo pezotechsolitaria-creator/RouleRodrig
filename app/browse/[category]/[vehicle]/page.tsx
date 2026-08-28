@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Check, ChevronRight } from "lucide-react";
 import { SITE_URL } from "@/lib/site";
 import { getFleetView, priceNumber } from "@/lib/site-data";
+import { priceBreakdown } from "@/lib/booking-pricing";
 import { breadcrumbLd, productLd, sellerLd } from "@/lib/schema";
 import { pickConditions } from "@/lib/rental-conditions";
 import { findVehicle, vehicleSlug } from "@/lib/vehicle-slug";
@@ -177,6 +178,60 @@ export default async function VehiclePage({ params }: Props) {
               ))}
             </ul>
           ) : null}
+
+          {/* ── THE MULTI-DAY RATES, BEFORE THE CALENDAR ────────────────────
+              The 10% (3+ days) and 15% (7+ days) discounts have always been
+              real and were discoverable only AFTER picking dates — so a visitor
+              comparing prices saw the day rate, multiplied it by seven in their
+              head, and left. A week is where the margin is and it was the one
+              number nobody could find.
+
+              Computed with priceBreakdown(), the same function /api/bookings
+              prices with, rather than from content.pricing — which renders on
+              no public page, shows the car at Rs 0, and disagrees with the
+              fleet about the scooter. A rate table that quotes a figure the
+              checkout will not honour is worse than no table. */}
+          {(() => {
+            const tiers = [1, 3, 7]
+              .map((d) => ({ d, b: priceBreakdown(item, d, content.vehicleCategories) }))
+              .filter((t): t is { d: number; b: NonNullable<typeof t.b> } => Boolean(t.b));
+            if (tiers.length < 2) return null;
+            const base = Math.round(tiers[0].b.rental / tiers[0].d);
+            return (
+              <div className="mt-6 rounded-2xl border border-dark-border bg-dark-card p-6">
+                <p className="mb-4 font-bebas text-[10px] tracking-[0.3em] text-yellow">RATES</p>
+                <ul className="divide-y divide-white/5">
+                  {tiers.map(({ d, b }) => {
+                    const perDay = Math.round(b.rental / d);
+                    const off = base > 0 ? Math.round(100 - (perDay / base) * 100) : 0;
+                    return (
+                      <li key={d} className="flex items-baseline justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                        <span className="font-dm text-sm text-offwhite/85">
+                          {d === 1 ? "1 day" : d === 7 ? "1 week" : `${d} days`}
+                          {off > 0 && (
+                            <span className="ml-2 rounded-full bg-yellow/15 px-2 py-0.5 font-bebas text-[10px] tracking-[0.12em] text-yellow">
+                              {off}% OFF
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-right">
+                          <span className="font-syne text-base font-extrabold text-offwhite">
+                            Rs {b.rental.toLocaleString()}
+                          </span>
+                          <span className="block font-dm text-[11px] text-muted">
+                            Rs {perDay.toLocaleString()} / day
+                          </span>
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="mt-3 font-dm text-[11px] text-muted">
+                  Rental only — delivery and the deposit are shown before you confirm.
+                </p>
+              </div>
+            );
+          })()}
 
           {item.included?.length ? (
             <div className="mt-6 rounded-2xl border border-dark-border bg-dark-card p-6">
