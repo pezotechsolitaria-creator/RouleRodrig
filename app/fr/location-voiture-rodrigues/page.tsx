@@ -4,7 +4,7 @@ import { ArrowRight, Check, MessageCircle } from "lucide-react";
 import { getFleetView, fleetFromPrice } from "@/lib/site-data";
 import { resolveTerms, isMissing } from "@/lib/legal";
 import { SITE_URL } from "@/lib/site";
-import { breadcrumbLd } from "@/lib/schema";
+import { breadcrumbLd, rentalCategoryLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import PageLanguage from "@/components/PageLanguage";
@@ -104,6 +104,11 @@ export default async function LocationVoiturePage() {
   const { content, fleet, businessWhatsApp } = await getFleetView();
 
   const from = fleetFromPrice(fleet, "car");
+  // How many cars actually exist, counted from the live fleet rather than
+  // stated. offerCount is a claim about inventory and inventing one on a page
+  // that takes bookings is how a customer is told "available" about a car that
+  // is not there.
+  const carCount = fleet.filter((f) => (f.category ?? "scooter") === "car").length;
   // The published clause, not an invented number. `isMissing` means the owner
   // has not set it yet, and the FAQ answer changes shape rather than guessing.
   const terms = resolveTerms(content.terms);
@@ -132,6 +137,25 @@ export default async function LocationVoiturePage() {
               acceptedAnswer: { "@type": "Answer", text: f.a },
             })),
           },
+          // ── THE PRICE, WHERE A MACHINE CAN READ IT (M134) ─────────────
+          //
+          // The page has always RENDERED "dès Rs 1 500" but said nothing about
+          // it in structured data: this page emitted an FAQ and a breadcrumb
+          // and stopped. So Google had no price to show in a result and an
+          // assistant asked "how much is a car on Rodrigues" had prose to
+          // guess from rather than a fact to quote.
+          //
+          // AggregateOffer/lowPrice, not Offer/price, because "from" is what
+          // the page actually says. See lib/schema.ts.
+          rentalCategoryLd({
+            name: "Location de voiture à Rodrigues",
+            category: "car",
+            fromPrice: from,
+            offerCount: carCount || undefined,
+            url: `${SITE_URL}/fr/location-voiture-rodrigues`,
+            description: DESCRIPTION(from),
+            inLanguage: "fr",
+          }),
           breadcrumbLd([
             { name: "Accueil", url: SITE_URL },
             {

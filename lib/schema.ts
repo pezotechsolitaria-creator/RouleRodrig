@@ -241,6 +241,122 @@ export function productLd(p: ProductInput) {
   };
 }
 
+/**
+ * A whole rental CATEGORY on a landing page, priced "from".
+ *
+ * productLd() above describes one specific vehicle at one price. A landing page
+ * like /fr/location-voiture-rodrigues sells the category — "cars, from Rs 1 500
+ * a day" — and there is a real difference between the two in schema terms.
+ *
+ * ── WHY AggregateOffer AND NOT Offer ────────────────────────────────────────
+ *
+ * A bare Offer with `price` asserts THE price. The page says "dès Rs 1 500" —
+ * from. Emitting a flat 1500 would claim a precision the business does not
+ * offer, and the customer who booked a longer rental at a different rate would
+ * have been shown a number in Google that nobody honoured. That is the same
+ * bait-and-switch this codebase already fixed once, when a metadata description
+ * advertised Rs 599 while every page rendered Rs 699.
+ *
+ * AggregateOffer with lowPrice says exactly what is true: the cheapest is this,
+ * there are several, here is the currency. Google renders it as "from Rs …",
+ * which is also what the page says.
+ *
+ * ── WHY THIS MATTERS BEYOND GOOGLE ──────────────────────────────────────────
+ *
+ * An assistant asked "can I rent a car on Rodrigues and what does it cost"
+ * cannot quote a price it cannot find. Prose buried in a paragraph is a guess;
+ * a priced offer is a fact it will repeat. That is the whole of GEO.
+ *
+ * No aggregateRating, ever, unless real reviews exist — same rule as every
+ * other block in this file.
+ */
+export function rentalCategoryLd(v: {
+  /** What the page is selling, in the page's own language. */
+  name: string;
+  /** Fleet category slug — picks Car vs Motorcycle. */
+  category: "car" | "scooter" | string;
+  /** The live "from" price. MUST be the number the page renders. */
+  fromPrice: number;
+  /** How many are actually in the fleet, when known. */
+  offerCount?: number;
+  url: string;
+  image?: string;
+  description?: string;
+  inLanguage?: string;
+}) {
+  const type = v.category === "car" ? "Car" : v.category === "scooter" ? "Motorcycle" : "Product";
+  return {
+    "@type": type,
+    name: v.name,
+    ...(v.description ? { description: v.description } : {}),
+    ...(v.image ? { image: v.image } : {}),
+    ...(v.inLanguage ? { inLanguage: v.inLanguage } : {}),
+    offers: {
+      "@type": "AggregateOffer",
+      lowPrice: v.fromPrice,
+      priceCurrency: "MUR",
+      ...(v.offerCount ? { offerCount: v.offerCount } : {}),
+      availability: "https://schema.org/InStock",
+      url: v.url,
+      seller: { "@id": `${SITE_URL}/#business` },
+      // Rodrigues, plainly stated, because "available in Rodrigues" is the
+      // fact that decides whether this result is useful to the person asking.
+      areaServed: { "@type": "Place", name: "Rodrigues, Republic of Mauritius" },
+    },
+  };
+}
+
+/**
+ * One bookable experience — a boat trip, a fishing morning, a massage.
+ *
+ * /experiences/[type] emitted an ItemList and nothing else: a list of names
+ * with no price, no provider and no indication any of it can be booked. A
+ * search engine saw a page about massages; it did not see a massage anyone
+ * could buy, which is the difference between being listed and being chosen.
+ *
+ * Typed `Service` rather than Product: nobody takes a fishing trip home.
+ * `provider` is the individual captain or therapist where the owner has named
+ * them, because on an island of 43,000 people the name IS the credential.
+ */
+export function experienceLd(e: {
+  name: string;
+  /** The real price, per person, exactly as the listing states it. */
+  price?: number | null;
+  description?: string;
+  image?: string;
+  url: string;
+  /** "Skipper Arnaud", "Therapist Maryanne" — only when the owner named them. */
+  providerName?: string | null;
+  durationMinutes?: number | null;
+}) {
+  return {
+    "@type": "Service",
+    name: e.name,
+    ...(e.description ? { description: e.description } : {}),
+    ...(e.image ? { image: e.image } : {}),
+    serviceType: "Tourist experience",
+    areaServed: { "@type": "Place", name: "Rodrigues, Republic of Mauritius" },
+    ...(e.providerName
+      ? { provider: { "@type": "Person", name: e.providerName } }
+      : { provider: { "@id": `${SITE_URL}/#business` } }),
+    // ISO 8601 duration, which is what schema.org expects and what an
+    // assistant will read back as "about an hour and a half".
+    ...(e.durationMinutes ? { timeRequired: `PT${e.durationMinutes}M` } : {}),
+    ...(e.price
+      ? {
+          offers: {
+            "@type": "Offer",
+            price: e.price,
+            priceCurrency: "MUR",
+            availability: "https://schema.org/InStock",
+            url: e.url,
+            seller: { "@id": `${SITE_URL}/#business` },
+          },
+        }
+      : {}),
+  };
+}
+
 // A marketplace shop. Typed `Store` (a LocalBusiness subtype) because that is
 // what it is — a real trader on Rodrigues with a name, a phone and opening
 // hours, not a product listing.

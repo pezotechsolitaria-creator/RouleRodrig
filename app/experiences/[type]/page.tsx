@@ -6,7 +6,7 @@ import { getFleetView } from "@/lib/site-data";
 import { SITE_URL } from "@/lib/site";
 import { SERVICE_TYPES, type ServiceType } from "@/lib/defaults";
 import { EXPERIENCES, experiencesOfType } from "@/lib/experiences";
-import { breadcrumbLd, itemListLd } from "@/lib/schema";
+import { breadcrumbLd, itemListLd, experienceLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import ExperienceMarket from "@/components/experiences/ExperienceMarket";
 import Navbar from "@/components/Navbar";
@@ -81,6 +81,33 @@ export default async function ExperiencePage({ params }: { params: Promise<{ typ
               itemListLd(
                 copy.title,
                 places.map((p) => ({ name: p.name, url: `${SITE_URL}/experiences/${copy.slug}` })),
+              ),
+              // ── EACH EXPERIENCE, WITH ITS PRICE AND ITS CAPTAIN (M134) ──
+              //
+              // This page used to emit an ItemList and stop: a list of names,
+              // no price, no provider, nothing saying any of it could be
+              // booked. A search engine saw a page ABOUT fishing trips; it did
+              // not see a fishing trip anyone could buy — which is the
+              // difference between being listed and being chosen.
+              //
+              // It matters more for an assistant than for Google. Asked "how
+              // much is a boat trip in Rodrigues", a model with prose has to
+              // guess and usually declines; one with a priced Offer answers
+              // with the number and names the site it came from.
+              //
+              // Every value is read off the listing the owner wrote. A listing
+              // with no price emits no Offer rather than a zero, because free
+              // and unpriced are not the same claim.
+              ...places.map((p) =>
+                experienceLd({
+                  name: p.name,
+                  price: typeof p.depositAmount === "number" ? p.depositAmount : null,
+                  description: p.description || undefined,
+                  image: p.image || undefined,
+                  url: `${SITE_URL}/experiences/${copy.slug}`,
+                  providerName: p.providerName || null,
+                  durationMinutes: typeof p.durationMinutes === "number" ? p.durationMinutes : null,
+                }),
               ),
             ]}
           />
