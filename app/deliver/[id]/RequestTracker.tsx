@@ -27,6 +27,7 @@ import {
 import { toast } from "sonner";
 import OrderAlerts from "@/components/orders/OrderAlerts";
 import LiveTripView from "@/components/tracking/LiveTripView";
+import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
 import {
   requestStatusCopy,
@@ -46,7 +47,7 @@ import {
   type Quote,
 } from "@/lib/delivery/request-status";
 import { emailFor, saveRequest } from "@/lib/delivery/my-requests";
-import { columnsToItem } from "@/lib/delivery/copy.i18n";
+import { columnsToItem, DELIVER_COPY } from "@/lib/delivery/copy.i18n";
 import { writeDraft } from "@/lib/delivery/draft";
 import { formatWindow } from "@/lib/delivery/schedule";
 import { recipe, transition, travel, type as t } from "@/lib/delivery/tokens";
@@ -71,6 +72,20 @@ import { recipe, transition, travel, type as t } from "@/lib/delivery/tokens";
 // deliver an event every few minutes; a 20-second poll that STOPS when the tab
 // is hidden and stops entirely once the job is booked costs less and cannot
 // leak a subscription.
+//
+// ── In the reader's own language ───────────────────────────────────────────
+// This file had no useLanguage call anywhere in it. The form that leads here
+// (app/deliver/DeliverForm.tsx) has been trilingual since it was built, so
+// somebody chose Kreol at the door, answered five questions in Kreol, and then
+// met a wall of English at the one moment they were asked to commit to a price
+// — the paying end of the flow was the untranslated end.
+//
+// Every piece below reads DELIVER_COPY[language] the same way DeliverForm does.
+// The sub-components call useLanguage() themselves rather than being handed a
+// prop: they are already client components in this file, and threading copy
+// through eight signatures would be the change most likely to break something.
+// The status words come from lib/delivery/request-status.ts, which now takes a
+// `lang` exactly as slotLabel() and urgencyLabel() do in schedule.ts.
 
 type RequestView = {
   id: string;
@@ -176,6 +191,8 @@ export default function RequestTracker({
   const [rating, setRating] = useState<number | null>(null);
   const [ratingSaved, setRatingSaved] = useState(false);
   const router = useRouter();
+  const { language } = useLanguage();
+  const c = DELIVER_COPY[language];
 
   // Kept in a ref as well as state so the poller never closes over a stale one.
   const emailRef = useRef<string>("");
@@ -219,8 +236,11 @@ export default function RequestTracker({
         };
         if (stale()) return;
         if (!res.ok || !json.request) {
-          if (!opts.silent)
-            toast.error(json.error ?? "Could not load that request.");
+          // json.error is the SERVER's sentence and stays exactly as it
+          // arrived: it is the specific reason, and inventing three
+          // translations of a message we did not write would be worse than
+          // showing the one we did. Only the fallback is ours to say.
+          if (!opts.silent) toast.error(json.error ?? c.tracker.loadFailed);
           // A failed FIRST load has to leave the skeleton. Toasting and
           // returning left the screen pulsing for ever on any non-404 --
           // a 503 while the service key is missing, a 500, an outage --
@@ -240,12 +260,15 @@ export default function RequestTracker({
         });
       } catch {
         if (!opts.silent) {
-          toast.error("Could not reach us. Check your connection.");
+          toast.error(c.error.network);
           setPhase((p) => (p === "ready" ? p : "error"));
         }
       }
     },
-    [id],
+    // `c` is a module constant, one per language, so this identity changes only
+    // when somebody presses the language button — at which point re-reading the
+    // request is the same call the poll makes every twenty seconds anyway.
+    [id, c],
   );
 
   // First load: use whatever this device already knows.
@@ -330,7 +353,7 @@ export default function RequestTracker({
     });
     const json = (await res.json()) as { ok?: boolean; error?: string };
     if (!res.ok) {
-      toast.error(json.error ?? "That did not work. Please try again.");
+      toast.error(json.error ?? c.error.generic);
       return false;
     }
     return true;
@@ -351,7 +374,7 @@ export default function RequestTracker({
       });
       if (ok) {
         setConfirming(null);
-        toast.success(`${quote.driverName} is booked.`);
+        toast.success(c.tracker.booked(quote.driverName));
       } else {
         // Most likely the price moved. Close the sheet and refresh so the new
         // one is on screen rather than leaving them staring at a stale figure.
@@ -367,7 +390,7 @@ export default function RequestTracker({
     setCancelling(true);
     try {
       if (await act({ action: "cancel" })) {
-        toast.success("Request withdrawn.");
+        toast.success(c.tracker.withdrawn);
         await load();
       }
     } finally {
@@ -380,11 +403,10 @@ export default function RequestTracker({
     return (
       <div className={cn(recipe.cardButton, "cursor-default")}>
         <h1 className={cn(t.heading, "text-offwhite")}>
-          Which email did you use?
+          {c.tracker.emailTitle}
         </h1>
         <p className={cn(t.bodySm, "mt-2 text-[#B0B0B0]")}>
-          This request was posted without an account, so we check the email
-          against it before showing you anything.
+          {c.tracker.emailWhy}
         </p>
         <form
           className="mt-4 flex flex-col gap-3"
@@ -403,12 +425,12 @@ export default function RequestTracker({
             autoComplete="email"
             value={emailDraft}
             onChange={(e) => setEmailDraft(e.target.value)}
-            placeholder="you@example.com"
+            placeholder={c.tracker.emailPlaceholder}
             className={recipe.field}
-            aria-label="The email you used"
+            aria-label={c.find.emailLabel}
           />
           <button type="submit" className={recipe.primaryAction}>
-            Show my request
+            {c.tracker.emailSubmit}
           </button>
         </form>
       </div>
@@ -420,10 +442,10 @@ export default function RequestTracker({
       <div className={cn(recipe.cardButton, "cursor-default text-center")}>
         <AlertTriangle size={22} className="mx-auto text-white/40" />
         <h1 className={cn(t.heading, "mt-3 text-offwhite")}>
-          We couldn&apos;t load this
+          {c.tracker.errorTitle}
         </h1>
         <p className={cn(t.bodySm, "mt-2 text-[#B0B0B0]")}>
-          Your request is safe — this is us, not you. Try again in a moment.
+          {c.tracker.errorBody}
         </p>
         <button
           type="button"
@@ -436,7 +458,7 @@ export default function RequestTracker({
             "mt-5 inline-flex items-center py-2.5",
           )}
         >
-          Try again
+          {c.tracker.errorRetry}
         </button>
       </div>
     );
@@ -455,10 +477,10 @@ export default function RequestTracker({
       <div className={cn(recipe.cardButton, "cursor-default text-center")}>
         <AlertTriangle size={22} className="mx-auto text-white/40" />
         <h1 className={cn(t.heading, "mt-3 text-offwhite")}>
-          We couldn&apos;t find that request
+          {c.tracker.goneTitle}
         </h1>
         <p className={cn(t.bodySm, "mt-2 text-[#B0B0B0]")}>
-          The link may be wrong, or it was posted with a different email.
+          {c.tracker.goneBody}
         </p>
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
           <button
@@ -466,7 +488,7 @@ export default function RequestTracker({
             onClick={retryEmail}
             className={cn(recipe.secondaryAction, "py-2.5")}
           >
-            Try another email
+            {c.tracker.goneOtherEmail}
           </button>
           <Link
             href="/deliver"
@@ -475,11 +497,11 @@ export default function RequestTracker({
               "inline-flex items-center py-2.5",
             )}
           >
-            Back to Deliver anything
+            {c.tracker.goneBack}
           </Link>
         </div>
         <p className={cn(t.meta, "mt-3 text-[#B0B0B0]")}>
-          Lost the link? Find it there with your reference and email.
+          {c.tracker.goneLost}
         </p>
       </div>
     );
@@ -489,12 +511,15 @@ export default function RequestTracker({
 
   const quotes = sortQuotes(view.quotes.filter((q) => q.status === "offered"));
   const badges = quoteBadges(quotes);
-  const status = requestStatusCopy({
-    status: view.status,
-    quoteCount: quotes.length,
-    expiresAt: view.expiresAt,
-    deliveryStatus: view.delivery?.status,
-  });
+  const status = requestStatusCopy(
+    {
+      status: view.status,
+      quoteCount: quotes.length,
+      expiresAt: view.expiresAt,
+      deliveryStatus: view.delivery?.status,
+    },
+    language,
+  );
   const KindIcon = view.kind === "shop_and_deliver" ? ShoppingBasket : Package;
   // Getting out. Two different acts behind one control:
   //   open      -> withdraw the request. Nobody is committed; costs nothing.
@@ -508,7 +533,7 @@ export default function RequestTracker({
       view.delivery?.status ?? "",
     );
   const canWithdraw = view.status === "open" || prePickup;
-  const closes = expiresIn(view.expiresAt);
+  const closes = expiresIn(view.expiresAt, language);
 
   return (
     <div className="flex flex-col gap-6 pb-40">
@@ -578,7 +603,7 @@ export default function RequestTracker({
               "mt-3 inline-flex items-center gap-1.5 text-[#B0B0B0]",
             )}
           >
-            <Clock size={13} /> Drivers can quote until it closes {closes}
+            <Clock size={13} /> {c.tracker.closesIn(closes)}
           </p>
         )}
       </header>
@@ -593,11 +618,13 @@ export default function RequestTracker({
           </span>
           <div className="min-w-0">
             <p className={cn(t.cardTitle, "text-offwhite")}>{view.what}</p>
+            {/* The two kinds are named with the FORM's words, not a second
+                house translation of the same idea. */}
             <p className={cn(t.meta, "mt-1 text-[#B0B0B0]")}>
               {view.kind === "shop_and_deliver"
-                ? "Buy & deliver"
-                : "Collect & deliver"}
-              {view.sizeClass === "large" && " · Large item"}
+                ? c.what.kind.shop.title
+                : c.what.kind.package.title}
+              {view.sizeClass === "large" && ` · ${c.tracker.largeItem}`}
             </p>
           </div>
         </div>
@@ -612,24 +639,27 @@ export default function RequestTracker({
             >
               <Clock size={15} className="shrink-0 text-yellow" aria-hidden />
               <span>
-                <span className="text-[#B0B0B0]">Needed </span>
+                {/* The window itself was already language-aware and was being
+                    handed a hardcoded "en" by the one screen that renders it
+                    for a customer. */}
+                <span className="text-[#B0B0B0]">{c.tracker.neededLabel} </span>
                 {formatWindow(
                   view.windowStart,
                   view.windowEnd,
                   view.scheduleKind,
                   view.timeSlot,
-                  "en",
+                  language,
                 )}
               </span>
             </p>
           )}
           <Leg
-            label="Collect from"
+            label={c.tracker.collectFrom}
             place={view.pickupText}
             note={view.pickupNote}
           />
           <Leg
-            label="Deliver to"
+            label={c.tracker.deliverTo}
             place={view.dropoffText}
             note={view.dropoffNote}
           />
@@ -640,7 +670,7 @@ export default function RequestTracker({
       {view.status === "open" && status.tone !== "dead" && (
         <section>
           <h2 className={cn(t.heading, "text-offwhite")}>
-            {quotes.length > 0 ? "Choose a driver" : "No prices yet"}
+            {quotes.length > 0 ? c.tracker.chooseDriver : c.tracker.noPricesYet}
           </h2>
           {quotes.length === 0 ? (
             <WaitingForQuotes />
@@ -757,7 +787,7 @@ export default function RequestTracker({
               setRatingSaved(true);
             } else {
               const j = (await res.json()) as { error?: string };
-              toast.error(j.error ?? "Could not save that.");
+              toast.error(j.error ?? c.tracker.rateFailed);
               setRating(null);
             }
           }}
@@ -845,7 +875,7 @@ export default function RequestTracker({
           }}
           className={cn(recipe.secondaryAction, "self-start")}
         >
-          Post this again
+          {c.tracker.again}
         </button>
       )}
 
@@ -861,10 +891,10 @@ export default function RequestTracker({
           )}
         >
           {cancelling
-            ? "Cancelling…"
+            ? c.tracker.cancelling
             : prePickup
-              ? "Cancel this delivery"
-              : "Withdraw this request"}
+              ? c.tracker.cancelDelivery
+              : c.tracker.withdraw}
         </button>
       )}
 
@@ -883,7 +913,7 @@ export default function RequestTracker({
 
       {email && (
         <p className={cn(t.meta, "text-[#B0B0B0]")}>
-          Showing this request to {email}.
+          {c.tracker.showingTo(email)}
         </p>
       )}
     </div>
@@ -921,6 +951,8 @@ function Leg({
  * present tense, and shows movement rather than an empty box.
  */
 function WaitingForQuotes() {
+  const { language } = useLanguage();
+  const c = DELIVER_COPY[language];
   return (
     <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
       <div className="flex items-center gap-3">
@@ -929,7 +961,7 @@ function WaitingForQuotes() {
           <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-yellow" />
         </span>
         <p className={cn(t.bodySm, "text-offwhite")}>
-          Drivers are being shown your job
+          {c.tracker.waitingTitle}
         </p>
       </div>
       <p className={cn(t.bodySm, "mt-3 text-[#B0B0B0]")}>
@@ -937,8 +969,7 @@ function WaitingForQuotes() {
             number here would be a promise made up out of nothing. And no
             promise of a message, because nothing enrols this customer in any
             channel — see requestStatusCopy. */}
-        Prices appear here as drivers send them. Keep this page open, or come
-        back to it any time with your reference.
+        {c.tracker.waitingBody}
       </p>
       <div className="mt-4 flex flex-col gap-2" aria-hidden>
         {[0, 1].map((i) => (
@@ -961,6 +992,8 @@ function QuoteCard({
   badge: string | null;
   onChoose: () => void;
 }) {
+  const { language } = useLanguage();
+  const c = DELIVER_COPY[language];
   const Icon = VEHICLE_ICON[quote.vehicleType ?? ""] ?? Package;
   return (
     <button
@@ -995,13 +1028,18 @@ function QuoteCard({
               "mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[#B0B0B0]",
             )}
           >
+            {/* The vehicle is the raw registered value, in English, in every
+                language. VEHICLE_LABEL lives in lib/delivery/vehicle.ts and is
+                English-only for every screen — DeliverForm renders it inside a
+                French sentence too. Naming it here would be a second, private
+                translation of a list that needs one shared one. */}
             {quote.vehicleType && (
               <span className="capitalize">{quote.vehicleType}</span>
             )}
             {quote.completed > 0 && (
               <>
                 <span aria-hidden>·</span>
-                <span>{quote.completed} delivered</span>
+                <span>{c.tracker.completedCount(quote.completed)}</span>
               </>
             )}
             {quote.rating != null && (
@@ -1030,7 +1068,7 @@ function QuoteCard({
                 "mt-2 inline-block rounded-full bg-yellow/12 px-2 py-0.5 font-medium text-yellow",
               )}
             >
-              {BADGE_LABEL[badge as keyof typeof BADGE_LABEL]}
+              {BADGE_LABEL[language][badge as keyof (typeof BADGE_LABEL)["en"]]}
             </span>
           )}
         </div>
@@ -1071,17 +1109,22 @@ function ConfirmSheet({
   // delivery" quietly becomes a Rs 9,300 cash risk. accept_delivery_quote()
   // refuses over the limit regardless; doing the same arithmetic here means
   // the option is greyed with a reason instead of failing on the tap.
+  const { language } = useLanguage();
+  const c = DELIVER_COPY[language];
   const exposure = quote.fee + (view.spendCap ?? 0);
   const cashAllowed = view.cashLimit === null || exposure <= view.cashLimit;
   const [method, setMethod] = useState<PaymentMethod>(
     cashAllowed ? "cash" : "bank_transfer",
   );
 
-  const pay = payAtDoor({
-    fee: quote.fee,
-    kind: view.kind,
-    spendCap: view.spendCap,
-  });
+  const pay = payAtDoor(
+    {
+      fee: quote.fee,
+      kind: view.kind,
+      spendCap: view.spendCap,
+    },
+    language,
+  );
 
   const sheetRef = useRef<HTMLDivElement | null>(null);
 
@@ -1153,7 +1196,7 @@ function ConfirmSheet({
         ref={sheetRef}
         role="dialog"
         aria-modal="true"
-        aria-label={`Book ${quote.driverName} for ${formatFee(quote.fee)}`}
+        aria-label={c.tracker.bookAria(quote.driverName, formatFee(quote.fee))}
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
@@ -1168,17 +1211,17 @@ function ConfirmSheet({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className={cn(t.heading, "text-offwhite")}>
-                Book {quote.driverName}?
+                {c.tracker.bookTitle(quote.driverName)}
               </h2>
               <p className={cn(t.bodySm, "mt-1 text-[#B0B0B0]")}>
-                They will be told straight away and will come for it.
+                {c.tracker.bookWhy}
               </p>
             </div>
             <button
               type="button"
               onClick={onClose}
               disabled={busy}
-              aria-label="Close"
+              aria-label={c.tracker.close}
               className="-mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#B0B0B0] transition-colors hover:bg-white/5 hover:text-offwhite"
             >
               <X size={17} />
@@ -1199,7 +1242,7 @@ function ConfirmSheet({
             ))}
             <div className="mt-1 flex items-baseline justify-between gap-4 border-t border-white/10 pt-2.5">
               <dt className={cn(t.bodySm, "font-semibold text-offwhite")}>
-                You pay at the door
+                {c.tracker.payAtDoor}
               </dt>
               <dd
                 className={cn(
@@ -1219,33 +1262,36 @@ function ConfirmSheet({
             className={cn(t.meta, "mt-4 flex items-start gap-2 text-[#B0B0B0]")}
           >
             <ShieldCheck size={14} className="mt-px shrink-0 text-yellow/70" />
-            You will get a 4-digit code. Read it out only once it is in your
-            hands — it is what proves the delivery happened.
+            {c.tracker.codePromise}
           </p>
 
           {/* ── How the money moves ────────────────────────────────────
               Asked here, at the one moment it is a real question: a price has
               been chosen and nothing has been committed yet. */}
           <fieldset className="mt-5">
+            {/* The whole payment question is the FORM's, word for word. It is
+                the same choice with the same consequences, and two house
+                translations of "Cash at the door" is a bug only somebody who
+                uses both screens would ever see. */}
             <legend className={cn(t.label, "mb-2 text-offwhite")}>
-              How will you pay?
+              {c.pay.question}
             </legend>
             <div className="grid grid-cols-1 gap-2">
               {[
                 {
                   k: "cash" as const,
                   icon: Banknote,
-                  title: "Cash at the door",
+                  title: c.pay.cash.label,
                   body: cashAllowed
-                    ? `Pay ${pay.total} when it arrives.`
-                    : `Over ${formatFee(view.cashLimit ?? 0)} we ask for a transfer — that is a lot of cash for a driver to carry.`,
+                    ? c.pay.cashTotal(pay.total)
+                    : c.pay.cashCapped(formatFee(view.cashLimit ?? 0)),
                   disabled: !cashAllowed,
                 },
                 {
                   k: "bank_transfer" as const,
                   icon: Landmark,
-                  title: "Bank transfer",
-                  body: "Send it now, then attach the receipt. Your driver sets off once it arrives.",
+                  title: c.pay.transfer.label,
+                  body: c.pay.transfer.help,
                   disabled: false,
                 },
               ].map((o) => {
@@ -1305,10 +1351,10 @@ function ConfirmSheet({
             )}
           >
             {busy && <Loader2 size={16} className="animate-spin" />}
-            {busy ? "Booking…" : `Book for ${formatFee(quote.fee)}`}
+            {busy ? c.tracker.booking : c.tracker.bookFor(formatFee(quote.fee))}
           </button>
           <p className={cn(t.meta, "mt-3 text-center text-[#B0B0B0]")}>
-            The other prices are withdrawn once you book.
+            {c.tracker.othersWithdrawn}
           </p>
         </div>
       </motion.div>
@@ -1351,6 +1397,8 @@ function PaymentProof({
   reference: string | null;
   onDone: () => void;
 }) {
+  const { language } = useLanguage();
+  const c = DELIVER_COPY[language];
   const [file, setFile] = useState<File | null>(null);
   const [ref, setRef] = useState("");
   const [busy, setBusy] = useState(false);
@@ -1367,10 +1415,10 @@ function PaymentProof({
             aria-hidden
           />
           <span>
-            Receipt received. Your driver can set off.
+            {c.pay.proofDone}
             {reference && (
               <span className={cn(t.meta, "mt-0.5 block text-[#B0B0B0]")}>
-                Reference {reference}
+                {c.find.refLabel} {reference}
               </span>
             )}
           </span>
@@ -1396,7 +1444,7 @@ function PaymentProof({
       );
       const upJson = (await up.json()) as { path?: string; error?: string };
       if (!up.ok || !upJson.path) {
-        setError(upJson.error ?? "Could not send that. Please try again.");
+        setError(upJson.error ?? c.pay.failed);
         return;
       }
       // TWO steps on purpose: the upload proves the file is real and the
@@ -1415,13 +1463,13 @@ function PaymentProof({
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        setError(json.error ?? "Could not attach that receipt.");
+        setError(json.error ?? c.pay.failed);
         return;
       }
-      toast.success("Receipt received.");
+      toast.success(c.pay.proofDone);
       onDone();
     } catch {
-      setError("Network problem — check your connection and try again.");
+      setError(c.error.network);
     } finally {
       setBusy(false);
     }
@@ -1429,12 +1477,9 @@ function PaymentProof({
 
   return (
     <div className="rounded-2xl border border-yellow/40 bg-yellow/[0.05] p-4">
-      <h3 className={cn(t.cardTitle, "text-offwhite")}>
-        Send your transfer receipt
-      </h3>
+      <h3 className={cn(t.cardTitle, "text-offwhite")}>{c.pay.proofTitle}</h3>
       <p className={cn(t.bodySm, "mt-1 text-[#B0B0B0]")}>
-        Your driver cannot set off until this arrives. A photo or PDF, up to 4
-        MB.
+        {c.pay.proofWhy} {c.pay.proofHelp}
       </p>
 
       <input
@@ -1442,12 +1487,12 @@ function PaymentProof({
         type="file"
         accept="image/jpeg,image/png,image/webp,application/pdf"
         className="sr-only"
-        aria-label="Choose your transfer receipt"
+        aria-label={c.pay.proofChoose}
         onChange={(e) => {
           const f = e.target.files?.[0] ?? null;
           setError(null);
           if (f && f.size > 4 * 1024 * 1024) {
-            setError("That file is too large — the limit is 4 MB.");
+            setError(c.pay.tooBig);
             return;
           }
           setFile(f);
@@ -1460,20 +1505,20 @@ function PaymentProof({
         className="mt-3 flex min-h-14 w-full items-center justify-center gap-2.5 rounded-xl border border-[#6E6E6E] px-4 font-dm text-[16px] text-offwhite"
       >
         <UploadCloud size={18} aria-hidden />
-        {file ? file.name.slice(0, 34) : "Choose a file or take a photo"}
+        {file ? file.name.slice(0, 34) : c.pay.proofChoose}
       </button>
 
       <label
         htmlFor="proof-ref"
         className={cn(t.meta, "mt-3 block text-[#B0B0B0]")}
       >
-        Reference number (optional)
+        {c.tracker.referenceOptional}
       </label>
       <input
         id="proof-ref"
         value={ref}
         onChange={(e) => setRef(e.target.value)}
-        placeholder="e.g. MCB-8891"
+        placeholder={c.tracker.referencePlaceholder}
         className={cn(recipe.field, "mt-1")}
       />
 
@@ -1493,7 +1538,7 @@ function PaymentProof({
         )}
       >
         {busy && <Loader2 size={16} className="animate-spin" />}
-        {busy ? "Sending…" : "I have sent the money"}
+        {busy ? c.pay.proofSending : c.pay.proofSubmit}
       </button>
     </div>
   );
@@ -1523,6 +1568,8 @@ function IdDocument({
   attachedAt: string | null;
   onDone: () => void;
 }) {
+  const { language } = useLanguage();
+  const c = DELIVER_COPY[language];
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1537,7 +1584,7 @@ function IdDocument({
             className="mt-0.5 shrink-0 text-emerald-300"
             aria-hidden
           />
-          ID received. Your driver can start now.
+          {c.pay.idDone}
         </p>
       </div>
     );
@@ -1560,7 +1607,7 @@ function IdDocument({
       );
       const upJson = (await up.json()) as { path?: string; error?: string };
       if (!up.ok || !upJson.path) {
-        setError(upJson.error ?? "Could not send that. Please try again.");
+        setError(upJson.error ?? c.pay.failed);
         return;
       }
       const res = await fetch(`/api/delivery-requests/${requestId}`, {
@@ -1574,13 +1621,13 @@ function IdDocument({
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        setError(json.error ?? "Could not attach that.");
+        setError(json.error ?? c.pay.failed);
         return;
       }
-      toast.success("ID received.");
+      toast.success(c.pay.idDone);
       onDone();
     } catch {
-      setError("Network problem — check your connection and try again.");
+      setError(c.error.network);
     } finally {
       setBusy(false);
     }
@@ -1589,16 +1636,17 @@ function IdDocument({
   return (
     <div className="rounded-2xl border border-yellow/40 bg-yellow/[0.05] p-4">
       <h3 className={cn(t.cardTitle, "text-offwhite")}>
-        Send a photo of your ID
+        {c.pay.idTitle}
         <span className="font-bold text-red-400" aria-hidden>
           {" *"}
         </span>
       </h3>
-      {/* The reason, who sees it, and when it goes — before the button. */}
+      {/* The reason, who sees it, and when it goes — before the button. NOT
+          pay.idWhy: that one promises the driver checks it at the door, this
+          one promises who can see it and for how long. Both true, not the
+          same sentence — so this panel keeps its own. */}
       <p className={cn(t.bodySm, "mt-1.5 text-[#B0B0B0]")}>
-        For cash payments we ask for your ID. Only the driver bringing this
-        delivery can see it, only until it arrives, and it is deleted 30 days
-        later.
+        {c.tracker.idWhy}
       </p>
 
       <input
@@ -1607,12 +1655,12 @@ function IdDocument({
         accept="image/jpeg,image/png,image/webp"
         capture="environment"
         className="sr-only"
-        aria-label="Take a photo of your ID"
+        aria-label={c.pay.idChoose}
         onChange={(e) => {
           const f = e.target.files?.[0] ?? null;
           setError(null);
           if (f && f.size > 4 * 1024 * 1024) {
-            setError("That photo is too large — the limit is 4 MB.");
+            setError(c.pay.tooBig);
             return;
           }
           setFile(f);
@@ -1625,7 +1673,7 @@ function IdDocument({
         className="mt-3 flex min-h-14 w-full items-center justify-center gap-2.5 rounded-xl border border-[#6E6E6E] px-4 font-dm text-[16px] text-offwhite"
       >
         <UploadCloud size={18} aria-hidden />
-        {file ? file.name.slice(0, 34) : "Take a photo of your ID"}
+        {file ? file.name.slice(0, 34) : c.pay.idChoose}
       </button>
 
       {error && (
@@ -1644,21 +1692,26 @@ function IdDocument({
         )}
       >
         {busy && <Loader2 size={16} className="animate-spin" />}
-        {busy ? "Sending…" : "Send it"}
+        {busy ? c.pay.proofSending : c.pay.idSubmit}
       </button>
     </div>
   );
 }
 
 function BookedDriver({ view }: { view: RequestView }) {
+  const { language } = useLanguage();
+  const c = DELIVER_COPY[language];
   const d = view.delivery!;
   const here = legIndex(d.status);
-  const pay = payAtDoor({
-    fee: d.fee,
-    kind: view.kind,
-    spendCap: view.spendCap,
-  });
-  const leg = legCopy(d.status);
+  const pay = payAtDoor(
+    {
+      fee: d.fee,
+      kind: view.kind,
+      spendCap: view.spendCap,
+    },
+    language,
+  );
+  const leg = legCopy(d.status, language);
   const Icon = VEHICLE_ICON[d.vehicleType ?? ""] ?? Package;
   // Everything here comes from the DELIVERY, never from the winning quote. A
   // driver can bail before pickup and a different one can take the job on;
@@ -1692,7 +1745,7 @@ function BookedDriver({ view }: { view: RequestView }) {
               {hasDriver ? d.driverName : leg.label}
             </p>
             <p className={cn(t.meta, "text-[#B0B0B0]")}>
-              {hasDriver ? leg.label : "No driver on this job right now"}
+              {hasDriver ? leg.label : c.tracker.noDriverNow}
             </p>
           </div>
           {/* Only while somebody actually holds the job. Released at booking and
@@ -1703,7 +1756,7 @@ function BookedDriver({ view }: { view: RequestView }) {
             <a
               href={`tel:${d.driverPhone.replace(/\s+/g, "")}`}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-yellow/40 text-yellow transition-colors hover:bg-yellow/10"
-              aria-label={`Call ${d.driverName}`}
+              aria-label={c.tracker.callDriver(d.driverName ?? "")}
             >
               <Phone size={16} />
             </a>
@@ -1757,7 +1810,7 @@ function BookedDriver({ view }: { view: RequestView }) {
                         : "text-[#B0B0B0]",
                   )}
                 >
-                  {legCopy(step).label}
+                  {legCopy(step, language).label}
                 </p>
               </li>
             );
@@ -1768,12 +1821,12 @@ function BookedDriver({ view }: { view: RequestView }) {
       {/* ── The code, and the money ─────────────────────────────────────── */}
       {d.status !== "delivered" && (
         <div className="rounded-2xl border border-white/10 bg-dark-card p-4 text-center">
-          <p className={cn(t.eyebrow, "text-yellow")}>YOUR CODE</p>
+          <p className={cn(t.eyebrow, "text-yellow")}>{c.tracker.codeEyebrow}</p>
           <p className="mt-2 font-syne text-4xl font-extrabold tracking-[0.3em] text-offwhite">
             {d.pin}
           </p>
           <p className={cn(t.bodySm, "mt-2 text-[#B0B0B0]")}>
-            Read this out only when it is in your hands.
+            {c.tracker.codeWhen}
           </p>
         </div>
       )}
@@ -1792,7 +1845,7 @@ function BookedDriver({ view }: { view: RequestView }) {
         ))}
         <div className="mt-1 flex items-baseline justify-between gap-4 border-t border-white/10 pt-2.5">
           <dt className={cn(t.bodySm, "font-semibold text-offwhite")}>
-            {d.status === "delivered" ? "You paid" : "Pay at the door"}
+            {d.status === "delivered" ? c.tracker.paid : c.tracker.payAtDoor}
           </dt>
           <dd
             className={cn(
@@ -1844,20 +1897,20 @@ function RateDriver({
   saved: boolean;
   onRate: (stars: number) => Promise<void>;
 }) {
+  const { language } = useLanguage();
+  const c = DELIVER_COPY[language];
   return (
     <section className="rounded-2xl border border-white/12 bg-dark-card p-4">
       <h2 className={cn(t.heading, "text-offwhite")}>
-        {saved ? "Thank you" : `How was ${driverName}?`}
+        {saved ? c.tracker.rateThanks : c.tracker.rateTitle(driverName)}
       </h2>
       <p className={cn(t.bodySm, "mt-1 text-[#B0B0B0]")}>
-        {saved
-          ? "Your rating helps the next customer choose."
-          : "Tap a star. It helps the next person choose a driver."}
+        {saved ? c.tracker.rateSaved : c.tracker.rateHelp}
       </p>
       <div
         className="mt-3 flex gap-1"
         role="group"
-        aria-label={`Rate ${driverName}`}
+        aria-label={c.tracker.rateAria(driverName)}
       >
         {[1, 2, 3, 4, 5].map((n) => {
           const on = (value ?? 0) >= n;
@@ -1866,7 +1919,7 @@ function RateDriver({
               key={n}
               type="button"
               onClick={() => void onRate(n)}
-              aria-label={`${n} ${n === 1 ? "star" : "stars"}`}
+              aria-label={c.tracker.starAria(n)}
               aria-pressed={on}
               className="flex h-14 w-14 items-center justify-center rounded-xl transition-colors hover:bg-white/[0.05]"
             >

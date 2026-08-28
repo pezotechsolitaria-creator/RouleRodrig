@@ -8,6 +8,7 @@ import {
   BROKEN_LEGS,
   ACTIVE_LEGS,
   PRE_PICKUP_LEGS,
+  BADGE_LABEL,
   requestRef,
   normaliseRef,
   sortQuotes,
@@ -17,8 +18,14 @@ import {
   expiresIn,
   type Quote,
 } from "./request-status";
+import type { Language } from "@/lib/i18n";
 
 const NOW = new Date("2026-08-26T10:00:00Z");
+
+/** The wording assertions below are about the ENGLISH, which is where the
+ *  reasoning behind each sentence was argued out. The three-language contract
+ *  is held separately, at the bottom of this file. */
+const LANGS: Language[] = ["en", "fr", "cr"];
 
 function quote(over: Partial<Quote> & Pick<Quote, "id" | "fee">): Quote {
   return {
@@ -41,7 +48,7 @@ function quote(over: Partial<Quote> & Pick<Quote, "id" | "fee">): Quote {
 
 describe("the state of a request, in words", () => {
   it("says nobody is coming yet, whenever prices are waiting", () => {
-    const c = requestStatusCopy({ status: "open", quoteCount: 3, now: NOW });
+    const c = requestStatusCopy({ status: "open", quoteCount: 3, now: NOW }, "en");
     expect(c.needsCustomer).toBe(true);
     expect(c.tone).toBe("action");
     expect(c.label).toBe("3 prices in");
@@ -49,48 +56,54 @@ describe("the state of a request, in words", () => {
   });
 
   it("counts one price without the plural", () => {
-    const c = requestStatusCopy({ status: "open", quoteCount: 1, now: NOW });
+    const c = requestStatusCopy({ status: "open", quoteCount: 1, now: NOW }, "en");
     expect(c.label).toBe("1 price in");
     expect(c.headline).toBe("You have a price");
   });
 
   it("distinguishes an empty board from a full one", () => {
-    const waiting = requestStatusCopy({ status: "open", quoteCount: 0, now: NOW });
+    const waiting = requestStatusCopy({ status: "open", quoteCount: 0, now: NOW }, "en");
     expect(waiting.needsCustomer).toBe(false);
     expect(waiting.tone).toBe("waiting");
     // The same database status as the case above. If these two read the same,
     // the screen is lying to one of them.
     expect(waiting.headline).not.toBe(
-      requestStatusCopy({ status: "open", quoteCount: 2, now: NOW }).headline,
+      requestStatusCopy({ status: "open", quoteCount: 2, now: NOW }, "en").headline,
     );
   });
 
   it("treats a past expiry as expired even while the row still says open", () => {
     // The row is only closed by a sweep. Until it runs, the customer must not be
     // told that drivers are looking at a job that has aged out.
-    const c = requestStatusCopy({
-      status: "open",
-      quoteCount: 0,
-      expiresAt: "2026-08-26T09:59:00Z",
-      now: NOW,
-    });
+    const c = requestStatusCopy(
+      {
+        status: "open",
+        quoteCount: 0,
+        expiresAt: "2026-08-26T09:59:00Z",
+        now: NOW,
+      },
+      "en",
+    );
     expect(c.tone).toBe("dead");
     expect(c.label).toBe("Expired");
     expect(c.detail).toMatch(/post it again/i);
   });
 
   it("leaves a request open while its expiry is still ahead", () => {
-    const c = requestStatusCopy({
-      status: "open",
-      quoteCount: 0,
-      expiresAt: "2026-08-26T10:01:00Z",
-      now: NOW,
-    });
+    const c = requestStatusCopy(
+      {
+        status: "open",
+        quoteCount: 0,
+        expiresAt: "2026-08-26T10:01:00Z",
+        now: NOW,
+      },
+      "en",
+    );
     expect(c.tone).toBe("waiting");
   });
 
   it("stops asking the customer for anything once a driver is booked", () => {
-    const c = requestStatusCopy({ status: "accepted", quoteCount: 4, now: NOW });
+    const c = requestStatusCopy({ status: "accepted", quoteCount: 4, now: NOW }, "en");
     expect(c.needsCustomer).toBe(false);
     expect(c.tone).toBe("moving");
   });
@@ -104,12 +117,15 @@ describe("the state of a request, in words", () => {
   it("stops claiming a driver is booked once that driver has dropped out", () => {
     // The exact failure this whole surface exists to prevent, reached from the
     // other end: a customer sitting and waiting for somebody nobody sent.
-    const c = requestStatusCopy({
-      status: "accepted",
-      quoteCount: 0,
-      deliveryStatus: "searching_driver",
-      now: NOW,
-    });
+    const c = requestStatusCopy(
+      {
+        status: "accepted",
+        quoteCount: 0,
+        deliveryStatus: "searching_driver",
+        now: NOW,
+      },
+      "en",
+    );
     expect(c.headline).not.toMatch(/booked/i);
     expect(c.headline).toMatch(/drop out/i);
     expect(c.detail).toMatch(/nothing for you to do/i);
@@ -119,12 +135,15 @@ describe("the state of a request, in words", () => {
 
   it("never says booked in ANY broken state", () => {
     for (const leg of BROKEN_LEGS) {
-      const c = requestStatusCopy({
-        status: "accepted",
-        quoteCount: 0,
-        deliveryStatus: leg,
-        now: NOW,
-      });
+      const c = requestStatusCopy(
+        {
+          status: "accepted",
+          quoteCount: 0,
+          deliveryStatus: leg,
+          now: NOW,
+        },
+        "en",
+      );
       expect(c.headline, leg).not.toMatch(/your driver is booked/i);
       expect(c.tone, leg).not.toBe("moving");
       // It is not the customer's to fix, and a call to action they cannot act
@@ -136,36 +155,45 @@ describe("the state of a request, in words", () => {
   it("reports a failed delivery as failed, not as in progress", () => {
     // The enum label is failed_delivery. The code said "failed", so a delivery
     // that had genuinely failed rendered as still on its way, for ever.
-    const c = requestStatusCopy({
-      status: "accepted",
-      quoteCount: 0,
-      deliveryStatus: "failed_delivery",
-      now: NOW,
-    });
+    const c = requestStatusCopy(
+      {
+        status: "accepted",
+        quoteCount: 0,
+        deliveryStatus: "failed_delivery",
+        now: NOW,
+      },
+      "en",
+    );
     expect(c.tone).toBe("dead");
     expect(c.headline).toMatch(/could not be delivered/i);
     expect(c.detail).toMatch(/not been charged/i);
   });
 
   it("marks a completed delivery done rather than moving", () => {
-    const c = requestStatusCopy({
-      status: "accepted",
-      quoteCount: 0,
-      deliveryStatus: "delivered",
-      now: NOW,
-    });
+    const c = requestStatusCopy(
+      {
+        status: "accepted",
+        quoteCount: 0,
+        deliveryStatus: "delivered",
+        now: NOW,
+      },
+      "en",
+    );
     expect(c.tone).toBe("done");
     expect(c.needsCustomer).toBe(false);
   });
 
   it("still says booked while the job is genuinely under way", () => {
     for (const leg of ["assigned", "going_to_pickup", "picked_up", "out_for_delivery", "arrived"]) {
-      const c = requestStatusCopy({
-        status: "accepted",
-        quoteCount: 0,
-        deliveryStatus: leg,
-        now: NOW,
-      });
+      const c = requestStatusCopy(
+        {
+          status: "accepted",
+          quoteCount: 0,
+          deliveryStatus: leg,
+          now: NOW,
+        },
+        "en",
+      );
       expect(c.tone, leg).toBe("moving");
       expect(c.headline, leg).toMatch(/booked/i);
     }
@@ -190,7 +218,7 @@ describe("the state of a request, in words", () => {
       { status: "expired", quoteCount: 0 },
     ];
     for (const st of states) {
-      const c = requestStatusCopy({ ...st, now: NOW });
+      const c = requestStatusCopy({ ...st, now: NOW }, "en");
       const all = `${c.headline} ${c.detail}`;
       expect(all, JSON.stringify(st)).not.toMatch(/we will (message|email|text|notify)/i);
       expect(all, JSON.stringify(st)).not.toMatch(/send you (a|the) (message|email)/i);
@@ -200,13 +228,13 @@ describe("the state of a request, in words", () => {
   it("quotes no statistic it cannot have", () => {
     // delivery_requests has never held a row, so any "most requests are priced
     // within N" is invented. Numbers about our own performance need a source.
-    const c = requestStatusCopy({ status: "open", quoteCount: 0, now: NOW });
+    const c = requestStatusCopy({ status: "open", quoteCount: 0, now: NOW }, "en");
     expect(c.detail).not.toMatch(/within (the |an )?(hour|day|minute)/i);
     expect(c.detail).not.toMatch(/most (requests|customers|jobs)/i);
   });
 
   it("says plainly that a cancelled request cost nothing", () => {
-    const c = requestStatusCopy({ status: "cancelled", quoteCount: 2, now: NOW });
+    const c = requestStatusCopy({ status: "cancelled", quoteCount: 2, now: NOW }, "en");
     expect(c.detail).toMatch(/nothing was charged/i);
     expect(c.needsCustomer).toBe(false);
   });
@@ -215,7 +243,7 @@ describe("the state of a request, in words", () => {
 describe("the driver's leg", () => {
   it("names every state on the trail", () => {
     for (const leg of LEG_ORDER) {
-      expect(legCopy(leg).label, leg).toBeTruthy();
+      expect(legCopy(leg, "en").label, leg).toBeTruthy();
     }
   });
 
@@ -224,9 +252,9 @@ describe("the driver's leg", () => {
     // one that arrives before the driver does is one they have forgotten by the
     // time it matters. "delivered" may mention the code in the PAST tense —
     // that is a receipt, not a thing to do.
-    const asks = LEG_ORDER.filter((l) => /have your .*code ready/i.test(legCopy(l).detail));
+    const asks = LEG_ORDER.filter((l) => /have your .*code ready/i.test(legCopy(l, "en").detail));
     expect(asks).toEqual(["arrived"]);
-    expect(legCopy("delivered").detail).toMatch(/confirmed with your code/i);
+    expect(legCopy("delivered", "en").detail).toMatch(/confirmed with your code/i);
   });
 
   it("puts arrived_at_pickup on the same rung as going_to_pickup", () => {
@@ -243,7 +271,7 @@ describe("the driver's leg", () => {
   });
 
   it("returns something readable for a status it has never met", () => {
-    expect(legCopy("teleported").label).toBeTruthy();
+    expect(legCopy("teleported", "en").label).toBeTruthy();
   });
 
   it("has real copy for EVERY delivery_status the database can produce", () => {
@@ -257,13 +285,13 @@ describe("the driver's leg", () => {
       "failed_delivery", "returned_to_merchant", "requires_admin",
     ];
     for (const label of ENUM) {
-      expect(legCopy(label).label, label).not.toBe("In progress");
+      expect(legCopy(label, "en").label, label).not.toBe("In progress");
     }
   });
 
   it("treats every ending as terminal, so nothing polls for ever", () => {
     for (const leg of TERMINAL_LEGS) {
-      expect(legCopy(leg).label, leg).not.toBe("In progress");
+      expect(legCopy(leg, "en").label, leg).not.toBe("In progress");
     }
     // The one that was missing, spelled the way the database spells it.
     expect(TERMINAL_LEGS).toContain("failed_delivery");
@@ -277,7 +305,7 @@ describe("the driver's leg", () => {
     // active assignments for a driver who was mid-delivery.
     expect(ACTIVE_LEGS as readonly string[]).not.toContain("en_route");
     for (const leg of ACTIVE_LEGS) {
-      expect(legCopy(leg).label, leg).not.toBe("In progress");
+      expect(legCopy(leg, "en").label, leg).not.toBe("In progress");
     }
     // Holding a job and being finished with it are disjoint by definition.
     for (const leg of TERMINAL_LEGS) {
@@ -364,7 +392,7 @@ describe("choosing between prices", () => {
 
 describe("what the customer actually hands over", () => {
   it("is just the fee on a collection", () => {
-    const out = payAtDoor({ fee: 25000, kind: "package", spendCap: null });
+    const out = payAtDoor({ fee: 25000, kind: "package", spendCap: null }, "en");
     expect(out.lines).toHaveLength(1);
     expect(out.total).toBe("Rs 250");
     expect(out.note).toBeNull();
@@ -373,14 +401,26 @@ describe("what the customer actually hands over", () => {
   it("never shows a shopping fee without the money being repaid", () => {
     // The failure this prevents: someone reads "Rs 250", brings Rs 300, and the
     // driver has laid out Rs 1,500 of their own money on gas bottles.
-    const out = payAtDoor({ fee: 25000, kind: "shop_and_deliver", spendCap: 150000 });
+    const out = payAtDoor({ fee: 25000, kind: "shop_and_deliver", spendCap: 150000 }, "en");
     expect(out.lines).toHaveLength(2);
     expect(out.total).toBe("up to Rs 1750");
     expect(out.note).toMatch(/receipt decides/i);
   });
 
+  it("keeps the amount, and only the amount, out of the translation", () => {
+    // The rupees are the same number in every language; the words around them
+    // are not. A total that lost its "up to" in French would be a promise of a
+    // fixed price on a shopping run — the exact thing payAtDoor exists to stop.
+    for (const l of LANGS) {
+      const out = payAtDoor({ fee: 25000, kind: "shop_and_deliver", spendCap: 150000 }, l);
+      expect(out.total, l).toContain("Rs 1750");
+      expect(out.total, l).not.toBe("Rs 1750");
+      expect(out.lines.map((x) => x.value), l).toEqual(["Rs 250", "Rs 1500"]);
+    }
+  });
+
   it("falls back to the fee alone when a shopping run has no cap", () => {
-    const out = payAtDoor({ fee: 25000, kind: "shop_and_deliver", spendCap: null });
+    const out = payAtDoor({ fee: 25000, kind: "shop_and_deliver", spendCap: null }, "en");
     expect(out.lines).toHaveLength(1);
   });
 
@@ -392,25 +432,39 @@ describe("what the customer actually hands over", () => {
 
 describe("how long is left", () => {
   it("counts down in the largest useful unit", () => {
-    expect(expiresIn("2026-08-26T10:20:00Z", NOW)).toBe("in 20 minutes");
-    expect(expiresIn("2026-08-26T13:00:00Z", NOW)).toBe("in 3 hours");
-    expect(expiresIn("2026-08-28T10:00:00Z", NOW)).toBe("in 2 days");
+    expect(expiresIn("2026-08-26T10:20:00Z", "en", NOW)).toBe("in 20 minutes");
+    expect(expiresIn("2026-08-26T13:00:00Z", "en", NOW)).toBe("in 3 hours");
+    expect(expiresIn("2026-08-28T10:00:00Z", "en", NOW)).toBe("in 2 days");
   });
 
   it("uses the singular where it belongs", () => {
-    expect(expiresIn("2026-08-26T11:00:00Z", NOW)).toBe("in 1 hour");
-    expect(expiresIn("2026-08-27T10:00:00Z", NOW)).toBe("in 1 day");
+    expect(expiresIn("2026-08-26T11:00:00Z", "en", NOW)).toBe("in 1 hour");
+    expect(expiresIn("2026-08-27T10:00:00Z", "en", NOW)).toBe("in 1 day");
   });
 
   it("never counts down past zero", () => {
-    expect(expiresIn("2026-08-26T09:59:00Z", NOW)).toBeNull();
-    expect(expiresIn(null, NOW)).toBeNull();
-    expect(expiresIn(undefined, NOW)).toBeNull();
+    expect(expiresIn("2026-08-26T09:59:00Z", "en", NOW)).toBeNull();
+    expect(expiresIn(null, "en", NOW)).toBeNull();
+    expect(expiresIn(undefined, "en", NOW)).toBeNull();
   });
 
   it("rounds a nearly-gone window up to a minute rather than to nothing", () => {
     // "in 0 minutes" is worse than useless — it reads as broken.
-    expect(expiresIn("2026-08-26T10:00:30Z", NOW)).toBe("in 1 minute");
+    expect(expiresIn("2026-08-26T10:00:30Z", "en", NOW)).toBe("in 1 minute");
+  });
+
+  it("counts in the reader's language, and picks the same unit in all three", () => {
+    // The unit is arithmetic and must not drift between languages; only the
+    // word for it changes. Kreol marks no plural on the noun, which is the
+    // language's rule and not a missing "s".
+    expect(expiresIn("2026-08-26T13:00:00Z", "fr", NOW)).toBe("dans 3 heures");
+    expect(expiresIn("2026-08-26T11:00:00Z", "fr", NOW)).toBe("dans 1 heure");
+    expect(expiresIn("2026-08-26T13:00:00Z", "cr", NOW)).toBe("dan 3 ertan");
+    expect(expiresIn("2026-08-26T11:00:00Z", "cr", NOW)).toBe("dan 1 ertan");
+    for (const l of LANGS) {
+      expect(expiresIn("2026-08-26T10:20:00Z", l, NOW), l).toContain("20");
+      expect(expiresIn("2026-08-26T09:59:00Z", l, NOW), l).toBeNull();
+    }
   });
 });
 
@@ -442,5 +496,94 @@ describe("the reference a person writes down", () => {
 
   it("round-trips its own output", () => {
     expect(normaliseRef(requestRef(ID))).toBe("3F9A2B");
+  });
+});
+
+// ── The same screen, in three languages ─────────────────────────────────────
+//
+// /deliver has been trilingual since it was built and these words were English
+// in all three, on the screen where a price is accepted. What follows is the
+// contract that keeps them from drifting apart again — and, more importantly,
+// the one that keeps the TRANSLATION OUT OF THE LOGIC. Every decision this
+// module makes is made from database values; the language may only change the
+// words that come back.
+
+describe("the state of a request, in three languages", () => {
+  const STATES = [
+    { status: "open", quoteCount: 0 },
+    { status: "open", quoteCount: 1 },
+    { status: "open", quoteCount: 3 },
+    { status: "open", quoteCount: 0, expiresAt: "2026-08-26T09:59:00Z" },
+    { status: "accepted", quoteCount: 0, deliveryStatus: "assigned" },
+    { status: "accepted", quoteCount: 0, deliveryStatus: "delivered" },
+    { status: "accepted", quoteCount: 0, deliveryStatus: "failed_delivery" },
+    { status: "accepted", quoteCount: 0, deliveryStatus: "searching_driver" },
+    { status: "accepted", quoteCount: 0, deliveryStatus: "cancelled" },
+    { status: "cancelled", quoteCount: 0 },
+    { status: "expired", quoteCount: 0 },
+  ];
+
+  it("says something real in every language, for every state", () => {
+    // A missing Kreol key does not throw — it renders the word "undefined" on
+    // somebody's phone, which is how a half-translated screen ships.
+    for (const l of LANGS) {
+      for (const st of STATES) {
+        const c = requestStatusCopy({ ...st, now: NOW }, l);
+        const at = `${l} ${JSON.stringify(st)}`;
+        expect(c.label?.trim(), at).toBeTruthy();
+        expect(c.headline?.trim(), at).toBeTruthy();
+        expect(c.detail?.trim(), at).toBeTruthy();
+      }
+    }
+  });
+
+  it("decides the same thing whatever the reader speaks", () => {
+    // THE GUARD THAT MATTERS. tone drives the badge colour and needsCustomer
+    // drives whether the row is lit as waiting on the customer — both are read
+    // from database values and neither may depend on the language. If a
+    // translation ever reaches the logic, this is where it is caught.
+    for (const st of STATES) {
+      const en = requestStatusCopy({ ...st, now: NOW }, "en");
+      for (const l of LANGS) {
+        const c = requestStatusCopy({ ...st, now: NOW }, l);
+        expect(c.tone, `${l} ${JSON.stringify(st)}`).toBe(en.tone);
+        expect(c.needsCustomer, `${l} ${JSON.stringify(st)}`).toBe(en.needsCustomer);
+      }
+    }
+  });
+
+  it("counts the prices with the number, in every language", () => {
+    for (const l of LANGS) {
+      expect(requestStatusCopy({ status: "open", quoteCount: 4, now: NOW }, l).label, l).toContain(
+        "4",
+      );
+    }
+  });
+
+  it("has real copy for every delivery_status in every language", () => {
+    // Same list as the English test above, and the same failure it guards: a
+    // label this file has never heard of renders as the fallback for ever.
+    const ENUM = [
+      "created", "searching_driver", "assigned", "going_to_pickup",
+      "arrived_at_pickup", "picked_up", "out_for_delivery", "arrived",
+      "delivered", "cancelled", "driver_unavailable", "driver_unresponsive",
+      "failed_delivery", "returned_to_merchant", "requires_admin",
+    ];
+    for (const l of LANGS) {
+      const fallback = legCopy("teleported", l);
+      expect(fallback.label.trim(), l).toBeTruthy();
+      for (const label of ENUM) {
+        const leg = legCopy(label, l);
+        expect(leg.label, `${l}.${label}`).not.toBe(fallback.label);
+        expect(leg.detail.trim(), `${l}.${label}`).toBeTruthy();
+      }
+    }
+  });
+
+  it("names both quote badges in every language", () => {
+    for (const l of LANGS) {
+      expect(BADGE_LABEL[l].cheapest.trim(), l).toBeTruthy();
+      expect(BADGE_LABEL[l].most_experienced.trim(), l).toBeTruthy();
+    }
   });
 });

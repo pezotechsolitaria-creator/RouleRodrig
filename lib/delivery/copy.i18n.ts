@@ -244,6 +244,106 @@ const EN = {
     fromPrice: (fee: string) => `from ${fee}`,
   },
 
+  // ── The screen where the money is actually agreed ────────────────────────
+  //
+  // /deliver/[id]: quotes arrive, one is chosen, a driver is followed. The form
+  // that leads to it has been trilingual since it was built and this screen was
+  // not — so somebody answered five questions in Kreol and then met English at
+  // the exact moment they were asked to commit to a price.
+  //
+  // Anything this screen shares with the form is READ FROM THE FORM'S KEYS
+  // rather than repeated here: the two kinds (`what.kind`), the whole payment
+  // question (`pay`), the reference and email labels (`find`), the errors
+  // (`error`). One idea, one wording, wherever it appears.
+  tracker: {
+    // ── A guest coming back on a phone that has forgotten them ─────────────
+    emailTitle: "Which email did you use?",
+    emailWhy:
+      "This request was posted without an account, so we check the email against it before showing you anything.",
+    emailPlaceholder: "you@example.com",
+    emailSubmit: "Show my request",
+
+    // ── We could not load it ───────────────────────────────────────────────
+    errorTitle: "We couldn’t load this",
+    errorBody: "Your request is safe — this is us, not you. Try again in a moment.",
+    errorRetry: "Try again",
+    loadFailed: "Could not load that request.",
+
+    // ── It is not there ────────────────────────────────────────────────────
+    goneTitle: "We couldn’t find that request",
+    goneBody: "The link may be wrong, or it was posted with a different email.",
+    goneOtherEmail: "Try another email",
+    goneBack: "Back to Deliver anything",
+    goneLost: "Lost the link? Find it there with your reference and email.",
+
+    // ── Where this stands ──────────────────────────────────────────────────
+    /** `when` is expiresIn(): "in 3 hours". */
+    closesIn: (when: string) => `Drivers can quote until it closes ${when}`,
+    showingTo: (email: string) => `Showing this request to ${email}.`,
+
+    // ── What was asked for ─────────────────────────────────────────────────
+    /** The prefix of when.chosen, kept as its own key only because the screen
+     *  greys it and leaves the window in full colour. Same word, one wording. */
+    neededLabel: "Needed",
+    largeItem: "Large item",
+    collectFrom: "Collect from",
+    deliverTo: "Deliver to",
+
+    // ── The prices, or the wait ────────────────────────────────────────────
+    chooseDriver: "Choose a driver",
+    noPricesYet: "No prices yet",
+    waitingTitle: "Drivers are being shown your job",
+    waitingBody:
+      "Prices appear here as drivers send them. Keep this page open, or come back to it any time with your reference.",
+    /** On a driver's card, after their vehicle. */
+    completedCount: (n: number) => `${n} delivered`,
+
+    // ── The sheet, which is the last screen before money is committed ──────
+    bookTitle: (name: string) => `Book ${name}?`,
+    bookAria: (name: string, fee: string) => `Book ${name} for ${fee}`,
+    bookWhy: "They will be told straight away and will come for it.",
+    close: "Close",
+    payAtDoor: "You pay at the door",
+    paid: "You paid",
+    codePromise:
+      "You will get a 4-digit code. Read it out only once it is in your hands — it is what proves the delivery happened.",
+    booking: "Booking…",
+    bookFor: (fee: string) => `Book for ${fee}`,
+    othersWithdrawn: "The other prices are withdrawn once you book.",
+    booked: (name: string) => `${name} is booked.`,
+
+    // ── The driver who is coming ───────────────────────────────────────────
+    noDriverNow: "No driver on this job right now",
+    callDriver: (name: string) => `Call ${name}`,
+    codeEyebrow: "YOUR CODE",
+    codeWhen: "Read this out only when it is in your hands.",
+
+    // ── The receipt, and the ID ────────────────────────────────────────────
+    referenceOptional: "Reference number (optional)",
+    referencePlaceholder: "e.g. MCB-8891",
+    /** DELIBERATELY NOT pay.idWhy, which says something else: the form promises
+     *  the driver checks it at the door, this panel promises who can see it and
+     *  for how long. Both are true and they are not the same sentence. */
+    idWhy:
+      "For cash payments we ask for your ID. Only the driver bringing this delivery can see it, only until it arrives, and it is deleted 30 days later.",
+
+    // ── How was it? ────────────────────────────────────────────────────────
+    rateTitle: (name: string) => `How was ${name}?`,
+    rateThanks: "Thank you",
+    rateHelp: "Tap a star. It helps the next person choose a driver.",
+    rateSaved: "Your rating helps the next customer choose.",
+    rateAria: (name: string) => `Rate ${name}`,
+    starAria: (n: number) => `${n} star${n === 1 ? "" : "s"}`,
+    rateFailed: "Could not save that.",
+
+    // ── Again, and out ─────────────────────────────────────────────────────
+    again: "Post this again",
+    cancelling: "Cancelling…",
+    cancelDelivery: "Cancel this delivery",
+    withdraw: "Withdraw this request",
+    withdrawn: "Request withdrawn.",
+  },
+
   // ── Getting back to a request whose link is gone ─────────────────────────
   find: {
     /** The collapsed line — all this is until somebody opens it. */
@@ -499,6 +599,82 @@ const FR: DeliverCopy = {
     fromPrice: (fee: string) => `à partir de ${fee}`,
   },
 
+  tracker: {
+    emailTitle: "Quel e-mail avez-vous utilisé ?",
+    emailWhy:
+      "Cette demande a été publiée sans compte : nous vérifions l’e-mail avant de vous montrer quoi que ce soit.",
+    emailPlaceholder: "vous@exemple.com",
+    emailSubmit: "Afficher ma demande",
+
+    errorTitle: "Nous n’avons pas pu charger ceci",
+    errorBody:
+      "Votre demande est en sécurité — le problème vient de nous, pas de vous. Réessayez dans un instant.",
+    errorRetry: "Réessayer",
+    loadFailed: "Impossible de charger cette demande.",
+
+    goneTitle: "Nous n’avons pas trouvé cette demande",
+    goneBody:
+      "Le lien est peut-être erroné, ou la demande a été publiée avec un autre e-mail.",
+    goneOtherEmail: "Essayer un autre e-mail",
+    goneBack: "Retour à la page Livraison",
+    goneLost:
+      "Lien perdu ? Retrouvez la demande là-bas avec votre référence et votre e-mail.",
+
+    closesIn: (when: string) =>
+      `Les chauffeurs peuvent proposer un prix jusqu’à la fermeture, ${when}`,
+    showingTo: (email: string) => `Cette demande est affichée pour ${email}.`,
+
+    neededLabel: "Pour",
+    largeItem: "Objet volumineux",
+    collectFrom: "Récupérer à",
+    deliverTo: "Livrer à",
+
+    chooseDriver: "Choisissez un chauffeur",
+    noPricesYet: "Pas encore de prix",
+    waitingTitle: "Votre demande est montrée aux chauffeurs",
+    waitingBody:
+      "Les prix apparaissent ici au fur et à mesure que les chauffeurs les envoient. Gardez cette page ouverte, ou revenez-y à tout moment avec votre référence.",
+    completedCount: (n: number) => `${n} livraison${n === 1 ? "" : "s"}`,
+
+    bookTitle: (name: string) => `Réserver ${name} ?`,
+    bookAria: (name: string, fee: string) => `Réserver ${name} pour ${fee}`,
+    bookWhy: "Il sera prévenu tout de suite et viendra la chercher.",
+    close: "Fermer",
+    payAtDoor: "Vous payez à la porte",
+    paid: "Vous avez payé",
+    codePromise:
+      "Vous recevrez un code à 4 chiffres. Ne le donnez qu’une fois la livraison entre vos mains — c’est lui qui prouve qu’elle a bien eu lieu.",
+    booking: "Réservation…",
+    bookFor: (fee: string) => `Réserver pour ${fee}`,
+    othersWithdrawn: "Les autres prix sont retirés dès que vous réservez.",
+    booked: (name: string) => `${name} est réservé.`,
+
+    noDriverNow: "Aucun chauffeur sur cette livraison pour le moment",
+    callDriver: (name: string) => `Appeler ${name}`,
+    codeEyebrow: "VOTRE CODE",
+    codeWhen: "Ne le donnez qu’une fois la livraison entre vos mains.",
+
+    referenceOptional: "Numéro de référence (facultatif)",
+    referencePlaceholder: "ex. MCB-8891",
+    idWhy:
+      "Pour les paiements en espèces nous demandons votre pièce d’identité. Seul le chauffeur qui apporte cette livraison peut la voir, seulement jusqu’à son arrivée, et elle est supprimée 30 jours après.",
+
+    rateTitle: (name: string) => `Comment était ${name} ?`,
+    rateThanks: "Merci",
+    rateHelp:
+      "Touchez une étoile. Cela aide la prochaine personne à choisir un chauffeur.",
+    rateSaved: "Votre note aidera le prochain client à choisir.",
+    rateAria: (name: string) => `Noter ${name}`,
+    starAria: (n: number) => `${n} étoile${n === 1 ? "" : "s"}`,
+    rateFailed: "Impossible d’enregistrer votre note.",
+
+    again: "Publier à nouveau",
+    cancelling: "Annulation…",
+    cancelDelivery: "Annuler cette livraison",
+    withdraw: "Retirer cette demande",
+    withdrawn: "Demande retirée.",
+  },
+
   find: {
     open: "Déjà demandé des prix ? Trouvez votre demande",
     title: "Trouvez votre demande",
@@ -723,6 +899,80 @@ const CR: DeliverCopy = {
   mine: {
     title: "Ou bann demann",
     fromPrice: (fee: string) => `apartir ${fee}`,
+  },
+
+  tracker: {
+    emailTitle: "Ki email ou finn servi ?",
+    emailWhy:
+      "Sa demann la ti avoye san kont, alor nou verifie email la avan nou montre ou nanye.",
+    emailPlaceholder: "ou@exemple.com",
+    emailSubmit: "Montre mo demann",
+
+    errorTitle: "Nou pa finn kapav sarz sa",
+    errorBody:
+      "Ou demann la an sekirite — problem la kot nou, pa kot ou. Esey ankor dan enn ti moman.",
+    errorRetry: "Esey ankor",
+    loadFailed: "Pa finn kapav sarz sa demann la.",
+
+    goneTitle: "Nou pa finn trouv sa demann la",
+    goneBody: "Kitfwa lien la pa bon, ouswa demann la ti avoye ar enn lot email.",
+    goneOtherEmail: "Esey enn lot email",
+    goneBack: "Retourn lor paz Livrezon",
+    goneLost:
+      "Ou finn perdi lien la ? Trouv demann la laba ar ou referans ek ou email.",
+
+    closesIn: (when: string) =>
+      `Bann sofer kapav donn enn pri ziska demann la ferme, ${when}`,
+    showingTo: (email: string) => `Sa demann la pe montre pou ${email}.`,
+
+    neededLabel: "Bizin",
+    largeItem: "Gro zafer",
+    collectFrom: "Al pran kot",
+    deliverTo: "Livre kot",
+
+    chooseDriver: "Swazir enn sofer",
+    noPricesYet: "Pankor ena pri",
+    waitingTitle: "Bann sofer pe trouv ou travay la",
+    waitingBody:
+      "Bann pri paret isi amizir bann sofer avoy zot. Gard sa paz la ouver, ouswa revini nenport ler ar ou referans.",
+    completedCount: (n: number) => `${n} livrezon fini`,
+
+    bookTitle: (name: string) => `Rezerv ${name} ?`,
+    bookAria: (name: string, fee: string) => `Rezerv ${name} pou ${fee}`,
+    bookWhy: "Nou dir li deswit ek li pou vinn pran li.",
+    close: "Ferme",
+    payAtDoor: "Ou peye kot laport",
+    paid: "Ou finn peye",
+    codePromise:
+      "Ou pou gagn enn kod 4 sif. Dir li zis kan zafer la dan ou lame — se li ki prouve livrezon la finn fer.",
+    booking: "Pe rezerve…",
+    bookFor: (fee: string) => `Rezerv pou ${fee}`,
+    othersWithdrawn: "Bann lot pri retire deswit ki ou rezerve.",
+    booked: (name: string) => `${name} finn rezerve.`,
+
+    noDriverNow: "Pena okenn sofer lor sa travay la aster",
+    callDriver: (name: string) => `Apel ${name}`,
+    codeEyebrow: "OU KOD",
+    codeWhen: "Dir li zis kan zafer la dan ou lame.",
+
+    referenceOptional: "Nimero referans (opsionel)",
+    referencePlaceholder: "ex. MCB-8891",
+    idWhy:
+      "Pou peyman kas nou demann ou kart idantite. Zis sofer ki amenn sa livrezon la kapav trouv li, zis ziska li arive, ek li efase 30 zour apre.",
+
+    rateTitle: (name: string) => `Kouma ti ${name} ?`,
+    rateThanks: "Mersi",
+    rateHelp: "Tous enn zetwal. Sa ed prosen dimounn swazir enn sofer.",
+    rateSaved: "Ou not ed prosen klian swazir.",
+    rateAria: (name: string) => `Note ${name}`,
+    starAria: (n: number) => `${n} zetwal`,
+    rateFailed: "Pa finn kapav sov sa.",
+
+    again: "Avoy sa ankor",
+    cancelling: "Pe anile…",
+    cancelDelivery: "Anil sa livrezon la",
+    withdraw: "Retir sa demann la",
+    withdrawn: "Demann retire.",
   },
 
   find: {

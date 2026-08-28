@@ -146,12 +146,15 @@ export default function MyRequests() {
         {rows.slice(0, 5).map((r) => {
           const Icon = r.kind === "shop_and_deliver" ? ShoppingBasket : Package;
           const copy = r.live
-            ? requestStatusCopy({
-                status: r.live.status,
-                quoteCount: r.live.quoteCount,
-                expiresAt: r.live.expiresAt,
-                deliveryStatus: r.live.deliveryStatus,
-              })
+            ? requestStatusCopy(
+                {
+                  status: r.live.status,
+                  quoteCount: r.live.quoteCount,
+                  expiresAt: r.live.expiresAt,
+                  deliveryStatus: r.live.deliveryStatus,
+                },
+                language,
+              )
             : null;
           // Only the state that is WAITING ON THEM earns the accent. Everything
           // lit up is nothing lit up.
@@ -183,10 +186,6 @@ export default function MyRequests() {
                     <span
                       className={cn(t.meta, "block truncate", wants ? "text-yellow" : "text-[#B0B0B0]")}
                     >
-                      {/* copy.label is still English in every language:
-                          requestStatusCopy() in lib/delivery/request-status.ts
-                          is a one-language module and translating it is its own
-                          piece of work, not this one. */}
                       {copy.label}
                       {r.live?.bestQuote != null &&
                         ` · ${c.mine.fromPrice(formatFee(r.live.bestQuote))}`}
