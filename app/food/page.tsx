@@ -10,13 +10,24 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
 import { getFoodHome, browseFood } from "@/lib/food/queries";
-import { DIETARY_LABEL, DIETARY_TAGS } from "@/lib/food/types";
+import { DIETARY_TAGS } from "@/lib/food/types";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import FoodCard from "@/components/food/FoodCard";
 import FulfillmentBar from "@/components/food/FulfillmentBar";
 import FoodCartBar from "@/components/food/FoodCartBar";
-import { ShopHeader } from "@/components/shop/ShopChrome";
+import {
+  ConciergeLead,
+  FoodBackHeader,
+  FoodSearchInput,
+  FoodTitle,
+  LabelledNav,
+  T,
+  TCount,
+  TDiet,
+  TName,
+  TRail,
+} from "@/components/food/FoodCopy";
 
 // /food — a food-first ordering surface.
 //
@@ -156,7 +167,7 @@ export default async function FoodPage({
           badge counts EVERY basket and answers "do I have something waiting
           anywhere" — the question somebody who wandered in from /shop is
           carrying. */}
-      <ShopHeader backHref="/" backLabel="Home" />
+      <FoodBackHeader backHref="/" />
       {!empty && (
         <JsonLd
           data={[
@@ -191,14 +202,16 @@ export default async function FoodPage({
 
       <div className="mx-auto max-w-2xl lg:max-w-5xl">
         {/* ── The question, asked plainly. Everything under it is an answer. ── */}
-        <h1 className="font-syne text-2xl font-extrabold leading-[1.05] sm:text-3xl">
-          What are you <span className="text-yellow">hungry for?</span>
-        </h1>
+        <FoodTitle
+          className="font-syne text-2xl font-extrabold leading-[1.05] sm:text-3xl"
+          accentClassName="text-yellow"
+        />
         {!empty && (
           <p className="mt-1 font-dm text-xs text-muted">
-            {home.dishCount} dish{home.dishCount === 1 ? "" : "es"} from island
-            kitchens
-            {home.kitchensOpen > 0 && <> · {home.kitchensOpen} cooking now</>}
+            <TCount k="chrome.dishCount" n={home.dishCount} />
+            {home.kitchensOpen > 0 && (
+              <> · <TCount k="chrome.cookingNow" n={home.kitchensOpen} /></>
+            )}
           </p>
         )}
 
@@ -212,19 +225,15 @@ export default async function FoodPage({
               role="search"
               className="mt-3 flex gap-2"
             >
-              <div className="relative flex-1">
+              <FoodSearchInput
+                defaultValue={f.q}
+                className="w-full rounded-2xl border border-white/10 bg-dark-card py-3.5 pl-10 pr-4 font-dm text-sm text-offwhite placeholder:text-muted focus:border-yellow/50 focus:outline-none"
+              >
                 <Search
                   size={16}
                   className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
                 />
-                <input
-                  type="search"
-                  name="q"
-                  defaultValue={f.q}
-                  placeholder="Octopus, chicken, something cheap…"
-                  className="w-full rounded-2xl border border-white/10 bg-dark-card py-3.5 pl-10 pr-4 font-dm text-sm text-offwhite placeholder:text-muted focus:border-yellow/50 focus:outline-none"
-                />
-              </div>
+              </FoodSearchInput>
               {f.category && (
                 <input type="hidden" name="category" value={f.category} />
               )}
@@ -233,7 +242,7 @@ export default async function FoodPage({
                 type="submit"
                 className="rounded-2xl bg-yellow px-5 font-dm text-sm font-bold text-dark transition-opacity hover:opacity-90"
               >
-                Search
+                <T k="chrome.search" />
               </button>
             </form>
 
@@ -248,15 +257,15 @@ export default async function FoodPage({
                 Only categories that actually have dishes appear (food_home()
                 omits the empty ones), so this is never aspirational. */}
             {home.categories.length > 0 && (
-              <nav
-                aria-label="Food categories"
+              <LabelledNav
+                k="chrome.categoriesLabel"
                 className="mt-5 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 <Link
                   href={foodHref(f, { category: "" })}
                   className={f.category === "" ? chipOn : chipOff}
                 >
-                  Everything
+                  <T k="chrome.everything" />
                 </Link>
                 {home.categories.map((c) => (
                   <Link
@@ -270,7 +279,7 @@ export default async function FoodPage({
                     {c.name}
                   </Link>
                 ))}
-              </nav>
+              </LabelledNav>
             )}
 
             <div className="mt-2.5 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -278,7 +287,7 @@ export default async function FoodPage({
                 href={foodHref(f, { open: !f.open })}
                 className={f.open ? chipOn : chipOff}
               >
-                Ready now
+                <T k="chrome.readyNow" />
               </Link>
               <Link
                 href={foodHref(f, {
@@ -286,7 +295,7 @@ export default async function FoodPage({
                 })}
                 className={f.sort === "fastest" ? chipOn : chipOff}
               >
-                Quickest
+                <T k="chrome.quickest" />
               </Link>
               <Link
                 href={foodHref(f, {
@@ -294,7 +303,7 @@ export default async function FoodPage({
                 })}
                 className={f.sort === "price_asc" ? chipOn : chipOff}
               >
-                Cheapest
+                <T k="chrome.cheapest" />
               </Link>
               <span className="mx-0.5 hidden w-px shrink-0 bg-white/10 sm:block" />
               {/* Halal first, and not alphabetically. The other three narrow a
@@ -310,7 +319,7 @@ export default async function FoodPage({
                     href={foodHref(f, { diet: f.diet === tag ? "" : tag })}
                     className={f.diet === tag ? chipOn : chipOff}
                   >
-                    {DIETARY_LABEL[tag]}
+                    <TDiet tag={tag} />
                   </Link>
                 ),
               )}
@@ -323,7 +332,7 @@ export default async function FoodPage({
                 {home.rails.map((rail) => (
                   <section key={rail.key}>
                     <h2 className="font-syne text-lg font-extrabold text-offwhite">
-                      {rail.title}
+                      <TRail railKey={rail.key} fallback={rail.title} />
                     </h2>
                     {/* A SWIPE RAIL, AND THE PEEK IS THE POINT.
                         c7f03e7 read "half the next dish is off the edge" as a
@@ -376,26 +385,20 @@ function SearchResults({
           <SlidersHorizontal size={20} />
         </span>
         <p className="mt-4 font-syne text-lg font-bold text-offwhite">
-          Nothing delicious matched that
+          <T k="results.emptyTitle" />
         </p>
         <p className="mx-auto mt-2 max-w-sm font-dm text-sm text-muted">
           {filters.q ? (
-            <>
-              Try a shorter word — &ldquo;fish&rdquo;, &ldquo;curry&rdquo;,
-              &ldquo;ourite&rdquo; — or browse a category above.
-            </>
+            <T k="results.emptyTyped" />
           ) : (
-            <>
-              Nothing is filed under those filters yet. Clear them to see the
-              whole menu.
-            </>
+            <T k="results.emptyFiltered" />
           )}
         </p>
         <Link
           href="/food"
           className="mt-5 inline-block rounded-xl border border-yellow/50 px-5 py-2.5 font-dm text-sm font-bold text-yellow transition-colors hover:bg-yellow/10"
         >
-          Show everything
+          <T k="results.showEverything" />
         </Link>
       </div>
     );
@@ -404,8 +407,8 @@ function SearchResults({
   return (
     <>
       <p className="mt-7 font-dm text-xs text-muted">
-        {results.total} dish{results.total === 1 ? "" : "es"}
-        {filters.q && <> for &ldquo;{filters.q}&rdquo;</>}
+        <TCount k="results.count" n={results.total} />
+        {filters.q && <> <TName k="results.forQuery" v={filters.q} /></>}
       </p>
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {results.items.map((item, i) => (
@@ -426,17 +429,16 @@ function EmptyLaunchState() {
         <UtensilsCrossed size={26} />
       </span>
       <h2 className="mt-5 font-syne text-2xl font-extrabold text-offwhite">
-        We&apos;re between kitchens
+        <T k="launch.title" />
       </h2>
       <p className="mx-auto mt-3 max-w-md font-dm text-sm leading-relaxed text-muted">
-        Island cooks are joining one by one — ourite rougaille, grilled fish,
-        Creole curries. Ordering opens here the moment the first menu goes live.
+        <T k="launch.body" />
       </p>
       <Link
         href="/food/concierge"
         className="mt-6 inline-flex items-center gap-2 rounded-xl bg-yellow px-5 py-3 font-dm text-sm font-bold text-dark transition-opacity hover:opacity-90"
       >
-        <MessageCircle size={16} /> Ask us to find you a table
+        <MessageCircle size={16} /> <T k="launch.cta" />
       </Link>
     </div>
   );
@@ -448,15 +450,15 @@ function EmptyLaunchState() {
 function ConciergeFooter() {
   return (
     <div className="mt-12 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-dark-card px-5 py-4">
-      <p className="font-dm text-sm text-muted">
-        Want a <span className="text-offwhite">table at a restaurant</span>{" "}
-        instead? A local books it for you.
-      </p>
+      <ConciergeLead
+        className="font-dm text-sm text-muted"
+        strongClassName="text-offwhite"
+      />
       <Link
         href="/food/concierge"
         className="font-dm text-sm font-bold text-yellow hover:underline"
       >
-        Food concierge →
+        <T k="concierge.link" />
       </Link>
     </div>
   );

@@ -2,9 +2,10 @@ import Link from "next/link";
 import AutoPhotos from "@/components/AutoPhotos";
 import { Flame, Star, Clock, Users, BadgeCheck } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
-import { UNAVAILABLE_LABEL, type FoodCard as FoodCardType } from "@/lib/food/types";
+import { type FoodCard as FoodCardType } from "@/lib/food/types";
 import { dishArt } from "@/lib/food/dish-art";
 import FoodQuickAdd from "./FoodQuickAdd";
+import { SpiceAria, T, TUnavailable } from "./FoodCopy";
 
 // The food card. The most-rendered component on the surface, and the one that
 // decides whether this feels like a food platform or a business directory.
@@ -98,13 +99,13 @@ export default function FoodCard({
 
         {item.isSignature && !unavailable && (
           <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-dark/80 px-2 py-1 font-bebas text-[10px] tracking-[0.15em] text-yellow backdrop-blur-sm">
-            <Star size={9} fill="currentColor" /> SIGNATURE
+            <Star size={9} fill="currentColor" /> <T k="card.signature" />
           </span>
         )}
 
         {unavailable && item.reason && (
           <span className="absolute inset-x-0 bottom-0 bg-dark/85 py-1.5 text-center font-bebas text-[11px] tracking-[0.2em] text-orange-200 backdrop-blur-sm">
-            {UNAVAILABLE_LABEL[item.reason] ?? "Unavailable"}
+            <TUnavailable reason={item.reason} />
           </span>
         )}
 
@@ -121,14 +122,14 @@ export default function FoodCard({
         <h3 className="line-clamp-2 font-syne text-sm font-extrabold leading-tight text-offwhite">
           {item.name}
           {item.spiceLevel > 0 && (
-            <span
+            <SpiceAria
+              level={item.spiceLevel}
               className="ml-1.5 inline-flex align-middle text-orange-400"
-              aria-label={`Spice level ${item.spiceLevel} of 3`}
             >
               {Array.from({ length: item.spiceLevel }).map((_, i) => (
                 <Flame key={i} size={11} />
               ))}
-            </span>
+            </SpiceAria>
           )}
         </h3>
 

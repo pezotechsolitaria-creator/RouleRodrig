@@ -6,7 +6,6 @@ import { ArrowLeft, Flame, Users, Clock, ChefHat, UtensilsCrossed, Info, Message
 import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
 import { getFoodItem } from "@/lib/food/queries";
-import { DIETARY_LABEL } from "@/lib/food/types";
 import { centsToDecimalString } from "@/lib/money";
 import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
@@ -14,6 +13,7 @@ import AddressLink from "@/components/AddressLink";
 import FoodCard from "@/components/food/FoodCard";
 import DishOrderPanel from "@/components/food/DishOrderPanel";
 import FoodCartBar from "@/components/food/FoodCartBar";
+import { LabelledLink, T, TCount, TDiet, TName } from "@/components/food/FoodCopy";
 
 // The dish page.
 //
@@ -119,13 +119,13 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
           </span>
         )}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-dark to-transparent" />
-        <Link
+        <LabelledLink
           href="/food"
-          aria-label="Back to food"
+          k="dish.backAria"
           className="absolute left-3 top-[calc(env(safe-area-inset-top)+0.75rem)] inline-flex h-10 w-10 items-center justify-center rounded-full bg-dark/70 text-offwhite backdrop-blur-sm transition-colors hover:text-yellow"
         >
           <ArrowLeft size={18} />
-        </Link>
+        </LabelledLink>
       </div>
 
       <div className="mx-auto -mt-6 max-w-2xl px-4 lg:max-w-5xl">
@@ -135,14 +135,14 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
 
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 font-dm text-sm text-muted">
               <span className="font-syne text-lg font-extrabold text-yellow">
-                {dish.variantCount > 1 && <span className="font-dm text-xs font-normal text-muted">from </span>}
+                {dish.variantCount > 1 && <span className="font-dm text-xs font-normal text-muted"><T k="card.from" />{" "}</span>}
                 Rs {centsToDecimalString(dish.price)}
               </span>
               {prep && (
                 <span className="inline-flex items-center gap-1"><Clock size={13} /> {prep}</span>
               )}
               {dish.serves && dish.serves > 1 && (
-                <span className="inline-flex items-center gap-1"><Users size={13} /> Serves {dish.serves}</span>
+                <span className="inline-flex items-center gap-1"><Users size={13} /> <TCount k="dish.serves" n={dish.serves} /></span>
               )}
               {dish.spiceLevel > 0 && (
                 <span className="inline-flex items-center gap-0.5 text-orange-400">
@@ -167,7 +167,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
                     key={tag}
                     className="rounded-full border border-white/10 bg-dark-card px-3 py-1.5 font-dm text-xs text-muted"
                   >
-                    {DIETARY_LABEL[tag] ?? tag}
+                    <TDiet tag={tag} />
                   </span>
                 ))}
               </div>
@@ -177,7 +177,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
               <p className="mt-4 flex items-start gap-2 rounded-xl border border-white/10 bg-dark-card px-4 py-3 font-dm text-xs leading-relaxed text-muted">
                 <Info size={14} className="mt-0.5 shrink-0 text-yellow" />
                 <span>
-                  <span className="font-semibold text-offwhite">Allergens: </span>
+                  <span className="font-semibold text-offwhite"><T k="dish.allergens" />{" "}</span>
                   {dish.allergens}
                 </span>
               </p>
@@ -202,8 +202,8 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
               </span>
               <div className="min-w-0">
                 <p className="font-dm text-sm text-offwhite">
-                  Prepared by <span className="font-semibold">{dish.kitchenName}</span>
-                  {!dish.kitchenOpen && <span className="text-muted"> · closed right now</span>}
+                  <T k="dish.preparedBy" /> <span className="font-semibold">{dish.kitchenName}</span>
+                  {!dish.kitchenOpen && <span className="text-muted"> · <T k="dish.closedNow" /></span>}
                 </p>
                 {/* The certifier is named, not implied. "Halal certified" on its
                     own asks the customer to trust the platform; the issuer's
@@ -214,9 +214,9 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
                   <p className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2 py-1 font-dm text-xs text-emerald-200">
                     <BadgeCheck size={13} aria-hidden />
                     <span>
-                      Halal certified
+                      <T k="card.halalCertified" />
                       {dish.kitchenHalalCertifier && (
-                        <span className="text-emerald-200/70"> · by {dish.kitchenHalalCertifier}</span>
+                        <span className="text-emerald-200/70"> · <TName k="dish.halalBy" v={dish.kitchenHalalCertifier} /></span>
                       )}
                     </span>
                   </p>
@@ -256,12 +256,12 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
                     rel="noopener noreferrer"
                     className="mt-2.5 inline-flex min-h-[40px] items-center gap-2 rounded-xl bg-[#25D366] px-3.5 font-syne text-sm font-bold text-black transition-opacity hover:opacity-90"
                   >
-                    <MessageCircle size={15} /> Message the kitchen
+                    <MessageCircle size={15} /> <T k="dish.messageKitchen" />
                   </a>
                 )}
                 {dish.kitchenWhatsapp && (
                   <p className="mt-1.5 font-dm text-[11px] leading-snug text-muted">
-                    No local bank account? Ask them to arrange it with you directly.
+                    <T k="dish.noBankAccount" />
                   </p>
                 )}
               </div>
@@ -279,9 +279,9 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
 
         {dish.related.length > 0 && (
           <section className="mt-12">
-            <h2 className="font-syne text-lg font-extrabold text-offwhite">Goes well with this</h2>
+            <h2 className="font-syne text-lg font-extrabold text-offwhite"><T k="dish.relatedTitle" /></h2>
             <p className="mt-1 font-dm text-xs text-muted">
-              From the same kitchen, so it all arrives in one order.
+              <T k="dish.relatedNote" />
             </p>
             <div className="mt-3 flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] lg:grid lg:grid-cols-4 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
               {dish.related.map((item, i) => (
