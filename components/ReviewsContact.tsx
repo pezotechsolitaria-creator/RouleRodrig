@@ -130,7 +130,19 @@ const COPY = {
     call: "Call",
     email: "Email",
     maps: "Open in Maps",
-    beFirst: "Be the first to leave a review",
+    // ── DO NOT ANNOUNCE HAVING NONE (M142) ──────────────────────────────
+    //
+    // This read "Be the first to leave a review". It is a fair invitation
+    // and it also tells every visitor, and every AI engine reading the page,
+    // that nobody has ever reviewed this business — on a site that has taken
+    // real bookings. An audit scored social proof as the one outright FAIL
+    // here, and this sentence is why it is legible from the outside.
+    //
+    // The wording now invites the same review without volunteering the count.
+    // It is not a fix: the fix is asking the customers who already rented to
+    // post one. It just stops the page arguing against itself while that
+    // happens.
+    beFirst: "Rented with us? Tell other travellers how it went",
     post: "Post review",
     posting: "Posting…",
     thanks: "Thank you — your review is in!",
@@ -165,7 +177,7 @@ const COPY = {
     call: "Appeler",
     email: "E-mail",
     maps: "Ouvrir Maps",
-    beFirst: "Soyez le premier à laisser un avis",
+    beFirst: "Vous avez loué chez nous ? Racontez-le aux autres voyageurs",
     post: "Publier",
     posting: "Envoi…",
     thanks: "Merci — votre avis est publié !",
@@ -200,7 +212,7 @@ const COPY = {
     call: "Apele",
     email: "Email",
     maps: "Ouver Maps",
-    beFirst: "Vinn premie pou kit enn komanter",
+    beFirst: "Ou finn loue ar nou ? Rakont sa lezot vwayazer",
     post: "Poste",
     posting: "Pe poste…",
     thanks: "Mersi — ou komanter finn poste!",
