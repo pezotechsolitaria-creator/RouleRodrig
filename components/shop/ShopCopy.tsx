@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
 import { SHOP_COPY, type ShopCopy } from "@/lib/shop/copy.i18n";
 import type { ProductSort } from "@/lib/marketplace/types";
+import {
+  sellerPitch,
+  type MonetizationModel,
+} from "@/lib/marketplace/fees";
 
 // ── How a SERVER page in /shop says a translated word ───────────────────────
 //
@@ -78,6 +82,35 @@ export function TCount({ k, n }: { k: CountKey; n: number }) {
 export function TName({ k, v }: { k: NameKey; v: string }) {
   const copy = useShopCopy();
   return <>{(at(copy, k) as (v: string) => string)(v)}</>;
+}
+
+/**
+ * The seller pitch, resolved HERE rather than on the server.
+ *
+ * sellerPitch() derives a claim about money from the live monetization model,
+ * which is why the server used to compute it and pass the finished sentence
+ * down. That made the sentence English in every language, and because it is
+ * interpolated INTO a translated paragraph the result was a French sentence
+ * ending in an English clause: "...avant de remettre quoi que ce soit — no
+ * commission on your sales".
+ *
+ * So the MODEL and RATE come down instead of the prose, and the sentence is
+ * built in the reader's language from the same two numbers. The percentage is
+ * still formatted from the rate the database gave us, so no translation can
+ * promise a figure the server will not honour.
+ */
+export function TPitch({
+  k,
+  model,
+  rate,
+}: {
+  k: NameKey;
+  model: MonetizationModel;
+  rate: number;
+}) {
+  const copy = useShopCopy();
+  const { language } = useLanguage();
+  return <>{(at(copy, k) as (v: string) => string)(sellerPitch(model, rate, language))}</>;
 }
 
 /** "Page 2 of 7" — two numbers, so it does not fit TCount. */

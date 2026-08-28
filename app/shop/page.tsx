@@ -15,7 +15,13 @@ import MarketHeader from "@/components/shop/MarketHeader";
 import CategoryStrip from "@/components/shop/CategoryStrip";
 import MarketProductCard from "@/components/shop/MarketProductCard";
 import HomeAnalytics from "@/components/shop/HomeAnalytics";
-import { T, TCount, TName, LabelledLink } from "@/components/shop/ShopCopy";
+import {
+  LabelledLink,
+  T,
+  TCount,
+  TName,
+  TPitch,
+} from "@/components/shop/ShopCopy";
 import AddressLink from "@/components/AddressLink";
 import {
   browseProducts,
@@ -93,7 +99,13 @@ const GRID =
 
 // The launch state IS the empty state: with nothing listed, this page's job is
 // to recruit the first shops, not to apologise to customers for a bare shelf.
-function LaunchState({ pitch }: { pitch: string }) {
+function LaunchState({
+  model,
+  rate,
+}: {
+  model: MonetizationModel;
+  rate: number;
+}) {
   return (
     <div className="mt-8 overflow-hidden rounded-3xl border border-yellow/20 bg-gradient-to-b from-yellow/10 to-transparent px-6 py-12 text-center">
       <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-yellow/10 text-yellow ring-1 ring-inset ring-yellow/20">
@@ -109,12 +121,8 @@ function LaunchState({ pitch }: { pitch: string }) {
         <p className="font-syne text-lg font-bold text-offwhite">
           <T k="home.launch.sellerTitle" />
         </p>
-        {/* `pitch` is generated English prose from lib/marketplace/fees.ts,
-            driven by the live monetization model — see the note in
-            lib/shop/copy.i18n.ts. Interpolated unchanged, so in French and
-            Kreol this sentence still ends in an English clause. */}
         <p className="mt-2 font-dm text-sm leading-relaxed text-muted">
-          <TName k="home.launch.sellerBody" v={pitch} />
+          <TPitch k="home.launch.sellerBody" model={model} rate={rate} />
         </p>
         <Link
           href="/merchant/login"
@@ -155,10 +163,10 @@ export default async function MarketplaceHomePage() {
     monetization_model?: string;
     default_commission_rate?: number;
   } | null;
-  const pitch = sellerPitch(
-    (settings?.monetization_model as MonetizationModel) ?? "subscription",
-    Number(settings?.default_commission_rate ?? 0),
-  );
+  // The MODEL and the RATE travel, not the finished sentence — see TPitch.
+  const pitchModel =
+    (settings?.monetization_model as MonetizationModel) ?? "subscription";
+  const pitchRate = Number(settings?.default_commission_rate ?? 0);
 
   const productCount = home?.productCount ?? 0;
   const categories = home?.categories ?? [];
@@ -239,7 +247,7 @@ export default async function MarketplaceHomePage() {
         )}
 
         {productCount === 0 ? (
-          <LaunchState pitch={pitch} />
+          <LaunchState model={pitchModel} rate={pitchRate} />
         ) : (
           <>
             {/* Every card already carries the badge; this says the WHY once,
@@ -379,7 +387,7 @@ export default async function MarketplaceHomePage() {
 
             <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-dark-card px-4 py-3">
               <p className="font-dm text-xs text-muted">
-                <TName k="home.sellHere" v={pitch} />
+                <TPitch k="home.sellHere" model={pitchModel} rate={pitchRate} />
               </p>
               <Link
                 href="/merchant/login"

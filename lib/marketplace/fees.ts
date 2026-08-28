@@ -23,6 +23,8 @@
 // non-negative values this domain allows. Largest intermediate is
 // 2^31 * 50_000 ≈ 1.07e14, comfortably inside Number.MAX_SAFE_INTEGER (9.0e15).
 
+import type { Language } from "@/lib/i18n";
+
 /** Scale of `numeric(6,5)`: one rate unit is 1e-5. */
 const RATE_SCALE = 100_000;
 
@@ -117,22 +119,72 @@ export function formatRate(rate: number): string {
  * turned a recruitment page into a false promise about money. A claim about
  * what somebody will be charged has to come from the thing that charges them.
  */
-export function sellerPitch(model: MonetizationModel, rate: number): string {
+type PitchWords = {
+  free: string;
+  commission: (pct: string) => string;
+  hybrid: (pct: string) => string;
+  subscriptionWithRate: (pct: string) => string;
+  subscriptionFree: string;
+};
+
+// ── THE PROMISE, IN THE READER'S LANGUAGE ───────────────────────────────
+//
+// /shop was translated into French and Kreol while this sentence was not, so
+// the recruitment paragraph ended in an English clause mid-sentence: "...avant
+// de remettre quoi que ce soit — no commission on your sales". Caught by
+// reading the live French page rather than by any test.
+//
+// The percentage is still interpolated from the SAME rate in every language,
+// so a translation cannot quietly promise a different number than the one the
+// database will charge — which is the whole reason this function exists.
+const PITCH: Record<Language, PitchWords> = {
+  en: {
+    free: "no monthly fee and no commission while we get the first shops on board",
+    commission: (pct) =>
+      `no monthly fee — Roulé Rodrigues keeps ${pct} of each completed sale`,
+    hybrid: (pct) => `a simple monthly subscription, plus ${pct} of each completed sale`,
+    subscriptionWithRate: (pct) => `a simple monthly subscription, plus ${pct} of each sale`,
+    subscriptionFree: "no commission on your sales, just a simple subscription",
+  },
+  fr: {
+    free: "aucun abonnement et aucune commission pendant que nous mettons les premières boutiques en ligne",
+    commission: (pct) =>
+      `aucun abonnement — Roulé Rodrigues garde ${pct} de chaque vente conclue`,
+    hybrid: (pct) => `un abonnement mensuel simple, plus ${pct} de chaque vente conclue`,
+    subscriptionWithRate: (pct) => `un abonnement mensuel simple, plus ${pct} de chaque vente`,
+    subscriptionFree: "aucune commission sur vos ventes, juste un abonnement simple",
+  },
+  cr: {
+    free: "okenn abonman ek okenn komision pandan ki nou pe met bann premie laboutik an liny",
+    commission: (pct) =>
+      `okenn abonman — Roulé Rodrigues gard ${pct} lor sak vant ki finn fini`,
+    hybrid: (pct) => `enn abonman mansiel senp, plis ${pct} lor sak vant ki finn fini`,
+    subscriptionWithRate: (pct) => `enn abonman mansiel senp, plis ${pct} lor sak vant`,
+    subscriptionFree: "okenn komision lor ou bann vant, zis enn abonman senp",
+  },
+};
+
+export function sellerPitch(
+  model: MonetizationModel,
+  rate: number,
+  lang: Language = "en",
+): string {
   const pct = formatRate(rate);
+  const w = PITCH[lang] ?? PITCH.en;
   switch (model) {
     case "free":
-      return "no monthly fee and no commission while we get the first shops on board";
+      return w.free;
     case "commission":
-      return `no monthly fee — Roulé Rodrigues keeps ${pct} of each completed sale`;
+      return w.commission(pct);
     case "hybrid":
-      return `a simple monthly subscription, plus ${pct} of each completed sale`;
+      return w.hybrid(pct);
     case "subscription":
     default:
       // 0% is the configured default, so "no commission" is only safe to say
       // when the number actually says so.
       return modelChargesCommission(model) || rate > 0
-        ? `a simple monthly subscription, plus ${pct} of each sale`
-        : "no commission on your sales, just a simple subscription";
+        ? w.subscriptionWithRate(pct)
+        : w.subscriptionFree;
   }
 }
 

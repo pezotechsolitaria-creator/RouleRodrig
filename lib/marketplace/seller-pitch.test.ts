@@ -48,3 +48,50 @@ describe("sellerPitch", () => {
     }
   });
 });
+
+describe("sellerPitch speaks the reader's language", () => {
+  const LANGS = ["en", "fr", "cr"] as const;
+  const MODELS: MonetizationModel[] = ["free", "commission", "subscription", "hybrid"];
+
+  it("says something real in all three, for every model", () => {
+    for (const m of MODELS) {
+      for (const lang of LANGS) {
+        const out = sellerPitch(m, 0.1, lang);
+        expect(out.trim(), `${m}/${lang}`).not.toBe("");
+      }
+    }
+  });
+
+  it("quotes the SAME percentage whatever the language", () => {
+    // The reason this function exists at all is that a claim about what a
+    // merchant will be charged must come from the thing that charges them.
+    // A translation that promised a different number would be worse than an
+    // untranslated sentence.
+    for (const m of ["commission", "hybrid"] as const) {
+      for (const lang of LANGS) {
+        expect(sellerPitch(m, 0.15, lang), `${m}/${lang}`).toContain("15%");
+      }
+    }
+  });
+
+  it("never leaves the English clause inside a translated sentence", () => {
+    // The actual bug: /shop was translated while this sentence was not, so the
+    // French recruitment paragraph ended "...— no commission on your sales".
+    for (const lang of ["fr", "cr"] as const) {
+      for (const m of MODELS) {
+        expect(sellerPitch(m, 0, lang), `${m}/${lang}`).not.toContain(
+          "no commission on your sales",
+        );
+        expect(sellerPitch(m, 0.1, lang), `${m}/${lang}`).not.toContain(
+          "monthly subscription",
+        );
+      }
+    }
+  });
+
+  it("still defaults to English when no language is given", () => {
+    expect(sellerPitch("subscription", 0)).toBe(
+      sellerPitch("subscription", 0, "en"),
+    );
+  });
+});
