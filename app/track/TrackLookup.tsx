@@ -10,6 +10,7 @@ import { centsToDecimalString } from "@/lib/money";
 import type { Activity, ActivityKind, ActivityStage } from "@/lib/activity";
 import { holdInfo, holdDeadlineLabel, holdRemaining } from "@/lib/orders/hold";
 import { useLanguage } from "@/context/LanguageContext";
+import { dateLocales } from "@/lib/i18n";
 import { TRACK_COPY, type TrackCopy } from "@/lib/track/copy.i18n";
 
 // ── ONE BOX FOR EVERYTHING ─────────────────────────────────────────────────
@@ -188,7 +189,11 @@ function ActivityCard({ activity }: { activity: Activity }) {
         {activity.date && (
           <span className="inline-flex items-center gap-1.5 text-muted">
             <CalendarCheck size={14} />
-            {new Date(activity.date).toLocaleDateString("en-GB", {
+            {/* The card's own date, in the reader's locale. dateLocales()
+                rather than languageTag(): `mfe` resolves on some engines and
+                not others, and an unresolved tag formats in the VISITOR'S OS
+                locale, so this would silently drift language by device. */}
+            {new Date(activity.date).toLocaleDateString(dateLocales(language), {
               day: "numeric", month: "short", year: "numeric",
             })}
           </span>
@@ -227,13 +232,10 @@ function ActivityCard({ activity }: { activity: Activity }) {
               ) : (
                 <>
                   {c.card.hold.reservedBefore}
-                  <span className="font-bold">{holdDeadlineLabel(h)}</span>
-                  {/* holdDeadlineLabel() formats in "en-GB" and holdRemaining()
-                      answers "2 days" / "under an hour": both are shared
-                      helpers in lib/orders/hold.ts with other callers, so the
-                      sentence around them is translated and those two values
-                      are not. Reported rather than duplicated here. */}
-                  {c.card.hold.reservedAfter(holdRemaining(h))}
+                  <span className="font-bold">
+                    {holdDeadlineLabel(h, language)}
+                  </span>
+                  {c.card.hold.reservedAfter(holdRemaining(h, language))}
                 </>
               )}
             </span>

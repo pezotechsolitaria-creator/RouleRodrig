@@ -54,6 +54,26 @@ export const LANGUAGE_TAGS: Record<Language, string> = {
 };
 
 /** The BCP-47 tag for an internal language code. Safe for unknown input. */
+/**
+ * Locales to hand Intl, most specific first.
+ *
+ * NOT the same thing as languageTag(). That returns `mfe` for Kreol, which is
+ * correct for an html lang attribute and unreliable for formatting: whether
+ * Intl has `mfe` data depends on the engine's ICU build, and a tag it cannot
+ * resolve falls back to the ENGINE default — which is the visitor's OS locale,
+ * so a customer in Berlin could read a Rodrigues deadline in German.
+ *
+ * Intl takes a LIST and uses the first locale it actually supports, so the
+ * fallback is stated here rather than left to the runtime. Kreol falls back to
+ * French, not English: Mauritius writes dates the French way, and where `mfe`
+ * IS present it already renders "sam 12 sep" from the same tradition.
+ */
+export function dateLocales(lang: Language | string | null | undefined): string[] {
+  if (lang === "fr") return ["fr-FR"];
+  if (lang === "cr") return ["mfe", "fr-FR"];
+  return ["en-GB"];
+}
+
 export function languageTag(
   lang: Language | string | null | undefined,
 ): string {

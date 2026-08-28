@@ -12,6 +12,8 @@
 // a single line of copy anywhere in the product having mentioned that a clock
 // was running.
 
+import { dateLocales, type Language } from "@/lib/i18n";
+
 export type PaymentProvider = "cash" | "bank_transfer" | "manual";
 
 export type HoldInfo = {
@@ -40,17 +42,52 @@ export function holdInfo(autoReleaseAt: string | null | undefined, now: number =
 }
 
 /** "2 days", "7 hours", "under an hour" — never a bare number the reader must decode. */
-export function holdRemaining(h: HoldInfo): string {
-  if (h.expired) return "expired";
+// ── THE COUNTDOWN, IN WORDS ───────────────────────────────────────
+//
+// `lang` is OPTIONAL and defaults to English on purpose. Two order screens and
+// the order-placed email call these helpers and are English by design; only
+// /track passes a language. A required parameter would have translated an
+// email nobody asked to translate.
+const REMAINING: Record<Language, {
+  expired: string;
+  days: (n: number) => string;
+  hours: (n: number) => string;
+  under: string;
+}> = {
+  en: {
+    expired: "expired",
+    days: (n) => `${n} days`,
+    hours: (n) => `${n} hour${n === 1 ? "" : "s"}`,
+    under: "under an hour",
+  },
+  fr: {
+    expired: "expiré",
+    days: (n) => `${n} jours`,
+    hours: (n) => `${n} heure${n === 1 ? "" : "s"}`,
+    under: "moins d’une heure",
+  },
+  cr: {
+    expired: "finn expire",
+    days: (n) => `${n} zour`,
+    hours: (n) => `${n} ler`,
+    under: "mwins ki enn ler",
+  },
+};
+
+export function holdRemaining(h: HoldInfo, lang: Language = "en"): string {
+  const w = REMAINING[lang] ?? REMAINING.en;
+  if (h.expired) return w.expired;
   const days = Math.floor(h.hoursLeft / 24);
-  if (days >= 2) return `${days} days`;
-  if (h.hoursLeft >= 1) return `${h.hoursLeft} hour${h.hoursLeft === 1 ? "" : "s"}`;
-  return "under an hour";
+  if (days >= 2) return w.days(days);
+  if (h.hoursLeft >= 1) return w.hours(h.hoursLeft);
+  return w.under;
 }
 
 /** Absolute deadline in Rodrigues local time — the customer's own clock. */
-export function holdDeadlineLabel(h: HoldInfo): string {
-  return h.deadline.toLocaleString("en-GB", {
+export function holdDeadlineLabel(h: HoldInfo, lang: Language = "en"): string {
+  // dateLocales(), not languageTag(): an Intl tag the engine cannot resolve
+  // falls back to the VISITOR'S OS locale. See lib/i18n.ts.
+  return h.deadline.toLocaleString(dateLocales(lang), {
     timeZone: "Indian/Mauritius",
     weekday: "short",
     day: "numeric",

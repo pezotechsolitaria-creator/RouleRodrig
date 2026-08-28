@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   holdInfo, holdRemaining, customerHoldCopy, merchantHoldCopy,
-  checkoutHoldCopy, holdWindowLabel, projectedDeadline,
+  checkoutHoldCopy, holdWindowLabel, projectedDeadline, holdDeadlineLabel,
 } from "./hold";
+import { dateLocales } from "@/lib/i18n";
 
 const NOW = Date.parse("2026-08-06T12:00:00Z");
 const at = (hoursFromNow: number) => new Date(NOW + hoursFromNow * 3_600_000).toISOString();
@@ -149,5 +150,75 @@ describe("checkoutHoldCopy", () => {
     const copy = checkoutHoldCopy("bank_transfer", 72, NOW);
     expect(copy).toContain("3 days");
     expect(copy).toMatch(/Sun 9 Aug, 16:00/);
+  });
+});
+
+// ── THE COUNTDOWN IN THREE LANGUAGES ────────────────────────────────────────
+//
+// /track renders "Reserved until <deadline> — <remaining> left" and had the
+// sentence translated while both VALUES stayed English, so a French reader got
+// "il reste 2 days pour payer". These helpers are shared with two English
+// order screens and the order-placed email, which is why `lang` is optional.
+describe("holdRemaining speaks the reader's language", () => {
+  const inHours = (hoursLeft: number) => ({
+    expired: false,
+    hoursLeft,
+    deadline: new Date("2026-09-12T10:30:00Z"),
+  });
+
+  it("still answers in English when nobody asks for a language", () => {
+    // The guard for app/orders/track, app/orders/[id] and the order-placed
+    // email: none of them passes a language and none of them should change.
+    expect(holdRemaining(inHours(48) as never)).toBe("2 days");
+    expect(holdRemaining(inHours(3) as never)).toBe("3 hours");
+    expect(holdRemaining(inHours(1) as never)).toBe("1 hour");
+    expect(holdRemaining(inHours(0) as never)).toBe("under an hour");
+  });
+
+  it("translates the unit, not just the sentence around it", () => {
+    expect(holdRemaining(inHours(48) as never, "fr")).toBe("2 jours");
+    expect(holdRemaining(inHours(48) as never, "cr")).toBe("2 zour");
+    expect(holdRemaining(inHours(3) as never, "fr")).toBe("3 heures");
+    expect(holdRemaining(inHours(3) as never, "cr")).toBe("3 ler");
+  });
+
+  it("never leaves an English unit in a translated sentence", () => {
+    for (const lang of ["fr", "cr"] as const) {
+      for (const h of [48, 3, 1, 0]) {
+        expect(holdRemaining(inHours(h) as never, lang), `${lang}/${h}`)
+          .not.toMatch(/(days?|hours?|under an hour)/);
+      }
+    }
+  });
+
+  it("formats the deadline in the reader's locale, not the engine's", () => {
+    const h = { expired: false, hoursLeft: 5, deadline: new Date("2026-09-12T10:30:00Z") };
+    const en = holdDeadlineLabel(h as never);
+    const fr = holdDeadlineLabel(h as never, "fr");
+    expect(en).not.toBe(fr);
+    // Same instant, same timezone, whatever the words: 14:30 in Mauritius.
+    expect(en).toContain("14:30");
+    expect(fr).toContain("14:30");
+  });
+});
+
+describe("dateLocales", () => {
+  it("never hands Intl a tag that could fall back to the visitor's OS locale", () => {
+    // `mfe` resolves on some ICU builds and not others. Unresolved, Intl uses
+    // the ENGINE default — the visitor's own locale — so a customer in Berlin
+    // would read a Rodrigues deadline in German. The fallback is stated.
+    expect(dateLocales("cr")).toEqual(["mfe", "fr-FR"]);
+    expect(dateLocales("fr")).toEqual(["fr-FR"]);
+    expect(dateLocales("en")).toEqual(["en-GB"]);
+    expect(dateLocales(undefined)).toEqual(["en-GB"]);
+  });
+
+  it("always ends in a locale every engine has", () => {
+    for (const lang of ["en", "fr", "cr"] as const) {
+      const list = dateLocales(lang);
+      const last = list[list.length - 1];
+      expect(Intl.DateTimeFormat.supportedLocalesOf(last), `${lang} -> ${last}`)
+        .toHaveLength(1);
+    }
   });
 });
