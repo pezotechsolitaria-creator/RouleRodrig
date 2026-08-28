@@ -41,6 +41,37 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("sitemap: food slugs failed", err);
   }
 
+  // Published events. Same shape as the dish block above, and for the same
+  // reason: an event page is 200 and indexable the moment its store goes
+  // active, and it was in no sitemap at all — so Google could only reach it by
+  // crawling /events and following a link.
+  //
+  // listPublicEvents() filters on stores.status === "active", which is the
+  // SAME rule that decides whether /events/[slug] renders or 404s. Verified
+  // against production: the active event answered 200 with no robots tag, the
+  // draft answered 404 with noindex. Reusing that function is what makes it
+  // impossible for this block to list a 404, which the header of this file
+  // calls worse than a missing entry.
+  //
+  // Past events are included deliberately: they are still 200, still
+  // self-canonical and still carry Event JSON-LD, and the rule this file
+  // follows is to list every page that is all three.
+  let events: MetadataRoute.Sitemap = [];
+  try {
+    const { createAnonClient } = await import("@/lib/supabase/anon");
+    const { listPublicEvents } = await import("@/lib/events/queries");
+    const published = await listPublicEvents(createAnonClient());
+    events = published.map((e) => ({
+      url: `${SITE_URL}/events/${e.slug}`,
+      lastModified: now,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    }));
+  } catch (err) {
+    // Costs the event URLs, never the whole sitemap.
+    console.error("sitemap: events failed", err);
+  }
+
   try {
     const { content, fleet, recentBookings } = await getFleetView();
     browse = buildBrowseCategories(content, fleet, recentBookings).map((c) => ({
@@ -201,6 +232,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     ...dishes,
+    ...events,
     {
       url: `${SITE_URL}/food/concierge`,
       lastModified: now,
