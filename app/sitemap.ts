@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { EXPERIENCES } from "@/lib/experiences";
 import { SITE_URL } from "@/lib/site";
 import { getFleetView, buildBrowseCategories } from "@/lib/site-data";
+import { vehicleHref } from "@/lib/vehicle-slug";
 import { BLOG_POSTS } from "@/lib/blog";
 
 // Built from live content, so a category the owner adds (or empties) in admin
@@ -80,6 +81,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly" as const,
       priority: 0.9,
     }));
+
+    // Every vehicle's own page. These carry the Product/Offer markup and the
+    // price, so they are the pages a shopping result should land on — the
+    // category grid above answers "what do you have", these answer "how much is
+    // the Avenis". Data-gated like everything else here: a fleet that fails to
+    // load lists nothing rather than a page of 404s.
+    browse.push(
+      ...fleet.map((v) => ({
+        url: `${SITE_URL}${vehicleHref(v)}`,
+        lastModified: now,
+        changeFrequency: "weekly" as const,
+        priority: 0.85,
+      })),
+    );
     if (content.mapLocations.some((l) => l.category === "shop")) {
       extra.push({
         url: `${SITE_URL}/guide/shops`,
