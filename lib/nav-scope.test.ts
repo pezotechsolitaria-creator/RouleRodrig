@@ -201,13 +201,24 @@ describe("showsSiteFooter", () => {
     }
   });
 
-  it("IS on focused flows, unlike the tab bar", () => {
-    // The distinction this rule exists for. A floating pill over the pay button
-    // is a competing target; a footer below the fold is not.
+  it("is NOT on focused flows either — it was the scroll", () => {
+    // This assertion used to say the opposite, on the argument that a footer in
+    // normal flow cannot compete with a button it does not cover. Measuring it
+    // at 375x812 settled it: /deliver scrolled 737px and the footer was 736 of
+    // them; /taxi/book 745 with the same 736. These screens were taken to zero
+    // scroll on purpose, and the footer put it all back.
     for (const p of ["/checkout", "/deliver", "/taxi/book", "/transfers", "/login"]) {
       expect(showsVisitorNav(p), `tab bar on ${p}`).toBe(false);
-      expect(showsSiteFooter(p), `footer on ${p}`).toBe(true);
+      expect(showsSiteFooter(p), `footer on ${p}`).toBe(false);
     }
+  });
+
+  it("is still on the browsing pages a focused prefix only resembles", () => {
+    // /taxi is a directory somebody browses; only /taxi/book is the form. The
+    // same distinction FOCUSED_PREFIXES already documents for the tab bar.
+    expect(showsSiteFooter("/taxi")).toBe(true);
+    expect(showsSiteFooter("/taxi/track")).toBe(true);
+    expect(showsSiteFooter("/deliveries")).toBe(true);
   });
 
   it("does not mistake a page that merely starts with a console name", () => {

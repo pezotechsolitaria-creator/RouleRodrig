@@ -90,25 +90,38 @@ export function showsVisitorNav(pathname: string): boolean {
 /**
  * Does the site footer belong on this path?
  *
- * A SEPARATE RULE FROM showsVisitorNav, on purpose. That one keeps the tab bar
- * off focused flows because a FLOATING pill sits over the primary action and
- * competes for the same thumb. A footer is the opposite kind of object: it is
- * in normal document flow, at the end, below the fold. It cannot compete with
- * a button it is not covering, so /checkout, /deliver and /taxi/book keep it —
- * and those are pages where the company line and the legal links have the most
- * reason to be reachable.
- *
- * Two exclusions remain, for two different reasons:
+ * Three exclusions, for three different reasons:
  *
  *  1. CONSOLES. A marketing footer under the order queue is the same mistake
  *     the comment at the top of this file describes: chrome for visiting the
  *     site, put on a screen for running it.
  *  2. `/`. The homepage renders <Footer> itself, with the sponsor strip above
  *     it (app/page.tsx). Mounting it globally too would print it twice.
+ *  3. FOCUSED FLOWS — the same list the tab bar avoids, and this one was
+ *     argued the other way first, so the reasoning is worth keeping.
+ *
+ *     The original claim was that a footer cannot compete with a button it is
+ *     not covering: it sits in normal flow, below the fold, unlike the floating
+ *     pill. That is true and it is not the point. These screens were measured
+ *     down to zero scroll on a phone, deliberately, because the whole flow is
+ *     meant to fit without moving. Measured again at 375×812 with the footer
+ *     mounted:
+ *
+ *       /deliver     737px of scroll, of which the footer is 736
+ *       /taxi/book   745px of scroll, of which the footer is 736
+ *
+ *     The footer WAS the scroll. Not a competing target — a page that no longer
+ *     fits, on the two forms most carefully made to fit.
+ *
+ *     The legal links lose nothing real: every one of these screens is one tap
+ *     from a page that has them, and /checkout already states its own terms.
  */
 export function showsSiteFooter(pathname: string): boolean {
   if (pathname === "/") return false;
-  return !isConsole(pathname);
+  if (isConsole(pathname)) return false;
+  return !FOCUSED_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
 }
 
 /** Is this a console — a screen for running the business rather than using it? */
