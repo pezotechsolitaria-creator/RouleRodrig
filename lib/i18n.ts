@@ -183,6 +183,58 @@ const translations = {
       days: (n: number) => `${n} day${n !== 1 ? "s" : ""}`,
     },
 
+    // Track / manage a booking (/manage-booking). The shell around the three
+    // payment components, which carry their own three languages.
+    manageBooking: {
+      title: "Track your order",
+      subtitleVehicle:
+        "No account needed — enter your reference and the email you booked with.",
+      subtitleShop: "Shop orders are tied to the account you ordered with.",
+      tabsLabel: "What are you tracking?",
+      tabVehicle: "Vehicle rental",
+      tabShop: "Shop order",
+      shopTitle: "Your shop orders",
+      shopBody:
+        "Sign in with the email you used at checkout to see every order, its status, and the shop's payment details.",
+      shopCta: "View my orders",
+      shopSwitchBefore: "Bought a scooter or car rental instead? Switch to",
+      shopSwitchAfter: "above — those need no account.",
+      refLabel: "Booking reference",
+      emailLabel: "Email",
+      find: "Find my booking",
+      refHint:
+        "Your reference is in your confirmation email & receipt (it looks like RR-XXXXXX).",
+      errMissing: "Enter your booking reference and email.",
+      errNotFound: "No booking found.",
+      statusCancelled: "Cancelled",
+      statusCompleted: "Completed",
+      statusConfirmed: "Confirmed",
+      statusAwaiting: "Awaiting deposit",
+      cancelledBody:
+        "This booking was cancelled — either the reservation window passed before it was confirmed, or the vehicle was secured by someone else first.",
+      cancelledNoCharge: "You have not been charged.",
+      bookAgain: "Book again",
+      rowVehicle: "Vehicle",
+      rowReservation: "Reservation",
+      rowWhen: "When",
+      rowTotal: "Estimated total",
+      rowPaidInFull: "Paid in full",
+      rowDepositPaid: "Deposit paid",
+      rowDepositToConfirm: "Deposit to confirm",
+      rowBalanceAtPickup: "Balance at pickup",
+      rowBalance: "Balance",
+      rowNothingToPay: "Nothing further to pay",
+      checkingTitle: "We're checking availability",
+      checkingBody:
+        "We're confirming this vehicle with its owner. As soon as it's confirmed we'll email you and you can pay here. Nothing is charged until then — and if it isn't free, we'll suggest something similar.",
+      noteTitle: "About your request",
+      approvedTitle: "It's available — it's yours to confirm",
+      holdingUntil: (when: string) =>
+        `We're holding it for you until ${when}. After that it goes back to other customers.`,
+      payBelow: "Pay below to confirm it.",
+      lookUpAnother: "Look up another",
+    },
+
     // Contact
     contact: {
       eyebrow: "GET IN TOUCH",
@@ -735,6 +787,57 @@ const translations = {
         "Veuillez accepter les Conditions & Règles de location pour continuer.",
       days: (n: number) => `${n} jour${n > 1 ? "s" : ""}`,
     },
+    manageBooking: {
+      title: "Suivre votre commande",
+      subtitleVehicle:
+        "Aucun compte nécessaire — entrez votre référence et l'e-mail utilisé pour réserver.",
+      subtitleShop:
+        "Les commandes boutique sont liées au compte avec lequel vous avez commandé.",
+      tabsLabel: "Que suivez-vous ?",
+      tabVehicle: "Location de véhicule",
+      tabShop: "Commande boutique",
+      shopTitle: "Vos commandes boutique",
+      shopBody:
+        "Connectez-vous avec l'e-mail utilisé au paiement pour voir toutes vos commandes, leur statut et les coordonnées bancaires de la boutique.",
+      shopCta: "Voir mes commandes",
+      shopSwitchBefore:
+        "Vous avez plutôt loué un scooter ou une voiture ? Passez à",
+      shopSwitchAfter: "ci-dessus — aucun compte n'est nécessaire.",
+      refLabel: "Référence de réservation",
+      emailLabel: "Email",
+      find: "Trouver ma réservation",
+      refHint:
+        "Votre référence se trouve dans votre e-mail de confirmation et votre reçu (elle ressemble à RR-XXXXXX).",
+      errMissing: "Entrez votre référence de réservation et votre e-mail.",
+      errNotFound: "Nous n'avons pas trouvé cette réservation.",
+      statusCancelled: "Annulée",
+      statusCompleted: "Terminée",
+      statusConfirmed: "Confirmé",
+      statusAwaiting: "En attente de l'acompte",
+      cancelledBody:
+        "Cette réservation a été annulée — soit le délai est passé avant qu'elle ne soit confirmée, soit le véhicule a été réservé par quelqu'un d'autre avant vous.",
+      cancelledNoCharge: "Vous n'avez pas été débité.",
+      bookAgain: "Réserver à nouveau",
+      rowVehicle: "Véhicule",
+      rowReservation: "Réservation",
+      rowWhen: "Quand",
+      rowTotal: "Total estimé",
+      rowPaidInFull: "Payé en totalité",
+      rowDepositPaid: "Acompte payé",
+      rowDepositToConfirm: "Acompte pour confirmer",
+      rowBalanceAtPickup: "Solde au retrait",
+      rowBalance: "Solde",
+      rowNothingToPay: "Plus rien à payer",
+      checkingTitle: "Nous vérifions la disponibilité",
+      checkingBody:
+        "Nous confirmons ce véhicule auprès de son propriétaire. Dès que c'est confirmé, nous vous écrirons et vous pourrez payer ici. Rien n'est débité avant — et s'il n'est pas libre, nous vous proposerons un équivalent.",
+      noteTitle: "À propos de votre demande",
+      approvedTitle: "Il est disponible — à vous de le confirmer",
+      holdingUntil: (when: string) =>
+        `Nous le gardons pour vous jusqu'au ${when}. Passé ce délai, il repart aux autres clients.`,
+      payBelow: "Payez ci-dessous pour le confirmer.",
+      lookUpAnother: "Suivre une autre réservation",
+    },
     contact: {
       eyebrow: "NOUS CONTACTER",
       title: "CONTACTEZ-NOUS",
@@ -1241,6 +1344,56 @@ const translations = {
       agreeError:
         "Silvouple aksepte bann Kondision & Reg Lokasion pou kontinie.",
       days: (n: number) => `${n} zour`,
+    },
+    manageBooking: {
+      title: "Swiv ou komann",
+      subtitleVehicle:
+        "Pena bizin kont — met ou referans ek email ki ou finn servi pou rezerve.",
+      subtitleShop:
+        "Bann komann laboutik lie ar kont ki ou finn servi pou komande.",
+      tabsLabel: "Ki ou pe swiv?",
+      tabVehicle: "Lokasion veikil",
+      tabShop: "Komann laboutik",
+      shopTitle: "Ou bann komann laboutik",
+      shopBody:
+        "Konekte ar email ki ou finn servi kan ou finn peye pou get tou ou bann komann, zot stati, ek detay peyman laboutik la.",
+      shopCta: "Get mo bann komann",
+      shopSwitchBefore: "Ou finn plito loue enn skooter ou enn loto? Al lor",
+      shopSwitchAfter: "anwo — pena bizin kont pou sa.",
+      refLabel: "Referans rezervasion",
+      emailLabel: "Email",
+      find: "Trouv mo rezervasion",
+      refHint:
+        "Ou referans dan ou email konfirmasion ek ou resi (li kouma RR-XXXXXX).",
+      errMissing: "Met ou referans rezervasion ek ou email.",
+      errNotFound: "Nou pa finn trouv sa rezervasion la.",
+      statusCancelled: "Anile",
+      statusCompleted: "Fini",
+      statusConfirmed: "Konfirmen",
+      statusAwaiting: "Pe atann depo",
+      cancelledBody:
+        "Sa rezervasion la finn anile — swa letan pou konfirme li finn depase, swa enn lot dimounn finn pran veikil la avan ou.",
+      cancelledNoCharge: "Nanye pa finn debite.",
+      bookAgain: "Rezerv ankor",
+      rowVehicle: "Veikil",
+      rowReservation: "Rezervasion",
+      rowWhen: "Kan",
+      rowTotal: "Total Estime",
+      rowPaidInFull: "Finn pey tou",
+      rowDepositPaid: "Depo peye",
+      rowDepositToConfirm: "Depo pou konfirmen",
+      rowBalanceAtPickup: "Balans kan ou pran li",
+      rowBalance: "Balans",
+      rowNothingToPay: "Nanye ankor pou peye",
+      checkingTitle: "Nou pe verifye disponibilite",
+      checkingBody:
+        "Nou pe konfirm sa veikil la ar so proprieter. Kan li konfirme, nou avoy ou enn email ek ou kapav peye isi. Nanye pa debite avan sa — ek si li pa lib, nou propoz ou enn lot parey.",
+      noteTitle: "Lor ou demann",
+      approvedTitle: "Li disponib — ou zis bizin konfirme li",
+      holdingUntil: (when: string) =>
+        `Nou gard li pou ou ziska ${when}. Apre sa, li retourn pou lezot kliyan.`,
+      payBelow: "Pey anba pou konfirmen li.",
+      lookUpAnother: "Swiv enn lot rezervasion",
     },
     contact: {
       eyebrow: "KONTAKT NOU",

@@ -8,6 +8,7 @@ import OrderAlerts from "@/components/orders/OrderAlerts";
 import PayPalDeposit from "@/components/PayPalDeposit";
 import BankTransferDetails from "@/components/BankTransferDetails";
 import { Field } from "@/components/ui/field";
+import { useLanguage } from "@/context/LanguageContext";
 
 type Booking = {
   kind: "vehicle" | "place";
@@ -47,6 +48,8 @@ function Row({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
 }
 
 export default function ManageBookingPage() {
+  const { t } = useLanguage();
+  const M = t.manageBooking;
   const [kind, setKind] = useState<"vehicle" | "shop">("vehicle");
   const [ref, setRef] = useState("");
   const [email, setEmail] = useState("");
@@ -59,7 +62,7 @@ export default function ManageBookingPage() {
     setError(null);
     setBooking(null);
     if (!ref.trim() || !email.trim()) {
-      setError("Enter your booking reference and email.");
+      setError(M.errMissing);
       return;
     }
     setLoading(true);
@@ -70,10 +73,10 @@ export default function ManageBookingPage() {
         body: JSON.stringify({ ref, email }),
       });
       const j = await res.json();
-      if (!res.ok) throw new Error(j.error || "No booking found.");
+      if (!res.ok) throw new Error(j.error || M.errNotFound);
       setBooking(j.booking as Booking);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No booking found.");
+      setError(err instanceof Error ? err.message : M.errNotFound);
     } finally {
       setLoading(false);
     }
@@ -103,11 +106,9 @@ export default function ManageBookingPage() {
           <ArrowLeft size={15} /> Roule Rodrigues
         </Link>
 
-        <h1 className="mt-6 font-syne text-3xl font-extrabold">Track your order</h1>
+        <h1 className="mt-6 font-syne text-3xl font-extrabold">{M.title}</h1>
         <p className="mt-1 text-sm text-muted">
-          {kind === "vehicle"
-            ? "No account needed — enter your reference and the email you booked with."
-            : "Shop orders are tied to the account you ordered with."}
+          {kind === "vehicle" ? M.subtitleVehicle : M.subtitleShop}
         </p>
 
         {/* The Bookings tab used to reach vehicle rentals only, so a customer
@@ -118,10 +119,10 @@ export default function ManageBookingPage() {
             with (create_order requires auth.uid()). Naming that difference here
             is kinder than a single form that silently fails for half the people
             who use it. */}
-        <div role="tablist" aria-label="What are you tracking?" className="mt-6 flex gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1.5">
+        <div role="tablist" aria-label={M.tabsLabel} className="mt-6 flex gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1.5">
           {([
-            ["vehicle", "Vehicle rental"],
-            ["shop", "Shop order"],
+            ["vehicle", M.tabVehicle],
+            ["shop", M.tabShop],
           ] as const).map(([value, label]) => (
             <button
               key={value}
@@ -140,20 +141,16 @@ export default function ManageBookingPage() {
 
         {kind === "shop" ? (
           <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-            <h2 className="font-syne text-lg font-bold text-offwhite">Your shop orders</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted">
-              Sign in with the email you used at checkout to see every order, its status, and the
-              shop&apos;s payment details.
-            </p>
+            <h2 className="font-syne text-lg font-bold text-offwhite">{M.shopTitle}</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted">{M.shopBody}</p>
             <Link
               href="/orders"
               className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-yellow px-5 py-3 font-syne text-sm font-bold text-dark transition-colors hover:bg-yellow-dark"
             >
-              View my orders
+              {M.shopCta}
             </Link>
             <p className="mt-4 text-xs leading-relaxed text-muted">
-              Bought a scooter or car rental instead? Switch to <strong className="text-offwhite">Vehicle rental</strong> above — those
-              need no account.
+              {M.shopSwitchBefore} <strong className="text-offwhite">{M.tabVehicle}</strong> {M.shopSwitchAfter}
             </p>
           </div>
         ) : !booking ? (
@@ -162,7 +159,7 @@ export default function ManageBookingPage() {
                 so both fields announced as unnamed textboxes and tapping a
                 label did not focus its control. <Field> generates the id and
                 the aria wiring, so that cannot recur. */}
-            <Field label="Booking reference" required>
+            <Field label={M.refLabel} required>
               {(p) => (
                 <input
                   {...p}
@@ -173,7 +170,7 @@ export default function ManageBookingPage() {
                 />
               )}
             </Field>
-            <Field label="Email" required error={error}>
+            <Field label={M.emailLabel} required error={error}>
               {(p) => (
                 <input
                   {...p}
@@ -189,9 +186,9 @@ export default function ManageBookingPage() {
               disabled={loading}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow py-3.5 font-syne font-bold text-dark transition-colors hover:bg-yellow-dark disabled:opacity-50"
             >
-              {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />} Find my booking
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />} {M.find}
             </button>
-            <p className="text-center text-[11px] text-muted/60">Your reference is in your confirmation email &amp; receipt (it looks like RR-XXXXXX).</p>
+            <p className="text-center text-[11px] text-muted/60">{M.refHint}</p>
           </form>
         ) : (
           <>
@@ -216,35 +213,32 @@ export default function ManageBookingPage() {
                         : "bg-yellow/15 text-yellow"
                 }`}
               >
-                {isCancelled ? "Cancelled" : isCompleted ? "Completed" : confirmed ? "Confirmed" : "Awaiting deposit"}
+                {isCancelled ? M.statusCancelled : isCompleted ? M.statusCompleted : confirmed ? M.statusConfirmed : M.statusAwaiting}
               </span>
             </div>
             {isCancelled ? (
               <div className="rounded-xl border border-red-500/25 bg-red-500/[0.05] p-4">
-                <p className="font-dm text-sm text-offwhite">
-                  This booking was cancelled — either the reservation window passed before it was confirmed, or the
-                  vehicle was secured by someone else first.
-                </p>
-                <p className="mt-1.5 font-dm text-sm text-muted">You have not been charged.</p>
+                <p className="font-dm text-sm text-offwhite">{M.cancelledBody}</p>
+                <p className="mt-1.5 font-dm text-sm text-muted">{M.cancelledNoCharge}</p>
                 <Link
                   href="/browse/scooter"
                   className="mt-3 inline-flex items-center gap-1.5 font-dm text-sm font-bold text-yellow hover:underline"
                 >
-                  Book again →
+                  {M.bookAgain} →
                 </Link>
               </div>
             ) : (
               <BookingTimeline completed={completed} />
             )}
             <dl className="mt-5 space-y-2 border-t border-white/[0.08] pt-4 text-sm">
-              <Row k={booking.kind === "vehicle" ? "Vehicle" : "Reservation"} v={booking.item} />
-              <Row k="When" v={`${fmtD(booking.start)}${booking.end && booking.end !== booking.start ? " → " + fmtD(booking.end) : ""}`} />
-              {booking.total != null && <Row k="Estimated total" v={`Rs ${Number(booking.total).toLocaleString()}`} />}
+              <Row k={booking.kind === "vehicle" ? M.rowVehicle : M.rowReservation} v={booking.item} />
+              <Row k={M.rowWhen} v={`${fmtD(booking.start)}${booking.end && booking.end !== booking.start ? " → " + fmtD(booking.end) : ""}`} />
+              {booking.total != null && <Row k={M.rowTotal} v={`Rs ${Number(booking.total).toLocaleString()}`} />}
               {/* Never show a deposit as still owed on a booking that can no
                   longer be paid — that was the core of the same lie. */}
               {booking.deposit != null && booking.deposit > 0 && !isCancelled && (
                 <Row
-                  k={booking.depositPaid ? (paidInFull ? "Paid in full" : "Deposit paid") : "Deposit to confirm"}
+                  k={booking.depositPaid ? (paidInFull ? M.rowPaidInFull : M.rowDepositPaid) : M.rowDepositToConfirm}
                   v={`Rs ${Number(paidAmount ?? booking.deposit).toLocaleString()}`}
                   strong
                 />
@@ -255,8 +249,8 @@ export default function ManageBookingPage() {
                   the booking row simply had nowhere to record what they paid. */}
               {booking.depositPaid && !isCancelled && booking.total != null && (
                 <Row
-                  k={balanceDue > 0 ? "Balance at pickup" : "Balance"}
-                  v={balanceDue > 0 ? `Rs ${balanceDue.toLocaleString()}` : "Nothing further to pay"}
+                  k={balanceDue > 0 ? M.rowBalanceAtPickup : M.rowBalance}
+                  v={balanceDue > 0 ? `Rs ${balanceDue.toLocaleString()}` : M.rowNothingToPay}
                 />
               )}
             </dl>
@@ -267,19 +261,15 @@ export default function ManageBookingPage() {
                 would let a customer buy a scooter nobody has agreed to lend. */}
             {booking.kind === "vehicle" && booking.status === "pending" && !booking.depositPaid && (
               <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-                <p className="font-syne text-sm font-bold text-offwhite">We&apos;re checking availability</p>
-                <p className="mt-1 font-dm text-xs leading-relaxed text-muted">
-                  We&apos;re confirming this vehicle with its owner. As soon as it&apos;s confirmed we&apos;ll email you
-                  and you can pay here. Nothing is charged until then — and if it isn&apos;t free, we&apos;ll suggest
-                  something similar.
-                </p>
+                <p className="font-syne text-sm font-bold text-offwhite">{M.checkingTitle}</p>
+                <p className="mt-1 font-dm text-xs leading-relaxed text-muted">{M.checkingBody}</p>
               </div>
             )}
 
             {/* Declined, in the owner's own words rather than a bare "cancelled". */}
             {booking.unavailableNote && (
               <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-                <p className="font-syne text-sm font-bold text-offwhite">About your request</p>
+                <p className="font-syne text-sm font-bold text-offwhite">{M.noteTitle}</p>
                 <p className="mt-1 whitespace-pre-line font-dm text-xs leading-relaxed text-muted">
                   {booking.unavailableNote}
                 </p>
@@ -292,11 +282,11 @@ export default function ManageBookingPage() {
             {booking.status === "approved" && !booking.depositPaid && booking.deposit != null && booking.deposit > 0 && (
               <div className="mt-5 border-t border-white/[0.08] pt-5">
                 <div className="mb-4 rounded-xl border border-green-500/30 bg-green-500/[0.07] p-3.5">
-                  <p className="font-syne text-sm font-bold text-green-300">It&apos;s available — it&apos;s yours to confirm</p>
+                  <p className="font-syne text-sm font-bold text-green-300">{M.approvedTitle}</p>
                   <p className="mt-1 font-dm text-xs leading-relaxed text-green-200/80">
                     {booking.paymentDueBy
-                      ? `We're holding it for you until ${new Date(booking.paymentDueBy).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}. After that it goes back to other customers.`
-                      : "Pay below to confirm it."}
+                      ? M.holdingUntil(new Date(booking.paymentDueBy).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }))
+                      : M.payBelow}
                   </p>
                 </div>
                 <PayPalDeposit
@@ -333,7 +323,7 @@ export default function ManageBookingPage() {
             )}
 
             <button onClick={() => { setBooking(null); setRef(""); setEmail(""); }} className="mt-5 inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-yellow">
-              <RotateCcw size={13} /> Look up another
+              <RotateCcw size={13} /> {M.lookUpAnother}
             </button>
           </div>
           </>
