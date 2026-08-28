@@ -43,3 +43,17 @@ export function findVehicle(
 export function vehicleHref(v: { id?: string; name?: string; category?: string }): string {
   return `/browse/${v.category ?? "scooter"}/${vehicleSlug(v)}`;
 }
+
+/**
+ * The vehicle name as it should be shown to a human.
+ *
+ * The fleet is typed into an admin textarea, so names arrive with whatever
+ * whitespace the owner's keyboard produced. One of them shipped as
+ * "Suzuki Swift (Latest Gen) " with a trailing space, which rendered in the
+ * page <title> as "Suzuki Swift (Latest Gen)  — Rs 1499/day" — a double space
+ * in the one string Google prints in the search result. Slugs already
+ * normalise; display names did not.
+ */
+export function vehicleName(v: { name?: string; id?: string }): string {
+  return (v.name ?? "").replace(/\s+/g, " ").trim() || (v.id ?? "Vehicle");
+}

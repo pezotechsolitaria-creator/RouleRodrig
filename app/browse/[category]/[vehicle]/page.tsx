@@ -8,7 +8,7 @@ import { getFleetView, priceNumber } from "@/lib/site-data";
 import { priceBreakdown } from "@/lib/booking-pricing";
 import { breadcrumbLd, productLd, sellerLd } from "@/lib/schema";
 import { pickConditions } from "@/lib/rental-conditions";
-import { findVehicle, vehicleSlug } from "@/lib/vehicle-slug";
+import { findVehicle, vehicleName, vehicleSlug } from "@/lib/vehicle-slug";
 import JsonLd from "@/components/JsonLd";
 import RentalConditions from "@/components/RentalConditions";
 import AppPageHeader from "@/components/AppPageHeader";
@@ -49,11 +49,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     // pasted into a chat is read as a price quote whether or not we intended it.
     const from = priceNumber(item.price);
     const title = from
-      ? `${item.name} — Rs ${from}/day in Rodrigues`
-      : `${item.name} — rent in Rodrigues`;
+      ? `${vehicleName(item)} — Rs ${from}/day in Rodrigues`
+      : `${vehicleName(item)} — rent in Rodrigues`;
     const description =
       (item.description || item.tagline || "").slice(0, 155) ||
-      `Rent the ${item.name} on Rodrigues Island, direct from local owners.`;
+      `Rent the ${vehicleName(item)} on Rodrigues Island, direct from local owners.`;
     const image = item.images?.[0] || item.image;
     const images = [image?.startsWith("http") ? image : `${SITE_URL}${image ?? "/og-image.jpg"}`];
     return {
@@ -87,7 +87,7 @@ export default async function VehiclePage({ params }: Props) {
           breadcrumbLd([
             { name: "Home", url: SITE_URL },
             { name: category === "car" ? "Cars" : "Scooters", url: `${SITE_URL}/browse/${category}` },
-            { name: item.name, url },
+            { name: vehicleName(item), url },
           ]),
           // The Offer below names this seller; without the node the reference
           // resolves to nothing on the page carrying the price.
@@ -98,7 +98,7 @@ export default async function VehiclePage({ params }: Props) {
             // used to point its Offer at the category page, so a shopping result
             // for the Avenis landed on a grid of everything.
             ...productLd({
-              name: item.name,
+              name: vehicleName(item),
               description: item.description || item.tagline || undefined,
               image: photos[0],
               price: from ?? null,
@@ -109,7 +109,7 @@ export default async function VehiclePage({ params }: Props) {
         ]}
       />
 
-      <AppPageHeader title={item.name} backHref={`/browse/${category}`} />
+      <AppPageHeader title={vehicleName(item)} backHref={`/browse/${category}`} />
 
       <main className="bg-dark min-h-screen pb-24">
         <div className="mx-auto max-w-3xl px-4 pt-4">
@@ -130,7 +130,7 @@ export default async function VehiclePage({ params }: Props) {
                 >
                   <Image
                     src={src}
-                    alt={`${item.name} — photo ${i + 1}`}
+                    alt={`${vehicleName(item)} — photo ${i + 1}`}
                     fill
                     sizes="(max-width: 640px) 100vw, 640px"
                     className="object-cover"
@@ -147,7 +147,7 @@ export default async function VehiclePage({ params }: Props) {
                 <p className="font-bebas text-[11px] uppercase tracking-[0.2em] text-muted">{item.tagline}</p>
               )}
               <h1 className="font-syne text-3xl font-extrabold uppercase leading-none text-offwhite">
-                {item.name}
+                {vehicleName(item)}
               </h1>
             </div>
             <p className="font-syne text-2xl font-extrabold text-yellow">
@@ -299,14 +299,14 @@ export default async function VehiclePage({ params }: Props) {
             href={`/browse/${category}#booking`}
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-yellow px-5 py-4 font-syne text-base font-bold text-dark transition hover:brightness-110"
           >
-            Book the {item.name} <ChevronRight size={17} />
+            Book the {vehicleName(item)} <ChevronRight size={17} />
           </Link>
         </div>
       </main>
 
       <WhatsAppButton
         phone={businessWhatsApp}
-        message={`Hi Roule Rodrigues! I'd like to rent the ${item.name}.`}
+        message={`Hi Roule Rodrigues! I'd like to rent the ${vehicleName(item)}.`}
       />
       <ScrollToTop />
     </>
