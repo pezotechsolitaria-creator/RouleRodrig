@@ -120,9 +120,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // category grid above answers "what do you have", these answer "how much is
     // the Avenis". Data-gated like everything else here: a fleet that fails to
     // load lists nothing rather than a page of 404s.
+    //
+    // Deduped by URL: the fleet models physical UNITS (two AVENIS rows, two
+    // Swifts) and slugs come from the name, so twin units share one page —
+    // mapping rows 1:1 listed the same URL twice.
     browse.push(
-      ...fleet.map((v) => ({
-        url: `${SITE_URL}${vehicleHref(v)}`,
+      ...[...new Set(fleet.map((v) => vehicleHref(v)))].map((href) => ({
+        url: `${SITE_URL}${href}`,
         lastModified: contentAt,
         changeFrequency: "weekly" as const,
         priority: 0.85,

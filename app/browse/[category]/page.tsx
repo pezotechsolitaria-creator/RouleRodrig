@@ -437,26 +437,48 @@ export default async function BrowsePage({
               // one thing an Offer exists to state — who is selling — was a
               // dangling pointer.
               sellerLd(),
-              ...items.map((s) =>
-                productLd({
-                  name: s.name,
-                  description: s.description,
-                  image: s.image
-                    ? s.image.startsWith("http")
-                      ? s.image
-                      : `${SITE_URL}${s.image}`
+              // ONE Product per URL, not one per fleet row. The fleet models
+              // physical units — the owner runs two AVENIS 125cc and two
+              // Swifts — but slugs come from the NAME, so twin units share a
+              // detail URL. Emitting a Product per unit published the same
+              // URL twice with, for the Swifts, two different prices
+              // (Rs 1,499 and Rs 1,500) — a price contradiction Google reads
+              // as exactly the kind it distrusts. Grouped by URL: the price
+              // is the cheapest unit's (what "from" means), and the model is
+              // in stock if ANY unit is. (Deleting the twin rows to fix this
+              // was tried by somebody and is the wrong knife: it deleted the
+              // owner's real inventory.)
+              ...Object.values(
+                items.reduce<Record<string, typeof items>>((acc, s) => {
+                  (acc[vehicleHref(s)] ??= []).push(s);
+                  return acc;
+                }, {}),
+              ).map((units) => {
+                const prices = units
+                  .map((u) => priceNumber(u.price))
+                  .filter((n): n is number => n != null && n > 0);
+                const first = units[0];
+                return productLd({
+                  name: first.name,
+                  description: first.description,
+                  image: first.image
+                    ? first.image.startsWith("http")
+                      ? first.image
+                      : `${SITE_URL}${first.image}`
                     : undefined,
-                  price: priceNumber(s.price),
-                  available: !(s.available === false || s.soldOutToday),
+                  price: prices.length ? Math.min(...prices) : null,
+                  available: units.some(
+                    (u) => !(u.available === false || u.soldOutToday),
+                  ),
                   // The vehicle's OWN page, now that it has one. Every Offer
-                  // used to advertise this category grid, so a shopping result
-                  // for the Avenis landed on a list of everything and the
-                  // customer had to find it again.
-                  url: `${SITE_URL}${vehicleHref(s)}`,
-                  rating: ratings[s.id],
-                  category: s.category ?? "scooter",
-                }),
-              ),
+                  // used to advertise this category grid, so a shopping
+                  // result for the Avenis landed on a list of everything and
+                  // the customer had to find it again.
+                  url: `${SITE_URL}${vehicleHref(first)}`,
+                  rating: ratings[first.id],
+                  category: first.category ?? "scooter",
+                });
+              }),
             ],
           }}
         />
