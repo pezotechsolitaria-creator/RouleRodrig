@@ -26,6 +26,13 @@ const code = (s: string) =>
   s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
 const page = code(read("app/browse/[category]/page.tsx"));
+
+/** The PLACE_SLUGS entry for one category. Assertions about a category's copy
+ *  must read ITS block: there are four intros in this file now. */
+const slugs = (name: string) => {
+  const i = page.indexOf(`  ${name}: {`);
+  return i < 0 ? "" : page.slice(i, i + 1400);
+};
 const card = code(read("components/RecommendedPlaces.tsx"));
 const i18n = code(read("lib/i18n.ts"));
 
@@ -42,7 +49,7 @@ describe("the stays page says what it is", () => {
   });
 
   it("carries an intro using the words a guest actually searches with", () => {
-    const intro = page.match(/intro:\s*\n?\s*"([^"]+)"/)?.[1] ?? "";
+    const intro = slugs("stays").match(/\s+intro:\s*"([^"]+)"/)?.[1] ?? "";
     expect(intro.length).toBeGreaterThan(120);
     for (const word of ["Guesthouses", "sea view", "breakfast", "air conditioning"]) {
       expect(intro.toLowerCase()).toContain(word.toLowerCase());
@@ -117,12 +124,12 @@ describe("the stays copy exists in French, not only English", () => {
 
   it("carries a French heading and intro", () => {
     expect(page).toMatch(/headingFr:\s*"Où loger à Rodrigues"/);
-    const fr = page.match(/introFr:\s*"([^"]+)"/)?.[1] ?? "";
+    const fr = slugs("stays").match(/introFr:\s*"([^"]+)"/)?.[1] ?? "";
     expect(fr.length).toBeGreaterThan(120);
   });
 
   it("uses the words a French visitor actually searches with", () => {
-    const fr = (page.match(/introFr:\s*"([^"]+)"/)?.[1] ?? "").toLowerCase();
+    const fr = (slugs("stays").match(/introFr:\s*"([^"]+)"/)?.[1] ?? "").toLowerCase();
     // "hébergement Rodrigues" and "chambre d'hôtes" are the queries; the page
     // that ranks best on this whole site is a French one, at position 3.6.
     for (const w of ["chambres d", "hôtels", "hébergement", "vue sur mer",
@@ -139,5 +146,46 @@ describe("the stays copy exists in French, not only English", () => {
   it("passes the French strings from the page into the component", () => {
     expect(page).toMatch(/titleFr:\s*place\.headingFr/);
     expect(page).toMatch(/subtitleFr:\s*place\.introFr/);
+  });
+});
+
+describe("the sibling browse categories got the same treatment", () => {
+  // Measured as Googlebot before writing any of it: /browse/activities served
+  // 1265 chars under an h1 reading "Activities", /browse/tours 1692 under
+  // "Guided Tours". /browse/getting-around was NOT touched — it already
+  // carries a real bilingual title and subtitle from site_content — and
+  // /browse/restaurants was not either: it 404s by design, is noindexed,
+  // unlinked and absent from the sitemap, because restaurants live at /food.
+  it("activities has a heading and intro in both languages", () => {
+    const b = slugs("activities");
+    expect(b).toMatch(/heading: "Things to Do in Rodrigues"/);
+    expect(b).toMatch(/headingFr: "Que faire/);
+    expect(b).toMatch(/introFr:/);
+  });
+
+  it("tours has a heading and intro in both languages", () => {
+    const b = slugs("tours");
+    expect(b).toMatch(/heading: "Guided Tours & Boat Trips in Rodrigues"/);
+    expect(b).toMatch(/headingFr: "Excursions et sorties en mer/);
+    expect(b).toMatch(/introFr:/);
+  });
+
+  it("the tours intro names only excursions that actually exist", () => {
+    // Ile aux Cocos, Riviere Banane snorkelling, traditional fishing and a
+    // lagoon trip are the four live listings. If the owner removes one, this
+    // test does not catch it — but naming a fifth that never existed is the
+    // failure mode worth guarding, so the intro must stay inside this set.
+    const intro = slugs("tours").match(/\s+intro:\s*"([^"]+)"/)?.[1] ?? "";
+    expect(intro.length).toBeGreaterThan(120);
+    for (const real of ["Cocos", "Banane", "fishing", "lagoon"]) {
+      expect(intro).toContain(real);
+    }
+  });
+
+  it("the activities intro promises no variety it cannot keep", () => {
+    // That list is a single spa treatment on some days. An intro advertising
+    // "hiking, diving and kayaking" would be false exactly when it matters.
+    const intro = slugs("activities").match(/\s+intro:\s*"([^"]+)"/)?.[1] ?? "";
+    expect(intro).not.toMatch(/hiking|diving|kayak|dozens|wide range|something for everyone/i);
   });
 });

@@ -173,10 +173,14 @@ export default function AppHome({
   mascot,
   logo,
   promoEvents,
+  about,
 }: {
   hero: ReactNode;
   reviews?: ReactNode;
   footer?: ReactNode;
+  /** One-paragraph business description, identical to the JSON-LD's — rendered
+      visibly so extraction sees what the schema claims. */
+  about?: string;
   lookingFor?: QuickAccessItem[];
   homeCards?: HomeCard[];
   experiences: Card[];
@@ -722,6 +726,25 @@ export default function AppHome({
               <PriceCard key={s.id} card={s} />
             ))}
           </Rail>
+        )}
+
+        {/* ── What Roule Rodrigues is, in the page's own words ──────────────
+            The sentence a search snippet or an AI answer quotes about this
+            business lived ONLY inside the JSON-LD — the visible page opened
+            with a marquee and a review ticker, so text-extraction surfaced
+            testimonials instead of what the site IS. Same string as the
+            structured data (passed down from Home), so the two cannot drift.
+            It sits below the rails on purpose: the first screen belongs to
+            the cards (owner's instruction, above). */}
+        {about && (
+          <section aria-label="About Roule Rodrigues" className="mt-10">
+            <h2 className="font-syne text-[15px] font-bold text-offwhite">
+              Roule Rodrigues
+            </h2>
+            <p className="mt-2 max-w-2xl font-dm text-sm leading-relaxed text-muted">
+              {about}
+            </p>
+          </section>
         )}
 
         {/* Reviews + Footer (from v1) — keyed for the same RSC-boundary reason

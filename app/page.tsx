@@ -264,6 +264,13 @@ export default async function Home() {
   // real minimum and this sentence is what an AI Overview paraphrases.
   const fromPrice = fleetFromPrice(fleet);
 
+  // This sentence is what Google's AI Overview paraphrases when someone asks
+  // "what is Roule Rodrigues" — and now also what a visitor reads at the end
+  // of the page. ONE constant feeding both the JSON-LD description and the
+  // visible `about` block, so the claim a machine reads and the text a human
+  // sees cannot drift apart.
+  const businessDescription = `Roule Rodrigues rents scooters and cars on Rodrigues Island, direct from local owners, from Rs ${fromPrice} a day with no minimum rental. It is also a free island guide: a trip planner, an interactive map of beaches and viewpoints, recommended places to stay and things to do, a WhatsApp food concierge that books your table, and Ti Roulé — an AI island guide answering in English, French and Creole.`;
+
   // The locality the PAGE shows, so the structured data cannot contradict it.
   // content.contact.location is a free-text line like "Baie Aux Huîtres,Rodrigues";
   // the first part is the village.
@@ -292,12 +299,9 @@ export default async function Home() {
         "@type": "AutoRental",
         "@id": `${SITE_URL}/#business`,
         name: "Roule Rodrigues",
-        // This sentence is what Google's AI Overview paraphrases when someone
-        // asks "what is Roule Rodrigues". The old one said scooters, cars and
-        // restaurants — so the AI called us "une plateforme de location de
-        // scooters" and stopped there. Everything named here is real and
-        // reachable from this page's hub.
-        description: `Roule Rodrigues rents scooters and cars on Rodrigues Island, direct from local owners, from Rs ${fromPrice} a day with no minimum rental. It is also a free island guide: a trip planner, an interactive map of beaches and viewpoints, recommended places to stay and things to do, a WhatsApp food concierge that books your table, and Ti Roulé — an AI island guide answering in English, French and Creole.`,
+        // Defined once above, rendered twice: here for machines, and visibly
+        // in AppHome's `about` block for people — see businessDescription.
+        description: businessDescription,
         knowsLanguage: ["en", "fr", "mfe"],
         url: SITE_URL,
         image: `${SITE_URL}/og-image.jpg`,
@@ -445,6 +449,7 @@ export default async function Home() {
         promoEvents={promoEvents}
         mascot={content.branding.mascotImage}
         logo={content.branding.logo}
+        about={businessDescription}
       />
     </>
   );

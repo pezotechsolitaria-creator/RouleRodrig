@@ -184,7 +184,10 @@ export default function Fleet({
   whatsapp?: string;
   eyebrow?: string;
   title?: string;
-  subtitle?: string;
+  // ReactNode, not string: the browse pages append an inline link to their
+  // French twin here, and it must render inside this same paragraph rather
+  // than as a stray element outside the section's type ramp.
+  subtitle?: React.ReactNode;
 }) {
   const allItems = fleet ?? DEFAULT_CONTENT.fleet;
   const cats = categories ?? [];

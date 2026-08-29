@@ -55,10 +55,29 @@ const PLACE_SLUGS: Record<
   activities: {
     label: "Activities",
     filter: (p) => p.category === "activity" && !p.isTour,
+    heading: "Things to Do in Rodrigues",
+    // Deliberately says nothing about how many or what kind: this list is one
+    // item some weeks and several others, and an intro that promises variety
+    // reads as a lie on the day it holds a single spa treatment.
+    intro:
+      "Activities on Rodrigues you can book directly with the person who runs them. The price per person and, where the provider has set one, how long the session lasts are shown on each card.",
+    headingFr: "Que faire à Rodrigues",
+    introFr:
+      "Des activités à Rodrigues que vous réservez directement auprès de la personne qui les propose. Le prix par personne et, lorsqu’elle est indiquée, la durée de la séance figurent sur chaque fiche.",
   },
   tours: {
     label: "Guided Tours",
     filter: (p) => p.category === "activity" && !!p.isTour,
+    heading: "Guided Tours & Boat Trips in Rodrigues",
+    // Every clause below is a listing that exists: Ile aux Cocos (highlights
+    // "Bird sanctuary", "Nature reserve"), Plongee en apnee at Riviere Banane
+    // ("coral", "colourful fish"), Peche Traditionelle, and Balade en mer.
+    // Three of the four carry durationMinutes 60, hence "several", not "all".
+    intro:
+      "Boat trips and guided excursions run by local skippers and guides — Île aux Cocos with its bird sanctuary, snorkelling over the coral at Rivière Banane, traditional fishing, and a run out into the lagoon. Prices are per person and shown on each card, several of them about an hour on the water.",
+    headingFr: "Excursions et sorties en mer à Rodrigues",
+    introFr:
+      "Sorties en mer et excursions guidées menées par des skippers et des guides de l’île — l’Île aux Cocos et sa réserve d’oiseaux, la plongée en apnée sur le corail à Rivière Banane, la pêche traditionnelle, et une balade dans le lagon. Les prix sont par personne et figurent sur chaque fiche, plusieurs sorties durant environ une heure.",
   },
   // ── WHY THIS ONE CARRIES COPY AND THE OTHERS DO NOT (M146) ───────────
   // /browse/stays was indexed and drew zero impressions for any
@@ -75,6 +94,40 @@ const PLACE_SLUGS: Record<
     headingFr: "Où loger à Rodrigues",
     introFr:
       "Chambres d’hôtes, villas avec cuisine et petits hôtels à Rodrigues — vue sur mer, petit-déjeuner, climatisation et piscine selon les adresses. Chaque hébergement est tenu par un propriétaire local indépendant : le prix par nuit est indiqué sur la fiche, puis vous réservez ou vous vous renseignez directement auprès de lui.",
+  },
+};
+
+// ── The vehicle pages said almost nothing (the stays fault, on the pages
+// that sell) ─────────────────────────────────────────────────────────────
+// /browse/scooter rendered ~400 characters of text and /browse/car ~480,
+// while their French twins carry full landing copy and OUTRANK them for the
+// same intent (Search Console: /fr pages at position ~5, these at ~40–53).
+// Same absence M146 fixed on stays: the words a renter actually types were
+// nowhere in the page. Heading + intro follow the stays pattern above. The
+// from-price is DERIVED from the fleet this page renders — hardcoding one
+// here is the Rs 599/699 drift this codebase has already been burned by —
+// and every claim is made elsewhere on the site already: free helmet in
+// t.booking.included, the 3+/7+ day discounts in lib/booking-pricing,
+// guest-house delivery in the approved reviews rendered on the homepage.
+const VEHICLE_COPY: Record<
+  string,
+  { heading: string; intro: (from: number | null) => string; frLabel?: string }
+> = {
+  scooter: {
+    heading: "Scooter Rental in Rodrigues",
+    intro: (from) =>
+      `Rent a scooter in Rodrigues direct from local owners${
+        from ? ` — from Rs ${from.toLocaleString("en-US")} a day` : ""
+      }, helmet included, with discounts from 3 days. We hand over in person, with real advice on the roads and the places worth riding to, and deliver to your guest house. Pick a scooter below and book your dates online.`,
+    frLabel: "Location de scooter à Rodrigues — cette page en français",
+  },
+  car: {
+    heading: "Car Rental in Rodrigues",
+    intro: (from) =>
+      `Hire a car in Rodrigues from local owners${
+        from ? ` — clear daily rates from Rs ${from.toLocaleString("en-US")}` : ""
+      }, with discounts from 3 days. Ideal for families and longer stays: we deliver to your guest house, hand over in person and explain the island's roads before you set off. Choose a car below and book your dates online.`,
+    frLabel: "Location de voiture à Rodrigues — cette page en français",
   },
 };
 
@@ -338,6 +391,19 @@ export default async function BrowsePage({
   if (vcat) {
     const items = fleet.filter((f) => (f.category ?? "scooter") === vcat.id);
     if (items.length === 0) notFound();
+    const vcopy = VEHICLE_COPY[vcat.id];
+    // Cheapest real daily rate on THIS page, for the intro sentence — derived
+    // from the same fleet the cards render, so the copy can never advertise a
+    // price the grid below does not show.
+    const vRates = items
+      .map((i) => priceNumber(i.price))
+      .filter((n): n is number => n != null && n > 0);
+    const vFrom = vRates.length ? Math.min(...vRates) : null;
+    // The French twin, as a VISIBLE link and not only an hreflang annotation:
+    // /fr/location-voiture-rodrigues had zero internal inbound links, so
+    // Google left it "Discovered - currently not indexed" while ranking THIS
+    // thinner page around position 50-70 for French car queries.
+    const vFrHref = META[vcat.id]?.fr;
     return (
       <>
         {seo(
@@ -397,8 +463,27 @@ export default async function BrowsePage({
             recentBookings={recentBookings}
             whatsapp={businessWhatsApp}
             eyebrow="OUR FLEET"
-            title={vcat.label}
-            subtitle={`Browse our ${vcat.label.toLowerCase()}, then tap Book to choose your dates.`}
+            title={vcopy?.heading ?? vcat.label}
+            subtitle={
+              vcopy ? (
+                <>
+                  {vcopy.intro(vFrom)}
+                  {vFrHref && vcopy.frLabel ? (
+                    <>
+                      {" "}
+                      <a
+                        href={vFrHref}
+                        className="underline underline-offset-2 hover:text-offwhite"
+                      >
+                        {vcopy.frLabel}
+                      </a>
+                    </>
+                  ) : null}
+                </>
+              ) : (
+                `Browse our ${vcat.label.toLowerCase()}, then tap Book to choose your dates.`
+              )
+            }
           />
           {/* Trust signals immediately before the form that asks for money.
               This page previously carried NONE — no guarantee, no support
