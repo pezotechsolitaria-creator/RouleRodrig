@@ -6,6 +6,8 @@ import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import PlaceGuide from "@/components/PlaceGuide";
 import PageLanguage from "@/components/PageLanguage";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 export const revalidate = 3600;
 
@@ -42,6 +44,51 @@ const hasFrenchWriting = (l: { storyFr?: string; descriptionFr?: string }) =>
 const beaches = (
   locations: { category: string; storyFr?: string; descriptionFr?: string }[],
 ) => locations.filter((l) => l.category === "beach" && hasFrenchWriting(l));
+
+// ── THE QUESTIONS THIS PAGE WAS THE ONLY ONE NOT ANSWERING (M156) ───────────
+//
+// Seven of the eight French pages carry a FAQPage. This one — the richest page
+// on the site at 8,817 characters and twelve Beach entities — did not, so the
+// one page best placed to be quoted for "quelle plage a Rodrigues" had nothing
+// quotable in it.
+//
+// Every answer is lifted from the beaches' own storyFr, which the owner wrote:
+// Pointe Coton is "la carte postale de Rodrigues" and the trailhead for Trou
+// d'Argent; Saint-Francois opens on "l'un des plus beaux lagons de l'ocean
+// Indien"; Baladirou warns about "les courants a maree basse". Nothing here is
+// invented, and nothing names a beach the page does not list.
+//
+// Trou d'Argent gets its own question deliberately. It is a real search — it
+// appears in Search Console reaching the ENGLISH /guide/beaches at position 40
+// — and it is not a listed beach here, because you reach it on foot. Both
+// trailheads are named in the stories, so the page can answer it honestly
+// instead of staying silent on the thing people ask.
+const FAQ = (n: number) => [
+  {
+    q: "Quelle est la plus belle plage de Rodrigues ?",
+    a: "Cela dépend de ce que vous cherchez. Pointe Coton est la carte postale de l'île : un long ruban de sable blanc bordé de cocotiers et de filaos. Saint-François s'ouvre sur l'un des plus beaux lagons de l'océan Indien, avec un récif intact. Les deux sont sur la côte est, et ce guide en recense " + n + " au total.",
+  },
+  {
+    q: "Comment aller à Trou d'Argent ?",
+    a: "À pied, et seulement à pied : aucune route n'y descend. Le sentier des falaises part de Pointe Coton, et le sentier côtier depuis Saint-François y mène en passant par Anse Bouteille. Prévoyez de l'eau, de bonnes chaussures et de partir tôt — il n'y a aucun commerce sur le chemin.",
+  },
+  {
+    q: "Peut-on se baigner sur toutes les plages de Rodrigues ?",
+    a: "Non. Le lagon est calme sur une grande partie de la côte, mais à Baladirou la baignade est agréable et les courants se réveillent à marée basse, et la Pointe du Diable est le côté sauvage et venteux de l'île — roche brute et lagon ouvert, à regarder plutôt qu'à nager. Chaque fiche de ce guide dit ce qui vous attend vraiment.",
+  },
+  {
+    q: "Quelle plage choisir pour le snorkeling à Rodrigues ?",
+    a: "Saint-François, pour son récif intact et son eau turquoise, et l'Anse aux Anglais, une plage de village à 2 km de Port Mathurin où l'on nage entre les petits bateaux. Le lagon de Rodrigues fait deux fois la taille de l'île, et il est vivant.",
+  },
+  {
+    q: "Où faire du kitesurf à Rodrigues ?",
+    a: "À Pointe Coton, sur la côte est : le vent y est régulier et de classe mondiale, tandis que le lagon reste assez abrité pour se baigner ou pique-niquer juste à côté.",
+  },
+  {
+    q: "Comment se rendre aux plages de Rodrigues ?",
+    a: "En scooter, en voiture ou en taxi : il n'y a pas de transport en commun fréquent sur l'île et les plages sont dispersées sur toute la côte. Un scooter suffit pour la plupart, et se loue livré à votre logement.",
+  },
+];
 
 export async function generateMetadata(): Promise<Metadata> {
   const content = await getContent();
@@ -89,6 +136,16 @@ export default async function PlagesPage() {
               url: `${SITE_URL}/fr/plages-rodrigues`,
             },
           ]),
+          {
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            inLanguage: "fr",
+            mainEntity: FAQ(places.length).map((f) => ({
+              "@type": "Question",
+              name: f.q,
+              acceptedAnswer: { "@type": "Answer", text: f.a },
+            })),
+          },
           itemListLd(
             "Plages de l'île Rodrigues",
             places.map((p) => ({ name: p.name.trim() })),
@@ -140,9 +197,43 @@ export default async function PlagesPage() {
             href: "/guide/routes",
             label: "Itinéraires en scooter & randonnées",
           },
-          { href: "/browse/stays", label: "Où dormir à Rodrigues" },
+          {
+            href: "/fr/hebergement-rodrigues",
+            label: "Où dormir à Rodrigues",
+          },
+          {
+            href: "/fr/que-faire-a-rodrigues",
+            label: "Que faire à Rodrigues",
+          },
         ]}
       />
+
+      {/* Visible, because Google requires the answers to be readable on the
+          page carrying the FAQPage markup — and from the SAME array, so the
+          two can never disagree. */}
+      <section className="bg-dark px-5 pb-16" lang="fr">
+        <div className="mx-auto max-w-3xl">
+          <h2 className="font-syne text-2xl md:text-3xl font-bold text-offwhite">
+            Questions fréquentes sur les plages de Rodrigues
+          </h2>
+          <div className="mt-6 space-y-7">
+            {FAQ(places.length).map((f) => (
+              <article key={f.q}>
+                <h3 className="font-syne text-lg font-bold text-offwhite">
+                  {f.q}
+                </h3>
+                <p className="mt-2 font-dm text-muted leading-relaxed">{f.a}</p>
+              </article>
+            ))}
+          </div>
+          <Link
+            href="/fr/taxi-rodrigues"
+            className="mt-10 inline-flex items-center gap-1.5 font-dm text-sm text-yellow/80 transition-colors hover:text-yellow"
+          >
+            Taxi et transfert depuis l&apos;aéroport <ArrowRight size={14} />
+          </Link>
+        </div>
+      </section>
     </>
   );
 }
