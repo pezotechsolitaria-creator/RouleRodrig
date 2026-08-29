@@ -46,7 +46,17 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
-  alternates: { canonical: `${SITE_URL}/fr/se-deplacer-a-rodrigues` },
+  alternates: {
+    canonical: `${SITE_URL}/fr/se-deplacer-a-rodrigues`,
+    // Mirror of the block on /blog/how-to-get-around-rodrigues — the same
+    // topic in genuinely translated writing. This page was the audit's one
+    // hreflang orphan: 7 of 8 FR pages were paired, this one had no partner.
+    languages: {
+      "en": `${SITE_URL}/blog/how-to-get-around-rodrigues`,
+      "fr": `${SITE_URL}/fr/se-deplacer-a-rodrigues`,
+      "x-default": `${SITE_URL}/blog/how-to-get-around-rodrigues`,
+    },
+  },
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,

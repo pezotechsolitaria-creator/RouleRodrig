@@ -55,8 +55,8 @@ export async function generateMetadata(): Promise<Metadata> {
     alternates: {
       canonical: `${SITE_URL}/fr/plages-rodrigues`,
       languages: {
-        "en-US": `${SITE_URL}/guide/beaches`,
-        "fr-FR": `${SITE_URL}/fr/plages-rodrigues`,
+        "en": `${SITE_URL}/guide/beaches`,
+        "fr": `${SITE_URL}/fr/plages-rodrigues`,
         "x-default": `${SITE_URL}/guide/beaches`,
       },
     },

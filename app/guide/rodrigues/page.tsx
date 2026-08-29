@@ -67,8 +67,8 @@ export const metadata: Metadata = {
     canonical: `${SITE_URL}/guide/rodrigues`,
     // Mirrors /fr/guide-rodrigues. hreflang is ignored unless both sides agree.
     languages: {
-      "en-US": `${SITE_URL}/guide/rodrigues`,
-      "fr-FR": `${SITE_URL}/fr/guide-rodrigues`,
+      "en": `${SITE_URL}/guide/rodrigues`,
+      "fr": `${SITE_URL}/fr/guide-rodrigues`,
       "x-default": `${SITE_URL}/guide/rodrigues`,
     },
   },

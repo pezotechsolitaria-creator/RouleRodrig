@@ -46,8 +46,8 @@ export const metadata: Metadata = {
   alternates: {
     canonical: `${SITE_URL}/fr/ile-aux-cocos`,
     languages: {
-      "en-US": `${SITE_URL}/guide/ile-aux-cocos`,
-      "fr-FR": `${SITE_URL}/fr/ile-aux-cocos`,
+      "en": `${SITE_URL}/guide/ile-aux-cocos`,
+      "fr": `${SITE_URL}/fr/ile-aux-cocos`,
       "x-default": `${SITE_URL}/guide/ile-aux-cocos`,
     },
   },

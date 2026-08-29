@@ -69,8 +69,11 @@ describe("what it deliberately does not claim", () => {
 describe("it is paired, not orphaned", () => {
   it("declares hreflang to the English page", () => {
     const src = read(PAGE);
-    expect(src).toMatch(/"en-US": `\$\{SITE_URL\}\/browse\/stays`/);
-    expect(src).toMatch(/"fr-FR": `\$\{SITE_URL\}\/fr\/hebergement-rodrigues`/);
+    // Generic "en"/"fr", not "en-US"/"fr-FR": the audience is largely
+    // fr-RE (Réunion) and fr-MU (Mauritius), and region-narrow codes
+    // under-target exactly those visitors.
+    expect(src).toMatch(/"en": `\$\{SITE_URL\}\/browse\/stays`/);
+    expect(src).toMatch(/"fr": `\$\{SITE_URL\}\/fr\/hebergement-rodrigues`/);
   });
 
   it("and /browse/stays declares it back", () => {

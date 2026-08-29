@@ -56,8 +56,8 @@ const metadataFor = (from: number): Metadata => ({
     // Tells Google these two URLs are the same page in two languages, so they
     // reinforce each other instead of competing.
     languages: {
-      "en-US": `${SITE_URL}/browse/scooter`,
-      "fr-FR": `${SITE_URL}/fr/location-scooter-rodrigues`,
+      "en": `${SITE_URL}/browse/scooter`,
+      "fr": `${SITE_URL}/fr/location-scooter-rodrigues`,
       "x-default": `${SITE_URL}/browse/scooter`,
     },
   },

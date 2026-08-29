@@ -49,8 +49,8 @@ export const metadata: Metadata = {
     // Must mirror the block on /fr/ile-aux-cocos. A one-way hreflang is
     // silently ignored — the same note /guide/beaches already carries.
     languages: {
-      "en-US": `${SITE_URL}/guide/ile-aux-cocos`,
-      "fr-FR": `${SITE_URL}/fr/ile-aux-cocos`,
+      "en": `${SITE_URL}/guide/ile-aux-cocos`,
+      "fr": `${SITE_URL}/fr/ile-aux-cocos`,
       "x-default": `${SITE_URL}/guide/ile-aux-cocos`,
     },
   },

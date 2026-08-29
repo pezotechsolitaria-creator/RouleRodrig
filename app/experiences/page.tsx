@@ -20,8 +20,8 @@ export const metadata: Metadata = {
     // Mirrors /fr/que-faire-a-rodrigues, which is this page in French. A
     // one-way hreflang is silently ignored.
     languages: {
-      "en-US": `${SITE_URL}/experiences`,
-      "fr-FR": `${SITE_URL}/fr/que-faire-a-rodrigues`,
+      "en": `${SITE_URL}/experiences`,
+      "fr": `${SITE_URL}/fr/que-faire-a-rodrigues`,
       "x-default": `${SITE_URL}/experiences`,
     },
   },

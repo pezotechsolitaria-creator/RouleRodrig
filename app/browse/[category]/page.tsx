@@ -202,8 +202,8 @@ function pageMeta(
       ...(fr
         ? {
             languages: {
-              "en-US": url,
-              "fr-FR": `${SITE_URL}${fr}`,
+              "en": url,
+              "fr": `${SITE_URL}${fr}`,
               "x-default": url,
             },
           }

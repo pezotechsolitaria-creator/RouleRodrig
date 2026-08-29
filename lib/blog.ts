@@ -20,6 +20,10 @@ export type BlogSection = {
   table?: { headers: string[]; rows: string[][] };
 };
 
+// `fr` = URL of the post's French equivalent, when a real one exists. Powers
+// the hreflang pair in generateMetadata — and hreflang only works when BOTH
+// pages annotate each other, so the French page must carry the mirror block.
+
 export interface BlogPost {
   slug: string;
   title: string; // <h1> + used in listings
@@ -29,6 +33,7 @@ export interface BlogPost {
   published: string; // ISO date
   updated: string; // ISO date
   readMinutes: number;
+  fr?: string; // URL of the French equivalent page (see note above)
   intro: string;
   sections: BlogSection[];
   // Internal links shown at the end — reinforces the money + guide pages.
@@ -111,6 +116,10 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "how-to-get-around-rodrigues",
     title: "How to Get Around Rodrigues",
     metaTitle: "How to Get Around Rodrigues Island | Roule Rodrigues",
+    // Same topic, genuinely translated writing — the one FR page that had no
+    // hreflang partner anywhere (the audit's orphan). The related list below
+    // already offers it to readers; this makes the pairing machine-readable.
+    fr: "/fr/se-deplacer-a-rodrigues",
     description:
       "Buses, taxis, scooters and cars in Rodrigues — what each costs, what it actually reaches, and the airport bus timetable almost nobody publishes.",
     keyword: "how to get around Rodrigues",

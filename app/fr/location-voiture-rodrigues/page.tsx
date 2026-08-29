@@ -61,8 +61,8 @@ const metadataFor = (from: number): Metadata => ({
     // Mirrors the `languages` block /browse/[category] emits for `car`. A
     // one-way hreflang is silently ignored.
     languages: {
-      "en-US": `${SITE_URL}/browse/car`,
-      "fr-FR": `${SITE_URL}/fr/location-voiture-rodrigues`,
+      "en": `${SITE_URL}/browse/car`,
+      "fr": `${SITE_URL}/fr/location-voiture-rodrigues`,
       "x-default": `${SITE_URL}/browse/car`,
     },
   },

@@ -30,7 +30,20 @@ export async function generateMetadata({
   return {
     title: post.metaTitle,
     description: post.description,
-    alternates: { canonical: url },
+    alternates: {
+      canonical: url,
+      // Only when a real French page exists — and it must annotate us back
+      // (a one-way hreflang is silently ignored by Google).
+      ...(post.fr
+        ? {
+            languages: {
+              "en": url,
+              "fr": `${SITE_URL}${post.fr}`,
+              "x-default": url,
+            },
+          }
+        : {}),
+    },
     openGraph: {
       title: post.metaTitle,
       description: post.description,

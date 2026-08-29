@@ -51,8 +51,8 @@ export async function generateMetadata(): Promise<Metadata> {
       // Must mirror the `languages` block on /fr/plages-rodrigues — a one-way
       // hreflang is silently ignored by Google.
       languages: {
-        "en-US": `${SITE_URL}/guide/beaches`,
-        "fr-FR": `${SITE_URL}/fr/plages-rodrigues`,
+        "en": `${SITE_URL}/guide/beaches`,
+        "fr": `${SITE_URL}/fr/plages-rodrigues`,
         "x-default": `${SITE_URL}/guide/beaches`,
       },
     },

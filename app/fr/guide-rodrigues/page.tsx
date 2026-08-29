@@ -66,8 +66,8 @@ export const metadata: Metadata = {
     // Mirrors the `languages` block on /guide/rodrigues. Both directions or
     // Google ignores it.
     languages: {
-      "en-US": `${SITE_URL}/guide/rodrigues`,
-      "fr-FR": `${SITE_URL}/fr/guide-rodrigues`,
+      "en": `${SITE_URL}/guide/rodrigues`,
+      "fr": `${SITE_URL}/fr/guide-rodrigues`,
       "x-default": `${SITE_URL}/guide/rodrigues`,
     },
   },
