@@ -91,6 +91,10 @@ export const BLOG_POSTS: BlogPost[] = [
     ],
     related: [
       {
+        href: "/blog/rodrigues-itinerary",
+        label: "The day-by-day itinerary: 3, 5 or 7 days",
+      },
+      {
         href: "/browse/scooter",
         label: "Rent a scooter to explore the island",
       },
@@ -406,6 +410,103 @@ export const BLOG_POSTS: BlogPost[] = [
         href: "/browse/scooter",
         label: "Scooters, with prices and availability",
       },
+    ],
+  },
+
+  // ── The itinerary post ─────────────────────────────────────────────────────
+  // "Rodrigues itinerary" is the classic ask an assistant gets after "is it
+  // worth visiting", and nothing on the site answered it day by day. Every
+  // place named below is already published ON THIS SITE — the beaches and
+  // viewpoints guides, the tours listings, the how-many-days and best-time
+  // posts — so this post is a composition of first-party content, not new
+  // claims. No distances or timings are stated that the site does not already
+  // state; where order matters (market day, wind) it defers to the posts that
+  // carry the verified facts.
+  {
+    slug: "rodrigues-itinerary",
+    title: "A Rodrigues Itinerary for 3, 5 or 7 Days",
+    metaTitle: "Rodrigues Itinerary — 3, 5 & 7 Days | Roule Rodrigues",
+    description:
+      "A day-by-day Rodrigues itinerary from locals: the east-coast beaches, Trou d'Argent, Mont Limon, Île aux Cocos and where to eat — for 3, 5 or 7 days.",
+    keyword: "Rodrigues itinerary",
+    published: "2026-08-29",
+    updated: "2026-08-29",
+    readMinutes: 7,
+    intro:
+      "Rodrigues is about 18 km end to end, which sounds like a place you could see in a day. You can't — the roads climb and wind, the best beaches hide at the end of footpaths, and the island rewards slowness. Here is how we'd actually spend 3, 5 or 7 days, built around one simple rule: one part of the island per day.",
+    sections: [
+      {
+        heading: "How should you structure a Rodrigues itinerary?",
+        paragraphs: [
+          "One area per day. The island is small but hilly, so hopping between coasts all day means riding more than being anywhere. Base yourself anywhere you like — nowhere is far — sort out your wheels for the whole stay before you arrive, and give each day one corner of the island: the east coast and its beaches, the interior and its viewpoints, the lagoon, the town.",
+          "Two of these days depend on timing rather than preference: Port Mathurin is at its best when the market is on, and a boat day needs the lagoon's cooperation — so keep those two flexible and fix the beach and viewpoint days around them.",
+        ],
+        table: {
+          headers: ["Day", "Where", "The heart of it"],
+          rows: [
+            [
+              "1",
+              "East coast",
+              "Pointe Coton, then the coastal walk past St François to hidden Trou d'Argent",
+            ],
+            [
+              "2",
+              "The interior",
+              "Giant tortoises at the François Leguat Reserve, Caverne Patate, sunset from Mont Limon",
+            ],
+            [
+              "3",
+              "Port Mathurin & the north",
+              "The town, the market if your dates line up, the northern coast at your own pace",
+            ],
+            [
+              "4",
+              "The lagoon",
+              "Boat trip to the Île aux Cocos bird sanctuary, or snorkelling over the coral at Rivière Banane",
+            ],
+            [
+              "5",
+              "The south — and nowhere",
+              "Mourouk and the south coast, then a morning that goes nowhere in particular",
+            ],
+          ],
+        },
+      },
+      {
+        heading: "3 days: the greatest hits",
+        paragraphs: [
+          "Days 1 to 3 of the table are the trip: east coast, interior, town. It works — you will have seen the island's headline sights — but it's tight, and you'll be choosing between things rather than doing them all. If you must drop something, drop the town day before you drop Trou d'Argent.",
+          "With this little time, wheels are not optional. A scooter puts every stop on the map within reach and lets you chase the light instead of a timetable; book it before you land so day one starts at a beach and not at a counter.",
+        ],
+      },
+      {
+        heading: "5 days: the version we'd tell a friend to book",
+        paragraphs: [
+          "Five days is the whole table, and it's the island at the pace it was built for. The additions over a long weekend are the ones people come back talking about: the lagoon day — Île aux Cocos and its birds, or snorkelling at Rivière Banane with a local skipper — and a day with nothing planned at all, which on Rodrigues has a way of becoming the best one.",
+          "Eat deliberately along the way: Rodriguan food is a reason to visit in itself, and the dishes worth ordering — ourite rougaille first among them — are on our food page with the people who cook them.",
+        ],
+      },
+      {
+        heading: "7 days: the island at its own pace",
+        paragraphs: [
+          "A week is the five-day plan plus repetition, which is the luxury: going back to the beach you loved, a second boat morning, a proper hike on the coastal trails instead of a taster. Kitesurfers will camp on Mourouk's lagoon; hikers can take the routes page and work through it; everyone else gets to do the rarest thing on a holiday — nothing, twice.",
+        ],
+      },
+      {
+        heading: "When should you come, and how do you get around?",
+        paragraphs: [
+          "Both questions have their own honest answers on this site, written from the official records rather than brochure copy: the month-by-month weather is in our best-time guide, and the bus-taxi-scooter-car decision is laid out in the getting-around guide. The short version: September to December is the easiest weather to plan around, and hire something with wheels — no bus goes to the beach you came here for.",
+        ],
+      },
+    ],
+    related: [
+      { href: "/browse/scooter", label: "Rent a scooter for the whole itinerary" },
+      { href: "/browse/car", label: "Cars for families and longer stays" },
+      { href: "/browse/tours", label: "Île aux Cocos & lagoon boat trips" },
+      { href: "/guide/beaches", label: "Every beach on the island, mapped" },
+      { href: "/guide/viewpoints", label: "Viewpoints & landmarks in Rodrigues" },
+      { href: "/blog/best-time-to-visit-rodrigues", label: "The best time to visit" },
+      { href: "/blog/how-many-days-in-rodrigues", label: "How many days do you need?" },
     ],
   },
 ];
