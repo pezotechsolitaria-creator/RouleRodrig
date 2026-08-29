@@ -120,6 +120,35 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                   {para}
                 </p>
               ))}
+              {/* Comparison tables scroll inside their own container — the
+                  article column is 2xl and a 4-column table at phone width
+                  must never make the PAGE scroll sideways. */}
+              {s.table && (
+                <div className="mt-4 overflow-x-auto rounded-lg border border-offwhite/10">
+                  <table className="w-full min-w-[560px] border-collapse font-dm text-sm">
+                    <thead>
+                      <tr className="bg-offwhite/5 text-left">
+                        {s.table.headers.map((h) => (
+                          <th key={h} className="px-3 py-2 font-semibold text-offwhite">
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {s.table.rows.map((row, ri) => (
+                        <tr key={ri} className="border-t border-offwhite/10 align-top">
+                          {row.map((cell, ci) => (
+                            <td key={ci} className="px-3 py-2 text-muted">
+                              {cell}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
           ))}
 

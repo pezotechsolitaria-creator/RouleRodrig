@@ -9,7 +9,16 @@
 // guide page that carries the detail — no invented figures. Quality over volume:
 // a few true, useful articles, added at a natural cadence, not AI slop at scale.
 
-export type BlogSection = { heading: string; paragraphs: string[] };
+// `table` renders after the paragraphs. Tables exist for the sections an AI
+// answer wants to lift whole — a month-by-month or mode-by-mode comparison is
+// citable in a way six paragraphs of prose are not. Every cell must restate a
+// fact the surrounding prose already makes: a table is a summary, not a place
+// to smuggle in claims the sourced text never made.
+export type BlogSection = {
+  heading: string;
+  paragraphs: string[];
+  table?: { headers: string[]; rows: string[][] };
+};
 
 export interface BlogPost {
   slug: string;
@@ -41,7 +50,7 @@ export const BLOG_POSTS: BlogPost[] = [
       "Rodrigues is small — about 18 km end to end — so it's tempting to think a day or two will do it. It won't. The island is slow on purpose, the roads wind, and half its best moments are the ones you didn't plan. Here's an honest answer to how long you actually need, depending on the kind of trip you want.",
     sections: [
       {
-        heading: "The short answer: 4 to 5 days",
+        heading: "How many days are enough? The short answer: 4 to 5",
         paragraphs: [
           "If you want a real feel for Rodrigues without rushing, plan for four or five days. That's enough to see the headline sights, spend unhurried time on two or three beaches, do one boat or reserve excursion, and still have a morning that goes nowhere in particular — which, on Rodrigues, is the point.",
           "Fewer than three days and you'll spend more time moving than being anywhere. More than a week and you'll have seen the island, though plenty of people happily stay longer just to slow down.",
@@ -112,11 +121,44 @@ export const BLOG_POSTS: BlogPost[] = [
       "Rodrigues is about 18 km long and you can drive its length in well under an hour. That makes it tempting to assume getting around will sort itself out. It will not: there are buses, but they were built for Rodriguans going to work, not for visitors going to beaches, and the last one leaves earlier than you think.",
     sections: [
       {
-        heading: "The short answer",
+        // Question-form heading: "how do you get around Rodrigues" is the
+        // literal phrasing an AI assistant is asked, and none of this page's
+        // 22 headings matched it. The voicey ones below stay voicey.
+        heading: "How do you get around Rodrigues?",
         paragraphs: [
           "Hire something. A scooter if there are two of you with light bags; a car if you are a family, have luggage, or want air conditioning and a roof when a shower comes through. Buses exist and are worth knowing about, but no bus goes to the beach you came here for.",
           "The distances are short and the roads are good. What makes them slow is that they climb, drop and turn constantly — the island is hilly in a way the map does not show.",
         ],
+        // Every cell restates a fact from the sections below — nothing new.
+        table: {
+          headers: ["Mode", "Cost", "Best for", "The catch"],
+          rows: [
+            [
+              "Bus",
+              "About Rs 29 airport fare",
+              "Everyday routes Rodriguans use — about twenty lines from Port Mathurin",
+              "Airport service stops at 16:30, and no bus reaches the beaches",
+            ],
+            [
+              "Taxi",
+              "No official fare table — agree the price before you get in",
+              "Flight arrivals and door-to-door trips",
+              "Every driver sets their own fare",
+            ],
+            [
+              "Scooter",
+              "The cheapest rental — current rates on our scooter page",
+              "Two people with light bags; the narrow coastal lanes",
+              "Rain showers, and nowhere for a suitcase",
+            ],
+            [
+              "Car",
+              "Daily rates on our car page",
+              "Families, luggage, air conditioning, wet afternoons",
+              "Costs more than a scooter",
+            ],
+          ],
+        },
       },
       {
         heading: "The bus, honestly",
@@ -135,7 +177,7 @@ export const BLOG_POSTS: BlogPost[] = [
         ],
       },
       {
-        heading: "Scooter or car",
+        heading: "Should you rent a scooter or a car?",
         paragraphs: [
           "A scooter is cheaper, parks anywhere, and gets you down the narrow coastal lanes where the good swimming is. Two people with day bags need nothing more.",
           "A car earns its money the moment you add a third person, a suitcase, a child, or a wet afternoon. Rodrigues gets rain in short bursts, and the difference between a shower on a scooter and a shower in a car is the difference between a story and a ruined day.",
@@ -223,7 +265,7 @@ export const BLOG_POSTS: BlogPost[] = [
         ],
       },
       {
-        heading: "So who should come?",
+        heading: "Who should choose Rodrigues over Mauritius?",
         paragraphs: [
           "People who want an island rather than a hotel. If your idea of a good week is a scooter, a lagoon, a walk down to a beach with nobody on it, and dinner cooked by whoever's house you booked, Rodrigues is close to unimprovable.",
           "People who want to be looked after by staff in uniform will find the island bewildering and slightly boring, and the honest advice is to spend that money in Mauritius.",
@@ -261,11 +303,40 @@ export const BLOG_POSTS: BlogPost[] = [
       "Rodrigues has no bad season, which is an unhelpful thing to be told when you are booking flights. So here is the actual climate record from the Mauritius Meteorological Services, what it means for a week here, and the dates worth planning around.",
     sections: [
       {
-        heading: "The short answer",
+        heading: "When is the best time to visit Rodrigues?",
         paragraphs: [
           "September to December is the driest stretch and the easiest weather to plan around. January to March is hottest, wettest, and when cyclones are most likely. May to October is cooler, and it is the window the tourism office recommends for kitesurfing.",
           "None of those is a season to avoid. The temperature range across the whole year is small enough that your choice is about rain and wind, not about warmth.",
         ],
+        // A season-by-season summary of the sections below, in one liftable
+        // block. Grouped by season rather than twelve rows because that is
+        // how the official record itself reports — a per-month row would
+        // force cells the sources never stated.
+        table: {
+          headers: ["Months", "Weather (official record)", "Worth knowing"],
+          rows: [
+            [
+              "January – March",
+              "Hottest — daily maximums up to 29.4 °C in March; February is the wettest month and the humidity peak",
+              "Cyclone activity peaks late January to mid-March",
+            ],
+            [
+              "April – June",
+              "Cooling down; May has the calmest wind on record (16.9 km/h)",
+              "The tourism office's kitesurfing window opens in May",
+            ],
+            [
+              "July – August",
+              "Coolest — August averages 24.8 °C max / 18.8 °C min; July has the most rain days (15)",
+              "August is the windiest month on record (19.6 km/h)",
+            ],
+            [
+              "September – December",
+              "The driest stretch — September–October driest, 7–8 rain days a month October to December",
+              "The easiest weather to plan around; Kreol Festival late November – early December",
+            ],
+          ],
+        },
       },
       {
         heading: "Temperature: a narrow band all year",
@@ -285,7 +356,7 @@ export const BLOG_POSTS: BlogPost[] = [
         ],
       },
       {
-        heading: "Cyclones, without the scaremongering",
+        heading: "When is cyclone season, honestly?",
         paragraphs: [
           "You will read that the cyclone season 'officially runs 15 November to 15 May'. We could not find that in any primary source. What we could verify: the World Meteorological Organization defines the South-West Indian Ocean season as 1 July to 30 June; Mauritius's own National Disaster Risk Reduction and Management Centre gives 1 November to 15 May; and the Meteorological Services publish no start or end date at all on their cyclone pages.",
           "Météo-France La Réunion recorded 13 named storms in the 2024–25 season against a normal of 10, with activity peaking between late January and mid-March. That peak is the part worth planning around.",
