@@ -206,6 +206,10 @@ export default async function GuideFrPage() {
                   label: "Les plus belles plages de Rodrigues",
                 },
                 {
+                  href: "/fr/itineraire-rodrigues",
+                  label: "Itinéraire à Rodrigues : 3, 5 ou 7 jours",
+                },
+                {
                   href: "/guide/routes",
                   label: "Itinéraires en scooter & randonnées",
                 },

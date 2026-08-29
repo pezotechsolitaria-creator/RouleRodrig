@@ -426,6 +426,10 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "rodrigues-itinerary",
     title: "A Rodrigues Itinerary for 3, 5 or 7 Days",
     metaTitle: "Rodrigues Itinerary — 3, 5 & 7 Days | Roule Rodrigues",
+    // Written together with its French twin, not before it — the FR audience
+    // is the majority one, and a twin queued "for later" is how the FR car
+    // page spent months unindexed.
+    fr: "/fr/itineraire-rodrigues",
     description:
       "A day-by-day Rodrigues itinerary from locals: the east-coast beaches, Trou d'Argent, Mont Limon, Île aux Cocos and where to eat — for 3, 5 or 7 days.",
     keyword: "Rodrigues itinerary",
@@ -500,6 +504,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
     ],
     related: [
+      { href: "/fr/itineraire-rodrigues", label: "Lire cet itinéraire en français" },
       { href: "/browse/scooter", label: "Rent a scooter for the whole itinerary" },
       { href: "/browse/car", label: "Cars for families and longer stays" },
       { href: "/browse/tours", label: "Île aux Cocos & lagoon boat trips" },

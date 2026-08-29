@@ -432,6 +432,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.8,
     },
+    // "Itinéraire Rodrigues" — the French twin of /blog/rodrigues-itinerary,
+    // for the majority-French audience that plans day by day.
+    {
+      url: `${SITE_URL}/fr/itineraire-rodrigues`,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
     // Real search targets: "what's on in Rodrigues", "airport transfer Rodrigues".
     {
       url: `${SITE_URL}/events`,
