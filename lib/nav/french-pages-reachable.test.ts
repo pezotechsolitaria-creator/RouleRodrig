@@ -84,8 +84,11 @@ describe("the doors point where hreflang says they should", () => {
   it("each French page declares an English twin", () => {
     for (const slug of FRENCH_ROUTES) {
       const src = readFileSync(join(ROOT, "app", "fr", slug, "page.tsx"), "utf8");
+      // Quoted or not — this asserts the alternate EXISTS, not how it is
+      // punctuated. A style difference failing a reachability guard sends the
+      // next person hunting for a missing tag that is right there.
       expect(src, `/fr/${slug} declares no English alternate`).toMatch(
-        /"en(-US)?":/,
+        /["']?en(-US)?["']?\s*:/,
       );
     }
   });

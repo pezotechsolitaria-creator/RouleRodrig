@@ -404,6 +404,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.9,
     },
+    // The French half of /taxi. "taxi Rodrigues" and "transfert aeroport
+    // Rodrigues" are the first thing a French-speaking arrival types, and the
+    // site answered them only in English.
+    {
+      url: `${SITE_URL}/fr/taxi-rodrigues`,
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
     // The French half of /browse/stays. "hébergement Rodrigues" and "où dormir
     // à Rodrigues" are commercial head terms the site answered only in English.
     {

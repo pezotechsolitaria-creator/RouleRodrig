@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import AppPageHeader from "@/components/AppPageHeader";
 import JsonLd from "@/components/JsonLd";
+import FrenchTwinLink from "@/components/FrenchTwinLink";
 import { SITE_URL } from "@/lib/site";
 import { taxiFaq, taxiFaqHeading, taxiFaqLd, taxiServiceLd } from "@/lib/taxi-faq";
 import { breadcrumbLd } from "@/lib/schema";
@@ -678,6 +679,14 @@ export default function TaxiPage() {
             Rodrigues as not a transport operator, so the liability wording is
             if anything more direct than before, and only the self-description
             is gone. */}
+        {/* The French twin. hreflang is an annotation; this is the crawl
+            path — and four French pages were "unknown to Google" for exactly
+            the want of one. */}
+        <FrenchTwinLink
+          href="/fr/taxi-rodrigues"
+          label="Taxi à Rodrigues — cette page en français"
+        />
+
         <details className="mt-8 text-center">
           <summary className="mx-auto inline-flex min-h-11 cursor-pointer items-center justify-center font-dm text-xs text-muted/50 transition-colors hover:text-muted">
             {tx.priceNote}
