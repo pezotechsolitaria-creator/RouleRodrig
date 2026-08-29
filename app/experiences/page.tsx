@@ -5,6 +5,7 @@ import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import ExperiencesHub from "@/components/experiences/ExperiencesHub";
+import FrenchTwinLink from "@/components/FrenchTwinLink";
 
 export const revalidate = 300;
 
@@ -72,6 +73,12 @@ export default async function ExperiencesHubPage() {
         logo={content.branding.logo}
       />
       <ExperiencesHub places={places} />
+      <div className="mx-auto max-w-7xl px-4 pb-10 md:px-6">
+        <FrenchTwinLink
+          href="/fr/que-faire-a-rodrigues"
+          label="Que faire à Rodrigues ? — cette page en français"
+        />
+      </div>
     </>
   );
 }

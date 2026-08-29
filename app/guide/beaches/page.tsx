@@ -132,6 +132,12 @@ export default async function BeachesPage() {
           },
           { href: "/browse/scooter", label: "Rent a scooter to reach them" },
           { href: "/browse/stays", label: "Where to stay in Rodrigues" },
+          // The French twin of THIS page, and the only crawl path into it.
+          // hreflang is an annotation; Google needs a link.
+          {
+            href: "/fr/plages-rodrigues",
+            label: "Les plages de Rodrigues — cette page en français",
+          },
         ]}
       />
     </>

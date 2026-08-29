@@ -10,6 +10,7 @@ import {
   priceNumber,
 } from "@/lib/site-data";
 import AppPageHeader from "@/components/AppPageHeader";
+import FrenchTwinLink from "@/components/FrenchTwinLink";
 import BrowseTabs from "@/components/BrowseTabs";
 import Fleet from "@/components/Fleet";
 import TrustBar from "@/components/TrustBar";
@@ -46,6 +47,17 @@ const PLACE_SLUGS: Record<
     /** French versions of both. The FR pages outrank everything else here. */
     headingFr?: string;
     introFr?: string;
+    /**
+     * The French twin, rendered as a VISIBLE link.
+     *
+     * Must be the page that names this one in its own hreflang, or the pair
+     * stops being reciprocal and Google ignores both halves. Only `stays` has
+     * one: /fr/que-faire-a-rodrigues is paired with /experiences, not with
+     * /browse/activities, and claiming it here would create a second English
+     * page pointing at the same French URL.
+     */
+    frHref?: string;
+    frLabel?: string;
   }
 > = {
   restaurants: {
@@ -91,6 +103,8 @@ const PLACE_SLUGS: Record<
     heading: "Where to Stay in Rodrigues",
     intro:
       "Guesthouses, self-catering villas and small hotels across Rodrigues — among them sea views, breakfast, air conditioning and a pool. Each is run by an independent local owner: see the nightly price on the card, then book or enquire with them directly.",
+    frHref: "/fr/hebergement-rodrigues",
+    frLabel: "Hébergement à Rodrigues — cette page en français",
     headingFr: "Où loger à Rodrigues",
     introFr:
       "Chambres d’hôtes, villas avec cuisine et petits hôtels à Rodrigues — vue sur mer, petit-déjeuner, climatisation et piscine selon les adresses. Chaque hébergement est tenu par un propriétaire local indépendant : le prix par nuit est indiqué sur la fiche, puis vous réservez ou vous vous renseignez directement auprès de lui.",
@@ -579,6 +593,17 @@ export default async function BrowsePage({
             }}
             whatsapp={businessWhatsApp}
           />
+          {/* The French twin as a real link, not only an hreflang annotation.
+              META.stays has declared /fr/hebergement-rodrigues for weeks and
+              this branch never rendered it, so the only routes into the French
+              page were other French pages — and URL Inspection reported it
+              "unknown to Google". The vehicle branch below already does this;
+              the place branch was simply never given the same treatment. */}
+          {place.frHref && place.frLabel ? (
+            <div className="mx-auto max-w-7xl px-4 md:px-6">
+              <FrenchTwinLink href={place.frHref} label={place.frLabel} />
+            </div>
+          ) : null}
         </main>
         {footer}
       </>
@@ -604,6 +629,16 @@ export default async function BrowsePage({
             stickyTop="top-[56px]"
           />
           <GettingAround content={{ ...ga, options: opts }} />
+          {/* /fr/se-deplacer-a-rodrigues was "Discovered - currently not
+              indexed": Google knew of it and had never fetched it. Its
+              hreflang twin is the blog post, so this is a plain link rather
+              than a second pairing — a crawl path, which is what was missing. */}
+          <div className="mx-auto max-w-7xl px-4 md:px-6">
+            <FrenchTwinLink
+              href="/fr/se-deplacer-a-rodrigues"
+              label="Se déplacer à Rodrigues — cette page en français"
+            />
+          </div>
         </main>
         {footer}
       </>
