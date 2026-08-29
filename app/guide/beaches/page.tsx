@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, itemListLd, placeLd } from "@/lib/schema";
+import { realProse } from "@/lib/place-prose";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import PlaceGuide from "@/components/PlaceGuide";
@@ -27,8 +28,12 @@ const DESCRIPTION =
 // requiring one particular column threw away the column that is always filled.
 // A filter that drops content silently is worse than one that is strict: the
 // owner had already done the work and had no way to know it was not showing.
+// realProse, not trim: seven beach entries carried the admin placeholder
+// ("Add a description.", sometimes with coordinates pasted after it) and
+// this gate was letting them through — so the page's headline count included
+// entries whose entire prose was placeholder text.
 const hasWriting = (l: { story?: string; description?: string }) =>
-  Boolean(l.story?.trim() || l.description?.trim());
+  Boolean(realProse(l.story) || realProse(l.description));
 
 const beaches = (
   locations: { category: string; story?: string; description?: string }[],
@@ -86,7 +91,7 @@ export default async function BeachesPage() {
           ...places.map((p) =>
             placeLd({
               name: p.name.trim(),
-              description: p.description,
+              description: realProse(p.description) || undefined,
               category: p.category,
               lat: p.lat,
               lng: p.lng,

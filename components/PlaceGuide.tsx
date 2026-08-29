@@ -4,6 +4,7 @@ import { ArrowRight, MapPin, Mountain, Navigation } from "lucide-react";
 import type { MapLocation } from "@/lib/defaults";
 import PlaceDiscovery from "@/components/PlaceDiscovery";
 import { loc } from "@/lib/localize";
+import { realProse } from "@/lib/place-prose";
 import type { Language } from "@/lib/i18n";
 
 // A themed island-guide page (beaches, viewpoints…) built from the real
@@ -123,8 +124,11 @@ export default function PlaceGuide({
             // translated writing — not English text under a French URL, which
             // is what Google penalises.
             const name = loc(lang, p.name, p.nameFr, p.nameCr).trim();
-            const description = loc(lang, p.description, p.descriptionFr, p.descriptionCr).trim();
-            const story = loc(lang, p.story, p.storyFr, p.storyCr).trim();
+            // realProse strips the admin placeholder ("Add a description.")
+            // as well as whitespace — a place with a real story but a stub
+            // description was printing the stub above the story.
+            const description = realProse(loc(lang, p.description, p.descriptionFr, p.descriptionCr));
+            const story = realProse(loc(lang, p.story, p.storyFr, p.storyCr));
             return (
               <article key={p.id} id={p.id} className="scroll-mt-24">
                 <h2 className="font-syne text-2xl md:text-3xl font-bold text-offwhite">{name}</h2>

@@ -210,7 +210,13 @@ export default async function GuideFrPage() {
                   label: "Itinéraires en scooter & randonnées",
                 },
                 {
-                  href: "/browse/car",
+                  // The one French car-rental page on the site had ZERO
+                  // internal links — Google left it "Discovered - currently
+                  // not indexed" and ranked the thin English /browse/car at
+                  // position 50-70 for French car queries instead. A French
+                  // label was already pointing a French reader at the English
+                  // page; this is the page it always meant.
+                  href: "/fr/location-voiture-rodrigues",
                   label: "Location de voiture à Rodrigues",
                 },
               ].map((l) => (

@@ -82,6 +82,7 @@ export default async function HikingPage() {
           { href: "/guide/viewpoints", label: "Viewpoints & landmarks in Rodrigues" },
           { href: "/guide/beaches", label: "The best beaches in Rodrigues" },
           { href: "/guide/rodrigues", label: "The full local's guide to Rodrigues" },
+          { href: "/browse/scooter", label: "Rent a scooter to reach the trailheads" },
           { href: "/trip-planner", label: "Build a day-by-day plan" },
         ]}
       />

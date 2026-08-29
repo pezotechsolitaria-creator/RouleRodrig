@@ -16,14 +16,16 @@
 - [Car rental in Rodrigues](https://roulerodrig.com/browse/car): daily rates, guest-house delivery, online booking
 - [Location de scooter a Rodrigues](https://roulerodrig.com/fr/location-scooter-rodrigues): la page location de scooter, en francais
 - [Location de voiture a Rodrigues](https://roulerodrig.com/fr/location-voiture-rodrigues): la page location de voiture, en francais
+- [Hebergement a Rodrigues](https://roulerodrig.com/fr/hebergement-rodrigues): la page hebergement, en francais
 - [Taxi and private transport](https://roulerodrig.com/taxi): independent local drivers, price confirmed before you pay
 - [Getting around Rodrigues](https://roulerodrig.com/browse/getting-around): taxis, transfers, scooter and car hire compared
 
 ## Stay & Experience
 
 - [Where to stay in Rodrigues](https://roulerodrig.com/browse/stays): guesthouses, lodges and hotels with nightly prices
-- [Things to do](https://roulerodrig.com/browse/activities): kitesurfing, snorkelling, hiking, island tours
-- [Guided tours](https://roulerodrig.com/browse/tours): island tours led by locals
+- [Things to do](https://roulerodrig.com/browse/activities): bookable activities, price per person and session length on each listing
+- [Guided tours and boat trips](https://roulerodrig.com/browse/tours): Ile aux Cocos and its bird sanctuary, snorkelling at Riviere Banane, traditional fishing, lagoon trips - with local skippers
+- [All experiences in one place](https://roulerodrig.com/experiences): the door for someone who does not yet know which kind they want
 - [Events and tickets](https://roulerodrig.com/events): what's on, pay online or cash, QR entry
 - [Local food via WhatsApp](https://roulerodrig.com/food): Rodriguan dishes made by locals
 

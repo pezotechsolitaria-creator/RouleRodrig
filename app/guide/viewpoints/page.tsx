@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getContent } from "@/lib/content";
+import { realProse } from "@/lib/place-prose";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, itemListLd, placeLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
@@ -35,10 +36,14 @@ export default async function ViewpointsPage() {
   // particular field silently hid Trou d'Argent from /guide/beaches even though
   // the owner had written a description for it — see the note there. The same
   // filter shape was here, so the same fix is.
+  // realProse, not trim: five of the entries passing the old gate carried the
+  // admin placeholder ("Add a description.", with or without pasted
+  // coordinates) as their entire prose — rendered to every visitor and every
+  // crawler on the site's best-ranking page.
   const places = content.mapLocations.filter(
     (l) =>
       (l.category === "viewpoint" || l.category === "landmark") &&
-      Boolean(l.story?.trim() || l.description?.trim()),
+      Boolean(realProse(l.story) || realProse(l.description)),
   );
 
   return (
@@ -57,7 +62,7 @@ export default async function ViewpointsPage() {
           ...places.map((p) =>
             placeLd({
               name: p.name.trim(),
-              description: p.description,
+              description: realProse(p.description) || undefined,
               category: p.category,
               lat: p.lat,
               lng: p.lng,
@@ -80,6 +85,7 @@ export default async function ViewpointsPage() {
             label: "The full local's guide to Rodrigues",
           },
           { href: "/browse/scooter", label: "Rent a scooter to reach them" },
+          { href: "/browse/car", label: "Car rental in Rodrigues, for the family" },
           {
             href: "/browse/getting-around",
             label: "How to get around Rodrigues",
