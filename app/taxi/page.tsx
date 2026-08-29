@@ -23,6 +23,10 @@ import {
   PlaneTakeoff,
 } from "lucide-react";
 import AppPageHeader from "@/components/AppPageHeader";
+import JsonLd from "@/components/JsonLd";
+import { SITE_URL } from "@/lib/site";
+import { taxiFaq, taxiFaqHeading, taxiFaqLd, taxiServiceLd } from "@/lib/taxi-faq";
+import { breadcrumbLd } from "@/lib/schema";
 import type { T } from "@/lib/i18n";
 import type { TaxiDriver, TaxiDriverReview } from "@/lib/supabase/taxi-types";
 
@@ -349,8 +353,10 @@ function DriverReviewsModal({
 }
 
 export default function TaxiPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const tx = t.taxi;
+  // One array, rendered below AND fed to the FAQPage markup.
+  const faqItems = taxiFaq(language);
   const [drivers, setDrivers] = useState<TaxiDriver[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewDriver, setReviewDriver] = useState<TaxiDriver | null>(null);
@@ -613,6 +619,52 @@ export default function TaxiPage() {
             })}
           </div>
         )}
+
+        {/* ── THE QUESTIONS THE PAGE NEVER ANSWERED (M149) ─────────────────
+            /taxi served 1,109 characters and answered none of what somebody
+            types before booking a taxi on an island they have not visited.
+
+            At the foot, and collapsed, for the reason the block below is
+            collapsed: the page was measured at 607px of scrolling to reach one
+            driver, and a subtitle was deleted for costing 114px of that. This
+            costs the booking flow nothing — it sits under the driver list —
+            and the answers are in the DOM either way, which is what both
+            Google and a reader searching the page need.
+
+            The FAQPage markup is generated from the SAME array that renders
+            here, so the structured data cannot claim a question the page does
+            not show. That is Google's rule, and it is the rule
+            app/browse/[category] already follows. */}
+        <section className="mt-10">
+          <JsonLd
+            data={[
+              breadcrumbLd([
+                { name: "Home", url: SITE_URL },
+                { name: "Taxi & Transport", url: `${SITE_URL}/taxi` },
+              ]),
+              taxiServiceLd(SITE_URL),
+              taxiFaqLd(`${SITE_URL}/taxi`, faqItems),
+            ]}
+          />
+          <h2 className="font-syne text-sm font-extrabold uppercase tracking-wide text-offwhite/80">
+            {taxiFaqHeading(language)}
+          </h2>
+          <div className="mt-3 divide-y divide-white/5 border-y border-white/5">
+            {faqItems.map((f) => (
+              <details key={f.question} className="group py-3">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 font-dm text-sm text-offwhite/85 transition-colors hover:text-yellow">
+                  {f.question}
+                  <span className="shrink-0 text-muted/50 transition-transform group-open:rotate-45">
+                    +
+                  </span>
+                </summary>
+                <p className="mt-2 max-w-2xl font-dm text-xs leading-relaxed text-muted/70">
+                  {f.answer}
+                </p>
+              </details>
+            ))}
+          </div>
+        </section>
 
         {/* 102px of legal prose measured, at the foot of a page that already
             needed 607px of scrolling. It is worth keeping and it is not worth
