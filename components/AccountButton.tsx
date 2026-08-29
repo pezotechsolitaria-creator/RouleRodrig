@@ -38,7 +38,7 @@ export default function AccountButton({ className = "" }: { className?: string }
       href="/account"
       aria-label={label}
       aria-current={active ? "page" : undefined}
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors ${
+      className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors after:absolute after:-inset-1 after:content-[''] ${
         active
           ? "border-yellow/50 bg-yellow/10 text-yellow"
           : "border-white/10 text-muted hover:border-yellow/50 hover:text-yellow"

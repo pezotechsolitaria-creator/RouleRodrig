@@ -107,10 +107,12 @@ export default function AppPageHeader({
         {!title && <WorldSwitcher strip={false} className="mr-auto" />}
 
         <InstallAppButton variant="icon" />
+        {/* after:-inset-1 lifts the 36px circle's HIT area to the 44px
+            minimum (WCAG 2.5.5) without changing what is drawn. */}
         <button
           onClick={cycle}
           aria-label="Change language"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 font-bebas text-[11px] tracking-widest text-muted transition-colors hover:text-yellow"
+          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 font-bebas text-[11px] tracking-widest text-muted transition-colors after:absolute after:-inset-1 after:content-[''] hover:text-yellow"
         >
           {language.toUpperCase()}
         </button>

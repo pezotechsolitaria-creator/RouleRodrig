@@ -98,7 +98,7 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
       <button
         onClick={handleClick}
         aria-label="Install the app"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-muted transition-colors hover:border-yellow/50 hover:text-yellow"
+        className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-muted transition-colors after:absolute after:-inset-1 after:content-[''] hover:border-yellow/50 hover:text-yellow"
       >
         <Download size={16} />
       </button>

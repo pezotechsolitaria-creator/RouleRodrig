@@ -319,7 +319,12 @@ export default function AppHome({
 
       {/* ── Header ─────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-white/10 bg-dark/85 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2.5">
+        {/* gap/padding tighten below 390px: at 375px this row's right-most
+            control was measured 17.8px off-screen (account icon clipped at
+            392.8px), with the EN button crushed to 12.9px wide. Narrower gaps
+            plus shrink-0 on the fixed-size controls keep all of them on
+            screen; the WorldSwitcher is the one flexible element. */}
+        <div className="mx-auto flex max-w-5xl items-center gap-1 px-2.5 py-2.5 min-[390px]:gap-2 min-[390px]:px-4">
           <Link
             href="/"
             className="mr-2 flex items-center"
@@ -389,17 +394,22 @@ export default function AppHome({
             <ChevronDown size={13} className="text-muted" />
           </button>
           <InstallAppButton variant="icon" />
+          {/* shrink-0 on every fixed-size control (the sub-page header already
+              had it): without it flex pressure crushed this button to a
+              measured 12.9px. after:-inset-1 extends each 36px circle's HIT
+              area to the 44px minimum without growing the visual — the
+              pseudo-element is invisible and clicks through to the button. */}
           <button
             onClick={cycle}
             aria-label="Change language"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 font-bebas text-[11px] tracking-widest text-muted transition-colors hover:text-yellow"
+            className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 font-bebas text-[11px] tracking-widest text-muted transition-colors after:absolute after:-inset-1 after:content-[''] hover:text-yellow"
           >
             {language.toUpperCase()}
           </button>
           <button
             onClick={openSaved}
             aria-label={`Saved (${count})`}
-            className="relative flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-muted transition-colors hover:text-yellow"
+            className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-muted transition-colors after:absolute after:-inset-1 after:content-[''] hover:text-yellow"
           >
             <Heart
               size={17}

@@ -90,16 +90,23 @@ export default function WorldSwitcher({
       </span>
 
       {/* The hairline that separates the two halves — the visual equivalent of
-          the word "or", without spending a word on it. */}
+          the word "or", without spending a word on it.
+
+          BOTH the hairline and the destination half hide below 390px. At a
+          measured 375px the full pill (≈187px) pushed the header's last icon
+          to 406.9px — the account button was clipped off-screen with no
+          scroll affordance. The pill stays a working switcher (its aria-label
+          names both worlds); what it gives up on a small phone is only the
+          preview of the OTHER world, not the control. */}
       <span
         aria-hidden
-        className="h-3.5 w-px"
+        className="hidden h-3.5 w-px min-[390px]:block"
         style={{ background: "var(--rr-world-line, rgba(255,255,255,0.18))" }}
       />
 
       {/* WHERE YOU COULD GO. Quieter, and it brightens on approach so the
           control reveals that it is a door rather than a label. */}
-      <span className="flex items-center gap-1 font-dm text-[10.5px] font-semibold leading-none text-muted transition-colors group-hover:text-offwhite">
+      <span className="hidden items-center gap-1 font-dm text-[10.5px] font-semibold leading-none text-muted transition-colors group-hover:text-offwhite min-[390px]:flex">
         {copy.eyebrow}
         <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
       </span>

@@ -77,6 +77,30 @@ export default function HeroVideoLayer({
   // Starts false and is only turned on after the checks below pass. Rendering
   // no <video> at all is the cheapest possible fallback: no request is made.
   const [allowed, setAllowed] = useState(false);
+  // ── The player waits its turn behind the page (perf, not policy) ─────────
+  // An embedded player costs ~1MB of transfer and up to ~600ms of main thread
+  // (PSI, mobile) — and it was all spent during initial load, competing with
+  // the LCP image and the booking tiles on the very connection this component
+  // documents protecting. Nothing about that spend was visible: the poster
+  // deliberately covers the player for REVEAL_HOLD_MS (~4s) anyway, so footage
+  // never appears in the first seconds regardless. Mounting the player only
+  // after the page's own `load` event (plus a beat) moves the whole cost off
+  // the critical path at zero visual difference. This defers the SAME hero the
+  // owner chose — it is not a facade, not a tap-to-play button, and it does
+  // not change what plays or when it is revealed.
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    let t: number | undefined;
+    const go = () => {
+      t = window.setTimeout(() => setSettled(true), 800);
+    };
+    if (document.readyState === "complete") go();
+    else window.addEventListener("load", go, { once: true });
+    return () => {
+      window.removeEventListener("load", go);
+      if (t !== undefined) window.clearTimeout(t);
+    };
+  }, []);
 
   useEffect(() => {
     if (!list.length) return;
@@ -324,7 +348,7 @@ export default function HeroVideoLayer({
     };
   }, [embed, parsed.embedUrl, onPlaying]);
 
-  if (!allowed || !current) return null;
+  if (!allowed || !settled || !current) return null;
 
   // A link we cannot play is skipped rather than rendered. This is the bug the
   // owner hit: a YouTube WATCH page in a <video src> fetches HTML, fails to
