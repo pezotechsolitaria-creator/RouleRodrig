@@ -13,6 +13,9 @@ import { getFoodHome, browseFood } from "@/lib/food/queries";
 import { DIETARY_TAGS } from "@/lib/food/types";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
+import FoodFaq from "@/components/food/FoodFaq";
+import { foodFaq } from "@/lib/food-faq";
+import { faqPageLd } from "@/lib/schema";
 import FoodCard from "@/components/food/FoodCard";
 import FulfillmentBar from "@/components/food/FulfillmentBar";
 import FoodCartBar from "@/components/food/FoodCartBar";
@@ -175,6 +178,11 @@ export default async function FoodPage({
               { name: "Home", url: SITE_URL },
               { name: "Food", url: `${SITE_URL}/food` },
             ]),
+            // English, because this page is its own canonical and a crawler
+            // renders the default language. FoodFaq below shows the visitor
+            // their own language, and both come from lib/food-faq.ts, so the
+            // markup can never claim a question the page does not render.
+            faqPageLd(`${SITE_URL}/food`, foodFaq("en")),
             ...(results?.items.length
               ? [
                   itemListLd(
@@ -360,6 +368,8 @@ export default async function FoodPage({
                 ))}
               </div>
             )}
+
+            <FoodFaq />
 
             <ConciergeFooter />
           </>
