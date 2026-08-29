@@ -35,7 +35,12 @@ describe("the answers come from the beaches' own French writing", () => {
       "Anse aux Anglais",
     ];
     for (const b of listed) expect(CODE).toContain(b);
-    // Present on the ENGLISH page only — no French writing, so not rendered here.
+    // These six DO render now — someone filled in descriptionFr for them on
+    // 2026-08-29, which is exactly what the page's filter is designed to pick
+    // up. They stay out of the FAQ anyway: the answers are drawn from storyFr,
+    // the longer piece the owner wrote, and these six have only a short
+    // description. Naming a beach here whose story we cannot quote would mean
+    // inventing what it is like.
     for (const absent of ["Anse Raffin", "Gravier", "Île Michel", "Mourouk", "Sandy Patate"]) {
       expect(CODE).not.toContain(absent);
     }
