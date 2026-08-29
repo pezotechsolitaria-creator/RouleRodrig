@@ -19,6 +19,7 @@
 - [Hebergement a Rodrigues](https://roulerodrig.com/fr/hebergement-rodrigues): la page hebergement, en francais
 - [Taxi and private transport](https://roulerodrig.com/taxi): independent local drivers, price confirmed before you pay
 - [Getting around Rodrigues](https://roulerodrig.com/browse/getting-around): taxis, transfers, scooter and car hire compared
+- [Se deplacer a Rodrigues](https://roulerodrig.com/fr/se-deplacer-a-rodrigues): taxi, transfert, scooter et voiture compares, en francais
 
 ## Stay & Experience
 
@@ -26,6 +27,7 @@
 - [Things to do](https://roulerodrig.com/browse/activities): bookable activities, price per person and session length on each listing
 - [Guided tours and boat trips](https://roulerodrig.com/browse/tours): Ile aux Cocos and its bird sanctuary, snorkelling at Riviere Banane, traditional fishing, lagoon trips - with local skippers
 - [All experiences in one place](https://roulerodrig.com/experiences): the door for someone who does not yet know which kind they want
+- [Que faire a Rodrigues](https://roulerodrig.com/fr/que-faire-a-rodrigues): toutes les activites de l'ile, en francais
 - [Events and tickets](https://roulerodrig.com/events): what's on, pay online or cash, QR entry
 - [Local food via WhatsApp](https://roulerodrig.com/food): Rodriguan dishes made by locals
 
@@ -33,9 +35,11 @@
 
 - [Rodrigues island guide](https://roulerodrig.com/guide/rodrigues): the overview guide, by locals
 - [Beaches](https://roulerodrig.com/guide/beaches): every named beach with how to reach it
+- [Les plages de Rodrigues](https://roulerodrig.com/fr/plages-rodrigues): les 12 plus belles plages, comment s'y rendre, en francais
 - [Viewpoints and landmarks](https://roulerodrig.com/guide/viewpoints): the island's viewpoints, including Tombeau Maragon
 - [Hiking](https://roulerodrig.com/guide/hiking): trails and walking routes
 - [Ile aux Cocos](https://roulerodrig.com/guide/ile-aux-cocos): the lagoon island trip
+- [Ile aux Cocos en francais](https://roulerodrig.com/fr/ile-aux-cocos): l'excursion vers l'ilot et sa reserve d'oiseaux
 - [Rodriguan food](https://roulerodrig.com/guide/rodriguan-food): what to eat and where
 - [Guide de Rodrigues en francais](https://roulerodrig.com/fr/guide-rodrigues): le guide complet, en francais
 

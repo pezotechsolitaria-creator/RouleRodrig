@@ -113,3 +113,31 @@ describe("llms.txt keeps the shape the spec asks for", () => {
     expect(TXT).toContain("5835 5588");
   });
 });
+
+describe("llms.txt does not leave the French half out", () => {
+  it("lists every /fr/ page that exists", () => {
+    // The file's own summary says the audience is largely French-speaking
+    // (Reunion, Mauritius, France), and it was listing four of eight. An
+    // assistant answering "que faire a Rodrigues" should meet the French page.
+    const routes = readdirSync(join(ROOT, "app", "fr")).filter((n) => {
+      try {
+        return statSync(join(ROOT, "app", "fr", n, "page.tsx")).isFile();
+      } catch {
+        return false;
+      }
+    });
+    expect(routes.length).toBeGreaterThanOrEqual(8);
+    const missing = routes.filter((slug) => !TXT.includes(`/fr/${slug}`));
+    expect(missing, `French pages absent from llms.txt: ${missing.join(", ")}`).toEqual([]);
+  });
+
+  it("describes the French pages in French", () => {
+    // A French URL with an English-only description tells an assistant the
+    // page is English, which is the opposite of why it exists.
+    const frLines = TXT.split("\n").filter((l) => l.includes("/fr/"));
+    expect(frLines.length).toBeGreaterThanOrEqual(8);
+    for (const line of frLines) {
+      expect(line.toLowerCase()).toMatch(/francais|français|en francais/);
+    }
+  });
+});
