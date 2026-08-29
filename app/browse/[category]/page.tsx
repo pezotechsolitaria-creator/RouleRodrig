@@ -10,6 +10,7 @@ import {
   priceNumber,
 } from "@/lib/site-data";
 import AppPageHeader from "@/components/AppPageHeader";
+import Link from "next/link";
 import FrenchTwinLink from "@/components/FrenchTwinLink";
 import BrowseTabs from "@/components/BrowseTabs";
 import Fleet from "@/components/Fleet";
@@ -58,6 +59,16 @@ const PLACE_SLUGS: Record<
      */
     frHref?: string;
     frLabel?: string;
+    /**
+     * The Experiences hub, for the categories that are part of it.
+     *
+     * /experiences was two weeks old and still "URL is unknown to Google" —
+     * correct sitemap entry, correct robots, 200, self-canonical, real anchor
+     * text on the homepage, and almost no inbound links. These two pages are
+     * its closest relatives and linked it nowhere.
+     */
+    hubHref?: string;
+    hubLabel?: string;
   }
 > = {
   restaurants: {
@@ -67,6 +78,8 @@ const PLACE_SLUGS: Record<
   activities: {
     label: "Activities",
     filter: (p) => p.category === "activity" && !p.isTour,
+    hubHref: "/experiences",
+    hubLabel: "See every experience on Rodrigues — boat, fishing, hiking and more",
     heading: "Things to Do in Rodrigues",
     // Deliberately says nothing about how many or what kind: this list is one
     // item some weeks and several others, and an intro that promises variety
@@ -80,6 +93,8 @@ const PLACE_SLUGS: Record<
   tours: {
     label: "Guided Tours",
     filter: (p) => p.category === "activity" && !!p.isTour,
+    hubHref: "/experiences",
+    hubLabel: "See every experience on Rodrigues — boat, fishing, hiking and more",
     heading: "Guided Tours & Boat Trips in Rodrigues",
     // Every clause below is a listing that exists: Ile aux Cocos (highlights
     // "Bird sanctuary", "Nature reserve"), Plongee en apnee at Riviere Banane
@@ -624,6 +639,18 @@ export default async function BrowsePage({
           {place.frHref && place.frLabel ? (
             <div className="mx-auto max-w-7xl px-4 md:px-6">
               <FrenchTwinLink href={place.frHref} label={place.frLabel} />
+            </div>
+          ) : null}
+          {place.hubHref && place.hubLabel ? (
+            <div className="mx-auto max-w-7xl px-4 pb-2 md:px-6">
+              <p className="mt-6 font-dm text-sm text-muted">
+                <Link
+                  href={place.hubHref}
+                  className="underline underline-offset-2 hover:text-yellow"
+                >
+                  {place.hubLabel}
+                </Link>
+              </p>
             </div>
           ) : null}
         </main>

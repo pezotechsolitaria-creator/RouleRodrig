@@ -86,6 +86,16 @@ export default async function ViewpointsPage() {
           },
           { href: "/browse/scooter", label: "Rent a scooter to reach them" },
           { href: "/browse/car", label: "Car rental in Rodrigues, for the family" },
+          // The Experiences hub is two weeks old and Google has never crawled
+          // it: every signal is correct — sitemap, robots, 200, self-canonical,
+          // real anchor text on the homepage — it simply has almost no inbound
+          // links on a site with very little crawl budget. This page has the
+          // most impressions of any on the site, so a link from here is the
+          // strongest one available.
+          {
+            href: "/experiences",
+            label: "Boat trips, fishing and guides in Rodrigues",
+          },
           {
             href: "/browse/getting-around",
             label: "How to get around Rodrigues",

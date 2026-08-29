@@ -106,3 +106,30 @@ describe("the doors point where hreflang says they should", () => {
     expect(dangling, `these /fr/ URLs are linked but have no page`).toEqual([]);
   });
 });
+
+describe("the Experiences hub has more than one door", () => {
+  // Two weeks after it went live, URL Inspection still said "URL is unknown to
+  // Google". Nothing was wrong with the page — sitemap entry, robots, 200,
+  // self-canonical, and real anchor text ("Experiences Explore") on the
+  // homepage. It had ONE inbound link on a site earning 49 clicks a quarter,
+  // which is not enough to spend crawl budget on.
+  //
+  // Its closest relatives linked it nowhere: /browse/activities and
+  // /browse/tours ARE the experiences, and /guide/viewpoints has more
+  // impressions than any other page here.
+  const doors = NON_FRENCH.filter((f) =>
+    readFileSync(f, "utf8").includes('"/experiences"'),
+  ).map((f) => f.split(sep).join("/").split("/app/")[1] ?? f);
+
+  it("is linked from several pages, not just the homepage", () => {
+    expect(doors.length, `only linked from: ${doors.join(", ")}`).toBeGreaterThanOrEqual(3);
+  });
+
+  it("is linked from the page with the most impressions on the site", () => {
+    expect(doors.some((d) => d.includes("guide/viewpoints"))).toBe(true);
+  });
+
+  it("is linked from the categories that ARE the experiences", () => {
+    expect(doors.some((d) => d.includes("browse/[category]"))).toBe(true);
+  });
+});
