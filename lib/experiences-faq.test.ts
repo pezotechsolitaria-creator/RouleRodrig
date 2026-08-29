@@ -106,3 +106,32 @@ describe("the shared builder produces valid FAQPage", () => {
     expect(ld.mainEntity[4].acceptedAnswer.text).toBe(EN[4].answer);
   });
 });
+
+describe("the hub links every vertical, not only the ones with listings", () => {
+  const src = readFileSync(
+    join(__dirname, "..", "components", "experiences", "ExperiencesHub.tsx"),
+    "utf8",
+  );
+  const verticals = readFileSync(join(__dirname, "experiences.ts"), "utf8");
+
+  it("renders a link for each entry in EXPERIENCES", () => {
+    // It linked a vertical only when a LISTING pointed at it, so
+    // /experiences/hiking and /experiences/chauffeur — the two with no
+    // provider yet — were linked from nowhere on the site while sitting in the
+    // sitemap. Search Console: "Discovered - currently not indexed" for both.
+    expect(src).toContain("Object.values(EXPERIENCES).map");
+    expect(src).toMatch(/href=\{`\/experiences\/\$\{x\.slug\}`\}/);
+  });
+
+  it("covers all five, so none can be an orphan", () => {
+    const slugs = [...verticals.matchAll(/^\s{4}slug: "([a-z]+)"/gm)].map((m) => m[1]);
+    expect(slugs.length).toBeGreaterThanOrEqual(5);
+    for (const s of ["massage", "fishing", "boat", "hiking", "chauffeur"]) {
+      expect(slugs).toContain(s);
+    }
+  });
+
+  it("labels them in the reader's language", () => {
+    expect(src).toContain("L(x.title, x.titleFr)");
+  });
+});

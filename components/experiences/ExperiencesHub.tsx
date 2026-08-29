@@ -14,6 +14,7 @@ import JsonLd from "@/components/JsonLd";
 import { SITE_URL } from "@/lib/site";
 import { faqPageLd } from "@/lib/schema";
 import { experiencesFaq, experiencesFaqHeading } from "@/lib/experiences-faq";
+import { EXPERIENCES } from "@/lib/experiences";
 import { loc } from "@/lib/localize";
 import AutoPhotos from "@/components/AutoPhotos";
 import DuskSequence, { useDusk } from "@/components/DuskSequence";
@@ -292,6 +293,39 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
               is its own canonical and Googlebot renders the default language,
               so the structured data matches what a crawler actually sees.
               A French visitor still reads French below. */}
+          {/* ── EVERY VERTICAL, INCLUDING THE EMPTY ONES (M157) ─────────────
+              This hub linked a vertical only when a LISTING pointed at it, so
+              /experiences/hiking and /experiences/chauffeur were linked from
+              nowhere on the site while sitting in the sitemap. Search Console
+              reported both "Discovered - currently not indexed": Google had
+              the URL and would not spend a crawl reaching an orphan.
+
+              app/sitemap.ts lists them deliberately — "each has a real empty
+              state that recruits the providers, and 'massage rodrigues' is a
+              search someone makes whether or not a therapist has signed up
+              yet". That decision only pays if the page can be reached. Listing
+              them here is what makes it true rather than aspirational, and a
+              visitor looking for a hiking guide gets an answer either way. */}
+          <nav className="mt-12" aria-label={L("Kinds of experience", "Types d'expérience")}>
+            <h2 className="font-syne text-sm font-extrabold uppercase tracking-wide">
+              {L("Browse by kind", "Parcourir par type")}
+            </h2>
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {Object.values(EXPERIENCES).map((x) => (
+                <li key={x.slug}>
+                  <Link
+                    href={`/experiences/${x.slug}`}
+                    className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-dm text-xs transition-colors"
+                    style={{ borderColor: "var(--x-line)" }}
+                  >
+                    <span aria-hidden>{x.emoji}</span>
+                    {L(x.title, x.titleFr)}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
           <section className="mt-12">
             <JsonLd data={faqPageLd(`${SITE_URL}/experiences`, experiencesFaq("en"))} />
             <h2 className="font-syne text-sm font-extrabold uppercase tracking-wide">
