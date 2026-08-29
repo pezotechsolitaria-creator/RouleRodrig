@@ -93,6 +93,33 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             { name: "Blog", url: `${SITE_URL}/blog` },
             { name: post.title, url: `${SITE_URL}/blog/${post.slug}` },
           ]),
+          // FAQPage from the sections whose headings literally ARE questions,
+          // with the section's own visible paragraphs as the answer — the
+          // markup can never claim a Q&A the page does not render, which is
+          // the honesty rule the browse pages' FAQ blocks follow. Emitted
+          // only when a post has question sections at all; Google has retired
+          // FAQ rich results for ordinary sites, so this exists for Bing and
+          // for answer engines, both of which still read it.
+          ...(() => {
+            const qs = post.sections.filter((s) => s.heading.trim().endsWith("?"));
+            return qs.length
+              ? [
+                  {
+                    "@context": "https://schema.org",
+                    "@type": "FAQPage",
+                    "@id": `${SITE_URL}/blog/${post.slug}#faq`,
+                    mainEntity: qs.map((s) => ({
+                      "@type": "Question",
+                      name: s.heading.trim(),
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: s.paragraphs.join(" "),
+                      },
+                    })),
+                  },
+                ]
+              : [];
+          })(),
         ]}
       />
       <Navbar

@@ -11,6 +11,20 @@ import EventDetail from "@/components/events/EventDetail";
 
 export const dynamic = "force-dynamic";
 
+// A single-evening event with no ends_at stays "in_progress" forever in
+// phaseOf() — its start passed and nothing ever ends it. That is how a
+// concert sat in Google 17 days after it happened still marked as scheduled,
+// with a live Offer whose validFrom opened AFTER the music started — the
+// exact stale-event pattern Google's event guidelines penalise. phaseOf()
+// mirrors event_phase() in SQL, so its semantics are not this page's to
+// change; what IS this page's to decide is what it tells crawlers. 24h of
+// grace after the start covers any real evening plus timezone slack.
+function eventIsOver(e: { phase: string; startsAt: string; endsAt: string | null }): boolean {
+  if (e.phase === "ended") return true;
+  if (e.endsAt) return false; // a real end time exists; phaseOf handles it
+  return new Date(e.startsAt).getTime() < Date.now() - 24 * 60 * 60 * 1000;
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -31,6 +45,13 @@ export async function generateMetadata({
     title: `${event.name} — ${when} | Roulé Rodrigues`,
     description,
     alternates: { canonical: url },
+    // A finished or cancelled event has no business in the index: searchers
+    // land on tickets they cannot buy, and Google treats lingering scheduled
+    // markup on past events as spammy structured data. follow stays true so
+    // the page's links (venue, events index) keep passing.
+    ...(eventIsOver(event) || event.phase === "cancelled"
+      ? { robots: { index: false, follow: true } }
+      : {}),
     // This page is going to live or die on WhatsApp. The preview card IS the
     // poster, so the image and the one-line description matter more here than
     // on any other page in the product.
@@ -58,7 +79,9 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
 
   const url = `${SITE_URL}/events/${event.slug}`;
   const cancelled = event.phase === "cancelled";
-  const ended = event.phase === "ended";
+  // eventIsOver, not phase === "ended": an event with no ends_at is never
+  // "ended" in phaseOf() — see the note above generateMetadata.
+  const ended = eventIsOver(event);
 
   // schema.org/Event. Google shows these in search and in the Events carousel,
   // which for a local concert is free reach we would otherwise have to buy.

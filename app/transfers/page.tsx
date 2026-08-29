@@ -80,6 +80,24 @@ export default function TransfersPage() {
           <div className="mt-3">
             <BookRide initialService="airport" initialDirection="from" />
           </div>
+
+          {/* BELOW the form, on purpose. The note atop this file explains why
+              nothing may sit between the header and the first field — that
+              decision stands. But the page rendered ~180 characters of text
+              total, which to a crawler is an empty page with a good title:
+              nothing here matched "airport transfer rodrigues" beyond the
+              metadata. One paragraph, after the form, claims only what the
+              ride engine actually supports (flight_ref, meet_greet,
+              passengers, luggage, scheduled_at) and prices the taxi way —
+              confirmed with you, never invented here. */}
+          <p className="mt-8 font-dm text-sm leading-relaxed text-muted">
+            Airport transfers in Rodrigues, arranged before you land: tell us
+            your flight, passengers and luggage, and a local driver meets you
+            at Plaine Corail airport and takes you to Port Mathurin, your
+            guest house or anywhere on the island. Book the return trip to the
+            airport the same way. The price is confirmed with you before
+            anything is charged.
+          </p>
         </div>
       </main>
     </>

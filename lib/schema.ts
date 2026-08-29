@@ -229,6 +229,23 @@ export function productLd(p: ProductInput) {
             "@type": "Offer",
             price: p.price,
             priceCurrency: "MUR",
+            // This is a RENTAL, and the offer now says so in the vocabulary
+            // machines actually check: businessFunction LeaseOut (the
+            // GoodRelations term schema.org adopted) marks the offer as
+            // hiring-out rather than sale — which is also why Google's
+            // "missing shippingDetails / hasMerchantReturnPolicy" warnings
+            // don't apply, as the comment above explains in prose. And the
+            // price is per DAY, stated as a UnitPriceSpecification: a bare
+            // `price` claims a total, and an AI comparing rentals that reads
+            // "Rs 699" with no unit against a competitor's "per day" either
+            // discards ours or misquotes it.
+            businessFunction: "http://purl.org/goodrelations/v1#LeaseOut",
+            priceSpecification: {
+              "@type": "UnitPriceSpecification",
+              price: p.price,
+              priceCurrency: "MUR",
+              unitCode: "DAY",
+            },
             availability:
               p.available === false
                 ? "https://schema.org/OutOfStock"
@@ -296,6 +313,9 @@ export function rentalCategoryLd(v: {
       lowPrice: v.fromPrice,
       priceCurrency: "MUR",
       ...(v.offerCount ? { offerCount: v.offerCount } : {}),
+      // Rental, not sale — same LeaseOut marking as productLd, for the same
+      // reasons (see the note there).
+      businessFunction: "http://purl.org/goodrelations/v1#LeaseOut",
       availability: "https://schema.org/InStock",
       url: v.url,
       seller: { "@id": `${SITE_URL}/#business` },
@@ -642,6 +662,11 @@ export function sellerLd(): Record<string, unknown> {
     "@id": `${SITE_URL}/#business`,
     name: "Roule Rodrigues",
     url: SITE_URL,
+    // The one explicit edge between the site's two identity nodes. Without
+    // it #organization and #business were two disconnected entities claiming
+    // the same name — a crawler had to GUESS they are the same outfit, and
+    // entity resolution is precisely where guessing goes wrong.
+    parentOrganization: { "@id": `${SITE_URL}/#organization` },
     areaServed: { "@type": "Place", name: "Rodrigues Island, Mauritius" },
   };
 }

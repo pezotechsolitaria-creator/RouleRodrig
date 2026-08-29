@@ -298,6 +298,9 @@ export default async function Home() {
         // kind of entity this is instead of inferring it from prose.
         "@type": "AutoRental",
         "@id": `${SITE_URL}/#business`,
+        // Same edge sellerLd() draws: #business belongs to #organization,
+        // stated rather than left for a crawler to infer from a shared name.
+        parentOrganization: { "@id": `${SITE_URL}/#organization` },
         name: "Roule Rodrigues",
         // Defined once above, rendered twice: here for machines, and visibly
         // in AppHome's `about` block for people — see businessDescription.
