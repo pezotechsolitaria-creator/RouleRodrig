@@ -1,4 +1,5 @@
 import type { Language } from "@/lib/i18n";
+import { faqPageLd } from "@/lib/schema";
 
 // ── WHAT THE TAXI PAGE NEVER SAID (M149) ────────────────────────────────────
 //
@@ -100,35 +101,12 @@ export function taxiFaqHeading(language: Language): string {
   return language === "en" ? "Taxis on Rodrigues — common questions" : "Le taxi à Rodrigues — questions fréquentes";
 }
 
-/** The same list, as FAQPage JSON-LD. One source, so the markup can never
- *  claim a question the page does not render — which is the thing Google's
- *  FAQ guideline exists to stop, and the rule app/browse/[category] follows. */
+/** The same list, as FAQPage JSON-LD — via the shared builder in lib/schema.ts,
+ *  so /taxi and /experiences cannot drift apart on how they describe an FAQ. */
 export function taxiFaqLd(url: string, items: TaxiFaqItem[]) {
-  return {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "@id": `${url}#faq`,
-    mainEntity: items.map((f) => ({
-      "@type": "Question",
-      name: f.question,
-      acceptedAnswer: { "@type": "Answer", text: f.answer },
-    })),
-  };
+  return faqPageLd(url, items);
 }
 
-/**
- * What Roulé Rodrigues actually does on this page, for a machine.
- *
- * Deliberately NOT a TaxiService with Roulé Rodrigues as the provider. The
- * page's own disclaimer says it "is not a transport operator and is not
- * responsible for their service", and structured data that contradicts the
- * visible page is worse than none — it is a claim we would have to defend.
- * What is true is that this is a booking surface for independent drivers, so
- * that is what it says.
- *
- * areaServed is the point for an answer engine: "taxi in Rodrigues" needs the
- * page tied to the island, and the island is the whole of the service area.
- */
 export function taxiServiceLd(siteUrl: string) {
   return {
     "@context": "https://schema.org",

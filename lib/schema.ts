@@ -645,3 +645,27 @@ export function sellerLd(): Record<string, unknown> {
     areaServed: { "@type": "Place", name: "Rodrigues Island, Mauritius" },
   };
 }
+
+/**
+ * FAQPage from a list the page also renders.
+ *
+ * Takes the SAME array the page maps over, because Google requires the
+ * questions and answers to be visible on the page carrying this markup — two
+ * lists maintained separately is exactly how structured data ends up claiming
+ * a question nobody can read.
+ */
+export function faqPageLd(
+  url: string,
+  items: { question: string; answer: string }[],
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "@id": `${url}#faq`,
+    mainEntity: items.map((f) => ({
+      "@type": "Question",
+      name: f.question,
+      acceptedAnswer: { "@type": "Answer", text: f.answer },
+    })),
+  };
+}

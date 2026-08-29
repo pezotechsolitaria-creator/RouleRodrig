@@ -10,6 +10,10 @@ import {
 } from "@/lib/experience-categories";
 import { matchesFilter } from "@/lib/experiences";
 import { useLanguage } from "@/context/LanguageContext";
+import JsonLd from "@/components/JsonLd";
+import { SITE_URL } from "@/lib/site";
+import { faqPageLd } from "@/lib/schema";
+import { experiencesFaq, experiencesFaqHeading } from "@/lib/experiences-faq";
 import { loc } from "@/lib/localize";
 import AutoPhotos from "@/components/AutoPhotos";
 import DuskSequence, { useDusk } from "@/components/DuskSequence";
@@ -274,6 +278,54 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
               ))}
             </div>
           )}
+
+          {/* ── THE QUESTIONS A TRIP PLANNER ASKS (M151) ───────────────────
+              The hub had a breadcrumb, an ItemList and a reciprocal hreflang
+              — good structure wrapped around 1,683 characters that answered
+              none of what somebody actually types. "What is there to do on
+              Rodrigues" is the query, and an answer engine had nothing here
+              to quote.
+
+              Under the grid, so it costs the browsing experience nothing.
+
+              The markup is built from the ENGLISH list on purpose: this page
+              is its own canonical and Googlebot renders the default language,
+              so the structured data matches what a crawler actually sees.
+              A French visitor still reads French below. */}
+          <section className="mt-12">
+            <JsonLd data={faqPageLd(`${SITE_URL}/experiences`, experiencesFaq("en"))} />
+            <h2 className="font-syne text-sm font-extrabold uppercase tracking-wide">
+              {experiencesFaqHeading(language)}
+            </h2>
+            <div
+              className="mt-3 border-y"
+              style={{ borderColor: "var(--x-line)" }}
+            >
+              {experiencesFaq(language).map((f) => (
+                <details
+                  key={f.question}
+                  className="group border-b last:border-b-0 py-3"
+                  style={{ borderColor: "var(--x-line)" }}
+                >
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 font-dm text-sm">
+                    {f.question}
+                    <span
+                      className="shrink-0 transition-transform group-open:rotate-45"
+                      style={{ color: "var(--x-muted)" }}
+                    >
+                      +
+                    </span>
+                  </summary>
+                  <p
+                    className="mt-2 max-w-2xl font-dm text-xs leading-relaxed"
+                    style={{ color: "var(--x-muted)" }}
+                  >
+                    {f.answer}
+                  </p>
+                </details>
+              ))}
+            </div>
+          </section>
         </div>
       </div>
     </div>
