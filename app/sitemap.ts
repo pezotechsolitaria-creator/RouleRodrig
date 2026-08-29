@@ -412,6 +412,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.9,
     },
+    // The French half of /food. "manger a Rodrigues" and "cuisine rodriguaise"
+    // had no French page, on the richest English page the site has.
+    {
+      url: `${SITE_URL}/fr/manger-a-rodrigues`,
+      changeFrequency: "weekly",
+      priority: 0.85,
+    },
     // The French half of /browse/stays. "hébergement Rodrigues" and "où dormir
     // à Rodrigues" are commercial head terms the site answered only in English.
     {

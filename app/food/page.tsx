@@ -14,6 +14,7 @@ import { DIETARY_TAGS } from "@/lib/food/types";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import FoodFaq from "@/components/food/FoodFaq";
+import FrenchTwinLink from "@/components/FrenchTwinLink";
 import { foodFaq } from "@/lib/food-faq";
 import { faqPageLd } from "@/lib/schema";
 import FoodCard from "@/components/food/FoodCard";
@@ -55,7 +56,16 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   title: "Order food in Rodrigues | Roulé Rodrigues",
   description: DESCRIPTION,
-  alternates: { canonical: `${SITE_URL}/food` },
+  alternates: {
+    canonical: `${SITE_URL}/food`,
+    // Mirrors the `languages` block on app/fr/manger-a-rodrigues. hreflang
+    // only works when BOTH pages annotate each other.
+    languages: {
+      "en": `${SITE_URL}/food`,
+      "fr": `${SITE_URL}/fr/manger-a-rodrigues`,
+      "x-default": `${SITE_URL}/food`,
+    },
+  },
   openGraph: {
     title: "Order food in Rodrigues | Roulé Rodrigues",
     description: DESCRIPTION,
@@ -370,6 +380,11 @@ export default async function FoodPage({
             )}
 
             <FoodFaq />
+
+            <FrenchTwinLink
+              href="/fr/manger-a-rodrigues"
+              label="Manger à Rodrigues — cette page en français"
+            />
 
             <ConciergeFooter />
           </>
