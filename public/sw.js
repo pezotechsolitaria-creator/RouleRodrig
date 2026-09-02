@@ -211,7 +211,8 @@
 // keeps showing a paragraph where the map belongs.
 // v297 — the camera works again, and the server can read the visitor's language.
 // v298 - the booking form and order tracking speak all three languages.
-const CACHE = "rr-cache-v298";
+// v299 - signing in and resetting a password speak all three languages.
+const CACHE = "rr-cache-v299";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

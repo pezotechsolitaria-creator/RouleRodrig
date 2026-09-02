@@ -1,6 +1,7 @@
 "use client";
 
 import { signUpOutcome } from "@/lib/auth/signup-outcome";
+import { useLanguage } from "@/context/LanguageContext";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -29,6 +30,7 @@ export default function LoginPage() {
 }
 
 function LoginForm() {
+  const { t } = useLanguage();
   const supabase = createClient();
   const searchParams = useSearchParams();
   // Sanitised: this value is navigated to and forwarded into the auth callback,
@@ -303,7 +305,7 @@ function LoginForm() {
               <span className={`font-bebas text-[11px] tracking-[0.28em] ${ctx.text}`}>{ctx.badge}</span>
             </div>
           ) : (
-            <p className="mt-1.5 font-bebas text-[11px] tracking-[0.34em] text-yellow">MY ACCOUNT</p>
+            <p className="mt-1.5 font-bebas text-[11px] tracking-[0.34em] text-yellow">{t.auth.myAccount}</p>
           )}
         </div>
 
@@ -311,9 +313,9 @@ function LoginForm() {
           {checkEmail ? (
             <div className="rounded-xl border border-yellow/25 bg-yellow/[0.06] p-5 text-center">
               <Mail className="mx-auto mb-2 text-yellow" size={22} />
-              <p className="font-syne text-sm font-bold text-offwhite">Confirm your email</p>
+              <p className="font-syne text-sm font-bold text-offwhite">{t.auth.confirmEmail}</p>
               <p className="mt-1 font-dm text-xs leading-relaxed text-muted">
-                We sent a confirmation link to <b className="text-offwhite/90">{email}</b>. Open it, then sign in.
+                {t.auth.sentConfirmation} <b className="text-offwhite/90">{email}</b>.
               </p>
               {/* Asking again, in the place where somebody realises they need
                   to. Same muted link treatment as "Back to sign in" — this is
@@ -343,9 +345,9 @@ function LoginForm() {
           ) : resetSent ? (
             <div className="rounded-xl border border-yellow/25 bg-yellow/[0.06] p-5 text-center">
               <Mail className="mx-auto mb-2 text-yellow" size={22} />
-              <p className="font-syne text-sm font-bold text-offwhite">Check your inbox</p>
+              <p className="font-syne text-sm font-bold text-offwhite">{t.auth.checkInbox}</p>
               <p className="mt-1 font-dm text-xs leading-relaxed text-muted">
-                If an account exists for <b className="text-offwhite/90">{email}</b>, we&apos;ve sent a link
+                {t.auth.ifAccountExists} <b className="text-offwhite/90">{email}</b>, we&apos;ve sent a link
                 to set a new password. It expires in an hour.
               </p>
               <button
@@ -357,9 +359,9 @@ function LoginForm() {
             </div>
           ) : mode === "forgot" ? (
             <>
-              <h1 className="font-syne text-xl font-bold text-offwhite">Reset your password</h1>
+              <h1 className="font-syne text-xl font-bold text-offwhite">{t.auth.resetTitle}</h1>
               <p className="mt-1 font-dm text-sm text-muted">
-                We&apos;ll email you a link to choose a new one.
+                {t.auth.resetHint}
               </p>
               <form onSubmit={sendReset} className="mt-6 space-y-3">
                 <label htmlFor="fp-email" className="sr-only">Email</label>
@@ -396,7 +398,7 @@ function LoginForm() {
                   — and customers were sent to the MERCHANT login at that. */}
               {authFailed && (
                 <p role="alert" className="mb-4 rounded-xl border border-red-500/25 bg-red-500/[0.06] px-4 py-3 font-dm text-xs text-red-400">
-                  That sign-in link has expired or was already used. Please sign in again.
+                  {t.auth.linkExpired}
                 </p>
               )}
               <h1 className="font-syne text-xl font-bold text-offwhite">
@@ -476,7 +478,7 @@ function LoginForm() {
                   onClick={() => { setMode("forgot"); setError(null); }}
                   className="mt-4 w-full text-center font-dm text-xs text-yellow hover:underline"
                 >
-                  Forgot password?
+                  {t.auth.forgot}
                 </button>
               )}
 
