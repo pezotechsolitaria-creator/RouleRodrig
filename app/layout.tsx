@@ -17,6 +17,7 @@ import BuildWatcher from "@/components/BuildWatcher";
 import { ExperienceWorldProvider } from "@/context/ExperienceWorldContext";
 import BottomNav from "@/components/BottomNav";
 import SiteFooter from "@/components/SiteFooter";
+import NavDepth from "@/components/NavDepth";
 import GlobalTiRoule from "@/components/GlobalTiRoule";
 import { getContent } from "@/lib/content";
 import { priceNumber, FLEET_PRICE_FALLBACK } from "@/lib/site-data";
@@ -458,6 +459,7 @@ export default async function RootLayout({
                       branding={content.branding}
                       legal={content.legal}
                     />
+                    <NavDepth />
                     <ReturnWelcome />
                     <FavoritesPanel />
                     <BottomNav />

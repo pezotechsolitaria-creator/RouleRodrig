@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import BackLink from "@/components/BackLink";
 import { redirect } from "next/navigation";
 import { listActivitiesForCustomer } from "@/lib/activity-server";
 import { groupActivities, type Activity } from "@/lib/activity";
-import { ClipboardList, ArrowLeft } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import NotificationCenter from "@/components/NotificationCenter";
 import NotificationPreferences from "@/components/orders/NotificationPreferences";
 import { createClient } from "@/lib/supabase/server";
@@ -97,12 +98,17 @@ export default async function CustomerOrdersPage({
             and BottomNav is md:hidden, so on desktop there was literally no way
             out. Its own child (/orders/[id]) and both siblings (/login,
             /manage-booking) all carry this exact affordance. */}
-        <Link
-          href="/"
+        {/* Back goes BACK. This was href="/", so opening Orders from the
+            account page and pressing it landed on the homepage rather than
+            /account — the owner's report. /account is the fallback because it
+            is this page's parent for anyone who arrived by a shared link and
+            has no in-app history to return to. */}
+        <BackLink
+          fallback="/account"
           className="mb-4 inline-flex items-center gap-1.5 font-dm text-sm text-muted transition-colors hover:text-yellow"
         >
-          <ArrowLeft size={14} /> Roule Rodrigues
-        </Link>
+          {" "}Back
+        </BackLink>
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">MY ACCOUNT</p>
