@@ -10,6 +10,7 @@ import {
   Sparkles, UserCheck, Radar } from "lucide-react";
 import CommandPalette from "./CommandPalette";
 import AdminBell from "@/components/admin/AdminBell";
+import { OPEN_ADMIN_SEARCH } from "@/components/admin/AdminSearchBar";
 
 // ── The control plane's frame ───────────────────────────────────────────────
 //
@@ -130,8 +131,16 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         setPaletteOpen((o) => !o);
       }
     }
+    // The visible search bar on the command centre opens the SAME palette.
+    // It cannot call setPaletteOpen directly — that page is a server component
+    // — so it asks by event. One palette, one search, two ways in.
+    const onAsk = () => setPaletteOpen(true);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener(OPEN_ADMIN_SEARCH, onAsk);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener(OPEN_ADMIN_SEARCH, onAsk);
+    };
   }, []);
 
   useEffect(() => setDrawerOpen(false), [pathname]);

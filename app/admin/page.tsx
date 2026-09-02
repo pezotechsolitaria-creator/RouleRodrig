@@ -22,6 +22,7 @@ import {
 } from "@/lib/admin/ops";
 import { loadAttention } from "@/lib/admin/attention-load";
 import PageAnalytics from "./PageAnalytics";
+import AdminSearchBar from "@/components/admin/AdminSearchBar";
 
 // ── The Command Center ──────────────────────────────────────────────────────
 //
@@ -234,6 +235,13 @@ export default async function CommandCenterPage() {
           Rodrigues
         </h1>
 
+        {/* Above the numbers, because "find this one thing" is a more common
+            errand than "how did today go" — and until now the only hint that
+            search existed was small print at the bottom of the shortcuts. */}
+        <div className="mt-5">
+          <AdminSearchBar />
+        </div>
+
         {/* ── Today ── */}
         <div className="mt-6 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
           {kpis.map((k) => {
@@ -345,11 +353,12 @@ export default async function CommandCenterPage() {
               ))}
             </div>
             <p className="mt-2 font-dm text-[11px] text-muted">
-              Press{" "}
+              The search box at the top of this page finds orders, bookings,
+              customers and products — or press{" "}
               <kbd className="rounded border border-white/15 px-1 py-0.5 text-[10px]">
                 Ctrl K
               </kbd>{" "}
-              anywhere to search orders, bookings, customers and products.
+              anywhere.
             </p>
           </section>
 
