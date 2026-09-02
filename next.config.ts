@@ -138,11 +138,27 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   // Don't leak full URLs to third parties
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  // Drop access to powerful browser features the site never uses
+  // Drop access to powerful browser features the site never uses.
+  //
+  // CAMERA IS `self`, NOT `()`. It reads like a small difference and it is the
+  // whole difference: `camera=()` means NO origin may use the camera — the site
+  // included — so getUserMedia throws NotAllowedError before the browser ever
+  // offers a prompt. That is what stopped every QR scanner on this platform:
+  // the door scanner at an event, and the pickup scanner behind a counter. The
+  // failure was invisible from the outside, because the code's own message said
+  // "Camera permission was refused. Allow it in your browser settings" — advice
+  // that could never work, since the refusal came from this header rather than
+  // from the person holding the phone.
+  //
+  // `self` restores exactly what is needed and nothing more: this origin may
+  // ask, the visitor still has to say yes, and no embedded third party can use
+  // the camera at all. Same shape as geolocation beside it, which is `self` for
+  // the same reason — driver tracking needs it — and which is the pair that
+  // makes the omission obvious in hindsight.
   {
     key: "Permissions-Policy",
     value:
-      "camera=(), microphone=(), geolocation=(self), browsing-topics=(), interest-cohort=()",
+      "camera=(self), microphone=(), geolocation=(self), browsing-topics=(), interest-cohort=()",
   },
   { key: "X-DNS-Prefetch-Control", value: "on" },
   { key: "Content-Security-Policy", value: ContentSecurityPolicy },

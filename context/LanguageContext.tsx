@@ -12,6 +12,37 @@ import { languageTag, translations } from "@/lib/i18n";
 
 const LS_KEY = "rr_language";
 
+// ── The same choice, where the SERVER can see it ───────────────────────────
+//
+// localStorage is invisible to the server, and that single fact decided which
+// pages could be translated and which could not. Every client component could
+// read the visitor's language; every server-rendered page — the legal pages,
+// the island guides, the account page — could not, so they stayed English no
+// matter what the switcher said. It looked like nobody had translated them. In
+// fact they had no way to ask.
+//
+// A cookie is readable in both places, so writing the choice to one as well is
+// the whole unlock. Deliberately NOT httpOnly: the client half still owns this
+// value and must be able to write it. It carries nothing private — it is one of
+// three known strings — so the only thing to get right is that it is scoped to
+// this site and survives a return visit.
+//
+// `SameSite=Lax` rather than Strict: a visitor arriving from a Google result or
+// a WhatsApp link should land in the language they chose last time, and Strict
+// would withhold the cookie on exactly that first navigation.
+const COOKIE_KEY = "rr_lang";
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // a year
+
+function writeCookie(lang: Language) {
+  try {
+    document.cookie =
+      `${COOKIE_KEY}=${lang}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax` +
+      (location.protocol === "https:" ? "; Secure" : "");
+  } catch {
+    /* cookies unavailable — localStorage still holds the choice for the client */
+  }
+}
+
 interface LanguageContextValue {
   language: Language;
   setLanguage: (lang: Language) => void;
@@ -37,6 +68,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       if (saved && ["en", "fr", "cr"].includes(saved)) {
         setLang(saved);
         setHasChosen(true);
+        // Backfill for everyone who chose a language before the cookie existed.
+        // Without this, a returning visitor keeps getting English server pages
+        // forever, because the only record of their choice is one the server
+        // cannot read.
+        writeCookie(saved);
       }
     } catch {
       /* localStorage unavailable */
@@ -72,6 +108,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
+    writeCookie(lang);
   }
 
   return (

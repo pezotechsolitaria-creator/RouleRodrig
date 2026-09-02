@@ -209,7 +209,8 @@
 // both gated on a driver position that has never existed in production, so no
 // customer had ever seen a route. A client left on v295 keeps the old gate and
 // keeps showing a paragraph where the map belongs.
-const CACHE = "rr-cache-v296";
+// v297 — the camera works again, and the server can read the visitor's language.
+const CACHE = "rr-cache-v297";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
