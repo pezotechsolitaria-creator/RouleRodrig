@@ -1,5 +1,6 @@
 "use client";
 
+import { signUpOutcome } from "@/lib/auth/signup-outcome";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -9,6 +10,9 @@ import { safeNext } from "@/lib/safe-next";
 import { authRedirect } from "@/lib/auth-redirect";
 import { checkPassword } from "@/lib/auth/check-password";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
+
+const ALREADY_REGISTERED =
+  "You already have an account with this email. Sign in below — or use “Forgot password?” if you do not remember it.";
 
 // Customer sign-in — shares the exact same Supabase Auth session/cookie
 // mechanism as /merchant/login (same provider, same /auth/callback route),
@@ -146,8 +150,21 @@ function LoginForm() {
       });
       setBusy(null);
       if (error) return setError(error.message);
-      if (data.session) window.location.href = next;
-      else setCheckEmail(true);
+      // A repeated signup is NOT an error: GoTrue answers 200, sends no email,
+      // and says nothing — deliberately, so nobody can probe which addresses
+      // have accounts. Promising an inbox message here is what left the owner
+      // waiting for mail that was never sent. See lib/auth/signup-outcome.ts.
+      const outcome = signUpOutcome(data);
+      if (outcome === "session") {
+        window.location.href = next;
+        return;
+      }
+      if (outcome === "already-registered") {
+        setMode("signin");
+        setError(ALREADY_REGISTERED);
+        return;
+      }
+      setCheckEmail(true);
       return;
     }
 

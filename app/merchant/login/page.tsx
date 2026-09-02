@@ -1,11 +1,15 @@
 "use client";
 
+import { signUpOutcome } from "@/lib/auth/signup-outcome";
 import { useState } from "react";
 import { authRedirect } from "@/lib/auth-redirect";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, Mail, ArrowRight, ArrowLeft } from "lucide-react";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
+
+const ALREADY_REGISTERED =
+  "You already have an account with this email. Sign in below — or use “Forgot password?” if you do not remember it.";
 
 // Merchant sign-in. Free + reliable: email + password (no external service, no
 // delivery dependency) plus Google one-tap (free, when the provider is enabled).
@@ -20,6 +24,24 @@ export default function MerchantLoginPage() {
   const [busy, setBusy] = useState<"email" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checkEmail, setCheckEmail] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+
+  // A shop owner locked out of this page had no way back in: /login has had a
+  // reset since M-whenever, and this page — the one a merchant actually uses —
+  // never got one. Same call, redirected to /merchant rather than /account.
+  async function sendReset() {
+    if (!email.trim()) return setError("Enter your email first.");
+    setBusy("email");
+    setError(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: authRedirect("/auth/reset-password?next=%2Fmerchant"),
+    });
+    setBusy(null);
+    // Reports success either way, exactly as /login does: telling a stranger
+    // whether an address has an account is an enumeration oracle.
+    if (error) console.error("resetPasswordForEmail", error);
+    setResetSent(true);
+  }
 
   const callback = () =>
     typeof window !== "undefined" ? authRedirect("/auth/callback") : undefined;
@@ -37,9 +59,20 @@ export default function MerchantLoginPage() {
       });
       setBusy(null);
       if (error) return setError(error.message);
+      // See lib/auth/signup-outcome.ts. A shop owner whose address already had
+      // an account was told to check an inbox nothing had been sent to.
+      const outcome = signUpOutcome(data);
       // If email confirmation is OFF, a session is returned → go straight in.
-      if (data.session) window.location.href = "/merchant";
-      else setCheckEmail(true); // confirmation ON → they must click the email
+      if (outcome === "session") {
+        window.location.href = "/merchant";
+        return;
+      }
+      if (outcome === "already-registered") {
+        setMode("signin");
+        setError(ALREADY_REGISTERED);
+        return;
+      }
+      setCheckEmail(true); // confirmation ON → they must click the email
       return;
     }
 
@@ -138,6 +171,25 @@ export default function MerchantLoginPage() {
               </form>
 
               {error && <p className="mt-4 font-dm text-xs text-red-400">{error}</p>}
+
+              {resetSent ? (
+                <p className="mt-4 font-dm text-xs leading-relaxed text-muted">
+                  If an account exists for{" "}
+                  <b className="text-offwhite/90">{email}</b>, we&apos;ve sent a
+                  link to set a new password. It expires in an hour.
+                </p>
+              ) : (
+                mode === "signin" && (
+                  <button
+                    type="button"
+                    onClick={() => void sendReset()}
+                    disabled={!!busy}
+                    className="mt-4 w-full text-center font-dm text-xs text-muted transition-colors hover:text-yellow"
+                  >
+                    Forgot password?
+                  </button>
+                )
+              )}
 
               <button
                 onClick={() => {
