@@ -20,7 +20,12 @@ const BACK_CHAIN: [string, string][] = [
   [PRODUCT, STORE],
   ["/cart", "/shop"],
   ["/login", "/"],
-  ["/merchant/login", "/"],
+  // Changed deliberately when the back arrows stopped being links to "/".
+  // /merchant/login is reached from the recruitment page that sells the idea
+  // of listing a scooter, and that is where somebody with no history belongs —
+  // "/" was never a considered parent here, it was the hardcoded default every
+  // one of these controls carried.
+  ["/merchant/login", "/list-your-scooter"],
 ];
 
 // The two marketplace legs point at a SEEDED fixture shop, and that shop is
@@ -48,10 +53,24 @@ test.describe("back affordances go exactly one level up", () => {
         test.skip(!(await fixtureShopIsListed(pw)), `${STORE} is not listed on /shop (is_test/draft fixture shop)`);
       }
       await pw.goto(page);
-      // The back affordance is an in-page anchor to the parent — the sticky
-      // header link on shop pages, the inline arrow link elsewhere.
-      const back = pw.locator(`a[href="${parent}"]`).first();
-      await expect(back, `${page} must link back to ${parent}`).toBeVisible();
+      // ── TWO SHAPES OF THE SAME AFFORDANCE ────────────────────────────────
+      // It used to be only an anchor carrying the parent's href. Pages now
+      // use <BackLink>, which goes to the real previous page when there is
+      // one and to a declared fallback when there is not — a button, with no
+      // href to find.
+      //
+      // Matching ONLY an anchor made this test lie in both directions: it
+      // failed on /login and /merchant/login, where the anchor had gone, and
+      // it passed vacuously on /cart, where the back control is a button and
+      // the anchor it found was an unrelated "Browse products" tile that
+      // happens to point at /shop.
+      //
+      // So look for the control that actually claims the parent, in either
+      // shape, and require exactly that.
+      const back = pw
+        .locator(`a[href="${parent}"], [data-back-fallback="${parent}"]`)
+        .first();
+      await expect(back, `${page} must offer a way back to ${parent}`).toBeVisible();
     });
   }
 });

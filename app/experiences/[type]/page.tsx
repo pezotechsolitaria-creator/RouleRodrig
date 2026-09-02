@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import BackLink from "@/components/BackLink";
 import { getFleetView } from "@/lib/site-data";
 import { SITE_URL } from "@/lib/site";
 import { SERVICE_TYPES, type ServiceType } from "@/lib/defaults";
@@ -170,9 +169,13 @@ export default async function ExperiencePage({ params }: { params: Promise<{ typ
         )}
 
         <div className="mx-auto max-w-5xl">
-          <Link href="/" className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow">
-            <ArrowLeft size={14} /> Home
-          </Link>
+          {/* Fallback "/experiences": this page is one vertical of that hub, the door for somebody who does not yet know which one they want. */}
+          <BackLink
+            fallback="/experiences"
+            className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow"
+          >
+            {" "}Back
+          </BackLink>
 
           <h1 className="mt-3 font-syne text-3xl font-extrabold leading-[1.05] sm:text-4xl">
             <span aria-hidden className="mr-2">{copy.emoji}</span>

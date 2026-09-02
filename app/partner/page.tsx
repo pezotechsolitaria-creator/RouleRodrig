@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
+import BackLink from "@/components/BackLink";
 import {
   Building2,
   Search,
@@ -13,7 +13,6 @@ import {
   Wallet,
   Copy,
   MessageSquare,
-  ArrowLeft,
 } from "lucide-react";
 import { SITE_URL } from "@/lib/site";
 
@@ -164,12 +163,18 @@ export default function PartnerPage() {
       <div className="max-w-5xl mx-auto px-6 py-10 md:py-16">
         {/* Header */}
         <div className="flex items-center justify-between mb-10">
-          <Link
-            href="/"
+          {/* Fallback "/": this portal sits under no section — the site footer is
+              its only link, and a partner usually arrives on a /partner?code=…
+              link from outside, so the homepage is the site itself. NOT
+              /list-your-scooter: an existing partner reading their earnings should
+              not be backed into a pitch to sign up. */}
+          <BackLink
+            fallback="/"
+            iconSize={15}
             className="flex items-center gap-2 text-muted hover:text-yellow text-sm transition-colors"
           >
-            <ArrowLeft size={15} /> Roule Rodrigues
-          </Link>
+            {" "}Back
+          </BackLink>
           <span className="font-bebas text-yellow text-[10px] tracking-[0.3em]">PARTNER PORTAL</span>
         </div>
 

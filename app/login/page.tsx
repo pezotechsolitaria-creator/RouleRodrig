@@ -4,8 +4,8 @@ import { signUpOutcome } from "@/lib/auth/signup-outcome";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, Mail, ArrowRight, ArrowLeft, Eye, EyeOff, ChefHat, Store, Ticket, Truck } from "lucide-react";
-import Link from "next/link";
+import { Loader2, Mail, ArrowRight, Eye, EyeOff, ChefHat, Store, Ticket, Truck } from "lucide-react";
+import BackLink from "@/components/BackLink";
 import { safeNext } from "@/lib/safe-next";
 import { authRedirect } from "@/lib/auth-redirect";
 import { checkPassword } from "@/lib/auth/check-password";
@@ -278,9 +278,16 @@ function LoginForm() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-dark px-5 text-offwhite">
       <div className="w-full max-w-sm">
-        <Link href="/" className="mb-6 inline-flex items-center gap-2 font-dm text-sm text-muted transition-colors hover:text-yellow">
-          <ArrowLeft size={15} /> Roule Rodrigues
-        </Link>
+        {/* Fallback /account: the account hub is what offers this sign-in and is
+            where it lands by default, and it renders signed-out rather than
+            redirecting here — so backing out cannot bounce into a loop. */}
+        <BackLink
+          fallback="/"
+          iconSize={15}
+          className="mb-6 inline-flex items-center gap-2 font-dm text-sm text-muted transition-colors hover:text-yellow"
+        >
+          {" "}Back
+        </BackLink>
 
         <div className="mb-8 text-center">
           <span className="flex items-baseline justify-center gap-1.5 font-syne font-extrabold leading-none">

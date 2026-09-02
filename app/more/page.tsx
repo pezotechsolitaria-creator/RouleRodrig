@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import BackLink from "@/components/BackLink";
 import {
-  ArrowLeft, ChevronRight, Compass, Map as MapIcon, BookOpen, Calendar,
+  ChevronRight, Compass, Map as MapIcon, BookOpen, Calendar,
   HelpCircle, Phone, Siren, FileText, Shield, RefreshCw, Store, CalendarCheck, ClipboardList,
   UtensilsCrossed, Ticket, ShoppingBag, CircleUser, Car, Sparkles,
 } from "lucide-react";
@@ -86,9 +87,15 @@ export default async function MorePage() {
       />
       <main className="bg-dark min-h-screen">
         <div className="mx-auto max-w-2xl px-5 pt-28 md:pt-32">
-          <Link href="/" className="inline-flex items-center gap-2 text-muted hover:text-yellow text-sm transition-colors">
-            <ArrowLeft size={15} /> Roule Rodrigues
-          </Link>
+          {/* Fallback "/": this page IS the site's top-level hub — it lists every
+              section, including /account — so the homepage is the only thing above it. */}
+          <BackLink
+            fallback="/"
+            iconSize={15}
+            className="inline-flex items-center gap-2 text-muted hover:text-yellow text-sm transition-colors"
+          >
+            {" "}Back
+          </BackLink>
           <h1 className="mt-5 font-syne text-3xl font-extrabold text-offwhite md:text-4xl">More</h1>
           <p className="mt-1 font-dm text-sm text-muted">Guides, help and everything else about Rodrigues.</p>
 

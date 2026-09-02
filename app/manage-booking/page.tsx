@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Search, Loader2, RotateCcw } from "lucide-react";
+import { Search, Loader2, RotateCcw } from "lucide-react";
+import BackLink from "@/components/BackLink";
 import BookingTimeline from "@/components/BookingTimeline";
 import OrderAlerts from "@/components/orders/OrderAlerts";
 import PayPalDeposit from "@/components/PayPalDeposit";
 import BankTransferDetails from "@/components/BankTransferDetails";
 import { Field } from "@/components/ui/field";
 import { useLanguage } from "@/context/LanguageContext";
+import { loc } from "@/lib/localize";
 
 type Booking = {
   kind: "vehicle" | "place";
@@ -48,7 +50,7 @@ function Row({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
 }
 
 export default function ManageBookingPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const M = t.manageBooking;
   const [kind, setKind] = useState<"vehicle" | "shop">("vehicle");
   const [ref, setRef] = useState("");
@@ -102,9 +104,18 @@ export default function ManageBookingPage() {
   return (
     <main className="min-h-screen bg-dark font-dm text-offwhite">
       <div className="mx-auto max-w-lg px-5 py-10 md:py-16">
-        <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted transition-colors hover:text-yellow">
-          <ArrowLeft size={15} /> Roule Rodrigues
-        </Link>
+        {/* Fallback /more: the only page in the app that links here is /more's
+            "Bookings & help" group, and this lookup needs no account — sending a
+            guest who arrived from a booking email to /account would offer them a
+            sign-in they do not have. The label is localised inline rather than
+            left in English on an otherwise translated screen. */}
+        <BackLink
+          fallback="/more"
+          iconSize={15}
+          className="inline-flex items-center gap-2 text-sm text-muted transition-colors hover:text-yellow"
+        >
+          {" "}{loc(language, "Back", "Retour", "Retourne")}
+        </BackLink>
 
         <h1 className="mt-6 font-syne text-3xl font-extrabold">{M.title}</h1>
         <p className="mt-1 text-sm text-muted">

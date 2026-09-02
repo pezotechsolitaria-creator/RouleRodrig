@@ -3,9 +3,9 @@
 import { signUpOutcome } from "@/lib/auth/signup-outcome";
 import { useState } from "react";
 import { authRedirect } from "@/lib/auth-redirect";
-import Link from "next/link";
+import BackLink from "@/components/BackLink";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, Mail, ArrowRight, ArrowLeft } from "lucide-react";
+import { Loader2, Mail, ArrowRight } from "lucide-react";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 const ALREADY_REGISTERED =
@@ -149,13 +149,19 @@ export default function MerchantLoginPage() {
     <main className="flex min-h-screen flex-col items-center justify-center bg-dark px-5 text-offwhite">
       <div className="w-full max-w-sm">
         {/* This page had NO way back — a merchant who tapped through from the
-            marketplace was stuck behind the browser's own controls. */}
-        <Link
-          href="/"
+            marketplace was stuck behind the browser's own controls.
+            Fallback /list-your-scooter: the public page that recruits shop owners
+            and carries the "Open a shop" button pointing here. NOT /merchant —
+            app/merchant/(app)/layout.tsx redirects an anonymous visitor straight
+            back to this page, so that fallback would trap the one visitor who
+            needs it. */}
+        <BackLink
+          fallback="/list-your-scooter"
+          iconSize={15}
           className="mb-6 inline-flex items-center gap-2 font-dm text-sm text-muted transition-colors hover:text-yellow"
         >
-          <ArrowLeft size={15} /> Roule Rodrigues
-        </Link>
+          {" "}Back
+        </BackLink>
         <div className="mb-8 text-center">
           <span className="flex items-baseline justify-center gap-1.5 font-syne font-extrabold leading-none">
             <span className="text-2xl text-offwhite">Roulé</span>

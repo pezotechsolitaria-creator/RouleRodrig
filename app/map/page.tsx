@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import BackLink from "@/components/BackLink";
 import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
@@ -51,9 +50,14 @@ export default async function MapPage() {
       />
       <main className="bg-dark min-h-screen">
         <div className="mx-auto max-w-7xl px-6 pt-28 md:pt-32">
-          <Link href="/" className="inline-flex items-center gap-2 text-muted hover:text-yellow text-sm transition-colors">
-            <ArrowLeft size={15} /> Roule Rodrigues
-          </Link>
+          {/* Fallback "/": the map is a top-level travel tool opened from the homepage tools strip, which is what its breadcrumb above declares as its parent. */}
+          <BackLink
+            fallback="/"
+            iconSize={15}
+            className="inline-flex items-center gap-2 text-muted hover:text-yellow text-sm transition-colors"
+          >
+            {" "}Back
+          </BackLink>
         </div>
         <MapSection locations={content.mapLocations} />
       </main>

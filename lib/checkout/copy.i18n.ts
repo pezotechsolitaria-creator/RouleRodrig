@@ -280,7 +280,8 @@ const EN = {
 
   // ── app/cart/page.tsx ────────────────────────────────────────────────────
   cart: {
-    home: "Home",
+    /** The top-left arrow goes BACK now rather than home, so it says so. */
+    back: "Back",
     heading: "Your bag",
     /** English pluralises with "s"; the other two do not, which is why this is
      *  a function and not two strings glued together in the JSX. */
@@ -533,7 +534,7 @@ const FR: CheckoutCopy = {
   },
 
   cart: {
-    home: "Accueil",
+    back: "Retour",
     heading: "Votre panier",
     count: (items: number, sellers: number) =>
       `${items} article${items === 1 ? "" : "s"} chez ${sellers} vendeur${sellers === 1 ? "" : "s"}`,
@@ -762,7 +763,7 @@ const CR: CheckoutCopy = {
   },
 
   cart: {
-    home: "Lakaz",
+    back: "Retourne",
     heading: "Ou panye",
     count: (items: number, sellers: number) =>
       `${items} zafer depi ${sellers} vander`,

@@ -38,6 +38,14 @@ export default function BackLink({
   return (
     <button
       type="button"
+      // ── THE INVARIANT HAS TO STAY TESTABLE ──────────────────────────────
+      // e2e/navigation.spec.ts asserts "back goes one level up" by looking for
+      // an anchor carrying the parent's href. A button has no href, so the
+      // moment a page converted to BackLink that assertion either failed or,
+      // worse, passed because some unrelated link on the page happened to
+      // point at the same place. Declaring the fallback here keeps the rule
+      // checkable and keeps it honest about WHICH control it is checking.
+      data-back-fallback={fallback}
       onClick={() => {
         if (canGoBack(readDepth())) router.back();
         else router.push(fallback);

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import BackLink from "@/components/BackLink";
 import DriverSignIn from "./DriverSignIn";
 
 // ── /d — the way back into a driver's page (M100) ──────────────────────────
@@ -22,9 +21,14 @@ export default function DriverEntryPage() {
   return (
     <main className="min-h-screen bg-dark font-dm text-offwhite">
       <div className="mx-auto max-w-sm px-5 py-10">
-        <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted transition-colors hover:text-yellow">
-          <ArrowLeft size={15} /> Roulé Rodrigues
-        </Link>
+        {/* Fallback "/account": this page is the standalone twin of the driver code box on Account, which is the one place in the app that does the same job — see the sentence below. */}
+        <BackLink
+          fallback="/account"
+          iconSize={15}
+          className="inline-flex items-center gap-2 text-sm text-muted transition-colors hover:text-yellow"
+        >
+          {" "}Back
+        </BackLink>
 
         <p className="mt-7 font-bebas text-[11px] tracking-[0.3em] text-yellow">DRIVERS</p>
         <h1 className="mt-1.5 font-syne text-3xl font-extrabold leading-tight">Open my driver page</h1>

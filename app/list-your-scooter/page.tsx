@@ -4,11 +4,12 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft, Wallet, CalendarCheck, ShieldCheck, Headphones,
+  Wallet, CalendarCheck, ShieldCheck, Headphones,
   Send, Loader2, CheckCircle, AlertCircle, Upload, FileCheck, X,
   Bike, UtensilsCrossed, BedDouble, Compass, Sparkles,
   Car, Ticket, Package, Store, ArrowRight, Lock, Clock,
 } from "lucide-react";
+import BackLink from "@/components/BackLink";
 
 type FormState = "idle" | "loading" | "success" | "error";
 type ListingType =
@@ -286,9 +287,17 @@ export default function ListYourBusinessPage() {
   return (
     <main className="min-h-screen bg-dark text-offwhite font-dm">
       <div className="max-w-5xl mx-auto px-6 py-10 md:py-16">
-        <Link href="/" className="inline-flex items-center gap-2 text-muted hover:text-yellow text-sm transition-colors mb-10">
-          <ArrowLeft size={15} /> Roule Rodrigues
-        </Link>
+        {/* Fallback /account: this is the partner front door, and /account is
+            where it is offered ("Sell on the marketplace, drive for us, or run
+            an event? Start here") and where the shop, driver and organiser
+            dashboards an approved applicant is heading for actually live. */}
+        <BackLink
+          fallback="/account"
+          iconSize={15}
+          className="inline-flex items-center gap-2 text-muted hover:text-yellow text-sm transition-colors mb-10"
+        >
+          {" "}Back
+        </BackLink>
 
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="mb-12">

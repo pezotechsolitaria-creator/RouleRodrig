@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Minus, Plus, Trash2, ShoppingBag, ArrowLeft, AlertTriangle,
+  Minus, Plus, Trash2, ShoppingBag, AlertTriangle,
   UtensilsCrossed, Store, Ticket, ChevronRight,
 } from "lucide-react";
 import { useCarts, useCart, CART_DOMAINS, type CartDomain, type Basket } from "@/lib/cart/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { CHECKOUT_COPY } from "@/lib/checkout/copy.i18n";
 import { centsToDecimalString } from "@/lib/money";
+import BackLink from "@/components/BackLink";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import ProductThumb from "@/components/shop/ProductThumb";
@@ -72,9 +73,16 @@ export default function CartPage() {
   return (
     <main className="min-h-screen bg-dark px-4 pb-32 pt-10 text-offwhite">
       <div className="mx-auto max-w-2xl">
-        <Link href="/" className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow">
-          <ArrowLeft size={14} /> {c.home}
-        </Link>
+        {/* Fallback /shop: the bag sits under no single section — it holds food,
+            marketplace and ticket baskets at once — and the marketplace is the
+            chain it belongs to (e2e/navigation.spec.ts records /cart → /shop).
+            Only a visitor who opened the bag cold ever lands there. */}
+        <BackLink
+          fallback="/shop"
+          className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow"
+        >
+          {" "}{c.back}
+        </BackLink>
 
         <h1 className="mt-3 font-syne text-2xl font-extrabold text-offwhite">{c.heading}</h1>
         {hydrated && sections.length > 0 && (
