@@ -34,13 +34,12 @@ const actionSchema = z.discriminatedUnion("action", [
     deliveryId: z.string().uuid(),
     pin: z.string().trim().min(1).max(12),
   }),
-  // An empty key means "turn WhatsApp alerts off" — the RPC deletes rather than
-  // storing a blank that would later read as configured.
-  z.object({
-    action: z.literal("whatsapp"),
-    apiKey: z.string().trim().max(200),
-    phone: z.string().trim().max(30).optional(),
-  }),
+  // NOTE: the "whatsapp" action lived here. Setting up CallMeBot moved to
+  // /admin/people — the owner onboards these drivers by hand, and asking a
+  // driver to message a bot and paste a key back was the wrong end of the
+  // relationship. The endpoint went with the screen rather than being left
+  // reachable with nothing calling it. set_driver_whatsapp() still exists in
+  // the database; admin_set_driver_whatsapp() is its sibling.
   z.object({
     action: z.literal("cannot_complete"),
     deliveryId: z.string().uuid(),
@@ -85,16 +84,14 @@ export async function GET() {
   // The quotable board rides alongside it: both are small, neither is worth a
   // second round trip on island data, and a failure of either must not cost the
   // driver their active deliveries.
-  const [{ data: hasWhatsapp }, { data: openRequests, error: boardError }] = await Promise.all([
-    supabase.rpc("driver_whatsapp_configured"),
-    supabase.rpc("driver_open_requests"),
-  ]);
+  const { data: openRequests, error: boardError } = await supabase.rpc(
+    "driver_open_requests",
+  );
   if (boardError) console.error("driver_open_requests failed", boardError);
 
   return NextResponse.json({
     isDriver: true,
     ...(data as object),
-    whatsappConfigured: Boolean(hasWhatsapp),
     openRequests: openRequests ?? [],
   });
 }
@@ -135,11 +132,6 @@ export async function POST(req: NextRequest) {
         return supabase.rpc("complete_delivery_with_pin", {
           p_delivery_id: input.deliveryId,
           p_pin: input.pin,
-        });
-      case "whatsapp":
-        return supabase.rpc("set_driver_whatsapp", {
-          p_api_key: input.apiKey,
-          p_phone: input.phone ?? null,
         });
       case "quote":
         return supabase.rpc("offer_delivery_quote", {

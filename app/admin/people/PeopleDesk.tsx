@@ -15,6 +15,7 @@ import {
 } from "@/lib/admin/people";
 import ConfirmAction from "./ConfirmAction";
 import InvitePerson from "./InvitePerson";
+import DriverWhatsappAlerts from "./DriverWhatsappAlerts";
 
 type Detail = {
   operations: Record<string, unknown>;
@@ -632,6 +633,24 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
                 </div>
               ))}
             </dl>
+
+            {/* ── ALERTS ─────────────────────────────────────
+                Drivers only. This was on the driver's own dashboard, where it
+                asked somebody who had just been handed a login to message a bot
+                and paste back a key. The owner onboards them by hand anyway, so
+                it belongs beside their name. */}
+            {open.kind === "driver" && (
+              <>
+                <h3 className="mt-5 font-bebas text-[11px] tracking-[0.28em] text-yellow">
+                  ALERTS
+                </h3>
+                <DriverWhatsappAlerts
+                  key={open.id}
+                  driverId={open.id}
+                  driverPhone={open.phone}
+                />
+              </>
+            )}
 
             {/* ── JOINING ──────────────────────────────────────────────
                 Shown only while something is outstanding. The point of this

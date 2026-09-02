@@ -21,7 +21,6 @@ import { centsToDecimalString } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import AlertsToggle from "./AlertsToggle";
 import DeliveryTracking from "@/components/tracking/DeliveryTracking";
-import WhatsappAlerts from "./WhatsappAlerts";
 import { driverDutyState } from "@/lib/delivery/availability";
 import QuoteBoard, { type OpenRequest } from "./QuoteBoard";
 import { formatWindow } from "@/lib/delivery/schedule";
@@ -110,7 +109,6 @@ type Dash = {
   active?: Active[];
   offers?: Offer[];
   // A boolean only. The key itself is never returned by any endpoint.
-  whatsappConfigured?: boolean;
   /** M136 — Deliver Anything jobs this driver may name a price on. A board,
    *  not a dispatch queue: no price is set and the customer chooses. */
   openRequests?: OpenRequest[];
@@ -374,10 +372,11 @@ export default function DriverDashboard() {
           meant they could not subscribe until after the notification they
           wanted had already been sent. */}
       <AlertsToggle />
-      <WhatsappAlerts
-        configured={Boolean(dash?.whatsappConfigured)}
-        onSaved={() => void load()}
-      />
+      {/* WhatsApp alerts used to be configured HERE, by the driver: message
+          CallMeBot, wait for a key, paste it in. Moved to /admin/people, where
+          the owner who already onboards these drivers can switch it on for
+          them. The alerts themselves are unchanged — same table, same sender —
+          only who sets them up. */}
 
       {approved && (
         <div className="grid grid-cols-2 gap-3">
