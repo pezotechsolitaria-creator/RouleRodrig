@@ -210,7 +210,8 @@
 // customer had ever seen a route. A client left on v295 keeps the old gate and
 // keeps showing a paragraph where the map belongs.
 // v297 — the camera works again, and the server can read the visitor's language.
-const CACHE = "rr-cache-v297";
+// v298 - the booking form and order tracking speak all three languages.
+const CACHE = "rr-cache-v298";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

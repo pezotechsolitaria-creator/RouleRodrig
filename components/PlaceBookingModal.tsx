@@ -208,12 +208,12 @@ export default function PlaceBookingModal({
           /* ── Paid in full → confirmed celebration ── */
           <div className="py-6 text-center">
             <SuccessBurst size={84} />
-            <p className="mt-4 font-syne font-extrabold text-offwhite text-xl mb-1">Reservation confirmed! 🎉</p>
+            <p className="mt-4 font-syne font-extrabold text-offwhite text-xl mb-1">{t.placeBooking.confirmed} 🎉</p>
             <p className="text-muted font-dm text-sm mb-5">You&apos;re paid up — nothing to settle on the day. See you at {place.name}; we&apos;ll be in touch with the details.</p>
             {whatsapp && (
               <a href={waLink("I just paid for my booking")} target="_blank" rel="noopener noreferrer"
                  className="inline-flex items-center gap-2 bg-green-500 text-white font-syne font-bold text-sm py-2.5 px-5 rounded-xl hover:bg-green-600 transition-colors">
-                <MessageSquare size={15} /> Message us on WhatsApp
+                <MessageSquare size={15} /> {t.placeBooking.whatsappCta}
               </a>
             )}
             <button onClick={onClose} className="block mx-auto mt-4 text-muted hover:text-yellow text-sm font-dm transition-colors">Done</button>
@@ -224,7 +224,7 @@ export default function PlaceBookingModal({
           <div className="py-2">
             <div className="text-center">
               <SuccessBurst />
-              <p className="mt-4 font-syne font-extrabold text-offwhite text-xl">Booking request received!</p>
+              <p className="mt-4 font-syne font-extrabold text-offwhite text-xl">{t.placeBooking.requestReceived}</p>
               {/* M127. It no longer says "pay below and it's confirmed", because
                   we cannot confirm what we have not checked. The boats and
                   guesthouses are not ours, and taking money for a slot we then
@@ -254,7 +254,7 @@ export default function PlaceBookingModal({
                   <dd className="text-offwhite text-right">{qty}</dd>
                 </div>
                 <div className="flex justify-between gap-3 border-t border-dark-border pt-2">
-                  <dt className="text-muted">Total to pay now</dt>
+                  <dt className="text-muted">{t.placeBooking.totalToPay}</dt>
                   <dd className="text-yellow font-syne font-bold text-right">Rs {result.depositAmount.toLocaleString()}</dd>
                 </div>
               </dl>
@@ -271,8 +271,8 @@ export default function PlaceBookingModal({
                   <span className="font-bebas text-yellow">2</span>
                   <span>
                     {form.email
-                      ? <>We email <strong className="text-offwhite">{form.email}</strong> either way — free or not.</>
-                      : <>We message you on WhatsApp either way — free or not.</>}
+                      ? <>{t.placeBooking.eitherWayEmailPrefix} <strong className="text-offwhite">{form.email}</strong> {t.placeBooking.eitherWaySuffix}</>
+                      : <>{t.placeBooking.eitherWay}</>}
                   </span>
                 </li>
                 <li className="flex gap-2.5">
@@ -288,7 +288,7 @@ export default function PlaceBookingModal({
               {whatsapp && (
                 <a href={waLink("about my reservation")} target="_blank" rel="noopener noreferrer"
                    className="mt-3 w-full flex items-center justify-center gap-2 text-muted hover:text-yellow font-dm text-sm py-2 transition-colors">
-                  <MessageSquare size={15} /> Prefer to chat? Message us on WhatsApp
+                  <MessageSquare size={15} /> {t.placeBooking.whatsappChat}
                 </a>
               )}
               <p className="mt-3 text-muted/50 font-dm text-[11px] text-center">Your reference is {result.bookingId.replace(/-/g, "").slice(0, 6).toUpperCase()}. Keep it — you can check this booking any time at /track.</p>
@@ -298,7 +298,7 @@ export default function PlaceBookingModal({
           /* ── Request-only listing (no price set) → request received ── */
           <div className="py-8 text-center">
             <SuccessBurst />
-            <p className="mt-4 font-syne font-bold text-offwhite text-lg mb-1">Request sent!</p>
+            <p className="mt-4 font-syne font-bold text-offwhite text-lg mb-1">{t.placeBooking.requestSent}</p>
             <p className="text-muted font-dm text-sm mb-5">We&apos;ll confirm your reservation at {place.name} shortly.</p>
             {whatsapp && (
               <a
@@ -316,7 +316,7 @@ export default function PlaceBookingModal({
             {formState === "error" && (
               <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
                 <AlertCircle size={16} className="text-red-400 shrink-0" />
-                <p className="text-red-400/80 font-dm text-xs">Something went wrong. Please try again.</p>
+                <p className="text-red-400/80 font-dm text-xs">{t.placeBooking.error}</p>
               </div>
             )}
 
@@ -411,7 +411,7 @@ export default function PlaceBookingModal({
             <div className="relative">
               <User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" />
               <input
-                type="text" placeholder="Your name" value={form.name}
+                type="text" placeholder={t.placeBooking.yourName} value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className={`${inputCls} pl-10`} required disabled={formState === "loading"}
               />
@@ -425,7 +425,7 @@ export default function PlaceBookingModal({
                   className={`${inputCls} pl-10${emailInvalid ? " !border-red-500/60" : ""}`} required disabled={formState === "loading"}
                 />
               </div>
-              {emailInvalid && <p className="text-red-400 font-dm text-[11px] mt-1.5">Please enter a valid email address.</p>}
+              {emailInvalid && <p className="text-red-400 font-dm text-[11px] mt-1.5">{t.placeBooking.validEmail}</p>}
             </div>
             <PhoneInput
               value={form.phone}
@@ -436,11 +436,11 @@ export default function PlaceBookingModal({
             {isStay && (
               <div>
                 <label className="font-bebas text-muted text-[10px] tracking-[0.25em] flex items-center gap-1.5 mb-2">
-                  <Clock size={12} className="text-yellow" /> ARRIVAL DETAILS
+                  <Clock size={12} className="text-yellow" /> {t.placeBooking.arrivalTitle}
                 </label>
                 <input
                   type="text"
-                  placeholder="Arrival time, flight or ferry — so we know when you land"
+                  placeholder={t.placeBooking.arrivalHint}
                   value={form.arrival}
                   onChange={(e) => setForm({ ...form, arrival: e.target.value })}
                   className={inputCls}
@@ -449,7 +449,7 @@ export default function PlaceBookingModal({
               </div>
             )}
             <textarea
-              rows={2} placeholder="Anything we should know? (optional)" value={form.message}
+              rows={2} placeholder={t.placeBooking.notes} value={form.message}
               onChange={(e) => setForm({ ...form, message: e.target.value })}
               className={`${inputCls} resize-none`} disabled={formState === "loading"}
             />
@@ -460,7 +460,7 @@ export default function PlaceBookingModal({
                   // Said plainly rather than dressed up as a nightly price: this
                   // listing genuinely charges one amount however long you stay.
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="font-dm text-xs text-muted">Price for this booking</span>
+                    <span className="font-dm text-xs text-muted">{t.placeBooking.priceForBooking}</span>
                     <span className="font-syne text-lg font-bold text-yellow">Rs {quote.total.toLocaleString()}</span>
                   </div>
                 ) : (
@@ -478,7 +478,7 @@ export default function PlaceBookingModal({
                   </>
                 )}
                 <p className="mt-1 font-dm text-[10px] text-muted/60">
-                  Paid in full to confirm. Nothing further to settle on arrival.
+                  {t.placeBooking.paidInFull}
                 </p>
               </div>
             )}
@@ -499,7 +499,7 @@ export default function PlaceBookingModal({
             {CANCELLATION_TIERS.length > 0 && (
               <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                 <p className="mb-1.5 flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.2em] text-muted">
-                  <ShieldCheck size={11} /> IF YOU NEED TO CANCEL
+                  <ShieldCheck size={11} /> {t.placeBooking.cancelTitle}
                 </p>
                 <ul className="space-y-0.5">
                   {CANCELLATION_TIERS.map((t) => (
@@ -511,7 +511,7 @@ export default function PlaceBookingModal({
                 <p className="mt-1.5 font-dm text-[11px] text-muted/70">
                   If we or the owner cancel, you are refunded in full.{" "}
                   <Link href="/legal/refunds" target="_blank" className="underline hover:text-yellow">
-                    Full policy
+                    {t.placeBooking.fullPolicy}
                   </Link>
                 </p>
               </div>
@@ -522,7 +522,7 @@ export default function PlaceBookingModal({
               disabled={!canSubmit}
               className="w-full flex items-center justify-center gap-2 bg-yellow text-dark font-syne font-bold text-base py-3.5 rounded-xl hover:bg-yellow-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {formState === "loading" ? <><Loader2 size={16} className="animate-spin" /> Sending…</> : <>Request reservation <Send size={15} /></>}
+              {formState === "loading" ? <><Loader2 size={16} className="animate-spin" /> Sending…</> : <>{t.placeBooking.requestReservation} <Send size={15} /></>}
             </button>
             <p className="text-muted/40 font-dm text-[11px] text-center">A request, not a confirmed booking — we&apos;ll confirm availability with you.</p>
           </form>

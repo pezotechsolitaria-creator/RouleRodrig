@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, Search, CheckCircle2, UserPlus, PackageSearch, Phone } from "lucide-react";
@@ -100,6 +101,7 @@ export default function TrackOrderPage() {
 }
 
 function TrackOrder() {
+  const { t } = useLanguage();
   const searchParams = useSearchParams();
   const [orderNumber, setOrderNumber] = useState("");
   const [email, setEmail] = useState("");
@@ -238,16 +240,16 @@ function TrackOrder() {
         {justOrdered && order ? (
           <div className="mt-6 rounded-2xl border border-green-500/25 bg-green-500/[0.06] p-6 text-center">
             <CheckCircle2 className="mx-auto text-green-400" size={30} />
-            <h1 className="mt-3 font-syne text-2xl font-extrabold text-offwhite">Order confirmed</h1>
+            <h1 className="mt-3 font-syne text-2xl font-extrabold text-offwhite">{t.orderTrack.confirmed}</h1>
             <p className="mt-1.5 font-dm text-sm text-muted">
-              We&apos;ve emailed your confirmation to <span className="text-offwhite">{email}</span>.
+              {t.orderTrack.emailed} <span className="text-offwhite">{email}</span>.
             </p>
           </div>
         ) : (
           <>
-            <h1 className="mt-3 font-syne text-2xl font-extrabold text-offwhite">Track your order</h1>
+            <h1 className="mt-3 font-syne text-2xl font-extrabold text-offwhite">{t.orderTrack.title}</h1>
             <p className="mt-1 font-dm text-sm text-muted">
-              No account needed — enter your order number and the email you ordered with.
+              {t.orderTrack.noAccount}
             </p>
           </>
         )}
@@ -259,7 +261,7 @@ function TrackOrder() {
           >
             <div>
               <label htmlFor="tr-ref" className="mb-1 block font-dm text-xs text-muted">
-                Order number <span className="text-yellow">*</span>
+                {t.orderTrack.orderNumber} <span className="text-yellow">*</span>
               </label>
               <input
                 id="tr-ref"
@@ -292,10 +294,10 @@ function TrackOrder() {
               disabled={loading}
               className="flex w-full items-center justify-center gap-2 rounded-full bg-yellow px-5 py-3.5 font-syne text-sm font-bold text-dark transition-colors hover:bg-yellow-dark disabled:opacity-60"
             >
-              {loading ? <Loader2 size={16} className="animate-spin" /> : <><Search size={15} /> Find my order</>}
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <><Search size={15} /> {t.orderTrack.find}</>}
             </button>
             <p className="pt-1 text-center font-dm text-[11px] text-muted">
-              Your order number is in your confirmation email (it looks like RR260808-A1B2C3).
+              {t.orderTrack.hint}
             </p>
           </form>
         )}
@@ -448,7 +450,7 @@ function TrackOrder() {
                   {customerHoldCopy(order.provider ?? undefined, hold)}
                 </p>
                 <p className="mt-3 font-dm text-xs text-muted">
-                  Time remaining: <span className="text-offwhite">{holdRemaining(hold)}</span>
+                  {t.orderTrack.timeRemaining} <span className="text-offwhite">{holdRemaining(hold)}</span>
                 </p>
               </section>
             )}
@@ -517,7 +519,7 @@ function TrackOrder() {
                   </Button>
                   {order.bank?.requireReceipt && !receipt && (
                     <p className="mt-2 font-dm text-xs text-muted">
-                      Attach the receipt to continue.
+                      {t.orderTrack.attachReceipt}
                     </p>
                   )}
                   {reportError && (
@@ -539,7 +541,7 @@ function TrackOrder() {
                   <UserPlus size={18} className="mt-0.5 shrink-0 text-yellow" />
                   <div>
                     <p className="font-syne text-sm font-bold text-offwhite">
-                      Create an account with this email to track future orders
+                      {t.orderTrack.createWithEmail}
                     </p>
                     <p className="mt-1 font-dm text-xs leading-relaxed text-muted">
                       This order — and any others placed with {email} — will appear in your history
@@ -550,7 +552,7 @@ function TrackOrder() {
                         href={`/login?next=${encodeURIComponent("/orders")}`}
                         className="rounded-full bg-yellow px-4 py-2 font-syne text-xs font-bold text-dark transition-colors hover:bg-yellow-dark"
                       >
-                        Create account or sign in
+                        {t.orderTrack.createAccount}
                       </Link>
                       <Link
                         href={trackVocab.browseHref}
@@ -568,7 +570,7 @@ function TrackOrder() {
               onClick={() => { setOrder(null); setJustOrdered(false); setError(null); setReportError(null); }}
               className="inline-flex items-center gap-1.5 font-dm text-sm text-muted transition-colors hover:text-yellow"
             >
-              <PackageSearch size={14} /> Look up another order
+              <PackageSearch size={14} /> {t.orderTrack.another}
             </button>
           </div>
         )}

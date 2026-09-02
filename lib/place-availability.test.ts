@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import translations from "@/lib/i18n";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isActiveHold, PAYMENT_WINDOW_HOURS } from "./holds";
@@ -43,7 +44,17 @@ describe("the customer is no longer asked to pay before we have checked", () => 
     // "We are checking" with no idea when, or what then, is worse than simply
     // being asked to pay.
     expect(modal).toMatch(/We&apos;re checking with/);
-    expect(modal).toMatch(/either way/);
+    // The promise that they hear back EITHER WAY used to be a literal in this
+    // file. It now lives in the dictionary, because the modal was translated —
+    // so the check follows it there rather than being deleted. This is stricter
+    // than the line it replaces: the reassurance has to exist in all three
+    // languages, not just for the English reader.
+    expect(modal).toMatch(/t\.placeBooking\.eitherWay/);
+    for (const lang of ["en", "fr", "cr"] as const) {
+      const say = (translations[lang] as typeof translations.en).placeBooking;
+      expect(say.eitherWay.trim().length, `${lang} eitherWay`).toBeGreaterThan(10);
+      expect(say.eitherWaySuffix.trim().length, `${lang} eitherWaySuffix`).toBeGreaterThan(5);
+    }
   });
 });
 
