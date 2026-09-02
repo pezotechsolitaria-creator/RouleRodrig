@@ -115,6 +115,9 @@ const translations = {
         "Two icons of Rodrigues riding. Both immaculate. Both ready for you.",
       available: "AVAILABLE",
       unavailable: "UNAVAILABLE",
+      // Every unit is on a trip TODAY. Not the same as withdrawn, and the
+      // vehicle can still be booked for any other date.
+      bookedToday: "BOOKED TODAY",
       bookNow: "Book Now",
       unavailableBtn: "Unavailable",
       allTypes: "All",
@@ -721,6 +724,7 @@ const translations = {
       sectionSub: "Deux icônes de Rodrigues. Impeccables. Prêts pour vous.",
       available: "DISPONIBLE",
       unavailable: "INDISPONIBLE",
+      bookedToday: "RÉSERVÉ AUJOURD'HUI",
       bookNow: "Réserver",
       unavailableBtn: "Indisponible",
       allTypes: "Tous",
@@ -1283,6 +1287,7 @@ const translations = {
       sectionSub: "De loto emblematik Rodrig. Prop ek pare pou ou.",
       available: "DISPONIB",
       unavailable: "PA DISPONIB",
+      bookedToday: "REZERVE ZORDI",
       bookNow: "Rezerv Astèr",
       unavailableBtn: "Pa Disponib",
       allTypes: "Tou",

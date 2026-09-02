@@ -22,8 +22,7 @@ import {
   Sparkles,
   X,
   Download,
-  ShieldCheck,
-} from "lucide-react";
+  ShieldCheck, CalendarClock } from "lucide-react";
 import type { FleetItem, VehicleCategory } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import { useCurrency } from "@/context/CurrencyContext";
@@ -954,13 +953,22 @@ export default function BookingSection({
                   {(fleet ?? []).map((s) => (
                     <div key={s.id} className="flex items-center justify-between">
                       <span className="text-offwhite/80 font-dm text-xs">{s.name}</span>
-                      {s.available !== false && !s.soldOutToday ? (
-                        <span className="flex items-center gap-1.5 text-green-400 text-[10px] font-bebas tracking-[0.15em]">
-                          <BadgeCheck size={12} /> {t.fleet.available}
-                        </span>
-                      ) : (
+                      {/* Three states, not two (M158). "Booked today" is not
+                          "unavailable": this very form can book that vehicle
+                          for any other date, and the calendar above already
+                          shows which days are full. Painting it red here
+                          contradicted the calendar sitting directly above it. */}
+                      {s.available === false ? (
                         <span className="flex items-center gap-1.5 text-red-400/70 text-[10px] font-bebas tracking-[0.15em]">
                           <Ban size={12} /> {t.fleet.unavailable}
+                        </span>
+                      ) : s.soldOutToday ? (
+                        <span className="flex items-center gap-1.5 text-amber-400/80 text-[10px] font-bebas tracking-[0.15em]">
+                          <CalendarClock size={12} /> {t.fleet.bookedToday}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1.5 text-green-400 text-[10px] font-bebas tracking-[0.15em]">
+                          <BadgeCheck size={12} /> {t.fleet.available}
                         </span>
                       )}
                     </div>

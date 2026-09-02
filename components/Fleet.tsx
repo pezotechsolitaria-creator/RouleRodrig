@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { vehicleHref } from "@/lib/vehicle-slug";
-import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban, ChevronLeft, ChevronRight, Star, Maximize2, Snowflake, Fuel, MapPin, Bluetooth, DoorOpen, Check, LifeBuoy, Flame } from "lucide-react";
+import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban, ChevronLeft, ChevronRight, Star, Maximize2, Snowflake, Fuel, MapPin, Bluetooth, DoorOpen, Check, LifeBuoy, Flame, CalendarClock } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { DEFAULT_CONTENT, type FleetItem, type VehicleCategory } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
@@ -248,9 +248,30 @@ export default function Fleet({
   // or picking Scooters after SUV would silently show nothing.
   useEffect(() => setActiveType("all"), [activeCat]);
 
-  // Available vehicles first, sold-out / unavailable ones last.
-  const isOut = (it: FleetItem) => it.available === false || it.soldOutToday === true;
-  const items = [...typedItems].sort((a, b) => Number(isOut(a)) - Number(isOut(b)));
+  // ── TWO DIFFERENT STATES, AND THEY WERE ONE (M158) ────────────────────────
+  //
+  // `available === false` is the owner withdrawing a vehicle in admin: it is
+  // not for hire, full stop. `soldOutToday` is every unit being out on a trip
+  // TODAY, which says nothing about next Tuesday.
+  //
+  // They were collapsed into a single `out` flag that painted a red UNAVAILABLE
+  // badge and set pointer-events-none on the Book button. So the Burgman, which
+  // is simply booked today, could not be booked for ANY future date — the
+  // customer never reached the calendar that would have shown them the free
+  // days. The owner reported it as scooters going unavailable when they are
+  // not.
+  //
+  // The booking flow already gets this right: /api/availability is
+  // capacity-aware per date, the form renders a calendar of full days, and
+  // app/api/bookings re-checks server-side before accepting. This card was a
+  // cruder gate standing in front of a correct one.
+  const isWithdrawn = (it: FleetItem) => it.available === false;
+  const isBusyToday = (it: FleetItem) =>
+    it.available !== false && it.soldOutToday === true;
+  // Free today first, out-on-a-trip next, withdrawn last. Busy-today is still
+  // bookable, so it does not belong at the bottom with the withdrawn ones.
+  const rank = (it: FleetItem) => (isWithdrawn(it) ? 2 : isBusyToday(it) ? 1 : 0);
+  const items = [...typedItems].sort((a, b) => rank(a) - rank(b));
 
   if (visibleItems.length === 0) return null;
 
@@ -369,8 +390,10 @@ export default function Fleet({
               : (isScooterCat(scooter.category ?? "scooter") || scooter.id === "burgman" || scooter.id === "avenis")
               ? [...t.booking.included]
               : [];
-            // "out" = not offered (admin off) OR every unit is on a trip today
-            const out = scooter.available === false || scooter.soldOutToday === true;
+            // Withdrawn by the owner — genuinely not for hire, so the button
+            // is disabled. Booked today is NOT this: see the sort comment.
+            const out = scooter.available === false;
+            const busyToday = !out && scooter.soldOutToday === true;
             return (
               <motion.div
                 key={`${scooter.id}-${i}`}
@@ -405,6 +428,13 @@ export default function Fleet({
                   {out ? (
                     <span className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.15em] bg-red-500/90 text-white px-3 py-1.5 rounded-full">
                       <Ban size={10} /> {t.fleet.unavailable}
+                    </span>
+                  ) : busyToday ? (
+                    /* Amber, not red, and it says what is true: out on a trip
+                       today, bookable for any other date. The Book button
+                       below stays live so the customer reaches the calendar. */
+                    <span className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.15em] bg-amber-500/90 text-dark px-3 py-1.5 rounded-full">
+                      <CalendarClock size={10} /> {t.fleet.bookedToday}
                     </span>
                   ) : (
                     <span className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.15em] bg-green-500/90 text-white px-3 py-1.5 rounded-full">
