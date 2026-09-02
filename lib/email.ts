@@ -1931,6 +1931,79 @@ export async function sendOwnerEnquiryAlert(e: {
 }
 
 // ── Waitlist / saved-list welcome (lifecycle remarketing, bilingual) ─────
+// ── AUTH EMAIL, ON THE TRANSPORT THAT ACTUALLY WORKS ─────────────────────
+//
+// Password resets and confirmations were the ONLY customer mail this site did
+// not send. Supabase Auth sent them, over its own SMTP, which is three
+// problems at once:
+//
+//   1. It is documented as suitable for testing only, and it rate-limits hard —
+//      "you can only request this after 43 seconds" is a real 429 from it.
+//   2. It sends from Supabase's shared sender, so the one email that MUST be
+//      trusted is the one email with none of this domain's SPF, DKIM or DMARC
+//      behind it. Everything else the business sends is authenticated; the
+//      password reset was not, which is exactly backwards.
+//   3. It is invisible to email_log, so "did it send?" had no answer here.
+//
+// generateLink() mints the same link WITHOUT sending anything, so the token
+// stays Supabase's and the delivery becomes ours.
+export async function sendAuthLink(o: {
+  to: string;
+  kind: "recovery" | "confirm";
+  link: string;
+}): Promise<boolean> {
+  const { logo } = await getBrand();
+  const recovery = o.kind === "recovery";
+
+  const leadEn = recovery
+    ? "Somebody asked to reset the password for this email address on Roule Rodrigues. Tap the button to choose a new one."
+    : "Welcome to Roule Rodrigues. Tap the button to confirm this address and finish setting up your account.";
+  const leadFr = recovery
+    ? "Quelqu’un a demandé à réinitialiser le mot de passe de cette adresse sur Roule Rodrigues. Touchez le bouton pour en choisir un nouveau."
+    : "Bienvenue chez Roule Rodrigues. Touchez le bouton pour confirmer cette adresse et terminer la création de votre compte.";
+  const label = recovery
+    ? "🔑 Set a new password · Nouveau mot de passe"
+    : "✅ Confirm my email · Confirmer mon adresse";
+
+  // The sentence that matters most to somebody who did NOT ask for this, said
+  // in both languages: doing nothing is a complete answer.
+  const ignoreEn = recovery
+    ? "The link expires in one hour and can be used once. If you did not ask for this, ignore this email — your password stays exactly as it is."
+    : "The link expires in one hour. If you did not create this account, ignore this email and nothing further will happen.";
+  const ignoreFr = recovery
+    ? "Le lien expire dans une heure et ne peut servir qu’une fois. Si vous n’êtes pas à l’origine de cette demande, ignorez cet e-mail — votre mot de passe reste inchangé."
+    : "Le lien expire dans une heure. Si vous n’avez pas créé ce compte, ignorez cet e-mail et rien ne se passera.";
+
+  const body = `
+    ${paragraph(leadEn)}
+    <div style="text-align:center;margin-bottom:6px">${primaryButton(o.link, label)}</div>
+    ${paragraph(ignoreEn)}
+    ${sepFr()}
+    ${frHeading(recovery ? "Nouveau mot de passe" : "Confirmez votre adresse")}
+    ${paragraph(leadFr)}
+    ${paragraph(ignoreFr)}`;
+
+  return send({
+    to: o.to,
+    subject: recovery
+      ? "Set a new password · Nouveau mot de passe"
+      : "Confirm your email · Confirmez votre adresse",
+    html: shell({
+      preheader: recovery
+        ? "A link to choose a new password · Un lien pour choisir un nouveau mot de passe."
+        : "Confirm your email address · Confirmez votre adresse e-mail.",
+      eyebrow: recovery ? "Password reset · Mot de passe" : "Welcome · Bienvenue",
+      title: recovery ? "Set a new password" : "Confirm your email",
+      body,
+      logo,
+    }),
+    type: recovery ? "password_reset" : "email_verification",
+    // NO idempotency key, deliberately. Each request mints a fresh token, and
+    // de-duplicating would swallow the second attempt of somebody who genuinely
+    // did not receive the first — the exact situation this exists to rescue.
+  });
+}
+
 export async function sendWaitlistWelcome(
   to: string,
   source?: string,

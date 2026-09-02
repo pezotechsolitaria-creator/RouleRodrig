@@ -1,10 +1,6 @@
 "use client";
 
 import { signUpOutcome } from "@/lib/auth/signup-outcome";
-import {
-  retryAfterSeconds,
-  isRateLimited,
-} from "@/lib/auth/resend-confirmation";
 import { useState } from "react";
 import { authRedirect } from "@/lib/auth-redirect";
 import Link from "next/link";
@@ -38,22 +34,28 @@ export default function MerchantLoginPage() {
     if (resendWait > 0 || busy) return;
     setBusy("email");
     setResendMsg(null);
-    const { error } = await supabase.auth.resend({
-      type: "signup",
-      email: email.trim(),
-      options: { emailRedirectTo: callback() },
-    });
+    // Our own route, not supabase.auth.resend(): the link is minted with
+    // generateLink() and delivered through Brevo, so this arrives signed by
+    // this domain like every other email the business sends. See
+    // app/api/auth/email-link/route.ts.
+    let res: Response | null = null;
+    try {
+      res = await fetch("/api/auth/email-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), kind: "confirm", next: "/merchant" }),
+      });
+    } catch {
+      /* offline — handled below */
+    }
     setBusy(null);
-    if (!error) {
+    if (res && res.ok) {
       setResendMsg("Sent again. It can take a minute to arrive.");
       startResendCooldown(30);
       return;
     }
-    // The limiter is not a failure — it is an instruction, so it gets the
-    // countdown rather than a red error.
-    const wait = retryAfterSeconds(error.message);
-    if (wait !== null || isRateLimited(error.message)) {
-      startResendCooldown(wait ?? 30);
+    if (res && res.status === 429) {
+      startResendCooldown(60);
       setResendMsg(null);
       return;
     }
@@ -82,13 +84,22 @@ export default function MerchantLoginPage() {
     if (!email.trim()) return setError("Enter your email first.");
     setBusy("email");
     setError(null);
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: authRedirect("/auth/reset-password?next=%2Fmerchant"),
-    });
+    try {
+      await fetch("/api/auth/email-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          kind: "recovery",
+          next: "/merchant",
+        }),
+      });
+    } catch (err) {
+      console.error("password reset request", err);
+    }
     setBusy(null);
     // Reports success either way, exactly as /login does: telling a stranger
     // whether an address has an account is an enumeration oracle.
-    if (error) console.error("resetPasswordForEmail", error);
     setResetSent(true);
   }
 

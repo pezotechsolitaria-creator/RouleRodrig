@@ -142,12 +142,13 @@ export const EMAIL_TYPES = {
   ride_request_confirmation:        { category: "ride", priority: "high" },
 
   // ── Account / security ───────────────────────────────────────────────────
-  // IMPORTANT: these three are declared but the application does NOT send
-  // them. Supabase Auth does, over its own SMTP transport (see
-  // docs/supabase-auth-emails.md), so this router cannot route them and its
-  // counters cannot see them. They exist here so the concept is nameable, and
-  // so the day auth email moves in-app the routing entry is already present.
-  // The quota engine treats them as Brevo's invisible load, not as app traffic.
+  // The day this block anticipated has arrived. email_verification and
+  // password_reset USED to be sent by Supabase Auth over its own SMTP, and were
+  // declared here as `planned` "so the day auth email moves in-app the routing
+  // entry is already present". It has: app/api/auth/email-link mints the link
+  // with generateLink() and sends it through this router — so the one email a
+  // customer MUST trust is now signed by this domain's DKIM like every other,
+  // and lands in email_log where "did it send?" has an answer.
   // An invitation is the ONLY route into an account somebody else created for
   // you, which puts it in the same class as a password reset: it may be queued
   // behind other mail, but it must never be dropped to defend a reserve. The
@@ -156,8 +157,8 @@ export const EMAIL_TYPES = {
   // TICKETING type marked `planned` — which put access mail under a ticketing
   // quota it had nothing to do with.
   account_invitation:               { category: "account", priority: "critical" },
-  email_verification:               { category: "account", priority: "critical", planned: true },
-  password_reset:                   { category: "account", priority: "critical", planned: true },
+  email_verification:               { category: "account", priority: "critical" },
+  password_reset:                   { category: "account", priority: "critical" },
   security_notification:            { category: "account", priority: "critical", planned: true },
 
   // ── Operational (internal — owner and staff) ─────────────────────────────
