@@ -158,3 +158,33 @@ describe("domain resolution", () => {
     for (const t of produced) expect(ALL_EMAIL_TYPES, t).toContain(t);
   });
 });
+
+// ── THE OWNER INBOX ─────────────────────────────────────────────────────────
+//
+// Owner alerts went to the domain's contact address for months because
+// OWNER_EMAIL was never set on any environment. Nothing failed: email_log said
+// "sent", Brevo said "delivered", and the owner did not read that mailbox. The
+// setting is stored now so changing it does not need a redeploy, and these
+// assertions exist so a bad value can never become the destination.
+describe("ownerEmail", () => {
+  it("defaults to null rather than to a guess", () => {
+    // A default address in code is precisely how this went unnoticed.
+    expect(DEFAULT_EMAIL_CONFIG.ownerEmail).toBeNull();
+  });
+
+  it("accepts a real address and trims it", () => {
+    expect(mergeEmailConfig({ ownerEmail: "  someone@example.com " }).ownerEmail)
+      .toBe("someone@example.com");
+  });
+
+  it("refuses anything that is not an address, rather than mailing to it", () => {
+    for (const bad of ["", "   ", "not-an-email", "a@b", "@example.com", "x@y.", 42, null, {}]) {
+      expect(mergeEmailConfig({ ownerEmail: bad }).ownerEmail, JSON.stringify(bad)).toBeNull();
+    }
+  });
+
+  it("survives a round trip through the merge, so a save cannot lose it", () => {
+    const once = mergeEmailConfig({ ownerEmail: "owner@example.com" });
+    expect(mergeEmailConfig(once).ownerEmail).toBe("owner@example.com");
+  });
+});

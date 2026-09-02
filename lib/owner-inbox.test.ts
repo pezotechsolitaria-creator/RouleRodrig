@@ -28,33 +28,36 @@ describe("ownerInbox", () => {
     else process.env.OWNER_EMAIL = ORIGINAL;
   });
 
-  it("never returns empty — an unset variable must not silence every alert", () => {
+  it("never returns empty — an unset variable must not silence every alert", async () => {
     const { ownerInbox } = mod;
-    expect(ownerInbox()).toBeTruthy();
-    expect(ownerInbox()).toContain("@");
+    expect(await ownerInbox()).toBeTruthy();
+    expect(await ownerInbox()).toContain("@");
   });
 
-  it("falls back to the site's published contact address", () => {
+  it("falls back to the site's published contact address", async () => {
+    // With no OWNER_EMAIL and no reachable config (no service role in tests),
+    // the last resort still answers. That fallback is what keeps an alert from
+    // being addressed to nothing.
     const { ownerInbox } = mod;
-    expect(ownerInbox()).toBe(CONTACT_EMAIL);
+    expect(await ownerInbox()).toBe(CONTACT_EMAIL);
   });
 
-  it("prefers OWNER_EMAIL when it is set — a personal inbox is read faster", () => {
+  it("prefers OWNER_EMAIL when it is set — a personal inbox is read faster", async () => {
     process.env.OWNER_EMAIL = "owner@example.com";
     const { ownerInbox } = mod;
-    expect(ownerInbox()).toBe("owner@example.com");
+    expect(await ownerInbox()).toBe("owner@example.com");
   });
 
-  it("treats whitespace as unset rather than mailing to a blank address", () => {
+  it("treats whitespace as unset rather than mailing to a blank address", async () => {
     process.env.OWNER_EMAIL = "   ";
     const { ownerInbox } = mod;
-    expect(ownerInbox()).toBe(CONTACT_EMAIL);
+    expect(await ownerInbox()).toBe(CONTACT_EMAIL);
   });
 
-  it("reports whether the address was chosen, so /admin can say which", () => {
+  it("reports whether the address was chosen, so /admin can say which", async () => {
     const { ownerInboxIsExplicit } = mod;
-    expect(ownerInboxIsExplicit()).toBe(false);
+    expect(await ownerInboxIsExplicit()).toBe(false);
     process.env.OWNER_EMAIL = "owner@example.com";
-    expect(ownerInboxIsExplicit()).toBe(true);
+    expect(await ownerInboxIsExplicit()).toBe(true);
   });
 });

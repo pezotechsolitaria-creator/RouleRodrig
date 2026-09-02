@@ -49,6 +49,18 @@ export interface TicketingReserve {
 }
 
 export interface EmailConfig {
+  /**
+   * Where OWNER alerts go — new booking, new ride, new enquiry.
+   *
+   * This lived only in an OWNER_EMAIL environment variable, which had never
+   * been set on any environment, so every owner alert silently fell back to
+   * the CONTACT_EMAIL on the domain. Brevo delivered them; nobody read them.
+   * A setting the business depends on should not require a redeploy to change,
+   * so it is stored here and the env var, if present, still wins.
+   *
+   * Null means "no override" — fall back exactly as before.
+   */
+  ownerEmail: string | null;
   /** Used for any type with no explicit route. */
   defaultProvider: ProviderName;
   providers: Record<ProviderName, ProviderLimits>;
@@ -92,6 +104,9 @@ export interface EmailConfig {
 //     ceiling is consumed by traffic the application cannot see or count.
 //     No separate monthly ceiling: 300/day is the whole constraint.
 export const DEFAULT_EMAIL_CONFIG: EmailConfig = {
+  // Not defaulted to an address: an owner inbox guessed in code is how this
+  // went unnoticed in the first place.
+  ownerEmail: null,
   // Brevo, deliberately. It is the provider live in production today, the one
   // whose domain is already authenticated (SPF/DKIM/DMARC), and the one with
   // the LARGER daily bucket — so it takes the highest-volume categories.
@@ -210,7 +225,13 @@ export function mergeEmailConfig(stored: unknown): EmailConfig {
     }
   }
 
+  const ownerEmail =
+    typeof s.ownerEmail === "string" && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s.ownerEmail.trim())
+      ? s.ownerEmail.trim()
+      : d.ownerEmail;
+
   return {
+    ownerEmail,
     defaultProvider: providerName(s.defaultProvider, d.defaultProvider),
     providers: { resend: mergeProvider("resend"), brevo: mergeProvider("brevo") },
     thresholds: {

@@ -65,7 +65,10 @@ export async function GET(req: NextRequest) {
     // of those emails silently did nothing — no error, no log, nothing in this
     // panel. Reporting the address is what makes that impossible to repeat.
     // The value is the owner's own inbox shown to the owner, not a secret.
-    ownerAlerts: { to: ownerInbox(), explicit: ownerInboxIsExplicit() },
+    ownerAlerts: {
+      to: await ownerInbox(),
+      explicit: await ownerInboxIsExplicit(),
+    },
 
     // ── M41 ──
     transactionalListId: m["brevo_transactional_list_id"] ?? "",

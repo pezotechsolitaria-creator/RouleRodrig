@@ -656,13 +656,45 @@ function summaryRows(b: BookingEmailData): string {
 // printed inside customer emails — which is a mailbox that demonstrably exists.
 // OWNER_EMAIL still wins when set, because a personal inbox is read faster than
 // a shared one.
-export function ownerInbox(): string {
-  return (process.env.OWNER_EMAIL ?? "").trim() || CONTACT_EMAIL;
+/**
+ * Where owner alerts go — new booking, new ride, new enquiry.
+ *
+ * ── WHY THIS IS ASYNC NOW ─────────────────────────────────────────
+ * It read one environment variable, OWNER_EMAIL, which was never set on any
+ * environment — so every owner alert quietly fell back to the contact address
+ * on the domain. The mail was sent, Brevo delivered it, and it landed in a
+ * mailbox the owner does not read. Nothing failed anywhere, which is exactly
+ * why it went unnoticed: `email_log` said `sent`, and it was.
+ *
+ * The address the business depends on should not need a redeploy to change, so
+ * it is a stored setting now. Precedence, most specific first:
+ *
+ *   1. OWNER_EMAIL          — an environment can still force it
+ *   2. emailConfig.ownerEmail — what the owner set, no deploy needed
+ *   3. CONTACT_EMAIL        — unchanged last resort
+ */
+export async function ownerInbox(): Promise<string> {
+  const fromEnv = (process.env.OWNER_EMAIL ?? "").trim();
+  if (fromEnv) return fromEnv;
+  try {
+    const { getEmailConfig } = await import("./email/config");
+    const cfg = await getEmailConfig();
+    if (cfg.ownerEmail) return cfg.ownerEmail;
+  } catch {
+    /* a config read must never cost an alert — fall through */
+  }
+  return CONTACT_EMAIL;
 }
 
 /** True when the owner has chosen an address rather than inheriting the fallback. */
-export function ownerInboxIsExplicit(): boolean {
-  return !!(process.env.OWNER_EMAIL ?? "").trim();
+export async function ownerInboxIsExplicit(): Promise<boolean> {
+  if ((process.env.OWNER_EMAIL ?? "").trim()) return true;
+  try {
+    const { getEmailConfig } = await import("./email/config");
+    return !!(await getEmailConfig()).ownerEmail;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -764,7 +796,7 @@ export async function sendBookingEmails(
   }
 
   // ── Owner notification (internal, English) ──
-  const owner = ownerInbox();
+  const owner = await ownerInbox();
   if (owner) {
     const body = `
       ${paragraph(`You have a new booking request. Details below — manage it in your admin dashboard under <strong>Bookings</strong>.`)}
@@ -1270,7 +1302,7 @@ function ownerActionEmail(
 export async function sendAdminPickupReminder(
   raw: BookingEmailData,
 ): Promise<boolean> {
-  const owner = ownerInbox();
+  const owner = await ownerInbox();
   const b = await withVehicleName(raw);
   const { logo } = await getBrand();
   return send({
@@ -1288,7 +1320,7 @@ export async function sendAdminPickupReminder(
 export async function sendAdminReturnReminder(
   raw: BookingEmailData,
 ): Promise<boolean> {
-  const owner = ownerInbox();
+  const owner = await ownerInbox();
   const b = await withVehicleName(raw);
   const { logo } = await getBrand();
   return send({
@@ -1372,7 +1404,7 @@ export async function sendPaymentReportedAlert(input: {
   /** Where in /admin this is dealt with. */
   adminPath?: string;
 }): Promise<boolean> {
-  const owner = ownerInbox();
+  const owner = await ownerInbox();
   const { logo } = await getBrand();
 
   const where =
@@ -1469,7 +1501,7 @@ export async function sendPlaceBookingEmails(
     });
   }
 
-  const owner = ownerInbox();
+  const owner = await ownerInbox();
   if (owner) {
     const body = `
       ${paragraph(`New <strong>Stay·Eat·Do</strong> reservation request from <strong>${b.name}</strong>.`)}
@@ -1582,7 +1614,7 @@ export async function sendPlaceFeedbackRequest(
 export async function sendAdminPlaceReminder(
   b: PlaceBookingEmailData,
 ): Promise<boolean> {
-  const owner = ownerInbox();
+  const owner = await ownerInbox();
   const { logo } = await getBrand();
   const body = `
     ${paragraph(`<strong style="color:${C.ink}">Reservation tomorrow</strong> (${fmtDate(b.start_date)}) — <strong>${b.name}</strong> at <strong>${b.place_name}</strong>.`)}
@@ -1745,7 +1777,7 @@ export async function sendRideEmails(
   }
 
   // ── Owner alert (internal, English — same convention as every other one) ──
-  const owner = ownerInbox();
+  const owner = await ownerInbox();
   if (owner) {
     const body = `
       ${paragraph(`New <strong>${label}</strong> request from <strong>${escapeHtml(b.name)}</strong>. Drivers are being offered it automatically — open <strong>Rides</strong> in your admin dashboard to watch it, or to place it by hand if nobody accepts.`)}
@@ -1837,7 +1869,7 @@ export async function sendOwnerEnquiryAlert(e: {
   dates?: string | null;
   message: string | null;
 }): Promise<boolean> {
-  const owner = ownerInbox();
+  const owner = await ownerInbox();
   if (!owner) return false;
   const { logo } = await getBrand();
   const who = (e.name ?? "").trim() || (e.email ?? "").trim() || "Someone";
