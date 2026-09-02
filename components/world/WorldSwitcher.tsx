@@ -3,6 +3,9 @@
 import { useExperienceWorld } from "@/context/ExperienceWorldContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { otherWorld, WORLD_COPY, WORLD_PAGE } from "@/lib/worlds";
+import WorldSwitchHint, {
+  markWorldHintSeen,
+} from "@/components/world/WorldSwitchHint";
 
 // ── CHANGE YOUR RODRIGUES ───────────────────────────────────────────────────
 //
@@ -71,6 +74,10 @@ export default function WorldSwitcher({
       // anyway: a world change swaps the theme, the palette, the layout and the
       // page. Both destinations are statically cached, so it is one fast hop.
       onClick={() => {
+        // Somebody who presses this has understood it. Recording that here as
+        // well as on dismissal means the hint never greets a visitor who
+        // already found the door on their own.
+        markWorldHintSeen();
         choose(next);
         window.location.assign(WORLD_PAGE[next]);
       }}
@@ -118,8 +125,20 @@ export default function WorldSwitcher({
   // visitors too — an empty bar above the fold, before any world exists.
   // Whatever decides to render nothing has to own everything that would
   // otherwise be left behind.
-  if (!strip) return button;
+  // The hint is anchored to the pill, so the pill needs a positioned parent.
+  // `relative` only — no size, no padding — so nothing about the header row's
+  // hard-won 375px measurements changes.
+  const anchored = (
+    <span className="relative inline-flex">
+      {button}
+      <WorldSwitchHint other={next} />
+    </span>
+  );
+
+  if (!strip) return anchored;
   return (
-    <div className="flex justify-center border-t border-white/10 px-4 py-2">{button}</div>
+    <div className="flex justify-center border-t border-white/10 px-4 py-2">
+      {anchored}
+    </div>
   );
 }
