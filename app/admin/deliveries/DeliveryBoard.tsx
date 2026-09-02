@@ -2,10 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  ArrowLeft, Loader2, AlertTriangle, Phone, RefreshCw, Package,
-  UserCheck, UserX, Clock, CheckCircle2,
-} from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, Loader2, Package, Phone, Plus, RefreshCw, UserCheck, UserX } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import { stallBoardLine } from "@/lib/delivery/escalation-copy";
 import { Button } from "@/components/ui/button";
@@ -436,9 +433,24 @@ export default function DeliveryBoard() {
         )
       ) : (
         <div className="mt-5 space-y-3">
+          {/* ── ADDING ONE YOURSELF ─────────────────────────────────────
+              This board is where somebody goes when they want a driver, and it
+              had no way to add one — it said applications arrive at
+              /driver/apply, which reads as "wait". The form has existed all
+              along on the People desk; it was simply behind a tab nobody would
+              think to open, under a menu entry called "People & Operations".
+              The feature was not missing. The door was. */}
+          <Link
+            href="/admin/people?kind=driver"
+            className="inline-flex items-center gap-1.5 rounded-full border border-yellow/40 bg-yellow/10 px-3.5 py-2 font-dm text-[12.5px] text-yellow hover:bg-yellow/15"
+          >
+            <Plus size={14} /> Add a delivery partner
+          </Link>
           {drivers.length === 0 && (
             <p className="rounded-2xl border border-white/10 bg-dark-card p-8 text-center font-dm text-sm text-muted">
-              No drivers yet. Applications arrive at /driver/apply.
+              No drivers yet. People can apply at /driver/apply — or add one
+              yourself with the button above, and they get an invitation to
+              claim the account.
             </p>
           )}
           {drivers.map((dr) => (

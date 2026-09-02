@@ -67,7 +67,11 @@ const NAV: NavGroup[] = [
       // The desk for everybody who OPERATES here — merchants and delivery
       // partners in one place, with account status, verification and what they
       // are doing right now kept as the three separate things they are.
-      { href: "/admin/people", label: "People & Operations", icon: UserCheck },
+      // Named after what is INSIDE it rather than after the department. An
+      // owner hunting for the place to add a delivery man read "People &
+      // Operations" and kept walking — the same failure lib/admin/
+      // nav-keywords.test.ts was written about when "hiking" was invisible.
+      { href: "/admin/people", label: "Merchants & drivers", icon: UserCheck },
       { href: "/admin/customers", label: "Customers", icon: Users },
       { href: "/admin/subscriptions", label: "Merchant billing", icon: Store },
       { href: "/admin/organizers", label: "Organisers", icon: UserCog },
