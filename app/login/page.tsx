@@ -1,6 +1,10 @@
 "use client";
 
 import { signUpOutcome } from "@/lib/auth/signup-outcome";
+import {
+  retryAfterSeconds,
+  isRateLimited,
+} from "@/lib/auth/resend-confirmation";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -102,6 +106,51 @@ function LoginForm() {
   const [busy, setBusy] = useState<"email" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checkEmail, setCheckEmail] = useState(false);
+  const [resendMsg, setResendMsg] = useState<string | null>(null);
+  const [resendWait, setResendWait] = useState(0);
+
+  // "I never got the email." Without this the only way to ask again is to sign
+  // up a second time — which returns 200 and sends nothing at all, so the one
+  // action a stuck customer takes is the one guaranteed not to help.
+  async function resendConfirmation() {
+    if (resendWait > 0 || busy) return;
+    setBusy("email");
+    setResendMsg(null);
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: email.trim(),
+      options: { emailRedirectTo: callback() },
+    });
+    setBusy(null);
+    if (!error) {
+      setResendMsg("Sent again. It can take a minute to arrive.");
+      startResendCooldown(30);
+      return;
+    }
+    // The limiter is not a failure — it is an instruction, so it gets the
+    // countdown rather than a red error.
+    const wait = retryAfterSeconds(error.message);
+    if (wait !== null || isRateLimited(error.message)) {
+      startResendCooldown(wait ?? 30);
+      setResendMsg(null);
+      return;
+    }
+    setResendMsg("We could not send it just now. Please try again shortly.");
+  }
+
+  function startResendCooldown(seconds: number) {
+    setResendWait(seconds);
+    const tick = setInterval(() => {
+      setResendWait((s) => {
+        if (s <= 1) {
+          clearInterval(tick);
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+  }
+
   const [resetSent, setResetSent] = useState(false);
 
   // Sending the reset email. This whole flow did not exist: there was no
@@ -249,6 +298,24 @@ function LoginForm() {
               <p className="mt-1 font-dm text-xs leading-relaxed text-muted">
                 We sent a confirmation link to <b className="text-offwhite/90">{email}</b>. Open it, then sign in.
               </p>
+              {/* Asking again, in the place where somebody realises they need
+                  to. Same muted link treatment as "Back to sign in" — this is
+                  a second chance, not a competing call to action. */}
+              <button
+                type="button"
+                onClick={() => void resendConfirmation()}
+                disabled={!!busy || resendWait > 0}
+                className="mt-4 block w-full font-dm text-xs text-yellow hover:underline disabled:opacity-50 disabled:hover:no-underline"
+              >
+                {resendWait > 0
+                  ? `Send again in ${resendWait}s`
+                  : "Didn't get it? Send it again"}
+              </button>
+              {resendMsg && (
+                <p className="mt-2 font-dm text-xs leading-relaxed text-muted">
+                  {resendMsg}
+                </p>
+              )}
               <button
                 onClick={() => { setCheckEmail(false); setMode("signin"); }}
                 className="mt-4 font-dm text-xs text-yellow hover:underline"
