@@ -9,6 +9,7 @@ import {
   ExternalLink, LogOut, Waves, Bike, Activity, Receipt, ChefHat, ShoppingBag, Car, ClipboardList,
   Sparkles, UserCheck, Radar } from "lucide-react";
 import CommandPalette from "./CommandPalette";
+import AdminBell from "@/components/admin/AdminBell";
 
 // ── The control plane's frame ───────────────────────────────────────────────
 //
@@ -208,6 +209,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           <Link href="/admin" className="font-syne text-sm font-extrabold tracking-wide text-offwhite">
             RR <span className="text-yellow">OPERATIONS</span>
           </Link>
+          {/* "Requires attention" used to exist only on /admin, so an operator
+              working the food queue all morning never learned that a merchant
+              had been waiting since yesterday. Same list, now in the chrome. */}
+          <AdminBell />
         </div>
         <button
           onClick={() => setPaletteOpen(true)}
@@ -231,13 +236,16 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         <Link href="/admin" className="font-syne text-sm font-extrabold text-offwhite">
           RR <span className="text-yellow">OPS</span>
         </Link>
-        <button
-          onClick={() => setPaletteOpen(true)}
-          aria-label="Search everything"
-          className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-offwhite"
-        >
-          <Search size={16} />
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <AdminBell />
+          <button
+            onClick={() => setPaletteOpen(true)}
+            aria-label="Search everything"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-offwhite"
+          >
+            <Search size={16} />
+          </button>
+        </div>
       </header>
 
       {/* ── Mobile drawer ── */}
