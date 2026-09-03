@@ -27,6 +27,7 @@ import type { FleetItem, VehicleCategory } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
+import PayPalDeposit from "@/components/PayPalDeposit";
 import PhoneInput from "@/components/PhoneInput";
 import SuccessBurst from "@/components/SuccessBurst";
 import BookingTimeline from "@/components/BookingTimeline";
@@ -519,6 +520,48 @@ export default function BookingSection({
                     <p className="mt-3 font-dm text-[11px] leading-relaxed text-muted/70">
                       {t.booking.checkingNote}
                     </p>
+                  </div>
+                )}
+
+                {/* ── PAY NOW, OR WAIT — BOTH ARE REAL (M161) ─────────────────
+                    M91 removed the payment sheet from this screen because the
+                    owner rents vehicles he does not all own: a booking taken on
+                    the spot can become a refund that costs the PayPal fee, the
+                    exchange spread and the customer's trust. That reasoning
+                    still holds, and the check above is still offered first and
+                    costs nothing.
+
+                    What it did not account for is the rule the platform has
+                    always run on — first deposit paid keeps the vehicle. A
+                    customer who wants certainty had no way to get it, and
+                    could lose their dates while waiting for a check they never
+                    asked for.
+
+                    So both paths exist and the copy is honest about each: wait
+                    and pay nothing, or pay now and hold it. The refund promise
+                    is stated in the same breath as the button, because it is
+                    the thing that makes the second path fair — and it is the
+                    owner's exposure, not the customer's. */}
+                {!depositPaid && lastBooking?.bookingId && (lastBooking.deposit ?? 0) > 0 && (
+                  <div className="mt-4 rounded-xl border border-yellow/25 bg-yellow/[0.04] p-4 text-left">
+                    <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">
+                      {t.booking.secureNowTitle}
+                    </p>
+                    <p className="mt-2 font-dm text-xs leading-relaxed text-offwhite/80">
+                      {t.booking.secureNowBody}
+                    </p>
+                    <p className="mt-2 font-dm text-[11px] leading-relaxed text-muted/70">
+                      {t.booking.secureNowRefund}
+                    </p>
+                    <div className="mt-3.5">
+                      <PayPalDeposit
+                        bookingId={lastBooking.bookingId}
+                        depositMur={lastBooking.deposit ?? 0}
+                        fullMur={lastBooking.totalMur}
+                        kind="vehicle"
+                        onPaid={() => setDepositPaid(true)}
+                      />
+                    </div>
                   </div>
                 )}
 

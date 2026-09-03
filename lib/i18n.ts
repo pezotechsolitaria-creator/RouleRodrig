@@ -157,6 +157,13 @@ const translations = {
       checkingStep3: "You pay, and the vehicle is yours for those dates.",
       checkingNote:
         "If it isn't free we'll say so straight away and suggest something similar — you will never be charged for a vehicle we cannot provide.",
+      // The pay-now path (M161). Offered BESIDE the check above, never instead
+      // of it: waiting costs nothing and is still the safer route.
+      secureNowTitle: "Or lock it in now",
+      secureNowBody:
+        "You don't have to wait for us. Pay the deposit and the vehicle is yours — the first deposit paid keeps it, and until one is paid your dates stay open to everyone else.",
+      secureNowRefund:
+        "If the owner can't take your dates after all, we refund you in full within 24 hours.",
       errorTitle: "Something went wrong",
       errorDesc: "Please try again or reach us on WhatsApp.",
       summaryTitle: "BOOKING SUMMARY",
@@ -1108,6 +1115,11 @@ const translations = {
       checkingStep3: "Vous payez, et le véhicule est à vous pour ces dates.",
       checkingNote:
         "S'il n'est pas libre, nous vous le dirons tout de suite et vous proposerons un équivalent — vous ne serez jamais débité pour un véhicule que nous ne pouvons pas fournir.",
+      secureNowTitle: "Ou bloquez-le tout de suite",
+      secureNowBody:
+        "Vous n'êtes pas obligé d'attendre. Payez l'acompte et le véhicule est à vous — le premier acompte reçu le garde, et tant qu'aucun n'est payé vos dates restent ouvertes à tout le monde.",
+      secureNowRefund:
+        "Si le propriétaire ne peut finalement pas prendre vos dates, nous vous remboursons intégralement sous 24 heures.",
       errorTitle: "Une erreur s'est produite",
       errorDesc:
         "Veuillez réessayer ou nous contacter directement sur WhatsApp.",
@@ -2011,6 +2023,11 @@ const translations = {
       checkingStep3: "Ou peye, ek veikil la pou ou pou sa bann dat la.",
       checkingNote:
         "Si li pa lib, nou dir ou deswit ek propoz ou enn lot parey — nou pa pou zame debit ou pou enn veikil ki nou pa kapav donn ou.",
+      secureNowTitle: "Ouswa blok li aster",
+      secureNowBody:
+        "Ou pa bizin atann nou. Pey depo la ek veikil la pou ou — premie depo peye gard li, ek tank personn pa fin peye, ou bann dat res ouver pou tou dimounn.",
+      secureNowRefund:
+        "Si proprieter la pa kapav pran ou bann dat, nou rembours ou net dan 24 er.",
       errorTitle: "Enn zafer finn mal pas",
       errorDesc: "Esey ankor ou kontakt nou lor WhatsApp.",
       summaryTitle: "REZIME REZERVASION",
