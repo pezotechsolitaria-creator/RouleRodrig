@@ -217,7 +217,7 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
                 )}
                 {platform === "android" && (
                   <>
-                    <Step n={1}>Tap the <MoreVertical size={14} className="inline align-text-bottom text-yellow" /> <b className="text-offwhite">menu</b> (top-right of Chrome).</Step>
+                    <Step n={1}>{t.install.tapThe} <MoreVertical size={14} className="inline align-text-bottom text-yellow" /> <b className="text-offwhite">menu</b> (top-right of Chrome).</Step>
                     <Step n={2}>Tap <b className="text-offwhite">&ldquo;Install app&rdquo;</b> or <b className="text-offwhite">&ldquo;Add to Home screen&rdquo;</b>.</Step>
                     <Step n={3}>Confirm <b className="text-offwhite">Install</b> — done!</Step>
                   </>

@@ -339,7 +339,7 @@ function LoginForm() {
                 onClick={() => { setCheckEmail(false); setMode("signin"); }}
                 className="mt-4 font-dm text-xs text-yellow hover:underline"
               >
-                Back to sign in
+                {t.auth.backToSignIn}
               </button>
             </div>
           ) : resetSent ? (
@@ -354,7 +354,7 @@ function LoginForm() {
                 onClick={() => { setResetSent(false); setMode("signin"); }}
                 className="mt-4 font-dm text-xs text-yellow hover:underline"
               >
-                Back to sign in
+                {t.auth.backToSignIn}
               </button>
             </div>
           ) : mode === "forgot" ? (
@@ -380,14 +380,14 @@ function LoginForm() {
                   disabled={!!busy}
                   className="flex w-full items-center justify-center gap-2 rounded-full bg-yellow px-5 py-3 font-syne text-sm font-bold text-dark transition-colors hover:bg-yellow-dark disabled:opacity-60"
                 >
-                  {busy === "email" ? <Loader2 size={16} className="animate-spin" /> : <>Send reset link <ArrowRight size={15} /></>}
+                  {busy === "email" ? <Loader2 size={16} className="animate-spin" /> : <>{t.auth.sendReset} <ArrowRight size={15} /></>}
                 </button>
               </form>
               <button
                 onClick={() => { setMode("signin"); setError(null); }}
                 className="mt-5 w-full text-center font-dm text-xs text-muted transition-colors hover:text-yellow"
               >
-                Back to sign in
+                {t.auth.backToSignIn}
               </button>
             </>
           ) : (

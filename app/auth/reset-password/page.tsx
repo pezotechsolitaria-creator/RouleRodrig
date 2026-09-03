@@ -213,7 +213,7 @@ function ResetPasswordForm() {
 
               <form onSubmit={submit} className="mt-5 space-y-3">
                 <div className="relative">
-                  <label htmlFor="rp-password" className="sr-only">New password</label>
+                  <label htmlFor="rp-password" className="sr-only">{t.resetPassword.newPassword}</label>
                   <input
                     id="rp-password"
                     type={show ? "text" : "password"}
@@ -238,7 +238,7 @@ function ResetPasswordForm() {
                   </button>
                 </div>
                 <div>
-                  <label htmlFor="rp-confirm" className="sr-only">Confirm new password</label>
+                  <label htmlFor="rp-confirm" className="sr-only">{t.resetPassword.confirmNew}</label>
                   <input
                     id="rp-confirm"
                     type={show ? "text" : "password"}

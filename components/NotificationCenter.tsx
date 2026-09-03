@@ -139,7 +139,7 @@ export default function NotificationCenter({ className = "" }: { className?: str
       {open && (
         <div
           role="dialog"
-          aria-label="Notifications"
+          aria-label={t.common.notifications}
           className="absolute right-0 z-50 mt-2 max-h-[70vh] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-dark-card shadow-2xl"
         >
           <div className="sticky top-0 flex items-center justify-between gap-3 border-b border-white/10 bg-dark-card px-4 py-3">

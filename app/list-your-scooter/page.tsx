@@ -341,7 +341,7 @@ export default function ListYourBusinessPage() {
         {/* Category picker — two groups, because the difference is real */}
         <div role="tablist" aria-label={t.listing.whatToList} className="mb-12">
           <p className="font-bebas text-muted text-[10px] tracking-[0.3em] mb-3">
-            WHAT DO YOU WANT TO LIST?
+            {t.listing.whatToListLabel}
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {OPEN_ORDER.map((t) => (
@@ -467,7 +467,7 @@ export default function ListYourBusinessPage() {
 
               <div>
                 <label htmlFor="ly-message" className={labelCls}>{t.listing.anythingElse}</label>
-                <textarea id="ly-message" className={`${input} resize-none`} rows={3} placeholder="Optional" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} disabled={state === "loading"} />
+                <textarea id="ly-message" className={`${input} resize-none`} rows={3} placeholder={t.listing.optional} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} disabled={state === "loading"} />
               </div>
 
               {/* Photos — useful for every category */}

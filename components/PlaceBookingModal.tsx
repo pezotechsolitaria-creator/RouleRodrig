@@ -306,7 +306,7 @@ export default function PlaceBookingModal({
                 target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 bg-green-500 text-white font-syne font-bold text-sm py-2.5 px-5 rounded-xl hover:bg-green-600 transition-colors"
               >
-                <MessageSquare size={15} /> Message us on WhatsApp
+                <MessageSquare size={15} /> {t.placeBooking.whatsappCta}
               </a>
             )}
             <button onClick={onClose} className="block mx-auto mt-4 text-muted hover:text-yellow text-sm font-dm transition-colors">Close</button>

@@ -790,7 +790,7 @@ export default function AppHome({
           </div>
           {/* Same five tabs as the global BottomNav — one list, two chromes.
               See lib/nav-tabs.ts for why the tabs are not defined here. */}
-          <nav aria-label="Primary">
+          <nav aria-label={t.a11y.primary}>
             <div className="rr-nav-row flex items-center justify-around px-2 py-1.5 sm:px-4 sm:py-2.5">
               {NAV_TABS.map((tab) => {
                 const label = tabLabel(tab, language);

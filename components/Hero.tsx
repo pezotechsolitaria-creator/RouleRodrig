@@ -404,7 +404,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
         <div className="flex animate-marquee whitespace-nowrap will-change-transform">
           {Array.from({ length: 8 }).map((_, i) => (
             <span key={i} className="font-bebas text-yellow text-xs tracking-[0.25em] mx-10">
-              EXPLORE THE ISLAND&nbsp;•&nbsp;FEEL THE WIND&nbsp;•&nbsp;ROULE RODRIGUES&nbsp;•
+              {t.a11yMore.marquee}
             </span>
           ))}
         </div>

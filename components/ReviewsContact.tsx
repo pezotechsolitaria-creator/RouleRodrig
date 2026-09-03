@@ -367,7 +367,7 @@ export default function ReviewsContact({
       className="bg-dark py-8 md:py-12 overflow-x-hidden scroll-mt-24"
       aria-label={t.a11y.reviewsAndContact}
     >
-      <h2 className="sr-only">Reviews &amp; contact — Roule Rodrigues</h2>
+      <h2 className="sr-only">{t.a11y.reviewsAndContact}</h2>
       <div className="max-w-4xl mx-auto px-5">
         <div className="rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.055] to-white/[0.01] backdrop-blur-sm p-5 md:p-7 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.9)]">
           {/* Header — instantly reads as customer reviews */}

@@ -196,7 +196,7 @@ export default function Navbar({
               onClick={cycleCurrency}
               className="flex items-center gap-1.5 text-xs font-dm text-muted hover:text-offwhite border border-dark-border hover:border-yellow/50 px-3 py-2 rounded-full transition-all duration-200"
               aria-label={t.a11y.changeCurrency}
-              title="Change currency"
+              title={t.a11y.changeCurrency}
             >
               <span className="font-bold text-yellow">{CURRENCY_SYMBOL[currency]}</span>
               <span className="uppercase tracking-wide">{currency}</span>
@@ -326,7 +326,7 @@ export default function Navbar({
                   <button
                     onClick={cycleCurrency}
                     className="flex items-center gap-2 text-muted hover:text-yellow font-dm text-sm transition-colors"
-                    aria-label="Change currency"
+                    aria-label={t.a11y.changeCurrency}
                   >
                     <span className="font-bold text-yellow">{CURRENCY_SYMBOL[currency]}</span>
                     <span>{currency}</span>
