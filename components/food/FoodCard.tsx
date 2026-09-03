@@ -1,7 +1,7 @@
 import Link from "next/link";
 import AutoPhotos from "@/components/AutoPhotos";
 import { Flame, Star, Clock, Users, BadgeCheck } from "lucide-react";
-import { centsToDecimalString } from "@/lib/money";
+import { centsToShortString } from "@/lib/money";
 import { type FoodCard as FoodCardType } from "@/lib/food/types";
 import { dishArt } from "@/lib/food/dish-art";
 import FoodQuickAdd from "./FoodQuickAdd";
@@ -177,7 +177,7 @@ export default function FoodCard({
         <div className="mt-auto flex flex-col items-start gap-0.5 pt-2.5 sm:flex-row sm:items-end sm:justify-between sm:gap-2">
           <p className="whitespace-nowrap font-syne text-[15px] font-extrabold leading-tight text-yellow sm:text-base">
             {item.variantCount > 1 && <span className="font-dm text-[11px] font-normal text-muted">from </span>}
-            Rs {centsToDecimalString(item.price)}
+            Rs {centsToShortString(item.price)}
           </p>
           <p className="flex items-center gap-2 whitespace-nowrap font-dm text-[11px] text-muted">
             {item.serves && item.serves > 1 && (

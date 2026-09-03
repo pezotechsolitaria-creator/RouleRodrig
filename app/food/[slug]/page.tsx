@@ -6,7 +6,7 @@ import { ArrowLeft, Flame, Users, Clock, ChefHat, UtensilsCrossed, Info, Message
 import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
 import { getFoodItem } from "@/lib/food/queries";
-import { centsToDecimalString } from "@/lib/money";
+import { centsToShortString } from "@/lib/money";
 import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import AddressLink from "@/components/AddressLink";
@@ -136,7 +136,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 font-dm text-sm text-muted">
               <span className="font-syne text-lg font-extrabold text-yellow">
                 {dish.variantCount > 1 && <span className="font-dm text-xs font-normal text-muted"><T k="card.from" />{" "}</span>}
-                Rs {centsToDecimalString(dish.price)}
+                Rs {centsToShortString(dish.price)}
               </span>
               {prep && (
                 <span className="inline-flex items-center gap-1"><Clock size={13} /> {prep}</span>

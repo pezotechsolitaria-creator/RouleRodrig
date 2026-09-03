@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import { ShoppingBag, Bike } from "lucide-react";
 import { fulfilmentChip } from "@/lib/shop/plain-words";
-import { centsToDecimalString } from "@/lib/money";
+import { centsToShortString } from "@/lib/money";
 
 // Pickup or delivery, decided once and remembered.
 //
@@ -103,7 +103,7 @@ export default function FulfillmentBar({
         {hydrated && mode === "rr_delivery" ? (
           <>
             We bring it to you
-            {deliveryFeeFrom !== null && <> — from Rs {centsToDecimalString(deliveryFeeFrom)} depending on the area.</>}
+            {deliveryFeeFrom !== null && <> — from Rs {centsToShortString(deliveryFeeFrom)} depending on the area.</>}
             {" "}You share your location at checkout.
           </>
         ) : (

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Plus, Minus, ShoppingBag, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart/CartContext";
-import { centsToDecimalString } from "@/lib/money";
+import { centsToDecimalString, centsToShortString } from "@/lib/money";
 import { UNAVAILABLE_LABEL, type FoodDetail } from "@/lib/food/types";
 
 // The order panel on a dish page: choose a size, choose how many, add.
@@ -133,7 +133,7 @@ export default function DishOrderPanel({ dish }: { dish: FoodDetail }) {
                     </span>
                   </span>
                   <span className="shrink-0 font-syne text-sm font-extrabold text-offwhite">
-                    Rs {centsToDecimalString(v.price)}
+                    Rs {centsToShortString(v.price)}
                   </span>
                 </label>
               );
