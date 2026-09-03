@@ -96,6 +96,9 @@ export default function BookingSection({
   // silently-disabled button (the reported "took 5 minutes to figure out" pain).
   const [fieldErr, setFieldErr] = useState<{ vehicle?: boolean; date?: boolean }>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Every requirement still outstanding, so the customer can see the whole job
+  // rather than discovering it one refusal at a time.
+  const [missingSteps, setMissingSteps] = useState<string[]>([]);
   const formTopRef = useRef<HTMLFormElement | null>(null);
   const successRef = useRef<HTMLDivElement | null>(null);
   // When the booking succeeds the form unmounts and the confirmation card takes
@@ -301,14 +304,32 @@ export default function BookingSection({
     cr: { vehicle: "Swazir enn veikil.", date: "Swazir ou dat retre.", dates: "Retour bizin apre retre.", name: "Met ou nom.", phone: "Met enn nimero telefonn valab.", email: "Met enn adres email valab.", overlap: "Sa bann dat la fini pran — swazir enn lot peryod.", agree: "Aksepte bann kondision pou kontinie." },
   }[language] ?? { vehicle: "Please choose a vehicle.", date: "Please choose your pickup date.", dates: "Return must be after pickup.", name: "Please enter your name.", phone: "Please enter a valid phone number.", email: "Please enter a valid email address.", overlap: "Those dates are already taken.", agree: "Please accept the terms." };
 
+  const STILL_NEEDED =
+    language === "fr" ? "Il reste à remplir :"
+    : language === "cr" ? "Ankor bizin :"
+    : "Still to do:";
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     // Validate top-to-bottom; show the FIRST problem clearly + highlight its
     // field, then scroll the form into view. No silent no-ops.
+    // ── EVERYTHING THAT IS STILL MISSING, AT ONCE ────────────────────────
+    // This used to keep only the FIRST problem. Somebody who had not filled
+    // three things was told about one, fixed it, pressed the button, and was
+    // told about the next — the form dripping out its requirements one at a
+    // time, which reads as the button being broken rather than as a list of
+    // things to do.
+    //
+    // The checks and their order are unchanged, and so is the field
+    // highlighting and the scroll: only the reporting is now complete.
     const fe: { vehicle?: boolean; date?: boolean } = {};
+    const missing: string[] = [];
     let firstError: string | null = null;
     const flag = (cond: boolean, msg: string, field?: "vehicle" | "date") => {
-      if (cond && !firstError) { firstError = msg; if (field) fe[field] = true; }
+      if (!cond) return;
+      if (!missing.includes(msg)) missing.push(msg);
+      if (!firstError) firstError = msg;
+      if (field) fe[field] = true;
     };
     flag(!form.scooter, ERR.vehicle, "vehicle");
     flag(!form.start_date, ERR.date, "date");
@@ -321,12 +342,14 @@ export default function BookingSection({
 
     if (firstError) {
       setFieldErr(fe);
+      setMissingSteps(missing);
       setSubmitError(firstError);
       setAgreeError(!agreed);
       formTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
     setFieldErr({});
+    setMissingSteps([]);
     setSubmitError(null);
 
     setFormState("loading");
@@ -811,11 +834,28 @@ export default function BookingSection({
               {/* First unmet requirement, shown in plain language. The button
                   stays clickable (only loading/success disable it) so a tap
                   always tells the customer what to fix — never a dead button. */}
-              {submitError && (
+              {/* One problem reads as a sentence, as it always did. TWO OR MORE
+                  read as a list, because "please enter your name" on its own,
+                  when the date and the terms are also outstanding, is not the
+                  truth about what is left to do. Same red, same icon, same
+                  place — only the shape changes with the number of things. */}
+              {submitError && missingSteps.length > 1 ? (
+                <div className="flex items-start gap-2 text-red-400 font-dm text-sm -mb-1" role="alert">
+                  <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">{STILL_NEEDED}</p>
+                    <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                      {missingSteps.map((m) => (
+                        <li key={m}>{m}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ) : submitError ? (
                 <p className="flex items-start gap-2 text-red-400 font-dm text-sm -mb-1" role="alert">
                   <AlertCircle size={15} className="shrink-0 mt-0.5" /> {submitError}
                 </p>
-              )}
+              ) : null}
               <button
                 type="submit"
                 disabled={formState === "loading"}
