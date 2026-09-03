@@ -24,23 +24,72 @@ const MARGIN = 56;
 const VALUE_X = 330; // values sit in a fixed second column — see fmtRow below
 
 /**
- * PDF text strings are Latin-1 (WinAnsiEncoding here). Rodrigues names are
- * routinely accented — Éloïse, Perrine, Ançois — and those all fit. Anything
- * outside the range (emoji, for instance) becomes "?" rather than corrupting
- * the byte stream and producing a file no reader will open.
+ * WinAnsiEncoding is NOT Latin-1, and treating it as Latin-1 is what put
+ * question marks on a customer's receipt:
+ *
+ *   Rs 25?883            should be  Rs 25 883
+ *   3 Sept ? 19 Sept     should be  3 Sept – 19 Sept
+ *   lock it in ? the     should be  lock it in – the
+ *
+ * This mapped every codepoint above 0xFF to "?" on the reasoning that PDF
+ * strings are Latin-1. But the font dictionary below declares
+ * /Encoding/WinAnsiEncoding, and WinAnsi fills 0x80–0x9F — the block Latin-1
+ * leaves undefined — with exactly the typography that was being discarded. An
+ * en-dash is byte 0x96 in this very file; it was thrown away as unrepresentable.
+ *
+ * The two that actually bit are worth naming. The dash is an en-dash (U+2013),
+ * because that is what a date range is written with. The gap in 25 883 is a
+ * NARROW NO-BREAK SPACE (U+202F), which is how French-locale number formatting
+ * groups thousands — and this is a trilingual product, so it reaches an
+ * English receipt too.
+ *
+ * WinAnsi has no narrow space, so those collapse to a normal no-break space:
+ * the number still cannot break across lines, which is the point of it.
  */
-function toLatin1(input: string): string {
+const WIN_ANSI: ReadonlyMap<number, number> = new Map([
+  [0x20ac, 0x80], [0x201a, 0x82], [0x0192, 0x83], [0x201e, 0x84],
+  [0x2026, 0x85], [0x2020, 0x86], [0x2021, 0x87], [0x02c6, 0x88],
+  [0x2030, 0x89], [0x0160, 0x8a], [0x2039, 0x8b], [0x0152, 0x8c],
+  [0x017d, 0x8e], [0x2018, 0x91], [0x2019, 0x92], [0x201c, 0x93],
+  [0x201d, 0x94], [0x2022, 0x95], [0x2013, 0x96], [0x2014, 0x97],
+  [0x02dc, 0x98], [0x2122, 0x99], [0x0161, 0x9a], [0x203a, 0x9b],
+  [0x0153, 0x9c], [0x017e, 0x9e], [0x0178, 0x9f],
+]);
+
+/** Spaces WinAnsi has no byte for. Every one of them is still a space. */
+const NARROW_SPACES = new Set([0x2007, 0x2008, 0x2009, 0x200a, 0x202f, 0x2060, 0xfeff]);
+
+/**
+ * Encode for WinAnsiEncoding. Accented Rodriguan names — Éloïse, Perrine,
+ * Ançois — pass through unchanged, typography maps to the byte the font
+ * actually has, and only something genuinely absent from the encoding (an
+ * emoji) still becomes "?" rather than corrupting the byte stream and
+ * producing a file no reader will open.
+ *
+ * ONE CHAR STILL MEANS ONE BYTE. The offset table at the end of this file
+ * depends on it.
+ */
+export function toWinAnsi(input: string): string {
   let out = "";
   for (const ch of input) {
     const cp = ch.codePointAt(0) ?? 63;
-    out += cp <= 0xff ? String.fromCharCode(cp) : "?";
+    if (cp <= 0xff) {
+      out += String.fromCharCode(cp);
+      continue;
+    }
+    const mapped = WIN_ANSI.get(cp);
+    if (mapped !== undefined) {
+      out += String.fromCharCode(mapped);
+      continue;
+    }
+    out += NARROW_SPACES.has(cp) ? " " : "?";
   }
   return out;
 }
 
 /** Escapes the three characters that terminate or nest a PDF literal string. */
 function pdfEscape(s: string): string {
-  return toLatin1(s).replace(/[\\()]/g, (c) => `\\${c}`);
+  return toWinAnsi(s).replace(/[\\()]/g, (c) => `\\${c}`);
 }
 
 type Op = string;
@@ -67,7 +116,7 @@ const GREEN: [number, number, number] = [0.039, 0.49, 0.231]; // #0a7d3b
  * The budget is conservative enough that Helvetica 9pt never overruns the page.
  */
 function wrap(s: string, maxChars: number): string[] {
-  const words = toLatin1(s).split(/\s+/).filter(Boolean);
+  const words = toWinAnsi(s).split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let line = "";
 
@@ -190,7 +239,7 @@ export function buildReceiptPdf(d: ReceiptData, now: Date = new Date()): Uint8Ar
     `trailer\n<</Size ${objects.length + 1}/Root 1 0 R>>\n` +
     `startxref\n${xrefStart}\n%%EOF\n`;
 
-  // One char === one byte, guaranteed by toLatin1 on every dynamic string.
+  // One char === one byte, guaranteed by toWinAnsi on every dynamic string.
   const bytes = new Uint8Array(file.length);
   for (let i = 0; i < file.length; i++) bytes[i] = file.charCodeAt(i) & 0xff;
   return bytes;
