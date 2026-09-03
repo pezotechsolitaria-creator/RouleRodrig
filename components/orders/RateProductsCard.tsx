@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { Star, Check, Loader2 } from "lucide-react";
 import ProductThumb from "@/components/shop/ProductThumb";
 
@@ -41,6 +42,7 @@ export default function RateProductsCard({
   orderNumber?: string;
   email?: string;
 }) {
+  const { t } = useLanguage();
   const pending = products.filter((p) => !p.reviewed);
   /** productId → the rating that was successfully saved. */
   const [saved, setSaved] = useState<Record<string, number>>({});
@@ -56,10 +58,10 @@ export default function RateProductsCard({
     return (
       <section className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] p-5">
         <p className="inline-flex items-center gap-2 font-dm text-sm font-medium text-emerald-300">
-          <Check size={16} /> Thank you — your ratings are live
+          <Check size={16} /> {t.rating.thanksRatings}
         </p>
         <p className="mt-1 font-dm text-xs text-muted">
-          They show on each product&apos;s page and help the next buyer choose.
+          {t.rating.showOnProduct}
         </p>
       </section>
     );
@@ -95,9 +97,9 @@ export default function RateProductsCard({
 
   return (
     <section className="rounded-2xl border border-white/10 bg-dark-card p-5">
-      <h2 className="font-syne text-base font-bold text-offwhite">Rate what you bought</h2>
+      <h2 className="font-syne text-base font-bold text-offwhite">{t.rating.rateWhatYouBought}</h2>
       <p className="mt-1 font-dm text-xs text-muted">
-        Only someone who collected an order can rate its products — so your rating counts.
+        {t.rating.onlyCollectedProducts}
       </p>
 
       <ul className="mt-4 space-y-3">
@@ -144,7 +146,7 @@ export default function RateProductsCard({
               {!done && stars > 0 && (
                 <div className="mt-3 border-t border-white/[0.06] pt-3">
                   <label htmlFor={`note-${p.productId}`} className="block font-dm text-xs text-muted">
-                    Say why, if you like (optional)
+                    {t.rating.sayWhy}
                   </label>
                   <textarea
                     id={`note-${p.productId}`}
@@ -152,7 +154,7 @@ export default function RateProductsCard({
                     onChange={(e) => setNotes((s) => ({ ...s, [p.productId]: e.target.value }))}
                     rows={2}
                     maxLength={1000}
-                    placeholder="What was it like?"
+                    placeholder={t.rating.whatWasItLike}
                     className="mt-1.5 w-full rounded-xl border border-white/10 bg-dark px-3 py-2 font-dm text-sm text-offwhite placeholder:text-muted focus:border-yellow/50 focus:outline-none"
                   />
                   <button
@@ -174,7 +176,7 @@ export default function RateProductsCard({
       {error && <p className="mt-3 font-dm text-xs text-red-300">{error}</p>}
 
       <p className="mt-3 font-dm text-[11px] text-muted/70">
-        Published straight away under your first name. Each product can be rated once per order.
+        {t.rating.publishedProducts}
       </p>
     </section>
   );

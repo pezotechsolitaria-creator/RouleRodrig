@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import Link from "next/link";
 import { RotateCcw, Loader2, PackageX } from "lucide-react";
 import { toast } from "sonner";
@@ -35,6 +36,7 @@ export default function BuyAgainCard({
   /** Only for the toast — every add uses the SHOP each product resolves to. */
   storeName: string;
 }) {
+  const { t } = useLanguage();
   const { addItem } = useCart("shop");
   const [products, setProducts] = useState<MarketProduct[] | null>(null);
   const [missing, setMissing] = useState(0);
@@ -66,7 +68,7 @@ export default function BuyAgainCard({
   if (products === null) {
     return (
       <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-dark-card p-5 font-dm text-sm text-muted">
-        <Loader2 size={15} className="animate-spin" /> Checking what&apos;s still available…
+        <Loader2 size={15} className="animate-spin" /> {t.buyAgain.checking}
       </div>
     );
   }
@@ -79,7 +81,7 @@ export default function BuyAgainCard({
   return (
     <section className="rounded-2xl border border-white/10 bg-dark-card p-5">
       <h2 className="inline-flex items-center gap-2 font-syne text-base font-bold text-offwhite">
-        <RotateCcw size={15} className="text-yellow" /> Buy it again
+        <RotateCcw size={15} className="text-yellow" /> {t.buyAgain.buyItAgain}
       </h2>
       <p className="mt-1 font-dm text-xs text-muted">
         {products.length > 0 && (
@@ -89,7 +91,7 @@ export default function BuyAgainCard({
           </>
         )}
         {products.length === 0 && missing > 0 && (
-          <>Nothing from this order is on sale at the moment.</>
+          <>{t.buyAgain.nothingOnSale}</>
         )}
       </p>
 
@@ -178,7 +180,7 @@ export default function BuyAgainCard({
           }}
           className="mt-3 w-full rounded-xl border border-yellow/50 px-4 py-2.5 font-dm text-sm font-bold text-yellow transition-colors hover:bg-yellow/10"
         >
-          Add everything still available
+          {t.buyAgain.addEverything}
         </button>
       )}
     </section>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { Bike, ShieldCheck, CheckCircle2 } from "lucide-react";
 import LiveTripView from "@/components/tracking/LiveTripView";
 
@@ -65,6 +66,7 @@ export default function DeliveryStatusCard({
   email?: string | null;
   className?: string;
 }) {
+  const { t } = useLanguage();
   const [delivery, setDelivery] = useState<Delivery | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -167,7 +169,7 @@ export default function DeliveryStatusCard({
       {delivery.driverName && !done && !live && (
         <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-dark p-3">
           <p className="font-dm text-sm">
-            <span className="text-muted">Your driver:</span>{" "}
+            <span className="text-muted">{t.deliveryCard.yourDriver}</span>{" "}
             <span className="font-semibold">{delivery.driverName}</span>
           </p>
           {delivery.driverPhone && (
@@ -185,18 +187,18 @@ export default function DeliveryStatusCard({
         <div className="mt-3 rounded-xl border border-yellow/30 bg-yellow/10 p-4 text-center">
           <p className="flex items-center justify-center gap-1.5 font-dm text-xs text-muted">
             <ShieldCheck size={13} className="text-yellow" />
-            Give this to your driver when your order arrives
+            {t.deliveryCard.givePin}
           </p>
           <p className="mt-2 font-bebas text-4xl tracking-[0.35em] text-yellow">{delivery.pin}</p>
           <p className="mt-1.5 font-dm text-[11px] text-muted">
-            Only share it once you have your order in your hands.
+            {t.deliveryCard.onlyShare}
           </p>
         </div>
       )}
 
       {done && (
         <p className="mt-2 font-dm text-sm text-muted">
-          Confirmed with your PIN. Thanks for using Roulé Rodrigues.
+          {t.deliveryCard.confirmedPin}
         </p>
       )}
       </div>

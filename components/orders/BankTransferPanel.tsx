@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { Copy, Check, Landmark, Clock } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import ReceiptUploader from "./ReceiptUploader";
@@ -58,12 +59,13 @@ export default function BankTransferPanel({
    *  instead, and the panel itself stays identical for both buyers (M21). */
   children?: React.ReactNode;
 }) {
+  const { t } = useLanguage();
   // Already reported — the customer's work is done; they're waiting on the shop.
   if (awaitingConfirmation) {
     return (
       <section aria-labelledby="pay-h" className="rounded-2xl border border-yellow/25 bg-yellow/[0.05] p-5">
         <h2 id="pay-h" className="flex items-center gap-2 font-syne text-base font-bold text-offwhite">
-          <Clock size={16} className="text-yellow" /> Awaiting confirmation
+          <Clock size={16} className="text-yellow" /> {t.bankPanel.awaiting}
         </h2>
         <p className="mt-1.5 font-dm text-sm text-muted">
           Thanks — we&apos;ve told them you&apos;ve paid. They&apos;ll check their account and confirm your
@@ -78,11 +80,11 @@ export default function BankTransferPanel({
   return (
     <section aria-labelledby="pay-h" className="rounded-2xl border border-white/10 bg-dark-card p-5">
       <h2 id="pay-h" className="flex items-center gap-2 font-syne text-base font-bold text-offwhite">
-        <Landmark size={16} className="text-yellow" /> Pay by bank transfer
+        <Landmark size={16} className="text-yellow" /> {t.bankPanel.payByTransfer}
       </h2>
 
       <div className="mt-3 rounded-xl border border-yellow/25 bg-yellow/[0.06] px-4 py-3">
-        <p className="font-dm text-xs text-muted">Transfer exactly</p>
+        <p className="font-dm text-xs text-muted">{t.bankPanel.transferExactly}</p>
         {/* Server-derived; the customer wires this figure, so it is never
             computed in the browser. */}
         <p className="font-syne text-2xl font-extrabold text-yellow">Rs {centsToDecimalString(amount)}</p>
@@ -100,7 +102,7 @@ export default function BankTransferPanel({
         </dl>
       ) : (
         <p role="alert" className="mt-3 font-dm text-sm text-red-400">
-          They haven&apos;t published bank details yet. Please contact them before transferring.
+          {t.bankPanel.noBankDetails}
         </p>
       )}
 

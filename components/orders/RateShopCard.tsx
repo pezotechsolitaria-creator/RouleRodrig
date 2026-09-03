@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { Star, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -28,6 +29,7 @@ export default function RateShopCard({
   storeName: string;
   className?: string;
 }) {
+  const { t } = useLanguage();
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
   const [body, setBody] = useState("");
@@ -59,7 +61,7 @@ export default function RateShopCard({
     return (
       <section className={`rounded-2xl border border-green-500/25 bg-green-500/[0.06] p-5 ${className}`}>
         <h2 className="flex items-center gap-1.5 font-syne text-sm font-bold text-green-400">
-          <CheckCircle2 size={15} /> Thank you
+          <CheckCircle2 size={15} /> {t.rating.thanks}
         </h2>
         <p className="mt-2 font-dm text-sm text-offwhite/85">
           Your review is live on {storeName}&apos;s page. It helps the next visitor pick a shop they can trust.
@@ -76,7 +78,7 @@ export default function RateShopCard({
         How was {storeName}?
       </h2>
       <p className="mt-1 font-dm text-xs text-muted">
-        Only customers who actually collected an order can review — so your rating counts.
+        {t.rating.onlyCollectedShop}
       </p>
 
       <div className="mt-4 flex items-center gap-1" onMouseLeave={() => setHover(0)}>
@@ -104,7 +106,7 @@ export default function RateShopCard({
       </div>
 
       <label htmlFor="review-body" className="mt-4 block font-dm text-xs text-muted">
-        Anything you&apos;d tell another traveller? <span className="text-muted/60">(optional)</span>
+        {t.rating.tellTraveller} <span className="text-muted/60">(optional)</span>
       </label>
       <textarea
         id="review-body"
@@ -112,7 +114,7 @@ export default function RateShopCard({
         maxLength={1000}
         value={body}
         onChange={(e) => setBody(e.target.value)}
-        placeholder="The honey was the best I found on the island…"
+        placeholder="{t.rating.reviewExample}"
         className="mt-1.5 w-full resize-y rounded-xl border border-dark-border bg-dark px-4 py-3 font-dm text-sm text-offwhite placeholder:text-muted/60 focus:border-yellow focus:outline-none"
       />
 
@@ -126,7 +128,7 @@ export default function RateShopCard({
         {busy ? <Loader2 size={16} className="animate-spin" /> : "Post review"}
       </Button>
       <p className="mt-2 font-dm text-[11px] text-muted">
-        Published straight away under your first name and last initial. You can review each order once.
+        {t.rating.publishedShop}
       </p>
     </section>
   );

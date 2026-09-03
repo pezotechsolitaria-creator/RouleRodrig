@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { useRouter } from "next/navigation";
 import { Loader2, ArrowRight, Car } from "lucide-react";
 
@@ -16,6 +17,7 @@ import { Loader2, ArrowRight, Car } from "lucide-react";
 // is over five years of guessing per valid code; the rate limit was always the
 // security, not the second field.
 export default function DriverCodeBox() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -49,18 +51,18 @@ export default function DriverCodeBox() {
     <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
       <div className="flex items-center gap-2">
         <Car size={16} className="text-yellow" />
-        <h2 className="font-syne text-sm font-bold text-offwhite">Driving for us?</h2>
+        <h2 className="font-syne text-sm font-bold text-offwhite">{t.account.drivingForUs}</h2>
       </div>
       <p className="mt-1 font-dm text-xs leading-relaxed text-muted">
-        Enter the code Roulé Rodrigues gave you to open your driver page. No account needed.
+        {t.account.driverCodeHint}
       </p>
 
       <form onSubmit={submit} className="mt-3 flex gap-2">
         <input
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          aria-label="Your driver code"
-          placeholder="Driver code"
+          aria-label={t.account.yourDriverCode}
+          placeholder={t.account.driverCode}
           autoComplete="off"
           spellCheck={false}
           // Spaced and monospaced because this is read off a screen or heard
@@ -70,7 +72,7 @@ export default function DriverCodeBox() {
         <button
           type="submit"
           disabled={busy || code.trim().length < 4}
-          aria-label="Open my driver page"
+          aria-label="{t.account.openDriverPage}"
           className="shrink-0 rounded-xl bg-yellow px-4 font-syne text-sm font-bold text-dark transition-colors hover:bg-yellow-dark disabled:opacity-50"
         >
           {busy ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}

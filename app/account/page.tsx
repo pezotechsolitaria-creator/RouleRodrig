@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getT } from "@/lib/i18n-server";
 import DriverCodeBox from "./DriverCodeBox";
 import Link from "next/link";
 import {
@@ -77,6 +78,7 @@ function Row({
 }
 
 export default async function AccountPage() {
+  const t = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   // Read on the USER's own client, so RLS is the filter — a person can only ever
@@ -97,7 +99,7 @@ export default async function AccountPage() {
             </p>
           ) : (
             <p className="mt-1.5 font-dm text-sm text-muted">
-              You don&apos;t need an account to order or to check where something is.
+              {t.account.noAccountNeeded}
             </p>
           )}
 
@@ -107,24 +109,24 @@ export default async function AccountPage() {
               a guest had no reason to connect with their account. */}
           <section className="mt-6">
             <h2 className="mb-2 font-bebas text-[11px] tracking-[0.28em] text-yellow">
-              WHERE IS MY ORDER?
+              {t.account.whereIsOrder}
             </h2>
             <div className="overflow-hidden rounded-2xl border border-white/10 bg-dark-card">
               <Row
                 href="/track"
                 icon={Search}
-                title="Find an order or booking"
+                title={t.account.findOrder}
                 note="Food, shopping, tickets, scooters, trips — no account needed"
               />
               {user && (
                 <Row
                   href="/orders"
                   icon={ClipboardList}
-                  title="Everything I've ordered"
+                  title={t.account.everythingOrdered}
                   note="The full history on this account"
                 />
               )}
-              <Row href="/cart" icon={ShoppingBag} title="My basket" />
+              <Row href="/cart" icon={ShoppingBag} title={t.account.myBasket} />
             </div>
           </section>
 
@@ -132,7 +134,7 @@ export default async function AccountPage() {
           {user && roles.length > 0 && (
             <section className="mt-7">
               <h2 className="mb-2 font-bebas text-[11px] tracking-[0.28em] text-yellow">
-                MY DASHBOARDS
+                {t.account.myDashboards}
               </h2>
               <div className="space-y-2.5">
                 {roles.map((r) => {
@@ -179,7 +181,7 @@ export default async function AccountPage() {
                 <Row
                   href="/orders#notifications"
                   icon={Bell}
-                  title="Notifications"
+                  title={t.account.notifications}
                   note="Which updates reach you, and how"
                 />
                 {/* /login?reset=1, not /auth/reset-password. The latter only
@@ -190,43 +192,43 @@ export default async function AccountPage() {
                 <Row
                   href="/login?reset=1"
                   icon={KeyRound}
-                  title="Change my password"
+                  title={t.account.changePassword}
                   note="We email you a link to set a new one"
                 />
-                <Row href="/more" icon={Globe} title="Help, guides & language" />
+                <Row href="/more" icon={Globe} title="{t.account.helpGuides}" />
               </div>
               <form action="/auth/signout" method="post" className="mt-3">
                 <button
                   type="submit"
                   className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/12 px-4 py-3.5 font-dm text-sm text-muted transition-colors hover:border-red-500/40 hover:text-red-300"
                 >
-                  <LogOut size={16} /> Sign out
+                  <LogOut size={16} /> {t.account.signOut}
                 </button>
               </form>
             </section>
           ) : (
             <section className="mt-7">
               <h2 className="mb-2 font-bebas text-[11px] tracking-[0.28em] text-yellow">
-                HAVE AN ACCOUNT?
+                {t.account.haveAccount}
               </h2>
               <div className="overflow-hidden rounded-2xl border border-white/10 bg-dark-card">
                 <Row
                   href="/login?next=/account"
                   icon={LogIn}
-                  title="Sign in"
+                  title={t.account.signIn}
                   note="Shop owners, drivers and event organisers sign in here too"
                 />
                 <Row
                   href="/login?next=/account"
                   icon={UserPlus}
-                  title="Create an account"
+                  title={t.account.createAccount}
                   note="Keeps your order history in one place"
                 />
               </div>
               <p className="mt-3 font-dm text-xs text-muted">
                 Sell on the marketplace, drive for us, or run an event?{" "}
                 <Link href="/list-your-scooter" className="text-yellow underline">
-                  Start here
+                  {t.account.startHere}
                 </Link>
                 .
               </p>

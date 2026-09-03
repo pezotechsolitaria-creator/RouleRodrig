@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getT } from "@/lib/i18n-server";
 import Link from "next/link";
 import BackLink from "@/components/BackLink";
 import { redirect } from "next/navigation";
@@ -39,6 +40,7 @@ export default async function CustomerOrdersPage({
   searchParams: Promise<{ q?: string; status?: string; page?: string }>;
 }) {
   const { q, status, page: pageParam } = await searchParams;
+  const t = await getT();
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
 
   const supabase = await createClient();
@@ -111,20 +113,20 @@ export default async function CustomerOrdersPage({
         </BackLink>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">MY ACCOUNT</p>
-            <h1 className="mt-1 font-syne text-2xl font-extrabold text-offwhite">Your activity</h1>
+            <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{t.ordersPage.myAccount}</p>
+            <h1 className="mt-1 font-syne text-2xl font-extrabold text-offwhite">{t.ordersPage.yourActivity}</h1>
           </div>
           {/* The customer's notification feed. Renders nothing at all when there
               is nothing to show, so a first-time visitor sees no empty bell. */}
           <NotificationCenter className="-mr-2 shrink-0" />
         </div>
         <p className="mt-1.5 font-dm text-sm text-muted">
-          Everything you&apos;ve booked or ordered on Roulé Rodrigues.
+          {t.ordersPage.everythingBooked}
         </p>
 
         {partial && (
           <p className="mt-4 rounded-xl border border-orange-400/30 bg-orange-400/5 px-4 py-3 font-dm text-xs text-orange-200">
-            Some of your bookings could not be loaded just now. Nothing is lost — please refresh in a moment.
+            {t.ordersPage.partialError}
           </p>
         )}
 
@@ -135,8 +137,8 @@ export default async function CustomerOrdersPage({
           <section className="mt-6">
             <h2 className="font-bebas text-[11px] tracking-[0.3em] text-yellow">BOOKINGS</h2>
             <div className="mt-2.5 space-y-4">
-              {grouped.now.length > 0 && <ActivityGroup title="Happening now" items={grouped.now} />}
-              {grouped.upcoming.length > 0 && <ActivityGroup title="Coming up" items={grouped.upcoming} />}
+              {grouped.now.length > 0 && <ActivityGroup title={t.ordersPage.happeningNow} items={grouped.now} />}
+              {grouped.upcoming.length > 0 && <ActivityGroup title={t.ordersPage.comingUp} items={grouped.upcoming} />}
               {grouped.past.length > 0 && <ActivityGroup title="Past" items={grouped.past} dim />}
             </div>
           </section>
@@ -152,7 +154,7 @@ export default async function CustomerOrdersPage({
             <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow/10 text-yellow ring-1 ring-inset ring-yellow/20">
               <ClipboardList size={22} />
             </span>
-            <h2 className="mt-4 font-syne text-lg font-bold text-offwhite">No orders found</h2>
+            <h2 className="mt-4 font-syne text-lg font-bold text-offwhite">{t.ordersPage.noOrders}</h2>
             <p className="mx-auto mt-1 max-w-xs font-dm text-sm text-muted">
               {q || status ? "Try a different search or filter." : "Orders you place with shops and kitchens will show up here."}
             </p>

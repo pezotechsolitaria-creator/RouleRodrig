@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getT } from "@/lib/i18n-server";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, User, Phone, CreditCard, MapPin, Truck, Receipt } from "lucide-react";
@@ -59,6 +60,7 @@ type CustomerOrderDetail = {
 };
 
 export default async function CustomerOrderPage({ params }: { params: Promise<{ id: string }> }) {
+  const t = await getT();
   const { id } = await params;
   if (!isUuid(id)) notFound();
 
@@ -224,7 +226,7 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
     <main className="min-h-screen bg-dark px-4 pb-28 pt-10 text-offwhite md:pb-16">
       <div className="mx-auto max-w-3xl">
         <Link href="/orders" className="inline-flex items-center gap-1.5 font-dm text-sm text-muted hover:text-yellow">
-          <ArrowLeft size={14} /> Back to orders
+          <ArrowLeft size={14} /> {t.ordersPage.backToOrders}
         </Link>
 
         <div className="mt-3">
@@ -312,7 +314,7 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
               {customerHoldCopy(payment?.provider as PaymentProvider | undefined, hold)}
             </p>
             <p className="mt-3 font-dm text-xs text-muted">
-              Time remaining: <span className="text-offwhite">{holdRemaining(hold)}</span>
+              {t.ordersPage.timeRemaining} <span className="text-offwhite">{holdRemaining(hold)}</span>
             </p>
           </section>
         )}
@@ -383,7 +385,7 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
               </div>
               {typedOrder.notes && (
                 <div className="mt-3 border-t border-white/10 pt-3">
-                  <p className="font-dm text-xs text-muted">Your note</p>
+                  <p className="font-dm text-xs text-muted">{t.ordersPage.yourNote}</p>
                   <p className="mt-1 font-dm text-sm text-offwhite/90">{typedOrder.notes}</p>
                 </div>
               )}
@@ -395,7 +397,7 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
               <CreditCard size={14} className="text-yellow" /> Payment
             </h2>
             <div className="mt-3 space-y-2">
-              {typedOrder.payments.length === 0 && <p className="font-dm text-sm text-muted">No payment recorded.</p>}
+              {typedOrder.payments.length === 0 && <p className="font-dm text-sm text-muted">{t.ordersPage.noPayment}</p>}
               {typedOrder.payments.map((p) => (
                 <div key={p.id} className="flex items-center justify-between font-dm text-sm">
                   <span className="capitalize text-muted">{p.provider.replace("_", " ")}</span>
@@ -432,7 +434,7 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
                     rel="noopener noreferrer"
                     className="rounded-full border border-white/15 px-3 py-1 font-dm text-xs text-offwhite transition-colors hover:border-yellow/50 hover:text-yellow"
                   >
-                    View on map
+                    {t.ordersPage.viewOnMap}
                   </a>
                 </div>
               )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { checkPassword } from "@/lib/auth/check-password";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -29,6 +30,7 @@ export default function ResetPasswordPage() {
 }
 
 function ResetPasswordForm() {
+  const { t } = useLanguage();
   const supabase = createClient();
   const router = useRouter();
   const params = useSearchParams();
@@ -170,7 +172,7 @@ function ResetPasswordForm() {
           href="/login"
           className="mb-6 inline-flex items-center gap-2 font-dm text-sm text-muted transition-colors hover:text-yellow"
         >
-          <ArrowLeft size={15} /> Back to sign in
+          <ArrowLeft size={15} /> {t.resetPassword.backToSignIn}
         </Link>
 
         <div className="mb-8 text-center">
@@ -178,16 +180,16 @@ function ResetPasswordForm() {
             <span className="text-2xl text-offwhite">Roulé</span>
             <span className="text-2xl text-yellow">Rodrigues</span>
           </span>
-          <p className="mt-1.5 font-bebas text-[11px] tracking-[0.34em] text-yellow">NEW PASSWORD</p>
+          <p className="mt-1.5 font-bebas text-[11px] tracking-[0.34em] text-yellow">{t.resetPassword.newPasswordLabel}</p>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-6">
           {done ? (
             <div className="text-center">
               <CheckCircle2 className="mx-auto mb-2 text-green-400" size={26} />
-              <p className="font-syne text-sm font-bold text-offwhite">Password updated</p>
+              <p className="font-syne text-sm font-bold text-offwhite">{t.resetPassword.updated}</p>
               <p className="mt-1 font-dm text-xs leading-relaxed text-muted">
-                Taking you to sign in…
+                {t.resetPassword.takingYou}
               </p>
             </div>
           ) : linkError ? (
@@ -197,17 +199,17 @@ function ResetPasswordForm() {
                 href="/login?reset=1"
                 className="mt-4 inline-block rounded-full bg-yellow px-5 py-2.5 font-syne text-sm font-bold text-dark transition-colors hover:bg-yellow-dark"
               >
-                Request a new link
+                {t.resetPassword.requestNew}
               </Link>
             </div>
           ) : !ready ? (
             <p className="flex items-center justify-center gap-2 font-dm text-sm text-muted">
-              <Loader2 size={15} className="animate-spin" /> Checking your link…
+              <Loader2 size={15} className="animate-spin" /> {t.resetPassword.checkingLink}
             </p>
           ) : (
             <>
-              <h1 className="font-syne text-xl font-bold text-offwhite">Choose a new password</h1>
-              <p className="mt-1 font-dm text-sm text-muted">At least 8 characters.</p>
+              <h1 className="font-syne text-xl font-bold text-offwhite">{t.resetPassword.chooseNew}</h1>
+              <p className="mt-1 font-dm text-sm text-muted">{t.resetPassword.atLeast8}</p>
 
               <form onSubmit={submit} className="mt-5 space-y-3">
                 <div className="relative">
@@ -220,7 +222,7 @@ function ResetPasswordForm() {
                     autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="New password"
+                    placeholder={t.resetPassword.newPassword}
                     className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 pr-12 font-dm text-sm text-offwhite placeholder:text-muted/60 transition-colors focus:border-yellow focus:outline-none"
                   />
                   {/* 44px target, same reasoning as the sign-in reveal: a
@@ -245,7 +247,7 @@ function ResetPasswordForm() {
                     autoComplete="new-password"
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
-                    placeholder="Confirm new password"
+                    placeholder={t.resetPassword.confirmNew}
                     className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 font-dm text-sm text-offwhite placeholder:text-muted/60 transition-colors focus:border-yellow focus:outline-none"
                   />
                 </div>

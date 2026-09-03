@@ -213,7 +213,8 @@
 // v298 - the booking form and order tracking speak all three languages.
 // v299 - signing in and resetting a password speak all three languages.
 // v300 - the two pages that recruit partners speak all three languages.
-const CACHE = "rr-cache-v300";
+// v301 - the account and every order screen speak all three languages.
+const CACHE = "rr-cache-v301";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

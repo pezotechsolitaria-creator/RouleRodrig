@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { UploadCloud, X, Loader2, AlertTriangle, FileText, Check } from "lucide-react";
@@ -17,6 +18,7 @@ const ACCEPT_LABEL = "JPG, PNG, WebP or PDF, up to 4 MB";
 type Phase = "idle" | "uploading" | "error";
 
 export default function ReceiptUploader({ orderId, required }: { orderId: string; required: boolean }) {
+  const { t } = useLanguage();
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -115,7 +117,7 @@ export default function ReceiptUploader({ orderId, required }: { orderId: string
           }`}
         >
           <UploadCloud className="mx-auto text-muted" size={26} />
-          <p className="mt-2 font-dm text-sm text-offwhite">Add your transfer receipt</p>
+          <p className="mt-2 font-dm text-sm text-offwhite">{t.receipt.addReceipt}</p>
           <p className="mt-0.5 font-dm text-xs text-muted">Drag it here, or choose a file. {ACCEPT_LABEL}.</p>
 
           {/* `capture` opens the camera directly on mobile, which is how most
@@ -133,7 +135,7 @@ export default function ReceiptUploader({ orderId, required }: { orderId: string
             }}
           />
           <Button type="button" variant="outline" className="mt-3" onClick={() => inputRef.current?.click()}>
-            Choose file
+            {t.receipt.chooseFile}
           </Button>
         </div>
       ) : (
@@ -141,7 +143,7 @@ export default function ReceiptUploader({ orderId, required }: { orderId: string
           <div className="flex items-start gap-3">
             {previewUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={previewUrl} alt="Receipt preview" className="h-20 w-20 shrink-0 rounded-lg object-cover" />
+              <img src={previewUrl} alt={t.receipt.preview} className="h-20 w-20 shrink-0 rounded-lg object-cover" />
             ) : (
               <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-white/5 text-muted">
                 <FileText size={22} />
@@ -156,7 +158,7 @@ export default function ReceiptUploader({ orderId, required }: { orderId: string
                   onClick={clear}
                   className="mt-1 inline-flex items-center gap-1 font-dm text-xs text-muted underline hover:text-yellow"
                 >
-                  <X size={11} /> Remove / replace
+                  <X size={11} /> {t.receipt.removeReplace}
                 </button>
               )}
             </div>
@@ -169,7 +171,7 @@ export default function ReceiptUploader({ orderId, required }: { orderId: string
                 aria-valuenow={progress}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-label="Uploading receipt"
+                aria-label="{t.receipt.uploading}"
                 className="h-1.5 w-full overflow-hidden rounded-full bg-white/10"
               >
                 <div className="h-full bg-yellow transition-[width]" style={{ width: `${progress}%` }} />
@@ -204,7 +206,7 @@ export default function ReceiptUploader({ orderId, required }: { orderId: string
       </Button>
       {required && !file && (
         <p className="mt-1.5 text-center font-dm text-xs text-muted">
-          They ask for proof of payment before confirming.
+          {t.receipt.askProof}
         </p>
       )}
     </div>
