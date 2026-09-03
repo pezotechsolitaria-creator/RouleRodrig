@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -134,6 +135,7 @@ function DocSlot({ label, hint, value, onChange, disabled }: {
   label: string; hint: string; value: string | null;
   onChange: (path: string | null) => void; disabled?: boolean;
 }) {
+  const { t } = useLanguage();
   const ref = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -150,7 +152,7 @@ function DocSlot({ label, hint, value, onChange, disabled }: {
         <div className="flex items-center gap-2 bg-dark-card border border-green-500/30 rounded-xl px-4 py-3">
           <FileCheck size={16} className="text-green-400 shrink-0" />
           <span className="text-green-400 text-xs font-dm flex-1">Uploaded</span>
-          <button type="button" onClick={() => onChange(null)} className="text-muted hover:text-red-400 p-1" aria-label="Remove file"><X size={14} /></button>
+          <button type="button" onClick={() => onChange(null)} className="text-muted hover:text-red-400 p-1" aria-label={t.listing.removeFile}><X size={14} /></button>
         </div>
       ) : (
         <button
@@ -174,6 +176,7 @@ function DocSlot({ label, hint, value, onChange, disabled }: {
 function CategoryCard({ type, active, onSelect }: {
   type: ListingType; active: boolean; onSelect: () => void;
 }) {
+  const { t } = useLanguage();
   const c = CATEGORIES[type];
   return (
     <button
@@ -200,7 +203,7 @@ function CategoryCard({ type, active, onSelect }: {
           before you commit to filling anything in, not after you submit. */}
       {c.track === "approval" && (
         <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 font-dm text-[10px] font-medium text-amber-400">
-          <Lock size={9} /> Approval needed
+          <Lock size={9} /> {t.listing.approvalNeeded}
         </span>
       )}
     </button>
@@ -208,6 +211,7 @@ function CategoryCard({ type, active, onSelect }: {
 }
 
 export default function ListYourBusinessPage() {
+  const { t } = useLanguage();
   const [type, setType] = useState<ListingType>("vehicle");
   const [state, setState] = useState<FormState>("idle");
   const [agreed, setAgreed] = useState(false);
@@ -301,9 +305,9 @@ export default function ListYourBusinessPage() {
 
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="mb-12">
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">PARTNER WITH US</p>
+          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.listing.eyebrow}</p>
           <h1 className="font-syne font-extrabold uppercase leading-[0.95] mb-4" style={{ fontSize: "clamp(34px, 8vw, 72px)" }}>
-            List it.<br />Get discovered.
+            {t.listing.listIt}<br />{t.listing.getDiscovered}
           </h1>
           <p className="text-muted font-dm text-sm md:text-base max-w-xl leading-relaxed">
             Run something worth visiting on Rodrigues — a scooter, a table, a room, an experience?
@@ -320,7 +324,7 @@ export default function ListYourBusinessPage() {
             <Store size={22} />
           </span>
           <div className="flex-1">
-            <h2 className="font-syne text-lg font-bold text-offwhite">Selling products? Open your shop now</h2>
+            <h2 className="font-syne text-lg font-bold text-offwhite">{t.listing.sellingProducts}</h2>
             <p className="mt-1 font-dm text-sm leading-relaxed text-muted">
               Honey, crafts, spices, anything you make or sell — the marketplace is self-serve.
               Create your shop, add products and take orders today. No application, no waiting.
@@ -330,12 +334,12 @@ export default function ListYourBusinessPage() {
             href="/merchant/login"
             className="mt-4 inline-flex shrink-0 items-center gap-2 rounded-full bg-yellow px-5 py-3 font-syne text-sm font-bold text-dark transition-colors hover:bg-yellow-dark md:mt-0"
           >
-            Open a shop <ArrowRight size={15} />
+            {t.listing.openShop} <ArrowRight size={15} />
           </Link>
         </div>
 
         {/* Category picker — two groups, because the difference is real */}
-        <div role="tablist" aria-label="What do you want to list?" className="mb-12">
+        <div role="tablist" aria-label={t.listing.whatToList} className="mb-12">
           <p className="font-bebas text-muted text-[10px] tracking-[0.3em] mb-3">
             WHAT DO YOU WANT TO LIST?
           </p>
@@ -347,7 +351,7 @@ export default function ListYourBusinessPage() {
 
           <div className="mt-8">
             <p className="font-bebas text-amber-400/80 text-[10px] tracking-[0.3em] mb-1.5">
-              BY APPROVAL ONLY
+              {t.listing.byApproval}
             </p>
             <p className="mb-3 max-w-2xl font-dm text-xs leading-relaxed text-muted">
               These three carry other people&rsquo;s passengers, money or goods, so nobody can set
@@ -399,7 +403,7 @@ export default function ListYourBusinessPage() {
             <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/[0.06] p-4">
               <Lock size={16} className="mt-0.5 shrink-0 text-amber-400" />
               <div>
-                <p className="font-syne text-sm font-bold text-amber-400">This one is reviewed before it goes live</p>
+                <p className="font-syne text-sm font-bold text-amber-400">{t.listing.reviewedFirst}</p>
                 <p className="mt-1 font-dm text-xs leading-relaxed text-offwhite/75">{cat.vetting}</p>
               </div>
             </div>
@@ -410,14 +414,14 @@ export default function ListYourBusinessPage() {
               <div className="flex items-start gap-3">
                 <CheckCircle size={20} className="text-green-400 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-syne font-bold text-green-400">Application received</p>
+                  <p className="font-syne font-bold text-green-400">{t.listing.received}</p>
                   <p className="text-green-400/70 text-sm mt-1">
                     {isApproval
                       ? `Thank you — we review every ${cat.label.toLowerCase()} application by hand. We'll contact you on the number you gave us.`
                       : `Thank you — we'll contact you shortly to verify your ${cat.noun} and get your listing live.`}
                   </p>
                   <p className="mt-3 flex items-center gap-1.5 font-dm text-xs text-green-400/60">
-                    <Clock size={12} /> Nothing is live yet. We&rsquo;ll be in touch first.
+                    <Clock size={12} /> {t.listing.notLiveYet}
                   </p>
                 </div>
               </div>
@@ -426,11 +430,11 @@ export default function ListYourBusinessPage() {
             <form onSubmit={submit} className="space-y-4" noValidate>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="ly-name" className={labelCls}>Your name <span className="text-yellow">*</span></label>
+                  <label htmlFor="ly-name" className={labelCls}>{t.listing.yourName} <span className="text-yellow">*</span></label>
                   <input id="ly-name" className={input} placeholder="Jean Marie" value={form.owner_name} onChange={(e) => setForm({ ...form, owner_name: e.target.value })} disabled={state === "loading"} />
                 </div>
                 <div>
-                  <label htmlFor="ly-phone" className={labelCls}>Phone / WhatsApp <span className="text-yellow">*</span></label>
+                  <label htmlFor="ly-phone" className={labelCls}>{t.listing.phone} <span className="text-yellow">*</span></label>
                   <input id="ly-phone" type="tel" className={input} placeholder="+230 5xxx xxxx" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} disabled={state === "loading"} />
                 </div>
                 <div>
@@ -439,11 +443,11 @@ export default function ListYourBusinessPage() {
                   </label>
                   <input id="ly-email" type="email" className={input} placeholder="you@email.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} disabled={state === "loading"} />
                   {emailRequired && (
-                    <p className="mt-1 font-dm text-[11px] text-muted/70">Your organiser invite is sent to this address.</p>
+                    <p className="mt-1 font-dm text-[11px] text-muted/70">{t.listing.organiserInvite}</p>
                   )}
                 </div>
                 <div>
-                  <label htmlFor="ly-location" className={labelCls}>Your area</label>
+                  <label htmlFor="ly-location" className={labelCls}>{t.listing.yourArea}</label>
                   <input id="ly-location" className={input} placeholder="e.g. Port Mathurin" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} disabled={state === "loading"} />
                 </div>
               </div>
@@ -457,12 +461,12 @@ export default function ListYourBusinessPage() {
               )}
 
               <div>
-                <label htmlFor="ly-details" className={labelCls}>Tell us what you have</label>
+                <label htmlFor="ly-details" className={labelCls}>{t.listing.tellUs}</label>
                 <input id="ly-details" className={input} placeholder={cat.detailPlaceholder} value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} disabled={state === "loading"} />
               </div>
 
               <div>
-                <label htmlFor="ly-message" className={labelCls}>Anything else we should know?</label>
+                <label htmlFor="ly-message" className={labelCls}>{t.listing.anythingElse}</label>
                 <textarea id="ly-message" className={`${input} resize-none`} rows={3} placeholder="Optional" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} disabled={state === "loading"} />
               </div>
 
@@ -516,7 +520,7 @@ export default function ListYourBusinessPage() {
                 <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 w-4 h-4 accent-yellow shrink-0" disabled={state === "loading"} />
                 <span className="font-dm text-xs leading-snug text-muted">
                   I agree to the{" "}
-                  <Link href="/legal/owner-agreement" target="_blank" className="text-yellow hover:underline">Partner Agreement</Link>.
+                  <Link href="/legal/owner-agreement" target="_blank" className="text-yellow hover:underline">{t.listing.partnerAgreement}</Link>.
                 </span>
               </label>
 

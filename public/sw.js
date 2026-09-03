@@ -212,7 +212,8 @@
 // v297 — the camera works again, and the server can read the visitor's language.
 // v298 - the booking form and order tracking speak all three languages.
 // v299 - signing in and resetting a password speak all three languages.
-const CACHE = "rr-cache-v299";
+// v300 - the two pages that recruit partners speak all three languages.
+const CACHE = "rr-cache-v300";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

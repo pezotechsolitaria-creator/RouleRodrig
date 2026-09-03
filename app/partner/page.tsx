@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import BackLink from "@/components/BackLink";
 import {
   Building2,
@@ -55,6 +56,7 @@ function fmtDate(s: string): string {
 }
 
 export default function PartnerPage() {
+  const { t } = useLanguage();
   const [code, setCode] = useState("");
   const [data, setData] = useState<StatsResponse | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "error" | "notfound">("idle");
@@ -175,16 +177,16 @@ export default function PartnerPage() {
           >
             {" "}Back
           </BackLink>
-          <span className="font-bebas text-yellow text-[10px] tracking-[0.3em]">PARTNER PORTAL</span>
+          <span className="font-bebas text-yellow text-[10px] tracking-[0.3em]">{t.partnerPortal.portal}</span>
         </div>
 
         <div className="mb-10">
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">REFERRAL DASHBOARD</p>
+          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.partnerPortal.dashboard}</p>
           <h1
             className="font-syne font-extrabold uppercase leading-[0.95]"
             style={{ fontSize: "clamp(32px, 7vw, 60px)" }}
           >
-            Your referrals
+            {t.partnerPortal.yourReferrals}
           </h1>
           <p className="text-muted text-sm mt-3 max-w-lg">
             Enter your partner code to see every booking sent through your link.
@@ -226,9 +228,9 @@ export default function PartnerPage() {
           <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 rounded-xl px-5 py-4 max-w-md">
             <AlertCircle size={18} className="text-red-400 shrink-0 mt-0.5" />
             <div>
-              <p className="font-syne font-bold text-red-400 text-sm">Code not found</p>
+              <p className="font-syne font-bold text-red-400 text-sm">{t.partnerPortal.codeNotFound}</p>
               <p className="text-red-400/70 text-xs mt-0.5">
-                Double-check your partner code, or contact us to get set up.
+                {t.partnerPortal.checkCode}
               </p>
             </div>
           </div>
@@ -236,7 +238,7 @@ export default function PartnerPage() {
         {state === "error" && (
           <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 rounded-xl px-5 py-4 max-w-md">
             <AlertCircle size={18} className="text-red-400 shrink-0 mt-0.5" />
-            <p className="font-dm text-red-400/80 text-sm">Something went wrong. Please try again.</p>
+            <p className="font-dm text-red-400/80 text-sm">{t.partnerPortal.error}</p>
           </div>
         )}
 
@@ -275,7 +277,7 @@ export default function PartnerPage() {
 
             {/* Referral toolkit */}
             <div className="bg-dark-card border border-yellow/20 rounded-2xl p-5">
-              <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-1">YOUR REFERRAL LINK</p>
+              <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-1">{t.partnerPortal.yourLink}</p>
               <p className="text-muted/70 text-xs mb-4">
                 Share this link or print the QR for your reception. Every guest who uses it is
                 counted automatically.
@@ -283,14 +285,14 @@ export default function PartnerPage() {
               <div className="flex flex-col md:flex-row gap-5">
                 <div className="flex flex-col items-center gap-2 shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={qr} alt="Referral QR" className="w-32 h-32 rounded-xl bg-white p-1.5" />
+                  <img src={qr} alt={t.partnerPortal.referralQr} className="w-32 h-32 rounded-xl bg-white p-1.5" />
                   <button
                     type="button"
                     onClick={downloadQr}
                     disabled={!qrSvg}
                     className="text-xs text-muted hover:text-yellow transition-colors disabled:opacity-40 disabled:hover:text-muted"
                   >
-                    Download QR
+                    {t.partnerPortal.downloadQr}
                   </button>
                 </div>
                 <div className="flex-1 min-w-0 space-y-3">
@@ -310,7 +312,7 @@ export default function PartnerPage() {
                       rel="noopener noreferrer"
                       className="flex items-center gap-1.5 text-xs bg-green-500/15 text-green-400 hover:bg-green-500/25 px-3 py-2 rounded-full transition-colors"
                     >
-                      <MessageSquare size={12} /> Share on WhatsApp
+                      <MessageSquare size={12} /> {t.partnerPortal.shareWhatsapp}
                     </a>
                   </div>
                 </div>
@@ -320,11 +322,11 @@ export default function PartnerPage() {
             {/* Recent bookings */}
             <div>
               <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-4 flex items-center gap-2">
-                <Clock size={12} /> RECENT BOOKINGS
+                <Clock size={12} /> {t.partnerPortal.recentBookings}
               </p>
               {data.recent.length === 0 ? (
                 <div className="bg-dark-card border border-dark-border rounded-2xl p-8 text-center">
-                  <p className="text-muted text-sm">No bookings yet — share your link to get started!</p>
+                  <p className="text-muted text-sm">{t.partnerPortal.noBookings}</p>
                 </div>
               ) : (
                 <div className="bg-dark-card border border-dark-border rounded-2xl divide-y divide-dark-border overflow-hidden">
@@ -349,7 +351,7 @@ export default function PartnerPage() {
                 </div>
               )}
               <p className="text-muted/40 text-xs mt-4">
-                Rental value is an estimate based on the booking requests sent through your link.
+                {t.partnerPortal.rentalEstimate}
               </p>
             </div>
           </div>
