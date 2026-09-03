@@ -349,18 +349,48 @@ self.addEventListener("notificationclick", (event) => {
 
   // Focus the tab the driver already has open rather than piling up new ones —
   // they are one-handed on a scooter, not managing windows.
+  //
+  // ── THE TAP THAT LANDED ON THE HOMEPAGE ────────────────────────────────────
+  // The old order was focus-then-navigate, and it bailed out after the focus
+  // when client.navigate was unsupported (iOS home-screen PWAs, notably). So a
+  // driver whose open tab happened to be the homepage tapped "a job is
+  // waiting", the homepage came to the front, and nothing else happened — the
+  // exact broken journey drivers reported. Now: navigate an existing tab FIRST
+  // and only then focus it, and if that tab cannot be navigated, open a fresh
+  // window at the target instead of stranding the tap on the wrong page.
+  // Matching also compares pathname (plus query when the payload carries a
+  // deep link), not substring — "/driver?delivery=x" must prefer a tab already
+  // on /driver and then bring it to the right card.
   event.waitUntil(
     (async () => {
+      const targetUrl = new URL(target, self.location.origin);
       const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+
+      // A tab already showing the exact target (path AND query): just focus.
+      // A tab on the right page but the wrong query (yesterday's job): try to
+      // re-navigate it to this notification's deep link before focusing.
       for (const client of all) {
-        if (client.url.includes(target) && "focus" in client) return client.focus();
+        let u;
+        try { u = new URL(client.url); } catch { continue; }
+        if (u.origin !== targetUrl.origin || u.pathname !== targetUrl.pathname) continue;
+        if (!("focus" in client)) continue;
+        if (u.search !== targetUrl.search && "navigate" in client) {
+          try { await client.navigate(targetUrl.href); } catch { /* focus is still right */ }
+        }
+        return client.focus();
       }
-      const open = all.find((c) => "focus" in c);
+
+      // Some other page of ours is open: navigate it to the target, THEN focus.
+      // If it cannot navigate, fall through to a fresh window rather than
+      // fronting an unrelated page.
+      const open = all.find((c) => "focus" in c && "navigate" in c);
       if (open) {
-        await open.focus();
-        if ("navigate" in open) return open.navigate(target);
+        try {
+          await open.navigate(targetUrl.href);
+          return open.focus();
+        } catch { /* fall through */ }
       }
-      return self.clients.openWindow(target);
+      return self.clients.openWindow(targetUrl.href);
     })(),
   );
 });

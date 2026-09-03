@@ -219,6 +219,9 @@ function RequestCard({
 
   return (
     <div
+      // Anchor for the ?request= deep link the new-request push carries, so
+      // the tap lands on THIS card rather than the top of the board.
+      id={`request-${r.id}`}
       className={cn(
         "rounded-2xl border bg-dark-card p-4 transition-colors",
         r.myQuote ? "border-yellow/35" : "border-white/10",

@@ -13,12 +13,29 @@ export const dynamic = "force-dynamic";
 // The driver's home. A signed-in surface, so it is gated here rather than
 // letting the client discover it — an unauthenticated driver should land on
 // login, not on a dashboard that flashes and then empties.
-export default async function DriverPage() {
+export default async function DriverPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login?next=/driver");
+  if (!user) {
+    // Keep the notification's deep link (?request= / ?delivery=) through the
+    // login round-trip. A hardcoded next=/driver dropped it, so a logged-out
+    // driver who tapped "a job is waiting" signed in and landed on a bare
+    // dashboard with no idea which card the tap was about.
+    const sp = await searchParams;
+    const qs = new URLSearchParams();
+    for (const key of ["request", "delivery"] as const) {
+      const v = sp[key];
+      if (typeof v === "string" && v) qs.set(key, v);
+    }
+    const dest = qs.size > 0 ? `/driver?${qs.toString()}` : "/driver";
+    redirect(`/login?next=${encodeURIComponent(dest)}`);
+  }
 
   // What this driver's vehicle means for the jobs they are offered (M103).
   // Read here rather than in the client dashboard: it is one row, it does not

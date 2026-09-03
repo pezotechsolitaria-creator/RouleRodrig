@@ -155,7 +155,9 @@ export async function POST(req: NextRequest) {
           {
             title: "Alerts are on 🎉",
             body: "You'll hear about a ride even when this page is closed.",
-            url: "/",
+            // Their own console, not the homepage — the tap that proves alerts
+            // work should land where every future ride alert will.
+            url: `/r/${p.token}`,
             tag: "rr-alerts-on",
           },
         );

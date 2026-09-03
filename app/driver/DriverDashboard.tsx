@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Loader2,
   Package,
@@ -199,6 +200,18 @@ const REASONS: { value: string; label: string }[] = [
 export default function DriverDashboard() {
   const [dash, setDash] = useState<Dash | null>(null);
   const [loading, setLoading] = useState(true);
+  // ── Where a push notification tap should LAND ─────────────────────────────
+  // The pushes carry /driver?delivery=<id> (an offer or a job that is theirs)
+  // or /driver?request=<id> (a Deliver Anything job to price). Once the first
+  // load has painted the cards, the one the tap was about is scrolled into
+  // view and pulsed — a driver one-handed on a scooter should never have to
+  // hunt the board for the job their lock screen just named. Once only, per
+  // page load: the ref stops the poll cycle from re-scrolling under their
+  // thumb while they work.
+  const searchParams = useSearchParams();
+  const focusDelivery = searchParams.get("delivery");
+  const focusRequest = searchParams.get("request");
+  const focusDone = useRef(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pin, setPin] = useState<Record<string, string>>({});
@@ -227,6 +240,29 @@ export default function DriverDashboard() {
     const t = setInterval(() => void load(), 20_000);
     return () => clearInterval(t);
   }, [load]);
+
+  // Bring the notification's card into view once the first load has painted
+  // it. The small delay lets the cards mount; a card that never appears (the
+  // job was taken, the offer expired) simply scrolls nowhere — the dashboard
+  // itself already explains an empty board better than an error could.
+  useEffect(() => {
+    if (loading || focusDone.current) return;
+    const targetId = focusDelivery
+      ? `delivery-${focusDelivery}`
+      : focusRequest
+        ? `request-${focusRequest}`
+        : null;
+    if (!targetId) return;
+    focusDone.current = true;
+    const t = window.setTimeout(() => {
+      const el = document.getElementById(targetId);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("rr-notify-focus");
+      window.setTimeout(() => el.classList.remove("rr-notify-focus"), 5000);
+    }, 300);
+    return () => window.clearTimeout(t);
+  }, [loading, focusDelivery, focusRequest]);
 
   async function act(key: string, payload: Record<string, unknown>) {
     if (busy) return; // one action at a time, always
@@ -443,6 +479,8 @@ export default function DriverDashboard() {
         return (
           <div
             key={a.id}
+            // Anchor for the ?delivery= deep link a push notification carries.
+            id={`delivery-${a.id}`}
             className="rounded-2xl border border-yellow/30 bg-yellow/[0.05] p-4"
           >
             <div className="flex items-start justify-between gap-3">
@@ -738,6 +776,10 @@ export default function DriverDashboard() {
             {offers.map((o) => (
               <div
                 key={o.id}
+                // Same anchor family as the active card: an offer and a job
+                // are the same delivery id at different moments, and the push
+                // does not know which moment the tap will arrive in.
+                id={`delivery-${o.id}`}
                 className="rounded-2xl border border-white/10 bg-dark-card p-4"
               >
                 <div className="flex items-start justify-between gap-3">

@@ -2115,6 +2115,25 @@ html.light .rr-tiles {
     transform: scale(1.5);
   }
 }
+
+/* The card a push notification's tap was about. The dashboard scrolls it into
+   view and pulses it a few times so a driver arriving from the lock screen
+   sees WHICH job the message meant without reading every card. Added and
+   removed by DriverDashboard's focus effect; three pulses, then still. */
+.rr-notify-focus {
+  animation: rr-notify-pulse 1.6s ease-out 3;
+}
+@keyframes rr-notify-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 200, 66, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(245, 200, 66, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 200, 66, 0);
+  }
+}
 .rr-drv-sel .rr-drv-body {
   box-shadow:
     0 3px 12px rgb(0 0 0 / 0.5),

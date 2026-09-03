@@ -126,11 +126,16 @@ export async function notifyDriversOfNewRequest(requestId: string): Promise<void
     rpc<WaTarget>("request_whatsapp_targets", { p_request_id: requestId }),
   ]);
 
+  // Deep-linked, not bare "/driver": the tap should land on the dashboard
+  // WITH this request brought into view, not at the top of a board the
+  // driver then has to search one-handed. The dashboard reads ?request=.
+  const driverLink = `/driver?request=${requestId}`;
+
   await Promise.allSettled([
     pushToDriverEndpoints(pushTargets, {
       title,
       body: lines.slice(0, 3).join(" · "),
-      url: "/driver",
+      url: driverLink,
       // One tag per REQUEST, so a re-notify replaces the old card rather than
       // stacking a second one for the same job.
       tag: `delivery-request-${requestId}`,
@@ -138,7 +143,7 @@ export async function notifyDriversOfNewRequest(requestId: string): Promise<void
     }),
     whatsappFan(
       waTargets,
-      formatWhatsAppMessage({ title, lines, action: newRequestAction("/driver") }),
+      formatWhatsAppMessage({ title, lines, action: newRequestAction(driverLink) }),
     ),
   ]);
 
@@ -254,17 +259,22 @@ export async function notifyQuoteAccepted(quoteId: string): Promise<void> {
     p_driver_id: q.driverId,
   });
 
+  // The job they just won, brought into view — not the top of the dashboard.
+  // deliveryId can be null for a heartbeat between accept and assignment, so
+  // the bare dashboard stays the fallback.
+  const wonLink = q.deliveryId ? `/driver?delivery=${q.deliveryId}` : "/driver";
+
   await Promise.allSettled([
     pushToDriver(q.driverId, {
       title,
       body: lines.slice(0, 3).join(" · "),
-      url: "/driver",
+      url: wonLink,
       tag: `delivery-won-${q.request.id}`,
       urgent: true,
     }),
     whatsappFan(
       waTargets,
-      formatWhatsAppMessage({ title, lines, action: quoteAcceptedAction("/driver") }),
+      formatWhatsAppMessage({ title, lines, action: quoteAcceptedAction(wonLink) }),
     ),
     // The customer's own confirmation, so the screen is not the only place the
     // booking exists.

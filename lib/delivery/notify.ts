@@ -204,7 +204,10 @@ export async function notifyOfferedDrivers(deliveryId: string): Promise<void> {
       body: ctx.what
         ? `${ctx.what} — pick up from ${ctx.shop}. Open to accept before it goes to someone else.`
         : `Pick up from ${ctx.shop}. Open to accept before it goes to someone else.`,
-      url: "/driver",
+      // Deep-linked like the request-board pushes: the tap lands on the
+      // dashboard with THIS offer scrolled into view (?delivery= is read
+      // there), so a food-order offer behaves exactly like a marketplace one.
+      url: `/driver?delivery=${deliveryId}`,
       // Per delivery, so repeated rounds replace rather than stack.
       tag: `delivery:${deliveryId}`,
       urgent: true,
