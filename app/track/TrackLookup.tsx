@@ -2,10 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  Search, Loader2, Bike, UtensilsCrossed, Ticket, Store, MapPin,
-  ArrowRight, ArrowLeft, AlertTriangle, CalendarCheck, Clock, User,
-} from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Bike, CalendarCheck, Car, Clock, Loader2, MapPin, Search, Store, Ticket, Truck, User, UtensilsCrossed } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import type { Activity, ActivityKind, ActivityStage } from "@/lib/activity";
 import { holdInfo, holdDeadlineLabel, holdRemaining } from "@/lib/orders/hold";
@@ -28,6 +25,8 @@ const KIND_ICON: Record<ActivityKind, React.ElementType> = {
   vehicle: Bike,
   place: MapPin,
   order: Store,
+  ride: Car,
+  delivery: Truck,
 };
 
 const STAGE_STYLE: Record<ActivityStage, string> = {
@@ -154,7 +153,11 @@ function statusWord(c: TrackCopy, a: Activity): string {
     const k = a.orderStatus as keyof typeof s.order | undefined;
     return (k && s.order[k]) || a.statusLabel;
   }
-  const table = a.kind === "vehicle" ? s.vehicle : s.place;
+  const table =
+    a.kind === "vehicle" ? s.vehicle
+    : a.kind === "ride" ? s.ride
+    : a.kind === "delivery" ? s.delivery
+    : s.place;
   return table[a.stage] || a.statusLabel;
 }
 

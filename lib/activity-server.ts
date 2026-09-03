@@ -4,10 +4,11 @@ import { vehicleName } from "@/lib/vehicle-name";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import {
   vehicleToActivity, placeToActivity, orderToActivity,
+  rideToActivity, deliveryToActivity,
   compareActivities, type Activity,
 } from "@/lib/activity";
 
-// Everything a SIGNED-IN customer has booked or ordered, from all three
+// Everything a SIGNED-IN customer has booked or ordered, from all five
 // backends, as one list.
 //
 // ── WHY THIS IS SAFE HERE AND NOT ON THE GUEST PAGE ────────────────────────
@@ -55,7 +56,8 @@ export async function listActivitiesForCustomer(opts: {
   const admin = await getPrivileged();
   const email = opts.verifiedEmail?.trim().toLowerCase() ?? "";
 
-  const [vehicles, places, orders] = await Promise.all([
+  const [vehicles, places, orders, rides, deliveriesMine, deliveriesGuest] =
+    await Promise.all([
     email
       ? admin
           .from("bookings")
@@ -78,11 +80,52 @@ export async function listActivitiesForCustomer(opts: {
       .eq("customer_id", opts.userId)
       .order("created_at", { ascending: false })
       .limit(50),
+    // ── THE TWO THAT MADE PEOPLE TYPE A REFERENCE ──────────────────────────
+    // A taxi and a delivery are as much "a thing I booked" as a scooter is,
+    // and both were absent here — so a signed-in customer was sent to a lookup
+    // box to key in a reference for something the site already knew was theirs.
+    //
+    // Rides are keyed by email only: ride_requests predates accounts here and
+    // has no customer_id, exactly like bookings and place_bookings above.
+    email
+      ? admin
+          .from("ride_requests")
+          .select("id, service, pickup_label, dropoff_label, scheduled_at, created_at, quoted_price, currency, status, customer_email")
+          .ilike("customer_email", email)
+          .order("created_at", { ascending: false })
+          .limit(50)
+      : Promise.resolve({ data: [], error: null }),
+    // Deliveries can be claimed two ways, and BOTH must be asked for: a
+    // customer who requested one while signed in has customer_id, and one who
+    // requested it as a guest before signing up has only guest_email. Matching
+    // on the id alone would hide a customer's own earlier requests from them.
+    admin
+      .from("delivery_requests")
+      .select("id, what, pickup_text, dropoff_text, created_at, status")
+      .eq("customer_id", opts.userId)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    // The guest half, as its OWN query rather than an .or() string. Building
+    // `guest_email.ilike.${email}` would splice a value into PostgREST filter
+    // SYNTAX, where a comma ends the term — the same class of mistake this file
+    // already documents for M11. Two queries and a de-duplicate cost one round
+    // trip and leave nothing to escape.
+    email
+      ? admin
+          .from("delivery_requests")
+          .select("id, what, pickup_text, dropoff_text, created_at, status")
+          .ilike("guest_email", email)
+          .order("created_at", { ascending: false })
+          .limit(50)
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   if (vehicles.error) { console.error("activity feed: bookings failed", vehicles.error); partial = true; }
   if (places.error) { console.error("activity feed: place_bookings failed", places.error); partial = true; }
   if (orders.error) { console.error("activity feed: orders failed", orders.error); partial = true; }
+  if (rides.error) { console.error("activity feed: ride_requests failed", rides.error); partial = true; }
+  if (deliveriesMine.error) { console.error("activity feed: delivery_requests (account) failed", deliveriesMine.error); partial = true; }
+  if (deliveriesGuest.error) { console.error("activity feed: delivery_requests (guest) failed", deliveriesGuest.error); partial = true; }
 
   // `ilike` with a plain address is an exact match — the string carries no
   // wildcards. It is used rather than `eq` only to be case-insensitive, and the
@@ -141,6 +184,44 @@ export async function listActivitiesForCustomer(opts: {
         },
         STATUS_LABEL[row.status as OrderStatus],
       ),
+    );
+  }
+
+  for (const row of (rides.data ?? []) as Record<string, unknown>[]) {
+    activities.push(
+      rideToActivity({
+        id: String(row.id),
+        service: row.service as string | null,
+        pickup_label: row.pickup_label as string | null,
+        dropoff_label: row.dropoff_label as string | null,
+        scheduled_at: row.scheduled_at as string | null,
+        created_at: row.created_at as string | null,
+        quoted_price: row.quoted_price as number | null,
+        currency: row.currency as string | null,
+        status: row.status as string | null,
+      }),
+    );
+  }
+
+  // The two delivery queries can return the SAME request — somebody who asked
+  // as a guest and later signed up with that address matches both. Keyed by id
+  // so it appears once.
+  const deliveryRows = new Map<string, Record<string, unknown>>();
+  for (const list of [deliveriesMine.data ?? [], deliveriesGuest.data ?? []]) {
+    for (const row of list as Record<string, unknown>[]) {
+      deliveryRows.set(String(row.id), row);
+    }
+  }
+  for (const row of deliveryRows.values()) {
+    activities.push(
+      deliveryToActivity({
+        id: String(row.id),
+        what: row.what as string | null,
+        pickup_text: row.pickup_text as string | null,
+        dropoff_text: row.dropoff_text as string | null,
+        created_at: row.created_at as string | null,
+        status: row.status as string | null,
+      }),
     );
   }
 
