@@ -68,7 +68,6 @@ export default function WorldSwitchHint({ other }: { other: World }) {
     if (!show) return;
     const t = setTimeout(() => dismiss(), 12_000);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show]);
 
   function dismiss() {

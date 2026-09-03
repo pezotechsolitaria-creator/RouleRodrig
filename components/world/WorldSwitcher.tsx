@@ -125,14 +125,24 @@ export default function WorldSwitcher({
   // visitors too — an empty bar above the fold, before any world exists.
   // Whatever decides to render nothing has to own everything that would
   // otherwise be left behind.
-  // The hint is anchored to the pill, so the pill needs a positioned parent.
-  // `relative` only — no size, no padding — so nothing about the header row's
-  // hard-won 375px measurements changes.
+  // ── A FRAGMENT, NOT A WRAPPER ────────────────────────────────────────────
+  // This was a <span className="relative inline-flex">, added to anchor the
+  // hint. It moved the pill, and the owner spotted it immediately.
+  //
+  // The caller's className is positioning — "mx-auto" on the homepage header,
+  // "mr-auto" on the inner-page header — and it is applied to the BUTTON. Those
+  // margins only do anything while the button is the direct flex child of the
+  // header row. The wrapper took that place, so mx-auto stopped centring
+  // anything and the switcher slid out of position on every page carrying it.
+  //
+  // The hint is position:fixed and never needed an anchor. A fragment adds no
+  // element, so the button is the flex child again and the header is exactly
+  // what it was.
   const anchored = (
-    <span className="relative inline-flex">
+    <>
       {button}
       <WorldSwitchHint other={next} />
-    </span>
+    </>
   );
 
   if (!strip) return anchored;
