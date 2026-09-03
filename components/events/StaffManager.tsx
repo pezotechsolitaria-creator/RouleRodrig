@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { toast } from "sonner";
 import { Loader2, UserPlus, Users, ScanLine, ShieldCheck, X, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import type { EventStaffMember } from "@/lib/events/organizer";
 // cannot mint another organiser, and that is a property of the schema rather
 // than of this component being careful.
 export default function StaffManager({ storeId }: { storeId: string }) {
+  const { t } = useLanguage();
   const [staff, setStaff] = useState<EventStaffMember[] | null>(null);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -88,7 +90,7 @@ export default function StaffManager({ storeId }: { storeId: string }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-dark-card p-5">
       <h2 className="flex items-center gap-2 font-bebas text-[11px] tracking-[0.3em] text-yellow">
-        <Users size={14} /> STAFF &amp; ACCESS
+        <Users size={14} /> {t.eventStaff.title}
       </h2>
       <p className="mt-2 font-dm text-xs leading-relaxed text-muted">
         Door staff can scan tickets and nothing else — they never see sales, bank details or who
@@ -114,20 +116,20 @@ export default function StaffManager({ storeId }: { storeId: string }) {
           ))}
           {door.length === 0 && (
             <p className="font-dm text-xs text-muted">
-              Nobody is set up for the door yet.
+              {t.eventStaff.nobodyYet}
             </p>
           )}
         </div>
       )}
 
       <div className="mt-5 space-y-3 border-t border-white/10 pt-4">
-        <p className="font-syne text-sm font-bold text-offwhite">Add door staff</p>
+        <p className="font-syne text-sm font-bold text-offwhite">{t.eventStaff.addDoorStaff}</p>
         <label className="block">
-          <span className="font-dm text-xs text-muted">Their name</span>
+          <span className="font-dm text-xs text-muted">{t.eventStaff.theirName}</span>
           <Input value={name} onChange={(e) => setName(e.target.value)} className="mt-1" autoComplete="off" />
         </label>
         <label className="block">
-          <span className="font-dm text-xs text-muted">Their email</span>
+          <span className="font-dm text-xs text-muted">{t.eventStaff.theirEmail}</span>
           <Input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -142,7 +144,7 @@ export default function StaffManager({ storeId }: { storeId: string }) {
           </span>
         </label>
         <Button className="w-full" disabled={!canAdd} onClick={() => void add()}>
-          {adding ? <Loader2 size={15} className="animate-spin" /> : (<><UserPlus size={15} className="mr-1.5" /> Give door access</>)}
+          {adding ? <Loader2 size={15} className="animate-spin" /> : (<><UserPlus size={15} className="mr-1.5" /> {t.eventStaff.giveAccess}</>)}
         </Button>
       </div>
     </div>
@@ -156,6 +158,7 @@ function Row({
   onRevoke?: () => void;
   revoking?: boolean;
 }) {
+  const { t } = useLanguage();
   const isDoor = m.role === "door_staff";
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
@@ -164,7 +167,7 @@ function Row({
         <p className="truncate font-dm text-xs text-muted">{m.email}</p>
         {!m.hasSignedIn && (
           <p className="mt-0.5 flex items-center gap-1 font-dm text-[11px] text-orange-300">
-            <Clock size={11} /> Invited — hasn&apos;t signed in yet
+            <Clock size={11} /> {t.eventStaff.invited}
           </p>
         )}
       </div>
@@ -176,7 +179,7 @@ function Row({
               : "border-yellow/30 bg-yellow/10 text-yellow"
           }`}
         >
-          {isDoor ? <><ScanLine size={11} /> Scan only</> : <><ShieldCheck size={11} /> Organiser</>}
+          {isDoor ? <><ScanLine size={11} /> {t.eventStaff.scanOnly}</> : <><ShieldCheck size={11} /> Organiser</>}
         </span>
         {onRevoke && (
           <Button size="sm" variant="outline" disabled={revoking} onClick={onRevoke} aria-label={`Remove ${m.name}`}>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { Camera, CameraOff, Check, X, RotateCcw, Keyboard, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,7 @@ type Outcome = {
 type Shown = { kind: "ok"; data: Outcome } | { kind: "error"; message: string };
 
 export default function TicketScanner({ eventName }: { eventName: string }) {
+  const { t } = useLanguage();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -197,7 +199,7 @@ export default function TicketScanner({ eventName }: { eventName: string }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-dm text-sm text-muted">
-          Admitting to <span className="text-offwhite">{eventName}</span>
+          {t.eventScanner.admittingTo} <span className="text-offwhite">{eventName}</span>
           {admitted > 0 && <span className="text-yellow"> · {admitted} in</span>}
         </p>
         <div className="flex gap-2">
@@ -207,7 +209,7 @@ export default function TicketScanner({ eventName }: { eventName: string }) {
             </Button>
           ) : (
             <Button size="sm" onClick={() => void start()}>
-              <Camera size={14} className="mr-1" /> Start scanning
+              <Camera size={14} className="mr-1" /> {t.eventScanner.startScanning}
             </Button>
           )}
           <Button size="sm" variant="outline" onClick={() => setShowManual((v) => !v)}>
@@ -229,7 +231,7 @@ export default function TicketScanner({ eventName }: { eventName: string }) {
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center">
             <Camera className="text-white/40" size={26} />
             <p className="font-dm text-sm text-white/60">
-              Press start, then point at each ticket.
+              {t.eventScanner.pressStart}
             </p>
           </div>
         )}
@@ -249,11 +251,11 @@ export default function TicketScanner({ eventName }: { eventName: string }) {
       {showManual && (
         <div className="rounded-2xl border border-white/10 bg-dark-card p-4">
           <label className="block">
-            <span className="font-dm text-xs text-muted">Ticket code</span>
+            <span className="font-dm text-xs text-muted">{t.eventScanner.ticketCode}</span>
             <Input
               value={manual}
               onChange={(e) => setManual(e.target.value)}
-              placeholder="Paste or type the code from the ticket"
+              placeholder={t.eventScanner.pasteCode}
               className="mt-1"
             />
           </label>
@@ -269,7 +271,7 @@ export default function TicketScanner({ eventName }: { eventName: string }) {
               setManual("");
             }}
           >
-            Check this ticket
+            {t.eventScanner.checkTicket}
           </Button>
         </div>
       )}
@@ -280,11 +282,12 @@ export default function TicketScanner({ eventName }: { eventName: string }) {
 }
 
 function Result({ shown, onClear }: { shown: Shown; onClear: () => void }) {
+  const { t } = useLanguage();
   if (shown.kind === "error") {
     return (
       <div className="rounded-2xl border-2 border-red-500/60 bg-red-500/10 p-5 text-center">
         <X className="mx-auto text-red-400" size={30} />
-        <p className="mt-2 font-syne text-xl font-extrabold text-red-300">NOT VALID</p>
+        <p className="mt-2 font-syne text-xl font-extrabold text-red-300">{t.eventScanner.notValid}</p>
         <p className="mt-1 font-dm text-sm text-red-200/80">{shown.message}</p>
         <Button size="sm" variant="outline" className="mt-3" onClick={onClear}>
           <RotateCcw size={13} className="mr-1" /> Next
@@ -328,7 +331,7 @@ function Result({ shown, onClear }: { shown: Shown; onClear: () => void }) {
         </p>
       )}
       {d.eventCancelled && (
-        <p className="mt-2 font-dm text-sm text-red-200">This event is cancelled.</p>
+        <p className="mt-2 font-dm text-sm text-red-200">{t.eventScanner.cancelled}</p>
       )}
       {d.outcome === "admitted" && (d.earlyByHours ?? 0) > 24 && (
         <p className="mt-2 font-dm text-sm text-orange-200/90">

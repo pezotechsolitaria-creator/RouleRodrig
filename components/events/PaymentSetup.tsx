@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Banknote, AlertTriangle } from "lucide-react";
@@ -28,6 +29,7 @@ export default function PaymentSetup({
   storeId: string;
   initial: OrganizerPaymentSettings | null;
 }) {
+  const { t } = useLanguage();
   const router = useRouter();
   // M89 — a NEW organiser no longer arrives with Cash pre-ticked and transfer
   // off. That default let somebody set up, save happily, and sell nothing:
@@ -81,13 +83,13 @@ export default function PaymentSetup({
   return (
     <div className="rounded-2xl border border-white/10 bg-dark-card p-5">
       <h2 className="flex items-center gap-2 font-bebas text-[11px] tracking-[0.3em] text-yellow">
-        <Banknote size={14} /> HOW YOU GET PAID
+        <Banknote size={14} /> {t.eventPayout.title}
       </h2>
 
       {nothingSetUp && (
         <p className="mt-2 flex items-start gap-2 rounded-xl border border-orange-400/30 bg-orange-400/[0.06] p-3 font-dm text-xs text-orange-200">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-          Until you set this up, nobody can buy a ticket to your event.
+          {t.eventPayout.untilSetUp}
         </p>
       )}
 
@@ -113,15 +115,15 @@ export default function PaymentSetup({
             <Input value={bankName} onChange={(e) => setBankName(e.target.value)} className="mt-1" />
           </label>
           <label className="block">
-            <span className="font-dm text-xs text-muted">Account holder</span>
+            <span className="font-dm text-xs text-muted">{t.eventPayout.accountHolder}</span>
             <Input value={holder} onChange={(e) => setHolder(e.target.value)} className="mt-1" />
           </label>
           <label className="block">
-            <span className="font-dm text-xs text-muted">Account number</span>
+            <span className="font-dm text-xs text-muted">{t.eventPayout.accountNumber}</span>
             <Input value={account} onChange={(e) => setAccount(e.target.value)} className="mt-1" />
           </label>
           <label className="block">
-            <span className="font-dm text-xs text-muted">Anything else the buyer should know (optional)</span>
+            <span className="font-dm text-xs text-muted">{t.eventPayout.buyerNote}</span>
             <Textarea
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}

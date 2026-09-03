@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { toast } from "sonner";
 import { Loader2, Handshake, Check, X, Info, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import type { ManagedTicketing } from "@/lib/events/organizer";
 // default, no "typically 10%", and no placeholder amount: the commercial terms
 // are the owner's to set per agreement.
 export default function ManagedTicketingCard({ storeId }: { storeId: string }) {
+  const { t } = useLanguage();
   const [data, setData] = useState<ManagedTicketing | null>(null);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -74,20 +76,20 @@ export default function ManagedTicketingCard({ storeId }: { storeId: string }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-dark-card p-5">
       <h2 className="flex items-center gap-2 font-bebas text-[11px] tracking-[0.3em] text-yellow">
-        <Handshake size={14} /> MANAGED TICKETING
+        <Handshake size={14} /> {t.eventManaged.title}
       </h2>
 
       {/* The two amounts, always apart. */}
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-          <p className="font-dm text-[11px] leading-tight text-muted">Your ticket sales</p>
+          <p className="font-dm text-[11px] leading-tight text-muted">{t.eventManaged.yourSales}</p>
           <p className="mt-1 font-syne text-base font-bold text-offwhite">
             Rs {centsToDecimalString(data.ticketRevenueCents)}
           </p>
-          <p className="mt-0.5 font-dm text-[10px] leading-tight text-muted">Paid directly to you</p>
+          <p className="mt-0.5 font-dm text-[10px] leading-tight text-muted">{t.eventManaged.paidDirectly}</p>
         </div>
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-          <p className="font-dm text-[11px] leading-tight text-muted">Roulé Rodrigues service fee</p>
+          <p className="font-dm text-[11px] leading-tight text-muted">{t.eventManaged.serviceFee}</p>
           <p className="mt-1 font-syne text-base font-bold text-yellow">
             {data.invoicedFeeCents != null
               ? `Rs ${centsToDecimalString(data.invoicedFeeCents)}`
@@ -123,7 +125,7 @@ export default function ManagedTicketingCard({ storeId }: { storeId: string }) {
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            placeholder="Anything we should know? (optional)"
+            placeholder={t.eventManaged.notes}
             className="mt-3"
           />
           <Button className="mt-3 w-full" disabled={busy} onClick={() => void act("POST", { note }, "Request sent")}>
@@ -142,14 +144,14 @@ export default function ManagedTicketingCard({ storeId }: { storeId: string }) {
             variant="outline" className="mt-3 w-full" disabled={busy}
             onClick={() => void act("DELETE", { reason: "Withdrawn by the organiser" }, "Request withdrawn")}
           >
-            <X size={14} className="mr-1.5" /> Withdraw the request
+            <X size={14} className="mr-1.5" /> {t.eventManaged.withdraw}
           </Button>
         </div>
       )}
 
       {data.status === "approved" && (
         <div className="mt-4 border-t border-white/10 pt-4">
-          <p className="font-syne text-sm font-bold text-offwhite">Roulé Rodrigues has quoted:</p>
+          <p className="font-syne text-sm font-bold text-offwhite">{t.eventManaged.quoted}</p>
           <p className="mt-1 font-syne text-xl font-extrabold text-yellow">{feeLabel ?? "—"}</p>
           {data.serviceIncludes && (
             <p className="mt-2 whitespace-pre-line font-dm text-sm text-muted">{data.serviceIncludes}</p>
@@ -198,7 +200,7 @@ export default function ManagedTicketingCard({ storeId }: { storeId: string }) {
           </p>
           <Button className="mt-3 w-full" variant="outline" disabled={busy}
             onClick={() => void act("POST", { note: "" }, "Request sent")}>
-            Ask again
+            {t.eventManaged.askAgain}
           </Button>
         </div>
       )}

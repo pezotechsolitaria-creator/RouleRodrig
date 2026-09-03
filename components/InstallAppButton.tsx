@@ -107,7 +107,7 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
     ) : (
       <button
         onClick={handleClick}
-        aria-label="Install the app"
+        aria-label={t.install.installApp}
         className="flex items-center gap-1.5 text-xs font-dm text-muted hover:text-yellow border border-dark-border hover:border-yellow/50 px-3 py-2 rounded-full transition-all duration-200"
       >
         <Download size={14} /> <span className="hidden lg:inline">{t.install.install}</span>
@@ -203,8 +203,8 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
               <ol className="space-y-3">
                 {platform === "ios-safari" && (
                   <>
-                    <Step n={1}>Tap the <Share size={14} className="inline align-text-bottom text-yellow mx-0.5" /> <b className="text-offwhite">Share</b> button (bottom of Safari).</Step>
-                    <Step n={2}>Scroll down and tap <b className="text-offwhite">&ldquo;Add to Home Screen&rdquo;</b> <Plus size={13} className="inline align-text-bottom text-yellow" />.</Step>
+                    <Step n={1}>{t.install.tapThe} <Share size={14} className="inline align-text-bottom text-yellow mx-0.5" /> <b className="text-offwhite">Share</b> button (bottom of Safari).</Step>
+                    <Step n={2}>{t.install.scrollDown} <b className="text-offwhite">&ldquo;Add to Home Screen&rdquo;</b> <Plus size={13} className="inline align-text-bottom text-yellow" />.</Step>
                     <Step n={3}>Tap <b className="text-offwhite">Add</b> — done!</Step>
                   </>
                 )}
@@ -224,8 +224,8 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
                 )}
                 {platform === "desktop" && (
                   <>
-                    <Step n={1}>Click the <Download size={14} className="inline align-text-bottom text-yellow" /> <b className="text-offwhite">install icon</b> in the address bar.</Step>
-                    <Step n={2}>Or open the browser menu → <b className="text-offwhite">&ldquo;Install Roule Rodrigues&rdquo;</b>.</Step>
+                    <Step n={1}>{t.install.clickThe} <Download size={14} className="inline align-text-bottom text-yellow" /> <b className="text-offwhite">install icon</b> in the address bar.</Step>
+                    <Step n={2}>{t.install.browserMenu} → <b className="text-offwhite">&ldquo;Install Roule Rodrigues&rdquo;</b>.</Step>
                     <Step n={3}>Confirm <b className="text-offwhite">Install</b> — done!</Step>
                   </>
                 )}

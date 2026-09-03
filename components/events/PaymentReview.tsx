@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -28,6 +29,7 @@ export default function PaymentReview({
   reservations: OrganizerReservation[];
   canVerify: boolean;
 }) {
+  const { t } = useLanguage();
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -102,7 +104,7 @@ The buyer can pay again — their seats are NOT released.`,
       <div className="rounded-2xl border border-white/10 bg-dark-card p-6 text-center">
         <BadgeCheck className="mx-auto text-muted" size={20} />
         <p className="mt-2 font-dm text-sm text-muted">
-          No payments waiting on you.
+          {t.eventPayments.nonePending}
         </p>
       </div>
     );
@@ -148,14 +150,14 @@ The buyer can pay again — their seats are NOT released.`,
                       <Loader2 size={13} className="animate-spin" />
                     ) : (
                       <>
-                        <Receipt size={13} className="mr-1" /> View proof
+                        <Receipt size={13} className="mr-1" /> {t.eventPayments.viewProof}
                         <ExternalLink size={11} className="ml-1 opacity-60" />
                       </>
                     )}
                   </Button>
                 ) : (
                   <span className="flex items-center gap-1.5 font-dm text-xs text-muted">
-                    <AlertTriangle size={12} /> No proof attached
+                    <AlertTriangle size={12} /> {t.eventPayments.noProof}
                   </span>
                 )}
 

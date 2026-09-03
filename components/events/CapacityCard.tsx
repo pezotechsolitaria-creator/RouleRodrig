@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Users } from "lucide-react";
@@ -27,6 +28,7 @@ export default function CapacityCard({
   capacity: number | null;
   placesTaken: number;
 }) {
+  const { t } = useLanguage();
   const router = useRouter();
   const [value, setValue] = useState(capacity != null ? String(capacity) : "");
   const [saving, setSaving] = useState(false);
@@ -58,7 +60,7 @@ export default function CapacityCard({
   return (
     <div className="rounded-2xl border border-white/10 bg-dark-card p-5">
       <h2 className="flex items-center gap-2 font-bebas text-[11px] tracking-[0.3em] text-yellow">
-        <Users size={14} /> VENUE CAPACITY
+        <Users size={14} /> {t.eventCapacity.title}
       </h2>
       <p className="mt-2 font-dm text-xs leading-relaxed text-muted">
         The total number of people the place holds, across every package. Leave it empty if the
@@ -75,8 +77,8 @@ export default function CapacityCard({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           inputMode="numeric"
-          placeholder="No limit"
-          aria-label="Venue capacity"
+          placeholder={t.eventCapacity.noLimit}
+          aria-label={t.eventCapacity.label}
           aria-invalid={invalid || belowSold}
         />
         <Button disabled={saving || invalid || belowSold} onClick={() => void save()}>
@@ -86,7 +88,7 @@ export default function CapacityCard({
 
       {invalid && (
         <p className="mt-2 font-dm text-xs text-orange-300">
-          Enter a whole number of at least 1, or leave it empty for no limit.
+          {t.eventCapacity.hint}
         </p>
       )}
       {belowSold && !invalid && (

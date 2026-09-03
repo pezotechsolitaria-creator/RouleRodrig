@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -67,6 +68,7 @@ export default function PackageManager({
   storeId: string;
   packages: OrganizerPackage[];
 }) {
+  const { t } = useLanguage();
   const router = useRouter();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -93,22 +95,22 @@ export default function PackageManager({
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-bebas text-[11px] tracking-[0.3em] text-yellow">TICKET PACKAGES</h2>
+        <h2 className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{t.eventPackages.title}</h2>
         <Button size="sm" onClick={() => setDraft({ ...EMPTY })}>
-          <Plus size={14} className="mr-1" /> Add package
+          <Plus size={14} className="mr-1" /> {t.eventPackages.addPackage}
         </Button>
       </div>
 
       {packages.length === 0 ? (
         <div className="mt-3 rounded-2xl border border-white/10 bg-dark-card p-8 text-center">
           <Ticket className="mx-auto text-muted" size={22} />
-          <p className="mt-3 font-syne text-base font-bold text-offwhite">No packages yet</p>
+          <p className="mt-3 font-syne text-base font-bold text-offwhite">{t.eventPackages.noPackages}</p>
           <p className="mx-auto mt-1 max-w-sm font-dm text-sm text-muted">
             Nobody can buy a ticket until this event has at least one. Create Standard first, then add
             VIP or Early Bird if you want tiers.
           </p>
           <Button className="mt-4" onClick={() => setDraft({ ...EMPTY })}>
-            <Plus size={15} className="mr-1.5" /> Create the first package
+            <Plus size={15} className="mr-1.5" /> {t.eventPackages.createFirst}
           </Button>
         </div>
       ) : (
@@ -166,6 +168,7 @@ function PackageForm({
   setDraft: (d: Draft | null) => void;
   onDone: () => void;
 }) {
+  const { t } = useLanguage();
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -256,14 +259,14 @@ function PackageForm({
 
         {/* Image */}
         <div className="mt-4">
-          <label className="mb-1.5 block font-dm text-xs text-muted">Package image</label>
+          <label className="mb-1.5 block font-dm text-xs text-muted">{t.eventPackages.packageImage}</label>
           <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
             {draft.imageUrl ? (
               <Image src={draft.imageUrl} alt="" fill sizes="32rem" className="object-contain" />
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-1 text-muted">
                 <ImagePlus size={22} />
-                <span className="font-dm text-xs">JPG, PNG or WebP · up to 4 MB</span>
+                <span className="font-dm text-xs">{t.eventPackages.fileTypes}</span>
               </div>
             )}
             {uploading && (
@@ -278,7 +281,7 @@ function PackageForm({
             className="mt-2 block w-full font-dm text-xs text-muted file:mr-3 file:rounded-full file:border-0 file:bg-white/10 file:px-4 file:py-2 file:font-dm file:text-xs file:text-offwhite hover:file:bg-white/15"
           />
           <p className="mt-1 font-dm text-[11px] text-muted">
-            Give each tier its own picture — VIP should not look like Standard.
+            {t.eventPackages.imageHint}
           </p>
         </div>
 
@@ -293,7 +296,7 @@ function PackageForm({
           </Field>
           <Field label="Short line" hint="Shown on the card">
             <input value={draft.subtitle} onChange={(e) => set("subtitle", e.target.value)} maxLength={120}
-              placeholder="Priority entrance" className={inputCls} />
+              placeholder={t.eventPackages.egEntrance} className={inputCls} />
           </Field>
           <Field label="Total capacity" required hint="Seats in the room, not seats left">
             <input value={draft.capacity} onChange={(e) => set("capacity", e.target.value)} inputMode="numeric"
@@ -312,14 +315,14 @@ function PackageForm({
         <div className="mt-3">
           <Field label="Description" hint="Shown when they open the package">
             <Textarea value={draft.description} onChange={(e) => set("description", e.target.value)}
-              rows={3} maxLength={2000} placeholder="The best view in the house…" />
+              rows={3} maxLength={2000} placeholder={t.eventPackages.egView} />
           </Field>
         </div>
 
         {/* Inclusions */}
         <div className="mt-3">
           <label className="mb-1.5 block font-dm text-xs text-muted">
-            What&apos;s included <span className="text-muted/70">— one per line, this is what sells the tier</span>
+            {t.eventPackages.whatsIncluded} <span className="text-muted/70">— one per line, this is what sells the tier</span>
           </label>
           {draft.inclusions.length > 0 && (
             <ul className="mb-2 space-y-1">
@@ -345,7 +348,7 @@ function PackageForm({
                   setInc("");
                 }
               }}
-              placeholder="Complimentary drink" className={inputCls}
+              placeholder={t.eventPackages.egDrink} className={inputCls}
             />
             <Button type="button" variant="outline" disabled={!inc.trim() || draft.inclusions.length >= 12}
               onClick={() => { set("inclusions", [...draft.inclusions, inc.trim()]); setInc(""); }}>
@@ -357,7 +360,7 @@ function PackageForm({
         <label className="mt-4 flex cursor-pointer items-center gap-2.5 font-dm text-sm text-offwhite">
           <input type="checkbox" checked={draft.isActive} onChange={(e) => set("isActive", e.target.checked)}
             className="accent-yellow" />
-          Visible to customers
+          {t.eventPackages.visibleToCustomers}
         </label>
 
         {error && <p role="alert" className="mt-3 font-dm text-sm text-red-400">{error}</p>}
@@ -368,7 +371,7 @@ function PackageForm({
         </Button>
         {draft.variantId && (
           <p className="mt-2 text-center font-dm text-[11px] text-muted">
-            Changing the price never changes what somebody already bought.
+            {t.eventPackages.priceNote}
           </p>
         )}
       </div>
