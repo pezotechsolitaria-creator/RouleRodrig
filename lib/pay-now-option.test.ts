@@ -61,7 +61,7 @@ describe("neither path is allowed to lie", () => {
     expect(BOOKING).toContain("t.booking.secureNowRefund");
     expect(I18N).toContain("we refund you in full within 24 hours");
     expect(I18N).toContain("nous vous remboursons intégralement sous 24 heures");
-    expect(I18N).toContain("nou rembours ou net dan 24 er");
+    expect(I18N).toContain("nou rembours ou tou seki ou finn peye dan 24 er");
   });
 
   it("tells the customer their dates are open until someone pays", () => {

@@ -26,7 +26,7 @@ describe("the payment step says what happens if you wait", () => {
   it("says the first deposit paid keeps the vehicle", () => {
     expect(SRC).toContain("First deposit paid keeps the vehicle");
     expect(SRC).toContain("Le premier acompte reçu garde le véhicule");
-    expect(SRC).toContain("Premie depo peye gard veikil la");
+    expect(SRC).toContain("Premie depo ki nou gagne gard veikil la");
   });
 
   it("says plainly that the dates are NOT held before payment", () => {
