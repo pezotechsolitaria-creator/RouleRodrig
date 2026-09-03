@@ -351,8 +351,24 @@ export async function POST(req: NextRequest) {
 
   const supabase = await createClient();
   const { error } = await supabase.from("bookings").insert([record]);
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    // ── NEVER SHOW THE DATABASE TO A CUSTOMER ────────────────────────────
+    // This returned error.message, so when a signed-in visitor hit a missing
+    // RLS policy the form printed "new row violates row-level security policy
+    // for table bookings" in red, above the button, on a phone. It told the
+    // person who wanted to give us money nothing they could act on, and told
+    // anybody reading it the table name and that we use row-level security.
+    //
+    // The detail belongs in the log, where it is what actually found the bug.
+    console.error("booking insert failed", { scooter, start_date, end_date }, error);
+    return NextResponse.json(
+      {
+        error:
+          "We could not save that booking just now. Please try again, or message us on WhatsApp and we will do it for you.",
+      },
+      { status: 500 },
+    );
+  }
 
   // Booking reference (RR-XXXXXX, derived from the id) — shown in the
   // confirmation email and used by the guest Manage-Booking lookup. One format
