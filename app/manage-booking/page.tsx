@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Search, Loader2, RotateCcw } from "lucide-react";
 import BackLink from "@/components/BackLink";
@@ -60,6 +60,39 @@ export default function ManageBookingPage() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const emailRef = useRef<HTMLInputElement | null>(null);
 
+
+  const lookup = useCallback(
+    async (r: string, em: string) => {
+      setError(null);
+      setBooking(null);
+      if (!r.trim() || !em.trim()) {
+        setError(M.errMissing);
+        return;
+      }
+      setLoading(true);
+      try {
+        const res = await fetch("/api/bookings/lookup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ref: r, email: em }),
+        });
+        const j = await res.json();
+        if (!res.ok) throw new Error(j.error || M.errNotFound);
+        setBooking(j.booking as Booking);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : M.errNotFound);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [M.errMissing, M.errNotFound],
+  );
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    void lookup(ref, email);
+  }
+
   // ── THE REFERENCE ARRIVES IN THE URL AND WAS THROWN AWAY (M164) ──────────
   //
   // /track's card links here as /manage-booking?ref=RR-XXXXXX — it knows the
@@ -73,38 +106,47 @@ export default function ManageBookingPage() {
   //
   // Focus moves to the EMAIL box, not the reference: the reference is now
   // filled in, and email is the only thing left for them to do.
+  // ── AND A SIGNED-IN CUSTOMER SHOULD NOT TYPE AT ALL (M165) ───────────────
+  //
+  // /orders is behind a login and lists the customer's own bookings. Tapping
+  // one sent them here — to a form asking for a reference printed on the card
+  // they had just tapped, and an email the session already knows. The owner's
+  // words: "it is stupid, the references can be seen".
+  //
+  // So when the reference is in the URL and there is a session, the lookup
+  // runs itself and the details appear. The email comes from the session, not
+  // from the link: an address in a query string is personal data in browser
+  // history, in any proxy log, and in the referrer of every asset the page
+  // loads. Guests still get the form, and it is still the only way in for
+  // somebody who booked without an account.
   useEffect(() => {
     const fromUrl = new URLSearchParams(window.location.search).get("ref");
     if (!fromUrl) return;
-    setRef(fromUrl.trim().toUpperCase());
+    const cleaned = fromUrl.trim().toUpperCase();
+    setRef(cleaned);
     setKind("vehicle");
-    emailRef.current?.focus({ preventScroll: true });
-  }, []);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setBooking(null);
-    if (!ref.trim() || !email.trim()) {
-      setError(M.errMissing);
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await fetch("/api/bookings/lookup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ref, email }),
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error || M.errNotFound);
-      setBooking(j.booking as Booking);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : M.errNotFound);
-    } finally {
-      setLoading(false);
-    }
-  }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const { data } = await createClient().auth.getUser();
+        const sessionEmail = data.user?.email;
+        if (cancelled) return;
+        if (sessionEmail) {
+          setEmail(sessionEmail);
+          void lookup(cleaned, sessionEmail);
+          return;
+        }
+      } catch {
+        /* not signed in, or auth unavailable — the form below still works */
+      }
+      if (!cancelled) emailRef.current?.focus({ preventScroll: true });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [lookup]);
 
   const completed = booking ? (booking.depositPaid || booking.status === "confirmed" ? 3 : 1) : 1;
   const confirmed = booking?.status === "confirmed" || booking?.depositPaid;

@@ -258,7 +258,20 @@ function ActivityGroup({
             <div className="flex shrink-0 flex-col items-end gap-1.5">
               {a.amount != null && a.amount > 0 && (
                 <span className="font-dm text-sm font-semibold text-offwhite">
-                  Rs {centsToDecimalString(a.amount)}
+                  {/* ── RUPEES ARE NOT CENTS (M165) ──────────────────────────
+                      Same fault as /track carried until yesterday, on the page
+                      a signed-in customer sees FIRST. A rental deposit of
+                      Rs 524 read as "Rs 5.24" and a Rs 12,942 car booking as
+                      "Rs 129.42" — four bookings on one screen, every one of
+                      them a hundredth of the truth.
+
+                      Shop orders a few lines up really are stored in cents and
+                      keep centsToDecimalString. Bookings carry whole rupees,
+                      so they are printed as integers — which is also what the
+                      owner asked for: no decimal point on a rupee figure. */}
+                  Rs {a.kind === "order"
+                    ? centsToDecimalString(a.amount)
+                    : Math.round(a.amount).toLocaleString("en-US")}
                 </span>
               )}
               <Badge variant="outline" className="border-white/15 text-muted">
