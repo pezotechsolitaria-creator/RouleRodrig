@@ -16,6 +16,7 @@ import { faqPageLd } from "@/lib/schema";
 import { experiencesFaq, experiencesFaqHeading } from "@/lib/experiences-faq";
 import { EXPERIENCES } from "@/lib/experiences";
 import { loc } from "@/lib/localize";
+import { placeHref } from "@/lib/place-href";
 import AutoPhotos from "@/components/AutoPhotos";
 import DuskSequence, { useDusk } from "@/components/DuskSequence";
 import { useActiveWorld } from "@/context/ExperienceWorldContext";
@@ -392,8 +393,11 @@ function Card({ place, index, language }: { place: RecommendedPlace; index: numb
   const blurb = loc(language as never, place.description, place.descriptionFr, place.descriptionCr).trim();
   const cover = place.image || place.images?.[0];
   // Every experience already has a home — its vertical marketplace, or the
-  // activities list. The hub is a doorway, not a second detail page.
-  const href = place.serviceType ? `/experiences/${place.serviceType}` : "/browse/activities";
+  // tours/activities list. The hub is a doorway, and a doorway has to open on
+  // the thing that was knocked. This line used to omit the isTour branch the
+  // three other copies of the mapping had, which is how tapping Île aux Cocos
+  // arrived at a page that excludes tours and showed a spa instead.
+  const href = placeHref(place);
 
   return (
     <Link

@@ -7,6 +7,7 @@ import {
   fleetFromPrice,
 } from "@/lib/site-data";
 import { organizationLd, touristDestinationLd, websiteLd } from "@/lib/schema";
+import { placeHref } from "@/lib/place-href";
 import JsonLd from "@/components/JsonLd";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { foodCardImages } from "@/lib/food/queries";
@@ -77,11 +78,7 @@ export default async function Home() {
       name: p.name,
       image: p.image,
       price: p.priceNote ?? null,
-      href: p.serviceType
-        ? `/experiences/${p.serviceType}`
-        : p.isTour
-          ? "/browse/tours"
-          : "/browse/activities",
+      href: placeHref(p),
       // The world fields travel with the card. They used to be dropped here,
       // which is why tagging content in admin changed /experiences but left the
       // homepage identical in both worlds — the data never arrived.
@@ -182,7 +179,7 @@ export default async function Home() {
         name: p.name,
         image: p.image ?? p.images?.[0],
         price: p.priceNote ?? null,
-        href: `/experiences/${p.serviceType}`,
+        href: placeHref(p),
         world: p.world,
         worldPriority: p.worldPriority,
         featuredAuthentic: p.featuredAuthentic,

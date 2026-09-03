@@ -9,6 +9,8 @@ import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
 import PlaceBookingModal from "@/components/PlaceBookingModal";
 import PlaceDetailModal from "@/components/PlaceDetailModal";
+import { usePlaceDeepLink } from "@/components/usePlaceDeepLink";
+import { placeAnchorId } from "@/lib/place-href";
 import SaveButton from "@/components/SaveButton";
 import AutoPhotos from "@/components/AutoPhotos";
 
@@ -38,13 +40,20 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
     hotel: ts.catHotel, restaurant: ts.catRestaurant, activity: ts.catActivity,
   };
 
-  if (!content || !content.enabled) return null;
-
-  const items = (content.items ?? []).filter((p) => p.name);
-  if (items.length === 0) return null;
-
+  // ── COMPUTED ABOVE THE EARLY RETURNS ─────────────────────────────────────
+  // usePlaceDeepLink is a hook, and a hook may not sit after a conditional
+  // return. Both lines are safe on an absent content object, so the guards
+  // move below them rather than the hook moving above the data it needs.
+  const items = (content?.items ?? []).filter((p) => p.name);
   // Sponsored (featured) places surface first.
   const sorted = [...items].sort((a, b) => Number(b.featured ?? false) - Number(a.featured ?? false));
+
+  // ?place=<id> opens that place on arrival, so a link can name one card on a
+  // page of many. See lib/place-href.ts for what went wrong without it.
+  usePlaceDeepLink(sorted, setDetailPlace);
+
+  if (!content || !content.enabled) return null;
+  if (items.length === 0) return null;
   const cats = Array.from(new Set(sorted.map((p) => p.category)));
   const showTabs = cats.length > 1;
   const shown = filter === "all" ? sorted : sorted.filter((p) => p.category === filter);
@@ -131,6 +140,7 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
             return (
               <motion.div
                 key={p.id}
+                id={placeAnchorId(p.id)}
                 initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-40px" }}

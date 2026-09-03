@@ -5,6 +5,7 @@ import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import ExploreClient, { type ExploreItem } from "@/components/ExploreClient";
+import { placeHref } from "@/lib/place-href";
 
 export const revalidate = 3600;
 
@@ -42,7 +43,7 @@ export default async function ExplorePage() {
       descriptionFr: p.descriptionFr,
       descriptionCr: p.descriptionCr,
       image: p.image,
-      href: p.serviceType ? `/experiences/${p.serviceType}` : p.isTour ? "/browse/tours" : "/browse/activities",
+      href: placeHref(p),
       filterKey: p.isTour ? "tour" : "activity",
       tags: [],
       price: p.priceNote,

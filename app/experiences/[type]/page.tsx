@@ -6,6 +6,7 @@ import { SITE_URL } from "@/lib/site";
 import { SERVICE_TYPES, type ServiceType } from "@/lib/defaults";
 import { EXPERIENCES, experiencesOfType, fromPriceOf, experienceFaq } from "@/lib/experiences";
 import { breadcrumbLd, itemListLd, experienceLd, sellerLd } from "@/lib/schema";
+import { placeHref } from "@/lib/place-href";
 import JsonLd from "@/components/JsonLd";
 import ExperienceMarket from "@/components/experiences/ExperienceMarket";
 import Navbar from "@/components/Navbar";
@@ -122,7 +123,10 @@ export default async function ExperiencePage({ params }: { params: Promise<{ typ
               ]),
               itemListLd(
                 copy.title,
-                places.map((p) => ({ name: p.name, url: `${SITE_URL}/experiences/${copy.slug}` })),
+                // Each item at its OWN address. This used to repeat the page
+                // URL for every entry, so an ItemList of two charters pointed
+                // twice at one place and neither could be told apart.
+                places.map((p) => ({ name: p.name, url: `${SITE_URL}${placeHref(p)}` })),
               ),
               // ── EACH EXPERIENCE, WITH ITS PRICE AND ITS CAPTAIN (M134) ──
               //
@@ -159,7 +163,7 @@ export default async function ExperiencePage({ params }: { params: Promise<{ typ
                   price: typeof p.depositAmount === "number" ? p.depositAmount : null,
                   description: p.description || undefined,
                   image: p.image || undefined,
-                  url: `${SITE_URL}/experiences/${copy.slug}`,
+                  url: `${SITE_URL}${placeHref(p)}`,
                   providerName: p.providerName || null,
                   durationMinutes: typeof p.durationMinutes === "number" ? p.durationMinutes : null,
                 }),

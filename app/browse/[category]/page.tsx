@@ -19,6 +19,7 @@ import BookingSection from "@/components/BookingSection";
 import { pickConditions } from "@/lib/rental-conditions";
 import { vehicleHref } from "@/lib/vehicle-slug";
 import RecommendedPlaces from "@/components/RecommendedPlaces";
+import { placeHref } from "@/lib/place-href";
 import GettingAround from "@/components/GettingAround";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import ScrollToTop from "@/components/ScrollToTop";
@@ -596,7 +597,10 @@ export default async function BrowsePage({
                 typeof i.depositAmount === "number" && i.depositAmount > 0
                   ? i.depositAmount
                   : null;
-              const url = `${SITE_URL}/browse/${category}`;
+              // The listing's own address, not the page's. Every entry here
+              // shared one URL, which is the same defect lib/place-href.ts was
+              // written to end.
+              const url = `${SITE_URL}${placeHref(i)}`;
               return i.category === "hotel"
                 ? stayLd({ name: i.name, price, description: i.description, image, url })
                 : experienceLd({

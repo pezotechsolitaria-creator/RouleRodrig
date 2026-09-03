@@ -16,6 +16,8 @@ import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
 import PlaceBookingModal from "@/components/PlaceBookingModal";
 import PlaceDetailModal from "@/components/PlaceDetailModal";
+import { usePlaceDeepLink } from "@/components/usePlaceDeepLink";
+import { placeAnchorId } from "@/lib/place-href";
 
 // The discovery + booking surface shared by massage, fishing and sea trips.
 //
@@ -50,6 +52,10 @@ export default function ExperienceMarket({
   const [active, setActive] = useState<string | null>(null);
   const [bookingPlace, setBookingPlace] = useState<RecommendedPlace | null>(null);
   const [detailPlace, setDetailPlace] = useState<RecommendedPlace | null>(null);
+
+  // ?place=<id> opens that trip on arrival. Without it every card on this
+  // page shares one address, so a tap on the second charter shows the first.
+  usePlaceDeepLink(places, setDetailPlace);
 
   // NO day/night filtering here, deliberately. Day and Night belong to the
   // Experiences HUB and to the site's theme, not to a fishing page — and a
@@ -228,7 +234,10 @@ function ExperienceCard({
   ].filter(Boolean);
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-dark-card transition-colors hover:border-white/25">
+    <article
+      id={placeAnchorId(place.id)}
+      className="group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-dark-card transition-colors hover:border-white/25 scroll-mt-24"
+    >
       <button
         onClick={onOpen}
         className="relative aspect-[4/3] w-full overflow-hidden bg-dark text-left"

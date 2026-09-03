@@ -19,6 +19,7 @@
 // "what the public sees at 6pm on Friday", and a function that reads its own
 // clock cannot do that — nor can it be tested.
 
+import { placeHref } from "@/lib/place-href";
 import type { FavoriteType } from "@/context/FavoritesContext";
 import type { FleetItem, MapLocation, RecommendedPlace, RideRoute } from "@/lib/defaults";
 import { forWorld, type World } from "@/lib/worlds";
@@ -81,13 +82,16 @@ const L = (en?: string, fr?: string, cr?: string): Localized | undefined =>
 const firstImage = (...candidates: (string | undefined | null)[]): string | undefined =>
   candidates.find((c): c is string => typeof c === "string" && c.trim().length > 0);
 
-/** Where a catalogue place is bookable. Mirrors the homepage's own mapping. */
-export function placeHref(p: RecommendedPlace): string {
-  if (p.category === "hotel") return "/browse/stays";
-  if (p.category === "restaurant") return "/food";
-  if (p.serviceType) return `/experiences/${p.serviceType}`;
-  return p.isTour ? "/browse/tours" : "/browse/activities";
-}
+/**
+ * Where a catalogue place is bookable.
+ *
+ * This used to be its own copy of the mapping, one of four, and they drifted —
+ * see lib/place-href.ts. It is now a re-export so a world document and a card
+ * on the hub cannot disagree about where the same listing lives.
+ */
+// A re-export needs the local binding too — this file calls placeHref itself
+// further down, in the world-document builders.
+export { placeHref };
 
 /** Where a vehicle is rented. Its category IS its browse page. */
 export function fleetHref(v: FleetItem): string {
