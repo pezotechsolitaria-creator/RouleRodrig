@@ -95,7 +95,12 @@ export default function BookingSection({
   // Inline validation: which fields are wrong + the message to show. Set on a
   // submit attempt so the customer instantly sees WHAT to fix instead of a
   // silently-disabled button (the reported "took 5 minutes to figure out" pain).
-  const [fieldErr, setFieldErr] = useState<{ vehicle?: boolean; date?: boolean }>({});
+  // Marks the boxes red. Was vehicle+date only, so a missing name or a bad
+// phone number produced a message at the top of the form and a field that
+// looked perfectly fine (M163).
+  const [fieldErr, setFieldErr] = useState<{
+    vehicle?: boolean; date?: boolean; name?: boolean; email?: boolean; phone?: boolean;
+  }>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   // Every requirement still outstanding, so the customer can see the whole job
   // rather than discovering it one refusal at a time.
@@ -323,30 +328,64 @@ export default function BookingSection({
     //
     // The checks and their order are unchanged, and so is the field
     // highlighting and the scroll: only the reporting is now complete.
-    const fe: { vehicle?: boolean; date?: boolean } = {};
+    const fe: { vehicle?: boolean; date?: boolean; name?: boolean; email?: boolean; phone?: boolean } = {};
     const missing: string[] = [];
     let firstError: string | null = null;
-    const flag = (cond: boolean, msg: string, field?: "vehicle" | "date") => {
+    // ── TAKE THEM TO THE BOX, NOT TO THE TOP (M163) ─────────────────────
+    //
+    // The form always said what was missing, and then scrolled to its own
+    // first line. On a phone the offending field is often a screenful below
+    // that, so the customer read "Enter your phone number", found themselves
+    // looking at the vehicle picker, and had to hunt for the box.
+    //
+    // Every field already had a stable id for its label to point at, so the
+    // first failing check can name one and the form can go there and focus it.
+    // Focus rather than scroll alone: it opens the keyboard on a phone and it
+    // is what a screen reader announces.
+    let firstFieldId: string | null = null;
+    const flag = (
+      cond: boolean,
+      msg: string,
+      field?: "vehicle" | "date" | "name" | "email" | "phone",
+      id?: string,
+    ) => {
       if (!cond) return;
       if (!missing.includes(msg)) missing.push(msg);
       if (!firstError) firstError = msg;
+      if (!firstFieldId && id) firstFieldId = id;
       if (field) fe[field] = true;
     };
-    flag(!form.scooter, ERR.vehicle, "vehicle");
-    flag(!form.start_date, ERR.date, "date");
-    flag(!!form.start_date && days <= 0, ERR.dates, "date");
-    flag(!form.name.trim(), ERR.name);
-    flag(!phoneOk, ERR.phone);
-    flag(!emailOk, ERR.email);
-    flag(hasOverlap, ERR.overlap, "date");
-    flag(!agreed, ERR.agree);
+    // Ordered the way the form reads, so "first error" is the one highest up
+    // the page and the customer is never sent backwards.
+    flag(!form.scooter, ERR.vehicle, "vehicle", "bk-vehicle");
+    flag(!form.start_date, ERR.date, "date", "bk-dates-label");
+    flag(!!form.start_date && days <= 0, ERR.dates, "date", "bk-dates-label");
+    flag(hasOverlap, ERR.overlap, "date", "bk-dates-label");
+    flag(!form.name.trim(), ERR.name, "name", "bk-name");
+    flag(!emailOk, ERR.email, "email", "bk-email");
+    flag(!phoneOk, ERR.phone, "phone", "bk-phone");
+    flag(!agreed, ERR.agree, undefined, "bk-agree");
 
     if (firstError) {
       setFieldErr(fe);
       setMissingSteps(missing);
       setSubmitError(firstError);
       setAgreeError(!agreed);
-      formTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const target = firstFieldId
+        ? document.getElementById(firstFieldId)
+        : null;
+      if (target) {
+        // `center`, not `start`: a sticky header would otherwise sit on top of
+        // the very field we just sent them to.
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        // preventScroll — scrollIntoView above already owns the movement, and
+        // letting focus scroll as well makes the page jump twice.
+        if (typeof (target as HTMLElement).focus === "function") {
+          (target as HTMLElement).focus({ preventScroll: true });
+        }
+      } else {
+        formTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
       return;
     }
     setFieldErr({});
@@ -757,8 +796,9 @@ export default function BookingSection({
                       autoComplete="name"
                       placeholder={t.booking.namePlaceholder}
                       value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      className={`${inputCls} pl-10`}
+                      onChange={(e) => { setForm({ ...form, name: e.target.value }); setFieldErr((p) => ({ ...p, name: false })); }}
+                      aria-invalid={fieldErr.name || undefined}
+                      className={`${inputCls} pl-10${fieldErr.name ? " !border-red-500/70" : ""}`}
                       disabled={formState === "loading"}
                       required
                     />
@@ -777,11 +817,15 @@ export default function BookingSection({
                       // The label carries a visual "*" that a screen reader
                       // does not read as "required".
                       aria-required
-                      aria-invalid={emailInvalid || undefined}
+                      // emailInvalid is "you typed something that is not an
+                      // email". fieldErr.email is "you tried to submit without
+                      // one" — an EMPTY required field looked perfectly fine
+                      // until now, which is the commonest way to fail this form.
+                      aria-invalid={emailInvalid || fieldErr.email || undefined}
                       placeholder="your@email.com"
                       value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      className={`${inputCls} pl-10${emailInvalid ? " !border-red-500/60" : ""}`}
+                      onChange={(e) => { setForm({ ...form, email: e.target.value }); setFieldErr((p) => ({ ...p, email: false })); }}
+                      className={`${inputCls} pl-10${emailInvalid || fieldErr.email ? " !border-red-500/60" : ""}`}
                       disabled={formState === "loading"}
                     />
                   </div>
@@ -800,10 +844,10 @@ export default function BookingSection({
                   // middle of a booking form.
                   id="bk-phone"
                   value={form.phone}
-                  onChange={(full) => setForm((f) => ({ ...f, phone: full }))}
+                  onChange={(full) => { setForm((f) => ({ ...f, phone: full })); setFieldErr((p) => ({ ...p, phone: false })); }}
                   disabled={formState === "loading"}
                   placeholder={t.booking.phonePlaceholder}
-                  inputClassName={`${inputCls} pl-10`}
+                  inputClassName={`${inputCls} pl-10${fieldErr.phone ? " !border-red-500/70" : ""}`}
                 />
               </div>
 
@@ -858,6 +902,7 @@ export default function BookingSection({
               {/* Terms acceptance — required before booking */}
               <label className="flex items-start gap-2.5 cursor-pointer select-none">
                 <input
+                  id="bk-agree"
                   type="checkbox"
                   checked={agreed}
                   onChange={(e) => { setAgreed(e.target.checked); if (e.target.checked) setAgreeError(false); }}
