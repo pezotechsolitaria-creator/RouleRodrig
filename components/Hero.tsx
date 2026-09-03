@@ -106,6 +106,7 @@ function HeroBackdrop() {
 // time somebody was asked to make it slower.
 
 export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: boolean }) {
+  const { t } = useLanguage();
   const h = hero ?? DEFAULT_CONTENT.hero;
   const { language } = useLanguage();
   const headlineLines =
@@ -146,7 +147,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
   const hideText = !calm && revealed;
 
   return (
-    <section className={`relative w-full overflow-hidden flex flex-col ${compact ? "rr-home-hero min-h-[172px] md:min-h-[36vh]" : "min-h-[40vh] md:min-h-[62vh]"}`} aria-label="Hero section">
+    <section className={`relative w-full overflow-hidden flex flex-col ${compact ? "rr-home-hero min-h-[172px] md:min-h-[36vh]" : "min-h-[40vh] md:min-h-[62vh]"}`} aria-label={t.a11yMore.heroSection}>
       {/* ── Background: the owner's photo, with their footage layered over ───
           Order is load-bearing. The still renders first and unconditionally;
           the video sits on top and fades in only once a frame has decoded. So
@@ -176,7 +177,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
         {h.backgroundImage && (
           <Image
             src={h.backgroundImage}
-            alt="Exploring Rodrigues Island at golden hour"
+            alt={t.a11yMore.heroAlt}
             fill
             className="object-cover object-center rr-kenburns"
             priority

@@ -1,18 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, HelpCircle } from "lucide-react";
 import type { FaqContent } from "@/lib/defaults";
 
 export default function Faq({ content }: { content?: FaqContent }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState<string | null>(null);
   if (!content || !content.enabled) return null;
   const items = (content.items ?? []).filter((i) => i.question && i.answer);
   if (items.length === 0) return null;
 
   return (
-    <section id="faq" className="bg-[#0a0a0a] py-24 md:py-32" aria-label="Frequently asked questions">
+    <section id="faq" className="bg-[#0a0a0a] py-24 md:py-32" aria-label={t.a11yMore.faq}>
       <div className="max-w-3xl mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 30 }}

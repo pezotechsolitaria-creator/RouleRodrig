@@ -216,7 +216,8 @@
 // v301 - the account and every order screen speak all three languages.
 // v302 - the app shell, dish panel and screen-reader labels speak all three languages.
 // v303 - the organiser console speaks all three languages.
-const CACHE = "rr-cache-v303";
+// v304 - the last of the customer-facing English is translated.
+const CACHE = "rr-cache-v304";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

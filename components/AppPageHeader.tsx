@@ -40,6 +40,7 @@ export default function AppPageHeader({
   backHref?: string;
   logo?: string;
 }) {
+  const { t } = useLanguage();
   const { language, setLanguage } = useLanguage();
   const cycle = () =>
     setLanguage(language === "en" ? "fr" : language === "fr" ? "cr" : "en");
@@ -64,7 +65,7 @@ export default function AppPageHeader({
           <Link
             href="/"
             className="flex items-center"
-            aria-label="Roule Rodrigues home"
+            aria-label={t.a11y.home}
           >
             <span className="rr-logo-anim inline-flex">
               <span className="rr-logo-bob inline-flex">
@@ -111,7 +112,7 @@ export default function AppPageHeader({
             minimum (WCAG 2.5.5) without changing what is drawn. */}
         <button
           onClick={cycle}
-          aria-label="Change language"
+          aria-label={t.a11y.changeLanguage}
           className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 font-bebas text-[11px] tracking-widest text-muted transition-colors after:absolute after:-inset-1 after:content-[''] hover:text-yellow"
         >
           {language.toUpperCase()}

@@ -106,6 +106,7 @@ export default function ExperienceGateway({
   /** Admin-supplied cover for each world. Either may be absent. */
   images?: Partial<Record<World, string | undefined>>;
 }) {
+  const { t } = useLanguage();
   const { world, ready, choose } = useExperienceWorld();
   const { language } = useLanguage();
   const [leaving, setLeaving] = useState<World | null>(null);
@@ -138,7 +139,7 @@ export default function ExperienceGateway({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Choose how you want to experience Rodrigues"
+      aria-label={t.common.chooseExperience}
       className="fixed inset-0 z-[80] flex flex-col md:flex-row"
       style={{ background: "#0B0B0B" }}
     >

@@ -32,6 +32,7 @@ export default function BankTransferDetails({
    */
   settlement?: "deposit" | "full";
 }) {
+  const { t } = useLanguage();
   const { language } = useLanguage();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -85,7 +86,7 @@ export default function BankTransferDetails({
           <dt className="text-muted">{T.account}</dt>
           <dd className="flex items-center gap-2">
             <span className="text-offwhite font-mono">{ACCOUNT}</span>
-            <button type="button" onClick={copy} className="text-muted hover:text-yellow" aria-label="Copy account number">
+            <button type="button" onClick={copy} className="text-muted hover:text-yellow" aria-label={t.common.copyAccountNumber}>
               {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
             </button>
           </dd>

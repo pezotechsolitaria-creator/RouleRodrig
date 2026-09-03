@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { Crosshair, Loader2, MapPin, MapPinOff, ExternalLink, X } from "lucide-react";
 import { googleMapsLink, formatCoords, hasUsablePin, looksOffRodrigues } from "@/lib/orders/location";
 
@@ -31,6 +32,7 @@ export default function PinPicker({
   onChange: (next: { lat: number | null; lng: number | null }) => void;
   label?: string;
 }) {
+  const { t } = useLanguage();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paste, setPaste] = useState("");
@@ -146,7 +148,7 @@ export default function PinPicker({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-2 font-dm text-xs font-semibold text-offwhite hover:border-yellow/40 hover:text-yellow"
             >
-              Check it <ExternalLink size={12} />
+              {t.common.checkIt} <ExternalLink size={12} />
             </a>
             <button
               type="button"

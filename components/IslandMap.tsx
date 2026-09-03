@@ -162,7 +162,7 @@ export default function IslandMapInner({ locations }: Props) {
                 if (!inRodrigues) {
                   L.popup()
                     .setLatLng([-19.7024, 63.4105])
-                    .setContent('<div style="font-family:sans-serif;font-size:12px;max-width:200px;">Live location only works while you are on Rodrigues Island.</div>')
+                    .setContent('<div style="font-family:sans-serif;font-size:12px;max-width:200px;">{t.common.liveLocationOnly}</div>')
                     .openOn(map);
                   return;
                 }
@@ -170,7 +170,7 @@ export default function IslandMapInner({ locations }: Props) {
                 youMarker = L.circleMarker([lat, lng], {
                   radius: 8, fillColor: "#2563EB", color: "#fff", weight: 3, fillOpacity: 1,
                 }).addTo(map);
-                youMarker.bindPopup('<div style="font-family:sans-serif;font-size:12px;font-weight:700;">You are here</div>').openPopup();
+                youMarker.bindPopup('<div style="font-family:sans-serif;font-size:12px;font-weight:700;">{t.common.youAreHere}</div>').openPopup();
                 map.setView([lat, lng], 14);
               },
               () => { btn.innerHTML = LOCATE_SVG; },

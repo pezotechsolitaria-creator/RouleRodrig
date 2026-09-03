@@ -211,7 +211,7 @@ export default function TripPlanner() {
   }
 
   return (
-    <section id="trip-planner" className="bg-[#0a0a0a] py-24 md:py-36 overflow-x-hidden" aria-label="AI Trip Planner">
+    <section id="trip-planner" className="bg-[#0a0a0a] py-24 md:py-36 overflow-x-hidden" aria-label={t.common.aiTripPlanner}>
       <div className="max-w-7xl mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -334,7 +334,7 @@ export default function TripPlanner() {
                   onClick={() => { setItinerary(null); try { localStorage.removeItem(STORE_KEY); } catch { /* ignore */ } }}
                   className="w-full text-center font-dm text-xs text-muted/50 hover:text-muted transition-colors"
                 >
-                  Start over
+                  {t.common.startOver}
                 </button>
               )}
             </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { Loader2, ShieldCheck } from "lucide-react";
 
 // What a person can turn off — and, just as importantly, what they cannot.
@@ -23,6 +24,7 @@ const LABEL: Record<string, { title: string; hint: string }> = {
 };
 
 export default function NotificationPreferences({ className = "" }: { className?: string }) {
+  const { t } = useLanguage();
   const [prefs, setPrefs] = useState<Pref[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +75,7 @@ export default function NotificationPreferences({ className = "" }: { className?
     <section className={`rounded-2xl border border-white/10 bg-dark-card p-5 ${className}`}>
       <h2 className="font-syne text-lg font-bold">Notifications</h2>
       <p className="mt-1 font-dm text-sm text-muted">
-        Choose what you hear about. Turning something off stops the notification, not the service.
+        {t.common.notificationPrefs}
       </p>
 
       <ul className="mt-4 divide-y divide-white/5">

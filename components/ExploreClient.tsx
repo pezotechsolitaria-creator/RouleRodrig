@@ -50,6 +50,7 @@ export default function ExploreClient({
   foodEnabled?: boolean;
   foodImage?: string | null;
 }) {
+  const { t } = useLanguage();
   const { language } = useLanguage();
   const L = (en: string, fr: string, cr: string) => (language === "fr" ? fr : language === "cr" ? cr : en);
 
@@ -89,7 +90,7 @@ export default function ExploreClient({
       <div className="mx-auto max-w-3xl px-5 pt-5">
         {/* Header */}
         <header>
-          <p className="font-bebas text-[11px] tracking-[0.35em] text-yellow">RODRIGUES · CURATED BY LOCALS</p>
+          <p className="font-bebas text-[11px] tracking-[0.35em] text-yellow">{t.common.curatedByLocals}</p>
           <h1 className="mt-1.5 font-syne text-3xl font-extrabold text-offwhite md:text-4xl">
             {L("Explore", "Explorer", "Explor")}
           </h1>

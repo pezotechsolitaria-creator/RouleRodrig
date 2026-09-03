@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import Link from "next/link";
 import { Bell, Check, Loader2, AlertTriangle } from "lucide-react";
 
@@ -48,6 +49,7 @@ function ago(iso: string): string {
 }
 
 export default function NotificationCenter({ className = "" }: { className?: string }) {
+  const { t } = useLanguage();
   const [items, setItems] = useState<Notification[] | null>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -141,7 +143,7 @@ export default function NotificationCenter({ className = "" }: { className?: str
           className="absolute right-0 z-50 mt-2 max-h-[70vh] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-dark-card shadow-2xl"
         >
           <div className="sticky top-0 flex items-center justify-between gap-3 border-b border-white/10 bg-dark-card px-4 py-3">
-            <h2 className="font-syne text-sm font-bold">Notifications</h2>
+            <h2 className="font-syne text-sm font-bold">{t.common.notifications}</h2>
             {unread.length > 0 && (
               <button
                 onClick={() => void markAllRead()}
@@ -158,7 +160,7 @@ export default function NotificationCenter({ className = "" }: { className?: str
             <Section title="New" items={unread} onRead={markOneRead} onClose={() => setOpen(false)} />
           )}
           {earlier.length > 0 && (
-            <Section title="Earlier" items={earlier} onRead={markOneRead} onClose={() => setOpen(false)} dim />
+            <Section title={t.common.earlier} items={earlier} onRead={markOneRead} onClose={() => setOpen(false)} dim />
           )}
         </div>
       )}

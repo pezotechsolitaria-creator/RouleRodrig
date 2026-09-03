@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLanguage } from "@/context/LanguageContext";
 import { useEffect, useState } from "react";
 import { ShoppingBag, ArrowRight } from "lucide-react";
 import { useCart } from "@/lib/cart/CartContext";
@@ -22,6 +23,7 @@ import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 // a number that is occasionally a lie.
 
 export default function FoodCartBar() {
+  const { t } = useLanguage();
   const { cart, hydrated, itemCount } = useCart("food");
   const [total, setTotal] = useState<number | null>(null);
   const [kitchen, setKitchen] = useState<string | null>(null);
@@ -79,7 +81,7 @@ export default function FoodCartBar() {
           </span>
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-syne text-sm font-extrabold leading-tight">View your order</span>
+          <span className="block font-syne text-sm font-extrabold leading-tight">{t.common.viewYourOrder}</span>
           {kitchen && <span className="block truncate font-dm text-xs opacity-70">from {kitchen}</span>}
         </span>
         {total !== null && (

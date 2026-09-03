@@ -84,8 +84,8 @@ export default function PlaceDetailModal({
           </span>
           {photos.length > 1 && (
             <>
-              <button onClick={() => setIdx((i) => (i - 1 + photos.length) % photos.length)} className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors" aria-label="Previous photo"><ChevronLeft size={18} /></button>
-              <button onClick={() => setIdx((i) => (i + 1) % photos.length)} className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors" aria-label="Next photo"><ChevronRight size={18} /></button>
+              <button onClick={() => setIdx((i) => (i - 1 + photos.length) % photos.length)} className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors" aria-label={t.a11y.prevPhoto}><ChevronLeft size={18} /></button>
+              <button onClick={() => setIdx((i) => (i + 1) % photos.length)} className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors" aria-label={t.a11y.nextPhoto}><ChevronRight size={18} /></button>
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
                 {photos.map((_, i) => (
                   <button key={i} onClick={() => setIdx(i)} className={`h-1.5 rounded-full transition-all ${i === idx ? "bg-yellow w-4" : "bg-white/50 w-1.5"}`} aria-label={`Photo ${i + 1}`} />
@@ -192,7 +192,7 @@ export default function PlaceDetailModal({
                 onClick={() => { onBook(); onClose(); }}
                 className="flex-1 min-w-[160px] flex items-center justify-center gap-2 bg-yellow text-dark font-syne font-bold text-base py-3.5 rounded-xl hover:bg-yellow-dark transition-colors"
               >
-                <CalendarCheck size={16} /> Book now
+                <CalendarCheck size={16} /> {t.common.bookNow}
               </button>
             )}
             {waHref && (

@@ -23,7 +23,7 @@ export default function GettingAround({ content }: { content?: GettingAroundCont
   if (options.length === 0) return null;
 
   return (
-    <section id="getting-around" className="bg-dark pt-5 pb-14" aria-label="Getting around Rodrigues">
+    <section id="getting-around" className="bg-dark pt-5 pb-14" aria-label={t.a11yMore.gettingAround}>
       <div className="max-w-5xl mx-auto px-4 md:px-6">
         <div className="mb-6">
           <p className="font-bebas text-yellow text-[11px] tracking-[0.3em] mb-1.5 uppercase">{t.gettingAround.eyebrow}</p>

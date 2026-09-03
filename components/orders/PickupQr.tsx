@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { pickupScanUrl } from "@/lib/orders/pickup";
 import { SITE_URL } from "@/lib/site";
 import type { PickupQrGeometry } from "@/lib/orders/pickup-qr";
@@ -20,6 +21,7 @@ import type { PickupQrGeometry } from "@/lib/orders/pickup-qr";
 // no camera permission, and no dependence on BarcodeDetector, which iOS Safari
 // still does not have. See pickupScanUrl().
 export default function PickupQr({ code, size = 176 }: { code: string; size?: number }) {
+  const { t } = useLanguage();
   const [qr, setQr] = useState<PickupQrGeometry | null>(null);
 
   useEffect(() => {
@@ -58,7 +60,7 @@ export default function PickupQr({ code, size = 176 }: { code: string; size?: nu
       width={size}
       height={size}
       role="img"
-      aria-label="QR code for this pickup — scanned at the counter when you collect"
+      aria-label={t.a11yMore.pickupQr}
       className="rounded-xl bg-white shadow-[0_6px_20px_-8px_rgba(0,0,0,0.6)]"
       shapeRendering="crispEdges"
     >

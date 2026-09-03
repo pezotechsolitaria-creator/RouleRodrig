@@ -385,6 +385,7 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 }
 
 function Card({ place, index, language }: { place: RecommendedPlace; index: number; language: string }) {
+  const { t } = useLanguage();
   // RecommendedPlace has no translated NAME — only the description is
   // localised — so the name is used as the owner typed it.
   const name = place.name.trim();
@@ -414,7 +415,7 @@ function Card({ place, index, language }: { place: RecommendedPlace; index: numb
             className="absolute right-2 top-2 rounded-full px-2 py-1 font-bebas text-[10px] tracking-[0.15em]"
             style={{ background: "var(--x-canvas)", color: "var(--x-ink)" }}
           >
-            AFTER DARK
+            {t.common.afterDark}
           </span>
         )}
       </div>

@@ -43,6 +43,7 @@ const COPY = {
  * re-engage (no dark patterns). Dismissible and auto-hides.
  */
 export default function ReturnWelcome() {
+  const { t } = useLanguage();
   const { language } = useLanguage();
   const c = COPY[language as keyof typeof COPY] ?? COPY.en;
   const [state, setState] = useState<null | { kind: "saved"; n: number } | { kind: "trip" }>(null);
@@ -116,7 +117,7 @@ export default function ReturnWelcome() {
             <button onClick={act} className="shrink-0 flex items-center gap-1 bg-yellow text-dark font-syne font-bold text-xs px-3.5 py-2 rounded-full hover:bg-yellow-dark transition-colors">
               {state.kind === "saved" ? c.view : c.continue} <ArrowRight size={12} />
             </button>
-            <button onClick={dismiss} aria-label="Dismiss" className="shrink-0 text-muted/50 hover:text-offwhite transition-colors">
+            <button onClick={dismiss} aria-label={t.common.dismiss} className="shrink-0 text-muted/50 hover:text-offwhite transition-colors">
               <X size={16} />
             </button>
           </div>

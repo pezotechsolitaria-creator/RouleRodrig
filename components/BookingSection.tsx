@@ -436,7 +436,7 @@ export default function BookingSection({
   const today = todayInRodrigues();
 
   return (
-    <section id="booking" className="bg-[#0a0a0a] py-24 md:py-36 overflow-x-hidden" aria-label="Book a scooter">
+    <section id="booking" className="bg-[#0a0a0a] py-24 md:py-36 overflow-x-hidden" aria-label={t.common.bookScooter}>
       <div className="max-w-7xl mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -528,7 +528,7 @@ export default function BookingSection({
                     onClick={downloadReceipt}
                     className="w-full flex items-center justify-center gap-2 border border-white/15 text-offwhite/80 font-syne font-bold text-sm py-3 rounded-xl hover:border-yellow/40 hover:text-yellow transition-colors"
                   >
-                    <Download size={15} /> Download receipt
+                    <Download size={15} /> {t.common.downloadReceipt}
                   </button>
                 </div>
               </motion.div>
@@ -658,7 +658,7 @@ export default function BookingSection({
                   </div>
                 )}
                 <p className="text-muted/40 font-dm text-[11px] mt-1.5">
-                  Tap one day for a 1-day rental, or tap a return day for a longer trip.
+                  {t.common.tapOneDay}
                 </p>
               </div>
 
@@ -742,7 +742,7 @@ export default function BookingSection({
                       disabled={formState === "loading"}
                     />
                   </div>
-                  {emailInvalid && <p className="text-red-400 font-dm text-[11px] mt-1.5">Please enter a valid email address.</p>}
+                  {emailInvalid && <p className="text-red-400 font-dm text-[11px] mt-1.5">{t.common.validEmail}</p>}
                 </div>
               </div>
 

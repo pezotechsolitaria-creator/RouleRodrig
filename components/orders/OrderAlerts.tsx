@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { Bell, BellRing, Loader2, Info } from "lucide-react";
 import { pushSupported, currentPushState, type PushState } from "@/lib/push/subscribe";
 
@@ -28,6 +29,7 @@ export default function OrderAlerts({
   email?: string | null;
   className?: string;
 }) {
+  const { t } = useLanguage();
   const [state, setState] = useState<PushState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +116,7 @@ export default function OrderAlerts({
     return (
       <p className={`flex items-start gap-2 font-dm text-xs text-muted ${className}`}>
         <Info size={13} className="mt-0.5 shrink-0" />
-        Notifications are blocked for this site in your browser settings.
+        {t.common.notificationsBlocked}
       </p>
     );
   }
@@ -130,7 +132,7 @@ export default function OrderAlerts({
         {requestId ? "Tell me when a price arrives" : `Notify me when this ${noun} changes`}
       </button>
       <p className="mt-1.5 text-center font-dm text-[11px] text-muted">
-        No account needed. Works even with this page closed.
+        {t.common.noAccountNeeded}
       </p>
       {error && <p className="mt-2 text-center font-dm text-xs text-red-400">{error}</p>}
     </div>

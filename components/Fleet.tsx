@@ -58,6 +58,7 @@ function resolveSpecs(item: FleetItem): Spec[] {
  * (they only hide-until-hover on desktop). Crossfade keeps it smooth.
  */
 function FleetImageCarousel({ scooter }: { scooter: FleetItem }) {
+  const { t } = useLanguage();
   const photos = scooter.images && scooter.images.length > 0
     ? scooter.images
     : scooter.image ? [scooter.image] : [];
@@ -133,14 +134,14 @@ function FleetImageCarousel({ scooter }: { scooter: FleetItem }) {
           <button
             onClick={prev}
             className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-black/45 backdrop-blur-sm border border-white/15 text-white flex items-center justify-center transition-opacity hover:bg-black/75 opacity-90 md:opacity-0 md:group-hover/carousel:opacity-100"
-            aria-label="Previous photo"
+            aria-label={t.a11y.prevPhoto}
           >
             <ChevronLeft size={17} />
           </button>
           <button
             onClick={next}
             className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-black/45 backdrop-blur-sm border border-white/15 text-white flex items-center justify-center transition-opacity hover:bg-black/75 opacity-90 md:opacity-0 md:group-hover/carousel:opacity-100"
-            aria-label="Next photo"
+            aria-label={t.a11y.nextPhoto}
           >
             <ChevronRight size={17} />
           </button>
@@ -276,7 +277,7 @@ export default function Fleet({
   if (visibleItems.length === 0) return null;
 
   return (
-    <section id="fleet" className="bg-dark pt-5 pb-14" aria-label="Vehicle fleet">
+    <section id="fleet" className="bg-dark pt-5 pb-14" aria-label={t.a11yMore.vehicleFleet}>
       <div className="max-w-5xl mx-auto px-4 md:px-6">
         <div className="mb-6">
           <p className="font-bebas text-yellow text-[11px] tracking-[0.3em] mb-1.5 uppercase">{eyebrow ?? t.fleet.sectionEyebrow}</p>

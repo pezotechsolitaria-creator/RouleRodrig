@@ -1,6 +1,7 @@
 "use client";
 
 import "leaflet/dist/leaflet.css";
+import { useLanguage } from "@/context/LanguageContext";
 import { useEffect, useRef, useState } from "react";
 import type { Map as LeafletMap, Marker, Polyline, CircleMarker, TileLayer } from "leaflet";
 import {
@@ -133,6 +134,7 @@ export default function TrackingMap({
   driver, pins = [], route, directLine, follow = true,
   className, fitTo, interactive = true, bubble = null, trail = null,
 }: Props) {
+  const { t } = useLanguage();
   const host = useRef<HTMLDivElement>(null);
   const map = useRef<LeafletMap | null>(null);
   const L = useRef<typeof import("leaflet") | null>(null);
@@ -718,13 +720,13 @@ export default function TrackingMap({
 
   return (
     <div className={`relative ${className ?? "h-full w-full"}`}>
-      <div ref={host} className="h-full w-full" role="application" aria-label="Live tracking map" />
+      <div ref={host} className="h-full w-full" role="application" aria-label={t.a11yMore.liveTrackingMap} />
 
       {/* Satellite / Map. Two options, both visible — a toggle that hides the
           alternative behind an icon makes people hunt for it. Bottom-left keeps
           it clear of the zoom control and of the floating status pill. */}
       {interactive && basemaps.length > 1 && (
-        <div className="rr-basemap-switch" role="group" aria-label="Map style">
+        <div className="rr-basemap-switch" role="group" aria-label={t.a11yMore.mapStyle}>
           {basemaps.map((b) => (
             <button
               key={b.id}

@@ -138,7 +138,7 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
   if (locs.length === 0) return null;
 
   return (
-    <section id="map" className="bg-dark py-24 md:py-36" aria-label="Island guide map">
+    <section id="map" className="bg-dark py-24 md:py-36" aria-label={t.a11yMore.islandGuideMap}>
       <div className="max-w-7xl mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -360,7 +360,7 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
                   type="button"
                   onClick={(e) => { e.stopPropagation(); step(-1); }}
                   className="absolute left-3 md:left-6 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
-                  aria-label="Previous photo"
+                  aria-label={t.a11y.prevPhoto}
                 >
                   <ChevronLeft size={24} />
                 </button>
@@ -368,7 +368,7 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
                   type="button"
                   onClick={(e) => { e.stopPropagation(); step(1); }}
                   className="absolute right-3 md:right-6 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
-                  aria-label="Next photo"
+                  aria-label={t.a11y.nextPhoto}
                 >
                   <ChevronRight size={24} />
                 </button>

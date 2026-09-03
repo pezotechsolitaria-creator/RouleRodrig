@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { Sun, Moon } from "lucide-react";
 import DuskSequence, { useDusk } from "@/components/DuskSequence";
 
@@ -64,6 +65,7 @@ export function applyTheme(resolved: "light" | "dark") {
 }
 
 export default function ThemeToggle() {
+  const { t } = useLanguage();
   const [choice, setChoice] = useState<ThemeChoice>("dark");
   // Nothing reads as selected until the client has read localStorage. The
   // server cannot know the choice, and claiming one for a frame is a visible
@@ -120,7 +122,7 @@ export default function ThemeToggle() {
       <DuskSequence run={run} onDone={clear} />
       <div
         role="group"
-        aria-label="Appearance"
+        aria-label={t.a11yMore.appearance}
         className="flex w-full gap-1 rounded-2xl border border-white/10 bg-white/[0.04] p-1"
       >
         {opts.map((o) => {

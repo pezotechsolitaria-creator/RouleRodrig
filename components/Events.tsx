@@ -17,7 +17,7 @@ export default function Events({ events = [] }: { events?: EventItem[] }) {
   if (items.length === 0) return null;
 
   return (
-    <section id="events" className="bg-dark pt-5 pb-14" aria-label="Island events">
+    <section id="events" className="bg-dark pt-5 pb-14" aria-label={t.a11yMore.islandEvents}>
       <div className="max-w-5xl mx-auto px-4 md:px-6">
         <div className="mb-6">
           <p className="font-bebas text-yellow text-[11px] tracking-[0.3em] mb-1.5 uppercase">{e.eyebrow}</p>

@@ -40,6 +40,7 @@ const COPY: Record<"en" | "fr" | "cr", (other: string) => [string, string]> = {
 };
 
 export default function WorldSwitchHint({ other }: { other: World }) {
+  const { t } = useLanguage();
   const { language } = useLanguage();
   const [show, setShow] = useState(false);
 
@@ -113,7 +114,7 @@ export default function WorldSwitchHint({ other }: { other: World }) {
         <button
           type="button"
           onClick={dismiss}
-          aria-label="Dismiss"
+          aria-label={t.common.dismiss}
           className="-mr-0.5 -mt-0.5 shrink-0 rounded-full p-1 text-muted/60 transition-colors hover:text-offwhite"
         >
           <X size={13} />

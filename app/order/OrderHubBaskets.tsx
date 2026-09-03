@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLanguage } from "@/context/LanguageContext";
 import { ShoppingBag, ChevronRight } from "lucide-react";
 import { useCarts } from "@/lib/cart/CartContext";
 import { CART_DOMAINS, CART_BASKET_NAME, type CartDomain } from "@/lib/cart/domains";
@@ -16,6 +17,7 @@ import { CART_DOMAINS, CART_BASKET_NAME, type CartDomain } from "@/lib/cart/doma
 // Client-only because the baskets live in localStorage; `hydrated` gates the
 // render so the server HTML and the first client paint agree.
 export default function OrderHubBaskets() {
+  const { t } = useLanguage();
   const { countFor, hydrated } = useCarts();
   if (!hydrated) return null;
 
@@ -34,7 +36,7 @@ export default function OrderHubBaskets() {
         >
           <ShoppingBag size={17} className="shrink-0 text-yellow" />
           <span className="min-w-0 flex-1 font-dm text-sm text-offwhite">
-            You have <strong className="text-yellow">{count}</strong>{" "}
+            {t.common.youHave} <strong className="text-yellow">{count}</strong>{" "}
             {count === 1 ? "thing" : "things"} waiting in your{" "}
             {CART_BASKET_NAME[domain].toLowerCase()} basket
           </span>

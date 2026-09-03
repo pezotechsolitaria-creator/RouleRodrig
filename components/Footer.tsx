@@ -48,7 +48,7 @@ export default function Footer({
   return (
     <footer
       className="bg-dark-card border-t border-dark-border"
-      aria-label="Site footer"
+      aria-label={t.a11y.siteFooter}
     >
       <div className="max-w-7xl mx-auto px-6 pt-8 pb-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 md:gap-14 mb-8">
@@ -57,7 +57,7 @@ export default function Footer({
             <Link
               href="/"
               className="flex items-center gap-2.5 mb-5"
-              aria-label="Roule Rodrigues home"
+              aria-label={t.a11y.home}
             >
               {/* The MARK — h-9 is 36px, too small for the lockup's tagline. */}
               {brandImage ? (

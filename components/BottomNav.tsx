@@ -24,6 +24,7 @@ import { showsVisitorNav } from "@/lib/nav-scope";
 // The TABS themselves come from lib/nav-tabs.ts — the same list AppHome renders
 // with its own chrome. This file owns the look, never the labels or the routes.
 export default function BottomNav() {
+  const { t } = useLanguage();
   const pathname = usePathname() || "/";
   const { language } = useLanguage();
 
@@ -95,7 +96,7 @@ export default function BottomNav() {
       <div aria-hidden className="h-16 md:hidden" />
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
         <nav
-          aria-label="Primary"
+          aria-label={t.a11y.primary}
           className="pointer-events-auto flex w-full max-w-sm items-center justify-around rounded-2xl border border-white/12 bg-dark/80 px-1.5 py-1.5 shadow-[0_16px_44px_-12px_rgba(0,0,0,0.75)] backdrop-blur-xl"
         >
           {NAV_TABS.map(item)}

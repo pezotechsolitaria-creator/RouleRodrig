@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Car } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 
 // ── THE JOURNEY AS ONE LINE ─────────────────────────────────────────────────
 //
@@ -36,6 +37,7 @@ export default function JourneyTrack({
   /** Position is stale: the vehicle stops asserting where it is. */
   stalled?: boolean;
 }) {
+  const { t } = useLanguage();
   const last = stages.length - 1;
   const current = Math.max(0, Math.min(at, last));
 
@@ -60,7 +62,7 @@ export default function JourneyTrack({
         )}
       </div>
 
-      <ol className="flex items-center" aria-label="Trip progress">
+      <ol className="flex items-center" aria-label={t.a11yMore.tripProgress}>
         {stages.map((s, i) => {
           const done = i < current;
           const isNow = i === current;

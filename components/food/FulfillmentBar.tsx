@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { ShoppingBag, Bike } from "lucide-react";
 import { fulfilmentChip } from "@/lib/shop/plain-words";
 import { centsToDecimalString } from "@/lib/money";
@@ -40,6 +41,7 @@ export default function FulfillmentBar({
   deliveryEnabled: boolean;
   deliveryFeeFrom: number | null;
 }) {
+  const { t } = useLanguage();
   const [mode, setMode] = useState<FoodFulfillment>("pickup");
   // SSR and the first paint cannot see localStorage, so rendering the stored
   // choice immediately would flash the wrong pill. Same reasoning as the cart's
@@ -63,7 +65,7 @@ export default function FulfillmentBar({
       <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-dark-card px-4 py-3">
         <ShoppingBag size={16} className="text-yellow" />
         <p className="font-dm text-sm text-offwhite">
-          Collection only right now
+          {t.common.collectionOnly}
           <span className="ml-1.5 text-muted">— delivery is paused.</span>
         </p>
       </div>
@@ -105,7 +107,7 @@ export default function FulfillmentBar({
             {" "}You share your location at checkout.
           </>
         ) : (
-          <>Collect it from the kitchen. No fee, and you get a code to show when you arrive.</>
+          <>{t.common.collectFromKitchen}</>
         )}
       </p>
     </div>

@@ -79,7 +79,7 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
   }
 
   return (
-    <section id="recommended" className="bg-dark pt-5 pb-14 scroll-mt-24" aria-label="Recommended places">
+    <section id="recommended" className="bg-dark pt-5 pb-14 scroll-mt-24" aria-label={t.a11yMore.recommendedPlaces}>
       <div className="max-w-5xl mx-auto px-4 md:px-6">
         <div className="mb-6">
           <p className="font-bebas text-yellow text-[11px] tracking-[0.3em] mb-1.5 uppercase">{ts.eyebrow}</p>
@@ -232,7 +232,7 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
                         onClick={() => setBookingPlace(p)}
                         className="flex items-center gap-1.5 bg-yellow text-dark hover:bg-yellow-dark text-xs font-syne font-bold px-3.5 py-2 rounded-full transition-colors"
                       >
-                        <CalendarCheck size={13} /> Book now
+                        <CalendarCheck size={13} /> {t.common.bookNow}
                       </button>
                     )}
                     {hasWa && (

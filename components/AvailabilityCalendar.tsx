@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface BookedRange {
@@ -58,6 +59,7 @@ export default function AvailabilityCalendar({
   onChange,
   labels,
 }: Props) {
+  const { t } = useLanguage();
   const anchor = startDate ? new Date(startDate) : new Date(minDate);
   const [view, setView] = useState(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
 
@@ -120,7 +122,7 @@ export default function AvailabilityCalendar({
           onClick={() => canGoPrev && setView(new Date(year, month - 1, 1))}
           disabled={!canGoPrev}
           className="p-1.5 rounded-lg text-muted hover:text-yellow disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
-          aria-label="Previous month"
+          aria-label={t.a11yMore.prevMonth}
         >
           <ChevronLeft size={18} />
         </button>
@@ -129,7 +131,7 @@ export default function AvailabilityCalendar({
           type="button"
           onClick={() => setView(new Date(year, month + 1, 1))}
           className="p-1.5 rounded-lg text-muted hover:text-yellow transition-colors"
-          aria-label="Next month"
+          aria-label={t.a11yMore.nextMonth}
         >
           <ChevronRight size={18} />
         </button>

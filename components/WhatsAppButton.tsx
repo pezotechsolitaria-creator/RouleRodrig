@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { X } from "lucide-react";
 import type { WhatsAppNumber } from "@/lib/defaults";
 
@@ -37,6 +38,7 @@ export default function WhatsAppButton({
   numbers?: WhatsAppNumber[];
   message?: string;
 }) {
+  const { t } = useLanguage();
   const [show, setShow] = useState(false);
   const [open, setOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -87,7 +89,7 @@ export default function WhatsAppButton({
         href={targets[0].url}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="Chat with us on WhatsApp"
+        aria-label={t.a11yMore.whatsappChat}
         className={`fixed bottom-[76px] right-5 z-[90] md:bottom-5 flex items-center justify-center w-14 h-14 rounded-full bg-[#25D366] shadow-[0_8px_30px_rgba(37,211,102,0.4)] transition-all duration-300 hover:scale-110 ${wrapVisibility}`}
       >
         {fabGlyph}

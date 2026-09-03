@@ -45,7 +45,7 @@ export default function UsefulNumbers({ contacts = [] }: { contacts?: UsefulCont
   }
 
   return (
-    <section id="useful" className="bg-dark py-8 md:py-12" aria-label="Emergency and useful numbers">
+    <section id="useful" className="bg-dark py-8 md:py-12" aria-label={t.a11yMore.emergencyNumbers}>
       <div className="mx-auto max-w-3xl px-5">
         <div className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.01] backdrop-blur-sm shadow-[0_20px_50px_-30px_rgba(0,0,0,0.9)]">
           <button
