@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Search, Loader2, RotateCcw } from "lucide-react";
 import BackLink from "@/components/BackLink";
@@ -58,6 +58,28 @@ export default function ManageBookingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [booking, setBooking] = useState<Booking | null>(null);
+  const emailRef = useRef<HTMLInputElement | null>(null);
+
+  // ── THE REFERENCE ARRIVES IN THE URL AND WAS THROWN AWAY (M164) ──────────
+  //
+  // /track's card links here as /manage-booking?ref=RR-XXXXXX — it knows the
+  // reference, because it just showed it to the customer. This page opened
+  // with an empty box and asked them to type it again, so "See the full
+  // details" looked like a button that did nothing.
+  //
+  // Read on mount rather than through useSearchParams: this is already a
+  // client component, and useSearchParams would drag a Suspense boundary in
+  // behind it for a string that is only needed after hydration anyway.
+  //
+  // Focus moves to the EMAIL box, not the reference: the reference is now
+  // filled in, and email is the only thing left for them to do.
+  useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get("ref");
+    if (!fromUrl) return;
+    setRef(fromUrl.trim().toUpperCase());
+    setKind("vehicle");
+    emailRef.current?.focus({ preventScroll: true });
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -185,6 +207,7 @@ export default function ManageBookingPage() {
               {(p) => (
                 <input
                   {...p}
+                  ref={emailRef}
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
