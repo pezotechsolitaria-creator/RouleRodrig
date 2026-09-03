@@ -218,10 +218,15 @@ const translations = {
     manageBooking: {
       title: "Track your order",
       subtitleVehicle:
-        "No account needed — enter your reference and the email you booked with.",
+        "Scooters, cars, boat trips, fishing and massages. No account needed — enter your reference and the email you booked with.",
       subtitleShop: "Shop orders are tied to the account you ordered with.",
       tabsLabel: "What are you tracking?",
-      tabVehicle: "Vehicle rental",
+      // The result type here is "vehicle" | "place" — this lookup has always
+      // found boat trips, fishing and massages as well as rentals, and the
+      // label said only "Vehicle rental". A customer with an experience
+      // booking read that and assumed this page was not for them, while
+      // /track was busy promising it could track exactly that.
+      tabVehicle: "Rental or experience",
       tabShop: "Shop order",
       shopTitle: "Your shop orders",
       shopBody:
@@ -1174,7 +1179,7 @@ const translations = {
       subtitleShop:
         "Les commandes boutique sont liées au compte avec lequel vous avez commandé.",
       tabsLabel: "Que suivez-vous ?",
-      tabVehicle: "Location de véhicule",
+      tabVehicle: "Location ou activité",
       tabShop: "Commande boutique",
       shopTitle: "Vos commandes boutique",
       shopBody:
@@ -2025,11 +2030,11 @@ const translations = {
       checkingStep3: "Ou peye, ek veikil la pou ou pou sa bann dat la.",
       checkingNote:
         "Si li pa lib, nou dir ou deswit ek propoz ou enn lot parey — nou pa pou zame debit ou pou enn veikil ki nou pa kapav donn ou.",
-      secureNowTitle: "Ouswa blok li aster",
+      secureNowTitle: "Ouswa blok li asterla",
       secureNowBody:
-        "Ou pa bizin atann nou. Pey depo la ek veikil la pou ou — premie depo peye gard li, ek tank personn pa fin peye, ou bann dat res ouver pou tou dimounn.",
+        "Ou pa bizin atann nou. Pey depo la ek veikil la pou ou — premie depo ki nou gagne gard li, ek tank nou pa finn gagn okenn, ou bann dat res ouver pou tou dimounn.",
       secureNowRefund:
-        "Si proprieter la pa kapav pran ou bann dat, nou rembours ou net dan 24 er.",
+        "Si proprieter la pa kapav pran ou bann dat, nou rembours ou tou seki ou finn peye dan 24 er.",
       errorTitle: "Enn zafer finn mal pas",
       errorDesc: "Esey ankor ou kontakt nou lor WhatsApp.",
       summaryTitle: "REZIME REZERVASION",
@@ -2082,7 +2087,7 @@ const translations = {
       subtitleShop:
         "Bann komann laboutik lie ar kont ki ou finn servi pou komande.",
       tabsLabel: "Ki ou pe swiv?",
-      tabVehicle: "Lokasion veikil",
+      tabVehicle: "Lokasion ouswa aktivite",
       tabShop: "Komann laboutik",
       shopTitle: "Ou bann komann laboutik",
       shopBody:

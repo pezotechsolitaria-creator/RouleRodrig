@@ -200,7 +200,19 @@ function ActivityCard({ activity }: { activity: Activity }) {
         )}
         {activity.amount != null && activity.amount > 0 && (
           <span className="font-syne font-extrabold text-yellow">
-            Rs {centsToDecimalString(activity.amount)}
+            {/* ── TWO UNITS, ONE FORMATTER (M162) ────────────────────────
+                /api/activity/lookup returns amounts in different units by
+                kind: a rental or an experience carries `deposit`/`amountPaid`
+                in whole RUPEES, a shop order carries `total` in CENTS. Every
+                one of them was run through centsToDecimalString, so a rental
+                deposit of Rs 524 rendered on the customer's tracking page as
+                "Rs 5.24" — a hundredth of what they actually paid, on the one
+                screen somebody opens when they are already anxious about their
+                money. */}
+            Rs{" "}
+            {activity.kind === "order"
+              ? centsToDecimalString(activity.amount)
+              : Math.round(activity.amount).toLocaleString("en-US")}
           </span>
         )}
       </div>
