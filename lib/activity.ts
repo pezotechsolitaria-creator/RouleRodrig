@@ -24,7 +24,12 @@
 // the words that are true for it, and only the STAGE is shared — which is what
 // lets one component draw one progress line for all of them.
 
-export const ACTIVITY_KINDS = ["vehicle", "place", "order"] as const;
+// ── EVERYTHING A CUSTOMER HAS DONE, NOT TWO THIRDS OF IT ────────────────────
+// "Your activity" listed rentals, experiences and shop orders. A taxi and a
+// delivery are just as much a thing you booked and want to check on, and for
+// those the signed-in customer was sent to type a reference into a lookup box
+// — for something the site already knows is theirs.
+export const ACTIVITY_KINDS = ["vehicle", "place", "order", "ride", "delivery"] as const;
 export type ActivityKind = (typeof ACTIVITY_KINDS)[number];
 
 /**
@@ -148,6 +153,65 @@ const ORDER_STAGE: Record<string, ActivityStage> = {
   refunded: "cancelled",
 };
 
+// ── RIDES ──────────────────────────────────────────────────────────
+// ride_requests.status, from the table's own CHECK constraint rather than from
+// memory: new, dispatching, assigned, driver_on_way, arrived, on_trip,
+// completed, cancelled, no_driver, no_show.
+const RIDE_LABEL: Record<ActivityStage, string> = {
+  pending: "Finding a driver",
+  confirmed: "Driver assigned",
+  active: "On the way",
+  done: "Completed",
+  cancelled: "Cancelled",
+};
+
+export function rideStage(status: string | null | undefined): ActivityStage {
+  switch (status) {
+    case "assigned":
+      return "confirmed";
+    case "driver_on_way":
+    case "arrived":
+    case "on_trip":
+      return "active";
+    case "completed":
+      return "done";
+    // no_driver and no_show are not "cancelled by you", but from the
+    // customer's side the ride is off and nothing more will happen — which is
+    // what this column is for. The precise word stays in statusLabel.
+    case "cancelled":
+    case "no_driver":
+    case "no_show":
+      return "cancelled";
+    default:
+      // new, dispatching, and anything added to the constraint later.
+      return "pending";
+  }
+}
+
+// ── DELIVERIES ────────────────────────────────────────────────
+// delivery_requests.status: open, accepted, cancelled, expired.
+const DELIVERY_LABEL: Record<ActivityStage, string> = {
+  pending: "Waiting for quotes",
+  confirmed: "Driver booked",
+  active: "Driver booked",
+  done: "Completed",
+  cancelled: "Cancelled",
+};
+
+export function deliveryStage(status: string | null | undefined): ActivityStage {
+  switch (status) {
+    case "accepted":
+      return "confirmed";
+    // An expired request had no driver take it in time. Nothing further
+    // happens, so it belongs with cancelled rather than pretending to be live.
+    case "cancelled":
+    case "expired":
+      return "cancelled";
+    default:
+      return "pending"; // open
+  }
+}
+
 export function orderStage(status: string | null | undefined): ActivityStage {
   return ORDER_STAGE[status ?? ""] ?? "pending";
 }
@@ -162,6 +226,8 @@ export function orderStage(status: string | null | undefined): ActivityStage {
 export function activityLabel(kind: ActivityKind, stage: ActivityStage, orderStatusLabel?: string): string {
   if (kind === "vehicle") return VEHICLE_LABEL[stage];
   if (kind === "place") return PLACE_LABEL[stage];
+  if (kind === "ride") return RIDE_LABEL[stage];
+  if (kind === "delivery") return DELIVERY_LABEL[stage];
   // Orders already have a customer-facing label per status (lib/orders/status)
   // which is more precise than the stage — "Ready" rather than "active".
   return orderStatusLabel ?? stage;
@@ -349,5 +415,75 @@ export function orderToActivity(row: OrderRow, statusLabel?: string): Activity {
     // one). Reading the column alone would therefore draw a live countdown on
     // an order that is already dead, so the stage decides, not the column.
     holdUntil: stage === "pending" ? (row.auto_release_at ?? null) : null,
+  };
+}
+
+// ── A TAXI IS A THING YOU BOOKED ───────────────────────────────────────
+export type RideRow = {
+  id: string;
+  service?: string | null;
+  pickup_label?: string | null;
+  dropoff_label?: string | null;
+  scheduled_at?: string | null;
+  created_at?: string | null;
+  quoted_price?: number | null;
+  currency?: string | null;
+  status?: string | null;
+};
+
+export function rideToActivity(row: RideRow): Activity {
+  const stage = rideStage(row.status);
+  const reference = bookingReference(row.id);
+  // Where to and from IS the title of a ride. "Taxi" alone would be the same
+  // word on every row a regular customer has.
+  const route = [row.pickup_label, row.dropoff_label].filter(Boolean).join(" → ");
+  return {
+    kind: "ride",
+    id: row.id,
+    reference,
+    title: route || "Taxi",
+    provider: null,
+    // A scheduled pickup is the date that matters; an "as soon as possible"
+    // ride only ever had the moment it was asked for.
+    date: row.scheduled_at ?? row.created_at ?? null,
+    amount: typeof row.quoted_price === "number" ? row.quoted_price : null,
+    currency: row.currency || "MUR",
+    stage,
+    statusLabel: activityLabel("ride", stage),
+    // Reference pre-filled. /taxi/track still asks for the phone, deliberately
+    // — a reference alone is not proof, and a phone number does not belong in
+    // a URL. What this removes is the customer copying a reference out of an
+    // email, which is the part they should never have had to do.
+    href: `/taxi/track?ref=${encodeURIComponent(reference)}`,
+  };
+}
+
+// ── AND SO IS A DELIVERY ───────────────────────────────────────────
+export type DeliveryRow = {
+  id: string;
+  what?: string | null;
+  pickup_text?: string | null;
+  dropoff_text?: string | null;
+  created_at?: string | null;
+  status?: string | null;
+};
+
+export function deliveryToActivity(row: DeliveryRow): Activity {
+  const stage = deliveryStage(row.status);
+  return {
+    kind: "delivery",
+    id: row.id,
+    reference: bookingReference(row.id),
+    title: row.what?.trim() || [row.pickup_text, row.dropoff_text].filter(Boolean).join(" → ") || "Delivery",
+    provider: null,
+    date: row.created_at ?? null,
+    // max_budget is what the customer was WILLING to pay, not what anything
+    // costs. Showing it as an amount would read as a price they had agreed.
+    amount: null,
+    currency: "MUR",
+    stage,
+    statusLabel: activityLabel("delivery", stage),
+    // The tracker takes the id alone, so this one needs nothing typed at all.
+    href: `/deliver/${row.id}`,
   };
 }

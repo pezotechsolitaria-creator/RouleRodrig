@@ -114,6 +114,8 @@ const EN = {
       vehicle: "Rental",
       place: "Booking",
       order: "Order",
+      ride: "Taxi",
+      delivery: "Delivery",
     } as Record<ActivityKind, string>,
     // ── THE BADGE ───────────────────────────────────────────────
     // The one word on this screen that says whether anything is wrong, and it
@@ -144,6 +146,23 @@ const EN = {
       // Orders are keyed by their own STATUS, not by stage: stage would collapse
       // "Preparing" and "Ready" into one word, and which of the two it is, is
       // the entire question somebody waiting for food is asking.
+      // Rides and deliveries are keyed by STAGE like vehicles and places: their
+      // own status vocabularies are richer than a badge can carry, and
+      // lib/activity.ts already reduces them to a stage the same way.
+      ride: {
+        pending: "Finding a driver",
+        confirmed: "Driver assigned",
+        active: "On the way",
+        done: "Completed",
+        cancelled: "Cancelled",
+      } as Record<ActivityStage, string>,
+      delivery: {
+        pending: "Waiting for quotes",
+        confirmed: "Driver booked",
+        active: "Driver booked",
+        done: "Completed",
+        cancelled: "Cancelled",
+      } as Record<ActivityStage, string>,
       order: {
         pending_payment: "Pending payment",
         awaiting_payment_confirmation: "Awaiting confirmation",
@@ -218,6 +237,8 @@ const FR: TrackCopy = {
       vehicle: "Location",
       place: "Réservation",
       order: "Commande",
+      ride: "Taxi",
+      delivery: "Livraison",
     },
     status: {
       vehicle: {
@@ -231,6 +252,20 @@ const FR: TrackCopy = {
         pending: "Demandé",
         confirmed: "Confirmé",
         active: "Aujourd’hui",
+        done: "Terminé",
+        cancelled: "Annulé",
+      },
+      ride: {
+        pending: "Recherche d’un chauffeur",
+        confirmed: "Chauffeur assigné",
+        active: "En route",
+        done: "Terminé",
+        cancelled: "Annulé",
+      },
+      delivery: {
+        pending: "En attente de devis",
+        confirmed: "Livreur réservé",
+        active: "Livreur réservé",
         done: "Terminé",
         cancelled: "Annulé",
       },
@@ -295,6 +330,8 @@ const CR: TrackCopy = {
       vehicle: "Lokasion",
       place: "Rezervasion",
       order: "Komann",
+      ride: "Taxi",
+      delivery: "Livrezon",
     },
     status: {
       vehicle: {
@@ -308,6 +345,20 @@ const CR: TrackCopy = {
         pending: "Finn demande",
         confirmed: "Konfirme",
         active: "Zordi",
+        done: "Finn fini",
+        cancelled: "Anile",
+      },
+      ride: {
+        pending: "Pe rod enn sofer",
+        confirmed: "Sofer finn gagne",
+        active: "Lor larout",
+        done: "Finn fini",
+        cancelled: "Anile",
+      },
+      delivery: {
+        pending: "Pe atann bann pri",
+        confirmed: "Livrer finn rezerve",
+        active: "Livrer finn rezerve",
         done: "Finn fini",
         cancelled: "Anile",
       },
