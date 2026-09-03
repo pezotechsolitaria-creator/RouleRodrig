@@ -99,21 +99,34 @@ export default function WorldSwitcher({
       {/* The hairline that separates the two halves — the visual equivalent of
           the word "or", without spending a word on it.
 
-          BOTH the hairline and the destination half hide below 390px. At a
-          measured 375px the full pill (≈187px) pushed the header's last icon
-          to 406.9px — the account button was clipped off-screen with no
-          scroll affordance. The pill stays a working switcher (its aria-label
-          names both worlds); what it gives up on a small phone is only the
-          preview of the OTHER world, not the control. */}
+          BOTH the hairline and the destination half hide below 448px, and that
+          number is measured rather than chosen. It was 390px, from the commit
+          that first found the header losing a button off the right edge; that
+          fixed 375px but only counted the pill, not the whole row. Measured on
+          the live homepage:
+
+            pill with CURATED   186px → account button's right edge at 432px
+            pill compact        103px → account button's right edge at 396px
+            viewport 412px      account clipped 20px off-screen
+            viewport 432px      account exactly on the edge, no padding left
+            viewport 448px      fits, with the row's own padding intact
+
+          So every phone from 390px to 431px — Pixel at 412, and plenty more —
+          showed the wide pill and lost the account button. 448 is the first
+          width where the preview and all six controls genuinely fit.
+
+          The pill stays a working switcher below that (its aria-label names
+          both worlds); what a small phone gives up is only the preview of the
+          OTHER world, not the control. */}
       <span
         aria-hidden
-        className="hidden h-3.5 w-px min-[390px]:block"
+        className="hidden h-3.5 w-px min-[448px]:block"
         style={{ background: "var(--rr-world-line, rgba(255,255,255,0.18))" }}
       />
 
       {/* WHERE YOU COULD GO. Quieter, and it brightens on approach so the
           control reveals that it is a door rather than a label. */}
-      <span className="hidden items-center gap-1 font-dm text-[10.5px] font-semibold leading-none text-muted transition-colors group-hover:text-offwhite min-[390px]:flex">
+      <span className="hidden items-center gap-1 font-dm text-[10.5px] font-semibold leading-none text-muted transition-colors group-hover:text-offwhite min-[448px]:flex">
         {copy.eyebrow}
         <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
       </span>
