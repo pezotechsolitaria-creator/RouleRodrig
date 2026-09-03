@@ -333,17 +333,17 @@ describe("validateRentalWindow", () => {
 
 describe("a price label may mention a second amount without changing the rate", () => {
   it("reads the DAILY rate, not the delivery figure beside it", () => {
-    // The car label became "From Rs 1499 + Rs 400 delivery" (M166) so the card
-    // declares the fee the way the scooter's "(free delivery)" always has.
-    // extractDailyPrice takes the first amount; if that ever changes, a car
-    // would silently be quoted at Rs 400 a day.
-    expect(extractDailyPrice("From Rs 1499 + Rs 400 delivery")).toBe(1499);
+    // The car label declares its fee the way the scooter's "(free delivery)"
+    // always has — "From Rs 1499 + Rs 600 delivery" (M166, fee corrected to
+    // Rs 600 in M168). extractDailyPrice takes the FIRST amount; if that ever
+    // changes, a car is silently quoted at Rs 600 a day.
+    expect(extractDailyPrice("From Rs 1499 + Rs 600 delivery")).toBe(1499);
     expect(extractDailyPrice("From Rs 699(free delivery)")).toBe(699);
     const b = priceBreakdown(
-      { price: "From Rs 1499 + Rs 400 delivery", category: "car" },
+      { price: "From Rs 1499 + Rs 600 delivery", category: "car" },
       1,
-      [{ id: "car", deliveryFee: 400 }],
+      [{ id: "car", deliveryFee: 600 }],
     )!;
-    expect(b).toMatchObject({ rental: 1499, delivery: 400, total: 1899, pct: 50 });
+    expect(b).toMatchObject({ rental: 1499, delivery: 600, total: 2099, pct: 50 });
   });
 });
