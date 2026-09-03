@@ -86,20 +86,42 @@ function EventCard({
         </div>
 
         {!cancelled && (
-          <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/[0.08] pt-3">
+          <>
+            <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/[0.08] pt-3">
+              <span
+                className={`font-dm text-xs font-semibold ${
+                  avail.tone === "gone" ? "text-red-400" : avail.tone === "low" ? "text-orange-300" : "text-muted"
+                }`}
+              >
+                {avail.text}
+              </span>
+              {event.fromPrice !== null && (
+                <span className="font-syne text-sm font-bold text-yellow">
+                  Rs {centsToDecimalString(event.fromPrice)}
+                </span>
+              )}
+            </div>
+
+            {/* THE THING THAT WAS MISSING. The card has always been a link, so
+                nothing was broken — but nothing on it looked pressable either,
+                and on a phone there is no hover to discover it with. A verb and
+                an arrow is the whole fix.
+
+                A <span>, not a <button>: this sits INSIDE the card's <Link>,
+                and nesting interactive elements is invalid and breaks keyboard
+                navigation. The card keeps its own focus ring; this is paint. */}
             <span
-              className={`font-dm text-xs font-semibold ${
-                avail.tone === "gone" ? "text-red-400" : avail.tone === "low" ? "text-orange-300" : "text-muted"
+              aria-hidden="true"
+              className={`mt-3 flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-xl font-syne text-sm font-bold transition-colors ${
+                avail.tone === "gone"
+                  ? "bg-white/[0.06] text-muted"
+                  : "bg-yellow text-dark group-hover:bg-yellow-dark"
               }`}
             >
-              {avail.text}
+              {avail.tone === "gone" ? c.availability.soldOut : c.list.getTickets}
+              {avail.tone !== "gone" && <ArrowRight size={15} />}
             </span>
-            {event.fromPrice !== null && (
-              <span className="font-syne text-sm font-bold text-yellow">
-                Rs {centsToDecimalString(event.fromPrice)}
-              </span>
-            )}
-          </div>
+          </>
         )}
       </div>
     </Link>

@@ -75,8 +75,9 @@ const EN = {
   list: {
     eyebrow: "WHAT'S ON",
     title: "Events in Rodrigues",
+    getTickets: "Get tickets",
     intro:
-      "Reserve your place in seconds — no account needed. You pay the organiser at the door.",
+      "Reserve your place in seconds — no account needed. Your QR code is your ticket at the gate.",
     /** Stamped across the card image. */
     cancelled: "Cancelled",
     emptyTitle: "Nothing on sale right now",
@@ -239,8 +240,9 @@ const FR: EventsCopy = {
   list: {
     eyebrow: "À L'AFFICHE",
     title: "Événements à Rodrigues",
+    getTickets: "Prendre les billets",
     intro:
-      "Réservez votre place en quelques secondes — sans compte. Vous payez l’organisateur à l’entrée.",
+      "Réservez votre place en quelques secondes — sans compte. Votre QR code est votre billet à l’entrée.",
     cancelled: "Annulé",
     emptyTitle: "Rien en vente pour le moment",
     emptyBody:
@@ -382,8 +384,9 @@ const CR: EventsCopy = {
   list: {
     eyebrow: "SA KI POU ARIVE",
     title: "Evennman dan Rodrig",
+    getTickets: "Pran tiket",
     intro:
-      "Rezerv ou plas an detrwa segonn — pena kont pou fer. Ou peye organizater la kot laport.",
+      "Rezerv ou plas an detrwa segonn — pena kont pou fer. Ou QR code sa mem ou tiket kot laport.",
     cancelled: "Anile",
     emptyTitle: "Nanye pa an vant pou lemoman",
     emptyBody:

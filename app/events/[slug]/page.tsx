@@ -38,7 +38,7 @@ export async function generateMetadata({
   const when = eventDateOnly(event.startsAt, event.timezone);
   const description =
     event.tagline ??
-    `${event.name} — ${when}${event.venueName ? ` at ${event.venueName}` : ""}, Rodrigues. Reserve your ticket online and pay at the door.`;
+    `${event.name} — ${when}${event.venueName ? ` at ${event.venueName}` : ""}, Rodrigues. Reserve your ticket online — your QR code is your ticket at the gate.`;
   const url = `${SITE_URL}/events/${event.slug}`;
 
   return {
