@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle, Loader2, ShieldCheck } from "lucide-react";
+import { CheckCircle, Loader2, ShieldCheck, Zap } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { PAYPAL_FEE_PERCENT } from "@/lib/site";
 
@@ -56,11 +56,11 @@ export default function PayPalDeposit({
   const [ready, setReady] = useState(false);
 
   const T = {
-    en: { pay: "Pay deposit to confirm", payFull: "Pay in full", deposit: "Deposit", full: "Full", fee: `incl. ${PAYPAL_FEE_PERCENT}% PayPal fee`, paid: "Payment received — booking confirmed! 🎉", secure: "Secure payment via PayPal", err: "Payment could not be completed. Please try again or pay by bank transfer." },
-    fr: { pay: "Payer l'acompte pour confirmer", payFull: "Payer la totalité", deposit: "Acompte", full: "Total", fee: `frais PayPal ${PAYPAL_FEE_PERCENT}% inclus`, paid: "Paiement reçu — réservation confirmée ! 🎉", secure: "Paiement sécurisé via PayPal", err: "Le paiement n'a pas pu aboutir. Réessayez ou payez par virement." },
-    cr: { pay: "Pey depo pou konfirmen", payFull: "Pey tou", deposit: "Depo", full: "Tou", fee: `avek ${PAYPAL_FEE_PERCENT}% fre PayPal`, paid: "Peyman resevwar — rezervasion konfirmen! 🎉", secure: "Peyman sekirize ar PayPal", err: "Peyman pa finn pas. Reisi ankor ouswa pey par bank." },
+    en: { pay: "Pay deposit to confirm", payFull: "Pay in full", deposit: "Deposit", full: "Full", fee: `incl. ${PAYPAL_FEE_PERCENT}% PayPal fee`, paid: "Payment received — booking confirmed! 🎉", secure: "Secure payment via PayPal", firstPaid: "First deposit paid keeps the vehicle — the dates are not held until this clears.", err: "Payment could not be completed. Please try again or pay by bank transfer." },
+    fr: { pay: "Payer l'acompte pour confirmer", payFull: "Payer la totalité", deposit: "Acompte", full: "Total", fee: `frais PayPal ${PAYPAL_FEE_PERCENT}% inclus`, paid: "Paiement reçu — réservation confirmée ! 🎉", secure: "Paiement sécurisé via PayPal", firstPaid: "Le premier acompte reçu garde le véhicule — les dates ne sont pas bloquées tant qu'il n'est pas reçu.", err: "Le paiement n'a pas pu aboutir. Réessayez ou payez par virement." },
+    cr: { pay: "Pey depo pou konfirmen", payFull: "Pey tou", deposit: "Depo", full: "Tou", fee: `avek ${PAYPAL_FEE_PERCENT}% fre PayPal`, paid: "Peyman resevwar — rezervasion konfirmen! 🎉", secure: "Peyman sekirize ar PayPal", firstPaid: "Premie depo peye gard veikil la — bann dat pa reserve tank li pa fin pas.", err: "Peyman pa finn pas. Reisi ankor ouswa pey par bank." },
   }[language] ?? {
-    pay: "Pay deposit to confirm", payFull: "Pay in full", deposit: "Deposit", full: "Full", fee: `incl. ${PAYPAL_FEE_PERCENT}% PayPal fee`, paid: "Payment received — booking confirmed!", secure: "Secure payment via PayPal", err: "Payment could not be completed.",
+    pay: "Pay deposit to confirm", payFull: "Pay in full", deposit: "Deposit", full: "Full", fee: `incl. ${PAYPAL_FEE_PERCENT}% PayPal fee`, paid: "Payment received — booking confirmed!", secure: "Secure payment via PayPal", firstPaid: "First deposit paid keeps the vehicle — the dates are not held until this clears.", err: "Payment could not be completed.",
   };
 
   // One word, three languages. The button is the last thing a customer reads
@@ -161,7 +161,17 @@ export default function PayPalDeposit({
       )}
       <div ref={containerRef} />
       {state === "error" && msg && <p className="mt-2 font-dm text-xs text-red-400">{msg}</p>}
-      <p className="mt-2 flex items-center gap-1.5 font-dm text-[11px] text-muted/70">
+      {/* ── FIRST TO PAY KEEPS IT, SAID WHERE THE MONEY IS ASKED FOR ──────
+          PRODUCT.md has always been explicit that a vehicle goes to whoever
+          pays first and the other customer is told — but no payment surface
+          said so. Somebody who leaves this page to think about it has no way
+          to know the dates are still open to everyone else, and finds out by
+          losing them. It is honest urgency: the rule already exists, it just
+          was not written down anywhere the customer could read it. */}
+      <p className="mt-2 flex items-start gap-1.5 font-dm text-[11px] leading-relaxed text-muted/70">
+        <Zap size={12} className="mt-0.5 shrink-0 text-yellow/60" /> {T.firstPaid}
+      </p>
+      <p className="mt-1.5 flex items-center gap-1.5 font-dm text-[11px] text-muted/70">
         <ShieldCheck size={12} className="text-yellow/60" /> {T.secure}
       </p>
     </div>
