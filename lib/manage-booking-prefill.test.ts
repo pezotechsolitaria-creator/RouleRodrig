@@ -24,7 +24,11 @@ const TRACK = readFileSync(join(ROOT, "lib", "activity.ts"), "utf8");
 describe("the reference in the link is used", () => {
   it("reads ref from the query string on mount", () => {
     expect(CODE).toContain('new URLSearchParams(window.location.search).get("ref")');
-    expect(CODE).toContain("setRef(fromUrl.trim().toUpperCase())");
+    // The read was later split across two lines when the signed-in
+    // auto-lookup landed (M165); what matters is that the value is
+    // cleaned and put into state, not which line it happens on.
+    expect(CODE).toContain("fromUrl.trim().toUpperCase()");
+    expect(CODE).toContain("setRef(cleaned)");
   });
 
   it("normalises it, because references are shown uppercase everywhere else", () => {
