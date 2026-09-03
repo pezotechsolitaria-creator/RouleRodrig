@@ -59,26 +59,40 @@ describe("extractDailyPrice", () => {
 });
 
 describe("priceBreakdown", () => {
-  it("scooter, 1 day: full rate + Rs 400 delivery, 25% deposit", () => {
+  // The rule was upside down until 2026-09-03 (M159) and these tests encoded
+  // it: scooters were charged Rs 400 and cars delivered free. The owner's rule
+  // is the opposite, and the scooters' own price label always said so —
+  // "From Rs 699(free delivery)". A live booking went out charging a scooter
+  // Rs 400 before anyone noticed.
+  it("scooter, 1 day: full rate, delivery FREE, 25% deposit", () => {
     const b = priceBreakdown(SCOOTER, 1)!;
-    expect(b).toMatchObject({ rental: 1200, delivery: 400, total: 1600, pct: 25 });
-    expect(b.deposit).toBe(400);
-    expect(b.balance).toBe(1200);
+    expect(b).toMatchObject({ rental: 1200, delivery: 0, total: 1200, pct: 25 });
+    expect(b.deposit).toBe(300);
+    expect(b.balance).toBe(900);
   });
 
-  it("3+ days earns the 10% tier", () => {
-    const b = priceBreakdown(SCOOTER, 3)!;
-    expect(b.rental).toBe(Math.round(1200 * 0.9) * 3);
+  // No automatic discount (M159). The tiers took 10% off at 3 days and 15% at
+  // 7, silently: an 8-day Avenis was quoted Rs 594 a day against an advertised
+  // Rs 699. The rate on the card is now the rate charged, at every length.
+  it("charges the advertised rate at every length, with no silent discount", () => {
+    for (const days of [1, 2, 3, 6, 7, 8, 14, 30]) {
+      expect(priceBreakdown(SCOOTER, days)!.rental).toBe(1200 * days);
+    }
   });
 
-  it("7+ days earns the 15% tier", () => {
-    const b = priceBreakdown(SCOOTER, 7)!;
-    expect(b.rental).toBe(Math.round(1200 * 0.85) * 7);
+  it("reproduces the real booking that exposed this", () => {
+    // RR-329D81: AVENIS 125cc at Rs 699, 8 days, delivered. It was quoted
+    // Rs 4,752 rental (Rs 594/day) + Rs 400 delivery = Rs 5,152.
+    const avenis = { price: "From Rs 699(free delivery)", category: "scooter" };
+    const b = priceBreakdown(avenis, 8)!;
+    expect(b.rental).toBe(5592);   // 8 x 699, not 8 x 594
+    expect(b.delivery).toBe(0);    // free, not Rs 400
+    expect(b.total).toBe(5592);
   });
 
-  it("car: free delivery and a 50% deposit", () => {
+  it("car: delivery IS charged, and a 50% deposit", () => {
     const b = priceBreakdown(CAR, 2)!;
-    expect(b.delivery).toBe(0);
+    expect(b.delivery).toBe(400);
     expect(b.pct).toBe(50);
     expect(b.deposit).toBe(Math.round(b.total / 2));
   });
@@ -127,18 +141,19 @@ describe("deliveryFee — owner-set, per category", () => {
 
   it("falls back for a vehicle whose category is not in the list at all", () => {
     expect(deliveryFee({ price: "Rs 500", category: "jetski" }, CATS)).toBe(400);
-    expect(deliveryFee(CAR, CATS.filter((c) => c.id !== "car"))).toBe(0);
+    // A car with no configured fee now falls back to being CHARGED.
+    expect(deliveryFee(CAR, CATS.filter((c) => c.id !== "car"))).toBe(400);
   });
 
-  it("keeps the old behaviour when no categories are passed", () => {
-    expect(deliveryFee(SCOOTER)).toBe(400);
-    expect(deliveryFee(CAR)).toBe(0);
+  it("falls back to free for scooters and charged for everything else", () => {
+    expect(deliveryFee(SCOOTER)).toBe(0);
+    expect(deliveryFee(CAR)).toBe(400);
   });
 
   it("refuses a negative or fractional fee rather than charging it", () => {
     expect(deliveryFee(SCOOTER, [{ id: "scooter", deliveryFee: -500 }])).toBe(0);
     expect(deliveryFee(SCOOTER, [{ id: "scooter", deliveryFee: 249.6 }])).toBe(250);
-    expect(deliveryFee(SCOOTER, [{ id: "scooter", deliveryFee: NaN }])).toBe(400);
+    expect(deliveryFee(SCOOTER, [{ id: "scooter", deliveryFee: NaN }])).toBe(0);
   });
 
   it("flows through priceBreakdown into the total and the deposit", () => {

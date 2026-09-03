@@ -423,7 +423,25 @@ export async function POST(req: NextRequest) {
           : record.total_price
             ? `\n💰 ${record.total_price}`
             : "") +
-        (record.phone ? `\n📞 ${record.phone}` : ""),
+        (record.phone ? `\n📞 ${record.phone}` : "") +
+        // ── WHERE TO TAKE IT (M159) ──────────────────────────────────────
+        // The delivery address arrives in the customer own note — "Amener le
+        // scooter a La villa ALLAMANDA, Saint-Francois..." — and the
+        // confirmation EMAIL printed it while this WhatsApp alert did not.
+        // The owner reads the alert on his phone and then had to open the
+        // email to find out where he was driving to.
+        //
+        // Last, and on its own line, because it is the longest field and the
+        // one he is looking for. Trimmed at 300 characters: CallMeBot sends
+        // over a URL, and a customer who pastes an essay would silently lose
+        // the whole message rather than the tail of one field.
+        (record.message
+          ? `\n\u{1F4CD} ${
+              record.message.length > 300
+                ? `${record.message.slice(0, 297)}…`
+                : record.message
+            }`
+          : ""),
     });
   } catch {
     /* ignore */

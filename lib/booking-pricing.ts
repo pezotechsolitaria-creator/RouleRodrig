@@ -87,7 +87,18 @@ export function deliveryFee(
     // fraction of a rupee cannot be charged — clamp rather than propagate.
     return Math.max(0, Math.round(cat.deliveryFee));
   }
-  return catId === "car" ? 0 : DELIVERY_EACH_WAY * 2;
+  // ── THE RULE WAS THE WRONG WAY ROUND (M159) ──────────────────────────────
+  //
+  // This returned 0 for cars and Rs 400 for everything else, so every SCOOTER
+  // rental was charged Rs 400 delivery and every CAR got it free. The owner's
+  // rule is the opposite, and his own price label has said so all along:
+  // "From Rs 699(free delivery)" on the scooters, nothing of the kind on the
+  // car. A live booking went out on 2026-09-03 charging a scooter Rs 400.
+  //
+  // Scooters are free because that is the offer the site advertises. Anything
+  // else keeps the Rs 200-each-way default until the owner sets a figure for
+  // its category in admin, which is the path this function exists to serve.
+  return catId === "scooter" ? 0 : DELIVERY_EACH_WAY * 2;
 }
 
 /**
@@ -131,9 +142,17 @@ export function priceBreakdown(
   if (!vehicle || days <= 0) return null;
   const daily = extractDailyPrice(vehicle.price);
   if (!daily) return null;
-  let rate = daily;
-  if (days >= 7) rate = Math.round(daily * 0.85);
-  else if (days >= 3) rate = Math.round(daily * 0.9);
+  // ── NO AUTOMATIC DISCOUNT (M159) ─────────────────────────────────────────
+  //
+  // This applied 15% off at 7 days and 10% at 3, silently. An 8-day Avenis
+  // was quoted at Rs 594 a day when the advertised rate is Rs 699 — the owner
+  // saw it on a real booking confirmation and called it what it is. The rate a
+  // customer is shown on the vehicle card is now the rate they are charged.
+  //
+  // If a multi-day discount is wanted later it belongs in admin beside the
+  // delivery fee and the deposit percentage, as a number the owner sets and
+  // can see — not two hardcoded multipliers he could feel and never change.
+  const rate = daily;
   const rental = rate * days;
   const delivery = deliveryFee(vehicle, categories);
   const total = rental + delivery;

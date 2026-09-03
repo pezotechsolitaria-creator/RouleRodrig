@@ -2,7 +2,10 @@ import { ShieldCheck, BadgePercent, MessageCircle, CalendarCheck } from "lucide-
 
 const ITEMS = [
   { icon: ShieldCheck, title: "Helmet included", desc: "Every rental, no extra charge" },
-  { icon: BadgePercent, title: "Best local price", desc: "Multi-day discounts" },
+  // WAS "Multi-day discounts", which stopped being true when the automatic
+  // 10%/15% tiers came out of lib/booking-pricing.ts (M159). Free scooter
+  // delivery is the offer that IS real, and is now priced that way.
+  { icon: BadgePercent, title: "Free scooter delivery", desc: "Brought to where you are staying" },
   { icon: MessageCircle, title: "WhatsApp support", desc: "Real people, fast replies" },
   { icon: CalendarCheck, title: "Easy booking", desc: "Request in a minute" },
 ];

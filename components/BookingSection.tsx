@@ -911,9 +911,6 @@ export default function BookingSection({
                           {convert(`Rs ${breakdown.balance.toLocaleString()}`)}
                         </dd>
                       </div>
-                      {days >= 3 && (
-                        <p className="text-green-400/80 text-xs font-dm">{t.booking.discountNote}</p>
-                      )}
                       {/* The cancellation terms, at the moment money is asked
                           for — they used to appear NOWHERE in the booking flow.
 
