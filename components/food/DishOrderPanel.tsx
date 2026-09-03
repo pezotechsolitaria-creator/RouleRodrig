@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import Link from "next/link";
 import { Plus, Minus, ShoppingBag, Clock } from "lucide-react";
 import { toast } from "sonner";
@@ -26,6 +27,7 @@ import { UNAVAILABLE_LABEL, type FoodDetail } from "@/lib/food/types";
 // last plate produce exactly one order.
 
 export default function DishOrderPanel({ dish }: { dish: FoodDetail }) {
+  const { t } = useLanguage();
   const { cart, addItem, clear } = useCart("food");
   const sellable = useMemo(() => dish.variants.filter((v) => v.stock > 0), [dish.variants]);
   const [variantId, setVariantId] = useState<string>(
@@ -90,7 +92,7 @@ export default function DishOrderPanel({ dish }: { dish: FoodDetail }) {
           href="/food?open=1"
           className="mt-3.5 inline-block rounded-xl border border-yellow/50 px-4 py-2.5 font-dm text-sm font-bold text-yellow transition-colors hover:bg-yellow/10"
         >
-          See what&apos;s ready now
+          {t.dish.seeReady}
         </Link>
       </div>
     );
@@ -100,7 +102,7 @@ export default function DishOrderPanel({ dish }: { dish: FoodDetail }) {
     <div className="rounded-2xl border border-white/10 bg-dark-card p-5">
       {dish.variants.length > 1 && (
         <fieldset>
-          <legend className="font-bebas text-[11px] tracking-[0.25em] text-muted">CHOOSE A SIZE</legend>
+          <legend className="font-bebas text-[11px] tracking-[0.25em] text-muted">{t.dish.chooseSize}</legend>
           <div className="mt-2.5 space-y-2">
             {dish.variants.map((v) => {
               const out = v.stock <= 0;
@@ -144,7 +146,7 @@ export default function DishOrderPanel({ dish }: { dish: FoodDetail }) {
         <div className="flex items-center gap-1 rounded-full border border-white/15 p-1">
           <button
             type="button"
-            aria-label="One fewer"
+            aria-label={t.dish.oneFewer}
             onClick={() => setQty((n) => Math.max(1, n - 1))}
             disabled={qty <= 1}
             className="flex h-9 w-9 items-center justify-center rounded-full text-offwhite disabled:opacity-30"
@@ -154,7 +156,7 @@ export default function DishOrderPanel({ dish }: { dish: FoodDetail }) {
           <span className="min-w-8 text-center font-syne text-base font-extrabold tabular-nums">{qty}</span>
           <button
             type="button"
-            aria-label="One more"
+            aria-label={t.dish.oneMore}
             onClick={() => setQty((n) => Math.min(max, n + 1))}
             disabled={qty >= max}
             className="flex h-9 w-9 items-center justify-center rounded-full text-offwhite disabled:opacity-30"
@@ -179,7 +181,7 @@ export default function DishOrderPanel({ dish }: { dish: FoodDetail }) {
         disabled={!variant || max === 0}
         className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-yellow px-5 py-4 font-dm text-base font-bold text-dark transition-opacity hover:opacity-90 disabled:opacity-40"
       >
-        <ShoppingBag size={17} /> Add to order
+        <ShoppingBag size={17} /> {t.dish.addToOrder}
       </button>
 
       {dish.prepMin != null && dish.prepMax != null && (

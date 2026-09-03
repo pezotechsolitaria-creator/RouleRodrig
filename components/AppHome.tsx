@@ -196,7 +196,7 @@ export default function AppHome({
   mascot?: string;
   logo?: string;
 }) {
-  const { language, setLanguage } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   const { count } = useFavorites();
   const pathname = usePathname() || "/v2";
   const L = (t: Tri) =>
@@ -328,7 +328,7 @@ export default function AppHome({
           <Link
             href="/"
             className="mr-2 flex items-center"
-            aria-label="Roule Rodrigues home"
+            aria-label={t.a11y.home}
           >
             {/* The mark as a solid rotating cube. Four sides carry the artwork;
                 the top and bottom close the box so it never turns edge-on and
@@ -401,7 +401,7 @@ export default function AppHome({
               pseudo-element is invisible and clicks through to the button. */}
           <button
             onClick={cycle}
-            aria-label="Change language"
+            aria-label={t.a11y.changeLanguage}
             className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 font-bebas text-[11px] tracking-widest text-muted transition-colors after:absolute after:-inset-1 after:content-[''] hover:text-yellow"
           >
             {language.toUpperCase()}
@@ -438,7 +438,7 @@ export default function AppHome({
             entirely. One list drives both (lib/nav-tabs.ts), so the two chromes
             can never drift apart or disagree about what exists. */}
         <nav
-          aria-label="Primary"
+          aria-label={t.a11y.primary}
           className="hidden border-t border-white/10 md:block"
         >
           <div className="mx-auto flex max-w-6xl items-center gap-1 px-5 py-2">
@@ -747,7 +747,7 @@ export default function AppHome({
             It sits below the rails on purpose: the first screen belongs to
             the cards (owner's instruction, above). */}
         {about && (
-          <section aria-label="About Roule Rodrigues" className="mt-10">
+          <section aria-label={t.a11y.about} className="mt-10">
             <h2 className="font-syne text-[15px] font-bold text-offwhite">
               Roule Rodrigues
             </h2>

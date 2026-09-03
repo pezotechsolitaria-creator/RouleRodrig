@@ -56,7 +56,7 @@ export default function WorldFooter({
   return (
     <Reveal>
       <footer
-        aria-label="Site footer"
+        aria-label={t.a11y.siteFooter}
         className="mx-auto mt-4 w-full max-w-6xl px-5 lg:mt-10 lg:px-8"
       >
         <div className="rr-cur-rule mb-8" style={{ maxWidth: "100%" }} />
@@ -64,7 +64,7 @@ export default function WorldFooter({
         <div className="grid gap-8 sm:grid-cols-2 lg:gap-14">
           {/* Brand */}
           <div>
-            <Link href="/" className="mb-4 flex min-h-11 items-center gap-2.5" aria-label="Roule Rodrigues home">
+            <Link href="/" className="mb-4 flex min-h-11 items-center gap-2.5" aria-label={t.a11y.home}>
               {brandMark ? (
                 <Image
                   src={brandMark}

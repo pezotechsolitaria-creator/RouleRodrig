@@ -214,7 +214,8 @@
 // v299 - signing in and resetting a password speak all three languages.
 // v300 - the two pages that recruit partners speak all three languages.
 // v301 - the account and every order screen speak all three languages.
-const CACHE = "rr-cache-v301";
+// v302 - the app shell, dish panel and screen-reader labels speak all three languages.
+const CACHE = "rr-cache-v302";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

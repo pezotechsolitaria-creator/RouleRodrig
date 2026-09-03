@@ -96,7 +96,7 @@ export default function ScooterDetailModal({
               unoptimized={isUpload}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-muted/30">No photo</div>
+            <div className="w-full h-full flex items-center justify-center text-muted/30">{t.a11y.noPhoto}</div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-dark-card via-transparent to-transparent" />
 
@@ -112,8 +112,8 @@ export default function ScooterDetailModal({
 
           {photos.length > 1 && (
             <>
-              <button onClick={() => setIdx((i) => (i - 1 + photos.length) % photos.length)} className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors" aria-label="Previous photo"><ChevronLeft size={18} /></button>
-              <button onClick={() => setIdx((i) => (i + 1) % photos.length)} className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors" aria-label="Next photo"><ChevronRight size={18} /></button>
+              <button onClick={() => setIdx((i) => (i - 1 + photos.length) % photos.length)} className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors" aria-label={t.a11y.prevPhoto}><ChevronLeft size={18} /></button>
+              <button onClick={() => setIdx((i) => (i + 1) % photos.length)} className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors" aria-label={t.a11y.nextPhoto}><ChevronRight size={18} /></button>
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
                 {photos.map((_, i) => (
                   <button key={i} onClick={() => setIdx(i)} className={`h-1.5 rounded-full transition-all ${i === idx ? "bg-yellow w-4" : "bg-white/50 w-1.5"}`} aria-label={`Photo ${i + 1}`} />
@@ -191,7 +191,7 @@ export default function ScooterDetailModal({
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 bg-green-500/15 text-green-400 hover:bg-green-500/25 font-syne font-bold text-sm py-3.5 px-5 rounded-xl transition-colors"
               >
-                <MessageCircle size={16} /> Ask a question
+                <MessageCircle size={16} /> {t.a11y.askQuestion}
               </a>
             )}
           </div>

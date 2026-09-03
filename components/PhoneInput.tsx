@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { Phone, CheckCircle, ChevronDown, Search } from "lucide-react";
 import { isValidPhoneNumber, parsePhoneNumberFromString, getExampleNumber, type CountryCode } from "libphonenumber-js";
 import { absorbCountryCode } from "@/lib/phone";
@@ -116,6 +117,7 @@ const DEFAULT_INPUT_CLASS =
  * international number, e.g. "+230 5251 2345".
  */
 export default function PhoneInput({ value, onChange, disabled, inputClassName, id }: Props) {
+  const { t } = useLanguage();
   const [dialIso, setDialIso] = useState<CountryCode>("MU");
   const [num, setNum] = useState("");
   const [open, setOpen] = useState(false);
@@ -170,7 +172,7 @@ export default function PhoneInput({ value, onChange, disabled, inputClassName, 
             type="button"
             disabled={disabled}
             onClick={() => setOpen((o) => !o)}
-            aria-label="Select country code"
+            aria-label={t.phoneInput.selectCode}
             // Without these the button never announces that it opens anything,
             // or whether it is currently open.
             aria-haspopup="listbox"
@@ -191,8 +193,8 @@ export default function PhoneInput({ value, onChange, disabled, inputClassName, 
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   // A placeholder is not an accessible name.
-                  aria-label="Search country"
-                  placeholder="Search country…"
+                  aria-label={t.phoneInput.searchCountry}
+                  placeholder={t.phoneInput.searchCountryPlaceholder}
                   className="w-full bg-dark border border-dark-border rounded-lg pl-9 pr-3 py-2 text-sm text-offwhite font-dm focus:border-yellow focus:outline-none"
                 />
               </div>
@@ -212,7 +214,7 @@ export default function PhoneInput({ value, onChange, disabled, inputClassName, 
                   </button>
                 ))}
                 {filtered.length === 0 && (
-                  <p className="px-3 py-4 text-muted/50 text-xs text-center">No match</p>
+                  <p className="px-3 py-4 text-muted/50 text-xs text-center">{t.phoneInput.noMatch}</p>
                 )}
               </div>
             </div>

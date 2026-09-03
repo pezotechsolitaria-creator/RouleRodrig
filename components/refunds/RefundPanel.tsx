@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { Loader2, Undo2, CheckCircle2 } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 
@@ -41,6 +42,7 @@ function query(cred: RefundCredential): string {
 }
 
 export default function RefundPanel({ credential }: { credential: RefundCredential }) {
+  const { t } = useLanguage();
   const [refunds, setRefunds] = useState<Refund[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -154,24 +156,24 @@ export default function RefundPanel({ credential }: { credential: RefundCredenti
                 <input
                   value={holder}
                   onChange={(e) => setHolder(e.target.value)}
-                  placeholder="Account holder name"
-                  aria-label="Account holder name"
+                  placeholder={t.refundBank.accountHolder}
+                  aria-label={t.refundBank.accountHolder}
                   maxLength={200}
                   className="min-h-[44px] w-full rounded-xl border border-white/15 bg-transparent px-3 font-dm text-sm text-offwhite placeholder:text-muted"
                 />
                 <input
                   value={account}
                   onChange={(e) => setAccount(e.target.value)}
-                  placeholder="Account number"
-                  aria-label="Account number"
+                  placeholder={t.refundBank.accountNumber}
+                  aria-label={t.refundBank.accountNumber}
                   maxLength={64}
                   className="min-h-[44px] w-full rounded-xl border border-white/15 bg-transparent px-3 font-dm text-sm text-offwhite placeholder:text-muted"
                 />
                 <input
                   value={bank}
                   onChange={(e) => setBank(e.target.value)}
-                  placeholder="Bank (optional, e.g. MCB)"
-                  aria-label="Bank name"
+                  placeholder={t.refundBank.bankOptional}
+                  aria-label={t.refundBank.bankName}
                   maxLength={120}
                   className="min-h-[44px] w-full rounded-xl border border-white/15 bg-transparent px-3 font-dm text-sm text-offwhite placeholder:text-muted"
                 />

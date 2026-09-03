@@ -152,7 +152,7 @@ export default function Navbar({
         }`}
       >
         <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
-          <Link href="/" className="flex items-center group" aria-label="Roule Rodrigues home">
+          <Link href="/" className="flex items-center group" aria-label={t.a11y.home}>
             {logoEl}
           </Link>
 
@@ -195,7 +195,7 @@ export default function Navbar({
             <button
               onClick={cycleCurrency}
               className="flex items-center gap-1.5 text-xs font-dm text-muted hover:text-offwhite border border-dark-border hover:border-yellow/50 px-3 py-2 rounded-full transition-all duration-200"
-              aria-label="Change currency"
+              aria-label={t.a11y.changeCurrency}
               title="Change currency"
             >
               <span className="font-bold text-yellow">{CURRENCY_SYMBOL[currency]}</span>
@@ -209,7 +209,7 @@ export default function Navbar({
             <button
               onClick={openSaved}
               aria-label={`Saved (${savedCount})`}
-              title="Your saved list"
+              title={t.a11y.savedList}
               className="relative flex items-center justify-center w-10 h-10 rounded-full border border-dark-border hover:border-yellow/50 text-muted hover:text-offwhite transition-all duration-200"
             >
               <Heart size={17} className={savedCount > 0 ? "fill-red-500 text-red-500" : ""} />
@@ -246,7 +246,7 @@ export default function Navbar({
             <button
               className="text-offwhite p-1 hover:text-yellow transition-colors"
               onClick={() => setMenuOpen(true)}
-              aria-label="Open navigation menu"
+              aria-label={t.a11y.openMenu}
             >
               <Menu size={24} />
             </button>
@@ -266,7 +266,7 @@ export default function Navbar({
             <button
               className="absolute top-5 right-6 text-offwhite hover:text-yellow transition-colors"
               onClick={() => setMenuOpen(false)}
-              aria-label="Close navigation menu"
+              aria-label={t.a11y.closeMenu}
             >
               <X size={28} />
             </button>

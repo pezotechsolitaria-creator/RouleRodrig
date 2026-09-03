@@ -261,7 +261,7 @@ export default function ReviewsContact({
    */
   initialReviews?: PublicReview[];
 }) {
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const L = COPY[language as keyof typeof COPY] ?? COPY.en;
   const c = contact ?? DEFAULT_CONTENT.contact;
 
@@ -365,7 +365,7 @@ export default function ReviewsContact({
     <section
       id="contact"
       className="bg-dark py-8 md:py-12 overflow-x-hidden scroll-mt-24"
-      aria-label="Reviews and contact"
+      aria-label={t.a11y.reviewsAndContact}
     >
       <h2 className="sr-only">Reviews &amp; contact — Roule Rodrigues</h2>
       <div className="max-w-4xl mx-auto px-5">
@@ -471,14 +471,14 @@ export default function ReviewsContact({
                 <>
                   <button
                     onClick={() => scrollRail(-1)}
-                    aria-label="Previous reviews"
+                    aria-label={t.a11y.prevReviews}
                     className="hidden sm:flex absolute -left-3 top-1/2 -translate-y-1/2 h-8 w-8 items-center justify-center rounded-full bg-dark-card border border-white/15 text-offwhite hover:border-yellow/50 transition-colors"
                   >
                     <ChevronLeft size={16} />
                   </button>
                   <button
                     onClick={() => scrollRail(1)}
-                    aria-label="Next reviews"
+                    aria-label={t.a11y.nextReviews}
                     className="hidden sm:flex absolute -right-3 top-1/2 -translate-y-1/2 h-8 w-8 items-center justify-center rounded-full bg-dark-card border border-white/15 text-offwhite hover:border-yellow/50 transition-colors"
                   >
                     <ChevronRight size={16} />

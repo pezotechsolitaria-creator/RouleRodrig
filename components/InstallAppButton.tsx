@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Download, X, Share, MoreVertical, Plus } from "lucide-react";
@@ -33,6 +34,7 @@ function detectPlatform(): Platform {
  * visitor on every phone can always install the app.
  */
 export default function InstallAppButton({ variant = "chip" }: { variant?: "chip" | "menu" | "icon" }) {
+  const { t } = useLanguage();
   const [installed, setInstalled] = useState(false);
   const [hasNative, setHasNative] = useState(false);
   const [platform, setPlatform] = useState<Platform>("desktop");
@@ -92,12 +94,12 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
         onClick={handleClick}
         className="flex items-center gap-3 bg-yellow/10 text-yellow border border-yellow/30 font-syne font-bold text-lg px-8 py-4 rounded-full hover:bg-yellow/15 transition-colors"
       >
-        <Download size={20} /> Install app
+        <Download size={20} /> {t.install.install}
       </button>
     ) : variant === "icon" ? (
       <button
         onClick={handleClick}
-        aria-label="Install the app"
+        aria-label={t.install.installApp}
         className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-muted transition-colors after:absolute after:-inset-1 after:content-[''] hover:border-yellow/50 hover:text-yellow"
       >
         <Download size={16} />
@@ -108,7 +110,7 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
         aria-label="Install the app"
         className="flex items-center gap-1.5 text-xs font-dm text-muted hover:text-yellow border border-dark-border hover:border-yellow/50 px-3 py-2 rounded-full transition-all duration-200"
       >
-        <Download size={14} /> <span className="hidden lg:inline">Install app</span>
+        <Download size={14} /> <span className="hidden lg:inline">{t.install.install}</span>
       </button>
     );
 
@@ -180,8 +182,8 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/icon-192.png" alt="" className="w-12 h-12 rounded-2xl" />
                 <div>
-                  <p className="font-syne font-extrabold text-offwhite text-base leading-tight">Install Roule Rodrigues</p>
-                  <p className="font-dm text-muted text-xs">Add it to your home screen — opens like an app.</p>
+                  <p className="font-syne font-extrabold text-offwhite text-base leading-tight">{t.install.installTitle}</p>
+                  <p className="font-dm text-muted text-xs">{t.install.subtitle}</p>
                 </div>
               </div>
 
@@ -192,7 +194,7 @@ export default function InstallAppButton({ variant = "chip" }: { variant?: "chip
                     onClick={installNow}
                     className="w-full flex items-center justify-center gap-2 bg-yellow text-dark font-syne font-bold text-sm py-3.5 rounded-full hover:bg-yellow-dark transition-colors"
                   >
-                    <Download size={16} /> Install now
+                    <Download size={16} /> {t.install.installNow}
                   </button>
                   <p className="text-center font-dm text-muted/60 text-[11px] mt-2">or add it manually:</p>
                 </div>
