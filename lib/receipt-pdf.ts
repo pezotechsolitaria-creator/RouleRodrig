@@ -1,4 +1,5 @@
 import type { ReceiptData } from "./receipt";
+import { RECEIPT_LOGO } from "./receipt-logo";
 
 // ── A real PDF, with no dependency ───────────────────────────────────────────
 //
@@ -137,8 +138,14 @@ function buildContent(d: ReceiptData, dateLabel: string): string {
   let y = PAGE_H - MARGIN;
 
   // ── Header ────────────────────────────────────────────────────────────────
-  ops.push(BLACK, text(MARGIN, y, 17, "F2", "ROULE RODRIGUES"));
-  ops.push(gray(0.4), text(MARGIN, y - 15, 9, "F1", "roulerodrig.com  -  Rodrigues Island"));
+  // The mark sits left of the wordmark at 34pt square, baseline-aligned with
+  // the two lines of text beside it. `cm` scales the unit square the image is
+  // drawn into, so the numbers here ARE the size on the page.
+  const LOGO = 34;
+  ops.push(`q ${LOGO} 0 0 ${LOGO} ${MARGIN} ${y - LOGO + 12} cm /Im1 Do Q`);
+  const TX = MARGIN + LOGO + 10;
+  ops.push(BLACK, text(TX, y, 17, "F2", "ROULE RODRIGUES"));
+  ops.push(gray(0.4), text(TX, y - 15, 9, "F1", "roulerodrig.com  -  Rodrigues Island"));
   ops.push(gray(0.4), text(VALUE_X + 90, y, 9, "F1", dateLabel));
   ops.push(gray(0.4), text(VALUE_X + 90, y - 13, 9, "F1", `Ref: ${d.ref}`));
 
@@ -211,15 +218,28 @@ export function buildReceiptPdf(d: ReceiptData, now: Date = new Date()): Uint8Ar
     year: "numeric",
   });
   const content = buildContent(d, dateLabel);
+  // atob gives one character per byte, which is exactly the representation the
+  // assembler below counts and writes.
+  const logoBytes = atob(RECEIPT_LOGO.base64);
 
   const objects: string[] = [
     "<</Type/Catalog/Pages 2 0 R>>",
     "<</Type/Pages/Kids[3 0 R]/Count 1>>",
     `<</Type/Page/Parent 2 0 R/MediaBox[0 0 ${PAGE_W} ${PAGE_H}]` +
-      "/Resources<</Font<</F1 5 0 R/F2 6 0 R>>>>/Contents 4 0 R>>",
+      "/Resources<</Font<</F1 5 0 R/F2 6 0 R>>/XObject<</Im1 7 0 R>>>>/Contents 4 0 R>>",
     `<</Length ${content.length}>>\nstream\n${content}\nendstream`,
     "<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>",
     "<</Type/Font/Subtype/Type1/BaseFont/Helvetica-Bold/Encoding/WinAnsiEncoding>>",
+    // The logo. DCTDecode means the JPEG bytes are handed to the reader
+    // untouched — no re-encoding, and nothing here has to understand JPEG.
+    // Decoded to a latin-1 string so it obeys this file's one rule: one
+    // character is one byte, or every xref offset below is wrong.
+    `<</Type/XObject/Subtype/Image/Width ${RECEIPT_LOGO.width}/Height ${RECEIPT_LOGO.height}` +
+      `/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${logoBytes.length}>>` +
+      `
+stream
+${logoBytes}
+endstream`,
   ];
 
   let file = "%PDF-1.4\n";

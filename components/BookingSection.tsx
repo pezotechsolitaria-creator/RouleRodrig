@@ -87,7 +87,7 @@ export default function BookingSection({
   useEffect(() => setMounted(true), []);
   const [showPartnerCode, setShowPartnerCode] = useState(false);
   const [lastBooking, setLastBooking] = useState<
-    { scooter: string; range: string; days: number; name: string; email: string; total: string; bookingId?: string; deposit?: number; totalMur?: number } | null
+    { scooter: string; range: string; days: number; name: string; email: string; total: string; bookingId?: string; deposit?: number; totalMur?: number; rate?: number; rental?: number; delivery?: number; balance?: number; pct?: number } | null
   >(null);
   const [agreed, setAgreed] = useState(false);
   const [agreeError, setAgreeError] = useState(false);
@@ -290,11 +290,38 @@ export default function BookingSection({
       customer: lastBooking.name,
       itemLabel: "Vehicle",
       item: lastBooking.scooter,
+      // ── THE ARITHMETIC, NOT JUST THE ANSWER (M167) ──────────────────────
+      // The receipt used to say "Estimated total Rs 2,097" and stop, so a
+      // customer could not check the sum or see that delivery was free — the
+      // two things they are most likely to query at pickup. Every line comes
+      // from the same server-priced breakdown the booking was created from.
       rows: [
         { label: "Dates", value: `${lastBooking.range} (${lastBooking.days} day${lastBooking.days !== 1 ? "s" : ""})` },
-        ...(lastBooking.total ? [{ label: "Estimated total", value: lastBooking.total }] : []),
+        ...(lastBooking.rate && lastBooking.rental != null
+          ? [{
+              label: `${lastBooking.days} day${lastBooking.days !== 1 ? "s" : ""} x Rs ${lastBooking.rate.toLocaleString()}`,
+              value: `Rs ${lastBooking.rental.toLocaleString()}`,
+            }]
+          : []),
+        ...(lastBooking.delivery != null
+          ? [{
+              label: "Delivery",
+              // Free is worth saying in words. A "Rs 0" line reads like an
+              // omission; "Free" reads like the offer it is.
+              value: lastBooking.delivery > 0 ? `Rs ${lastBooking.delivery.toLocaleString()}` : "Free",
+            }]
+          : []),
+        ...(lastBooking.total ? [{ label: "Total", value: lastBooking.total, strong: true }] : []),
         ...((lastBooking.deposit ?? 0) > 0
-          ? [{ label: depositPaid ? "Deposit paid" : "Deposit due", value: `Rs ${(lastBooking.deposit ?? 0).toLocaleString()}`, strong: true }]
+          ? [{
+              label: depositPaid
+                ? "Deposit paid"
+                : `Deposit due${lastBooking.pct ? ` (${lastBooking.pct}%)` : ""}`,
+              value: `Rs ${(lastBooking.deposit ?? 0).toLocaleString()}`,
+            }]
+          : []),
+        ...(lastBooking.balance != null && lastBooking.balance > 0
+          ? [{ label: "Balance at pickup", value: `Rs ${lastBooking.balance.toLocaleString()}` }]
           : []),
       ],
       note: depositPaid
@@ -447,6 +474,13 @@ export default function BookingSection({
         bookingId: resData.bookingId,
         deposit: breakdown?.deposit ?? resData.depositAmount ?? 0,
         totalMur: breakdown?.total,
+        // Carried so the receipt can show the arithmetic rather than a single
+        // figure the customer has to take on trust (M167).
+        rate: breakdown ? Math.round(breakdown.rental / Math.max(1, days)) : undefined,
+        rental: breakdown?.rental,
+        delivery: breakdown?.delivery,
+        balance: breakdown?.balance,
+        pct: breakdown?.pct,
       });
       setFormState("success");
       setForm({ name: "", email: "", phone: "", scooter: "", start_date: "", end_date: "", pickup_time: "10:00", return_time: "10:00", message: "", partner_code: "" });
