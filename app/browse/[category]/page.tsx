@@ -347,7 +347,9 @@ export default async function BrowsePage({
   // owner's free-text "What's on" notices underneath. This page was the second
   // thing called Events, and it called notFound() whenever the notice list was
   // empty — so an Events link could land on "Lost on the island".
-  if (category === "events") redirect("/events");
+  // Events are off the website (2026-08-29): follow them home, not to a
+  // redirect that redirects again.
+  if (category === "events") redirect("/");
   const { content, fleet, ratings, recentBookings, businessWhatsApp } =
     await getFleetView();
   const cats = buildBrowseCategories(content, fleet, recentBookings);

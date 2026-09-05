@@ -86,25 +86,10 @@ export default async function ExplorePage() {
       tags: [],
     }));
 
-  // Local events — "What's on" moved here from the homepage.
-  const events: ExploreItem[] = content.events
-    .filter((e) => e.title)
-    .map((e) => ({
-      id: `event-${e.id}`,
-      name: e.title,
-      nameFr: e.titleFr,
-      nameCr: e.titleCr,
-      description: e.description,
-      descriptionFr: e.descriptionFr,
-      descriptionCr: e.descriptionCr,
-      image: e.image,
-      href: "/events",
-      filterKey: "event",
-      tags: [e.date].filter(Boolean) as string[],
-      featured: e.featured,
-    }));
-
-  const all: ExploreItem[] = [...activities, ...attractions, ...routes, ...events];
+  // Events are OFF the website (owner decision, 2026-08-29): the "What's on"
+  // rail is gone with them — every card pointed at /events, which now
+  // redirects home.
+  const all: ExploreItem[] = [...activities, ...attractions, ...routes];
 
   // "Top Attractions" hero card → opens the interactive island map. Photo falls
   // back through the hero shot → a scenic viewpoint/beach → any attraction.

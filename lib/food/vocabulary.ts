@@ -86,7 +86,7 @@ export const FOOD_VOCAB: SellerVocab = {
 export const EVENT_VOCAB: SellerVocab = {
   seller: "organiser",
   sellers: "organisers",
-  browseHref: "/events",
+  browseHref: "/",
   browseLabel: "See what's on",
   browseEmptyLabel: "See what's on",
   emptyTitle: "You have no tickets held",

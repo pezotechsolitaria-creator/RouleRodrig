@@ -253,8 +253,10 @@ export const DEFAULT_CURATED: WorldDoc = {
     {
       id: "sec-events",
       type: "events",
-      enabled: true,
-      seeAll: "/events",
+      // Events are off the website (2026-08-29): the section type survives for
+      // old docs, but no new doc starts with it on and the renderer skips it.
+      enabled: false,
+      seeAll: "/",
       title: T("What's on", "À l'affiche", "Ki pe pase"),
       subtitle: T(
         "Tickets bought here, not at the door.",
