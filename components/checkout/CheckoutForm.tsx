@@ -18,6 +18,7 @@ import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 import { todayLine, deliveryLine, nextOpenLabel, type ScheduleStatus } from "@/lib/schedule";
 import { readFulfillment as readFoodFulfillment } from "@/components/food/FulfillmentBar";
 import { vocabFor, domainFromFlags } from "@/lib/food/vocabulary";
+import WhenPicker, { type PickedSlot } from "@/components/food/WhenPicker";
 import { FULFILMENT } from "@/lib/shop/plain-words";
 import PickupLocationCard, { type PickupLocation } from "@/components/orders/PickupLocationCard";
 import { checkoutHoldCopy, type PaymentProvider } from "@/lib/orders/hold";
@@ -135,6 +136,10 @@ export default function CheckoutForm({
   const [locationError, setLocationError] = useState<string | null>(null);
   const [deliveryInstructions, setDeliveryInstructions] = useState("");
   const [notes, setNotes] = useState("");
+  // M161. null = ASAP, which is what every order was before this existed.
+  // Plain form state on purpose: never localStorage and never a URL param,
+  // because a time chosen an hour ago is not a time the kitchen still has.
+  const [slot, setSlot] = useState<PickedSlot>(null);
   // Bank transfer is the default because it is, as of M89, the only method the
   // platform offers. The cart-resolve effect still corrects this from what the
   // shop actually accepts, so nothing here assumes the switch is on.
@@ -406,6 +411,10 @@ export default function CheckoutForm({
           customerPhone: phone,
           fulfillment,
           notes: notes || undefined,
+          // Both or neither. The RPC re-derives the real window and
+          // refuses (RR030) anything it would not have offered.
+          pickupDate: slot?.date,
+          pickupTime: slot?.time,
           provider,
           deliveryLat: coords?.lat,
           deliveryLng: coords?.lng,
@@ -812,6 +821,21 @@ export default function CheckoutForm({
               inputClassName="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 pl-10 font-dm text-sm text-offwhite placeholder:text-muted/50 focus:border-yellow focus:outline-none"
             />
           </div>
+          {/* ── M161 · WHEN DO YOU WANT IT? ────────────────────────────
+              Food collection only. Delivery has its own timing story and the
+              kitchen's window is not the rider's. The component renders
+              nothing at all unless the kitchen opted in to pre-orders, so
+              this is inert for every shop and every event. */}
+          {sellerDomain === "food" && fulfillment === "pickup" && cart?.storeId && (
+            <WhenPicker
+              storeId={cart.storeId}
+              variantIds={cart.items.map((i) => i.variantId)}
+              kitchenName={pickup?.storeName ?? s.the}
+              asapAvailable={schedule?.is_open ?? true}
+              value={slot}
+              onChange={setSlot}
+            />
+          )}
           <Textarea
             value={notes} onChange={(e) => setNotes(e.target.value)}
             placeholder={c.form.details.notesPlaceholder(s)} aria-label={c.form.details.notesAria}

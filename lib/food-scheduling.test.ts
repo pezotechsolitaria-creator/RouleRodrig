@@ -188,3 +188,61 @@ describe("the slots endpoint decides nothing", () => {
     expect(api).toContain('guardShared(req, "food-slots"');
   });
 });
+
+describe("the picker is mounted, and only where it can work", () => {
+  const form = SRC("components", "checkout", "CheckoutForm.tsx");
+  const picker = SRC("components", "food", "WhenPicker.tsx");
+
+  it("renders for food collection only", () => {
+    // Delivery has its own timing story and the kitchen's window is not the
+    // rider's; shop and event checkout must never see this control.
+    expect(form).toContain('sellerDomain === "food" && fulfillment === "pickup"');
+  });
+
+  it("sends both fields or neither", () => {
+    expect(form).toContain("pickupDate: slot?.date");
+    expect(form).toContain("pickupTime: slot?.time");
+  });
+
+  it("keeps the choice in form state, never in storage or the URL", () => {
+    // A time chosen an hour ago is not a time the kitchen still has.
+    const block = form.slice(form.indexOf("const [slot, setSlot]"), form.indexOf("const [slot, setSlot]") + 200);
+    expect(block).toContain("useState<PickedSlot>(null)");
+    expect(picker).not.toContain("localStorage");
+    expect(picker).not.toContain("searchParams");
+  });
+
+  it("decides nothing itself", () => {
+    // Every offered time comes from food_pickup_slots(). If the timezone or
+    // the prep maths appears here, the picker and checkout can disagree.
+    expect(picker).toContain('fetch("/api/food/slots"');
+    expect(picker).not.toContain("Indian/Mauritius");
+    expect(picker).not.toMatch(/opens_at|closes_at|preorder_days/);
+  });
+
+  it("does not block checkout when it cannot load", () => {
+    // Falling back to ASAP is the pre-M161 behaviour, which always works.
+    expect(picker).toContain("setSlots([])");
+  });
+
+  it("hides ASAP when the kitchen is shut", () => {
+    expect(picker).toContain("asapAvailable && (");
+  });
+});
+
+describe("the copy exists in all three languages", () => {
+  const copy = SRC("lib", "food", "copy.i18n.ts");
+
+  it("has a when block per language", () => {
+    // FOOD_COPY is Record<Language, FoodCopy> and FoodCopy = typeof EN, so a
+    // missing French key is a COMPILE error rather than a blank screen —
+    // unlike lib/i18n.ts, which is read through a cast.
+    expect((copy.match(/^  when: \{/gm) ?? []).length).toBe(3);
+  });
+
+  it("keeps the Kreol house style", () => {
+    // This file's own note: <s> not <ch>, and the reader is "ou", never "to".
+    expect(copy).toContain('title: "Kan ou anvi li');
+    expect(copy).toContain("Ou pe komann pou");
+  });
+});

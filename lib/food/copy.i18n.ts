@@ -270,6 +270,25 @@ const EN = {
 
   /** Why a dish cannot be ordered, keyed by FoodUnavailableReason. Short — it
    *  sits across the bottom of a card image. */
+  // ── M161 · WHEN DO YOU WANT IT ────────────────────────────────────────
+  // The times themselves come from food_pickup_slots(); these are only the
+  // words around them.
+  when: {
+    title: "When do you want it?",
+    asap: "As soon as it’s ready",
+    asapReady: (from: string, to: string) => `Ready about ${from} – ${to}`,
+    later: "Later",
+    today: "Today",
+    tomorrow: "Tomorrow",
+    closedNow: (kitchen: string) => `${kitchen} is closed now.`,
+    orderingFor: (day: string, from: string, to: string) =>
+      `You are ordering for ${day.toLowerCase()}, ${from} – ${to}.`,
+    noSlots: "No collection times left today.",
+    noHours: "This kitchen has not set its opening hours yet.",
+    closedDay: "Closed that day.",
+    placeFor: (time: string) => `Place order for ${time}`,
+  },
+
   unavailable: {
     sold_out: "Sold out today",
     wrong_day: "Not cooked today",
@@ -440,6 +459,22 @@ const FR: FoodCopy = {
     spicy: "Épicé",
   },
 
+  when: {
+    title: "Vous le voulez quand ?",
+    asap: "Dès que c’est prêt",
+    asapReady: (from, to) => `Prêt vers ${from} – ${to}`,
+    later: "Plus tard",
+    today: "Aujourd’hui",
+    tomorrow: "Demain",
+    closedNow: (kitchen) => `${kitchen} est fermé maintenant.`,
+    orderingFor: (day, from, to) =>
+      `Vous commandez pour ${day.toLowerCase()}, ${from} – ${to}.`,
+    noSlots: "Plus de créneaux aujourd’hui.",
+    noHours: "Cette cuisine n’a pas encore indiqué ses horaires.",
+    closedDay: "Fermé ce jour-là.",
+    placeFor: (time) => `Commander pour ${time}`,
+  },
+
   unavailable: {
     sold_out: "Épuisé aujourd’hui",
     wrong_day: "Pas cuisiné aujourd’hui",
@@ -592,6 +627,22 @@ const CR: FoodCopy = {
     gluten_free: "San gluten",
     halal: "Halal",
     spicy: "Piman",
+  },
+
+  when: {
+    title: "Kan ou anvi li ?",
+    asap: "Deswit ki li pare",
+    asapReady: (from, to) => `Pare apepre ${from} – ${to}`,
+    later: "Pli tar",
+    today: "Zordi",
+    tomorrow: "Demin",
+    closedNow: (kitchen) => `${kitchen} ferme la.`,
+    orderingFor: (day, from, to) =>
+      `Ou pe komann pou ${day.toLowerCase()}, ${from} – ${to}.`,
+    noSlots: "Nepli ena ler pou zordi.",
+    noHours: "Sa lakwizinn la pankor met so lertan.",
+    closedDay: "Ferme sa zour la.",
+    placeFor: (time) => `Komann pou ${time}`,
   },
 
   unavailable: {
