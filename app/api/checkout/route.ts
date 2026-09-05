@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
   const {
     storeId, items, customerName, customerPhone, fulfillment, notes, provider,
     deliveryLat, deliveryLng, deliveryInstructions, deliveryZoneId, deliverySizeClass, expectedTotal, idempotencyKey,
-    guestEmail,
+    guestEmail, pickupDate, pickupTime,
   } = parsed.data;
 
   // ── Guest checkout (M20) ───────────────────────────────────────────────────
@@ -115,8 +115,15 @@ export async function POST(req: NextRequest) {
   }
   const rpcClient = isGuest ? await getPrivileged() : supabase;
 
-  const { data, error } = await rpcClient
-    .rpc("create_order", {
+  // ── M161 · A FOOD ORDER CAN SAY WHEN ──────────────────────────────────────
+  // Both or neither, enforced here rather than in the schema so a half-filled
+  // picker degrades to ASAP instead of 400-ing a customer who never saw the
+  // control. create_food_order is a NEW signature beside create_order, not a
+  // replacement: shop and event checkout reach the untouched 14-arg function
+  // on exactly the path they always did.
+  const wantsSlot = Boolean(pickupDate && pickupTime);
+
+  const orderArgs = {
       p_store_id: storeId,
       p_items: items.map((i) => ({ variant_id: i.variantId, quantity: i.quantity })),
       p_customer_name: customerName,
@@ -142,13 +149,29 @@ export async function POST(req: NextRequest) {
       // Ignored by the RPC whenever auth.uid() is set — see the identity block
       // at the top of create_order.
       p_guest_email: isGuest ? guestEmail : null,
-    })
+  };
+
+  const { data, error } = await rpcClient
+    .rpc(
+      wantsSlot ? "create_food_order" : "create_order",
+      wantsSlot
+        // The window is re-derived and re-checked inside the RPC; these two
+        // are a REQUEST, not a decision. RR030 comes back if it is not a slot
+        // the kitchen would have offered.
+        ? { ...orderArgs, p_pickup_date: pickupDate, p_pickup_time: pickupTime }
+        : orderArgs,
+    )
     .single();
 
   if (error) {
     if (error.code === NOT_FOUND_CODE) return NextResponse.json({ error: error.message }, { status: 404 });
     if (error.code === VALIDATION_CODE) return NextResponse.json({ error: error.message }, { status: 400 });
     if (error.code === SUBSCRIPTION_CODE || error.code === METHOD_NOT_ACCEPTED_CODE) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    // M161: "The kitchen is closed then." / "That time has passed." The RPC
+    // writes these for the customer, so they are passed through unchanged.
+    if (error.code === "RR030") {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }
     if (error.code === UNAVAILABLE_CODE || error.code === STOCK_CODE) {

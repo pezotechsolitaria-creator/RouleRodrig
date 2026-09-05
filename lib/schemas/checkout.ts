@@ -63,6 +63,15 @@ export const checkoutSchema = z
     // a second real order holding a second stock reservation for 48h.
     // create_order() returns the existing order for a repeated key rather than
     // creating a twin; it never influences pricing.
+    // ── M161 · WHEN THE CUSTOMER WANTS IT ──────────────────────────────
+    // Both or neither. Absent means ASAP, which is every order placed before
+    // M161 and still the default. These do NOT decide anything: the client
+    // sends a date and a half-hour, and food_pickup_window() re-derives the
+    // real window server-side and refuses (RR030) anything that is not a slot
+    // it would have offered — closed, past, beyond the kitchen's pre-order
+    // horizon, or not on a half-hour boundary.
+    pickupDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    pickupTime: z.string().regex(/^([01]\d|2[0-3]):(00|30)$/).optional(),
     idempotencyKey: z.string().uuid().optional(),
     // GUEST CHECKOUT (M20). Required only when there is no session — the route
     // enforces that, because only the server knows whether a session exists.

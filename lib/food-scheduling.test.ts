@@ -130,3 +130,61 @@ describe("it ships off", () => {
     expect(A).toContain("M161 refused: rr_fulfil_at() is not now()");
   });
 });
+
+// ── THE WIRING ──────────────────────────────────────────────────────────────
+// The engine is only worth having if checkout can reach it, and only safe if
+// shop and event checkout cannot accidentally reach it.
+
+const SRC = (...p: string[]) => readFileSync(join(__dirname, "..", ...p), "utf8");
+
+describe("checkout reaches the new door, and only for food", () => {
+  const route = SRC("app", "api", "checkout", "route.ts");
+  const schema = SRC("lib", "schemas", "checkout.ts");
+
+  it("accepts a date and a half-hour, and nothing else", () => {
+    expect(schema).toContain("pickupDate: z.string().regex(");
+    expect(schema).toContain("pickupTime: z.string().regex(");
+    // Only :00 and :30 — the same boundaries food_pickup_window enforces, so
+    // the client cannot ask for 08:17 and get a confusing server error.
+    expect(schema).toContain("(00|30)");
+  });
+
+  it("uses create_food_order ONLY when a window was chosen", () => {
+    expect(route).toContain('wantsSlot ? "create_food_order" : "create_order"');
+    expect(route).toContain("const wantsSlot = Boolean(pickupDate && pickupTime)");
+  });
+
+  it("leaves the grouped multi-shop path alone", () => {
+    // create_order_group is shop-and-event territory. A pickup slot there
+    // would need a per-shop window and this MVP does not have one.
+    const grouped = SRC("app", "api", "checkout", "group.ts");
+    // "pickup" alone appears there as a FULFILMENT value; what must not
+    // appear is a scheduling field.
+    expect(grouped).not.toContain("pickupDate");
+    expect(grouped).not.toContain("pickup_slot");
+    expect(grouped).not.toContain("create_food_order");
+    expect(grouped).toContain("create_order_group");
+  });
+
+  it("passes the kitchen's own refusal through to the customer", () => {
+    // RR030 sentences are written for a human: "The kitchen is closed then."
+    expect(route).toContain('error.code === "RR030"');
+  });
+});
+
+describe("the slots endpoint decides nothing", () => {
+  const api = SRC("app", "api", "food", "slots", "route.ts");
+
+  it("is a pass-through to the RPC", () => {
+    expect(api).toContain('rpc("food_pickup_slots"');
+    // If any of this appears here, the picker and checkout can disagree about
+    // what is bookable — which is the one thing this split exists to prevent.
+    expect(api).not.toContain("Indian/Mauritius");
+    expect(api).not.toContain("prep_minutes");
+    expect(api).not.toMatch(/opens_at|closes_at/);
+  });
+
+  it("is rate limited", () => {
+    expect(api).toContain('guardShared(req, "food-slots"');
+  });
+});
