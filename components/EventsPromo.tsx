@@ -78,9 +78,9 @@ export default function EventsPromo({ events }: { events: PromoEvent[] }) {
           first-time visitor the platform sells tickets at all. */}
       <p className="mb-3 font-dm text-xs leading-relaxed text-muted">
         {L([
-          "Pay online or in cash, and show the QR code at the gate. No paper ticket, no queue.",
-          "Payez en ligne ou en espèces, puis présentez le QR code à l'entrée. Sans billet papier, sans file.",
-          "Peye online ou kas, montre QR code la ler ou rantre. Pena papie, pena lakhe.",
+          "Reserve in seconds, then show the QR code at the gate. No paper ticket, no queue.",
+          "Réservez en quelques secondes, puis présentez le QR code à l'entrée. Sans billet papier, sans file.",
+          "Rezerv an detrwa segonn, apre montre QR code la ler ou rantre. Pena papie, pena lakhe.",
         ])}
       </p>
 

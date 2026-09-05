@@ -218,7 +218,8 @@
 // v303 - the organiser console speaks all three languages.
 // v304 - the last of the customer-facing English is translated.
 // v305 - every client-rendered customer string is translated.
-const CACHE = "rr-cache-v305";
+// v306 - event cards get a Get tickets button, and stop promising cash at the door.
+const CACHE = "rr-cache-v306";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

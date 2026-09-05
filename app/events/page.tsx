@@ -14,7 +14,7 @@ import EventsListing from "@/components/events/EventsListing";
 export const dynamic = "force-dynamic";
 
 const DESCRIPTION =
-  "Concerts, sega nights, markets and festivals in Rodrigues Island. Reserve your ticket online in seconds and pay the organiser at the door.";
+  "Concerts, sega nights, markets and festivals in Rodrigues Island. Reserve your ticket online in seconds — your QR code is your ticket at the gate.";
 
 export const metadata: Metadata = {
   title: "What's On in Rodrigues | Events & Tickets | Roulé Rodrigues",
