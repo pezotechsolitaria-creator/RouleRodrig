@@ -1,0 +1,132 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+
+// ── A FOOD ORDER CAN SAY WHEN (M161) ────────────────────────────────────────
+//
+// The owner: "There is no way for the user to choose when they want the food."
+//
+// Three pieces of this were already built and never wired up — orders.pickup_slot
+// (written by nothing since July), food_item_availability(product, AT) and
+// store_schedule_at(store, LOCAL_TS). M161 is not a scheduling engine; it is a
+// way to say WHICH instant the existing gates answer for, carried in a
+// transaction-local GUC that reads as now() when unset.
+//
+// These assertions pin the parts that would regress SILENTLY — where the
+// feature keeps compiling, keeps deploying, and quietly stops working or
+// quietly starts cancelling real orders.
+
+const DIR = join(__dirname, "..", "supabase", "migrations");
+const files = readdirSync(DIR);
+const read = (needle: string) => {
+  const f = files.find((n) => n.includes(needle));
+  if (!f) throw new Error(`migration ${needle} is missing from supabase/migrations`);
+  return readFileSync(join(DIR, f), "utf8");
+};
+
+const A = read("m161_a_food_order_can_say_when");
+const B = read("m161b_food_pickup_slots_and_door");
+const BOTH = `${A}\n${B}`;
+
+describe("the requested instant reaches the gates", () => {
+  it("the trigger asks about the instant the food is FOR", () => {
+    // THE bug this feature existed to clear. enforce_food_item_servable called
+    // food_item_availability with one argument, so a pre-order that passed
+    // every check in the UI still raised RR006 at the last possible moment.
+    expect(A).toContain("food_item_availability(v_product, rr_fulfil_at())");
+    expect(A).not.toContain("food_item_availability(v_product);");
+  });
+
+  it("the closed-shop gate asks the same clock", () => {
+    const fn = A.slice(A.indexOf("function public.store_schedule_status"));
+    expect(fn).toContain("rr_fulfil_at() at time zone 'Indian/Mauritius'");
+    expect(fn.slice(0, 1200)).not.toContain("now() at time zone 'Indian/Mauritius'");
+  });
+
+  it("unset, the clock is just now()", () => {
+    // Every non-food path on the platform depends on this being true.
+    expect(A).toContain("current_setting('rr.fulfil_at', true)");
+    expect(A).toMatch(/coalesce\(nullif\(current_setting\('rr\.fulfil_at', true\), ''\)::timestamptz, now\(\)\)/);
+  });
+
+  it("the setting is transaction-local, never session-wide", () => {
+    // set_config's third argument is is_local. false would leak one customer's
+    // pre-order clock into the next request on a pooled connection.
+    expect(B).toContain("set_config('rr.fulfil_at', lower(v_win)::text, true)");
+    expect(B).toContain("set_config('rr.fulfil_at', '', true)");
+    expect(B).not.toMatch(/set_config\('rr\.fulfil_at'[^)]*, false\)/);
+  });
+});
+
+describe("create_order is not touched", () => {
+  it("is called, never dropped or recreated", () => {
+    // ~250 lines shared by food, shop AND events, with its `for update of v`
+    // lock ordering asserted by six later migrations. Two of the three
+    // candidate designs wanted to drop and recreate it; that would put every
+    // checkout on the site at risk for a feature touching nine dishes.
+    expect(B).toContain("from create_order(");
+    expect(BOTH).not.toMatch(/drop\s+function\s+[^;]*create_order/i);
+    expect(BOTH).not.toMatch(/create\s+or\s+replace\s+function\s+public\.create_order\b/i);
+  });
+
+  it("the new door has its own signature", () => {
+    expect(B).toContain("function public.create_food_order(");
+    expect(B).toContain("p_pickup_date date default null");
+    expect(B).toContain("p_pickup_time time default null");
+  });
+
+  it("an idempotent replay cannot re-stamp a different time", () => {
+    // create_order returns the ORIGINAL order for a repeated key.
+    expect(B).toContain("and o.pickup_slot is null");
+  });
+});
+
+describe("pre-orders fail closed", () => {
+  it("refuses a kitchen that has never said when it cooks", () => {
+    // store_schedule_at does `v_open := not v_any`, so a store with ZERO
+    // store_hours rows reads as OPEN FOREVER — right for walk-ups, and
+    // catastrophic for a generator that would sell a month of empty days.
+    expect(B).toContain("if not v_a.has_schedule then");
+    expect(B).toContain("has not set its opening hours");
+  });
+
+  it("checks the kitchen is open at BOTH ends of the window", () => {
+    // A 23:30 slot at a kitchen closing 23:59 must be refused.
+    expect(B).toContain("v_a.is_open and v_b.is_open");
+  });
+
+  it("only offers times the picker actually shows", () => {
+    expect(B).toContain("extract(minute from p_time) not in (0, 30)");
+  });
+});
+
+describe("the nightly sweep does not cancel tomorrow's lunch", () => {
+  it("expire_order skips an order whose window is still ahead", () => {
+    // Without this, a pre-order sitting in pending_payment on a bank transfer
+    // is released and the customer emailed "your order expired" — for food
+    // they are collecting in the morning.
+    expect(B).toContain("(o.pickup_slot is null or lower(o.pickup_slot) < now())");
+  });
+
+  it("still expires once the window has passed", () => {
+    // The guard must not leak orders forever.
+    expect(B).toContain("lower(o.pickup_slot) < now()");
+  });
+});
+
+describe("it ships off", () => {
+  it("no kitchen is opted in by default", () => {
+    expect(A).toMatch(/preorder_days smallint not null default 0/);
+  });
+
+  it("the platform lever defaults to false", () => {
+    expect(A).toMatch(/food_preorder_enabled boolean not null default false/);
+  });
+
+  it("refuses to commit if it changed what any store reports", () => {
+    // store_schedule_status has nineteen callers including the food_catalog
+    // view every dish card is built from.
+    expect(A).toContain("M161 refused: store_schedule_status disagrees");
+    expect(A).toContain("M161 refused: rr_fulfil_at() is not now()");
+  });
+});
