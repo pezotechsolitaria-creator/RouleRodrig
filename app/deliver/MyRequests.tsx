@@ -70,7 +70,7 @@ type Row = {
 export default function MyRequests() {
   const { language } = useLanguage();
   const c = DELIVER_COPY[language];
-  const [rows, setRows] = useState<Row[] | null>(null);
+  const [rows, setRows] = useState<{ live: Row[]; past: Row[] } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,27 +109,37 @@ export default function MyRequests() {
         });
       }
 
-      // A finished request is history, not a task. Keeping cancelled and
-      // expired rows at the top of this list would bury the one that is
-      // actually waiting on the customer.
+      // ── FINISHED WORK LEAVES THE LIST ────────────────────────────────────
+      //
+      // Sorting the dead rows to the bottom was not enough. This list is
+      // capped at five, so three finished jobs could push the ONE request
+      // holding a quote off the end of it — and a delivered job from last week
+      // looks identical in weight to a driver waiting on an answer today.
+      //
+      // So they are separated, not merely ordered: what is still moving is the
+      // list, and what is over is collapsed history underneath it. Kept rather
+      // than deleted, because a customer still needs to find what a driver
+      // charged them last month — just not while they are waiting on a price.
       const all = [...merged.values()];
       const dead = new Set(["cancelled", "expired"]);
       const finished = new Set([
         "delivered", "cancelled", "failed_delivery", "returned_to_merchant",
       ]);
-      all.sort((a, b) => {
-        const isDone = (r: Row) =>
-          r.live && (dead.has(r.live.status) || finished.has(r.live.deliveryStatus ?? "")) ? 1 : 0;
-        const aDead = isDone(a);
-        const bDead = isDone(b);
-        if (aDead !== bDead) return aDead - bDead;
-        // Then whoever is waiting on the customer.
-        const aWants = a.live && a.live.status === "open" && a.live.quoteCount > 0 ? 0 : 1;
-        const bWants = b.live && b.live.status === "open" && b.live.quoteCount > 0 ? 0 : 1;
-        return aWants - bWants;
+      const isDone = (r: Row) =>
+        !!r.live && (dead.has(r.live.status) || finished.has(r.live.deliveryStatus ?? ""));
+
+      const live = all.filter((r) => !isDone(r));
+      const past = all.filter(isDone);
+
+      // Within the live list, whoever is waiting on the CUSTOMER comes first.
+      // A device-only row (no live status) sorts last: it is a hint, not news.
+      live.sort((a, b) => {
+        const wants = (r: Row) =>
+          r.live && r.live.status === "open" && r.live.quoteCount > 0 ? 0 : 1;
+        return wants(a) - wants(b);
       });
 
-      setRows(all);
+      setRows({ live, past });
     })();
 
     return () => {
@@ -137,74 +147,109 @@ export default function MyRequests() {
     };
   }, []);
 
-  if (!rows || rows.length === 0) return null;
+  if (!rows || (rows.live.length === 0 && rows.past.length === 0)) return null;
+
+  const row = (r: Row, muted: boolean) => {
+    const Icon = r.kind === "shop_and_deliver" ? ShoppingBasket : Package;
+    const copy = r.live
+      ? requestStatusCopy(
+          {
+            status: r.live.status,
+            quoteCount: r.live.quoteCount,
+            expiresAt: r.live.expiresAt,
+            deliveryStatus: r.live.deliveryStatus,
+          },
+          language,
+        )
+      : null;
+    // Only the state that is WAITING ON THEM earns the accent, and nothing in
+    // history ever does. Everything lit up is nothing lit up.
+    const wants = !muted && copy?.needsCustomer === true;
+
+    return (
+      <li key={r.id}>
+        <Link
+          href={`/deliver/${r.id}`}
+          className={cn(
+            "group flex items-center gap-3 rounded-xl border p-3.5 transition-colors",
+            wants
+              ? "border-yellow/45 bg-yellow/[0.06] hover:border-yellow/70"
+              : "border-white/10 bg-white/[0.02] hover:border-white/20",
+            muted && "opacity-55 hover:opacity-100",
+          )}
+        >
+          <span
+            className={cn(
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+              wants ? "bg-yellow text-dark" : "bg-white/[0.05] text-[#B0B0B0]",
+            )}
+          >
+            <Icon size={15} />
+          </span>
+
+          <span className="min-w-0 flex-1">
+            <span className={cn(t.bodySm, "block truncate text-offwhite")}>{r.what}</span>
+            {copy && (
+              <span
+                className={cn(t.meta, "block truncate", wants ? "text-yellow" : "text-[#B0B0B0]")}
+              >
+                {copy.label}
+                {r.live?.bestQuote != null && ` · ${c.mine.fromPrice(formatFee(r.live.bestQuote))}`}
+              </span>
+            )}
+          </span>
+
+          <ChevronRight
+            size={15}
+            className={cn(
+              "shrink-0 transition-transform group-hover:translate-x-0.5",
+              wants ? "text-yellow" : "text-[#B0B0B0]",
+            )}
+          />
+        </Link>
+      </li>
+    );
+  };
 
   return (
     <section className="mb-9">
       <h2 className={cn(t.heading, "text-offwhite")}>{c.mine.title}</h2>
-      <ul className="mt-3 flex flex-col gap-2">
-        {rows.slice(0, 5).map((r) => {
-          const Icon = r.kind === "shop_and_deliver" ? ShoppingBasket : Package;
-          const copy = r.live
-            ? requestStatusCopy(
-                {
-                  status: r.live.status,
-                  quoteCount: r.live.quoteCount,
-                  expiresAt: r.live.expiresAt,
-                  deliveryStatus: r.live.deliveryStatus,
-                },
-                language,
-              )
-            : null;
-          // Only the state that is WAITING ON THEM earns the accent. Everything
-          // lit up is nothing lit up.
-          const wants = copy?.needsCustomer === true;
 
-          return (
-            <li key={r.id}>
-              <Link
-                href={`/deliver/${r.id}`}
-                className={cn(
-                  "group flex items-center gap-3 rounded-xl border p-3.5 transition-colors",
-                  wants
-                    ? "border-yellow/45 bg-yellow/[0.06] hover:border-yellow/70"
-                    : "border-white/10 bg-white/[0.02] hover:border-white/20",
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                    wants ? "bg-yellow text-dark" : "bg-white/[0.05] text-[#B0B0B0]",
-                  )}
-                >
-                  <Icon size={15} />
-                </span>
+      {rows.live.length > 0 ? (
+        <ul className="mt-3 flex flex-col gap-2">
+          {rows.live.slice(0, 5).map((r) => row(r, false))}
+        </ul>
+      ) : (
+        // Everything is finished. Saying so is kinder than an empty gap, and it
+        // keeps the heading from looking like a list that failed to load.
+        <p className={cn(t.meta, "mt-3 text-[#B0B0B0]")}>{c.mine.empty}</p>
+      )}
 
-                <span className="min-w-0 flex-1">
-                  <span className={cn(t.bodySm, "block truncate text-offwhite")}>{r.what}</span>
-                  {copy && (
-                    <span
-                      className={cn(t.meta, "block truncate", wants ? "text-yellow" : "text-[#B0B0B0]")}
-                    >
-                      {copy.label}
-                      {r.live?.bestQuote != null &&
-                        ` · ${c.mine.fromPrice(formatFee(r.live.bestQuote))}`}
-                    </span>
-                  )}
-                </span>
-
-                <ChevronRight
-                  size={15}
-                  className={cn(
-                    "shrink-0 transition-transform group-hover:translate-x-0.5",
-                    wants ? "text-yellow" : "text-[#B0B0B0]",
-                  )}
-                />
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+      {/* ── History, closed by default ──────────────────────────────────────
+          <details> rather than a tab or a filter chip: it needs no state, no
+          JavaScript and no second render path, it is keyboard-accessible for
+          free, and a screen reader announces it as expandable. The cheapest
+          correct control is the right one on a screen whose job is to be
+          reassuring. */}
+      {rows.past.length > 0 && (
+        <details className="group mt-3">
+          <summary
+            className={cn(
+              t.meta,
+              "flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-[#B0B0B0] transition-colors hover:text-offwhite",
+            )}
+          >
+            <ChevronRight
+              size={13}
+              className="shrink-0 transition-transform group-open:rotate-90"
+            />
+            {c.mine.pastTitle(rows.past.length)}
+          </summary>
+          <ul className="mt-2 flex flex-col gap-2">
+            {rows.past.slice(0, 10).map((r) => row(r, true))}
+          </ul>
+        </details>
+      )}
     </section>
   );
 }

@@ -242,6 +242,12 @@ const EN = {
     title: "Your requests",
     /** Sits after the live status, so it is a fragment and not a sentence. */
     fromPrice: (fee: string) => `from ${fee}`,
+    // ── FINISHED WORK IS HISTORY, NOT A TASK ────────────────────────────
+    // Collapsed rather than deleted: a customer still needs to find what a
+    // driver charged them last month, but not while they are waiting on a
+    // quote today.
+    pastTitle: (n: number) => `Earlier (${n})`,
+    empty: "Nothing waiting on you.",
   },
 
   // ── The screen where the money is actually agreed ────────────────────────
@@ -597,6 +603,8 @@ const FR: DeliverCopy = {
   mine: {
     title: "Vos demandes",
     fromPrice: (fee: string) => `à partir de ${fee}`,
+    pastTitle: (n: number) => `Précédentes (${n})`,
+    empty: "Rien n’attend après vous.",
   },
 
   tracker: {
@@ -899,6 +907,8 @@ const CR: DeliverCopy = {
   mine: {
     title: "Ou bann demann",
     fromPrice: (fee: string) => `apartir ${fee}`,
+    pastTitle: (n: number) => `Avan (${n})`,
+    empty: "Nanye pe atann ou.",
   },
 
   tracker: {
