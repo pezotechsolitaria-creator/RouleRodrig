@@ -60,6 +60,9 @@ type PricingRow = {
   flat_fare: number | null; per_extra_passenger: number; per_luggage: number;
   night_surcharge: number; night_from_hour: number; night_to_hour: number;
   is_bookable: boolean;
+  /** What the platform takes of the fare, per service. A PERCENT — the one
+   *  number on this row that is not minor units. */
+  commission_percent?: number | null;
 };
 
 const STATUS_TONE: Record<string, string> = {
@@ -1042,6 +1045,10 @@ function FareRow({
     minimumFare: r(p.minimum_fare),
     flatFare: r(p.flat_fare),
     nightSurcharge: r(p.night_surcharge),
+    // NOT r(): a percent is stored as a percent. Running it through the
+    // minor-units helper would show a 10% cut as 0.1.
+    commissionPercent:
+      p.commission_percent == null ? "" : String(p.commission_percent),
     isBookable: p.is_bookable,
   });
   const meta = RIDE_SERVICE_META[p.service as RideService];
@@ -1101,6 +1108,34 @@ function FareRow({
         </label>
       </div>
 
+      {/* Per service, not one platform-wide rate: an airport transfer is a
+          booked job worth a real cut and a short town taxi is not. Empty means
+          zero, and zero is what /taxi promises today — "tourists tap WhatsApp
+          or call directly. No commission, no app." */}
+      <div className="mt-3 flex flex-wrap items-end gap-3">
+        <label className="w-32">
+          <span className={lbl}>COMMISSION %</span>
+          <input value={f.commissionPercent}
+            onChange={(e) => setF({ ...f, commissionPercent: e.target.value })}
+            inputMode="decimal" placeholder="0" className={box} />
+        </label>
+        <p className="flex-1 font-dm text-xs text-muted">
+          {Number(f.commissionPercent) > 0 ? (
+            <>
+              Roulé Rodrigues keeps{" "}
+              <span className="text-offwhite">{Number(f.commissionPercent)}%</span> of each
+              fare on this service. A Rs 1,000 ride would owe{" "}
+              <span className="text-offwhite">
+                Rs {((Number(f.commissionPercent) / 100) * 1000).toFixed(2)}
+              </span>
+              .
+            </>
+          ) : (
+            <>Free listing — the driver keeps the whole fare.</>
+          )}
+        </p>
+      </div>
+
       <div className="mt-3 flex items-center gap-2">
         <button
           onClick={() =>
@@ -1112,6 +1147,10 @@ function FareRow({
               perKm: f.perKm === "" ? 0 : Number(f.perKm),
               minimumFare: f.minimumFare === "" ? 0 : Number(f.minimumFare),
               nightSurcharge: f.nightSurcharge === "" ? 0 : Number(f.nightSurcharge),
+              // Empty is 0, not null: a blank commission box means "we take
+              // nothing", which is a real answer and the current one.
+              commissionPercent:
+                f.commissionPercent === "" ? 0 : Number(f.commissionPercent),
               isBookable: f.isBookable,
             })
           }

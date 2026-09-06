@@ -31,6 +31,10 @@ const patchSchema = z.object({
   nightFromHour: z.number().int().min(0).max(23).optional(),
   nightToHour: z.number().int().min(0).max(23).optional(),
   isBookable: z.boolean().optional(),
+  // A PERCENT, and the only field on this endpoint that is not money. Every
+  // other number here is rupees converted to minor units below; sending this
+  // one through the same conversion would file 10% as 1000%.
+  commissionPercent: z.number().min(0).max(100).optional(),
 });
 
 const toMinor = (rupees: number | null | undefined) =>
@@ -85,6 +89,12 @@ export async function PATCH(req: NextRequest) {
   if (v.nightFromHour !== undefined) patch.night_from_hour = v.nightFromHour;
   if (v.nightToHour !== undefined) patch.night_to_hour = v.nightToHour;
   if (v.isBookable !== undefined) patch.is_bookable = v.isBookable;
+  // NOT toMinor(). See the schema note: this is a percent, not an amount.
+  // Rounded to two places because the column is numeric(5,2) and a third
+  // decimal would be silently dropped by Postgres rather than refused.
+  if (v.commissionPercent !== undefined) {
+    patch.commission_percent = Math.round(v.commissionPercent * 100) / 100;
+  }
 
   const admin = await getPrivileged();
   const { error } = await admin.from("ride_pricing").update(patch).eq("service", v.service);
