@@ -171,7 +171,7 @@ export default function ReceiptUploader({ orderId, required }: { orderId: string
                 aria-valuenow={progress}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-label="{t.receipt.uploading}"
+                aria-label={t.receipt.uploading}
                 className="h-1.5 w-full overflow-hidden rounded-full bg-white/10"
               >
                 <div className="h-full bg-yellow transition-[width]" style={{ width: `${progress}%` }} />

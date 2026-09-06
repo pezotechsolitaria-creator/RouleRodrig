@@ -114,7 +114,7 @@ export default function RateShopCard({
         maxLength={1000}
         value={body}
         onChange={(e) => setBody(e.target.value)}
-        placeholder="{t.rating.reviewExample}"
+        placeholder={t.rating.reviewExample}
         className="mt-1.5 w-full resize-y rounded-xl border border-dark-border bg-dark px-4 py-3 font-dm text-sm text-offwhite placeholder:text-muted/60 focus:border-yellow focus:outline-none"
       />
 

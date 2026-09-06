@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import AlertsToggle from "./AlertsToggle";
 import DeliveryTracking from "@/components/tracking/DeliveryTracking";
 import { driverDutyState } from "@/lib/delivery/availability";
+import DeliveryLog from "./DeliveryLog";
 import QuoteBoard, { type OpenRequest } from "./QuoteBoard";
 import { formatWindow } from "@/lib/delivery/schedule";
 import {
@@ -928,6 +929,11 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
           </p>
         </div>
       )}
+
+      {/* Last, and collapsed. It is the only thing on this screen that is not
+          about right now, so it must never push the live work down — and it
+          loads nothing until somebody opens it. */}
+      {approved && <DeliveryLog only={only} />}
     </div>
   );
 }

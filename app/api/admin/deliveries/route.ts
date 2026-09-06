@@ -8,6 +8,10 @@ import { notifySweepResult } from "@/lib/delivery/notify";
 // levers. Every write is an RPC that validates and audits — this route decides
 // nothing, which is why an admin cannot fake a completion from here either.
 const NOT_FOUND = "RR003";
+// The RPCs raise this with a sentence written for the operator to act on —
+// "a driver must be able to do at least one kind of work" is the whole answer,
+// and flattening it to "Something went wrong" would leave a dead toggle.
+const BAD_INPUT = "RR089";
 const HAS_PACKAGE = "RR091";
 const NOT_VIA_ADMIN = "RR092";
 
@@ -61,6 +65,16 @@ const actionSchema = z.discriminatedUnion("action", [
     status: z.enum(["approved", "rejected", "suspended", "inactive", "pending"]),
     reason: z.string().trim().max(300).optional(),
   }),
+  // Which KINDS of work this person may take. Separate from driver_status,
+  // deliberately: turning errands off is not a punishment and must not read as
+  // one — somebody can be excellent with parcels and not somebody you want
+  // handling a customer's cash.
+  z.object({
+    action: z.literal("driver_roles"),
+    driverId: z.string().uuid(),
+    canDeliver: z.boolean(),
+    canRunErrands: z.boolean(),
+  }),
   // Manual sweep, for when an operator does not want to wait for the cron.
   z.object({ action: z.literal("sweep") }),
 ]);
@@ -101,7 +115,13 @@ export async function POST(req: NextRequest) {
               p_status: input.status,
               p_reason: input.reason ?? null,
             })
-          : admin.rpc("sweep_delivery_escalations");
+          : input.action === "driver_roles"
+            ? admin.rpc("admin_set_driver_roles", {
+                p_driver_id: input.driverId,
+                p_can_deliver: input.canDeliver,
+                p_can_run_errands: input.canRunErrands,
+              })
+            : admin.rpc("sweep_delivery_escalations");
 
   const { data, error } = await call;
 
@@ -112,6 +132,7 @@ export async function POST(req: NextRequest) {
     if (error.code === HAS_PACKAGE) {
       return NextResponse.json({ error: error.message, needsForce: true }, { status: 409 });
     }
+    if (error.code === BAD_INPUT) return NextResponse.json({ error: error.message }, { status: 400 });
     if (error.code === NOT_VIA_ADMIN) return NextResponse.json({ error: error.message }, { status: 403 });
     console.error("delivery admin action failed", { action: input.action, error });
     return NextResponse.json({ error: "Something went wrong." }, { status: 500 });

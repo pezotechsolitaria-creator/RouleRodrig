@@ -468,20 +468,52 @@ export default function DeliveryBoard() {
                       asked to run errands or to carry parcels is approving a
                       blank. An errand runner on foot is a different decision
                       from a lorry driver, and the card said nothing. */}
-                  <p className="mt-1 flex flex-wrap gap-1.5">
+                  {/* Not a badge any more but a SWITCH. Approving "Marie, on
+                      foot" without knowing whether she asked to run errands or
+                      carry parcels was approving a blank; being unable to
+                      change it afterwards meant somebody unsuited to handling
+                      a customer's cash could only be suspended outright, which
+                      also takes away the parcel work they were fine at. */}
+                  <p className="mt-1.5 flex flex-wrap gap-1.5">
                     {[
-                      dr.canDeliver !== false && "Deliveries",
-                      dr.canRunErrands && "Errands",
-                    ]
-                      .filter(Boolean)
-                      .map((label) => (
-                        <span
-                          key={String(label)}
-                          className="rounded-full border border-white/15 px-2 py-0.5 font-dm text-[10px] text-muted"
+                      { key: "deliver" as const, label: "Deliveries", on: dr.canDeliver !== false },
+                      { key: "errands" as const, label: "Errands", on: Boolean(dr.canRunErrands) },
+                    ].map((role) => {
+                      const next = {
+                        canDeliver: role.key === "deliver" ? !role.on : dr.canDeliver !== false,
+                        canRunErrands: role.key === "errands" ? !role.on : Boolean(dr.canRunErrands),
+                      };
+                      const id = `role-${role.key}-${dr.id}`;
+                      return (
+                        <button
+                          key={role.key}
+                          onClick={() =>
+                            void act(id, { action: "driver_roles", driverId: dr.id, ...next })
+                          }
+                          disabled={busy !== null}
+                          aria-pressed={role.on}
+                          title={
+                            role.on
+                              ? `Stop offering ${role.label.toLowerCase()} to ${dr.name}`
+                              : `Offer ${role.label.toLowerCase()} to ${dr.name}`
+                          }
+                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-dm text-[11px] transition-colors disabled:opacity-40 ${
+                            role.on
+                              ? "border-yellow/50 bg-yellow/10 text-yellow"
+                              : "border-white/15 text-muted hover:border-white/30"
+                          }`}
                         >
-                          {label}
-                        </span>
-                      ))}
+                          {busy === id ? (
+                            <Loader2 size={10} className="animate-spin" />
+                          ) : role.on ? (
+                            <CheckCircle2 size={10} />
+                          ) : (
+                            <UserX size={10} />
+                          )}
+                          {role.label}
+                        </button>
+                      );
+                    })}
                   </p>
                   {dr.statusReason && <p className="mt-1 font-dm text-xs text-muted/80">{dr.statusReason}</p>}
                 </div>

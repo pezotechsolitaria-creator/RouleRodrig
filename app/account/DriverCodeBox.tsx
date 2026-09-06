@@ -72,7 +72,7 @@ export default function DriverCodeBox() {
         <button
           type="submit"
           disabled={busy || code.trim().length < 4}
-          aria-label="{t.account.openDriverPage}"
+          aria-label={t.account.openDriverPage}
           className="shrink-0 rounded-xl bg-yellow px-4 font-syne text-sm font-bold text-dark transition-colors hover:bg-yellow-dark disabled:opacity-50"
         >
           {busy ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}

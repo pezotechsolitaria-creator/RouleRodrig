@@ -4,7 +4,7 @@ import DriverCodeBox from "./DriverCodeBox";
 import Link from "next/link";
 import {
   ChevronRight, Search, Store, Truck, Ticket, ClipboardList, LogIn, UserPlus,
-  Bell, Globe, KeyRound, LogOut, ShoppingBag, CircleUser, ChefHat } from "lucide-react";
+  Bell, Globe, KeyRound, LogOut, ShoppingBag, CircleUser, ChefHat, ClipboardCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { rolesForUser, type AccountRole } from "@/lib/account/roles";
 import Navbar from "@/components/Navbar";
@@ -40,6 +40,7 @@ export const metadata: Metadata = {
 const ROLE_ICON: Record<AccountRole["key"], React.ElementType> = {
   merchant: Store,
   driver: Truck,
+  errands: ClipboardCheck,
   organizer: Ticket,
   kitchen: ChefHat,
 };
@@ -195,7 +196,7 @@ export default async function AccountPage() {
                   title={t.account.changePassword}
                   note="We email you a link to set a new one"
                 />
-                <Row href="/more" icon={Globe} title="{t.account.helpGuides}" />
+                <Row href="/more" icon={Globe} title={t.account.helpGuides} />
               </div>
               <form action="/auth/signout" method="post" className="mt-3">
                 <button

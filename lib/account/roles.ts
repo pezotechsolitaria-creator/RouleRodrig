@@ -26,7 +26,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // the operator knowing their own address.
 
 export type AccountRole = {
-  key: "merchant" | "driver" | "organizer" | "kitchen";
+  key: "merchant" | "driver" | "organizer" | "kitchen" | "errands";
   /** What the person is, in their own words. */
   title: string;
   /** What they can do there. */
@@ -67,7 +67,11 @@ export async function rolesForUser(
       .eq("user_id", userId)
       .is("merchants.system_key", null),
     supabase.from("merchants").select("id, display_name, status").eq("owner_id", userId).is("system_key", null),
-    supabase.from("delivery_drivers").select("id, full_name, status").eq("user_id", userId).maybeSingle(),
+    supabase
+      .from("delivery_drivers")
+      .select("id, full_name, status, can_deliver, can_run_errands")
+      .eq("user_id", userId)
+      .maybeSingle(),
     supabase.from("event_organizers").select("id, display_name, status").eq("user_id", userId).maybeSingle(),
     // Kitchen staff (M72). Read through the user's own client, so RLS decides:
     // kitchen_staff_own matches on user_id OR the invited email, which means a
@@ -113,27 +117,59 @@ export async function rolesForUser(
     });
   }
 
-  const d = driver.data as { full_name?: string; status?: string } | null;
+  const d = driver.data as {
+    full_name?: string;
+    status?: string;
+    can_deliver?: boolean;
+    can_run_errands?: boolean;
+  } | null;
   if (d) {
-    out.push({
-      key: "driver",
-      title: "My deliveries",
-      blurb: "Jobs offered to you, your current run and your delivery history.",
-      href: "/driver",
-      label: d.full_name ?? null,
-      // driver_status is pending | approved | suspended | rejected | inactive.
-      status: d.status === "approved" ? "active" : d.status === "pending" ? "pending" : "blocked",
-      statusNote:
-        d.status === "pending"
-          ? "Your driver application is being reviewed."
-          : d.status === "suspended"
-            ? "Your driver account is paused. Contact Roulé Rodrigues."
-            : d.status === "rejected"
-              ? "This application was not approved."
-              : d.status === "inactive"
-                ? "You are marked inactive — contact Roulé Rodrigues to start again."
-                : undefined,
-    });
+    // driver_status is pending | approved | suspended | rejected | inactive.
+    const driverStatus: AccountRole["status"] =
+      d.status === "approved" ? "active" : d.status === "pending" ? "pending" : "blocked";
+    const driverNote =
+      d.status === "pending"
+        ? "Your application is being reviewed."
+        : d.status === "suspended"
+          ? "Your account is paused. Contact Roulé Rodrigues."
+          : d.status === "rejected"
+            ? "This application was not approved."
+            : d.status === "inactive"
+              ? "You are marked inactive — contact Roulé Rodrigues to start again."
+              : undefined;
+
+    // ── TWO CONSOLES, AND ONLY THE ONES THEY HAVE ────────────────────────
+    // This page exists because the platform grew a console per role and the
+    // only way to reach yours was to know its URL. Errands added a second
+    // provider console, so listing "My deliveries" alone would have recreated
+    // the exact problem for every errand runner — the whole point is not
+    // having to know the address.
+    //
+    // `!== false` rather than a truthy check: an older row read before the
+    // column existed comes back undefined, and defaulting THAT to "no
+    // deliveries" would hide a working driver's own door from them.
+    if (d.can_deliver !== false) {
+      out.push({
+        key: "driver",
+        title: "My deliveries",
+        blurb: "Jobs offered to you, your current run, and your last 30 days.",
+        href: "/driver",
+        label: d.full_name ?? null,
+        status: driverStatus,
+        statusNote: driverNote,
+      });
+    }
+    if (d.can_run_errands) {
+      out.push({
+        key: "errands",
+        title: "My errands",
+        blurb: "Jobs to price — paying a bill, queuing, collecting something.",
+        href: "/errands",
+        label: d.full_name ?? null,
+        status: driverStatus,
+        statusNote: driverNote,
+      });
+    }
   }
 
   const o = organizer.data as { display_name?: string; status?: string } | null;
