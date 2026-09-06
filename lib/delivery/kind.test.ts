@@ -200,14 +200,22 @@ describe("an errand does not answer the parcel question", () => {
   // carried. "Pay my CEB bill" carries nothing, so every answer on that grid
   // was a fiction the fleet filter then acted on.
 
-  it("offers its own five choices", () => {
+  it("offers its own choices, in order", () => {
+    // Pinned so a reorder or a silent removal is visible: these are the values
+    // delivery_requests_errand_kind_domain accepts, and the two must not drift.
     expect([...ERRAND_KINDS]).toEqual([
       "pay_bill",
       "queue",
       "collect",
       "gas",
+      "vehicle",
       "other",
     ]);
+  });
+
+  it("keeps 'other' last", () => {
+    // A catch-all above a real choice is how people stop reading the list.
+    expect(ERRAND_KINDS[ERRAND_KINDS.length - 1]).toBe("other");
   });
 
   it("gives each of them its own words", () => {

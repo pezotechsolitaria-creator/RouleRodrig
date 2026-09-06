@@ -8,6 +8,7 @@ import { centsToDecimalString } from "@/lib/money";
 import { stallBoardLine } from "@/lib/delivery/escalation-copy";
 import { Button } from "@/components/ui/button";
 import DriverLog from "./DriverLog";
+import VehicleCustody from "./VehicleCustody";
 
 // ── The control centre ──────────────────────────────────────────────────────
 //
@@ -93,7 +94,7 @@ export default function DeliveryBoard() {
   const [closing, setClosing] = useState<string | null>(null);
   const [closeStatus, setCloseStatus] = useState("returned_to_merchant");
   const [note, setNote] = useState("");
-  const [tab, setTab] = useState<"live" | "requests" | "drivers">("live");
+  const [tab, setTab] = useState<"live" | "requests" | "drivers" | "cars">("live");
 
   const load = useCallback(async () => {
     try {
@@ -159,7 +160,7 @@ export default function DeliveryBoard() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-2">
-          {(["live", "requests", "drivers"] as const).map((t) => (
+          {(["live", "requests", "drivers", "cars"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`rounded-full px-4 py-2 font-dm text-sm font-medium transition-colors ${
                 tab === t ? "bg-yellow text-dark" : "border border-white/12 text-muted hover:text-offwhite"}`}>
@@ -167,7 +168,9 @@ export default function DeliveryBoard() {
                 ? `Deliveries (${live.length})`
                 : t === "requests"
                   ? `Quote requests (${requests.length})`
-                  : `Drivers (${drivers.length})`}
+                  : t === "drivers"
+                    ? `Drivers (${drivers.length})`
+                    : "Customer cars"}
               {t === "drivers" && (c?.pendingDrivers ?? 0) > 0 && (
                 <span className="ml-1.5 rounded-full bg-orange-400 px-1.5 text-[10px] font-bold text-dark">
                   {c?.pendingDrivers}
@@ -210,7 +213,12 @@ export default function DeliveryBoard() {
         </p>
       )}
 
-      {tab === "live" ? (
+      {/* Its own tab, not a strip on the deliveries board. A customer's car in
+          somebody else's hands is a different kind of worry from a late parcel,
+          and it is the one thing here that is worth more than the platform. */}
+      {tab === "cars" ? (
+        <VehicleCustody />
+      ) : tab === "live" ? (
         live.length === 0 ? (
           <div className="mt-6 rounded-2xl border border-white/10 bg-dark-card p-8 text-center">
             <CheckCircle2 size={26} className="mx-auto text-green-400" />

@@ -25,6 +25,7 @@ import {
   Hourglass,
   PackageCheck,
   Flame,
+  CarFront,
   MoreHorizontal,
   UtensilsCrossed,
   Umbrella,
@@ -156,6 +157,7 @@ const ERRAND_ICON: Record<ErrandKind, typeof Package> = {
   queue: Hourglass,
   collect: PackageCheck,
   gas: Flame,
+  vehicle: CarFront,
   other: MoreHorizontal,
 };
 // FOUR now. "When do you need it?" was never asked — delivery_requests had
@@ -240,6 +242,10 @@ export default function DeliverForm({
   // "bigger than a car" there asked about an object that does not exist, and
   // every answer was a lie the fleet filter then acted on. See ERRAND_KINDS.
   const [errandKind, setErrandKind] = useState<ErrandKind | null>(null);
+  // Only ever set on a car collection. The plate is what makes the job
+  // provable afterwards — see the custody trail in m174.
+  const [plate, setPlate] = useState("");
+  const [vehicleDesc, setVehicleDesc] = useState("");
   // NULL, like kind and item: "when" is the question this flow never asked, and
   // defaulting it to ASAP would answer it on the customer's behalf with the one
   // answer that puts the most pressure on a driver.
@@ -358,6 +364,9 @@ export default function DeliverForm({
       kind !== null &&
       // Whichever question this kind asks, it has to have been answered.
       (kind === "errand" ? errandKind !== null : item !== null) &&
+      // A car collection with no plate is a job nobody can prove anything
+      // about later, and the table refuses it outright.
+      (errandKind !== "vehicle" || plate.trim().length >= 2) &&
       (what.trim().length >= 3 || photoPath !== null) &&
       // Required for a shopping run, optional for an errand, absent for a
       // collection — BUDGET_RULE is the same rule the table CHECK enforces.
@@ -644,6 +653,9 @@ export default function DeliverForm({
       // Only an errand has one, and the RPC refuses it on anything else — the
       // two questions are deliberately not interchangeable.
       errandKind: kind === "errand" ? (errandKind ?? undefined) : undefined,
+      vehiclePlate: errandKind === "vehicle" ? plate.trim() : undefined,
+      vehicleDesc:
+        errandKind === "vehicle" ? vehicleDesc.trim() || undefined : undefined,
       // The CHOICE, never a timestamp. The server turns it into a window in
       // island time — a client that computes its own can send one in the past
       // or one ten years out, and every promise downstream is built on it.
@@ -1155,6 +1167,74 @@ export default function DeliverForm({
                           placeholder={DESCRIBE_PLACEHOLDER[kind]}
                         />
                       </div>
+
+                      {/* ── WHICH CAR ───────────────────────────────────
+                          Only for a car collection, and required there. The
+                          plate is the whole reason the custody trail can
+                          settle an argument: without it, "they brought back a
+                          scratched car" is one person's word against
+                          another's. The table refuses a vehicle job without
+                          one, so this asks rather than letting the post fail. */}
+                      <AnimatePresence initial={false}>
+                        {errandKind === "vehicle" && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={transition.step}
+                            className="overflow-hidden"
+                          >
+                            <div className="mt-4">
+                              <Label
+                                htmlFor="d-plate"
+                                required
+                                srMark={c.required.srMark}
+                              >
+                                {c.what.plateLabel}
+                              </Label>
+                              <input
+                                id="d-plate"
+                                value={plate}
+                                onChange={(e) => setPlate(e.target.value.toUpperCase())}
+                                aria-required
+                                className={cn(recipe.field, "uppercase")}
+                                placeholder={c.what.platePlaceholder}
+                                autoCapitalize="characters"
+                                autoCorrect="off"
+                                spellCheck={false}
+                              />
+                              <p className={cn(t.meta, "mt-1.5 text-[#B0B0B0]")}>
+                                {c.what.plateHelp}
+                              </p>
+                            </div>
+
+                            <div className="mt-4">
+                              <Label htmlFor="d-vdesc" srMark={c.required.srMark}>
+                                {c.what.vehicleDescLabel}
+                              </Label>
+                              <input
+                                id="d-vdesc"
+                                value={vehicleDesc}
+                                onChange={(e) => setVehicleDesc(e.target.value)}
+                                className={recipe.field}
+                                placeholder={c.what.vehicleDescPlaceholder}
+                              />
+                            </div>
+
+                            {/* Said BEFORE they hand over a car, not
+                                discovered afterwards. It is the promise the
+                                custody trail exists to keep. */}
+                            <p
+                              className={cn(
+                                t.meta,
+                                "mt-3 rounded-xl border border-yellow/25 bg-yellow/[0.06] px-3.5 py-2.5 text-[#B0B0B0]",
+                              )}
+                            >
+                              {c.what.vehiclePhotoNote}
+                            </p>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
 
                       <PhotoInput
                         path={photoPath}

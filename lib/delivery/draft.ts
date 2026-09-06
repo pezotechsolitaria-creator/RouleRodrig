@@ -51,6 +51,10 @@ export type RequestPayload = {
   cargoKind: "general" | "food" | "fragile" | "heavy";
   /** Only ever set on an errand. See lib/delivery/kind.ts. */
   errandKind?: ErrandKind;
+  /** Only on a car collection, and required there — the plate is what makes
+   *  the custody trail able to settle an argument. */
+  vehiclePlate?: string;
+  vehicleDesc?: string;
   scheduleKind: "asap" | "today" | "tomorrow" | "date";
   timeSlot: "any" | "morning" | "afternoon" | "evening";
   neededDate?: string;

@@ -34,6 +34,10 @@ const schema = z
     // The errand's OWN question. Deliberately separate from cargoKind: that
     // one asks what is being carried, which for an errand is often nothing.
     errandKind: z.enum(ERRAND_KINDS).optional(),
+    // Only on a car collection. Upper-cased and bounded here; the table
+    // refuses a vehicle job whose plate is blank.
+    vehiclePlate: z.string().trim().min(2).max(20).optional(),
+    vehicleDesc: z.string().trim().max(120).optional(),
     // ── WHEN, as a CHOICE — never as a timestamp ────────────────────────
     // The client says "tomorrow, afternoon"; compute_delivery_window() turns
     // that into two absolute times in Indian/Mauritius. A client trusted to
@@ -109,6 +113,16 @@ const schema = z
   .refine((v) => v.kind === "errand" || v.errandKind === undefined, {
     message: 'Only a "do it for me" request has an errand type.',
     path: ["errandKind"],
+  })
+  // Mirrors the two table CHECKs: a car collection must name the car, and
+  // nothing else may.
+  .refine((v) => v.errandKind !== "vehicle" || Boolean(v.vehiclePlate), {
+    message: "Give the car's number plate.",
+    path: ["vehiclePlate"],
+  })
+  .refine((v) => v.errandKind === "vehicle" || v.vehiclePlate === undefined, {
+    message: "Only a car collection carries a number plate.",
+    path: ["vehiclePlate"],
   });
 
 export async function POST(req: NextRequest) {
@@ -183,6 +197,8 @@ export async function POST(req: NextRequest) {
     p_photo_url: v.photoPath ?? null,
     p_cargo_kind: v.cargoKind,
     p_errand_kind: v.errandKind ?? null,
+    p_vehicle_plate: v.vehiclePlate ?? null,
+    p_vehicle_desc: v.vehicleDesc ?? null,
     p_schedule_kind: v.scheduleKind,
     p_time_slot: v.timeSlot,
     p_needed_date: v.scheduleKind === "date" ? (v.neededDate ?? null) : null,

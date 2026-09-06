@@ -57,6 +57,19 @@ const actionSchema = z.discriminatedUnion("action", [
     note: z.string().trim().max(300).optional(),
   }),
   z.object({ action: z.literal("withdraw_quote"), quoteId: z.string().uuid() }),
+  // ── Handing a customer's car over, in either direction ─────────────────
+  // At least one photo, enforced here, in the RPC and by a table CHECK. The
+  // row exists to be evidence; one with no photograph looks like proof and
+  // settles nothing.
+  z.object({
+    action: z.literal("vehicle_custody"),
+    requestId: z.string().uuid(),
+    event: z.enum(["collected", "returned"]),
+    photos: z.array(z.string().trim().max(300).regex(/^[A-Za-z0-9._-]+$/)).min(1).max(6),
+    note: z.string().trim().max(300).optional(),
+    lat: z.number().min(-90).max(90).optional(),
+    lng: z.number().min(-180).max(180).optional(),
+  }),
 ]);
 
 async function client() {
@@ -146,6 +159,15 @@ export async function POST(req: NextRequest) {
           p_delivery_id: input.deliveryId,
           p_reason: input.reason,
           p_note: input.note ?? null,
+        });
+      case "vehicle_custody":
+        return supabase.rpc("record_vehicle_custody", {
+          p_request_id: input.requestId,
+          p_event: input.event,
+          p_photos: input.photos,
+          p_note: input.note ?? null,
+          p_lat: input.lat ?? null,
+          p_lng: input.lng ?? null,
         });
     }
   }

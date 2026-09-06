@@ -70,6 +70,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(log ?? { days, rows: [], totals: null });
   }
 
+  // ── Cars we are holding right now ──────────────────────────────────────
+  // On demand, like the driver log: it is opened when somebody asks "where is
+  // my car", not every fifteen seconds. Kept out of the board payload for the
+  // same reason.
+  if (url.searchParams.get("vehicles") === "1") {
+    const rawDays = Number(url.searchParams.get("days") ?? "30");
+    const days = Number.isFinite(rawDays)
+      ? Math.min(Math.max(Math.trunc(rawDays), 1), 365)
+      : 30;
+    const { data: v, error: vError } = await admin.rpc("admin_vehicle_custody", {
+      p_days: days,
+    });
+    if (vError) {
+      console.error("admin_vehicle_custody failed", vError);
+      return NextResponse.json({ error: "Could not load the vehicles." }, { status: 500 });
+    }
+    return NextResponse.json(v ?? { days, held: [], totals: null });
+  }
+
   const { data, error } = await admin.rpc("admin_delivery_board");
   if (error) {
     console.error("admin_delivery_board failed", error);

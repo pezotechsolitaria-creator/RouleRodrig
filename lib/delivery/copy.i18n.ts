@@ -105,6 +105,10 @@ const EN = {
         help: "A prescription, papers, a repair.",
       },
       gas: { label: "Gas bottle refill", help: "Take the empty, bring it back full." },
+      vehicle: {
+        label: "Someone takes my car",
+        help: "For a wash, a service or a repair — and brings it back.",
+      },
       other: { label: "Something else", help: "Tell us below." },
     },
     describePlaceholderErrand: "e.g. Pay my CEB bill and bring me the receipt",
@@ -112,6 +116,14 @@ const EN = {
     budgetHelpErrand:
       "Only if money changes hands — a bill, a fee, a gas refill. Leave it empty if there is nothing to pay. What you pay the person for going is separate.",
     budgetSkipErrand: "Nothing needs paying",
+    plateLabel: "Number plate",
+    platePlaceholder: "e.g. R 1234",
+    plateHelp:
+      "So the driver takes the right car, and so there is a record of which one they had.",
+    vehicleDescLabel: "Make and colour",
+    vehicleDescPlaceholder: "e.g. Blue Toyota Rush",
+    vehiclePhotoNote:
+      "Whoever collects it photographs the car before driving away, and again when they bring it back.",
     budgetPlaceholder: "e.g. 1500",
     budgetHelp:
       "You repay what was actually spent, up to this. The delivery fee is separate and each driver names their own.",
@@ -507,6 +519,10 @@ const FR: DeliverCopy = {
         label: "Recharge de bouteille de gaz",
         help: "Prendre la vide, la rapporter pleine.",
       },
+      vehicle: {
+        label: "Quelqu’un prend ma voiture",
+        help: "Pour un lavage, un entretien ou une réparation — et la ramène.",
+      },
       other: { label: "Autre chose", help: "Dites-nous ci-dessous." },
     },
     describePlaceholderErrand:
@@ -515,6 +531,14 @@ const FR: DeliverCopy = {
     budgetHelpErrand:
       "Uniquement s’il y a quelque chose à payer — une facture, des frais, une recharge de gaz. Laissez vide s’il n’y a rien à payer. Le prix de la course est séparé.",
     budgetSkipErrand: "Il n’y a rien à payer",
+    plateLabel: "Plaque d’immatriculation",
+    platePlaceholder: "ex. R 1234",
+    plateHelp:
+      "Pour que le chauffeur prenne la bonne voiture, et qu’il reste une trace de celle qu’il avait.",
+    vehicleDescLabel: "Marque et couleur",
+    vehicleDescPlaceholder: "ex. Toyota Rush bleue",
+    vehiclePhotoNote:
+      "La personne qui la prend photographie la voiture avant de partir, et de nouveau au retour.",
     budgetPlaceholder: "ex. 1500",
     budgetHelp:
       "Vous remboursez ce qui a été réellement dépensé, jusqu’à ce montant. Les frais de livraison sont séparés et chaque chauffeur fixe les siens.",
@@ -849,6 +873,10 @@ const CR: DeliverCopy = {
         label: "Ranpli boutey gaz",
         help: "Pran sa ki vid la, amenn li plin.",
       },
+      vehicle: {
+        label: "Enn dimounn pran mo loto",
+        help: "Pou enn lavaz, enn servis ou enn reparasyon — ek amenn li retour.",
+      },
       other: { label: "Lot kiksoz", help: "Dir nou anba." },
     },
     describePlaceholderErrand: "ex. Pey mo fakter CEB ek amenn mwa resi la",
@@ -856,6 +884,14 @@ const CR: DeliverCopy = {
     budgetHelpErrand:
       "Zis si ena kas pou peye — enn fakter, enn fre, enn ranpli gaz. Les li vid si nanye pa bizin peye. Seki ou pey dimounn la pou al fer li, li separe.",
     budgetSkipErrand: "Nanye pa bizin peye",
+    plateLabel: "Nimero plak",
+    platePlaceholder: "ex. R 1234",
+    plateHelp:
+      "Pou ki sofer la pran bon loto la, ek pou ki ena enn tras ki loto li ti ena.",
+    vehicleDescLabel: "Mark ek kouler",
+    vehicleDescPlaceholder: "ex. Toyota Rush ble",
+    vehiclePhotoNote:
+      "Dimounn ki pran li, li pran foto loto la avan li ale, ek enn lot fwa kan li retourne.",
     budgetPlaceholder: "ex. 1500",
     budgetHelp:
       "Ou rambours seki finn vremem depanse, ziska sa montan la. Fre livrezon separe ek sak sofer fix so prop pri.",

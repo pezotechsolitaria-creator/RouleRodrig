@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import VehicleHandover from "./VehicleHandover";
 import { mayLayOutMoney, toRequestKind } from "@/lib/delivery/kind";
 import { useSearchParams } from "next/navigation";
 import {
@@ -83,7 +84,17 @@ type Active = {
   idDocumentAt?: string | null;
   hasIdDocument?: boolean;
   /** A shopping run: the driver fronts the till and is repaid at the door. */
+  /** The delivery_request behind this job. Custody rows hang off the
+   *  REQUEST, not the delivery. */
+  requestId?: string | null;
   requestKind?: string | null;
+  /** Only on a car collection. `nextHandover` is DERIVED from the custody rows
+   *  — collected, then returned, then null — so it can never disagree with what
+   *  the driver actually did at the car. */
+  errandKind?: string | null;
+  vehiclePlate?: string | null;
+  vehicleDesc?: string | null;
+  nextHandover?: "collected" | "returned" | null;
   spendCap?: number | null;
   /** M152 — when the customer needs it. */
   windowStart?: string | null;
@@ -599,6 +610,20 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
                 or holds up a job in the other, so each says the amount or the
                 blocker in words rather than as a status. */}
             <PaymentState delivery={a} />
+
+            {/* A CUSTOMER'S CAR. The only job here where the thing being moved
+                is worth more than everything else on the platform, and the only
+                one that cannot be recorded without a photograph. Shown on the
+                job card rather than behind a tap: the driver is standing at the
+                car when they need it. */}
+            {a.errandKind === "vehicle" && (
+              <VehicleHandover
+                requestId={a.requestId ?? ""}
+                plate={a.vehiclePlate ?? null}
+                next={a.nextHandover ?? null}
+                onDone={() => void load()}
+              />
+            )}
 
             {/* Calling and navigating are the two things a driver reaches for
                 mid-job; they are links, not buried in a menu. */}

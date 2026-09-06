@@ -111,7 +111,14 @@ export const LEG_LABEL: Record<RequestKind, { pickup: string; dropoff: string }>
 // exist, and every answer is a lie the fleet filter then acts on.
 //
 // So an errand answers its own question, and it is stored in its own column.
-export const ERRAND_KINDS = ["pay_bill", "queue", "collect", "gas", "other"] as const;
+export const ERRAND_KINDS = [
+  "pay_bill",
+  "queue",
+  "collect",
+  "gas",
+  "vehicle",
+  "other",
+] as const;
 
 export type ErrandKind = (typeof ERRAND_KINDS)[number];
 
@@ -125,8 +132,22 @@ export const ERRAND_LABEL: Record<ErrandKind, string> = {
   queue: "Queue or wait",
   collect: "Collect something ready",
   gas: "Gas bottle refill",
+  vehicle: "Car collection",
   other: "Something else",
 };
+
+/**
+ * Does this errand put somebody else behind the wheel of the CUSTOMER'S car?
+ *
+ * The one job on this platform where the thing being moved is worth more than
+ * everything else on the site together, and where "it came back scratched" is a
+ * dispute with no evidence unless the handover was photographed. Everything
+ * that treats a vehicle job differently — the plate, the custody trail, the
+ * admin's "cars out now" list — hangs off this.
+ */
+export function isVehicleJob(errand: string | null | undefined): boolean {
+  return errand === "vehicle";
+}
 
 /**
  * The errand's answer, translated into the two columns the fleet filter reads.
@@ -147,6 +168,11 @@ export function errandToColumns(errand: ErrandKind): {
   sizeClass: "standard";
   cargoKind: "general" | "heavy";
 } {
+  // A car collection needs a DRIVER, not a carrier — the vehicle is the
+  // customer's own and drives itself away. `general` keeps the job open to
+  // anybody approved rather than filtering on a vehicle they will not be using;
+  // whether they may drive it is a licence question the owner settles when
+  // approving them, not something the fleet table can answer.
   return {
     sizeClass: "standard",
     cargoKind: errand === "gas" ? "heavy" : "general",
