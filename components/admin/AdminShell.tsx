@@ -92,6 +92,7 @@ const NAV: NavGroup[] = [
       { href: "/admin/managed-ticketing", label: "Ticketing fees", icon: Wallet },
       { href: "/admin/delivery-zones", label: "Delivery areas", icon: Truck },
       { href: "/admin/own-delivery", label: "Own delivery", icon: Truck },
+      { href: "/admin/payment-methods", label: "Payment methods", icon: Wallet },
     ],
   },
   {

@@ -33,7 +33,11 @@ export async function GET(req: NextRequest) {
     admin
       .from("stores")
       .select("id, name, slug, status")
-      .neq("status", "archived")
+      // Every store, closed ones included. store_status is
+      // draft|active|paused|holiday|closed — there is no 'archived', and
+      // filtering on it made Postgres reject the whole query with
+      // "invalid input value for enum store_status". A shop that is closed
+      // today is also exactly the one an admin may be setting up.
       .order("name"),
     admin.from("store_own_delivery").select("store_id, enabled, tracking_approved, note"),
   ]);
