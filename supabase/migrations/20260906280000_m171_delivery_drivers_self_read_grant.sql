@@ -1,0 +1,27 @@
+-- ── A policy that was never reachable ──────────────────────────────────────
+--
+-- The owner: "i do not see my delivery dashboard in my account section."
+--
+-- `delivery_drivers_self_read` has existed for a long time and reads exactly as
+-- intended: `user_id = auth.uid() OR is_platform_admin()`. It had never once
+-- run, because the table has NO GRANT to `authenticated` at all —
+--
+--     ERROR: 42501: permission denied for table delivery_drivers
+--
+-- RLS narrows what a role may see. It cannot GRANT the right to look. Without
+-- the table privilege the policy is unreachable code, and every read through a
+-- customer's own session fails outright instead of returning their row.
+--
+-- Every sibling has the grant — merchants, merchant_staff, event_organizers and
+-- kitchen_staff all carry SELECT for `authenticated`, which is exactly why the
+-- shop, event and kitchen doors appear on /account and the delivery one never
+-- has. It is also why /driver's "what your vehicle can carry" line has been
+-- silently missing: same read, same failure, and the page treats a null as
+-- "not a driver" rather than as an error.
+--
+-- SAFE BECAUSE RLS IS ON AND RESTRICTIVE. Verified before granting:
+-- relrowsecurity = true, with a SELECT policy limited to the caller's own row.
+-- The grant lets `authenticated` reach the table; the policy still decides that
+-- what they reach is one row — their own. Verified after granting: the driver
+-- sees exactly 1 row, and an account that is not a driver sees 0.
+grant select on public.delivery_drivers to authenticated;

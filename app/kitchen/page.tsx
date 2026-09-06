@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LayoutDashboard } from "lucide-react";
+import { ArrowLeft, UtensilsCrossed, Package, Truck, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import KitchenBoard from "./KitchenBoard";
 
@@ -43,23 +43,61 @@ export default async function KitchenPage() {
   return (
     <main className="min-h-screen bg-dark px-4 pb-28 pt-6 text-offwhite">
       <div className="mx-auto max-w-lg">
+        {/* THE WAY OUT. There was none: the only link here was "My dashboard"
+            and only for owners, so a cook opening /kitchen from a bookmark had
+            no route to anything else on the platform — and neither did an owner
+            who wanted their orders or their account rather than the shop. */}
         <div className="flex items-start justify-between gap-3">
-          <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">ROULÉ RODRIGUES</p>
-          {isOwner && (
-            <Link
-              href="/merchant"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 font-dm text-xs text-muted transition-colors hover:border-yellow/50 hover:text-yellow"
-            >
-              <LayoutDashboard size={13} /> My dashboard
-            </Link>
-          )}
+          <Link
+            href="/account"
+            className="inline-flex items-center gap-1.5 font-dm text-sm text-muted transition-colors hover:text-yellow"
+          >
+            <ArrowLeft size={14} /> My account
+          </Link>
+          <p className="shrink-0 font-bebas text-[11px] tracking-[0.3em] text-yellow">
+            ROULÉ RODRIGUES
+          </p>
         </div>
         <h1 className="mt-1 font-syne text-2xl font-extrabold">{kitchenName}</h1>
         <p className="mt-1.5 font-dm text-sm text-muted">
           Today&apos;s orders. Tap the button when each step is done.
         </p>
+
+        {/* ── RUNNING THE PLACE, not just cooking for it ──────────────────
+            The owner asked for "the option to add menu, delivery, etc" here.
+            All four screens already exist and are complete under /merchant —
+            the problem was that /kitchen never said so, and MenuPanel's empty
+            state told an OWNER "Roulé Rodrigues adds dishes for you", which was
+            never true of somebody who owns the shop.
+
+            Linked rather than rebuilt. A second way to create a product is a
+            second set of rules about price, stock and category to keep in step.
+
+            Owners only: a cook on somebody else's team has no business setting
+            that shop's prices or delivery, and the merchant console would
+            refuse them anyway — a tile that leads to a refusal is worse than no
+            tile. */}
+        {isOwner && (
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {[
+              { href: "/merchant/products", Icon: Package, label: "Add or edit dishes" },
+              { href: "/merchant/menu", Icon: UtensilsCrossed, label: "Today's menu" },
+              { href: "/merchant/payments", Icon: Truck, label: "Payments & delivery" },
+              { href: "/merchant/hours", Icon: Clock, label: "Opening hours" },
+            ].map(({ href, Icon, label }) => (
+              <Link
+                key={href}
+                href={href}
+                className="flex min-h-[48px] items-center gap-2.5 rounded-xl border border-white/12 bg-dark-card px-3 font-dm text-sm text-offwhite transition-colors hover:border-yellow/50 hover:text-yellow"
+              >
+                <Icon size={15} className="shrink-0 text-yellow/80" aria-hidden />
+                <span className="min-w-0 leading-tight">{label}</span>
+              </Link>
+            ))}
+          </div>
+        )}
         <div className="mt-5">
-          <KitchenBoard />
+          <KitchenBoard canManage={isOwner} />
         </div>
       </div>
     </main>

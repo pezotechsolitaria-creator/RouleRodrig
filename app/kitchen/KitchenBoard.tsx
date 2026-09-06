@@ -249,7 +249,7 @@ function useWakeLock(active: boolean) {
   }, [active]);
 }
 
-export default function KitchenBoard() {
+export default function KitchenBoard({ canManage = false }: { canManage?: boolean } = {}) {
   // Two jobs, two tabs. Orders first and by default: during service that is
   // the only screen that matters, and the menu is set once at the start of the
   // day. A cook should never have to find their orders behind a menu editor.
@@ -760,7 +760,7 @@ The order is ${money(o.total!, o.currency)}. The rest becomes cash to collect on
       </div>
 
       {tab === "menu" ? (
-        <MenuPanel />
+        <MenuPanel canManage={canManage} />
       ) : tab === "history" ? (
         <HistoryPanel />
       ) : tab === "allday" ? (

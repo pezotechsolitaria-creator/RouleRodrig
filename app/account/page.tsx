@@ -4,7 +4,7 @@ import DriverCodeBox from "./DriverCodeBox";
 import Link from "next/link";
 import {
   ChevronRight, Search, Store, Truck, Ticket, ClipboardList, LogIn, UserPlus,
-  Bell, Globe, KeyRound, LogOut, ShoppingBag, CircleUser, ChefHat, ClipboardCheck } from "lucide-react";
+  Bell, Globe, KeyRound, LogOut, ShoppingBag, CircleUser, ChefHat, ClipboardCheck, Car } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { rolesForUser, type AccountRole } from "@/lib/account/roles";
 import Navbar from "@/components/Navbar";
@@ -41,6 +41,7 @@ const ROLE_ICON: Record<AccountRole["key"], React.ElementType> = {
   merchant: Store,
   driver: Truck,
   errands: ClipboardCheck,
+  taxi: Car,
   organizer: Ticket,
   kitchen: ChefHat,
 };

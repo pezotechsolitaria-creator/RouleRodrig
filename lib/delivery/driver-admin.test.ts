@@ -56,6 +56,30 @@ describe("the account page lists both consoles", () => {
     expect(roles).toMatch(/can_deliver !== false/);
   });
 
+  it("shows the delivery door at all", () => {
+    // THE BUG THE OWNER REPORTED: "i do not see my delivery dashboard in my
+    // account section." The cause was not this file — delivery_drivers had NO
+    // GRANT to `authenticated`, so the read failed with 42501 and the door
+    // never rendered, while merchant / organiser / kitchen all worked because
+    // their tables carry the grant. The policy existed and was unreachable.
+    //
+    // Guarded here because the fix lives in SQL where a TS test cannot see it:
+    // if this read is ever pointed somewhere else, the grant stops being the
+    // thing that keeps it working.
+    expect(roles).toMatch(/from\("delivery_drivers"\)/);
+    expect(roles).toMatch(/key: "driver"/);
+  });
+
+  it("gets the taxi door from an RPC, never from the table", () => {
+    // taxi_drivers holds driver_token — which IS the credential — and
+    // whatsapp_api_key beside it. A SELECT grant to reach that row would hand
+    // every signed-in visitor every active driver's token, because the table's
+    // only policy is row-level and covers all active drivers.
+    expect(roles).toMatch(/rpc\("my_taxi_driver"\)/);
+    expect(roles).not.toMatch(/from\("taxi_drivers"\)/);
+    expect(roles).toMatch(/key: "taxi"/);
+  });
+
   it("reads the roles it branches on", () => {
     expect(roles).toMatch(/select\(\s*"id, full_name, status, can_deliver, can_run_errands"/);
   });

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, UtensilsCrossed } from "lucide-react";
+import Link from "next/link";
+import { Loader2, UtensilsCrossed, Plus } from "lucide-react";
 
 // ── Menu du jour, for the person cooking it ────────────────────────────────
 //
@@ -32,7 +33,7 @@ type Dish = {
   soldToday: number;
 };
 
-export default function MenuPanel() {
+export default function MenuPanel({ canManage = false }: { canManage?: boolean } = {}) {
   const [dishes, setDishes] = useState<Dish[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -92,9 +93,27 @@ export default function MenuPanel() {
       {dishes.length === 0 ? (
         <div className="rounded-2xl border border-white/10 bg-dark-card p-8 text-center">
           <UtensilsCrossed size={24} className="mx-auto text-muted" />
-          <p className="mt-2 font-dm text-sm text-muted">
-            No dishes yet. Roulé Rodrigues adds dishes for you — ask them and they appear here.
-          </p>
+          {/* "Roulé Rodrigues adds dishes for you" was never true of somebody
+              who OWNS the shop — they have had /merchant/products the whole
+              time and this screen told them to go and ask. Staff still get the
+              original sentence, because for them it is correct. */}
+          {canManage ? (
+            <>
+              <p className="mt-2 font-dm text-sm text-muted">
+                No dishes yet. Add your first one and it appears here.
+              </p>
+              <Link
+                href="/merchant/products"
+                className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-yellow px-4 font-syne text-sm font-bold text-dark"
+              >
+                <Plus size={15} /> Add a dish
+              </Link>
+            </>
+          ) : (
+            <p className="mt-2 font-dm text-sm text-muted">
+              No dishes yet. Roulé Rodrigues adds dishes for you — ask them and they appear here.
+            </p>
+          )}
         </div>
       ) : (
         <ul className="space-y-3">

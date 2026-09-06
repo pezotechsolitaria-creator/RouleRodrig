@@ -26,7 +26,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // the operator knowing their own address.
 
 export type AccountRole = {
-  key: "merchant" | "driver" | "organizer" | "kitchen" | "errands";
+  key: "merchant" | "driver" | "organizer" | "kitchen" | "errands" | "taxi";
   /** What the person is, in their own words. */
   title: string;
   /** What they can do there. */
@@ -55,7 +55,7 @@ export async function rolesForUser(
 ): Promise<AccountRole[]> {
   const out: AccountRole[] = [];
 
-  const [staff, owned, driver, organizer, kitchen] = await Promise.all([
+  const [staff, owned, driver, organizer, kitchen, taxi] = await Promise.all([
     // system_key is null on both: "Roulé Rodrigues Kitchen" and "Roulé
     // Rodrigues Events" are platform infrastructure that happen to carry
     // merchant_staff rows for the operator. Without this filter a staff member
@@ -80,6 +80,14 @@ export async function rolesForUser(
       .from("kitchen_staff")
       .select("store_id, display_name, user_id, stores(name)")
       .limit(5),
+    // ── A TAXI DRIVER IS NOT AN ACCOUNT ────────────────────────────────
+    // Every other role here is a table read filtered by RLS. taxi_drivers is
+    // deliberately unreadable by client roles — the row holds driver_token,
+    // which IS the credential, and whatsapp_api_key beside it — so this one
+    // door comes from a SECURITY DEFINER function that returns the caller's
+    // own driver and nothing else. Granting SELECT on that table to reach it
+    // would have handed every signed-in visitor every active driver's token.
+    supabase.rpc("my_taxi_driver"),
   ]);
 
   const one = (v: unknown) => (Array.isArray(v) ? (v[0] ?? null) : v);
@@ -205,6 +213,31 @@ export async function rolesForUser(
       status: "active",
     });
     break; // one door, however many kitchens they work in
+  }
+
+  // ── The taxi driver's door ────────────────────────────────────────────
+  // Only appears once they have typed their code while signed in — that is
+  // what binds the row to the account, and until then this page genuinely does
+  // not know who they are. The DriverCodeBox below the dashboards is still the
+  // way in the first time; this is so there is never a second time.
+  const tx = taxi.data as
+    | { name?: string; token?: string; active?: boolean }
+    | null;
+  if (tx?.token) {
+    out.push({
+      key: "taxi",
+      title: "My taxi",
+      blurb: "Your rides, your availability and the fares you are offered.",
+      href: `/d/${tx.token}`,
+      label: tx.name ?? null,
+      // `active` is the driver's listing switch, and an inactive driver is not
+      // being offered work — the same thing "blocked" means on every other row.
+      status: tx.active === false ? "blocked" : "active",
+      statusNote:
+        tx.active === false
+          ? "Your listing is switched off, so no new rides reach you."
+          : undefined,
+    });
   }
 
   return out;
