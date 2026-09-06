@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VEHICLE_TYPES, VEHICLE_LABEL, vehicleEligibilityNote } from "@/lib/delivery/vehicle";
 
@@ -22,11 +22,26 @@ const VEHICLES = VEHICLE_TYPES.map((value) => ({ value, label: VEHICLE_LABEL[val
 const input =
   "w-full min-h-[48px] rounded-xl border border-dark-border bg-dark px-4 font-dm text-base text-offwhite placeholder:text-muted/50 focus:border-yellow focus:outline-none";
 
-export default function ApplyForm({ existingStatus }: { existingStatus: string | null }) {
+export default function ApplyForm({
+  existingStatus,
+  // Which door they came in by. /driver/apply defaults to both, because on an
+  // island this size almost everybody will do both and pre-ticking the pair is
+  // the honest default. /errands/join defaults to errands ALONE and to `foot`,
+  // because the whole promise of that page is that you need no vehicle — and a
+  // form that then pre-selects "scooter" quietly calls that a lie.
+  defaultRole = "delivery",
+}: {
+  existingStatus: string | null;
+  defaultRole?: "delivery" | "errand";
+}) {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
-  const [vehicleType, setVehicleType] = useState("scooter");
+  const [vehicleType, setVehicleType] = useState(
+    defaultRole === "errand" ? "foot" : "scooter",
+  );
+  const [canDeliver, setCanDeliver] = useState(defaultRole === "delivery");
+  const [canRunErrands, setCanRunErrands] = useState(true);
   const [vehicleDetails, setVehicleDetails] = useState("");
   const [licence, setLicence] = useState("");
   const [hours, setHours] = useState("");
@@ -37,8 +52,13 @@ export default function ApplyForm({ existingStatus }: { existingStatus: string |
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
+  // Applying to do nothing is not an application. The RPC says the same thing
+  // and so does a table CHECK; this one just gets the answer to the person
+  // before they press anything.
+  const noWorkChosen = !canDeliver && !canRunErrands;
+
   async function submit() {
-    if (busy || !terms) return;
+    if (busy || !terms || noWorkChosen) return;
     setBusy(true);
     setError(null);
     try {
@@ -47,6 +67,7 @@ export default function ApplyForm({ existingStatus }: { existingStatus: string |
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fullName, phone, vehicleType,
+          canDeliver, canRunErrands,
           vehicleDetails: vehicleDetails || undefined,
           licenceReference: licence || undefined,
           preferredHours: hours || undefined,
@@ -98,8 +119,64 @@ export default function ApplyForm({ existingStatus }: { existingStatus: string |
         <p className="mt-1 font-dm text-xs text-muted/70">This is how we reach you about deliveries.</p>
       </div>
 
+      {/* ── What kind of work ─────────────────────────────────────────────
+          Asked BEFORE the vehicle, because it decides whether the vehicle
+          matters at all. Somebody signing up to queue at a bank counter should
+          not have to answer "what do you drive?" before being told that
+          "nothing" is a real answer. */}
+      <fieldset>
+        <legend className="mb-1.5 block font-dm text-sm text-muted">
+          What would you like to do?
+        </legend>
+        <div className="space-y-2">
+          {[
+            {
+              on: canDeliver,
+              set: setCanDeliver,
+              label: "Deliveries and shopping runs",
+              help: "Parcels between people, and buying things for somebody. Needs a vehicle.",
+            },
+            {
+              on: canRunErrands,
+              set: setCanRunErrands,
+              label: "Errands — do it for me",
+              help: "Paying a bill, queuing at a counter, collecting something ready. No vehicle needed.",
+            },
+          ].map((o) => (
+            <button
+              key={o.label}
+              type="button"
+              onClick={() => o.set(!o.on)}
+              aria-pressed={o.on}
+              className={`flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+                o.on ? "border-yellow/60 bg-yellow/[0.07]" : "border-dark-border"
+              }`}
+            >
+              <span
+                className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                  o.on ? "border-yellow bg-yellow" : "border-[#6E6E6E]"
+                }`}
+              >
+                {o.on && <Check size={13} className="text-dark" />}
+              </span>
+              <span className="min-w-0">
+                <span className="block font-dm text-base text-offwhite">{o.label}</span>
+                <span className="mt-0.5 block font-dm text-xs text-muted">{o.help}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+        {noWorkChosen && (
+          <p role="alert" className="mt-1.5 font-dm text-xs text-red-400">
+            Pick at least one — otherwise there is nothing we could send you.
+          </p>
+        )}
+      </fieldset>
+
       <div>
-        <label htmlFor="d-vehicle" className="mb-1.5 block font-dm text-sm text-muted">What do you drive?</label>
+        <label htmlFor="d-vehicle" className="mb-1.5 block font-dm text-sm text-muted">
+          {canDeliver ? "What do you drive?" : "How will you get around?"}
+        </label>
         <select id="d-vehicle" className={input} value={vehicleType} onChange={(e) => setVehicleType(e.target.value)}>
           {VEHICLES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
         </select>
@@ -168,7 +245,7 @@ export default function ApplyForm({ existingStatus }: { existingStatus: string |
         </p>
       )}
 
-      <Button className="min-h-[52px] w-full text-base" disabled={busy || !terms || !fullName.trim() || !phone.trim()}
+      <Button className="min-h-[52px] w-full text-base" disabled={busy || !terms || noWorkChosen || !fullName.trim() || !phone.trim()}
               onClick={() => void submit()}>
         {busy ? <Loader2 size={18} className="animate-spin" /> : "Send application"}
       </Button>

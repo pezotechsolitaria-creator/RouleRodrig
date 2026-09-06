@@ -19,6 +19,10 @@ const schema = z.object({
   // nobody wants their dinner delivered in one) -- so both are their own type,
   // and vehicle_can_handle() decides what reaches each of them.
   vehicleType: z.enum(["foot", "bicycle", "scooter", "car", "van", "pickup", "lorry"]),
+  // What they are signing up to DO. Two booleans rather than one enum, because
+  // the honest answer for most people here is both.
+  canDeliver: z.boolean().default(true),
+  canRunErrands: z.boolean().default(false),
   vehicleDetails: z.string().trim().max(160).optional(),
   licenceReference: z.string().trim().max(80).optional(),
   preferredHours: z.string().trim().max(160).optional(),
@@ -60,6 +64,8 @@ export async function POST(req: NextRequest) {
     p_experience_note: v.experienceNote ?? null,
     p_emergency_contact: v.emergencyContact ?? null,
     p_accept_terms: true,
+    p_can_deliver: v.canDeliver,
+    p_can_run_errands: v.canRunErrands,
   });
 
   if (error) {
@@ -77,8 +83,20 @@ export async function POST(req: NextRequest) {
     type: "driver.applied",
     category: "deliveries",
     message: formatWhatsAppMessage({
-      title: "🛵 New delivery driver application",
-      lines: [`${v.fullName} — ${v.phone}`, `Vehicle: ${v.vehicleType}${v.vehicleDetails ? ` (${v.vehicleDetails})` : ""}`],
+      // The owner is the confirmation step, so the message has to say what
+      // they would be confirming. "New application" alone made every applicant
+      // look identical, and an errand runner on foot is a different decision
+      // from a lorry driver.
+      title: v.canRunErrands && !v.canDeliver
+        ? "🧾 New errand runner application"
+        : "🛵 New delivery driver application",
+      lines: [
+        `${v.fullName} — ${v.phone}`,
+        `Wants: ${[v.canDeliver && "deliveries", v.canRunErrands && "errands"]
+          .filter(Boolean)
+          .join(" + ")}`,
+        `Vehicle: ${v.vehicleType}${v.vehicleDetails ? ` (${v.vehicleDetails})` : ""}`,
+      ],
       action: "Review it in Admin → Delivery drivers.",
     }),
     dedupeKey: `driver.applied:${(data as { driverId?: string })?.driverId ?? user.id}`,

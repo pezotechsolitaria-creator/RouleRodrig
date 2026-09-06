@@ -34,6 +34,9 @@ type Live = {
 type Driver = {
   id: string; name: string; phone: string; status: string; availability: string;
   vehicle: string; appliedAt: string; statusReason: string | null;
+  /** What they applied to DO. The owner is the confirmation step, so the
+   *  card has to say what is being confirmed. */
+  canDeliver?: boolean; canRunErrands?: boolean;
   active: number; completed: number; onTime: number;
   cancellations: number; unresponsive: number; offers: number; accepted: number;
 };
@@ -461,6 +464,25 @@ export default function DeliveryBoard() {
                 <div>
                   <p className="font-syne text-base font-bold">{dr.name}</p>
                   <p className="font-dm text-xs text-muted">{dr.phone} · {dr.vehicle}</p>
+                  {/* Approving "Marie, on foot" without knowing whether she
+                      asked to run errands or to carry parcels is approving a
+                      blank. An errand runner on foot is a different decision
+                      from a lorry driver, and the card said nothing. */}
+                  <p className="mt-1 flex flex-wrap gap-1.5">
+                    {[
+                      dr.canDeliver !== false && "Deliveries",
+                      dr.canRunErrands && "Errands",
+                    ]
+                      .filter(Boolean)
+                      .map((label) => (
+                        <span
+                          key={String(label)}
+                          className="rounded-full border border-white/15 px-2 py-0.5 font-dm text-[10px] text-muted"
+                        >
+                          {label}
+                        </span>
+                      ))}
+                  </p>
                   {dr.statusReason && <p className="mt-1 font-dm text-xs text-muted/80">{dr.statusReason}</p>}
                 </div>
                 <span className={`rounded-full px-3 py-1 font-dm text-[11px] font-semibold ${

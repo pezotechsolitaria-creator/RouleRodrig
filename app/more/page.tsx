@@ -5,6 +5,7 @@ import {
   ChevronRight, Compass, Map as MapIcon, BookOpen, Calendar,
   HelpCircle, Phone, Siren, FileText, Shield, RefreshCw, Store, CalendarCheck, ClipboardList,
   UtensilsCrossed, Ticket, ShoppingBag, CircleUser, Car, Sparkles,
+  ClipboardCheck, Bike,
 } from "lucide-react";
 import { getContent } from "@/lib/content";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -61,6 +62,13 @@ const GROUPS: { title: string; rows: Row[] }[] = [
     title: "Business & legal",
     rows: [
       { icon: Store, label: "List your business", href: "/list-your-scooter" },
+      // The only public door to becoming a provider. Both consoles were linked
+      // from inside themselves and nowhere else, so "everyone can do it" was
+      // true of a page nobody could find. Deliberately NOT added to /deliver:
+      // that page carries a measured decision to hold nothing below the form,
+      // and somebody halfway through asking for a delivery is not job-hunting.
+      { icon: ClipboardCheck, label: "Run errands for people", href: "/errands/join", note: "No vehicle needed — we confirm every applicant first" },
+      { icon: Bike, label: "Deliver with us", href: "/driver/apply", note: "Parcels and shopping runs, on your own schedule" },
       { icon: FileText, label: "Terms & rental policy", href: "/legal/terms" },
       { icon: Shield, label: "Privacy policy", href: "/legal/privacy" },
       { icon: RefreshCw, label: "Refunds & cancellations", href: "/legal/refunds" },

@@ -98,6 +98,10 @@ type Dash = {
     status: string;
     availability: string;
     statusReason: string | null;
+    /** What this person signed up to do. Both, for almost everybody on a small
+     *  island — which is why they are two booleans and not one enum. */
+    canDeliver?: boolean;
+    canRunErrands?: boolean;
   };
   limits?: { maxActive: number };
   today?: { completed: number; earned: number };
@@ -198,7 +202,17 @@ const REASONS: { value: string; label: string }[] = [
   { value: "other", label: "Something else" },
 ];
 
-export default function DriverDashboard() {
+/**
+ * The console, for both kinds of provider.
+ *
+ * `only="errand"` is what /errands renders. It is the SAME dashboard rather
+ * than a second one, and that is deliberate: quoting, accepting, the handover
+ * PIN, the money and the ratings are one machine, and a parallel copy for
+ * errand runners would be a second place for every one of those to drift. What
+ * an errand runner gets that is genuinely theirs is the route, the framing and
+ * this filter — not a reimplementation of the parts that must never differ.
+ */
+export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
   const [dash, setDash] = useState<Dash | null>(null);
   const [loading, setLoading] = useState(true);
   // ── Where a push notification tap should LAND ─────────────────────────────
@@ -318,9 +332,25 @@ export default function DriverDashboard() {
 
   const d = dash?.driver;
   const approved = d?.status === "approved";
-  const active = dash?.active ?? [];
+  // The same split for work already accepted: an errand runner's console
+  // should not show a parcel job they took last week, and a driver's should
+  // not lose it.
+  const allActive = dash?.active ?? [];
+  // /errands narrows; /driver deliberately does not. Somebody approved for
+  // both should still find ALL of their work on the driver console rather than
+  // having to remember which screen a job came in on.
+  const active = only === "errand"
+    ? allActive.filter((a) => a.requestKind === "errand")
+    : allActive;
   const offers = dash?.offers ?? [];
-  const openRequests = dash?.openRequests ?? [];
+  const allOpen = dash?.openRequests ?? [];
+  // Belt and braces. driver_open_requests already refuses to return work this
+  // person did not sign up for, and offer_delivery_quote refuses to price it —
+  // this only decides which of THEIR OWN jobs each console shows, so somebody
+  // approved for both is not handed a parcel run on the errands screen.
+  const openRequests = only === "errand"
+    ? allOpen.filter((r) => r.kind === "errand")
+    : allOpen;
   // One source of truth, mirroring dispatch_candidates. `availability` alone
   // cannot answer this: 'busy' means "on duty, holding a job", and whether that
   // driver can take another is a COUNT against the owner's limit, not a value
