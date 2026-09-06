@@ -4,7 +4,7 @@ import BackLink from "@/components/BackLink";
 import {
   ChevronRight, Compass, Map as MapIcon, BookOpen, Calendar,
   HelpCircle, Phone, Siren, FileText, Shield, RefreshCw, Store, CalendarCheck, ClipboardList,
-  UtensilsCrossed, ShoppingBag, CircleUser, Car, Sparkles,
+  UtensilsCrossed, Ticket, ShoppingBag, CircleUser, Car, Sparkles,
 } from "lucide-react";
 import { getContent } from "@/lib/content";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -31,6 +31,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
     rows: [
       { icon: UtensilsCrossed, label: "Order food", href: "/food", note: "Home-cooked Rodriguan dishes" },
       { icon: Store, label: "Shop local", href: "/shop", note: "Honey, piment, crafts" },
+      { icon: Ticket, label: "Event tickets", href: "/events", note: "Concerts & séga nights" },
       { icon: ShoppingBag, label: "My basket", href: "/cart" },
       { icon: Car, label: "Book a taxi or transfer", href: "/taxi/book", note: "See the fare first, no account" },
     ],

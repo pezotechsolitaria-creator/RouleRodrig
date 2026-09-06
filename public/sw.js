@@ -219,9 +219,8 @@
 // v304 - the last of the customer-facing English is translated.
 // v305 - every client-rendered customer string is translated.
 // v306 - event cards get a Get tickets button, and stop promising cash at the door.
-// v307 - events leave the website entirely (owner decision): /events and every
-// entry point to it are gone, so the cached shell and hubs must be refetched.
-const CACHE = "rr-cache-v307";
+// v308 - events come back: the section, the routes and the sitemap.
+const CACHE = "rr-cache-v308";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

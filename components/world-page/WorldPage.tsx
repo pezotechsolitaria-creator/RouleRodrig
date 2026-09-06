@@ -14,6 +14,7 @@ import FeaturedCurations from "./FeaturedCurations";
 import OnlyInRodrigues from "./OnlyInRodrigues";
 import MoodRail from "./MoodRail";
 import EditorNotes from "./EditorNotes";
+import WorldEvents from "./WorldEvents";
 import WorldReviews from "./WorldReviews";
 import ConciergeInvite from "./ConciergeInvite";
 import WorldTools from "./WorldTools";
@@ -178,11 +179,16 @@ export default function WorldPage({
                   />
                 ) : null;
               case "events":
-                // Events are OFF the website (owner decision, 2026-08-29):
-                // the section type stays in the doc model so old world docs
-                // remain valid, but it renders nothing — every card and its
-                // "see all" pointed at /events, which now redirects home.
-                return null;
+                return (
+                  <WorldEvents
+                    key={s.id}
+                    id={s.id}
+                    title={title}
+                    subtitle={subtitle}
+                    seeAll={seeAll}
+                    events={view.events}
+                  />
+                );
               case "reviews":
                 return (
                   <WorldReviews

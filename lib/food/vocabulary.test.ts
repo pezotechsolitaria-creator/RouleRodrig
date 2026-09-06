@@ -41,10 +41,7 @@ describe("vocabFor", () => {
   });
 
   it("never sends a ticket holder to the shop directory", () => {
-    // Events are off the website (2026-08-29): /events redirects home, so the
-    // events-cart "continue browsing" goes home directly rather than through a
-    // redirect. The original point of this test still holds — never the shop.
-    expect(vocabFor("events").browseHref).toBe("/");
+    expect(vocabFor("events").browseHref).toBe("/events");
     expect(vocabFor("events").browseLabel).not.toMatch(/shop/i);
   });
 

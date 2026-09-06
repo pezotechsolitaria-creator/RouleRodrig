@@ -11,6 +11,7 @@ import { placeHref } from "@/lib/place-href";
 import JsonLd from "@/components/JsonLd";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { foodCardImages } from "@/lib/food/queries";
+import { listPublicEvents } from "@/lib/events/queries";
 import Hero from "@/components/Hero";
 import AppHome from "@/components/AppHome";
 import ReviewsContact from "@/components/ReviewsContact";
@@ -218,10 +219,21 @@ export default async function Home() {
     food: await foodCardImages(await createSupabaseClient()),
   };
 
-  // Events are OFF the website (owner decision, 2026-08-29): the promo strip
-  // gets an empty list and EventsPromo renders nothing. The prop and the
-  // component stay so a future return is a one-block revert, not a rebuild.
-  const promoEvents: never[] = [];
+  // Upcoming ticketed events for the homepage promo strip. Only what is still
+  // ahead and not cancelled, soonest first — a homepage advertising a concert
+  // that happened last week is worse than one advertising nothing.
+  const promoEvents = (await listPublicEvents(await createSupabaseClient()))
+    .filter((e) => e.phase === "upcoming" || e.phase === "in_progress")
+    .slice(0, 6)
+    .map((e) => ({
+      slug: e.slug,
+      name: e.name,
+      coverUrl: e.coverUrl,
+      startsAt: e.startsAt,
+      venueName: e.venueName,
+      fromPrice: e.fromPrice,
+      soldOut: e.remaining <= 0,
+    }));
 
   // ── SEO structured data (JSON-LD) ──
   // Only describes what this page actually SHOWS: the business, the island

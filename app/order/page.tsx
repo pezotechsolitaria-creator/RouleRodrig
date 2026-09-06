@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   UtensilsCrossed,
   Store,
+  Ticket,
   ChevronRight,
   ClipboardList,
 } from "lucide-react";
@@ -57,6 +58,14 @@ const DOORS = [
     line: "Honey, piment, crafts and more",
     detail: "Buy from the island's own shops and producers.",
     accent: "from-emerald-500/20",
+  },
+  {
+    href: "/events",
+    icon: Ticket,
+    title: "Tickets",
+    line: "Concerts, séga nights, festivals",
+    detail: "Pay by bank transfer, then show the code at the gate.",
+    accent: "from-purple-500/20",
   },
 ];
 

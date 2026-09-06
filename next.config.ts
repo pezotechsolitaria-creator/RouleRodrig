@@ -202,21 +202,6 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // ── Events are OFF the website (owner decision, 2026-08-29) ──────────────
-  // Config-level 308s, not only page-level redirect(): an ISR-prerendered
-  // page streams its 200 and metadata BEFORE redirect() executes — measured
-  // on /browse/events, which answered 200 with the old events <title> while
-  // "redirecting". These run before routing, so old shared links and Google
-  // both get a clean permanent redirect. The page-level redirects stay as
-  // belt-and-braces.
-  async redirects() {
-    return [
-      { source: "/events", destination: "/", permanent: true },
-      { source: "/events/:path*", destination: "/", permanent: true },
-      { source: "/browse/events", destination: "/", permanent: true },
-    ];
-  },
-
   async headers() {
     return [
       {

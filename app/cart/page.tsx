@@ -52,7 +52,7 @@ const SECTION: Record<CartDomain, {
   },
   events: {
     icon: Ticket,
-    browseHref: "/",
+    browseHref: "/events",
   },
 };
 
