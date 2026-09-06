@@ -17,6 +17,8 @@ import TradingNow from "@/components/merchant/home/TradingNow";
 import WorkQueue from "@/components/merchant/home/WorkQueue";
 import Earnings from "@/components/merchant/home/Earnings";
 import Stock from "@/components/merchant/home/Stock";
+import ServingToday from "@/components/merchant/home/ServingToday";
+import { getServingToday } from "@/lib/merchant/serving";
 
 // ── THE MERCHANT HOME, AS A COMPOSER ────────────────────────────────────────
 //
@@ -58,7 +60,10 @@ export default async function MerchantHome() {
   const kind = dashboard.store?.kind ?? "shop";
   const vocab = KIND_VOCAB[kind];
 
-  const [stats, queue, earnings, billing, schedule, payment, prepaymentOnly] = await Promise.all([
+  const wantsServing = HOME_BLOCKS[kind].includes("ServingToday");
+
+  const [stats, queue, earnings, billing, schedule, payment, prepaymentOnly, serving] =
+    await Promise.all([
     storeId ? getDashboardStats(supabase, storeId) : null,
     storeId
       ? getWorkQueue(supabase, storeId)
@@ -94,6 +99,11 @@ export default async function MerchantHome() {
           .then((r) => (r.data as Record<string, boolean>[] | null)?.[0] ?? null)
       : null,
     isPrepaymentOnly(supabase),
+    // Only fetched when a block actually asks for it — the registry decides
+    // what the page loads, not just what it renders.
+    wantsServing && storeId
+      ? getServingToday(supabase, storeId)
+      : Promise.resolve({ ok: true as const, total: 0, orderable: 0, off: [] }),
   ]);
 
   // Column defaults, so an unconfigured shop reads here exactly as it behaves
@@ -173,6 +183,8 @@ export default async function MerchantHome() {
         switch (block) {
           case "Stock":
             return <Stock key={block} stats={stats} productCount={dashboard.productCount} />;
+          case "ServingToday":
+            return <ServingToday key={block} serving={serving} />;
           case "Earnings":
             return <Earnings key={block} earnings={earnings} />;
         }

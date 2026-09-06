@@ -26,18 +26,18 @@ import type { MerchantKind } from "@/lib/merchant/kind";
 // give and the reason lib/merchant/kind.ts is a union rather than a flag.
 
 /** Blocks that vary by what sort of business this is. */
-export type BlockId = "Stock" | "Earnings";
+export type BlockId = "Stock" | "ServingToday" | "Earnings";
 
 export const HOME_BLOCKS: Record<MerchantKind, BlockId[]> = {
   // A shop counts units and runs out of them.
   shop: ["Stock", "Earnings"],
 
   // A kitchen counts portions, but "12 low stock items" is the wrong sentence
-  // for a cook — the question is what is still servable today, which is a
-  // different query and therefore a different block. Until that block exists a
-  // kitchen sees only its money, which is true, rather than a shop's stock
-  // report wearing a kitchen's noun.
-  kitchen: ["Earnings"],
+  // for a cook. Three of the four ways a dish goes off the menu — outside its
+  // serving window, not served today, kitchen shut — have nothing to do with
+  // quantity, so a stock report would call a kitchen healthy while six dishes
+  // were unorderable. ServingToday asks the cook's actual question.
+  kitchen: ["ServingToday", "Earnings"],
 
   // A box office sells against an allocation that cannot be restocked, so
   // "low stock" is not a warning, it is the point. Tickets sold against tickets

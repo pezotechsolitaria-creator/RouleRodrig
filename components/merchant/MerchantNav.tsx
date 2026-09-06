@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { KIND_VOCAB, type MerchantKind } from "@/lib/merchant/kind";
-import { ClipboardList, Wallet, Clock, BadgeCheck, LayoutDashboard, Package, UtensilsCrossed, Store } from "lucide-react";
+import { ClipboardList, Wallet, Clock, BadgeCheck, LayoutDashboard, Package, UtensilsCrossed, Store, MoreHorizontal, QrCode } from "lucide-react";
 
 // The merchant dashboard's navigation, defined ONCE and rendered at both
 // breakpoints from the same list.
@@ -25,46 +25,60 @@ import { ClipboardList, Wallet, Clock, BadgeCheck, LayoutDashboard, Package, Ute
 // fall back on. Products also never showed an active state.
 type NavLink = { href: string; label: string; icon: React.ElementType; exact?: boolean };
 
-const LINKS: NavLink[] = [
-  { href: "/merchant", label: "Home", icon: LayoutDashboard, exact: true },
-  { href: "/merchant/orders", label: "Orders", icon: ClipboardList },
-  { href: "/merchant/products", label: "Products", icon: Package },
-  { href: "/merchant/payments", label: "Payments", icon: Wallet },
-  { href: "/merchant/profile", label: "Shop", icon: Store },
-  { href: "/merchant/hours", label: "Hours", icon: Clock },
-  { href: "/merchant/subscription", label: "Plan", icon: BadgeCheck },
-];
+// ── FIVE SLOTS, AND THE SAME FIVE FOR EVERY KIND ───────────────────────────
+//
+// This shipped SEVEN primary destinations, and EIGHT for a kitchen once the
+// Menu tab was spliced in. At 375px that puts six of a kitchen's eight cells
+// under the 44px touch minimum — the very floor the comment above claims to
+// clear, because it measures min-h-[56px], the height, not the width. Five
+// cells at 375px are 75px each.
+//
+// The slot COUNT and ORDER are identical for every kind. Only slot three
+// changes its word, icon and destination, read from KIND_VOCAB. That is what
+// lets muscle memory survive switching between a shop and a kitchen, and what
+// makes a future service provider a lookup rather than a new navigation.
+//
+// Everything demoted goes to /merchant/more, which is GENERATED FROM THE SAME
+// SOURCE as this dock — so the two can never disagree about where a merchant
+// can go. That was the defect in the old home screen's hand-copied tile grid.
 
-// Restaurants only. A shop has a catalogue, not a menu du jour, and showing a
-// marketplace seller a "Menu" tab is a promise the page cannot keep. Slotted
-// after Products because it answers the same question in food terms — what am I
-// selling today — rather than appended at the end where nobody looks.
-/**
- * The nav for one kind of merchant.
- *
- * The slot COUNT and ORDER are identical for every kind — only slot three
- * changes its word and destination, read from KIND_VOCAB. That is what makes
- * muscle memory survive switching between a shop and a kitchen, and what makes
- * a future service provider a lookup rather than a new navigation.
- *
- * This used to take a boolean and SPLICE an extra tab in for kitchens, giving
- * them eight destinations where a shop had seven. At 375px that put six of the
- * eight cells under the 44px touch minimum.
- */
-function linksFor(kind: MerchantKind, hasPlan = true): NavLink[] {
+/** The five that live in the dock. Slot three is filled per kind. */
+function primaryFor(kind: MerchantKind): NavLink[] {
   const v = KIND_VOCAB[kind];
-  let out: NavLink[] = [
+  return [
     { href: "/merchant", label: "Home", icon: LayoutDashboard, exact: true },
     { href: "/merchant/orders", label: "Orders", icon: ClipboardList },
     { href: v.catalogue.href, label: v.catalogue.label, icon: catalogueIcon(kind) },
     { href: "/merchant/payments", label: "Money", icon: Wallet },
-    { href: "/merchant/profile", label: "Shop", icon: Store },
-    { href: "/merchant/hours", label: "Hours", icon: Clock },
+    { href: "/merchant/more", label: "More", icon: MoreHorizontal, exact: true },
   ];
-  // A "Plan" tab on a platform that charges no subscription is a permanent
-  // invitation to worry about a bill that does not exist (M171).
+}
+
+/**
+ * Everything reachable but not in the dock.
+ *
+ * Exported so /merchant/more renders exactly this list. Pickup is in here for
+ * the first time: it is currently linked from NO merchant screen at all.
+ */
+export function secondaryFor(kind: MerchantKind, hasPlan: boolean): NavLink[] {
+  const v = KIND_VOCAB[kind];
+  const out: NavLink[] = [
+    { href: "/merchant/profile", label: "Shop details", icon: Store },
+    { href: "/merchant/hours", label: "Opening hours", icon: Clock },
+    { href: "/merchant/pickup", label: "Pickup desk", icon: QrCode },
+  ];
+  // A kitchen's catalogue is its Menu, which took slot three — so its products
+  // are still reachable here rather than lost.
+  if (v.catalogue.href !== "/merchant/products") {
+    out.splice(1, 0, { href: "/merchant/products", label: "Products", icon: Package });
+  }
   if (hasPlan) out.push({ href: "/merchant/subscription", label: "Plan", icon: BadgeCheck });
   return out;
+}
+
+function linksFor(kind: MerchantKind, hasPlan = true): NavLink[] {
+  void hasPlan;
+  return primaryFor(kind);
 }
 
 function catalogueIcon(kind: MerchantKind) {
