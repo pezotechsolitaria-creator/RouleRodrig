@@ -112,6 +112,11 @@ export async function POST(req: NextRequest) {
   // RPC will reject.
   const storeId = items[0]?.storeId;
   let offersRrDelivery = false;
+  // M169: the other two fulfilment options travel with it now, from the same
+  // RPC, so the form can no longer offer a collection method create_order will
+  // refuse either.
+  let offersPickup = true;
+  let offersCustomerDelivery = true;
   let schedule = null;
   // Is this a FOOD order? Decided here, server-side, from whether the cart's
   // store has a food_kitchens row — never from the route the customer came in
@@ -140,12 +145,11 @@ export async function POST(req: NextRequest) {
       { data: pay }, { data: settings }, { data: status },
       { data: kitchen }, { data: event }, { data: store }, { data: kitchenHint },
     ] = await Promise.all([
-      // offers_rr_delivery only — the payment columns come from an RPC below.
-      supabase
-        .from("store_payment_settings")
-        .select("offers_rr_delivery")
-        .eq("store_id", storeId)
-        .maybeSingle(),
+      // M169: the fulfilment flags moved to store_payment_options() with the
+      // payment ones. This slot is kept only so the destructuring below stays
+      // aligned; nothing reads store_payment_settings from a customer session
+      // any more, because nothing can.
+      Promise.resolve({ data: null }),
       supabase.from("marketplace_settings").select("delivery_enabled").eq("id", "main").maybeSingle(),
       // The SAME function create_order() and quote_order() gate on, so the UI
       // can never offer an option the RPC is about to refuse.
@@ -178,7 +182,11 @@ export async function POST(req: NextRequest) {
           null,
       };
     }
-    offersRrDelivery = (pay?.offers_rr_delivery ?? true) && (settings?.delivery_enabled ?? false);
+    // Assigned below, once store_payment_options() has answered. Reading the
+    // table here returned NOTHING for every customer (see the note further
+    // down) and `?? true` turned that silence into "this shop delivers" — the
+    // bug M169 fixes.
+    void pay;
     schedule = status ?? null;
     // Which payment methods this shop actually takes. create_order() rejects an
     // unaccepted method with RR009, so without these the form was happily
@@ -213,7 +221,14 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
     if (optsError) console.error("store_payment_options failed", optsError);
     const o = opts as
-      | { accepts_cash?: boolean; accepts_bank_transfer?: boolean; require_receipt?: boolean }
+      | {
+          accepts_cash?: boolean;
+          accepts_bank_transfer?: boolean;
+          require_receipt?: boolean;
+          offers_pickup?: boolean;
+          offers_customer_delivery?: boolean;
+          offers_rr_delivery?: boolean;
+        }
       | null;
     // EVERY FALLBACK HERE FAILS CLOSED. `?? true` on cash was the last
     // remnant of the M83/M84 bug in a new form: when the RPC returns nothing —
@@ -227,7 +242,36 @@ export async function POST(req: NextRequest) {
       acceptsBankTransfer: o?.accepts_bank_transfer ?? false,
       requiresReceipt: o?.require_receipt ?? true,
     };
+
+    // FULFILMENT, FROM THE SAME RPC AND WITH THE SAME DISCIPLINE (M169).
+    //
+    // This used to be a direct read of store_payment_settings.offers_rr_delivery
+    // defaulted with `?? true` — in this file, four lines under a comment
+    // explaining that exact mistake for the payment columns. The table is
+    // unreadable from a customer session, so every shop looked like it
+    // delivered. On the only store in the marketplace, which does NOT deliver,
+    // the customer was shown the option, asked for GPS, quoted Rs 150, and
+    // refused by create_order with RR005 after filling in the whole form.
+    //
+    // A missing answer is not a yes: if the RPC returns nothing the shop offers
+    // nothing, which surfaces as "this shop cannot take orders" — visible and
+    // true — rather than an option the database is about to refuse.
+    offersRrDelivery =
+      (o?.offers_rr_delivery ?? false) && (settings?.delivery_enabled ?? false);
+    offersPickup = o?.offers_pickup ?? false;
+    offersCustomerDelivery = o?.offers_customer_delivery ?? false;
   }
 
-  return NextResponse.json({ items, fulfillment, offersRrDelivery, schedule, payment, isFood, isEvent, pickup });
+  return NextResponse.json({
+    items,
+    fulfillment,
+    offersRrDelivery,
+    offersPickup,
+    offersCustomerDelivery,
+    schedule,
+    payment,
+    isFood,
+    isEvent,
+    pickup,
+  });
 }

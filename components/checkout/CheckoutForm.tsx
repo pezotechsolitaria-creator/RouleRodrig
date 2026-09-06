@@ -90,7 +90,18 @@ export default function CheckoutForm({
   const [pickup, setPickup] = useState<PickupLocation | null>(null);
   // Only Roulé Rodrigues delivery is opt-in per shop; a customer's own driver
   // is a collection, so it is offered whenever the shop is open at all.
-  const [offersRrDelivery, setOffersRrDelivery] = useState(true);
+  // FAILS CLOSED WHILE LOADING (M169). This opened `true`, so for the whole
+  // first paint every shop looked like it delivered — the same "a missing
+  // answer is not a yes" mistake the server had, reproduced in the client. The
+  // resolve call sets the truth a moment later; until it does, the option is
+  // simply not offered.
+  const [offersRrDelivery, setOffersRrDelivery] = useState(false);
+  // The other two fulfilment options now come from the same source (M169)
+  // rather than being assumed. They open TRUE because that is the column
+  // default create_order coalesces to, so a shop with no settings row behaves
+  // in the form exactly as it does in the RPC.
+  const [offersPickup, setOffersPickup] = useState(true);
+  const [offersCustomerDelivery, setOffersCustomerDelivery] = useState(true);
   // Opening hours, straight from store_schedule_status() — the same function
   // create_order() enforces. Null until the cart resolves.
   const [schedule, setSchedule] = useState<ScheduleStatus | null>(null);
@@ -192,6 +203,10 @@ export default function CheckoutForm({
         setResolved(body.items ?? []);
         if (body.fulfillment) setStoreOffersDelivery(!!body.fulfillment.delivery);
         setOffersRrDelivery(!!body.offersRrDelivery);
+        if (body.offersPickup !== undefined) setOffersPickup(!!body.offersPickup);
+        if (body.offersCustomerDelivery !== undefined) {
+          setOffersCustomerDelivery(!!body.offersCustomerDelivery);
+        }
         setSellerDomain(domainFromFlags({ isFood: body.isFood, isEvent: body.isEvent }));
         setPickup(body.pickup ?? null);
         setSchedule(body.schedule ?? null);
@@ -545,7 +560,9 @@ export default function CheckoutForm({
                 ? true
                 : f === "rr_delivery"
                   ? !offersRrDelivery || deliveryOffNow
-                  : f !== "pickup" && !storeOffersDelivery;
+                  : f === "pickup"
+                    ? !offersPickup
+                    : !offersCustomerDelivery || !storeOffersDelivery;
             const reason =
               shopClosed ? c.form.fulfilment.closed(s)
                 : f === "rr_delivery" && !offersRrDelivery ? c.form.fulfilment.noRrDelivery(s)

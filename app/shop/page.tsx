@@ -172,6 +172,14 @@ export default async function MarketplaceHomePage() {
   const categories = home?.categories ?? [];
   const sellers = home?.sellers ?? [];
   const deliveryFrom = home?.deliveryFeeFrom ?? everything.deliveryFeeFrom;
+  // M169: deliveryFeeFrom is the cheapest ACTIVE ZONE, platform-wide — it says
+  // nothing about whether any shop on this page will actually deliver. With one
+  // store in the marketplace whose offers_rr_delivery is false, the line above
+  // the first product read "Delivery from Rs 150" and was simply untrue. The
+  // product page has always gated the same sentence correctly
+  // (app/shop/[storeSlug]/[productSlug]/page.tsx). Each browse item already
+  // carries its shop's flag, so no extra query is needed.
+  const anyShopDelivers = everything.products.some((p) => p.offersRrDelivery);
   // How many shops can take an order right now. A failed read falls back to the
   // seller count: the notice below is a WARNING, and a missing answer must not
   // invent one that says the marketplace is shut.
@@ -233,13 +241,15 @@ export default async function MarketplaceHomePage() {
         {productCount > 0 && (
           <p className="mt-2 flex items-center gap-1.5 truncate font-dm text-[11px] text-muted">
             <Truck size={12} className="shrink-0 text-yellow/70" />
-            {deliveryFrom !== null && (
+            {deliveryFrom !== null && anyShopDelivers && (
               <TName
                 k="home.deliveryFrom"
                 v={centsToShortString(deliveryFrom)}
               />
             )}
-            {deliveryFrom !== null && <span className="text-muted/50">·</span>}
+            {deliveryFrom !== null && anyShopDelivers && (
+              <span className="text-muted/50">·</span>
+            )}
             <span>
               <T k="home.payDirect" />
             </span>
