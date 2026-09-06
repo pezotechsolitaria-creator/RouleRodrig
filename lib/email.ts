@@ -133,11 +133,15 @@ async function getBrand(): Promise<{ wa: string; logo: string }> {
     if (!logo) {
       const { data } = await supabase
         .from("site_content")
-        .select("data")
+        // JUST the branding node. Selecting "data" pulled the whole site_content
+        // blob — 148,807 bytes — to read one logo URL out of 2,028 of them, on
+        // every email that needed a header image. The alias pins the response
+        // key so PostgREST's path-naming cannot quietly rename it.
+        .select("branding:data->branding")
         .eq("id", "main")
         .maybeSingle();
       const branding = (
-        data?.data as { branding?: { logo?: string; logoMark?: string } } | null
+        data as { branding?: { logo?: string; logoMark?: string } } | null
       )?.branding;
       // The MARK first. This header renders the image at height:38px — the full
       // lockup's tagline lines ("TOURS · RENTALS · ACTIVITIES · EXPERIENCES")

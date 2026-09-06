@@ -208,7 +208,26 @@ function useChime() {
     if (next) { ensureCtx(); setTimeout(play, 50); }
   }, [ensureCtx, play]);
 
-  return { on, toggle, play: useCallback(() => { if (on) play(); }, [on, play]), ensureCtx };
+  const playIfOn = useCallback(() => { if (on) play(); }, [on, play]);
+
+  // MEMOISED, and that is not a micro-optimisation.
+  //
+  // This used to return a fresh object literal on every render. Every member
+  // was stable; the WRAPPER was not. KitchenBoard does `useCallback(..., [chime])`
+  // and then `useEffect(..., [load])`, so a new wrapper each render meant a new
+  // `load` each render, meant the polling effect tore down and re-ran each
+  // render — and its first act is `void load()`. load() then calls setDash and
+  // setLastOk, which renders, which makes another wrapper.
+  //
+  // An unbounded fetch loop, throttled only by network latency. On 6 Sep 2026 it
+  // billed 36,915 kitchen_dashboard calls, 36,907 claim_kitchen_invites WRITES
+  // and 37,747 auth checks in 24 hours from a handful of tabs — about two per
+  // second, sustained for five hours, from one screen nobody was touching.
+  // useWakeLock keeps a mounted kitchen tablet awake, so it never even slowed.
+  return useMemo(
+    () => ({ on, toggle, play: playIfOn, ensureCtx }),
+    [on, toggle, playIfOn, ensureCtx],
+  );
 }
 
 /**
@@ -300,13 +319,24 @@ export default function KitchenBoard({ canManage = false }: { canManage?: boolea
     }
   }, [chime]);
 
+  // The poll reads the LATEST load through a ref and mounts exactly once.
+  //
+  // Depending on [load] is what turned an identity churn upstream into an
+  // unbounded fetch loop: the effect re-ran on every render and re-fired
+  // immediately each time. Memoising useChime fixed that cause; this removes
+  // the mechanism, so the next hook that returns a fresh object cannot rebuild
+  // the loop. 15 seconds is the product decision, and nothing at runtime can
+  // change it now.
+  const loadRef = useRef(load);
+  loadRef.current = load;
+
   useEffect(() => {
-    void load();
+    void loadRef.current();
     // A kitchen screen is left open all service. 15s keeps a new order visible
     // quickly without hammering a phone's battery.
-    const t = setInterval(() => void load(), 15_000);
+    const t = setInterval(() => void loadRef.current(), 15_000);
     return () => clearInterval(t);
-  }, [load]);
+  }, []);
 
   // Two jobs: re-render the ageing clocks, and notice when the server has gone
   // quiet. Showing hours-old orders as if they were current is the one failure

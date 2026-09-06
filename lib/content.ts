@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { DEFAULT_CONTENT, DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS, type SiteContent } from './defaults';
 import { migrateQuickAccess, migrateHomeCards } from './quick-access';
@@ -111,7 +112,7 @@ export async function getContent(): Promise<SiteContent> {
  * destroying every customisation. /admin must therefore refuse to save when
  * `loaded` is false.
  */
-export async function getContentWithStatus(): Promise<{ content: SiteContent; loaded: boolean }> {
+async function readContentUncached(): Promise<{ content: SiteContent; loaded: boolean }> {
   try {
     const supabase = publicReadClient();
     const { data, error } = await supabase
@@ -129,6 +130,23 @@ export async function getContentWithStatus(): Promise<{ content: SiteContent; lo
     return { content: JSON.parse(JSON.stringify(DEFAULT_CONTENT)) as SiteContent, loaded: false };
   }
 }
+
+/**
+ * ONE READ PER REQUEST, not one per caller.
+ *
+ * This row is 148,807 bytes on the wire — by far the largest payload the Data
+ * API serves — and 68 call sites read it. Several pages read it TWICE in one
+ * render, because generateMetadata() and the page body each ask independently.
+ * Uncached, that billed 8,003 reads on 6 Sep 2026: about 1.19 GB in a day, or
+ * roughly 36 GB a month against a 5 GB free-plan allowance.
+ *
+ * React's cache() dedupes within a single request only, so /admin still reads
+ * its own writes on the next request and cannot serve a stale editor. Making
+ * this survive ACROSS requests is the bigger win and needs saveContent() to
+ * revalidate a tag — deliberately not done here, because getting that wrong
+ * shows the owner a stale site with no way to tell.
+ */
+export const getContentWithStatus = cache(readContentUncached);
 
 export async function saveContent(content: SiteContent): Promise<void> {
   // Writes go through the privileged client so site_content can be locked to
