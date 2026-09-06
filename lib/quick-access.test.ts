@@ -154,3 +154,98 @@ describe("migrateHomeCards", () => {
     expect(migrateHomeCards(undefined)).toBeUndefined();
   });
 });
+
+// ── THE MARKETPLACE RENAME ──────────────────────────────────────────────────
+//
+// The homepage card was the last surface still calling /shop "Local Stores".
+// These tests pin BOTH halves of the fix: the seed in lib/defaults.ts (which
+// only ever affects a fresh install) and the read-time migration (which is the
+// half that actually reaches roulerodrig.com, because the saved site_content
+// array wins over the seed).
+
+const card = (over: Record<string, unknown> = {}) => ({
+  id: "hc-stores",
+  label: "Local Stores",
+  labelFr: "Boutiques",
+  labelCr: "Laboutik",
+  href: "/shop",
+  icon: "store",
+  enabled: true,
+  ...over,
+});
+
+describe("the Local Stores -> Marketplace rename", () => {
+  it("renames the saved card in all three languages", () => {
+    const [out] = migrateHomeCards([card()]) as Record<string, unknown>[];
+    expect(out.label).toBe("Marketplace");
+    expect(out.labelFr).toBe("Marketplace");
+    expect(out.labelCr).toBe("Marketplace");
+  });
+
+  it("leaves the destination alone — this is a rename, not a move", () => {
+    const [out] = migrateHomeCards([card()]) as Record<string, unknown>[];
+    expect(out.href).toBe("/shop");
+  });
+
+  it("keeps every other field the owner set", () => {
+    const [out] = migrateHomeCards([card({ icon: "shopping-bag", enabled: false })]) as Record<
+      string,
+      unknown
+    >[];
+    expect(out.icon).toBe("shopping-bag");
+    expect(out.enabled).toBe(false);
+    expect(out.id).toBe("hc-stores");
+  });
+
+  // The guard that makes this safe to ship: a migration that fought the admin
+  // panel would be a worse bug than the label it fixes.
+  it("does NOT touch a card the owner has already renamed himself", () => {
+    const owners = card({ label: "Nou Bazar", labelFr: "Nou Bazar", labelCr: "Nou Bazar" });
+    const [out] = migrateHomeCards([owners]) as Record<string, unknown>[];
+    expect(out.label).toBe("Nou Bazar");
+    expect(out.labelFr).toBe("Nou Bazar");
+  });
+
+  it("does not rename a different card that happens to say Local Stores", () => {
+    const [out] = migrateHomeCards([card({ id: "hc-other" })]) as Record<string, unknown>[];
+    expect(out.label).toBe("Local Stores");
+  });
+
+  it("is idempotent — running it on already-migrated cards changes nothing", () => {
+    const once = migrateHomeCards([card()]);
+    const twice = migrateHomeCards(once);
+    expect(twice).toEqual(once);
+  });
+
+  it("still moves the Experiences card, so relabel did not break re-pointing", () => {
+    const [out] = migrateHomeCards([
+      { id: "hc-exp", label: "Experiences", href: "/browse/tours" },
+    ]) as Record<string, unknown>[];
+    expect(out.href).toBe("/experiences");
+    expect(out.label).toBe("Experiences");
+  });
+
+  it("passes undefined through, because a site with no saved cards has none", () => {
+    expect(migrateHomeCards(undefined)).toBeUndefined();
+  });
+
+  it("the shipped seed no longer says Local Stores in any language", async () => {
+    const { DEFAULT_HOME_CARDS } = await import("./defaults");
+    const stores = DEFAULT_HOME_CARDS.find((c) => c.id === "hc-stores");
+    expect(stores).toBeDefined();
+    expect([stores!.label, stores!.labelFr, stores!.labelCr]).toEqual([
+      "Marketplace",
+      "Marketplace",
+      "Marketplace",
+    ]);
+  });
+
+  // The seed and the migration have to agree, or a fresh install and the live
+  // site end up with two different words for the same card.
+  it("the seed and the migration agree on the new label", async () => {
+    const { DEFAULT_HOME_CARDS } = await import("./defaults");
+    const seeded = DEFAULT_HOME_CARDS.find((c) => c.id === "hc-stores");
+    const [migrated] = migrateHomeCards([card()]) as Record<string, unknown>[];
+    expect(migrated.label).toBe(seeded!.label);
+  });
+});

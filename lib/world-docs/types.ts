@@ -54,7 +54,9 @@ export const WORLD_META: Record<WorldId, { label: string; href: string; blurb: s
   stays: { label: "Stays", href: "/browse/stays", blurb: "Places to sleep." },
   experiences: { label: "Experiences", href: "/browse/tours", blurb: "Things to do, book and remember." },
   "eat-drink": { label: "Eat & Drink", href: "/food", blurb: "Kitchens, tables and the food concierge." },
-  shops: { label: "Shops", href: "/shop", blurb: "The marketplace." },
+  // Key stays "shops" — it is a stored discriminator, not a label. Only the
+  // display name moves, to match the door at /shop.
+  shops: { label: "Marketplace", href: "/shop", blurb: "The marketplace." },
   transfers: { label: "Transfers", href: "/transfers", blurb: "Airport runs, taxis and private hire." },
   global: { label: "Global", href: "/", blurb: "Branding and settings shared by every world." },
 };

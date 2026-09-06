@@ -50,7 +50,10 @@ const DOORS = [
   {
     href: "/shop",
     icon: Store,
-    title: "Shops",
+    // Renamed from "Shops" on the owner's instruction. /shop's own metadata,
+    // nav copy and MARKETPLACE.md have called it the Marketplace for a while;
+    // this door and the homepage card were the last two saying otherwise.
+    title: "Marketplace",
     line: "Honey, piment, crafts and more",
     detail: "Buy from the island's own shops and producers.",
     accent: "from-emerald-500/20",

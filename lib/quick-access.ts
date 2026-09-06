@@ -86,14 +86,56 @@ const CARDS_MOVED: { id: string; from: string; to: string }[] = [
   { id: "hc-exp", from: "/browse/tours", to: "/experiences" },
 ];
 
+/**
+ * Home CARDS relabelled, only while they still carry the label they shipped with.
+ *
+ * Same guard as RELABELLED above, and the same reason it has to exist at all:
+ * `DEFAULT_HOME_CARDS` is a first-run seed, so editing the label in
+ * lib/defaults.ts renames the card on a fresh install and nowhere else. The
+ * live site has its own saved array in `site_content` and that array wins.
+ */
+const CARDS_RELABELLED: {
+  id: string;
+  whenLabel: string;
+  label: string;
+  labelFr: string;
+  labelCr: string;
+}[] = [
+  // "Local Stores" undersold what is behind it. The destination is /shop, whose
+  // own metadata, nav copy and MARKETPLACE.md have all called it the Rodrigues
+  // Marketplace for some time — the homepage card was the last thing still
+  // calling it a shop directory. Renamed on the owner's instruction.
+  //
+  // French and Creole move too. "Boutiques" and "Laboutik" both mean the little
+  // shop on the corner, which is precisely the smaller idea being retired.
+  {
+    id: "hc-stores",
+    whenLabel: "Local Stores",
+    label: "Marketplace",
+    labelFr: "Marketplace",
+    labelCr: "Marketplace",
+  },
+];
+
 export function migrateHomeCards<T extends { id: string; href?: string }>(cards: T[]): T[];
 export function migrateHomeCards<T extends { id: string; href?: string }>(cards: undefined): undefined;
 export function migrateHomeCards<T extends { id: string; href?: string }>(cards?: T[]): T[] | undefined;
 export function migrateHomeCards<T extends { id: string; href?: string }>(cards?: T[]): T[] | undefined {
   if (!cards) return cards;
   return cards.map((c) => {
+    const withLabel = c as T & { label?: string };
+    const rename = CARDS_RELABELLED.find(
+      (r) => r.id === c.id && withLabel.label === r.whenLabel,
+    );
+    // Relabel and re-point are independent: a card can need both, and doing
+    // them in one pass means neither guard can be defeated by the other having
+    // already rewritten the field it checks.
+    const relabelled = rename
+      ? { ...c, label: rename.label, labelFr: rename.labelFr, labelCr: rename.labelCr }
+      : c;
+
     const move = CARDS_MOVED.find((m) => m.id === c.id && c.href === m.from);
-    return move ? { ...c, href: move.to } : c;
+    return move ? { ...relabelled, href: move.to } : relabelled;
   });
 }
 

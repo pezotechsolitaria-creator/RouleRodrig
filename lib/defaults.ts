@@ -877,7 +877,7 @@ export const DEFAULT_HOME_CARDS: HomeCard[] = [
   // to its own promotional strip under the quick actions where it can show the
   // real next event, its date and its price. See EventsPromo.
   { id: "hc-food", label: "Restaurant", labelFr: "Restaurant", labelCr: "Restoran", icon: "restaurant", imageSource: "food", action: "link", href: "/food", tint: "indigo", enabled: true },
-  { id: "hc-stores", label: "Local Stores", labelFr: "Boutiques", labelCr: "Laboutik", icon: "store", imageSource: "stores", action: "link", href: "/shop", tint: "amber", enabled: true },
+  { id: "hc-stores", label: "Marketplace", labelFr: "Marketplace", labelCr: "Marketplace", icon: "store", imageSource: "stores", action: "link", href: "/shop", tint: "amber", enabled: true },
 ];
 
 export const DEFAULT_CONTENT: SiteContent = {
