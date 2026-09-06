@@ -184,6 +184,16 @@ const actionSchema = z.discriminatedUnion("action", [
     canDeliver: z.boolean(),
     canRunErrands: z.boolean(),
   }),
+  // ── Taking a finished or stuck row off the board ──────────────────────
+  // ARCHIVES, never deletes: `deliveries` is read by the driver's 30-day log
+  // and their earnings, so removing a row would silently change what somebody
+  // is shown they were paid — and a mistaken clear would be unrecoverable.
+  z.object({
+    action: z.literal("clear_delivery"),
+    deliveryId: z.string().uuid(),
+    reason: z.string().trim().max(300).optional(),
+    undo: z.boolean().default(false),
+  }),
   // Manual sweep, for when an operator does not want to wait for the cron.
   z.object({ action: z.literal("sweep") }),
 ]);
@@ -224,6 +234,12 @@ export async function POST(req: NextRequest) {
               p_status: input.status,
               p_reason: input.reason ?? null,
             })
+          : input.action === "clear_delivery"
+            ? admin.rpc("admin_clear_delivery", {
+                p_delivery_id: input.deliveryId,
+                p_reason: input.reason ?? null,
+                p_undo: input.undo,
+              })
           : input.action === "driver_roles"
             ? admin.rpc("admin_set_driver_roles", {
                 p_driver_id: input.driverId,

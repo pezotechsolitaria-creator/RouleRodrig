@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { KIND_LABEL, toRequestKind } from "@/lib/delivery/kind";
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, Loader2, Package, Phone, Plus, RefreshCw, UserCheck, UserX } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, EyeOff, Loader2, Package, Phone, Plus, RefreshCw, UserCheck, UserX } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import { stallBoardLine } from "@/lib/delivery/escalation-copy";
 import { Button } from "@/components/ui/button";
@@ -304,6 +304,25 @@ export default function DeliveryBoard() {
                     <button onClick={() => { setClosing(d.id); setNote(""); }}
                       className="inline-flex items-center gap-1.5 rounded-full border border-red-500/30 px-3 py-1.5 font-dm text-xs text-red-400 hover:bg-red-500/10">
                       <Package size={12} /> Close out
+                    </button>
+
+                    {/* ── CLEAR ────────────────────────────────────────
+                        Takes a finished or stuck row off the board. It
+                        ARCHIVES rather than deletes — `deliveries` feeds the
+                        driver's 30-day log and their earnings, so removing a
+                        row would silently change what somebody is shown they
+                        were paid, and a mistaken clear would be
+                        unrecoverable.
+
+                        Offered on every card; the RPC refuses one that is
+                        still running and says to cancel it first. A refusal
+                        with that sentence is more use than a button that is
+                        greyed out for a reason nobody can see. */}
+                    <button onClick={() => void act(`cx-${d.id}`, { action: "clear_delivery", deliveryId: d.id })}
+                      disabled={busy !== null}
+                      title="Take this off the board. The record is kept and this can be undone."
+                      className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 font-dm text-xs text-muted hover:border-yellow/50 hover:text-yellow disabled:opacity-40">
+                      {busy === `cx-${d.id}` ? <Loader2 size={12} className="animate-spin" /> : <EyeOff size={12} />} Clear
                     </button>
                   </div>
 
