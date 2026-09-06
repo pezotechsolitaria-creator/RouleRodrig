@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CalendarDays, MapPin, ArrowRight, AlertTriangle, Ticket, ScanLine } from "lucide-react";
+import AlertsToggle from "@/app/driver/AlertsToggle";
 import { createClient } from "@/lib/supabase/server";
 import { listMyEvents, type OrganizerEvent } from "@/lib/events/organizer";
 import { listScannableEvents, type ScannerEvent } from "@/lib/events/scanner";
@@ -67,6 +68,25 @@ export default async function OrganizerHome() {
           ? "You're set up to scan tickets at these events. Open the scanner when you're at the door."
           : "Everything you need to run your event. Ticket money is paid to you directly — Roulé Rodrigues never holds it."}
       </p>
+
+      {/* ── The half of M125 that was never built ─────────────────────────
+          The send has existed since August and fires on every ticket sale, but
+          there was no way to subscribe — so it resolved to nobody, and a send
+          to zero targets returns 0 and reads exactly like success. An organiser
+          who is not at their laptop learns about a sale when they next open
+          this page.
+
+          Only for people who actually organise: door staff scan tickets at the
+          gate and have no sales to be told about, and a switch that would be
+          refused by the RPC is worse than no switch. */}
+      {events.length > 0 && (
+        <AlertsToggle
+          target={{ url: "/api/organizer/push" }}
+          title="Ticket alerts"
+          onCopy="Your phone will ring when a ticket sells, even with this page closed."
+          offCopy="Turn these on to hear about a sale without watching this page."
+        />
+      )}
 
       {doorOnly.length > 0 && (
         <div className="mt-6 space-y-3">

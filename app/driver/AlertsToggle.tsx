@@ -2,11 +2,35 @@
 
 import { useEffect, useState } from "react";
 import { Bell, BellOff, Loader2, Info } from "lucide-react";
-import { currentPushState, enablePush, disablePush, type PushState } from "@/lib/push/subscribe";
+import {
+  currentPushState,
+  enablePush,
+  disablePush,
+  type PushState,
+  type PushTarget,
+} from "@/lib/push/subscribe";
 
-// Turning on the alert that makes the job findable. Without this a driver only
-// sees an offer while the page is open, and offers expire.
-export default function AlertsToggle() {
+// Turning on the alert that makes the work findable.
+//
+// Written for the driver console — without it a driver only sees an offer while
+// the page is open, and offers expire — and reused verbatim by /organizer, which
+// had no way to subscribe at all. The permission dance, the denied state and the
+// "reopen it in browser settings" instructions are the same problem on both
+// screens, and a second copy is a second place for the denied branch to rot.
+//
+// `target` picks which endpoint registers the device; `title` and the two lines
+// of copy are all that differ between audiences.
+export default function AlertsToggle({
+  target,
+  title = "Job alerts",
+  onCopy = "Your phone will ring for a new job even with the app closed.",
+  offCopy = "Turn these on or you'll only see jobs while this page is open.",
+}: {
+  target?: PushTarget;
+  title?: string;
+  onCopy?: string;
+  offCopy?: string;
+} = {}) {
   const [state, setState] = useState<PushState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,9 +45,9 @@ export default function AlertsToggle() {
     setError(null);
     try {
       if (state === "on") {
-        setState(await disablePush());
+        setState(await disablePush(target));
       } else {
-        const result = await enablePush();
+        const result = await enablePush(target);
         setState(result.state);
         if (result.error) setError(result.error);
       }
@@ -45,12 +69,10 @@ export default function AlertsToggle() {
         <div className="min-w-0">
           <p className="flex items-center gap-2 font-syne text-sm font-bold">
             {on ? <Bell size={15} className="text-yellow" /> : <BellOff size={15} className="text-muted" />}
-            {on ? "Job alerts on" : "Job alerts off"}
+            {title} {on ? "on" : "off"}
           </p>
           <p className="mt-0.5 font-dm text-xs text-muted">
-            {on
-              ? "Your phone will ring for a new job even with the app closed."
-              : "Turn these on or you'll only see jobs while this page is open."}
+            {on ? onCopy : offCopy}
           </p>
         </div>
         {!denied && (

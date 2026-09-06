@@ -90,3 +90,58 @@ describe("a ticket sale wakes the organiser", () => {
     expect(placed).toMatch(/organizerPushed > 0/);
   });
 });
+
+// ── AND THE HALF THAT WAS NEVER BUILT (2026-09) ─────────────────────────────
+//
+// Everything above tests the SEND, and the send has been correct since August.
+// It reached nobody. There was no register_organizer_push, no
+// /api/organizer/push, and no control anywhere on /organizer — so
+// organizer_push_targets() resolved to an empty set, and a send to zero targets
+// returns 0 and is indistinguishable from success.
+//
+// That is the worst shape a notification can take: built, wired, verified, and
+// silent, with nothing in any log to say so. These guard the subscribe half.
+describe("an organiser can actually subscribe", () => {
+  const route = read("app/api/organizer/push/route.ts");
+  const page = read("app/organizer/page.tsx");
+  const toggle = read("app/driver/AlertsToggle.tsx");
+
+  it("has a route, and it registers through the organiser RPC", () => {
+    expect(route).toMatch(/register_organizer_push/);
+    // Never the merchant one: an organiser is deliberately not merchant_staff,
+    // so register_merchant_push would refuse them and report a clean failure.
+    expect(route).not.toMatch(/register_merchant_push/);
+  });
+
+  it("refuses to subscribe against a server that cannot send", () => {
+    // The switch would say "on" and nothing would ever arrive — the exact
+    // failure this route exists to end.
+    expect(route).toMatch(/pushIsConfigured/);
+  });
+
+  it("never takes the event from the body", () => {
+    // Targeting resolves the store at SEND time, so one subscription covers
+    // every event an organiser is given. Accepting an id here would let a
+    // caller name somebody else's event.
+    expect(route).not.toMatch(/storeId|eventId|p_store_id/);
+  });
+
+  it("offers the switch on the organiser's page", () => {
+    expect(page).toMatch(/AlertsToggle/);
+    expect(page).toMatch(/url: "\/api\/organizer\/push"/);
+  });
+
+  it("only offers it to somebody with events to sell", () => {
+    // Door staff scan at the gate and have no sales to hear about; the RPC
+    // would refuse them, and a switch that cannot work is worse than none.
+    expect(page).toMatch(/events\.length > 0 && \(\s*<AlertsToggle/);
+  });
+
+  it("reuses the one toggle rather than forking it", () => {
+    // The permission dance, the denied state and the "reopen it in browser
+    // settings" instructions are the same problem on both screens.
+    expect(toggle).toMatch(/target\?: PushTarget/);
+    expect(toggle).toMatch(/disablePush\(target\)/);
+    expect(toggle).toMatch(/enablePush\(target\)/);
+  });
+});
