@@ -5,6 +5,7 @@ import { CalendarClock, CheckCircle2, AlertTriangle, Clock, Receipt, FileDown } 
 import { createClient } from "@/lib/supabase/server";
 import { getMerchantDashboard } from "@/lib/merchant/context";
 import { getMerchantSubscription, getBillingHistory, PLAN_LABEL, type SubscriptionStatus } from "@/lib/merchant/subscription";
+import { getBilling } from "@/lib/merchant/billing";
 import { centsToDecimalString } from "@/lib/money";
 import { Badge } from "@/components/ui/badge";
 import FeeSummary, { type FeeSummaryData } from "@/components/merchant/FeeSummary";
@@ -49,7 +50,48 @@ export default async function MerchantSubscriptionPage({
   const dashboard = await getMerchantDashboard(supabase);
   if (!dashboard) redirect("/merchant/onboarding");
 
+  const billing = await getBilling(supabase);
   const sub = await getMerchantSubscription(supabase, dashboard.merchantId);
+
+  // NO SUBSCRIPTION IS CHARGED RIGHT NOW (M171), so this page must not open on
+  // a red "Expired" verdict about a plan nobody is billed for and which no
+  // longer stops anyone trading. The route is kept — the nav does not link to
+  // it, but a bookmark or a typed URL still lands here, and the rows, plans and
+  // billing history are all still real and worth showing for the day billing
+  // comes back.
+  if (!billing.chargesSubscription) {
+    return (
+      <div className="py-8">
+        <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">BILLING</p>
+        <h1 className="mt-1 font-syne text-2xl font-extrabold text-offwhite">
+          No subscription needed
+        </h1>
+        <p className="mt-3 max-w-lg font-dm text-sm text-muted">
+          Roulé Rodrigues does not charge a monthly fee. You keep selling whatever your old plan
+          says — it is not used, it does not expire in any way that affects you, and nothing about
+          it can stop your shop taking orders.
+        </p>
+        <p className="mt-3 max-w-lg font-dm text-sm text-muted">
+          {billing.chargesCommission ? (
+            <>
+              Instead, Roulé Rodrigues keeps{" "}
+              <span className="text-offwhite">
+                {Number((billing.defaultRate * 100).toFixed(2))}% of each completed sale
+              </span>{" "}
+              — charged on the goods only, never on delivery and never on tax. Everything you have
+              earned and everything you owe is on{" "}
+              <Link href="/merchant/payments" className="text-yellow underline">
+                your money page
+              </Link>
+              .
+            </>
+          ) : (
+            <>Selling here currently costs you nothing at all.</>
+          )}
+        </p>
+      </div>
+    );
+  }
   const { invoices, total } = await getBillingHistory(supabase, dashboard.merchantId, { page, pageSize: PAGE_SIZE });
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 

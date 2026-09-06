@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { KIND_VOCAB, type MerchantKind } from "@/lib/merchant/kind";
-import { ClipboardList, Wallet, Clock, BadgeCheck, LayoutDashboard, Package, UtensilsCrossed, Store, MoreHorizontal, QrCode } from "lucide-react";
+import { ClipboardList, Wallet, Clock, BadgeCheck, LayoutDashboard, Package, UtensilsCrossed, Store, MoreHorizontal, QrCode, ChefHat } from "lucide-react";
 
 // The merchant dashboard's navigation, defined ONCE and rendered at both
 // breakpoints from the same list.
@@ -71,6 +71,12 @@ export function secondaryFor(kind: MerchantKind, hasPlan: boolean): NavLink[] {
   // are still reachable here rather than lost.
   if (v.catalogue.href !== "/merchant/products") {
     out.splice(1, 0, { href: "/merchant/products", label: "Products", icon: Package });
+  }
+  // The cook's board. It was a header link with `hidden ... sm:inline-flex`,
+  // so it was invisible on exactly the device a cook holds — a complaint the
+  // owner has made repeatedly. Here it is reachable at every width.
+  if (kind === "kitchen") {
+    out.push({ href: "/kitchen", label: "Cook's screen", icon: ChefHat });
   }
   if (hasPlan) out.push({ href: "/merchant/subscription", label: "Plan", icon: BadgeCheck });
   return out;

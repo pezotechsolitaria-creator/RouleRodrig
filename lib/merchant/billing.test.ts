@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { sourceWithoutComments } from "@/lib/test-src";
 import { getBilling } from "./billing";
 
 // ── THE CONSOLE MUST STATE ONE FEE ARRANGEMENT, NOT THREE ──────────────────
@@ -63,6 +64,61 @@ describe("getBilling", () => {
       fake({ monetization_model: "commission", default_commission_rate: "0.10000" }),
     );
     expect(b.defaultRate).toBe(0.1);
+  });
+});
+
+describe("no subscription warning survives commission billing", () => {
+  const layout = sourceWithoutComments(["app", "merchant", "(app)", "layout.tsx"]);
+  const subPage = sourceWithoutComments([
+    "app",
+    "merchant",
+    "(app)",
+    "subscription",
+    "page.tsx",
+  ]);
+
+  it("gates the expiry banner, which sits in the LAYOUT", () => {
+    // This is the one the owner kept seeing. The banner renders in the layout,
+    // so "Your subscription has expired" followed the merchant onto every page
+    // of the console — on a platform that charges no subscription and where a
+    // lapsed plan no longer stops anyone trading.
+    expect(layout).toContain("billing.chargesSubscription && (");
+    expect(layout).toContain("<SubscriptionBanner");
+  });
+
+  it("does not open the plan page on a red verdict about a plan nobody pays", () => {
+    expect(subPage).toContain("if (!billing.chargesSubscription)");
+    expect(subPage).toContain("No subscription needed");
+  });
+
+  it("keeps the whole subscription machinery for the day billing returns", () => {
+    // The rows, plans, invoices and banner all still exist; only the SHOWING of
+    // them is conditional, so turning billing back on is one setting rather
+    // than a rebuild.
+    expect(subPage).toContain("getBillingHistory");
+    expect(layout).toContain("getMerchantSubscription");
+  });
+});
+
+describe("the merchant header stops repeating itself", () => {
+  const layout = sourceWithoutComments(["app", "merchant", "(app)", "layout.tsx"]);
+
+  it("has one control for My account, not two", () => {
+    // ConsoleBackLink now goes to /account, so the separate account icon beside
+    // it was the same destination twice in one header.
+    expect((layout.match(/href="\/account"/g) ?? []).length).toBe(0);
+    expect(layout).toContain("<ConsoleBackLink");
+  });
+
+  it("no longer puts sign out in the worst thumb corner", () => {
+    // A 36px target beside seven other controls is where a mis-tap signs
+    // somebody out mid-service. It is a full-width row in /merchant/more now.
+    expect(layout).not.toContain('aria-label="Sign out"');
+  });
+
+  it("stops hiding the cook's screen on the device a cook holds", () => {
+    // It was `hidden ... sm:inline-flex` in the header. It is a row in More.
+    expect(layout).not.toContain('href="/kitchen"');
   });
 });
 

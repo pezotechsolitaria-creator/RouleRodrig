@@ -2,13 +2,12 @@ import Link from "next/link";
 import ConsoleBackLink from "@/components/ConsoleBackLink";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { CircleUser, LogOut, ChefHat } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getMerchantDashboard, getAccessibleStores, getOwnStoreId } from "@/lib/merchant/context";
 import { getMerchantSubscription } from "@/lib/merchant/subscription";
 import SubscriptionBanner from "@/components/merchant/SubscriptionBanner";
 import StoreSwitcher from "@/components/merchant/StoreSwitcher";
-import { signOut, switchStore } from "./actions";
+import { switchStore } from "./actions";
 import QueryProvider from "@/components/merchant/QueryProvider";
 import NotificationBell from "@/components/merchant/NotificationBell";
 import { MerchantNavDesktop, MerchantNavMobile } from "@/components/merchant/MerchantNav";
@@ -82,41 +81,37 @@ export default async function MerchantAppLayout({ children }: { children: React.
                   cook's board was only reachable by typing /kitchen, which the
                   owner has said repeatedly is not acceptable. Restaurants only —
                   a shop has no kitchen screen to go to. */}
-              {isKitchen && (
-                <Link
-                  href="/kitchen"
-                  className="hidden items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 font-dm text-xs text-muted transition-colors hover:border-yellow/50 hover:text-yellow sm:inline-flex"
-                >
-                  <ChefHat size={13} /> Cook&apos;s screen
-                </Link>
-              )}
-              {/* The way out. A merchant is usually a customer too, and this
-                  console had no route to the rest of their account except
-                  retyping a URL. */}
-              <Link
-                href="/account"
-                aria-label="My account"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-muted transition-colors hover:border-yellow/50 hover:text-yellow"
-              >
-                <CircleUser size={16} />
-              </Link>
+              {/* The cook's screen was `hidden ... sm:inline-flex`, so it was
+                  invisible on exactly the device a cook holds. It is a row in
+                  /merchant/more now, where it is reachable at every width. */}
+              {/* The account icon that stood here is gone: ConsoleBackLink now
+                  goes to /account, so the two were the same destination twice in
+                  one header — the exact fault the comment above ConsoleBackLink
+                  warns about.
+
+                  Sign out is gone too. It lives at the bottom of /merchant/more
+                  as a full-width row, instead of being a 36px target in the
+                  worst corner of a phone screen for a thumb — and beside seven
+                  other controls, which is where a mis-tap logs somebody out
+                  mid-service. */}
               <NotificationBell />
-              <form action={signOut}>
-                <button
-                  type="submit"
-                  aria-label="Sign out"
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-muted transition-colors hover:border-yellow/50 hover:text-yellow"
-                >
-                  <LogOut size={16} />
-                </button>
-              </form>
             </div>
           </div>
         </header>
         {/* Extra bottom padding on phones so the fixed tab bar never covers
             the last control on a page (typically a Save button). */}
         <main className="mx-auto max-w-6xl px-4 pb-28 sm:pb-16">
-          <div className="pt-4"><SubscriptionBanner sub={subscription} /></div>
+          {/* ONLY WHERE A SUBSCRIPTION IS ACTUALLY CHARGED (M171).
+              This banner sits in the LAYOUT, so "Your subscription has expired"
+              was following the merchant onto every single page of the console —
+              on a platform that stopped charging a subscription and where a
+              lapsed plan no longer stops anyone trading. The rows are kept, and
+              so is this banner, for the day the owner turns billing back on. */}
+          {billing.chargesSubscription && (
+            <div className="pt-4">
+              <SubscriptionBanner sub={subscription} />
+            </div>
+          )}
           {children}
         </main>
         <MerchantNavMobile kind={kind} hasPlan={billing.chargesSubscription} />
