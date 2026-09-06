@@ -14,6 +14,9 @@ const NOT_FOUND = "RR003";
 const BAD_INPUT = "RR089";
 const HAS_PACKAGE = "RR091";
 const NOT_VIA_ADMIN = "RR092";
+// Checked before the RPC so a malformed id is a 400 the operator can read,
+// not a 500 from Postgres failing to cast it.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function guard(req: NextRequest): NextResponse | null {
   if (!verifySession(req.cookies.get(COOKIE_NAME)?.value)) {
@@ -33,6 +36,40 @@ export async function GET(req: NextRequest) {
   if (denied) return denied;
 
   const admin = await getPrivileged();
+
+  // ── One driver's last 30 days ──────────────────────────────────────────
+  // On demand, never in the board payload. The control centre re-reads itself
+  // every 15 seconds, and a month of finished work per driver does not change
+  // on that cadence — shipping it with the board would multiply every poll by
+  // the size of the roster to render something nobody has opened.
+  //
+  // Same numbers the DRIVER sees: admin_driver_log and driver_delivery_log both
+  // call delivery_log_for, so when somebody queries their pay the two screens
+  // meant to settle it cannot disagree.
+  const url = new URL(req.url);
+  const driverLog = url.searchParams.get("driverLog");
+  if (driverLog) {
+    if (!UUID.test(driverLog)) {
+      return NextResponse.json({ error: "Invalid driver." }, { status: 400 });
+    }
+    const rawDays = Number(url.searchParams.get("days") ?? "30");
+    const days = Number.isFinite(rawDays)
+      ? Math.min(Math.max(Math.trunc(rawDays), 1), 90)
+      : 30;
+    const { data: log, error: logError } = await admin.rpc("admin_driver_log", {
+      p_driver_id: driverLog,
+      p_days: days,
+    });
+    if (logError) {
+      if (logError.code === NOT_FOUND) {
+        return NextResponse.json({ error: "Not found." }, { status: 404 });
+      }
+      console.error("admin_driver_log failed", logError);
+      return NextResponse.json({ error: "Could not load that history." }, { status: 500 });
+    }
+    return NextResponse.json(log ?? { days, rows: [], totals: null });
+  }
+
   const { data, error } = await admin.rpc("admin_delivery_board");
   if (error) {
     console.error("admin_delivery_board failed", error);

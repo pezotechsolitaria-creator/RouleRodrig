@@ -7,6 +7,7 @@ import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, Loader2, Package, Phone,
 import { centsToDecimalString } from "@/lib/money";
 import { stallBoardLine } from "@/lib/delivery/escalation-copy";
 import { Button } from "@/components/ui/button";
+import DriverLog from "./DriverLog";
 
 // ── The control centre ──────────────────────────────────────────────────────
 //
@@ -535,6 +536,11 @@ export default function DeliveryBoard() {
                 <span>{dr.accepted}/{dr.offers} offers taken</span>
                 {dr.active > 0 && <span className="text-yellow">{dr.active} active now</span>}
               </div>
+
+              {/* The evidence behind the buttons below it. An operator about
+                  to suspend somebody, or answering "what am I owed for last
+                  week", was reading the deliveries table by hand until now. */}
+              <DriverLog driverId={dr.id} driverName={dr.name} />
 
               <div className="mt-3 flex flex-wrap gap-2">
                 {dr.status !== "approved" && (

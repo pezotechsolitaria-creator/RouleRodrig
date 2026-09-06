@@ -85,13 +85,6 @@ describe("the 30-day log", () => {
     expect(ui).toMatch(/if \(next && !log && !busy\) void load\(\)/);
   });
 
-  it("never prints money against a job that was not delivered", () => {
-    // A cancelled delivery still carries driver_earning on its row. Printing it
-    // beside the word "cancelled" reads as money owed.
-    expect(ui).toMatch(/done \?[\s\S]{0,200}centsToDecimalString\(r\.earning/);
-    expect(ui).toMatch(/&mdash;|—/);
-  });
-
   it("tells a driver when the fetch failed rather than showing an empty month", () => {
     // "You earned nothing" and "we could not load it" look identical on screen,
     // and the first is the worse thing to say by accident.
@@ -99,8 +92,50 @@ describe("the 30-day log", () => {
   });
 
   it("narrows to errands on the errands console", () => {
-    expect(ui).toMatch(/only === "errand" \? r\.requestKind === "errand" : true/);
     expect(dash).toMatch(/<DeliveryLog only=\{only\} \/>/);
+  });
+});
+
+describe("the driver and the owner read ONE log", () => {
+  // The point of the whole arrangement. A driver asks what they are owed for
+  // last week; two screens exist to settle it. If either the query or the
+  // rendering forks, the pay dispute is settled by two numbers that disagree —
+  // which is worse than having no screen at all.
+  const view = read("components/delivery/DeliveryLogView.tsx");
+  const driverSide = read("app/driver/DeliveryLog.tsx");
+  const adminSide = read("app/admin/deliveries/DriverLog.tsx");
+  const adminApi = read("app/api/admin/deliveries/route.ts");
+
+  it("draws the rows with the same component on both sides", () => {
+    for (const [name, src] of [["driver", driverSide], ["admin", adminSide]] as const) {
+      expect(src, `${name} side stopped using the shared view`).toMatch(
+        /import DeliveryLogView/,
+      );
+      expect(src).toMatch(/<DeliveryLogView/);
+    }
+  });
+
+  it("counts money from the same rule in the one place it is written", () => {
+    // Delivered only. A cancelled job still carries driver_earning, and on the
+    // owner's screen that number becomes an argument with a driver.
+    expect(view).toMatch(/done \?[\s\S]{0,200}centsToDecimalString\(r\.earning/);
+    expect(view).toMatch(/—/);
+  });
+
+  it("routes the admin read through the shared SQL, not a second query", () => {
+    expect(adminApi).toMatch(/admin_driver_log/);
+  });
+
+  it("validates the driver id before handing it to Postgres", () => {
+    // A malformed id should be a 400 the operator can read, not a 500 from a
+    // failed cast.
+    expect(adminApi).toMatch(/UUID\.test\(driverLog\)/);
+  });
+
+  it("keeps the history off the board's 15-second poll", () => {
+    // Loading a month of history for every driver on the roster, every tick,
+    // to render something nobody has opened.
+    expect(adminSide).toMatch(/if \(next && !log && !busy\) void load\(\)/);
   });
 });
 

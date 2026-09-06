@@ -1,17 +1,10 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import {
-  CheckCircle2,
-  ChevronDown,
-  ClipboardCheck,
-  History,
-  Loader2,
-  Package,
-  XCircle,
-} from "lucide-react";
-import { centsToDecimalString } from "@/lib/money";
-import { ERRAND_LABEL, isErrandKind } from "@/lib/delivery/kind";
+import { ChevronDown, History, Loader2 } from "lucide-react";
+import DeliveryLogView, {
+  type DeliveryLogData,
+} from "@/components/delivery/DeliveryLogView";
 
 // ── The last 30 days ────────────────────────────────────────────────────────
 //
@@ -31,44 +24,15 @@ import { ERRAND_LABEL, isErrandKind } from "@/lib/delivery/kind";
 // change on that cadence, and shipping it on every tick would spend a driver's
 // island data re-downloading history they are not looking at. So the fetch
 // happens on the first open, once.
-
-type Row = {
-  id: string;
-  status: string;
-  finishedAt: string | null;
-  earning: number | null;
-  what: string;
-  requestKind: string | null;
-  errandKind: string | null;
-  jobKind: "direct" | "store";
-  failureReason: string | null;
-};
-
-type Totals = {
-  jobs: number;
-  delivered: number;
-  earned: number;
-  errands: number;
-};
-
-type Log = { days: number; rows: Row[]; totals: Totals | null };
-
-/** "Fri 5 Sep" — the day is what a driver is looking for, not the minute. */
-function day(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    timeZone: "Indian/Mauritius",
-  });
-}
+//
+// The rows are drawn by the SHARED view, which /admin/deliveries also uses —
+// the same commitment the SQL makes by having both callers go through
+// delivery_log_for. Two screens that exist to settle "what am I owed" must not
+// be able to answer it differently.
 
 export default function DeliveryLog({ only }: { only?: "errand" }) {
   const [open, setOpen] = useState(false);
-  const [log, setLog] = useState<Log | null>(null);
+  const [log, setLog] = useState<DeliveryLogData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -78,7 +42,7 @@ export default function DeliveryLog({ only }: { only?: "errand" }) {
       const res = await fetch("/api/driver/log?days=30", { cache: "no-store" });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Could not load your history.");
-      setLog(body as Log);
+      setLog(body as DeliveryLogData);
       setError(null);
     } catch (e) {
       // Named, never swallowed: an empty history and a failed request look
@@ -96,9 +60,12 @@ export default function DeliveryLog({ only }: { only?: "errand" }) {
     if (next && !log && !busy) void load();
   }
 
-  const rows = (log?.rows ?? []).filter((r) =>
-    only === "errand" ? r.requestKind === "errand" : true,
-  );
+  const count =
+    log === null
+      ? null
+      : only === "errand"
+        ? log.rows.filter((r) => r.requestKind === "errand").length
+        : (log.totals?.jobs ?? 0);
 
   return (
     <section className="mt-6">
@@ -111,10 +78,9 @@ export default function DeliveryLog({ only }: { only?: "errand" }) {
         <span className="flex-1 font-syne text-sm font-bold text-offwhite">
           Last 30 days
         </span>
-        {log?.totals && (
+        {count !== null && (
           <span className="font-dm text-xs tabular-nums text-muted">
-            {only === "errand" ? rows.length : log.totals.jobs} job
-            {(only === "errand" ? rows.length : log.totals.jobs) === 1 ? "" : "s"}
+            {count} job{count === 1 ? "" : "s"}
           </span>
         )}
         <ChevronDown
@@ -143,85 +109,7 @@ export default function DeliveryLog({ only }: { only?: "errand" }) {
             </div>
           )}
 
-          {log && !error && rows.length === 0 && (
-            <p className="rounded-2xl border border-white/10 bg-dark-card px-4 py-6 text-center font-dm text-sm text-muted">
-              Nothing finished in the last 30 days yet.
-            </p>
-          )}
-
-          {log?.totals && rows.length > 0 && (
-            <>
-              {/* Earnings first: it is the number a driver opened this for.
-                  Counted from DELIVERED jobs only — a cancelled job still
-                  carries an earning on its row, and including it would show
-                  somebody money they were never paid. */}
-              <div className="flex items-baseline justify-between gap-3 rounded-xl border border-white/10 bg-dark-card px-4 py-3">
-                <span className="font-dm text-sm text-muted">
-                  {log.totals.delivered} completed
-                  {only !== "errand" && log.totals.errands > 0 && (
-                    <> · {log.totals.errands} errands</>
-                  )}
-                </span>
-                <span className="font-syne text-lg font-bold tabular-nums text-yellow">
-                  Rs {centsToDecimalString(log.totals.earned)}
-                </span>
-              </div>
-
-              <ul className="mt-2 divide-y divide-white/[0.06] overflow-hidden rounded-2xl border border-white/10 bg-dark-card">
-                {rows.map((r) => {
-                  const done = r.status === "delivered";
-                  const Icon = r.requestKind === "errand" ? ClipboardCheck : Package;
-                  return (
-                    <li key={r.id} className="flex items-start gap-3 px-4 py-3">
-                      <Icon
-                        size={15}
-                        className={`mt-0.5 shrink-0 ${done ? "text-muted" : "text-red-400/70"}`}
-                        aria-hidden
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-dm text-sm text-offwhite">
-                          {r.what}
-                        </span>
-                        <span className="mt-0.5 block font-dm text-xs text-muted">
-                          {day(r.finishedAt)}
-                          {isErrandKind(r.errandKind) && (
-                            <> · {ERRAND_LABEL[r.errandKind]}</>
-                          )}
-                          {!done && (
-                            <>
-                              {" · "}
-                              <span className="text-red-300">
-                                {r.status.replace(/_/g, " ")}
-                              </span>
-                            </>
-                          )}
-                        </span>
-                      </span>
-                      <span className="shrink-0 text-right">
-                        {done ? (
-                          <span className="font-dm text-sm tabular-nums text-offwhite">
-                            Rs {centsToDecimalString(r.earning ?? 0)}
-                          </span>
-                        ) : (
-                          // Never a number here. A cancelled job's row still
-                          // carries driver_earning, and printing it beside the
-                          // word "cancelled" reads as money owed.
-                          <span className="font-dm text-xs text-muted">—</span>
-                        )}
-                        <span className="mt-0.5 block">
-                          {done ? (
-                            <CheckCircle2 size={12} className="ml-auto text-green-400/70" />
-                          ) : (
-                            <XCircle size={12} className="ml-auto text-red-400/60" />
-                          )}
-                        </span>
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </>
-          )}
+          {log && !error && <DeliveryLogView data={log} only={only} />}
         </div>
       )}
     </section>
