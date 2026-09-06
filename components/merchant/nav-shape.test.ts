@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { secondaryFor } from "./MerchantNav";
+import { secondaryFor } from "@/lib/merchant/nav-links";
 import { MERCHANT_KINDS, KIND_VOCAB } from "@/lib/merchant/kind";
 
 // ── FIVE SLOTS, AND THE SAME FIVE FOR EVERY KIND ────────────────────────────
@@ -11,7 +11,7 @@ import { MERCHANT_KINDS, KIND_VOCAB } from "@/lib/merchant/kind";
 // touch minimum — the floor the file's own comment claims to clear, because it
 // measures min-h-[56px], the height, not the width.
 
-const nav = readFileSync(join(process.cwd(), "components", "merchant", "MerchantNav.tsx"), "utf8");
+const nav = readFileSync(join(process.cwd(), "lib", "merchant", "nav-links.ts"), "utf8");
 
 describe("the dock", () => {
   it("has exactly five slots, and they do not depend on kind", () => {

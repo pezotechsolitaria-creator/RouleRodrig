@@ -128,7 +128,9 @@ describe("the console stops contradicting itself", () => {
     "utf8",
   );
   const nav = readFileSync(
-    join(process.cwd(), "components", "merchant", "MerchantNav.tsx"),
+    // The nav tables moved to a plain module so /merchant/more, a SERVER
+    // component, could read them without importing from a "use client" file.
+    join(process.cwd(), "lib", "merchant", "nav-links.ts"),
     "utf8",
   );
 

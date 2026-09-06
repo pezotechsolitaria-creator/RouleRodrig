@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { KIND_VOCAB, type MerchantKind } from "@/lib/merchant/kind";
-import { ClipboardList, Wallet, Clock, BadgeCheck, LayoutDashboard, Package, UtensilsCrossed, Store, MoreHorizontal, QrCode, ChefHat, Truck } from "lucide-react";
+import { type MerchantKind } from "@/lib/merchant/kind";
+import { primaryFor, type NavLink } from "@/lib/merchant/nav-links";
 
 // The merchant dashboard's navigation, defined ONCE and rendered at both
 // breakpoints from the same list.
@@ -23,7 +23,6 @@ import { ClipboardList, Wallet, Clock, BadgeCheck, LayoutDashboard, Package, Ute
 // (their entire catalogue, reachable only from dashboard tiles) were both
 // unreachable in-page — and in the installed PWA there is no browser chrome to
 // fall back on. Products also never showed an active state.
-type NavLink = { href: string; label: string; icon: React.ElementType; exact?: boolean };
 
 // ── FIVE SLOTS, AND THE SAME FIVE FOR EVERY KIND ───────────────────────────
 //
@@ -42,56 +41,6 @@ type NavLink = { href: string; label: string; icon: React.ElementType; exact?: b
 // SOURCE as this dock — so the two can never disagree about where a merchant
 // can go. That was the defect in the old home screen's hand-copied tile grid.
 
-/** The five that live in the dock. Slot three is filled per kind. */
-function primaryFor(kind: MerchantKind): NavLink[] {
-  const v = KIND_VOCAB[kind];
-  return [
-    { href: "/merchant", label: "Home", icon: LayoutDashboard, exact: true },
-    { href: "/merchant/orders", label: "Orders", icon: ClipboardList },
-    { href: v.catalogue.href, label: v.catalogue.label, icon: catalogueIcon(kind) },
-    { href: "/merchant/payments", label: "Money", icon: Wallet },
-    { href: "/merchant/more", label: "More", icon: MoreHorizontal, exact: true },
-  ];
-}
-
-/**
- * Everything reachable but not in the dock.
- *
- * Exported so /merchant/more renders exactly this list. Pickup is in here for
- * the first time: it is currently linked from NO merchant screen at all.
- */
-export function secondaryFor(kind: MerchantKind, hasPlan: boolean): NavLink[] {
-  const v = KIND_VOCAB[kind];
-  const out: NavLink[] = [
-    { href: "/merchant/profile", label: "Shop details", icon: Store },
-    { href: "/merchant/hours", label: "Opening hours", icon: Clock },
-    { href: "/merchant/pickup", label: "Pickup desk", icon: QrCode },
-    { href: "/merchant/delivery", label: "Your own delivery", icon: Truck },
-  ];
-  // A kitchen's catalogue is its Menu, which took slot three — so its products
-  // are still reachable here rather than lost.
-  if (v.catalogue.href !== "/merchant/products") {
-    out.splice(1, 0, { href: "/merchant/products", label: "Products", icon: Package });
-  }
-  // The cook's board. It was a header link with `hidden ... sm:inline-flex`,
-  // so it was invisible on exactly the device a cook holds — a complaint the
-  // owner has made repeatedly. Here it is reachable at every width.
-  if (kind === "kitchen") {
-    out.push({ href: "/kitchen", label: "Cook's screen", icon: ChefHat });
-  }
-  if (hasPlan) out.push({ href: "/merchant/subscription", label: "Plan", icon: BadgeCheck });
-  return out;
-}
-
-function linksFor(kind: MerchantKind, hasPlan = true): NavLink[] {
-  void hasPlan;
-  return primaryFor(kind);
-}
-
-function catalogueIcon(kind: MerchantKind) {
-  return kind === "kitchen" ? UtensilsCrossed : Package;
-}
-
 function useActive() {
   const pathname = usePathname();
   // "Home" is /merchant, a prefix of every other route, so it must match
@@ -103,7 +52,7 @@ function useActive() {
 /** Inline links inside the header. Hidden on phones, where the tab bar takes over. */
 export function MerchantNavDesktop({ kind = "shop", hasPlan = true }: { kind?: MerchantKind; hasPlan?: boolean }) {
   const isActive = useActive();
-  const links = linksFor(kind, hasPlan);
+  const links = primaryFor(kind);
   return (
     <nav aria-label="Merchant sections" className="ml-4 hidden items-center gap-3 sm:flex">
       {links.map(({ href, label, icon: Icon, ...rest }) => {
@@ -131,7 +80,7 @@ export function MerchantNavDesktop({ kind = "shop", hasPlan = true }: { kind?: M
  * ever hidden underneath it.
  */
 export function MerchantNavMobile({ kind = "shop", hasPlan = true }: { kind?: MerchantKind; hasPlan?: boolean }) {
-  const links = linksFor(kind, hasPlan);
+  const links = primaryFor(kind);
   const isActive = useActive();
   return (
     <nav

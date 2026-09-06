@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, UtensilsCrossed, Plus } from "lucide-react";
+import { Loader2, UtensilsCrossed, Plus, Pencil } from "lucide-react";
 
 // ── Menu du jour, for the person cooking it ────────────────────────────────
 //
@@ -181,6 +181,21 @@ export default function MenuPanel({ canManage = false }: { canManage?: boolean }
                 >
                   {d.dailyCapacity != null ? `Today: ${d.dailyCapacity}` : "Set today's count"}
                 </button>
+
+                {/* EDIT THE DISH ITSELF. Everything above changes whether a
+                    dish is available TODAY; none of it changes the dish. A cook
+                    who has misspelled a name, priced something wrong or wants a
+                    photo on it had no route from this screen to the one place
+                    those live — they had to know /merchant/products existed and
+                    find the right row in it. */}
+                {canManage && (
+                  <Link
+                    href={`/merchant/products/${d.productId}/edit`}
+                    className="flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/20 px-4 font-dm text-sm text-offwhite hover:border-yellow/50 hover:text-yellow"
+                  >
+                    <Pencil size={14} /> Edit dish
+                  </Link>
+                )}
               </div>
             </li>
           ))}
@@ -200,7 +215,7 @@ export default function MenuPanel({ canManage = false }: { canManage?: boolean }
       {canManage && dishes.length > 0 && (
         <Link
           href="/merchant/products/new"
-          className="mt-4 flex min-h-[52px] items-center justify-center gap-2 rounded-xl border border-yellow/40 bg-yellow/[0.08] font-syne text-sm font-bold text-yellow transition-colors hover:bg-yellow/[0.14]"
+          className="mt-4 flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-yellow font-syne text-sm font-bold text-dark transition-opacity hover:opacity-90"
         >
           <Plus size={16} /> Add a dish
         </Link>

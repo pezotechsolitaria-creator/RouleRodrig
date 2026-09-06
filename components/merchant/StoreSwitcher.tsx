@@ -46,7 +46,7 @@ export default function StoreSwitcher({
         name="storeId"
         defaultValue={current?.id}
         onChange={() => formRef.current?.requestSubmit()}
-        className="max-w-[190px] truncate rounded-full border border-white/15 bg-dark-card py-1.5 pl-7 pr-2 font-dm text-xs text-offwhite focus:border-yellow/50 focus:outline-none"
+        className="w-full max-w-[190px] truncate rounded-full border border-white/15 bg-dark-card py-1.5 pl-7 pr-2 font-dm text-xs text-offwhite focus:border-yellow/50 focus:outline-none"
       >
         {/* Grouped, because "my shop" and "my restaurant" are different jobs and
             the list is meaningless without saying which is which. */}

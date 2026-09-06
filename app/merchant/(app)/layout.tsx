@@ -50,33 +50,50 @@ export default async function MerchantAppLayout({ children }: { children: React.
     <QueryProvider>
       <div className="min-h-screen bg-dark text-offwhite">
         <header className="sticky top-0 z-40 border-b border-white/10 bg-dark/85 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-2.5">
+          {/* NOTHING IN HERE MAY PUSH THE STORE NAME OFF THE SCREEN.
+              At 360px the wordmark, the kind badge, the back link, the store
+              switcher and the bell were laid out in one non-wrapping row, so
+              the switcher — the control that says WHICH BUSINESS YOU ARE
+              LOOKING AT, on an account with five of them — was clipped to
+              "M4 Tes". The two decorative items collapse on a phone and the
+              switcher takes the space they leave. */}
+          <div className="mx-auto flex max-w-6xl items-center gap-2 px-3 py-2.5 sm:px-4">
             {/* A link, not a <span>: the wordmark is the conventional way back
                 to a dashboard home, and it was inert — one of two reasons
                 /merchant was unreachable from every section page. */}
             <Link
               href="/merchant"
               aria-label={isKitchen ? "Kitchen dashboard home" : "Merchant dashboard home"}
-              className="flex items-baseline gap-1.5 font-syne font-extrabold leading-none transition-opacity hover:opacity-80"
+              className="flex shrink-0 items-baseline gap-1.5 font-syne font-extrabold leading-none transition-opacity hover:opacity-80"
             >
               <span className="text-base text-offwhite">Roulé</span>
-              <span className="text-base text-yellow">Rodrigues</span>
+              {/* The second word is the first thing to go: the merchant knows
+                  whose app this is, and does not know which of their five shops
+                  is selected until the switcher can be read. */}
+              <span className="hidden text-base text-yellow sm:inline">Rodrigues</span>
             </Link>
             {/* Says which business this is, not which codebase it runs on. The
                 same dashboard serves shops and restaurants (M81), and calling a
                 restaurant "MERCHANT" is the kind of small wrongness that makes
                 an owner doubt they are in the right place. */}
-            <span className="rounded-full border border-yellow/30 bg-yellow/10 px-2 py-0.5 font-bebas text-[9px] tracking-[0.2em] text-yellow">
+            {/* Hidden on a phone. It is the least useful thing in the row —
+                the switcher below already names the business, and the badge
+                repeats a category the merchant already knows. */}
+            <span className="hidden shrink-0 rounded-full border border-yellow/30 bg-yellow/10 px-2 py-0.5 font-bebas text-[9px] tracking-[0.2em] text-yellow sm:inline">
               {KIND_VOCAB[kind].badge}
             </span>
             <MerchantNavDesktop kind={kind} hasPlan={billing.chargesSubscription} />
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none">
               {/* Labelled "Website", not "Roulé Rodrigues", because the wordmark
                   two inches to the left already says that and goes somewhere
                   else — to /merchant. Two identical labels with different
                   destinations in one header is worse than no back link. */}
               <ConsoleBackLink compactOnMobile />
-              <StoreSwitcher stores={stores} currentId={currentStoreId} action={switchStore} />
+              {/* min-w-0 so it TRUNCATES inside the row instead of overflowing
+                  it, which is what clipped the name in the first place. */}
+              <div className="min-w-0 flex-1 sm:flex-none">
+                <StoreSwitcher stores={stores} currentId={currentStoreId} action={switchStore} />
+              </div>
               {/* An owner has two screens: this one, and the cook's board. The
                   cook's board was only reachable by typing /kitchen, which the
                   owner has said repeatedly is not acceptable. Restaurants only —

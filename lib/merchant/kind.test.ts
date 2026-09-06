@@ -84,7 +84,7 @@ describe("kind is derived positively, not by absence", () => {
 
 describe("the nav slot count no longer depends on kind", () => {
   const nav = readFileSync(
-    join(process.cwd(), "components", "merchant", "MerchantNav.tsx"),
+    join(process.cwd(), "lib", "merchant", "nav-links.ts"),
     "utf8",
   );
 
@@ -97,7 +97,12 @@ describe("the nav slot count no longer depends on kind", () => {
   });
 
   it("takes a kind, not a boolean", () => {
-    expect(nav).toContain("kind = \"shop\"");
-    expect(nav).not.toContain("isKitchen: boolean");
+    // The PROPS live on the component; only the link tables moved.
+    const component = readFileSync(
+      join(process.cwd(), "components", "merchant", "MerchantNav.tsx"),
+      "utf8",
+    );
+    expect(component).toContain('kind = "shop"');
+    expect(component).not.toContain("isKitchen: boolean");
   });
 });

@@ -29,11 +29,18 @@ export async function GET(req: NextRequest) {
   // sensitive fields come from store_bank_details(), which releases them to
   // store staff, a platform admin, or a customer who has an order there.
   const [{ data: flags, error }, { data: bank }, { data: storeRow }] = await Promise.all([
-    supabase
-      .from("store_payment_settings")
-      .select("accepts_cash, accepts_bank_transfer, require_receipt, offers_rr_delivery, offers_pickup, offers_customer_delivery")
-      .eq("store_id", storeId)
-      .maybeSingle(),
+    // THROUGH AN RPC, NOT THE TABLE (M174). store_payment_settings grants
+    // UPDATE to authenticated and NOT SELECT — deliberately, because the row
+    // carries bank details and the SELECT policy covers every visible store, so
+    // a table grant would publish every shop's account number. This read has
+    // therefore been failing for every merchant since that grant was withdrawn:
+    // they could save their payment methods and never see them again, and the
+    // whole section rendered "Failed to load payment settings".
+    //
+    // store_payment_settings_for_staff() returns the flags AS STORED — not
+    // store_payment_options(), which masks cash under prepayment_only and would
+    // render a merchant's own switches in positions they never chose.
+    supabase.rpc("store_payment_settings_for_staff", { p_store_id: storeId }).maybeSingle(),
     supabase.rpc("store_bank_details", { p_store_id: storeId }).maybeSingle(),
     supabase.from("stores").select("whatsapp").eq("id", storeId).maybeSingle(),
   ]);

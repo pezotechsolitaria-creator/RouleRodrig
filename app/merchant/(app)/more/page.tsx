@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMerchantDashboard } from "@/lib/merchant/context";
 import { getBilling } from "@/lib/merchant/billing";
-import { secondaryFor } from "@/components/merchant/MerchantNav";
+import { secondaryFor } from "@/lib/merchant/nav-links";
 import MoreList from "@/components/merchant/MoreList";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
