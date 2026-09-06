@@ -116,6 +116,7 @@ const EN = {
       order: "Order",
       ride: "Taxi",
       delivery: "Delivery",
+      service: "Appointment",
     } as Record<ActivityKind, string>,
     // ── THE BADGE ───────────────────────────────────────────────
     // The one word on this screen that says whether anything is wrong, and it
@@ -239,6 +240,7 @@ const FR: TrackCopy = {
       order: "Commande",
       ride: "Taxi",
       delivery: "Livraison",
+      service: "Rendez-vous",
     },
     status: {
       vehicle: {
@@ -332,6 +334,7 @@ const CR: TrackCopy = {
       order: "Komann",
       ride: "Taxi",
       delivery: "Livrezon",
+      service: "Randevou",
     },
     status: {
       vehicle: {

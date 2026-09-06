@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, ArrowRight, Bike, CalendarCheck, Car, Clock, Loader2, MapPin, Search, Store, Ticket, Truck, User, UtensilsCrossed } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Bike, CalendarCheck, Car, Clock, Loader2, MapPin, Search, Store, Ticket, Truck, User, UtensilsCrossed, Wrench } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import type { Activity, ActivityKind, ActivityStage } from "@/lib/activity";
 import { holdInfo, holdDeadlineLabel, holdRemaining } from "@/lib/orders/hold";
@@ -27,6 +27,7 @@ const KIND_ICON: Record<ActivityKind, React.ElementType> = {
   order: Store,
   ride: Car,
   delivery: Truck,
+  service: Wrench,
 };
 
 const STAGE_STYLE: Record<ActivityStage, string> = {

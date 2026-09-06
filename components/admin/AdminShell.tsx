@@ -7,7 +7,7 @@ import {
   Gauge, UtensilsCrossed, Truck, Clock, Store, Users, Ticket, UserCog,
   PenSquare, MapPinned, Wallet, MessageCircle, ScrollText, Search, Menu, X,
   ExternalLink, LogOut, Waves, Bike, Activity, Receipt, ChefHat, ShoppingBag, Car, ClipboardList,
-  Sparkles, UserCheck, Radar } from "lucide-react";
+  Sparkles, UserCheck, Radar, CalendarDays } from "lucide-react";
 import CommandPalette from "./CommandPalette";
 import AdminBell from "@/components/admin/AdminBell";
 import { OPEN_ADMIN_SEARCH } from "@/components/admin/AdminSearchBar";
@@ -59,6 +59,10 @@ const NAV: NavGroup[] = [
       { href: "/admin/marketplace", label: "Shop orders", icon: ShoppingBag },
       { href: "/admin/rides", label: "Taxi & transfers", icon: Car },
       { href: "/admin/deliveries", label: "Deliveries & drivers", icon: Truck },
+      // Beside the other desks that hold somebody's promise to a customer. A
+      // booking system the owner cannot look at is the same gap the driver log
+      // and the vehicle custody trail were opened to close.
+      { href: "/admin/service-bookings", label: "Service bookings", icon: CalendarDays },
       { href: "/admin/content#bookings", label: "Rental bookings", icon: Clock },
       { href: "/admin/content#place_bookings", label: "Experience bookings", icon: MapPinned },
     ],

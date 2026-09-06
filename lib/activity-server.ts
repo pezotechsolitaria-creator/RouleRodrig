@@ -4,7 +4,7 @@ import { vehicleName } from "@/lib/vehicle-name";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import {
   vehicleToActivity, placeToActivity, orderToActivity,
-  rideToActivity, deliveryToActivity,
+  rideToActivity, deliveryToActivity, serviceToActivity,
   compareActivities, type Activity,
 } from "@/lib/activity";
 
@@ -56,7 +56,7 @@ export async function listActivitiesForCustomer(opts: {
   const admin = await getPrivileged();
   const email = opts.verifiedEmail?.trim().toLowerCase() ?? "";
 
-  const [vehicles, places, orders, rides, deliveriesMine, deliveriesGuest] =
+  const [vehicles, places, orders, rides, deliveriesMine, deliveriesGuest, bookings] =
     await Promise.all([
     email
       ? admin
@@ -118,6 +118,19 @@ export async function listActivitiesForCustomer(opts: {
           .order("created_at", { ascending: false })
           .limit(50)
       : Promise.resolve({ data: [], error: null }),
+    // ── APPOINTMENTS WITH A TRADE (M179) ───────────────────────────────
+    // Matched on created_by ALONE, and there is no guest half to add: the
+    // public booking door deliberately takes no email and no account, so a
+    // guest booking is keyed only by a telephone number. Matching on a phone
+    // would mean showing one person's appointment to whoever typed the same
+    // number, which is a worse failure than not listing it — and the
+    // confirmation screen already tells a guest to ring the provider.
+    admin
+      .from("service_bookings")
+      .select("id, service_name, starts_at, status, stores(name, slug)")
+      .eq("created_by", opts.userId)
+      .order("starts_at", { ascending: false })
+      .limit(50),
   ]);
 
   if (vehicles.error) { console.error("activity feed: bookings failed", vehicles.error); partial = true; }
@@ -126,6 +139,7 @@ export async function listActivitiesForCustomer(opts: {
   if (rides.error) { console.error("activity feed: ride_requests failed", rides.error); partial = true; }
   if (deliveriesMine.error) { console.error("activity feed: delivery_requests (account) failed", deliveriesMine.error); partial = true; }
   if (deliveriesGuest.error) { console.error("activity feed: delivery_requests (guest) failed", deliveriesGuest.error); partial = true; }
+  if (bookings.error) { console.error("activity feed: service_bookings failed", bookings.error); partial = true; }
 
   // `ilike` with a plain address is an exact match — the string carries no
   // wildcards. It is used rather than `eq` only to be case-insensitive, and the
@@ -221,6 +235,22 @@ export async function listActivitiesForCustomer(opts: {
         dropoff_text: row.dropoff_text as string | null,
         created_at: row.created_at as string | null,
         status: row.status as string | null,
+      }),
+    );
+  }
+
+  for (const row of (bookings.data ?? []) as Record<string, unknown>[]) {
+    const store = (Array.isArray(row.stores) ? row.stores[0] : row.stores) as
+      | { name?: string; slug?: string }
+      | null;
+    activities.push(
+      serviceToActivity({
+        id: String(row.id),
+        service_name: row.service_name as string | null,
+        starts_at: row.starts_at as string | null,
+        status: row.status as string | null,
+        store_name: store?.name ?? null,
+        store_slug: store?.slug ?? null,
       }),
     );
   }

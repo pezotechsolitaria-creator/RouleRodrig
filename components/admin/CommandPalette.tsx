@@ -23,6 +23,7 @@ const ACTIONS: Hit[] = [
   { group: "Go", title: "Kitchen teams", subtitle: "Add a cook to a kitchen", href: "/admin/kitchen-staff" },
   { group: "Go", title: "Kitchen screen", subtitle: "What a cook sees", href: "/kitchen" },
   { group: "Go", title: "Food orders", subtitle: "The live kitchen queue", href: "/admin/food" },
+  { group: "Go", title: "Service bookings", subtitle: "Car washes, plumbers — every trade's diary", href: "/admin/service-bookings" },
   { group: "Go", title: "Taxi & transfers", subtitle: "Rides, drivers and fares", href: "/admin/rides" },
   { group: "Go", title: "Taxi fares", subtitle: "What a customer is quoted", href: "/admin/rides" },
   { group: "Create", title: "New taxi or transfer ride", subtitle: "Then dispatch by WhatsApp", href: "/admin/rides" },

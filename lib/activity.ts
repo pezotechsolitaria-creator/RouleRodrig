@@ -29,7 +29,11 @@
 // delivery are just as much a thing you booked and want to check on, and for
 // those the signed-in customer was sent to type a reference into a lookup box
 // — for something the site already knows is theirs.
-export const ACTIVITY_KINDS = ["vehicle", "place", "order", "ride", "delivery"] as const;
+// M179 added "service": a customer who books a car wash from the storefront
+// has done exactly as much "a thing I booked" as somebody renting a scooter,
+// and leaving it out would send them back to ringing the shop to ask when
+// their own appointment was.
+export const ACTIVITY_KINDS = ["vehicle", "place", "order", "ride", "delivery", "service"] as const;
 export type ActivityKind = (typeof ACTIVITY_KINDS)[number];
 
 /**
@@ -223,7 +227,33 @@ export function orderStage(status: string | null | undefined): ActivityStage {
  * for a curry; "Ready" is right for a curry and wrong for a hotel. Collapsing
  * them into one vocabulary is exactly the flattening the brief warned against.
  */
+// A booking is a promise about a moment, so its words are about the moment:
+// "Booked in" until it happens, and afterwards what actually became of it. A
+// no-show is deliberately not called "cancelled" — the customer did not cancel,
+// and a history that says they did is a history they will dispute.
+const SERVICE_LABEL: Record<ActivityStage, string> = {
+  pending: "Booked in",
+  confirmed: "Booked in",
+  active: "Booked in",
+  done: "Done",
+  cancelled: "Cancelled",
+};
+
+export function serviceStage(status: string | null | undefined): ActivityStage {
+  switch (status) {
+    case "done":
+      return "done";
+    case "cancelled":
+      return "cancelled";
+    case "no_show":
+      return "done";
+    default:
+      return "confirmed";
+  }
+}
+
 export function activityLabel(kind: ActivityKind, stage: ActivityStage, orderStatusLabel?: string): string {
+  if (kind === "service") return SERVICE_LABEL[stage];
   if (kind === "vehicle") return VEHICLE_LABEL[stage];
   if (kind === "place") return PLACE_LABEL[stage];
   if (kind === "ride") return RIDE_LABEL[stage];
@@ -467,6 +497,39 @@ export type DeliveryRow = {
   created_at?: string | null;
   status?: string | null;
 };
+
+export type ServiceBookingRow = {
+  id: string;
+  service_name?: string | null;
+  starts_at?: string | null;
+  status?: string | null;
+  store_slug?: string | null;
+  store_name?: string | null;
+};
+
+export function serviceToActivity(row: ServiceBookingRow): Activity {
+  const stage = serviceStage(row.status);
+  return {
+    kind: "service",
+    id: row.id,
+    reference: bookingReference(row.id),
+    title: row.service_name?.trim() || "Booking",
+    provider: row.store_name ?? null,
+    // The date it is FOR, which for a booking is the whole point — sorting by
+    // when it was made would bury Saturday's appointment under last week's.
+    date: row.starts_at ?? null,
+    // Nothing is taken online. Showing the price would read as money already
+    // handed over, and the customer settles with the provider on the day.
+    amount: null,
+    currency: "MUR",
+    stage,
+    statusLabel: activityLabel("service", stage),
+    // Back to the shop's page, which is where the time was chosen and where
+    // their telephone number is. There is no booking-detail page and inventing
+    // a reference to type into one would be a promise this does not keep.
+    href: row.store_slug ? `/shop/${row.store_slug}` : "/shop",
+  };
+}
 
 export function deliveryToActivity(row: DeliveryRow): Activity {
   const stage = deliveryStage(row.status);
