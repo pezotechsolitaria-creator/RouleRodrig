@@ -121,3 +121,71 @@ export async function getEarnings(
 
   return { ok: true, netCents, commissionCents, rate, orderCount: rows.length };
 }
+
+/** One completed sale, as it appears on the merchant's own statement. */
+export type EarningLine = {
+  orderId: string;
+  orderNumber: string;
+  placedAt: string | null;
+  /** Cents. What the customer paid in total, including tax and any delivery. */
+  customerTotalCents: number;
+  /** Cents. The part commission is charged on: goods minus discount. */
+  commissionableCents: number;
+  commissionCents: number;
+  netCents: number;
+  rate: number | null;
+};
+
+/**
+ * The line-by-line statement behind the Home summary.
+ *
+ * Same filters as getEarnings — earned, not reversed, this store only — so the
+ * two can never disagree. A total the merchant cannot break down is a total
+ * they cannot check, and this is the only money on the platform they are
+ * actually owed by someone.
+ *
+ * Newest first: reconciliation starts from the sale you remember.
+ */
+export async function getEarningLines(
+  supabase: SupabaseClient,
+  storeId: string,
+  limit = 50,
+): Promise<EarningLine[] | null> {
+  const { data, error } = await supabase
+    .from("order_financials")
+    .select(
+      "order_id, customer_total, commissionable_amount, commission_amount, commission_rate, merchant_net, orders!inner(order_number, placed_at, store_id)",
+    )
+    .eq("orders.store_id", storeId)
+    .not("earned_at", "is", null)
+    .is("reversed_at", null)
+    .order("earned_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("getEarningLines failed", error);
+    return null;
+  }
+
+  return ((data ?? []) as unknown as Array<{
+    order_id: string;
+    customer_total: number | null;
+    commissionable_amount: number | null;
+    commission_amount: number | null;
+    commission_rate: number | string | null;
+    merchant_net: number | null;
+    orders: { order_number: string; placed_at: string | null } | null;
+  }>).map((r) => ({
+    orderId: r.order_id,
+    orderNumber: r.orders?.order_number ?? "—",
+    placedAt: r.orders?.placed_at ?? null,
+    customerTotalCents: r.customer_total ?? 0,
+    commissionableCents: r.commissionable_amount ?? 0,
+    commissionCents: r.commission_amount ?? 0,
+    netCents: r.merchant_net ?? 0,
+    rate:
+      r.commission_rate == null || !Number.isFinite(Number(r.commission_rate))
+        ? null
+        : Number(r.commission_rate),
+  }));
+}

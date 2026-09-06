@@ -195,3 +195,52 @@ describe("what the block promises, asserted against the source", () => {
     expect(ui).toContain("centsToDecimalString(earnings.commissionCents)");
   });
 });
+
+describe("the statement behind the total", () => {
+  const stmt = code(["components", "merchant", "home", "EarningsStatement.tsx"]);
+  const src = code(["lib", "merchant", "earnings.ts"]);
+
+  it("uses the SAME filters as the summary, so the two cannot disagree", () => {
+    // A statement whose lines do not add up to the headline is worse than no
+    // statement: it tells the merchant one of the two is lying, without saying
+    // which.
+    const lines = src.slice(src.indexOf("export async function getEarningLines"));
+    expect(lines).toContain('.eq("orders.store_id", storeId)');
+    expect(lines).toContain('.not("earned_at", "is", null)');
+    expect(lines).toContain('.is("reversed_at", null)');
+  });
+
+  it("orders newest first — reconciliation starts from the sale you remember", () => {
+    expect(src).toContain('.order("earned_at", { ascending: false })');
+  });
+
+  it("explains why customer_total minus commission is not the net", () => {
+    // Commission is charged on goods alone. On any order carrying tax or a
+    // delivery fee the merchant's own arithmetic will not reconcile, and they
+    // will assume they were short-changed. This line is the whole defence.
+    expect(stmt).toContain("commissionableCents !== l.customerTotalCents");
+    expect(stmt).toContain("never on tax");
+  });
+
+  it("hides the commission column entirely when nothing is owed", () => {
+    expect(stmt).toContain("l.commissionCents > 0");
+  });
+
+  it("distinguishes a failed read from a merchant who has not sold yet", () => {
+    expect(stmt).toContain("lines === null");
+    expect(stmt).toContain("Statement unavailable");
+  });
+
+  it("writes money in full, never the short form", () => {
+    // lib/money.ts: centsToShortString is "NOT for a total, a receipt, an
+    // invoice or anything anyone has to reconcile".
+    expect(stmt).toContain("centsToDecimalString");
+    expect(stmt).not.toContain("centsToShortString");
+  });
+
+  it("still claims no payout on the statement either", () => {
+    for (const word of ["payout", "Payout", "balance", "Balance", "withdraw"]) {
+      expect(stmt, `the statement must not mention "${word}"`).not.toContain(word);
+    }
+  });
+});
