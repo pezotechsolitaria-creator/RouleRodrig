@@ -3,11 +3,13 @@
 import {
   CheckCircle2,
   ClipboardCheck,
+  Download,
   Package,
   XCircle,
 } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import { ERRAND_LABEL, isErrandKind } from "@/lib/delivery/kind";
+import { logToCsv, logFileName } from "@/lib/delivery/log-csv";
 
 // ── The last 30 days, drawn once ────────────────────────────────────────────
 //
@@ -61,6 +63,34 @@ export function logDay(iso: string | null): string {
   });
 }
 
+/**
+ * Hand the rows over as a file.
+ *
+ * Built in the browser from data already on screen: there is nothing here the
+ * viewer cannot see, so a second authenticated round trip would buy nothing but
+ * a wait on island data.
+ *
+ * The BOM is not decoration. Excel on Windows reads a UTF-8 file without one as
+ * the system codepage, and the first thing that breaks is the accent in
+ * "Roulé" — in a document about who is owed what, mangled names are the wrong
+ * kind of wrong.
+ */
+function download(data: DeliveryLogData, rows: LogRow[]) {
+  const csv = logToCsv({ ...data, rows });
+  const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = logFileName(data.driverName, data.days);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Revoked on the next tick rather than immediately: Safari has not always
+  // finished reading the blob by the time click() returns, and a revoked URL
+  // there is a download that silently produces nothing.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export default function DeliveryLogView({
   data,
   only,
@@ -97,8 +127,21 @@ export default function DeliveryLogView({
               <> · {data.totals.errands} errands</>
             )}
           </span>
-          <span className="font-syne text-lg font-bold tabular-nums text-yellow">
-            Rs {centsToDecimalString(data.totals.earned)}
+          <span className="flex items-center gap-3">
+            <span className="font-syne text-lg font-bold tabular-nums text-yellow">
+              Rs {centsToDecimalString(data.totals.earned)}
+            </span>
+            {/* Next to the number it is a copy of. Somebody settling pay wants
+                these rows somewhere they can sum and send on, and re-typing
+                thirty of them is how a figure ends up wrong. */}
+            <button
+              type="button"
+              onClick={() => download(data, rows)}
+              title="Download these rows as a spreadsheet"
+              className="inline-flex min-h-[32px] items-center gap-1.5 rounded-full border border-white/15 px-3 font-dm text-xs text-muted transition-colors hover:border-yellow/40 hover:text-yellow"
+            >
+              <Download size={13} /> CSV
+            </button>
           </span>
         </div>
       )}

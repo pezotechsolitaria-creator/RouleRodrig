@@ -122,6 +122,19 @@ describe("the driver and the owner read ONE log", () => {
     expect(view).toMatch(/—/);
   });
 
+  it("offers the export from the one shared view, so both sides get it", () => {
+    // The button lives beside the total it is a copy of, in the shared
+    // component — so the owner settling pay and the driver checking it are
+    // downloading the same rows from the same code.
+    expect(view).toMatch(/logToCsv/);
+    expect(view).toMatch(/logFileName/);
+    // The BOM, as an escape rather than an invisible byte in the source.
+    expect(view).toContain("uFEFF");
+    // And the BOM must be an ESCAPE, not a raw byte: an invisible
+    // character in source is one somebody deletes without seeing it.
+    expect(view).not.toContain("﻿");
+  });
+
   it("routes the admin read through the shared SQL, not a second query", () => {
     expect(adminApi).toMatch(/admin_driver_log/);
   });

@@ -223,7 +223,7 @@
 // v309 - the kitchen can see what to cook in total, not one ticket at a time.
 // v310 - All day never merges two kitchens into one pan.
 // v311 - the product page prices what you are actually taking.
-const CACHE = "rr-cache-v314";
+const CACHE = "rr-cache-v315";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
