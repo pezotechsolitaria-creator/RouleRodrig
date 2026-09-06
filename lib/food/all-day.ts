@@ -19,8 +19,24 @@ export type AllDayItem = {
   soldOut: boolean;
 };
 
-export type AllDayView = {
+/** One kitchen's totals. A cook on two teams cooks in two places. */
+export type AllDayGroup = {
+  /** The kitchen's name, or "" if the order did not carry one. */
+  kitchen: string;
   items: AllDayItem[];
+  totalPortions: number;
+};
+
+export type AllDayView = {
+  /**
+   * Totals PER KITCHEN, never merged across them.
+   *
+   * A cook can be on more than one kitchen team — the ticket card names the
+   * kitchen on every order for exactly that reason. Adding "4× curry at Ti
+   * Kitchen" to "2× curry at Riri Resto" produces "6× curry", which is true of
+   * no pan anywhere and sends somebody to cook six in one building.
+   */
+  groups: AllDayGroup[];
   /** Portions in total, across every line. */
   totalPortions: number;
   /** Orders counted. */
@@ -36,6 +52,8 @@ export type AllDayView = {
 };
 
 type OrderLike = {
+  /** Which kitchen is cooking it. Present on every order the board renders. */
+  kitchen?: string | null;
   items: { name: string; variant: string | null; qty: number; soldOut?: boolean }[];
   finished?: boolean;
   /** Bank transfer with nothing proven yet. The board already says: do NOT cook. */
@@ -70,7 +88,8 @@ type OrderLike = {
  * customers still need telling. Hiding the line hides the problem.
  */
 export function allDayFrom(orders: OrderLike[]): AllDayView {
-  const byKey = new Map<string, AllDayItem & { orderIds: Set<number> }>();
+  // kitchen -> dish key -> line
+  const byKitchen = new Map<string, Map<string, AllDayItem & { orderIds: Set<number> }>>();
   let countedOrders = 0;
   let excludedOrders = 0;
 
@@ -81,6 +100,13 @@ export function allDayFrom(orders: OrderLike[]): AllDayView {
       return;
     }
     countedOrders += 1;
+
+    const kitchen = (order.kitchen ?? "").trim();
+    let byKey = byKitchen.get(kitchen);
+    if (!byKey) {
+      byKey = new Map();
+      byKitchen.set(kitchen, byKey);
+    }
 
     for (const item of order.items ?? []) {
       const name = (item.name ?? "").trim();
@@ -118,17 +144,23 @@ export function allDayFrom(orders: OrderLike[]): AllDayView {
     }
   });
 
-  const items: AllDayItem[] = [...byKey.values()]
-    .map(({ orderIds, ...rest }) => ({ ...rest, tickets: orderIds.size }))
-    // Biggest batch first — that is the order a cook works in. Ties break
-    // alphabetically so the list does not reshuffle on every poll, which on a
-    // screen that refreshes itself would be unreadable.
-    .sort((a, b) => b.qty - a.qty || a.name.localeCompare(b.name)
-      || (a.variant ?? "").localeCompare(b.variant ?? ""));
+  const groups: AllDayGroup[] = [...byKitchen.entries()]
+    .map(([kitchen, byKey]) => {
+      const items = [...byKey.values()]
+        .map(({ orderIds, ...rest }) => ({ ...rest, tickets: orderIds.size }))
+        // Biggest batch first — that is the order a cook works in. Ties break
+        // alphabetically so the list does not reshuffle on every poll, which on
+        // a screen that refreshes itself would be unreadable.
+        .sort((a, b) => b.qty - a.qty || a.name.localeCompare(b.name)
+          || (a.variant ?? "").localeCompare(b.variant ?? ""));
+      return { kitchen, items, totalPortions: items.reduce((n, i) => n + i.qty, 0) };
+    })
+    // Busiest kitchen first, then by name so the order is stable.
+    .sort((a, b) => b.totalPortions - a.totalPortions || a.kitchen.localeCompare(b.kitchen));
 
   return {
-    items,
-    totalPortions: items.reduce((n, i) => n + i.qty, 0),
+    groups,
+    totalPortions: groups.reduce((n, g) => n + g.totalPortions, 0),
     countedOrders,
     excludedOrders,
   };

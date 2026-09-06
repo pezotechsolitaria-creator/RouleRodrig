@@ -15,6 +15,7 @@ import { allDayFrom } from "@/lib/food/all-day";
 // on the row because it is the only number being acted on.
 
 type Order = {
+  kitchen?: string | null;
   items: { name: string; variant: string | null; qty: number; soldOut?: boolean }[];
   finished?: boolean;
   waitingOnTransfer?: boolean;
@@ -23,7 +24,7 @@ type Order = {
 export default function AllDayPanel({ orders }: { orders: Order[] }) {
   const view = allDayFrom(orders);
 
-  if (view.items.length === 0) {
+  if (view.groups.length === 0) {
     return (
       <div className="rounded-2xl border border-white/10 bg-dark-card p-8 text-center">
         <Check size={26} className="mx-auto text-green-400" />
@@ -63,8 +64,24 @@ export default function AllDayPanel({ orders }: { orders: Order[] }) {
         </p>
       )}
 
+      {view.groups.map((group) => (
+        <section key={group.kitchen || "_"} className="space-y-2">
+          {/* Only labelled when there is more than one kitchen. A cook on a
+              single team does not need to be told which building they are in,
+              and the heading would be pure noise on the screen they read
+              fastest. */}
+          {view.groups.length > 1 && (
+            <h3 className="flex items-baseline justify-between gap-3 px-1 pt-1">
+              <span className="font-syne text-sm font-bold text-offwhite">
+                {group.kitchen || "Unnamed kitchen"}
+              </span>
+              <span className="font-dm text-xs text-muted tabular-nums">
+                {group.totalPortions} {group.totalPortions === 1 ? "portion" : "portions"}
+              </span>
+            </h3>
+          )}
       <ul className="space-y-2">
-        {view.items.map((it) => (
+        {group.items.map((it) => (
           <li
             key={JSON.stringify([it.name, it.variant])}
             className={`flex items-center gap-4 rounded-2xl border px-4 py-4 ${
@@ -106,6 +123,8 @@ export default function AllDayPanel({ orders }: { orders: Order[] }) {
           </li>
         ))}
       </ul>
+        </section>
+      ))}
     </div>
   );
 }

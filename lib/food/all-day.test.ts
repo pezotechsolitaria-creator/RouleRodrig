@@ -7,14 +7,19 @@ import { allDayFrom } from "./all-day";
 const item = (name: string, qty: number, variant: string | null = null, soldOut = false) =>
   ({ name, variant, qty, soldOut });
 
+/** The single kitchen's lines. Most tests here use one kitchen. */
+const one = (v: { groups: { items: unknown[] }[] }) => (v.groups[0]?.items ?? []) as {
+  name: string; variant: string | null; qty: number; tickets: number; soldOut: boolean;
+}[];
+
 describe("all day totals", () => {
   it("adds the same dish across separate tickets", () => {
     const v = allDayFrom([
       { items: [item("Chicken Curry", 2)] },
       { items: [item("Chicken Curry", 4)] },
     ]);
-    expect(v.items).toHaveLength(1);
-    expect(v.items[0]).toMatchObject({ name: "Chicken Curry", qty: 6, tickets: 2 });
+    expect(one(v)).toHaveLength(1);
+    expect(one(v)[0]).toMatchObject({ name: "Chicken Curry", qty: 6, tickets: 2 });
     expect(v.totalPortions).toBe(6);
   });
 
@@ -24,7 +29,7 @@ describe("all day totals", () => {
     const v = allDayFrom([
       { items: [item("Curry", 2, "Large"), item("Curry", 3, "Small")] },
     ]);
-    expect(v.items.map((i) => [i.name, i.variant, i.qty])).toEqual([
+    expect(one(v).map((i) => [i.name, i.variant, i.qty])).toEqual([
       ["Curry", "Small", 3],
       ["Curry", "Large", 2],
     ]);
@@ -38,7 +43,7 @@ describe("all day totals", () => {
       { items: [item("Curry · Large", 1)] },
       { items: [item("Curry", 1, "Large")] },
     ]);
-    expect(v.items).toHaveLength(2);
+    expect(one(v)).toHaveLength(2);
   });
 
   it("counts tickets, not line items", () => {
@@ -46,7 +51,7 @@ describe("all day totals", () => {
     const v = allDayFrom([
       { items: [item("Fish", 1), item("Fish", 2)] },
     ]);
-    expect(v.items[0]).toMatchObject({ qty: 3, tickets: 1 });
+    expect(one(v)[0]).toMatchObject({ qty: 3, tickets: 1 });
   });
 
   it("ignores finished orders", () => {
@@ -54,7 +59,7 @@ describe("all day totals", () => {
       { items: [item("Rice", 3)], finished: true },
       { items: [item("Rice", 1)] },
     ]);
-    expect(v.items[0].qty).toBe(1);
+    expect(one(v)[0].qty).toBe(1);
     expect(v.countedOrders).toBe(1);
   });
 
@@ -66,7 +71,7 @@ describe("all day totals", () => {
       { items: [item("Octopus", 5)], waitingOnTransfer: true },
       { items: [item("Octopus", 2)] },
     ]);
-    expect(v.items[0].qty).toBe(2);
+    expect(one(v)[0].qty).toBe(2);
     expect(v.countedOrders).toBe(1);
     expect(v.excludedOrders).toBe(1);
   });
@@ -90,8 +95,8 @@ describe("all day totals", () => {
       { items: [item("Napolitain", 2, null, false)] },
       { items: [item("Napolitain", 1, null, true)] },
     ]);
-    expect(v.items).toHaveLength(1);
-    expect(v.items[0]).toMatchObject({ qty: 3, soldOut: true });
+    expect(one(v)).toHaveLength(1);
+    expect(one(v)[0]).toMatchObject({ qty: 3, soldOut: true });
   });
 
   it("sorts biggest batch first, then stably by name", () => {
@@ -100,7 +105,7 @@ describe("all day totals", () => {
     const v = allDayFrom([
       { items: [item("Zebra", 2), item("Apple", 2), item("Mango", 9)] },
     ]);
-    expect(v.items.map((i) => i.name)).toEqual(["Mango", "Apple", "Zebra"]);
+    expect(one(v).map((i) => i.name)).toEqual(["Mango", "Apple", "Zebra"]);
   });
 
   it("survives junk without producing a wrong number", () => {
@@ -112,8 +117,8 @@ describe("all day totals", () => {
       { items: [] },                                  // empty order
       { items: [item("  Real  ", 2)] },               // padded name
     ]);
-    expect(v.items).toHaveLength(1);
-    expect(v.items[0]).toMatchObject({ name: "Real", qty: 2 });
+    expect(one(v)).toHaveLength(1);
+    expect(one(v)[0]).toMatchObject({ name: "Real", qty: 2 });
     expect(v.totalPortions).toBe(2);
   });
 
@@ -121,12 +126,58 @@ describe("all day totals", () => {
     // Nobody cooks 2.4 portions. Whatever produced it, the pan takes a whole
     // number.
     const v = allDayFrom([{ items: [item("Mine", 2.4)] }]);
-    expect(v.items[0].qty).toBe(2);
+    expect(one(v)[0].qty).toBe(2);
   });
 
   it("is empty, not broken, with nothing live", () => {
     const v = allDayFrom([]);
-    expect(v).toEqual({ items: [], totalPortions: 0, countedOrders: 0, excludedOrders: 0 });
+    expect(v).toEqual({ groups: [], totalPortions: 0, countedOrders: 0, excludedOrders: 0 });
+  });
+
+  // ── The bug this grouping exists to prevent ─────────────────────────────
+  it("NEVER merges the same dish across two kitchens", () => {
+    // A cook can be on more than one kitchen team; the ticket card names the
+    // kitchen on every order for that reason. "4 at Ti Kitchen" plus "2 at Riri"
+    // is not "6 curry" — that is true of no pan anywhere, and it would send
+    // somebody to cook six portions in one building.
+    const v = allDayFrom([
+      { kitchen: "Ti Kitchen", items: [item("Curry", 4)] },
+      { kitchen: "Riri Resto", items: [item("Curry", 2)] },
+    ]);
+    expect(v.groups).toHaveLength(2);
+    expect(v.groups.map((g) => [g.kitchen, g.totalPortions])).toEqual([
+      ["Ti Kitchen", 4],
+      ["Riri Resto", 2],
+    ]);
+    // The headline total is still the whole load across both.
+    expect(v.totalPortions).toBe(6);
+  });
+
+  it("still adds up within one kitchen", () => {
+    const v = allDayFrom([
+      { kitchen: "Ti Kitchen", items: [item("Curry", 4)] },
+      { kitchen: "Ti Kitchen", items: [item("Curry", 2)] },
+    ]);
+    expect(v.groups).toHaveLength(1);
+    expect(v.groups[0].items[0]).toMatchObject({ qty: 6, tickets: 2 });
+  });
+
+  it("puts the busiest kitchen first, stably", () => {
+    const v = allDayFrom([
+      { kitchen: "Bravo", items: [item("A", 1)] },
+      { kitchen: "Alpha", items: [item("A", 9)] },
+    ]);
+    expect(v.groups.map((g) => g.kitchen)).toEqual(["Alpha", "Bravo"]);
+  });
+
+  it("treats a missing kitchen name as one unnamed group", () => {
+    const v = allDayFrom([
+      { items: [item("A", 1)] },
+      { kitchen: "   ", items: [item("A", 1)] },
+      { kitchen: null, items: [item("A", 1)] },
+    ]);
+    expect(v.groups).toHaveLength(1);
+    expect(v.groups[0]).toMatchObject({ kitchen: "", totalPortions: 3 });
   });
 
   it("treats a blank variant as no variant", () => {
@@ -136,7 +187,7 @@ describe("all day totals", () => {
       { items: [item("Salad", 1, null)] },
       { items: [item("Salad", 1, "   ")] },
     ]);
-    expect(v.items).toHaveLength(1);
-    expect(v.items[0]).toMatchObject({ qty: 3, variant: null, tickets: 3 });
+    expect(one(v)).toHaveLength(1);
+    expect(one(v)[0]).toMatchObject({ qty: 3, variant: null, tickets: 3 });
   });
 });
