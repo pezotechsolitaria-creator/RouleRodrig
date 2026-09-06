@@ -22,10 +22,23 @@ import { ArrowLeft } from "lucide-react";
 // a plain server component: no state, no client bundle, and it renders on a
 // dashboard that has not finished loading its data.
 export default function ConsoleBackLink({
-  /** Where "back" goes. The public site by default — that is what a person in
-   *  a console means when they say they want out of it. */
-  href = "/",
-  label = "Roulé Rodrigues",
+  /**
+   * Where "back" goes.
+   *
+   * MY ACCOUNT, not the public home page, on the owner's instruction. Everyone
+   * in a console is signed in, and /account is their hub — it lists every other
+   * console they can reach, their orders and their bookings, and the site is one
+   * more tap from there. Dropping them on the marketing home page threw away
+   * the fact that we know who they are, and a merchant who also drives, or an
+   * organiser who also runs a kitchen, had no route between their own consoles
+   * at all.
+   *
+   * The exception is a console reached WITHOUT a login — the taxi driver's
+   * /d/<token> page — which passes href="/" explicitly, because /account would
+   * put a sign-in wall in front of someone who has no account by design.
+   */
+  href = "/account",
+  label = "My account",
   className = "",
   compactOnMobile = false,
 }: {

@@ -31,7 +31,9 @@ export default async function DriverHomePage({
             them to — the website itself is the only "back" that means anything
             here, and this page is very often a home-screen shortcut with no
             address bar above it. */}
-        <ConsoleBackLink className="mb-3" />
+        {/* The one console reached without an account: this driver holds a token,
+            not a login, so /account would be a sign-in wall. */}
+        <ConsoleBackLink className="mb-3" href="/" label="Roulé Rodrigues" />
         <DriverHome token={token} />
       </div>
     </main>

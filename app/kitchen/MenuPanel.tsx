@@ -103,7 +103,7 @@ export default function MenuPanel({ canManage = false }: { canManage?: boolean }
                 No dishes yet. Add your first one and it appears here.
               </p>
               <Link
-                href="/merchant/products"
+                href="/merchant/products/new"
                 className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-yellow px-4 font-syne text-sm font-bold text-dark"
               >
                 <Plus size={15} /> Add a dish
@@ -185,6 +185,25 @@ export default function MenuPanel({ canManage = false }: { canManage?: boolean }
             </li>
           ))}
         </ul>
+      )}
+
+      {/* ADD A DISH, ON A MENU THAT ALREADY HAS DISHES.
+          This control used to exist ONLY inside the empty state, so the moment
+          a kitchen had one dish it lost every way to add a second from this
+          screen — the screen called "Today's menu", which is where a cook
+          plainly goes to change what they are cooking. Ti Kitchen has seven
+          dishes and no button.
+
+          It also pointed at /merchant/products, the catalogue LIST, rather than
+          the form: a cook who found it still had to work out that "add a dish"
+          means "open the product editor". */}
+      {canManage && dishes.length > 0 && (
+        <Link
+          href="/merchant/products/new"
+          className="mt-4 flex min-h-[52px] items-center justify-center gap-2 rounded-xl border border-yellow/40 bg-yellow/[0.08] font-syne text-sm font-bold text-yellow transition-colors hover:bg-yellow/[0.14]"
+        >
+          <Plus size={16} /> Add a dish
+        </Link>
       )}
     </div>
   );

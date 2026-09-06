@@ -76,7 +76,7 @@ export default async function MerchantAppLayout({ children }: { children: React.
                   two inches to the left already says that and goes somewhere
                   else — to /merchant. Two identical labels with different
                   destinations in one header is worse than no back link. */}
-              <ConsoleBackLink label="Website" compactOnMobile />
+              <ConsoleBackLink compactOnMobile />
               <StoreSwitcher stores={stores} currentId={currentStoreId} action={switchStore} />
               {/* An owner has two screens: this one, and the cook's board. The
                   cook's board was only reachable by typing /kitchen, which the
