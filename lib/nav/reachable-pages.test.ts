@@ -48,6 +48,8 @@ const ALLOWED_WITHOUT_LINKS: Record<string, string> = {
     "The driver's way back in after losing their link: phone number plus a 6-character code the owner reads out. Deliberately unlinked — a public \"drivers sign in here\" entry invites strangers to guess codes, and every real driver arrives with the address said out loud or already on their home screen.",
   "/d/[token]":
     "The driver's permanent home, bookmarked from the same WhatsApp link. Identical reasoning to /r/[token] — the token IS the credential, the page is noindex, and linking it anywhere would publish somebody's identity.",
+  "/c/[token]":
+    "A courier's screen, opened from a link the SHOP sends them (M173). These people work for the restaurant, not for Roulé Rodrigues — no account, no application, nothing to sign into — so the token IS the credential, exactly as for /d/[token]. The page is noindex, and the only place it could be linked from is the merchant's own courier list, which shows the link to copy rather than following it.",
 };
 
 /**
