@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { downloadBlob, downloadCsv, toCsv } from "@/lib/download";
+import { centsToDecimalString } from "@/lib/money";
 // Static, unlike the partner page's dynamic import: the referral block here is
 // rendered from an IIFE with no hooks available, and this is a password-gated
 // admin bundle where ~20 KB more is immaterial.
@@ -2953,7 +2954,8 @@ type MoneyRow = {
   reference: string;
   customer: string;
   item: string | null;
-  amount: number | null;
+  /** Cents. Mirrors MoneyRow in app/api/admin/money/route.ts — see the note there. */
+  amountCents: number | null;
   reportedAt: string | null;
   hasReceipt: boolean;
   desk: string;
@@ -3059,8 +3061,10 @@ function MoneyDesk({ onGo }: { onGo: (s: Section) => void }) {
             <span className="font-syne font-bold text-offwhite text-sm">{r.customer}</span>
             <span className="font-dm text-[11px] text-muted/60">{r.reference}</span>
             {r.item && <span className="font-dm text-[11px] text-muted/60">· {r.item}</span>}
-            {r.amount != null && (
-              <span className="font-syne font-bold text-yellow text-sm">Rs {r.amount.toLocaleString("en-US")}</span>
+            {r.amountCents != null && (
+              <span className="font-syne font-bold text-yellow text-sm">
+                Rs {centsToDecimalString(r.amountCents)}
+              </span>
             )}
             <span className="ml-auto font-dm text-[11px] text-muted/50">{waited(r.reportedAt)}</span>
           </div>

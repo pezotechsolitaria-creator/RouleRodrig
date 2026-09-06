@@ -3,6 +3,7 @@ import { verifySession, COOKIE_NAME } from "@/lib/auth";
 import { getPrivileged } from "@/lib/supabase/admin";
 import { ESCALATE_AFTER_HOURS, hoursWaited } from "@/lib/notifications/escalation";
 import { slotReceives } from "@/lib/notifications/slot-match";
+import { rupeesToCents } from "@/lib/money";
 
 // ── One list of everything waiting on the owner's decision about money ──────
 //
@@ -23,7 +24,16 @@ export type MoneyRow = {
   reference: string;
   customer: string;
   item: string | null;
-  amount: number | null;
+  /**
+   * ALWAYS CENTS. The name carries the unit because the previous name did not,
+   * and this desk is where that cost the owner: `bookings.deposit_amount` is
+   * whole RUPEES and `orders.total` is CENTS, and both were packed into one
+   * field called `amount` and rendered as `Rs {amount}` with no division. A
+   * Rs 1,710.00 shop order printed as "Rs 171,000" on the money desk — 100x —
+   * while the scooter deposit beside it was right, so nothing looked broken.
+   * Rupee sources are converted here, at the edge, exactly once.
+   */
+  amountCents: number | null;
   reportedAt: string | null;
   hasReceipt: boolean;
   /** Which desk deals with it, in the owner's own words. */
@@ -83,7 +93,8 @@ export async function GET(req: NextRequest) {
         reference: refOf(b.id as string),
         customer: (b.name as string) ?? "—",
         item: (b.scooter as string) ?? null,
-        amount: typeof b.deposit_amount === "number" ? b.deposit_amount : null,
+        // bookings.deposit_amount is whole rupees — convert at the edge.
+        amountCents: rupeesToCents(b.deposit_amount),
         reportedAt: (b.payment_reported_at as string) ?? null,
         hasReceipt: !!b.payment_receipt_path,
         desk: "Bookings",
@@ -101,7 +112,8 @@ export async function GET(req: NextRequest) {
         reference: refOf(b.id as string),
         customer: (b.name as string) ?? "—",
         item: (b.place_name as string) ?? null,
-        amount: typeof b.deposit_amount === "number" ? b.deposit_amount : null,
+        // place_bookings.deposit_amount is whole rupees — convert at the edge.
+        amountCents: rupeesToCents(b.deposit_amount),
         reportedAt: (b.payment_reported_at as string) ?? null,
         hasReceipt: !!b.payment_receipt_path,
         desk: "Stay & Activity Bookings",
@@ -119,7 +131,8 @@ export async function GET(req: NextRequest) {
         reference: (o.order_number as string) ?? "—",
         customer: (o.customer_name as string) ?? "—",
         item: null,
-        amount: typeof o.total === "number" ? o.total : null,
+        // orders.total is already cents.
+        amountCents: typeof o.total === "number" ? o.total : null,
         reportedAt: (o.created_at as string) ?? null,
         hasReceipt: !!o.payment_receipt_path,
         desk: "Shop & Food orders",

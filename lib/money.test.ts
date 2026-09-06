@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { centsToDecimalString, centsToShortString, toCents } from "./money";
+import { centsToDecimalString, centsToShortString, rupeesToCents, toCents } from "./money";
 
 describe("toCents", () => {
   // The exact values that broke Math.round(parseFloat(x) * 100) in the M2
@@ -80,5 +80,41 @@ describe("centsToShortString", () => {
   it("handles a negative amount without inventing a rupee", () => {
     expect(centsToShortString(-45000)).toBe("-450");
     expect(centsToShortString(-45050)).toBe("-450.50");
+  });
+});
+
+describe("rupeesToCents", () => {
+  it("converts the whole-rupee deposits that live in bookings today", () => {
+    expect(rupeesToCents(1288)).toBe(128800);
+    expect(rupeesToCents(572)).toBe(57200);
+  });
+
+  it("round-trips through centsToDecimalString to the same rupee figure", () => {
+    expect(centsToDecimalString(rupeesToCents(1288)!)).toBe("1288.00");
+  });
+
+  it("leaves an order total, which is already cents, to be passed through untouched", () => {
+    // The regression: orders.total = 171000 is Rs 1,710.00. It must NOT be
+    // converted again — that is what produced "Rs 171,000" on the money desk.
+    expect(centsToDecimalString(171000)).toBe("1710.00");
+  });
+
+  it("handles a fractional rupee without floating-point drift", () => {
+    expect(rupeesToCents(0.1 + 0.2)).toBe(30);
+    expect(rupeesToCents(1699.99)).toBe(169999);
+  });
+
+  it("returns null for a missing or non-numeric deposit rather than 0", () => {
+    // 0 would render as "Rs 0.00" — a claim that the customer owes nothing,
+    // which is not the same as "no deposit was recorded".
+    expect(rupeesToCents(null)).toBeNull();
+    expect(rupeesToCents(undefined)).toBeNull();
+    expect(rupeesToCents("1288")).toBeNull();
+    expect(rupeesToCents(NaN)).toBeNull();
+    expect(rupeesToCents(Infinity)).toBeNull();
+  });
+
+  it("keeps zero as zero, because a zero deposit is a real value", () => {
+    expect(rupeesToCents(0)).toBe(0);
   });
 });

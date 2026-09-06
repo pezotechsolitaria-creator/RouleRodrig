@@ -70,3 +70,24 @@ export function centsToDecimalString(cents: number): string {
 export function centsToShortString(cents: number): string {
   return cents % 100 === 0 ? String(Math.trunc(cents / 100)) : centsToDecimalString(cents);
 }
+
+/**
+ * Whole rupees -> cents.
+ *
+ * This platform stores money in two units and has shipped that as a live bug
+ * three times: `bookings.deposit_amount` and `place_bookings.deposit_amount`
+ * are whole RUPEES, while `orders.total` is CENTS. The admin money desk packed
+ * all three into one field named `amount` and printed `Rs {amount}` with no
+ * division, so a Rs 1,710.00 shop order rendered as "Rs 171,000" while the
+ * scooter deposit beside it was correct — nothing looked broken, so nobody
+ * reported it.
+ *
+ * The rule this encodes: convert at the EDGE, once, the moment a rupee-valued
+ * column is read, and give the converted field a name that says "Cents". Never
+ * let a variable called `amount` hold either unit.
+ */
+export function rupeesToCents(rupees: unknown): number | null {
+  return typeof rupees === "number" && Number.isFinite(rupees)
+    ? Math.round(rupees * 100)
+    : null;
+}
