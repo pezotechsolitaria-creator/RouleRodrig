@@ -15,7 +15,7 @@ import {
   scheduleWorld,
 } from "@/lib/world-docs/store";
 import { freshWorldDoc } from "@/lib/world-docs/defaults";
-import { getContent } from "@/lib/content";
+import { getContentWithStatus } from "@/lib/content";
 
 // ── PER-WORLD WRITES, NOT ONE BLOB ──────────────────────────────────────────
 //
@@ -45,7 +45,9 @@ function forbidden(message = "You do not have access to that world.") {
 
 /** A compact catalogue for the admin's card pickers — ids, names, photos. */
 async function pickerCatalogue() {
-  const content = await getContent();
+  // Uncached: an admin picker should show what the owner just added, and there
+  // is no egress case for caching a screen only staff open.
+  const content = (await getContentWithStatus()).content;
   return {
     places: content.recommended.items.map((p) => ({
       id: p.id,

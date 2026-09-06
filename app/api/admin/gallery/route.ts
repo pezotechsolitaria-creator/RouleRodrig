@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getContent, saveContent } from '@/lib/content';
+import { getContentWithStatus, saveContent } from '@/lib/content';
 import { verifySession, COOKIE_NAME } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 
@@ -30,7 +30,19 @@ export async function DELETE(req: NextRequest) {
   const id = new URL(req.url).searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
-  const content = await getContent();
+  // Read-modify-WRITE of the whole-site blob, so it reads uncached and refuses
+  // on a failed read. getContent() is cached across requests for the public
+  // site; deleting one photo from a stale copy and saving it back would revert
+  // every other edit made since. And a DB blip returning seed defaults would
+  // write an empty site — 404 saves us today only because DEFAULT gallery is
+  // empty, which is luck, not a guarantee.
+  const { content, loaded } = await getContentWithStatus();
+  if (!loaded) {
+    return NextResponse.json(
+      { error: 'Could not read the current content, so the delete was refused. Please retry in a moment.' },
+      { status: 503 },
+    );
+  }
   const image = content.gallery.find((img) => img.id === id);
   if (!image) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 

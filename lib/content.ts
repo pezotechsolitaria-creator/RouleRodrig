@@ -1,5 +1,6 @@
 import 'server-only';
 import { cache } from 'react';
+import { unstable_cache, revalidateTag } from 'next/cache';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { DEFAULT_CONTENT, DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS, type SiteContent } from './defaults';
 import { migrateQuickAccess, migrateHomeCards } from './quick-access';
@@ -97,8 +98,40 @@ function mergeWithDefaults(parsed: Partial<SiteContent>): SiteContent {
 // Replaces Vercel KV / content.json so the admin "Save Changes" works
 // reliably on the deployed site, consistent with every other table.
 
+/** Cache key for the public read; saveContent() invalidates it. */
+const CONTENT_TAG = 'site-content';
+
+/**
+ * The public read, cached ACROSS requests — the single largest egress saving
+ * available to this project.
+ *
+ * The row is 148,807 bytes and the logs showed `?select=data&id=eq.main` served
+ * 7,825 times in the 24 hours to 6 Sep 2026: 1.16 GB a day, ~35 GB a month,
+ * against a 5 GB free-plan allowance. It is also barely written — 23 saves in
+ * three months — so serving a fresh copy to every visitor bought nothing.
+ *
+ * THROWS rather than returns on a failed read, because unstable_cache stores
+ * whatever it is handed: caching a DB blip would pin the seed defaults over the
+ * live site for the whole revalidate window. A throw is not cached, so the very
+ * next request retries.
+ */
+const readPublicContent = unstable_cache(
+  async (): Promise<SiteContent> => {
+    const { content, loaded } = await readContentUncached();
+    if (!loaded) throw new Error('site_content could not be read');
+    return content;
+  },
+  ['site-content-main'],
+  { tags: [CONTENT_TAG], revalidate: 3600 },
+);
+
 export async function getContent(): Promise<SiteContent> {
-  return (await getContentWithStatus()).content;
+  try {
+    return await readPublicContent();
+  } catch {
+    // Uncached fallback, which has its own defaults-on-failure behaviour.
+    return (await getContentWithStatus()).content;
+  }
 }
 
 /**
@@ -157,6 +190,20 @@ export async function saveContent(content: SiteContent): Promise<void> {
     .from('site_content')
     .upsert({ id: 'main', data: content, updated_at: new Date().toISOString() });
   if (error) throw new Error(error.message);
+
+  // The write is the ONLY thing that can make the cached copy wrong, and this
+  // is the only writer. { expire: 0 } because Next 16 requires a cache-life
+  // profile and the owner pressing Save expects to see the site change, not to
+  // wait out a window. updateTag() would be the newer spelling but is legal
+  // only inside a Server Action, and this runs in a route handler.
+  //
+  // Guarded because revalidateTag throws outside a request scope, and a save
+  // must not fail because the cache hint could not be delivered.
+  try {
+    revalidateTag(CONTENT_TAG, { expire: 0 });
+  } catch (err) {
+    console.error('content saved but the public cache was not revalidated', err);
+  }
 }
 
 // Kept for backward-compat with callers; uploads now go to Supabase Storage.

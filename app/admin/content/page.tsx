@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
-import { getContent } from "@/lib/content";
+import { getContentWithStatus } from "@/lib/content";
 import AdminDashboard from "../AdminDashboard";
 
 // The content studio — the original admin monolith, unchanged in capability.
@@ -16,6 +16,9 @@ export default async function AdminContentPage() {
   const cookieStore = await cookies();
   if (!verifySession(cookieStore.get(COOKIE_NAME)?.value)) redirect("/admin/login");
 
-  const content = await getContent();
+  // Uncached on purpose: this seeds an editor that saves back. getContent() is
+  // cached across requests for the public site — editing a stale copy of a
+  // 148,807-byte blob and saving it would silently revert the owner's work.
+  const content = (await getContentWithStatus()).content;
   return <AdminDashboard initialContent={content} />;
 }

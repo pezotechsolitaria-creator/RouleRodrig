@@ -4,7 +4,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import { worldScope, visibleWorlds, canEdit } from "@/lib/world-docs/access";
 import { WORLD_META, isWorldId, type WorldId } from "@/lib/world-docs/types";
 import { getEditableWorld, listRevisions } from "@/lib/world-docs/store";
-import { getContent } from "@/lib/content";
+import { getContentWithStatus } from "@/lib/content";
 import EditorSignIn from "./EditorSignIn";
 import WorldsStudio from "./WorldsStudio";
 import type { PickerCatalogue } from "./CardEditor";
@@ -16,7 +16,10 @@ export const metadata = { title: "Worlds studio — Roule Rodrigues" };
 export const dynamic = "force-dynamic";
 
 async function pickerCatalogue(): Promise<PickerCatalogue> {
-  const content = await getContent();
+  // Uncached on purpose: this seeds an editor that saves back. getContent() is
+  // cached across requests for the public site — editing a stale copy of a
+  // 148,807-byte blob and saving it would silently revert the owner's work.
+  const content = (await getContentWithStatus()).content;
   return {
     places: content.recommended.items.map((p) => ({
       id: p.id,

@@ -10,7 +10,12 @@ function isAuthed(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   if (!isAuthed(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  return NextResponse.json(await getContent());
+  // The EDITOR reads uncached, deliberately. getContent() is cached across
+  // requests for the public site, which is where the 35 GB/month of egress was
+  // going; loading this screen from that cache would let the owner edit a stale
+  // copy and save it back over newer content. The public site can be a minute
+  // behind. The thing being edited cannot.
+  return NextResponse.json((await getContentWithStatus()).content);
 }
 
 export async function PUT(req: NextRequest) {

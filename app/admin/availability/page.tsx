@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
-import { getContent } from "@/lib/content";
+import { getContentWithStatus } from "@/lib/content";
 import AvailabilityBlocks from "./AvailabilityBlocks";
 
 // ── THE FIX FOR "12 SEPTEMBER SHOWS FREE BUT IT IS TAKEN" ───────────────────
@@ -28,7 +28,10 @@ export default async function AdminAvailabilityPage() {
   const jar = await cookies();
   if (!verifySession(jar.get(COOKIE_NAME)?.value)) redirect("/admin/login");
 
-  const content = await getContent();
+  // Uncached on purpose: this seeds an editor that saves back. getContent() is
+  // cached across requests for the public site — editing a stale copy of a
+  // 148,807-byte blob and saving it would silently revert the owner's work.
+  const content = (await getContentWithStatus()).content;
   // The same fleet the booking form offers, so the ids match what `bookings`
   // and the availability reads compare against. A vehicle missing from here
   // could never be blocked.
