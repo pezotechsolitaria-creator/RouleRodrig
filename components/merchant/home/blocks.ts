@@ -26,7 +26,7 @@ import type { MerchantKind } from "@/lib/merchant/kind";
 // give and the reason lib/merchant/kind.ts is a union rather than a flag.
 
 /** Blocks that vary by what sort of business this is. */
-export type BlockId = "Stock" | "ServingToday" | "Earnings";
+export type BlockId = "Stock" | "ServingToday" | "BookedToday" | "Earnings";
 
 export const HOME_BLOCKS: Record<MerchantKind, BlockId[]> = {
   // A shop counts units and runs out of them.
@@ -46,7 +46,7 @@ export const HOME_BLOCKS: Record<MerchantKind, BlockId[]> = {
 
   // A trade sells time. There is no stock to report and no menu to serve
   // today — "12 low stock items" and "nothing serving" are both the wrong
-  // sentence for a plumber — so what is left is what they earned. A booked-slot
-  // block is its own thing and is not written yet.
-  service: ["Earnings"],
+  // sentence for a plumber. What they have instead is a day already promised,
+  // so BookedToday takes the slot: who is coming, and when.
+  service: ["BookedToday", "Earnings"],
 };

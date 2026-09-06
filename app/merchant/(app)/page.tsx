@@ -9,6 +9,8 @@ import { isPrepaymentOnly } from "@/lib/payments/prepayment";
 import { getEarnings } from "@/lib/merchant/earnings";
 import { getBilling } from "@/lib/merchant/billing";
 import { KIND_VOCAB } from "@/lib/merchant/kind";
+import BookedToday from "@/components/merchant/home/BookedToday";
+import type { DiaryDay } from "@/lib/services/diary";
 import RefundsOwed from "@/components/merchant/RefundsOwed";
 import MerchantPushSetup from "@/components/merchant/MerchantPushSetup";
 import { HOME_BLOCKS } from "@/components/merchant/home/blocks";
@@ -61,8 +63,9 @@ export default async function MerchantHome() {
   const vocab = KIND_VOCAB[kind];
 
   const wantsServing = HOME_BLOCKS[kind].includes("ServingToday");
+  const wantsDiary = HOME_BLOCKS[kind].includes("BookedToday");
 
-  const [stats, queue, earnings, billing, schedule, payment, prepaymentOnly, serving] =
+  const [stats, queue, earnings, billing, schedule, payment, prepaymentOnly, serving, diaryToday] =
     await Promise.all([
     storeId ? getDashboardStats(supabase, storeId) : null,
     storeId
@@ -104,6 +107,13 @@ export default async function MerchantHome() {
     wantsServing && storeId
       ? getServingToday(supabase, storeId)
       : Promise.resolve({ ok: true as const, total: 0, orderable: 0, off: [] }),
+    // One day, not fourteen: the home screen answers "who is coming today" and
+    // the diary answers the rest.
+    wantsDiary && storeId
+      ? supabase
+          .rpc("service_calendar", { p_store_id: storeId, p_days: 1 })
+          .then((r) => ((r.data as { calendar?: DiaryDay[] } | null)?.calendar?.[0] ?? null))
+      : Promise.resolve(null),
   ]);
 
   // Column defaults, so an unconfigured shop reads here exactly as it behaves
@@ -185,6 +195,8 @@ export default async function MerchantHome() {
             return <Stock key={block} stats={stats} productCount={dashboard.productCount} />;
           case "ServingToday":
             return <ServingToday key={block} serving={serving} />;
+          case "BookedToday":
+            return <BookedToday key={block} today={diaryToday} />;
           case "Earnings":
             return <Earnings key={block} earnings={earnings} />;
         }

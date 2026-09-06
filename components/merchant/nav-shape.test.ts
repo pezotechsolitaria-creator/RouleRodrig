@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { secondaryFor } from "@/lib/merchant/nav-links";
+import { primaryFor, secondaryFor } from "@/lib/merchant/nav-links";
 import { MERCHANT_KINDS, KIND_VOCAB } from "@/lib/merchant/kind";
 
 // ── FIVE SLOTS, AND THE SAME FIVE FOR EVERY KIND ────────────────────────────
@@ -14,9 +14,25 @@ import { MERCHANT_KINDS, KIND_VOCAB } from "@/lib/merchant/kind";
 const nav = readFileSync(join(process.cwd(), "lib", "merchant", "nav-links.ts"), "utf8");
 
 describe("the dock", () => {
-  it("has exactly five slots, and they do not depend on kind", () => {
-    const body = nav.slice(nav.indexOf("function primaryFor"), nav.indexOf("export function secondaryFor"));
-    expect((body.match(/href:/g) ?? []).length).toBe(5);
+  it("has exactly five slots for every kind", () => {
+    // Counted from what primaryFor RETURNS, not from how many `href:` literals
+    // the source happens to contain. A trade substitutes its Diary for Orders
+    // the way a kitchen substitutes its Menu for Products, so the source now
+    // holds six literals and still builds five cells — and the number that
+    // matters is the one a thumb meets at 375px.
+    for (const kind of MERCHANT_KINDS) {
+      expect(primaryFor(kind).map((l) => l.href), kind).toHaveLength(5);
+    }
+  });
+
+  it("keeps Home first and More last, whatever the middle says", () => {
+    // What muscle memory actually depends on when somebody switches between
+    // two of their own businesses: the ends do not move.
+    for (const kind of MERCHANT_KINDS) {
+      const hrefs = primaryFor(kind).map((l) => l.href);
+      expect(hrefs[0], kind).toBe("/merchant");
+      expect(hrefs[4], kind).toBe("/merchant/more");
+    }
   });
 
   it("fills slot three from the vocabulary rather than splicing a tab in", () => {
@@ -65,8 +81,11 @@ describe("secondaryFor — what More shows", () => {
   });
 
   it("never duplicates anything already in the dock", () => {
-    const dock = ["/merchant", "/merchant/orders", "/merchant/payments", "/merchant/more"];
+    // THIS KIND'S dock, not a hardcoded one. Orders is a dock slot for a shop
+    // and a More row for a trade, and both are correct — what must never
+    // happen is the same destination appearing twice for one business.
     for (const kind of MERCHANT_KINDS) {
+      const dock = primaryFor(kind).map((l) => l.href);
       for (const l of secondaryFor(kind, true)) {
         expect(dock, `${l.href} is in both the dock and More`).not.toContain(l.href);
         expect(l.href, `${l.href} duplicates ${kind}'s catalogue tab`).not.toBe(
