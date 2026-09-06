@@ -27,7 +27,60 @@
 // the mapping in tests so a future enum value cannot silently land in the wrong
 // column.
 
-export type PersonKind = "merchant" | "driver";
+/**
+ * ── WHO OPERATES ON THIS PLATFORM ──────────────────────────────────────────
+ *
+ * The desk covered merchants and delivery partners. Five event organisers and
+ * two kitchens were operating on the platform and appeared on it NOWHERE — an
+ * ops desk that cannot see seven of the people using it is not an ops desk.
+ *
+ * These four are exactly the groups with their own table and their own row
+ * today. TAXI and ERRANDS are deliberately NOT members: they are CAPABILITIES a
+ * delivery partner holds (delivery_drivers.can_deliver, .can_run_errands), not
+ * separate people, and splitting them into kinds would list the same human
+ * twice and let an admin approve one half of them. They are surfaced as chips
+ * on the driver instead — see capabilitiesOf().
+ *
+ * SERVICE PROVIDERS are absent for the opposite reason: there is no table yet.
+ * trade_providers is designed and unbuilt, and a kind whose query returns
+ * nothing teaches an admin the desk is broken.
+ */
+export type PersonKind = "merchant" | "driver" | "kitchen" | "organizer";
+
+/** Every kind, in the order the desk lists them. */
+export const PERSON_KINDS: PersonKind[] = ["merchant", "kitchen", "driver", "organizer"];
+
+export const KIND_LABEL: Record<PersonKind, { one: string; many: string }> = {
+  merchant: { one: "Shop", many: "Shops" },
+  kitchen: { one: "Restaurant", many: "Restaurants" },
+  driver: { one: "Delivery partner", many: "Delivery partners" },
+  organizer: { one: "Event organiser", many: "Event organisers" },
+};
+
+/** What the `segment` column means for each kind, in the admin's words. */
+export const SEGMENT_LABEL: Record<PersonKind, string> = {
+  merchant: "Category",
+  kitchen: "Collection point",
+  driver: "Vehicle",
+  organizer: "Organiser",
+};
+
+/**
+ * What a delivery partner is actually cleared to do.
+ *
+ * Capabilities, not kinds. One person can deliver parcels AND run errands, and
+ * on this island usually does — so they are chips on one row rather than two
+ * rows that can drift out of step.
+ */
+export function capabilitiesOf(row: {
+  canDeliver?: boolean | null;
+  canRunErrands?: boolean | null;
+}): string[] {
+  const out: string[] = [];
+  if (row.canDeliver) out.push("Deliveries");
+  if (row.canRunErrands) out.push("Errands");
+  return out;
+}
 
 /**
  * How far through joining are they, and WHOSE MOVE IS IT?
@@ -653,5 +706,9 @@ export function missingProfileFields(
   if (!(row.phone ?? "").trim()) missing.push("Phone number");
   if (kind === "driver" && !(row.segment ?? "").trim()) missing.push("Vehicle type");
   if (kind === "merchant" && !(row.segment ?? "").trim()) missing.push("What they sell");
+  // A restaurant with no pickup hint is the one a customer cannot find. It is
+  // the field this island actually needs — "green gate beside the market"
+  // outranks a street address here.
+  if (kind === "kitchen" && !(row.segment ?? "").trim()) missing.push("Where to collect");
   return missing;
 }

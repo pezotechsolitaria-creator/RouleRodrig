@@ -18,6 +18,8 @@ import {
   type AccountState,
   type PeopleAction,
   type PersonKind,
+  capabilitiesOf,
+  PERSON_KINDS,
   type PersonRow,
 } from "@/lib/admin/people";
 
@@ -108,7 +110,7 @@ async function loadDrivers(admin: Awaited<ReturnType<typeof getAdmin>>): Promise
   const { data, error } = await admin
     .from("delivery_drivers")
     .select(
-      "id, full_name, phone, vehicle_type, vehicle_details, licence_reference, status, availability, approved_at, created_at, user_id, invite_email, invited_at",
+      "id, full_name, phone, vehicle_type, vehicle_details, licence_reference, status, availability, approved_at, created_at, user_id, invite_email, invited_at, can_deliver, can_run_errands",
     )
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -137,6 +139,13 @@ async function loadDrivers(admin: Awaited<ReturnType<typeof getAdmin>>): Promise
       verification,
       segment,
       availability: effectiveAvailability(account, d.availability as string),
+      // Deliveries and errands are CAPABILITIES of one person, not two kinds of
+      // person — so they ride on the row as chips rather than splitting the
+      // same human across two tabs where an admin could approve one half.
+      capabilities: capabilitiesOf({
+        canDeliver: d.can_deliver as boolean | null,
+        canRunErrands: d.can_run_errands as boolean | null,
+      }),
       joinedAt: (d.created_at as string) ?? "",
       claimed: !!d.user_id,
       inviteEmail: (d.invite_email as string) ?? null,
@@ -153,13 +162,114 @@ async function loadDrivers(admin: Awaited<ReturnType<typeof getAdmin>>): Promise
   });
 }
 
+/**
+ * Restaurants.
+ *
+ * A kitchen hangs off a STORE, and every kitchen on the island hangs off the
+ * one platform merchant — so the merchant list cannot show them (it filters
+ * system_key out, correctly, because that merchant is machinery). They were
+ * therefore invisible to this desk entirely.
+ *
+ * The person here is the STORE: its name is the restaurant's name, its owner is
+ * the cook, and its status is what decides whether it trades.
+ */
+async function loadKitchens(admin: Awaited<ReturnType<typeof getAdmin>>): Promise<PersonRow[]> {
+  const { data, error } = await admin
+    .from("food_kitchens")
+    .select(
+      "store_id, pickup_hint, created_at, stores!inner(id, name, status, phone, whatsapp, created_at)",
+    );
+  if (error) throw error;
+
+  return ((data ?? []) as Record<string, unknown>[]).map((k) => {
+    const store = (Array.isArray(k.stores) ? k.stores[0] : k.stores) as Record<string, unknown>;
+    const account = accountStateOf("merchant", store?.status as string);
+    const phone = ((store?.phone as string) ?? (store?.whatsapp as string) ?? "").trim();
+    const segment = ((k.pickup_hint as string) ?? "").trim();
+    return {
+      id: k.store_id as string,
+      kind: "kitchen" as const,
+      name: (store?.name as string) ?? "",
+      subtitle: segment,
+      email: "",
+      phone,
+      account,
+      // A kitchen carries no KYC of its own: the merchant it hangs off does.
+      verification: "verified" as const,
+      segment,
+      joinedAt: (store?.created_at as string) ?? (k.created_at as string) ?? "",
+      claimed: true,
+      inviteEmail: null,
+      invitedAt: null,
+      onboarding: onboardingOf({
+        claimed: true,
+        inviteEmail: null,
+        profileComplete:
+          missingProfileFields("kitchen", { email: "n/a", phone, segment }).length === 0,
+        verification: "verified",
+      }),
+    };
+  });
+}
+
+/** Event organisers. Their own table, their own invitation flow, and until now
+ *  no row on the desk that manages everybody else. */
+async function loadOrganizers(admin: Awaited<ReturnType<typeof getAdmin>>): Promise<PersonRow[]> {
+  const { data, error } = await admin
+    .from("event_organizers")
+    // The real column names. event_organizers has display_name and
+    // contact_phone — there is no `name`, no `contact_email` and no
+    // `invited_at`, and a select naming them fails at runtime where TypeScript
+    // cannot see it.
+    .select("id, display_name, contact_phone, status, created_at, user_id, invite_email, is_test")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  return ((data ?? []) as Record<string, unknown>[])
+    .filter((o) => !o.is_test)
+    .map((o) => {
+      const account = accountStateOf("merchant", o.status as string);
+      // An organiser's address exists only while the invitation is
+      // outstanding, exactly like a driver's.
+      const email = ((o.invite_email as string) ?? "").trim();
+      const phone = ((o.contact_phone as string) ?? "").trim();
+      return {
+        id: o.id as string,
+        kind: "organizer" as const,
+        name: (o.display_name as string) ?? "",
+        subtitle: "",
+        email,
+        phone,
+        account,
+        verification: "verified" as const,
+        segment: "",
+        joinedAt: (o.created_at as string) ?? "",
+        claimed: !!o.user_id,
+        inviteEmail: (o.invite_email as string) ?? null,
+        // No invited_at column on this table; the row is created BY the
+        // invitation, so its creation IS when they were invited.
+        invitedAt: (o.created_at as string) ?? null,
+        onboarding: onboardingOf({
+          claimed: !!o.user_id,
+          inviteEmail: o.invite_email as string | null,
+          profileComplete:
+            missingProfileFields("organizer", { email: email || "n/a", phone, segment: "n/a" })
+              .length === 0,
+          verification: "verified",
+        }),
+      };
+    });
+}
+
 async function getAdmin() {
   const { getPrivileged } = await import("@/lib/supabase/admin");
   return getPrivileged();
 }
 
 function kindOf(v: unknown): PersonKind | null {
-  return v === "merchant" || v === "driver" ? v : null;
+  // Read from the single list rather than a hand-written OR chain, which is how
+  // two new kinds could have been added to the model and silently rejected here.
+  return PERSON_KINDS.includes(v as PersonKind) ? (v as PersonKind) : null;
 }
 
 
@@ -293,7 +403,16 @@ export async function GET(req: NextRequest) {
     if (detailId) {
       return NextResponse.json(await loadDetail(admin, kind, detailId));
     }
-    const rows = kind === "merchant" ? await loadMerchants(admin) : await loadDrivers(admin);
+    // One loader per kind, chosen by an exhaustive record rather than a chain
+    // of ternaries — a fifth kind then fails the build here rather than
+    // silently falling through to merchants.
+    const LOADERS: Record<PersonKind, (a: typeof admin) => Promise<PersonRow[]>> = {
+      merchant: loadMerchants,
+      driver: loadDrivers,
+      kitchen: loadKitchens,
+      organizer: loadOrganizers,
+    };
+    const rows = await LOADERS[kind](admin);
     return NextResponse.json({ rows, stats: computeStats(rows, kind) });
   } catch (err) {
     return failed(err, `Could not load ${kind === "merchant" ? "merchants" : "delivery partners"}.`);

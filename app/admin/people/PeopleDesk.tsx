@@ -5,14 +5,16 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   BadgeCheck, Bike, Building2, CheckCircle2, ChevronRight, Loader2, Mail, MoreHorizontal,
   Plus, RefreshCw, Search, ShieldOff, Store, TriangleAlert, UserCheck, UserX, X,
+  UtensilsCrossed, Ticket,
 } from "lucide-react";
 import {
   ACCOUNT_LABEL, AVAILABILITY_LABEL, BULK_ACTIONS, ONBOARDING_LABEL, VERIFICATION_LABEL,
   applyFilter, canResendInvite, computeStats, describeAction, filterFromParams, missingProfileFields,
-  paginate, paramsFromFilter, whoseMove,
+  paginate, paramsFromFilter, whoseMove, KIND_LABEL, SEGMENT_LABEL,
   type AccountState, type OnboardingState, type PeopleAction, type PeopleFilter, type PersonKind,
   type PersonRow,
 } from "@/lib/admin/people";
+import CompleteProfile from "./CompleteProfile";
 import ConfirmAction from "./ConfirmAction";
 import InvitePerson from "./InvitePerson";
 import DriverWhatsappAlerts from "./DriverWhatsappAlerts";
@@ -232,7 +234,7 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
     }
   }
 
-  const noun = kind === "merchant" ? "merchants" : "delivery partners";
+  const noun = KIND_LABEL[kind].many.toLowerCase();
   const filtersActive =
     !!filter.q || filter.account !== "all" || filter.verification !== "all" ||
     filter.segment !== "all" || filter.availability !== "all";
@@ -242,8 +244,13 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
       {/* ── Tabs ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2">
         {([
-          { k: "merchant" as const, label: "Merchants", Icon: Store },
-          { k: "driver" as const, label: "Delivery partners", Icon: Bike },
+          // Four kinds, in the order a shop owner would look for them. Five
+          // organisers and two kitchens were operating on this platform and
+          // appeared on this desk nowhere.
+          { k: "merchant" as const, label: KIND_LABEL.merchant.many, Icon: Store },
+          { k: "kitchen" as const, label: KIND_LABEL.kitchen.many, Icon: UtensilsCrossed },
+          { k: "driver" as const, label: KIND_LABEL.driver.many, Icon: Bike },
+          { k: "organizer" as const, label: KIND_LABEL.organizer.many, Icon: Ticket },
         ]).map(({ k, label, Icon }) => (
           <button
             key={k}
@@ -264,7 +271,7 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
           onClick={() => { setActionError(null); setInviting(true); }}
           className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-yellow/40 bg-yellow/10 px-3.5 py-2 font-dm text-[12.5px] text-yellow hover:bg-yellow/15"
         >
-          <Plus size={14} /> {kind === "merchant" ? "Add merchant" : "Add partner"}
+          <Plus size={14} /> Add {KIND_LABEL[kind].one.toLowerCase()}
         </button>
         <button
           onClick={() => void load()}
@@ -344,10 +351,10 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
           <select
             value={filter.segment}
             onChange={(e) => setFilter({ segment: e.target.value })}
-            aria-label={kind === "merchant" ? "Category" : "Vehicle"}
+            aria-label={SEGMENT_LABEL[kind]}
             className="rounded-full border border-white/15 bg-dark px-3 py-2 font-dm text-[13px] text-offwhite focus:border-yellow focus:outline-none"
           >
-            <option value="all">{kind === "merchant" ? "Any category" : "Any vehicle"}</option>
+            <option value="all">Any {SEGMENT_LABEL[kind].toLowerCase()}</option>
             {segments.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         )}
@@ -685,6 +692,11 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
                           </li>
                         ))}
                       </ul>
+                      {/* The desk could name what was missing and do nothing
+                          about it. Most of these details arrive by WhatsApp,
+                          read out loud, while the admin is looking at this
+                          exact panel. */}
+                      <CompleteProfile person={open} onDone={() => void load()} />
                     </div>
                   )}
 
