@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Store as StoreIcon, Phone, PackageCheck, CalendarClock, ChevronRight } from "lucide-react";
+import { Store as StoreIcon, Phone, PackageCheck, CalendarClock, ChevronRight, Wrench } from "lucide-react";
 import { SITE_URL } from "@/lib/site";
 import { createClient } from "@/lib/supabase/server";
 import MarketProductCard from "@/components/shop/MarketProductCard";
@@ -17,6 +17,7 @@ import { storeLd, breadcrumbLd } from "@/lib/schema";
 import { fulfilmentWords } from "@/lib/shop/plain-words";
 import { UNCATEGORISED } from "@/lib/shop/copy.i18n";
 import { browseProducts } from "@/lib/marketplace/catalog";
+import BookService, { type BookableService } from "@/components/shop/BookService";
 
 // ── The seller storefront ───────────────────────────────────────────────────
 //
@@ -83,7 +84,8 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
   if (!store) notFound();
 
   const supabase = await createClient();
-  const [catalogue, { data: hours }, { data: reviewData }, { count: completed }] = await Promise.all([
+  const [catalogue, { data: hours }, { data: reviewData }, { count: completed },
+         { data: trade }, { data: bookable }] = await Promise.all([
     // Through browse_products, NOT a table read: the storefront grid and the
     // marketplace grid then agree about price, stock and quick-add, because
     // they are literally the same rows.
@@ -102,11 +104,41 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
       .select("id", { count: "exact", head: true })
       .eq("store_id", store.id)
       .eq("status", "collected"),
+    // ── IS THIS A TRADE? ────────────────────────────────────────────────
+    // marketplace_stores excludes kitchens and box offices but NOT trades, so
+    // a car wash arrives here like any other shop. What it sells is booked
+    // time, and the page has to change its job accordingly.
+    supabase
+      .from("trade_providers")
+      .select("trade, mobile, takes_online_bookings")
+      .eq("store_id", store.id)
+      .maybeSingle(),
+    // Through the RPC, so "bookable" means the same thing here, in the slot
+    // finder and at the checkout: a variant with a duration.
+    supabase.rpc("store_bookable_services", { p_store_id: store.id }),
   ]);
 
   type StoreReview = { id: string; rating: number; body: string | null; createdAt: string; author: string | null };
   const reviews = ((reviewData as StoreReview[] | null) ?? []).filter((r) => r.body);
-  const products = catalogue.products;
+
+  // ── A TRADE'S CATALOGUE IS TWO CATALOGUES ───────────────────────────────
+  // A car wash sells a full valet AND a bottle of wax off the shelf. The valet
+  // is booked and the wax is bought, and mixing them into one grid would put an
+  // "add to cart" on a thing that is time. The duration is what separates them,
+  // which is the same rule create_order and service_slots use — so a product
+  // cannot be bookable in one place and buyable in another.
+  const services: BookableService[] = ((bookable ?? []) as {
+    variant_id: string; product_id: string; name: string; price_cents: number; minutes: number;
+  }[]).map((r) => ({
+    variantId: r.variant_id,
+    name: r.name,
+    priceCents: r.price_cents,
+    minutes: r.minutes,
+  }));
+  const serviceProductIds = new Set(
+    ((bookable ?? []) as { product_id: string }[]).map((r) => r.product_id),
+  );
+  const products = catalogue.products.filter((p) => !serviceProductIds.has(p.id));
 
   // Group into category sections, UNCATEGORISED always last — a storefront
   // reads as a catalogue with a jump rail, not one undifferentiated grid.
@@ -222,8 +254,21 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
                 measure those, and a trust signal that is decoration teaches
                 buyers to distrust the real ones too. */}
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 font-dm text-xs text-muted">
+              {/* A trade with two services and nothing on the shelf was
+                  reading "0 products" directly above a working booking panel —
+                  a shop advertising that it sells nothing. Counted in the unit
+                  the business actually deals in. */}
               <span className="inline-flex items-center gap-1.5">
-                <StoreIcon size={12} /> <TCount k="counts.products" n={products.length} />
+                {services.length > 0 ? (
+                  <>
+                    <Wrench size={12} />{" "}
+                    {services.length === 1 ? "1 service" : `${services.length} services`}
+                  </>
+                ) : (
+                  <>
+                    <StoreIcon size={12} /> <TCount k="counts.products" n={products.length} />
+                  </>
+                )}
               </span>
               {(completed ?? 0) > 0 && (
                 <span className="inline-flex items-center gap-1.5">
@@ -281,6 +326,23 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
         </div>
       </div>
 
+      {/* ── The reason a trade has a page at all ────────────────────────
+          Above the shelf, because booking a time IS what this business sells.
+          A car wash whose valet sat below four bottles of wax would be a
+          storefront arranged for the wrong customer. */}
+      {services.length > 0 && (
+        <div className="mx-auto mt-8 max-w-2xl">
+          <BookService
+            storeId={store.id}
+            storeName={store.name}
+            storePhone={store.phone}
+            services={services}
+            takesOnlineBookings={trade?.takes_online_bookings ?? false}
+            mobile={trade?.mobile ?? false}
+          />
+        </div>
+      )}
+
       {sections.length > 1 && (
         <div className="mt-6">
           <CategoryRail sections={sections.map(({ id, name }) => ({ id, name }))} />
@@ -288,7 +350,10 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
       )}
 
       <div className="mx-auto max-w-6xl">
-        {products.length === 0 ? (
+        {/* A trade with no goods on the shelf is not an empty shop — its whole
+            catalogue is the panel above. Showing "nothing here yet" under a
+            working booking form would tell a customer to leave. */}
+        {products.length === 0 && services.length > 0 ? null : products.length === 0 ? (
           <div className="mt-8 rounded-2xl border border-white/10 bg-dark-card px-6 py-10 text-center">
             <p className="font-syne text-lg font-bold text-offwhite">
               <T k="store.emptyTitle" />

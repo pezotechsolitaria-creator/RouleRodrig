@@ -5,6 +5,7 @@ import {
   clockAt,
   clockRange,
   dayLabel,
+  dayLabelAt,
   dayLoad,
   durationText,
   minutesBetween,
@@ -81,6 +82,15 @@ describe("times are Rodrigues wall-clock, always", () => {
   it("labels a bare date as the day it actually is", () => {
     expect(dayLabel("2026-09-08")).toMatch(/Tue/);
   });
+  it("dates a booking by the island, not by UTC", () => {
+    // 20:00 in Rodrigues is 16:00Z the same day — but 21:00 local on the 8th is
+    // 17:00Z on the 8th, and 2026-09-08T20:00:00Z is already the 9th there.
+    // Slicing the UTC date off the string would show the customer the wrong day.
+    expect(dayLabelAt("2026-09-08T20:00:00Z")).toMatch(/Wed/);
+    expect(dayLabel("2026-09-08")).toMatch(/Tue/);
+    expect(dayLabelAt("rubbish")).toBe("");
+  });
+
   it("todayOnIsland is a plain YYYY-MM-DD", () => {
     expect(todayOnIsland(new Date("2026-09-08T20:00:00Z"))).toBe("2026-09-09");
   });

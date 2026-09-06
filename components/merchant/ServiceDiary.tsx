@@ -264,7 +264,13 @@ function AddBooking({
   lastDate: string;
   onDone: () => Promise<void>;
 }) {
-  const [variantId, setVariantId] = useState(services[0]?.variantId ?? "");
+  // ── ONLY WHAT CAN ACTUALLY BE BOOKED ────────────────────────────────
+  // A duration is what makes a variant a service rather than a thing on the
+  // shelf. Offering a bottle of wax in "what are they having done?" would end
+  // in a refusal from the booker, which is the slot finder and the writer
+  // disagreeing — the one fault this whole feature was built to avoid.
+  const bookable = services.filter((s) => s.minutes != null);
+  const [variantId, setVariantId] = useState(bookable[0]?.variantId ?? "");
   const [day, setDay] = useState(date);
   const [slots, setSlots] = useState<{ times: { time: string; startsAt: string }[]; reason: string | null; openDates: string[] } | null>(null);
   const [startsAt, setStartsAt] = useState<string | null>(null);
@@ -312,11 +318,12 @@ function AddBooking({
     }
   }
 
-  if (services.length === 0) {
+  if (bookable.length === 0) {
     return (
       <p className="mt-3 rounded-xl border border-white/10 p-3 font-dm text-sm text-muted">
-        Add a service first — the diary needs to know what is being booked and
-        how long it takes.
+        {services.length === 0
+          ? "Add a service first — the diary needs to know what is being booked and how long it takes."
+          : "None of your services has a length set yet, so there is nothing to book. Set one under “How you take bookings” below."}
       </p>
     );
   }
@@ -329,10 +336,9 @@ function AddBooking({
       <label className="block">
         <span className="font-dm text-xs text-muted">What are they having done?</span>
         <select value={variantId} onChange={(e) => setVariantId(e.target.value)} className={`mt-1 ${field}`}>
-          {services.map((s) => (
+          {bookable.map((s) => (
             <option key={s.variantId} value={s.variantId}>
-              {s.name}
-              {s.minutes ? ` · ${durationText(s.minutes)}` : ""}
+              {s.name} · {durationText(s.minutes ?? 0)}
             </option>
           ))}
         </select>

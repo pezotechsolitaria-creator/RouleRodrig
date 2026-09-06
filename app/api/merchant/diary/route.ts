@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
     supabase.rpc("service_calendar", { p_store_id: storeId, p_days: Number.isFinite(days) ? days : 14 }),
     supabase
       .from("trade_providers")
-      .select("trade, mobile, slot_minutes, concurrent_jobs, lead_hours, booking_days")
+      .select("trade, mobile, slot_minutes, concurrent_jobs, lead_hours, booking_days, takes_online_bookings")
       .eq("store_id", storeId)
       .maybeSingle(),
     supabase
@@ -102,15 +102,21 @@ export async function GET(req: NextRequest) {
       concurrentJobs: provider?.concurrent_jobs ?? 1,
       leadHours: provider?.lead_hours ?? 2,
       bookingDays: provider?.booking_days ?? 14,
+      takesOnlineBookings: provider?.takes_online_bookings ?? true,
     },
     services: rows.flatMap((p) =>
       p.product_variants
         .filter((v) => v.is_active)
         .map((v) => ({
           variantId: v.id,
-          // A single-variant product is the ordinary case for a trade: the
-          // variant is usually unnamed, and "Car wash" beats "Car wash —".
-          name: v.name ? `${p.name} — ${v.name}` : p.name,
+          // A single-variant product is the ordinary case for a trade, and
+          // creating a product gives its first variant the PRODUCT'S OWN NAME
+          // — so the naive join read "Quick wash — Quick wash" on the
+          // storefront. Only a genuinely different variant earns the suffix.
+          name:
+            v.name && v.name.trim().toLowerCase() !== p.name.trim().toLowerCase()
+              ? `${p.name} — ${v.name}`
+              : p.name,
           priceCents: v.price,
           draft: p.status !== "active",
           minutes: minutesOf.get(v.id) ?? null,
@@ -142,6 +148,7 @@ const Body = z.discriminatedUnion("action", [
     concurrentJobs: z.number().int().min(1).max(20),
     leadHours: z.number().int().min(0).max(168),
     bookingDays: z.number().int().min(1).max(90),
+    takesOnlineBookings: z.boolean(),
   }),
   z.object({
     action: z.literal("duration"),
@@ -196,6 +203,7 @@ export async function POST(req: NextRequest) {
         concurrent_jobs: body.concurrentJobs,
         lead_hours: body.leadHours,
         booking_days: body.bookingDays,
+        takes_online_bookings: body.takesOnlineBookings,
         updated_at: new Date().toISOString(),
       })
       .eq("store_id", storeId);

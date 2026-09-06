@@ -9,6 +9,7 @@ import { breadcrumbLd, marketplaceProductLd } from "@/lib/schema";
 import { statusWords, FULFILMENT } from "@/lib/shop/plain-words";
 import JsonLd from "@/components/JsonLd";
 import AddToCartForm, { type CartableVariant } from "@/components/shop/AddToCartForm";
+import BookService, { type BookableService } from "@/components/shop/BookService";
 import ProductGallery from "@/components/shop/ProductGallery";
 import SellerCard from "@/components/shop/SellerCard";
 import MarketProductCard from "@/components/shop/MarketProductCard";
@@ -90,7 +91,34 @@ export default async function ProductPage({
     limit: 4,
   });
 
-  const variants: CartableVariant[] = p.variants.map((v) => ({
+  // ── IS THIS TIME, OR IS IT A THING? ─────────────────────────────────────
+  // A trade's page can be either. A variant with a duration is booked; anything
+  // else is bought. Reached through the same RPC the storefront uses, so a
+  // product cannot be bookable on one page and buyable on the next — and
+  // create_order refuses the basket for exactly this set.
+  const { data: bookable } = await supabase.rpc("store_bookable_services", {
+    p_store_id: p.store.id,
+  });
+  const services: BookableService[] = ((bookable ?? []) as {
+    variant_id: string; product_id: string; name: string; price_cents: number; minutes: number;
+  }[])
+    .filter((r) => r.product_id === p.id)
+    .map((r) => ({
+      variantId: r.variant_id,
+      name: r.name,
+      priceCents: r.price_cents,
+      minutes: r.minutes,
+    }));
+  const bookableIds = new Set(services.map((sv) => sv.variantId));
+  const { data: trade } = services.length
+    ? await supabase
+        .from("trade_providers")
+        .select("mobile, takes_online_bookings")
+        .eq("store_id", p.store.id)
+        .maybeSingle()
+    : { data: null };
+
+  const variants: CartableVariant[] = p.variants.filter((v) => !bookableIds.has(v.id)).map((v) => ({
     id: v.id,
     name: v.name,
     price: v.price,
@@ -228,6 +256,23 @@ export default async function ProductPage({
               </a>
             )}
 
+            {/* Booked time comes first: on a page for a full valet, the
+                basket is the wrong control entirely, and one that would have
+                been refused at the checkout with "booked, not bought". */}
+            {services.length > 0 && (
+              <div className="mt-5">
+                <BookService
+                  storeId={p.store.id}
+                  storeName={p.store.name}
+                  storePhone={p.store.phone ?? null}
+                  services={services}
+                  takesOnlineBookings={trade?.takes_online_bookings ?? false}
+                  mobile={trade?.mobile ?? false}
+                />
+              </div>
+            )}
+
+            {variants.length > 0 && (
             <div className="mt-5 rounded-2xl border border-white/10 bg-dark-card p-4">
               {p.store.acceptingOrders ? (
                 <AddToCartForm
@@ -261,11 +306,12 @@ export default async function ProductPage({
                 </div>
               )}
             </div>
+            )}
 
             {/* ── How it reaches you ───────────────────────────────────────
                 Before payment, not after. "I didn't know where to collect it"
                 is a problem to solve while someone is still deciding. */}
-            {ways.length > 0 && (
+            {ways.length > 0 && variants.length > 0 && (
               <div className="mt-3 rounded-xl border border-white/10 bg-dark-card p-3.5">
                 {/* The option names alone. Each one used to carry a sentence of
                     explanation under it — three sentences for a choice made
@@ -310,11 +356,16 @@ export default async function ProductPage({
             )}
 
             {/* One line. It was three, explaining a payment method the customer
-                has not chosen yet and will be walked through at checkout. */}
-            <p className="mt-3 flex items-center gap-2 font-dm text-xs text-muted">
-              <ShieldCheck size={13} className="shrink-0 text-yellow/70" />
-              <TName k="product.payDirect" v={p.store.name} />
-            </p>
+                has not chosen yet and will be walked through at checkout.
+                Not shown for booked time at all: the panel above has already
+                said "nothing to pay now — you settle it with them", and a line
+                about bank transfer directly under it contradicts that. */}
+            {variants.length > 0 && (
+              <p className="mt-3 flex items-center gap-2 font-dm text-xs text-muted">
+                <ShieldCheck size={13} className="shrink-0 text-yellow/70" />
+                <TName k="product.payDirect" v={p.store.name} />
+              </p>
+            )}
 
             {p.description && (
               <section className="mt-5">

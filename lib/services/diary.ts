@@ -159,6 +159,25 @@ export function dayLabel(date: string): string {
   });
 }
 
+/**
+ * "Mon 8 Sep" for a TIMESTAMP, resolved on the island.
+ *
+ * Not `dayLabel(iso.slice(0, 10))`. That slice takes the UTC date, and Rodrigues
+ * is UTC+4: any booking from 20:00 local onwards falls on the next UTC day and
+ * would be shown to the customer as tomorrow. It cannot bite while a trade
+ * closes at 17:00, which is exactly why it would have shipped and waited.
+ */
+export function dayLabelAt(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: RODRIGUES_TZ,
+  });
+}
+
 /** Today's date on the island, as "YYYY-MM-DD". */
 export function todayOnIsland(now: Date = new Date()): string {
   return now.toLocaleDateString("en-CA", { timeZone: RODRIGUES_TZ });

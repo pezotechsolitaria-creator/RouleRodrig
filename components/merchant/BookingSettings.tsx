@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown, Globe, Loader2 } from "lucide-react";
 import { durationText } from "@/lib/services/diary";
 
 export type Settings = {
@@ -12,6 +12,7 @@ export type Settings = {
   concurrentJobs: number;
   leadHours: number;
   bookingDays: number;
+  takesOnlineBookings: boolean;
 };
 
 export type ServiceRow = {
@@ -81,7 +82,8 @@ export default function BookingSettings({
           <span className="font-syne text-sm font-bold text-offwhite">How you take bookings</span>
           <span className="mt-0.5 block font-dm text-xs text-muted">
             {s.concurrentJobs === 1 ? "One job at a time" : `${s.concurrentJobs} jobs at once`} ·{" "}
-            {s.slotMinutes} min slots · {s.leadHours}h notice · {s.bookingDays} days ahead
+            {s.slotMinutes} min slots · {s.leadHours}h notice · {s.bookingDays} days ahead ·{" "}
+            {s.takesOnlineBookings ? "customers can book online" : "telephone only"}
           </span>
         </span>
         <ChevronDown size={16} className={`shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`} />
@@ -89,6 +91,34 @@ export default function BookingSettings({
 
       {open && (
         <div className="space-y-4 border-t border-white/10 p-4">
+          {/* ── THE PUBLIC DOOR ──────────────────────────────────────────
+              A row, not a checkbox in the grid below: this is the only
+              setting here that changes what a stranger can do, and it should
+              not be one tick among four numbers.
+
+              Off does NOT hide the times. The storefront still shows when
+              they are free and asks the customer to ring — because "no online
+              booking" and "no availability" are different sentences, and a
+              blank panel says the wrong one. */}
+          <label className="flex items-start gap-3 rounded-xl border border-white/10 p-3">
+            <input
+              type="checkbox"
+              checked={s.takesOnlineBookings}
+              onChange={(e) => setS({ ...s, takesOnlineBookings: e.target.checked })}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-yellow"
+            />
+            <span>
+              <span className="flex items-center gap-1.5 font-dm text-sm text-offwhite">
+                <Globe size={13} className="text-yellow" /> Let customers book online
+              </span>
+              <span className="mt-0.5 block font-dm text-xs text-muted">
+                {s.takesOnlineBookings
+                  ? "Anyone on your shop page can take a free slot. You are told straight away, and it lands in this diary."
+                  : "Your page shows when you are free and asks them to ring you. Nothing is written into this diary but you."}
+              </span>
+            </span>
+          </label>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="font-dm text-xs text-muted">Slots are</span>
