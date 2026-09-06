@@ -379,6 +379,75 @@ export default async function FoodPage({
               </div>
             )}
 
+            {/* ── THE SELLER LAYER (M168) ───────────────────────────────────
+                This page used to state, at the top of the file, that there is
+                "no kitchen list, no kitchen filter, no kitchen page and no
+                kitchen name on any grid card". Reversed on the owner's
+                instruction: he wants /food to have its restaurants the way
+                /shop has its Island shops.
+
+                It sits HERE, below the dish rails and above the FAQ, for the
+                reason /shop gives in its own comment — the customer asks "who
+                am I buying from" AFTER seeing something they want, not before.
+                The dish-first shelf above is untouched. */}
+            {home.kitchens.length > 0 && (
+              <section className="mt-10">
+                <h2 className="font-syne text-lg font-extrabold text-offwhite">
+                  <T k="chrome.railKitchens" />
+                </h2>
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {home.kitchens.map((k) => (
+                    <Link
+                      key={k.slug}
+                      href={`/food/k/${k.slug}`}
+                      className="group flex items-center gap-3 rounded-xl border border-white/10 bg-dark-card p-3 transition-colors hover:border-yellow/40"
+                    >
+                      {k.logoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={k.logoUrl}
+                          alt=""
+                          loading="lazy"
+                          className="h-9 w-9 shrink-0 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-yellow/10 text-yellow">
+                          <UtensilsCrossed size={16} />
+                        </span>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate font-dm text-sm font-semibold text-offwhite group-hover:text-yellow">
+                          {k.name}
+                        </span>
+                        <span className="flex min-w-0 items-center gap-1.5 font-dm text-[11px] text-muted">
+                          <span className="shrink-0">
+                            <TCount k="chrome.kitchenDishes" n={k.dishCount} />
+                          </span>
+                          {k.address && (
+                            <>
+                              <span className="shrink-0 opacity-50">·</span>
+                              <span className="truncate">{k.address}</span>
+                            </>
+                          )}
+                        </span>
+                      </div>
+                      {/* Open/closed is the one fact that changes whether this
+                          tap is worth making, so it is the only badge here. */}
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 font-dm text-[10px] ${
+                          k.isOpen
+                            ? "bg-emerald-500/15 text-emerald-300"
+                            : "bg-white/5 text-muted"
+                        }`}
+                      >
+                        <T k={k.isOpen ? "chrome.kitchenOpen" : "chrome.kitchenClosed"} />
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+
             <FoodFaq />
 
             <FrenchTwinLink

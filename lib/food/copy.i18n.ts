@@ -73,6 +73,17 @@ const EN = {
       `${n} dish${n === 1 ? "" : "es"} from island kitchens`,
     cookingNow: (n: number) => `${n} cooking now`,
     /**
+     * The seller rail (M168). "Restaurants" rather than "Kitchens" because it
+     * is the word a customer uses, and it mirrors "Island shops" on /shop.
+     */
+    railKitchens: "Island restaurants",
+    kitchenDishes: (n: number) => `${n} dish${n === 1 ? "" : "es"}`,
+    kitchenOpen: "Open now",
+    kitchenClosed: "Closed",
+    openKitchen: (name: string) => `See the menu at ${name}`,
+    kitchenBack: "All food",
+    kitchenMenu: "The menu",
+    /**
      * Every example word here is one lib/food/search.ts actually knows —
      * "ourite", "chicken" and "cheap" are all in its tables. A placeholder that
      * suggests a word the search cannot answer is worse than no placeholder,
@@ -319,6 +330,13 @@ const FR: FoodCopy = {
     dishCount: (n: number) =>
       `${n} plat${n === 1 ? "" : "s"} des cuisines de l’île`,
     cookingNow: (n: number) => `${n} en train de cuisiner`,
+    railKitchens: "Les restaurants de l’île",
+    kitchenDishes: (n: number) => `${n} plat${n === 1 ? "" : "s"}`,
+    kitchenOpen: "Ouvert",
+    kitchenClosed: "Fermé",
+    openKitchen: (name: string) => `Voir la carte de ${name}`,
+    kitchenBack: "Tous les plats",
+    kitchenMenu: "La carte",
     // "ourite", "poulet" et "pas cher" sont tous les trois dans les tables de
     // lib/food/search.ts — la recherche répond vraiment à ces trois mots.
     searchPlaceholder: "Ourite, poulet, pas cher…",
@@ -492,6 +510,13 @@ const CR: FoodCopy = {
     titleAccent: "manze ?",
     dishCount: (n: number) => `${n} plat depi bann lakwizinn lil la`,
     cookingNow: (n: number) => `${n} pe kwi aster`,
+    railKitchens: "Bann restoran lil la",
+    kitchenDishes: (n: number) => `${n} plat`,
+    kitchenOpen: "Ouver aster",
+    kitchenClosed: "Fermé",
+    openKitchen: (name: string) => `Get manze kot ${name}`,
+    kitchenBack: "Tou manze",
+    kitchenMenu: "Meni la",
     // "ourit", "pouler" ek "bomarse" tou dan bann tab lib/food/search.ts —
     // rod la reponn sa trwa mo la vremem.
     searchPlaceholder: "Ourit, pouler, bomarse…",

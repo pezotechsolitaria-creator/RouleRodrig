@@ -5,6 +5,7 @@ import type {
   FoodBrowseResult,
   FoodDetail,
   FoodHome,
+  FoodKitchenDetail,
   FoodSort,
 } from "./types";
 import { FOOD_SORTS } from "./types";
@@ -136,4 +137,30 @@ export async function foodCardImages(supabase: SupabaseClient, limit = 6): Promi
     .map((i) => i.imageUrl)
     .filter((u): u is string => !!u)
     .slice(0, limit);
+}
+
+/**
+ * One kitchen and its whole menu, for /food/k/[slug].
+ *
+ * Returns null for an unknown slug so the page can call notFound() rather than
+ * render an empty restaurant, which reads as "this place has closed down"
+ * instead of "this address is wrong".
+ *
+ * Galleries are attached here for the same reason getFoodHome does it: the
+ * cards come out of food_catalog with a single image, and a kitchen page
+ * showing one photo per dish while /food shows several is the kind of
+ * inconsistency nobody reports and everybody notices.
+ */
+export async function getFoodKitchen(
+  supabase: SupabaseClient,
+  slug: string,
+): Promise<FoodKitchenDetail | null> {
+  const { data, error } = await supabase.rpc("food_kitchen", { p_slug: slug });
+  if (error) {
+    console.error("food_kitchen failed", error);
+    return null;
+  }
+  const kitchen = (data as FoodKitchenDetail) ?? null;
+  if (!kitchen) return null;
+  return { ...kitchen, items: await withGalleries(supabase, kitchen.items ?? []) };
 }

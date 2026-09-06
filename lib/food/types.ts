@@ -114,10 +114,46 @@ export type FoodCategory = {
 
 export type FoodRail = { key: string; title: string; items: FoodCard[] };
 
+/**
+ * A kitchen as the /food seller rail shows it (M168).
+ *
+ * Derived from food_catalog, never from food_kitchens directly, so a kitchen
+ * appears here only while at least one of its dishes is already visible on
+ * /food. That is what stops the rail advertising a shop the catalogue hides.
+ */
+export type FoodKitchenSummary = {
+  slug: string;
+  name: string;
+  logoUrl: string | null;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+  isOpen: boolean;
+  dishCount: number;
+  pickupHint: string | null;
+  halal: boolean;
+  ratingAvg: number | null;
+  ratingCount: number | null;
+};
+
+/** One kitchen and its whole menu, for /food/k/[slug]. */
+export type FoodKitchenDetail = FoodKitchenSummary & {
+  coverUrl: string | null;
+  description: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+  prepMin: number | null;
+  prepMax: number | null;
+  halalCertifier: string | null;
+  items: FoodCard[];
+};
+
 export type FoodHome = {
   meal: "breakfast" | "lunch" | "dinner" | "snack";
   rails: FoodRail[];
   categories: FoodCategory[];
+  /** The seller layer (M168). Open kitchens first, then by menu size. */
+  kitchens: FoodKitchenSummary[];
   kitchensOpen: number;
   dishCount: number;
   deliveryEnabled: boolean;
