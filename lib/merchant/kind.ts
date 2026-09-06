@@ -17,14 +17,18 @@
 // lib/admin/order-desk.ts — and the merchant console was the one place that did
 // not.
 //
-// ── ADDING 'service' LATER ─────────────────────────────────────────────────
-// A car wash or a plumber sells a booked slot rather than stock. When
-// trade_providers exists it is: one member on this union, one KIND_VOCAB entry,
-// one extra probe in getAccessibleStores, and one entry in the home block list.
-// It is deliberately NOT here yet — an unreachable case in a Record is the same
-// lie as a stat card showing a zero, and this file exists to stop exactly that.
+// ── 'service' ARRIVED ──────────────────────────────────────────────────────
+// This note used to say the case was deliberately absent until trade_providers
+// existed, because "an unreachable case in a Record is the same lie as a stat
+// card showing a zero". The table exists now (m177), and the four changes it
+// listed are exactly the four that were made: this union, the KIND_VOCAB entry
+// below, one probe in getAccessibleStores, and one line in HOME_BLOCKS.
+//
+// A car wash or a plumber sells BOOKED TIME. That is the whole difference and
+// it is why `hasStock` is false for them: time cannot run low, and a stock
+// report would call a fully-booked Saturday healthy.
 
-export type MerchantKind = "shop" | "kitchen" | "events";
+export type MerchantKind = "shop" | "kitchen" | "events" | "service";
 
 export type KindVocab = {
   /** The word in the header chip. */
@@ -63,6 +67,23 @@ export const KIND_VOCAB: Record<MerchantKind, KindVocab> = {
     hasStock: true,
     hasFulfilmentChoice: true,
   },
+  service: {
+    badge: "SERVICE",
+    noun: "service",
+    // The same screen as a shop's, under the word a tradesperson uses. A
+    // service IS a product row underneath — what differs is that it is time
+    // rather than a thing on a shelf.
+    catalogue: { label: "Services", href: "/merchant/products" },
+    // Time cannot be "low". A car wash with every Saturday slot taken is not
+    // out of stock, it is fully booked, and telling them to restock would be
+    // the same wrong sentence a kitchen was getting before M81.
+    hasStock: false,
+    // A service is not delivered or collected — the customer comes to them, or
+    // they travel. Which of those is `trade_providers.mobile`, a fact about the
+    // trade rather than a fulfilment method, so this stays off and the console
+    // does not offer settings that would have no effect.
+    hasFulfilmentChoice: false,
+  },
   events: {
     badge: "BOX OFFICE",
     noun: "ticket",
@@ -75,7 +96,7 @@ export const KIND_VOCAB: Record<MerchantKind, KindVocab> = {
 };
 
 /** Every kind, in the order a switcher should list them. */
-export const MERCHANT_KINDS: MerchantKind[] = ["shop", "kitchen", "events"];
+export const MERCHANT_KINDS: MerchantKind[] = ["shop", "kitchen", "events", "service"];
 
 export function vocabFor(kind: MerchantKind): KindVocab {
   return KIND_VOCAB[kind];

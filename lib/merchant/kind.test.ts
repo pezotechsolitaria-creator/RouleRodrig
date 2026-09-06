@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { KIND_VOCAB, MERCHANT_KINDS, vocabFor, type MerchantKind } from "./kind";
+import { HOME_BLOCKS } from "@/components/merchant/home/blocks";
 
 // ── "MERCHANT" IS NOT ONE THING ─────────────────────────────────────────────
 //
@@ -40,6 +41,17 @@ describe("the kind vocabulary", () => {
     expect(KIND_VOCAB.events.hasFulfilmentChoice).toBe(false);
     expect(KIND_VOCAB.shop.hasFulfilmentChoice).toBe(true);
     expect(KIND_VOCAB.kitchen.hasFulfilmentChoice).toBe(true);
+    // A service is not delivered or collected. Whether they travel is
+    // trade_providers.mobile — a fact about the trade, not a fulfilment method.
+    expect(KIND_VOCAB.service.hasFulfilmentChoice).toBe(false);
+  });
+
+  it("does not report stock for a business that sells time", () => {
+    // A car wash with every Saturday slot taken is not out of stock, it is
+    // fully booked. "12 low stock items" is the same wrong sentence a kitchen
+    // was being shown before M81.
+    expect(KIND_VOCAB.service.hasStock).toBe(false);
+    expect(HOME_BLOCKS.service).not.toContain("Stock");
   });
 
   it("resolves through vocabFor for every kind", () => {
@@ -49,7 +61,12 @@ describe("the kind vocabulary", () => {
   // The guarantee a boolean cannot give: adding a member breaks the build until
   // every Record is filled. This documents it for the next reader.
   it("is exhaustive by type, so a new kind cannot be silently defaulted", () => {
-    const seen: Record<MerchantKind, boolean> = { shop: true, kitchen: true, events: true };
+    const seen: Record<MerchantKind, boolean> = {
+      shop: true,
+      kitchen: true,
+      events: true,
+      service: true,
+    };
     expect(Object.keys(seen).sort()).toEqual([...MERCHANT_KINDS].sort());
   });
 });
@@ -64,13 +81,29 @@ describe("kind is derived positively, not by absence", () => {
     expect(src).not.toMatch(/kind:\s*"shop"\s*\}\s*\)/);
   });
 
-  it("asks food_kitchens and events, which are the authorities", () => {
+  it("asks food_kitchens, events and trade_providers, which are the authorities", () => {
     expect(src).toContain('.from("food_kitchens").select("store_id").in("store_id", ids)');
     expect(src).toContain('.from("events").select("store_id").in("store_id", ids)');
+    expect(src).toContain('.from("trade_providers").select("store_id").in("store_id", ids)');
   });
 
-  it("treats a store that is both a kitchen and an event as a kitchen", () => {
-    expect(src).toContain('kitchens.has(id) ? "kitchen" : events.has(id) ? "events" : "shop"');
+  it("resolves kind in a fixed precedence, whatever the formatting", () => {
+    // A kitchen that also sells tickets is a kitchen: it cooks every day and
+    // runs an event occasionally, so the daily job wins the console. A trade
+    // sits below both — a kitchen that also details cars is primarily feeding
+    // people.
+    //
+    // Asserted as an ORDER rather than as one literal line: the original
+    // matched the exact single-line ternary, so adding a fourth kind broke a
+    // test about precedence purely by reformatting it.
+    const k = src.indexOf('kitchens.has(id)');
+    const e = src.indexOf('events.has(id)');
+    const t = src.indexOf('trades.has(id)');
+    expect(k, "kitchens.has(id) not found").toBeGreaterThan(-1);
+    expect(e).toBeGreaterThan(k);
+    expect(t).toBeGreaterThan(e);
+    // And "shop" remains the fallback, never a positive branch.
+    expect(src).toMatch(/:\s*"shop"\)/);
   });
 
   it("caches the resolver, which the layout calls three times a request", () => {

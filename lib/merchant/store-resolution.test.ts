@@ -19,6 +19,9 @@ const COOKIE = "rr_merchant_store";
 const SHOP = { id: "11111111-1111-1111-1111-111111111111", name: "M4 Test Shop" };
 const KITCHEN = { id: "22222222-2222-2222-2222-222222222222", name: "Ti Kitchen (DEMO)" };
 const EVENTS = { id: "44444444-4444-4444-4444-444444444444", name: "Summer Fest Rodrigues" };
+// A trade: the fourth kind (M177). Reached the same way as the others, so a
+// console that resolved it as "shop" would look identical to the M172 bug.
+const SERVICE = { id: "55555555-5555-5555-5555-555555555555", name: "Roule Test Services" };
 const MERCHANT_ID = "33333333-3333-3333-3333-333333333333";
 
 let cookieValue: string | undefined;
@@ -64,7 +67,7 @@ function fakeSupabase() {
           // All three reachable this way — the branch that used to name every
           // one of them "shop".
           return chain([
-            { merchant_id: MERCHANT_ID, merchants: { stores: [SHOP, KITCHEN, EVENTS] } },
+            { merchant_id: MERCHANT_ID, merchants: { stores: [SHOP, KITCHEN, EVENTS, SERVICE] } },
           ]);
         case "stores":
           return chain([
@@ -85,6 +88,8 @@ function fakeSupabase() {
           return chain([{ store_id: KITCHEN.id }]);
         case "events":
           return chain([{ store_id: EVENTS.id }]);
+        case "trade_providers":
+          return chain([{ store_id: SERVICE.id }]);
         default:
           throw new Error(`fakeSupabase: unexpected table "${table}"`);
       }
@@ -177,14 +182,18 @@ describe("kind is decided by what a store IS, not by which query found it", () =
   it("labels every accessible store, and each one only once", async () => {
     const { getAccessibleStores } = await import("./context");
     const stores = await getAccessibleStores(fakeSupabase() as never);
-    expect(stores).toHaveLength(3);
-    expect(new Set(stores.map((s) => s.id)).size).toBe(3);
+    expect(stores).toHaveLength(4);
+    expect(new Set(stores.map((s) => s.id)).size).toBe(4);
     expect(
       Object.fromEntries(stores.map((s) => [s.name, s.kind])),
     ).toEqual({
       "M4 Test Shop": "shop",
       "Ti Kitchen (DEMO)": "kitchen",
       "Summer Fest Rodrigues": "events",
+      // The fourth kind. Reached through merchant_staff exactly like the shop,
+      // so a resolver that stamped a kind on the branch that FOUND the store
+      // would call this one "shop" — the M172 bug, in a new place.
+      "Roule Test Services": "service",
     });
   });
 

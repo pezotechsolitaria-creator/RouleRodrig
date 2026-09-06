@@ -43,4 +43,10 @@ export const HOME_BLOCKS: Record<MerchantKind, BlockId[]> = {
   // "low stock" is not a warning, it is the point. Tickets sold against tickets
   // remaining is its own block and is not written yet.
   events: ["Earnings"],
+
+  // A trade sells time. There is no stock to report and no menu to serve
+  // today — "12 low stock items" and "nothing serving" are both the wrong
+  // sentence for a plumber — so what is left is what they earned. A booked-slot
+  // block is its own thing and is not written yet.
+  service: ["Earnings"],
 };

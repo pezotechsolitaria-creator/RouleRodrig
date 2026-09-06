@@ -375,12 +375,14 @@ async function _getAccessibleStores(supabase: SupabaseClient): Promise<Accessibl
   // The authorities. food_kitchens and events are the same tables
   // marketplace_stores excludes on, so a store's kind here and its treatment on
   // the storefront can never disagree.
-  const [{ data: kitchenRows }, { data: eventRows }] = await Promise.all([
+  const [{ data: kitchenRows }, { data: eventRows }, { data: tradeRows }] = await Promise.all([
     supabase.from("food_kitchens").select("store_id").in("store_id", ids),
     supabase.from("events").select("store_id").in("store_id", ids),
+    supabase.from("trade_providers").select("store_id").in("store_id", ids),
   ]);
   const kitchens = new Set(((kitchenRows ?? []) as { store_id: string }[]).map((r) => r.store_id));
   const events = new Set(((eventRows ?? []) as { store_id: string }[]).map((r) => r.store_id));
+  const trades = new Set(((tradeRows ?? []) as { store_id: string }[]).map((r) => r.store_id));
 
   return [...candidates.entries()]
     .map(([id, name]) => ({
@@ -388,7 +390,18 @@ async function _getAccessibleStores(supabase: SupabaseClient): Promise<Accessibl
       name,
       // A kitchen that also sells tickets is a kitchen: it cooks every day and
       // runs an event occasionally, so the daily job wins the console.
-      kind: (kitchens.has(id) ? "kitchen" : events.has(id) ? "events" : "shop") as MerchantKind,
+      // A kitchen that also sells tickets is a kitchen: it cooks every day and
+      // runs an event occasionally, so the daily job wins the console. A trade
+      // sits below both for the same reason — a car wash that once sold a
+      // ticket is still a car wash, but a kitchen that also details cars is
+      // primarily feeding people.
+      kind: (kitchens.has(id)
+        ? "kitchen"
+        : events.has(id)
+          ? "events"
+          : trades.has(id)
+            ? "service"
+            : "shop") as MerchantKind,
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
