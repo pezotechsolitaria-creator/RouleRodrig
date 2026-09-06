@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   Loader2, ChefHat, Check, Clock, UtensilsCrossed, ClipboardList,
-  Volume2, VolumeX, Undo2, WifiOff,
+  Volume2, VolumeX, Undo2, WifiOff, Layers,
 } from "lucide-react";
+import AllDayPanel from "./AllDayPanel";
 import MenuPanel from "./MenuPanel";
 
 // ── The cook's screen ──────────────────────────────────────────────────────
@@ -251,7 +252,7 @@ export default function KitchenBoard() {
   // Two jobs, two tabs. Orders first and by default: during service that is
   // the only screen that matters, and the menu is set once at the start of the
   // day. A cook should never have to find their orders behind a menu editor.
-  const [tab, setTab] = useState<"orders" | "menu">("orders");
+  const [tab, setTab] = useState<"orders" | "allday" | "menu">("orders");
   const [dash, setDash] = useState<Dash | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -263,7 +264,7 @@ export default function KitchenBoard() {
 
   const seen = useRef<Set<string> | null>(null);
   const chime = useChime();
-  useWakeLock(tab === "orders");
+  useWakeLock(tab === "orders" || tab === "allday");
 
   const load = useCallback(async () => {
     try {
@@ -740,13 +741,18 @@ The order is ${money(o.total!, o.currency)}. The rest becomes cash to collect on
         <button onClick={() => setTab("orders")} className={tabCls(tab === "orders")}>
           <ClipboardList size={15} /> Orders{live.length > 0 ? ` (${live.length})` : ""}
         </button>
+        <button onClick={() => setTab("allday")} className={tabCls(tab === "allday")}>
+          <Layers size={15} /> All day
+        </button>
         <button onClick={() => setTab("menu")} className={tabCls(tab === "menu")}>
-          <UtensilsCrossed size={15} /> Today&apos;s menu
+          <UtensilsCrossed size={15} /> Menu
         </button>
       </div>
 
       {tab === "menu" ? (
         <MenuPanel />
+      ) : tab === "allday" ? (
+        <AllDayPanel orders={live} />
       ) : (
       <>
       {/* Sound is the single most important control on a kitchen screen, so it

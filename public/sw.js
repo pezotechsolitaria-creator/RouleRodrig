@@ -220,7 +220,8 @@
 // v305 - every client-rendered customer string is translated.
 // v306 - event cards get a Get tickets button, and stop promising cash at the door.
 // v308 - events come back: the section, the routes and the sitemap.
-const CACHE = "rr-cache-v308";
+// v309 - the kitchen can see what to cook in total, not one ticket at a time.
+const CACHE = "rr-cache-v309";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
