@@ -23,6 +23,8 @@ function fakeClient(opts: {
   financials?: Row[];
   financialsError?: boolean;
   paidCount?: number;
+  /** How many order_financials rows exist for this store at all, reversed included. */
+  anyFinancialRows?: number;
   countError?: boolean;
 }) {
   const calls: string[] = [];
@@ -33,8 +35,18 @@ function fakeClient(opts: {
       if (table === "order_financials") {
         const chain: Record<string, unknown> = {};
         const self = () => chain;
+        // The guard's head-count call ends at .eq(); the main read ends at
+        // .is(). Both are awaited, so the chain is a thenable that resolves to
+        // the head count and also carries the filter methods.
+        const head = {
+          count: opts.anyFinancialRows ?? 0,
+          error: opts.financialsError ? { message: "denied" } : null,
+        };
         chain.select = self;
-        chain.eq = self;
+        chain.eq = () =>
+          Object.assign(Object.create(chain), {
+            then: (res: (v: unknown) => unknown) => res(head),
+          });
         chain.not = self;
         chain.is = () =>
           opts.financialsError
@@ -85,6 +97,29 @@ describe("getEarnings", () => {
   it("reports a true zero for a store that has genuinely never sold", async () => {
     const r = await getEarnings(fakeClient({ financials: [], paidCount: 0 }), "store-1");
     expect(r).toEqual({ ok: true, netCents: 0, commissionCents: 0, rate: null, orderCount: 0 });
+  });
+
+  // FOUND AGAINST A REAL ACCOUNT, NOT IMAGINED. M4 Test Shop has one collected
+  // order whose financial row was REVERSED. The first version of this guard saw
+  // "a completed sale and nothing readable" and declared the figures
+  // permanently unavailable — for a store whose earnings are zero and perfectly
+  // knowable. A reversed sale is an answer, not a failure.
+  it("says zero, not unavailable, when the only sale was reversed", async () => {
+    const r = await getEarnings(
+      fakeClient({ financials: [], paidCount: 1, anyFinancialRows: 1 }),
+      "store-1",
+    );
+    expect(r).toEqual({ ok: true, netCents: 0, commissionCents: 0, rate: null, orderCount: 0 });
+  });
+
+  it("still refuses when a completed sale has NO financial row visible at all", async () => {
+    // The genuine unreadable case: the sale exists, and we cannot see a single
+    // row that would explain it. That is an RLS denial wearing an empty array.
+    const r = await getEarnings(
+      fakeClient({ financials: [], paidCount: 1, anyFinancialRows: 0 }),
+      "store-1",
+    );
+    expect(r).toEqual({ ok: false });
   });
 
   it("fails rather than guesses when the financials read errors", async () => {

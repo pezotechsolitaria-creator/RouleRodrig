@@ -81,23 +81,44 @@ export async function getEarnings(
     // ── THE ANTI-LIE GUARD ───────────────────────────────────────────────
     // "Rs 0.00" shown to an owner who has actually taken money is a false
     // statement about their money — the worst thing this console could say.
-    // An RLS denial and a store that has genuinely never sold anything both
-    // arrive here as an empty list with no error, so the only way to tell them
-    // apart is to ask a second question the merchant can definitely answer:
-    // does this store have a paid or collected order at all?
-    const { count, error: countError } = await supabase
-      .from("orders")
-      .select("id", { count: "exact", head: true })
-      .eq("store_id", storeId)
-      .in("status", ["paid", "collected"]);
+    // An RLS denial and a store that has genuinely never sold both arrive here
+    // as an empty list with no error, so a second question is needed.
+    //
+    // But "has a collected order" is NOT that question, and using it alone was
+    // wrong. Caught against a real account: M4 Test Shop has one collected
+    // order whose financial row was REVERSED. Nothing is readable after the
+    // filters and the store plainly has a completed sale — so the first version
+    // of this guard declared "Earnings unavailable" permanently, for a store
+    // whose true earnings are zero and knowable.
+    //
+    // The distinction that actually holds: can we see this store's
+    // order_financials AT ALL? If rows exist but every one is unearned or
+    // reversed, zero is the honest answer. If a completed sale exists and we
+    // can see NO financial row whatsoever, the figures are genuinely beyond us
+    // and we must not put a number to them.
+    const [{ count: paidCount, error: countError }, { count: anyFin, error: finError }] =
+      await Promise.all([
+        supabase
+          .from("orders")
+          .select("id", { count: "exact", head: true })
+          .eq("store_id", storeId)
+          .in("status", ["paid", "collected"]),
+        supabase
+          .from("order_financials")
+          .select("order_id, orders!inner(store_id)", { count: "exact", head: true })
+          .eq("orders.store_id", storeId),
+      ]);
 
-    if (countError) {
-      console.error("getEarnings guard failed", countError);
+    if (countError || finError) {
+      console.error("getEarnings guard failed", countError ?? finError);
       return { ok: false };
     }
-    // Money exists but the figures do not: refuse to show a total.
-    if ((count ?? 0) > 0) return { ok: false };
 
+    // A completed sale, and not one financial row visible: we cannot tell them.
+    if ((paidCount ?? 0) > 0 && (anyFin ?? 0) === 0) return { ok: false };
+
+    // Either nothing was ever sold, or everything that was is reversed. Both
+    // are a true, sayable zero.
     return { ok: true, netCents: 0, commissionCents: 0, rate: null, orderCount: 0 };
   }
 
