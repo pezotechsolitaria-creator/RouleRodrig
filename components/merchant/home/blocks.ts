@@ -26,7 +26,7 @@ import type { MerchantKind } from "@/lib/merchant/kind";
 // give and the reason lib/merchant/kind.ts is a union rather than a flag.
 
 /** Blocks that vary by what sort of business this is. */
-export type BlockId = "Stock" | "ServingToday" | "BookedToday" | "Earnings";
+export type BlockId = "Stock" | "ServingToday" | "BookedToday" | "TicketsLeft" | "Earnings";
 
 export const HOME_BLOCKS: Record<MerchantKind, BlockId[]> = {
   // A shop counts units and runs out of them.
@@ -40,9 +40,10 @@ export const HOME_BLOCKS: Record<MerchantKind, BlockId[]> = {
   kitchen: ["ServingToday", "Earnings"],
 
   // A box office sells against an allocation that cannot be restocked, so
-  // "low stock" is not a warning, it is the point. Tickets sold against tickets
-  // remaining is its own block and is not written yet.
-  events: ["Earnings"],
+  // "low stock" is not a warning, it is the point. TicketsLeft is that block:
+  // sold against remaining, judged by proportion as well as count, because 20
+  // left is a crisis in a 25-seat room and a quiet week in a 5,000-seat one.
+  events: ["TicketsLeft", "Earnings"],
 
   // A trade sells time. There is no stock to report and no menu to serve
   // today — "12 low stock items" and "nothing serving" are both the wrong

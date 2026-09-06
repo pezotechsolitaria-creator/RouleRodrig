@@ -10,6 +10,8 @@ import { getEarnings } from "@/lib/merchant/earnings";
 import { getBilling } from "@/lib/merchant/billing";
 import { KIND_VOCAB } from "@/lib/merchant/kind";
 import BookedToday from "@/components/merchant/home/BookedToday";
+import TicketsLeft from "@/components/merchant/home/TicketsLeft";
+import { getEventDetail } from "@/lib/events/organizer";
 import type { DiaryDay } from "@/lib/services/diary";
 import RefundsOwed from "@/components/merchant/RefundsOwed";
 import MerchantPushSetup from "@/components/merchant/MerchantPushSetup";
@@ -64,8 +66,9 @@ export default async function MerchantHome() {
 
   const wantsServing = HOME_BLOCKS[kind].includes("ServingToday");
   const wantsDiary = HOME_BLOCKS[kind].includes("BookedToday");
+  const wantsTickets = HOME_BLOCKS[kind].includes("TicketsLeft");
 
-  const [stats, queue, earnings, billing, schedule, payment, prepaymentOnly, serving, diaryToday] =
+  const [stats, queue, earnings, billing, schedule, payment, prepaymentOnly, serving, diaryToday, eventDetail] =
     await Promise.all([
     storeId ? getDashboardStats(supabase, storeId) : null,
     storeId
@@ -113,6 +116,12 @@ export default async function MerchantHome() {
       ? supabase
           .rpc("service_calendar", { p_store_id: storeId, p_days: 1 })
           .then((r) => ((r.data as { calendar?: DiaryDay[] } | null)?.calendar?.[0] ?? null))
+      : Promise.resolve(null),
+    // The same detail the box office itself reads, keyed on the store that is
+    // selected — so the home screen and /organizer cannot disagree about how
+    // many tickets are left.
+    wantsTickets && storeId
+      ? getEventDetail(supabase, storeId).catch(() => null)
       : Promise.resolve(null),
   ]);
 
@@ -197,6 +206,8 @@ export default async function MerchantHome() {
             return <ServingToday key={block} serving={serving} />;
           case "BookedToday":
             return <BookedToday key={block} today={diaryToday} />;
+          case "TicketsLeft":
+            return <TicketsLeft key={block} event={eventDetail} />;
           case "Earnings":
             return <Earnings key={block} earnings={earnings} />;
         }

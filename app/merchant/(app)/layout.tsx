@@ -82,7 +82,7 @@ export default async function MerchantAppLayout({ children }: { children: React.
             <span className="hidden shrink-0 rounded-full border border-yellow/30 bg-yellow/10 px-2 py-0.5 font-bebas text-[9px] tracking-[0.2em] text-yellow sm:inline">
               {KIND_VOCAB[kind].badge}
             </span>
-            <MerchantNavDesktop kind={kind} hasPlan={billing.chargesSubscription} />
+            <MerchantNavDesktop kind={kind} />
             <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none">
               {/* Labelled "Website", not "Roulé Rodrigues", because the wordmark
                   two inches to the left already says that and goes somewhere
@@ -131,7 +131,7 @@ export default async function MerchantAppLayout({ children }: { children: React.
           )}
           {children}
         </main>
-        <MerchantNavMobile kind={kind} hasPlan={billing.chargesSubscription} />
+        <MerchantNavMobile kind={kind} />
       </div>
       <Toaster
         theme="dark"

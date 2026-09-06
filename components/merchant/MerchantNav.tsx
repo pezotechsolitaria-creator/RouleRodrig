@@ -50,7 +50,11 @@ function useActive() {
 }
 
 /** Inline links inside the header. Hidden on phones, where the tab bar takes over. */
-export function MerchantNavDesktop({ kind = "shop", hasPlan = true }: { kind?: MerchantKind; hasPlan?: boolean }) {
+// No `hasPlan` prop. The dock has held five fixed slots since the Plan tab
+// moved to /merchant/more, so the prop was passed from the layout, threaded
+// through a wrapper and dropped — a control that looks like it decides
+// something and decides nothing is worse than no control at all.
+export function MerchantNavDesktop({ kind = "shop" }: { kind?: MerchantKind }) {
   const isActive = useActive();
   const links = primaryFor(kind);
   return (
@@ -79,7 +83,7 @@ export function MerchantNavDesktop({ kind = "shop", hasPlan = true }: { kind?: M
  * iOS home indicator; the layout adds matching bottom padding so nothing is
  * ever hidden underneath it.
  */
-export function MerchantNavMobile({ kind = "shop", hasPlan = true }: { kind?: MerchantKind; hasPlan?: boolean }) {
+export function MerchantNavMobile({ kind = "shop" }: { kind?: MerchantKind }) {
   const links = primaryFor(kind);
   const isActive = useActive();
   return (

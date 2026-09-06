@@ -55,7 +55,7 @@ export async function rolesForUser(
 ): Promise<AccountRole[]> {
   const out: AccountRole[] = [];
 
-  const [staff, owned, driver, organizer, kitchen, taxi] = await Promise.all([
+  const [staff, owned, driver, organizer, kitchen, taxi, myStores] = await Promise.all([
     // system_key is null on both: "Roulé Rodrigues Kitchen" and "Roulé
     // Rodrigues Events" are platform infrastructure that happen to carry
     // merchant_staff rows for the operator. Without this filter a staff member
@@ -88,6 +88,18 @@ export async function rolesForUser(
     // own driver and nothing else. Granting SELECT on that table to reach it
     // would have handed every signed-in visitor every active driver's token.
     supabase.rpc("my_taxi_driver"),
+    // ── IS THIS MERCHANT A TRADE? ──────────────────────────────────────
+    // The merchant door says "My shop — Products, orders, opening hours and
+    // payment details". For a car wash that is wrong on two of the four nouns:
+    // it sells no products and its work arrives as bookings, not orders.
+    //
+    // Read from the AUTHORITY TABLE rather than a column, exactly as
+    // getAccessibleStores derives kind — a trade is a store with a
+    // trade_providers row, and there is no second opinion to drift from. The
+    // door only changes its words when EVERY store under the merchant is a
+    // trade; an owner running a shop and a car wash keeps the general wording,
+    // because the door leads to both.
+    supabase.from("stores").select("id, merchant_id, trade_providers(store_id)"),
   ]);
 
   const one = (v: unknown) => (Array.isArray(v) ? (v[0] ?? null) : v);
@@ -106,11 +118,26 @@ export async function rolesForUser(
     }
   }
 
-  for (const [, m] of merchants) {
+  // Every store this person can see, grouped by merchant, so the door can be
+  // named after the business rather than after the table it came from. RLS has
+  // already limited the rows to their own.
+  const storesByMerchant = new Map<string, { total: number; trades: number }>();
+  for (const st of (myStores.data ?? []) as { merchant_id: string; trade_providers: unknown }[]) {
+    const seen = storesByMerchant.get(st.merchant_id) ?? { total: 0, trades: 0 };
+    seen.total += 1;
+    if (one(st.trade_providers)) seen.trades += 1;
+    storesByMerchant.set(st.merchant_id, seen);
+  }
+
+  for (const [merchantId, m] of merchants) {
+    const shape = storesByMerchant.get(merchantId);
+    const allTrades = !!shape && shape.total > 0 && shape.total === shape.trades;
     out.push({
       key: "merchant",
-      title: "My shop",
-      blurb: "Products, orders, opening hours and payment details.",
+      title: allTrades ? "My services" : "My shop",
+      blurb: allTrades
+        ? "Your diary, the services you offer, opening hours and payment details."
+        : "Products, orders, opening hours and payment details.",
       href: "/merchant",
       label: m.name,
       status: m.status === "approved" ? "active" : m.status === "pending" ? "pending" : "blocked",

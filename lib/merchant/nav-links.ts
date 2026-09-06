@@ -80,11 +80,6 @@ export function secondaryFor(kind: MerchantKind, hasPlan: boolean): NavLink[] {
   return out;
 }
 
-function linksFor(kind: MerchantKind, hasPlan = true): NavLink[] {
-  void hasPlan;
-  return primaryFor(kind);
-}
-
 const CATALOGUE_ICON: Record<MerchantKind, React.ElementType> = {
   shop: Package,
   kitchen: UtensilsCrossed,
