@@ -1,11 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+  KIND_LABEL,
+  LEG_LABEL,
+  mayLayOutMoney,
+  toRequestKind,
+  type RequestKind,
+} from "@/lib/delivery/kind";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Loader2,
   Package,
   ShoppingBasket,
+  ClipboardCheck,
   MapPin,
   Users,
   Check,
@@ -15,6 +23,14 @@ import {
   Navigation,
   Zap,
 } from "lucide-react";
+
+// A Record, so a fourth kind cannot quietly inherit the parcel icon. See
+// lib/delivery/kind.ts for why every one of these is a map and not a ternary.
+const KIND_ICON: Record<RequestKind, typeof Package> = {
+  package: Package,
+  shop_and_deliver: ShoppingBasket,
+  errand: ClipboardCheck,
+};
 import { cn } from "@/lib/utils";
 import { toCents, centsToShortString } from "@/lib/money";
 import { transition, type as t } from "@/lib/delivery/tokens";
@@ -213,7 +229,8 @@ function RequestCard({
 
   const cents = fee.trim() ? toCents(fee) : null;
   const valid = cents !== null && cents >= 100 && cents <= 5_000_000;
-  const Icon = r.kind === "shop_and_deliver" ? ShoppingBasket : Package;
+  const kind = toRequestKind(r.kind);
+  const Icon = KIND_ICON[kind];
   const quoting = busy === `quote-${r.id}`;
   const withdrawing = busy === `withdraw-${r.myQuote?.id}`;
 
@@ -268,9 +285,7 @@ function RequestCard({
               </>
             )}
             <span>
-              {r.kind === "shop_and_deliver"
-                ? "Buy & deliver"
-                : "Collect & deliver"}
+              {KIND_LABEL[kind]}
             </span>
             {r.sizeClass === "large" && (
               <>
@@ -296,11 +311,11 @@ function RequestCard({
       {/* Both addresses, always. A driver cannot price a job without knowing
           where it starts and ends — the same rule the WhatsApp message follows. */}
       <div className="mt-3 space-y-2">
-        <Where label="Collect" place={r.pickupText} note={r.pickupNote} />
-        <Where label="Deliver" place={r.dropoffText} note={r.dropoffNote} />
+        <Where label={LEG_LABEL[kind].pickup} place={r.pickupText} note={r.pickupNote} />
+        <Where label={LEG_LABEL[kind].dropoff} place={r.dropoffText} note={r.dropoffNote} />
       </div>
 
-      {r.kind === "shop_and_deliver" && r.spendCap != null && (
+      {mayLayOutMoney(kind, r.spendCap) && (
         // Never merged with the fee. A driver who reads the shopping cap as
         // their pay quotes against the wrong number and loses money at the till.
         <p

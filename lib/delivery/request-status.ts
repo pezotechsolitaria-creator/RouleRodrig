@@ -1,4 +1,5 @@
 import { centsToShortString } from "@/lib/money";
+import { mayLayOutMoney, toRequestKind } from "@/lib/delivery/kind";
 import type { Language } from "@/lib/i18n";
 
 // ── What is happening to my request, in words ───────────────────────────────
@@ -674,7 +675,13 @@ export function payAtDoor(
 } {
   const c = PAY_COPY[lang];
   const fee = { label: c.fee, value: formatFee(input.fee) };
-  if (input.kind !== "shop_and_deliver" || !input.spendCap) {
+  // mayLayOutMoney, NOT `kind !== "shop_and_deliver"`. This function decides
+  // what a customer is told to have in their hand at the door, and the old
+  // test excluded errands — so somebody who asked for their CEB bill to be
+  // paid would have been shown the driver's fee alone and met them holding a
+  // fraction of what they owed. An errand can lay out money exactly like a
+  // shopping run; what it may not do is be assumed not to.
+  if (!mayLayOutMoney(toRequestKind(input.kind), input.spendCap)) {
     return { lines: [fee], total: formatFee(input.fee), note: null };
   }
   return {

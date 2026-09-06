@@ -71,6 +71,10 @@ const EN = {
         title: "Buy & deliver",
         body: "Someone buys it for you first.",
       },
+      errand: {
+        title: "Do it for me",
+        body: "Someone goes and gets it done.",
+      },
     },
     itemQuestion: "What kind of thing is it?",
     item: {
@@ -91,6 +95,12 @@ const EN = {
     describePlaceholderShop: "e.g. 2 gas bottles, 12 kg, any brand",
     describeOrPhoto: "A few words, or a photo — either is enough.",
     budgetLabel: "The most we may spend on it (Rs)",
+    describeLabelErrand: "What needs doing?",
+    describePlaceholderErrand: "e.g. Pay my CEB bill and bring me the receipt",
+    budgetLabelErrand: "The most they may spend (Rs)",
+    budgetHelpErrand:
+      "Only if money changes hands — a bill, a fee, a gas refill. Leave it empty if there is nothing to pay. What you pay the person for going is separate.",
+    budgetSkipErrand: "Nothing needs paying",
     budgetPlaceholder: "e.g. 1500",
     budgetHelp:
       "You repay what was actually spent, up to this. The delivery fee is separate and each driver names their own.",
@@ -169,6 +179,8 @@ const EN = {
     pickup: "Where do we collect it?",
     pickupShop: "Where should they buy it?",
     dropoff: "Where should it go?",
+    pickupErrand: "Where does it need doing?",
+    dropoffErrand: "Where should they bring the result?",
     anywhere: "Anywhere you can find it",
     anywhereHelp: "The driver picks the shop. Most people choose this.",
     namedShop: "From one particular place",
@@ -206,6 +218,7 @@ const EN = {
     rowRoute: "From → to",
     rowContact: "You",
     rowBudget: "Shopping limit",
+    rowBudgetErrand: "Spending limit",
     promises: [
       "Drivers send their price — you choose.",
       "Free to ask, and nothing to pay yet.",
@@ -434,6 +447,10 @@ const FR: DeliverCopy = {
         title: "Acheter et livrer",
         body: "Quelqu’un l’achète pour vous d’abord.",
       },
+      errand: {
+        title: "Faites-le pour moi",
+        body: "Quelqu’un s’en occupe pour vous.",
+      },
     },
     itemQuestion: "De quel genre de chose s’agit-il ?",
     item: {
@@ -460,6 +477,13 @@ const FR: DeliverCopy = {
       "ex. 2 bouteilles de gaz, 12 kg, n’importe quelle marque",
     describeOrPhoto: "Quelques mots, ou une photo — l’un ou l’autre suffit.",
     budgetLabel: "Le maximum que nous pouvons dépenser (Rs)",
+    describeLabelErrand: "Qu’y a-t-il à faire ?",
+    describePlaceholderErrand:
+      "ex. Payer ma facture CEB et me rapporter le reçu",
+    budgetLabelErrand: "Le maximum qu’ils peuvent dépenser (Rs)",
+    budgetHelpErrand:
+      "Uniquement s’il y a quelque chose à payer — une facture, des frais, une recharge de gaz. Laissez vide s’il n’y a rien à payer. Le prix de la course est séparé.",
+    budgetSkipErrand: "Il n’y a rien à payer",
     budgetPlaceholder: "ex. 1500",
     budgetHelp:
       "Vous remboursez ce qui a été réellement dépensé, jusqu’à ce montant. Les frais de livraison sont séparés et chaque chauffeur fixe les siens.",
@@ -538,6 +562,8 @@ const FR: DeliverCopy = {
     pickup: "Où le récupérons-nous ?",
     pickupShop: "Où faut-il l’acheter ?",
     dropoff: "Où faut-il le livrer ?",
+    pickupErrand: "Où faut-il le faire ?",
+    dropoffErrand: "Où faut-il rapporter le résultat ?",
     anywhere: "N’importe où vous le trouvez",
     anywhereHelp:
       "Le chauffeur choisit le magasin. La plupart des gens choisissent ceci.",
@@ -572,6 +598,7 @@ const FR: DeliverCopy = {
     rowRoute: "De → à",
     rowContact: "Vous",
     rowBudget: "Limite d’achat",
+    rowBudgetErrand: "Limite de dépense",
     promises: [
       "Les chauffeurs proposent leur prix — vous choisissez.",
       "Gratuit, et rien à payer pour l’instant.",
@@ -752,6 +779,10 @@ const CR: DeliverCopy = {
         title: "Aste ek livre",
         body: "Enn dimounn aste li pou ou avan.",
       },
+      errand: {
+        title: "Fer li pou mwa",
+        body: "Enn dimounn al fer li pou ou.",
+      },
     },
     itemQuestion: "Ki kalite zafer sa ete ?",
     item: {
@@ -774,6 +805,12 @@ const CR: DeliverCopy = {
     describePlaceholderShop: "ex. 2 boutey gaz, 12 kg, nenport ki mark",
     describeOrPhoto: "De trwa mo, ou enn foto — enn ou lot ase.",
     budgetLabel: "Maximum ki nou kapav depanse (Rs)",
+    describeLabelErrand: "Ki bizin fer ?",
+    describePlaceholderErrand: "ex. Pey mo fakter CEB ek amenn mwa resi la",
+    budgetLabelErrand: "Maximum ki zot kapav depanse (Rs)",
+    budgetHelpErrand:
+      "Zis si ena kas pou peye — enn fakter, enn fre, enn ranpli gaz. Les li vid si nanye pa bizin peye. Seki ou pey dimounn la pou al fer li, li separe.",
+    budgetSkipErrand: "Nanye pa bizin peye",
     budgetPlaceholder: "ex. 1500",
     budgetHelp:
       "Ou rambours seki finn vremem depanse, ziska sa montan la. Fre livrezon separe ek sak sofer fix so prop pri.",
@@ -843,6 +880,8 @@ const CR: DeliverCopy = {
     pickup: "Kot nou al pran li ?",
     pickupShop: "Kot bizin aste li ?",
     dropoff: "Kot bizin livre li ?",
+    pickupErrand: "Kot bizin fer li ?",
+    dropoffErrand: "Kot bizin amenn rezilta la ?",
     anywhere: "Nenport kot ou trouve li",
     anywhereHelp: "Sofer la swazir laboutik. Laplipar dimounn swazir sa.",
     namedShop: "Depi enn plas presi",
@@ -876,6 +915,7 @@ const CR: DeliverCopy = {
     rowRoute: "Depi → ziska",
     rowContact: "Ou",
     rowBudget: "Limit aste",
+    rowBudgetErrand: "Limit depans",
     promises: [
       "Bann sofer propoz zot pri — ou swazir.",
       "Gratis, ek nanye pou peye ankor.",

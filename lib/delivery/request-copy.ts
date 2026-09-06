@@ -1,4 +1,5 @@
 import { centsToShortString } from "@/lib/money";
+import { LEG_LABEL, mayLayOutMoney, toRequestKind } from "@/lib/delivery/kind";
 
 // ── Every message the Deliver Anything loop sends ───────────────────────────
 //
@@ -53,21 +54,36 @@ function place(text: string, note?: string | null): string {
  * read as one — and a driver who thinks they have lost a race they were never
  * in stops opening the next one.
  */
+const NEW_REQUEST_TITLE: Record<string, string> = {
+  package: "New delivery — name your price",
+  shop_and_deliver: "New shopping run — name your price",
+  // Not "delivery". A driver who reads this as a parcel job and taps expecting
+  // an address to collect from finds a task instead, and the mismatch between
+  // the notification and the board is exactly what stops people opening the
+  // next one.
+  errand: "New job to do — name your price",
+};
+
 export function newRequestTitle(f: RequestFacts): string {
-  return f.kind === "shop_and_deliver"
-    ? "New shopping run — name your price"
-    : "New delivery — name your price";
+  return NEW_REQUEST_TITLE[toRequestKind(f.kind)];
 }
 
 export function newRequestLines(f: RequestFacts): string[] {
+  // "Collect / Deliver" is right for a parcel and misleading for an errand,
+  // where the first line is a place to GO and the second is where whatever
+  // comes back should end up.
+  const leg = LEG_LABEL[toRequestKind(f.kind)];
   const lines = [
     f.what.trim(),
-    `Collect: ${place(f.pickupText, f.pickupNote)}`,
-    `Deliver: ${place(f.dropoffText, f.dropoffNote)}`,
+    `${leg.pickup}: ${place(f.pickupText, f.pickupNote)}`,
+    `${leg.dropoff}: ${place(f.dropoffText, f.dropoffNote)}`,
   ];
 
-  if (f.kind === "shop_and_deliver" && f.spendCap) {
-    // The two numbers, kept apart. A driver who reads the shopping cap as their
+  // mayLayOutMoney, not a shop-only test: an errand can carry a spending limit
+  // too (a bill, a fee, a gas refill), and a driver who is not told about it
+  // arrives with none of their own money and cannot do the job.
+  if (mayLayOutMoney(toRequestKind(f.kind), f.spendCap)) {
+    // The two numbers, kept apart. A driver who reads the spending cap as their
     // fee will quote against the wrong figure and lose money on the job.
     lines.push(`They will repay what you spend, up to ${rs(f.spendCap)}. Your fee is separate.`);
   }
@@ -161,9 +177,15 @@ export function quoteAcceptedLines(input: {
     lines.push(`Customer: ${[f.contactName, input.contactPhone].filter(Boolean).join(" · ")}`);
   }
 
-  if (f.kind === "shop_and_deliver" && f.spendCap) {
+  // THE LINE THAT DECIDES WHETHER A DRIVER IS PAID BACK. Gated on
+  // mayLayOutMoney rather than on the shopping kind, because an errand lays out
+  // money in exactly the same way — and under the old test a driver who paid
+  // somebody's Rs 2,000 bill would have been told to collect their fee alone.
+  if (mayLayOutMoney(toRequestKind(f.kind), f.spendCap)) {
     lines.push(
-      `Buy it first. They repay what you spend, up to ${rs(f.spendCap)} — keep the receipt.`,
+      f.kind === "errand"
+        ? `Pay it first. They repay what you spend, up to ${rs(f.spendCap)} — keep the receipt.`
+        : `Buy it first. They repay what you spend, up to ${rs(f.spendCap)} — keep the receipt.`,
     );
     lines.push(`Collect at the door: ${rs(input.fee)} for you, plus what you spent.`);
   } else {

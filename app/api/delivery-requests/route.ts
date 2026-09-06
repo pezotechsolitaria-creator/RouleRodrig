@@ -5,6 +5,7 @@ import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { guardShared } from "@/lib/rate-limit";
 import { toE164 } from "@/lib/phone";
 import { notifyDriversOfNewRequest } from "@/lib/delivery/notify-requests";
+import { REQUEST_KINDS } from "@/lib/delivery/kind";
 
 // POST /api/delivery-requests — post a Deliver Anything job.
 //
@@ -16,7 +17,9 @@ const SAFE_RPC_ERROR = "P0001";
 
 const schema = z
   .object({
-    kind: z.enum(["package", "shop_and_deliver"]),
+    // Straight from the shared list, so this endpoint cannot fall behind the
+    // kinds the database accepts.
+    kind: z.enum(REQUEST_KINDS),
     // Allowed to be short when a PHOTO carries it -- refined below. The 44% of
     // Rodriguans over 60 who cannot write are the reason this is not min(3).
     what: z.string().trim().max(500),
@@ -77,6 +80,20 @@ const schema = z
   })
   .refine((v) => v.kind !== "shop_and_deliver" || (v.maxBudget ?? 0) > 0, {
     message: "Set the most we may spend on the item.",
+    path: ["maxBudget"],
+  })
+  // An errand is the one kind where the limit is OPTIONAL — paying a bill needs
+  // a ceiling, queuing at the bank does not. But zero is not a third meaning:
+  // on the board it reads to a driver as "spend up to Rs 0", and they decline a
+  // job that was funded all along. Omit it, or mean it.
+  .refine((v) => v.kind !== "errand" || v.maxBudget === undefined || v.maxBudget > 0, {
+    message: "Either leave the spending limit empty, or set a real amount.",
+    path: ["maxBudget"],
+  })
+  // A collection has nothing to buy. The table CHECK says the same; this puts
+  // it beside the field instead of returning a 23514 from the RPC.
+  .refine((v) => v.kind !== "package" || v.maxBudget === undefined, {
+    message: "A collection has nothing to buy, so it takes no budget.",
     path: ["maxBudget"],
   });
 

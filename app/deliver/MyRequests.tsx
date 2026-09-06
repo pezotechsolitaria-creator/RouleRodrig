@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toRequestKind, type RequestKind } from "@/lib/delivery/kind";
 import Link from "next/link";
-import { ChevronRight, Package, ShoppingBasket } from "lucide-react";
+import { ChevronRight, ClipboardCheck, Package, ShoppingBasket } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
 import { readSaved } from "@/lib/delivery/my-requests";
@@ -149,8 +150,16 @@ export default function MyRequests() {
 
   if (!rows || (rows.live.length === 0 && rows.past.length === 0)) return null;
 
+  // Records, not ternaries — see lib/delivery/kind.ts. With three kinds the
+  // ternary form is silently wrong rather than broken, which is worse.
+  const ROW_ICON: Record<RequestKind, typeof Package> = {
+    package: Package,
+    shop_and_deliver: ShoppingBasket,
+    errand: ClipboardCheck,
+  };
+
   const row = (r: Row, muted: boolean) => {
-    const Icon = r.kind === "shop_and_deliver" ? ShoppingBasket : Package;
+    const Icon = ROW_ICON[toRequestKind(r.kind)];
     const copy = r.live
       ? requestStatusCopy(
           {

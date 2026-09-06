@@ -20,6 +20,7 @@ import {
   Phone,
   Zap,
   ShoppingBasket,
+  ClipboardCheck,
   UtensilsCrossed,
   Umbrella,
   Sofa,
@@ -35,6 +36,7 @@ import { cn } from "@/lib/utils";
 import { toCents } from "@/lib/money";
 import { toE164 } from "@/lib/phone";
 import { saveRequest } from "@/lib/delivery/my-requests";
+import { BUDGET_RULE, type RequestKind } from "@/lib/delivery/kind";
 import {
   DELIVER_COPY,
   ITEM_CHOICES,
@@ -121,7 +123,20 @@ import {
 // data should not pay three round trips to fill in a form, and a person on the
 // third screen must be able to change the first answer without losing the rest.
 
-type Kind = "package" | "shop_and_deliver";
+// Not a local union any more. The three kinds and their labels live in
+// lib/delivery/kind.ts, and every lookup below is a Record keyed on it — so a
+// fourth kind is a COMPILE error here rather than a card that never renders.
+type Kind = RequestKind;
+
+/** The picture for each kind. A Record, so adding a kind cannot leave one
+ *  without an icon and silently fall back to a parcel. */
+const KIND_ICON: Record<Kind, typeof Package> = {
+  package: Package,
+  shop_and_deliver: ShoppingBasket,
+  // A clipboard, not a truck: nothing is necessarily being carried. The job is
+  // that somebody went, did it, and can say so.
+  errand: ClipboardCheck,
+};
 // FOUR now. "When do you need it?" was never asked — delivery_requests had
 // no column for it — so every request read to a driver as "now". See M152.
 const SCREENS = 4;
@@ -146,6 +161,41 @@ export default function DeliverForm({
   const router = useRouter();
   const { language } = useLanguage();
   const c = DELIVER_COPY[language];
+
+  // ── The words that change with the kind of job ──────────────────────────
+  // Records rather than ternaries, for the reason set out in lib/delivery/
+  // kind.ts: with two kinds a ternary is correct, with three it is silently
+  // wrong, and "silently" is the part that matters — an errand mislabelled as
+  // a collection sends somebody to fetch a parcel that does not exist.
+  const KIND_TITLE: Record<Kind, string> = {
+    package: c.what.kind.package.title,
+    shop_and_deliver: c.what.kind.shop.title,
+    errand: c.what.kind.errand.title,
+  };
+  const DESCRIBE_LABEL: Record<Kind, string> = {
+    package: c.what.describeLabel,
+    shop_and_deliver: c.what.describeLabelShop,
+    errand: c.what.describeLabelErrand,
+  };
+  const DESCRIBE_PLACEHOLDER: Record<Kind, string> = {
+    package: c.what.describePlaceholder,
+    shop_and_deliver: c.what.describePlaceholderShop,
+    errand: c.what.describePlaceholderErrand,
+  };
+  // Where the job happens, and where whatever comes of it should end up. For
+  // an errand these are genuinely two different questions — "go to the CEB
+  // office" and "bring the receipt to my house" — which is why dropoff_text
+  // was left NOT NULL rather than relaxed: an errand still has both legs.
+  const PICKUP_LABEL: Record<Kind, string> = {
+    package: c.where.pickup,
+    shop_and_deliver: c.where.pickupShop,
+    errand: c.where.pickupErrand,
+  };
+  const DROPOFF_LABEL: Record<Kind, string> = {
+    package: c.where.dropoff,
+    shop_and_deliver: c.where.dropoff,
+    errand: c.where.dropoffErrand,
+  };
 
   const [screen, setScreen] = useState(1);
   // NULL, not "package". The two cards are a real question until it is
@@ -278,8 +328,15 @@ export default function DeliverForm({
       kind !== null &&
       item !== null &&
       (what.trim().length >= 3 || photoPath !== null) &&
-      (kind !== "shop_and_deliver" ||
-        (budgetCents !== null && budgetCents > 0)),
+      // Required for a shopping run, optional for an errand, absent for a
+      // collection — BUDGET_RULE is the same rule the table CHECK enforces.
+      (BUDGET_RULE[kind] !== "required" ||
+        (budgetCents !== null && budgetCents > 0)) &&
+      // And whatever WAS typed has to be a number. Without this an errand
+      // could go forward carrying "abt 500" in a field the server reads as
+      // nothing, and the driver would be told there is no money for a job
+      // that needs it.
+      (budget.trim() === "" || budgetCents !== null),
     2: whenDone,
     3:
       dropoff !== null &&
@@ -551,8 +608,12 @@ export default function DeliverForm({
       timeSlot: timeSlot ?? "any",
       neededDate: scheduleKind === "date" ? neededDate : undefined,
       // Rupees on screen, minor units on the wire.
+      // A collection has nothing to buy, so it must carry NO budget — the
+      // table CHECK rejects one outright. A shopping run must have one; an
+      // errand may. Reading the rule rather than naming a kind means a stale
+      // number left in the field after switching kind cannot ride along.
       maxBudget:
-        kind === "shop_and_deliver" ? (budgetCents ?? undefined) : undefined,
+        BUDGET_RULE[kind] === "forbidden" ? undefined : (budgetCents ?? undefined),
       photoPath: photoPath ?? undefined,
       contactName: name.trim(),
       contactPhone: phoneE164,
@@ -614,7 +675,7 @@ export default function DeliverForm({
       // you are looking at, which on a one-question screen it always is.
       if (!kind || !item) return { label: c.cta.next, disabled: true };
       if (
-        kind === "shop_and_deliver" &&
+        BUDGET_RULE[kind] === "required" &&
         !(budgetCents !== null && budgetCents > 0)
       ) {
         return { label: c.cta.missingBudget, disabled: true };
@@ -774,6 +835,17 @@ export default function DeliverForm({
                         icon: ShoppingBasket,
                         copy: c.what.kind.shop,
                       },
+                      // "Do it for me" — the thing people on this island
+                      // actually ask each other for. Pay the CEB bill, queue at
+                      // the bank, fill the gas bottle, collect the
+                      // prescription. Third because it is the least familiar of
+                      // the three, and a person who wants a parcel moved should
+                      // not have to read past it.
+                      {
+                        k: "errand" as const,
+                        icon: ClipboardCheck,
+                        copy: c.what.kind.errand,
+                      },
                     ].map((o) => (
                       <button
                         key={o.k}
@@ -814,14 +886,8 @@ export default function DeliverForm({
                         and it is the honest shape — you are not still
                         choosing. */}
                   <ChosenLine
-                    icon={
-                      kind === "shop_and_deliver" ? ShoppingBasket : Package
-                    }
-                    label={
-                      kind === "shop_and_deliver"
-                        ? c.what.kind.shop.title
-                        : c.what.kind.package.title
-                    }
+                    icon={KIND_ICON[kind]}
+                    label={KIND_TITLE[kind]}
                     change={c.edit}
                     onChange={() => setKind(null)}
                   />
@@ -964,9 +1030,7 @@ export default function DeliverForm({
                           required
                           srMark={c.required.srMark}
                         >
-                          {kind === "package"
-                            ? c.what.describeLabel
-                            : c.what.describeLabelShop}
+                          {DESCRIBE_LABEL[kind]}
                         </Label>
                         <textarea
                           id="d-what"
@@ -975,11 +1039,7 @@ export default function DeliverForm({
                           onChange={(e) => setWhat(e.target.value)}
                           aria-required
                           className={cn(recipe.field, "resize-none")}
-                          placeholder={
-                            kind === "package"
-                              ? c.what.describePlaceholder
-                              : c.what.describePlaceholderShop
-                          }
+                          placeholder={DESCRIBE_PLACEHOLDER[kind]}
                         />
                       </div>
 
@@ -990,7 +1050,7 @@ export default function DeliverForm({
                       />
 
                       <AnimatePresence initial={false}>
-                        {kind === "shop_and_deliver" && (
+                        {BUDGET_RULE[kind] !== "forbidden" && (
                           <motion.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: "auto" }}
@@ -1001,10 +1061,12 @@ export default function DeliverForm({
                             <div className="mt-4">
                               <Label
                                 htmlFor="d-budget"
-                                required
+                                required={BUDGET_RULE[kind] === "required"}
                                 srMark={c.required.srMark}
                               >
-                                {c.what.budgetLabel}
+                                {BUDGET_RULE[kind] === "required"
+                                  ? c.what.budgetLabel
+                                  : c.what.budgetLabelErrand}
                               </Label>
                               <input
                                 id="d-budget"
@@ -1012,9 +1074,13 @@ export default function DeliverForm({
                                 inputMode="decimal"
                                 value={budget}
                                 onChange={(e) => setBudget(e.target.value)}
-                                aria-required
+                                aria-required={BUDGET_RULE[kind] === "required"}
                                 className={recipe.field}
-                                placeholder={c.what.budgetPlaceholder}
+                                placeholder={
+                                  BUDGET_RULE[kind] === "required"
+                                    ? c.what.budgetPlaceholder
+                                    : c.what.budgetSkipErrand
+                                }
                               />
                               {/* The two numbers, kept apart. Conflating them is
                                 how a driver ends up out of pocket at the
@@ -1022,7 +1088,9 @@ export default function DeliverForm({
                               <p
                                 className={cn(t.meta, "mt-1.5 text-[#B0B0B0]")}
                               >
-                                {c.what.budgetHelp}
+                                {BUDGET_RULE[kind] === "required"
+                                  ? c.what.budgetHelp
+                                  : c.what.budgetHelpErrand}
                               </p>
                               {budget.trim() && budgetCents === null && (
                                 <p
@@ -1347,7 +1415,7 @@ export default function DeliverForm({
                 ) : (
                   <>
                     <PlacePicker
-                      label={c.where.pickup}
+                      label={PICKUP_LABEL[kind ?? "package"]}
                       shortLabel={c.where.fromShort}
                       required
                       icon={MapPin}
@@ -1360,7 +1428,7 @@ export default function DeliverForm({
                 )}
 
                 <PlacePicker
-                  label={c.where.dropoff}
+                  label={DROPOFF_LABEL[kind ?? "package"]}
                   shortLabel={c.where.toShort}
                   required
                   icon={Navigation}
@@ -1464,9 +1532,7 @@ export default function DeliverForm({
                 <ReviewRow
                   label={c.review.rowItem}
                   value={[
-                    kind === "shop_and_deliver"
-                      ? c.what.kind.shop.title
-                      : c.what.kind.package.title,
+                    kind ? KIND_TITLE[kind] : "",
                     item ? c.what.item[item].label : "",
                     what.trim() || (photoPath ? c.what.describeOrPhoto : ""),
                   ]
@@ -1475,9 +1541,13 @@ export default function DeliverForm({
                   onEdit={() => goTo(1)}
                   editLabel={c.edit}
                 />
-                {kind === "shop_and_deliver" && budgetCents !== null && (
+                {kind && BUDGET_RULE[kind] !== "forbidden" && budgetCents !== null && (
                   <ReviewRow
-                    label={c.review.rowBudget}
+                    label={
+                      BUDGET_RULE[kind] === "required"
+                        ? c.review.rowBudget
+                        : c.review.rowBudgetErrand
+                    }
                     value={`Rs ${(budgetCents / 100).toLocaleString("en-GB")}`}
                     onEdit={() => goTo(1)}
                     editLabel={c.edit}

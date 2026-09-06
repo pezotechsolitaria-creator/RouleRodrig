@@ -27,11 +27,13 @@
 // testable without a DOM, and a browser with storage blocked degrades to "no
 // draft" rather than throwing on module load.
 
+import { isRequestKind, type RequestKind } from "@/lib/delivery/kind";
+
 /** Exactly what /api/delivery-requests takes. Kept as the wire shape on
  *  purpose: an outbox entry that has to be re-derived from form state is an
  *  outbox entry that will drift from the endpoint it is aimed at. */
 export type RequestPayload = {
-  kind: "package" | "shop_and_deliver";
+  kind: RequestKind;
   what: string;
   pickupText: string;
   pickupNote?: string;
@@ -57,7 +59,7 @@ export type RequestPayload = {
  *  because a draft is by definition incomplete. */
 export type Draft = {
   v: 1;
-  kind: "package" | "shop_and_deliver";
+  kind: RequestKind;
   what: string;
   budget: string;
   item: string;
@@ -221,7 +223,12 @@ function isQueued(v: unknown): v is Queued {
       p.dropoffText.length > 0 &&
       typeof p.contactPhone === "string" &&
       p.contactPhone.length > 0 &&
-      (p.kind === "package" || p.kind === "shop_and_deliver"),
+      // isRequestKind, not a hand-written union. When "errand" was added,
+      // this line was the one place that would have SILENTLY BINNED a
+      // queued request — the outbox drops anything it judges invalid, on a
+      // screen the person has already left, so the failure is a delivery
+      // that simply never happened and nobody to tell.
+      isRequestKind(p.kind),
   );
 }
 

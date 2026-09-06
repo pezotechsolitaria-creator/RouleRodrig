@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { mayLayOutMoney, toRequestKind } from "@/lib/delivery/kind";
 import { useSearchParams } from "next/navigation";
 import {
   Loader2,
@@ -927,7 +928,10 @@ function PaymentState({ delivery: a }: { delivery: Active }) {
   // and not at the top of a screen that may be showing two.
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState(false);
-  const shopping = a.requestKind === "shop_and_deliver";
+  // "Did this driver spend their own money?" — which an errand does too. As a
+  // shop-only test, a driver who paid a Rs 2,000 bill was told to collect their
+  // fee and nothing else.
+  const shopping = mayLayOutMoney(toRequestKind(a.requestKind), a.spendCap);
 
   // Two minutes, not five: an ID is meant to be opened where the customer is
   // standing, not saved. See /api/driver/id-document.

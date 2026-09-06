@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toRequestKind, type RequestKind } from "@/lib/delivery/kind";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,6 +9,7 @@ import {
   Loader2,
   Package,
   ShoppingBasket,
+  ClipboardCheck,
   MapPin,
   Check,
   X,
@@ -24,6 +26,12 @@ import {
   AlertTriangle,
   ChevronRight,
 } from "lucide-react";
+
+const KIND_ICON: Record<RequestKind, typeof Package> = {
+  package: Package,
+  shop_and_deliver: ShoppingBasket,
+  errand: ClipboardCheck,
+};
 import { toast } from "sonner";
 import OrderAlerts from "@/components/orders/OrderAlerts";
 import LiveTripView from "@/components/tracking/LiveTripView";
@@ -193,6 +201,14 @@ export default function RequestTracker({
   const router = useRouter();
   const { language } = useLanguage();
   const c = DELIVER_COPY[language];
+
+  // The kind, in the FORM's own words rather than a second house translation
+  // of the same idea. A Record so a new kind cannot silently show as a parcel.
+  const KIND_TITLE: Record<RequestKind, string> = {
+    package: c.what.kind.package.title,
+    shop_and_deliver: c.what.kind.shop.title,
+    errand: c.what.kind.errand.title,
+  };
 
   // Kept in a ref as well as state so the poller never closes over a stale one.
   const emailRef = useRef<string>("");
@@ -520,7 +536,7 @@ export default function RequestTracker({
     },
     language,
   );
-  const KindIcon = view.kind === "shop_and_deliver" ? ShoppingBasket : Package;
+  const KindIcon = KIND_ICON[toRequestKind(view.kind)];
   // Getting out. Two different acts behind one control:
   //   open      -> withdraw the request. Nobody is committed; costs nothing.
   //   accepted  -> cancel a booked driver, but ONLY before they collect. After
@@ -621,9 +637,7 @@ export default function RequestTracker({
             {/* The two kinds are named with the FORM's words, not a second
                 house translation of the same idea. */}
             <p className={cn(t.meta, "mt-1 text-[#B0B0B0]")}>
-              {view.kind === "shop_and_deliver"
-                ? c.what.kind.shop.title
-                : c.what.kind.package.title}
+              {KIND_TITLE[toRequestKind(view.kind)]}
               {view.sizeClass === "large" && ` · ${c.tracker.largeItem}`}
             </p>
           </div>
@@ -824,7 +838,10 @@ export default function RequestTracker({
             const shopping = view.kind === "shop_and_deliver";
             const named = !shopping || view.pickupLat != null;
             writeDraft({
-              kind: shopping ? "shop_and_deliver" : "package",
+              // The kind is carried through as itself. Collapsing it back to a
+              // boolean here is what turned a repeated errand into a parcel
+              // collection the first time this was written.
+              kind: toRequestKind(view.kind),
               what: view.what,
               // Minor units on the wire, rupees on screen — the same convention
               // as every other amount in this system.

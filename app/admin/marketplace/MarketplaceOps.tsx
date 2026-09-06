@@ -1,13 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ClipboardList, Boxes, Loader2, RefreshCw } from "lucide-react";
+import { ClipboardList, Boxes, ClipboardCheck, Loader2, RefreshCw } from "lucide-react";
 import ShopOrderQueue from "./ShopOrderQueue";
 import StockPanel from "./StockPanel";
+import ServicesPanel from "./ServicesPanel";
 
-// Two jobs, two tabs — the same arrangement as /admin/food and /kitchen.
+// Three jobs, three tabs — the same arrangement as /admin/food and /kitchen.
 // Orders first and by default: during trading that is the only screen that
 // matters, and stock is set once at the start of a day.
+//
+// SERVICES DOES NOT NEED A SHOP TO EXIST. The two original tabs are about
+// shops selling products, so the whole desk used to stop at "No shops yet".
+// "Do it for me" is sold by the platform itself and has no store behind it, so
+// the shop gate now wraps only the tabs it is actually about — otherwise the
+// first thing an owner with no shops sees is an empty state telling them a
+// live service does not exist.
 //
 // The shop list is loaded ONCE here and handed to both panels, so the two
 // cannot disagree about which shops exist and neither has to re-derive
@@ -16,7 +24,7 @@ import StockPanel from "./StockPanel";
 type Shop = { id: string; name: string };
 
 export default function MarketplaceOps() {
-  const [tab, setTab] = useState<"orders" | "stock">("orders");
+  const [tab, setTab] = useState<"orders" | "stock" | "services">("orders");
   const [shops, setShops] = useState<Shop[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,17 +79,9 @@ export default function MarketplaceOps() {
     );
   }
 
-  if (shops.length === 0) {
-    return (
-      <div className="rounded-2xl border border-white/10 bg-dark-card px-6 py-10 text-center">
-        <p className="font-syne text-lg font-bold text-offwhite">No shops yet</p>
-        <p className="mt-1.5 font-dm text-sm text-muted">
-          Every store on the platform is currently a kitchen — those are run from the Food desk.
-          A shop appears here as soon as one is approved.
-        </p>
-      </div>
-    );
-  }
+  // Only the two shop tabs have nothing to show without a shop. Services is
+  // always real.
+  const noShops = shops.length === 0;
 
   return (
     <div className="space-y-4">
@@ -92,9 +92,26 @@ export default function MarketplaceOps() {
         <button onClick={() => setTab("stock")} className={tabCls(tab === "stock")}>
           <Boxes size={15} /> Prices &amp; stock
         </button>
+        <button onClick={() => setTab("services")} className={tabCls(tab === "services")}>
+          <ClipboardCheck size={15} /> Services
+        </button>
       </div>
 
-      {tab === "orders" ? <ShopOrderQueue shops={shops} /> : <StockPanel shops={shops} />}
+      {tab === "services" ? (
+        <ServicesPanel />
+      ) : noShops ? (
+        <div className="rounded-2xl border border-white/10 bg-dark-card px-6 py-10 text-center">
+          <p className="font-syne text-lg font-bold text-offwhite">No shops yet</p>
+          <p className="mt-1.5 font-dm text-sm text-muted">
+            Every store on the platform is currently a kitchen — those are run from the Food desk.
+            A shop appears here as soon as one is approved.
+          </p>
+        </div>
+      ) : tab === "orders" ? (
+        <ShopOrderQueue shops={shops} />
+      ) : (
+        <StockPanel shops={shops} />
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { KIND_LABEL, toRequestKind } from "@/lib/delivery/kind";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, Loader2, Package, Phone, Plus, RefreshCw, UserCheck, UserX } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
@@ -378,7 +379,7 @@ export default function DeliveryBoard() {
                     <div className="min-w-0">
                       <p className="font-syne text-base font-bold">{r.what}</p>
                       <p className="mt-0.5 font-dm text-xs text-muted">
-                        {r.kind === "shop_and_deliver" ? "Buy & deliver" : "Collect & deliver"}
+                        {KIND_LABEL[toRequestKind(r.kind)]}
                         {r.sizeClass === "large" && " · Large item"}
                         {r.spendCap != null && ` · up to Rs ${centsToDecimalString(r.spendCap)}`}
                       </p>
