@@ -12,6 +12,7 @@ import MerchantPushSetup from "@/components/merchant/MerchantPushSetup";
 import WorkQueue from "@/components/merchant/home/WorkQueue";
 import Earnings from "@/components/merchant/home/Earnings";
 import { getEarnings } from "@/lib/merchant/earnings";
+import { getBilling } from "@/lib/merchant/billing";
 import type { WorkQueue as WorkQueueResult } from "@/lib/merchant/context";
 
 export default async function MerchantHome() {
@@ -37,6 +38,8 @@ export default async function MerchantHome() {
   const earnings = dashboard.store
     ? await getEarnings(supabase, dashboard.store.id)
     : ({ ok: true, netCents: 0, commissionCents: 0, rate: null, orderCount: 0 } as const);
+  // How this platform charges. Asked once, so no block has to guess (M171).
+  const billing = await getBilling(supabase);
   const storeSlug =
     dashboard.store && queue.ok && queue.items.length === 0
       ? (
@@ -217,25 +220,44 @@ export default async function MerchantHome() {
           </div>
         )}
 
-        {/* Subscription — expiry is the thing that silently stops orders. */}
-        {subscription && (
+        {/* HOW YOU ARE CHARGED — ONE SENTENCE, NOT THREE CONTRADICTIONS.
+            This line used to read "Plan premium · cancelled · renews 11 Sept":
+            a tier, a status that denies it, and a renewal date for a thing that
+            had been cancelled. A merchant could not tell from it whether they
+            owed money or were about to be cut off. Since M171 the platform
+            charges per sale, so a lapsed plan is not a fact about their
+            business and is not shown. */}
+        {billing.chargesCommission && !billing.chargesSubscription ? (
           <div className="mt-4 border-t border-white/10 pt-4">
             <p className="font-dm text-xs text-muted">
-              Plan <span className="text-offwhite">{subscription.plan}</span>
-              {" · "}
-              <span className={subscription.isActive ? "text-green-400" : "text-red-400"}>
-                {subscription.status}
-              </span>
-              {subscription.currentPeriodEnd && (
-                <> · renews {new Date(subscription.currentPeriodEnd).toLocaleDateString("en-GB", {
-                  day: "2-digit", month: "short", year: "numeric",
-                })}</>
-              )}
+              No monthly fee.{" "}
+              <span className="text-offwhite">
+                Roulé Rodrigues keeps{" "}
+                {Number((billing.defaultRate * 100).toFixed(2))}% of each completed sale
+              </span>{" "}
+              — on the goods only, never on delivery or tax.
             </p>
-            <Link href="/merchant/subscription" className="font-dm text-xs text-yellow hover:underline">
-              Manage plan
-            </Link>
           </div>
+        ) : (
+          subscription && (
+            <div className="mt-4 border-t border-white/10 pt-4">
+              <p className="font-dm text-xs text-muted">
+                Plan <span className="text-offwhite">{subscription.plan}</span>
+                {" · "}
+                <span className={subscription.isActive ? "text-green-400" : "text-red-400"}>
+                  {subscription.status}
+                </span>
+                {subscription.currentPeriodEnd && (
+                  <> · renews {new Date(subscription.currentPeriodEnd).toLocaleDateString("en-GB", {
+                    day: "2-digit", month: "short", year: "numeric",
+                  })}</>
+                )}
+              </p>
+              <Link href="/merchant/subscription" className="font-dm text-xs text-yellow hover:underline">
+                Manage plan
+              </Link>
+            </div>
+          )
         )}
       </div>
 
@@ -247,7 +269,10 @@ export default async function MerchantHome() {
           { href: "/merchant/hours", label: "Hours", icon: Clock },
           { href: "/merchant/payments", label: "Payments", icon: Store },
           { href: "/merchant/profile", label: "Shop", icon: Pencil },
-          { href: "/merchant/subscription", label: "Plan", icon: CheckCircle2 },
+          // Plan is only a destination while there is a plan to manage.
+          ...(billing.chargesSubscription
+            ? ([{ href: "/merchant/subscription", label: "Plan", icon: CheckCircle2 }] as const)
+            : []),
         ] as const).map(({ href, label, icon: Icon }) => (
           <Link
             key={href}

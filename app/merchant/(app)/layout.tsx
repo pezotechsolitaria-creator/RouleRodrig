@@ -11,6 +11,7 @@ import { signOut, switchStore } from "./actions";
 import QueryProvider from "@/components/merchant/QueryProvider";
 import NotificationBell from "@/components/merchant/NotificationBell";
 import { MerchantNavDesktop, MerchantNavMobile } from "@/components/merchant/MerchantNav";
+import { getBilling } from "@/lib/merchant/billing";
 import { Toaster } from "@/components/ui/sonner";
 
 // Private area — keep it out of search indexes.
@@ -38,6 +39,9 @@ export default async function MerchantAppLayout({ children }: { children: React.
   // Drives the food-only Menu tab. Read from the switcher's own list rather
   // than a second query, so the tab and the store selector can never disagree.
   const isKitchen = stores.some((st) => st.id === currentStoreId && st.kind === "kitchen");
+  // Whether a "Plan" tab has anything to point at (M171). Under commission
+  // billing there is no plan, so the tab is not shown at all.
+  const billing = await getBilling(supabase);
 
   return (
     <QueryProvider>
@@ -62,7 +66,7 @@ export default async function MerchantAppLayout({ children }: { children: React.
             <span className="rounded-full border border-yellow/30 bg-yellow/10 px-2 py-0.5 font-bebas text-[9px] tracking-[0.2em] text-yellow">
               {isKitchen ? "KITCHEN" : "MERCHANT"}
             </span>
-            <MerchantNavDesktop isKitchen={isKitchen} />
+            <MerchantNavDesktop isKitchen={isKitchen} hasPlan={billing.chargesSubscription} />
             <div className="ml-auto flex items-center gap-2">
               <StoreSwitcher stores={stores} currentId={currentStoreId} action={switchStore} />
               {/* An owner has two screens: this one, and the cook's board. The
@@ -106,7 +110,7 @@ export default async function MerchantAppLayout({ children }: { children: React.
           <div className="pt-4"><SubscriptionBanner sub={subscription} /></div>
           {children}
         </main>
-        <MerchantNavMobile isKitchen={isKitchen} />
+        <MerchantNavMobile isKitchen={isKitchen} hasPlan={billing.chargesSubscription} />
       </div>
       <Toaster
         theme="dark"

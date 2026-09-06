@@ -38,10 +38,14 @@ const LINKS: NavLink[] = [
 // marketplace seller a "Menu" tab is a promise the page cannot keep. Slotted
 // after Products because it answers the same question in food terms — what am I
 // selling today — rather than appended at the end where nobody looks.
-function linksFor(isKitchen: boolean): NavLink[] {
-  if (!isKitchen) return LINKS;
-  const out = [...LINKS];
-  out.splice(3, 0, { href: "/merchant/menu", label: "Menu", icon: UtensilsCrossed });
+function linksFor(isKitchen: boolean, hasPlan = true): NavLink[] {
+  let out = [...LINKS];
+  // A "Plan" tab on a platform that charges no subscription is a permanent
+  // invitation to worry about a bill that does not exist (M171). It is dropped
+  // entirely rather than shown empty — the page it opens has nothing true to
+  // say once billing is per-sale.
+  if (!hasPlan) out = out.filter((l) => l.href !== "/merchant/subscription");
+  if (isKitchen) out.splice(3, 0, { href: "/merchant/menu", label: "Menu", icon: UtensilsCrossed });
   return out;
 }
 
@@ -54,9 +58,9 @@ function useActive() {
 }
 
 /** Inline links inside the header. Hidden on phones, where the tab bar takes over. */
-export function MerchantNavDesktop({ isKitchen = false }: { isKitchen?: boolean }) {
+export function MerchantNavDesktop({ isKitchen = false, hasPlan = true }: { isKitchen?: boolean; hasPlan?: boolean }) {
   const isActive = useActive();
-  const links = linksFor(isKitchen);
+  const links = linksFor(isKitchen, hasPlan);
   return (
     <nav aria-label="Merchant sections" className="ml-4 hidden items-center gap-3 sm:flex">
       {links.map(({ href, label, icon: Icon, ...rest }) => {
@@ -83,8 +87,8 @@ export function MerchantNavDesktop({ isKitchen = false }: { isKitchen?: boolean 
  * iOS home indicator; the layout adds matching bottom padding so nothing is
  * ever hidden underneath it.
  */
-export function MerchantNavMobile({ isKitchen = false }: { isKitchen?: boolean }) {
-  const links = linksFor(isKitchen);
+export function MerchantNavMobile({ isKitchen = false, hasPlan = true }: { isKitchen?: boolean; hasPlan?: boolean }) {
+  const links = linksFor(isKitchen, hasPlan);
   const isActive = useActive();
   return (
     <nav
