@@ -113,6 +113,35 @@ describe("what the owner sees", () => {
     expect(panel).toMatch(/no pickup photo/);
   });
 
+  it("lets the owner actually look at the photographs", () => {
+    // "3 photos at pickup" answers whether the handover was documented. It does
+    // not answer the question the panel is opened with — whether the scratch
+    // being complained about is already in the pickup photo.
+    const viewer = read("app/admin/deliveries/VehiclePhotos.tsx");
+    expect(panel).toMatch(/<VehiclePhotos/);
+    expect(api).toMatch(/admin_vehicle_photos/);
+    // Both handovers together: comparing them IS the feature.
+    expect(viewer).toMatch(/data\?\.events\.map/);
+    expect(viewer).toMatch(/collected: "At pickup"/);
+    expect(viewer).toMatch(/returned: "When it came back"/);
+  });
+
+  it("signs the photos short-lived and never stores a URL", () => {
+    // The bucket is private. A URL that outlived the moment somebody asked
+    // would be a copy of a customer's car sitting in a browser history.
+    expect(api).toMatch(/createSignedUrl\(p, 300\)/);
+    // The RPC hands back PATHS; only the route turns them into URLs.
+    const viewer = read("app/admin/deliveries/VehiclePhotos.tsx");
+    expect(viewer).toMatch(/if \(next\) void load\(\)/);
+    // Re-fetched on every open rather than cached, or a second look shows
+    // broken images once the signature has expired.
+    expect(viewer).not.toMatch(/if \(next && !data\)/);
+  });
+
+  it("does not let Next cache an expiring image", () => {
+    expect(read("app/admin/deliveries/VehiclePhotos.tsx")).toMatch(/unoptimized/);
+  });
+
   it("has no button that marks a car returned", () => {
     // Custody is DERIVED from the two handover rows. A status an operator can
     // set by hand is a second version of the truth, and this is the one place

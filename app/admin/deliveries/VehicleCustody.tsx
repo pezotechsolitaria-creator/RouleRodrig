@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import VehiclePhotos from "./VehiclePhotos";
 import {
   AlertTriangle,
   CarFront,
@@ -202,16 +203,11 @@ export default function VehicleCustody() {
                 >
                   <Phone size={12} /> {v.customerName} (owner)
                 </a>
-                <span
-                  className={`inline-flex items-center gap-1 ${
-                    v.collectedPhotos > 0 ? "text-muted" : "text-red-300"
-                  }`}
-                >
-                  <Camera size={12} />
-                  {v.collectedPhotos > 0
-                    ? `${v.collectedPhotos} photo${v.collectedPhotos === 1 ? "" : "s"} at pickup`
-                    : "no pickup photo"}
-                </span>
+                {v.collectedPhotos === 0 && (
+                  <span className="inline-flex items-center gap-1 text-red-300">
+                    <Camera size={12} /> no pickup photo
+                  </span>
+                )}
                 {v.lat != null && v.lng != null && (
                   <a
                     href={`https://www.google.com/maps?q=${v.lat},${v.lng}`}
@@ -223,6 +219,17 @@ export default function VehicleCustody() {
                   </a>
                 )}
               </div>
+
+              {/* "3 photos at pickup" answers whether the handover was
+                  documented. It does not answer the question somebody opens
+                  this panel with, which is whether the scratch they are being
+                  told about is already in the pickup photograph. */}
+              {v.collectedPhotos > 0 && (
+                <VehiclePhotos
+                  requestId={v.requestId}
+                  photoCount={v.collectedPhotos}
+                />
+              )}
             </li>
           ))}
         </ul>

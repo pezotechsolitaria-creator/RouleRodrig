@@ -89,6 +89,59 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(v ?? { days, held: [], totals: null });
   }
 
+  // ── The handover photographs ───────────────────────────────────────────
+  // Signed here and now, for five minutes. The bucket is private and the paths
+  // are useless on their own; a URL that outlived the moment somebody asked
+  // would be a copy of a customer's car sitting in a browser history.
+  //
+  // Both handovers come back together on purpose: comparing pickup against
+  // return IS the feature, and making somebody open two screens to do it would
+  // be the same as not having it.
+  const photosFor = url.searchParams.get("vehiclePhotos");
+  if (photosFor) {
+    if (!UUID.test(photosFor)) {
+      return NextResponse.json({ error: "Not found." }, { status: 404 });
+    }
+    const { data: v, error: vError } = await admin.rpc("admin_vehicle_photos", {
+      p_request_id: photosFor,
+    });
+    if (vError) {
+      if (vError.code === NOT_FOUND) {
+        return NextResponse.json({ error: "Not found." }, { status: 404 });
+      }
+      console.error("admin_vehicle_photos failed", vError);
+      return NextResponse.json({ error: "Could not open those photos." }, { status: 500 });
+    }
+
+    const payload = v as {
+      events?: { event: string; paths?: string[] }[];
+    } | null;
+
+    const events = await Promise.all(
+      (payload?.events ?? []).map(async (e) => {
+        const urls = await Promise.all(
+          (e.paths ?? []).map(async (p) => {
+            const { data: signed } = await admin.storage
+              .from("delivery-photos")
+              .createSignedUrl(p, 300);
+            return signed?.signedUrl ?? null;
+          }),
+        );
+        // A path that will not sign is dropped rather than rendered as a broken
+        // image: an empty slot beside "3 photos at pickup" reads as evidence
+        // that was there and is not.
+        //
+        // `paths` is deleted rather than spread around: the raw storage keys
+        // are of no use to the browser and there is no reason to hand them out.
+        const rest = { ...(e as Record<string, unknown>) };
+        delete rest.paths;
+        return { ...rest, urls: urls.filter(Boolean) };
+      }),
+    );
+
+    return NextResponse.json({ ...(payload as object), events });
+  }
+
   const { data, error } = await admin.rpc("admin_delivery_board");
   if (error) {
     console.error("admin_delivery_board failed", error);
