@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import PhotoLightbox from "./PhotoLightbox";
 import Image from "next/image";
-import { Camera, ChevronDown, Loader2, MapPin, X } from "lucide-react";
+import { Camera, ChevronDown, Loader2, MapPin } from "lucide-react";
 
 // ── The pictures somebody took of a customer's car ──────────────────────────
 //
@@ -184,30 +185,19 @@ export default function VehiclePhotos({
         </div>
       )}
 
-      {/* Full size. A thumbnail is enough to see there IS a photo and not
-          enough to settle whether a panel was already dented. */}
+      {/* Full size, with zoom and rotate. A thumbnail is enough to see there
+          IS a photo; deciding whether a panel was already dented is a question
+          about forty pixels of a wing, and these arrive sideways as often as
+          not. */}
       {zoom && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setZoom(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Photograph of the car"
-        >
-          <button
-            onClick={() => setZoom(null)}
-            aria-label="Close"
-            className="absolute right-4 top-4 rounded-full border border-white/20 p-2 text-offwhite hover:border-yellow/50"
-          >
-            <X size={18} />
-          </button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={zoom}
-            alt="Photograph of the car"
-            className="max-h-full max-w-full rounded-lg object-contain"
-          />
-        </div>
+        <PhotoLightbox
+          // A new photograph is a new viewer: remounting resets zoom and
+          // rotation without an effect that would re-render to do it.
+          key={zoom}
+          src={zoom}
+          alt="Photograph of the car"
+          onClose={() => setZoom(null)}
+        />
       )}
     </div>
   );

@@ -138,6 +138,39 @@ describe("what the owner sees", () => {
     expect(viewer).not.toMatch(/if \(next && !data\)/);
   });
 
+  it("can be zoomed and rotated", () => {
+    // Fit-to-screen was enough to see there IS a photo and useless for the one
+    // thing this viewer is for: whether the scratch being complained about is
+    // already in the pickup shot. Rotate is not a nicety either — these are
+    // taken one-handed at a car and arrive sideways as often as not.
+    const box = read("app/admin/deliveries/PhotoLightbox.tsx");
+    expect(box).toMatch(/scale\(\$\{scale\}\) rotate\(\$\{rotation\}deg\)/);
+    expect(box).toMatch(/setRotation\(\(r\) => \(r \+ 90\) % 360\)/);
+    // Pinch, wheel and double-tap, not only the buttons.
+    expect(box).toMatch(/onWheel=/);
+    expect(box).toMatch(/onDoubleClick=/);
+    expect(box).toMatch(/Math\.hypot/);
+  });
+
+  it("does not fight the browser's own pinch zoom", () => {
+    // Without touch-none the phone scales the whole admin page instead of the
+    // photograph, which looks like the zoom simply not working.
+    expect(read("app/admin/deliveries/PhotoLightbox.tsx")).toMatch(/touch-none/);
+  });
+
+  it("does not close when a pan happens to end on the backdrop", () => {
+    // Dragging a zoomed photo and letting go would otherwise throw away the
+    // position somebody just moved to.
+    const box = read("app/admin/deliveries/PhotoLightbox.tsx");
+    expect(box).toMatch(/if \(!dragged\.current\) onClose\(\)/);
+  });
+
+  it("opens each photo fresh rather than carrying a zoom across", () => {
+    // A 4x zoom inherited by the next photo opens it in the middle of a door
+    // with no way to tell where. Done with a key, not an effect.
+    expect(read("app/admin/deliveries/VehiclePhotos.tsx")).toMatch(/key=\{zoom\}/);
+  });
+
   it("does not let Next cache an expiring image", () => {
     expect(read("app/admin/deliveries/VehiclePhotos.tsx")).toMatch(/unoptimized/);
   });
