@@ -46,13 +46,29 @@ export async function POST(req: NextRequest) {
     typeof priceInput === "string" || typeof priceInput === "number" ? toCents(String(priceInput)) : null;
   const quantity = Number(body.quantity);
 
+  const kind = String(body.kind ?? "shop").trim().toLowerCase();
+
   if (!shopName) return NextResponse.json({ error: "Shop name is required." }, { status: 400 });
-  if (!productName) return NextResponse.json({ error: "Product name is required." }, { status: 400 });
-  if (priceCents === null) {
-    return NextResponse.json({ error: "Enter a valid price." }, { status: 400 });
+  if (!["shop", "kitchen", "service"].includes(kind)) {
+    return NextResponse.json(
+      { error: "Choose whether you are a shop, a kitchen or a service." },
+      { status: 400 },
+    );
   }
-  if (!Number.isInteger(quantity) || quantity < 0) {
-    return NextResponse.json({ error: "Enter a valid quantity." }, { status: 400 });
+
+  // THE FIRST ITEM IS OPTIONAL (M178). Requiring one did not produce a stocked
+  // shop — it produced an abandoned form, or a made-up product called "test" —
+  // and it made a kitchen and a service provider literally unable to sign up.
+  //
+  // A HALF-FILLED item is still caught: somebody who typed a name and left the
+  // price blank meant to sell something, and would otherwise get a free one.
+  if (productName) {
+    if (priceCents === null) {
+      return NextResponse.json({ error: "Enter a valid price." }, { status: 400 });
+    }
+    if (!Number.isInteger(quantity) || quantity < 0) {
+      return NextResponse.json({ error: "Enter a valid quantity." }, { status: 400 });
+    }
   }
 
   const { data, error } = await supabase
@@ -62,12 +78,15 @@ export async function POST(req: NextRequest) {
       p_business_category: body.businessCategory ? String(body.businessCategory).trim() : null,
       p_contact_phone: body.contactPhone ? String(body.contactPhone).trim() : null,
       p_address: body.address ? String(body.address).trim() : null,
-      p_product_name: productName,
+      p_product_name: productName || null,
       p_product_description: body.productDescription ? String(body.productDescription).trim() : null,
-      p_price: priceCents,
-      p_quantity: quantity,
+      p_price: productName ? priceCents : null,
+      p_quantity: productName && Number.isInteger(quantity) ? quantity : null,
       p_sku: body.sku ? String(body.sku).trim() : null,
       p_category_id: body.categoryId ? String(body.categoryId) : null,
+      // Decides which extension row is written, and therefore which console
+      // they land in. Without it a car wash would be a shop.
+      p_kind: kind,
     })
     .single();
 

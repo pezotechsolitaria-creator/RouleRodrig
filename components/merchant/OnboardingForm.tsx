@@ -17,11 +17,30 @@ const BUSINESS_CATEGORIES = [
   "Handicraft & Art", "Souvenirs", "Pharmacy", "Hardware", "Other",
 ];
 
+/**
+ * What kind of business is signing up.
+ *
+ * Asked FIRST, because it decides which extension row is written and therefore
+ * which console they land in. Before M178 the form could only make a shop, so a
+ * restaurant that signed up got a stock report and a car wash could not sign up
+ * at all — the RPC refused without a product name and a price.
+ */
+type BusinessKind = "shop" | "kitchen" | "service";
+
+const KIND_CHOICE: { k: BusinessKind; title: string; blurb: string }[] = [
+  { k: "shop", title: "A shop", blurb: "You sell things — food, crafts, hardware, anything on a shelf." },
+  { k: "kitchen", title: "A kitchen", blurb: "You cook. Dishes, snacks, plats du jour." },
+  { k: "service", title: "A service", blurb: "People book your time — car wash, plumber, electrician." },
+];
+
 type Step = "shop" | "product";
 type Phase = "idle" | "submitting" | "error";
 const STEP_LABEL: Record<Step, string> = {
-  shop: "Step 1 of 2: Set up your shop",
-  product: "Step 2 of 2: Add your first product",
+  shop: "Step 1 of 2: Set up your business",
+  // "if you have one" is doing real work: the step is skippable now, and a
+  // label that does not say so leaves somebody inventing a product called
+  // "test" to get past it.
+  product: "Step 2 of 2: Add your first item, if you have one",
 };
 
 const inputCls =
@@ -111,6 +130,7 @@ export default function OnboardingForm({ categories }: { categories: Category[] 
   const [address, setAddress] = useState("");
 
   const [productPhoto, setProductPhoto] = useState<File | null>(null);
+  const [kind, setKind] = useState<BusinessKind>("shop");
   const [productName, setProductName] = useState("");
   const [productDescription, setProductDescription] = useState("");
   const [price, setPrice] = useState("");
@@ -137,12 +157,20 @@ export default function OnboardingForm({ categories }: { categories: Category[] 
 
   function validateProduct() {
     const errs: Record<string, string> = {};
-    if (!productName.trim()) errs.productName = "Product name is required.";
-    // Same toCents() the server uses — client validation must reject exactly
-    // what the server would reject, not an approximation of it.
-    if (toCents(price) === null) errs.price = "Enter a valid price.";
-    const qtyNum = Number(quantity);
-    if (quantity === "" || !Number.isInteger(qtyNum) || qtyNum < 0) errs.quantity = "Enter a valid quantity.";
+    // NOTHING TYPED AT ALL IS VALID (M178). The item is optional; a business can
+    // exist before it has anything listed, and requiring one produced abandoned
+    // forms rather than stocked shops.
+    const blank = !productName.trim() && !price.trim() && quantity === "";
+    if (!blank) {
+      // But a HALF-FILLED item is still a mistake: somebody who typed a name
+      // and left the price meant to sell something.
+      if (!productName.trim()) errs.productName = "Give it a name, or clear the price to skip.";
+      // Same toCents() the server uses — client validation must reject exactly
+      // what the server would reject, not an approximation of it.
+      if (toCents(price) === null) errs.price = "Enter a valid price.";
+      const qtyNum = Number(quantity);
+      if (quantity === "" || !Number.isInteger(qtyNum) || qtyNum < 0) errs.quantity = "Enter a valid quantity.";
+    }
     setFieldErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -165,6 +193,7 @@ export default function OnboardingForm({ categories }: { categories: Category[] 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          kind,
           shopName, shopDescription, businessCategory, contactPhone, address,
           productName, productDescription, price, quantity, sku,
           categoryId: categoryId || null,
@@ -212,21 +241,59 @@ export default function OnboardingForm({ categories }: { categories: Category[] 
       <ol className="mb-6 flex items-center gap-2" aria-label="Onboarding steps">
         <StepDot step={1} active={step === "shop"} done={step === "product"} icon={Store} label="Shop" />
         <span aria-hidden="true" className="h-px flex-1 bg-white/10" />
-        <StepDot step={2} active={step === "product"} done={false} icon={Package} label="Product" />
+        <StepDot step={2} active={step === "product"} done={false} icon={Package} label="First item" />
       </ol>
 
       {step === "shop" ? (
         <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-6">
           <h1 ref={headingRef} tabIndex={-1} className="font-syne text-xl font-bold text-offwhite outline-none">
-            Set up your shop
+            Set up your business
           </h1>
           <p className="mt-1 font-dm text-sm text-muted">Just the essentials — you can add more later.</p>
 
+          {/* ASKED FIRST, because it decides everything after it: which console
+              they land in, what slot three of their navigation says, and
+              whether their home screen shows stock or a menu. Three cards
+              rather than a dropdown — this is the one question on the form
+              somebody might not know the answer to, and a dropdown hides two of
+              the three options behind a tap. */}
+          <fieldset className="mt-6">
+            <legend className={labelCls}>What are you?</legend>
+            <div className="grid gap-2">
+              {KIND_CHOICE.map((c) => (
+                <label
+                  key={c.k}
+                  className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition-colors ${
+                    kind === c.k
+                      ? "border-yellow bg-yellow/10"
+                      : "border-white/15 hover:bg-white/[0.04]"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="kind"
+                    value={c.k}
+                    checked={kind === c.k}
+                    onChange={() => setKind(c.k)}
+                    disabled={busy}
+                    className="mt-1 accent-yellow"
+                  />
+                  <span className="min-w-0">
+                    <span className="block font-dm text-sm font-semibold text-offwhite">{c.title}</span>
+                    <span className="block font-dm text-xs text-muted">{c.blurb}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
           <div className="mt-6 space-y-4">
-            <ImagePicker label="Shop logo (optional)" file={logo} onChange={setLogo} disabled={busy} />
+            <ImagePicker label="Logo (optional)" file={logo} onChange={setLogo} disabled={busy} />
 
             <div>
-              <label htmlFor="shopName" className={labelCls}>Shop name *</label>
+              <label htmlFor="shopName" className={labelCls}>
+                {kind === "kitchen" ? "Kitchen name *" : kind === "service" ? "Business name *" : "Shop name *"}
+              </label>
               <input id="shopName" className={inputCls} value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="e.g. Ti Marché Rosalie" disabled={busy}
                 aria-invalid={!!fieldErrors.shopName} aria-describedby={fieldErrors.shopName ? "shopName-error" : undefined} />
               {fieldErrors.shopName && <FieldError id="shopName-error" text={fieldErrors.shopName} />}
@@ -279,7 +346,9 @@ export default function OnboardingForm({ categories }: { categories: Category[] 
             <ImagePicker label="Product photo (optional)" file={productPhoto} onChange={setProductPhoto} disabled={busy} />
 
             <div>
-              <label htmlFor="productName" className={labelCls}>Product name *</label>
+              <label htmlFor="productName" className={labelCls}>
+                {kind === "kitchen" ? "Dish name" : kind === "service" ? "Service name" : "Product name"}
+              </label>
               <input id="productName" className={inputCls} value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="e.g. Red Snapper" disabled={busy}
                 aria-invalid={!!fieldErrors.productName} aria-describedby={fieldErrors.productName ? "productName-error" : undefined} />
               {fieldErrors.productName && <FieldError id="productName-error" text={fieldErrors.productName} />}
