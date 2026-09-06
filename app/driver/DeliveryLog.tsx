@@ -2,62 +2,47 @@
 
 import { useCallback, useState } from "react";
 import { ChevronDown, History, Loader2 } from "lucide-react";
-import DeliveryLogView, {
-  type DeliveryLogData,
-} from "@/components/delivery/DeliveryLogView";
+import DeliveryLogView from "@/components/delivery/DeliveryLogView";
+import {
+  useDeliveryLog,
+  LOG_RANGES,
+  type LogRange,
+} from "@/components/delivery/useDeliveryLog";
 
-// ── The last 30 days ────────────────────────────────────────────────────────
+// ── What this driver actually did ───────────────────────────────────────────
 //
 // The owner: "for delivery dashboards, logs should be kept for 30 days."
 //
 // There was no log at all. The dashboard shows work IN FLIGHT, two counters for
-// TODAY and lifetime totals — so the moment a job was delivered it left the only
-// screen a driver has. Somebody asking "how much did I make last week" or "did
-// I ever take something to that address" had nowhere to look, and neither did
-// the owner when a driver queried their pay.
+// TODAY and lifetime totals — so a job left the only screen a driver has the
+// moment it was delivered. "How much did I make last week" had nowhere to look,
+// and neither did the owner when a driver queried their pay.
 //
 // Nothing had to be retained to fix it: `deliveries` has kept every row all
-// along. What was missing was a way to READ it.
+// along. What was missing was a way to READ it — so 30 days is a window, not a
+// retention policy, and the other two ranges cost nothing to offer.
 //
 // ── CLOSED BY DEFAULT, AND LOADED ONLY WHEN OPENED ────────────────────────
 // The dashboard polls every 20 seconds. A month of finished work does not
 // change on that cadence, and shipping it on every tick would spend a driver's
-// island data re-downloading history they are not looking at. So the fetch
-// happens on the first open, once.
+// island data re-downloading history they are not looking at.
 //
-// The rows are drawn by the SHARED view, which /admin/deliveries also uses —
-// the same commitment the SQL makes by having both callers go through
-// delivery_log_for. Two screens that exist to settle "what am I owed" must not
-// be able to answer it differently.
+// The rows are drawn by the shared view and fetched through the shared hook,
+// both of which /admin/deliveries also uses — the same commitment the SQL makes
+// by sending both callers through delivery_log_for.
 
 export default function DeliveryLog({ only }: { only?: "errand" }) {
   const [open, setOpen] = useState(false);
-  const [log, setLog] = useState<DeliveryLogData | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const load = useCallback(async () => {
-    setBusy(true);
-    try {
-      const res = await fetch("/api/driver/log?days=30", { cache: "no-store" });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || "Could not load your history.");
-      setLog(body as DeliveryLogData);
-      setError(null);
-    } catch (e) {
-      // Named, never swallowed: an empty history and a failed request look
-      // identical on screen, and telling a driver they earned nothing last
-      // month when the fetch simply failed is the worse of the two.
-      setError(e instanceof Error ? e.message : "Could not load your history.");
-    } finally {
-      setBusy(false);
-    }
-  }, []);
+  const urlFor = useCallback((d: number) => `/api/driver/log?days=${d}`, []);
+  const { days, log, error, busy, load, choose } = useDeliveryLog(
+    urlFor,
+    "Could not load your history.",
+  );
 
   function toggle() {
     const next = !open;
     setOpen(next);
-    if (next && !log && !busy) void load();
+    if (next && !log && !busy) void load(days);
   }
 
   const count =
@@ -76,7 +61,7 @@ export default function DeliveryLog({ only }: { only?: "errand" }) {
       >
         <History size={16} className="shrink-0 text-yellow" aria-hidden />
         <span className="flex-1 font-syne text-sm font-bold text-offwhite">
-          Last 30 days
+          Last {days} days
         </span>
         {count !== null && (
           <span className="font-dm text-xs tabular-nums text-muted">
@@ -91,6 +76,25 @@ export default function DeliveryLog({ only }: { only?: "errand" }) {
 
       {open && (
         <div className="mt-2">
+          {/* The window. Inside the panel rather than on the header, so the
+              collapsed row stays one line and one tap. */}
+          <div className="mb-2 flex gap-1.5">
+            {LOG_RANGES.map((d) => (
+              <button
+                key={d}
+                onClick={() => choose(d as LogRange)}
+                aria-pressed={days === d}
+                className={`min-h-[36px] flex-1 rounded-xl font-dm text-xs transition-colors ${
+                  days === d
+                    ? "bg-yellow font-bold text-dark"
+                    : "border border-white/15 text-muted hover:border-yellow/40"
+                }`}
+              >
+                {d} days
+              </button>
+            ))}
+          </div>
+
           {busy && !log && (
             <p className="flex items-center gap-2 px-1 py-3 font-dm text-sm text-muted">
               <Loader2 size={15} className="animate-spin" /> Loading your history…
@@ -101,7 +105,7 @@ export default function DeliveryLog({ only }: { only?: "errand" }) {
             <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3">
               <p className="font-dm text-sm text-red-200">{error}</p>
               <button
-                onClick={() => void load()}
+                onClick={() => void load(days)}
                 className="mt-2 rounded-full border border-white/15 px-3 py-1 font-dm text-xs text-offwhite hover:border-yellow/40"
               >
                 Try again
@@ -109,7 +113,13 @@ export default function DeliveryLog({ only }: { only?: "errand" }) {
             </div>
           )}
 
-          {log && !error && <DeliveryLogView data={log} only={only} />}
+          {log && !error && (
+            <DeliveryLogView
+              data={log}
+              only={only}
+              emptyText={`Nothing finished in the last ${days} days yet.`}
+            />
+          )}
         </div>
       )}
     </section>

@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   Loader2, ChefHat, Check, Clock, UtensilsCrossed, ClipboardList,
-  Volume2, VolumeX, Undo2, WifiOff, Layers,
+  Volume2, VolumeX, Undo2, WifiOff, Layers, History,
 } from "lucide-react";
 import AllDayPanel from "./AllDayPanel";
+import HistoryPanel from "./HistoryPanel";
 import MenuPanel from "./MenuPanel";
 
 // ── The cook's screen ──────────────────────────────────────────────────────
@@ -252,7 +253,7 @@ export default function KitchenBoard() {
   // Two jobs, two tabs. Orders first and by default: during service that is
   // the only screen that matters, and the menu is set once at the start of the
   // day. A cook should never have to find their orders behind a menu editor.
-  const [tab, setTab] = useState<"orders" | "allday" | "menu">("orders");
+  const [tab, setTab] = useState<"orders" | "allday" | "menu" | "history">("orders");
   const [dash, setDash] = useState<Dash | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -264,6 +265,8 @@ export default function KitchenBoard() {
 
   const seen = useRef<Set<string> | null>(null);
   const chime = useChime();
+  // History is read and left, so it does not hold the screen awake the way
+  // the two service tabs do.
   useWakeLock(tab === "orders" || tab === "allday");
 
   const load = useCallback(async () => {
@@ -747,10 +750,19 @@ The order is ${money(o.total!, o.currency)}. The rest becomes cash to collect on
         <button onClick={() => setTab("menu")} className={tabCls(tab === "menu")}>
           <UtensilsCrossed size={15} /> Menu
         </button>
+        {/* LAST, and never the default. The board is capped at 24 hours because
+            it is a live service screen; this is the other question a kitchen
+            has — what sold last week — and it must never be what somebody
+            lands on mid-rush. */}
+        <button onClick={() => setTab("history")} className={tabCls(tab === "history")}>
+          <History size={15} /> History
+        </button>
       </div>
 
       {tab === "menu" ? (
         <MenuPanel />
+      ) : tab === "history" ? (
+        <HistoryPanel />
       ) : tab === "allday" ? (
         <AllDayPanel orders={live} />
       ) : (

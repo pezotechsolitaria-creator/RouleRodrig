@@ -82,7 +82,7 @@ describe("the 30-day log", () => {
     // does not change on that cadence, and riding along would spend a driver's
     // island data on history they are not looking at.
     expect(dash).not.toMatch(/driver\/log/);
-    expect(ui).toMatch(/if \(next && !log && !busy\) void load\(\)/);
+    expect(ui).toMatch(/if \(next && !log && !busy\) void load\(days\)/);
   });
 
   it("tells a driver when the fetch failed rather than showing an empty month", () => {
@@ -145,10 +145,23 @@ describe("the driver and the owner read ONE log", () => {
     expect(adminApi).toMatch(/UUID\.test\(driverLog\)/);
   });
 
+  it("fetches through the one shared hook", () => {
+    // The third thing that must not fork. The endpoints differ and who they may
+    // ask about differs; everything around the fetch — the window, the cache,
+    // the failure text — is the same on both sides, and a difference there is
+    // only ever a bug.
+    for (const [name, src] of [["driver", driverSide], ["admin", adminSide]] as const) {
+      expect(src, `${name} side stopped using the shared hook`).toMatch(
+        /useDeliveryLog/,
+      );
+      expect(src).toMatch(/LOG_RANGES\.map/);
+    }
+  });
+
   it("keeps the history off the board's 15-second poll", () => {
     // Loading a month of history for every driver on the roster, every tick,
     // to render something nobody has opened.
-    expect(adminSide).toMatch(/if \(next && !log && !busy\) void load\(\)/);
+    expect(adminSide).toMatch(/if \(next && !log && !busy\) void load\(days\)/);
   });
 });
 

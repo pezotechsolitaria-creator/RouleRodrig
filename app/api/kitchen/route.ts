@@ -38,6 +38,28 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ onTeam: true, ...(menu as object) });
   }
 
+  // ?log=1 asks for the HISTORY instead of today's queue. The board is capped
+  // at 24 hours on purpose — a two-week-old ticket on a live service screen is
+  // noise — which is exactly why "what sold last week" needed somewhere else to
+  // live. Same door, third view, still one connection.
+  if (url.searchParams.get("log") === "1") {
+    const rawDays = Number(url.searchParams.get("days") ?? "30");
+    const days = Number.isFinite(rawDays)
+      ? Math.min(Math.max(Math.trunc(rawDays), 1), 90)
+      : 30;
+    const { data: log, error: logError } = await supabase.rpc("kitchen_log", {
+      p_days: days,
+    });
+    if (logError) {
+      if (logError.code === NOT_ON_A_TEAM) {
+        return NextResponse.json({ onTeam: false }, { status: 200 });
+      }
+      console.error("kitchen_log failed", logError);
+      return NextResponse.json({ error: "Could not load the history." }, { status: 500 });
+    }
+    return NextResponse.json({ onTeam: true, ...(log as object) });
+  }
+
   // M89 — whether cash still exists. Read here rather than inside
   // kitchen_dashboard() so the RPC body does not have to be rewritten for a
   // platform flag; the board uses it to hide controls that would now be
