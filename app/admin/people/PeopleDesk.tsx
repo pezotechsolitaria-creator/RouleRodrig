@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   BadgeCheck, Bike, Building2, CheckCircle2, ChevronRight, Loader2, Mail, MoreHorizontal,
   Plus, RefreshCw, Search, ShieldOff, Store, TriangleAlert, UserCheck, UserX, X,
-  UtensilsCrossed, Ticket,
+  UtensilsCrossed, Ticket, Wrench,
 } from "lucide-react";
 import {
   ACCOUNT_LABEL, AVAILABILITY_LABEL, BULK_ACTIONS, ONBOARDING_LABEL, VERIFICATION_LABEL,
@@ -249,6 +249,7 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
           // appeared on this desk nowhere.
           { k: "merchant" as const, label: KIND_LABEL.merchant.many, Icon: Store },
           { k: "kitchen" as const, label: KIND_LABEL.kitchen.many, Icon: UtensilsCrossed },
+          { k: "service" as const, label: KIND_LABEL.service.many, Icon: Wrench },
           { k: "driver" as const, label: KIND_LABEL.driver.many, Icon: Bike },
           { k: "organizer" as const, label: KIND_LABEL.organizer.many, Icon: Ticket },
         ]).map(({ k, label, Icon }) => (

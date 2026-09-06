@@ -41,20 +41,28 @@
  * twice and let an admin approve one half of them. They are surfaced as chips
  * on the driver instead — see capabilitiesOf().
  *
- * SERVICE PROVIDERS are absent for the opposite reason: there is no table yet.
- * trade_providers is designed and unbuilt, and a kind whose query returns
- * nothing teaches an admin the desk is broken.
+ * SERVICE PROVIDERS arrived with trade_providers (m177). They were excluded
+ * while that table did not exist — a kind whose query returns nothing teaches
+ * an admin the desk is broken — and the moment it did, the exclusion became the
+ * lie instead.
  */
-export type PersonKind = "merchant" | "driver" | "kitchen" | "organizer";
+export type PersonKind = "merchant" | "driver" | "kitchen" | "organizer" | "service";
 
 /** Every kind, in the order the desk lists them. */
-export const PERSON_KINDS: PersonKind[] = ["merchant", "kitchen", "driver", "organizer"];
+export const PERSON_KINDS: PersonKind[] = [
+  "merchant",
+  "kitchen",
+  "service",
+  "driver",
+  "organizer",
+];
 
 export const KIND_LABEL: Record<PersonKind, { one: string; many: string }> = {
   merchant: { one: "Shop", many: "Shops" },
   kitchen: { one: "Restaurant", many: "Restaurants" },
   driver: { one: "Delivery partner", many: "Delivery partners" },
   organizer: { one: "Event organiser", many: "Event organisers" },
+  service: { one: "Service provider", many: "Service providers" },
 };
 
 /** What the `segment` column means for each kind, in the admin's words. */
@@ -63,6 +71,7 @@ export const SEGMENT_LABEL: Record<PersonKind, string> = {
   kitchen: "Collection point",
   driver: "Vehicle",
   organizer: "Organiser",
+  service: "Trade",
 };
 
 /**
@@ -710,5 +719,8 @@ export function missingProfileFields(
   // the field this island actually needs — "green gate beside the market"
   // outranks a street address here.
   if (kind === "kitchen" && !(row.segment ?? "").trim()) missing.push("Where to collect");
+  // A trade with no name is unbookable: the customer is choosing "car wash" or
+  // "plumber", not a business they have never heard of.
+  if (kind === "service" && !(row.segment ?? "").trim()) missing.push("Trade");
   return missing;
 }

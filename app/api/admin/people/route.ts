@@ -261,6 +261,52 @@ async function loadOrganizers(admin: Awaited<ReturnType<typeof getAdmin>>): Prom
     });
 }
 
+/**
+ * Service providers — a car wash, a plumber, an electrician.
+ *
+ * Like a kitchen, the person here is the STORE: trade_providers is an extension
+ * row on it, exactly the discriminator pattern food_kitchens uses.
+ */
+async function loadServiceProviders(
+  admin: Awaited<ReturnType<typeof getAdmin>>,
+): Promise<PersonRow[]> {
+  const { data, error } = await admin
+    .from("trade_providers")
+    .select("store_id, trade, mobile, created_at, stores!inner(id, name, status, phone, whatsapp, created_at)");
+  if (error) throw error;
+
+  return ((data ?? []) as Record<string, unknown>[]).map((t) => {
+    const store = (Array.isArray(t.stores) ? t.stores[0] : t.stores) as Record<string, unknown>;
+    const account = accountStateOf("merchant", store?.status as string);
+    const phone = ((store?.phone as string) ?? (store?.whatsapp as string) ?? "").trim();
+    const segment = ((t.trade as string) ?? "").trim();
+    return {
+      id: t.store_id as string,
+      kind: "service" as const,
+      name: (store?.name as string) ?? "",
+      // Whether they travel to the customer is the first thing anyone asks
+      // about a trade, so it is the subtitle rather than buried in a detail.
+      subtitle: t.mobile ? "Comes to you" : "You go to them",
+      email: "",
+      phone,
+      account,
+      verification: "verified" as const,
+      segment,
+      joinedAt: (store?.created_at as string) ?? (t.created_at as string) ?? "",
+      claimed: true,
+      inviteEmail: null,
+      invitedAt: null,
+      onboarding: onboardingOf({
+        claimed: true,
+        inviteEmail: null,
+        profileComplete:
+          missingProfileFields("service", { email: "n/a", phone, segment }).length === 0,
+        verification: "verified",
+      }),
+    };
+  });
+}
+
 async function getAdmin() {
   const { getPrivileged } = await import("@/lib/supabase/admin");
   return getPrivileged();
@@ -411,6 +457,7 @@ export async function GET(req: NextRequest) {
       driver: loadDrivers,
       kitchen: loadKitchens,
       organizer: loadOrganizers,
+      service: loadServiceProviders,
     };
     const rows = await LOADERS[kind](admin);
     return NextResponse.json({ rows, stats: computeStats(rows, kind) });

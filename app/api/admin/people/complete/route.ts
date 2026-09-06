@@ -76,6 +76,14 @@ const TARGET: Record<
     // The collection point is food_kitchens.pickup_hint, written separately.
     segment: null,
   },
+  service: {
+    table: "stores",
+    key: "id",
+    phone: "phone",
+    email: null,
+    // The trade itself is trade_providers.trade, written separately.
+    segment: null,
+  },
   organizer: {
     table: "event_organizers",
     key: "id",
@@ -117,8 +125,11 @@ export async function POST(req: NextRequest) {
   // A kitchen's collection point is on food_kitchens, not on the store row, so
   // it is written separately rather than silently dropped.
   const pickupHint = kind === "kitchen" && fields.segment ? fields.segment.trim() : null;
+  // Same shape for a trade: the store row carries the phone, the extension row
+  // carries what they actually do.
+  const trade = kind === "service" && fields.segment ? fields.segment.trim() : null;
 
-  if (Object.keys(patch).length === 0 && !pickupHint) {
+  if (Object.keys(patch).length === 0 && !pickupHint && !trade) {
     return NextResponse.json(
       { error: "None of those fields can be set for this kind of person." },
       { status: 400 },
@@ -138,6 +149,14 @@ export async function POST(req: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
+  if (trade) {
+    const { error } = await admin
+      .from("trade_providers")
+      .update({ trade })
+      .eq("store_id", id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
   await audit(admin, {
     action: "people.complete_profile",
     entityType: kind,
@@ -145,10 +164,17 @@ export async function POST(req: NextRequest) {
     // The VALUES are recorded, not merely that something changed: the point of
     // the trail is answering "who typed this number, and when".
     diff: {
-      filled: { ...patch, ...(pickupHint ? { pickup_hint: pickupHint } : {}) },
+      filled: {
+        ...patch,
+        ...(pickupHint ? { pickup_hint: pickupHint } : {}),
+        ...(trade ? { trade } : {}),
+      },
       reason: reason ?? null,
     },
   });
 
-  return NextResponse.json({ ok: true, filled: Object.keys(patch).length + (pickupHint ? 1 : 0) });
+  return NextResponse.json({
+    ok: true,
+    filled: Object.keys(patch).length + (pickupHint ? 1 : 0) + (trade ? 1 : 0),
+  });
 }

@@ -58,7 +58,7 @@ function render(opts: {
 </div>`;
 }
 
-export type InviteRole = "door" | "kitchen" | "merchant" | "driver" | "organizer";
+export type InviteRole = "door" | "kitchen" | "merchant" | "driver" | "organizer" | "service";
 
 /** Where the invitation lands them. An invite to the wrong screen teaches the
  *  person the thing does not work — the kitchen inherited /organizer once and
@@ -72,6 +72,8 @@ const DESTINATION: Record<InviteRole, string> = {
   // the organiser hands a phone to on the night; this is the person who owns
   // the event and sets the tickets.
   organizer: "/organizer",
+  // A trade uses the same console as a shop — its catalogue is its services.
+  service: "/merchant",
 };
 
 function copyFor(role: InviteRole, name: string, context: string) {
@@ -85,6 +87,17 @@ function copyFor(role: InviteRole, name: string, context: string) {
           "You will see each order as it comes in and tap one button per step. There is nothing to install — it runs in your browser.",
         ],
         cta: "Create your account →",
+      };
+    case "service":
+      return {
+        subject: "Your Roulé Rodrigues booking page is ready",
+        heading: "Customers can book you online",
+        paragraphs: [
+          `Hi ${name} — we have set up ${context} on Roulé Rodrigues so you do not have to fill in a sign-up form.`,
+          "Create your account and you set your own prices, your working hours and how many jobs you take at once. Customers book a time; you get a message.",
+          "Nobody at Roulé Rodrigues has a password for your account, and nobody can create one. You choose it yourself on the next screen.",
+        ],
+        cta: "Set up your account →",
       };
     case "organizer":
       return {

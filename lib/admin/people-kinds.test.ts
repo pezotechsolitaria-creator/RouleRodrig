@@ -17,7 +17,13 @@ import {
 
 describe("the kinds the desk covers", () => {
   it("covers every group that has its own table and its own rows", () => {
-    expect([...PERSON_KINDS].sort()).toEqual(["driver", "kitchen", "merchant", "organizer"]);
+    expect([...PERSON_KINDS].sort()).toEqual([
+      "driver",
+      "kitchen",
+      "merchant",
+      "organizer",
+      "service",
+    ]);
   });
 
   it("labels every kind, singular and plural, with nothing blank", () => {
@@ -43,10 +49,20 @@ describe("the kinds the desk covers", () => {
     expect(PERSON_KINDS).not.toContain("errands" as PersonKind);
   });
 
-  it("does NOT invent a service-provider kind before its table exists", () => {
-    // trade_providers is designed and unbuilt. A tab whose query returns
-    // nothing teaches an admin the desk is broken.
-    expect(PERSON_KINDS).not.toContain("service" as PersonKind);
+  it("covers service providers now that trade_providers exists", () => {
+    // This assertion used to say the opposite, and was right to: a tab whose
+    // query returns nothing teaches an admin the desk is broken. The table
+    // arrived in m177 with a real provider in it, and the exclusion became the
+    // lie instead.
+    expect(PERSON_KINDS).toContain("service" as PersonKind);
+  });
+
+  it("asks a trade what it actually is", () => {
+    // A customer is choosing "car wash" or "plumber", not a business name they
+    // have never heard of.
+    expect(missingProfileFields("service", { email: "n/a", phone: "1", segment: "" })).toEqual([
+      "Trade",
+    ]);
   });
 });
 
