@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ConsoleBackLink from "@/components/ConsoleBackLink";
 import { CalendarDays, MapPin, ArrowRight, AlertTriangle, Ticket, ScanLine } from "lucide-react";
 import AlertsToggle from "@/app/driver/AlertsToggle";
 import { createClient } from "@/lib/supabase/server";
@@ -55,6 +56,7 @@ export default async function OrganizerHome() {
 
   return (
     <main className="mx-auto max-w-5xl px-4 pb-20 pt-8">
+      <ConsoleBackLink className="mb-2" />
       <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">
         {isDoorStaffOnly ? "DOOR" : "MY EVENTS"}
       </p>

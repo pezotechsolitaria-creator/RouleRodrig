@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import RideLog from "./RideLog";
 import {
   Loader2, Power, BellRing, BellOff, Car,
   MessageCircle, CheckCircle2, AlertCircle, ArrowRight, Download,
@@ -542,6 +543,11 @@ export default function DriverHome({ token }: { token: string }) {
           {home.ridesCompleted} ride{home.ridesCompleted === 1 ? "" : "s"} completed with Roulé Rodrigues
         </p>
       )}
+
+      {/* Last, and collapsed. Everything above is about right now; this is
+          the only thing on the screen that is not, so it must never push the
+          live work down — and it loads nothing until somebody opens it. */}
+      <RideLog token={token} />
 
       <p className="pt-2 text-center font-dm text-xs text-muted">
         Save this page to your home screen so it&apos;s always one tap away.

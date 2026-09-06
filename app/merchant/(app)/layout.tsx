@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ConsoleBackLink from "@/components/ConsoleBackLink";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { CircleUser, LogOut, ChefHat } from "lucide-react";
@@ -71,6 +72,11 @@ export default async function MerchantAppLayout({ children }: { children: React.
             </span>
             <MerchantNavDesktop kind={kind} hasPlan={billing.chargesSubscription} />
             <div className="ml-auto flex items-center gap-2">
+              {/* Labelled "Website", not "Roulé Rodrigues", because the wordmark
+                  two inches to the left already says that and goes somewhere
+                  else — to /merchant. Two identical labels with different
+                  destinations in one header is worse than no back link. */}
+              <ConsoleBackLink label="Website" compactOnMobile />
               <StoreSwitcher stores={stores} currentId={currentStoreId} action={switchStore} />
               {/* An owner has two screens: this one, and the cook's board. The
                   cook's board was only reachable by typing /kitchen, which the

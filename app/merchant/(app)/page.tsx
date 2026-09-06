@@ -60,12 +60,15 @@ export default async function MerchantHome() {
     ? await Promise.all([
         supabase.rpc("store_schedule_status", { p_store_id: storeId }).single()
           .then((r) => (r.data as ScheduleStatus | null) ?? null),
+        // Through store_payment_options(), never the table: it has no SELECT
+        // grant to `authenticated` and must not get one — the row carries bank
+        // details and the policy covers every VISIBLE store, so a grant would
+        // hand them to anybody signed in. This read has therefore been null on
+        // every load, and these badges have been showing a shop's fulfilment
+        // as unset since they were written.
         supabase
-          .from("store_payment_settings")
-          .select("accepts_cash, accepts_bank_transfer, offers_rr_delivery, offers_pickup, offers_customer_delivery")
-          .eq("store_id", storeId)
-          .maybeSingle()
-          .then((r) => r.data),
+          .rpc("store_payment_options", { p_store_id: storeId })
+          .then((r) => (r.data as Record<string, boolean>[] | null)?.[0] ?? null),
         getMerchantSubscription(supabase, dashboard.merchantId),
         isPrepaymentOnly(supabase),
       ])

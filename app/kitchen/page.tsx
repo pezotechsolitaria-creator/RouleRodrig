@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import ConsoleBackLink from "@/components/ConsoleBackLink";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, UtensilsCrossed, Package, Truck, Clock } from "lucide-react";
+import { UtensilsCrossed, Package, Truck, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import KitchenBoard from "./KitchenBoard";
 
@@ -48,12 +49,7 @@ export default async function KitchenPage() {
             no route to anything else on the platform — and neither did an owner
             who wanted their orders or their account rather than the shop. */}
         <div className="flex items-start justify-between gap-3">
-          <Link
-            href="/account"
-            className="inline-flex items-center gap-1.5 font-dm text-sm text-muted transition-colors hover:text-yellow"
-          >
-            <ArrowLeft size={14} /> My account
-          </Link>
+          <ConsoleBackLink />
           <p className="shrink-0 font-bebas text-[11px] tracking-[0.3em] text-yellow">
             ROULÉ RODRIGUES
           </p>

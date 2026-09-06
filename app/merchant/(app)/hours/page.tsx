@@ -13,12 +13,21 @@ export default async function MerchantHoursPage() {
   // The delivery half of the editor is only shown to shops that actually take
   // part in the Roulé Rodrigues delivery network — the same flag create_order()
   // gates rr_delivery on, so the form never offers a setting that has no effect.
+  // THROUGH THE RPC, NOT THE TABLE. store_payment_settings has no SELECT grant
+  // to `authenticated` and must not get one: its customer_read policy is
+  // `store_is_visible(store_id) OR ...`, and RLS is ROW-level, so a grant would
+  // publish every column of every visible shop — bank_name, account_holder and
+  // account_number included. The absent grant is the only thing standing
+  // between those and any signed-in visitor.
+  //
+  // So this read has silently returned NULL for every merchant, and the
+  // delivery half of this editor has never once rendered. Same failure as the
+  // /account delivery door: a permission error the page reads as "no".
   const storeId = await getOwnStoreId(supabase);
-  const { data: pay } = await supabase
-    .from("store_payment_settings")
-    .select("offers_rr_delivery")
-    .eq("store_id", storeId ?? "")
-    .maybeSingle();
+  const { data: payRows } = await supabase.rpc("store_payment_options", {
+    p_store_id: storeId ?? "",
+  });
+  const pay = (payRows as { offers_rr_delivery?: boolean }[] | null)?.[0] ?? null;
 
   return (
     <div className="py-8">

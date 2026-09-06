@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import ConsoleBackLink from "@/components/ConsoleBackLink";
 import DriverHome from "./DriverHome";
 
 // ── THE DRIVER'S PERMANENT LINK ─────────────────────────────────────────────
@@ -26,6 +27,11 @@ export default async function DriverHomePage({
   return (
     <main className="min-h-screen bg-dark px-4 py-8 text-offwhite">
       <div className="mx-auto max-w-md">
+        {/* A taxi driver has no account, so there is no dashboard hub to send
+            them to — the website itself is the only "back" that means anything
+            here, and this page is very often a home-screen shortcut with no
+            address bar above it. */}
+        <ConsoleBackLink className="mb-3" />
         <DriverHome token={token} />
       </div>
     </main>

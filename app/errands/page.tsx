@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import ConsoleBackLink from "@/components/ConsoleBackLink";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ClipboardCheck, Clock } from "lucide-react";
@@ -59,6 +60,7 @@ export default async function ErrandsPage() {
   return (
     <main className="min-h-screen bg-dark px-4 pb-28 pt-6 text-offwhite">
       <div className="mx-auto max-w-lg">
+        <ConsoleBackLink />
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">

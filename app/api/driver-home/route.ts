@@ -63,6 +63,31 @@ export async function GET(req: NextRequest) {
   if (token.length < 32) return NextResponse.json({ ok: false }, { status: 400 });
 
   const admin = await getPrivileged();
+
+  // ?log=1 asks for the driver's last 30 days instead of what is happening now.
+  // Their home is a live screen and a month of finished rides does not belong
+  // on it — same split as /kitchen's history and the delivery consoles', and
+  // the same reason: it changes when a ride ends, not every few seconds.
+  //
+  // The token is checked in FULL by the RPC. driver_link_by_code matches the
+  // first six characters because a human types those, behind a rate limit; a
+  // log that accepted six would be a far wider door onto somebody's earnings.
+  if (new URL(req.url).searchParams.get("log") === "1") {
+    const rawDays = Number(new URL(req.url).searchParams.get("days") ?? "30");
+    const days = Number.isFinite(rawDays)
+      ? Math.min(Math.max(Math.trunc(rawDays), 1), 90)
+      : 30;
+    const { data: log, error: logError } = await admin.rpc("taxi_driver_log_by_token", {
+      p_token: token,
+      p_days: days,
+    });
+    if (logError) {
+      console.error("taxi_driver_log_by_token failed", logError);
+      return NextResponse.json({ ok: false }, { status: 500 });
+    }
+    return NextResponse.json(log ?? { days, rows: [], totals: null });
+  }
+
   const { data, error } = await admin.rpc("taxi_driver_home", { p_token: token });
   if (error) {
     console.error("taxi_driver_home failed", error);
