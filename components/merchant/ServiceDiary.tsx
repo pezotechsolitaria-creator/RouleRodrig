@@ -226,6 +226,7 @@ export default function ServiceDiary() {
             <AddBooking
               services={data.services}
               date={day.date}
+              lastDate={data.calendar[data.calendar.length - 1]?.date ?? day.date}
               onDone={async () => {
                 setAdding(false);
                 await load();
@@ -254,10 +255,13 @@ export default function ServiceDiary() {
 function AddBooking({
   services,
   date,
+  lastDate,
   onDone,
 }: {
   services: ServiceRow[];
   date: string;
+  /** The last day the diary is open, so the picker cannot reach past it. */
+  lastDate: string;
   onDone: () => Promise<void>;
 }) {
   const [variantId, setVariantId] = useState(services[0]?.variantId ?? "");
@@ -340,6 +344,10 @@ function AddBooking({
           type="date"
           value={day}
           min={todayOnIsland()}
+          // Past the end of the diary the slot finder returns nothing at all,
+          // and "nothing free that day" would be the wrong reason — the day is
+          // not full, it is beyond how far ahead this business takes bookings.
+          max={lastDate}
           onChange={(e) => setDay(e.target.value)}
           className={`mt-1 ${field}`}
         />
