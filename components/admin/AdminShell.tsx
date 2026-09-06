@@ -91,6 +91,7 @@ const NAV: NavGroup[] = [
       { href: "/admin/events", label: "Events & tickets", icon: Ticket },
       { href: "/admin/managed-ticketing", label: "Ticketing fees", icon: Wallet },
       { href: "/admin/delivery-zones", label: "Delivery areas", icon: Truck },
+      { href: "/admin/own-delivery", label: "Own delivery", icon: Truck },
     ],
   },
   {

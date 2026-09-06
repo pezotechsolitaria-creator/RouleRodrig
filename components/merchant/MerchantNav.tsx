@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { KIND_VOCAB, type MerchantKind } from "@/lib/merchant/kind";
-import { ClipboardList, Wallet, Clock, BadgeCheck, LayoutDashboard, Package, UtensilsCrossed, Store, MoreHorizontal, QrCode, ChefHat } from "lucide-react";
+import { ClipboardList, Wallet, Clock, BadgeCheck, LayoutDashboard, Package, UtensilsCrossed, Store, MoreHorizontal, QrCode, ChefHat, Truck } from "lucide-react";
 
 // The merchant dashboard's navigation, defined ONCE and rendered at both
 // breakpoints from the same list.
@@ -66,6 +66,7 @@ export function secondaryFor(kind: MerchantKind, hasPlan: boolean): NavLink[] {
     { href: "/merchant/profile", label: "Shop details", icon: Store },
     { href: "/merchant/hours", label: "Opening hours", icon: Clock },
     { href: "/merchant/pickup", label: "Pickup desk", icon: QrCode },
+    { href: "/merchant/delivery", label: "Your own delivery", icon: Truck },
   ];
   // A kitchen's catalogue is its Menu, which took slot three — so its products
   // are still reachable here rather than lost.

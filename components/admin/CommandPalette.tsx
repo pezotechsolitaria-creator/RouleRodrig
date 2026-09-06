@@ -38,6 +38,7 @@ const ACTIONS: Hit[] = [
   { group: "Go", title: "Event organisers", subtitle: "Scoped organiser accounts", href: "/admin/organizers" },
   { group: "Go", title: "Content studio", subtitle: "Everything the website shows", href: "/admin/content" },
   { group: "Go", title: "Delivery areas & fees", subtitle: "Zones and pricing", href: "/admin/delivery-zones" },
+  { group: "Go", title: "Own delivery", subtitle: "Which shops may track their own drivers", href: "/admin/own-delivery" },
   { group: "Go", title: "Monetization", subtitle: "Revenue model and plans", href: "/admin/monetization" },
   { group: "Go", title: "WhatsApp alerts", subtitle: "Who gets pinged", href: "/admin/notifications" },
   { group: "Go", title: "Audit trail", subtitle: "Who changed what, when", href: "/admin/audit" },
