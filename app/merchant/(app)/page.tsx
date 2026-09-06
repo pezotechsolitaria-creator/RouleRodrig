@@ -10,6 +10,8 @@ import { isPrepaymentOnly } from "@/lib/payments/prepayment";
 import RefundsOwed from "@/components/merchant/RefundsOwed";
 import MerchantPushSetup from "@/components/merchant/MerchantPushSetup";
 import WorkQueue from "@/components/merchant/home/WorkQueue";
+import Earnings from "@/components/merchant/home/Earnings";
+import { getEarnings } from "@/lib/merchant/earnings";
 import type { WorkQueue as WorkQueueResult } from "@/lib/merchant/context";
 
 export default async function MerchantHome() {
@@ -31,6 +33,10 @@ export default async function MerchantHome() {
     : ({ ok: true, items: [], openCount: 0, lastCollectedAt: null } as WorkQueueResult);
   // Only for the never-traded empty state's share link, so it is fetched only
   // when there is nothing else to say.
+  // Lifetime, store-scoped, and never a payout — the platform holds no money.
+  const earnings = dashboard.store
+    ? await getEarnings(supabase, dashboard.store.id)
+    : ({ ok: true, netCents: 0, commissionCents: 0, rate: null, orderCount: 0 } as const);
   const storeSlug =
     dashboard.store && queue.ok && queue.items.length === 0
       ? (
@@ -128,6 +134,9 @@ export default async function MerchantHome() {
       {/* THE ONLY QUESTION A MERCHANT OPENS THIS APP TO ASK (M170). Above the
           shop summary, because "who is waiting" outranks "am I open". */}
       <WorkQueue queue={queue} storeSlug={storeSlug} />
+
+      {/* The second question every merchant opens this app to ask. */}
+      <Earnings earnings={earnings} />
 
       {/* Shop summary + approval status */}
       <div className="mt-7 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-6">
