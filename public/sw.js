@@ -222,7 +222,8 @@
 // v308 - events come back: the section, the routes and the sitemap.
 // v309 - the kitchen can see what to cook in total, not one ticket at a time.
 // v310 - All day never merges two kitchens into one pan.
-const CACHE = "rr-cache-v310";
+// v311 - the product page prices what you are actually taking.
+const CACHE = "rr-cache-v311";
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {

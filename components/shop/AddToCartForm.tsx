@@ -118,9 +118,22 @@ export default function AddToCartForm({
 
       {variant && (
         <div className="mb-4 flex flex-wrap items-baseline gap-2">
+          {/* THE BIG NUMBER FOLLOWS THE QUANTITY.
+              It used to be the unit price, always, so somebody who stepped the
+              quantity up to 3 was still looking at "Rs 250" — the price of one —
+              at the exact moment they decided to buy three. The cart and the
+              checkout were right, so nobody was ever charged wrongly; they were
+              simply told the wrong number first and found out later.
+              The unit price does not disappear, it moves below: "Rs 250.00 each"
+              is what makes 750 verifiable at a glance instead of just asserted. */}
           <p className="font-syne text-3xl font-extrabold text-yellow">
-            Rs {centsToDecimalString(variant.price)}
+            Rs {centsToDecimalString(variant.price * quantity)}
           </p>
+          {quantity > 1 && (
+            <p className="font-dm text-sm text-muted">
+              Rs {centsToDecimalString(variant.price)} {copy.buy.each}
+            </p>
+          )}
           {variant.compareAt && variant.compareAt > variant.price && (
             <>
               <p className="font-dm text-sm text-muted line-through">

@@ -240,6 +240,7 @@ const EN = {
   // ── The buy box ─────────────────────────────────────────────────────────
   buy: {
     addedToast: (qty: number, product: string) => `${qty} × ${product} added`,
+    each: "each",
     inBasketFrom: (shop: string) => `In your basket from ${shop}.`,
     unavailable: "This product isn't available right now.",
     chooseOption: "Choose an option",
@@ -492,6 +493,7 @@ const FR: ShopCopy = {
 
   buy: {
     addedToast: (qty: number, product: string) => `${qty} × ${product} ajouté`,
+    each: "l’unité",
     inBasketFrom: (shop: string) => `Dans votre panier chez ${shop}.`,
     unavailable: "Ce produit n’est pas disponible pour le moment.",
     chooseOption: "Choisissez une option",
@@ -724,6 +726,7 @@ const CR: ShopCopy = {
 
   buy: {
     addedToast: (qty: number, product: string) => `${qty} × ${product} azoute`,
+    each: "sakenn",
     inBasketFrom: (shop: string) => `Dan ou sak depi ${shop}.`,
     unavailable: "Sa prodwi la pa disponib pou lemoman.",
     chooseOption: "Swazir enn opsion",
