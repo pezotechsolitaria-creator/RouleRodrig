@@ -20,7 +20,7 @@ import {
   type ActivityEvent,
   type AttentionItem,
 } from "@/lib/admin/ops";
-import { loadAttention } from "@/lib/admin/attention-load";
+import { loadAttention, OPEN_ORDER_STATUSES } from "@/lib/admin/attention-load";
 import PageAnalytics from "./PageAnalytics";
 import AdminSearchBar from "@/components/admin/AdminSearchBar";
 
@@ -36,13 +36,7 @@ import AdminSearchBar from "@/components/admin/AdminSearchBar";
 // morning that ended fifty seconds ago.
 export const dynamic = "force-dynamic";
 
-const OPEN_ORDER_STATUSES = [
-  "pending_payment",
-  "awaiting_payment_confirmation",
-  "paid",
-  "preparing",
-  "ready_for_pickup",
-];
+// Imported, not retyped (M170). This was the second of three copies.
 
 /** Midnight today in Rodrigues (UTC+4, no DST), as an ISO instant. */
 function islandMidnightIso(): string {

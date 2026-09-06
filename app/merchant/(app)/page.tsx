@@ -2,13 +2,15 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Store, Package, Clock, AlertTriangle, XCircle, Plus, List, ShoppingBag, ImageOff, CheckCircle2, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getMerchantDashboard, getDashboardStats, getOrderCount } from "@/lib/merchant/context";
+import { getMerchantDashboard, getDashboardStats, getWorkQueue } from "@/lib/merchant/context";
 import { getMerchantSubscription } from "@/lib/merchant/subscription";
 import { centsToDecimalString } from "@/lib/money";
 import { todayLine, deliveryLine, nextOpenLabel, type ScheduleStatus } from "@/lib/schedule";
 import { isPrepaymentOnly } from "@/lib/payments/prepayment";
 import RefundsOwed from "@/components/merchant/RefundsOwed";
 import MerchantPushSetup from "@/components/merchant/MerchantPushSetup";
+import WorkQueue from "@/components/merchant/home/WorkQueue";
+import type { WorkQueue as WorkQueueResult } from "@/lib/merchant/context";
 
 export default async function MerchantHome() {
   const supabase = await createClient();
@@ -22,7 +24,23 @@ export default async function MerchantHome() {
   if (!dashboard) redirect("/merchant/onboarding");
 
   const stats = dashboard.store ? await getDashboardStats(supabase, dashboard.store.id) : null;
-  const orderCount = dashboard.store ? await getOrderCount(supabase, dashboard.store.id) : 0;
+  // What is actually waiting, soonest deadline first (M170) — replaces a
+  // lifetime COUNT(orders) that never moved and answered no question.
+  const queue = dashboard.store
+    ? await getWorkQueue(supabase, dashboard.store.id)
+    : ({ ok: true, items: [], openCount: 0, lastCollectedAt: null } as WorkQueueResult);
+  // Only for the never-traded empty state's share link, so it is fetched only
+  // when there is nothing else to say.
+  const storeSlug =
+    dashboard.store && queue.ok && queue.items.length === 0
+      ? (
+          await supabase
+            .from("stores")
+            .select("slug")
+            .eq("id", dashboard.store.id)
+            .maybeSingle()
+        ).data?.slug ?? null
+      : null;
   const greetName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "there";
 
   // Live trading state, in one batch. The open/closed verdict comes from
@@ -106,6 +124,10 @@ export default async function MerchantHome() {
           before the shop summary: it is not an emergency, but it is the
           difference between hearing about an order and discovering it. */}
       <MerchantPushSetup />
+
+      {/* THE ONLY QUESTION A MERCHANT OPENS THIS APP TO ASK (M170). Above the
+          shop summary, because "who is waiting" outranks "am I open". */}
+      <WorkQueue queue={queue} storeSlug={storeSlug} />
 
       {/* Shop summary + approval status */}
       <div className="mt-7 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-6">
@@ -234,8 +256,12 @@ export default async function MerchantHome() {
         <StatCard icon={Package} label="Products" value={dashboard.productCount} />
         <StatCard icon={AlertTriangle} label="Low stock" value={stats?.lowStockCount ?? 0} tone={stats && stats.lowStockCount > 0 ? "warn" : undefined} />
         <StatCard icon={XCircle} label="Out of stock" value={stats?.outOfStockCount ?? 0} tone={stats && stats.outOfStockCount > 0 ? "danger" : undefined} />
+        {/* The Orders StatCard is gone (M170). It showed a lifetime count of
+            every order ever taken, at any status — the one order-derived number
+            on this page, and it never changed. The work queue above answers the
+            question it pretended to. */}
         <Link href="/merchant/orders">
-          <StatCard icon={ShoppingBag} label="Orders" value={orderCount} />
+          <StatCard icon={ShoppingBag} label="All orders" value={queue.ok ? queue.openCount : 0} tone={queue.ok && queue.openCount > 0 ? "warn" : undefined} />
         </Link>
       </div>
 

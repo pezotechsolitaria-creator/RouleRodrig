@@ -1,6 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { OPEN_ORDER_STATUSES } from "@/lib/admin/attention-load";
 
 /** Which store the dashboard is currently acting for. See getAccessibleStores. */
 export const STORE_COOKIE = "rr_merchant_store";
@@ -114,13 +115,132 @@ export async function getDashboardStats(supabase: SupabaseClient, storeId: strin
   return { recentProducts, lowStockCount, outOfStockCount };
 }
 
-/** Cheap headline count for the dashboard's Orders stat card. */
-export async function getOrderCount(supabase: SupabaseClient, storeId: string): Promise<number> {
-  const { count } = await supabase
+/**
+ * One row of work still waiting on the merchant.
+ *
+ * `dueAt` is the whole idea. It is coalesce(pickup_slot lower bound,
+ * auto_release_at, created_at) — a branch on a COLUMN, never on what kind of
+ * business this is. A shop's 48-hour bank-transfer deadline, a kitchen's 12:30
+ * collection window and (later) a car wash's 09:00 appointment sort into one
+ * list through the same expression, which is why this component does not need
+ * to know a kitchen from a garage.
+ */
+export type WorkItem = {
+  id: string;
+  orderNumber: string;
+  status: string;
+  customerName: string | null;
+  totalCents: number | null;
+  itemCount: number;
+  /** Postgres tstzrange as text, or null. Present only where a slot was booked. */
+  pickupSlot: string | null;
+  autoReleaseAt: string | null;
+  createdAt: string;
+  dueAt: string;
+};
+
+export type WorkQueue =
+  | { ok: true; items: WorkItem[]; openCount: number; lastCollectedAt: string | null }
+  /**
+   * A failed read is NOT an empty queue. PostgREST answers an RLS denial with
+   * [] and no error, so "quiet evening" and "we lost your orders" would render
+   * identically unless the caller can tell them apart. The UI shows a retry for
+   * this and reassurance for the other.
+   */
+  | { ok: false };
+
+/**
+ * The orders still waiting on this merchant, soonest deadline first.
+ *
+ * Replaces getOrderCount(), which counted EVERY order this store had ever
+ * taken, at any status, and rendered it as a headline "Orders" figure. A shop
+ * with eleven lifetime orders and one customer waiting since Tuesday read
+ * "11" — a number that never moves, answers no question, and is the only
+ * order-derived figure the merchant home had.
+ *
+ * The sort is done in TypeScript because PostgREST cannot express a coalesce
+ * across three columns in .order(). That is fine at this size — the platform
+ * has taken eleven payments in total — but past roughly 200 OPEN orders on one
+ * store this should become a view with dueAt as a generated column.
+ */
+export async function getWorkQueue(
+  supabase: SupabaseClient,
+  storeId: string,
+  limit = 5,
+): Promise<WorkQueue> {
+  const { data, error } = await supabase
     .from("orders")
-    .select("id", { count: "exact", head: true })
-    .eq("store_id", storeId);
-  return count ?? 0;
+    .select(
+      "id, order_number, status, customer_name, total, pickup_slot, auto_release_at, created_at, order_items(count)",
+    )
+    .eq("store_id", storeId)
+    .in("status", OPEN_ORDER_STATUSES)
+    // Covered by orders_store_status_created_idx (store_id, status, created_at).
+    .order("created_at", { ascending: true })
+    .limit(200);
+
+  if (error) {
+    console.error("getWorkQueue failed", error);
+    return { ok: false };
+  }
+
+  const rows = (data ?? []) as unknown as Array<{
+    id: string;
+    order_number: string;
+    status: string;
+    customer_name: string | null;
+    total: number | null;
+    pickup_slot: string | null;
+    auto_release_at: string | null;
+    created_at: string;
+    order_items: { count: number }[] | null;
+  }>;
+
+  const items: WorkItem[] = rows
+    .map((r) => ({
+      id: r.id,
+      orderNumber: r.order_number,
+      status: r.status,
+      customerName: r.customer_name,
+      totalCents: r.total,
+      itemCount: r.order_items?.[0]?.count ?? 0,
+      pickupSlot: r.pickup_slot,
+      autoReleaseAt: r.auto_release_at,
+      createdAt: r.created_at,
+      dueAt: slotStart(r.pickup_slot) ?? r.auto_release_at ?? r.created_at,
+    }))
+    .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
+
+  // The empty state distinguishes "never traded" from "quiet today", and only
+  // the second one is reassuring. A shop that has never sold anything needs a
+  // link to share, not a compliment.
+  let lastCollectedAt: string | null = null;
+  if (items.length === 0) {
+    const { data: last } = await supabase
+      .from("orders")
+      .select("placed_at")
+      .eq("store_id", storeId)
+      .eq("status", "collected")
+      .order("placed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    lastCollectedAt = (last as { placed_at?: string } | null)?.placed_at ?? null;
+  }
+
+  return { ok: true, items: items.slice(0, limit), openCount: items.length, lastCollectedAt };
+}
+
+/**
+ * The lower bound of a Postgres tstzrange, as text.
+ *
+ * pickup_slot arrives over PostgREST as its literal range text —
+ * ["2026-09-06 12:30:00+00","2026-09-06 13:00:00+00") — not as an object. Only
+ * the start is needed, and only for ordering and display.
+ */
+function slotStart(range: string | null): string | null {
+  if (!range) return null;
+  const m = range.match(/[[(]"?([^",)\]]+)/);
+  return m ? m[1] : null;
 }
 
 /** Cheap existence check for pages that only need to gate on "has a shop yet". */

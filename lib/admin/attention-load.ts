@@ -18,7 +18,16 @@ import { attentionItems, type AttentionCounts, type AttentionItem, type OrderQue
 // Every read is COUNT-ONLY where it can be. This runs on every admin page load
 // via the bell, so it must stay cheap.
 
-const OPEN_ORDER_STATUSES = [
+/**
+ * The statuses that mean "this order is still somebody's problem".
+ *
+ * EXPORTED (M170) because it had been retyped twice — here, and again at
+ * app/admin/page.tsx — and was about to be retyped a third time for the
+ * merchant work queue. The comment at the top of this file warns about exactly
+ * that: two definitions start disagreeing, and a bell that says 0 while the
+ * dashboard says 3 is worse than no bell.
+ */
+export const OPEN_ORDER_STATUSES = [
   "pending_payment",
   "awaiting_payment_confirmation",
   "paid",
