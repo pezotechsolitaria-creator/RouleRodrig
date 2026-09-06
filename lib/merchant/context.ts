@@ -1,18 +1,20 @@
 import "server-only";
 import { cookies } from "next/headers";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { cache } from "react";
 import { OPEN_ORDER_STATUSES } from "@/lib/admin/attention-load";
+import type { MerchantKind } from "./kind";
 
 /** Which store the dashboard is currently acting for. See getAccessibleStores. */
 export const STORE_COOKIE = "rr_merchant_store";
 
-export type AccessibleStore = { id: string; name: string; kind: "shop" | "kitchen" };
+export type AccessibleStore = { id: string; name: string; kind: MerchantKind };
 
 export type MerchantDashboard = {
   merchantId: string;
   displayName: string;
   status: string;
-  store: { id: string; name: string } | null;
+  store: { id: string; name: string; kind: MerchantKind } | null;
   productCount: number;
 };
 
@@ -44,6 +46,7 @@ export async function getMerchantDashboard(supabase: SupabaseClient): Promise<Me
 
   const row = store as { id: string; name: string; merchant_id: string };
 
+  const stores = await getAccessibleStores(supabase);
   const [{ data: merchant }, { data: products }] = await Promise.all([
     supabase.from("merchants").select("display_name, status").eq("id", row.merchant_id).maybeSingle(),
     supabase.from("products").select("status").eq("store_id", storeId),
@@ -58,9 +61,17 @@ export async function getMerchantDashboard(supabase: SupabaseClient): Promise<Me
     // merchant name would label every restaurant identically.
     displayName: row.name || m?.display_name || "Your shop",
     status: m?.status ?? "approved",
-    store: { id: row.id, name: row.name },
+    // Kind travels WITH the store now, so every page and route downstream can
+    // act on it instead of re-deriving a boolean. The resolver already knows —
+    // it was being discarded.
+    store: { id: row.id, name: row.name, kind: kindOf(stores, row.id) },
     productCount: ((products ?? []) as { status?: string }[]).filter((p) => p.status !== "archived").length,
   };
+}
+
+/** The kind of one store, defaulting to the safest label when unknown. */
+function kindOf(stores: AccessibleStore[], id: string): MerchantKind {
+  return stores.find((st) => st.id === id)?.kind ?? "shop";
 }
 
 export type DashboardStats = {
@@ -302,8 +313,35 @@ async function getOwnKitchenStoreId(supabase: SupabaseClient): Promise<string | 
  * Shops are listed before kitchens so an existing merchant's default does not
  * change under them.
  */
-export async function getAccessibleStores(supabase: SupabaseClient): Promise<AccessibleStore[]> {
-  const out: AccessibleStore[] = [];
+export const getAccessibleStores = cache(_getAccessibleStores);
+
+/**
+ * Every store this person may act for, each with what KIND of business it is.
+ *
+ * ── KIND IS DERIVED POSITIVELY, WHICH IT WAS NOT ──────────────────────────
+ * This used to stamp `kind: "shop"` on anything reached through merchant_staff
+ * without checking, and then dedupe the kitchen branch AGAINST that list — so
+ * kind was decided by which query found the store first, and "shop" won every
+ * tie. It survived only because the platform food merchant's owner is a
+ * synthetic auth user that no human is staff on. The first real person added to
+ * a kitchen would have turned every kitchen into a shop, and the Menu tab would
+ * have vanished with no error anywhere.
+ *
+ * It was already wrong in production for a different reason: the owner's own
+ * login reaches three EVENT box offices through merchant_staff, and all three
+ * were labelled "shop".
+ *
+ * So the branch that finds a store no longer names it. Candidates are collected
+ * first, then two bulk probes ask the tables that are actually the authority —
+ * the same ones the storefront and the admin attention feed already use — and
+ * 'shop' is what is LEFT once a store has been claimed by neither.
+ *
+ * Wrapped in React cache(): the merchant layout resolves this three times per
+ * request through getOwnStoreId and its own call, and a kind-aware home makes
+ * it four.
+ */
+async function _getAccessibleStores(supabase: SupabaseClient): Promise<AccessibleStore[]> {
+  const candidates = new Map<string, string>();
 
   const { data: staffRows } = await supabase
     .from("merchant_staff")
@@ -315,19 +353,44 @@ export async function getAccessibleStores(supabase: SupabaseClient): Promise<Acc
       id: string;
       name: string;
     }[]) {
-      if (st?.id && !out.some((x) => x.id === st.id)) out.push({ id: st.id, name: st.name, kind: "shop" });
+      if (st?.id) candidates.set(st.id, st.name);
     }
   }
 
   const { data: kitchenIds } = await supabase.rpc("my_kitchen_owner_ids");
-  const ids = ((kitchenIds as string[] | null) ?? []).filter((id) => !out.some((x) => x.id === id));
-  if (ids.length > 0) {
-    const { data: rows } = await supabase.from("stores").select("id, name").in("id", ids).order("name");
+  const ownedKitchens = ((kitchenIds as string[] | null) ?? []).filter((id) => !candidates.has(id));
+  if (ownedKitchens.length > 0) {
+    const { data: rows } = await supabase
+      .from("stores")
+      .select("id, name")
+      .in("id", ownedKitchens);
     for (const st of (rows ?? []) as { id: string; name: string }[]) {
-      out.push({ id: st.id, name: st.name, kind: "kitchen" });
+      candidates.set(st.id, st.name);
     }
   }
-  return out;
+
+  const ids = [...candidates.keys()];
+  if (ids.length === 0) return [];
+
+  // The authorities. food_kitchens and events are the same tables
+  // marketplace_stores excludes on, so a store's kind here and its treatment on
+  // the storefront can never disagree.
+  const [{ data: kitchenRows }, { data: eventRows }] = await Promise.all([
+    supabase.from("food_kitchens").select("store_id").in("store_id", ids),
+    supabase.from("events").select("store_id").in("store_id", ids),
+  ]);
+  const kitchens = new Set(((kitchenRows ?? []) as { store_id: string }[]).map((r) => r.store_id));
+  const events = new Set(((eventRows ?? []) as { store_id: string }[]).map((r) => r.store_id));
+
+  return [...candidates.entries()]
+    .map(([id, name]) => ({
+      id,
+      name,
+      // A kitchen that also sells tickets is a kitchen: it cooks every day and
+      // runs an event occasionally, so the daily job wins the console.
+      kind: (kitchens.has(id) ? "kitchen" : events.has(id) ? "events" : "shop") as MerchantKind,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function getOwnStoreId(supabase: SupabaseClient): Promise<string | null> {

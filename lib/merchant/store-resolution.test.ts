@@ -18,6 +18,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const COOKIE = "rr_merchant_store";
 const SHOP = { id: "11111111-1111-1111-1111-111111111111", name: "M4 Test Shop" };
 const KITCHEN = { id: "22222222-2222-2222-2222-222222222222", name: "Ti Kitchen (DEMO)" };
+const EVENTS = { id: "44444444-4444-4444-4444-444444444444", name: "Summer Fest Rodrigues" };
 const MERCHANT_ID = "33333333-3333-3333-3333-333333333333";
 
 let cookieValue: string | undefined;
@@ -60,16 +61,30 @@ function fakeSupabase() {
     from(table: string) {
       switch (table) {
         case "merchant_staff":
-          return chain([{ merchant_id: MERCHANT_ID, merchants: { stores: [SHOP] } }]);
+          // All three reachable this way — the branch that used to name every
+          // one of them "shop".
+          return chain([
+            { merchant_id: MERCHANT_ID, merchants: { stores: [SHOP, KITCHEN, EVENTS] } },
+          ]);
         case "stores":
           return chain([
             { ...KITCHEN, merchant_id: MERCHANT_ID },
             { ...SHOP, merchant_id: MERCHANT_ID },
+            { ...EVENTS, merchant_id: MERCHANT_ID },
           ]);
         case "merchants":
           return chain([{ id: MERCHANT_ID, display_name: "Roulé Rodrigues Kitchen", status: "approved" }]);
         case "products":
           return chain([{ status: "active" }, { status: "archived" }]);
+        // M172: kind is derived POSITIVELY from these two, and the merchant
+        // console asks them in bulk. KITCHEN is reachable BOTH ways in this
+        // fixture — through my_kitchen_owner_ids and, since it shares
+        // MERCHANT_ID, through merchant_staff — which is precisely the tie the
+        // old code resolved as "shop".
+        case "food_kitchens":
+          return chain([{ store_id: KITCHEN.id }]);
+        case "events":
+          return chain([{ store_id: EVENTS.id }]);
         default:
           throw new Error(`fakeSupabase: unexpected table "${table}"`);
       }
@@ -117,5 +132,70 @@ describe("the dashboard resolves ONE store", () => {
     // The cookie is a PREFERENCE, never a permission. A hand-crafted one must
     // not turn the dashboard into a store picker for the whole platform.
     expect(await getOwnStoreId(fakeSupabase() as never)).not.toBe(cookieValue);
+  });
+});
+
+// ── KIND TRAVELS WITH THE STORE (M172) ─────────────────────────────────────
+//
+// The same invariant one level deeper. It is not enough that both resolvers
+// name the same store: they must agree on what KIND of business it is, because
+// the nav's third tab, the header badge and the home screen's blocks are all
+// chosen from it. Every case below fails against the pre-M172 resolver, which
+// stamped "shop" on anything reached through merchant_staff and deduped the
+// kitchen branch against that list.
+
+describe("kind is decided by what a store IS, not by which query found it", () => {
+  beforeEach(() => {
+    cookieValue = undefined;
+    vi.resetModules();
+  });
+
+  it("calls a kitchen a kitchen even when merchant_staff reaches it first", async () => {
+    // THE REGRESSION. This store is reachable both ways and shop used to win.
+    cookieValue = KITCHEN.id;
+    const { getMerchantDashboard } = await import("./context");
+    const dashboard = await getMerchantDashboard(fakeSupabase() as never);
+    expect(dashboard?.store?.kind).toBe("kitchen");
+  });
+
+  it("calls a box office a box office, not a shop", async () => {
+    // Three of the platform owner's five real stores are event stores, and all
+    // three were labelled "shop" in production.
+    cookieValue = EVENTS.id;
+    const { getMerchantDashboard } = await import("./context");
+    const dashboard = await getMerchantDashboard(fakeSupabase() as never);
+    expect(dashboard?.store?.kind).toBe("events");
+  });
+
+  it("leaves a plain shop as a shop", async () => {
+    cookieValue = SHOP.id;
+    const { getMerchantDashboard } = await import("./context");
+    const dashboard = await getMerchantDashboard(fakeSupabase() as never);
+    expect(dashboard?.store?.kind).toBe("shop");
+  });
+
+  it("labels every accessible store, and each one only once", async () => {
+    const { getAccessibleStores } = await import("./context");
+    const stores = await getAccessibleStores(fakeSupabase() as never);
+    expect(stores).toHaveLength(3);
+    expect(new Set(stores.map((s) => s.id)).size).toBe(3);
+    expect(
+      Object.fromEntries(stores.map((s) => [s.name, s.kind])),
+    ).toEqual({
+      "M4 Test Shop": "shop",
+      "Ti Kitchen (DEMO)": "kitchen",
+      "Summer Fest Rodrigues": "events",
+    });
+  });
+
+  it("agrees with getOwnStoreId about the store AND its kind", async () => {
+    cookieValue = KITCHEN.id;
+    const { getOwnStoreId, getMerchantDashboard, getAccessibleStores } = await import("./context");
+    const db = fakeSupabase() as never;
+    const resolved = await getOwnStoreId(db);
+    const dashboard = await getMerchantDashboard(db);
+    const listed = (await getAccessibleStores(db)).find((s) => s.id === resolved);
+    expect(dashboard?.store?.id).toBe(resolved);
+    expect(dashboard?.store?.kind).toBe(listed?.kind);
   });
 });

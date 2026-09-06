@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { KIND_VOCAB, type MerchantKind } from "@/lib/merchant/kind";
 import { ClipboardList, Wallet, Clock, BadgeCheck, LayoutDashboard, Package, UtensilsCrossed, Store } from "lucide-react";
 
 // The merchant dashboard's navigation, defined ONCE and rendered at both
@@ -38,15 +39,36 @@ const LINKS: NavLink[] = [
 // marketplace seller a "Menu" tab is a promise the page cannot keep. Slotted
 // after Products because it answers the same question in food terms — what am I
 // selling today — rather than appended at the end where nobody looks.
-function linksFor(isKitchen: boolean, hasPlan = true): NavLink[] {
-  let out = [...LINKS];
+/**
+ * The nav for one kind of merchant.
+ *
+ * The slot COUNT and ORDER are identical for every kind — only slot three
+ * changes its word and destination, read from KIND_VOCAB. That is what makes
+ * muscle memory survive switching between a shop and a kitchen, and what makes
+ * a future service provider a lookup rather than a new navigation.
+ *
+ * This used to take a boolean and SPLICE an extra tab in for kitchens, giving
+ * them eight destinations where a shop had seven. At 375px that put six of the
+ * eight cells under the 44px touch minimum.
+ */
+function linksFor(kind: MerchantKind, hasPlan = true): NavLink[] {
+  const v = KIND_VOCAB[kind];
+  let out: NavLink[] = [
+    { href: "/merchant", label: "Home", icon: LayoutDashboard, exact: true },
+    { href: "/merchant/orders", label: "Orders", icon: ClipboardList },
+    { href: v.catalogue.href, label: v.catalogue.label, icon: catalogueIcon(kind) },
+    { href: "/merchant/payments", label: "Money", icon: Wallet },
+    { href: "/merchant/profile", label: "Shop", icon: Store },
+    { href: "/merchant/hours", label: "Hours", icon: Clock },
+  ];
   // A "Plan" tab on a platform that charges no subscription is a permanent
-  // invitation to worry about a bill that does not exist (M171). It is dropped
-  // entirely rather than shown empty — the page it opens has nothing true to
-  // say once billing is per-sale.
-  if (!hasPlan) out = out.filter((l) => l.href !== "/merchant/subscription");
-  if (isKitchen) out.splice(3, 0, { href: "/merchant/menu", label: "Menu", icon: UtensilsCrossed });
+  // invitation to worry about a bill that does not exist (M171).
+  if (hasPlan) out.push({ href: "/merchant/subscription", label: "Plan", icon: BadgeCheck });
   return out;
+}
+
+function catalogueIcon(kind: MerchantKind) {
+  return kind === "kitchen" ? UtensilsCrossed : Package;
 }
 
 function useActive() {
@@ -58,9 +80,9 @@ function useActive() {
 }
 
 /** Inline links inside the header. Hidden on phones, where the tab bar takes over. */
-export function MerchantNavDesktop({ isKitchen = false, hasPlan = true }: { isKitchen?: boolean; hasPlan?: boolean }) {
+export function MerchantNavDesktop({ kind = "shop", hasPlan = true }: { kind?: MerchantKind; hasPlan?: boolean }) {
   const isActive = useActive();
-  const links = linksFor(isKitchen, hasPlan);
+  const links = linksFor(kind, hasPlan);
   return (
     <nav aria-label="Merchant sections" className="ml-4 hidden items-center gap-3 sm:flex">
       {links.map(({ href, label, icon: Icon, ...rest }) => {
@@ -87,8 +109,8 @@ export function MerchantNavDesktop({ isKitchen = false, hasPlan = true }: { isKi
  * iOS home indicator; the layout adds matching bottom padding so nothing is
  * ever hidden underneath it.
  */
-export function MerchantNavMobile({ isKitchen = false, hasPlan = true }: { isKitchen?: boolean; hasPlan?: boolean }) {
-  const links = linksFor(isKitchen, hasPlan);
+export function MerchantNavMobile({ kind = "shop", hasPlan = true }: { kind?: MerchantKind; hasPlan?: boolean }) {
+  const links = linksFor(kind, hasPlan);
   const isActive = useActive();
   return (
     <nav

@@ -12,6 +12,7 @@ import QueryProvider from "@/components/merchant/QueryProvider";
 import NotificationBell from "@/components/merchant/NotificationBell";
 import { MerchantNavDesktop, MerchantNavMobile } from "@/components/merchant/MerchantNav";
 import { getBilling } from "@/lib/merchant/billing";
+import { KIND_VOCAB } from "@/lib/merchant/kind";
 import { Toaster } from "@/components/ui/sonner";
 
 // Private area — keep it out of search indexes.
@@ -38,7 +39,9 @@ export default async function MerchantAppLayout({ children }: { children: React.
   ]);
   // Drives the food-only Menu tab. Read from the switcher's own list rather
   // than a second query, so the tab and the store selector can never disagree.
-  const isKitchen = stores.some((st) => st.id === currentStoreId && st.kind === "kitchen");
+  // The kind itself now, not a boolean flattened from it (M172).
+  const kind = stores.find((st) => st.id === currentStoreId)?.kind ?? "shop";
+  const isKitchen = kind === "kitchen";
   // Whether a "Plan" tab has anything to point at (M171). Under commission
   // billing there is no plan, so the tab is not shown at all.
   const billing = await getBilling(supabase);
@@ -64,9 +67,9 @@ export default async function MerchantAppLayout({ children }: { children: React.
                 restaurant "MERCHANT" is the kind of small wrongness that makes
                 an owner doubt they are in the right place. */}
             <span className="rounded-full border border-yellow/30 bg-yellow/10 px-2 py-0.5 font-bebas text-[9px] tracking-[0.2em] text-yellow">
-              {isKitchen ? "KITCHEN" : "MERCHANT"}
+              {KIND_VOCAB[kind].badge}
             </span>
-            <MerchantNavDesktop isKitchen={isKitchen} hasPlan={billing.chargesSubscription} />
+            <MerchantNavDesktop kind={kind} hasPlan={billing.chargesSubscription} />
             <div className="ml-auto flex items-center gap-2">
               <StoreSwitcher stores={stores} currentId={currentStoreId} action={switchStore} />
               {/* An owner has two screens: this one, and the cook's board. The
@@ -110,7 +113,7 @@ export default async function MerchantAppLayout({ children }: { children: React.
           <div className="pt-4"><SubscriptionBanner sub={subscription} /></div>
           {children}
         </main>
-        <MerchantNavMobile isKitchen={isKitchen} hasPlan={billing.chargesSubscription} />
+        <MerchantNavMobile kind={kind} hasPlan={billing.chargesSubscription} />
       </div>
       <Toaster
         theme="dark"

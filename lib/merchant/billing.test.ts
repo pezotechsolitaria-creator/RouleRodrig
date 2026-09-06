@@ -80,18 +80,20 @@ describe("the console stops contradicting itself", () => {
     expect(home).toContain("billing.chargesCommission && !billing.chargesSubscription");
   });
 
-  it("drops the Plan tab entirely when nothing is subscribed", () => {
+  it("adds the Plan tab only when something is subscribed", () => {
     // Not shown-and-empty. A Plan tab on a platform that charges no
     // subscription is a standing invitation to worry about a bill that does
-    // not exist.
-    expect(nav).toContain('out.filter((l) => l.href !== "/merchant/subscription")');
+    // not exist. M172 turned this from a filter into an append, because the
+    // list is now built per kind rather than edited.
+    expect(nav).toContain('if (hasPlan) out.push({ href: "/merchant/subscription"');
   });
 
-  it("still keeps the Menu tab for kitchens", () => {
-    // The splice moved when the filter was added; this is the regression that
-    // would be silent.
-    expect(nav).toContain('href: "/merchant/menu"');
-    expect(nav).toContain("if (isKitchen) out.splice(3, 0,");
+  it("still reaches the kitchen menu, now through the vocabulary", () => {
+    // The tab is no longer spliced in; slot three is a lookup. This is the
+    // regression that would otherwise be silent — a kitchen losing its menu.
+    const kind = readFileSync(join(process.cwd(), "lib", "merchant", "kind.ts"), "utf8");
+    expect(kind).toContain('href: "/merchant/menu"');
+    expect(nav).toContain("v.catalogue.href");
   });
 
   it("states the rate from data, never as a typed constant", () => {
