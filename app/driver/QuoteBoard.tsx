@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import {
+  ERRAND_LABEL,
+  isErrandKind,
   KIND_LABEL,
   LEG_LABEL,
   mayLayOutMoney,
@@ -76,6 +78,8 @@ export type OpenRequest = {
   dropoffText: string;
   dropoffNote: string | null;
   spendCap: number | null;
+  /** What SORT of errand, when this is one. Null on the other two kinds. */
+  errandKind: string | null;
   createdAt: string;
   expiresAt: string | null;
   quoteCount: number;
@@ -285,7 +289,13 @@ function RequestCard({
               </>
             )}
             <span>
-              {KIND_LABEL[kind]}
+              {/* For an errand the useful words are what SORT of errand it
+                  is. "Do it for me" alone tells a driver nothing they can
+                  price — paying a bill and queuing at a counter are very
+                  different amounts of an afternoon. */}
+              {isErrandKind(r.errandKind)
+                ? ERRAND_LABEL[r.errandKind]
+                : KIND_LABEL[kind]}
             </span>
             {r.sizeClass === "large" && (
               <>

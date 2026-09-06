@@ -21,6 +21,11 @@ import {
   Zap,
   ShoppingBasket,
   ClipboardCheck,
+  Receipt,
+  Hourglass,
+  PackageCheck,
+  Flame,
+  MoreHorizontal,
   UtensilsCrossed,
   Umbrella,
   Sofa,
@@ -36,7 +41,14 @@ import { cn } from "@/lib/utils";
 import { toCents } from "@/lib/money";
 import { toE164 } from "@/lib/phone";
 import { saveRequest } from "@/lib/delivery/my-requests";
-import { BUDGET_RULE, type RequestKind } from "@/lib/delivery/kind";
+import {
+  BUDGET_RULE,
+  ERRAND_KINDS,
+  errandToColumns,
+  isErrandKind,
+  type ErrandKind,
+  type RequestKind,
+} from "@/lib/delivery/kind";
 import {
   DELIVER_COPY,
   ITEM_CHOICES,
@@ -137,6 +149,15 @@ const KIND_ICON: Record<Kind, typeof Package> = {
   // that somebody went, did it, and can say so.
   errand: ClipboardCheck,
 };
+
+/** One picture per errand. A Record, so a sixth cannot arrive iconless. */
+const ERRAND_ICON: Record<ErrandKind, typeof Package> = {
+  pay_bill: Receipt,
+  queue: Hourglass,
+  collect: PackageCheck,
+  gas: Flame,
+  other: MoreHorizontal,
+};
 // FOUR now. "When do you need it?" was never asked — delivery_requests had
 // no column for it — so every request read to a driver as "now". See M152.
 const SCREENS = 4;
@@ -213,6 +234,12 @@ export default function DeliverForm({
   // is a 48px line. See the disclosure note on the render below.
   const [item, setItem] = useState<ItemChoice | null>(null);
   const [largeAndHeavy, setLargeAndHeavy] = useState(false);
+  // AN ERRAND ANSWERS A DIFFERENT QUESTION. The chips above ask what is being
+  // CARRIED, which is the only thing that decides which vehicles may take the
+  // job — and "pay my CEB bill" carries nothing. Offering "hot food" or
+  // "bigger than a car" there asked about an object that does not exist, and
+  // every answer was a lie the fleet filter then acted on. See ERRAND_KINDS.
+  const [errandKind, setErrandKind] = useState<ErrandKind | null>(null);
   // NULL, like kind and item: "when" is the question this flow never asked, and
   // defaulting it to ASAP would answer it on the customer's behalf with the one
   // answer that puts the most pressure on a driver.
@@ -246,10 +273,13 @@ export default function DeliverForm({
 
   const isGuest = !signedInEmail;
   const guestEmailValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(guestEmail.trim());
-  const { sizeClass, cargoKind } = itemToColumns(
-    item ?? "general",
-    largeAndHeavy,
-  );
+  // An errand derives them from its OWN answer: almost all are standard and
+  // general, so nobody is excluded, and only a gas bottle narrows the fleet —
+  // the same way a gas bottle already narrows it on the parcel side.
+  const { sizeClass, cargoKind } =
+    kind === "errand"
+      ? errandToColumns(errandKind ?? "other")
+      : itemToColumns(item ?? "general", largeAndHeavy);
 
   // Money never touches a float: Math.round(parseFloat("9.995") * 100) is 999.
   const budgetCents = useMemo(
@@ -326,7 +356,8 @@ export default function DeliverForm({
     // answer — so a few words OR a picture unlocks the screen, never both.
     1:
       kind !== null &&
-      item !== null &&
+      // Whichever question this kind asks, it has to have been answered.
+      (kind === "errand" ? errandKind !== null : item !== null) &&
       (what.trim().length >= 3 || photoPath !== null) &&
       // Required for a shopping run, optional for an errand, absent for a
       // collection — BUDGET_RULE is the same rule the table CHECK enforces.
@@ -387,6 +418,10 @@ export default function DeliverForm({
         ? (d.item as ItemChoice)
         : null,
     );
+    // Same rule, same reason: validated against the live list, so a draft
+    // written before an errand type was renamed reopens as an unanswered
+    // question rather than as a chip that no longer exists.
+    setErrandKind(isErrandKind(d.errandKind) ? d.errandKind : null);
     setLargeAndHeavy(d.largeAndHeavy);
     setScheduleKind(
       (["asap", "today", "tomorrow", "date"] as string[]).includes(
@@ -449,6 +484,7 @@ export default function DeliverForm({
       what,
       budget,
       item: item ?? "",
+      errandKind: errandKind ?? "",
       largeAndHeavy,
       scheduleKind: scheduleKind ?? "",
       timeSlot: timeSlot ?? "",
@@ -469,6 +505,10 @@ export default function DeliverForm({
     what,
     budget,
     item,
+    // Without this the autosave never fired on choosing an errand type, so a
+    // draft came back with it blank — and resumeScreen, which now gates on it,
+    // sent the person back to screen one having answered the question.
+    errandKind,
     largeAndHeavy,
     scheduleKind,
     timeSlot,
@@ -601,6 +641,9 @@ export default function DeliverForm({
       dropoffLng: dropoff.lng ?? undefined,
       sizeClass,
       cargoKind,
+      // Only an errand has one, and the RPC refuses it on anything else — the
+      // two questions are deliberately not interchangeable.
+      errandKind: kind === "errand" ? (errandKind ?? undefined) : undefined,
       // The CHOICE, never a timestamp. The server turns it into a window in
       // island time — a client that computes its own can send one in the past
       // or one ten years out, and every promise downstream is built on it.
@@ -673,7 +716,10 @@ export default function DeliverForm({
       // repeating it made the screen look like it was asking twice. Naming the
       // missing thing earns its place only when that thing is NOT the heading
       // you are looking at, which on a one-question screen it always is.
-      if (!kind || !item) return { label: c.cta.next, disabled: true };
+      if (!kind) return { label: c.cta.next, disabled: true };
+      if (kind === "errand" ? !errandKind : !item) {
+        return { label: c.cta.next, disabled: true };
+      }
       if (
         BUDGET_RULE[kind] === "required" &&
         !(budgetCents !== null && budgetCents > 0)
@@ -906,7 +952,63 @@ export default function DeliverForm({
                         question folds into a 48px line you can tap to change,
                         exactly as the kind cards already did. What is on screen
                         is one question and the answers behind it. */}
-                  {item === null ? (
+                  {(kind === "errand" ? errandKind === null : item === null) ? (
+                    kind === "errand" ? (
+                      /* ── AN ERRAND'S OWN QUESTION ────────────────────
+                         Not the parcel chips. Those ask what is being
+                         CARRIED so the fleet filter knows which vehicles
+                         qualify — and an errand often carries nothing at
+                         all. One column rather than two: these are
+                         sentences, not one-word categories, and five of
+                         them still fit the screen-one height budget
+                         because the kind cards above have collapsed to a
+                         48px line by the time this is read. */
+                      <fieldset className="mt-4">
+                        <legend className={cn(t.label, "mb-2 text-offwhite")}>
+                          {c.what.errandQuestion}
+                        </legend>
+                        <div className="grid grid-cols-1 gap-2">
+                          {ERRAND_KINDS.map((k) => {
+                            const Icon = ERRAND_ICON[k];
+                            return (
+                              <button
+                                key={k}
+                                type="button"
+                                onClick={() => setErrandKind(k)}
+                                className={cn(
+                                  recipe.cardButton,
+                                  "flex items-center gap-3.5 !p-3.5",
+                                )}
+                              >
+                                <Icon
+                                  size={22}
+                                  className="shrink-0 text-yellow"
+                                  aria-hidden
+                                />
+                                <span className="min-w-0">
+                                  <span
+                                    className={cn(
+                                      t.bodySm,
+                                      "block font-semibold text-offwhite",
+                                    )}
+                                  >
+                                    {c.what.errand[k].label}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      t.meta,
+                                      "mt-0.5 block text-[#B0B0B0]",
+                                    )}
+                                  >
+                                    {c.what.errand[k].help}
+                                  </span>
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </fieldset>
+                    ) : (
                     <fieldset className="mt-4">
                       <legend className={cn(t.label, "mb-2 text-offwhite")}>
                         {c.what.itemQuestion}
@@ -963,22 +1065,33 @@ export default function DeliverForm({
                         })}
                       </div>
                     </fieldset>
+                    )
                   ) : (
                     <>
                       {/* Answered. The examples that were under the grid now
                             sit on this line, where they confirm the choice
                             instead of being five blocks of text read while
                             deciding. */}
-                      <ChosenLine
-                        icon={ITEM_ICON[item]}
-                        label={c.what.item[item].label}
-                        hint={c.what.item[item].help}
-                        change={c.edit}
-                        onChange={() => {
-                          setItem(null);
-                          setLargeAndHeavy(false);
-                        }}
-                      />
+                      {kind === "errand" && errandKind ? (
+                        <ChosenLine
+                          icon={ERRAND_ICON[errandKind]}
+                          label={c.what.errand[errandKind].label}
+                          hint={c.what.errand[errandKind].help}
+                          change={c.edit}
+                          onChange={() => setErrandKind(null)}
+                        />
+                      ) : item ? (
+                        <ChosenLine
+                          icon={ITEM_ICON[item]}
+                          label={c.what.item[item].label}
+                          hint={c.what.item[item].help}
+                          change={c.edit}
+                          onChange={() => {
+                            setItem(null);
+                            setLargeAndHeavy(false);
+                          }}
+                        />
+                      ) : null}
 
                       {/* The one genuinely ambiguous case, asked only where it
                             means something: a mattress is large and light, a
@@ -1533,7 +1646,13 @@ export default function DeliverForm({
                   label={c.review.rowItem}
                   value={[
                     kind ? KIND_TITLE[kind] : "",
-                    item ? c.what.item[item].label : "",
+                    kind === "errand"
+                      ? errandKind
+                        ? c.what.errand[errandKind].label
+                        : ""
+                      : item
+                        ? c.what.item[item].label
+                        : "",
                     what.trim() || (photoPath ? c.what.describeOrPhoto : ""),
                   ]
                     .filter(Boolean)
@@ -1815,11 +1934,18 @@ function Label({
  */
 function resumeScreen(d: Draft, email: string, isGuest: boolean): number {
   const wanted = Number(d.step);
-  const item = ITEM_CHOICES.includes(d.item as ItemChoice);
+  // WHICHEVER QUESTION THIS KIND ASKS. Gating on the item chip alone sent
+  // every restored errand back to screen one — its `item` is empty by
+  // definition, so the draft looked unfinished when it was not, and the
+  // person lost their place on a form built to be resumable.
+  const whatDone =
+    d.kind === "errand"
+      ? isErrandKind(d.errandKind)
+      : ITEM_CHOICES.includes(d.item as ItemChoice);
   const budget = d.budget.trim() ? toCents(d.budget) : null;
   const oneDone =
     Boolean(d.kind) &&
-    item &&
+    whatDone &&
     (d.what.trim().length >= 3 || d.photoPath !== null) &&
     (d.kind !== "shop_and_deliver" || (budget !== null && budget > 0));
   if (!oneDone) return 1;

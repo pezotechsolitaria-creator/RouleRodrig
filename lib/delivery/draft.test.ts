@@ -43,6 +43,7 @@ const DRAFT: Omit<Draft, "v" | "savedAt"> = {
   what: "A box from my sister",
   budget: "",
   item: "general",
+  errandKind: "",
   largeAndHeavy: false,
   scheduleKind: "tomorrow",
   timeSlot: "afternoon",

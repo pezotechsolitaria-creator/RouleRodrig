@@ -5,7 +5,7 @@ import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { guardShared } from "@/lib/rate-limit";
 import { toE164 } from "@/lib/phone";
 import { notifyDriversOfNewRequest } from "@/lib/delivery/notify-requests";
-import { REQUEST_KINDS } from "@/lib/delivery/kind";
+import { ERRAND_KINDS, REQUEST_KINDS } from "@/lib/delivery/kind";
 
 // POST /api/delivery-requests — post a Deliver Anything job.
 //
@@ -31,6 +31,9 @@ const schema = z
     // WHAT it is, which decides which vehicles may carry it. The SQL
     // (vehicle_can_handle) is the authority; this only has to pass it on.
     cargoKind: z.enum(["general", "food", "fragile", "heavy"]).default("general"),
+    // The errand's OWN question. Deliberately separate from cargoKind: that
+    // one asks what is being carried, which for an errand is often nothing.
+    errandKind: z.enum(ERRAND_KINDS).optional(),
     // ── WHEN, as a CHOICE — never as a timestamp ────────────────────────
     // The client says "tomorrow, afternoon"; compute_delivery_window() turns
     // that into two absolute times in Indian/Mauritius. A client trusted to
@@ -95,6 +98,17 @@ const schema = z
   .refine((v) => v.kind !== "package" || v.maxBudget === undefined, {
     message: "A collection has nothing to buy, so it takes no budget.",
     path: ["maxBudget"],
+  })
+  // Required on an errand and forbidden on everything else, matching the two
+  // table CHECKs. Kept as two separate rules rather than one equivalence, for
+  // the reason written on delivery_requests_budget_shape.
+  .refine((v) => v.kind !== "errand" || v.errandKind !== undefined, {
+    message: "Choose what kind of errand this is.",
+    path: ["errandKind"],
+  })
+  .refine((v) => v.kind === "errand" || v.errandKind === undefined, {
+    message: 'Only a "do it for me" request has an errand type.',
+    path: ["errandKind"],
   });
 
 export async function POST(req: NextRequest) {
@@ -168,6 +182,7 @@ export async function POST(req: NextRequest) {
     p_guest_email: isGuest ? v.guestEmail : null,
     p_photo_url: v.photoPath ?? null,
     p_cargo_kind: v.cargoKind,
+    p_errand_kind: v.errandKind ?? null,
     p_schedule_kind: v.scheduleKind,
     p_time_slot: v.timeSlot,
     p_needed_date: v.scheduleKind === "date" ? (v.neededDate ?? null) : null,

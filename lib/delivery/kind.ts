@@ -97,6 +97,62 @@ export const LEG_LABEL: Record<RequestKind, { pickup: string; dropoff: string }>
   errand: { pickup: "Go to", dropoff: "Bring back to" },
 };
 
+// ── What an errand actually is ─────────────────────────────────────────────
+//
+// The owner, on the first cut: "do it for me should not have things like
+// parcel, hot food, fragile, heavy, bigger than cars — because it is not
+// delivering something, it should have its own stuffs."
+//
+// Right, and the reason is structural rather than cosmetic. `cargo_kind` and
+// `size_class` answer "what is being CARRIED", which is the only thing that
+// decides which vehicles may take a job. An errand frequently carries nothing:
+// paying a bill brings back a receipt in a pocket. Asking whether that is hot
+// food, fragile, or bigger than a car is asking about an object that does not
+// exist, and every answer is a lie the fleet filter then acts on.
+//
+// So an errand answers its own question, and it is stored in its own column.
+export const ERRAND_KINDS = ["pay_bill", "queue", "collect", "gas", "other"] as const;
+
+export type ErrandKind = (typeof ERRAND_KINDS)[number];
+
+export function isErrandKind(v: unknown): v is ErrandKind {
+  return typeof v === "string" && (ERRAND_KINDS as readonly string[]).includes(v);
+}
+
+/** Operator-facing English, for the driver board and the owner's desk. */
+export const ERRAND_LABEL: Record<ErrandKind, string> = {
+  pay_bill: "Pay a bill",
+  queue: "Queue or wait",
+  collect: "Collect something ready",
+  gas: "Gas bottle refill",
+  other: "Something else",
+};
+
+/**
+ * The errand's answer, translated into the two columns the fleet filter reads.
+ *
+ * Almost every errand is `standard` / `general` — nothing is carried, so no
+ * vehicle is excluded and the widest possible set of people can quote. The one
+ * real exception is a gas bottle, which this platform already classifies as
+ * `heavy` for ordinary deliveries (see the "Heavy — gas bottle, cement, tools"
+ * choice on the parcel side). Classing it any other way here would mean the
+ * same object had two different fleet rules depending on which card somebody
+ * tapped first.
+ *
+ * `large` is deliberately unreachable: an errand does not move furniture. That
+ * is what Collect & deliver is for, and offering it here would produce jobs no
+ * errand runner could actually do.
+ */
+export function errandToColumns(errand: ErrandKind): {
+  sizeClass: "standard";
+  cargoKind: "general" | "heavy";
+} {
+  return {
+    sizeClass: "standard",
+    cargoKind: errand === "gas" ? "heavy" : "general",
+  };
+}
+
 export function mayLayOutMoney(
   kind: RequestKind,
   spendCap?: number | null,

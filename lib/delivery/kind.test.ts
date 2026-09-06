@@ -2,6 +2,10 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import {
   REQUEST_KINDS,
+  ERRAND_KINDS,
+  ERRAND_LABEL,
+  errandToColumns,
+  isErrandKind,
   BUDGET_RULE,
   KIND_LABEL,
   KIND_BLURB,
@@ -182,6 +186,82 @@ describe("what the driver is told", () => {
       pin: "4821",
     }).join("\n");
     expect(lines).not.toContain("4821");
+  });
+});
+
+// ── An errand asks its own question ─────────────────────────────────────────
+describe("an errand does not answer the parcel question", () => {
+  // The owner: "do it for me should not have things like parcel, hot food,
+  // fragile, heavy, bigger than cars — because it is not delivering something,
+  // it should have its own stuffs."
+  //
+  // It is not only wrong-sounding, it is wrong. cargo_kind and size_class
+  // decide WHICH VEHICLES MAY TAKE THE JOB, and they describe an object being
+  // carried. "Pay my CEB bill" carries nothing, so every answer on that grid
+  // was a fiction the fleet filter then acted on.
+
+  it("offers its own five choices", () => {
+    expect([...ERRAND_KINDS]).toEqual([
+      "pay_bill",
+      "queue",
+      "collect",
+      "gas",
+      "other",
+    ]);
+  });
+
+  it("gives each of them its own words", () => {
+    const labels = ERRAND_KINDS.map((k) => ERRAND_LABEL[k]);
+    expect(new Set(labels).size).toBe(ERRAND_KINDS.length);
+    for (const l of labels) expect(l.trim().length).toBeGreaterThan(3);
+  });
+
+  it("recognises exactly the real ones", () => {
+    for (const k of ERRAND_KINDS) expect(isErrandKind(k)).toBe(true);
+    // Crucially NOT the parcel choices — the two vocabularies must never be
+    // interchangeable, in either direction.
+    for (const junk of ["general", "food", "fragile", "heavy", "large", "", null, 7]) {
+      expect(isErrandKind(junk)).toBe(false);
+    }
+  });
+
+  it("never asks a driver for a vehicle it does not need", () => {
+    // Almost every errand should be open to the widest possible fleet: nothing
+    // is carried, so nothing may be excluded. Narrowing here means fewer
+    // quotes on a board that already struggles to get them.
+    for (const k of ERRAND_KINDS) {
+      const c = errandToColumns(k);
+      expect(c.sizeClass, `${k} must not demand a large vehicle`).toBe("standard");
+      if (k !== "gas") {
+        expect(c.cargoKind, `${k} should not restrict the fleet`).toBe("general");
+      }
+    }
+  });
+
+  it("treats a gas bottle the same way the parcel side already does", () => {
+    // The one genuine exception. A gas bottle is `heavy` for an ordinary
+    // delivery on this platform; classing it differently here would give one
+    // object two fleet rules depending on which card somebody tapped first.
+    expect(errandToColumns("gas").cargoKind).toBe("heavy");
+  });
+});
+
+describe("the form asks the right question for the kind", () => {
+  it("does not render the parcel chips for an errand", () => {
+    const src = readFileSync("app/deliver/DeliverForm.tsx", "utf8");
+    // The grid is chosen by kind before ITEM_CHOICES is ever mapped. Without
+    // this, an errand shows "Hot food / Fragile / Bigger than a car" — the
+    // regression the owner reported.
+    expect(src).toMatch(/kind === "errand" \? errandKind === null : item === null/);
+    expect(src).toMatch(/c\.what\.errandQuestion/);
+    expect(src).toMatch(/ERRAND_KINDS\.map/);
+  });
+
+  it("derives the fleet columns from the errand's own answer", () => {
+    const src = readFileSync("app/deliver/DeliverForm.tsx", "utf8");
+    // itemToColumns("general") as a stand-in would have quietly worked and
+    // been wrong for gas — the one case where an errand DOES need a vehicle.
+    expect(src).toMatch(/errandToColumns\(errandKind \?\? "other"\)/);
   });
 });
 

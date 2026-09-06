@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toRequestKind, type RequestKind } from "@/lib/delivery/kind";
+import { isErrandKind, toRequestKind, type RequestKind } from "@/lib/delivery/kind";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -105,6 +105,9 @@ type RequestView = {
   // the coordinates a repeat request is a DOWNGRADE of the original, arriving
   // at dispatch with no origin — the exact regression M145 had to fix.
   cargoKind: string | null;
+  /** Only an errand has one. Same lesson as the six above: a field the RPC
+   *  returns but the type never declared is a field no screen can read. */
+  errandKind: string | null;
   photoPath: string | null;
   scheduleKind: string | null;
   timeSlot: string | null;
@@ -842,6 +845,9 @@ export default function RequestTracker({
               // boolean here is what turned a repeated errand into a parcel
               // collection the first time this was written.
               kind: toRequestKind(view.kind),
+              // Carried through, so asking for the same errand again reopens
+              // with its type already chosen rather than blanked.
+              errandKind: isErrandKind(view.errandKind) ? view.errandKind : "",
               what: view.what,
               // Minor units on the wire, rupees on screen — the same convention
               // as every other amount in this system.

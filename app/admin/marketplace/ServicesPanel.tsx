@@ -12,6 +12,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
+import { ERRAND_LABEL, isErrandKind } from "@/lib/delivery/kind";
 
 // ── The Do It For Me desk ───────────────────────────────────────────────────
 //
@@ -36,6 +37,8 @@ import { centsToDecimalString } from "@/lib/money";
 type Live = {
   id: string;
   what: string;
+  /** What SORT of errand. Always set here, since every row is one. */
+  errandKind: string | null;
   status: string;
   pickupText: string;
   dropoffText: string;
@@ -63,7 +66,20 @@ type Totals = {
 
 type Ask = { ask: string; n: number; booked: number };
 
-type Board = { days: number; live: Live[]; totals: Totals | null; asks: Ask[] };
+type KindRow = {
+  errandKind: string;
+  n: number;
+  booked: number;
+  neverQuoted: number;
+};
+
+type Board = {
+  days: number;
+  live: Live[];
+  totals: Totals | null;
+  kinds: KindRow[];
+  asks: Ask[];
+};
 
 const RANGES = [7, 30, 90] as const;
 
@@ -287,6 +303,9 @@ export default function ServicesPanel() {
                       </span>
                     </div>
                     <p className="mt-1 font-dm text-xs text-muted">
+                      {isErrandKind(r.errandKind) && (
+                        <>{ERRAND_LABEL[r.errandKind]} · </>
+                      )}
                       {r.pickupText} → {r.dropoffText}
                       {r.spendCap != null && (
                         <> · up to Rs {centsToDecimalString(r.spendCap)} to spend</>
@@ -306,6 +325,42 @@ export default function ServicesPanel() {
                         <Phone size={12} /> {r.contactName} · {r.contactPhone}
                       </a>
                     </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* ── By category ───────────────────────────────────────────────── */}
+          {board.kinds.length > 0 && (
+            <section>
+              <h3 className="px-1 font-syne text-sm font-bold text-offwhite">
+                Which kinds get taken
+              </h3>
+              {/* Asked against booked, per category. A row with plenty asked
+                  and none booked is not a slow week — it is a kind of job
+                  nobody on this island will take, and no amount of software
+                  fixes that one. */}
+              <ul className="mt-2 divide-y divide-white/[0.06] overflow-hidden rounded-2xl border border-white/10 bg-dark-card">
+                {board.kinds.map((k) => (
+                  <li
+                    key={k.errandKind}
+                    className="flex items-center justify-between gap-3 px-4 py-2.5"
+                  >
+                    <span className="min-w-0 truncate font-dm text-sm text-offwhite">
+                      {isErrandKind(k.errandKind)
+                        ? ERRAND_LABEL[k.errandKind]
+                        : k.errandKind}
+                    </span>
+                    <span className="shrink-0 font-dm text-xs tabular-nums text-muted">
+                      {k.n} asked · {k.booked} booked
+                      {k.neverQuoted > 0 && (
+                        <span className="text-amber-300">
+                          {" "}
+                          · {k.neverQuoted} unpriced
+                        </span>
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>

@@ -27,7 +27,11 @@
 // testable without a DOM, and a browser with storage blocked degrades to "no
 // draft" rather than throwing on module load.
 
-import { isRequestKind, type RequestKind } from "@/lib/delivery/kind";
+import {
+  isRequestKind,
+  type ErrandKind,
+  type RequestKind,
+} from "@/lib/delivery/kind";
 
 /** Exactly what /api/delivery-requests takes. Kept as the wire shape on
  *  purpose: an outbox entry that has to be re-derived from form state is an
@@ -45,6 +49,8 @@ export type RequestPayload = {
   dropoffLng?: number;
   sizeClass: "standard" | "large";
   cargoKind: "general" | "food" | "fragile" | "heavy";
+  /** Only ever set on an errand. See lib/delivery/kind.ts. */
+  errandKind?: ErrandKind;
   scheduleKind: "asap" | "today" | "tomorrow" | "date";
   timeSlot: "any" | "morning" | "afternoon" | "evening";
   neededDate?: string;
@@ -63,6 +69,9 @@ export type Draft = {
   what: string;
   budget: string;
   item: string;
+  /** The errand's own answer. Empty on the other two kinds, which ask `item`
+   *  instead — the two questions are never both live. */
+  errandKind: string;
   largeAndHeavy: boolean;
   scheduleKind: string;
   timeSlot: string;

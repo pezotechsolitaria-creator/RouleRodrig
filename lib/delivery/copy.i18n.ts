@@ -96,6 +96,17 @@ const EN = {
     describeOrPhoto: "A few words, or a photo — either is enough.",
     budgetLabel: "The most we may spend on it (Rs)",
     describeLabelErrand: "What needs doing?",
+    errandQuestion: "What kind of errand is it?",
+    errand: {
+      pay_bill: { label: "Pay a bill", help: "CEB, CWA, a fee, a fine." },
+      queue: { label: "Queue or wait", help: "The bank, an office, a counter." },
+      collect: {
+        label: "Collect something ready",
+        help: "A prescription, papers, a repair.",
+      },
+      gas: { label: "Gas bottle refill", help: "Take the empty, bring it back full." },
+      other: { label: "Something else", help: "Tell us below." },
+    },
     describePlaceholderErrand: "e.g. Pay my CEB bill and bring me the receipt",
     budgetLabelErrand: "The most they may spend (Rs)",
     budgetHelpErrand:
@@ -478,6 +489,26 @@ const FR: DeliverCopy = {
     describeOrPhoto: "Quelques mots, ou une photo — l’un ou l’autre suffit.",
     budgetLabel: "Le maximum que nous pouvons dépenser (Rs)",
     describeLabelErrand: "Qu’y a-t-il à faire ?",
+    errandQuestion: "Quel genre de course est-ce ?",
+    errand: {
+      pay_bill: {
+        label: "Payer une facture",
+        help: "CEB, CWA, des frais, une amende.",
+      },
+      queue: {
+        label: "Faire la queue",
+        help: "La banque, un bureau, un guichet.",
+      },
+      collect: {
+        label: "Récupérer quelque chose de prêt",
+        help: "Une ordonnance, des papiers, une réparation.",
+      },
+      gas: {
+        label: "Recharge de bouteille de gaz",
+        help: "Prendre la vide, la rapporter pleine.",
+      },
+      other: { label: "Autre chose", help: "Dites-nous ci-dessous." },
+    },
     describePlaceholderErrand:
       "ex. Payer ma facture CEB et me rapporter le reçu",
     budgetLabelErrand: "Le maximum qu’ils peuvent dépenser (Rs)",
@@ -806,6 +837,20 @@ const CR: DeliverCopy = {
     describeOrPhoto: "De trwa mo, ou enn foto — enn ou lot ase.",
     budgetLabel: "Maximum ki nou kapav depanse (Rs)",
     describeLabelErrand: "Ki bizin fer ?",
+    errandQuestion: "Ki kalite komisyon sa ete ?",
+    errand: {
+      pay_bill: { label: "Pey enn fakter", help: "CEB, CWA, enn fre, enn amann." },
+      queue: { label: "Fer lake", help: "Labank, enn biro, enn giche." },
+      collect: {
+        label: "Al pran kiksoz ki pare",
+        help: "Enn ordonans, bann papye, enn reparasyon.",
+      },
+      gas: {
+        label: "Ranpli boutey gaz",
+        help: "Pran sa ki vid la, amenn li plin.",
+      },
+      other: { label: "Lot kiksoz", help: "Dir nou anba." },
+    },
     describePlaceholderErrand: "ex. Pey mo fakter CEB ek amenn mwa resi la",
     budgetLabelErrand: "Maximum ki zot kapav depanse (Rs)",
     budgetHelpErrand:
