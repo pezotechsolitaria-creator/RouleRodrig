@@ -195,6 +195,20 @@ const nextConfig: NextConfig = {
   images: {
     // Serve modern formats automatically where the browser supports them
     formats: ["image/avif", "image/webp"],
+    // ── A YEAR, NOT FOUR HOURS ──────────────────────────────────────────────
+    //
+    // Next's default minimumCacheTTL is 14400 — four hours. When an optimised
+    // variant expires, the optimiser re-downloads the SOURCE image to rebuild
+    // it, so every stored original was being pulled out of Supabase Storage
+    // about six times a day, forever, per variant. At the 612 kB the public
+    // bucket used to average, that is the most expensive habit on the platform
+    // and none of it was work anybody asked for.
+    //
+    // A year is safe because these files are IMMUTABLE by construction: every
+    // upload route names its object with a timestamp plus a random suffix and
+    // passes upsert:false, so a given URL's bytes never change. A new photo is
+    // a new URL, and it misses the cache exactly once.
+    minimumCacheTTL: 31536000,
     remotePatterns: [
       { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
       { protocol: "https", hostname: "*.supabase.co" },

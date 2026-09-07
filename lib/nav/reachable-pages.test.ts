@@ -129,6 +129,12 @@ function linkSites(): LinkSite[] {
   for (const dir of SCAN_DIRS) {
     for (const file of walk(dir)) {
       if (!/\.(tsx?|mjs)$/.test(file)) continue;
+      // A TEST FILE IS NOT A PAGE. It ships to nobody, renders nothing, and
+      // cannot put a link in front of a visitor — but it quotes routes
+      // constantly, which is its job. lib/services/admin-desk.test.ts names
+      // /admin/deliveries and /admin/service-bookings in its assertions and was
+      // reported as a public page leaking the back door.
+      if (/\.test\.tsx?$/.test(file)) continue;
       if (!tracked().has(file)) continue;
       const s = readFileSync(file, "utf8");
       const asRoute = file.startsWith(ROUTE_ROOT) ? norm(routeOf(file)) : null;

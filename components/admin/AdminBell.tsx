@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Bell, ArrowRight } from "lucide-react";
 import type { AttentionItem } from "@/lib/admin/ops";
+import { attentionStore } from "./attention-store";
 
 // ── THE BELL ────────────────────────────────────────────────────────────────
 //
@@ -19,10 +20,14 @@ import type { AttentionItem } from "@/lib/admin/ops";
 // cannot disagree.
 //
 // It polls rather than subscribes. A minute is the right resolution for "a
-// merchant is waiting" and it costs one cheap request; realtime here would be
-// a socket per admin tab for a number that changes a few times an hour.
-
-const POLL_MS = 60_000;
+// merchant is waiting"; realtime here would be a socket per admin tab for a
+// number that changes a few times an hour.
+//
+// The poll itself lives in attention-store.ts, NOT in this component, because
+// AdminShell mounts this twice — sidebar and mobile bar — and hides one with a
+// breakpoint. Two mounts meant two timers against a route that runs 21
+// Supabase queries: 2,520 an hour from one tab, all night. One shared poll now,
+// paused while the tab is hidden.
 
 const TONE: Record<AttentionItem["severity"], string> = {
   critical: "border-red-500/35 bg-red-500/[0.07] text-red-200",
@@ -31,38 +36,17 @@ const TONE: Record<AttentionItem["severity"], string> = {
 };
 
 export default function AdminBell() {
-  const [items, setItems] = useState<AttentionItem[]>([]);
-  const [total, setTotal] = useState(0);
+  const { items, total } = useSyncExternalStore(
+    attentionStore.subscribe,
+    attentionStore.get,
+    attentionStore.getServerSnapshot,
+  );
   const [open, setOpen] = useState(false);
   // Closing on navigation is handled by each row's own onClick rather than by
   // watching the pathname: setting state in an effect for that is the
   // cascading-render pattern this repo lints as an error, and a menu item is
   // the only way out of this panel anyway.
   const wrap = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const pull = async () => {
-      try {
-        const res = await fetch("/api/admin/attention", { cache: "no-store" });
-        const json = (await res.json()) as {
-          items?: AttentionItem[];
-          total?: number;
-        };
-        if (cancelled) return;
-        setItems(json.items ?? []);
-        setTotal(json.total ?? 0);
-      } catch {
-        /* leave the last known state rather than flashing an empty bell */
-      }
-    };
-    void pull();
-    const t = setInterval(() => void pull(), POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, []);
 
   useEffect(() => {
     if (!open) return;
