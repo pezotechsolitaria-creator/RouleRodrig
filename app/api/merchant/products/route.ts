@@ -72,18 +72,51 @@ export async function POST(req: NextRequest) {
   const priceCents = toCents(input.price);
   if (priceCents === null) return NextResponse.json({ error: "Enter a valid price." }, { status: 400 });
 
-  const { data, error } = await supabase
-    .rpc("create_product", {
-      p_store_id: storeId,
-      p_name: input.name,
-      p_description: input.description || null,
-      p_price: priceCents,
-      p_quantity: input.stockQuantity,
-      p_sku: input.sku || null,
-      p_category_id: input.categoryId || null,
-      p_status: input.status,
-    })
-    .single();
+  // ── A DISH IS NOT JUST A PRODUCT (M187) ──────────────────────────────────
+  //
+  // create_product() writes products + product_variants. A DISH also needs a
+  // food_items row: kitchen_menu() -- the RPC behind "Today's menu" on
+  // /kitchen -- inner joins food_items, and so does the public food catalogue.
+  //
+  // So a kitchen owner who pressed "Add a dish", landed here, and succeeded got
+  // a product that was invisible on the menu he pressed the button from, and
+  // invisible on /food, while showing up in /merchant/products. The click
+  // worked and nothing appeared, which is worse than a button that refuses.
+  //
+  // create_dish() does both writes in one transaction behind the same
+  // is_store_staff() check. Chosen on what the STORE is, not on anything the
+  // caller sends: the same form serves shops and kitchens, and a shop must
+  // never get a food_items row.
+  const { data: kitchenRow } = await supabase
+    .from("food_kitchens")
+    .select("store_id")
+    .eq("store_id", storeId)
+    .maybeSingle();
+  const isKitchen = Boolean(kitchenRow);
+
+  const { data, error } = isKitchen
+    ? await supabase
+        .rpc("create_dish", {
+          p_store_id: storeId,
+          p_name: input.name,
+          p_description: input.description || null,
+          p_price: priceCents,
+          p_quantity: input.stockQuantity,
+          p_descriptor: null,
+        })
+        .single()
+    : await supabase
+        .rpc("create_product", {
+          p_store_id: storeId,
+          p_name: input.name,
+          p_description: input.description || null,
+          p_price: priceCents,
+          p_quantity: input.stockQuantity,
+          p_sku: input.sku || null,
+          p_category_id: input.categoryId || null,
+          p_status: input.status,
+        })
+        .single();
 
   if (error) {
     if (error.code === NOT_STORE_STAFF_CODE) {
@@ -91,7 +124,7 @@ export async function POST(req: NextRequest) {
       // but if it ever fires, it means the RPC's independent ownership check
       // caught something the API layer didn't, which is exactly the point of
       // having it. Treat as a hard failure, not a validation message.
-      console.error("create_product: RPC rejected caller's own store_id", error);
+      console.error("create_product/create_dish: RPC rejected caller's own store_id", error);
       return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 403 });
     }
     if (error.code === DUPLICATE_SLUG_CODE) {
