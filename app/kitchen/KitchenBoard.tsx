@@ -527,7 +527,7 @@ Tell the customer why — they will see this.`,
 
   if (!dash.onTeam) {
     return (
-      <div className="rounded-2xl border border-white/10 bg-dark-card p-6 text-center">
+      <div className="rounded-2xl border border-dark-border bg-dark-card p-6 text-center">
         <ChefHat size={30} className="mx-auto text-yellow" />
         <h2 className="mt-3 font-syne text-xl font-bold">Not on a kitchen team yet</h2>
         <p className="mx-auto mt-2 max-w-sm font-dm text-sm text-muted">
@@ -551,7 +551,7 @@ Tell the customer why — they will see this.`,
         key={o.id}
         className={`rounded-2xl border p-4 transition-colors ${
           o.finished
-            ? "border-white/10 bg-dark-card opacity-60"
+            ? "border-dark-border bg-dark-card opacity-60"
             : isNew
               ? "border-yellow bg-yellow/[0.13] ring-2 ring-yellow/50"
               : ready
@@ -561,7 +561,11 @@ Tell the customer why — they will see this.`,
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">{o.orderNumber}</p>
+            {/* Monospaced, because this is a CODE. It is what a cook reads
+                back to a customer on the phone and what they match against a
+                bank line, and a proportional face makes RR260907-66BD18 a
+                guessing game at arm's length. */}
+            <p className="font-mono text-[11px] tracking-wide text-yellow/80">{o.orderNumber}</p>
             <p className="font-syne text-base font-bold">{o.customer || "Customer"}</p>
             {/* ALWAYS shown, not only when someone works in two kitchens.
                 The owner was on Riri Resto's team while every order sat in
@@ -572,9 +576,22 @@ Tell the customer why — they will see this.`,
           </div>
           {/* The clock is the second most important thing on the card after
               the food. Grey 12px text is not a timer. */}
-          <span className={`flex shrink-0 items-center gap-1 font-syne text-sm font-bold ${o.finished ? "text-muted" : tone.clock}`}>
-            <Clock size={13} /> {waitingFor(o.placedAt)}
-          </span>
+          <div className="flex shrink-0 flex-col items-end gap-0.5">
+            <span className={`flex items-center gap-1 font-syne text-sm font-bold ${o.finished ? "text-muted" : tone.clock}`}>
+              <Clock size={13} /> {waitingFor(o.placedAt)}
+            </span>
+            {/* WHAT IT IS WORTH.
+                The ticket carried no money at all. `total` has been on this
+                type the whole time and was read only inside the part-payment
+                prompt -- so the one number the owner needs to match against
+                his bank statement was the one number not on the card.
+                Tabular so a column of tickets lines up. */}
+            {typeof o.total === "number" && o.total > 0 && (
+              <span className="font-mono text-sm font-semibold tabular-nums text-offwhite">
+                {money(o.total, o.currency)}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* The order itself, big enough to read from arm's length. */}
@@ -626,13 +643,37 @@ Tell the customer why — they will see this.`,
           </p>
         )}
 
-        <p className="mt-3 font-dm text-xs text-muted">{STATUS_LABEL[o.status] ?? o.status}</p>
+        {/* STATE AS A SHAPE, not a grey sentence.
+            This was 12px muted text at the bottom of the card -- the one thing
+            that says what to do next, styled like a footnote. A cook scanning
+            six tickets on a propped-up phone reads colour and shape before
+            they read words.
+
+            Green only for genuinely finished-with steps, red only for
+            cancelled, amber for "a person is needed". Nothing decorative:
+            yellow is the brand and the primary action, so it cannot also mean
+            "fine" or every ticket would be yellow. */}
+        <p
+          className={`mt-3 inline-block rounded-full px-2.5 py-1 font-dm text-xs font-medium ${
+            o.status === "cancelled"
+              ? "bg-bad-dim text-bad"
+              : o.status === "collected"
+                ? "bg-ok-dim text-ok"
+                : ready
+                  ? "bg-ok-dim text-ok"
+                  : o.awaitingPayment || o.waitingOnTransfer
+                    ? "bg-warn-dim text-warn"
+                    : "bg-dark-raised text-muted"
+          }`}
+        >
+          {STATUS_LABEL[o.status] ?? o.status}
+        </p>
 
         {/* Do NOT cook this yet. The customer chose bank transfer and nothing
             has been proven — stated positively rather than left as an absence
             of a button, which reads as a broken card. */}
         {o.waitingOnTransfer && (
-          <p className="mt-2 rounded-xl border border-white/15 bg-white/[0.03] px-3 py-2 font-dm text-sm text-muted">
+          <p className="mt-2 rounded-xl border border-dark-border bg-white/[0.03] px-3 py-2 font-dm text-sm text-muted">
             Waiting for the customer&apos;s bank transfer. Nothing to cook yet.
           </p>
         )}
@@ -653,7 +694,7 @@ Tell the customer why — they will see this.`,
         {o.hasReceipt && !o.awaitingPayment && (
           <button
             onClick={() => void openReceipt(o)}
-            className="mt-3 w-full rounded-xl border border-white/20 py-2.5 font-dm text-sm text-offwhite"
+            className="mt-3 w-full rounded-xl border border-dark-control py-2.5 font-dm text-sm text-offwhite"
           >
             View proof of payment
           </button>
@@ -672,7 +713,7 @@ Tell the customer why — they will see this.`,
             {o.hasReceipt ? (
               <button
                 onClick={() => void openReceipt(o)}
-                className="mt-2 min-h-[44px] w-full rounded-xl border border-white/20 font-dm text-sm text-offwhite"
+                className="mt-2 min-h-[44px] w-full rounded-xl border border-dark-control font-dm text-sm text-offwhite"
               >
                 View their proof of payment
               </button>
@@ -683,7 +724,7 @@ Tell the customer why — they will see this.`,
               <button
                 onClick={() => void judgePayment(o, "reject")}
                 disabled={busy !== null}
-                className="min-h-[48px] flex-1 rounded-xl border border-white/20 font-syne text-sm font-bold disabled:opacity-50"
+                className="min-h-[48px] flex-1 rounded-xl border border-dark-control font-syne text-sm font-bold disabled:opacity-50"
               >
                 Not received
               </button>
@@ -724,7 +765,7 @@ The order is ${money(o.total!, o.currency)}. The rest becomes cash to collect on
                   void judgePayment(o, "confirm", minor);
                 }}
                 disabled={busy !== null}
-                className="mt-2 min-h-[44px] w-full rounded-xl border border-white/20 font-dm text-sm text-offwhite disabled:opacity-50"
+                className="mt-2 min-h-[44px] w-full rounded-xl border border-dark-control font-dm text-sm text-offwhite disabled:opacity-50"
               >
                 Only part of it arrived…
               </button>
@@ -780,7 +821,19 @@ The order is ${money(o.total!, o.currency)}. The rest becomes cash to collect on
           )}
         </div>
 
-        {next && (
+        {/* NOT while the money is still owed.
+            `pending_payment -> preparing` exists for CASH orders (M74/M80):
+            the customer pays at the counter, so the food has to exist first.
+            Cash is now impossible platform-wide -- prepayment_only is on and
+            refuse_cash_when_prepayment_only blocks the payment row -- so on a
+            bank-transfer order kitchen_advance_order rejects this every time
+            with RR004 "That order has already moved on."
+
+            The card already says "Nothing to cook yet" directly above, and the
+            comment there says the absence of a button is the point. The button
+            was rendering anyway, so every unpaid order showed a cook a big
+            yellow control that could only fail. */}
+        {next && !o.waitingOnTransfer && (
           <button
             onClick={() => void advance(o)}
             disabled={busy !== null}
@@ -813,7 +866,7 @@ The order is ${money(o.total!, o.currency)}. The rest becomes cash to collect on
       {/* Sound is the single most important control on a kitchen screen, so it
           is on the screen rather than in a settings page. Browsers block audio
           until a real tap, which is why this cannot simply default to on. */}
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-dark-card px-3 py-2">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-dark-border bg-dark-card px-3 py-2">
         <button
           onClick={chime.toggle}
           className={`inline-flex items-center gap-2 font-dm text-sm ${chime.on ? "text-yellow" : "text-muted"}`}
@@ -843,7 +896,7 @@ The order is ${money(o.total!, o.currency)}. The rest becomes cash to collect on
       )}
 
       {live.length === 0 && done.length === 0 && !error ? (
-        <div className="rounded-2xl border border-white/10 bg-dark-card p-8 text-center">
+        <div className="rounded-2xl border border-dark-border bg-dark-card p-8 text-center">
           <Check size={26} className="mx-auto text-green-400" />
           <p className="mt-2 font-syne text-base font-bold">
             {/* Say WHICH kitchen is quiet. An unlabelled empty screen reads as a
@@ -864,7 +917,7 @@ The order is ${money(o.total!, o.currency)}. The rest becomes cash to collect on
             // order or a disputed receipt had nowhere to be looked up an hour
             // later — and then they were interleaved by time, which put this
             // morning's cancellation above an order that needed cooking.
-            <details className="rounded-2xl border border-white/10 bg-dark-card/60">
+            <details className="rounded-2xl border border-dark-border bg-dark-card/60">
               <summary className="cursor-pointer px-4 py-3 font-dm text-sm text-muted">
                 {done.length} finished today — tap to review
               </summary>
@@ -890,7 +943,7 @@ The order is ${money(o.total!, o.currency)}. The rest becomes cash to collect on
           disabled cell teaches nothing; an absent one asks nothing. */}
       <nav
         aria-label="Kitchen sections"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-dark/95 backdrop-blur"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-dark-border bg-dark/95 backdrop-blur"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         <div className="mx-auto grid max-w-lg grid-cols-4">

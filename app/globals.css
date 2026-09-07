@@ -9,6 +9,9 @@
   --font-syne: var(--font-syne-var);
   --font-bebas: var(--font-bebas-var);
   --font-dm: var(--font-dm-var);
+  /* Amounts, order numbers, pickup codes, phone numbers. Nothing that reads
+     as a sentence. See the note beside IBM_Plex_Mono in app/layout.tsx. */
+  --font-mono: var(--font-mono-var);
 
   /* Brand colors */
   --color-yellow: #f5c842;
@@ -18,6 +21,29 @@
   --color-dark-border: #222222;
   --color-offwhite: #f5f5f0;
   --color-muted: #888888;
+
+  /* ── OPERATIONAL STATUS ───────────────────────────────────────────────
+     Separate from the brand on purpose. Yellow is the brand AND the primary
+     action, so it cannot also mean "this is fine" -- on the kitchen board
+     every ticket would be yellow and the word would stop meaning anything.
+     These three are semantic only and never decorative:
+       ok     paid, confirmed, ready, handed over
+       warn   needs a person soon
+       bad    genuinely broken. NOT "cancelled" or "closed", which are
+              ordinary states a kitchen reaches every day. */
+  --color-ok: #2fbf71;
+  --color-ok-dim: #143024;
+  --color-warn: #e0a33c;
+  --color-warn-dim: #33260f;
+  --color-bad: #e5484d;
+  --color-bad-dim: #341618;
+  /* One hairline, one raised surface. Translucent white borders stack to
+     different greys depending on what is behind them, which is why the
+     console looked muddy where cards overlapped. */
+  --color-dark-raised: #1a1a1a;
+  /* The outline on a SECONDARY control -- one step brighter than the card
+     hairline, so a button reads as pressable without a fill. */
+  --color-dark-control: #333333;
 
   /* Marquee animation */
   --animate-marquee: marquee 20s linear infinite;

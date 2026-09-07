@@ -91,7 +91,7 @@ export default function MenuPanel({ canManage = false }: { canManage?: boolean }
       )}
 
       {dishes.length === 0 ? (
-        <div className="rounded-2xl border border-white/10 bg-dark-card p-8 text-center">
+        <div className="rounded-2xl border border-dark-border bg-dark-card p-8 text-center">
           <UtensilsCrossed size={24} className="mx-auto text-muted" />
           {/* "Roulé Rodrigues adds dishes for you" was never true of somebody
               who OWNS the shop — they have had /merchant/products the whole
@@ -121,7 +121,7 @@ export default function MenuPanel({ canManage = false }: { canManage?: boolean }
             <li
               key={d.productId}
               className={`rounded-2xl border p-4 ${
-                d.soldOut || !d.onMenu ? "border-white/10 bg-dark-card opacity-70" : "border-white/12 bg-dark-card"
+                d.soldOut || !d.onMenu ? "border-dark-border bg-dark-card opacity-70" : "border-dark-border bg-dark-card"
               }`}
             >
               <div className="flex items-start justify-between gap-3">
@@ -144,7 +144,7 @@ export default function MenuPanel({ canManage = false }: { canManage?: boolean }
                   onClick={() => void update(d, { soldOut: !d.soldOut })}
                   disabled={busy !== null}
                   className={`min-h-[44px] rounded-full px-4 font-syne text-sm font-bold disabled:opacity-50 ${
-                    d.soldOut ? "bg-yellow text-dark" : "border border-white/20 text-offwhite"
+                    d.soldOut ? "bg-yellow text-dark" : "border border-dark-control text-offwhite"
                   }`}
                 >
                   {/* Comes back on its own at midnight, so nobody has to
@@ -155,7 +155,7 @@ export default function MenuPanel({ canManage = false }: { canManage?: boolean }
                 <button
                   onClick={() => void update(d, { onMenu: !d.onMenu })}
                   disabled={busy !== null}
-                  className="min-h-[44px] rounded-full border border-white/20 px-4 font-dm text-sm text-offwhite disabled:opacity-50"
+                  className="min-h-[44px] rounded-full border border-dark-control px-4 font-dm text-sm text-offwhite disabled:opacity-50"
                 >
                   {d.onMenu ? "Take off the menu" : "Put on the menu"}
                 </button>
@@ -177,7 +177,7 @@ export default function MenuPanel({ canManage = false }: { canManage?: boolean }
                     void update(d, { capacity: n });
                   }}
                   disabled={busy !== null}
-                  className="min-h-[44px] rounded-full border border-white/20 px-4 font-dm text-sm text-offwhite disabled:opacity-50"
+                  className="min-h-[44px] rounded-full border border-dark-control px-4 font-dm text-sm text-offwhite disabled:opacity-50"
                 >
                   {d.dailyCapacity != null ? `Today: ${d.dailyCapacity}` : "Set today's count"}
                 </button>
@@ -191,7 +191,7 @@ export default function MenuPanel({ canManage = false }: { canManage?: boolean }
                 {canManage && (
                   <Link
                     href={`/merchant/products/${d.productId}/edit`}
-                    className="flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/20 px-4 font-dm text-sm text-offwhite hover:border-yellow/50 hover:text-yellow"
+                    className="flex min-h-[44px] items-center gap-1.5 rounded-full border border-dark-control px-4 font-dm text-sm text-offwhite hover:border-yellow/50 hover:text-yellow"
                   >
                     <Pencil size={14} /> Edit dish
                   </Link>

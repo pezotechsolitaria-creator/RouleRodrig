@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Syne, Bebas_Neue, DM_Sans } from "next/font/google";
+import { Syne, Bebas_Neue, DM_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { CurrencyProvider } from "@/context/CurrencyContext";
@@ -44,6 +44,24 @@ const dmSans = DM_Sans({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600"],
   variable: "--font-dm-var",
+  display: "swap",
+});
+
+// ── THE FACE FOR MONEY AND CODES ───────────────────────────────────────────
+//
+// Syne and DM Sans are both proportional, so a column of rupees does not line
+// up and "Rs 1,398.00" sits at a different width from "Rs 320.00" beside it.
+// Worse for a pickup code: in a proportional face a customer reading A7K2-9MTX
+// off a phone at arm's length has to guess at the difference between characters
+// the alphabet already went out of its way to avoid (0/O and 1/I are excluded
+// from the code alphabet for exactly this reason -- and then the type undid it).
+//
+// One weight range, used only for amounts, order numbers, pickup codes and
+// phone numbers. Everything read as a sentence stays in DM Sans.
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-mono-var",
   display: "swap",
 });
 
@@ -254,7 +272,7 @@ export default async function RootLayout({
       // afterwards. It cannot be rendered correctly here: the chosen language
       // lives only in localStorage, so the SERVER has no way to know it.
       lang="en"
-      className={`${syne.variable} ${bebasNeue.variable} ${dmSans.variable} antialiased`}
+      className={`${syne.variable} ${bebasNeue.variable} ${dmSans.variable} ${plexMono.variable} antialiased`}
       // LANGUAGE: auto-detected from navigator.language before React mounts,
       // written to the same localStorage key LanguageContext reads, so the app
       // boots straight into the visitor's language. The full-screen picker used
