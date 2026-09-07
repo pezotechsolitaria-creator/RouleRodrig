@@ -11,8 +11,10 @@
 // of which will eventually say "Coming soon" over a working link.
 //
 // ── WHAT IS REAL TODAY ──────────────────────────────────────────────────────
-// Two of the four. Shop has been live for months. Wash My Vehicle became real
-// when trade_providers, service_durations and book_service_slot_public landed:
+// Four of the six. Shop and Delivery have been live for months, and "Do it for
+// me" is a mode inside Delivery rather than a separate build. Wash My Vehicle
+// became real when trade_providers, service_durations and
+// book_service_slot_public landed:
 // a car wash is a STORE whose products are booked time, so it already has a
 // storefront, a diary, opening hours, a three-per-phone cap and commission
 // through resolve_commission_rate. None of that is rebuilt here. What was
@@ -20,12 +22,8 @@
 // URL.
 //
 // The other two are honestly marked. A card that pretends to work is worse than
-// one that says "not yet": the first loses somebody's afternoon.
-//
-// This list is SHORT on purpose. A hub earns its place by being the fastest way
-// to the thing you wanted; padding it with doors that already exist elsewhere,
-// or with rooms that are not built, makes it slower than the header it competes
-// with.
+// one that says "not yet": the first loses somebody's afternoon. The reverse is
+// worse still — see the note on "Do it for me" below.
 
 export type HubAction = {
   key: string;
@@ -49,19 +47,33 @@ export const HUB_ACTIONS: HubAction[] = [
     blurb: "Book a wash or a valet with a local business, by the hour.",
     href: "/marketplace/wash",
   },
-  // ── NOT HERE: DELIVERY, AND "DO IT FOR ME" ────────────────────────────────
-  // Both were on this hub and both came off, because /deliver's own first
-  // screen already offers all three of its modes as quick actions — "Collect &
-  // deliver", "Buy & deliver" and "Do it for me — someone goes and gets it
-  // done".
+  // ── THESE TWO LIVE AT /deliver, AND BOTH SAY SO ───────────────────────────
+  // /deliver's own first screen offers all three of its modes as quick actions:
+  // "Collect & deliver", "Buy & deliver", and "Do it for me — someone goes and
+  // gets it done".
   //
-  // The second one was worse than a duplicate. It shipped here marked "Soon"
-  // while the real thing was live one route away, so the hub was telling people
-  // a working feature did not exist yet. A second door to the same flow is
-  // clutter; a second door that says "closed" about an open room is a lie.
+  // So the hub is a second door to that room, which is what a hub is for. What
+  // it must never be again is a door with the wrong sign: "Do it for me"
+  // shipped here marked SOON while the real thing was live one route away, and
+  // a card that says "closed" about an open room sends somebody away for good.
+  // Both carry a real href for that reason, and a test asserts neither can go
+  // back to null.
   //
-  // Delivery keeps its place in the header, on /more and on the homepage. It
-  // does not need a fourth.
+  // There is no deep link to a single mode — /deliver reads no search params —
+  // so both land on the chooser, where the wording matches the card that was
+  // tapped.
+  {
+    key: "deliver",
+    title: "Delivery",
+    blurb: "Have something collected and brought to you, anywhere on Rodrigues.",
+    href: "/deliver",
+  },
+  {
+    key: "task",
+    title: "Do it for me",
+    blurb: "Someone goes, queues, collects or drops off — an errand, not a parcel.",
+    href: "/deliver",
+  },
   {
     key: "pro",
     title: "Hire a pro",
