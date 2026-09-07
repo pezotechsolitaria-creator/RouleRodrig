@@ -6,6 +6,8 @@ import {
   KIND_LABEL,
   SEGMENT_LABEL,
   capabilitiesOf,
+  taxiCapabilitiesOf,
+  availabilityLabelFor,
   missingProfileFields,
   type PersonKind,
 } from "./people";
@@ -23,6 +25,7 @@ describe("the kinds the desk covers", () => {
       "merchant",
       "organizer",
       "service",
+      "taxi",
     ]);
   });
 
@@ -39,14 +42,56 @@ describe("the kinds the desk covers", () => {
     expect(new Set(many).size).toBe(many.length);
   });
 
-  // The decision worth defending, because the owner asked for taxi and errands
-  // AS KINDS and they are not.
-  it("does NOT split a driver into taxi and errands", () => {
-    // Deliveries and errands are columns on ONE delivery_drivers row
-    // (can_deliver, can_run_errands). Two kinds would list the same human
-    // twice and let an admin approve one half of them.
-    expect(PERSON_KINDS).not.toContain("taxi" as PersonKind);
+  // ── A KIND IS A TABLE, NOT A JOB TITLE ──────────────────────────────────
+  //
+  // This assertion used to bar taxi as well as errands, on one rule: "two kinds
+  // would list the same human twice and let an admin approve one half of them".
+  // That rule is right, and it was being applied to two different situations.
+  //
+  // ERRANDS is a COLUMN. delivery_drivers.can_run_errands sits on the same row
+  // as can_deliver, and the schema was checked again before this was changed:
+  // those two are the only can_* columns on the table and there is no taxi
+  // column anywhere on it. Splitting that row in two would produce two half-
+  // people out of one, which is exactly what the original rule forbids.
+  //
+  // TAXI is a TABLE. taxi_drivers has its own rows, its own `active` switch,
+  // its own driver_token, its own public page, and columns delivery_drivers has
+  // never had — seats, luggage, airport runs. Exactly one user_id appears in
+  // both tables today, and it is the owner's own preview account rather than a
+  // real person listed twice. Where a genuine overlap does happen it is not the
+  // duplication this rule was written against: that person is a courier AND a
+  // taxi driver, holding two listings that must switch independently, because
+  // suspending them as a courier must not take their car off the rank.
+  it("does NOT split a driver into errands, which is a column on their row", () => {
     expect(PERSON_KINDS).not.toContain("errands" as PersonKind);
+  });
+
+  it("DOES list taxi drivers, because they are their own table", () => {
+    expect(PERSON_KINDS).toContain("taxi" as PersonKind);
+  });
+
+  it("asks a taxi driver what they drive", () => {
+    expect(missingProfileFields("taxi", { email: "n/a", phone: "1", segment: "" })).toEqual([
+      "Vehicle type",
+    ]);
+    expect(
+      missingProfileFields("taxi", { email: "n/a", phone: "1", segment: "Minivan" }),
+    ).toEqual([]);
+  });
+
+  it("names what a taxi actually takes, and only what is true", () => {
+    expect(
+      taxiCapabilitiesOf({ handlesTaxi: true, handlesAirport: true, handlesTransfer: false }),
+    ).toEqual(["Taxi", "Airport"]);
+    expect(taxiCapabilitiesOf({})).toEqual([]);
+  });
+
+  it("does not tell a taxi driver they are on a delivery", () => {
+    // One label map for both kinds would have been shorter and would have put
+    // the wrong word on a real screen.
+    expect(availabilityLabelFor("taxi", "busy")).toBe("On a ride");
+    expect(availabilityLabelFor("driver", "busy")).toBe("On a delivery");
+    expect(availabilityLabelFor("taxi", "available")).toBe("Online");
   });
 
   it("covers service providers now that trade_providers exists", () => {

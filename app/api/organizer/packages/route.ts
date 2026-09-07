@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { guardShared } from "@/lib/rate-limit";
 import { detectFileType } from "@/lib/file-signature";
+import { optimiseForWeb } from "@/lib/images/optimise";
 
 // Ticket packages, written by the organiser who runs the event.
 //
@@ -14,7 +15,6 @@ import { detectFileType } from "@/lib/file-signature";
 // application-level permission check gets forgotten.
 const MAX_BYTES = 4 * 1024 * 1024; // Under Vercel's ~4.5MB body limit.
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
-const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 
 const packageSchema = z.object({
   storeId: z.string().uuid(),
@@ -173,10 +173,23 @@ export async function PUT(req: NextRequest) {
   // fails both the UUID pattern and the ownership check, and the upload is
   // rejected by RLS with no useful error. M47b adds the organiser policy that
   // reads this same first segment.
-  const path = `${storeId}/package-${Date.now()}.${EXT[detected]}`;
+  let image;
+  try {
+    image = await optimiseForWeb(await file.arrayBuffer(), detected);
+  } catch {
+    return NextResponse.json({ error: "Could not read that image." }, { status: 400 });
+  }
+
+  const path = `${storeId}/package-${Date.now()}.${image.ext}`;
   const { error: uploadError } = await supabase.storage
     .from("merchant-media")
-    .upload(path, file, { contentType: detected, upsert: false });
+    .upload(path, image.body, {
+      contentType: image.contentType,
+      // Immutable filename, so a year rather than the one-hour default the
+      // omission was silently taking.
+      cacheControl: "31536000",
+      upsert: false,
+    });
 
   if (uploadError) {
     console.error("package image upload failed", uploadError);

@@ -19,6 +19,8 @@ import {
   type PeopleAction,
   type PersonKind,
   capabilitiesOf,
+  taxiCapabilitiesOf,
+  KIND_LABEL,
   PERSON_KINDS,
   type PersonRow,
 } from "@/lib/admin/people";
@@ -157,6 +159,66 @@ async function loadDrivers(admin: Awaited<ReturnType<typeof getAdmin>>): Promise
         // up, so it is not counted as missing for one.
         profileComplete: missingProfileFields("driver", { email: email || "n/a", phone, segment }).length === 0,
         verification,
+      }),
+    };
+  });
+}
+
+/**
+ * Taxi drivers.
+ *
+ * A DIFFERENT TABLE AND A DIFFERENT SHAPE from delivery_drivers, which is why
+ * this is its own kind rather than a chip on one. taxi_drivers carries a
+ * boolean `active` instead of a status enum, no email column at all, and its
+ * own trio of what-they-take flags.
+ *
+ * There is no verification rung: nothing about a taxi driver is submitted to
+ * this platform for checking. The owner puts them on the rank. So they report
+ * "unsubmitted", which lands them on `activated` once claimed and complete —
+ * accurate, where "verified" would have been a fact nobody established.
+ */
+async function loadTaxis(admin: Awaited<ReturnType<typeof getAdmin>>): Promise<PersonRow[]> {
+  const { data, error } = await admin
+    .from("taxi_drivers")
+    .select(
+      "id, name, phone, vehicle, vehicle_type, areas, active, availability, created_at, user_id, handles_taxi, handles_airport, handles_transfer",
+    )
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  return (data ?? []).map((t) => {
+    // The boolean becomes a word here so accountStateOf stays one shape for
+    // every kind rather than learning about columns.
+    const account = accountStateOf("taxi", t.active ? "active" : "inactive");
+    const phone = (t.phone as string) ?? "";
+    const segment = (t.vehicle_type as string) ?? "";
+    return {
+      id: t.id as string,
+      kind: "taxi" as const,
+      name: (t.name as string) ?? "",
+      subtitle: [t.vehicle, t.areas].filter(Boolean).join(" · "),
+      email: "",
+      phone,
+      account,
+      verification: "unsubmitted" as const,
+      segment,
+      availability: effectiveAvailability(account, t.availability as string),
+      capabilities: taxiCapabilitiesOf({
+        handlesTaxi: t.handles_taxi as boolean | null,
+        handlesAirport: t.handles_airport as boolean | null,
+        handlesTransfer: t.handles_transfer as boolean | null,
+      }),
+      joinedAt: (t.created_at as string) ?? "",
+      claimed: !!t.user_id,
+      inviteEmail: null,
+      invitedAt: null,
+      onboarding: onboardingOf({
+        claimed: !!t.user_id,
+        inviteEmail: null,
+        // No email is REQUIRED of a taxi driver, so it is not counted missing.
+        profileComplete:
+          missingProfileFields("taxi", { email: "n/a", phone, segment }).length === 0,
+        verification: "unsubmitted",
       }),
     };
   });
@@ -458,6 +520,7 @@ export async function GET(req: NextRequest) {
       kitchen: loadKitchens,
       organizer: loadOrganizers,
       service: loadServiceProviders,
+      taxi: loadTaxis,
     };
     const rows = await LOADERS[kind](admin);
     return NextResponse.json({ rows, stats: computeStats(rows, kind) });
@@ -470,6 +533,47 @@ export async function GET(req: NextRequest) {
 
 type Mutation = { kind: unknown; ids: unknown; action: unknown; reason?: unknown };
 
+/**
+ * WHERE an account action actually writes, per kind.
+ *
+ * This was `kind === "merchant" ? "merchants" : "delivery_drivers"`, which
+ * meant every kind that is neither of those — kitchens, service providers,
+ * organisers — aimed a status write at delivery_drivers using an id that table
+ * has never held. It failed closed ("That record no longer exists") rather than
+ * corrupting anything, so nobody noticed; it also told an operator the person
+ * had been deleted when they were sitting on the screen in front of them.
+ *
+ * A record, so a seventh kind has to answer this question rather than inherit
+ * somebody else's table by falling off the end of a ternary.
+ *
+ * `null` means the desk has no account switch for that kind, and says so:
+ *   - a kitchen and a service provider ARE their store, and store_status is
+ *     draft|active|paused|holiday|closed — writing "approved" into it would be
+ *     rejected by Postgres, so this is not a shortcut worth taking blind.
+ *   - an organiser's standing is the event's, not a column here.
+ */
+type AccountTarget = {
+  table: string;
+  column: string;
+  /** True when the column is a boolean rather than a status enum. */
+  boolean?: boolean;
+  /** Set when the row shows the person the reason themselves. */
+  reasonColumn?: string;
+};
+
+const ACCOUNT_TARGET: Record<PersonKind, AccountTarget | null> = {
+  merchant: { table: "merchants", column: "status" },
+  driver: { table: "delivery_drivers", column: "status", reasonColumn: "status_reason" },
+  // taxi_drivers has no status enum, just `active`. Activate sets it true;
+  // suspend and deactivate both set it false — the distinction the other kinds
+  // draw between "we said no" and "they stopped" has nowhere to live here, so
+  // the reason goes to the audit trail and only there.
+  taxi: { table: "taxi_drivers", column: "active", boolean: true },
+  kitchen: null,
+  service: null,
+  organizer: null,
+};
+
 /** Apply one action to one person. Returns the audit diff, or throws. */
 async function applyOne(
   admin: Awaited<ReturnType<typeof getAdmin>>,
@@ -478,49 +582,72 @@ async function applyOne(
   action: PeopleAction,
   reason: string,
 ): Promise<Record<string, unknown>> {
-  const table = kind === "merchant" ? "merchants" : "delivery_drivers";
-  const statusColumn = "status";
+  const target = ACCOUNT_TARGET[kind];
+  if (!target) {
+    throw new Error(
+      `Account actions are not available for ${KIND_LABEL[kind].many.toLowerCase()} from this screen.`,
+    );
+  }
+  const table = target.table;
+  const statusColumn = target.column;
 
   // Read BEFORE, so the trail records what actually changed rather than what
   // was requested. "suspend" applied to somebody already suspended should read
   // as a no-op in the log, not as a change.
+  const selectCols =
+    kind === "merchant"
+      ? "id, status, kyc_status"
+      : kind === "taxi"
+        ? "id, active"
+        : "id, status, approved_at";
+  // `selectCols` is chosen at runtime, so PostgREST's template-literal typing
+  // cannot narrow it and resolves to a ParserError. The columns are still the
+  // literal strings above; only the compiler's view of them is widened.
   const { data: before, error: readErr } = await admin
     .from(table)
-    .select(kind === "merchant" ? "id, status, kyc_status" : "id, status, approved_at")
+    .select(selectCols)
     .eq("id", id)
-    .maybeSingle();
+    .maybeSingle<Record<string, unknown>>();
   if (readErr) throw readErr;
   if (!before) throw new Error("That record no longer exists.");
 
   if (action === "verify" || action === "reject_verification") {
+    // Nothing about a taxi driver is submitted to this platform for checking,
+    // so there is no verdict to record. Saying so is better than writing an
+    // approval nobody gave.
+    if (kind === "taxi") {
+      throw new Error("Taxi drivers are not verified through this desk.");
+    }
     if (kind === "merchant") {
       const next = action === "verify" ? "approved" : "rejected";
       const { error } = await admin.from("merchants").update({ kyc_status: next }).eq("id", id);
       if (error) throw error;
-      return { kyc_status: { from: (before as { kyc_status?: string }).kyc_status, to: next } };
+      return { kyc_status: { from: before.kyc_status, to: next } };
     }
     // A driver's verification IS the approval timestamp — see loadDrivers.
     const next = action === "verify" ? new Date().toISOString() : null;
     const { error } = await admin.from("delivery_drivers").update({ approved_at: next }).eq("id", id);
     if (error) throw error;
-    return { approved_at: { from: (before as { approved_at?: string }).approved_at, to: next } };
+    return { approved_at: { from: before.approved_at, to: next } };
   }
 
   const nextState: AccountState =
     action === "activate" ? "active" : action === "suspend" ? "suspended" : "deactivated";
-  const stored = storedAccountValue(kind, nextState);
+  const stored: string | boolean = target.boolean
+    ? nextState === "active"
+    : storedAccountValue(kind, nextState);
 
   const patch: Record<string, unknown> = { [statusColumn]: stored };
   // Drivers carry the reason on the row, which is what the driver themselves is
-  // shown. Merchants have no such column, so the reason lives in the audit
-  // trail only — recorded either way, never dropped.
-  if (kind === "driver") patch.status_reason = reason || null;
+  // shown. The other kinds have no such column, so the reason lives in the
+  // audit trail only — recorded either way, never dropped.
+  if (target.reasonColumn) patch[target.reasonColumn] = reason || null;
 
   const { error } = await admin.from(table).update(patch).eq("id", id);
   if (error) throw error;
 
   return {
-    status: { from: (before as { status?: string }).status, to: stored },
+    [statusColumn]: { from: before[statusColumn], to: stored },
     ...(reason ? { reason } : {}),
   };
 }

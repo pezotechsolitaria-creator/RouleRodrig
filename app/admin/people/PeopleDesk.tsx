@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
-  BadgeCheck, Bike, Building2, CheckCircle2, ChevronRight, Loader2, Mail, MoreHorizontal,
+  BadgeCheck, Bike, Car, CheckCircle2, ChevronRight, Loader2, Mail, MoreHorizontal,
   Plus, RefreshCw, Search, ShieldOff, Store, TriangleAlert, UserCheck, UserX, X,
   UtensilsCrossed, Ticket, Wrench,
 } from "lucide-react";
 import {
-  ACCOUNT_LABEL, AVAILABILITY_LABEL, BULK_ACTIONS, ONBOARDING_LABEL, VERIFICATION_LABEL,
+  ACCOUNT_LABEL, availabilityLabelFor, BULK_ACTIONS, ONBOARDING_LABEL, VERIFICATION_LABEL,
   applyFilter, canResendInvite, computeStats, describeAction, filterFromParams, missingProfileFields,
-  paginate, paramsFromFilter, whoseMove, KIND_LABEL, SEGMENT_LABEL,
+  paginate, paramsFromFilter, whoseMove, KIND_LABEL, SEGMENT_LABEL, PERSON_KINDS,
   type AccountState, type OnboardingState, type PeopleAction, type PeopleFilter, type PersonKind,
   type PersonRow,
 } from "@/lib/admin/people";
@@ -24,6 +24,29 @@ type Detail = {
   performance: Record<string, number | null>;
   activity: { id: string; action: string; at: string; diff: unknown }[];
 };
+
+/**
+ * A face per kind. A Record, so a new kind cannot reach this screen without
+ * one — the tabs read straight off PERSON_KINDS now, and an icon nobody chose
+ * would be a crash rather than a gap.
+ */
+const KIND_ICON: Record<PersonKind, typeof Store> = {
+  merchant: Store,
+  kitchen: UtensilsCrossed,
+  service: Wrench,
+  driver: Bike,
+  taxi: Car,
+  organizer: Ticket,
+};
+
+/**
+ * The kinds that are somewhere rather than open or closed.
+ *
+ * Availability is a fact about a person with a vehicle, and the filter, the
+ * counter and the row chip each used to test `kind === "driver"` separately.
+ * Adding taxis to three independent conditions is how two of them get missed.
+ */
+const ON_THE_ROAD = new Set<PersonKind>(["driver", "taxi"]);
 
 const ACCOUNT_TONE: Record<AccountState, string> = {
   active: "border-green-500/30 bg-green-500/10 text-green-300",
@@ -243,16 +266,15 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
     <div className="space-y-4">
       {/* ── Tabs ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2">
-        {([
-          // Four kinds, in the order a shop owner would look for them. Five
-          // organisers and two kitchens were operating on this platform and
-          // appeared on this desk nowhere.
-          { k: "merchant" as const, label: KIND_LABEL.merchant.many, Icon: Store },
-          { k: "kitchen" as const, label: KIND_LABEL.kitchen.many, Icon: UtensilsCrossed },
-          { k: "service" as const, label: KIND_LABEL.service.many, Icon: Wrench },
-          { k: "driver" as const, label: KIND_LABEL.driver.many, Icon: Bike },
-          { k: "organizer" as const, label: KIND_LABEL.organizer.many, Icon: Ticket },
-        ]).map(({ k, label, Icon }) => (
+        {/* Derived from PERSON_KINDS, never re-listed here. This WAS a
+            hardcoded array, and the cost of that is on the record: five
+            organisers and two kitchens were operating on the platform and
+            appeared on this desk nowhere. A new kind now shows up by existing,
+            and KIND_ICON fails the build until somebody gives it a face. */}
+        {PERSON_KINDS.map((k) => {
+          const Icon = KIND_ICON[k];
+          const label = KIND_LABEL[k].many;
+          return (
           <button
             key={k}
             onClick={() => switchKind(k)}
@@ -265,7 +287,8 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
           >
             <Icon size={15} /> {label}
           </button>
-        ))}
+          );
+        })}
         {/* Assisted onboarding. Self-service is unchanged and still how most
             people join — this is for the ones who will not fill in a form. */}
         <button
@@ -291,7 +314,7 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
         <Metric label="Suspended" value={rows ? stats.suspended : null} />
         <Metric label="Not signed in" value={rows ? stats.awaitingActivation : null} />
         <Metric label="Awaiting checks" value={rows ? stats.awaitingVerification : null} />
-        {kind === "driver" ? (
+        {ON_THE_ROAD.has(kind) ? (
           <Metric label="Online now" value={rows ? stats.online ?? null : null} />
         ) : (
           <Metric label="Shops open" value={rows ? stats.shopsOpen ?? null : null} />
@@ -334,7 +357,7 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
           ))}
         </select>
 
-        {kind === "driver" && (
+        {ON_THE_ROAD.has(kind) && (
           <select
             value={filter.availability}
             onChange={(e) => setFilter({ availability: e.target.value as PeopleFilter["availability"] })}
@@ -466,7 +489,7 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
                           {r.verification === "verified" && <BadgeCheck size={11} className="mr-1" />}
                           {VERIFICATION_LABEL[r.verification]}
                         </Badge>
-                        {r.kind === "driver" && r.availability && (
+                        {ON_THE_ROAD.has(r.kind) && r.availability && (
                           <Badge
                             tone={
                               r.availability === "available"
@@ -476,7 +499,7 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
                                   : "border-white/12 bg-white/[0.03] text-muted"
                             }
                           >
-                            {AVAILABILITY_LABEL[r.availability]}
+                            {availabilityLabelFor(kind, r.availability)}
                           </Badge>
                         )}
                         {/* Only when something is outstanding. A finished row
@@ -609,7 +632,7 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
           <aside className="h-full w-full max-w-lg overflow-y-auto border-l border-white/10 bg-dark p-5">
             <div className="flex items-start gap-3">
               <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-yellow/10 text-yellow">
-                {open.kind === "merchant" ? <Building2 size={18} /> : <Bike size={18} />}
+                {(() => { const I = KIND_ICON[open.kind]; return <I size={18} />; })()}
               </span>
               <div className="min-w-0 flex-1">
                 <h2 className="truncate font-syne text-lg font-extrabold text-offwhite">{open.name}</h2>
@@ -624,7 +647,7 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
               <Badge tone={ACCOUNT_TONE[open.account]}>{ACCOUNT_LABEL[open.account]}</Badge>
               <Badge tone="border-white/12 bg-white/[0.03] text-muted">{VERIFICATION_LABEL[open.verification]}</Badge>
               {open.availability && (
-                <Badge tone="border-white/12 bg-white/[0.03] text-muted">{AVAILABILITY_LABEL[open.availability]}</Badge>
+                <Badge tone="border-white/12 bg-white/[0.03] text-muted">{availabilityLabelFor(kind, open.availability)}</Badge>
               )}
             </div>
 
@@ -632,7 +655,7 @@ export default function PeopleDesk({ initialKind }: { initialKind: PersonKind })
               {[
                 ["Email", open.email],
                 ["Phone", open.phone],
-                [open.kind === "merchant" ? "Category" : "Vehicle", open.segment],
+                [SEGMENT_LABEL[open.kind], open.segment],
                 ["Joined", open.joinedAt ? new Date(open.joinedAt).toLocaleDateString() : ""],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-3">

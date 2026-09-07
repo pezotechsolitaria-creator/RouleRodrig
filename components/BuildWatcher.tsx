@@ -37,7 +37,14 @@ export default function BuildWatcher({ commit }: { commit: string }) {
     const check = async () => {
       if (cancelled || document.visibilityState !== "visible") return;
       try {
-        const res = await fetch("/api/health?probe=build", { cache: "no-store" });
+        // probe=live, and the exact word matters. /api/health recognises only
+        // "live"; ANY other value — including the "build" this asked for until
+        // now — falls through to the READINESS probe, which runs about six
+        // Supabase round-trips. This fires on every page load, on every return
+        // to the tab, and every fifteen minutes, so every visit to the site was
+        // billing a full dependency check to read one 8-character string that
+        // the cheap liveness response already carries.
+        const res = await fetch("/api/health?probe=live", { cache: "no-store" });
         if (!res.ok) return;
         const json = await res.json();
         const live: string | undefined = json?.build?.commit;

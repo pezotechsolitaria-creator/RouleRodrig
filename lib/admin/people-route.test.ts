@@ -95,7 +95,9 @@ describe("every mutation leaves a trail", () => {
   it("records what changed, not merely that something did", () => {
     // applyOne reads the row BEFORE writing so the diff is real.
     expect(SRC).toContain("// Read BEFORE");
-    expect(SRC).toMatch(/from:\s*\(before as/);
+    // `from` must come out of the row that was read, whatever the column is
+    // called — merchants and drivers carry `status`, a taxi carries `active`.
+    expect(SRC).toMatch(/from:\s*before[.[]/);
   });
 });
 

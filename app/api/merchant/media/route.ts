@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { guard } from "@/lib/rate-limit";
 import { detectFileType, isUuid } from "@/lib/file-signature";
+import { optimiseForWeb } from "@/lib/images/optimise";
 
 // Uploads a shop logo or product photo into the public `merchant-media`
 // bucket and attaches it to the right row. Runs as the signed-in user (not
@@ -15,7 +16,6 @@ import { detectFileType, isUuid } from "@/lib/file-signature";
 // reject before this code ever ran for files between ~4.5–6MB.
 const MAX_BYTES = 4 * 1024 * 1024; // 4 MB
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
-const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 type Target = "store_logo" | "product_photo";
 
 export async function POST(req: NextRequest) {
@@ -54,11 +54,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Please upload a JPG, PNG or WebP image." }, { status: 400 });
   }
 
-  const path = `${storeId}/${target === "store_logo" ? "logo" : "products"}/${Date.now()}-${Math.random().toString(36).slice(2)}.${EXT[detectedType]}`;
+  // Same treatment as the owner's own uploads: a merchant photographing their
+  // shop from a phone should not be able to put a 4 MB file on a customer's
+  // product page.
+  let image;
+  try {
+    image = await optimiseForWeb(await file.arrayBuffer(), detectedType);
+  } catch {
+    return NextResponse.json(
+      { error: "That image could not be read. Try saving it as a JPG first." },
+      { status: 400 },
+    );
+  }
+
+  const path = `${storeId}/${target === "store_logo" ? "logo" : "products"}/${Date.now()}-${Math.random().toString(36).slice(2)}.${image.ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from("merchant-media")
-    .upload(path, file, { contentType: detectedType, upsert: false });
+    .upload(path, image.body, {
+      contentType: image.contentType,
+      // A YEAR, not the one-hour default this omitted. These files are
+      // immutable — the name carries a timestamp and nothing overwrites one —
+      // so every re-download after the first hour was pure waste.
+      cacheControl: "31536000",
+      upsert: false,
+    });
   if (uploadError) {
     console.error("merchant-media upload failed", uploadError);
     return NextResponse.json({ error: "Upload failed. Please try again." }, { status: 500 });

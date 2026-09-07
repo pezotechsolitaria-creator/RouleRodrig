@@ -46,7 +46,7 @@
  * an admin the desk is broken — and the moment it did, the exclusion became the
  * lie instead.
  */
-export type PersonKind = "merchant" | "driver" | "kitchen" | "organizer" | "service";
+export type PersonKind = "merchant" | "driver" | "kitchen" | "organizer" | "service" | "taxi";
 
 /** Every kind, in the order the desk lists them. */
 export const PERSON_KINDS: PersonKind[] = [
@@ -54,6 +54,12 @@ export const PERSON_KINDS: PersonKind[] = [
   "kitchen",
   "service",
   "driver",
+  // Next to delivery partners, because that is how the desk thinks of them:
+  // both are somebody with a vehicle waiting to be sent somewhere. They are a
+  // separate KIND rather than a capability chip on a driver because they are a
+  // separate table with separate people in it — a taxi driver on this island is
+  // not a parcel courier who also does rides.
+  "taxi",
   "organizer",
 ];
 
@@ -63,6 +69,7 @@ export const KIND_LABEL: Record<PersonKind, { one: string; many: string }> = {
   driver: { one: "Delivery partner", many: "Delivery partners" },
   organizer: { one: "Event organiser", many: "Event organisers" },
   service: { one: "Service provider", many: "Service providers" },
+  taxi: { one: "Taxi driver", many: "Taxi drivers" },
 };
 
 /** What the `segment` column means for each kind, in the admin's words. */
@@ -72,6 +79,7 @@ export const SEGMENT_LABEL: Record<PersonKind, string> = {
   driver: "Vehicle",
   organizer: "Organiser",
   service: "Trade",
+  taxi: "Vehicle",
 };
 
 /**
@@ -88,6 +96,23 @@ export function capabilitiesOf(row: {
   const out: string[] = [];
   if (row.canDeliver) out.push("Deliveries");
   if (row.canRunErrands) out.push("Errands");
+  return out;
+}
+
+/**
+ * What a taxi driver takes. Same reasoning as capabilitiesOf(): one person,
+ * chips — a driver who does airport runs usually does town runs too, and
+ * splitting them would list the same car twice.
+ */
+export function taxiCapabilitiesOf(row: {
+  handlesTaxi?: boolean | null;
+  handlesAirport?: boolean | null;
+  handlesTransfer?: boolean | null;
+}): string[] {
+  const out: string[] = [];
+  if (row.handlesTaxi) out.push("Taxi");
+  if (row.handlesAirport) out.push("Airport");
+  if (row.handlesTransfer) out.push("Transfers");
   return out;
 }
 
@@ -159,8 +184,22 @@ const DRIVER_ACCOUNT: Record<string, AccountState> = {
   inactive: "deactivated",
 };
 
+/**
+ * A taxi driver has no status enum — taxi_drivers carries a boolean `active`.
+ *
+ * So there is no "pending": a taxi driver is put on the island's rank by the
+ * owner, they are not an application waiting to be judged. The loader converts
+ * the boolean to one of these two words rather than this file learning about
+ * booleans, which keeps every kind speaking the same language.
+ */
+const TAXI_ACCOUNT: Record<string, AccountState> = {
+  active: "active",
+  inactive: "deactivated",
+};
+
 export function accountStateOf(kind: PersonKind, stored: string | null | undefined): AccountState {
-  const table = kind === "merchant" ? MERCHANT_ACCOUNT : DRIVER_ACCOUNT;
+  const table =
+    kind === "merchant" ? MERCHANT_ACCOUNT : kind === "taxi" ? TAXI_ACCOUNT : DRIVER_ACCOUNT;
   // An unknown value is treated as pending, never as active. A new enum member
   // nobody has mapped yet must not grant somebody the run of the platform.
   return table[(stored ?? "").trim()] ?? "pending";
@@ -546,7 +585,10 @@ export function computeStats(rows: PersonRow[], kind: PersonKind): PeopleStats {
     // who have not turned up yet, and whom nobody chases unless it is on screen.
     awaitingActivation: rows.filter((r) => r.onboarding === "invited").length,
   };
-  if (kind === "driver") {
+  // Both kinds that have an availability column get the on-the-road counters.
+  // A taxi has no shops, so the shopsOpen total below would always read zero
+  // and quietly imply the desk was looking at something it was not.
+  if (kind === "driver" || kind === "taxi") {
     return {
       ...base,
       online: rows.filter((r) => r.availability === "available").length,
@@ -599,6 +641,21 @@ export const AVAILABILITY_LABEL: Record<"offline" | "available" | "busy", string
   available: "Online",
   busy: "On a delivery",
 };
+
+/**
+ * The same three states, in the words of the job.
+ *
+ * "On a delivery" is exactly right for a courier and simply wrong for a taxi,
+ * whose passenger is a person and not a parcel. One map for both would have
+ * been shorter and would have put the wrong word on a real screen.
+ */
+export function availabilityLabelFor(
+  kind: PersonKind,
+  availability: "offline" | "available" | "busy",
+): string {
+  if (kind === "taxi" && availability === "busy") return "On a ride";
+  return AVAILABILITY_LABEL[availability];
+}
 
 // ── Admin-assisted onboarding ───────────────────────────────────────
 //
@@ -714,6 +771,7 @@ export function missingProfileFields(
   if (!(row.email ?? "").trim()) missing.push("Email address");
   if (!(row.phone ?? "").trim()) missing.push("Phone number");
   if (kind === "driver" && !(row.segment ?? "").trim()) missing.push("Vehicle type");
+  if (kind === "taxi" && !(row.segment ?? "").trim()) missing.push("Vehicle type");
   if (kind === "merchant" && !(row.segment ?? "").trim()) missing.push("What they sell");
   // A restaurant with no pickup hint is the one a customer cannot find. It is
   // the field this island actually needs — "green gate beside the market"

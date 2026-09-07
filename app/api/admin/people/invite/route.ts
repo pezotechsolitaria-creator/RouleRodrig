@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { guardAdminApi, readJson, failed } from "@/lib/admin/api-guard";
 import { audit } from "@/lib/admin/audit";
-import { canResendInvite, normalizePhone, type PersonKind } from "@/lib/admin/people";
+import { canResendInvite, normalizePhone } from "@/lib/admin/people";
+import type { InviteRole } from "@/lib/notifications/invite";
 
 // ── Creating an account FOR somebody ────────────────────────────────────────
 //
@@ -265,7 +266,11 @@ export async function PATCH(req: NextRequest) {
  * sending different emails or landing people on different screens.
  */
 async function sendInvite(
-  kind: PersonKind,
+  // InviteRole, not PersonKind. Only merchants and drivers can be invited by
+  // email — the zod union above admits nothing else — and a taxi driver has no
+  // email column at all; they are reached by their driver_token link. Widening
+  // this to PersonKind claimed a capability that does not exist.
+  kind: InviteRole,
   input: { id: string; email: string; name: string; context: string | null; attempt?: number },
 ): Promise<boolean> {
   try {

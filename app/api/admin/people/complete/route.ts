@@ -84,6 +84,15 @@ const TARGET: Record<
     // The trade itself is trade_providers.trade, written separately.
     segment: null,
   },
+  taxi: {
+    table: "taxi_drivers",
+    key: "id",
+    phone: "phone",
+    // taxi_drivers has no email column. A taxi driver is reached on their
+    // phone or by their driver_token link, never by email.
+    email: null,
+    segment: "vehicle_type",
+  },
   organizer: {
     table: "event_organizers",
     key: "id",
