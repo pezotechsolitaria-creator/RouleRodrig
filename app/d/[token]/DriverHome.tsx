@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { usePolling } from "@/lib/use-polling";
 import RideLog from "./RideLog";
 import {
   Loader2, Power, BellRing, BellOff, Car,
@@ -131,10 +132,9 @@ export default function DriverHome({ token }: { token: string }) {
   // Poll quietly so a driver who leaves this open sees an offer arrive without
   // touching anything. Fifteen seconds against a ten-minute window is plenty and
   // costs a phone almost nothing.
-  useEffect(() => {
-    const id = setInterval(() => void load(true), 15_000);
-    return () => clearInterval(id);
-  }, [load]);
+  // immediate:false — the first read above shows a spinner; this one is SILENT
+  // (load(true)), and firing the silent one on mount would leave a blank card.
+  usePolling(() => load(true), 15_000, { immediate: false });
 
   // What the browser currently thinks. Read on mount rather than assumed: a
   // driver who cleared their data is unsubscribed and must be told.

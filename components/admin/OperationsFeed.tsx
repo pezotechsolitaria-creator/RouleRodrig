@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { usePolling } from "@/lib/use-polling";
 import Link from "next/link";
 import { AlertTriangle, AlertCircle, Info, Loader2, CheckCircle2 } from "lucide-react";
 
@@ -42,13 +43,9 @@ export default function OperationsFeed() {
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-    // A minute is right: the things here (a stalled delivery, a dead worker)
-    // change on the order of minutes, not seconds.
-    const t = setInterval(() => void load(), 60_000);
-    return () => clearInterval(t);
-  }, [load]);
+  // A minute is right: the things here (a stalled delivery, a dead worker)
+  // change on the order of minutes, not seconds. Paused while hidden.
+  usePolling(load, 60_000);
 
   if (error) {
     return <p className="rounded-xl border border-red-500/30 bg-red-500/5 p-4 font-dm text-sm text-red-300">{error}</p>;

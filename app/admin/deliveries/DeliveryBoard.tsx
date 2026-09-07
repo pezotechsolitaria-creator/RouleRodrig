@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { usePolling } from "@/lib/use-polling";
 import { KIND_LABEL, toRequestKind } from "@/lib/delivery/kind";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, EyeOff, Loader2, Package, Phone, Plus, RefreshCw, UserCheck, UserX } from "lucide-react";
@@ -110,13 +111,10 @@ export default function DeliveryBoard() {
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-    // A control centre showing five-minute-old state is worse than useless —
-    // it tells an operator a problem is handled when it is not.
-    const t = setInterval(() => void load(), 15_000);
-    return () => clearInterval(t);
-  }, [load]);
+  // A control centre showing five-minute-old state is worse than useless — it
+  // tells an operator a problem is handled when it is not. Paused while the tab
+  // is hidden: nobody is being told anything by a board nobody is looking at.
+  usePolling(load, 15_000);
 
   async function act(key: string, payload: Record<string, unknown>) {
     if (busy) return;

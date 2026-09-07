@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { usePolling } from "@/lib/use-polling";
 import { useLanguage } from "@/context/LanguageContext";
 import { Bike, ShieldCheck, CheckCircle2 } from "lucide-react";
 import LiveTripView from "@/components/tracking/LiveTripView";
@@ -96,12 +97,9 @@ export default function DeliveryStatusCard({
   // Synchronising with an external system — the rule's documented escape
   // hatch. This kicks off an async read whose setState calls all happen after
   // an await; the rule cannot see that and flags the call site conservatively.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-    const t = setInterval(() => void load(), 20_000);
-    return () => clearInterval(t);
-  }, [load]);
+  // The customer watching their delivery. Stops while the tab is hidden — a
+  // phone in a pocket learns nothing from a poll.
+  usePolling(load, 20_000);
 
   // Nothing to say for a pickup order, or before a delivery exists.
   if (!loaded || !delivery) return null;

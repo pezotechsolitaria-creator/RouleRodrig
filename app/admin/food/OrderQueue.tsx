@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { usePolling } from "@/lib/use-polling";
 import { toast } from "sonner";
 import {
   Loader2, RefreshCw, Bike, ShoppingBag, Phone, MapPin, Clock, ChefHat,
@@ -81,15 +82,10 @@ export default function OrderQueue({ kitchens }: { kitchens: { id: string; name:
     }
   }, [scope, kitchenId]);
 
-  useEffect(() => { void load(); }, [load]);
+  // Service is live. usePolling does the first read and the interval, pauses
+  // while the tab is hidden, and takes one fresh read on the way back.
+  usePolling(load, 30_000);
 
-  // Service is live. A queue that only updates when someone remembers to press
-  // refresh is a queue that shows a paid order as "New" for twenty minutes.
-  // 30s is frequent enough to be trusted and cheap enough not to matter.
-  useEffect(() => {
-    const id = setInterval(() => { void load(); }, 30_000);
-    return () => clearInterval(id);
-  }, [load]);
 
   const move = useCallback(
     async (order: AdminFoodOrder, status: OrderStatus) => {
