@@ -84,7 +84,7 @@ export default async function KitchenPage() {
               <Link
                 key={href}
                 href={href}
-                className="flex min-h-[48px] items-center gap-2.5 rounded-xl border border-white/12 bg-dark-card px-3 font-dm text-sm text-offwhite transition-colors hover:border-yellow/50 hover:text-yellow"
+                className="flex min-h-[48px] items-center gap-2.5 rounded-xl border border-dark-border bg-dark-card px-3 font-dm text-sm text-offwhite transition-colors hover:border-yellow/50 hover:text-yellow"
               >
                 <Icon size={15} className="shrink-0 text-yellow/80" aria-hidden />
                 <span className="min-w-0 leading-tight">{label}</span>

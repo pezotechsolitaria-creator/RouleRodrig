@@ -103,7 +103,7 @@ export default function HistoryPanel() {
               className={`min-h-[36px] rounded-full px-3.5 font-dm text-xs transition-colors ${
                 days === d
                   ? "bg-yellow font-bold text-dark"
-                  : "border border-white/15 text-muted hover:border-yellow/40"
+                  : "border border-dark-border text-muted hover:border-yellow/40"
               }`}
             >
               {d} days
@@ -113,7 +113,7 @@ export default function HistoryPanel() {
         <button
           onClick={() => void load(days)}
           disabled={busy}
-          className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 font-dm text-xs text-muted hover:border-yellow/40 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-full border border-dark-border px-3 py-1.5 font-dm text-xs text-muted hover:border-yellow/40 disabled:opacity-50"
         >
           {busy ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
           Refresh
@@ -136,14 +136,14 @@ export default function HistoryPanel() {
       )}
 
       {log && !error && (t?.orders ?? 0) === 0 && (
-        <p className="rounded-2xl border border-white/10 bg-dark-card px-4 py-8 text-center font-dm text-sm text-muted">
+        <p className="rounded-2xl border border-dark-border bg-dark-card px-4 py-8 text-center font-dm text-sm text-muted">
           Nothing sold in the last {days} days.
         </p>
       )}
 
       {log && !error && (t?.orders ?? 0) > 0 && (
         <>
-          <div className="flex items-baseline justify-between gap-3 rounded-xl border border-white/10 bg-dark-card px-4 py-3">
+          <div className="flex items-baseline justify-between gap-3 rounded-xl border border-dark-border bg-dark-card px-4 py-3">
             <span className="font-dm text-sm text-muted">
               {t?.collected} collected
               {(t?.cancelled ?? 0) > 0 && (
@@ -171,7 +171,7 @@ export default function HistoryPanel() {
               <h3 className="px-1 font-syne text-sm font-bold text-offwhite">
                 What sold
               </h3>
-              <ul className="mt-2 divide-y divide-white/[0.06] overflow-hidden rounded-2xl border border-white/10 bg-dark-card">
+              <ul className="mt-2 divide-y divide-white/[0.06] overflow-hidden rounded-2xl border border-dark-border bg-dark-card">
                 {log.dishes.map((d) => (
                   <li
                     key={`${d.name}|${d.variant ?? ""}`}
@@ -200,7 +200,7 @@ export default function HistoryPanel() {
           {log.byDay.length > 0 && (
             <section>
               <h3 className="px-1 font-syne text-sm font-bold text-offwhite">By day</h3>
-              <ul className="mt-2 divide-y divide-white/[0.06] overflow-hidden rounded-2xl border border-white/10 bg-dark-card">
+              <ul className="mt-2 divide-y divide-white/[0.06] overflow-hidden rounded-2xl border border-dark-border bg-dark-card">
                 {log.byDay.map((d) => (
                   <li key={d.date} className="flex items-center justify-between gap-3 px-4 py-2.5">
                     <span className="font-dm text-sm text-offwhite">{dayLabel(d.date)}</span>

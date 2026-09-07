@@ -26,7 +26,7 @@ export default function AllDayPanel({ orders }: { orders: Order[] }) {
 
   if (view.groups.length === 0) {
     return (
-      <div className="rounded-2xl border border-white/10 bg-dark-card p-8 text-center">
+      <div className="rounded-2xl border border-dark-border bg-dark-card p-8 text-center">
         <Check size={26} className="mx-auto text-green-400" />
         <p className="mt-2 font-syne text-base font-bold">Nothing to cook</p>
         <p className="mt-1 font-dm text-sm text-muted">
@@ -42,7 +42,7 @@ export default function AllDayPanel({ orders }: { orders: Order[] }) {
     <div className="space-y-3">
       {/* One line of arithmetic, so the cook can sanity-check the list against
           the Orders tab without counting. */}
-      <div className="flex items-baseline justify-between gap-3 rounded-xl border border-white/10 bg-dark-card px-4 py-3">
+      <div className="flex items-baseline justify-between gap-3 rounded-xl border border-dark-border bg-dark-card px-4 py-3">
         <span className="font-dm text-sm text-muted">
           {view.countedOrders} {view.countedOrders === 1 ? "order" : "orders"}
         </span>
@@ -87,7 +87,7 @@ export default function AllDayPanel({ orders }: { orders: Order[] }) {
             className={`flex items-center gap-4 rounded-2xl border px-4 py-4 ${
               it.soldOut
                 ? "border-red-500/30 bg-red-500/[0.06]"
-                : "border-white/10 bg-dark-card"
+                : "border-dark-border bg-dark-card"
             }`}
           >
             {/* Quantity first and biggest: it is what the cook is here for, and
