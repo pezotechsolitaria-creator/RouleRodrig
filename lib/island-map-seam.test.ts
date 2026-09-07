@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it, expect } from "vitest";
+import { TAXI_HERE_LABEL, taxiToPlaceHref } from "./rides/deep-link";
 
 // ── THE MAP AND THE LIST HAVE TO AGREE ──────────────────────────────────────
 //
@@ -91,10 +92,10 @@ describe("the pins follow the filter", () => {
 });
 
 describe("the island guide can hand you to a taxi", () => {
-  // app/taxi/book/page.tsx has read ?to=&toLat=&toLng= since it was written —
-  // dropoffFromQuery() even labels the result `id: "map"`, so it was built to be
-  // arrived at FROM a map. Nothing linked to it. The two halves are in different
-  // files, so nothing but this test notices if one of them is renamed.
+  // app/taxi/book/page.tsx reads ?to=&toLat=&toLng= and dropoffFromQuery()
+  // labels the result `id: "map"` — the receiving end was built to be arrived
+  // at FROM a map. The two ends live in different files, so nothing but this
+  // test notices when one of them is renamed.
   it("sends the parameters the booking page actually reads", () => {
     const page = read("app/taxi/book/page.tsx");
     for (const param of ["to", "toLat", "toLng", "service"]) {
@@ -102,44 +103,58 @@ describe("the island guide can hand you to a taxi", () => {
         new RegExp(`\\b${param}\\??:`),
       );
     }
-    const src = read(SRC);
-    expect(src).toContain("/taxi/book?service=taxi&to=");
-    expect(src).toContain("toLat=");
-    expect(src).toContain("toLng=");
+    const q = new URL(
+      taxiToPlaceHref("Trou d'Argent", -19.7405, 63.475),
+      "https://example.com",
+    ).searchParams;
+    expect(q.get("service")).toBe("taxi");
+    expect(q.get("to")).toBe("Trou d'Argent");
+    expect(q.get("toLat")).toBe("-19.7405");
+    expect(q.get("toLng")).toBe("63.475");
   });
 
-  it("escapes the place name it puts in the URL", () => {
-    // "Trou d'Argent" and "Baie aux Huîtres" both carry characters that break a
-    // query string unencoded.
-    const src = read(SRC);
-    expect(src).toMatch(/to=\$\{encodeURIComponent\(locName\)\}/);
+  it("escapes the place names that actually exist here", () => {
+    // "Baie aux Huitres" carries a circumflex and "Trou d'Argent" an
+    // apostrophe; both break a query string unencoded.
+    const href = taxiToPlaceHref("Baie aux Huîtres", -19.68, 63.39);
+    expect(href).not.toContain("î");
+    expect(href).toContain("Hu%C3%AEtres");
   });
 
-  it("uses the name in the reader's own language", () => {
-    // locName is the localize()d value. Sending loc.name would book a French
-    // visitor to a string they never saw on screen.
-    const src = read(SRC);
-    expect(src).not.toMatch(/to=\$\{encodeURIComponent\(loc\.name\)\}/);
+  it("is built in one place, not written out twice", () => {
+    // The popup and the list under it link to the same page. Two hand-written
+    // URLs is how one of them silently stops matching what the page reads.
+    for (const f of ["components/IslandMap.tsx", "components/MapSection.tsx"]) {
+      expect(read(f), f).toContain("taxiToPlaceHref");
+      expect(read(f), `${f} hand-writes the URL`).not.toContain(
+        "/taxi/book?service=taxi&to=",
+      );
+    }
+  });
+
+  it("offers the ride in the list too, not only in the popup", () => {
+    // One map, then twenty rows — the list is the half people scroll.
+    const section = read("components/MapSection.tsx");
+    expect(section).toContain("TAXI_HERE_LABEL");
+    expect(section).toMatch(/<Link\s+href=\{taxiToPlaceHref\(/);
   });
 
   it("stays in the app", () => {
     // The directions link is target="_blank" because Google Maps is elsewhere.
-    // This one is not: opening a new tab would drop the session, the chosen
-    // language and the back stack on the way into a booking.
-    const src = read(SRC);
-    const taxiLine = src
-      .split("\n")
-      .find((l) => l.includes("/taxi/book?service=taxi"));
-    expect(taxiLine).toBeTruthy();
-    expect(taxiLine).not.toContain('target="_blank"');
+    // This one is not: a new tab drops the session, the chosen language and the
+    // back stack on the way into a booking.
+    const section = read("components/MapSection.tsx");
+    const at = section.indexOf("taxiToPlaceHref");
+    expect(section.slice(at, at + 400)).not.toContain('target="_blank"');
   });
 
-  it("names the button in all three languages", () => {
-    const src = read(SRC);
-    const block = src.slice(src.indexOf("const TAXI_LABEL"));
-    for (const lang of ["en:", "fr:", "cr:"]) {
-      expect(block.slice(0, 250), lang).toContain(lang);
+  it("names the button in all three languages, and keeps the 'here'", () => {
+    for (const lang of ["en", "fr", "cr"] as const) {
+      expect(TAXI_HERE_LABEL[lang]?.trim(), lang).toBeTruthy();
     }
+    // Three distinct strings: identical wording would mean the label was copied
+    // rather than translated.
+    expect(new Set(Object.values(TAXI_HERE_LABEL)).size).toBe(3);
   });
 });
 

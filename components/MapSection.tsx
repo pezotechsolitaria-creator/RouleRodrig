@@ -2,14 +2,16 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
-import { Navigation, ChevronDown, X, ChevronLeft, ChevronRight, ZoomIn, BookOpen, Volume2, Square } from "lucide-react";
+import { Navigation, Car, ChevronDown, X, ChevronLeft, ChevronRight, ZoomIn, BookOpen, Volume2, Square } from "lucide-react";
 import type { MapLocation } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc as localize } from "@/lib/localize";
 import { speakText, stopSpeaking, primeVoices } from "@/lib/speak";
 import type { Language } from "@/lib/i18n";
+import { TAXI_HERE_LABEL, taxiToPlaceHref } from "@/lib/rides/deep-link";
 
 // Load Leaflet map only on client (no SSR — window required)
 const IslandMap = dynamic(() => import("./IslandMap"), { ssr: false });
@@ -266,6 +268,20 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
                         >
                           <Navigation size={11} /> {t.map.directions}
                         </a>
+                        {/* The same offer the map popup makes. The list is the
+                            half people actually scroll — one map, then twenty
+                            rows — so a booking link that lives only in the
+                            popup is one most visitors never see. */}
+                        <Link
+                          href={taxiToPlaceHref(
+                            localize(language, loc.name, loc.nameFr, loc.nameCr),
+                            loc.lat,
+                            loc.lng,
+                          )}
+                          className="inline-flex items-center gap-1 mt-2 text-[11px] font-dm text-yellow/70 hover:text-yellow transition-colors"
+                        >
+                          <Car size={11} /> {TAXI_HERE_LABEL[language]}
+                        </Link>
                         {(() => {
                           const story = localize(language, loc.story, loc.storyFr, loc.storyCr);
                           if (!story) return null;
