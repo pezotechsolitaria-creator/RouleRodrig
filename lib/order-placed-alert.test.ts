@@ -91,3 +91,36 @@ describe("the category boundary the staff slot depends on", () => {
     expect(pay).toContain('category: "payments"');
   });
 });
+
+// ── THE LINK HAS TO GO WHERE THE ORDER IS ───────────────────────────────────
+//
+// Caught on 2026-09-07 by placing a real marketplace order on production and
+// reading the alert that arrived: a Roulé Test Shop order told the owner to
+// open https://roulerodrig.com/admin/food — the kitchen queue, which is not a
+// page that order appears on.
+//
+// The alert already knew: `isKitchen` is computed for the category two lines
+// above, and the category was correct. Only the URL was hardcoded, so the
+// mistake was invisible to any test that checked routing.
+describe("the admin link on order.placed", () => {
+  const SRC = read("lib", "notifications", "order-placed.ts");
+
+  it("sends a kitchen order and a shop order to different pages", () => {
+    expect(SRC).toContain('isKitchen ? "/admin/food" : "/admin/marketplace"');
+  });
+
+  it("never hardcodes the food queue for every order", () => {
+    expect(SRC).not.toContain('"https://roulerodrig.com/admin/food"');
+  });
+
+  it("builds the link from SITE_URL rather than a literal domain", () => {
+    // A hardcoded origin is also wrong on every preview deployment.
+    expect(SRC).not.toMatch(/"https:\/\/roulerodrig\.com\/admin/);
+    expect(SRC).toContain("${SITE_URL}${isKitchen");
+  });
+
+  it("decides the category from the same fact as the link", () => {
+    // If these ever disagree, one of them is lying about what the store is.
+    expect(SRC).toContain('category: isKitchen ? "food" : "admin"');
+  });
+});
