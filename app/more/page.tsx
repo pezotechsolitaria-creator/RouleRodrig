@@ -5,7 +5,7 @@ import {
   ChevronRight, Compass, Map as MapIcon, BookOpen, Calendar,
   HelpCircle, Phone, Siren, FileText, Shield, RefreshCw, Store, CalendarCheck, ClipboardList,
   UtensilsCrossed, Ticket, ShoppingBag, CircleUser, Car, Sparkles,
-  ClipboardCheck, Bike, Languages,
+  ClipboardCheck, Bike, Languages, Info,
 } from "lucide-react";
 import { getContent } from "@/lib/content";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -60,6 +60,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
       { icon: CircleUser, label: "My account", href: "/account", note: "Orders, bookings, my shop or driver dashboard, settings" },
       { icon: ClipboardList, label: "Track an order", href: "/track", note: "No account needed" },
       { icon: HelpCircle, label: "FAQ", href: "/faq" },
+      { icon: Info, label: "About us", href: "/about", note: "Who runs this, and where we are" },
       { icon: Phone, label: "Contact us", href: "/#contact" },
       { icon: Siren, label: "Emergency numbers", href: "/emergency" },
     ],
