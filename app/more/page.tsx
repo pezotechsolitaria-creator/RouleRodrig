@@ -30,6 +30,10 @@ const GROUPS: { title: string; rows: Row[] }[] = [
     // because none of these three had a link anywhere outside the homepage.
     title: "Order & buy",
     rows: [
+      // First in the group, because it is the row that explains the others. A
+      // hub nobody can reach is the exact bug it exists to fix: a car wash was
+      // bookable for a week and reachable only by knowing its URL.
+      { icon: Sparkles, label: "Marketplace", href: "/marketplace", note: "Buy it, book it, get it done" },
       { icon: UtensilsCrossed, label: "Order food", href: "/food", note: "Home-cooked Rodriguan dishes" },
       { icon: Store, label: "Shop local", href: "/shop", note: "Honey, piment, crafts" },
       { icon: Ticket, label: "Event tickets", href: "/events", note: "Concerts & séga nights" },
