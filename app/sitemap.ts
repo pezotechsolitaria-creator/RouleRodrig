@@ -381,6 +381,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.8,
     },
+    // Who runs this. Small traffic, large trust: it is the page a nervous
+    // visitor opens before paying a stranger on a small island, and the one
+    // Google reads for the E-E-A-T signals a product page cannot carry.
+    {
+      url: `${SITE_URL}/about`,
+      changeFrequency: "yearly",
+      priority: 0.5,
+    },
+    // The two hubs. Both parents were 404s while nineteen pages sat beneath
+    // them — a sitemap entry is how the crawl reaches the hub that reaches the
+    // rest, which is the whole reason the French cluster went uncrawled.
+    {
+      url: `${SITE_URL}/guide`,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: `${SITE_URL}/fr`,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
     // The island's best-known excursion, and the thing people search before
     // they search anything else about Rodrigues.
     {
