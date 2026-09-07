@@ -863,10 +863,16 @@ function PriceCard({
         {formatRidePrice(quote.price, quote.currency)}
       </p>
       <p className="mt-1 flex flex-wrap items-center justify-center gap-x-3 font-dm text-xs text-muted">
-        {quote.roadKm != null && <span>about {quote.roadKm} km</span>}
+        {/* c.price.distance / c.price.duration existed in all three languages
+            and nothing read them: this line was hardcoded English inside an
+            otherwise fully translated box, so a French customer was quoted
+            "about 18.9 km" and a Creole one the same. Same class of defect as
+            the {"{t.common.*}"} placeholders in IslandMap — the translation was
+            written, shipped, and never wired up. */}
+        {quote.roadKm != null && <span>{c.price.distance(quote.roadKm)}</span>}
         {quote.tripMinutes != null && (
           <span className="inline-flex items-center gap-1">
-            <Clock size={11} /> ~{quote.tripMinutes} min
+            <Clock size={11} /> {c.price.duration(quote.tripMinutes)}
           </span>
         )}
         {quote.night && (
