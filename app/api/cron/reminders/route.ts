@@ -467,6 +467,26 @@ export async function GET(req: NextRequest) {
     console.error("food_restock_day threw", err);
   }
 
+  // ── Tomorrow's service appointments (M181) ───────────────────────────────
+  //
+  // Every other booking on this platform is reminded the day before — a scooter
+  // pickup, a scooter return, an experience. A car wash appointment got
+  // NOTHING: booked on Tuesday for Saturday, and by Saturday morning neither
+  // side had heard a word since.
+  //
+  // The whole job is one RPC because the interesting part is atomicity: it
+  // stamps reminded_at in the same transaction that writes the notifications,
+  // so a crash between the two cannot double-send or silently skip a day. A
+  // failure here must never take the reminder emails down with it.
+  let bookingsReminded: Record<string, number> | null = null;
+  try {
+    const { data, error } = await supabase.rpc("remind_tomorrows_bookings");
+    if (error) console.error("remind_tomorrows_bookings failed", error);
+    else bookingsReminded = data as Record<string, number>;
+  } catch (err) {
+    console.error("remind_tomorrows_bookings threw", err);
+  }
+
   // ── Chase refunds nobody has sent (M93) ──────────────────────────────────
   //
   // M90 records what a shop owes a customer and shows it on three screens.
@@ -528,6 +548,36 @@ export async function GET(req: NextRequest) {
     console.error("sweep_trip_tracking threw", err);
   }
 
+  // ── Appointments tomorrow → tell the trade, and tell the customer ──────
+  //
+  // Every other booking on this platform gets a day-before reminder; a service
+  // appointment got none. Somebody books a car wash on Tuesday for Saturday and
+  // by Saturday morning neither side has heard anything since.
+  //
+  // ONE DIGEST PER PROVIDER, not one alert per job — a car wash with six
+  // appointments wants tomorrow's list, and six notifications is how a bell
+  // gets muted. All of it inside remind_tomorrows_bookings(), which stamps
+  // reminded_at and carries a dedupe key, so a double run sends nothing twice.
+  //
+  // `guestsUnreachable` is REPORTED, not swallowed. The public booking door
+  // takes no email and no account on purpose, so a guest left only a telephone
+  // number and this platform has no SMS — "0 reminders sent" and "4 people we
+  // had no way to reach" are different facts and the second one is the case for
+  // building the thing that would reach them.
+  let bookingRemindersSent = 0;
+  let guestsUnreachable = 0;
+  try {
+    const { data, error } = await supabase.rpc("remind_tomorrows_bookings");
+    if (error) console.error("remind_tomorrows_bookings failed", error);
+    else {
+      const r = (data ?? {}) as { providers?: number; customers?: number; guests?: number };
+      bookingRemindersSent = (r.providers ?? 0) + (r.customers ?? 0);
+      guestsUnreachable = r.guests ?? 0;
+    }
+  } catch (err) {
+    console.error("remind_tomorrows_bookings threw", err);
+  }
+
   // ── Nightly content backup — snapshot site_content when it has changed ──
   let backupSaved = false;
   try {
@@ -574,9 +624,16 @@ export async function GET(req: NextRequest) {
       paymentRemindersSent,
       missesEmailed,
       dishesRestocked,
+      // The whole object, including `guests` — the people who booked without an
+      // account and left only a telephone number, whom this platform has no way
+      // to remind. Reporting "1 reminder sent" while saying nothing about the
+      // four it could not reach would read as a healthy run.
+      bookingsReminded,
       refundsChased,
       refundsEscalated,
       tripsSwept,
+      bookingRemindersSent,
+      guestsUnreachable,
       backupSaved,
       emailFailures,
       emailQuotaLevel,
