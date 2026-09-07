@@ -565,6 +565,49 @@ the wrong people, which for any OSM-derived source is a licence breach.
 
 CSP already permits it: `img-src 'self' data: blob: https:`.
 
+**Which maps this covers.** Both of them: the tracking maps
+(`components/tracking/TrackingMap.tsx` — customer tracking, the driver job
+panel, admin Live Operations) and the island map at `/map`
+(`components/IslandMap.tsx`). `IslandMap` hardcoded its own OSM URL until
+Sep 2026, so for a while setting these variables re-tiled `/track` and silently
+did nothing to `/map`. If you add a third map, take its tiles from
+`getBasemap()` and not from a string.
+
+### Satellite is a separate pair
+
+The switcher's two sheets are configured independently — setting the streets
+pair does not touch imagery:
+
+```bash
+NEXT_PUBLIC_MAP_SATELLITE_URL="https://…/{z}/{x}/{y}.jpg"
+NEXT_PUBLIC_MAP_SATELLITE_ATTRIBUTION="…"
+NEXT_PUBLIC_MAP_SATELLITE_MAX_NATIVE_ZOOM="15"   # optional
+```
+
+### If the provider is Mapbox
+
+```bash
+NEXT_PUBLIC_MAP_TILE_URL="https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=pk...."
+NEXT_PUBLIC_MAP_SATELLITE_URL="https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=pk...."
+```
+
+Three things worth knowing before pointing production at it:
+
+* **`/256/`, not `/512/`.** `TileLayerSpec` carries no `tileSize`/`zoomOffset`,
+  so a 512 px tile renders the whole sheet at half scale — legible enough in a
+  screenshot to pass review, wrong on every device.
+* **A `pk.` token only.** These are `NEXT_PUBLIC_*`, compiled into the browser
+  bundle, so the token is readable by anyone who opens DevTools. That is fine
+  for a public token *with URL restrictions set on it*, and the URL restriction
+  is the only thing standing between a copied token and your quota. A secret
+  `sk.` token — which Mapbox issues the moment any secret scope is ticked —
+  must never go in one of these.
+* **It is metered, and this is the worst app to meter.** The original provider
+  choice (§ above) excluded Mapbox under a zero-recurring-cost rule, and a
+  tracking map requests tiles *continuously* for as long as a customer watches
+  a delivery. Satellite is the heavier of the two sheets and the first line to
+  drop if a bill starts climbing.
+
 ### Routing
 ```bash
 TRACKING_ROUTING_URL="https://osrm.example.com"
