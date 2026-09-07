@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   Loader2, ChefHat, Check, Clock, UtensilsCrossed, ClipboardList,
-  Volume2, VolumeX, Undo2, WifiOff, Layers, History,
+  Volume2, VolumeX, Undo2, WifiOff, Layers, History, TriangleAlert, RefreshCw,
 } from "lucide-react";
 import AllDayPanel from "./AllDayPanel";
 import HistoryPanel from "./HistoryPanel";
@@ -328,7 +328,13 @@ export default function KitchenBoard({ canManage = false }: { canManage?: boolea
   // the loop. 15 seconds is the product decision, and nothing at runtime can
   // change it now.
   const loadRef = useRef(load);
-  loadRef.current = load;
+  // Assigned in an effect, not during render: writing a ref while rendering is
+  // a side effect in a function React may run twice, and the lint rule that
+  // says so is right. The interval still reads the newest load, one commit
+  // later, which for a 15-second poll is no difference at all.
+  useEffect(() => {
+    loadRef.current = load;
+  }, [load]);
 
   useEffect(() => {
     void loadRef.current();
@@ -485,6 +491,32 @@ Tell the customer why — they will see this.`,
     [orders],
   );
 
+  // ── THREE STATES, NOT TWO ────────────────────────────────────────────────
+  //
+  // "Still loading" and "could not load" used to render identically, and the
+  // second one rendered FOREVER: dash stays null when the first fetch fails,
+  // this early return runs before the error banner further down, and a kitchen
+  // screen propped up during service spun until somebody reloaded it. Losing
+  // the server looked exactly like a quiet evening, which is the one failure a
+  // service screen must never have.
+  if (!dash && error) {
+    return (
+      <div role="alert" className="rounded-2xl border border-red-500/30 bg-red-500/[0.07] p-6 text-center">
+        <TriangleAlert size={28} className="mx-auto text-red-400" />
+        <h2 className="mt-3 font-syne text-lg font-bold text-offwhite">Couldn&apos;t load your orders</h2>
+        <p className="mx-auto mt-2 max-w-sm font-dm text-sm text-muted">
+          This is a problem at our end, not a quiet evening. Orders may be waiting.
+        </p>
+        <button
+          onClick={() => void loadRef.current()}
+          className="mt-4 inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-yellow px-6 font-syne text-sm font-bold text-dark"
+        >
+          <RefreshCw size={16} /> Try again
+        </button>
+      </div>
+    );
+  }
+
   if (!dash) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -505,11 +537,6 @@ Tell the customer why — they will see this.`,
       </div>
     );
   }
-
-  const tabCls = (active: boolean) =>
-    `flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl font-syne text-sm font-bold transition-colors ${
-      active ? "bg-yellow text-dark" : "border border-white/15 text-offwhite"
-    }`;
 
   const renderCard = (o: Order) => {
     const next = NEXT[o.status];
@@ -770,24 +797,10 @@ The order is ${money(o.total!, o.currency)}. The rest becomes cash to collect on
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
-        <button onClick={() => setTab("orders")} className={tabCls(tab === "orders")}>
-          <ClipboardList size={15} /> Orders{live.length > 0 ? ` (${live.length})` : ""}
-        </button>
-        <button onClick={() => setTab("allday")} className={tabCls(tab === "allday")}>
-          <Layers size={15} /> All day
-        </button>
-        <button onClick={() => setTab("menu")} className={tabCls(tab === "menu")}>
-          <UtensilsCrossed size={15} /> Menu
-        </button>
-        {/* LAST, and never the default. The board is capped at 24 hours because
-            it is a live service screen; this is the other question a kitchen
-            has — what sold last week — and it must never be what somebody
-            lands on mid-rush. */}
-        <button onClick={() => setTab("history")} className={tabCls(tab === "history")}>
-          <History size={15} /> History
-        </button>
-      </div>
+      {/* The dock is at the BOTTOM of the screen — see the end of this file.
+          A row of pills up here sat in the hardest part of the screen to reach
+          one-handed, which is the whole screen for someone holding a phone
+          with flour on their hands. */}
 
       {tab === "menu" ? (
         <MenuPanel canManage={canManage} />
@@ -829,7 +842,7 @@ The order is ${money(o.total!, o.currency)}. The rest becomes cash to collect on
         </p>
       )}
 
-      {live.length === 0 && done.length === 0 ? (
+      {live.length === 0 && done.length === 0 && !error ? (
         <div className="rounded-2xl border border-white/10 bg-dark-card p-8 text-center">
           <Check size={26} className="mx-auto text-green-400" />
           <p className="mt-2 font-syne text-base font-bold">
@@ -862,6 +875,60 @@ The order is ${money(o.total!, o.currency)}. The rest becomes cash to collect on
       )}
       </>
       )}
+
+      {/* ── THE DOCK ────────────────────────────────────────────────────────
+          Bottom, fixed, full-bleed and square-topped, four cells at 56px.
+
+          It was a row of pills at the TOP at 44px minimum. Both were wrong for
+          this screen: the top of a phone is the furthest point from the thumb
+          holding it, and 44 is the iOS floor for a fingertip in an office —
+          this audience has wet hands in a kitchen, so the floor is 48 and
+          these are 56.
+
+          Four cells, not five: the merchant console's fifth slot is Money, and
+          a cook is not shown money at all (M81 gates it on role='owner'). A
+          disabled cell teaches nothing; an absent one asks nothing. */}
+      <nav
+        aria-label="Kitchen sections"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-dark/95 backdrop-blur"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        <div className="mx-auto grid max-w-lg grid-cols-4">
+          {DOCK.map(({ id, label, Icon }) => {
+            const on = tab === id;
+            const count = id === "orders" ? live.length : 0;
+            return (
+              <button
+                key={id}
+                onClick={() => setTab(id)}
+                aria-current={on ? "page" : undefined}
+                className={`relative flex min-h-[56px] flex-col items-center justify-center gap-0.5 font-dm text-[11px] font-semibold transition-colors ${
+                  on ? "text-yellow" : "text-muted hover:text-offwhite"
+                }`}
+              >
+                <Icon size={19} />
+                {label}
+                {count > 0 && (
+                  <span className="absolute right-[22%] top-2 min-w-[17px] rounded-full bg-yellow px-1 text-[10px] font-bold leading-[17px] text-dark">
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }
+
+/** The dock, as data, so the cells and their order live in one place. */
+const DOCK = [
+  { id: "orders" as const, label: "Orders", Icon: ClipboardList },
+  { id: "allday" as const, label: "All day", Icon: Layers },
+  { id: "menu" as const, label: "Menu", Icon: UtensilsCrossed },
+  // LAST, and never the default. The board is capped at 24 hours because it is
+  // a live service screen; this is the other question a kitchen has — what sold
+  // last week — and it must never be what somebody lands on mid-rush.
+  { id: "history" as const, label: "History", Icon: History },
+];
