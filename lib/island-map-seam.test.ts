@@ -90,6 +90,59 @@ describe("the pins follow the filter", () => {
   });
 });
 
+describe("the island guide can hand you to a taxi", () => {
+  // app/taxi/book/page.tsx has read ?to=&toLat=&toLng= since it was written —
+  // dropoffFromQuery() even labels the result `id: "map"`, so it was built to be
+  // arrived at FROM a map. Nothing linked to it. The two halves are in different
+  // files, so nothing but this test notices if one of them is renamed.
+  it("sends the parameters the booking page actually reads", () => {
+    const page = read("app/taxi/book/page.tsx");
+    for (const param of ["to", "toLat", "toLng", "service"]) {
+      expect(page, `booking page stopped reading ${param}`).toMatch(
+        new RegExp(`\\b${param}\\??:`),
+      );
+    }
+    const src = read(SRC);
+    expect(src).toContain("/taxi/book?service=taxi&to=");
+    expect(src).toContain("toLat=");
+    expect(src).toContain("toLng=");
+  });
+
+  it("escapes the place name it puts in the URL", () => {
+    // "Trou d'Argent" and "Baie aux Huîtres" both carry characters that break a
+    // query string unencoded.
+    const src = read(SRC);
+    expect(src).toMatch(/to=\$\{encodeURIComponent\(locName\)\}/);
+  });
+
+  it("uses the name in the reader's own language", () => {
+    // locName is the localize()d value. Sending loc.name would book a French
+    // visitor to a string they never saw on screen.
+    const src = read(SRC);
+    expect(src).not.toMatch(/to=\$\{encodeURIComponent\(loc\.name\)\}/);
+  });
+
+  it("stays in the app", () => {
+    // The directions link is target="_blank" because Google Maps is elsewhere.
+    // This one is not: opening a new tab would drop the session, the chosen
+    // language and the back stack on the way into a booking.
+    const src = read(SRC);
+    const taxiLine = src
+      .split("\n")
+      .find((l) => l.includes("/taxi/book?service=taxi"));
+    expect(taxiLine).toBeTruthy();
+    expect(taxiLine).not.toContain('target="_blank"');
+  });
+
+  it("names the button in all three languages", () => {
+    const src = read(SRC);
+    const block = src.slice(src.indexOf("const TAXI_LABEL"));
+    for (const lang of ["en:", "fr:", "cr:"]) {
+      expect(block.slice(0, 250), lang).toContain(lang);
+    }
+  });
+});
+
 describe("the popups say words, not variable names", () => {
   it("interpolates the translations instead of printing their path", () => {
     const src = read(SRC);

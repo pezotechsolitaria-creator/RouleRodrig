@@ -36,6 +36,31 @@ const DIRECTIONS_LABEL: Record<Language, string> = {
   cr: "Gagn direksion",
 };
 
+// ── THE DOOR THAT WAS ALREADY BUILT, WITH NOTHING ON THE OTHER SIDE ─────────
+//
+// app/taxi/book/page.tsx has accepted `?to=&toLat=&toLng=` from the start, and
+// its dropoffFromQuery() even labels the result `id: "map"` — it was written to
+// be arrived at from a map. Nothing anywhere linked to it.
+//
+// So the island guide could show somebody Trou d'Argent, and the one thing they
+// then need — a way to actually get there, on an island where the answer is
+// almost always a taxi — was a Google Maps direction line for a car they do not
+// have. The coordinates were already in the popup; only the link was missing.
+//
+// The name goes through localized(), so a French visitor books to "Plage de
+// Saint-François" rather than to a string they never saw.
+// This page spends its whole length persuading somebody they want to stand at
+// Trou d'Argent, and its only call to action was a Google Maps line — "here is
+// how to drive yourself" — on a site whose business is driving them.
+//
+// "Here" is load-bearing in all three: the button books a ride to THIS pin, not
+// a taxi in general.
+const TAXI_LABEL: Record<Language, string> = {
+  en: "Get a taxi here",
+  fr: "Un taxi jusqu’ici",
+  cr: "Enn taxi ziska isi",
+};
+
 type Leaflet = typeof import("leaflet");
 type LMap = import("leaflet").Map;
 type LLayerGroup = import("leaflet").LayerGroup;
@@ -284,6 +309,12 @@ export default function IslandMapInner({ locations }: Props) {
       const directions = `<a href="https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:11px;font-weight:700;color:#0a0a0a;background:#F5C842;padding:6px 12px;border-radius:20px;text-decoration:none;">${DIRECTIONS_LABEL[language]} →</a>`;
 
       const locName = localize(language, loc.name, loc.nameFr, loc.nameCr);
+
+      // Same row, secondary weight: directions stays the primary action for
+      // somebody who already has a scooter, and this is the answer for somebody
+      // who does not. A plain in-app link, so it keeps the session, the language
+      // and the back stack — target="_blank" would drop all three.
+      const taxi = `<a href="/taxi/book?service=taxi&to=${encodeURIComponent(locName)}&toLat=${loc.lat}&toLng=${loc.lng}" style="display:inline-block;margin-top:8px;margin-left:6px;font-size:11px;font-weight:700;color:#F5C842;background:transparent;border:1px solid rgba(245,200,66,.55);padding:5px 11px;border-radius:20px;text-decoration:none;">${TAXI_LABEL[language]}</a>`;
       const locDesc = localize(language, loc.description, loc.descriptionFr, loc.descriptionCr);
       const catLabel = CATEGORY_LABEL_I18N[language][loc.category] ?? loc.category;
       const locStory = localize(language, loc.story, loc.storyFr, loc.storyCr);
@@ -302,7 +333,7 @@ export default function IslandMapInner({ locations }: Props) {
           <p style="margin:0 0 6px;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:${color};font-weight:700;">${escapeHtml(catLabel)}</p>
           <p style="margin:0;font-size:12px;line-height:1.45;color:#374151;">${escapeHtml(locDesc)}</p>
           ${story}
-          ${directions}
+          <div style="display:flex;flex-wrap:wrap;align-items:center;">${directions}${taxi}</div>
         </div>`,
         { maxWidth: 270 }
       );
