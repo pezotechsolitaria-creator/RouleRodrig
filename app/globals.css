@@ -2368,9 +2368,16 @@ html.light *:focus-visible {
    reads as a rendering glitch rather than a control. The switcher was fully
    built, fully styled, and unreachable.
 
-   Stacked below that button instead: 12px inset + 44px button + 8px gap. */
+   Stacked below that button instead: 12px inset + 44px button + 8px gap.
+
+   `right` is restated here too. The base rule sits at 10px, which is right for
+   a map where this switch owns the corner alone; stacked under a 12px button it
+   was two pixels proud of it, and two controls on almost-the-same edge read as
+   a mistake rather than a pair. Only the stacked case is changed -- IslandMap
+   and the rest keep the 10px they were drawn against. */
 .rr-basemap-switch--below {
   top: 64px;
+  right: 12px;
 }
 .rr-basemap-switch button {
   appearance: none;
