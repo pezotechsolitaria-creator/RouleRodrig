@@ -115,19 +115,88 @@ const CONTENT_TAG = 'site-content';
  * live site for the whole revalidate window. A throw is not cached, so the very
  * next request retries.
  */
-const readPublicContent = unstable_cache(
-  async (): Promise<SiteContent> => {
-    const { content, loaded } = await readContentUncached();
-    if (!loaded) throw new Error('site_content could not be read');
-    return content;
+function readPublicContentAt(version: string): Promise<SiteContent> {
+  return unstable_cache(
+    async (): Promise<SiteContent> => {
+      const { content, loaded } = await readContentUncached();
+      if (!loaded) throw new Error('site_content could not be read');
+      return content;
+    },
+    // ── THE VERSION IS PART OF THE KEY ───────────────────────────────────
+    // That is the whole guard. A write changes updated_at, updated_at changes
+    // this key, a new key has no cached entry, and the next read fetches the
+    // real blob. Nobody has to remember to invalidate anything.
+    ['site-content-main', version],
+    { tags: [CONTENT_TAG], revalidate: 3600 },
+  )();
+}
+
+/**
+ * ── THE CACHE GUARD ────────────────────────────────────────────────────────
+ *
+ * saveContent() calls revalidateTag() and the site updates instantly. That
+ * works perfectly and protects nothing: it only fires for writes that came
+ * through the admin route.
+ *
+ * A write that arrives any other way — a psql session, a migration, an
+ * assistant with database access marking seven places popular — leaves the
+ * public site serving the old blob for up to an hour, with NO SIGNAL. The data
+ * is right, every page is wrong, and nothing anywhere says so. That is not a
+ * hypothetical: it is exactly what happened on 7 Sep 2026, and the write was
+ * mine.
+ *
+ * ── WHY NOT A CRON ─────────────────────────────────────────────────────────
+ * The obvious fix, and the wrong one here. vercel.json is at THREE crons and a
+ * fourth makes every deployment fail before it builds (see
+ * m-vercel-cron-cap). All three run daily, so folding a check into one would
+ * have given a WORSE guarantee than the hourly expiry it was meant to fix — a
+ * guard that guards nothing.
+ *
+ * ── WHAT THIS COSTS ────────────────────────────────────────────────────────
+ * One extra query per window, selecting a single timestamp: about thirty bytes
+ * against the 148 kB blob beside it. The blob itself is still cached for an
+ * hour, so the egress saving this file exists for — 35 GB/month down to almost
+ * nothing — is untouched.
+ *
+ * The real cost is that content-backed pages now regenerate on this window
+ * rather than hourly. Fifteen minutes is the trade: four times the ISR
+ * regenerations for a quarter-hour worst case instead of sixty minutes, on a
+ * site whose pages are cheap to render and whose blob no longer moves when
+ * they do.
+ */
+const CONTENT_VERSION_WINDOW_SECONDS = 900;
+
+const readContentVersion = unstable_cache(
+  async (): Promise<string> => {
+    const supabase = publicReadClient();
+    const { data, error } = await supabase
+      .from('site_content')
+      .select('updated_at')
+      .eq('id', 'main')
+      .maybeSingle();
+    if (error) throw error;
+    // No row is a real answer — a first run — and a stable one, so it caches.
+    return String(data?.updated_at ?? 'empty');
   },
-  ['site-content-main'],
-  { tags: [CONTENT_TAG], revalidate: 3600 },
+  ['site-content-version'],
+  { tags: [CONTENT_TAG], revalidate: CONTENT_VERSION_WINDOW_SECONDS },
 );
 
 export async function getContent(): Promise<SiteContent> {
+  // A FAILED VERSION READ MUST NOT COST A BLOB READ. Falling through to the
+  // uncached path here would answer a database blip by fetching 148 kB on
+  // every request until it recovered — the precise failure this file's egress
+  // note was written about. A fixed key keeps the cached copy instead, which
+  // is the same behaviour as before this guard existed.
+  let version = 'unversioned';
   try {
-    return await readPublicContent();
+    version = await readContentVersion();
+  } catch {
+    /* keep the fixed key */
+  }
+
+  try {
+    return await readPublicContentAt(version);
   } catch {
     // Uncached fallback, which has its own defaults-on-failure behaviour.
     return (await getContentWithStatus()).content;
