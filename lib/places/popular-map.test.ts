@@ -58,8 +58,12 @@ describe("only the popular pins pay for an HTML node", () => {
   it("animates only transform and opacity", () => {
     // A keyframe on width/height lays out the whole marker pane every frame,
     // which is exactly what makes a map feel broken on a slow phone.
-    const frames = CSS.slice(CSS.indexOf("@keyframes rr-pop-pulse"));
-    const body = frames.slice(0, frames.indexOf("}\n}") + 3);
+    //
+    // Matched with a regex rather than sliced on "}\\n}": git converts this
+    // repo to CRLF on checkout, so that literal stopped matching the moment
+    // the file was committed, and the assertion then compared the string "@k"
+    // against everything and passed nothing.
+    const body = (CSS.match(/@keyframes rr-pop-pulse[\s\S]*?\}[\s]*\}/) || [""])[0];
     expect(body).toMatch(/transform:/);
     expect(body).not.toMatch(/width:|height:|top:|left:/);
   });
