@@ -1449,6 +1449,92 @@ export async function sendPaymentReportedAlert(input: {
     )}
     ${input.phone ? `<div style="text-align:center">${waButton(input.phone, `Hi ${input.customer}, thanks — checking your transfer now.`, "💬 Message " + input.customer)}</div>` : ""}`;
 
+  // ── AND THE PHONE, NOT ONLY THE INBOX (M169) ──────────────────────────
+  //
+  // This was email-only. The whole of lib/email.ts contains no
+  // enqueueNotification and no sendOwnerWhatsApp, so a declared bank transfer
+  // — the platform's live money path, 3 of 12 orders — reached the owner in an
+  // inbox he might open tonight, and nowhere else. The RPC does write a
+  // `notifications` row, but that is an in-app bell nobody on a two-kitchen
+  // island is sitting in front of.
+  //
+  // Filed under `payments`, which had NEVER fired: the staff slot takes only
+  // food and deliveries, so a helper's phone stays clean and this lands on the
+  // owner's alone.
+  void (async () => {
+    try {
+      const { enqueueNotification, formatWhatsAppMessage } = await import("@/lib/notifications/queue");
+      await enqueueNotification({
+        type: "payment.reported",
+        category: "payments",
+        message: formatWhatsAppMessage({
+          title: "\u{1F4B8} Somebody says they have paid",
+          lines: [
+            `${input.customer} \u2014 ${input.reference}`,
+            [
+              input.amount != null ? `Rs ${input.amount.toLocaleString("en-US")}` : null,
+              input.item,
+            ].filter(Boolean).join(" \u00b7 ") || where,
+            input.hasReceipt ? "Proof attached \u2014 open it in admin" : "NO FILE \u2014 worth chasing",
+            `${SITE_URL}/admin/money`,
+          ],
+        }),
+        // Same key as the email: one declaration, one alert. Re-uploading a
+        // better photo of the same slip must not buzz the phone again.
+        dedupeKey: `payment.reported:${input.reference}:${input.hasReceipt ? "proof" : "noproof"}`,
+        payload: { kind: input.kind, reference: input.reference, hasReceipt: input.hasReceipt },
+      });
+    } catch (err) {
+      // An alert must never be the reason a payment declaration 500s.
+      console.error("payment.reported alert failed", err);
+    }
+  })();
+
+  // ── AND A PHONE ALERT, NOT ONLY AN EMAIL (M170) ──────────────────────────
+  //
+  // All three doors a customer can declare a transfer through — the guest shop
+  // form, the booking form and a signed-in buyer's receipt upload — end here,
+  // and until now this function's only output was email. Email is right for
+  // the record (it carries the proof link and survives), but it is the wrong
+  // shape for "somebody says they have paid and nothing happens until you
+  // look": the money sits unverified for as long as the owner's inbox does.
+  //
+  // Queued rather than sent inline, so it reaches whatever the owner actually
+  // watches — ntfy, WhatsApp, or both — through the one fan-out.
+  //
+  // NOT awaited into the return value: this function's contract is "was the
+  // email sent", and an alert failure must not turn a delivered email into a
+  // false negative that makes a caller retry.
+  try {
+    const { enqueueNotification, formatWhatsAppMessage } = await import("@/lib/notifications/queue");
+    void enqueueNotification({
+      type: "payment.reported",
+      category: "payments",
+      message: formatWhatsAppMessage({
+        title: "\u{1F4B8} Somebody says they have paid",
+        lines: [
+          `${input.customer} \u2014 ${input.reference}`,
+          [
+            input.amount != null ? `Rs ${input.amount.toLocaleString("en-US")}` : null,
+            input.item,
+          ].filter(Boolean).join(" \u00b7 ") || where,
+          input.hasReceipt ? "Proof attached \u2014 open it in admin" : "NO FILE \u2014 worth chasing",
+          `${SITE_URL}/admin`,
+        ],
+      }),
+      // The reference AND whether proof arrived: re-uploading a better photo of
+      // the same slip is a new fact worth a second nudge, a duplicate press of
+      // "I have paid" is not.
+      dedupeKey: `payment.reported:${input.reference}:${input.hasReceipt ? "proof" : "noproof"}`,
+      payload: { kind: input.kind, reference: input.reference },
+    }).catch((err) => {
+      console.error("payment.reported alert failed", err);
+      return 0;
+    });
+  } catch (err) {
+    console.error("payment.reported alert could not be queued", err);
+  }
+
   return send({
     to: owner,
     subject: `Payment reported: ${input.customer} — ${input.reference}`,
