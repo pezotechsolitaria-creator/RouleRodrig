@@ -1,14 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  ArrowRight,
-  ClipboardList,
-  Landmark,
-  ShoppingBag,
-  Sparkles,
-  Truck,
-  Wrench,
-} from "lucide-react";
+import { ArrowRight, Landmark, ShoppingBag, Sparkles, Wrench } from "lucide-react";
 import BackLink from "@/components/BackLink";
 import Navbar from "@/components/Navbar";
 import JsonLd from "@/components/JsonLd";
@@ -27,11 +19,11 @@ import { HUB_ACTIONS } from "@/lib/marketplace/hub";
 // records that the first product used to sit 400px down under a headline, a
 // sentence, a search box and a category grid, and that all of it was removed
 // because everything a shopper does on arrival is search, tap a category, or
-// look at products. Putting a six-card hero back on that page would undo a
+// look at products. Putting a card hero back on that page would undo a
 // measured decision. So the hub is its own route and /shop is one of its doors.
 //
-// ── WHY THREE CARDS ARE DARK ────────────────────────────────────────────────
-// Because three of them are not built. A card that pretends to work costs
+// ── WHY TWO CARDS ARE DARK ──────────────────────────────────────────────────
+// Because two of them are not built. A card that pretends to work costs
 // somebody their afternoon; one that says "not yet" costs them nothing. The
 // state comes from a null href in lib/marketplace/hub.ts — one field, so the
 // link, the cursor, the wording and the aria cannot drift apart.
@@ -59,9 +51,7 @@ export const metadata: Metadata = {
 const ICON: Record<string, React.ElementType> = {
   shop: ShoppingBag,
   wash: Sparkles,
-  deliver: Truck,
   pro: Wrench,
-  task: ClipboardList,
   admin: Landmark,
 };
 

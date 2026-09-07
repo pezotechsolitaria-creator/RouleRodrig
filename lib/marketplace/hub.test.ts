@@ -16,10 +16,24 @@ import { HUB_ACTIONS, isVehicleTrade, VEHICLE_WORDS } from "./hub";
 //   whole failure this page exists to fix.
 
 describe("the menu cannot lie about what is open", () => {
-  it("offers the six the brief asked for", () => {
-    expect(HUB_ACTIONS).toHaveLength(6);
-    for (const key of ["shop", "wash", "deliver", "pro", "task", "admin"]) {
+  it("offers the four that are left after the duplicates came off", () => {
+    // Delivery and "Do it for me" were removed: /deliver's own first screen
+    // already offers all three of its modes as quick actions. "Do it for me"
+    // was the worse of the two — it sat here marked "Soon" while the real
+    // thing was live one route away.
+    expect(HUB_ACTIONS).toHaveLength(4);
+    for (const key of ["shop", "wash", "pro", "admin"]) {
       expect(HUB_ACTIONS.map((a) => a.key)).toContain(key);
+    }
+  });
+
+  it("does not offer a second door to a flow /deliver already owns", () => {
+    const keys = HUB_ACTIONS.map((a) => a.key);
+    expect(keys).not.toContain("deliver");
+    expect(keys).not.toContain("task");
+    // And nothing else may quietly point back at it either.
+    for (const a of HUB_ACTIONS) {
+      expect(a.href ?? "", a.key).not.toMatch(/^\/deliver/);
     }
   });
 
@@ -34,18 +48,17 @@ describe("the menu cannot lie about what is open", () => {
     }
   });
 
-  it("opens exactly the three that are actually built", () => {
-    // Shop and Delivery have been live for months; Wash became real when
-    // trade_providers + book_service_slot_public landed. The other three have
-    // no implementation, so they must not be linked.
+  it("opens exactly the two that are actually built", () => {
+    // Shop has been live for months; Wash became real when trade_providers +
+    // book_service_slot_public landed. The other two have no implementation, so
+    // they must not be linked.
     const open = HUB_ACTIONS.filter((a) => a.href).map((a) => a.key).sort();
-    expect(open).toEqual(["deliver", "shop", "wash"]);
+    expect(open).toEqual(["shop", "wash"]);
   });
 
   it("points each open card at a route that exists", () => {
     const byKey = Object.fromEntries(HUB_ACTIONS.map((a) => [a.key, a.href]));
     expect(byKey.shop).toBe("/shop");
-    expect(byKey.deliver).toBe("/deliver");
     expect(byKey.wash).toBe("/marketplace/wash");
   });
 
