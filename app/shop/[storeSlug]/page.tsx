@@ -321,7 +321,12 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
 
           {(hours ?? []).length > 0 && (
             <div className="mt-5 w-full max-w-md lg:mt-0 lg:w-72 lg:shrink-0">
-              <StoreHoursCard days={hours ?? []} initialStatus={null} />
+              <StoreHoursCard
+                days={hours ?? []}
+                initialStatus={null}
+                // A trade's hours are when they WORK, not when they deliver.
+                showsDelivery={services.length === 0}
+              />
             </div>
           )}
         </div>

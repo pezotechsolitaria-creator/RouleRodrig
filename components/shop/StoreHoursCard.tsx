@@ -21,8 +21,19 @@ import { useShopCopy } from "./ShopCopy";
 // decided by store_schedule_status() inside create_order(), so a stale or
 // tampered badge cannot let anyone order from a closed shop.
 export default function StoreHoursCard({
-  days, initialStatus,
-}: { days: DaySchedule[]; initialStatus: ScheduleStatus | null }) {
+  days, initialStatus, showsDelivery = true,
+}: {
+  days: DaySchedule[];
+  initialStatus: ScheduleStatus | null;
+  /**
+   * A TRADE DELIVERS NOTHING. A car wash's page was reading "Delivery
+   * available · 08:00 – 17:00" under its opening hours, which is a promise
+   * about a parcel from a business that sells an appointment — and the hours
+   * rows carry delivery windows for every store because the columns exist,
+   * not because every store uses them.
+   */
+  showsDelivery?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [tick, setTick] = useState(0);
   // The day names come from SHOP_COPY rather than lib/schedule's WEEKDAYS: that
@@ -90,13 +101,13 @@ export default function StoreHoursCard({
       </button>
 
       {/* Delivery is a separate promise from being open, so it gets its own line. */}
-      {today && !today.is_closed && !today.delivery_closed && dOpen !== null && (
+      {showsDelivery && today && !today.is_closed && !today.delivery_closed && dOpen !== null && (
         <p className="mt-1.5 font-dm text-xs text-muted">
           {deliveryOn ? copy.hours.deliveryOn : copy.hours.deliveryOff} ·{" "}
           {fmt(today.delivery_opens_at, today.opens_at)} – {fmt(today.delivery_closes_at, today.closes_at)}
         </p>
       )}
-      {today && !today.is_closed && today.delivery_closed && (
+      {showsDelivery && today && !today.is_closed && today.delivery_closed && (
         <p className="mt-1.5 font-dm text-xs text-muted">{copy.hours.noDeliveryToday}</p>
       )}
 
