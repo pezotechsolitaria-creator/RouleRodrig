@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import SmartImage from "@/components/SmartImage";
 import { Calendar, MapPin, Star, Images } from "lucide-react";
 import type { EventItem } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
@@ -43,8 +44,7 @@ export default function Events({ events = [] }: { events?: EventItem[] }) {
             >
               {ev.image ? (
                 <div className="relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={ev.image} alt={ev.title} className="w-full h-44 object-cover" loading="lazy" />
+                  <SmartImage src={ev.image} alt={ev.title} width={480} height={270} sizes="(max-width: 640px) 100vw, 33vw" className="w-full h-44 object-cover" />
                   {/* The editor takes as many photos as the owner has; the card
                       shows the cover and says how many more are inside, the
                       same promise the places cards make. */}
