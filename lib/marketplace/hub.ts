@@ -11,16 +11,21 @@
 // of which will eventually say "Coming soon" over a working link.
 //
 // ── WHAT IS REAL TODAY ──────────────────────────────────────────────────────
-// Three of the six. Shop and Delivery have been live for months. Wash My
-// Vehicle became real when trade_providers, service_durations and
-// book_service_slot_public landed: a car wash is a STORE whose products are
-// booked time, so it already has a storefront, a diary, opening hours, a
-// three-per-phone cap and commission through resolve_commission_rate. None of
-// that is rebuilt here. What was missing was the door — a customer could only
-// reach a car wash by knowing its URL.
+// Two of the four. Shop has been live for months. Wash My Vehicle became real
+// when trade_providers, service_durations and book_service_slot_public landed:
+// a car wash is a STORE whose products are booked time, so it already has a
+// storefront, a diary, opening hours, a three-per-phone cap and commission
+// through resolve_commission_rate. None of that is rebuilt here. What was
+// missing was the door — a customer could only reach a car wash by knowing its
+// URL.
 //
-// The other three are honestly marked. A card that pretends to work is worse
-// than one that says "not yet": the first loses somebody's afternoon.
+// The other two are honestly marked. A card that pretends to work is worse than
+// one that says "not yet": the first loses somebody's afternoon.
+//
+// This list is SHORT on purpose. A hub earns its place by being the fastest way
+// to the thing you wanted; padding it with doors that already exist elsewhere,
+// or with rooms that are not built, makes it slower than the header it competes
+// with.
 
 export type HubAction = {
   key: string;
@@ -44,22 +49,23 @@ export const HUB_ACTIONS: HubAction[] = [
     blurb: "Book a wash or a valet with a local business, by the hour.",
     href: "/marketplace/wash",
   },
-  {
-    key: "deliver",
-    title: "Delivery",
-    blurb: "Have something collected and brought to you, anywhere on Rodrigues.",
-    href: "/deliver",
-  },
+  // ── NOT HERE: DELIVERY, AND "DO IT FOR ME" ────────────────────────────────
+  // Both were on this hub and both came off, because /deliver's own first
+  // screen already offers all three of its modes as quick actions — "Collect &
+  // deliver", "Buy & deliver" and "Do it for me — someone goes and gets it
+  // done".
+  //
+  // The second one was worse than a duplicate. It shipped here marked "Soon"
+  // while the real thing was live one route away, so the hub was telling people
+  // a working feature did not exist yet. A second door to the same flow is
+  // clutter; a second door that says "closed" about an open room is a lie.
+  //
+  // Delivery keeps its place in the header, on /more and on the homepage. It
+  // does not need a fourth.
   {
     key: "pro",
     title: "Hire a pro",
     blurb: "Plumbers, electricians, mechanics and cleaners.",
-    href: null,
-  },
-  {
-    key: "task",
-    title: "Do it for me",
-    blurb: "Post an errand and let someone nearby take it on.",
     href: null,
   },
   {
