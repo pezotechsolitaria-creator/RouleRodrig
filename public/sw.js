@@ -223,7 +223,8 @@
 // v309 - the kitchen can see what to cook in total, not one ticket at a time.
 // v310 - All day never merges two kitchens into one pan.
 // v311 - the product page prices what you are actually taking.
-const CACHE = "rr-cache-v337";
+
+const CACHE = "rr-cache-v338";
 
 // Dev hosts get no cache-first anything: their asset URLs are not content
 // hashed, so the immutability that makes cache-first safe does not hold.

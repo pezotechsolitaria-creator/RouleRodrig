@@ -31,7 +31,15 @@ export default async function AdminMarketplacePage() {
             </p>
           </div>
           <Link
-            href="/browse"
+            // WAS "/browse", WHICH IS A 404. No such page exists — only
+            // /browse/[category] — so this button, labelled "View the shop
+            // pages", opened the not-found screen in a new tab. It type-checked,
+            // built and deployed, because a wrong href is a perfectly valid
+            // string; only clicking it revealed anything.
+            //
+            // /shop is what it always meant: the marketplace storefront, which
+            // is the public face of the desk this page administers.
+            href="/shop"
             target="_blank"
             className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-white/15 px-3.5 py-2 font-dm text-sm text-muted hover:border-yellow/40 hover:text-yellow"
           >
