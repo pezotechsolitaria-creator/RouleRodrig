@@ -149,6 +149,16 @@ describe("the counter table is built to stay small", () => {
   });
 });
 
+describe("the owner can actually mark a place", () => {
+  it("has a checkbox in the admin map editor", () => {
+    // Without this the whole layer stays invisible until enough tourists have
+    // tapped enough pins — which is not a feature, it is a promise.
+    const admin = read("app/admin/AdminDashboard.tsx");
+    expect(admin).toMatch(/checked=\{loc\.popular === true\}/);
+    expect(admin).toMatch(/popular: e\.target\.checked \|\| undefined/);
+  });
+});
+
 describe("the page scores on the server", () => {
   it("so the first paint already knows which pins are which", () => {
     // Drawing forty identical dots and re-drawing six a second later is a map

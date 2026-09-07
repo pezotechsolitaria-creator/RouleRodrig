@@ -3790,13 +3790,36 @@ function MapEditor({
             <p className="font-bebas text-yellow text-xs tracking-[0.3em]">
               LOCATION {idx + 1} — {loc.name}
             </p>
-            <button
-              type="button"
-              onClick={() => removeLoc(idx)}
-              className="flex items-center gap-1.5 text-xs font-dm text-muted/60 hover:text-red-400 transition-colors"
-            >
-              <Trash2 size={12} /> Remove
-            </button>
+            <div className="flex items-center gap-4">
+              {/* ── THE ONE CONTROL THE POPULAR LAYER NEEDS (M184) ────────
+                  The map scores real interest from real counters — but nothing
+                  had been counted on the day it shipped, and a score over four
+                  zeroes would have badged whichever place sorted first.
+                  So on day one the layer is whatever is ticked here.
+
+                  Without this checkbox the whole feature would have stayed
+                  invisible until enough tourists had tapped enough pins, which
+                  is not a feature, it is a promise. */}
+              <label className="flex items-center gap-2 text-xs font-dm text-muted/80 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={loc.popular === true}
+                  // `undefined` rather than `false` when cleared: the CMS blob
+                  // is 68 kB and shipped to every visitor, so an unticked box
+                  // should leave no key behind at all.
+                  onChange={(e) => updateLoc(idx, { popular: e.target.checked || undefined })}
+                  className="w-4 h-4 accent-yellow cursor-pointer"
+                />
+                <span className={loc.popular ? "text-yellow font-semibold" : ""}>★ Popular</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => removeLoc(idx)}
+                className="flex items-center gap-1.5 text-xs font-dm text-muted/60 hover:text-red-400 transition-colors"
+              >
+                <Trash2 size={12} /> Remove
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
