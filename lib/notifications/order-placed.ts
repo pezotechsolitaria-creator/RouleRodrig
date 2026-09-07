@@ -86,13 +86,22 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
     }
     const admin = await getPrivileged();
 
-    const [orderRes, storeRes, itemsRes] = await Promise.all([
+    const [orderRes, storeRes, itemsRes, kitchenRes] = await Promise.all([
       admin.from("orders").select("auto_release_at").eq("id", input.orderId).maybeSingle(),
-      admin.from("stores").select("merchant_id, name, kind").eq("id", input.storeId).maybeSingle(),
+      admin.from("stores").select("merchant_id, name").eq("id", input.storeId).maybeSingle(),
       admin.from("order_items").select("product_name, variant_name, quantity, line_total").eq("order_id", input.orderId),
+      // ── IS THIS A KITCHEN? ─────────────────────────────────────────────
+      // `stores` has NO `kind` column — a store is a kitchen because it has a
+      // food_kitchens row, which is how lib/merchant/context.ts decides it too.
+      // Selecting a column that does not exist makes PostgREST fail the whole
+      // select, so `store` came back null and this function returned early:
+      // one wrong word in a select silences every order notification, not just
+      // the one that needed it.
+      admin.from("food_kitchens").select("store_id").eq("store_id", input.storeId).maybeSingle(),
     ]);
 
-    const store = storeRes.data as { merchant_id: string; name: string; kind: string | null } | null;
+    const isKitchen = Boolean(kitchenRes.data);
+    const store = storeRes.data as { merchant_id: string; name: string } | null;
     if (!store) {
       console.error(`notifyOrderPlaced: store ${input.storeId} not found for order ${input.orderNumber}`);
       return false;
@@ -206,7 +215,7 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
     // either misses their own work or starts seeing the owner's.
     void enqueueNotification({
       type: "order.placed",
-      category: store.kind === "kitchen" ? "food" : "admin",
+      category: isKitchen ? "food" : "admin",
       message: formatWhatsAppMessage({
         title: `\u{1F9FE} New order ${input.orderNumber}`,
         lines: [

@@ -34,11 +34,24 @@ describe("a new order raises a phone alert", () => {
   });
 
   it("files it by what the store IS", () => {
-    expect(ORDER_PLACED).toContain(
-      'category: store.kind === "kitchen" ? "food" : "admin"',
-    );
-    // ...which means the store query has to actually fetch kind.
-    expect(ORDER_PLACED).toContain('.select("merchant_id, name, kind")');
+    expect(ORDER_PLACED).toContain('category: isKitchen ? "food" : "admin"');
+  });
+
+  it("derives kitchen from food_kitchens, NOT from a stores.kind column", () => {
+    // ── THE BUG THIS TEST EXISTS FOR ──────────────────────────────────────
+    // The first version of this alert read `store.kind`. `stores` has no such
+    // column, and PostgREST fails the WHOLE select when one column is unknown
+    // — so `store` came back null, notifyOrderPlaced returned early, and every
+    // order notification on the platform went silent: emails to staff, the
+    // owner's push, the merchant's push, all of it. One wrong word in a select
+    // is a total blackout, not a missing field.
+    //
+    // A store is a kitchen because it HAS a food_kitchens row, which is how
+    // lib/merchant/context.ts decides it too.
+    expect(ORDER_PLACED).toContain('from("food_kitchens")');
+    expect(ORDER_PLACED).toContain("const isKitchen = Boolean(kitchenRes.data)");
+    expect(ORDER_PLACED).not.toContain("store.kind");
+    expect(ORDER_PLACED).not.toMatch(/\.select\("merchant_id, name, kind"\)/);
   });
 
   it("fires once per order, not once per sweep", () => {
