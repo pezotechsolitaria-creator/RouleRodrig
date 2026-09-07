@@ -1,6 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Landmark, ShoppingBag, Sparkles, Wrench } from "lucide-react";
+import {
+  ArrowRight,
+  ClipboardList,
+  Landmark,
+  ShoppingBag,
+  Sparkles,
+  Truck,
+  Wrench,
+} from "lucide-react";
 import BackLink from "@/components/BackLink";
 import Navbar from "@/components/Navbar";
 import JsonLd from "@/components/JsonLd";
@@ -23,7 +31,7 @@ import { HUB_ACTIONS } from "@/lib/marketplace/hub";
 // measured decision. So the hub is its own route and /shop is one of its doors.
 //
 // ── WHY TWO CARDS ARE DARK ──────────────────────────────────────────────────
-// Because two of them are not built. A card that pretends to work costs
+// Because two of the six are not built. A card that pretends to work costs
 // somebody their afternoon; one that says "not yet" costs them nothing. The
 // state comes from a null href in lib/marketplace/hub.ts — one field, so the
 // link, the cursor, the wording and the aria cannot drift apart.
@@ -51,6 +59,8 @@ export const metadata: Metadata = {
 const ICON: Record<string, React.ElementType> = {
   shop: ShoppingBag,
   wash: Sparkles,
+  deliver: Truck,
+  task: ClipboardList,
   pro: Wrench,
   admin: Landmark,
 };
