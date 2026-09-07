@@ -1470,6 +1470,63 @@ export async function sendPaymentReportedAlert(input: {
   });
 }
 
+/**
+ * A delivery needs the owner, by EMAIL rather than by WhatsApp.
+ *
+ * ── WHY THIS EXISTS ───────────────────────────────────────────────────────
+ * Deliveries were the loudest thing on the owner's phone: 34 WhatsApp alerts
+ * in a fortnight, more than rentals, admin and bookings combined, and most of
+ * them routine — a request posted, a driver quoted, a quote accepted. None of
+ * those need a human. The marketplace is working when they happen.
+ *
+ * What DOES need a human is the opposite: a job nobody took, or a package a
+ * driver is sitting on. Those are rare, and an email is the right shape for
+ * them — it waits, it holds the address and the phone numbers, and it does not
+ * buzz a phone at 2am for something already handled by morning.
+ *
+ * The words come from lib/delivery/escalation-copy.ts unchanged, so the email
+ * and the delivery board cannot describe the same situation differently.
+ */
+export async function sendDeliveryStallEmail(input: {
+  /** The escalation's own title, e.g. "Still at the shop — nobody took it". */
+  title: string;
+  /** Its own lines, in order. Already written for a human. */
+  lines: string[];
+  /** Dedupe key from the escalation, so one situation mails once. */
+  dedupeKey: string;
+  /** Distinguishes "nobody took it" from "a driver has it and went quiet". */
+  kind: string;
+}): Promise<boolean> {
+  const owner = await ownerInbox();
+  const { logo } = await getBrand();
+
+  const body = `
+    ${paragraph(input.lines[0] ?? input.title)}
+    ${detailCard(
+      rows(
+        input.lines
+          .slice(1)
+          .filter(Boolean)
+          .map((l, i) => [i === 0 ? "What now" : " ", l] as [string, string]),
+      ),
+    )}`;
+
+  return send({
+    to: owner,
+    subject: `🚚 ${input.title}`,
+    html: shell({
+      preheader: input.lines[0] ?? "A delivery needs you.",
+      eyebrow: "Deliveries",
+      title: input.title,
+      body,
+      logo,
+    }),
+    type: "owner_delivery_stall",
+    // The escalation's key, so the email dedupes exactly as the alert did.
+    key: keyFor("owner_delivery_stall", input.dedupeKey),
+  });
+}
+
 /** Customer confirmation + owner notification for a Stay·Eat·Do reservation. */
 export async function sendPlaceBookingEmails(
   b: PlaceBookingEmailData,

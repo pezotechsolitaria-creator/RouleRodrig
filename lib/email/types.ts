@@ -208,6 +208,11 @@ export const EMAIL_TYPES = {
   // nothing happens until he looks. "high", not "critical" — it is urgent to a
   // waiting guest but it does not defend a reserve.
   owner_payment_reported:           { category: "operational", priority: "high" },
+  // A delivery nobody took, or one a driver is sitting on. Replaces the
+  // WhatsApp that used to carry these: deliveries were the loudest thing on the
+  // owner's phone and almost all of it was routine traffic. An exception is
+  // worth an email; a marketplace working normally is not worth a buzz.
+  owner_delivery_stall:             { category: "operational", priority: "high" },
   owner_tiroule_digest:             { category: "operational", priority: "low" },
   admin_test:                       { category: "operational", priority: "low" },
   // Outbound to an APPLICANT, not to the owner — so unlike its neighbours here

@@ -1,7 +1,7 @@
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { pushToDriverEndpoints, pushToCustomer, pushToDriver, type Target } from "@/lib/push/send";
 import { sendWhatsApp } from "@/lib/notifications/whatsapp";
-import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/queue";
+import { formatWhatsAppMessage } from "@/lib/notifications/queue";
 import {
   newRequestTitle,
   newRequestLines,
@@ -147,25 +147,19 @@ export async function notifyDriversOfNewRequest(requestId: string): Promise<void
     ),
   ]);
 
-  // The owner's board, so a request that reaches no driver is visible to
-  // somebody. dedupeKey is the request id: a retried POST cannot produce a
-  // second alert.
-  await enqueueNotification({
-    type: "delivery.request_posted",
-    category: "deliveries",
-    message: formatWhatsAppMessage({
-      title: `${title} (${pushTargets.length} push, ${waTargets.length} WhatsApp)`,
-      lines,
-    }),
-    dedupeKey: `delivery.request_posted:${requestId}`,
-    payload: {
-      requestId,
-      kind: f.kind,
-      sizeClass: f.sizeClass,
-      pushTargets: pushTargets.length,
-      whatsappTargets: waTargets.length,
-    },
-  });
+  // ── NO OWNER ALERT WHILE THIS IS WORKING (M164) ───────────────────────────
+  //
+  // This used to WhatsApp the owner on every posted request. It was the single
+  // noisiest line in the system: 12 of the 34 delivery alerts in a fortnight,
+  // each one saying nothing more than "the marketplace did its job".
+  //
+  // The owner is told when it does NOT work instead. A request that reaches no
+  // driver at all is escalated by sweep_delivery_escalations() and arrives as
+  // an EMAIL through notifyOwnerDeliveryStalled -> sendDeliveryStallEmail.
+  //
+  // Deliberately not replaced with a quieter WhatsApp: a channel the owner has
+  // learned to swipe away is worse than no channel, because the one message
+  // that mattered gets swiped with it.
 }
 
 // ── 2. A price has arrived ──────────────────────────────────────────────────
@@ -209,28 +203,7 @@ export async function notifyCustomerOfQuote(quoteId: string): Promise<void> {
         urgent: true,
       },
     ),
-    enqueueNotification({
-      type: "delivery.quote_offered",
-      category: "deliveries",
-      message: formatWhatsAppMessage({
-        title,
-        lines,
-        action: quoteArrivedAction(customerPath(q.request.id)),
-      }),
-      // The FEE is in the key. offer_delivery_quote() updates a driver's quote
-      // in place and keeps its id, so keying on the id alone meant a driver
-      // dropping their price from Rs 400 to Rs 250 produced an identical key --
-      // and enqueue_notification's UNIQUE(dedupe_key) has no time window, so
-      // the customer was never told their price had improved.
-      dedupeKey: `delivery.quote_offered:${quoteId}:${q.fee}`,
-      payload: {
-        requestId: q.request.id,
-        quoteId,
-        fee: q.fee,
-        driverId: q.driverId,
-        quoteCount: q.request.quoteCount,
-      },
-    }),
+    Promise.resolve(/* M164: owner WhatsApp for a routine quote is silenced -- see notifyDriversOfNewRequest */),
   ]);
 }
 
@@ -287,19 +260,7 @@ export async function notifyQuoteAccepted(quoteId: string): Promise<void> {
         tag: `delivery-quotes-${q.request.id}`,
       },
     ),
-    enqueueNotification({
-      type: "delivery.quote_accepted",
-      category: "deliveries",
-      message: formatWhatsAppMessage({ title, lines }),
-      dedupeKey: `delivery.quote_accepted:${quoteId}`,
-      payload: {
-        requestId: q.request.id,
-        quoteId,
-        deliveryId: q.deliveryId,
-        driverId: q.driverId,
-        fee: q.fee,
-      },
-    }),
+    Promise.resolve(/* M164: the driver and the customer are both told directly above; the owner does not need a third copy */),
   ]);
 }
 
@@ -356,18 +317,7 @@ export async function notifyDriverOfCancellation(requestId: string): Promise<voi
       urgent: true,
     }),
     whatsappFan(waTargets, formatWhatsAppMessage({ title, lines })),
-    enqueueNotification({
-      type: "delivery.cancelled_by_customer",
-      category: "deliveries",
-      message: formatWhatsAppMessage({ title, lines }),
-      dedupeKey: `delivery.cancelled_by_customer:${f.deliveryId ?? requestId}`,
-      payload: {
-        requestId: f.requestId,
-        deliveryId: f.deliveryId,
-        driverId: f.driverId,
-        fee: f.fee,
-      },
-    }),
+    Promise.resolve(/* M164: the driver is told directly above, which is the time-critical half */),
   ]);
 }
 

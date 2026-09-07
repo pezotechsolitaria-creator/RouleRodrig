@@ -2,6 +2,7 @@ import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { pushToOfferedDrivers, pushToDriverEndpoints, type PushPayload } from "@/lib/push/send";
 import { sendWhatsApp } from "@/lib/notifications/whatsapp";
 import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/queue";
+import { sendDeliveryStallEmail } from "@/lib/email";
 import { centsToDecimalString } from "@/lib/money";
 import { deliveryStallAlert, type DeliveryStallKind } from "@/lib/delivery/escalation-copy";
 import { deliveryOfferLines, deliveryOfferTitle, type DeliveryOfferFacts } from "@/lib/delivery/offer-copy";
@@ -333,19 +334,31 @@ export async function notifyOwnerDeliveryStalled(
       minutesWaiting: settled === "no_driver" ? minutesSince(ctx?.createdAt) : null,
     });
 
-    await enqueueNotification({
-      type: alert.type,
-      category: "deliveries",
-      message: formatWhatsAppMessage({ title: alert.title, lines: alert.lines }),
-      // Carries the situation AND the hand-on count, so a second alert about
-      // one delivery is a second message rather than a swallowed insert. The
-      // old key was the same string for both kinds and the UNIQUE index has no
-      // time window, so the alert saying a driver had vanished with the goods
-      // was silently discarded whenever that delivery had stranded once before.
+    // ── EMAIL, NOT WHATSAPP (M164) ────────────────────────────────────────
+    //
+    // The owner asked for this directly: "disable msg for callmebot for
+    // deliveries, instead send emails ONLY when there is no drivers".
+    //
+    // Deliveries were the loudest category on his phone -- 34 WhatsApp alerts
+    // in a fortnight against 30 for rentals and 4 for bookings -- and the
+    // measured breakdown says almost all of it was routine: a request posted,
+    // a driver quoted, a quote accepted. Those are the marketplace WORKING.
+    // They are now silent (see lib/delivery/notify-requests.ts).
+    //
+    // What survives is this: the exceptions. A job nobody took, a package a
+    // driver is sitting on, something never collected. Those genuinely need a
+    // person, and an email is the right shape for them -- it waits, it holds
+    // the addresses and phone numbers, and it does not buzz at 2am for
+    // something that will still be true at breakfast.
+    //
+    // The alert's own words and its own dedupe key are passed through
+    // unchanged, so the email and the delivery board can never describe one
+    // situation two different ways.
+    await sendDeliveryStallEmail({
+      title: alert.title,
+      lines: alert.lines,
       dedupeKey: alert.dedupeKey,
-      // The driver's personal number goes in the MESSAGE only. payload is
-      // rendered on the admin notifications card and kept indefinitely.
-      payload: { deliveryId, kind: settled },
+      kind: settled,
     });
   } catch (err) {
     console.error("notifyOwnerDeliveryStalled failed", { deliveryId, kind, err });
