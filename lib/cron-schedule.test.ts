@@ -1,61 +1,47 @@
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// ── A CRON ROUTE WITH NO SCHEDULE IS A WORKER THAT NEVER RUNS (M165) ────────
+// ── A CRON ENTRY IS A DEPLOY-TIME CONTRACT (M165) ───────────────────────────
 //
-// app/api/cron/notifications is the every-minute worker: it drains the
-// notification queue, sweeps delivery escalations, expires Deliver Anything
-// requests and — since M181 — cancels a lunch nobody accepted at its collection
-// time. Its own header says "This is triggered by cron-job.org every minute".
+// I added /api/cron/notifications to vercel.json because the worker looked
+// unscheduled: the last queued notification had been sent hours earlier and a
+// delivery deliberately re-armed for the sweep sat untouched.
 //
-// It was not in vercel.json, and the external pinger had stopped. Measured on
-// production: the last queued notification was sent at 01:46, a delivery
-// deliberately re-armed for the sweep sat untouched for five minutes, and the
-// endpoint answered 401 rather than 503 — so it was deployed, guarded and
-// CRON_SECRET was set. Nothing was calling it.
+// It was the wrong fix. The route is driven by an EXTERNAL pinger every minute
+// (see the header of app/api/cron/notifications/route.ts), and the number of
+// cron entries a deployment may declare is capped by the Vercel plan — a
+// deployment over the cap is rejected before it builds, which is silent from
+// inside the repo. Production sat on an old build while every check here
+// passed.
 //
-// Depending on a free external pinger for the only thing that moves the queue
-// is a single point of failure with no alarm on it. The schedule now lives in
-// the repo beside the route.
+// So the file keeps the schedules it had, and this test pins the count rather
+// than pretending every route needs an entry.
 
 const ROOT = join(__dirname, "..");
 const vercel = JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8")) as {
   crons?: { path: string; schedule: string }[];
 };
-const scheduled = new Set((vercel.crons ?? []).map((c) => c.path));
+const crons = vercel.crons ?? [];
 
-/** Every route.ts under app/api/cron, as the path Vercel would call. */
-function cronRoutes(): string[] {
-  const dir = join(ROOT, "app", "api", "cron");
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && existsSync(join(dir, e.name, "route.ts")))
-    .map((e) => `/api/cron/${e.name}`);
-}
-
-describe("every cron route is actually scheduled", () => {
-  it("schedules the notification worker", () => {
-    // The one that was missing. It carries the queue, the delivery escalation
-    // sweep, request expiry and order auto-cancel.
-    expect(scheduled.has("/api/cron/notifications")).toBe(true);
+describe("vercel.json declares only the crons the plan allows", () => {
+  it("keeps the three daily jobs", () => {
+    const paths = crons.map((c) => c.path);
+    expect(paths).toContain("/api/cron/reminders");
+    expect(paths).toContain("/api/cron/posthog-health");
+    expect(paths).toContain("/api/cron/purge-documents");
   });
 
-  it("runs it often enough to be a worker", () => {
-    const c = (vercel.crons ?? []).find((x) => x.path === "/api/cron/notifications");
-    // A daily schedule would be useless here: an order for 15:00 that nobody
-    // accepts has to be cancelled at 15:30, not at 06:00 tomorrow.
-    expect(c?.schedule).toMatch(/^\*(\/\d+)? \*/);
+  it("does NOT declare the every-minute worker", () => {
+    // Driven by an external pinger. Adding it here is what is believed to have
+    // blocked deployment; if you re-add it, confirm the plan's cron limit
+    // first and watch a deploy actually land.
+    expect(crons.map((c) => c.path)).not.toContain("/api/cron/notifications");
   });
 
-  it("leaves no cron route unscheduled", () => {
-    const orphans = cronRoutes().filter((p) => !scheduled.has(p));
-    expect(orphans).toEqual([]);
-  });
-
-  it("keeps the schedules that were already there", () => {
-    for (const p of ["/api/cron/reminders", "/api/cron/posthog-health", "/api/cron/purge-documents"]) {
-      expect(scheduled.has(p)).toBe(true);
+  it("gives every declared cron a schedule", () => {
+    for (const c of crons) {
+      expect(c.schedule, c.path).toMatch(/\S/);
     }
   });
 });
