@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import SmartImage from "./SmartImage";
 import Link from "next/link";
 import {
   Search, Compass, Waves, Mountain, Map as MapIcon, Route as RouteIcon,
@@ -143,8 +144,7 @@ export default function ExploreClient({
             className="group mt-4 flex items-center gap-3 overflow-hidden rounded-2xl border border-yellow/25 bg-gradient-to-r from-yellow/[0.12] via-yellow/[0.04] to-transparent p-2.5 transition-colors hover:border-yellow/50"
           >
             {foodImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={foodImage} alt="" className="h-14 w-14 shrink-0 rounded-xl object-cover" loading="lazy" />
+              <SmartImage src={foodImage} alt="" width={56} height={56} className="h-14 w-14 shrink-0 rounded-xl object-cover" />
             ) : (
               <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-yellow/15 text-2xl">🍽️</span>
             )}
@@ -272,8 +272,7 @@ function ExperienceRow({ item, language }: { item: ExploreItem; language: Langua
   return (
     <Wrap {...props} className="group flex items-stretch gap-3 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-2.5 transition-colors hover:border-yellow/40 hover:bg-white/[0.05]">
       {item.image ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={item.image} alt={name} className="h-[88px] w-[88px] shrink-0 rounded-xl object-cover" loading="lazy" />
+        <SmartImage src={item.image} alt={name} width={88} height={88} className="h-[88px] w-[88px] shrink-0 rounded-xl object-cover" />
       ) : (
         <div className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-xl bg-yellow/8 text-yellow/60">
           <Compass size={22} />

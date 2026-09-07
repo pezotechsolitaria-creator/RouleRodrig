@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import SmartImage from "./SmartImage";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Heart, X, ArrowRight, Bike, BedDouble, Route as RouteIcon, Mail, Send, Check, Share2, Copy } from "lucide-react";
@@ -156,8 +157,7 @@ export default function FavoritesPanel() {
                           <div key={`${f.type}:${f.id}`} className="group flex items-center gap-3 bg-dark-card border border-dark-border rounded-xl p-2.5 hover:border-yellow/40 transition-colors">
                             <Link href={f.href} onClick={() => setOpen(false)} className="flex items-center gap-3 flex-1 min-w-0">
                               {f.image ? (
-                                /* eslint-disable-next-line @next/next/no-img-element */
-                                <img src={f.image} alt={f.name} className="w-14 h-14 rounded-lg object-cover shrink-0" loading="lazy" />
+                                <SmartImage src={f.image} alt={f.name} width={56} height={56} className="w-14 h-14 rounded-lg object-cover shrink-0" />
                               ) : (
                                 <span className="w-14 h-14 rounded-lg bg-dark flex items-center justify-center shrink-0">
                                   <Icon size={18} className="text-yellow/50" />

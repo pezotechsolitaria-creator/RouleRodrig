@@ -209,10 +209,24 @@ const nextConfig: NextConfig = {
     // passes upsert:false, so a given URL's bytes never change. A new photo is
     // a new URL, and it misses the cache exactly once.
     minimumCacheTTL: 31536000,
+    // ── KEEP IN SYNC WITH lib/images/hosts.ts ───────────────────────────────
+    //
+    // Written out rather than imported, and that is not laziness. Importing it
+    // passed `next build` and then killed `next dev` outright: Next compiles
+    // this file to next.config.compiled.js and a relative import no longer
+    // resolves from there — "Cannot find module './lib/images/hosts'", the
+    // server exits 1, and nothing about the build warned that it would.
+    //
+    // Two copies drift silently, because next/image THROWS on a host it was not
+    // configured for and the symptom is a blank page. So the copies are held
+    // together by a test instead: lib/images/hosts.test.ts fails the build if
+    // this list and that one ever disagree.
     remotePatterns: [
       { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
       { protocol: "https", hostname: "*.supabase.co" },
       { protocol: "https", hostname: "api.qrserver.com" },
+      { protocol: "https", hostname: "roulerodrig.com" },
+      { protocol: "https", hostname: "www.roulerodrig.com" },
     ],
   },
 

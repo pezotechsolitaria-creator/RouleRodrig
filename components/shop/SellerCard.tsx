@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SmartImage from "@/components/SmartImage";
 import { Store as StoreIcon, PackageCheck, CalendarClock, ChevronRight } from "lucide-react";
 import type { ProductSeller } from "@/lib/marketplace/types";
 import StarRating from "./StarRating";
@@ -42,8 +43,7 @@ export default function SellerCard({
 
       <div className="mt-2 flex items-center gap-3">
         {seller.logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={seller.logoUrl} alt="" loading="lazy" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+          <SmartImage src={seller.logoUrl} alt="" width={48} height={48} className="h-12 w-12 shrink-0 rounded-xl object-cover" />
         ) : (
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-yellow/10 text-yellow ring-1 ring-inset ring-yellow/20">
             <StoreIcon size={20} />

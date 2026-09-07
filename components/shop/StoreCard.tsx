@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SmartImage from "@/components/SmartImage";
 import { Store as StoreIcon, MapPin } from "lucide-react";
 import { statusWords, fulfilmentWords, notSellingNote } from "@/lib/shop/plain-words";
 import StarRating from "./StarRating";
@@ -89,8 +90,7 @@ export default function StoreCard({ store }: { store: BrowseStoreCard }) {
       <div className="p-4">
         <div className="flex items-center gap-3">
           {store.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={store.logoUrl} alt="" className="h-10 w-10 shrink-0 rounded-xl object-cover" />
+            <SmartImage src={store.logoUrl} alt="" width={40} height={40} className="h-10 w-10 shrink-0 rounded-xl object-cover" />
           ) : (
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-yellow/10 text-yellow ring-1 ring-inset ring-yellow/20">
               <StoreIcon size={18} />

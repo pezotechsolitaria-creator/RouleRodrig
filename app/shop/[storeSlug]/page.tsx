@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import SmartImage from "@/components/SmartImage";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Store as StoreIcon, Phone, PackageCheck, CalendarClock, ChevronRight, Wrench } from "lucide-react";
@@ -216,8 +217,7 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
           </div>
           <div className="absolute -bottom-7 left-4">
             {store.logo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={store.logo_url} alt="" className="h-16 w-16 rounded-2xl object-cover ring-4 ring-dark" />
+              <SmartImage src={store.logo_url} alt="" width={64} height={64} className="h-16 w-16 rounded-2xl object-cover ring-4 ring-dark" />
             ) : (
               <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-yellow/10 text-yellow ring-4 ring-dark">
                 <StoreIcon size={26} />

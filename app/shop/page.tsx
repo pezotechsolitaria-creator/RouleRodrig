@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import SmartImage from "@/components/SmartImage";
 import Link from "next/link";
 import {
   Store as StoreIcon,
@@ -343,11 +344,11 @@ export default async function MarketplaceHomePage() {
                       className="group flex items-center gap-3 rounded-xl border border-white/10 bg-dark-card p-3 transition-colors hover:border-yellow/40"
                     >
                       {s.logoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <SmartImage
                           src={s.logoUrl}
                           alt=""
-                          loading="lazy"
+                          width={36}
+                          height={36}
                           className="h-9 w-9 shrink-0 rounded-lg object-cover"
                         />
                       ) : (
