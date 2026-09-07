@@ -243,6 +243,20 @@ export interface MapLocation {
   story?: string;    // Ti Roulé's short researched story about the place
   storyFr?: string;
   storyCr?: string;
+  // -- THE OWNER'S OWN PICK (M184) -----------------------------------------
+  // The map's Popular layer scores real interest -- views, directions presses,
+  // saves -- but on the day it shipped there was NO such data: no page-view
+  // table existed at all and place_bookings held zero rows. A ranking over four
+  // zeroes would have printed "Popular" on whichever place happened to sort
+  // first, to a tourist planning a morning around it.
+  //
+  // This flag is what makes the layer honest AND useful from day one: the owner
+  // has walked these beaches, and on a 42-place island his judgement is better
+  // evidence than a fortnight of clicks. It lives in the CMS blob beside the
+  // rest of the place, so marking one is an edit, not a migration.
+  popular?: boolean;
+  /** Lower sorts first among the picks. Absent means "a pick, in no fixed order". */
+  popularRank?: number;
 }
 
 export interface PlannerActivity {

@@ -7,6 +7,12 @@ import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { Navigation, Car, ChevronDown, X, ChevronLeft, ChevronRight, ZoomIn, BookOpen, Volume2, Square } from "lucide-react";
 import type { MapLocation } from "@/lib/defaults";
+import {
+  NO_SIGNALS,
+  isPopular,
+  scorePlace,
+  type Popularity,
+} from "@/lib/places/popularity";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc as localize } from "@/lib/localize";
 import { speakText, stopSpeaking, primeVoices } from "@/lib/speak";
@@ -33,7 +39,24 @@ const CATEGORY_LABEL_I18N: Record<Language, Record<string, string>> = {
   cr: { beach: "Laplaz", viewpoint: "Pwin vi",      restaurant: "Restoran",   landmark: "Landmark", activity: "Aktivite", gas: "Lesans",  shop: "Laboutik" },
 };
 
-export default function MapSection({ locations }: { locations?: MapLocation[] }) {
+const POPULAR_LABEL: Record<Language, string> = {
+  en: "Popular",
+  fr: "Populaires",
+  cr: "Popiler",
+};
+
+export default function MapSection({
+  locations,
+  popularity,
+}: {
+  locations?: MapLocation[];
+  /**
+   * Scored on the server from real counters. Optional on purpose: without it
+   * the layer still works from the owner's curated flags, which is exactly the
+   * state on the day it shipped -- no page-view table existed yet.
+   */
+  popularity?: Record<string, Popularity>;
+}) {
   const { t, language } = useLanguage();
   const catLabel = (k: string) => CATEGORY_LABEL_I18N[language]?.[k] ?? k;
   const locs = locations ?? [];
@@ -135,7 +158,31 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
   const presentCats = CATEGORY_KEYS.filter((k) =>
     locs.some((l) => l.category === k),
   );
-  const shown = filter === "all" ? locs : locs.filter((l) => l.category === filter);
+  // -- WHICH PLACES WEAR THE STAR -----------------------------------------
+  // One decision, made once, and handed to BOTH the chips and the map. The
+  // filter bug this file already documents -- the list saying one thing and the
+  // map another -- came from computing the same question twice.
+  const popularIds = new Set(
+    locs
+      .filter((l) =>
+        isPopular(
+          popularity?.[l.id] ??
+            scorePlace({
+              signals: NO_SIGNALS,
+              curated: l.popular === true,
+              curatedRank: l.popularRank ?? null,
+            }),
+        ),
+      )
+      .map((l) => l.id),
+  );
+
+  const shown =
+    filter === "all"
+      ? locs
+      : filter === "popular"
+        ? locs.filter((l) => popularIds.has(l.id))
+        : locs.filter((l) => l.category === filter);
 
   if (locs.length === 0) return null;
 
@@ -174,6 +221,26 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
           >
             All ({locs.length})
           </button>
+          {/* -- POPULAR, FIRST AND ONLY WHEN IT IS TRUE ------------------
+              Placed immediately after All because it is the shortcut most
+              visitors want, and hidden entirely when nothing qualifies: a
+              filter that returns an empty map teaches people the map is
+              broken. On day one that means it appears as soon as the owner
+              ticks his first place, and not before. */}
+          {popularIds.size > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilter("popular")}
+              className={`flex items-center gap-2 text-xs font-dm px-3.5 py-1.5 rounded-full border transition-colors ${
+                filter === "popular"
+                  ? "bg-yellow text-dark border-yellow font-semibold"
+                  : "border-yellow/40 text-yellow hover:border-yellow"
+              }`}
+            >
+              <span aria-hidden="true">★</span>
+              {POPULAR_LABEL[language]} ({popularIds.size})
+            </button>
+          )}
           {presentCats.map((key) => {
             const n = locs.filter((l) => l.category === key).length;
             return (
@@ -206,7 +273,7 @@ export default function MapSection({ locations }: { locations?: MapLocation[] })
             {/* Leaflet CSS is imported locally inside IslandMap (CSP-safe).
                 Only mounted once scrolled near — keeps the initial load light. */}
             {showMap ? (
-              <IslandMap locations={shown} />
+              <IslandMap locations={shown} popularity={popularity} />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-dark-card" style={{ minHeight: 460 }}>
                 <div className="flex flex-col items-center gap-3 text-muted">
