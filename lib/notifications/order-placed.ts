@@ -213,6 +213,11 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
     // order reaches anyone subscribed to `food` — the helper's slot — and a
     // shop's reaches `admin`, the owner. Getting this wrong is how a helper
     // either misses their own work or starts seeing the owner's.
+    //
+    // The LINK follows the same fact. It was hardcoded to /admin/food for
+    // every order, so a marketplace order sent the owner to the food queue —
+    // a page his order is not on. Caught on 2026-09-07 by placing a real shop
+    // order and reading the alert.
     void enqueueNotification({
       type: "order.placed",
       category: isKitchen ? "food" : "admin",
@@ -222,7 +227,7 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
           `${store.name} \u2014 ${input.customerName}`,
           `${rs(input.total)} \u00b7 ${providerLabel} \u00b7 ${fulfillmentLabel}`,
           ...(hold ? [`Accept by ${holdDeadlineLabel(hold)}`] : []),
-          "https://roulerodrig.com/admin/food",
+          `${SITE_URL}${isKitchen ? "/admin/food" : "/admin/marketplace"}`,
         ],
       }),
       // One order, one alert, however many times this is swept or retried.
