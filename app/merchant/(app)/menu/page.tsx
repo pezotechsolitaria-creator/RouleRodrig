@@ -32,6 +32,24 @@ export default async function MerchantMenuPage() {
   // catalogue lives.
   if (!kitchen) redirect("/merchant/products");
 
+  // WHO IS LOOKING (M186).
+  //
+  // MenuPanel's canManage prop defaults to FALSE, and this page rendered
+  // <MenuPanel /> with no prop at all -- so even a correctly-roled kitchen
+  // owner got the cook's read-only menu here, with no "Add a dish" and no
+  // "Edit dish". /kitchen already computes exactly this and passes it down;
+  // this screen simply never did.
+  //
+  // Same predicate as app/kitchen/page.tsx, so the two screens cannot drift
+  // into disagreeing about who owns the place.
+  const { data: ownerRows } = await supabase
+    .from("kitchen_staff")
+    .select("store_id")
+    .eq("store_id", storeId)
+    .eq("role", "owner")
+    .limit(1);
+  const canManage = (ownerRows?.length ?? 0) > 0;
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <h1 className="font-syne text-2xl font-extrabold text-offwhite">Today’s menu</h1>
@@ -40,7 +58,7 @@ export default async function MerchantMenuPage() {
         automatically tomorrow, so nobody has to remember to undo it before service.
       </p>
       <div className="mt-6">
-        <MenuPanel />
+        <MenuPanel canManage={canManage} />
       </div>
     </div>
   );

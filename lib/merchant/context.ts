@@ -419,6 +419,13 @@ export async function getOwnStoreId(supabase: SupabaseClient): Promise<string | 
   const { data } = await supabase
     .from("merchant_staff")
     .select("merchant_id, merchants(stores(id))")
+    // ORDERED, because limit(1) without one is whatever Postgres hands back
+    // first, and that can differ between two requests. This account is staff
+    // on more than one merchant, so an unordered pick meant the console could
+    // open on a different shop than it did a moment ago -- and a kitchen owner
+    // chasing "Edit dish" got a 404 whenever the draw went the other way.
+    // Oldest first: the first merchant somebody joined is the one they mean.
+    .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
   // A restaurant owner is not merchant_staff — they are kitchen_staff with
