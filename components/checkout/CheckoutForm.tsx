@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import posthog from "posthog-js";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, MapPin, AlertTriangle, RefreshCw, Check, Clock } from "lucide-react";
+import { Loader2, Map as MapIcon, MapPin, AlertTriangle, RefreshCw, Check, Clock } from "lucide-react";
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import { useCart, type CartDomain } from "@/lib/cart/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -22,6 +23,9 @@ import WhenPicker, { type PickedSlot } from "@/components/food/WhenPicker";
 import { FULFILMENT } from "@/lib/shop/plain-words";
 import PickupLocationCard, { type PickupLocation } from "@/components/orders/PickupLocationCard";
 import { checkoutHoldCopy, type PaymentProvider } from "@/lib/orders/hold";
+
+// Leaflet is heavy and most orders are pickup. Loaded only if the sheet opens.
+const PinOnMap = dynamic(() => import("@/components/PinOnMap"), { ssr: false });
 
 type Provider = "cash" | "bank_transfer";
 type Fulfillment = "pickup" | "customer_delivery" | "rr_delivery";
@@ -146,6 +150,15 @@ export default function CheckoutForm({
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [deliveryInstructions, setDeliveryInstructions] = useState("");
+  // ── THE SECOND WAY TO ANSWER "WHERE" ──────────────────────────────────
+  // `locationReady` below is `!needsLocation || coords !== null`, and until
+  // now getCurrentPosition() was the ONLY thing that could set coords. So a
+  // customer who declined the permission prompt, or whose browser gives a poor
+  // fix, or who is simply not standing at the address they want it delivered
+  // to — ordering from work for home is the ordinary case — could not complete
+  // a delivery order at all. The copy admitted it: "This device can't share a
+  // location. Choose pickup instead."
+  const [pinning, setPinning] = useState(false);
   const [notes, setNotes] = useState("");
   // M161. null = ASAP, which is what every order was before this existed.
   // Plain form state on purpose: never localStorage and never a URL param,
@@ -705,10 +718,20 @@ export default function CheckoutForm({
                 {c.form.location.why}
               </p>
             )}
-            <Button type="button" variant="outline" className="mt-3" onClick={shareLocation} disabled={locating}>
-              {locating ? <Loader2 size={15} className="mr-1.5 animate-spin" /> : <MapPin size={15} className="mr-1.5" />}
-              {coords ? c.form.location.update : c.form.location.share}
-            </Button>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={shareLocation} disabled={locating}>
+                {locating ? <Loader2 size={15} className="mr-1.5 animate-spin" /> : <MapPin size={15} className="mr-1.5" />}
+                {coords ? c.form.location.update : c.form.location.share}
+              </Button>
+              {/* Beside the GPS button, not behind a failure. Somebody ordering
+                  to an address they are not standing at is not an error case —
+                  it is half the orders — and they should not have to be refused
+                  once before being offered the way that works. */}
+              <Button type="button" variant="outline" onClick={() => setPinning(true)}>
+                <MapIcon size={15} className="mr-1.5" />
+                {c.form.location.pin.open}
+              </Button>
+            </div>
             {locationError && <p role="alert" className="mt-2 font-dm text-xs text-red-400">{locationError}</p>}
             <Textarea
               value={deliveryInstructions}
@@ -720,6 +743,23 @@ export default function CheckoutForm({
               className="mt-3"
             />
           </div>
+
+          {/* The sheet's name field IS the directions field — the same words a
+              driver reads, carried in and back out — so nobody types their
+              landmark twice. */}
+          {pinning && (
+            <PinOnMap
+              initialName={deliveryInstructions}
+              copy={c.form.location.pin}
+              onCancel={() => setPinning(false)}
+              onConfirm={({ name, lat, lng }) => {
+                setCoords({ lat, lng });
+                setDeliveryInstructions(name);
+                setLocationError(null);
+                setPinning(false);
+              }}
+            />
+          )}
         </section>
       )}
 

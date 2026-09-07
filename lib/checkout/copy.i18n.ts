@@ -178,11 +178,23 @@ const EN = {
       share: "Share my location",
       notesPlaceholder: "Landmark or directions (optional)",
       notesAria: "Delivery directions",
-      unsupported: "This device can't share a location. Choose pickup instead.",
-      denied: "We couldn't get your location. Allow location access and try again.",
+      unsupported:
+        "This device can't share a location — show us on the map instead.",
+      denied:
+        "We couldn't get your location. Allow access and try again, or show us on the map.",
       /** The line under the summary. Says the same as blocked.location in
        *  different words, on the same screen — reported, not merged. */
       needed: "Share your location to continue.",
+      pin: {
+        open: "Show us on the map",
+        title: "Point to where it goes",
+        hint: "Move the map so the pin sits on your door. Pinch to zoom in.",
+        nameLabel: "Landmark or directions",
+        namePlaceholder: "e.g. blue gate, up from the church",
+        confirm: "Deliver here",
+        cancel: "Close",
+        recentre: "Where I am",
+      },
     },
 
     guest: {
@@ -442,10 +454,20 @@ const FR: CheckoutCopy = {
       notesPlaceholder: "Repère ou indications (facultatif)",
       notesAria: "Indications de livraison",
       unsupported:
-        "Cet appareil ne peut pas partager de position. Choisissez plutôt le retrait.",
+        "Cet appareil ne peut pas partager de position — montrez-nous sur la carte.",
       denied:
-        "Nous n’avons pas pu obtenir votre position. Autorisez l’accès à la position et réessayez.",
+        "Nous n’avons pas pu obtenir votre position. Autorisez l’accès et réessayez, ou montrez-nous sur la carte.",
       needed: "Partagez votre position pour continuer.",
+      pin: {
+        open: "Montrez-nous sur la carte",
+        title: "Indiquez où livrer",
+        hint: "Déplacez la carte pour placer le repère sur votre porte. Pincez pour zoomer.",
+        nameLabel: "Point de repère ou indications",
+        namePlaceholder: "ex. portail bleu, après l’église",
+        confirm: "Livrer ici",
+        cancel: "Fermer",
+        recentre: "Où je suis",
+      },
     },
 
     guest: {
@@ -672,10 +694,20 @@ const CR: CheckoutCopy = {
       notesPlaceholder: "Landrwa ouswa bann indikasion (opsionel)",
       notesAria: "Indikasion livrezon",
       unsupported:
-        "Sa aparey la pa kapav partaz enn pozision. Swazir plito pou al pran li.",
+        "Sa aparey la pa kapav partaz enn pozision — montre nou lor kart la.",
       denied:
-        "Nou pa finn kapav gagn ou pozision. Otoriz akse pozision ek esey ankor.",
+        "Nou pa finn kapav gagn ou pozision. Otoriz akse ek esey ankor, ouswa montre nou lor kart la.",
       needed: "Partaz ou pozision pou kontinie.",
+      pin: {
+        open: "Montre nou lor kart la",
+        title: "Montre kot pou livre",
+        hint: "Bouz kart la ziska reper la lor ou laport. Pinse pou zoom.",
+        nameLabel: "Landrwa ou bann indikasion",
+        namePlaceholder: "par ex. baro ble, apre legliz",
+        confirm: "Livre isi",
+        cancel: "Ferme",
+        recentre: "Kot mo ete",
+      },
     },
 
     guest: {
