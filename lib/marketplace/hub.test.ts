@@ -18,7 +18,7 @@ import { HUB_ACTIONS, isVehicleTrade, VEHICLE_WORDS } from "./hub";
 describe("the menu cannot lie about what is open", () => {
   it("offers the six the brief asked for", () => {
     expect(HUB_ACTIONS).toHaveLength(6);
-    for (const key of ["shop", "wash", "deliver", "task", "pro", "admin"]) {
+    for (const key of ["shop", "wash", "deliver", "task", "pro", "celebrations"]) {
       expect(HUB_ACTIONS.map((a) => a.key)).toContain(key);
     }
   });
@@ -44,19 +44,25 @@ describe("the menu cannot lie about what is open", () => {
     }
   });
 
-  it("opens exactly the four that are actually built", () => {
-    // Shop and Delivery have been live for months, and "Do it for me" is a mode
-    // inside Delivery. Wash became real when trade_providers +
-    // book_service_slot_public landed. The other two have no implementation, so
-    // they must not be linked.
-    const open = HUB_ACTIONS.filter((a) => a.href).map((a) => a.key).sort();
-    expect(open).toEqual(["deliver", "shop", "task", "wash"]);
+  it("opens every card, because every shelf now has stock on it", () => {
+    // M183/M184/M185 gave Professional Services and Celebrations real providers
+    // with a bookable service AND a stocked product each, so nothing is "Soon".
+    const soon = HUB_ACTIONS.filter((a) => a.href === null).map((a) => a.key);
+    expect(soon, `still marked coming soon: ${soon.join(", ")}`).toEqual([]);
+  });
+
+  it("sends the shelf cards at the categories that exist", () => {
+    // These four slugs are rows in `categories`. A typo here is a 404 on the
+    // one page built to send people somewhere.
+    const byKey = Object.fromEntries(HUB_ACTIONS.map((a) => [a.key, a.href]));
+    expect(byKey.wash).toBe("/shop/c/vehicle-care");
+    expect(byKey.pro).toBe("/shop/c/professional-services");
+    expect(byKey.celebrations).toBe("/shop/c/celebrations");
   });
 
   it("points each open card at a route that exists", () => {
     const byKey = Object.fromEntries(HUB_ACTIONS.map((a) => [a.key, a.href]));
     expect(byKey.shop).toBe("/shop");
-    expect(byKey.wash).toBe("/marketplace/wash");
     expect(byKey.deliver).toBe("/deliver");
   });
 

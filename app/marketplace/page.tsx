@@ -180,7 +180,28 @@ export default async function MarketplacePage() {
             })}
           </div>
 
+          {/* ── THE SHELF AND THE SUPPLIERS ARE DIFFERENT QUESTIONS ──────────
+              The Wash card goes to /shop/c/vehicle-care, which lists the WORK —
+              a valet you book, a shampoo you buy. This lists the BUSINESSES,
+              with whether each comes to you and whether they take a booking
+              online. Somebody who wants their car cleaned wants the first;
+              somebody who wants a particular garage wants the second.
+
+              It is a line and not a card because it is the rarer question. It
+              is here at all because the page had no inbound link the moment the
+              card was repointed, and lib/nav/reachable-pages.test.ts said so —
+              which is the same defect this whole hub exists to fix. */}
           <p className="mt-6 font-dm text-[12.5px] leading-relaxed text-muted">
+            Looking for a particular garage?{" "}
+            <Link
+              href="/marketplace/wash"
+              className="text-yellow underline underline-offset-4"
+            >
+              See car wash and valeting businesses
+            </Link>
+          </p>
+
+          <p className="mt-2 font-dm text-[12.5px] leading-relaxed text-muted">
             Run a business on Rodrigues?{" "}
             <Link
               href="/list-your-scooter"

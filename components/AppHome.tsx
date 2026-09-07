@@ -794,8 +794,10 @@ export default function AppHome({
             <div className="rr-nav-row flex items-center justify-around px-2 py-1.5 sm:px-4 sm:py-2.5">
               {NAV_TABS.map((tab) => {
                 const label = tabLabel(tab, language);
+                // `relative`, because the active pill below is absolutely
+                // positioned inside it — the same construction BottomNav uses.
                 const base =
-                  "flex min-w-[52px] flex-col items-center gap-1 rounded-xl px-2 py-1.5 transition-colors sm:min-w-[76px] sm:gap-1.5 sm:px-3 sm:py-2";
+                  "relative flex min-w-[52px] flex-col items-center gap-1 rounded-xl px-2 py-1.5 transition-colors sm:min-w-[76px] sm:gap-1.5 sm:px-3 sm:py-2";
                 if (tab.action === "tiroule") {
                   return (
                     <button
@@ -814,18 +816,26 @@ export default function AppHome({
                 }
                 const active = isTabActive(tab, pathname);
                 return (
+                  // ── THE SAME ACTIVE STATE AS EVERY OTHER PAGE ───────────
+                  // "one list, two chromes" was true of the tabs and had
+                  // quietly become true of the SELECTED one too: every other
+                  // page fills the active tab with a gold pill and dark text,
+                  // and the homepage tinted the label yellow instead. Yellow
+                  // text on a dark bar, one tab away from Ti Roulé's solid gold
+                  // button, is not a state anybody reads as "you are here" —
+                  // the homepage looked like the only screen with nothing
+                  // selected. Same markup as BottomNav now, deliberately.
                   <Link
                     key={tab.key}
                     href={tab.href ?? "/"}
                     aria-current={active ? "page" : undefined}
-                    className={`${base} ${active ? "text-yellow" : "text-muted hover:text-offwhite"}`}
+                    className={`${base} ${active ? "text-dark" : "text-muted hover:text-offwhite"}`}
                   >
-                    <tab.icon
-                      className={`h-5 w-5 sm:h-6 sm:w-6 ${active ? "text-yellow" : ""}`}
-                    />
-                    <span
-                      className={`font-dm text-[10px] font-medium leading-none sm:text-[13px] ${active ? "text-yellow" : "text-muted"}`}
-                    >
+                    {active && (
+                      <span className="absolute inset-0 -z-10 rounded-xl bg-gradient-to-b from-yellow to-yellow-dark shadow-[0_4px_14px_-3px_rgba(245,200,66,0.55)]" />
+                    )}
+                    <tab.icon className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <span className="font-dm text-[10px] font-medium leading-none sm:text-[13px]">
                       {label}
                     </span>
                   </Link>
