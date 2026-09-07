@@ -1,6 +1,7 @@
 import "server-only";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { dispatchNotification } from "./dispatch";
+import { enqueueNotification, formatWhatsAppMessage } from "./queue";
 import { pushToAdmins, pushToMerchant, pushToOrganizer } from "@/lib/push/send";
 import { SITE_URL } from "@/lib/site";
 import { centsToDecimalString } from "@/lib/money";
@@ -87,11 +88,11 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
 
     const [orderRes, storeRes, itemsRes] = await Promise.all([
       admin.from("orders").select("auto_release_at").eq("id", input.orderId).maybeSingle(),
-      admin.from("stores").select("merchant_id, name").eq("id", input.storeId).maybeSingle(),
+      admin.from("stores").select("merchant_id, name, kind").eq("id", input.storeId).maybeSingle(),
       admin.from("order_items").select("product_name, variant_name, quantity, line_total").eq("order_id", input.orderId),
     ]);
 
-    const store = storeRes.data as { merchant_id: string; name: string } | null;
+    const store = storeRes.data as { merchant_id: string; name: string; kind: string | null } | null;
     if (!store) {
       console.error(`notifyOrderPlaced: store ${input.storeId} not found for order ${input.orderNumber}`);
       return false;
@@ -184,6 +185,45 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
       tag: `order:${input.orderNumber}`,
       urgent: true,
     }).then((n) => n > 0);
+
+    // ── AND A PHONE ALERT, WHICH PUSH IS NOT (M168) ────────────────────────
+    //
+    // The comment above is right that WhatsApp was the wrong channel: a message
+    // per order through a free hobby service buried the one alert that has to
+    // interrupt somebody. But push ALONE leaves a hole, because web push dies
+    // with the browser — cleared site data, a phone that never added the PWA to
+    // its home screen, a permission declined once and unaskable afterwards. In
+    // each of those a new order is announced to nobody.
+    //
+    // ntfy closes it and costs nothing: a real phone notification that survives
+    // a closed browser, with no per-message budget to protect. That is exactly
+    // why the original objection to alerting on every order does not apply to
+    // this channel.
+    //
+    // Filed by what the store IS, so it lands on the right phone. A kitchen's
+    // order reaches anyone subscribed to `food` — the helper's slot — and a
+    // shop's reaches `admin`, the owner. Getting this wrong is how a helper
+    // either misses their own work or starts seeing the owner's.
+    void enqueueNotification({
+      type: "order.placed",
+      category: store.kind === "kitchen" ? "food" : "admin",
+      message: formatWhatsAppMessage({
+        title: `\u{1F9FE} New order ${input.orderNumber}`,
+        lines: [
+          `${store.name} \u2014 ${input.customerName}`,
+          `${rs(input.total)} \u00b7 ${providerLabel} \u00b7 ${fulfillmentLabel}`,
+          ...(hold ? [`Accept by ${holdDeadlineLabel(hold)}`] : []),
+          "https://roulerodrig.com/admin/food",
+        ],
+      }),
+      // One order, one alert, however many times this is swept or retried.
+      dedupeKey: `order.placed:${input.orderId}`,
+      payload: { orderId: input.orderId, orderNumber: input.orderNumber, storeId: input.storeId },
+    }).catch((err) => {
+      // An alert failure must never look like a failed order.
+      console.error("order.placed alert failed", err);
+      return 0;
+    });
 
     // ── The SHOP that has to make it (M99) ──
     //
