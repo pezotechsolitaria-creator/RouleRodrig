@@ -1394,6 +1394,31 @@ function placeRows(b: PlaceBookingEmailData): string {
 // whether there is a file to look at. It deliberately does NOT confirm anything
 // — a customer saying they paid is a claim, and the owner is the one who checks
 // it against the bank.
+/**
+ * ONE `amount` field, TWO units — decided by `kind` and by nothing else.
+ *
+ * `bookings.deposit_amount` and `place_bookings.deposit_amount` are whole
+ * RUPEES. `orders.total` is CENTS. Every caller of this alert hands over the
+ * raw column, so printing both through the same toLocaleString() overstates
+ * every order by exactly 100×: a Rs 320.00 order was announced to the owner,
+ * on his phone and in his inbox, as "Rs 32,000".
+ *
+ * Orders keep their cents. This is money somebody says they have paid and the
+ * owner is about to check it against a bank statement line — the figure has to
+ * match that line character for character, which is the same reason the
+ * checkout totals are written in full rather than shortened.
+ */
+export function paymentAmountLine(
+  kind: "vehicle" | "activity" | "order",
+  amount: number,
+): string {
+  if (kind !== "order") return `Rs ${Math.round(amount).toLocaleString("en-US")}`;
+  const sign = amount < 0 ? "-" : "";
+  const abs = Math.abs(amount);
+  const rupees = Math.floor(abs / 100).toLocaleString("en-US");
+  return `Rs ${sign}${rupees}.${String(abs % 100).padStart(2, "0")}`;
+}
+
 export async function sendPaymentReportedAlert(input: {
   kind: "vehicle" | "activity" | "order";
   /** RR-XXXXXX for bookings, the order number for orders. */
@@ -1430,7 +1455,7 @@ export async function sendPaymentReportedAlert(input: {
         ...(input.item ? ([["What", input.item]] as [string, string][]) : []),
         ...(input.amount != null
           ? ([
-              ["Amount they owe", `Rs ${input.amount.toLocaleString("en-US")}`],
+              ["Amount they owe", paymentAmountLine(input.kind, input.amount)],
             ] as [string, string][])
           : []),
         [
@@ -1449,47 +1474,6 @@ export async function sendPaymentReportedAlert(input: {
     )}
     ${input.phone ? `<div style="text-align:center">${waButton(input.phone, `Hi ${input.customer}, thanks — checking your transfer now.`, "💬 Message " + input.customer)}</div>` : ""}`;
 
-  // ── AND THE PHONE, NOT ONLY THE INBOX (M169) ──────────────────────────
-  //
-  // This was email-only. The whole of lib/email.ts contains no
-  // enqueueNotification and no sendOwnerWhatsApp, so a declared bank transfer
-  // — the platform's live money path, 3 of 12 orders — reached the owner in an
-  // inbox he might open tonight, and nowhere else. The RPC does write a
-  // `notifications` row, but that is an in-app bell nobody on a two-kitchen
-  // island is sitting in front of.
-  //
-  // Filed under `payments`, which had NEVER fired: the staff slot takes only
-  // food and deliveries, so a helper's phone stays clean and this lands on the
-  // owner's alone.
-  void (async () => {
-    try {
-      const { enqueueNotification, formatWhatsAppMessage } = await import("@/lib/notifications/queue");
-      await enqueueNotification({
-        type: "payment.reported",
-        category: "payments",
-        message: formatWhatsAppMessage({
-          title: "\u{1F4B8} Somebody says they have paid",
-          lines: [
-            `${input.customer} \u2014 ${input.reference}`,
-            [
-              input.amount != null ? `Rs ${input.amount.toLocaleString("en-US")}` : null,
-              input.item,
-            ].filter(Boolean).join(" \u00b7 ") || where,
-            input.hasReceipt ? "Proof attached \u2014 open it in admin" : "NO FILE \u2014 worth chasing",
-            `${SITE_URL}/admin/money`,
-          ],
-        }),
-        // Same key as the email: one declaration, one alert. Re-uploading a
-        // better photo of the same slip must not buzz the phone again.
-        dedupeKey: `payment.reported:${input.reference}:${input.hasReceipt ? "proof" : "noproof"}`,
-        payload: { kind: input.kind, reference: input.reference, hasReceipt: input.hasReceipt },
-      });
-    } catch (err) {
-      // An alert must never be the reason a payment declaration 500s.
-      console.error("payment.reported alert failed", err);
-    }
-  })();
-
   // ── AND A PHONE ALERT, NOT ONLY AN EMAIL (M170) ──────────────────────────
   //
   // All three doors a customer can declare a transfer through — the guest shop
@@ -1505,6 +1489,13 @@ export async function sendPaymentReportedAlert(input: {
   // NOT awaited into the return value: this function's contract is "was the
   // email sent", and an alert failure must not turn a delivered email into a
   // false negative that makes a caller retry.
+  //
+  // THERE IS EXACTLY ONE OF THESE. There were briefly two, added the same day
+  // from two directions, identical but for the admin link -- and one pointed
+  // at /admin/money, a route that does not exist. Both carried the same
+  // dedupeKey, so the queue collapsed them and exactly one alert arrived:
+  // nothing observable was wrong, and the duplicate was invisible to any test
+  // of the delivered message. lib/payment-alert-amount.test.ts counts them.
   try {
     const { enqueueNotification, formatWhatsAppMessage } = await import("@/lib/notifications/queue");
     void enqueueNotification({
@@ -1515,7 +1506,7 @@ export async function sendPaymentReportedAlert(input: {
         lines: [
           `${input.customer} \u2014 ${input.reference}`,
           [
-            input.amount != null ? `Rs ${input.amount.toLocaleString("en-US")}` : null,
+            input.amount != null ? paymentAmountLine(input.kind, input.amount) : null,
             input.item,
           ].filter(Boolean).join(" \u00b7 ") || where,
           input.hasReceipt ? "Proof attached \u2014 open it in admin" : "NO FILE \u2014 worth chasing",
