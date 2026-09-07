@@ -15,7 +15,10 @@ import { join } from "node:path";
 // usePolling fixes both at once, so the rule this guards is simple: a polling
 // screen uses the hook, and does not hand-roll the timer again.
 
-const ROOTS = ["app", "components"];
+// lib/ included deliberately: useTripTracking hand-rolled its poll in here and
+// the first version of this test only scanned app/ and components/, so it sat
+// outside the net it was written for.
+const ROOTS = ["app", "components", "lib"];
 
 function sourceFiles(dir: string, out: string[] = []): string[] {
   let entries: string[];
@@ -28,7 +31,8 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
     if (name === "node_modules" || name === ".next" || name.startsWith(".")) continue;
     const full = join(dir, name);
     if (statSync(full).isDirectory()) sourceFiles(full, out);
-    else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name)) out.push(full);
+    else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) && name !== "use-polling.ts")
+      out.push(full);
   }
   return out;
 }

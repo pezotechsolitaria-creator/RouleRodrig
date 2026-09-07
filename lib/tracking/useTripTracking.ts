@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePolling } from "@/lib/use-polling";
 import { POLL_MS, subscribeToTrip, type ChannelState } from "./channel";
 import { freshness, shouldAcceptFix, type Fix, type Freshness, type TrackingStatus } from "./model";
 
@@ -143,12 +144,14 @@ export function useTripTracking(args: {
   useEffect(() => { void load(); }, [load, tick]);
 
   // The authoritative poll. Stops dead when the trip ends — a page left open
-  // overnight must not poll until morning.
-  useEffect(() => {
-    if (!active || !lookupKey) return;
-    const id = setInterval(() => void load(), POLL_MS);
-    return () => clearInterval(id);
-  }, [active, lookupKey, load]);
+  // overnight must not poll until morning — and now also while the tab is
+  // hidden, which is the other half of the same idea: a phone in a pocket
+  // learns nothing from a poll. immediate:false because the effect above
+  // already does the first read.
+  usePolling(load, POLL_MS, {
+    enabled: Boolean(active && lookupKey),
+    immediate: false,
+  });
 
   // The clock behind "last seen". Also stops when the trip does.
   useEffect(() => {
