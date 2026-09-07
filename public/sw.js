@@ -224,6 +224,14 @@
 // v310 - All day never merges two kitchens into one pan.
 // v311 - the product page prices what you are actually taking.
 const CACHE = "rr-cache-v337";
+
+// Dev hosts get no cache-first anything: their asset URLs are not content
+// hashed, so the immutability that makes cache-first safe does not hold.
+const IS_DEV_HOST =
+  self.location.hostname === "localhost" ||
+  self.location.hostname === "127.0.0.1" ||
+  self.location.hostname.endsWith(".local") ||
+  /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(self.location.hostname);
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
@@ -270,8 +278,27 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ── Immutable hashed build assets: cache-first ──
-  if (sameOrigin && url.pathname.startsWith("/_next/static/")) {
+  // ── Immutable hashed build assets: cache-first (DEPLOYED BUILDS ONLY) ──
+  //
+  // "Immutable" is a PRODUCTION property, not a universal one. Next content-
+  // hashes these filenames on a real build, so a changed file is a changed URL
+  // and cache-first can never go stale.
+  //
+  // In dev, Turbopack REUSES the names: _03qkajq._.js keeps its name while its
+  // contents change on every edit. Cache-first then pins the first copy a
+  // browser ever saw, for as long as the cache lives, and nothing surfaces it.
+  //
+  // It cost hours twice in one session. A CSS fix appeared not to apply -- the
+  // server was serving `right: 12px`, the page was running a cached sheet
+  // without it. Then the map appeared to have regressed to pixelated 2016
+  // imagery: the served chunk carried the Mapbox URL, the cached chunk predated
+  // it, and that looks exactly like somebody swapped the basemap. Measured
+  // while fixing it -- server 42,384 bytes with Mapbox, SW cache 41,811 bytes
+  // with the EOX fallback, same URL.
+  //
+  // localhost now falls through to the network-first handler below, which still
+  // serves from cache when the dev server is down.
+  if (sameOrigin && !IS_DEV_HOST && url.pathname.startsWith("/_next/static/")) {
     event.respondWith(
       (async () => {
         const cache = await caches.open(CACHE);
