@@ -217,6 +217,10 @@ export const EMAIL_TYPES = {
   // instead of a WhatsApp one. The words are the queue's; this type only says
   // which door it went out of.
   owner_queued_alert:               { category: "operational", priority: "high" },
+  // To the CUSTOMER, not the owner, and only to a guest: a driver has priced
+  // their delivery and nothing happens until they choose. Transactional — this
+  // is the reply to something they asked for minutes earlier.
+  customer_quote_arrived:           { category: "marketplace", priority: "high" },
   owner_tiroule_digest:             { category: "operational", priority: "low" },
   admin_test:                       { category: "operational", priority: "low" },
   // Outbound to an APPLICANT, not to the owner — so unlike its neighbours here

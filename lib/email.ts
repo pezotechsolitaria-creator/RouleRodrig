@@ -1574,6 +1574,66 @@ export async function sendQueuedAlertEmail(input: {
   });
 }
 
+/**
+ * Tell a GUEST that a driver has priced their delivery.
+ *
+ * ── WHY ONLY A GUEST, AND ONLY THE FIRST PRICE ────────────────────────────
+ * A signed-in customer gets a push notification. A guest has no account and no
+ * push subscription, so until now the first price on their request reached them
+ * nowhere at all — the request page was the only place it existed, and they had
+ * to think to go back and look. On a surface whose entire value arrives minutes
+ * later, that is the whole product failing quietly.
+ *
+ * FIRST price only. lib/delivery/notify-requests.ts carried a standing warning
+ * against wiring guest email here: a bidding war is many quotes on one request,
+ * and mailing every one of them spends a shared sending budget that password
+ * resets also draw on (M41). One email says "you have prices, go and choose";
+ * a second would only repeat it.
+ *
+ * The words are the queue's own — the same title and lines the push carries —
+ * so the email and the notification cannot describe one event two ways. That
+ * includes the last line, which request-copy.ts makes unconditional on purpose:
+ * "Nobody is on the way until you choose a price."
+ */
+export async function sendGuestQuoteEmail(input: {
+  to: string;
+  /** quoteArrivedTitle(), unchanged. */
+  title: string;
+  /** quoteArrivedLines(), unchanged. Last line is the load-bearing one. */
+  lines: string[];
+  /** Absolute link to the request page. */
+  url: string;
+  /** Dedupe: one request mails once, however many drivers quote. */
+  requestId: string;
+}): Promise<boolean> {
+  const to = (input.to ?? "").trim();
+  if (!to) return false;
+
+  const { logo } = await getBrand();
+  const [lead, ...rest] = input.lines;
+
+  const body = `
+    ${paragraph(lead ?? input.title)}
+    ${rest.length > 0 ? detailCard(rows(rest.map((l, i) => [i === 0 ? "Detail" : "\u00a0", l] as [string, string]))) : ""}
+    <div style="text-align:center">${primaryButton(input.url, "See your prices")}</div>`;
+
+  return send({
+    to,
+    subject: input.title,
+    html: shell({
+      preheader: rest.at(-1) ?? "Nobody is on the way until you choose a price.",
+      eyebrow: "Deliver anything",
+      title: input.title,
+      body,
+      logo,
+    }),
+    type: "customer_quote_arrived",
+    key: keyFor("customer_quote_arrived", input.requestId),
+    relatedType: "delivery_request",
+    relatedId: input.requestId,
+  });
+}
+
 /** Customer confirmation + owner notification for a Stay·Eat·Do reservation. */
 export async function sendPlaceBookingEmails(
   b: PlaceBookingEmailData,

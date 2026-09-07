@@ -1,6 +1,8 @@
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { pushToDriverEndpoints, pushToCustomer, pushToDriver, type Target } from "@/lib/push/send";
 import { sendWhatsApp } from "@/lib/notifications/whatsapp";
+import { sendGuestQuoteEmail } from "@/lib/email";
+import { SITE_URL } from "@/lib/site";
 import { formatWhatsAppMessage } from "@/lib/notifications/queue";
 import {
   newRequestTitle,
@@ -204,6 +206,35 @@ export async function notifyCustomerOfQuote(quoteId: string): Promise<void> {
       },
     ),
     Promise.resolve(/* M164: owner WhatsApp for a routine quote is silenced -- see notifyDriversOfNewRequest */),
+
+    // ── THE GUEST'S ONLY CHANNEL (M167) ──────────────────────────────────
+    //
+    // A signed-in customer gets the push above. A guest has no account and no
+    // subscription, so the first price on their request reached them NOWHERE:
+    // it existed only on the request page, which they had to think to reopen.
+    // On a surface whose whole value arrives minutes later, that is the
+    // product failing quietly.
+    //
+    // FIRST price only, and this file has carried the reason as a standing
+    // warning since it was written: a bidding war is many quotes on one
+    // request, and mailing every one spends a shared sending budget that
+    // password resets draw on too (M41). quoteCount includes this quote, so
+    // `=== 1` is the first driver to answer.
+    //
+    // customerId null is what makes them a guest -- a signed-in customer with
+    // an email on file must NOT get this, or they get push and mail for the
+    // same event.
+    q.request.guestEmail && !q.request.customerId && q.request.quoteCount === 1
+      ? sendGuestQuoteEmail({
+          to: q.request.guestEmail,
+          // The queue's own words, unchanged, so the mail and the push cannot
+          // describe one event two ways.
+          title,
+          lines,
+          url: `${SITE_URL}${customerPath(q.request.id)}`,
+          requestId: q.request.id,
+        })
+      : Promise.resolve(false),
   ]);
 }
 
