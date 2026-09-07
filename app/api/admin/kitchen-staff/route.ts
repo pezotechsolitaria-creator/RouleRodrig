@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   const admin = await getPrivileged();
   const { data, error } = await admin
     .from("kitchen_staff")
-    .select("id, store_id, invite_email, display_name, user_id, created_at, stores(name)")
+    .select("id, store_id, invite_email, display_name, user_id, created_at, role, stores(name)")
     .order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: "Could not load staff." }, { status: 500 });
   return NextResponse.json({ staff: data ?? [] });
@@ -43,6 +43,17 @@ export async function POST(req: NextRequest) {
       storeId: z.string().uuid(),
       email: z.string().trim().toLowerCase().email().max(254),
       name: z.string().trim().min(1).max(80),
+      // WHICH KIND OF PERSON THIS IS (M186).
+      //
+      // kitchen_staff.role defaults to 'cook' and this route never sent one, so
+      // every person the product has ever added to a kitchen became a cook --
+      // including the restaurant's owner, who was then shown /kitchen with no
+      // "Add a dish" button, because that button is gated on role = 'owner'.
+      //
+      // Defaulted to cook, because a cook is who you add most of the time and
+      // an omitted field must not quietly hand somebody the menu and the
+      // prices.
+      role: z.enum(["cook", "owner"]).default("cook"),
     })
     .safeParse(body);
   if (!parsed.success) {
@@ -54,9 +65,10 @@ export async function POST(req: NextRequest) {
     p_store_id: parsed.data.storeId,
     p_email: parsed.data.email,
     p_name: parsed.data.name,
+    p_role: parsed.data.role,
   });
   if (error) {
-    if (error.code === "RR005" || error.code === "RR003") {
+    if (error.code === "RR005" || error.code === "RR003" || error.code === "RR006") {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     console.error("admin_add_kitchen_staff failed", error);

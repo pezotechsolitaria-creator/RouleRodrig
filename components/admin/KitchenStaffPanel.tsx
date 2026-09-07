@@ -15,6 +15,7 @@ type Staff = {
   invite_email: string;
   display_name: string;
   user_id: string | null;
+  role: "cook" | "owner" | null;
   stores?: { name?: string } | { name?: string }[] | null;
 };
 type Kitchen = { store_id: string; name: string };
@@ -25,6 +26,10 @@ export default function KitchenStaffPanel() {
   const [storeId, setStoreId] = useState("");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  // Defaults to cook, which is who you add most of the time. The owner is the
+  // exception, and the exception has to be chosen deliberately -- it hands over
+  // the menu, the prices and the opening hours.
+  const [role, setRole] = useState<"cook" | "owner">("cook");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
@@ -64,7 +69,7 @@ export default function KitchenStaffPanel() {
       const res = await fetch("/api/admin/kitchen-staff", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ storeId, email: email.trim(), name: name.trim() }),
+        body: JSON.stringify({ storeId, email: email.trim(), name: name.trim(), role }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -140,6 +145,21 @@ export default function KitchenStaffPanel() {
             aria-label="Email"
             className="min-h-[44px] rounded-xl border border-white/15 bg-dark px-3 font-dm text-sm text-offwhite placeholder:text-muted/60"
           />
+          {/* WHICH KIND OF PERSON (M186).
+              There was no control here at all, and kitchen_staff.role defaults
+              to 'cook' -- so the owner of a restaurant added through this panel
+              got a cook's screen, with no way to add or edit a dish. Two
+              options rather than a toggle, because "Owner" has to say what it
+              grants before somebody picks it. */}
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value === "owner" ? "owner" : "cook")}
+            aria-label="What they can do"
+            className="min-h-[44px] rounded-xl border border-white/15 bg-dark px-3 font-dm text-sm text-offwhite"
+          >
+            <option value="cook">Cook — sees today&apos;s orders</option>
+            <option value="owner">Owner — can also edit the menu, prices and hours</option>
+          </select>
         </div>
 
         <button
@@ -180,6 +200,14 @@ export default function KitchenStaffPanel() {
                 <p className="truncate font-dm text-xs text-muted">
                   {shopName(s)} · {s.invite_email}
                 </p>
+                {/* Say which one they are. Without this the list could not tell
+                    an owner from a cook, which is exactly how the owner of a
+                    restaurant sat as a cook on his own kitchen unnoticed. */}
+                {s.role === "owner" && (
+                  <span className="mt-1 inline-block rounded-full border border-yellow/40 px-2 py-0.5 font-dm text-[10px] uppercase tracking-wide text-yellow">
+                    Owner &middot; can edit the menu
+                  </span>
+                )}
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {/* Whether they have actually signed up yet — the difference
