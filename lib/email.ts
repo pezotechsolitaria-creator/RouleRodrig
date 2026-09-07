@@ -1527,6 +1527,53 @@ export async function sendDeliveryStallEmail(input: {
   });
 }
 
+/**
+ * Deliver one queued notification to an EMAIL slot.
+ *
+ * The notification queue was WhatsApp-only: notification_slots carried a phone
+ * and a CallMeBot key and nothing else. The owner asked for more email
+ * recipients, and an email slot is the same idea with a different address, so
+ * this is the email end of the same worker rather than a second system.
+ *
+ * The queue formats every message as a title line followed by detail lines
+ * (see formatWhatsAppMessage), so that shape is preserved here: first line is
+ * the subject, the rest is the body. Nothing is re-worded — the alert already
+ * knows how to describe itself, and two descriptions of one event is how a
+ * WhatsApp and an email start disagreeing.
+ */
+export async function sendQueuedAlertEmail(input: {
+  to: string;
+  /** The queue's formatted message: a title line, then detail lines. */
+  message: string;
+  /** The job id, so one queued job mails exactly once. */
+  jobId: string;
+}): Promise<boolean> {
+  const text = (input.message ?? "").trim();
+  if (!text) return false;
+
+  const [firstLine, ...rest] = text.split("\n");
+  const detail = rest.filter((l) => l.trim().length > 0);
+  const { logo } = await getBrand();
+
+  const body = `
+    ${paragraph(firstLine)}
+    ${detail.length > 0 ? detailCard(rows(detail.map((l, i) => [i === 0 ? "Detail" : "\u00a0", l] as [string, string]))) : ""}`;
+
+  return send({
+    to: input.to,
+    subject: firstLine.slice(0, 140),
+    html: shell({
+      preheader: detail[0] ?? firstLine,
+      eyebrow: "Roule Rodrigues",
+      title: firstLine,
+      body,
+      logo,
+    }),
+    type: "owner_queued_alert",
+    key: keyFor("owner_queued_alert", input.jobId),
+  });
+}
+
 /** Customer confirmation + owner notification for a Stay·Eat·Do reservation. */
 export async function sendPlaceBookingEmails(
   b: PlaceBookingEmailData,

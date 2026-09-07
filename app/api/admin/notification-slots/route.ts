@@ -18,8 +18,14 @@ import { NOTIFICATION_CATEGORIES } from "@/lib/notifications/queue";
 // in a JSON body would sit in the browser cache, in devtools history and in any
 // screen recording, and it is a bearer credential for sending WhatsApp as that
 // number.
+// channel and target ARE returned, unlike api_key. api_key is a bearer
+// credential that sends AS somebody else's WhatsApp number; a target is the
+// owner's own address, and he has to be able to read the ntfy topic back in
+// order to subscribe a phone to it. It is still sensitive — on public ntfy.sh
+// the topic is the only secret there is — so it stays behind the admin session
+// like everything else here.
 const SAFE_COLUMNS =
-  "id, name, role, phone, is_active, categories, last_success_at, last_error, last_error_at, created_at";
+  "id, name, role, phone, channel, target, is_active, categories, last_success_at, last_error, last_error_at, created_at";
 
 function guard(req: NextRequest): NextResponse | null {
   if (!verifySession(req.cookies.get(COOKIE_NAME)?.value)) {
@@ -46,14 +52,36 @@ const phoneField = z
   })
   .refine((v) => /^\+[1-9][0-9]{6,15}$/.test(v), "Use the full international number, e.g. +23058355588.");
 
-const createSchema = z.object({
-  name: z.string().trim().min(1, "Give this recipient a name.").max(80),
-  role: z.string().trim().max(80).nullable().optional(),
-  phone: phoneField,
-  apiKey: z.string().trim().max(200).nullable().optional(),
-  categories: z.array(z.enum(NOTIFICATION_CATEGORIES)).default([]),
-  isActive: z.boolean().default(true),
-});
+// ── ONE QUEUE, THREE DOORS (M166) ─────────────────────────────────────────
+// A slot is a recipient plus the channel it is reached on. WhatsApp uses
+// phone + api_key; ntfy and email use `target`. The database enforces the same
+// rule (notification_slots_addressable) so a slot created any other way cannot
+// be unaddressable either.
+const createSchema = z
+  .object({
+    name: z.string().trim().min(1, "Give this recipient a name.").max(80),
+    role: z.string().trim().max(80).nullable().optional(),
+    channel: z.enum(["whatsapp", "ntfy", "email"]).default("whatsapp"),
+    phone: phoneField.optional(),
+    apiKey: z.string().trim().max(200).nullable().optional(),
+    /** ntfy topic or full URL, or an email address. */
+    target: z.string().trim().max(300).optional(),
+    categories: z.array(z.enum(NOTIFICATION_CATEGORIES)).default([]),
+    isActive: z.boolean().default(true),
+  })
+  .superRefine((v, ctx) => {
+    if (v.channel === "whatsapp" && !v.phone) {
+      ctx.addIssue({ code: "custom", path: ["phone"], message: "A WhatsApp recipient needs a number." });
+    }
+    if (v.channel === "ntfy" && !v.target) {
+      ctx.addIssue({ code: "custom", path: ["target"], message: "Give the ntfy topic, or the full URL of your own server." });
+    }
+    if (v.channel === "email") {
+      if (!v.target || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.target)) {
+        ctx.addIssue({ code: "custom", path: ["target"], message: "Give a valid email address." });
+      }
+    }
+  });
 
 export async function GET(req: NextRequest) {
   const denied = guard(req);
@@ -116,7 +144,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input." }, { status: 400 });
   }
-  const { name, role, phone, apiKey, categories, isActive } = parsed.data;
+  const { name, role, channel, phone, apiKey, target, categories, isActive } = parsed.data;
 
   const admin = await getPrivileged();
   const { data, error } = await admin
@@ -124,8 +152,12 @@ export async function POST(req: NextRequest) {
     .insert({
       name,
       role: role || null,
-      phone,
-      api_key: apiKey || null,
+      channel,
+      // Only the address its channel actually uses. A phone on an ntfy slot
+      // would be a number nobody ever sends to, sitting under a UNIQUE index.
+      phone: channel === "whatsapp" ? phone : null,
+      api_key: channel === "whatsapp" ? apiKey || null : null,
+      target: channel === "whatsapp" ? null : target,
       categories,
       is_active: isActive,
     })

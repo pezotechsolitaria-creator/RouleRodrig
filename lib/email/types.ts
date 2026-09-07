@@ -213,6 +213,10 @@ export const EMAIL_TYPES = {
   // owner's phone and almost all of it was routine traffic. An exception is
   // worth an email; a marketplace working normally is not worth a buzz.
   owner_delivery_stall:             { category: "operational", priority: "high" },
+  // Whatever the notification queue was carrying, delivered to an EMAIL slot
+  // instead of a WhatsApp one. The words are the queue's; this type only says
+  // which door it went out of.
+  owner_queued_alert:               { category: "operational", priority: "high" },
   owner_tiroule_digest:             { category: "operational", priority: "low" },
   admin_test:                       { category: "operational", priority: "low" },
   // Outbound to an APPLICANT, not to the owner — so unlike its neighbours here

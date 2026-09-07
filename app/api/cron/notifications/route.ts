@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { authorizeCron } from "@/lib/cron-auth";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { sendWhatsApp } from "@/lib/notifications/whatsapp";
+import { sendNtfy } from "@/lib/notifications/ntfy";
+import { sendQueuedAlertEmail } from "@/lib/email";
 import { notifySweepResult } from "@/lib/delivery/notify";
 import { notifyRideOffers, notifyOwnerRideUnassigned, notifyOwnerRosterBlocked } from "@/lib/rides/notify";
 import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/queue";
@@ -190,11 +192,16 @@ async function run(req: NextRequest) {
   type Job = {
     job_id: string;
     slot_id: string;
-    phone: string;
+    phone: string | null;
     api_key: string | null;
     message: string;
     attempts: number;
     max_attempts: number;
+    // M166. Optional on purpose: SQL deploys before the app and a rollback runs
+    // them the other way, so a job claimed by the old function has neither.
+    // Absent means WhatsApp, which is what every slot was before this existed.
+    channel?: string | null;
+    target?: string | null;
   };
   const jobs = (claimed ?? []) as Job[];
 
@@ -218,11 +225,34 @@ async function run(req: NextRequest) {
       continue;
     }
 
-    const result = await sendWhatsApp({
-      phone: job.phone,
-      apiKey: job.api_key ?? "",
-      message: job.message,
-    });
+    // ── ONE QUEUE, THREE DOORS (M166) ──────────────────────────────────────
+    //
+    // The slot decides. Everything else about a notification -- who is
+    // eligible, what happened, the dedupe key, the retry budget, the failure
+    // reason on the admin card -- is identical whichever door it leaves by,
+    // which is the whole reason this is a column and not a second system.
+    //
+    // lib/notifications/ntfy.ts had been written, complete, with no callers.
+    // This is the line that was missing.
+    const channel = job.channel ?? "whatsapp";
+    const result =
+      channel === "ntfy"
+        ? await sendNtfy({ target: job.target ?? "", message: job.message })
+        : channel === "email"
+          ? (await sendQueuedAlertEmail({
+              to: job.target ?? "",
+              message: job.message,
+              jobId: job.job_id,
+            }))
+            ? ({ ok: true } as const)
+            : // send() already logged the provider's reason to email_log.
+              // Retryable: a provider blip should not burn the job.
+              ({ ok: false, error: "email send failed", retryable: true } as const)
+          : await sendWhatsApp({
+              phone: job.phone ?? "",
+              apiKey: job.api_key ?? "",
+              message: job.message,
+            });
 
     if (result.ok) {
       sent += 1;
