@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import ProductImage from "./ProductImage";
+import SmartImage from "@/components/SmartImage";
 import { useShopCopy } from "./ShopCopy";
 
 // The product gallery.
@@ -29,16 +30,23 @@ export default function ProductGallery({
 
   return (
     <div>
-      <div className="aspect-square w-full overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+      {/* `relative` so the fill below has this box to fill. */}
+      <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-white/10 bg-white/5">
         {current ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <SmartImage
             src={current.url}
             alt={current.alt ?? name}
-            className="h-full w-full object-cover"
-            // The first image is the largest thing on the page and the thing a
-            // shopper waits for; everything behind it can wait for them.
-            fetchPriority="high"
+            fill
+            className="object-cover"
+            // The largest thing on the page and the thing a shopper waits for;
+            // everything behind it can wait for them. `priority` is next/image's
+            // version of the fetchPriority="high" this used to set by hand, and
+            // it adds the preload hint the hand-written version could not.
+            priority
+            // Square, and capped by the two-column layout on a desktop. Without
+            // this the optimiser assumes a full-width viewport and ships a file
+            // several times the size of the slot.
+            sizes="(max-width: 1024px) 100vw, 512px"
           />
         ) : (
           <ProductImage imageUrl={null} name={name} slug={slug} categoryName={categoryName} priority />
@@ -54,12 +62,16 @@ export default function ProductGallery({
               onClick={() => setIndex(i)}
               aria-label={copy.gallery.photo(i + 1, media.length)}
               aria-pressed={i === index}
-              className={`aspect-square overflow-hidden rounded-lg border transition-colors ${
+              className={`relative aspect-square overflow-hidden rounded-lg border transition-colors ${
                 i === index ? "border-yellow" : "border-white/10 hover:border-white/30"
               }`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={m.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+              {/* These were the quiet expensive ones. Ten thumbnails in a
+                  five-column grid are about 60px wide each, and every one of
+                  them was downloading the shop's full-size original -- so a
+                  product page with a real gallery could pull several megabytes
+                  to paint a strip of postage stamps. */}
+              <SmartImage src={m.url} alt="" fill className="object-cover" sizes="72px" />
             </button>
           ))}
         </div>
