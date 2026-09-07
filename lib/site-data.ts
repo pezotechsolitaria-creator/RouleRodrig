@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { getContent } from "@/lib/content";
 import { getPrivileged } from "@/lib/supabase/admin";
 import { isActiveHold, HOLDING_STATUSES } from "@/lib/holds";
@@ -23,8 +24,20 @@ export interface ReviewCard {
  * honest recent-booking counts, approved reviews (for the marquee), and the
  * business WhatsApp number. All four reads run in parallel (one round-trip of
  * latency instead of four) and are best-effort — the page never blocks on them.
+ *
+ * ── WRAPPED IN cache() BECAUSE FIVE PAGES ASK TWICE ────────────────────────
+ * A Next page that needs this in BOTH generateMetadata and its body called it
+ * twice, and nothing deduped the four privileged queries — so /browse/[category],
+ * /experiences/[type] and three of the French pages were each running EIGHT
+ * Supabase reads per request to render one page.
+ *
+ * React's cache() is request-scoped, which is exactly the right scope here: two
+ * calls while rendering one page share an answer, and the next visitor still
+ * gets fresh sold-out state. getContent() underneath has its own unstable_cache
+ * with a one-hour revalidate; this is only about the four live reads it does
+ * not cover.
  */
-export async function getFleetView() {
+export const getFleetView = cache(async () => {
   const content = await getContent();
 
   const todayIsland = new Date(Date.now() + 4 * 3600 * 1000)
@@ -108,7 +121,7 @@ export async function getFleetView() {
     "";
 
   return { content, fleet, ratings, recentBookings, businessWhatsApp, reviews };
-}
+});
 
 // ── Shared category builder (homepage hub + browse pages + sticky tabs) ──────
 /**

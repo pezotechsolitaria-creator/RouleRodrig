@@ -6,6 +6,7 @@ import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import MapSection from "@/components/MapSection";
+import { rankIslandPlaces } from "@/lib/places/popular-server";
 
 // The interactive island map now has its own flagship page (a Quick Access tile
 // links here), instead of being a homepage section. Static-ish: refresh hourly.
@@ -27,6 +28,19 @@ export const metadata: Metadata = {
 
 export default async function MapPage() {
   const content = await getContent();
+
+  // -- POPULARITY, SCORED ON THE SERVER ------------------------------------
+  // Read here rather than in the client so the first paint already knows which
+  // pins are which -- a map that draws forty identical dots and then re-draws
+  // six of them a second later is a map that flickers on exactly the connection
+  // this island has.
+  //
+  // The page is revalidate = 3600, so these scores are up to an hour old. That
+  // is the right trade for "popular this week": an hour of staleness is
+  // invisible in a seven-day window, and the alternative is rendering this page
+  // dynamically for every visitor to move a star.
+  const ranked = await rankIslandPlaces(content.mapLocations, 7);
+  const popularity = Object.fromEntries(ranked.map((r) => [r.place.id, r.popularity]));
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -59,7 +73,7 @@ export default async function MapPage() {
             {" "}Back
           </BackLink>
         </div>
-        <MapSection locations={content.mapLocations} />
+        <MapSection locations={content.mapLocations} popularity={popularity} />
       </main>
     </>
   );

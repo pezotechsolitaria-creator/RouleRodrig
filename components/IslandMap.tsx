@@ -8,6 +8,14 @@ import { loc as localize } from "@/lib/localize";
 import type { Language } from "@/lib/i18n";
 import { TAXI_HERE_LABEL, taxiToPlaceHref } from "@/lib/rides/deep-link";
 import {
+  NO_SIGNALS,
+  TIER_LABEL,
+  isPopular,
+  scorePlace,
+  type Popularity,
+} from "@/lib/places/popularity";
+import { trackPlace } from "@/lib/places/track";
+import {
   getBasemap,
   getBasemaps,
   DEFAULT_BASEMAP,
@@ -60,9 +68,17 @@ type LTileLayer = import("leaflet").TileLayer;
 
 type Props = {
   locations: MapLocation[];
+  /**
+   * Popularity per place id, scored on the server from real counters.
+   *
+   * OPTIONAL, and the map is right without it: a place carries the owner's own
+   * `popular` flag on itself, so the curated half of the layer works with no
+   * wiring and no network call. Passing this adds the measured half.
+   */
+  popularity?: Record<string, Popularity>;
 };
 
-export default function IslandMapInner({ locations }: Props) {
+export default function IslandMapInner({ locations, popularity }: Props) {
   const mapRef  = useRef<HTMLDivElement>(null);
   const mapInst = useRef<LMap | null>(null);
   const leaflet = useRef<Leaflet | null>(null);
@@ -276,14 +292,56 @@ export default function IslandMapInner({ locations }: Props) {
 
     locations.forEach((loc) => {
       const color = CATEGORY_COLOR[loc.category] ?? "#F59E0B";
-      const marker = L.circleMarker([loc.lat, loc.lng], {
-        radius: 9,
-        fillColor: color,
-        color: "#fff",
-        weight: 2,
-        opacity: 1,
-        fillOpacity: 0.9,
-      });
+
+      // -- POPULAR, OR JUST A PLACE ------------------------------------
+      // Server-scored when the page passed counters down; otherwise scored
+      // right here from the owner's own flag, so the layer never depends on a
+      // round trip that may not have happened.
+      const pop: Popularity =
+        popularity?.[loc.id] ??
+        scorePlace({
+          signals: NO_SIGNALS,
+          curated: loc.popular === true,
+          curatedRank: loc.popularRank ?? null,
+        });
+      const hot = isPopular(pop);
+      const tierWord = hot && pop.tier !== "none" ? TIER_LABEL[pop.tier][language] : null;
+
+      // -- WHY A divIcon FOR THE POPULAR ONES ONLY ---------------------
+      // A circleMarker is a single SVG circle and the cheapest thing Leaflet
+      // draws -- right for forty ordinary pins. It cannot carry a ring, a halo
+      // or a star, so only the handful of popular places pay for an HTML node.
+      // Rendering all 42 that way would cost more on a mid-range phone than
+      // this whole feature is worth, and the point of a hierarchy is that most
+      // things are NOT at the top of it.
+      const marker = hot
+        ? L.marker([loc.lat, loc.lng], {
+            icon: L.divIcon({
+              className: "rr-pop-pin",
+              // The dot keeps its CATEGORY colour, so a popular beach still
+              // reads as a beach: the halo says "popular", the colour says
+              // "what". Two facts, two channels, no legend to learn.
+              html:
+                `<span class="rr-pop-halo" style="background:${color}"></span>` +
+                `<span class="rr-pop-dot" style="background:${color}">★</span>`,
+              iconSize: [28, 28],
+              iconAnchor: [14, 14],
+              popupAnchor: [0, -13],
+            }),
+            // Above the ordinary pins wherever they overlap. That IS the
+            // hierarchy, and it costs nothing to draw.
+            zIndexOffset: 1000,
+            keyboard: true,
+            title: localize(language, loc.name, loc.nameFr, loc.nameCr),
+          })
+        : L.circleMarker([loc.lat, loc.lng], {
+            radius: 9,
+            fillColor: color,
+            color: "#fff",
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.9,
+          });
 
       // Photo gallery: swipeable horizontal strip when there are several photos
       const pics = (loc.images && loc.images.length > 0 ? loc.images : loc.image ? [loc.image] : []).filter(Boolean);
@@ -298,7 +356,7 @@ export default function IslandMapInner({ locations }: Props) {
           : pics.length === 1
           ? `<img src="${escapeHtml(pics[0])}" alt="${escapeHtml(loc.name)}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;margin-bottom:8px;display:block;" />`
           : "";
-      const directions = `<a href="https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:11px;font-weight:700;color:#0a0a0a;background:#F5C842;padding:6px 12px;border-radius:20px;text-decoration:none;">${DIRECTIONS_LABEL[language]} →</a>`;
+      const directions = `<a data-rr-track="directions" data-rr-place="${escapeHtml(loc.id)}" href="https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:11px;font-weight:700;color:#0a0a0a;background:#F5C842;padding:6px 12px;border-radius:20px;text-decoration:none;">${DIRECTIONS_LABEL[language]} →</a>`;
 
       const locName = localize(language, loc.name, loc.nameFr, loc.nameCr);
 
@@ -306,11 +364,23 @@ export default function IslandMapInner({ locations }: Props) {
       // somebody who already has a scooter, and this is the answer for somebody
       // who does not. A plain in-app link, so it keeps the session, the language
       // and the back stack — target="_blank" would drop all three.
-      const taxi = `<a href="${escapeHtml(taxiToPlaceHref(locName, loc.lat, loc.lng))}" style="display:inline-block;margin-top:8px;margin-left:6px;font-size:11px;font-weight:700;color:#F5C842;background:transparent;border:1px solid rgba(245,200,66,.55);padding:5px 11px;border-radius:20px;text-decoration:none;">${escapeHtml(TAXI_HERE_LABEL[language])}</a>`;
+      // data-rr-* rather than an inline onclick: this popup is a STRING handed
+      // to Leaflet, and a CSP loose enough to run inline handlers is loose
+      // enough to run a lot else. The listener is bound on popupopen below.
+      const taxi = `<a data-rr-track="directions" data-rr-place="${escapeHtml(loc.id)}" href="${escapeHtml(taxiToPlaceHref(locName, loc.lat, loc.lng))}" style="display:inline-block;margin-top:8px;margin-left:6px;font-size:11px;font-weight:700;color:#F5C842;background:transparent;border:1px solid rgba(245,200,66,.55);padding:5px 11px;border-radius:20px;text-decoration:none;">${escapeHtml(TAXI_HERE_LABEL[language])}</a>`;
       const locDesc = localize(language, loc.description, loc.descriptionFr, loc.descriptionCr);
       const catLabel = CATEGORY_LABEL_I18N[language][loc.category] ?? loc.category;
       const locStory = localize(language, loc.story, loc.storyFr, loc.storyCr);
       const storyLabel = language === "fr" ? "L'histoire de Ti Roulé" : language === "cr" ? "Zistwar Ti Roulé" : "Ti Roulé's story";
+      // -- THE BADGE ---------------------------------------------------
+      // Only ever drawn when `hot`, which is only ever true when scorePlace()
+      // returned confident: true. There is no code path that puts this word on
+      // a place we have no evidence for -- which is the whole reason the tier
+      // and the score are separate things.
+      const badge = tierWord
+        ? `<p style="margin:0 0 5px;display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#7c5a00;background:#FDE68A;border:1px solid #F5C842;padding:3px 8px;border-radius:999px;">★ ${escapeHtml(tierWord)}</p>`
+        : "";
+
       const story = locStory
         ? `<div style="margin-top:8px;padding:8px 10px;background:#FBF3D9;border:1px solid #F0D68A;border-radius:8px;">
             <p style="margin:0 0 3px;font-size:10px;font-weight:700;letter-spacing:.04em;color:#8a6d1e;">🐢 ${escapeHtml(storyLabel)}</p>
@@ -321,6 +391,7 @@ export default function IslandMapInner({ locations }: Props) {
       marker.bindPopup(
         `<div style="font-family: sans-serif; width:230px;">
           ${photo}
+          ${badge}
           <p style="font-weight:700;margin:0 0 3px;font-size:14px;color:#111;">${escapeHtml(locName)}</p>
           <p style="margin:0 0 6px;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:${color};font-weight:700;">${escapeHtml(catLabel)}</p>
           <p style="margin:0;font-size:12px;line-height:1.45;color:#374151;">${escapeHtml(locDesc)}</p>
@@ -329,6 +400,33 @@ export default function IslandMapInner({ locations }: Props) {
         </div>`,
         { maxWidth: 270 }
       );
+
+      // -- COUNTING, WITHOUT SLOWING ANYTHING DOWN ---------------------
+      // A view is counted when the popup OPENS, not when the pin is drawn:
+      // forty pins render on load and nobody has looked at any of them yet.
+      // trackPlace() deduplicates per tab and uses sendBeacon, so re-opening
+      // the same popup is free and pressing "get directions" -- which
+      // navigates away -- still lands.
+      marker.on("popupopen", (e) => {
+        trackPlace(loc.id, "view");
+        const root = (e as unknown as { popup?: { getElement?: () => HTMLElement | undefined } })
+          .popup?.getElement?.();
+        root?.querySelectorAll<HTMLElement>("[data-rr-track]").forEach((el) => {
+          el.addEventListener(
+            "click",
+            () => {
+              const kind = el.dataset.rrTrack;
+              const id = el.dataset.rrPlace;
+              if (id && (kind === "directions" || kind === "save" || kind === "share")) {
+                trackPlace(id, kind);
+              }
+            },
+            // Once per popup opening: the popup is rebuilt each time, so the
+            // listener never accumulates.
+            { once: true },
+          );
+        });
+      });
 
       group.addLayer(marker);
     });

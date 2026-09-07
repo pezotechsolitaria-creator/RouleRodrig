@@ -2434,3 +2434,60 @@ html.light .rr-basemap-switch button.is-on {
     0 0 6px rgb(0 0 0 / 0.8),
     0 1px 2px rgb(0 0 0 / 0.9);
 }
+
+/* ── The Popular pins on the island guide (M184) ────────────────────────────
+   Only the popular places are HTML nodes; the other forty are SVG circles that
+   Leaflet draws far more cheaply. See the note in components/IslandMap.tsx.
+
+   The halo is a separate element behind the dot so the animation touches only
+   transform and opacity — a keyframe on width/height would lay out the whole
+   marker pane on every frame, which is exactly the sort of thing that makes a
+   map feel broken on a mid-range Android. */
+.rr-pop-pin {
+  background: none;
+  border: 0;
+}
+.rr-pop-dot,
+.rr-pop-halo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 999px;
+}
+.rr-pop-dot {
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 1;
+  color: #fff;
+  /* A white ring, like the ordinary pins wear, so a popular beach still reads
+     as one of the same family rather than a different kind of object. */
+  box-shadow: 0 0 0 2.5px #fff, 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+.rr-pop-halo {
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  opacity: 0.55;
+  animation: rr-pop-pulse 2.4s ease-out infinite;
+}
+
+@keyframes rr-pop-pulse {
+  0%   { transform: scale(1);   opacity: 0.5; }
+  70%  { transform: scale(2.3); opacity: 0; }
+  100% { transform: scale(2.3); opacity: 0; }
+}
+
+/* Somebody who has asked not to see movement has asked for a reason. The ring
+   stays — it is the part that carries the meaning — and only the pulse stops. */
+@media (prefers-reduced-motion: reduce) {
+  .rr-pop-halo {
+    animation: none;
+    transform: scale(1.7);
+    opacity: 0.28;
+  }
+}

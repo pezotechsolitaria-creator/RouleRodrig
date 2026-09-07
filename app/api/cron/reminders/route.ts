@@ -467,6 +467,20 @@ export async function GET(req: NextRequest) {
     console.error("food_restock_day threw", err);
   }
 
+  // ── The island guide's counters (M184) ───────────────────────────────────
+  // One row per place per kind per day, so the table grows by at most a few
+  // hundred rows a month — but "slowly" is not "never". Two years is long
+  // enough to answer "was this popular last season" and short enough that
+  // nobody ever has to think about this table again.
+  let placeRowsPruned = 0;
+  try {
+    const { data, error } = await supabase.rpc("prune_place_events");
+    if (error) console.error("prune_place_events failed", error);
+    else placeRowsPruned = (data as number) ?? 0;
+  } catch (err) {
+    console.error("prune_place_events threw", err);
+  }
+
   // ── Tomorrow's service appointments (M181) ───────────────────────────────
   //
   // Every other booking on this platform is reminded the day before — a scooter
@@ -624,6 +638,7 @@ export async function GET(req: NextRequest) {
       paymentRemindersSent,
       missesEmailed,
       dishesRestocked,
+      placeRowsPruned,
       // The whole object, including `guests` — the people who booked without an
       // account and left only a telephone number, whom this platform has no way
       // to remind. Reporting "1 reminder sent" while saying nothing about the
