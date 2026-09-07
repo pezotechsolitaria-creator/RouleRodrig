@@ -197,12 +197,15 @@ export default function MapSection({
           className="mb-12"
         >
           <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.map.eyebrow}</p>
-          <h2
+          {/* h1, not h2. /map targets "Rodrigues island map" and served no h1
+              at all — the largest heading on the page was this h2. Used by
+              exactly one route, so promoting it cannot create a second h1. */}
+          <h1
             className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]"
             style={{ fontSize: "clamp(34px, 7vw, 72px)" }}
           >
             {t.map.title}
-          </h2>
+          </h1>
           <p className="text-muted font-dm text-sm md:text-base mt-4 max-w-lg">
             {t.map.subtitle}
           </p>
