@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePolling } from "@/lib/use-polling";
 import { useLanguage } from "@/context/LanguageContext";
 import Link from "next/link";
 import { Bell, Check, Loader2, AlertTriangle } from "lucide-react";
@@ -71,13 +72,10 @@ export default function NotificationCenter({ className = "" }: { className?: str
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-    // Slow poll. The bell is ambient — it does not need to be a live socket,
-    // and a 60s interval costs a mobile battery almost nothing.
-    const t = setInterval(() => void load(), 60_000);
-    return () => clearInterval(t);
-  }, [load]);
+  // Slow poll. The bell is ambient — it does not need to be a live socket, and
+  // a 60s interval costs a mobile battery almost nothing. It costs rather more
+  // on a tab left open all night, which is why it now stops when hidden.
+  usePolling(load, 60_000);
 
   // Click-away and Escape, because a panel you cannot dismiss is a trap.
   useEffect(() => {

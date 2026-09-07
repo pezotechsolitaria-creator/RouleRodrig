@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePolling } from "@/lib/use-polling";
 import VehicleHandover from "./VehicleHandover";
 import { mayLayOutMoney, toRequestKind } from "@/lib/delivery/kind";
 import { useSearchParams } from "next/navigation";
@@ -260,13 +261,10 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-    // Offers expire, so a stale screen shows work that is already gone. 20s is
-    // frequent enough to feel live without draining a battery all afternoon.
-    const t = setInterval(() => void load(), 20_000);
-    return () => clearInterval(t);
-  }, [load]);
+  // Offers expire, so a stale screen shows work that is already gone. 20s is
+  // frequent enough to feel live without draining a battery all afternoon — and
+  // it stops entirely while the driver has the app in the background.
+  usePolling(load, 20_000);
 
   // Bring the notification's card into view once the first load has painted
   // it. The small delay lets the cards mount; a card that never appears (the

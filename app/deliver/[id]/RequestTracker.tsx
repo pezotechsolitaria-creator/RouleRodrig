@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePolling } from "@/lib/use-polling";
 import { isErrandKind, toRequestKind, type RequestKind } from "@/lib/delivery/kind";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -335,34 +336,14 @@ export default function RequestTracker({
           view.delivery?.status ?? "",
         )));
 
-  useEffect(() => {
-    if (phase !== "ready" || settled) return;
-    let timer: ReturnType<typeof setInterval> | null = null;
-    const start = () => {
-      if (timer) return;
-      timer = setInterval(() => void load({ silent: true }), 20_000);
-    };
-    const stop = () => {
-      if (timer) clearInterval(timer);
-      timer = null;
-    };
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        // Catch up immediately on return — twenty seconds of staleness is
-        // exactly what somebody is coming back to check.
-        void load({ silent: true });
-        start();
-      } else {
-        stop();
-      }
-    };
-    if (document.visibilityState === "visible") start();
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      stop();
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [phase, settled, load]);
+  // This screen is where usePolling came from — it had hand-rolled the pause,
+  // the catch-up read and the stop-when-settled, and every other polling screen
+  // in the app had none of them. immediate:false because the first read is the
+  // one that showed the spinner; this one is silent.
+  usePolling(() => load({ silent: true }), 20_000, {
+    enabled: phase === "ready" && !settled,
+    immediate: false,
+  });
 
   async function act(body: Record<string, unknown>): Promise<boolean> {
     const res = await fetch(`/api/delivery-requests/${id}`, {

@@ -274,7 +274,12 @@ export default function PinOnMap({
         />
 
         {basemaps.length > 1 && (
-          <div className="rr-basemap-switch" role="group" aria-label={copy.title}>
+          <div
+              // --below because the recentre button owns the corner above it.
+              className="rr-basemap-switch rr-basemap-switch--below"
+              role="group"
+              aria-label={copy.title}
+            >
             {basemaps.map((b) => (
               <button
                 key={b.id}

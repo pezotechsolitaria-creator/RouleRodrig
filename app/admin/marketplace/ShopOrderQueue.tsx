@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePolling } from "@/lib/use-polling";
 import { toast } from "sonner";
 import {
   Loader2, RefreshCw, Bike, ShoppingBag, Phone, MapPin, Clock,
@@ -89,10 +90,9 @@ export default function ShopOrderQueue({ shops }: { shops: { id: string; name: s
 
   // Trading is live. A queue that only updates when someone remembers to press
   // refresh is a queue that shows a paid order as "New" for twenty minutes.
-  useEffect(() => {
-    const id = setInterval(() => { void load(); }, 30_000);
-    return () => clearInterval(id);
-  }, [load]);
+  // immediate:false — the effect above already does the first read, deliberately
+  // wrapped so it does not set state synchronously from an effect body.
+  usePolling(load, 30_000, { immediate: false });
 
   const move = useCallback(
     async (order: AdminShopOrder, status: OrderStatus) => {
