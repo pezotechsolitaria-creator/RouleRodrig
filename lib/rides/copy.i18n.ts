@@ -119,6 +119,16 @@ const EN = {
         change: "Change",
         myLocation: "My current location",
         useTyped: (q: string) => `Use “${q}” — we’ll confirm the price`,
+        pin: {
+          open: "Show us on the map",
+          title: "Point to the place",
+          hint: "Move the map so the pin sits on the spot. Pinch to zoom in.",
+          nameLabel: "What is this place called?",
+          namePlaceholder: "e.g. Chez Marie, blue gate",
+          confirm: "Use this spot",
+          cancel: "Close",
+          recentre: "Where I am",
+        },
       },
       privateHireNote:
         "Your driver stays with you — tell them where you would like to go on the day. We will confirm the price with you; no charge until you agree.",
@@ -347,6 +357,16 @@ const FR: RidesCopy = {
         myLocation: "Ma position actuelle",
         useTyped: (q: string) =>
           `Utiliser « ${q} » — nous confirmerons le prix`,
+        pin: {
+          open: "Montrez-nous sur la carte",
+          title: "Indiquez l’endroit",
+          hint: "Déplacez la carte pour placer le repère sur l’endroit. Pincez pour zoomer.",
+          nameLabel: "Comment s’appelle cet endroit ?",
+          namePlaceholder: "ex. Chez Marie, portail bleu",
+          confirm: "Utiliser cet endroit",
+          cancel: "Fermer",
+          recentre: "Où je suis",
+        },
       },
       privateHireNote:
         "Votre chauffeur reste avec vous — dites-lui le jour même où vous voulez aller. Nous confirmerons le prix avec vous — rien n’est débité avant votre accord.",
@@ -572,6 +592,16 @@ const CR: RidesCopy = {
         change: "Sanze",
         myLocation: "Kot mo ete la",
         useTyped: (q: string) => `Servi « ${q} » — nou pou konfirm pri la`,
+        pin: {
+          open: "Montre nou lor kart la",
+          title: "Montre landrwa la",
+          hint: "Bouz kart la ziska reper la lor bon plas. Pinse pou zoom.",
+          nameLabel: "Ki non sa landrwa la ?",
+          namePlaceholder: "par ex. Kot Marie, baro ble",
+          confirm: "Servi sa plas la",
+          cancel: "Ferme",
+          recentre: "Kot mo ete",
+        },
       },
       privateHireNote:
         "Ou sofer res ar ou — dir li lor plas kot ou anvi ale. Nou pou konfirm pri-la ar ou — nanye pa debite avan ou dakor.",

@@ -1,16 +1,23 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
+import dynamic from "next/dynamic";
 import {
   Check,
   Clock,
   Loader2,
   LocateFixed,
+  Map as MapIcon,
   MapPin,
   Search,
 } from "lucide-react";
 import type { RidePlace } from "@/lib/rides/places";
 import { commonPlaces, searchPlaces } from "@/lib/rides/places";
+import type { PinOnMapCopy } from "@/components/PinOnMap";
+
+// Leaflet and a tile layer are a lot to carry for a control that most people
+// answer with one tap on "Port Mathurin". Loaded only when the sheet opens.
+const PinOnMap = dynamic(() => import("@/components/PinOnMap"), { ssr: false });
 import {
   placesServerSnapshot,
   placesSnapshot,
@@ -65,6 +72,10 @@ export type PlacePickerCopy = {
   change: string;
   myLocation: string;
   useTyped: (q: string) => string;
+  /** The fifth way in — see PinOnMap. Nested so adding it is one edit per
+   *  language rather than eight, and so the sheet can be handed its own copy
+   *  without this control unpacking it field by field. */
+  pin: PinOnMapCopy & { open: string };
 };
 
 const DEFAULT_COPY: PlacePickerCopy = {
@@ -75,6 +86,16 @@ const DEFAULT_COPY: PlacePickerCopy = {
   change: "Change",
   myLocation: "My current location",
   useTyped: (q) => `Use “${q}” — we’ll confirm the price`,
+  pin: {
+    open: "Show us on the map",
+    title: "Point to the place",
+    hint: "Move the map so the pin sits on the spot. Pinch to zoom in.",
+    nameLabel: "What is this place called?",
+    namePlaceholder: "e.g. Chez Marie, blue gate",
+    confirm: "Use this spot",
+    cancel: "Close",
+    recentre: "Where I am",
+  },
 };
 
 export default function PlacePicker({
@@ -123,6 +144,7 @@ export default function PlacePicker({
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [pinning, setPinning] = useState(false);
   const typing = q.trim().length > 0;
   const results = useMemo(() => (typing ? searchPlaces(q) : []), [q, typing]);
   // The server has no idea what is on this phone, so it renders nothing and
@@ -175,6 +197,30 @@ export default function PlacePicker({
     setOpen(false);
     setQ("");
   }
+
+  /**
+   * A place they showed us rather than named.
+   *
+   * `id: "pin"` deliberately is not "custom": custom means "typed, and we have
+   * no idea where it is", and the whole point of this branch is that we now do.
+   * It is not "gps" either — remembered.ts drops those, correctly, because a
+   * one-off reading of where somebody stood is not a place they will send
+   * things to again. A pinned house is exactly that, and gets remembered under
+   * the name they gave it.
+   */
+  function pinned(p: { name: string; lat: number; lng: number }) {
+    setPinning(false);
+    choose({ id: "pin", name: p.name, area: "", lat: p.lat, lng: p.lng });
+  }
+
+  const pinSheet = pinning ? (
+    <PinOnMap
+      initialName={q.trim() || value?.name || ""}
+      copy={copy.pin}
+      onConfirm={pinned}
+      onCancel={() => setPinning(false)}
+    />
+  ) : null;
 
   // Closed and unanswered: a row, not a panel. Tapping it asks the question.
   if (!value && !open && !autoOpen) {
@@ -322,6 +368,22 @@ export default function PlacePicker({
         </button>
       )}
 
+      {/* ── The fifth way in ────────────────────────────────────────────────
+          Under the list and under "where I am now", never above them: for the
+          forty places with names, this is the slowest of the three and it is
+          the only one that needs a working data connection. It is here for the
+          182 localities that have no entry in the gazetteer — see PinOnMap. */}
+      {!typing && (
+        <button
+          type="button"
+          onClick={() => setPinning(true)}
+          className="mt-2 flex min-h-14 w-full items-center gap-2.5 rounded-xl border border-[#6E6E6E] px-4 font-dm text-[16px] text-offwhite"
+        >
+          <MapIcon size={17} className="text-yellow" />
+          {copy.pin.open}
+        </button>
+      )}
+
       {typing && (
         <div className="mt-2 max-h-72 overflow-y-auto">
           {results.map((p) => (
@@ -372,8 +434,25 @@ export default function PlacePicker({
               </span>
             </button>
           )}
+          {/* Offered beneath the free-text answer, because this is the moment
+              the coordinate is about to be lost. Taking it carries the typed
+              words into the sheet, so nobody types their address twice. */}
+          {q.trim().length > 2 && (
+            <button
+              type="button"
+              onClick={() => setPinning(true)}
+              className="flex min-h-14 w-full items-center gap-3 px-1 text-left"
+            >
+              <MapIcon size={16} className="shrink-0 text-yellow" aria-hidden />
+              <span className="font-dm text-[16px] text-yellow">
+                {copy.pin.open}
+              </span>
+            </button>
+          )}
         </div>
       )}
+
+      {pinSheet}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   getBasemaps,
   DEFAULT_BASEMAP,
   BASEMAP_STORAGE_KEY,
+  RODRIGUES_BOUNDS,
   type BasemapId,
 } from "@/lib/tracking/tiles";
 
@@ -125,8 +126,9 @@ export default function IslandMapInner({ locations }: Props) {
       markers.current = L.layerGroup().addTo(map);
 
       // ── Live "you are here" position — Rodrigues only ──
-      // Rodrigues bounding box (with a small margin)
-      const RODRIGUES_BOUNDS = { minLat: -19.78, maxLat: -19.61, minLng: 63.33, maxLng: 63.50 };
+      // The bounding box is shared with the pin picker (lib/tracking/tiles.ts).
+      // Two private copies of "is this on Rodrigues?" is how two screens start
+      // disagreeing about it.
       let youMarker: ReturnType<typeof L.circleMarker> | null = null;
 
       // Lucide-style "locate" crosshair (SVG string — Leaflet controls take HTML).
@@ -196,6 +198,10 @@ export default function IslandMapInner({ locations }: Props) {
     return () => {
       cancelled = true;
       if (mapInst.current) {
+        // Stop before removing: Leaflet's own cleanup throws if the frame is
+        // still animating. See the same guard in PinOnMap.
+        mapInst.current.stop();
+        mapInst.current.dragging?.disable();
         mapInst.current.remove();
         mapInst.current = null;
       }

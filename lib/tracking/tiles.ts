@@ -213,6 +213,26 @@ export const BASEMAP_STORAGE_KEY = "rr-basemap";
 export const RODRIGUES_CENTRE: [number, number] = [-19.7024, 63.4105];
 
 /**
+ * The island, with a small margin.
+ *
+ * Two jobs, both about refusing coordinates nobody can drive to: it clamps the
+ * frame while somebody is pinning a pickup, and it decides whether a phone's
+ * reported position is close enough to be worth showing — the same question,
+ * asked by "you are here" and by "pin it on the map".
+ *
+ * It lived as a private constant inside IslandMap, which was fine while one
+ * screen asked. A second copy in a second component is how two answers to
+ * "is this on Rodrigues?" start disagreeing, so it lives here beside the centre
+ * it belongs to.
+ */
+export const RODRIGUES_BOUNDS = {
+  minLat: -19.78,
+  maxLat: -19.61,
+  minLng: 63.33,
+  maxLng: 63.5,
+} as const;
+
+/**
  * Back-compat for callers that only ever wanted one layer.
  * @deprecated prefer getBasemap(id)
  */
