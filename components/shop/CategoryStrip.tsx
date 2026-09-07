@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   Fish, Carrot, Flame, Utensils, Palette, Gift, Wheat, Sparkles, Package,
-  Home, Shirt, Hammer, LayoutGrid, type LucideIcon,
+  Home, Shirt, Hammer, LayoutGrid, Wrench, Car, PartyPopper, type LucideIcon,
 } from "lucide-react";
 import type { CategoryFacet } from "@/lib/marketplace/types";
 import { T, LabelledNav } from "./ShopCopy";
@@ -33,6 +33,17 @@ const ICONS: Record<string, LucideIcon> = {
   home: Home,
   shirt: Shirt,
   hammer: Hammer,
+  // ── M183 ────────────────────────────────────────────────────────────────
+  // Every key here is a value of categories.icon, and a key this map does not
+  // know silently becomes a generic box. Three shelves were already drawing
+  // that box — Services asked for `wrench`, Local products for `package`, and
+  // neither existed — so the rail showed the same icon for different subjects
+  // and there was nothing to scan. A missing icon is not a crash; it is a rail
+  // that stops working as a rail.
+  wrench: Wrench,
+  car: Car,
+  sparkles: PartyPopper,
+  package: Package,
 };
 
 export default function CategoryStrip({

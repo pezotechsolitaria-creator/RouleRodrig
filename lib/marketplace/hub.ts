@@ -10,20 +10,34 @@
 // wording and the aria — rather than four places each deciding separately, one
 // of which will eventually say "Coming soon" over a working link.
 //
-// ── WHAT IS REAL TODAY ──────────────────────────────────────────────────────
-// Four of the six. Shop and Delivery have been live for months, and "Do it for
-// me" is a mode inside Delivery rather than a separate build. Wash My Vehicle
-// became real when trade_providers, service_durations and
-// book_service_slot_public landed:
+// ── EVERY CARD IS LIVE ──────────────────────────────────────────────────────
+// M183/M184/M185 turned the last two into real shelves, so nothing here is
+// marked "Soon" any more. The `href: null` state is KEPT because the next
+// category to be added will need it, and because the rule it encodes — one
+// field decides the link, the cursor, the wording and the aria — is what stops
+// a working flow being labelled "coming soon" again.
+//
+// PUBLIC SERVICE HELP came off. It was the one card with nothing behind it, and
+// the owner's own category order — Local products, Professional Services,
+// Vehicle Care & Detailing, Celebrations — does not include it. It is easy to
+// put back the day there is something to put behind it.
+//
+// ── WHERE THE CARDS POINT ───────────────────────────────────────────────────
+// At CATEGORY shelves, not at bespoke pages, because a category here is a
+// SUBJECT and not a fulfilment type: /shop/c/vehicle-care holds the wash you
+// book AND the shampoo you buy. That is the owner's rule — "each categories can
+// also sell products ... but services are priorities" — and it is why the
+// blurbs name both.
+//
+// /marketplace/wash still exists and still lists the BUSINESSES; this card goes
+// to the shelf because somebody who wants their car cleaned is shopping for the
+// job, not for a supplier. Wash My Vehicle became real when trade_providers,
+// service_durations and book_service_slot_public landed:
 // a car wash is a STORE whose products are booked time, so it already has a
 // storefront, a diary, opening hours, a three-per-phone cap and commission
 // through resolve_commission_rate. None of that is rebuilt here. What was
 // missing was the door — a customer could only reach a car wash by knowing its
 // URL.
-//
-// The other two are honestly marked. A card that pretends to work is worse than
-// one that says "not yet": the first loses somebody's afternoon. The reverse is
-// worse still — see the note on "Do it for me" below.
 
 export type HubAction = {
   key: string;
@@ -44,8 +58,8 @@ export const HUB_ACTIONS: HubAction[] = [
   {
     key: "wash",
     title: "Wash my vehicle",
-    blurb: "Book a wash or a valet with a local business, by the hour.",
-    href: "/marketplace/wash",
+    blurb: "Book a wash or a valet, or buy the shampoo and cloths.",
+    href: "/shop/c/vehicle-care",
   },
   // ── THESE TWO LIVE AT /deliver, AND BOTH SAY SO ───────────────────────────
   // /deliver's own first screen offers all three of its modes as quick actions:
@@ -77,14 +91,14 @@ export const HUB_ACTIONS: HubAction[] = [
   {
     key: "pro",
     title: "Hire a pro",
-    blurb: "Plumbers, electricians, mechanics and cleaners.",
-    href: null,
+    blurb: "Plumbers and electricians — book a call-out, or buy the parts.",
+    href: "/shop/c/professional-services",
   },
   {
-    key: "admin",
-    title: "Public service help",
-    blurb: "A hand with queues, forms and appointments.",
-    href: null,
+    key: "celebrations",
+    title: "Celebrations",
+    blurb: "Party setup and decoration, hired or bought by the pack.",
+    href: "/shop/c/celebrations",
   },
 ];
 
