@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import SmartImage from "@/components/SmartImage";
 import { Handshake, ArrowUpRight, Star } from "lucide-react";
 import type { Sponsor } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
@@ -39,8 +40,7 @@ export default function Sponsors({
 
       {/* Logo on a light panel so any brand mark reads on the dark theme */}
       <div className="flex h-24 items-center justify-center rounded-xl bg-white/95 p-4">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={sp.image} alt={sp.name} className="max-h-14 w-auto max-w-full object-contain" loading="lazy" />
+        <SmartImage src={sp.image} alt={sp.name} width={200} height={56} sizes="200px" className="max-h-14 w-auto max-w-full object-contain" />
       </div>
 
       <div className="mt-4 flex flex-1 flex-col">

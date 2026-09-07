@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import SmartImage from "@/components/SmartImage";
 import { CalendarDays, MapPin, Clock, Phone, Ticket, AlertTriangle } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { eventDateOnly, eventTimeOnly } from "@/lib/events/format";
@@ -35,8 +36,7 @@ export default function EventDetail({ event, url }: { event: EventSummary; url: 
     <div className="mx-auto max-w-3xl">
       <div className="relative h-44 w-full overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-yellow/15 to-transparent sm:h-64">
         {event.coverUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={event.coverUrl} alt="" className="h-full w-full object-cover" />
+          <SmartImage src={event.coverUrl} alt="" fill sizes="(max-width: 768px) 100vw, 768px" className="object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-yellow/30">
             <Ticket size={54} />

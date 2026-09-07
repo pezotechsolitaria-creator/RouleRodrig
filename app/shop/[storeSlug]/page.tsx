@@ -209,10 +209,11 @@ export default async function StorePage({ params }: { params: Promise<{ storeSlu
       <div className="mx-auto max-w-6xl">
         {/* Cover — the shop's own photography leads; the logo overlaps its edge. */}
         <div className="relative">
-          <div className="h-36 w-full overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-yellow/10 to-transparent sm:h-52">
+          {/* `relative` added for the fill image below: without it the photo
+              positions against the grandparent and escapes this box. */}
+          <div className="relative h-36 w-full overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-yellow/10 to-transparent sm:h-52">
             {store.cover_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={store.cover_url} alt="" className="h-full w-full object-cover" />
+              <SmartImage src={store.cover_url} alt="" fill sizes="(max-width: 1152px) 100vw, 1152px" className="object-cover" />
             )}
           </div>
           <div className="absolute -bottom-7 left-4">

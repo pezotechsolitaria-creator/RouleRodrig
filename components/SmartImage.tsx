@@ -21,26 +21,53 @@ import { canOptimise } from "@/lib/images/hosts";
 type Props = {
   src: string;
   alt: string;
-  width: number;
-  height: number;
   className?: string;
   /** Above the fold: skip lazy-loading and hint the browser to fetch early. */
   priority?: boolean;
+  /**
+   * Which width the image will actually occupy, per breakpoint. Without it the
+   * optimiser assumes the full viewport and serves a far bigger file than the
+   * slot needs — which is most of what this component exists to stop.
+   */
   sizes?: string;
-};
+} & (
+  | { fill: true; width?: never; height?: never }
+  | { fill?: false; width: number; height: number }
+);
 
-export default function SmartImage({ src, alt, width, height, className, priority, sizes }: Props) {
+export default function SmartImage(props: Props) {
+  const { src, alt, className, priority, sizes } = props;
+
+  // A host nobody configured renders exactly what it renders today. `fill`
+  // becomes plain CSS: these parents are already `relative` with a fixed
+  // aspect, so absolute inset-0 puts the raw tag in the same box next/image
+  // would have used.
   if (!canOptimise(src)) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={src}
         alt={alt}
-        width={width}
-        height={height}
+        width={props.fill ? undefined : props.width}
+        height={props.fill ? undefined : props.height}
         loading={priority ? "eager" : "lazy"}
         decoding="async"
+        className={props.fill ? `absolute inset-0 h-full w-full ${className ?? ""}` : className}
+      />
+    );
+  }
+
+  if (props.fill) {
+    return (
+      <Image
+        src={src}
+        alt={alt}
+        fill
         className={className}
+        priority={priority}
+        // A last-resort default rather than none: omitting sizes under `fill`
+        // makes Next warn and fall back to 100vw, which is the bug.
+        sizes={sizes ?? "100vw"}
       />
     );
   }
@@ -49,8 +76,8 @@ export default function SmartImage({ src, alt, width, height, className, priorit
     <Image
       src={src}
       alt={alt}
-      width={width}
-      height={height}
+      width={props.width}
+      height={props.height}
       className={className}
       priority={priority}
       sizes={sizes}

@@ -229,8 +229,7 @@ function FeaturedCard({ item, language, label }: { item: ExploreItem; language: 
     <section className="mt-6">
       <Wrap {...props} className="group relative block overflow-hidden rounded-3xl border border-white/10">
         {item.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.image} alt={name} className="h-56 w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:h-64" loading="lazy" />
+          <SmartImage src={item.image} alt={name} width={640} height={360} sizes="(max-width: 640px) 100vw, 50vw" className="h-56 w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:h-64" />
         ) : (
           <div className="h-56 w-full bg-gradient-to-br from-yellow/20 to-dark sm:h-64" />
         )}

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import SmartImage from "@/components/SmartImage";
 import { CalendarDays, MapPin, Ticket, ArrowRight } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { centsToDecimalString } from "@/lib/money";
@@ -46,11 +47,12 @@ function EventCard({
     >
       <div className="relative aspect-[16/9] w-full overflow-hidden bg-white/5">
         {event.coverUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <SmartImage
             src={event.coverUrl}
             alt=""
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-yellow/15 to-transparent text-yellow/30">

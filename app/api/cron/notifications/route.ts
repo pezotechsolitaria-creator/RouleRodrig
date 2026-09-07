@@ -107,6 +107,27 @@ async function run(req: NextRequest) {
   // clock of its own, so somebody could book a driver at a price named in
   // another month. The guard inside the RPC is the real protection; this is
   // what stops the board and the cap filling with the dead.
+  // ── Orders whose collection time came and went ──────────────────────────
+  //
+  // HERE, on the every-minute cron, and not on the daily one — that placement
+  // IS the fix. A lunch ordered for 15:00 that nobody accepts must be gone at
+  // 15:30, not at 06:00 the next morning, and until now the only sweep that
+  // could cancel it ran once a day AND only fired on the 48-hour payment hold.
+  // So a customer turned up to nothing at 15:00 and the order still read as
+  // live on both screens two days later.
+  //
+  // The RPC also nudges the kitchen the moment a collection time arrives on an
+  // order nobody has accepted, which is the half that prevents the loss rather
+  // than tidying up after it.
+  let orderSweep = { warned: 0, expired: 0 };
+  try {
+    const { data, error } = await admin.rpc("sweep_expired_orders");
+    if (error) console.error("sweep_expired_orders failed", error);
+    else if (data) orderSweep = data as { warned: number; expired: number };
+  } catch (err) {
+    console.error("sweep_expired_orders threw", err);
+  }
+
   let requestSweep: RequestSweep = { requestsExpired: 0, quotesExpired: 0, expiredWithQuotes: 0 };
   try {
     const { data, error } = await admin.rpc("sweep_delivery_requests");
@@ -325,6 +346,9 @@ async function run(req: NextRequest) {
     requeued: (requeued as number | null) ?? 0,
     deliverySweep: sweep,
     requestSweep,
+    // { warned, expired } — how many kitchens were nudged that a collection
+    // time had arrived, and how many orders died because nobody answered.
+    orderSweep,
     // Reported so the response is enough to answer "why did/didn't he get a
     // WhatsApp?" without opening the database.
     staleWork: stale,
