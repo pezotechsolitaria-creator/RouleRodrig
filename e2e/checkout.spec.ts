@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { CHECKOUT_COPY } from "../lib/checkout/copy.i18n";
 
 // PROVIDER NOTE (M89): every request here sends `bank_transfer`, not `cash`.
 // Cash is refused platform-wide by a trigger on `payments`, so a cash body now
@@ -116,10 +117,21 @@ test.describe("checkout — guest (no session)", () => {
 
   test("cart page renders an empty state without erroring", async ({ page }) => {
     await page.goto("/cart");
-    // Copy moved when food, shops and tickets were given separate baskets:
-    // /cart renders EmptyEverything ("Nothing here yet"), while "Your cart is
-    // empty" now belongs to CheckoutForm on /checkout.
-    await expect(page.getByText("Nothing here yet")).toBeVisible();
+    // ── ASSERT THE COPY MODULE, NOT A REMEMBERED SENTENCE ──────────────────
+    // This test spent an unknown stretch of time looking for "Nothing here
+    // yet", a string that no longer exists anywhere in the repository. The
+    // empty state had been rewritten to "Your bag is waiting for something
+    // good" and nothing pointed the spec at the new words, so a test whose job
+    // is "the empty cart renders" was failing on the one thing it was not
+    // meant to be checking.
+    //
+    // Reading CHECKOUT_COPY is what /cart itself does. The wording can now be
+    // changed freely — which is the point of putting it in a copy module —
+    // and this still asserts what it set out to: that the page renders its
+    // empty state instead of erroring.
+    await expect(
+      page.getByText(CHECKOUT_COPY.en.cart.empty.title),
+    ).toBeVisible();
   });
 });
 
