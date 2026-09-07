@@ -57,6 +57,16 @@ type Ride = {
   currency?: string;
   passengers?: number;
   rounds?: number;
+  /**
+   * How many DISTINCT drivers have been offered this job, ever.
+   *
+   * Cumulative on purpose. Counting only the live offers would be the obvious
+   * query and it would be cruel: offers expire on a timer, so the number would
+   * climb to four and drop back to zero between rounds, and a customer watching
+   * "4 drivers asked" become "1 driver asked" reads it as drivers abandoning
+   * them one by one. See M182.
+   */
+  driversAsked?: number;
   driver?: {
     name: string;
     phone: string;
@@ -293,14 +303,39 @@ export default function TrackRide({
             {/* Only while still looking: the reassurance widens with each round,
                 which is how a longer wait reads as patience and not as trouble. */}
             {(status === "new" || status === "dispatching") && (
-              <p className="mt-1.5 font-dm text-sm text-muted">
-                {searchingRound(c, ride.rounds ?? 1)}
-              </p>
+              <>
+                <p className="mt-1.5 font-dm text-sm text-muted">
+                  {searchingRound(c, ride.rounds ?? 1)}
+                </p>
+                {/* ── THE ONE CONCRETE FACT ON THIS SCREEN ──────────────────
+                    The four lines above are identical whether four drivers are
+                    holding a live offer or the dispatcher fell over ten minutes
+                    ago. To the person watching, a reassuring sentence that never
+                    changes is a spinner — and a spinner is what makes somebody
+                    phone the office, which is what this whole screen exists to
+                    stop.
+
+                    Not the plumbing this screen refuses to name: "we asked four
+                    drivers" is a fact about THEIR request, where "radius stage
+                    3" is a fact about our algorithm.
+
+                    Hidden at zero rather than shown as "0 drivers asked", which
+                    would turn the one concrete line into the worst news on the
+                    page at exactly the moment somebody is anxious. */}
+                {(ride.driversAsked ?? 0) > 0 && (
+                  <p className="mt-1 font-dm text-[13px] text-yellow/80">
+                    {c.status.asked(ride.driversAsked!)}
+                  </p>
+                )}
+              </>
             )}
             {status === "no_driver" && (
+              // noDriverHelp already ends "We'll call you." — the sentence was
+              // then repeated in hardcoded English underneath it, so every
+              // customer read it twice and a French one read the second in the
+              // wrong language.
               <p className="mt-1.5 font-dm text-sm text-muted">
                 {c.step2.noDriverHelp}
-                We&apos;ll call you.
               </p>
             )}
           </div>

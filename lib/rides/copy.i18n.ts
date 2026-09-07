@@ -267,6 +267,10 @@ const EN = {
         round3: "Checking more drivers across the island…",
         round4: "Still working on it — we'll call you if we need to.",
       },
+      asked: (n: number) =>
+        n === 1
+          ? "1 driver asked — waiting for a reply"
+          : `${n} drivers asked — waiting for a reply`,
     },
     step2: {
       noDriverHelp:
@@ -506,6 +510,10 @@ const FR: RidesCopy = {
         round4:
           "Nous y travaillons toujours — nous vous appellerons si besoin.",
       },
+      asked: (n: number) =>
+        n === 1
+          ? "1 chauffeur contacté — en attente d’une réponse"
+          : `${n} chauffeurs contactés — en attente d’une réponse`,
     },
     step2: {
       noDriverHelp:
@@ -740,6 +748,10 @@ const CR: RidesCopy = {
         round3: "Nou pe rod bann sofer partou lor zil la…",
         round4: "Nou pe touzour lor la — nou pou apel ou si bizin.",
       },
+      asked: (n: number) =>
+        n === 1
+          ? "1 sofer kontakte — pe atann repons"
+          : `${n} sofer kontakte — pe atann repons`,
     },
     step2: {
       noDriverHelp:
