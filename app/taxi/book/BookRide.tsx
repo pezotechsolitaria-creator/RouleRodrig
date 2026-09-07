@@ -107,19 +107,35 @@ type Quote = {
 export default function BookRide({
   initialService,
   initialDirection = "to",
+  initialDropoff = null,
 }: {
   initialService: RideService;
   /** "from" starts an ARRIVAL — what /transfers wants by default. */
   initialDirection?: RideDirection;
+  /**
+   * Somewhere the customer already chose, elsewhere.
+   *
+   * The island guide spends its whole life persuading somebody they want to
+   * stand at Trou d'Argent, and then offered them a Google Maps direction line
+   * — i.e. "here is how to drive yourself", on a site whose business is driving
+   * them. This is the missing half of that sentence: the pin's own coordinates
+   * arrive as the drop-off, already answered, so the trip that page just sold
+   * can be booked from the page that sold it.
+   */
+  initialDropoff?: RidePlace | null;
 }) {
   const { language } = useLanguage();
   const c = RIDES_COPY[language].book;
 
   const [direction, setDirection] = useState<RideDirection>(initialDirection);
-  const [step, setStep] = useState(initialService === "taxi" ? 1 : 2);
+  // Arriving with the destination already chosen means step 1 — "what kind of
+  // journey" — would ask a question the link already answered. Skip to where.
+  const [step, setStep] = useState(
+    initialService === "taxi" && !initialDropoff ? 1 : 2,
+  );
   const [service, setService] = useState<RideService>(initialService);
   const [pickup, setPickup] = useState<RidePlace | null>(null);
-  const [dropoff, setDropoff] = useState<RidePlace | null>(null);
+  const [dropoff, setDropoff] = useState<RidePlace | null>(initialDropoff);
   const [whenKind, setWhenKind] = useState<"now" | "scheduled">("now");
   const [when, setWhen] = useState("");
   const [passengers, setPassengers] = useState(1);

@@ -3,6 +3,8 @@ import { SITE_URL } from "@/lib/site";
 import AppPageHeader from "@/components/AppPageHeader";
 import BookRide from "./BookRide";
 import { RIDE_SERVICES, type RideService } from "@/lib/rides/model";
+import type { RidePlace } from "@/lib/rides/places";
+import { RODRIGUES_BOUNDS } from "@/lib/tracking/tiles";
 import BookingHeading from "@/app/taxi/book/BookingHeading";
 
 // ── ONE SCREEN FOR TAXI *AND* EVERY TRANSFER ────────────────────────────────
@@ -24,16 +26,54 @@ export const metadata: Metadata = {
   alternates: { canonical: `${SITE_URL}/taxi/book` },
 };
 
+/**
+ * A destination handed over in the URL — "Get a taxi here" from the island map.
+ *
+ * A URL is not a trusted source, so this refuses anything it cannot fully
+ * believe: the name must be present, both coordinates must parse, and the point
+ * must be ON RODRIGUES. Without the bounds check the drop-off of a real booking
+ * is whatever number somebody typed into the address bar, and a driver is sent
+ * to it.
+ *
+ * Anything short of complete returns null, and the picker opens empty — the
+ * behaviour this page has always had. A bad link degrades into the ordinary
+ * form rather than into an error.
+ */
+function dropoffFromQuery(
+  to?: string,
+  toLat?: string,
+  toLng?: string,
+): RidePlace | null {
+  const name = (to ?? "").trim().slice(0, 120);
+  if (!name) return null;
+  const lat = Number(toLat);
+  const lng = Number(toLng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const onIsland =
+    lat >= RODRIGUES_BOUNDS.minLat &&
+    lat <= RODRIGUES_BOUNDS.maxLat &&
+    lng >= RODRIGUES_BOUNDS.minLng &&
+    lng <= RODRIGUES_BOUNDS.maxLng;
+  if (!onIsland) return null;
+  return { id: "map", name, area: "", lat, lng };
+}
+
 export default async function BookRidePage({
   searchParams,
 }: {
-  searchParams: Promise<{ service?: string }>;
+  searchParams: Promise<{
+    service?: string;
+    to?: string;
+    toLat?: string;
+    toLng?: string;
+  }>;
 }) {
-  const { service } = await searchParams;
+  const { service, to, toLat, toLng } = await searchParams;
   const initial: RideService =
     service && (RIDE_SERVICES as readonly string[]).includes(service)
       ? (service as RideService)
       : "taxi";
+  const initialDropoff = dropoffFromQuery(to, toLat, toLng);
 
   return (
     <>
@@ -63,7 +103,7 @@ export default async function BookRidePage({
           <BookingHeading />
 
           <div className="mt-3">
-            <BookRide initialService={initial} />
+            <BookRide initialService={initial} initialDropoff={initialDropoff} />
           </div>
 
           {/* WAS: a three-up "See the fare first / Driver in minutes / No
