@@ -136,6 +136,15 @@ function linkSites(): LinkSite[] {
       // reported as a public page leaking the back door.
       if (/\.test\.tsx?$/.test(file)) continue;
       if (!tracked().has(file)) continue;
+      // ── A TEST IS NOT A PAGE ────────────────────────────────────────
+      // Tests quote hrefs to assert on them — `expect(shell).toMatch(/href:
+      // "\/admin\/deliveries"/)` — and the scanner read those as real links.
+      // That is wrong in BOTH directions, which is why it is worth a line:
+      //   · it reported a test file as a public page leaking /admin, and
+      //   · it would have called an orphaned page "reachable" because a test
+      //     mentioned its path, hiding exactly the fault this file exists for.
+      // Nobody can click a link inside a test.
+      if (/\.test\.tsx?$/.test(file)) continue;
       const s = readFileSync(file, "utf8");
       const asRoute = file.startsWith(ROUTE_ROOT) ? norm(routeOf(file)) : null;
       // A file is "private" if it IS a private route, or lives in a private

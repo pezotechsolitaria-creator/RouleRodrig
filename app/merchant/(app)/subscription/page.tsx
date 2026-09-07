@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarClock, CheckCircle2, AlertTriangle, Clock, Receipt, FileDown } from "lucide-react";
+import { CalendarClock, CheckCircle2, AlertTriangle, Clock, Receipt } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getMerchantDashboard } from "@/lib/merchant/context";
 import { getMerchantSubscription, getBillingHistory, PLAN_LABEL, type SubscriptionStatus } from "@/lib/merchant/subscription";
@@ -9,6 +9,7 @@ import { getBilling } from "@/lib/merchant/billing";
 import { centsToDecimalString } from "@/lib/money";
 import { Badge } from "@/components/ui/badge";
 import FeeSummary, { type FeeSummaryData } from "@/components/merchant/FeeSummary";
+import InvoicePdfButton from "@/components/merchant/InvoicePdfButton";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -226,9 +227,18 @@ export default async function MerchantSubscriptionPage({
                           </td>
                           <td className="px-4 py-3 font-mono text-xs text-muted">{inv.id.slice(0, 8).toUpperCase()}</td>
                           <td className="px-4 py-3">
-                            <span className="inline-flex items-center gap-1 font-dm text-xs text-muted/60" title="PDF invoices are coming soon">
-                              <FileDown size={12} /> Soon
-                            </span>
+                            <InvoicePdfButton
+                              shopName={dashboard.displayName}
+                              invoice={{
+                                id: inv.id,
+                                plan: PLAN_LABEL[inv.plan as keyof typeof PLAN_LABEL] ?? inv.plan,
+                                amount: inv.amount,
+                                status: inv.status,
+                                periodStart: inv.period_start,
+                                periodEnd: inv.period_end,
+                                createdAt: inv.created_at,
+                              }}
+                            />
                           </td>
                         </tr>
                       ))}
@@ -246,7 +256,25 @@ export default async function MerchantSubscriptionPage({
                       <p className="mt-1 font-dm text-xs text-muted">
                         {PLAN_LABEL[inv.plan as keyof typeof PLAN_LABEL]} · {fmtDate(inv.period_start)} – {fmtDate(inv.period_end)}
                       </p>
-                      <p className="font-dm text-[11px] text-muted/70">Ref {inv.id.slice(0, 8).toUpperCase()}</p>
+                      <div className="mt-1 flex items-center justify-between gap-2">
+                        <p className="font-dm text-[11px] text-muted/70">Ref {inv.id.slice(0, 8).toUpperCase()}</p>
+                        {/* The phone list had no download at all, not even a
+                            "Soon" — and a merchant here runs their shop from a
+                            phone. */}
+                        <InvoicePdfButton
+                          label="Invoice PDF"
+                          shopName={dashboard.displayName}
+                          invoice={{
+                            id: inv.id,
+                            plan: PLAN_LABEL[inv.plan as keyof typeof PLAN_LABEL] ?? inv.plan,
+                            amount: inv.amount,
+                            status: inv.status,
+                            periodStart: inv.period_start,
+                            periodEnd: inv.period_end,
+                            createdAt: inv.created_at,
+                          }}
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
