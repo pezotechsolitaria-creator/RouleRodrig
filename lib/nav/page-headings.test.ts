@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 const read = (p: string) => readFileSync(p, "utf8");
 
@@ -46,6 +46,52 @@ describe("a page's own title is an h1", () => {
     // down the page. UsefulNumbers renders no heading of its own.
     const page = read("app/emergency/page.tsx");
     expect(page).toMatch(/<h1[\s\S]{0,200}Emergency/);
+  });
+});
+
+describe("exactly one h1 per page", () => {
+  // AppPageHeader used to render its centred bar title as an unconditional h1.
+  // It is NAVIGATION CHROME -- 16px, centred, truncated at 62% of the bar --
+  // and on any page that also had a real heading it produced two. Measured on
+  // the live site:
+  //
+  //   /browse/scooter/burgman-125cc  "BURGMAN 125cc" twice
+  //   /experiences                   "Experiences" AND "Rodrigues under the sun"
+  //
+  // Two h1s is not a doubled signal, it is an ambiguous one: the page is
+  // telling a crawler it has two subjects.
+  const walk = (dir: string, out: string[] = []): string[] => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = `${dir}/${e.name}`;
+      if (e.isDirectory()) walk(p, out);
+      else if (/\.tsx$/.test(e.name) && !/\.test\./.test(e.name)) out.push(p);
+    }
+    return out;
+  };
+
+  it("no page asks the header for an h1 while carrying its own", () => {
+    const guilty = walk("app").filter((f) => {
+      const src = read(f);
+      // No /s flag: it fails the PRODUCTION typecheck ("only available when
+      // targeting es2018 or later") while passing `tsc --noEmit`, and it is
+      // not needed — a negated class already matches newlines, so this spans a
+      // multi-line <AppPageHeader … /> on its own.
+      const asksHeaderForH1 = /<AppPageHeader[^>]*titleAs="h1"/.test(src);
+      const hasOwn = /<h1[\s>]/.test(src);
+      return asksHeaderForH1 && hasOwn;
+    });
+    expect(
+      guilty,
+      `These would render two h1s. Drop titleAs="h1" — the page already has one: ${guilty.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("the header defaults to chrome, not a heading", () => {
+    // The direction that fails safely: a new page that forgets the prop gets a
+    // span that is merely unhelpful, rather than one competing with its own
+    // heading. Flipping this default would silently reintroduce the bug on
+    // every page added afterwards.
+    expect(read("components/AppPageHeader.tsx")).toMatch(/titleAs = "span"/);
   });
 });
 

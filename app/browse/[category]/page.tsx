@@ -401,7 +401,7 @@ export default async function BrowsePage({
   // App-style top bar (back to Explore + page title + language). Replaces the
   // marketing navbar on this redesigned surface; the global BottomNav does the rest.
   const header = (title: string) => (
-    <AppPageHeader title={title} backHref="/#explore" />
+    <AppPageHeader title={title} titleAs="h1" backHref="/#explore" />
   );
   const footer = (
     <>

@@ -20,7 +20,7 @@ export default async function TrackRidePage({
   // otherwise — the reference alone is never enough.
   return (
     <>
-      <AppPageHeader title="My ride" backHref="/taxi" />
+      <AppPageHeader title="My ride" titleAs="h1" backHref="/taxi" />
       <main className="min-h-screen bg-dark px-4 pb-32 pt-4 text-offwhite">
         <div className="mx-auto max-w-lg">
           <TrackRide initialRef={(ref ?? "").toUpperCase()} initialPhone={phone ?? ""} />
