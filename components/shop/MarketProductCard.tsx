@@ -68,7 +68,13 @@ export default function MarketProductCard({
       className="group flex flex-col overflow-hidden rounded-xl border border-white/10 bg-dark-card transition-colors hover:border-yellow/40 active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow"
     >
       <div className="relative aspect-square w-full overflow-hidden bg-white/5">
-        <div className="h-full w-full transition-transform duration-300 group-hover:scale-[1.04]">
+        {/* `relative` is load-bearing, not decoration: ProductImage fills this
+            box absolutely, and without it the containing block would be
+            whichever ancestor happened to be positioned — which here flips on
+            hover, because `scale` makes this element a containing block only
+            while the transform is applied. Same rectangle either way today;
+            stating it means a future wrapper cannot silently move the photo. */}
+        <div className="relative h-full w-full transition-transform duration-300 group-hover:scale-[1.04]">
           <ProductImage
             imageUrl={p.imageUrl}
             imageUrls={p.imageUrls}

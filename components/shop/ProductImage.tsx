@@ -1,4 +1,5 @@
 import AutoPhotos from "@/components/AutoPhotos";
+import SmartImage from "@/components/SmartImage";
 import { uniquePhotos } from "@/lib/photos";
 import { productArt } from "@/lib/marketplace/product-art";
 
@@ -35,8 +36,11 @@ export default function ProductImage({
 }) {
   if (imageUrl) {
     const gallery = uniquePhotos([imageUrl, ...(imageUrls ?? [])]);
-    // One photo keeps the plain <img>: no client component, no timer, no
+    // One photo stays a server render: no client component, no timer, no
     // hydration — which is most of this catalogue and should stay that cheap.
+    // SmartImage is a server component too, so that cheapness is intact; what
+    // it adds is a resize. The raw tag was handing a phone the shop's original
+    // upload at full size to paint in a 260px square.
     if (gallery.length > 1) {
       return (
         <AutoPhotos
@@ -50,13 +54,18 @@ export default function ProductImage({
       );
     }
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
+      <SmartImage
         src={imageUrl}
+        // alt="" deliberately, unchanged: the card's own <h3> carries the
+        // product name a few pixels below, and the whole tile is one <Link>.
+        // Naming the photo too makes a screen reader say it twice.
         alt=""
-        loading={priority ? "eager" : "lazy"}
-        decoding="async"
-        className={`h-full w-full object-cover ${className}`}
+        fill
+        // Matches AutoPhotos above, so the two paths request the same widths
+        // and a product that gains a second photo does not change its download.
+        sizes="(max-width: 640px) 50vw, 260px"
+        priority={priority}
+        className={`object-cover ${className}`}
       />
     );
   }
