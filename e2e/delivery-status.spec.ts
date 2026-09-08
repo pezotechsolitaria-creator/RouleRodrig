@@ -97,16 +97,15 @@ test("a customer can always get out of their own request", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("the request details fold away once a driver is carrying it", async ({ page }) => {
-  // Progressive disclosure, and the reason it is safe: the customer wrote
-  // these an hour ago. The summary still names both ends, and one tap opens
-  // the rest -- an address a customer cannot re-read would be its own bug.
+test("the addresses stay in the open", async ({ page }) => {
+  // They were briefly folded behind a summary to buy back 190px of height.
+  // The owner's verdict was that it made the screen harder, and he is right:
+  // it put a tap between a customer and their own collection address, which is
+  // the thing they re-read when a driver rings them.
   await openTracker(page, "accepted");
-  const details = page.locator("details").first();
-  await expect(details).toBeVisible();
-  expect(await details.evaluate((d) => (d as HTMLDetailsElement).open)).toBe(false);
-  await expect(details).toContainText("kot pive");
-  await expect(details).toContainText("Port Mathurin");
+  await expect(page.locator("details")).toHaveCount(0);
+  await expect(page.getByText("kot pive").first()).toBeVisible();
+  await expect(page.getByText("Port Mathurin").first()).toBeVisible();
 });
 
 test("the driver sits above the map, not below it", async ({ page }) => {

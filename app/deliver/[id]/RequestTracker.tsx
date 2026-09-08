@@ -32,7 +32,6 @@ import {
   UploadCloud,
   AlertTriangle,
   ChevronRight,
-  ChevronDown,
 } from "lucide-react";
 
 const KIND_ICON: Record<RequestKind, typeof Package> = {
@@ -754,28 +753,16 @@ export default function RequestTracker({
       </header>
 
       {/* ── What was asked for ──────────────────────────────────────────── */}
-      {view.status === "accepted" ? (
-        <details className="overflow-hidden rounded-2xl border border-white/10 bg-dark-card">
-          <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
-            <span className="min-w-0">
-              <span className={cn(t.bodySm, "block truncate text-offwhite")}>
-                {view.what}
-              </span>
-              <span className={cn(t.meta, "mt-0.5 block truncate text-[#B0B0B0]")}>
-                {view.pickupText} → {view.dropoffText}
-              </span>
-            </span>
-            <ChevronDown size={16} className="shrink-0 text-[#B0B0B0]" aria-hidden />
-          </summary>
-          <div className="border-t border-white/10 p-4">{askedFor}</div>
-        </details>
-      ) : (
-        <section
-          className={cn("rounded-2xl border border-white/10 bg-dark-card p-4")}
-        >
-          {askedFor}
-        </section>
-      )}
+      {/* This was briefly folded behind a summary once a driver was carrying
+          the job, to buy back 190px. The owner's answer was that it made the
+          screen harder, and he is right: it put a tap between a customer and
+          their own collection address, which is the thing they re-read when a
+          driver rings them. Height is not worth that. */}
+      <section
+        className={cn("rounded-2xl border border-white/10 bg-dark-card p-4")}
+      >
+        {askedFor}
+      </section>
 
       {/* ── The prices, or the wait ─────────────────────────────────────── */}
       {view.status === "open" && status.tone !== "dead" && (
