@@ -32,6 +32,7 @@ import {
   UploadCloud,
   AlertTriangle,
   ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 
 const KIND_ICON: Record<RequestKind, typeof Package> = {
@@ -614,6 +615,68 @@ export default function RequestTracker({
       (view.delivery?.paymentMethod === "bank_transfer" &&
         !view.delivery?.paymentProofAt));
 
+  // What the customer asked for: the item, the window, and both addresses.
+  //
+  // Lifted into a const when this was briefly folded behind a summary to buy
+  // back 190px. The fold is gone -- the owner's verdict was that it made the
+  // screen harder, and he was right, because it put a tap between a customer
+  // and their own collection address. The const stays: it keeps the section's
+  // body out of an already very long return.
+  const askedFor = (
+    <>
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-yellow/12 text-yellow">
+              <KindIcon size={17} />
+            </span>
+            <div className="min-w-0">
+              <p className={cn(t.cardTitle, "text-offwhite")}>{view.what}</p>
+              {/* The two kinds are named with the FORM's words, not a second
+                  house translation of the same idea. */}
+              <p className={cn(t.meta, "mt-1 text-[#B0B0B0]")}>
+                {KIND_TITLE[toRequestKind(view.kind)]}
+                {view.sizeClass === "large" && ` · ${c.tracker.largeItem}`}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-3">
+            {/* WHEN, above where. M152 gave the request a window and this screen
+                had no line for it — so a customer who asked for "tomorrow
+                afternoon" could not see, anywhere, that we had understood. */}
+            {view.windowStart && (
+              <p
+                className={cn(t.bodySm, "flex items-center gap-2 text-offwhite")}
+              >
+                <Clock size={15} className="shrink-0 text-yellow" aria-hidden />
+                <span>
+                  {/* The window itself was already language-aware and was being
+                      handed a hardcoded "en" by the one screen that renders it
+                      for a customer. */}
+                  <span className="text-[#B0B0B0]">{c.tracker.neededLabel} </span>
+                  {formatWindow(
+                    view.windowStart,
+                    view.windowEnd,
+                    view.scheduleKind,
+                    view.timeSlot,
+                    language,
+                  )}
+                </span>
+              </p>
+            )}
+            <Leg
+              label={c.tracker.collectFrom}
+              place={view.pickupText}
+              note={view.pickupNote}
+            />
+            <Leg
+              label={c.tracker.deliverTo}
+              place={view.dropoffText}
+              note={view.dropoffNote}
+            />
+          </div>
+    </>
+  );
+
   return (
     <div className="flex flex-col gap-6 pb-40">
       {/* ── Spoken, for somebody who cannot see it change ───────────────── */}
@@ -628,7 +691,10 @@ export default function RequestTracker({
       </p>
 
       {/* ── Where this stands ───────────────────────────────────────────── */}
-      <header>
+      {/* data-testid, because "the status is above the fold" is a claim about
+          GEOMETRY, and the only honest way to check it is to measure the box
+          on a 375px screen. e2e/delivery-status.spec.ts does exactly that. */}
+      <header data-testid="tracker-status">
         <span
           className={cn(
             t.eyebrow,
@@ -688,60 +754,28 @@ export default function RequestTracker({
       </header>
 
       {/* ── What was asked for ──────────────────────────────────────────── */}
-      <section
-        className={cn("rounded-2xl border border-white/10 bg-dark-card p-4")}
-      >
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-yellow/12 text-yellow">
-            <KindIcon size={17} />
-          </span>
-          <div className="min-w-0">
-            <p className={cn(t.cardTitle, "text-offwhite")}>{view.what}</p>
-            {/* The two kinds are named with the FORM's words, not a second
-                house translation of the same idea. */}
-            <p className={cn(t.meta, "mt-1 text-[#B0B0B0]")}>
-              {KIND_TITLE[toRequestKind(view.kind)]}
-              {view.sizeClass === "large" && ` · ${c.tracker.largeItem}`}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-col gap-3">
-          {/* WHEN, above where. M152 gave the request a window and this screen
-              had no line for it — so a customer who asked for "tomorrow
-              afternoon" could not see, anywhere, that we had understood. */}
-          {view.windowStart && (
-            <p
-              className={cn(t.bodySm, "flex items-center gap-2 text-offwhite")}
-            >
-              <Clock size={15} className="shrink-0 text-yellow" aria-hidden />
-              <span>
-                {/* The window itself was already language-aware and was being
-                    handed a hardcoded "en" by the one screen that renders it
-                    for a customer. */}
-                <span className="text-[#B0B0B0]">{c.tracker.neededLabel} </span>
-                {formatWindow(
-                  view.windowStart,
-                  view.windowEnd,
-                  view.scheduleKind,
-                  view.timeSlot,
-                  language,
-                )}
+      {view.status === "accepted" ? (
+        <details className="overflow-hidden rounded-2xl border border-white/10 bg-dark-card">
+          <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+            <span className="min-w-0">
+              <span className={cn(t.bodySm, "block truncate text-offwhite")}>
+                {view.what}
               </span>
-            </p>
-          )}
-          <Leg
-            label={c.tracker.collectFrom}
-            place={view.pickupText}
-            note={view.pickupNote}
-          />
-          <Leg
-            label={c.tracker.deliverTo}
-            place={view.dropoffText}
-            note={view.dropoffNote}
-          />
-        </div>
-      </section>
+              <span className={cn(t.meta, "mt-0.5 block truncate text-[#B0B0B0]")}>
+                {view.pickupText} → {view.dropoffText}
+              </span>
+            </span>
+            <ChevronDown size={16} className="shrink-0 text-[#B0B0B0]" aria-hidden />
+          </summary>
+          <div className="border-t border-white/10 p-4">{askedFor}</div>
+        </details>
+      ) : (
+        <section
+          className={cn("rounded-2xl border border-white/10 bg-dark-card p-4")}
+        >
+          {askedFor}
+        </section>
+      )}
 
       {/* ── The prices, or the wait ─────────────────────────────────────── */}
       {view.status === "open" && status.tone !== "dead" && (
@@ -815,6 +849,23 @@ export default function RequestTracker({
         </>
       )}
 
+      {/* ── WHO IS COMING, AND THE BUTTON THAT REACHES THEM ─────────────
+          Below the blocking document above, deliberately: while the job is
+          held up, the thing that unblocks it outranks the person waiting on
+          it. Everything else about this card is unchanged.
+
+          Measured on a 375px screen with a driver booked: this card started at
+          y=1022 -- a screen and a half below the fold, under a 380px map. "Who
+          has my delivery and how do I ring them" is the second question a
+          customer asks after "what is happening", and it was the last thing on
+          the page to answer it.
+
+          It now sits directly under the status, above the map. The map says
+          WHERE; this says WHO -- and only one of the two can be acted on. */}
+      {view.status === "accepted" && view.delivery && (
+        <BookedDriver view={view} />
+      )}
+
       {/* ── Where the driver actually is ────────────────────────────────── */}
       {/* Gated on channelKey, not on status: the key exists only once the
           server has a trip row with a driver on it, so this cannot render an
@@ -846,11 +897,6 @@ export default function RequestTracker({
           fare={formatFee(view.delivery.fee)}
           passengerName={view.contactName}
         />
-      )}
-
-      {/* ── The driver who was chosen ───────────────────────────────────── */}
-      {view.status === "accepted" && view.delivery && (
-        <BookedDriver view={view} />
       )}
 
       {/* ── The transfer receipt ────────────────────────────────────────
