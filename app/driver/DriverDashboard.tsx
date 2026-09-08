@@ -56,6 +56,10 @@ type Offer = {
   storeAddress: string | null;
   dropoffNote: string | null;
   expiresAt: string | null;
+  /** M186 emits these for the offers block too. A dispatch offer is a
+   *  countdown, and "is this pickup near me" is most of the decision. */
+  pickupLat?: number | null;
+  pickupLng?: number | null;
 };
 type Active = {
   id: string;
@@ -498,14 +502,19 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
           invisible to dispatch AND to the customer watching them, and that has
           to be visible before the work, not buried under it.
 
-          Only the FIRST active job is tracked. A driver holding two deliveries
-          is in one place, and the position belongs to whichever they are
-          actually doing — which is the one at the top of this list. */}
+          A driver holding two deliveries is in one place, and the position
+          belongs to whichever they are actually doing. THE SERVER DECIDES
+          WHICH — this list is ordered oldest-first and the tracking context
+          takes the newest, so the old `active[0]` guess disagreed with it and
+          the driver went dark for both customers. */}
       {approved && (
         <DeliveryTracking
           online={online}
-          activeId={active[0]?.id ?? null}
-          activeStatus={active[0]?.status ?? null}
+          // ALL of them, not active[0]. The server picks which one is being
+          // tracked — see the note on the `jobs` prop. Sending it the first
+          // of the list meant a driver holding two deliveries broadcast for
+          // neither.
+          jobs={allActive.map((a) => ({ id: a.id, status: a.status }))}
           driverId={dash?.driver?.id ?? null}
         />
       )}
@@ -916,6 +925,22 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
                       <p className="font-dm text-xs text-muted">
                         {o.storeAddress}
                       </p>
+                    )}
+                    {/* An offer is a countdown, and "is that pickup near me"
+                        is most of the decision. Opens in a new tab on purpose:
+                        the offer must still be here when they come back. */}
+                    {isPoint(o.pickupLat, o.pickupLng) && (
+                      <a
+                        href={navigateUrl(
+                          o.pickupLat as number,
+                          o.pickupLng as number,
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-flex items-center gap-1 font-dm text-xs text-muted underline-offset-4 hover:text-yellow hover:underline"
+                      >
+                        <Navigation size={11} /> Where is this?
+                      </a>
                     )}
                     {o.dropoffNote && (
                       <p className="mt-1 flex items-start gap-1.5 font-dm text-xs text-muted">
