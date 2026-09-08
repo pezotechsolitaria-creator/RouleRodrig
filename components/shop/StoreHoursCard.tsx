@@ -81,6 +81,11 @@ export default function StoreHoursCard({
     <div className="rounded-2xl border border-white/10 bg-dark-card p-4">
       <button
         type="button"
+        // A hook of its own, because `button[aria-expanded]` is not unique on a
+        // page: in `next dev` the FIRST one is Next's own Dev Tools button,
+        // which sits under the floating bottom bar and can never be clicked.
+        // A spec written against the generic selector tested that widget.
+        data-testid="store-hours-toggle"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-3 text-left"
