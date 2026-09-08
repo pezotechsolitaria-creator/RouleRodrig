@@ -172,6 +172,10 @@ const ITEM_ICON: Record<ItemChoice, typeof Package> = {
   large: Sofa,
 };
 
+/** The screen that asks WHEN. Named, because submit() has to be able to send
+ *  somebody back to it when their chosen slot closes mid-form. */
+const SCHEDULE_SCREEN = 2;
+
 export default function DeliverForm({
   signedInEmail,
   helpPhone,
@@ -326,13 +330,47 @@ export default function DeliverForm({
   // Which slots are still worth offering. Only TODAY is eroded by the clock —
   // and a DATE that happens to be today is the same thing wearing a different
   // hat, which is the case a "today" check alone would miss.
+  // ── THE CLOCK IS A DEPENDENCY ─────────────────────────────────────────
+  // This memo was keyed on [scheduleKind, neededDate] only, so the list of
+  // slots was frozen at whatever moment the person chose "today". Fill the
+  // rest of the form — which on a phone is minutes, and longer if the tab gets
+  // backgrounded to look up an address — and "morning" is still selected at
+  // 12:05.
+  //
+  // compute_delivery_window() then raises 'That time has already passed.
+  // Choose another.' The request is refused, the chip is still selected, the
+  // list still has not recomputed, and tapping Post again fails identically.
+  // A permanent dead end at the last step, which is exactly the shape of "it
+  // stops and says error".
+  //
+  // A minute is finer than any slot boundary, and this only runs while the
+  // schedule screen can be reached.
+  const [clockTick, setClockTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setClockTick((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const slotChoices = useMemo(() => {
     if (scheduleKind === null || scheduleKind === "asap") return [];
     const isToday =
       scheduleKind === "today" ||
       (scheduleKind === "date" && neededDate === islandDate());
     return slotsFor(isToday ? "today" : "tomorrow");
-  }, [scheduleKind, neededDate]);
+    // clockTick is the point: it is what makes the list erode as the hour
+    // passes rather than freezing at first render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scheduleKind, neededDate, clockTick]);
+
+  // The chosen slot, re-checked against the clock RIGHT NOW. Selecting a slot
+  // and watching it close underneath you is normal; being refused at the end
+  // for it is not.
+  const chosenSlotExpired =
+    timeSlot !== null &&
+    scheduleKind !== null &&
+    scheduleKind !== "asap" &&
+    slotChoices.length > 0 &&
+    !slotChoices.includes(timeSlot);
 
   // ASAP needs no time of day; everything else does. A dated request also needs
   // the date. Kept as one expression so the CTA and the gate cannot disagree.
@@ -625,6 +663,24 @@ export default function DeliverForm({
       !dropoff
     )
       return;
+
+    // ── CAUGHT HERE, NOT BY THE SERVER ────────────────────────────────────
+    // If the chosen slot closed while the form was being filled,
+    // compute_delivery_window() refuses with 'That time has already passed.
+    // Choose another.' — a 400 that leaves the person on the last screen with
+    // the dead slot still selected and no hint that the fix is four screens
+    // back. Every retry fails the same way.
+    //
+    // So it is caught before the round trip: the selection is cleared, the
+    // list has already re-eroded above, and they are put back on the screen
+    // that can fix it with the reason on the toast.
+    if (chosenSlotExpired) {
+      setTimeSlot(null);
+      setScreen(SCHEDULE_SCREEN);
+      toast.error(c.error.slotPassed);
+      return;
+    }
+
     setSubmitting(true);
 
     // ── THE TWO ENGLISH STRINGS BELOW ARE NOT A MISSED TRANSLATION ─────────

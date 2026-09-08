@@ -473,6 +473,10 @@ const EN = {
   error: {
     generic: "Something went wrong. Please try again.",
     network: "Could not reach us. Check your connection and try again.",
+    // The time chosen at the start closed while the form was being filled —
+    // minutes, on a phone. Says what happened and what to do, because the
+    // fix is several screens back from where they were standing.
+    slotPassed: "That time has just passed. Pick a new one and we will carry on.",
   },
 };
 
@@ -877,6 +881,7 @@ const FR: DeliverCopy = {
     generic: "Une erreur s’est produite. Veuillez réessayer.",
     network:
       "Impossible de nous joindre. Vérifiez votre connexion et réessayez.",
+    slotPassed: "Cette heure vient de passer. Choisissez-en une autre et nous continuons.",
   },
 };
 
@@ -1241,6 +1246,7 @@ const CR: DeliverCopy = {
   error: {
     generic: "Enn zafer finn mal pase. Esey ankor.",
     network: "Nou pa kapav zwenn ou. Verifie ou koneksion ek esey ankor.",
+    slotPassed: "Sa ler la fek pase. Swazir enn lot ek nou pou kontinye.",
   },
 };
 

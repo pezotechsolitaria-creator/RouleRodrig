@@ -107,3 +107,33 @@ describe("route-level errors are finally recorded", () => {
     expect(src).toMatch(/Sentry\.captureException\(error\)/);
   });
 });
+
+describe("a time slot that closes while you are still typing", () => {
+  const src = readFileSync("app/deliver/DeliverForm.tsx", "utf8");
+
+  it("the slot list follows the clock", () => {
+    // The memo was keyed on [scheduleKind, neededDate] only, so the choices
+    // froze at whatever moment "today" was picked. Filling the rest of the
+    // form on a phone is minutes — longer if the tab is backgrounded to look
+    // up an address — and "morning" was still selected at 12:05.
+    expect(src).toMatch(/const \[clockTick, setClockTick\] = useState\(0\)/);
+    expect(src).toMatch(/\[scheduleKind, neededDate, clockTick\]/);
+  });
+
+  it("a stale slot is caught before the round trip", () => {
+    // compute_delivery_window() raises 'That time has already passed. Choose
+    // another.' — a 400 that left the person on the LAST screen with the dead
+    // slot still selected, the list still frozen, and every retry failing
+    // identically. The fix was four screens back with nothing pointing there.
+    expect(src).toMatch(/const chosenSlotExpired =/);
+    expect(src).toMatch(/if \(chosenSlotExpired\)/);
+  });
+
+  it("and they are put back on the screen that can fix it", () => {
+    expect(src).toMatch(/setTimeSlot\(null\)/);
+    expect(src).toMatch(/setScreen\(SCHEDULE_SCREEN\)/);
+    expect(src).toContain("c.error.slotPassed");
+    const copy = readFileSync("lib/delivery/copy.i18n.ts", "utf8");
+    expect(copy.match(/slotPassed:/g) ?? []).toHaveLength(3);
+  });
+});
