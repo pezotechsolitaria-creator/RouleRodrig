@@ -392,6 +392,11 @@ const EN = {
     again: "Post this again",
     cancelling: "Cancelling…",
     cancelDelivery: "Cancel this delivery",
+    // The job is already over and the request was left behind at 'accepted'.
+    // Not a cancellation — there is nothing left to cancel — so it must not
+    // say "cancel" or "withdraw", either of which tells the customer they
+    // are stopping something that is still running.
+    closeRequest: "Close this request",
     withdraw: "Withdraw this request",
     withdrawn: "Request withdrawn.",
   },
@@ -781,6 +786,7 @@ const FR: DeliverCopy = {
     again: "Publier à nouveau",
     cancelling: "Annulation…",
     cancelDelivery: "Annuler cette livraison",
+    closeRequest: "Clore cette demande",
     withdraw: "Retirer cette demande",
     withdrawn: "Demande retirée.",
   },
@@ -1132,6 +1138,7 @@ const CR: DeliverCopy = {
     again: "Avoy sa ankor",
     cancelling: "Pe anile…",
     cancelDelivery: "Anil sa livrezon la",
+    closeRequest: "Ferm sa demann la",
     withdraw: "Retir sa demann la",
     withdrawn: "Demann retire.",
   },

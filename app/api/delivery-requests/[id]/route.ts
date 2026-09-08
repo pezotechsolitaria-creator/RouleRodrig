@@ -83,6 +83,32 @@ const schema = z.discriminatedUnion("action", [
 const NOT_FOUND =
   "We couldn't find that request. Check the link and the email you used.";
 
+/**
+ * Everyone who has to hear that a request just died, and the single exit for
+ * a successful cancellation.
+ *
+ * ── WHY THIS IS A FUNCTION ────────────────────────────────────────────────
+ * Cancelling has TWO success paths — the ordinary one, and a retry for a
+ * signed-in customer who originally posted as a guest, whose ownership is
+ * proved by email rather than by session. The retry path called
+ * notifyDriverOfCancellation and returned, and never called
+ * notifyLosingDrivers: every driver holding a standing price on that request
+ * was told nothing, which is exactly the failure the second call exists to
+ * prevent. A driver who quotes and hears nothing stops opening the board.
+ *
+ * Two exits that must do the same thing will eventually not. So there is one.
+ */
+async function announceCancellation(id: string) {
+  // The most time-critical message in the flow: a booked driver may already
+  // be on the road, and every minute they keep going is their fuel spent on a
+  // job that no longer exists. Awaited, and it never throws. Does nothing when
+  // the request was still open — there is nobody to tell.
+  await notifyDriverOfCancellation(id);
+  // And everybody whose standing price just died with the request.
+  await notifyLosingDrivers(id);
+  return NextResponse.json({ ok: true });
+}
+
 export async function POST(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
@@ -286,22 +312,11 @@ export async function POST(
           p_email: v.email,
           p_reason: v.reason ?? null,
         });
-        if (retry) {
-          await notifyDriverOfCancellation(id);
-          return NextResponse.json({ ok: true });
-        }
+        if (retry) return announceCancellation(id);
       }
       return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
     }
-    // The most time-critical message in the flow: a booked driver may already
-    // be on the road, and every minute they keep going is their fuel spent on
-    // a job that no longer exists. Awaited, and it never throws. Does nothing
-    // when the request was still open -- there is nobody to tell.
-    await notifyDriverOfCancellation(id);
-    // And everybody whose standing price just died with the request. A driver
-    // who quotes and hears nothing stops opening the board.
-    await notifyLosingDrivers(id);
-    return NextResponse.json({ ok: true });
+    return announceCancellation(id);
   }
 
   // ── accept ────────────────────────────────────────────────────────────────

@@ -52,6 +52,7 @@ import {
   TERMINAL_LEGS,
   BROKEN_LEGS,
   PRE_PICKUP_LEGS,
+  DEAD_LEGS,
   requestRef,
   type Quote,
 } from "@/lib/delivery/request-status";
@@ -521,18 +522,38 @@ export default function RequestTracker({
     language,
   );
   const KindIcon = KIND_ICON[toRequestKind(view.kind)];
-  // Getting out. Two different acts behind one control:
+  // Getting out. THREE different acts behind one control:
   //   open      -> withdraw the request. Nobody is committed; costs nothing.
   //   accepted  -> cancel a booked driver, but ONLY before they collect. After
   //                that the database refuses and names who to call instead, so
   //                offering the button there would be a promise the server
   //                breaks.
+  //   accepted, -> the job is already over and the request was left behind at
+  //   job dead     'accepted', because nothing on the server moves it back.
+  //                cancel_delivery_request() has handled exactly this since
+  //                m145 and this page never asked it to — so an operator
+  //                killing a job stranded the customer on a screen that said
+  //                "booked" with no way off it. A tidy-up, not a cancellation,
+  //                and the label says so.
   const prePickup =
     view.status === "accepted" &&
     (PRE_PICKUP_LEGS as readonly string[]).includes(
       view.delivery?.status ?? "",
     );
-  const canWithdraw = view.status === "open" || prePickup;
+  const strandedAccepted =
+    view.status === "accepted" &&
+    (DEAD_LEGS as readonly string[]).includes(view.delivery?.status ?? "");
+  // Still 'open' in the database, but past its expiry. requestStatusCopy()
+  // calls that dead well before sweep_delivery_requests() gets to the row, so
+  // this page was printing "Withdraw this request" directly underneath its own
+  // headline saying the request had expired. The POST still works — the SQL
+  // sees 'open' — it is only the word that was wrong.
+  const expiredUnswept = view.status === "open" && status.tone === "dead";
+  // Both of these are TIDYING UP something already over, which is why they
+  // share a label that says neither "cancel" nor "withdraw".
+  const stranded = strandedAccepted || expiredUnswept;
+  const canWithdraw =
+    view.status === "open" || prePickup || strandedAccepted;
   const closes = expiresIn(view.expiresAt, language);
 
   return (
@@ -898,7 +919,9 @@ export default function RequestTracker({
             ? c.tracker.cancelling
             : prePickup
               ? c.tracker.cancelDelivery
-              : c.tracker.withdraw}
+              : stranded
+                ? c.tracker.closeRequest
+                : c.tracker.withdraw}
         </button>
       )}
 

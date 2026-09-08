@@ -100,6 +100,29 @@ export const BROKEN_LEGS: readonly DeliveryLeg[] = [
   "requires_admin",
 ];
 
+/** ── A JOB THAT IS OVER, BADLY ─────────────────────────────────────────────
+ *
+ *  The delivery has ended and the goods did not arrive: an operator killed it
+ *  with admin_force_delivery_status, the driver failed it, or it went back to
+ *  the shop.
+ *
+ *  `delivery_requests.status` does not follow. It goes to 'accepted' when a
+ *  quote is taken and NOTHING EVER MOVES IT BACK — driver_cannot_complete()
+ *  and admin_reassign_delivery() write only the deliveries row. So the request
+ *  sits at 'accepted' for ever and the customer's page keeps saying a driver
+ *  is booked for a job that no longer exists.
+ *
+ *  cancel_delivery_request() has handled exactly this since m145: given one of
+ *  these legs it brings the request into line and answers true. The UI simply
+ *  never offered the control — it gated the button on PRE_PICKUP_LEGS, and not
+ *  one of these three is in that list. A working server-side remedy that
+ *  nothing could reach. */
+export const DEAD_LEGS: readonly DeliveryLeg[] = [
+  "cancelled",
+  "failed_delivery",
+  "returned_to_merchant",
+];
+
 export type StatusTone = "waiting" | "action" | "moving" | "done" | "dead";
 
 export type StatusCopy = {
