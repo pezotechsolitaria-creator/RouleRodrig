@@ -309,6 +309,9 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
   const focusDone = useRef(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Did the CURRENT message come from something the driver did? If so the
+   *  twenty-second poll must not wipe it before they have read it. */
+  const errorFromAction = useRef(false);
   const [pin, setPin] = useState<Record<string, string>>({});
   const [excuseFor, setExcuseFor] = useState<string | null>(null);
   const [reason, setReason] = useState("vehicle");
@@ -317,10 +320,40 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/driver", { cache: "no-store" });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error || "Could not load.");
+      // ── A NON-JSON REPLY USED TO UNAPPROVE THE DRIVER ──────────────────
+      // res.json() had no .catch, unlike act() below which has exactly this
+      // guard. An edge 502, a captive-portal page, a carrier interception —
+      // any of them rejected here, `dash` stayed null, and loading still
+      // cleared. The render then read `dash?.driver?.status` as undefined and
+      // told an APPROVED driver, mid-shift:
+      //
+      //     Account undefined
+      //     We'll message you as soon as it's checked.
+      //     You can't take deliveries yet.
+      //
+      // No jobs, no button, no sign-in link, and the word "undefined" in the
+      // sentence. A bad first byte on 3G is routine.
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          (body as { error?: string } | null)?.error || "Could not load.",
+        );
+      }
+      // A 200 that is not the dashboard is not a dashboard. Keeping the last
+      // good state beats replacing a working screen with a wrong one.
+      if (!body || typeof body !== "object") {
+        throw new Error("Could not load.");
+      }
       setDash(body as Dash);
-      setError(null);
+      // ── ONLY CLEAR WHAT THIS FUNCTION SAID ─────────────────────────────
+      // This cleared EVERY message, and usePolling runs it every twenty
+      // seconds regardless of what the driver just did. So RR086, a 429, the
+      // offline notice — all of them vanished inside twenty seconds whether or
+      // not anyone read them. A driver who glances up from the road sees a
+      // normal screen and no explanation of why their tap did nothing.
+      //
+      // An action's message now stays until the driver takes another action.
+      if (!errorFromAction.current) setError(null);
     } catch (e) {
       // Same rule as act(): a driver refreshing on 3G must not be shown
       // "Load failed", which is Safari's words for "no signal" and reads like
@@ -362,6 +395,9 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
   async function act(key: string, payload: Record<string, unknown>) {
     if (busy) return; // one action at a time, always
     setBusy(key);
+    // A new action supersedes the last one's message, and hands the flag back
+    // to load() until something goes wrong again.
+    errorFromAction.current = false;
     setError(null);
     try {
       const res = await fetch("/api/driver", {
@@ -372,7 +408,10 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "That didn't work.");
       // A soft failure (wrong PIN, job taken) comes back 200 with ok:false.
-      if (body.ok === false && body.message) setError(body.message);
+      if (body.ok === false && body.message) {
+        errorFromAction.current = true;
+        setError(body.message);
+      }
       await load();
       return body;
     } catch (e) {
@@ -387,6 +426,7 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
       // The distinction that matters is exactly that: a REQUEST THAT NEVER
       // ARRIVED is safe to repeat, and a driver who does not know that either
       // gives up or taps again and fears they have broken something.
+      errorFromAction.current = true;
       setError(isNetworkFailure(e) ? OFFLINE_MESSAGE : messageFor(e));
     } finally {
       setBusy(null);

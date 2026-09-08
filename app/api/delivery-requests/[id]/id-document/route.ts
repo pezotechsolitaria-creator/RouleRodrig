@@ -66,13 +66,19 @@ export async function POST(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  const limited = guard(req, "delivery-id-document", 6, 60_000);
-  if (limited) return limited;
-
   const { id } = await ctx.params;
   if (!UUID.test(id)) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
+
+  // Keyed by the REQUEST too, which is why it now runs after the id is known
+  // and validated. This upload is the ONE thing that releases a cash job — the
+  // driver's button stays disabled until it lands — and six attempts a minute
+  // shared across everyone behind a CGNAT address is not a budget for that. A
+  // customer whose first upload failed on a bad signal retries a few times and
+  // is locked out while a driver waits at their door.
+  const limited = guard(req, "delivery-id-document", 6, 60_000, id);
+  if (limited) return limited;
 
   if (!hasServiceRole()) {
     console.error("id document: SUPABASE_SERVICE_ROLE_KEY missing");

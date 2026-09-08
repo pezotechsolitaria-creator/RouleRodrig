@@ -172,18 +172,23 @@ export async function POST(
   // is meant to slow down. A signed-in customer polling their own request
   // sends no email and keeps the roomy budget; anyone supplying one is
   // guessing until proven otherwise.
-  const guessing = v.action === "view" && Boolean(v.email);
+  // ── A SUCCESSFUL LOOKUP IS NOT A GUESS ──────────────────────────────────
+  // The guest branch used to spend an 8/min IP budget on every view — but the
+  // tracker polls every twenty seconds and the client sends whatever email is
+  // in storage, so a guest watching their own delivery burnt 3 of those 8 a
+  // minute doing nothing wrong. Under mobile CGNAT two or three guests share
+  // one bucket, and the third one gets "Too many requests" on the screen that
+  // is supposed to tell them where their driver is.
+  //
+  // The brute-force ceiling is about WRONG guesses, so it is charged on a MISS
+  // instead — below, where the RPC has already answered. Eight wrong (id,
+  // email) pairs a minute per IP, and unlimited polling of a pair that works.
   const limited =
     v.action !== "view"
       ? await guardShared(req, "delivery-request-act", 10, 60_000)
-      : guessing
-        ? await guardShared(req, "delivery-request-guest-view", 8, 60_000)
-        : // Keyed by the REQUEST as well as the IP. This is the polling
-          // budget — three calls a minute from every open tracker — and under
-          // mobile CGNAT twenty people watching twenty different deliveries
-          // were eating one 60/min ceiling between them. The guessing branch
-          // above deliberately keeps the IP as its whole key.
-          await guardShared(req, "delivery-request-view", 60, 60_000, id);
+      : // Keyed by the REQUEST as well as the IP: twenty people watching
+        // twenty different deliveries should not eat one ceiling between them.
+        await guardShared(req, "delivery-request-view", 60, 60_000, id);
   if (limited) return limited;
 
   // A guest cannot reach any of these RPCs without the key.
@@ -231,7 +236,21 @@ export async function POST(
         { status: 500 },
       );
     }
-    if (!data) return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
+    if (!data) {
+      // The miss is the guess. Charged here so a legitimate poll never pays,
+      // and eight wrong pairs a minute per IP is still the ceiling it always
+      // was. Deliberately AFTER the RPC, and returning the same NOT_FOUND
+      // either way, so this cannot be used to tell "wrong email" from "no such
+      // request".
+      const blocked = await guardShared(
+        req,
+        "delivery-request-guest-miss",
+        8,
+        60_000,
+      );
+      if (blocked) return blocked;
+      return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
+    }
     return NextResponse.json({ request: data });
   }
 

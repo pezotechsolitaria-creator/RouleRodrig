@@ -1588,6 +1588,9 @@ function PaymentProof({
   const { language } = useLanguage();
   const c = DELIVER_COPY[language];
   const [file, setFile] = useState<File | null>(null);
+  /** The canvas re-encode is running. Seconds on a cheap phone with a big
+   *  photo, and it used to happen behind an unchanged screen. */
+  const [preparing, setPreparing] = useState(false);
   const [ref, setRef] = useState("");
   /** What they say they sent, as typed. Rupees on screen, cents on the wire —
    *  the two are never the same variable, which is how this repo has shipped a
@@ -1746,13 +1749,21 @@ function PaymentProof({
           // with the only camera they own and no way to make it smaller.
           // shrinkImage never throws; it hands back the original if it cannot
           // help, so the old refusal still stands behind it.
-          void shrinkImage(f).then((small) => {
-            if (small.size > 4 * 1024 * 1024) {
-              setError(c.pay.tooBig);
-              return;
-            }
-            setFile(small);
-          });
+          //
+          // `preparing` is not decoration: re-encoding a 48 MP photo on a cheap
+          // phone takes seconds, during which the button still said "Choose"
+          // and the submit stayed disabled with nothing saying why. PhotoInput
+          // sets its busy flag before calling this; these two did not.
+          setPreparing(true);
+          void shrinkImage(f)
+            .then((small) => {
+              if (small.size > 4 * 1024 * 1024) {
+                setError(c.pay.tooBig);
+                return;
+              }
+              setFile(small);
+            })
+            .finally(() => setPreparing(false));
         }}
       />
 
@@ -1761,8 +1772,16 @@ function PaymentProof({
         onClick={() => inputRef.current?.click()}
         className="mt-3 flex min-h-14 w-full items-center justify-center gap-2.5 rounded-xl border border-[#6E6E6E] px-4 font-dm text-[16px] text-offwhite"
       >
-        <UploadCloud size={18} aria-hidden />
-        {file ? file.name.slice(0, 34) : c.pay.proofChoose}
+        {preparing ? (
+          <Loader2 size={18} className="animate-spin" aria-hidden />
+        ) : (
+          <UploadCloud size={18} aria-hidden />
+        )}
+        {preparing
+          ? c.pay.preparing
+          : file
+            ? file.name.slice(0, 34)
+            : c.pay.proofChoose}
       </button>
 
       <label
@@ -1853,6 +1872,9 @@ function IdDocument({
   const { language } = useLanguage();
   const c = DELIVER_COPY[language];
   const [file, setFile] = useState<File | null>(null);
+  /** The canvas re-encode is running. Seconds on a cheap phone with a big
+   *  photo, and it used to happen behind an unchanged screen. */
+  const [preparing, setPreparing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -1956,13 +1978,21 @@ function IdDocument({
           // with the only camera they own and no way to make it smaller.
           // shrinkImage never throws; it hands back the original if it cannot
           // help, so the old refusal still stands behind it.
-          void shrinkImage(f).then((small) => {
-            if (small.size > 4 * 1024 * 1024) {
-              setError(c.pay.tooBig);
-              return;
-            }
-            setFile(small);
-          });
+          //
+          // `preparing` is not decoration: re-encoding a 48 MP photo on a cheap
+          // phone takes seconds, during which the button still said "Choose"
+          // and the submit stayed disabled with nothing saying why. PhotoInput
+          // sets its busy flag before calling this; these two did not.
+          setPreparing(true);
+          void shrinkImage(f)
+            .then((small) => {
+              if (small.size > 4 * 1024 * 1024) {
+                setError(c.pay.tooBig);
+                return;
+              }
+              setFile(small);
+            })
+            .finally(() => setPreparing(false));
         }}
       />
 
@@ -1971,8 +2001,16 @@ function IdDocument({
         onClick={() => inputRef.current?.click()}
         className="mt-3 flex min-h-14 w-full items-center justify-center gap-2.5 rounded-xl border border-[#6E6E6E] px-4 font-dm text-[16px] text-offwhite"
       >
-        <UploadCloud size={18} aria-hidden />
-        {file ? file.name.slice(0, 34) : c.pay.idChoose}
+        {preparing ? (
+          <Loader2 size={18} className="animate-spin" aria-hidden />
+        ) : (
+          <UploadCloud size={18} aria-hidden />
+        )}
+        {preparing
+          ? c.pay.preparing
+          : file
+            ? file.name.slice(0, 34)
+            : c.pay.idChoose}
       </button>
 
       {error && (

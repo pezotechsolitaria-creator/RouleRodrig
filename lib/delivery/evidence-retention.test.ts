@@ -154,10 +154,19 @@ describe("polling does not eat the island's shared budget", () => {
     expect(route).toMatch(/"delivery-request-view", 60, 60_000, id\)/);
   });
 
-  it("but the GUESSING limit still keys on the IP alone", () => {
-    // There the budget IS the brute-force protection. Splitting it by what is
+  it("but the GUESSING budget still keys on the IP alone", () => {
+    // There the budget IS the brute-force protection: splitting it by what is
     // being guessed would let an attacker split their own budget.
+    //
+    // It moved from every guest VIEW to every guest MISS, because polling a
+    // pair that works is not guessing — but it is still IP-keyed, with no
+    // identity argument, and that is the part this pins.
     const route = read("app/api/delivery-requests/[id]/route.ts");
-    expect(route).toMatch(/"delivery-request-guest-view", 8, 60_000\)/);
+    const at = route.indexOf('"delivery-request-guest-miss"');
+    expect(at).toBeGreaterThan(-1);
+    const call = route.slice(at, at + 140);
+    expect(call).toContain("60_000");
+    // No fourth argument: an identity here would defeat the point.
+    expect(call).not.toMatch(/60_000,\s*\w/);
   });
 });

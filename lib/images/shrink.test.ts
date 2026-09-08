@@ -93,7 +93,18 @@ describe("every upload in the journey goes through it", () => {
 
   it("the receipt and the ID both do", () => {
     const src = read("app/deliver/[id]/RequestTracker.tsx");
-    expect(src.match(/void shrinkImage\(f\)\.then/g) ?? []).toHaveLength(2);
+    expect(src.match(/void shrinkImage\(f\)/g) ?? []).toHaveLength(2);
+    // And both show it is happening: the re-encode takes seconds on a cheap
+    // phone with a big photo, and it used to run behind an unchanged screen.
+    expect(src.match(/setPreparing\(true\)/g) ?? []).toHaveLength(2);
+  });
+
+  it("and so does the vehicle handover, which the title used to lie about", () => {
+    // This describe block is called "every upload in the journey goes through
+    // it" and checked three files, none of them VehicleHandover — whose submit
+    // is disabled until a photo lands, so a phone that shoots big could not
+    // record the handover at all. The suite was green and its own title false.
+    expect(read("app/driver/VehicleHandover.tsx")).toContain("shrinkImage");
   });
 
   it("the pickers no longer hide HEIC, which the server has always allowed", () => {
