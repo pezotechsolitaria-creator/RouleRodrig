@@ -393,6 +393,8 @@ const EN = {
     codeWhen: "Read this out only when it is in your hands.",
 
     // ── The receipt, and the ID ────────────────────────────────────────────
+    amountOptional: "How much did you send? (optional)",
+    amountPlaceholder: "e.g. 250",
     referenceOptional: "Reference number (optional)",
     referencePlaceholder: "e.g. MCB-8891",
     /** DELIBERATELY NOT pay.idWhy, which says something else: the form promises
@@ -815,6 +817,8 @@ const FR: DeliverCopy = {
     codeEyebrow: "VOTRE CODE",
     codeWhen: "Ne le donnez qu’une fois la livraison entre vos mains.",
 
+    amountOptional: "Combien avez-vous envoyé ? (facultatif)",
+    amountPlaceholder: "ex. 250",
     referenceOptional: "Numéro de référence (facultatif)",
     referencePlaceholder: "ex. MCB-8891",
     idWhy:
@@ -1184,6 +1188,8 @@ const CR: DeliverCopy = {
     codeEyebrow: "OU KOD",
     codeWhen: "Dir li zis kan zafer la dan ou lame.",
 
+    amountOptional: "Konbien ou finn avoye? (opsionel)",
+    amountPlaceholder: "egz. 250",
     referenceOptional: "Nimero referans (opsionel)",
     referencePlaceholder: "ex. MCB-8891",
     idWhy:

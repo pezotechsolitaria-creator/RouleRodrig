@@ -86,6 +86,10 @@ const schema = z.discriminatedUnion("action", [
     // against the bucket prefix, so a forged one cannot point elsewhere.
     path: z.string().trim().max(300),
     reference: z.string().trim().max(120).optional(),
+    // M193. Minor units, and the customer's own claim — nothing here can
+    // verify it. Its job is to give the receipt a figure to be checked
+    // against, which it has never had. Capped where the fee is capped.
+    amount: z.number().int().min(0).max(5_000_000).optional(),
   }),
   z.object({
     action: z.literal("cancel"),
@@ -174,7 +178,12 @@ export async function POST(
       ? await guardShared(req, "delivery-request-act", 10, 60_000)
       : guessing
         ? await guardShared(req, "delivery-request-guest-view", 8, 60_000)
-        : await guardShared(req, "delivery-request-view", 60, 60_000);
+        : // Keyed by the REQUEST as well as the IP. This is the polling
+          // budget — three calls a minute from every open tracker — and under
+          // mobile CGNAT twenty people watching twenty different deliveries
+          // were eating one 60/min ceiling between them. The guessing branch
+          // above deliberately keeps the IP as its whole key.
+          await guardShared(req, "delivery-request-view", 60, 60_000, id);
   if (limited) return limited;
 
   // A guest cannot reach any of these RPCs without the key.
@@ -283,6 +292,7 @@ export async function POST(
       p_path: v.path,
       p_reference: v.reference ?? null,
       p_email: user ? null : (v.email ?? null),
+      p_amount: v.amount ?? null,
     });
     if (error) {
       if (error.code === SAFE_RPC_ERROR) {

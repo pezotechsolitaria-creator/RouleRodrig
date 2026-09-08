@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toCents } from "@/lib/money";
 import { usePolling } from "@/lib/use-polling";
 import {
   isErrandKind,
@@ -1588,6 +1589,10 @@ function PaymentProof({
   const c = DELIVER_COPY[language];
   const [file, setFile] = useState<File | null>(null);
   const [ref, setRef] = useState("");
+  /** What they say they sent, as typed. Rupees on screen, cents on the wire —
+   *  the two are never the same variable, which is how this repo has shipped a
+   *  money bug twice. */
+  const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -1645,6 +1650,10 @@ function PaymentProof({
           action: "attachProof",
           path: upJson.path,
           reference: ref.trim() || undefined,
+          // toCents, never parseFloat * 100: 9.995 * 100 is
+          // 999.4999999999999 in IEEE-754. Undefined when blank — the field is
+          // optional and an empty string must not become Rs 0.
+          amount: amount.trim() ? toCents(amount.trim()) : undefined,
           email: email || undefined,
         }),
       });
@@ -1767,6 +1776,31 @@ function PaymentProof({
         value={ref}
         onChange={(e) => setRef(e.target.value)}
         placeholder={c.tracker.referencePlaceholder}
+        className={cn(recipe.field, "mt-1")}
+      />
+
+      {/* ── HOW MUCH WAS SENT ────────────────────────────────────────────
+          M155 added payment_method, payment_reference, payment_proof_path,
+          payment_proof_at, payment_verified_at and payment_verified_by — and
+          no AMOUNT. So somebody sent an unspecified sum, uploaded a picture
+          of it, and the driver was released: there was no figure anywhere to
+          compare the receipt against, and no screen on which to compare it.
+
+          Optional, and it says so. Somebody photographing a slip at the
+          counter must not be blocked on typing a number already in the
+          picture. inputMode decimal, so the phone opens a number pad. */}
+      <label
+        htmlFor="proof-amount"
+        className={cn(t.meta, "mt-3 block text-[#B0B0B0]")}
+      >
+        {c.tracker.amountOptional}
+      </label>
+      <input
+        id="proof-amount"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        inputMode="decimal"
+        placeholder={c.tracker.amountPlaceholder}
         className={cn(recipe.field, "mt-1")}
       />
 
