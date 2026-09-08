@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Loader2, ImagePlus, ArrowLeft } from "lucide-react";
 import { productSchema, type ProductInput } from "@/lib/schemas/product";
 import { centsToDecimalString, toCents } from "@/lib/money";
+import { ALWAYS_AVAILABLE, isAlwaysAvailable } from "@/lib/shop/service-stock";
 import {
   useCreateProduct, useUpdateProduct, useDeleteProductMedia, type ProductDetail,
 } from "@/lib/merchant/queries";
@@ -48,6 +49,12 @@ export default function ProductForm({
       status: (product?.status === "active" ? "active" : "draft") as "draft" | "active",
     },
   });
+
+  // Derived from what is stored, so re-opening a saved service does not present
+  // it as a countable product with 9999 in the box.
+  const [isService, setIsService] = useState(
+    isAlwaysAvailable(variant?.stock_quantity),
+  );
 
   const [existingImages, setExistingImages] = useState<GridImage[]>(
     (product?.product_media ?? [])
@@ -263,10 +270,55 @@ export default function ProductForm({
               {errors.price && <p role="alert" className="mt-1 font-dm text-[11px] text-red-400">{errors.price.message}</p>}
             </div>
             <div>
-              <Label htmlFor="stockQuantity" className="mb-1.5 font-dm text-xs font-medium text-muted">Stock quantity *</Label>
-              <Input id="stockQuantity" type="number" min="0" step="1" {...register("stockQuantity", { valueAsNumber: true })} aria-invalid={!!errors.stockQuantity} disabled={busy} />
-              {errors.stockQuantity && <p role="alert" className="mt-1 font-dm text-[11px] text-red-400">{errors.stockQuantity.message}</p>}
+              <Label htmlFor="stockQuantity" className="mb-1.5 font-dm text-xs font-medium text-muted">
+                {isService ? "How many you can sell" : "Stock quantity *"}
+              </Label>
+              {isService ? (
+                // Not a disabled input showing 9999: a number nobody may edit
+                // invites the question "why 9999?", and the answer is that
+                // there is no number. Say that instead.
+                <p className="rounded-xl border border-dark-border bg-dark-card px-3 py-2.5 font-dm text-sm text-muted">
+                  As many as you can take on.
+                </p>
+              ) : (
+                <>
+                  <Input id="stockQuantity" type="number" min="0" step="1" {...register("stockQuantity", { valueAsNumber: true })} aria-invalid={!!errors.stockQuantity} disabled={busy} />
+                  {errors.stockQuantity && <p role="alert" className="mt-1 font-dm text-[11px] text-red-400">{errors.stockQuantity.message}</p>}
+                </>
+              )}
             </div>
+          </div>
+
+          {/* ── "IS THIS A THING, OR IS IT YOUR TIME?" ─────────────────────
+              The form asked every seller for a stock quantity, and a plumber
+              listing a call-out hour has no number to give. The field is
+              required, so the answer most of them will leave is the default,
+              0 — and 0 is what the shop floor prints as SOLD OUT. Four
+              services shipped that way (M192).
+
+              So the question is asked in the seller's own words before the
+              number is, and answering it fills the box in for them. */}
+          <div className="flex items-center justify-between rounded-xl border border-dark-border bg-dark-card px-4 py-3">
+            <div className="pr-3">
+              <p className="font-dm text-sm text-offwhite">This is a service, not an item</p>
+              <p className="font-dm text-[11px] text-muted">
+                A wash, an hour of work, a setup — something you do, not something you count.
+              </p>
+            </div>
+            <Switch
+              checked={isService}
+              onCheckedChange={(checked) => {
+                setIsService(checked);
+                // Straight into the form value, not an effect: this repo
+                // treats react-hooks/set-state-in-effect as an error, and the
+                // switch already knows the answer at the moment it is flipped.
+                setValue("stockQuantity", checked ? ALWAYS_AVAILABLE : 0, {
+                  shouldValidate: true,
+                });
+              }}
+              disabled={busy}
+              aria-label="This is a service, not an item"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
