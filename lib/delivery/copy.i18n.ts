@@ -182,6 +182,11 @@ const EN = {
     // is: the customer did nothing wrong and cannot fix it themselves.
     transferUnset:
       "Not set up yet — we have not published an account to receive transfers. Please pay cash, or message us.",
+    // Both ways shut at once: over the cash cap, and no account published.
+    // Ordinary for a grocery or gas run, and it must not be discovered by
+    // tapping Confirm and being refused.
+    noWayToPay:
+      "This price is too high for cash and we cannot take transfers yet, so it cannot be booked here. Call or message us at the top of the page and we will sort it out.",
     transferSplit: (fee: string, cap: string) =>
       `Send ${fee} now for the driver. What they spend at the shop is separate — have up to ${cap} in cash for them at the door.`,
     proofTitle: "Send your transfer receipt",
@@ -633,6 +638,8 @@ const FR: DeliverCopy = {
       `Envoyez ${total} maintenant, puis joignez le reçu.`,
     transferUnset:
       "Pas encore disponible — aucun compte n’est publié pour recevoir les virements. Payez en espèces, ou écrivez-nous.",
+    noWayToPay:
+      "Ce prix est trop élevé pour les espèces et nous ne pouvons pas encore recevoir de virement : impossible de réserver ici. Appelez-nous ou écrivez-nous en haut de la page.",
     transferSplit: (fee: string, cap: string) =>
       `Envoyez ${fee} maintenant pour le chauffeur. Ce qu’il dépense en magasin est séparé — prévoyez jusqu’à ${cap} en espèces à la porte.`,
     proofTitle: "Envoyez votre reçu de virement",
@@ -1001,6 +1008,8 @@ const CR: DeliverCopy = {
       `Avoy ${total} asterla, apre zwenn resi la.`,
     transferUnset:
       "Pankor pare — nou pa finn met okenn kont pou resevwar virman. Paye kas, ouswa ekrir nou.",
+    noWayToPay:
+      "Sa pri la tro gro pou kas ek nou pankor kapav pran virman, alor ou pa kapav rezerve isi. Apel nou ouswa ekrir nou lao lapaz la.",
     transferSplit: (fee: string, cap: string) =>
       `Avoy ${fee} asterla pou sofer la. Seki li depanse dan boutik la separe — gard ziska ${cap} kas kot laport.`,
     proofTitle: "Avoy ou resi vireman",

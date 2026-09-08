@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import Link from "next/link";
@@ -16,7 +17,24 @@ export default function Error({
 }) {
   const { t } = useLanguage();
   useEffect(() => {
-    // Hook for an error tracker (Sentry, etc.) — structured for easy parsing.
+    // ── OR NOTHING WILL ─────────────────────────────────────────────────
+    // This said "hook for an error tracker (Sentry, etc.)" and never called
+    // one, while app/global-error.tsx four files away does — with the comment
+    // explaining exactly why it must: "React swallows errors caught by a
+    // boundary, so this boundary has to report the error itself or nothing
+    // will."
+    //
+    // global-error only catches failures in the ROOT LAYOUT. Everything else —
+    // every route-level crash in the delivery journey, on every phone —
+    // rendered this screen and was never recorded. Sentry has thirteen
+    // unresolved issues for this project and not one is on /deliver, which was
+    // read as "that flow is fine". It meant nobody was looking.
+    //
+    // Sentry rather than PostHog for the same reason global-error picks it:
+    // it is the one tracker here that scrubs PII on the way out
+    // (lib/sentry-scrub.ts), and these pages carry addresses and phone numbers.
+    Sentry.captureException(error);
+
     console.error(
       JSON.stringify({
         level: "error",

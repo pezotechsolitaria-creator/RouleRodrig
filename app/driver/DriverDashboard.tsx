@@ -37,6 +37,31 @@ import {
   waitingOn,
 } from "@/lib/delivery/payment-state";
 
+/** The only failure where the tap never left the phone. */
+const OFFLINE_MESSAGE =
+  "No signal just now — that did not go through. Nothing has changed, so tap it again when you have a bar.";
+
+/**
+ * Did the request fail to reach the server at all?
+ *
+ * A fetch that never connects rejects with a TypeError, and the message is the
+ * browser's rather than ours: "Load failed" (Safari), "Failed to fetch"
+ * (Chrome), "NetworkError when attempting to fetch resource" (Firefox). We do
+ * not match on those strings — they are three, they are localised in some
+ * builds, and they change. The reliable signals are the error TYPE and, when
+ * the browser bothers to set it, navigator.onLine.
+ */
+function isNetworkFailure(e: unknown): boolean {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
+  return e instanceof TypeError;
+}
+
+/** Our own messages pass through; anything else becomes plain words. */
+function messageFor(e: unknown): string {
+  const m = e instanceof Error ? e.message : "";
+  return m && m.length < 200 ? m : "That didn't work. Try again.";
+}
+
 // ── The driver's phone ──────────────────────────────────────────────────────
 //
 // Designed for one hand, outdoors, in a hurry, on a bad signal. The governing
@@ -273,7 +298,10 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
       setDash(body as Dash);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load.");
+      // Same rule as act(): a driver refreshing on 3G must not be shown
+      // "Load failed", which is Safari's words for "no signal" and reads like
+      // the app is broken.
+      setError(isNetworkFailure(e) ? OFFLINE_MESSAGE : messageFor(e));
     } finally {
       setLoading(false);
     }
@@ -324,7 +352,18 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
       await load();
       return body;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "That didn't work.");
+      // ── WHAT A DRIVER ON A BAD SIGNAL ACTUALLY SEES ────────────────────
+      // A failed fetch is a TypeError whose message is the browser's own:
+      // "Load failed" on Safari, "Failed to fetch" on Chrome, "NetworkError
+      // when attempting to fetch resource" on Firefox. Those went straight to
+      // the screen — three different English strings, none of which tells
+      // somebody standing at a roadside on 3G that their tap did not leave the
+      // phone, and none of which says whether the step happened.
+      //
+      // The distinction that matters is exactly that: a REQUEST THAT NEVER
+      // ARRIVED is safe to repeat, and a driver who does not know that either
+      // gives up or taps again and fears they have broken something.
+      setError(isNetworkFailure(e) ? OFFLINE_MESSAGE : messageFor(e));
     } finally {
       setBusy(null);
     }

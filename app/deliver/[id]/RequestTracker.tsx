@@ -1235,10 +1235,23 @@ function ConfirmSheet({
   // offering it sends the customer to a screen asking for a receipt for a
   // payment they had no way to make.
   const transferAllowed = Boolean(view.bankDetails?.accountName);
+  // ── BOTH CAN BE SHUT AT ONCE ──────────────────────────────────────────
+  // Cash is capped at Rs 3,000 on `fee + spendCap`, and a transfer needs an
+  // account the owner has not published yet. Above the cap, with no account,
+  // NEITHER is available — an ordinary state for any grocery or gas run.
+  //
+  // The previous expression read `cashAllowed || !transferAllowed ? "cash"`,
+  // which in exactly that case selected CASH: the disabled option. Both
+  // buttons were greyed so it could not be changed, and Confirm was live —
+  // so the one thing the customer could still tap sent a request the server
+  // was certain to refuse, and the refusal told them to use the option beside
+  // it reading "Not set up yet".
+  //
+  // That is a dead end that says "error", which is the complaint.
+  const canPay = cashAllowed || transferAllowed;
   const [method, setMethod] = useState<PaymentMethod>(
-    // Never default to an option that is greyed out — the sheet would open
-    // with its own Confirm button pointing at a refusal.
-    cashAllowed || !transferAllowed ? "cash" : "bank_transfer",
+    // Only ever an option that can actually be taken.
+    cashAllowed ? "cash" : "bank_transfer",
   );
 
   // Follows the toggle. Without the method this breakdown was fixed at the
@@ -1491,13 +1504,30 @@ function ConfirmSheet({
             </div>
           </fieldset>
 
+          {/* Nothing to confirm WITH. Said in words above the button rather
+              than left for the server to refuse after the tap — the same rule
+              the cash cap already follows. The page header carries Call us and
+              WhatsApp us, which is the way out. */}
+          {!canPay && (
+            <p
+              role="alert"
+              className={cn(
+                t.bodySm,
+                "mt-4 rounded-xl border border-red-400/40 bg-red-500/[0.08] px-3 py-2 text-offwhite",
+              )}
+            >
+              {c.pay.noWayToPay}
+            </p>
+          )}
+
           <button
             type="button"
             onClick={() => onConfirm(method)}
-            disabled={busy}
+            disabled={busy || !canPay}
             className={cn(
               recipe.primaryAction,
               "mt-5 inline-flex items-center justify-center gap-2",
+              !canPay && "cursor-not-allowed opacity-45",
             )}
           >
             {busy && <Loader2 size={16} className="animate-spin" />}
@@ -1692,6 +1722,11 @@ function PaymentProof({
         onChange={(e) => {
           const f = e.target.files?.[0] ?? null;
           setError(null);
+          // Reset the input, or re-picking THE SAME photo fires no change
+          // event and the button appears dead. After a rejection that is
+          // exactly what somebody tries first. The File above is already
+          // captured, so clearing the element cannot affect it.
+          e.target.value = "";
           if (!f) {
             setFile(null);
             return;
@@ -1872,6 +1907,11 @@ function IdDocument({
         onChange={(e) => {
           const f = e.target.files?.[0] ?? null;
           setError(null);
+          // Reset the input, or re-picking THE SAME photo fires no change
+          // event and the button appears dead. After a rejection that is
+          // exactly what somebody tries first. The File above is already
+          // captured, so clearing the element cannot affect it.
+          e.target.value = "";
           if (!f) {
             setFile(null);
             return;

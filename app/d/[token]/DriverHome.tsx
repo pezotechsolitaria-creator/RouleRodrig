@@ -83,14 +83,33 @@ export default function DriverHome({ token }: { token: string }) {
   // way to find out why. taxi_push_subscriptions was empty for every driver and
   // nobody could tell whether that was a bug or nobody had pressed the button.
   const [pushWhy, setPushWhy] = useState<string | null>(null);
+  // ── "COULD NOT REACH US" IS NOT "YOUR LINK IS DEAD" ─────────────────────
+  // Every failure used to land on setHome({ ok: false }), which renders "This
+  // link has stopped working — it was replaced, or it was never right." A
+  // dropped 3G packet, a 502 from the edge returning HTML that r.json() then
+  // rejects on, or the 40/min rate limit — all of them told a working driver
+  // that their credential was dead, on a screen whose only way out is asking
+  // the office for a new code.
+  //
+  // load() re-runs after every availability toggle and every job advance, so
+  // on a bad signal this is the most reachable "it says error" in the app.
+  const [unreachable, setUnreachable] = useState(false);
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setBusy(true);
     try {
       const r = await fetch(`/api/driver-home?t=${encodeURIComponent(token)}`);
-      setHome(await r.json());
+      // A 502 is HTML, so this must not be allowed to throw either.
+      const body = (await r.json().catch(() => null)) as Home | null;
+      if (!r.ok || !body) {
+        setUnreachable(true);
+        return;
+      }
+      setUnreachable(false);
+      setHome(body);
     } catch {
-      setHome({ ok: false });
+      // Never reached the server. Say so, and keep whatever was on screen.
+      setUnreachable(true);
     } finally {
       setBusy(false);
     }
@@ -262,8 +281,36 @@ export default function DriverHome({ token }: { token: string }) {
     }
   }
 
+  // Could not reach us, and nothing good to fall back on. A retry, not a
+  // funeral for the driver's link. If `home` IS loaded the last good screen
+  // stays up instead — a failed background poll must not wipe a working
+  // console.
+  if (!home && unreachable) {
+    return (
+      <div className="rounded-2xl border border-white/12 bg-white/[0.03] p-6 text-center">
+        <AlertCircle size={30} className="mx-auto text-[#B0B0B0]" />
+        <h1 className="mt-3 font-syne text-xl font-extrabold text-offwhite">
+          No signal just now
+        </h1>
+        <p className="mt-2 font-dm text-sm text-muted">
+          We could not reach Roulé Rodrigues. Your link is fine — this is the
+          connection. Try again when you have a bar.
+        </p>
+        <button
+          type="button"
+          onClick={() => void load()}
+          disabled={busy}
+          className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-full bg-yellow px-5 font-syne text-sm font-bold text-dark disabled:opacity-50"
+        >
+          {busy && <Loader2 size={14} className="animate-spin" />}
+          Try again
+        </button>
+      </div>
+    );
+  }
+
   if (!home) {
-    return <div className="flex justify-center py-20"><Loader2 size={26} className="animate-spin text-yellow" /></div>;
+    return <div className="flex justifyate-center py-20"><Loader2 size={26} className="animate-spin text-yellow" /></div>;
   }
   if (!home.ok) {
     return (

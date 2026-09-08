@@ -152,7 +152,15 @@ export default function PhotoInput({
         capture="environment"
         className="sr-only"
         aria-label={copy.takeAria}
-        onChange={(e) => void upload(e.target.files?.[0])}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          // Cleared before the upload starts, or re-picking THE SAME photo
+          // fires no change event and the button appears dead. After a
+          // rejection that is the first thing anyone tries. `f` is already
+          // captured, so this cannot affect the upload.
+          e.target.value = "";
+          void upload(f);
+        }}
       />
       <input
         ref={galleryRef}
@@ -160,7 +168,15 @@ export default function PhotoInput({
         accept="image/*"
         className="sr-only"
         aria-label={copy.chooseAria}
-        onChange={(e) => void upload(e.target.files?.[0])}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          // Cleared before the upload starts, or re-picking THE SAME photo
+          // fires no change event and the button appears dead. After a
+          // rejection that is the first thing anyone tries. `f` is already
+          // captured, so this cannot affect the upload.
+          e.target.value = "";
+          void upload(f);
+        }}
       />
 
       {error && (
