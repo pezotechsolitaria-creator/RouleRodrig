@@ -20,6 +20,7 @@ import {
   Banknote,
   FileText,
   IdCard,
+  ArrowDown,
 } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import { Button } from "@/components/ui/button";
@@ -896,7 +897,7 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
               </div>
             ))}
           </div>
-        ) : active.length === 0 ? (
+        ) : active.length === 0 && openRequests.length === 0 ? (
           <div className="rounded-2xl border border-white/10 bg-dark-card p-6 text-center">
             <CheckCircle2 size={24} className="mx-auto text-muted" />
             <p className="mt-2 font-syne text-sm font-bold">
@@ -906,6 +907,33 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
                 coming to a driver dispatch could not reach. */}
             <p className="mt-1 font-dm text-xs text-muted">{duty.detail}</p>
           </div>
+        ) : active.length === 0 && openRequests.length > 0 ? (
+          // ── THE PANEL USED TO LIE ────────────────────────────────────────
+          // This branch tested `offers` and `active` and nothing else, while
+          // the quote board below it renders `openRequests` — a different list
+          // entirely. With no direct offer but jobs open for quotes, the driver
+          // was shown "Nothing available right now" with real work sitting
+          // underneath it, far enough down to need scrolling to find.
+          //
+          // A driver who reads "nothing available" closes the app. That is the
+          // whole cost of this bug: the jobs were there and the screen said
+          // they were not.
+          <a
+            href="#quote-board"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-yellow/40 bg-yellow/[0.07] p-4"
+          >
+            <span className="min-w-0">
+              <span className="block font-syne text-sm font-bold text-offwhite">
+                {openRequests.length === 1
+                  ? "1 job open for quotes"
+                  : `${openRequests.length} jobs open for quotes`}
+              </span>
+              <span className="mt-0.5 block font-dm text-xs text-muted">
+                No direct offer for you yet — name your price below.
+              </span>
+            </span>
+            <ArrowDown size={18} className="shrink-0 text-yellow" />
+          </a>
         ) : null)}
 
       {/* The quote board. Gated on `online` rather than `duty.offerable`: a
@@ -917,6 +945,7 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
           on, precisely so they can withdraw it. Hiding the board there left
           those prices standing and bookable with no way to pull them. */}
       {approved && (online || openRequests.length > 0) && (
+        <div id="quote-board" className="scroll-mt-24">
         <QuoteBoard
           requests={openRequests}
           busy={busy}
@@ -939,6 +968,7 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
             });
           }}
         />
+        </div>
       )}
 
       {approved && !online && active.length === 0 && (
