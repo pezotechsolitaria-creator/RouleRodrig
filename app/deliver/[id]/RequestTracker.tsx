@@ -605,6 +605,15 @@ export default function RequestTracker({
     view.status === "open" || prePickup || strandedAccepted;
   const closes = expiresIn(view.expiresAt, language);
 
+  // Is a document still owed, and therefore the only thing on this screen that
+  // matters? A cash job waits on the customer's ID, a transfer on the receipt;
+  // in both cases the driver cannot start until it lands.
+  const blockingDocument =
+    view.status === "accepted" &&
+    ((view.delivery?.paymentMethod === "cash" && !view.delivery?.idDocumentAt) ||
+      (view.delivery?.paymentMethod === "bank_transfer" &&
+        !view.delivery?.paymentProofAt));
+
   return (
     <div className="flex flex-col gap-6 pb-40">
       {/* ── Spoken, for somebody who cannot see it change ───────────────── */}
@@ -767,6 +776,45 @@ export default function RequestTracker({
         </section>
       )}
 
+      {/* ── THE ONE THING HOLDING THIS JOB UP ────────────────────────────
+          accept_delivery_quote defaults to cash, and advance_delivery then
+          refuses to let the driver leave `assigned` without the customer's ID.
+          So the DEFAULT payment choice blocks every job until this is
+          uploaded — and this control used to render after the live map and the
+          driver card, two or three screens down on a phone. The driver's side
+          said "waiting"; the customer's side did not say what for, anywhere
+          they were looking.
+
+          While it is outstanding it goes first, above everything. Once it is
+          done it drops back down to where it was, because then it is a record
+          rather than a task. */}
+      {blockingDocument && (
+        <>
+      {view.delivery?.paymentMethod === "cash" && (
+            <IdDocument
+              requestId={view.id}
+              email={email}
+              attachedAt={view.delivery.idDocumentAt}
+              onDone={() => void load()}
+            />
+          )}
+
+          {view.delivery?.paymentMethod === "bank_transfer" && (
+            <PaymentProof
+              requestId={view.id}
+              email={email}
+              attachedAt={view.delivery.paymentProofAt}
+              reference={view.delivery.paymentReference}
+              // Where to actually send it. This screen asked for a receipt without
+              // ever naming an account — the customer was being chased for proof
+              // of a payment they had no way to make.
+              bank={view.bankDetails ?? null}
+              onDone={() => void load()}
+            />
+          )}
+        </>
+      )}
+
       {/* ── Where the driver actually is ────────────────────────────────── */}
       {/* Gated on channelKey, not on status: the key exists only once the
           server has a trip row with a driver on it, so this cannot render an
@@ -815,27 +863,33 @@ export default function RequestTracker({
           its own private bucket, it is readable only by the driver currently
           holding the job and only until the job ends, and it is DELETED after
           the retention window. See M158 and /api/cron/purge-documents. */}
+      {/* Rendered here only once it is DONE — while it is outstanding it is
+          hoisted above the map instead. See `blockingDocument`. */}
+      {!blockingDocument && (
+        <>
       {view.delivery?.paymentMethod === "cash" && (
-        <IdDocument
-          requestId={view.id}
-          email={email}
-          attachedAt={view.delivery.idDocumentAt}
-          onDone={() => void load()}
-        />
-      )}
+            <IdDocument
+              requestId={view.id}
+              email={email}
+              attachedAt={view.delivery.idDocumentAt}
+              onDone={() => void load()}
+            />
+          )}
 
-      {view.delivery?.paymentMethod === "bank_transfer" && (
-        <PaymentProof
-          requestId={view.id}
-          email={email}
-          attachedAt={view.delivery.paymentProofAt}
-          reference={view.delivery.paymentReference}
-          // Where to actually send it. This screen asked for a receipt without
-          // ever naming an account — the customer was being chased for proof
-          // of a payment they had no way to make.
-          bank={view.bankDetails ?? null}
-          onDone={() => void load()}
-        />
+          {view.delivery?.paymentMethod === "bank_transfer" && (
+            <PaymentProof
+              requestId={view.id}
+              email={email}
+              attachedAt={view.delivery.paymentProofAt}
+              reference={view.delivery.paymentReference}
+              // Where to actually send it. This screen asked for a receipt without
+              // ever naming an account — the customer was being chased for proof
+              // of a payment they had no way to make.
+              bank={view.bankDetails ?? null}
+              onDone={() => void load()}
+            />
+          )}
+        </>
       )}
 
       {/* ── How was it? ─────────────────────────────────────────────────── */}

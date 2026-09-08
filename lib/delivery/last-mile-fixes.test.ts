@@ -114,3 +114,39 @@ describe("a second photograph of the car is not a duplicate", () => {
     expect(sql).toMatch(/'added', coalesce\(v_after, 0\) - coalesce\(v_before, 0\)/);
   });
 });
+
+describe("the thing holding the job up comes first", () => {
+  const src = readFileSync("app/deliver/[id]/RequestTracker.tsx", "utf8");
+
+  it("a still-owed document is hoisted above the map", () => {
+    // accept_delivery_quote defaults to cash, and advance_delivery then refuses
+    // to let the driver leave `assigned` without the customer's ID — so the
+    // DEFAULT payment choice blocks every job until this is uploaded. The
+    // control used to render after LiveTripView and BookedDriver, two or three
+    // screens down on a phone. The driver's side said "waiting"; the
+    // customer's side never said what for anywhere they were looking.
+    expect(src).toMatch(/const blockingDocument =/);
+    const hoist = src.indexOf("{blockingDocument && (");
+    const map = src.indexOf("<LiveTripView");
+    expect(hoist).toBeGreaterThan(-1);
+    expect(hoist).toBeLessThan(map);
+  });
+
+  it("and drops back down once it is done", () => {
+    // Then it is a record, not a task.
+    expect(src).toMatch(/\{!blockingDocument && \(/);
+    const done = src.lastIndexOf("{!blockingDocument && (");
+    expect(done).toBeGreaterThan(src.indexOf("<LiveTripView"));
+  });
+
+  it("it covers both documents", () => {
+    const flag = src.slice(src.indexOf("const blockingDocument ="), src.indexOf("const blockingDocument =") + 420);
+    expect(flag).toContain("idDocumentAt");
+    expect(flag).toContain("paymentProofAt");
+  });
+
+  it("and only while the job is live", () => {
+    const flag = src.slice(src.indexOf("const blockingDocument ="), src.indexOf("const blockingDocument =") + 420);
+    expect(flag).toMatch(/view\.status === "accepted"/);
+  });
+});
