@@ -51,7 +51,9 @@ test.describe("store hours — public storefront", () => {
     const res = await request.post("/api/cart/resolve", { data: { items: [] } });
     // /api/cart/resolve needs real items; fall back to the known fixture slug.
     void res;
-    return "m4-test-shop-ffa411a9";
+    // roule-test-shop, not m4-test-shop: the latter is a DRAFT store, so it
+    // publishes no opening hours and this spec could only ever skip on it.
+    return "roule-test-shop";
   }
 
   test("storefront exposes an accessible hours control when hours are published", async ({ page, request }) => {
@@ -59,7 +61,12 @@ test.describe("store hours — public storefront", () => {
     const res = await page.goto(`/shop/${slug}`);
     test.skip(!res || res.status() !== 200, "no published test shop in this environment");
 
-    const toggle = page.locator('button[aria-expanded]').first();
+    // NOT `button[aria-expanded]`. That selector is not unique — under
+    // `next dev` the first match is Next's own Dev Tools button, which sits
+    // beneath the floating bottom bar and therefore never receives a click. The
+    // spec spent its ninety seconds retrying a click on a developer widget and
+    // reported the storefront as broken.
+    const toggle = page.getByTestId("store-hours-toggle");
     if ((await toggle.count()) === 0) {
       test.skip(true, "this shop has not published opening hours");
     }
@@ -76,7 +83,7 @@ test.describe("store hours — public storefront", () => {
   });
 
   test("storefront has no critical or serious axe violations", async ({ page }) => {
-    const res = await page.goto("/shop/m4-test-shop-ffa411a9");
+    const res = await page.goto("/shop/roule-test-shop");
     test.skip(!res || res.status() !== 200, "no published test shop in this environment");
 
     const results = await new AxeBuilder({ page })
@@ -87,10 +94,15 @@ test.describe("store hours — public storefront", () => {
   });
 
   test("hours toggle is reachable and operable by keyboard", async ({ page }) => {
-    const res = await page.goto("/shop/m4-test-shop-ffa411a9");
+    const res = await page.goto("/shop/roule-test-shop");
     test.skip(!res || res.status() !== 200, "no published test shop in this environment");
 
-    const toggle = page.locator('button[aria-expanded]').first();
+    // NOT `button[aria-expanded]`. That selector is not unique — under
+    // `next dev` the first match is Next's own Dev Tools button, which sits
+    // beneath the floating bottom bar and therefore never receives a click. The
+    // spec spent its ninety seconds retrying a click on a developer widget and
+    // reported the storefront as broken.
+    const toggle = page.getByTestId("store-hours-toggle");
     if ((await toggle.count()) === 0) test.skip(true, "no hours published");
 
     await toggle.focus();

@@ -92,8 +92,30 @@ export default function BottomNav() {
           component returns null for. /deliver was one of them: 64px of empty
           scroll under a flow whose whole design brief was that it must not
           scroll. The reservation belongs with the thing being reserved for, so
-          it lives here now and exists exactly when the nav does. */}
-      <div aria-hidden className="h-16 md:hidden" />
+          it lives here now and exists exactly when the nav does.
+
+          ── AND IT HAS TO BE AS TALL AS THE BAR ────────────────────────────
+          It was h-16 — a flat 64px — while the bar measures 74px at 375px:
+          62px of nav plus its bottom padding. Ten pixels of every page
+          therefore sat UNDER a floating bar that owns the clicks there, and
+          anything landing in that strip could be seen and not tapped.
+
+          Found while chasing a different failure and kept on its own merits:
+          the numbers are simply wrong, whatever else was going on.
+
+          The flat number is wrong a second way that no desktop browser reveals:
+          the bar's padding is max(0.75rem, safe-area-inset-bottom), so on a
+          phone with a home indicator it grows to about 96px while a fixed
+          spacer stays at 64. The shortfall triples precisely where the bar is
+          hardest to scroll past.
+
+          So the spacer is the same arithmetic as the bar rather than a number
+          measured once on one device: 3.875rem of nav, plus the identical
+          padding expression. */}
+      <div
+        aria-hidden
+        className="h-[calc(3.875rem+max(0.75rem,env(safe-area-inset-bottom)))] md:hidden"
+      />
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
         <nav
           aria-label={t.a11y.primary}
