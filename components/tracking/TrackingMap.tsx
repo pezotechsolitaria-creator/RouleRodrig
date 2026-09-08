@@ -8,6 +8,7 @@ import {
   getBasemap, getBasemaps, RODRIGUES_CENTRE,
   BASEMAP_STORAGE_KEY, DEFAULT_BASEMAP, type BasemapId,
 } from "@/lib/tracking/tiles";
+import { guardTiles } from "@/lib/tracking/tile-fallback";
 import { createSmoothMarker, type SmoothMarker } from "@/lib/tracking/smooth-marker";
 import { shouldRefit, isFramableSize } from "@/lib/tracking/model";
 import { labelsForZoom } from "@/lib/tracking/place-labels";
@@ -159,6 +160,8 @@ export default function TrackingMap({
   // street name. Remembered per browser so a viewer's choice survives a reload.
   const [basemapId, setBasemapId] = useState<BasemapId>(DEFAULT_BASEMAP);
   const baseLayer = useRef<TileLayer | null>(null);
+  // Detaches the previous tile-error listener when the sheet is swapped.
+  const tileGuard = useRef<(() => void) | null>(null);
   const labelLayer = useRef<TileLayer | null>(null);
   /** Our gazetteer drawn over imagery, redrawn on zoom. */
   const placeLabels = useRef<import("leaflet").LayerGroup | null>(null);
@@ -334,6 +337,25 @@ export default function TrackingMap({
         className: bm.tintable ? "rr-tiles" : "rr-tiles-plain",
       })
       .addTo(m);
+
+    // ── THE SCREEN THAT MUST NOT GO GREY ──────────────────────────────────
+    // This map polls while a customer watches their delivery, so it is both the
+    // heaviest consumer of a metered tile quota and the worst place to lose it:
+    // Leaflet draws nothing at all when tiles fail, and a blank rectangle where
+    // the driver was does not read as "our tile bill ran out", it reads as the
+    // driver having vanished. Falls back to the free sheet after
+    // TILE_ERROR_LIMIT failures.
+    const releaseTiles = guardTiles({
+      L: leaflet,
+      map: m,
+      layer: baseLayer.current,
+      id: basemapId,
+      onSwap: (next) => {
+        baseLayer.current = next as typeof baseLayer.current;
+      },
+    });
+    tileGuard.current?.();
+    tileGuard.current = releaseTiles;
 
     // The half that makes imagery usable. Google calls this Hybrid: without
     // road and place labels on top, satellite is beautiful and unreadable —

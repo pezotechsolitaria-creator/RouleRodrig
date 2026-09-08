@@ -190,6 +190,60 @@ export function getBasemap(id: BasemapId): Basemap {
   return getBasemaps().find((b) => b.id === id) ?? SATELLITE;
 }
 
+// ── WHEN THE PAID PROVIDER STOPS ANSWERING ──────────────────────────────────
+//
+// Everything above assumes the configured provider works. Once one of these is
+// a METERED service that assumption has a bill attached to it: a quota that
+// runs out, a token that gets rotated, a URL restriction that stops matching a
+// new domain. Leaflet's response to any of those is to render nothing — the
+// map goes grey, in silence, and the customer watching a delivery sees a blank
+// rectangle where their driver was.
+//
+// That is the worst available failure. The free providers this file shipped
+// with are still there, still free, still keyless, and a 2016 satellite tile or
+// an OSM street tile beats no tile by a distance.
+//
+// ── WHY A COUNT AND NOT THE FIRST ERROR ────────────────────────────────────
+// A single tileerror is ordinary: a tile at the edge of coverage, a dropped
+// packet on a phone changing cell. Swapping the whole basemap on one of those
+// would demote a working paid provider on a bad ten seconds. Six is roughly one
+// screenful failing rather than one tile, which is the shape of "the provider
+// is not answering" rather than "the network hiccuped".
+//
+// The swap is ONE WAY within a page view. Flapping between two providers as a
+// connection recovers would redraw the map repeatedly, which looks far more
+// broken than either provider on its own.
+
+/** Failed tiles before a configured provider is considered down. */
+export const TILE_ERROR_LIMIT = 6;
+
+/**
+ * Is this basemap coming from an environment override rather than the built-in?
+ *
+ * Only an overridden sheet has anywhere to fall back TO. If the built-in is
+ * already in use, a tile error means OSM or EOX is having a bad day and there
+ * is no second option worth switching to.
+ */
+export function isOverridden(id: BasemapId): boolean {
+  return id === "satellite" ? satelliteFromEnv() !== null : fromEnv() !== null;
+}
+
+/** The free provider this file ships with, ignoring any override. */
+export function builtinBasemap(id: BasemapId): Basemap {
+  return id === "satellite" ? SATELLITE : STREETS;
+}
+
+/**
+ * Should a layer that has failed this many times be replaced?
+ *
+ * Pure, so the rule is testable without a browser, a network or a paid key —
+ * none of which a test should need to answer "does it give up at the right
+ * time".
+ */
+export function shouldFallBack(id: BasemapId, errors: number): boolean {
+  return isOverridden(id) && errors >= TILE_ERROR_LIMIT;
+}
+
 /**
  * STREET by default — the owner's call, and the right one now that the imagery
  * is 2016 Sentinel-2 at 10 m/pixel.
