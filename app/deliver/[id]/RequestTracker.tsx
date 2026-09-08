@@ -139,6 +139,21 @@ type RequestView = {
   createdAt: string;
   expiresAt: string | null;
   cancelReason: string | null;
+  /** ── WHERE A TRANSFER ACTUALLY GOES ──────────────────────────────────
+   *  M190. "Bank transfer" was offered with no destination anywhere in this
+   *  flow — no account_number, no bank_name, nothing, while the marketplace
+   *  side has all of it. The customer chose it, was told "Send it now", and
+   *  had nowhere to send it.
+   *
+   *  Null as a WHOLE when the owner has not filled the account in, which is
+   *  what stops the option being offered at all. An empty destination must
+   *  never be presented as a working choice. */
+  bankDetails?: {
+    accountName: string;
+    bankName: string | null;
+    accountNumber: string | null;
+    note: string | null;
+  } | null;
   quotes: Quote[];
   delivery: {
     id: string;
@@ -813,6 +828,10 @@ export default function RequestTracker({
           email={email}
           attachedAt={view.delivery.paymentProofAt}
           reference={view.delivery.paymentReference}
+          // Where to actually send it. This screen asked for a receipt without
+          // ever naming an account — the customer was being chased for proof
+          // of a payment they had no way to make.
+          bank={view.bankDetails ?? null}
           onDone={() => void load()}
         />
       )}
@@ -1211,8 +1230,14 @@ function ConfirmSheet({
   // different amounts: a transfer covers the fee, never the till.
   const laysOutMoney = mayLayOutMoney(toRequestKind(view.kind), view.spendCap);
   const cashAllowed = view.cashLimit === null || exposure <= view.cashLimit;
+  // A transfer needs somewhere to go. Until the owner fills the account in,
+  // offering it sends the customer to a screen asking for a receipt for a
+  // payment they had no way to make.
+  const transferAllowed = Boolean(view.bankDetails?.accountName);
   const [method, setMethod] = useState<PaymentMethod>(
-    cashAllowed ? "cash" : "bank_transfer",
+    // Never default to an option that is greyed out — the sheet would open
+    // with its own Confirm button pointing at a refusal.
+    cashAllowed || !transferAllowed ? "cash" : "bank_transfer",
   );
 
   // Follows the toggle. Without the method this breakdown was fixed at the
@@ -1408,13 +1433,15 @@ function ConfirmSheet({
                   //
                   // The cash option has always named its total. This one now
                   // names both halves.
-                  body: laysOutMoney
-                    ? c.pay.transferSplit(
-                        formatFee(quote.fee),
-                        formatFee(view.spendCap ?? 0),
-                      )
-                    : c.pay.transferTotal(formatFee(quote.fee)),
-                  disabled: false,
+                  body: !transferAllowed
+                    ? c.pay.transferUnset
+                    : laysOutMoney
+                      ? c.pay.transferSplit(
+                          formatFee(quote.fee),
+                          formatFee(view.spendCap ?? 0),
+                        )
+                      : c.pay.transferTotal(formatFee(quote.fee)),
+                  disabled: !transferAllowed,
                 },
               ].map((o) => {
                 const on = method === o.k;
@@ -1511,12 +1538,19 @@ function PaymentProof({
   email,
   attachedAt,
   reference,
+  bank,
   onDone,
 }: {
   requestId: string;
   email: string;
   attachedAt: string | null;
   reference: string | null;
+  bank: {
+    accountName: string;
+    bankName: string | null;
+    accountNumber: string | null;
+    note: string | null;
+  } | null;
   onDone: () => void;
 }) {
   const { language } = useLanguage();
@@ -1603,6 +1637,47 @@ function PaymentProof({
       <p className={cn(t.bodySm, "mt-1 text-[#B0B0B0]")}>
         {c.pay.proofWhy} {c.pay.proofHelp}
       </p>
+
+      {/* ── THE ACCOUNT ──────────────────────────────────────────────────
+          Above the upload, because it is the step that comes first and the
+          one this screen used to leave out entirely. Selectable text, not an
+          image: somebody is copying it into a banking app one-handed. */}
+      {bank && (
+        <dl className="mt-3 space-y-1.5 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <dt className={cn(t.meta, "text-[#B0B0B0]")}>{c.pay.bankName}</dt>
+            <dd className={cn(t.bodySm, "text-right text-offwhite")}>
+              {bank.accountName}
+            </dd>
+          </div>
+          {bank.bankName && (
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className={cn(t.meta, "text-[#B0B0B0]")}>{c.pay.bankBank}</dt>
+              <dd className={cn(t.bodySm, "text-right text-offwhite")}>
+                {bank.bankName}
+              </dd>
+            </div>
+          )}
+          {bank.accountNumber && (
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className={cn(t.meta, "text-[#B0B0B0]")}>
+                {c.pay.bankNumber}
+              </dt>
+              <dd
+                className={cn(
+                  t.numeric,
+                  "select-all text-right text-sm text-offwhite",
+                )}
+              >
+                {bank.accountNumber}
+              </dd>
+            </div>
+          )}
+          {bank.note && (
+            <p className={cn(t.meta, "pt-1 text-[#B0B0B0]")}>{bank.note}</p>
+          )}
+        </dl>
+      )}
 
       <input
         ref={inputRef}

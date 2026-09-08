@@ -178,9 +178,18 @@ const EN = {
     // "everything is paid" met a driver expecting up to the whole cap.
     transferTotal: (total: string) =>
       `Send ${total} now, then attach the receipt.`,
+    // Shown when no account has been set up. Honest about whose problem it
+    // is: the customer did nothing wrong and cannot fix it themselves.
+    transferUnset:
+      "Not set up yet — we have not published an account to receive transfers. Please pay cash, or message us.",
     transferSplit: (fee: string, cap: string) =>
       `Send ${fee} now for the driver. What they spend at the shop is separate — have up to ${cap} in cash for them at the door.`,
     proofTitle: "Send your transfer receipt",
+    // The account itself. This screen chased a receipt for a payment it
+    // never told anybody where to send.
+    bankName: "Pay to",
+    bankBank: "Bank",
+    bankNumber: "Account",
     proofHelp: "A photo or PDF of the transfer, up to 4 MB.",
     proofWhy: "Your driver cannot set off until this arrives.",
     proofChoose: "Choose a file or take a photo",
@@ -622,9 +631,14 @@ const FR: DeliverCopy = {
       `Le chauffeur encaissera ${total} à la porte.`,
     transferTotal: (total: string) =>
       `Envoyez ${total} maintenant, puis joignez le reçu.`,
+    transferUnset:
+      "Pas encore disponible — aucun compte n’est publié pour recevoir les virements. Payez en espèces, ou écrivez-nous.",
     transferSplit: (fee: string, cap: string) =>
       `Envoyez ${fee} maintenant pour le chauffeur. Ce qu’il dépense en magasin est séparé — prévoyez jusqu’à ${cap} en espèces à la porte.`,
     proofTitle: "Envoyez votre reçu de virement",
+    bankName: "Payer à",
+    bankBank: "Banque",
+    bankNumber: "Compte",
     proofHelp: "Une photo ou un PDF du virement, jusqu’à 4 Mo.",
     proofWhy: "Votre chauffeur ne peut pas partir avant de l’avoir reçu.",
     proofChoose: "Choisir un fichier ou prendre une photo",
@@ -985,9 +999,14 @@ const CR: DeliverCopy = {
     cashTotal: (total: string) => `Sofer la pou pran ${total} kot laport.`,
     transferTotal: (total: string) =>
       `Avoy ${total} asterla, apre zwenn resi la.`,
+    transferUnset:
+      "Pankor pare — nou pa finn met okenn kont pou resevwar virman. Paye kas, ouswa ekrir nou.",
     transferSplit: (fee: string, cap: string) =>
       `Avoy ${fee} asterla pou sofer la. Seki li depanse dan boutik la separe — gard ziska ${cap} kas kot laport.`,
     proofTitle: "Avoy ou resi vireman",
+    bankName: "Peye ar",
+    bankBank: "Labank",
+    bankNumber: "Kont",
     proofHelp: "Enn foto ouswa PDF vireman la, ziska 4 Mo.",
     proofWhy: "Ou sofer pa kapav demare avan li ariv.",
     proofChoose: "Swazir enn fisye ouswa pran enn foto",
