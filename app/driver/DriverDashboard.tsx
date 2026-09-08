@@ -31,6 +31,7 @@ import DeliveryLog from "./DeliveryLog";
 import QuoteBoard, { type OpenRequest } from "./QuoteBoard";
 import { formatWindow } from "@/lib/delivery/schedule";
 import { legFor } from "@/lib/delivery/leg";
+import { legTarget } from "@/lib/delivery/job-legs";
 import { isPoint, navigateUrl, routeUrl } from "@/lib/maps/nav";
 import {
   canStartDelivery,
@@ -642,14 +643,6 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
         // Shared with the deadline strip below and with Navigate, because
         // those three disagreeing is exactly the confusion being fixed.
         const leg = legFor(a.status);
-        const goTo =
-          leg === "pickup"
-            ? isPoint(a.pickupLat, a.pickupLng)
-              ? { lat: a.pickupLat as number, lng: a.pickupLng as number }
-              : null
-            : isPoint(a.dropoffLat, a.dropoffLng)
-              ? { lat: a.dropoffLat as number, lng: a.dropoffLng as number }
-              : null;
         // The exact condition advance_delivery() refuses on, so the button
         // can say so instead of throwing RR087 after the tap. Kept in
         // lib/delivery/payment-state.ts with a test naming the SQL it mirrors,
@@ -790,16 +783,51 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
                   not to look at. Both fixed here; the label now names the
                   destination, so it is checkable at a glance instead of
                   trusted. */}
-              {goTo && (
-                <a
-                  href={navigateUrl(goTo.lat, goTo.lng)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-yellow px-4 font-dm text-sm font-bold text-dark"
-                >
-                  <Navigation size={14} />
-                  {leg === "pickup" ? "Navigate to pickup" : "Navigate to customer"}
-                </a>
+              {/* ── BOTH ENDS, ALWAYS ────────────────────────────────────
+                  One button whose destination swapped with the stage still
+                  decides FOR the driver. A driver on `going_to_pickup` who
+                  wants to see how far the customer is before choosing the
+                  order to run two jobs in had no way to look, and one who
+                  left something at the shop after collecting was offered no
+                  route back to it.
+
+                  So both are offered and the STAGE decides which is
+                  EMPHASISED, not which exists. The gold one is still the one
+                  obvious next action.
+
+                  A leg with no coordinates falls back to a map search on the
+                  place name -- the owner's "kot pive" -- labelled as a search
+                  rather than passed off as a pin. */}
+              {([
+                ["pickup", legTarget(a.pickupLat, a.pickupLng, a.storeAddress), "Pickup"],
+                ["dropoff", legTarget(a.dropoffLat, a.dropoffLng, a.dropoffNote), "Drop-off"],
+              ] as const).map(([which, target, name]) =>
+                target ? (
+                  <a
+                    key={which}
+                    href={target.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={target.precise ? undefined : target.label}
+                    className={
+                      leg === which
+                        ? "inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-yellow px-4 font-dm text-sm font-bold text-dark"
+                        : "inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/20 px-4 font-dm text-sm text-offwhite"
+                    }
+                  >
+                    <Navigation
+                      size={14}
+                      className={leg === which ? "" : "text-yellow"}
+                    />
+                    {name}
+                    {/* Never let an approximate result look exact: a driver
+                        who trusts a name search as a pin ends up in the wrong
+                        village and blames the app. */}
+                    {!target.precise && (
+                      <span className="opacity-60">~</span>
+                    )}
+                  </a>
+                ) : null,
               )}
               {/* Where they will be sent NEXT, while they still have a choice
                   about the order they do things in. Quiet on purpose — it is
