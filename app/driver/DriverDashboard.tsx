@@ -20,6 +20,7 @@ import {
   Banknote,
   FileText,
   IdCard,
+  ArrowDown,
 } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import { Button } from "@/components/ui/button";
@@ -1116,6 +1117,31 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
                 coming to a driver dispatch could not reach. */}
             <p className="mt-1 font-dm text-xs text-muted">{duty.detail}</p>
           </div>
+        ) : active.length === 0 && openRequests.length > 0 ? (
+          // ── AND SILENCE IS NOT THE FIX EITHER ────────────────────────────
+          // Correcting the condition above stops the screen LYING, but it
+          // leaves this slot blank — and the board it is pointing at starts
+          // below the fold on a phone. A driver who opens the app to nothing
+          // where the news used to be has no reason to keep scrolling.
+          //
+          // So the same space that used to say "no work" now says how much
+          // there is and takes them to it. One tap, not a scroll and a hope.
+          <a
+            href="#quote-board"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-yellow/40 bg-yellow/[0.07] p-4"
+          >
+            <span className="min-w-0">
+              <span className="block font-syne text-sm font-bold text-offwhite">
+                {openRequests.length === 1
+                  ? "1 job open for quotes"
+                  : `${openRequests.length} jobs open for quotes`}
+              </span>
+              <span className="mt-0.5 block font-dm text-xs text-muted">
+                No direct offer for you yet — name your price below.
+              </span>
+            </span>
+            <ArrowDown size={18} className="shrink-0 text-yellow" />
+          </a>
         ) : null)}
 
       {/* The quote board. Gated on `online` rather than `duty.offerable`: a
@@ -1127,6 +1153,7 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
           on, precisely so they can withdraw it. Hiding the board there left
           those prices standing and bookable with no way to pull them. */}
       {approved && (online || openRequests.length > 0) && (
+        <div id="quote-board" className="scroll-mt-24">
         <QuoteBoard
           requests={openRequests}
           busy={busy}
@@ -1149,6 +1176,7 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
             });
           }}
         />
+        </div>
       )}
 
       {approved && !online && active.length === 0 && (
