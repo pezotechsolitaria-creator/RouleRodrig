@@ -12,6 +12,7 @@ import {
   RODRIGUES_CENTRE,
   type BasemapId,
 } from "@/lib/tracking/tiles";
+import { guardTiles } from "@/lib/tracking/tile-fallback";
 
 // ── SHOWING US WHERE, WHEN THE NAME IS NOT ENOUGH ───────────────────────────
 //
@@ -198,12 +199,25 @@ export default function PinOnMap({
       baseLayer.current = null;
     }
     const base = getBasemap(basemapId).base;
-    baseLayer.current = L.tileLayer(base.url, {
+    const layer = L.tileLayer(base.url, {
       attribution: base.attribution,
       maxZoom: base.maxZoom,
       ...(base.maxNativeZoom ? { maxNativeZoom: base.maxNativeZoom } : {}),
       ...(base.subdomains ? { subdomains: base.subdomains } : {}),
     }).addTo(map);
+    baseLayer.current = layer;
+
+    // Somebody pinning their own house cannot do it on a grey rectangle. If the
+    // metered provider stops answering, the free sheet takes over.
+    return guardTiles({
+      L,
+      map,
+      layer,
+      id: basemapId,
+      onSwap: (next) => {
+        baseLayer.current = next;
+      },
+    });
   }, [epoch, basemapId]);
 
   function chooseBasemap(id: BasemapId) {

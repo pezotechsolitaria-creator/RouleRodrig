@@ -23,6 +23,7 @@ import {
   RODRIGUES_BOUNDS,
   type BasemapId,
 } from "@/lib/tracking/tiles";
+import { guardTiles } from "@/lib/tracking/tile-fallback";
 
 const CATEGORY_COLOR: Record<string, string> = {
   beach:     "#3B82F6",
@@ -259,7 +260,7 @@ export default function IslandMapInner({ locations, popularity }: Props) {
       baseLayer.current = null;
     }
     const base = getBasemap(basemapId).base;
-    baseLayer.current = L.tileLayer(base.url, {
+    const layer = L.tileLayer(base.url, {
       attribution: base.attribution,
       maxZoom: base.maxZoom,
       ...(base.maxNativeZoom ? { maxNativeZoom: base.maxNativeZoom } : {}),
@@ -268,6 +269,20 @@ export default function IslandMapInner({ locations, popularity }: Props) {
       // Not copied: this map has always drawn untinted tiles, and adopting the
       // dark treatment here would change how /map looks.
     }).addTo(map);
+    baseLayer.current = layer;
+
+    // A metered provider that stops answering draws nothing at all, so the
+    // island would simply disappear. Falls back to the free sheet instead.
+    const release = guardTiles({
+      L,
+      map,
+      layer,
+      id: basemapId,
+      onSwap: (next) => {
+        baseLayer.current = next;
+      },
+    });
+    return release;
   }, [epoch, basemapId]);
 
   // ── 3. THE PINS ─────────────────────────────────────────────────────────
