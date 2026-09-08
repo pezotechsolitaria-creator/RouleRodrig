@@ -33,6 +33,20 @@ import {
 export const dynamic = "force-dynamic";
 
 const SAFE_RPC_ERROR = "P0001";
+/** ── "NOT YOURS", AS DISTINCT FROM "NO" ──────────────────────────────────
+ *  M191. Both accept wrappers used to raise P0001 for an ownership miss, and
+ *  so does accept_delivery_quote() for about ten real refusals — expired,
+ *  price moved, driver off duty, over the cash cap, driver's hands full.
+ *
+ *  This route could not tell them apart, so it retried EVERY refusal through
+ *  the guest path, whose own ownership check then failed (a request posted
+ *  while signed in has no guest_email) and replaced the true reason with
+ *  "That quote no longer exists."
+ *
+ *  A customer whose driver went off duty was told their quote had vanished.
+ *  The message is unchanged and still deliberately vague — only the code is
+ *  new, so the retry fires on a genuine identity miss and nothing else. */
+const NOT_YOURS = "P0002";
 
 const schema = z.discriminatedUnion("action", [
   z.object({
@@ -337,8 +351,9 @@ export async function POST(
     );
     if (!error) {
       deliveryId = data as string;
-    } else if (error.code === SAFE_RPC_ERROR && v.email) {
-      // Posted as a guest, accepted while signed in.
+    } else if (error.code === NOT_YOURS && v.email) {
+      // Posted as a guest, accepted while signed in. ONLY on NOT_YOURS: a
+      // real refusal must keep its own words.
       const admin = await getPrivileged();
       const { data: g, error: gErr } = await admin.rpc(
         "guest_accept_delivery_quote",
@@ -350,7 +365,7 @@ export async function POST(
         },
       );
       if (gErr) {
-        if (gErr.code === SAFE_RPC_ERROR) {
+        if (gErr.code === SAFE_RPC_ERROR || gErr.code === NOT_YOURS) {
           return NextResponse.json({ error: gErr.message }, { status: 409 });
         }
         console.error("guest_accept_delivery_quote failed", gErr);
@@ -360,7 +375,10 @@ export async function POST(
         );
       }
       deliveryId = g as string;
-    } else if (error.code === SAFE_RPC_ERROR) {
+    } else if (error.code === SAFE_RPC_ERROR || error.code === NOT_YOURS) {
+      // The real reason, in the server's own words — "That driver is not
+      // available any more", "That is too much to settle in cash", and the
+      // rest. These used to be swallowed by the retry above.
       return NextResponse.json({ error: error.message }, { status: 409 });
     } else {
       console.error("customer_accept_delivery_quote failed", error);
@@ -380,7 +398,10 @@ export async function POST(
       p_payment_method: v.paymentMethod,
     });
     if (error) {
-      if (error.code === SAFE_RPC_ERROR) {
+      // NOT_YOURS too: for a signed-out guest there is no second identity to
+      // try, so an ownership miss is a final answer like any other refusal.
+      // Without this it would fall through to a 500 and read as our fault.
+      if (error.code === SAFE_RPC_ERROR || error.code === NOT_YOURS) {
         return NextResponse.json({ error: error.message }, { status: 409 });
       }
       console.error("guest_accept_delivery_quote failed", error);

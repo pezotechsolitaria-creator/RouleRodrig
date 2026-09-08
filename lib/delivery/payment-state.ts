@@ -11,6 +11,10 @@
 //   canStartDelivery  ⇄  advance_delivery()'s RR087 branch          (M155)
 //   paymentCardState  ⇄  driver_dashboard()'s collectCash CASE      (M157)
 //
+// M191: canStartDelivery now reads the same COLUMNS the gate does. It used to
+// read the timestamps while the SQL tested the paths — two fields written at
+// the same moment, which is not the same as one field.
+//
 // The SQL remains the authority. If these two are ever wrong the server still
 // refuses; what is lost is the driver knowing why before they tap.
 
@@ -32,6 +36,24 @@ export type PaymentFacts = {
   /** M158. Cash jobs wait on the customer's ID the way transfers wait on a
    *  receipt — same gate, same screen, different document. */
   idDocumentAt?: string | null;
+  /** ── WHAT THE SQL ACTUALLY TESTS ──────────────────────────────────────
+   *  advance_delivery() gates on `payment_proof_path is null` and
+   *  `id_document_path is null` — the PATHS, not the timestamps. This mirror
+   *  read the timestamps, which are a different column that happens to be
+   *  written at the same moment.
+   *
+   *  driver_dashboard() already returns both shapes in the same payload:
+   *  'hasProof', (d.payment_proof_path is not null) and 'hasIdDocument',
+   *  (d.id_document_path is not null) — the exact booleans the gate uses,
+   *  sitting unread beside the ones it was reading, and used only to decide
+   *  whether to draw a "View receipt" button.
+   *
+   *  Preferred where present, with the timestamps as the fallback so an older
+   *  payload still answers. A screen that disagrees with the gate either
+   *  blocks a driver who may go, or invites one to set off on a job the
+   *  server will refuse. */
+  hasProof?: boolean;
+  hasIdDocument?: boolean;
 };
 
 /**
@@ -67,8 +89,12 @@ export function canStartDelivery(
   d: PaymentFacts & { status: string },
 ): boolean {
   if (d.status !== "assigned") return true;
-  if (d.paymentMethod === "bank_transfer") return Boolean(d.paymentProofAt);
-  if (d.paymentMethod === "cash") return Boolean(d.idDocumentAt);
+  // The path booleans first — they ARE the gate. The timestamps only stand in
+  // when an older payload does not carry them.
+  if (d.paymentMethod === "bank_transfer")
+    return d.hasProof ?? Boolean(d.paymentProofAt);
+  if (d.paymentMethod === "cash")
+    return d.hasIdDocument ?? Boolean(d.idDocumentAt);
   // No method recorded: every delivery predating M155. Unchanged behaviour.
   return true;
 }
