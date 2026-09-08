@@ -105,6 +105,27 @@ function HeroBackdrop() {
 // hero plays the same sequence and two copies of it would drift apart the first
 // time somebody was asked to make it slower.
 
+/**
+ * What this page is, in one line, per language.
+ *
+ * Not from the CMS: the CMS headline drives the ANIMATION, and that is a
+ * greeting by design ("WELCOME TO", with the film revealing RODRIGUES). This is
+ * the machine-readable claim underneath it, and it has to name both services
+ * because BRAND.md calls the primary service "scooter & car rental".
+ *
+ * Creole follows the site's own register rather than a translation of the
+ * English -- lib/i18n.ts already says "Lokasion skooter" and calls a car
+ * "loto", so those are the words used here.
+ *
+ * The audience is largely fr-RE and fr-MU (BRAND.md), so the French says
+ * "Maurice" rather than assuming a French reader knows where Rodrigues is.
+ */
+const HERO_H1: Record<string, string> = {
+  en: "Scooter and car rental in Rodrigues Island, Mauritius",
+  fr: "Location de scooter et de voiture à Rodrigues, Maurice",
+  cr: "Lokasion skooter ek loto Rodrig, Moris",
+};
+
 export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: boolean }) {
   const { t } = useLanguage();
   const h = hero ?? DEFAULT_CONTENT.hero;
@@ -148,6 +169,26 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
 
   return (
     <section className={`relative w-full overflow-hidden flex flex-col ${compact ? "rr-home-hero min-h-[172px] md:min-h-[36vh]" : "min-h-[40vh] md:min-h-[62vh]"}`} aria-label={t.a11yMore.heroSection}>
+      {/* ── THE PAGE'S REAL HEADING ──────────────────────────────────────
+          The homepage is the page that ranks -- searches that end in a scooter
+          booking land here, not on /browse/scooter -- and until now its <h1>
+          was the animated greeting, whose text content is "WELCOMETO". A
+          non-word, on the strongest heading of the strongest page.
+
+          It also said nothing about CARS. The owner's question was "why do I
+          only get scooter bookings"; the homepage body mentioned "scooter"
+          three times and "car" once, so the one page Google trusts was, in
+          text, a scooter page. BRAND.md is explicit that the primary service
+          is "scooter & car rental" -- both.
+
+          sr-only rather than visible BECAUSE OF THE COMMENT FURTHER DOWN: the
+          subheadline and hero CTA are out at the owner's direction, since every
+          pixel of hero height pushes the six discovery cards below the fold.
+          This costs zero height and changes nothing on screen.
+
+          Outside the block that retires when footage plays, so the heading
+          survives the video handover instead of leaving the page with none. */}
+      <h1 className="sr-only">{HERO_H1[language] ?? HERO_H1.en}</h1>
       {/* ── Background: the owner's photo, with their footage layered over ───
           Order is load-bearing. The still renders first and unconditionally;
           the video sits on top and fades in only once a frame has decoded. So
@@ -312,8 +353,16 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
             const lineDelay = INTRO.START + i * INTRO.LINE_GAP;
             return (
               <div key={`${line}-${i}`} className="overflow-hidden">
-                <h1
+                {/* A DIV, NOT THE <h1> (see the sr-only heading at the top of
+                    this section). Every letter below is its own aria-hidden
+                    span, so the text CONTENT of this element is the letters run
+                    together -- "WELCOMETO", with no space, because the space is
+                    an empty width-only span. Google reads text content, not
+                    aria-label, so as an <h1> this was telling the strongest
+                    page on the site that its subject was a non-word. */}
+                <div
                   aria-label={line}
+                  role="img"
                   className="rr-on-media block font-syne font-extrabold text-offwhite leading-[0.9] uppercase tracking-tight [text-shadow:0_2px_40px_rgba(0,0,0,0.45)]"
                   style={{ fontSize: "clamp(1.85rem, 6.6vw, 7rem)" }}
                 >
@@ -346,7 +395,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
                       </motion.span>
                     ),
                   )}
-                </h1>
+                </div>
               </div>
             );
           })}
