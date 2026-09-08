@@ -224,7 +224,10 @@
 // v310 - All day never merges two kitchens into one pan.
 // v311 - the product page prices what you are actually taking.
 
-const CACHE = "rr-cache-v344";
+// v345 — the driver console finally knows where to collect: Navigate points
+// at the leg the driver is actually on, and the quote board can show the
+// whole route instead of only how far away the pickup is.
+const CACHE = "rr-cache-v345";
 
 // Dev hosts get no cache-first anything: their asset URLs are not content
 // hashed, so the immutability that makes cache-first safe does not hold.

@@ -29,6 +29,8 @@ import { driverDutyState } from "@/lib/delivery/availability";
 import DeliveryLog from "./DeliveryLog";
 import QuoteBoard, { type OpenRequest } from "./QuoteBoard";
 import { formatWindow } from "@/lib/delivery/schedule";
+import { legFor } from "@/lib/delivery/leg";
+import { isPoint, navigateUrl, routeUrl } from "@/lib/maps/nav";
 import {
   canStartDelivery,
   paymentCardState,
@@ -68,6 +70,18 @@ type Active = {
   dropoffLat: number | null;
   dropoffLng: number | null;
   dropoffNote: string | null;
+  /** ── WHERE TO COLLECT FROM ────────────────────────────────────────────
+   *  M186. `deliveries` has no pickup columns at all, and driver_dashboard()
+   *  joined the request to read `pickup_text` — the ADDRESS — while selecting
+   *  neither coordinate. So the console knew the NAME of the place and could
+   *  not point at it: the only Navigate button on the screen went to the
+   *  drop-off, whatever leg the driver was on. On a store job these come from
+   *  the store's own pin, on a direct request from what the customer dropped
+   *  on the map. */
+  pickupLat?: number | null;
+  pickupLng?: number | null;
+  /** "Ask for Marie round the back" — worth nothing until you have arrived. */
+  pickupNote?: string | null;
   pickupDueAt: string | null;
   deliveryDueAt: string | null;
   pinAttempts: number;
@@ -511,6 +525,18 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
         const next = NEXT[a.status];
         const atDoor =
           a.status === "arrived" || a.status === "out_for_delivery";
+        // Which end of the job this is — the shop, or the customer's door.
+        // Shared with the deadline strip below and with Navigate, because
+        // those three disagreeing is exactly the confusion being fixed.
+        const leg = legFor(a.status);
+        const goTo =
+          leg === "pickup"
+            ? isPoint(a.pickupLat, a.pickupLng)
+              ? { lat: a.pickupLat as number, lng: a.pickupLng as number }
+              : null
+            : isPoint(a.dropoffLat, a.dropoffLng)
+              ? { lat: a.dropoffLat as number, lng: a.dropoffLng as number }
+              : null;
         // The exact condition advance_delivery() refuses on, so the button
         // can say so instead of throwing RR087 after the tap. Kept in
         // lib/delivery/payment-state.ts with a test naming the SQL it mirrors,
@@ -541,11 +567,7 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
                 once is noise; showing neither is what shipped. */}
             {(() => {
               const due = timeLeft(
-                ["assigned", "going_to_pickup", "arrived_at_pickup"].includes(
-                  a.status,
-                )
-                  ? a.pickupDueAt
-                  : a.deliveryDueAt,
+                leg === "pickup" ? a.pickupDueAt : a.deliveryDueAt,
               );
               if (!due) return null;
               return (
@@ -557,31 +579,50 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
                   }`}
                 >
                   <Clock size={12} />
-                  {[
-                    "assigned",
-                    "going_to_pickup",
-                    "arrived_at_pickup",
-                  ].includes(a.status)
-                    ? "Pickup"
-                    : "Delivery"}{" "}
-                  {due.text}
+                  {leg === "pickup" ? "Pickup" : "Delivery"} {due.text}
                 </p>
               );
             })()}
 
             <Progress status={a.status} />
 
+            {/* ── THE TWO ENDS, SAID AS SUCH ────────────────────────────────
+                These were two grey lines with two different icons and no
+                words: one the collection address, one the delivery note. A
+                driver had to know which was which from a Package glyph. On
+                the leg where it matters most — before collection — the app
+                was showing them the customer's instructions with equal
+                weight and no label. */}
             <div className="mt-3 space-y-1.5 font-dm text-sm">
               {a.storeAddress && (
                 <p className="flex items-start gap-2 text-muted">
-                  <Package size={14} className="mt-0.5 shrink-0 text-yellow" />{" "}
-                  {a.storeAddress}
+                  <Package size={14} className="mt-0.5 shrink-0 text-yellow" />
+                  <span>
+                    <span className="text-white/40">Collect from </span>
+                    <span className={leg === "pickup" ? "text-offwhite" : ""}>
+                      {a.storeAddress}
+                    </span>
+                  </span>
+                </p>
+              )}
+              {/* Collection instructions, and only while collecting: "ask for
+                  Marie round the back" is noise once the package is in the
+                  bag. */}
+              {leg === "pickup" && a.pickupNote && (
+                <p className="flex items-start gap-2 text-offwhite">
+                  <FileText size={14} className="mt-0.5 shrink-0 text-yellow" />
+                  {a.pickupNote}
                 </p>
               )}
               {a.dropoffNote && (
                 <p className="flex items-start gap-2 text-muted">
-                  <MapPin size={14} className="mt-0.5 shrink-0 text-yellow" />{" "}
-                  {a.dropoffNote}
+                  <MapPin size={14} className="mt-0.5 shrink-0 text-yellow" />
+                  <span>
+                    <span className="text-white/40">Deliver to </span>
+                    <span className={leg === "dropoff" ? "text-offwhite" : ""}>
+                      {a.dropoffNote}
+                    </span>
+                  </span>
                 </p>
               )}
             </div>
@@ -626,16 +667,45 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
             {/* Calling and navigating are the two things a driver reaches for
                 mid-job; they are links, not buried in a menu. */}
             <div className="mt-3 flex flex-wrap gap-2">
-              {a.dropoffLat != null && a.dropoffLng != null && (
+              {/* ── NAVIGATE TO THE END YOU ARE ACTUALLY GOING TO ─────────
+                  This pointed at the DROP-OFF on every leg of every job. A
+                  driver on `assigned` — who has not collected anything yet —
+                  tapped Navigate and was routed to the customer's house.
+
+                  It also used /maps/search/, which drops a pin rather than
+                  starting guidance: two more taps on a screen they are trying
+                  not to look at. Both fixed here; the label now names the
+                  destination, so it is checkable at a glance instead of
+                  trusted. */}
+              {goTo && (
                 <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${a.dropoffLat},${a.dropoffLng}`}
+                  href={navigateUrl(goTo.lat, goTo.lng)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/20 px-4 font-dm text-sm"
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-yellow px-4 font-dm text-sm font-bold text-dark"
                 >
-                  <Navigation size={14} /> Navigate
+                  <Navigation size={14} />
+                  {leg === "pickup" ? "Navigate to pickup" : "Navigate to customer"}
                 </a>
               )}
+              {/* Where they will be sent NEXT, while they still have a choice
+                  about the order they do things in. Quiet on purpose — it is
+                  information, not the next action. */}
+              {leg === "pickup" &&
+                isPoint(a.pickupLat, a.pickupLng) &&
+                isPoint(a.dropoffLat, a.dropoffLng) && (
+                  <a
+                    href={routeUrl(
+                      { lat: a.pickupLat as number, lng: a.pickupLng as number },
+                      { lat: a.dropoffLat as number, lng: a.dropoffLng as number },
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/20 px-4 font-dm text-sm text-muted"
+                  >
+                    <MapPin size={14} /> Whole route
+                  </a>
+                )}
               {a.customerPhone && atDoor && (
                 <a
                   href={`tel:${a.customerPhone.replace(/\s+/g, "")}`}
@@ -896,7 +966,19 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
               </div>
             ))}
           </div>
-        ) : active.length === 0 ? (
+        ) : active.length === 0 && openRequests.length === 0 ? (
+          // ── IT HAS TO LOOK AT THE BOARD BELOW IT ────────────────────────
+          // This branched on `offers` and `active` only, while the quote board
+          // renders as the very next sibling from a SECOND rpc
+          // (driver_open_requests). Dispatch offers are rare here — Deliver
+          // Anything is a reverse auction, so nearly all work arrives on the
+          // board — which made "Nothing available right now" the ordinary
+          // state of a screen with jobs printed underneath it. The owner
+          // reported exactly that, naming a job ("f44") he could see below the
+          // card telling him there was none.
+          //
+          // An empty state is a claim about the WHOLE SCREEN, so it has to be
+          // computed from everything the screen can show.
           <div className="rounded-2xl border border-white/10 bg-dark-card p-6 text-center">
             <CheckCircle2 size={24} className="mx-auto text-muted" />
             <p className="mt-2 font-syne text-sm font-bold">

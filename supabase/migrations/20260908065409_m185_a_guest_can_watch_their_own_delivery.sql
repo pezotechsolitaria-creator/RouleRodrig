@@ -1,0 +1,21 @@
+-- ── A GUEST COULD NOT WATCH THEIR OWN DELIVERY ─────────────────────────────
+--
+-- delivery_request_trip(uuid, text) takes an EMAIL as its second argument. It
+-- takes an email for exactly one reason: so somebody with no account can prove
+-- a request is theirs. That is what the parameter is FOR.
+--
+-- It was granted to authenticated, postgres and service_role — and not to
+-- anon. A guest session is anon. So the one caller the p_email branch exists
+-- to serve was the one caller that could not reach it: every guest opening
+-- their tracking link got `permission denied for function` out of
+-- app/api/tracking/trip/route.ts, which turned it into a 500.
+--
+-- Deliver Anything is open to guests by design. This is not an edge case; it
+-- is most of the people the feature was built for.
+--
+-- ── THE RECURRING SHAPE ───────────────────────────────────────────────────
+-- This is the fourth time on this platform that a correct, carefully written
+-- authorisation rule did nothing because the GRANT beneath it was missing
+-- (delivery_drivers, trade_providers, service_durations, and now this). A
+-- policy without a grant is dead code that reads like a working feature.
+grant execute on function public.delivery_request_trip(uuid, text) to anon;

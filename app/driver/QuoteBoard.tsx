@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { toCents, centsToShortString } from "@/lib/money";
 import { transition, type as t } from "@/lib/delivery/tokens";
 import { formatWindow, urgencyOf, type Urgency } from "@/lib/delivery/schedule";
+import { isPoint, routeUrl } from "@/lib/maps/nav";
 
 // ── The board a driver names their own price on ─────────────────────────────
 //
@@ -77,6 +78,19 @@ export type OpenRequest = {
   pickupNote: string | null;
   dropoffText: string;
   dropoffNote: string | null;
+  /** ── THE TWO ENDS AS PINS, NOT ONLY AS WORDS ──────────────────────────
+   *  M187. driver_open_requests() READ pickup_lat/pickup_lng twice — once to
+   *  compute `distanceKm`, once to sort this board by it — and then emitted
+   *  neither, and never touched the drop-off pair at all. So the board could
+   *  tell a driver a job was 3.2 km away and not 3.2 km in WHICH DIRECTION,
+   *  nor whether the two addresses were next door to each other or at
+   *  opposite ends of the island. On a reverse auction that is the entire
+   *  pricing decision. Optional because a request posted by address alone
+   *  genuinely has neither. */
+  pickupLat?: number | null;
+  pickupLng?: number | null;
+  dropoffLat?: number | null;
+  dropoffLng?: number | null;
   spendCap: number | null;
   /** What SORT of errand, when this is one. Null on the other two kinds. */
   errandKind: string | null;
@@ -323,6 +337,28 @@ function RequestCard({
       <div className="mt-3 space-y-2">
         <Where label={LEG_LABEL[kind].pickup} place={r.pickupText} note={r.pickupNote} />
         <Where label={LEG_LABEL[kind].dropoff} place={r.dropoffText} note={r.dropoffNote} />
+        {/* The journey, not the endpoints. Two addresses on an island where
+            most people navigate by landmark do not add up to a distance, and
+            the distance is what is being priced. No `dir_action=navigate`:
+            they are sitting still deciding whether to bid, not driving. */}
+        {isPoint(r.pickupLat, r.pickupLng) &&
+          isPoint(r.dropoffLat, r.dropoffLng) && (
+            <a
+              href={routeUrl(
+                { lat: r.pickupLat as number, lng: r.pickupLng as number },
+                { lat: r.dropoffLat as number, lng: r.dropoffLng as number },
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className={cn(
+                t.meta,
+                "inline-flex min-h-[44px] items-center gap-1.5 text-[#B0B0B0] underline-offset-4 hover:text-yellow hover:underline",
+              )}
+            >
+              <Navigation size={12} aria-hidden /> See the route
+            </a>
+          )}
       </div>
 
       {mayLayOutMoney(kind, r.spendCap) && (
