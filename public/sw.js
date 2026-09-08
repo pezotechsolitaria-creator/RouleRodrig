@@ -227,7 +227,7 @@
 // v345 — the driver console finally knows where to collect: Navigate points
 // at the leg the driver is actually on, and the quote board can show the
 // whole route instead of only how far away the pickup is.
-const CACHE = "rr-cache-v354";
+const CACHE = "rr-cache-v355";
 
 // Dev hosts get no cache-first anything: their asset URLs are not content
 // hashed, so the immutability that makes cache-first safe does not hold.
@@ -308,9 +308,19 @@ self.addEventListener("fetch", (event) => {
         const cache = await caches.open(CACHE);
         const hit = await cache.match(request);
         if (hit) return hit;
-        const res = await fetch(request);
-        if (res && res.ok) cache.put(request, res.clone()).catch(() => {});
-        return res;
+        // The only branch here without a try. An uncaught reject inside
+        // respondWith surfaces as a generic network failure for the asset,
+        // which for a JS chunk means the page half-loads and the React error
+        // boundary catches whatever breaks next -- an error two steps removed
+        // from "the phone lost signal". Failing explicitly keeps the cause
+        // legible in the console and in the Network panel.
+        try {
+          const res = await fetch(request);
+          if (res && res.ok) cache.put(request, res.clone()).catch(() => {});
+          return res;
+        } catch {
+          return new Response("", { status: 504, statusText: "offline" });
+        }
       })(),
     );
     return;

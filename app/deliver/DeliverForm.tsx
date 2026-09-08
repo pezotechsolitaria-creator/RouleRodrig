@@ -640,13 +640,21 @@ export default function DeliverForm({
     }
 
     void drain();
-    window.addEventListener("online", () => {
+    // ── REMOVED BY THE SAME REFERENCE IT WAS ADDED WITH ─────────────────
+    // The "online" handler was an anonymous arrow and the cleanup removed
+    // `sync` — a different function — so it was never unhooked. This effect
+    // depends on `c`, which is DELIVER_COPY[language], so every tap of the
+    // language button re-ran it and left another listener behind, each one
+    // holding a stale closure over the copy and the router. Coming back into
+    // signal then fired drain() once per language change.
+    const onOnline = () => {
       sync();
       void drain();
-    });
+    };
+    window.addEventListener("online", onOnline);
     window.addEventListener("offline", sync);
     return () => {
-      window.removeEventListener("online", sync);
+      window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", sync);
     };
   }, [c, post, router]);

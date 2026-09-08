@@ -17,7 +17,23 @@ import type { PinOnMapCopy } from "@/components/PinOnMap";
 
 // Leaflet and a tile layer are a lot to carry for a control that most people
 // answer with one tap on "Port Mathurin". Loaded only when the sheet opens.
-const PinOnMap = dynamic(() => import("@/components/PinOnMap"), { ssr: false });
+// With no `loading:`, tapping "pin on map" showed NOTHING while a
+// Leaflet-sized chunk crossed a 3G link — and this is the branch for the 182
+// localities with no gazetteer entry, so it serves exactly the people least
+// able to type an address instead.
+const PinOnMap = dynamic(() => import("@/components/PinOnMap"), {
+  ssr: false,
+  loading: () => (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-[#B0B0B0]"
+    >
+      <Loader2 size={24} className="animate-spin text-yellow" aria-hidden />
+      <p className="font-dm text-sm">Loading the map…</p>
+    </div>
+  ),
+});
 import {
   placesServerSnapshot,
   placesSnapshot,

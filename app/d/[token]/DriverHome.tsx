@@ -94,6 +94,9 @@ export default function DriverHome({ token }: { token: string }) {
   // load() re-runs after every availability toggle and every job advance, so
   // on a bad signal this is the most reachable "it says error" in the app.
   const [unreachable, setUnreachable] = useState(false);
+  /** A duty toggle that did not save. Shown beside the switch, because that
+   *  is where the driver is looking and what they need to know. */
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setBusy(true);
@@ -176,12 +179,31 @@ export default function DriverHome({ token }: { token: string }) {
 
   async function setAvailability(state: "available" | "off") {
     setBusy(true);
+    setToggleError(null);
     try {
-      await fetch("/api/driver-home", {
+      // ── GOING ON DUTY IS THE WHOLE POINT OF THIS SCREEN ─────────────────
+      // This had no catch and never looked at r.ok, and it is called as
+      // `void setAvailability(...)`. So on a dropped connection the toggle
+      // slid, the spinner cleared, load() quietly failed too, and the driver
+      // was left looking at a switch that said "available" while the server
+      // still had them off duty — invisible to dispatch, wondering why no work
+      // arrives. A silent failure here costs somebody their afternoon.
+      const r = await fetch("/api/driver-home", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "availability", token, state }),
       });
+      if (!r.ok) {
+        const body = (await r.json().catch(() => ({}))) as { error?: string };
+        setToggleError(body.error ?? "That did not save. Try again.");
+        return;
+      }
       await load(true);
+    } catch {
+      setToggleError(
+        "No signal just now, so that did not save. You are still " +
+          (state === "available" ? "off duty" : "on duty") +
+          " — try again when you have a bar.",
+      );
     } finally {
       setBusy(false);
     }
@@ -367,6 +389,17 @@ export default function DriverHome({ token }: { token: string }) {
             ? "You'll be offered rides near you. Tap to stop."
             : "You won't be offered any rides. Tap when you start."}
       </p>
+
+      {/* Directly under the switch, because that is what the driver is
+          looking at and the switch itself cannot be trusted to have saved. */}
+      {toggleError && (
+        <p
+          role="alert"
+          className="rounded-xl border border-red-400/40 bg-red-500/[0.08] px-3 py-2 text-center font-dm text-sm text-offwhite"
+        >
+          {toggleError}
+        </p>
+      )}
 
       {/* ── A LIVE OFFER, if there is one ─────────────────────────────────── */}
       {home.offer && (

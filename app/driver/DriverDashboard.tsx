@@ -37,6 +37,30 @@ import {
   waitingOn,
 } from "@/lib/delivery/payment-state";
 
+/**
+ * Open a signed document, and notice when the browser refuses.
+ *
+ * ── WHY THIS IS NOT JUST window.open ──────────────────────────────────────
+ * Both call sites open AFTER two awaits — a fetch and a json() — so the tap
+ * that started it is long over. Every mobile browser treats a window.open with
+ * no user gesture behind it as a popup and blocks it, and it does so SILENTLY:
+ * the call returns null and nothing anywhere says a word.
+ *
+ * The driver is standing at the door on a cash job, taps "View ID", and
+ * nothing happens. Not an error, not a document — nothing. There is no way for
+ * them to tell that from a slow connection, so they tap again, and again.
+ *
+ * A blocked popup is reported now, with the one instruction that fixes it.
+ */
+function openSigned(url: string, onBlocked: (message: string) => void): void {
+  const win = window.open(url, "_blank", "noopener,noreferrer");
+  if (!win || win.closed) {
+    onBlocked(
+      "Your browser blocked the document window. Allow pop-ups for this site, then tap again.",
+    );
+  }
+}
+
 /** The only failure where the tap never left the phone. */
 const OFFLINE_MESSAGE =
   "No signal just now — that did not go through. Nothing has changed, so tap it again when you have a bar.";
@@ -1151,7 +1175,7 @@ function PaymentState({ delivery: a }: { delivery: Active }) {
         setError(json.error ?? "Could not open it.");
         return;
       }
-      window.open(json.url, "_blank", "noopener,noreferrer");
+      openSigned(json.url, setError);
     } catch {
       setError("Could not open it. Check your connection.");
     } finally {
@@ -1176,7 +1200,7 @@ function PaymentState({ delivery: a }: { delivery: Active }) {
         return;
       }
       // A five-minute signed URL. Opened, never stored.
-      window.open(json.url, "_blank", "noopener,noreferrer");
+      openSigned(json.url, setError);
     } catch {
       setError("Could not open the receipt. Check your connection.");
     } finally {

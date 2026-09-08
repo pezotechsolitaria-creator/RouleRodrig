@@ -1014,6 +1014,11 @@ const translations = {
       youHave: "You have",
       bookNow: "Book now",
       somethingWrong: "Something went wrong",
+      // The error screen. Was hardcoded English on a site whose last twelve
+      // service-worker versions were spent translating everything else.
+      errorBody:
+        "A temporary problem stopped this page from loading. Please try again — your data is safe.",
+      home: "Home",
       serviceUnavailable: "Service temporarily unavailable",
       unexpectedError: "We hit an unexpected error. Please refresh in a moment.",
       youAreHere: "You are here",
@@ -1926,6 +1931,9 @@ const translations = {
       youHave: "Vous avez",
       bookNow: "Réserver",
       somethingWrong: "Une erreur est survenue",
+      errorBody:
+        "Un problème temporaire a empêché le chargement de cette page. Réessayez — vos données sont intactes.",
+      home: "Accueil",
       serviceUnavailable: "Service temporairement indisponible",
       unexpectedError: "Nous avons rencontré une erreur. Actualisez dans un instant.",
       youAreHere: "Vous êtes ici",
@@ -2822,6 +2830,9 @@ const translations = {
       youHave: "Ou ena",
       bookNow: "Rezerve",
       somethingWrong: "Enn problem inn arive",
+      errorBody:
+        "Enn ti problem inn anpes sa paz la sarze. Reseye — ou bann done pa finn perdi.",
+      home: "Lakaz",
       serviceUnavailable: "Servis pa disponib pou enn ti moman",
       unexpectedError: "Nou finn gagn enn problem. Refres dan enn ti moman.",
       youAreHere: "Ou isi",
