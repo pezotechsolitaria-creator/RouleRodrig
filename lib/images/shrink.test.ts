@@ -71,8 +71,12 @@ describe("the source keeps the promises the callers rely on", () => {
     expect(src).toMatch(/\.jpg`/);
   });
 
-  it("gives up rather than growing a file", () => {
-    expect(src).toMatch(/if \(blob\.size >= file\.size\) return file;/);
+  it("gives up rather than growing a file — unless it is a conversion", () => {
+    // A bigger JPEG the driver can actually open beats a smaller HEIC they
+    // cannot, so the size guard does not apply to a format change.
+    expect(src).toMatch(
+      /if \(blob\.size >= file\.size && !needsConverting\(file\)\) return file;/,
+    );
   });
 
   it("has a decode fallback for browsers without createImageBitmap", () => {

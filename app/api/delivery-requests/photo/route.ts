@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { guard } from "@/lib/rate-limit";
 import { detectFileType } from "@/lib/file-signature";
+import { makeViewable } from "@/lib/images/optimise";
 
 // POST /api/delivery-requests/photo — a picture of the thing being moved.
 //
@@ -33,12 +34,23 @@ export const dynamic = "force-dynamic";
 const MAX_BYTES = 4 * 1024 * 1024;
 // No SVG, deliberately, everywhere in this codebase: it is a script-execution
 // shape wearing an image extension.
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/heic"]);
+// image/avif: newer Android cameras and share sheets produce it. The
+// signature sniffer returned null for those, so a photo just taken was
+// refused as "not a photo" — and only when it was SMALL, because a large
+// one is re-encoded to JPEG by the client shrinker before it arrives.
+const ALLOWED = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/avif",
+]);
 const EXT: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
   "image/heic": "heic",
+  "image/avif": "avif",
 };
 
 export async function POST(req: NextRequest) {
@@ -69,11 +81,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "That file is not a photo." }, { status: 400 });
     }
 
-    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${EXT[detected]}`;
+
+    // ── HEIC BECOMES SOMETHING THE DRIVER CAN OPEN ────────────────────────
+    // An iPhone HEIC is commonly 1–2 MB, so it clears the size cap and the
+    // client shrinker leaves it alone — nothing to shrink. Stored as .heic it
+    // is unreadable to every browser but Safari, which on the Android phone at
+    // the customer's door is a blank tab. Pixels are kept; only the container
+    // changes. AVIF is left alone — every current browser renders it.
+    const out = await makeViewable(file, detected);
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${out.ext}`;
     const supabase = await getPrivileged();
     const { error } = await supabase.storage
       .from("delivery-photos")
-      .upload(path, file, { contentType: detected, upsert: false });
+      .upload(path, out.body, { contentType: out.contentType, upsert: false });
 
     if (error) {
       console.error("delivery photo upload failed", error);

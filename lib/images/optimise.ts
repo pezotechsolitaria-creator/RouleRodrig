@@ -110,3 +110,84 @@ const EXT: Record<string, string> = {
   "image/webp": "webp",
   "image/heic": "heic",
 };
+
+// ── EVIDENCE THE DRIVER CAN ACTUALLY OPEN ───────────────────────────────────
+//
+// The private delivery buckets are deliberately NOT resized — the reasoning is
+// at the top of this file, and it stands: a transfer receipt and an ID document
+// are read by a human deciding whether money moved, and trading legibility for
+// bytes nobody spends is a bad deal.
+//
+// But there is a difference between a big file and an UNREADABLE one. An iPhone
+// on "High Efficiency" shoots HEIC, and an iPhone HEIC is commonly 1–2 MB — so
+// it passes the size cap, passes the client shrinker untouched (nothing to
+// shrink), and is stored as .heic with contentType image/heic.
+//
+// Then the driver taps "View receipt" or "View ID", which is a window.open() on
+// the signed storage URL. No browser except Safari can render HEIC. On the
+// Android phone standing at the customer's door that is a download prompt or a
+// blank tab — the driver cannot see the document the whole gate exists to show
+// them, on a cash job they cannot start without it.
+//
+// So: convert the format, keep every pixel. No resize, quality 88, and the EXIF
+// rotation baked in before the metadata goes — which also strips the GPS tag a
+// phone writes into a photo of somebody's identity card.
+//
+// AVIF is deliberately NOT converted. Every current browser displays it, and
+// re-encoding it would cost quality for nothing.
+
+const EVIDENCE_QUALITY = 88;
+
+export type ViewableUpload = {
+  /** What to hand to storage — the original File when nothing was needed. */
+  body: File | Buffer;
+  contentType: string;
+  ext: string;
+  converted: boolean;
+};
+
+export async function makeViewable(
+  file: File,
+  detectedType: string,
+): Promise<ViewableUpload> {
+  const passThrough: ViewableUpload = {
+    body: file,
+    contentType: detectedType,
+    ext: EVIDENCE_EXT[detectedType] ?? "jpg",
+    converted: false,
+  };
+
+  // Everything except HEIC is already something a phone can open.
+  if (detectedType !== "image/heic") return passThrough;
+
+  try {
+    const buf = Buffer.from(await file.arrayBuffer());
+    const jpeg = await sharp(buf, { failOn: "none" })
+      // Before the metadata is dropped, or a portrait photo lands on its side.
+      .rotate()
+      .jpeg({ quality: EVIDENCE_QUALITY })
+      .toBuffer();
+    return {
+      body: jpeg,
+      contentType: "image/jpeg",
+      ext: "jpg",
+      converted: true,
+    };
+  } catch (err) {
+    // Storing the original beats losing the customer's receipt. It leaves the
+    // driver unable to view that one file, so it is logged loudly rather than
+    // swallowed — sharp reports heif input support in this build, so reaching
+    // here means something changed.
+    console.error("HEIC conversion failed, storing original", err);
+    return passThrough;
+  }
+}
+
+const EVIDENCE_EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/avif": "avif",
+  "image/heic": "heic",
+  "application/pdf": "pdf",
+};

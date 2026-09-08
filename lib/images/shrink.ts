@@ -45,6 +45,36 @@ function alreadySmallEnough(file: File): boolean {
   return file.size <= TARGET_BYTES;
 }
 
+/**
+ * ── A FORMAT NOBODY CAN OPEN IS WORSE THAN A BIG FILE ─────────────────────
+ *
+ * HEIC is what an iPhone on "High Efficiency" shoots, and an iPhone HEIC is
+ * commonly 1–2 MB. So it cleared the size cap AND skipped this function
+ * entirely — nothing to shrink — and was stored as .heic.
+ *
+ * The driver then taps "View receipt" or "View ID", which is a window.open()
+ * on the signed URL. No browser but Safari renders HEIC, so on the Android
+ * phone at the customer's door that is a blank tab or a download prompt: the
+ * driver cannot see the document the cash gate exists to show them.
+ *
+ * Converting it HERE is what works. HEIC comes from iPhones, iPhones run
+ * Safari, and Safari decodes HEIC on a canvas natively — so the conversion
+ * happens on the one device that can do it. The server cannot be relied on
+ * for this: sharp's build here lists libheif and aom but no HEVC decoder.
+ *
+ * AVIF is deliberately NOT in this list. Every current browser displays it,
+ * and re-encoding would cost quality for nothing.
+ */
+function needsConverting(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return (
+    file.type === "image/heic" ||
+    file.type === "image/heif" ||
+    name.endsWith(".heic") ||
+    name.endsWith(".heif")
+  );
+}
+
 /** A PDF is a document, not an image. Some banks hand one out as the receipt,
  *  and putting it through a canvas would destroy it. */
 function isPdf(file: File): boolean {
@@ -118,7 +148,10 @@ function toBlob(
  * is a PDF, or when anything at all goes wrong.
  */
 export async function shrinkImage(file: File): Promise<File> {
-  if (isPdf(file) || alreadySmallEnough(file)) return file;
+  // Size is not the only reason to re-encode. A small HEIC is small AND
+  // unopenable, so it must not take the pass-through.
+  if (isPdf(file)) return file;
+  if (alreadySmallEnough(file) && !needsConverting(file)) return file;
   // No DOM: server render, or a test. Nothing to do and nothing to break.
   if (typeof document === "undefined") return file;
 
@@ -151,8 +184,10 @@ export async function shrinkImage(file: File): Promise<File> {
         // Re-encoding a HEIC produces a JPEG, so the NAME has to follow or the
         // server's extension mapping writes a .heic full of JPEG bytes.
         const name = file.name.replace(/\.[^.]+$/, "") || "photo";
-        // Only worth it if it actually helped. A tiny PNG logo can grow.
-        if (blob.size >= file.size) return file;
+        // Only worth it if it actually helped — a tiny PNG logo can grow. But
+        // a CONVERSION is worth it at any size: a bigger JPEG the driver can
+        // open beats a smaller HEIC they cannot.
+        if (blob.size >= file.size && !needsConverting(file)) return file;
         return new File([blob], `${name}.jpg`, {
           type: "image/jpeg",
           lastModified: file.lastModified,

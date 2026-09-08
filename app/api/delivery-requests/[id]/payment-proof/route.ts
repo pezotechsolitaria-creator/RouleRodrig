@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { guard } from "@/lib/rate-limit";
 import { detectFileType } from "@/lib/file-signature";
+import { makeViewable } from "@/lib/images/optimise";
 
 // POST /api/delivery-requests/<id>/payment-proof — the receipt for a transfer.
 //
@@ -40,6 +41,10 @@ const ALLOWED = new Set([
   "image/png",
   "image/webp",
   "image/heic",
+  // Newer Android cameras and share sheets produce these. The sniffer
+  // returned null for them, so a photo just taken was refused as "not a
+  // photo" — but only when small enough to skip the client shrinker.
+  "image/avif",
   "application/pdf",
 ]);
 const EXT: Record<string, string> = {
@@ -47,6 +52,7 @@ const EXT: Record<string, string> = {
   "image/png": "png",
   "image/webp": "webp",
   "image/heic": "heic",
+  "image/avif": "avif",
   "application/pdf": "pdf",
 };
 
@@ -118,11 +124,19 @@ export async function POST(
       );
     }
 
-    const name = `${Date.now()}-${Math.random().toString(36).slice(2)}.${EXT[detected]}`;
+
+    // ── HEIC BECOMES SOMETHING THE DRIVER CAN OPEN ────────────────────────
+    // An iPhone HEIC is commonly 1–2 MB, so it clears the size cap and the
+    // client shrinker leaves it alone — nothing to shrink. Stored as .heic it
+    // is unreadable to every browser but Safari, which on the Android phone at
+    // the customer's door is a blank tab. Pixels are kept; only the container
+    // changes. AVIF is left alone — every current browser renders it.
+    const out = await makeViewable(file, detected);
+    const name = `${Date.now()}-${Math.random().toString(36).slice(2)}.${out.ext}`;
     const key = `${id}/${name}`;
     const { error } = await admin.storage
       .from("delivery-payments")
-      .upload(key, file, { contentType: detected, upsert: false });
+      .upload(key, out.body, { contentType: out.contentType, upsert: false });
 
     if (error) {
       console.error("payment proof upload failed", error);
