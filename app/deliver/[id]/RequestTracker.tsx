@@ -65,6 +65,7 @@ import { emailFor, saveRequest } from "@/lib/delivery/my-requests";
 import { columnsToItem, DELIVER_COPY } from "@/lib/delivery/copy.i18n";
 import { writeDraft } from "@/lib/delivery/draft";
 import { formatWindow } from "@/lib/delivery/schedule";
+import { shrinkImage } from "@/lib/images/shrink";
 import { recipe, transition, travel, type as t } from "@/lib/delivery/tokens";
 
 // ── Where a Deliver Anything job is actually decided ────────────────────────
@@ -1682,17 +1683,32 @@ function PaymentProof({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,application/pdf"
+        // HEIC is what an iPhone shooting "High Efficiency" produces, and the
+        // server has always accepted it — leaving it out here hid the photo
+        // from the picker on the one device most people are holding.
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
         className="sr-only"
         aria-label={c.pay.proofChoose}
         onChange={(e) => {
           const f = e.target.files?.[0] ?? null;
           setError(null);
-          if (f && f.size > 4 * 1024 * 1024) {
-            setError(c.pay.tooBig);
+          if (!f) {
+            setFile(null);
             return;
           }
-          setFile(f);
+          // ── SHRINK FIRST, REFUSE ONLY IF IT IS STILL TOO BIG ────────────
+          // This rejected the file outright at 4 MB, which is where a normal
+          // phone photo lands. The person is standing in a shop or at a door
+          // with the only camera they own and no way to make it smaller.
+          // shrinkImage never throws; it hands back the original if it cannot
+          // help, so the old refusal still stands behind it.
+          void shrinkImage(f).then((small) => {
+            if (small.size > 4 * 1024 * 1024) {
+              setError(c.pay.tooBig);
+              return;
+            }
+            setFile(small);
+          });
         }}
       />
 
@@ -1849,18 +1865,30 @@ function IdDocument({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
         capture="environment"
         className="sr-only"
         aria-label={c.pay.idChoose}
         onChange={(e) => {
           const f = e.target.files?.[0] ?? null;
           setError(null);
-          if (f && f.size > 4 * 1024 * 1024) {
-            setError(c.pay.tooBig);
+          if (!f) {
+            setFile(null);
             return;
           }
-          setFile(f);
+          // ── SHRINK FIRST, REFUSE ONLY IF IT IS STILL TOO BIG ────────────
+          // This rejected the file outright at 4 MB, which is where a normal
+          // phone photo lands. The person is standing in a shop or at a door
+          // with the only camera they own and no way to make it smaller.
+          // shrinkImage never throws; it hands back the original if it cannot
+          // help, so the old refusal still stands behind it.
+          void shrinkImage(f).then((small) => {
+            if (small.size > 4 * 1024 * 1024) {
+              setError(c.pay.tooBig);
+              return;
+            }
+            setFile(small);
+          });
         }}
       />
 

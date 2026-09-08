@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Camera, ImageIcon, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type as t } from "@/lib/delivery/tokens";
+import { shrinkImage } from "@/lib/images/shrink";
 
 // ── Showing the thing, instead of writing about it ──────────────────────────
 //
@@ -54,11 +55,21 @@ export default function PhotoInput({
   // worked.
   const [preview, setPreview] = useState<string | null>(null);
 
-  async function upload(file: File | undefined) {
-    if (!file || busy) return;
+  async function upload(input: File | undefined) {
+    if (!input || busy) return;
     setBusy(true);
     setError(null);
     try {
+      // ── THE PHOTO IS THE POINT OF THIS CONTROL ──────────────────────────
+      // /api/delivery-requests/photo refuses anything over 4 MB, and a photo
+      // straight off a phone is routinely 3–10 MB. So the input that exists
+      // BECAUSE 44% of over-60s here cannot read or write was rejecting the
+      // camera it was built for, with a message written for people who do not
+      // read. On 3G it also turns a 90-second upload into a few seconds.
+      //
+      // Never throws: hands back the original if it cannot help, and the
+      // server's own limit still stands behind it.
+      const file = await shrinkImage(input);
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch("/api/delivery-requests/photo", { method: "POST", body: fd });
