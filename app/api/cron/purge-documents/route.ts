@@ -118,6 +118,30 @@ export async function GET(req: NextRequest) {
     report[kind.label] = { considered: rows.length, purged, failed };
   }
 
+  // ── M193: the other thing kept longer than it is wanted ─────────────────
+  //
+  // Rides this job rather than getting its own: Vercel's plan caps this
+  // project at three cron entries, all three are used, and a fourth in
+  // vercel.json makes every deployment be REJECTED BEFORE IT BUILDS -- with
+  // no error on the change that caused it. This route is already the nightly
+  // retention pass and already reads delivery_settings for its window, so a
+  // second retention rule belongs here on the merits and not only on the cap.
+  //
+  // Failure is logged and swallowed. Nothing archived tonight is archived
+  // tomorrow instead, and letting it fail the response would take the document
+  // purge -- which has a legal deadline behind it -- down with it, and it must
+  // not touch `ok` for the same reason.
+  let archived: unknown = null;
+  try {
+    const { data, error } = await admin.rpc("archive_old_delivery_requests", {
+      p_limit: 500,
+    });
+    if (error) console.error("archive_old_delivery_requests failed", error);
+    else archived = data;
+  } catch (err) {
+    console.error("archive_old_delivery_requests threw", err);
+  }
+
   const considered = Object.values(report).reduce((n, r) => n + r.considered, 0);
   const purged = Object.values(report).reduce((n, r) => n + r.purged, 0);
   const failed = Object.values(report).reduce((n, r) => n + r.failed, 0);
@@ -129,5 +153,6 @@ export async function GET(req: NextRequest) {
     failed,
     // Per kind too, so "did the receipts actually start expiring?" is one look.
     byKind: report,
+    archived,
   });
 }
