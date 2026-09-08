@@ -10,7 +10,16 @@
 // The values are the owner's own reported job: "f44", collected at "kot pive",
 // delivered to Port Mathurin.
 
-export type RequestState = "open" | "quoted" | "accepted" | "delivered";
+export type RequestState =
+  | "open"
+  | "quoted"
+  | "accepted"
+  // A cash job whose ID has not been uploaded yet. accept_delivery_quote
+  // defaults to cash and advance_delivery then refuses to let the driver leave
+  // `assigned` without it, so this is the DEFAULT path and the upload is the
+  // one thing holding the job up.
+  | "blocked"
+  | "delivered";
 
 export function requestFixture(state: RequestState) {
   const base = {
@@ -53,10 +62,10 @@ export function requestFixture(state: RequestState) {
     ];
   }
 
-  if (state === "accepted" || state === "delivered") {
+  if (state === "accepted" || state === "blocked" || state === "delivered") {
     base.delivery = {
       id: "del-1",
-      status: state === "delivered" ? "delivered" : "out_for_delivery",
+      status: state === "delivered" ? "delivered" : state === "blocked" ? "assigned" : "out_for_delivery",
       fee: 250_00,
       pin: "4821",
       assignedAt: new Date(Date.now() - 1_800_000).toISOString(),
@@ -71,7 +80,10 @@ export function requestFixture(state: RequestState) {
       paymentMethod: "cash",
       paymentProofAt: null,
       paymentReference: null,
-      idDocumentAt: null,
+      // Supplied unless the state is explicitly the blocked one. Leaving this
+      // null by default made every "accepted" fixture a BLOCKED job, which
+      // quietly measured the wrong screen.
+      idDocumentAt: state === "blocked" ? null : new Date(Date.now() - 3_000_000).toISOString(),
     };
   }
 

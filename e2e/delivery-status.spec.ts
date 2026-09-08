@@ -118,3 +118,23 @@ test("the driver sits above the map, not below it", async ({ page }) => {
   const box = await driver.boundingBox();
   expect(box!.y, "the driver fell back below the fold").toBeLessThan(812);
 });
+
+test("a document that is holding the job up outranks the driver", async ({
+  page,
+}) => {
+  // The two orderings landed from opposite directions and both are right, so
+  // the order between them has to be stated somewhere that fails if it flips.
+  //
+  // While an upload is outstanding the job has not started -- there is no
+  // driver movement to watch and the customer's only useful action is the
+  // upload. So it goes first, and the driver card moves below it. Once the
+  // document lands, the test above applies again.
+  await openTracker(page, "blocked");
+  const upload = page.getByText(/identity|ID|document/i).first();
+  const driver = page.getByText("Jean").first();
+  await expect(upload).toBeVisible();
+  await expect(driver).toBeVisible();
+  const u = await upload.boundingBox();
+  const d = await driver.boundingBox();
+  expect(u!.y, "the blocker fell below the driver").toBeLessThan(d!.y);
+});
