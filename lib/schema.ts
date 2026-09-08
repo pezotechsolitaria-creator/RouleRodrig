@@ -303,6 +303,14 @@ export function rentalCategoryLd(v: {
 }) {
   const type = v.category === "car" ? "Car" : v.category === "scooter" ? "Motorcycle" : "Product";
   return {
+    // Ten sibling helpers in this file declare @context and this one did not.
+    // It is rendered as its own top-level node on /fr/location-voiture-rodrigues
+    // -- the only page on the site with a machine-readable car price -- so
+    // without a vocabulary the Car and its AggregateOffer were unreadable: the
+    // one structured car price we publish, invisible to the crawler it exists
+    // for. Verified live: it was the sole context-less node in that page's
+    // top-level array.
+    "@context": "https://schema.org",
     "@type": type,
     name: v.name,
     ...(v.description ? { description: v.description } : {}),

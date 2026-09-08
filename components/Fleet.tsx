@@ -176,6 +176,7 @@ export default function Fleet({
   whatsapp,
   eyebrow,
   title,
+  titleAs = "h2",
   subtitle,
 }: {
   fleet?: FleetItem[];
@@ -185,6 +186,10 @@ export default function Fleet({
   whatsapp?: string;
   eyebrow?: string;
   title?: string;
+  /** The section heading is the PAGE heading on /browse/[category]: that page's
+   *  only other candidate is the chrome bar, whose text is the one-word nav
+   *  label ("Cars"). Defaults to h2 so every other caller is unchanged. */
+  titleAs?: "h1" | "h2";
   // ReactNode, not string: the browse pages append an inline link to their
   // French twin here, and it must render inside this same paragraph rather
   // than as a stray element outside the section's type ramp.
@@ -276,14 +281,18 @@ export default function Fleet({
 
   if (visibleItems.length === 0) return null;
 
+  // Resolved to a tag name rather than branching the JSX twice: two copies of a
+  // heading is how the two drift apart the first time somebody restyles one.
+  const Heading = titleAs;
+
   return (
     <section id="fleet" className="bg-dark pt-5 pb-14" aria-label={t.a11yMore.vehicleFleet}>
       <div className="max-w-5xl mx-auto px-4 md:px-6">
         <div className="mb-6">
           <p className="font-bebas text-yellow text-[11px] tracking-[0.3em] mb-1.5 uppercase">{eyebrow ?? t.fleet.sectionEyebrow}</p>
-          <h2 className="font-syne font-extrabold text-offwhite uppercase leading-tight text-2xl md:text-3xl">
+          <Heading className="font-syne font-extrabold text-offwhite uppercase leading-tight text-2xl md:text-3xl">
             {title ?? t.fleet.sectionTitle}
-          </h2>
+          </Heading>
           <p className="mt-2 max-w-xl font-dm text-sm leading-relaxed text-muted">
             {subtitle ?? t.fleet.sectionSub}
           </p>

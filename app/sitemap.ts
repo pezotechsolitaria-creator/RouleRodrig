@@ -482,6 +482,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.7,
     },
+    // /browse/getting-around was in NO sitemap entry -- verified 0 of 76 -- and
+    // it is the only page on the whole site whose visible text says "rent a
+    // car". It is also the natural landing page for "how to get around
+    // Rodrigues", which is the question a visitor asks before they decide
+    // between a scooter, a car and a taxi. Listed at the same priority as the
+    // other getting-around surfaces it sits beside.
+    {
+      url: `${SITE_URL}/browse/getting-around`,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    },
     {
       url: `${SITE_URL}/deliver`,
       changeFrequency: "weekly",

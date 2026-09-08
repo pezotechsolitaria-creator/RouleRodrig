@@ -141,22 +141,47 @@ const PLACE_SLUGS: Record<
 // guest-house delivery in the approved reviews rendered on the homepage.
 const VEHICLE_COPY: Record<
   string,
-  { heading: string; intro: (from: number | null) => string; frLabel?: string }
+  {
+    heading: string;
+    /** `from` is the cheapest daily rate; `deliveryFee` is this category's
+     *  delivery charge, which is 0 for scooters and Rs 600 for cars. Both come
+     *  from the CMS so the sentence cannot drift from what checkout charges. */
+    intro: (from: number | null, deliveryFee?: number) => string;
+    frLabel?: string;
+  }
 > = {
   scooter: {
     heading: "Scooter Rental in Rodrigues",
     intro: (from) =>
       `Rent a scooter in Rodrigues direct from local owners${
         from ? ` — from Rs ${from.toLocaleString("en-US")} a day` : ""
-      }, helmet included, with discounts from 3 days. We hand over in person, with real advice on the roads and the places worth riding to, and deliver to your guest house. Pick a scooter below and book your dates online.`,
+      }, helmet included and delivered free to your guest house. We hand over in person, with real advice on the roads and the places worth riding to. Pick a scooter below and book your dates online.`,
     frLabel: "Location de scooter à Rodrigues — cette page en français",
   },
   car: {
     heading: "Car Rental in Rodrigues",
-    intro: (from) =>
+    // WHAT CHANGED AND WHY.
+    //
+    // "with discounts from 3 days" was false: the automatic 10%/15% tiers came
+    // out of lib/booking-pricing.ts in M159, so the rate table renders exactly
+    // 1x, 3x and 7x the daily rate. A commercial page cannot promise a discount
+    // the checkout will not give.
+    //
+    // The delivery fee is now stated rather than implied. Cars carry a Rs 600
+    // fee (content.vehicleCategories) while scooters are free, and the fleet
+    // card already prints "+ Rs 600 delivery" -- so an intro that said only "we
+    // deliver to your guest house" was quietly setting up the contradiction.
+    //
+    // Airport, Plaine Corail, automatic, air-conditioned and which side of the
+    // road are here because the EN car pages contained ZERO occurrences of any
+    // of them, while the French page answers all of those questions and is the
+    // best car page on the site. These are the things a car renter searches for.
+    intro: (from, deliveryFee) =>
       `Hire a car in Rodrigues from local owners${
-        from ? ` — clear daily rates from Rs ${from.toLocaleString("en-US")}` : ""
-      }, with discounts from 3 days. Ideal for families and longer stays: we deliver to your guest house, hand over in person and explain the island's roads before you set off. Choose a car below and book your dates online.`,
+        from ? ` — clear daily rates from Rs ${from.toLocaleString("en-US")} a day` : ""
+      }${
+        deliveryFee ? `, plus Rs ${deliveryFee.toLocaleString("en-US")} delivery` : ""
+      }. Automatic, air-conditioned and insured — the easy choice for families, longer stays and the rainy season. We bring the car to your guest house or meet you at Plaine Corail airport, hand over in person and explain the island's roads before you set off; on Rodrigues you drive on the left, as in Mauritius. Choose a car below and book your dates online.`,
     frLabel: "Location de voiture à Rodrigues — cette page en français",
   },
 };
@@ -400,8 +425,14 @@ export default async function BrowsePage({
 
   // App-style top bar (back to Explore + page title + language). Replaces the
   // marketing navbar on this redesigned surface; the global BottomNav does the rest.
-  const header = (title: string) => (
-    <AppPageHeader title={title} titleAs="h1" backHref="/#explore" />
+  // titleAs is a parameter because the VEHICLE pages have a better h1 available
+  // than this bar has. The bar shows the one-word nav label -- on /browse/car
+  // that label is "Cars", which was the page's <h1> while the actual keyword
+  // heading, "Car Rental in Rodrigues", sat below it as an <h2>. The strongest
+  // heading on a commercial page was a nav crumb. The other two callers keep
+  // the bar as their h1 because they have no competing heading.
+  const header = (title: string, titleAs: "h1" | "span" = "h1") => (
+    <AppPageHeader title={title} titleAs={titleAs} backHref="/#explore" />
   );
   const footer = (
     <>
@@ -498,7 +529,7 @@ export default async function BrowsePage({
             ],
           }}
         />
-        {header(vcat.label)}
+        {header(vcat.label, "span")}
         <main>
           <BrowseTabs
             categories={cats}
@@ -516,10 +547,11 @@ export default async function BrowsePage({
             whatsapp={businessWhatsApp}
             eyebrow="OUR FLEET"
             title={vcopy?.heading ?? vcat.label}
+            titleAs="h1"
             subtitle={
               vcopy ? (
                 <>
-                  {vcopy.intro(vFrom)}
+                  {vcopy.intro(vFrom, vcat.deliveryFee)}
                   {vFrHref && vcopy.frLabel ? (
                     <>
                       {" "}
@@ -544,7 +576,7 @@ export default async function BrowsePage({
               here is already true elsewhere on the site (a free helmet is in
               t.booking.included; the 3+/7+ day discounts are in
               lib/booking-pricing), so nothing new is being promised. */}
-          <TrustBar />
+          <TrustBar category={vcat.id} />
           <BookingSection
             fleet={items}
             categories={content.vehicleCategories}
