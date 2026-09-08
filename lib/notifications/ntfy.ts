@@ -32,8 +32,12 @@ export type SendResult = { ok: true } | { ok: false; error: string; retryable: b
  * is what makes a self-hosted ntfy a configuration change rather than a code
  * change.
  */
-export function ntfyUrl(target: string): string | null {
-  const t = target.trim();
+export function ntfyUrl(target: string | null | undefined): string | null {
+  // Nullable for the same reason sendWhatsApp's phone is: the target comes from
+  // a nullable Postgres column, and returning null here is already the "cannot
+  // reach this recipient" answer every caller handles. Throwing was never a
+  // distinct outcome, only a louder one that took the batch with it.
+  const t = (target ?? "").trim();
   if (!t) return null;
   if (/^https?:\/\//i.test(t)) return t.replace(/\/+$/, "");
   // Topic names are restricted by ntfy itself; refuse anything that would

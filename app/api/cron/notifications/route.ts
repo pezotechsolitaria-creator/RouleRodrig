@@ -235,24 +235,54 @@ async function run(req: NextRequest) {
     // lib/notifications/ntfy.ts had been written, complete, with no callers.
     // This is the line that was missing.
     const channel = job.channel ?? "whatsapp";
-    const result =
-      channel === "ntfy"
-        ? await sendNtfy({ target: job.target ?? "", message: job.message })
-        : channel === "email"
-          ? (await sendQueuedAlertEmail({
-              to: job.target ?? "",
-              message: job.message,
-              jobId: job.job_id,
-            }))
-            ? ({ ok: true } as const)
-            : // send() already logged the provider's reason to email_log.
-              // Retryable: a provider blip should not burn the job.
-              ({ ok: false, error: "email send failed", retryable: true } as const)
-          : await sendWhatsApp({
-              phone: job.phone ?? "",
-              apiKey: job.api_key ?? "",
-              message: job.message,
-            });
+
+    // ── ONE BAD JOB MUST NOT TAKE THE BATCH WITH IT ────────────────────────
+    //
+    // None of the three doors is supposed to throw -- sendWhatsApp's own
+    // comment says "an exception here would abort a whole batch because one
+    // number was misconfigured" -- but on 2026-09-07 one of them did, three
+    // times in seventeen minutes, with `Cannot read properties of null
+    // (reading 'trim')`. An unhandled throw here does exactly what the header
+    // of this file worries about for a hung caller: jobs are claimed UP FRONT,
+    // so everything claimed-but-unsent is stranded in `sending` until
+    // requeue_stuck_notifications() rescues it ten minutes later. And the bad
+    // job is re-claimed next minute, so it repeats.
+    //
+    // Retryable, deliberately: a throw is an unknown, and an unknown might be
+    // transient. The attempt budget still burns it out rather than letting it
+    // block the queue for ever.
+    const result = await (async () => {
+      try {
+        return channel === "ntfy"
+          ? await sendNtfy({ target: job.target ?? "", message: job.message })
+          : channel === "email"
+            ? (await sendQueuedAlertEmail({
+                to: job.target ?? "",
+                message: job.message,
+                jobId: job.job_id,
+              }))
+              ? ({ ok: true } as const)
+              : // send() already logged the provider's reason to email_log.
+                // Retryable: a provider blip should not burn the job.
+                ({ ok: false, error: "email send failed", retryable: true } as const)
+            : await sendWhatsApp({
+                phone: job.phone ?? "",
+                apiKey: job.api_key ?? "",
+                message: job.message,
+              });
+      } catch (err) {
+        console.error("notification send threw", {
+          jobId: job.job_id,
+          channel,
+          err,
+        });
+        return {
+          ok: false,
+          error: `send threw: ${err instanceof Error ? err.message : String(err)}`,
+          retryable: true,
+        } as const;
+      }
+    })();
 
     if (result.ok) {
       sent += 1;

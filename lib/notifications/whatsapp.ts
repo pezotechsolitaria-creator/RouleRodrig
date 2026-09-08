@@ -26,12 +26,25 @@ export type SendResult = { ok: true } | { ok: false; error: string; retryable: b
  * was misconfigured.
  */
 export async function sendWhatsApp(opts: {
-  phone: string;
-  apiKey: string;
+  /** Nullable on purpose — see below. */
+  phone: string | null | undefined;
+  apiKey: string | null | undefined;
   message: string;
 }): Promise<SendResult> {
-  const phone = opts.phone.trim();
-  const apiKey = opts.apiKey?.trim();
+  // NULLABLE, because every caller reads these straight out of Postgres where
+  // both columns are nullable, and four of the five hand them over with an
+  // `as string` cast. A cast is a promise the database never made.
+  //
+  // The comment above this function already said an exception here would abort
+  // a whole batch — and then `opts.phone.trim()` was written unguarded one line
+  // above a correctly guarded `opts.apiKey?.trim()`. On 2026-09-07 something
+  // upstream passed a null and the notification cron died three times with
+  // `Cannot read properties of null (reading 'trim')`.
+  //
+  // A missing number is now what it actually is: this recipient cannot be
+  // reached, reported as a non-retryable failure the admin card can show.
+  const phone = (opts.phone ?? "").trim();
+  const apiKey = (opts.apiKey ?? "").trim();
 
   if (!apiKey) {
     // Not retryable: the slot has no credential, and trying again in two
