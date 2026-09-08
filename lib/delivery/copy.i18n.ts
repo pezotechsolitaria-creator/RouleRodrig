@@ -172,6 +172,14 @@ const EN = {
       `Over ${limit} we ask for a bank transfer — that is a lot of cash for a driver to carry.`,
     cashTotal: (total: string) =>
       `The driver will collect ${total} at the door.`,
+    // The transfer option said only "Send it now" — no amount, and no word
+    // about the shopping money, which is NOT transferred and is still owed in
+    // cash when the driver arrives. A customer who read "bank transfer" as
+    // "everything is paid" met a driver expecting up to the whole cap.
+    transferTotal: (total: string) =>
+      `Send ${total} now, then attach the receipt.`,
+    transferSplit: (fee: string, cap: string) =>
+      `Send ${fee} now for the driver. What they spend at the shop is separate — have up to ${cap} in cash for them at the door.`,
     proofTitle: "Send your transfer receipt",
     proofHelp: "A photo or PDF of the transfer, up to 4 MB.",
     proofWhy: "Your driver cannot set off until this arrives.",
@@ -392,6 +400,15 @@ const EN = {
     again: "Post this again",
     cancelling: "Cancelling…",
     cancelDelivery: "Cancel this delivery",
+    // M189. Shown instead of hiding the row: a price the customer has
+    // already read must not vanish between two twenty-second polls.
+    unavailable: "Not available right now",
+    // Said instead of "You pay at the door" when a transfer already settled
+    // everything. Saying "you pay" about nothing is how a customer turns up
+    // with cash they did not need — or worse, doubts that the money arrived.
+    settledByTransfer: "Already paid by transfer",
+    unavailableWhy:
+      "This driver has gone off duty, so this price cannot be booked. It comes back if they do.",
     // The job is already over and the request was left behind at 'accepted'.
     // Not a cancellation — there is nothing left to cancel — so it must not
     // say "cancel" or "withdraw", either of which tells the customer they
@@ -603,6 +620,10 @@ const FR: DeliverCopy = {
       `Au-delà de ${limit} nous demandons un virement — cela fait beaucoup d’espèces à transporter.`,
     cashTotal: (total: string) =>
       `Le chauffeur encaissera ${total} à la porte.`,
+    transferTotal: (total: string) =>
+      `Envoyez ${total} maintenant, puis joignez le reçu.`,
+    transferSplit: (fee: string, cap: string) =>
+      `Envoyez ${fee} maintenant pour le chauffeur. Ce qu’il dépense en magasin est séparé — prévoyez jusqu’à ${cap} en espèces à la porte.`,
     proofTitle: "Envoyez votre reçu de virement",
     proofHelp: "Une photo ou un PDF du virement, jusqu’à 4 Mo.",
     proofWhy: "Votre chauffeur ne peut pas partir avant de l’avoir reçu.",
@@ -786,6 +807,10 @@ const FR: DeliverCopy = {
     again: "Publier à nouveau",
     cancelling: "Annulation…",
     cancelDelivery: "Annuler cette livraison",
+    unavailable: "Indisponible pour le moment",
+    settledByTransfer: "Déjà payé par virement",
+    unavailableWhy:
+      "Ce chauffeur n’est plus en service, ce prix ne peut donc pas être réservé. Il revient s’il se remet en service.",
     closeRequest: "Clore cette demande",
     withdraw: "Retirer cette demande",
     withdrawn: "Demande retirée.",
@@ -958,6 +983,10 @@ const CR: DeliverCopy = {
     cashCapped: (limit: string) =>
       `Plis ki ${limit} nou demann enn vireman — sa fer boukou kas pou enn sofer transporte.`,
     cashTotal: (total: string) => `Sofer la pou pran ${total} kot laport.`,
+    transferTotal: (total: string) =>
+      `Avoy ${total} asterla, apre zwenn resi la.`,
+    transferSplit: (fee: string, cap: string) =>
+      `Avoy ${fee} asterla pou sofer la. Seki li depanse dan boutik la separe — gard ziska ${cap} kas kot laport.`,
     proofTitle: "Avoy ou resi vireman",
     proofHelp: "Enn foto ouswa PDF vireman la, ziska 4 Mo.",
     proofWhy: "Ou sofer pa kapav demare avan li ariv.",
@@ -1138,6 +1167,10 @@ const CR: DeliverCopy = {
     again: "Avoy sa ankor",
     cancelling: "Pe anile…",
     cancelDelivery: "Anil sa livrezon la",
+    unavailable: "Pa disponib la",
+    settledByTransfer: "Fini paye par virman",
+    unavailableWhy:
+      "Sa sofer la finn aret travay, alor sa pri la pa kapav rezerve. Li pou revini si li remet li an servis.",
     closeRequest: "Ferm sa demann la",
     withdraw: "Retir sa demann la",
     withdrawn: "Demann retire.",

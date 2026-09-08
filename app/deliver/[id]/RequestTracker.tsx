@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePolling } from "@/lib/use-polling";
-import { isErrandKind, toRequestKind, type RequestKind } from "@/lib/delivery/kind";
+import {
+  isErrandKind,
+  mayLayOutMoney,
+  toRequestKind,
+  type RequestKind,
+} from "@/lib/delivery/kind";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -347,17 +352,44 @@ export default function RequestTracker({
   });
 
   async function act(body: Record<string, unknown>): Promise<boolean> {
-    const res = await fetch(`/api/delivery-requests/${id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...body, email: emailRef.current || undefined }),
-    });
-    const json = (await res.json()) as { ok?: boolean; error?: string };
-    if (!res.ok) {
-      toast.error(json.error ?? c.error.generic);
+    // ── EVERY WAY THIS CAN FAIL HAS TO REACH A HUMAN ──────────────────────
+    // This had no try at all, while its sibling load() below has exactly this
+    // guard. On island mobile data a dropped connection rejects fetch(), and a
+    // proxy or an error page rejects res.json() — and book(), the only caller
+    // that matters, wraps this in try/finally with NO catch and is invoked as
+    // `void book(...)`. So the rejection was unhandled: the spinner cleared,
+    // the sheet stayed open, and the customer was told NOTHING.
+    //
+    // That is what "it crashes when I choose how to pay" looks like from the
+    // customer's seat, and in `next dev` an unhandled rejection puts the
+    // full-screen error overlay on top of the sheet.
+    //
+    // Confirming is the one action on this screen that commits money, so it is
+    // the last place that should fail in silence.
+    try {
+      const res = await fetch(`/api/delivery-requests/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...body, email: emailRef.current || undefined }),
+      });
+      // A 502 from the edge is HTML, not JSON. Reading the status first means
+      // a gateway error reports as a network problem rather than as a parse
+      // error nobody can act on.
+      let json: { ok?: boolean; error?: string } = {};
+      try {
+        json = (await res.json()) as { ok?: boolean; error?: string };
+      } catch {
+        json = {};
+      }
+      if (!res.ok) {
+        toast.error(json.error ?? c.error.generic);
+        return false;
+      }
+      return true;
+    } catch {
+      toast.error(c.error.network);
       return false;
     }
-    return true;
   }
 
   async function book(quote: Quote, paymentMethod: PaymentMethod) {
@@ -1022,11 +1054,28 @@ function QuoteCard({
   const { language } = useLanguage();
   const c = DELIVER_COPY[language];
   const Icon = VEHICLE_ICON[quote.vehicleType ?? ""] ?? Package;
+  // ── A PRICE THAT CANNOT BE TAKEN ──────────────────────────────────────
+  // M189. accept_delivery_quote() refuses a driver who is not approved, is
+  // off duty, or whose vehicle cannot carry this load — and the view used to
+  // list the quote anyway. The customer read the price, tapped it, chose cash
+  // or bank transfer, confirmed, and only THEN was told "That driver is not
+  // available any more". The refusal landed at the payment step because that
+  // is the only moment the page talks to the server.
+  //
+  // `available` is computed by the same three tests. Absent means an older
+  // row, which is bookable — do not read `undefined` as false.
+  const bookable = quote.available !== false;
   return (
     <button
       type="button"
       onClick={onChoose}
-      className={cn(recipe.cardButton, "group")}
+      disabled={!bookable}
+      aria-describedby={bookable ? undefined : `unavailable-${quote.id}`}
+      className={cn(
+        recipe.cardButton,
+        "group",
+        !bookable && "cursor-not-allowed opacity-50",
+      )}
     >
       <div className="flex items-start gap-3">
         <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.05] text-[#B0B0B0]">
@@ -1079,6 +1128,24 @@ function QuoteCard({
               </>
             )}
           </p>
+
+          {/* Why the card is greyed. Named, not implied: a disabled control
+              with no reason reads as a broken page. */}
+          {!bookable && (
+            <p
+              id={`unavailable-${quote.id}`}
+              className={cn(
+                t.meta,
+                "mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-1 text-[#B0B0B0]",
+              )}
+            >
+              <Clock size={11} aria-hidden /> {c.tracker.unavailable}
+              {/* The badge is three words because the card is dense. Somebody
+                  using a screen reader gets the whole reason, since they
+                  cannot see the greying that carries it visually. */}
+              <span className="sr-only">{c.tracker.unavailableWhy}</span>
+            </p>
+          )}
 
           {quote.note && (
             <p className={cn(t.bodySm, "mt-2 text-[#B0B0B0]")}>
@@ -1139,16 +1206,26 @@ function ConfirmSheet({
   const { language } = useLanguage();
   const c = DELIVER_COPY[language];
   const exposure = quote.fee + (view.spendCap ?? 0);
+  // Does the driver front their own money on this job? The same question
+  // payAtDoor() asks, and the reason the two payment options describe
+  // different amounts: a transfer covers the fee, never the till.
+  const laysOutMoney = mayLayOutMoney(toRequestKind(view.kind), view.spendCap);
   const cashAllowed = view.cashLimit === null || exposure <= view.cashLimit;
   const [method, setMethod] = useState<PaymentMethod>(
     cashAllowed ? "cash" : "bank_transfer",
   );
 
+  // Follows the toggle. Without the method this breakdown was fixed at the
+  // cash figure, so choosing "Bank transfer" left a heading reading "You pay
+  // at the door — up to Rs 1,750" directly above an option explaining that
+  // only the shop money is due there. The sheet contradicted itself in the
+  // one place a customer is deciding what to hand over.
   const pay = payAtDoor(
     {
       fee: quote.fee,
       kind: view.kind,
       spendCap: view.spendCap,
+      paymentMethod: method,
     },
     language,
   );
@@ -1269,7 +1346,9 @@ function ConfirmSheet({
             ))}
             <div className="mt-1 flex items-baseline justify-between gap-4 border-t border-white/10 pt-2.5">
               <dt className={cn(t.bodySm, "font-semibold text-offwhite")}>
-                {c.tracker.payAtDoor}
+                {pay.dueAtDoor
+                  ? c.tracker.payAtDoor
+                  : c.tracker.settledByTransfer}
               </dt>
               <dd
                 className={cn(
@@ -1318,7 +1397,23 @@ function ConfirmSheet({
                   k: "bank_transfer" as const,
                   icon: Landmark,
                   title: c.pay.transfer.label,
-                  body: c.pay.transfer.help,
+                  // ── WHAT A TRANSFER DOES NOT COVER ──────────────────────
+                  // This said only "Send it now, then attach the receipt" —
+                  // no amount at all, and no word about the shopping money.
+                  // On a job where the driver fronts cash at the till, the
+                  // transfer pays the FEE and nothing else: the till money is
+                  // still owed in cash when they arrive. A customer who read
+                  // "bank transfer" as "everything is paid" met a driver
+                  // expecting up to the whole cap and had none of it.
+                  //
+                  // The cash option has always named its total. This one now
+                  // names both halves.
+                  body: laysOutMoney
+                    ? c.pay.transferSplit(
+                        formatFee(quote.fee),
+                        formatFee(view.spendCap ?? 0),
+                      )
+                    : c.pay.transferTotal(formatFee(quote.fee)),
                   disabled: false,
                 },
               ].map((o) => {
@@ -1730,11 +1825,16 @@ function BookedDriver({ view }: { view: RequestView }) {
   const c = DELIVER_COPY[language];
   const d = view.delivery!;
   const here = legIndex(d.status);
+  // d.paymentMethod was sitting right here and was not passed. On a bank
+  // transfer this screen told the customer to have the whole delivery fee in
+  // hand at the door — a sum they had already sent — while the driver's card
+  // said "Nothing to collect for the delivery."
   const pay = payAtDoor(
     {
       fee: d.fee,
       kind: view.kind,
       spendCap: view.spendCap,
+      paymentMethod: d.paymentMethod,
     },
     language,
   );
@@ -1872,7 +1972,11 @@ function BookedDriver({ view }: { view: RequestView }) {
         ))}
         <div className="mt-1 flex items-baseline justify-between gap-4 border-t border-white/10 pt-2.5">
           <dt className={cn(t.bodySm, "font-semibold text-offwhite")}>
-            {d.status === "delivered" ? c.tracker.paid : c.tracker.payAtDoor}
+            {d.status === "delivered"
+              ? c.tracker.paid
+              : pay.dueAtDoor
+                ? c.tracker.payAtDoor
+                : c.tracker.settledByTransfer}
           </dt>
           <dd
             className={cn(
