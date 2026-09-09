@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import PaymentMethodsAdmin from "./PaymentMethodsAdmin";
+import DeliveryBankPanel from "./DeliveryBankPanel";
 
 export const metadata: Metadata = {
   title: "Payment methods",
@@ -22,6 +23,7 @@ export default function AdminPaymentMethodsPage() {
         rather than typing them in — every change is recorded against you.
       </p>
       <PaymentMethodsAdmin />
+      <DeliveryBankPanel />
     </div>
   );
 }
