@@ -84,6 +84,22 @@ const STATUS_TONE: Record<string, string> = {
   no_driver: "border-red-500/50 text-red-300",
 };
 
+/** Both ends of a ride, in the shape PlaceLink wants.
+ *
+ *  Passing it means either label opens the live map on the WHOLE trip: the
+ *  dispatcher sees where the customer is standing and where they are going in
+ *  one picture, which is the question they are actually holding. A day hire has
+ *  no destination (M98) and liveMapHref simply drops the empty half. */
+function rideTrip(r: {
+  pickup_label: string | null; pickup_lat: number | null; pickup_lng: number | null;
+  dropoff_label: string | null; dropoff_lat: number | null; dropoff_lng: number | null;
+}) {
+  return {
+    from: { label: r.pickup_label, lat: r.pickup_lat, lng: r.pickup_lng },
+    to: { label: r.dropoff_label, lat: r.dropoff_lat, lng: r.dropoff_lng },
+  };
+}
+
 export default function RidesDesk() {
   const [rides, setRides] = useState<Ride[] | null>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -302,10 +318,10 @@ export default function RidesDesk() {
                           {RIDE_SERVICE_META[r.service]?.label ?? r.service} · {rideReference(r.id)}
                         </p>
                         <p className="mt-0.5 truncate font-dm text-xs text-muted">
-                          <PlaceLink label={r.pickup_label} lat={r.pickup_lat} lng={r.pickup_lng} />
+                          <PlaceLink label={r.pickup_label} lat={r.pickup_lat} lng={r.pickup_lng} journey={rideTrip(r)} />
                           {" → "}
                           {r.dropoff_label ? (
-                            <PlaceLink label={r.dropoff_label} lat={r.dropoff_lat} lng={r.dropoff_lng} />
+                            <PlaceLink label={r.dropoff_label} lat={r.dropoff_lat} lng={r.dropoff_lng} journey={rideTrip(r)} />
                           ) : (
                             "day hire"
                           )}
@@ -387,6 +403,7 @@ export default function RidesDesk() {
                         label={ride.pickup_label}
                         lat={ride.pickup_lat}
                         lng={ride.pickup_lng}
+                        journey={rideTrip(ride)}
                       />
                     </p>
                     <p className="flex items-start gap-2">
@@ -398,6 +415,7 @@ export default function RidesDesk() {
                           label={ride.dropoff_label}
                           lat={ride.dropoff_lat}
                           lng={ride.dropoff_lng}
+                          journey={rideTrip(ride)}
                         />
                       ) : (
                         <span className="text-muted">Day hire — no fixed destination</span>

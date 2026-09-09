@@ -10,6 +10,7 @@ import { freshness, lastSeenLabel, type Freshness } from "@/lib/tracking/model";
 import { subscribeToTrip, watchFleetPresence, type DriverPresence } from "@/lib/tracking/channel";
 import { fleetDutyLabel, fleetFilterKey } from "@/lib/delivery/availability";
 import type { MapPin as Pin } from "@/components/tracking/TrackingMap";
+import type { MapFocus } from "@/lib/maps/live-focus";
 import LiveTripView from "@/components/tracking/LiveTripView";
 
 const TrackingMap = dynamic(() => import("@/components/tracking/TrackingMap"), {
@@ -97,7 +98,18 @@ function signalIcon(f: Freshness) {
   return <SignalZero size={13} className="text-muted" />;
 }
 
-export default function LiveOperationsMap() {
+export default function LiveOperationsMap({
+  focus,
+}: {
+  /** ── A JOB THE DESK SENT US TO ────────────────────────────────────────
+   *  Read from the URL by app/admin/live/page.tsx, which is a server
+   *  component and already has the search params — so no useSearchParams
+   *  here, and no Suspense boundary for a value that was free.
+   *
+   *  Null on the ordinary "show me the fleet" visit, which is every visit
+   *  this screen has had until now. */
+  focus?: MapFocus | null;
+} = {}) {
   const [board, setBoard] = useState<Board | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -250,14 +262,54 @@ export default function LiveOperationsMap() {
     [visible, selectedId, livePos, stale],
   );
 
+  // ── THE JOB, DRAWN AMONG THE FLEET ──────────────────────────────────────
+  // TrackingMap's MapPin has supported kind "pickup" and "dropoff" all along;
+  // this screen simply never had anything but drivers to give it. These carry
+  // no onClick — they are a destination, not a driver to select — so they
+  // cannot disturb selectedId.
+  const focusPins: Pin[] = useMemo(() => {
+    const out: Pin[] = [];
+    if (focus?.pickup) {
+      out.push({
+        id: "focus-pickup",
+        lat: focus.pickup.lat,
+        lng: focus.pickup.lng,
+        kind: "pickup",
+        label: focus.pickup.label ?? "Pickup",
+      });
+    }
+    if (focus?.dropoff) {
+      out.push({
+        id: "focus-dropoff",
+        lat: focus.dropoff.lat,
+        lng: focus.dropoff.lng,
+        kind: "dropoff",
+        label: focus.dropoff.label ?? "Drop-off",
+      });
+    }
+    return out;
+  }, [focus]);
+
+  const allPins = useMemo(() => [...pins, ...focusPins], [pins, focusPins]);
+
   // Frame once, when drivers first appear. Refitting every 10 s would yank the
   // map away from whatever the operator is looking at. TrackingMap itself only
   // honours the first non-empty fitTo, so this only has to stop CHANGING.
+  //
+  // The job is included so the first frame holds BOTH it and the drivers near
+  // it — the whole reason the desk links here rather than to Google. Keyed on
+  // a stable string, not on the array, so an unchanged focus does not re-fit.
   const hasAnyVisible = visible.length > 0;
+  const focusKey = focusPins.map((p) => `${p.lat},${p.lng}`).join("|");
   const fitTo = useMemo(
-    () => (hasAnyVisible ? visible.map((d) => [d.lat!, d.lng!] as [number, number]) : null),
+    () => {
+      const points: [number, number][] = [];
+      if (hasAnyVisible) points.push(...visible.map((d) => [d.lat!, d.lng!] as [number, number]));
+      points.push(...focusPins.map((p) => [p.lat, p.lng] as [number, number]));
+      return points.length > 0 ? points : null;
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hasAnyVisible],
+    [hasAnyVisible, focusKey],
   );
 
   const withoutPosition = drivers.filter(
@@ -299,14 +351,44 @@ export default function LiveOperationsMap() {
         </p>
       )}
 
+      {/* ── AN EMPTY FLEET AROUND A PINNED JOB ─────────────────────────────
+          A real answer, not a broken screen, and the one that decides what the
+          operator does next — "one pin and nothing else" otherwise reads as a
+          map that failed to load.
+
+          Three things this must NOT do:
+
+          · claim it while the fleet is still arriving. board is null on every
+            focused arrival, so an ungated banner tells the operator there are
+            no drivers before anyone has been asked. Gated on board && !err.
+          · state a fleet-wide fact about a FILTER. `visible` is filtered, so
+            switching to Taxi would otherwise assert that nobody anywhere is
+            sharing. The diagnosis reads drivers/anyoneSharing, which are not.
+          · throw away the three-way diagnosis the empty state already makes.
+            Focus suppresses that branch, so the same three sentences — and
+            their three different next actions — are said here instead. */}
+      {focusPins.length > 0 && board && !err && visible.length === 0 && (
+        <p className="mb-3 rounded-xl border border-yellow/40 bg-yellow/[0.07] px-3 py-2 font-dm text-sm text-offwhite">
+          <strong className="font-syne">The job is pinned below.</strong>{" "}
+          {drivers.length === 0
+            ? "There are no drivers on the platform yet — add a taxi driver or approve a delivery partner, and they will appear here once they go on duty."
+            : anyoneSharing
+              ? "Nobody in this filter has a position. Try the All filter — somebody is sharing, just not in this group."
+              : "No driver is sharing a position right now, so there is nobody to compare it against. A driver appears the moment they press I'M WORKING and allow location."}
+        </p>
+      )}
+
       {/* ── Map + detail ─────────────────────────────────────────────────── */}
       <div className="grid gap-3 lg:grid-cols-[1fr_320px]">
         <div className="h-[480px] overflow-hidden rounded-2xl border border-white/10 lg:h-[620px]">
-          {loading && !board ? (
+          {/* The job was clicked; it does not depend on the fleet request.
+              Painting it immediately means the operator sees the pin at once
+              and the drivers arrive when they arrive. */}
+          {loading && !board && focusPins.length === 0 ? (
             <div className="flex h-full items-center justify-center bg-dark-card">
               <Loader2 size={24} className="animate-spin text-yellow/60" />
             </div>
-          ) : visible.length === 0 ? (
+          ) : visible.length === 0 && focusPins.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 bg-dark-card px-8 text-center">
               <MapPin size={26} className="text-muted" />
               {/* Three different situations that all used to look like one
@@ -331,7 +413,7 @@ export default function LiveOperationsMap() {
             </div>
           ) : (
             <TrackingMap
-              pins={pins}
+              pins={allPins}
               driver={
                 selected && selected.lat != null && selected.lng != null
                   ? {

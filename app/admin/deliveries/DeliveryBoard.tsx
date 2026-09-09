@@ -93,6 +93,26 @@ const CLOSE_OPTIONS = [
   { value: "cancelled", label: "Cancel this delivery" },
 ];
 
+/** Both ends of a job, in the shape PlaceLink wants — so either label opens
+ *  the live map on the WHOLE trip rather than the end that was clicked.
+ *
+ *  For a live delivery the pickup has no label of its own: storeName IS the
+ *  place it is collected from, for a shop order and for a Deliver Anything job
+ *  alike. For a request, both ends are already words the customer typed. */
+function liveTrip(d: Live) {
+  return {
+    from: { label: d.storeName, lat: d.pickupLat, lng: d.pickupLng },
+    to: { label: d.dropoffNote, lat: d.dropoffLat, lng: d.dropoffLng },
+  };
+}
+
+function reqTrip(r: Req) {
+  return {
+    from: { label: r.pickupText, lat: r.pickupLat, lng: r.pickupLng },
+    to: { label: r.dropoffText, lat: r.dropoffLat, lng: r.dropoffLng },
+  };
+}
+
 export default function DeliveryBoard() {
   const [board, setBoard] = useState<Board | null>(null);
   const [loading, setLoading] = useState(true);
@@ -265,6 +285,7 @@ export default function DeliveryBoard() {
                             label={d.dropoffNote}
                             lat={d.dropoffLat}
                             lng={d.dropoffLng}
+                            journey={liveTrip(d)}
                           />
                         </p>
                       )}
@@ -429,9 +450,9 @@ export default function DeliveryBoard() {
                         {r.spendCap != null && ` · up to Rs ${centsToDecimalString(r.spendCap)}`}
                       </p>
                       <p className="mt-1.5 font-dm text-xs text-muted">
-                        <PlaceLink label={r.pickupText} lat={r.pickupLat} lng={r.pickupLng} />
+                        <PlaceLink label={r.pickupText} lat={r.pickupLat} lng={r.pickupLng} journey={reqTrip(r)} />
                         {" → "}
-                        <PlaceLink label={r.dropoffText} lat={r.dropoffLat} lng={r.dropoffLng} />
+                        <PlaceLink label={r.dropoffText} lat={r.dropoffLat} lng={r.dropoffLng} journey={reqTrip(r)} />
                         {" "}
                         <RouteLink
                           fromLat={r.pickupLat}

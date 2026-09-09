@@ -12,7 +12,7 @@ import {
   Search,
 } from "lucide-react";
 import type { RidePlace } from "@/lib/rides/places";
-import { commonPlaces, searchPlaces } from "@/lib/rides/places";
+import { searchPlaces } from "@/lib/rides/places";
 import type { PinOnMapCopy } from "@/components/PinOnMap";
 
 // Leaflet and a tile layer are a lot to carry for a control that most people
@@ -46,27 +46,36 @@ import {
 // well for the ride flow while /deliver asked for the same thing as free text.
 // Two surfaces, one question, and only one of them had solved it.
 //
-// ── WHY NO MAP ─────────────────────────────────────────────────────────────
-// A drag-a-pin map is the wrong tool here. There are perhaps forty places
-// anyone names, everybody knows them by name, and somebody dragging a pin
-// around a coastline they have never seen will drop it in the lagoon. A named
-// list is faster on a slow connection, works for a person who has never used a
-// map app, and — the part that matters technically — yields EXACT coordinates.
-// Free text yields neither, which is why dispatch had no origin to work from
-// for a Deliver Anything job (see M145).
+// ── A POINT BEATS A PLACE NAME ─────────────────────────────────────────────
+// This control used to open on six village chips, with the search box under
+// them and the two precise answers — the phone's position, and a pin on a map
+// — beneath that again. The chips were not wrong: they read from the same
+// gazetteer as the search, so tapping "Mont Lubin" and typing it produced the
+// identical coordinate.
 //
-// ── THE FOUR WAYS IN, IN THE ORDER PEOPLE USE THEM ─────────────────────────
-//   1. TAP A COMMON PLACE. Eight villages, no typing, no reading a list of
-//      thirty-five. This is new, and it is the change that matters most: the
-//      old open state put a search box above every beach and viewpoint on the
-//      island, so the commonest answer — "Port Mathurin" — cost either six
-//      keystrokes or a scan of the whole gazetteer. For a delivery the answer
-//      is nearly always somewhere people LIVE, and there are eight of those.
-//   2. Type a few letters. searchPlaces() matches the "aka" spellings too, so
-//      "aeroport", "airport" and "SZR" all find it.
-//   3. "Use where I am now" — for somebody standing at the place itself.
-//   4. Anything not on the list still goes through as free text. Refusing
-//      somebody who lives up a track is worse than a missing coordinate.
+// The objection, and it is the owner's, is to what that coordinate MEANS.
+// Port Mathurin's row is the middle of a town of about five thousand people;
+// Mont Lubin's is the middle of a village. A driver given one of those still
+// has to telephone to ask WHERE in Port Mathurin — so the fastest control on
+// the form was optimising the wrong thing, and the chips made it two taps to
+// hand dispatch an answer that would need a phone call anyway.
+//
+// ── THE WAYS IN, IN THE ORDER THEY NOW APPEAR ──────────────────────────────
+//   1. A place you sent to before. Already an exact point, and after one order
+//      it is the commonest answer on the panel.
+//   2. "Use where I am now" — the phone's own position, for somebody standing
+//      at the place. Metres, not a village.
+//   3. "Show us on the map" — a pin dropped on a roof. The only answer that
+//      works for the 182 localities with no gazetteer entry.
+//   4. Type a few letters. searchPlaces() still matches the "aka" spellings,
+//      so "aeroport", "airport" and "SZR" all find it — this is how you reach
+//      the airport and the ferry, and it is still exact for those.
+//   5. A name we do not know goes to the MAP with the words carried across,
+//      instead of being accepted with lat and lng null. Backing out of the map
+//      still lets the words through: refusing somebody who lives up a track is
+//      worse than a missing coordinate, and when the map chunk itself fails to
+//      load, typing is the only door left. See M145 — free text with no origin
+//      is what dispatch could not work from in the first place.
 //
 // ── SIZED FOR THE PERSON WHO NEEDS IT MOST ─────────────────────────────────
 // Rows were py-3 with 14px text — under 40px tall, on the control that carries
@@ -82,7 +91,6 @@ import {
  *  takes the whole `where` dictionary is a picker coupled to one screen. */
 export type PlacePickerCopy = {
   useMyLocation: string;
-  nearby: string;
   recent: string;
   choose: string;
   change: string;
@@ -96,12 +104,11 @@ export type PlacePickerCopy = {
 
 const DEFAULT_COPY: PlacePickerCopy = {
   useMyLocation: "Use where I am now",
-  nearby: "Common places",
   recent: "You used recently",
   choose: "Choose",
   change: "Change",
   myLocation: "My current location",
-  useTyped: (q) => `Use “${q}” — we’ll confirm the price`,
+  useTyped: (q) => `Show us where “${q}” is on the map`,
   pin: {
     open: "Show us on the map",
     title: "Point to the place",
@@ -177,13 +184,6 @@ export default function PlacePicker({
     () => new Set(recent.map((p) => p.name.trim().toLowerCase())),
     [recent],
   );
-  const common = useMemo(
-    () =>
-      commonPlaces().filter(
-        (p) => !recentKeys.has(p.name.trim().toLowerCase()),
-      ),
-    [recentKeys],
-  );
 
   // Their own position, when they are standing where they want collecting from.
   function useMyLocation() {
@@ -229,12 +229,30 @@ export default function PlacePicker({
     choose({ id: "pin", name: p.name, area: "", lat: p.lat, lng: p.lng });
   }
 
+  /**
+   * Backing out of the map.
+   *
+   * When the sheet was opened by TYPING a place we do not know, the typed
+   * words are the person's answer and closing a map must not silently discard
+   * them — especially where the map failed to load at all, which is the one
+   * case where the sheet's own advice is "go back and type the place name
+   * instead". So the free-text answer goes through here, coordinate-less, the
+   * way it always did.
+   */
+  function cancelPin() {
+    setPinning(false);
+    const typed = q.trim();
+    if (typed.length > 2) {
+      choose({ id: "custom", name: typed, area: "", lat: null, lng: null });
+    }
+  }
+
   const pinSheet = pinning ? (
     <PinOnMap
       initialName={q.trim() || value?.name || ""}
       copy={copy.pin}
       onConfirm={pinned}
-      onCancel={() => setPinning(false)}
+      onCancel={cancelPin}
     />
   ) : null;
 
@@ -302,53 +320,70 @@ export default function PlacePicker({
         </span>
       </p>
 
-      {/* ── The eight, before any typing ─────────────────────────────────
-          For a delivery the answer is nearly always somewhere people live.
-          Two taps beats six keystrokes, and it beats reading thirty-five
-          rows to find out that typing was the only option. */}
-      {!typing && (
+      {/* ── YOURS, BEFORE ANY TYPING ─────────────────────────────────────
+          Where the six village chips used to be. These are not a shortlist of
+          the island — they are the places THIS phone has already sent things
+          to, so each one carries the exact point it was answered with the
+          first time, pin or GPS. After one order the commonest answer here is
+          a single tap, and it is a doorway rather than a village. */}
+      {!typing && recent.length > 0 && (
         <>
-          {/* YOURS first. The eight below are the island's answer; these are the
-              places this person actually sends things to, and after one order
-              the commonest answer is a single tap at the top of the panel. */}
-          {recent.length > 0 && (
-            <>
-              <p className="mt-3 font-dm text-[16px] text-[#B0B0B0]">
-                {copy.recent}
-              </p>
-              <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-                {recent.map((p) => (
-                  <Chip
-                    key={`r-${p.id}-${p.name}`}
-                    place={p}
-                    icon={Clock}
-                    onPick={choose}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-          {common.length > 0 && (
-            <>
-              {/* The heading only earns its 30px when there is a SECOND list to
-                  tell it apart from. Under "Where do we collect it?" with
-                  nothing else on screen, "Common places" is a label for the
-                  only thing there. */}
-              {recent.length > 0 && (
-                <p className="mt-3 font-dm text-[16px] text-[#B0B0B0]">
-                  {copy.nearby}
-                </p>
-              )}
-              <div className="mt-2 grid grid-cols-2 gap-1.5">
-                {common.map((p) => (
-                  <Chip key={p.id} place={p} icon={MapPin} onPick={choose} />
-                ))}
-              </div>
-            </>
-          )}
+          <p className="mt-3 font-dm text-[16px] text-[#B0B0B0]">
+            {copy.recent}
+          </p>
+          <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+            {recent.map((p) => (
+              <Chip
+                key={`r-${p.id}-${p.name}`}
+                place={p}
+                icon={Clock}
+                onPick={choose}
+              />
+            ))}
+          </div>
         </>
       )}
 
+      {/* ── A POINT, NOT A VILLAGE NAME ──────────────────────────────────
+          These two were under the search box and under a grid of village
+          chips. They are now the first thing offered, because they are the
+          only two that produce the spot the driver actually has to reach.
+
+          "Port Mathurin" is a settlement of some five thousand people. As an
+          answer it is a name, not an address, and the driver's next move is a
+          phone call — which is the failure this reorder is here to remove. */}
+      {!typing && (
+        <>
+          <button
+            type="button"
+            onClick={useMyLocation}
+            disabled={locating}
+            className="mt-3 flex min-h-14 w-full items-center gap-2.5 rounded-xl border border-yellow/60 bg-yellow/[0.07] px-4 font-dm text-[17px] font-semibold text-offwhite disabled:opacity-50"
+          >
+            {locating ? (
+              <Loader2 size={18} className="animate-spin text-yellow" />
+            ) : (
+              <LocateFixed size={18} className="text-yellow" />
+            )}
+            {copy.useMyLocation}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPinning(true)}
+            className="mt-2 flex min-h-14 w-full items-center gap-2.5 rounded-xl border border-yellow/60 bg-yellow/[0.07] px-4 font-dm text-[17px] font-semibold text-offwhite"
+          >
+            <MapIcon size={18} className="text-yellow" />
+            {copy.pin.open}
+          </button>
+        </>
+      )}
+
+      {/* The name is now the FALLBACK, not the front door. It still has to be
+          here — 35 gazetteer names against 182 localities, and refusing
+          somebody who lives up a track is worse than a rough coordinate — but
+          whatever it produces goes on to the map before it counts as an
+          answer. */}
       <div className="relative mt-3">
         <Search
           size={17}
@@ -367,38 +402,6 @@ export default function PlacePicker({
           className="min-h-14 w-full rounded-xl border border-[#6E6E6E] bg-dark py-3 pl-11 pr-3 font-dm text-[18px] text-offwhite placeholder:text-[#B0B0B0] focus:border-yellow/60 focus:outline-none"
         />
       </div>
-
-      {!typing && (
-        <button
-          type="button"
-          onClick={useMyLocation}
-          disabled={locating}
-          className="mt-2 flex min-h-14 w-full items-center gap-2.5 rounded-xl border border-[#6E6E6E] px-4 font-dm text-[16px] text-offwhite disabled:opacity-50"
-        >
-          {locating ? (
-            <Loader2 size={17} className="animate-spin text-yellow" />
-          ) : (
-            <LocateFixed size={17} className="text-yellow" />
-          )}
-          {copy.useMyLocation}
-        </button>
-      )}
-
-      {/* ── The fifth way in ────────────────────────────────────────────────
-          Under the list and under "where I am now", never above them: for the
-          forty places with names, this is the slowest of the three and it is
-          the only one that needs a working data connection. It is here for the
-          182 localities that have no entry in the gazetteer — see PinOnMap. */}
-      {!typing && (
-        <button
-          type="button"
-          onClick={() => setPinning(true)}
-          className="mt-2 flex min-h-14 w-full items-center gap-2.5 rounded-xl border border-[#6E6E6E] px-4 font-dm text-[16px] text-offwhite"
-        >
-          <MapIcon size={17} className="text-yellow" />
-          {copy.pin.open}
-        </button>
-      )}
 
       {typing && (
         <div className="mt-2 max-h-72 overflow-y-auto">
@@ -426,33 +429,17 @@ export default function PlacePicker({
               </span>
             </button>
           ))}
-          {/* Anywhere we have not named. The job still goes out; it just
-              confirms the details rather than refusing somebody who lives up
-              a track. 35 names against 182 localities — this branch is not an
-              edge case here, it is a large minority of the island. */}
-          {q.trim().length > 2 && (
-            <button
-              type="button"
-              onClick={() =>
-                choose({
-                  id: "custom",
-                  name: q.trim(),
-                  area: "",
-                  lat: null,
-                  lng: null,
-                })
-              }
-              className="flex min-h-14 w-full items-center gap-3 px-1 text-left"
-            >
-              <MapPin size={16} className="shrink-0 text-yellow" aria-hidden />
-              <span className="font-dm text-[16px] text-yellow">
-                {copy.useTyped(q.trim())}
-              </span>
-            </button>
-          )}
-          {/* Offered beneath the free-text answer, because this is the moment
-              the coordinate is about to be lost. Taking it carries the typed
-              words into the sheet, so nobody types their address twice. */}
+          {/* Anywhere we have not named — 35 gazetteer names against 182
+              localities, so a large minority of the island, not an edge case.
+
+              This used to accept the typed words with lat and lng NULL, which
+              is the vaguest answer the form can produce and the one that ends
+              in the driver phoning to ask where. It now carries the words
+              STRAIGHT to the map, pre-filled, so the answer arrives as words
+              AND a point. Cancelling the map still lets the words through —
+              see onCancel — because refusing somebody who lives up a track is
+              worse than a missing coordinate, and because when the map chunk
+              itself fails, typing is the only door left. */}
           {q.trim().length > 2 && (
             <button
               type="button"
@@ -461,7 +448,7 @@ export default function PlacePicker({
             >
               <MapIcon size={16} className="shrink-0 text-yellow" aria-hidden />
               <span className="font-dm text-[16px] text-yellow">
-                {copy.pin.open}
+                {copy.useTyped(q.trim())}
               </span>
             </button>
           )}

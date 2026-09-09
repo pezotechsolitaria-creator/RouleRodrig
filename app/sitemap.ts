@@ -2,7 +2,11 @@ import type { MetadataRoute } from "next";
 import { EXPERIENCES } from "@/lib/experiences";
 import { placeSlug, placesWithOwnPage } from "@/lib/place-slug";
 import { SITE_URL } from "@/lib/site";
-import { getFleetView, buildBrowseCategories } from "@/lib/site-data";
+import {
+  getFleetView,
+  buildBrowseCategories,
+  isSellableFleetItem,
+} from "@/lib/site-data";
 import { vehicleHref } from "@/lib/vehicle-slug";
 import { BLOG_POSTS } from "@/lib/blog";
 
@@ -126,7 +130,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Swifts) and slugs come from the name, so twin units share one page —
     // mapping rows 1:1 listed the same URL twice.
     browse.push(
-      ...[...new Set(fleet.map((v) => vehicleHref(v)))].map((href) => ({
+      // Drafts are not submitted to Google. /browse/car/new-cars was live and
+      // in this sitemap with the meta description "Add a description for this
+      // car." and a price of "From Rs 0/day" — a thin page that drags the
+      // whole car cluster down and is exactly what a soft-404 flag is for.
+      ...[
+        ...new Set(fleet.filter(isSellableFleetItem).map((v) => vehicleHref(v))),
+      ].map((href) => ({
         url: `${SITE_URL}${href}`,
         lastModified: contentAt,
         changeFrequency: "weekly" as const,

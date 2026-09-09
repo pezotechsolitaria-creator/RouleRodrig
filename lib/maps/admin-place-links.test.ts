@@ -55,6 +55,50 @@ describe("the component degrades to plain text", () => {
   it("it tells a screen reader what the link does", () => {
     expect(src).toMatch(/sr-only/);
   });
+
+  it("a point outside Rodrigues still opens somewhere", () => {
+    // The live map covers this island only, so liveMapHref refuses a fix from
+    // anywhere else. Without a fallback that refusal would silently turn a
+    // location the operator could previously open into three dead words.
+    expect(src).toContain("pinUrl(");
+    expect(src).toMatch(/live \?\? pinUrl\(/);
+  });
+});
+
+describe("the link carries the whole trip, not the end that was clicked", () => {
+  // The owner asked for both halves in one breath — "his exact location AND
+  // WHERE HE IS GOING TO". `?to=` shipped once as dead code: liveMapHref
+  // accepted toLat/toLng and not one caller passed them, so every focused map
+  // drew a single pin and the destination stayed in the dispatcher's head.
+  const src = read("components/admin/PlaceLink.tsx");
+
+  it("PlaceLink forwards both ends to the URL builder", () => {
+    expect(src).toMatch(/toLat: to\?\.lat, toLng: to\?\.lng, toLabel: to\?\.label,/);
+  });
+
+  it("every desk that knows both ends passes them", () => {
+    const rides = read("app/admin/rides/RidesDesk.tsx");
+    expect(rides).toContain("function rideTrip(");
+    // Both ends of both surfaces: the queue row and the dispatch card.
+    expect(rides.match(/journey=\{rideTrip\((?:r|ride)\)\}/g) ?? []).toHaveLength(4);
+
+    const del = read("app/admin/deliveries/DeliveryBoard.tsx");
+    expect(del).toContain("function liveTrip(");
+    expect(del).toContain("function reqTrip(");
+    expect(del.match(/journey=\{(?:liveTrip|reqTrip)\((?:d|r)\)\}/g) ?? []).toHaveLength(3);
+  });
+
+  it("the map page reads the focus back and draws both pins", () => {
+    const page = read("app/admin/live/page.tsx");
+    expect(page).toContain("readMapFocus");
+    const map = read("components/admin/LiveOperationsMap.tsx");
+    expect(map).toContain('kind: "pickup"');
+    expect(map).toContain('kind: "dropoff"');
+    // The pin the dispatcher clicked must not wait on the fleet request.
+    expect(map).toContain("loading && !board && focusPins.length === 0");
+    // And an empty fleet must not be ASSERTED before the fleet has arrived.
+    expect(map).toMatch(/focusPins\.length > 0 && board && !err && visible\.length === 0/);
+  });
 });
 
 describe("taxi and delivery use the same component", () => {

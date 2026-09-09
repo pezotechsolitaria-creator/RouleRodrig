@@ -500,8 +500,8 @@ export default function BookRide({
               placeholder={c.step2.pickupPlaceholder}
               required
               autoOpen={!pickup}
-              // Without this the panel's own strings — "Common places",
-              // "Choose", "Use where I am now" — fall back to the English
+              // Without this the panel's own strings — "Choose", "Use where
+              // I am now", "Show us on the map" — fall back to the English
               // literals in PlacePicker, inside an otherwise translated form.
               copy={c.step2.picker}
             />

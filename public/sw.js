@@ -234,9 +234,11 @@
 // v345 — the driver console finally knows where to collect: Navigate points
 // at the leg the driver is actually on, and the quote board can show the
 // whole route instead of only how far away the pickup is.
-// v364 — the driver's offer screen gets the same tappable map pins the desk
+// v364 — taken by main and this branch at the same moment (the ninth number
+// collision, still cheaper to burn than to share).
+// v365 — the driver's offer screen gets the same tappable map pins the desk
 // got in v363, and the phone rule the form enforces is enforced by the API.
-const CACHE = "rr-cache-v364";
+const CACHE = "rr-cache-v365";
 
 // Dev hosts get no cache-first anything: their asset URLs are not content
 // hashed, so the immutability that makes cache-first safe does not hold.
