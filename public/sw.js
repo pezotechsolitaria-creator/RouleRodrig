@@ -238,7 +238,9 @@
 // collision, still cheaper to burn than to share).
 // v365 — the driver's offer screen gets the same tappable map pins the desk
 // got in v363, and the phone rule the form enforces is enforced by the API.
-const CACHE = "rr-cache-v365";
+// v366 — clearing a delivery actually clears it: the bell and the operations
+// feed both stopped counting a job the owner had already dealt with.
+const CACHE = "rr-cache-v366";
 
 // Dev hosts get no cache-first anything: their asset URLs are not content
 // hashed, so the immutability that makes cache-first safe does not hold.

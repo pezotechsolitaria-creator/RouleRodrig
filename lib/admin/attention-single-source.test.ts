@@ -58,4 +58,31 @@ describe("the bell and the dashboard cannot disagree", () => {
     const route = read("app/api/admin/attention/route.ts");
     expect(route).toContain("degraded");
   });
+
+  it("a delivery the owner has CLEARED stops counting (M197)", () => {
+    // The owner cleared a delivery on 6 Sept and was still calling it stuck on
+    // the 10th: this count and admin_operations_feed both selected on status
+    // alone, so the badge stayed lit and "Clear" was a button that did nothing
+    // the owner could see. Scoped to the deliveries query — the file mentions
+    // cleared_at in prose too.
+    const loader = read("lib/admin/attention-load.ts");
+    const q = loader.slice(loader.indexOf('.from("deliveries")'));
+    const stanza = q.slice(0, q.indexOf("]),") + 3);
+    expect(stanza).toContain('.is("cleared_at", null)');
+    expect(stanza).toContain("requires_admin");
+  });
+
+  it("the operations feed learned the same thing", () => {
+    // Same bug, second reader. M176 taught three readers about cleared_at and
+    // missed these two; the migration is anchored, so it refuses to apply if
+    // the function is not the shape it knows.
+    const mig = read(
+      "supabase/migrations/20260910090000_m197_clearing_a_job_actually_clears_it.sql",
+    );
+    expect(mig).toContain("admin_operations_feed");
+    expect(mig).toContain("and d.cleared_at is null");
+    // Refuses rather than clobbers, and re-running is a no-op.
+    expect(mig).toContain("already applied");
+    expect(mig).toContain("is not the shape this migration knows how to edit");
+  });
 });

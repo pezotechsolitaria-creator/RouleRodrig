@@ -90,9 +90,15 @@ export async function loadAttentionCounts(
     admin.from("merchants").select("id", { count: "exact", head: true }).eq("status", "pending"),
     admin.from("owner_applications").select("id", { count: "exact", head: true }).eq("status", "pending"),
     admin.from("delivery_drivers").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    // cleared_at, not status alone (M197). "Clear" is the button the product
+    // offers for a job the owner has dealt with off-platform; a count that
+    // ignores it keeps the badge lit for ever and makes the button a lie. The
+    // owner cleared a delivery on 6 Sept and was still calling it stuck on the
+    // 10th, because this count and the operations feed both went on seeing it.
     admin
       .from("deliveries")
       .select("id", { count: "exact", head: true })
+      .is("cleared_at", null)
       .in("status", [
         "requires_admin",
         "driver_unresponsive",
