@@ -50,14 +50,19 @@ describe("a local number becomes a dialable one", () => {
 describe("the booking route stores what a driver can ring", () => {
   const src = read("app/api/rides/route.ts");
 
-  it("it normalises before storing", () => {
-    expect(src).toMatch(/p_customer_phone: toE164National\(v\.phone\) \?\? v\.phone/);
+  it("rejects at the schema what the form already rejects", () => {
+    // The contract moved ON THE OWNER'S INSTRUCTION ("find a solution for it
+    // to not reproduce"): an unparseable number no longer books with raw
+    // keystrokes attached — the API refines on the SAME toE164National the
+    // form's button is gated on, so the two cannot disagree and a direct
+    // POST cannot store what the form would refuse. No booking is lost that
+    // the shipped form could ever have submitted.
+    expect(src).toMatch(/\.refine\(\(p\) => toE164National\(p\) !== null/);
   });
 
-  it("but an unparseable number still books the ride", () => {
-    // Refusing a booking over a phone FORMAT would be far worse than storing
-    // it as given — the fallback is the raw text, which is the old behaviour.
-    expect(src).toContain("?? v.phone");
+  it("stores only the normalised form, with no raw-keystroke fallback", () => {
+    expect(src).toMatch(/p_customer_phone: toE164National\(v\.phone\),/);
+    expect(src).not.toMatch(/p_customer_phone: toE164National\(v\.phone\) \?\? v\.phone/);
   });
 
   it("and the alert quotes the dialable form", () => {
