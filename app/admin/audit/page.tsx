@@ -46,7 +46,7 @@ export default async function AuditPage() {
 
   if (error) {
     console.error("audit read failed", error);
-    throw new Error("Could not load the audit trail.");
+    throw new Error("Could not load the audit trail.", { cause: error });
   }
 
   const rows = (data ?? []) as Record<string, unknown>[];

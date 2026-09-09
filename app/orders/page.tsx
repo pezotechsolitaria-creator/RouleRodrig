@@ -70,7 +70,7 @@ export default async function CustomerOrdersPage({
   // the "no orders yet" empty state to a customer who does have orders.
   if (error) {
     console.error("list customer orders failed", error);
-    throw new Error("Could not load your orders.");
+    throw new Error("Could not load your orders.", { cause: error });
   }
   const orders = data ?? [];
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));

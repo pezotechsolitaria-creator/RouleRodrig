@@ -95,7 +95,7 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
   // is recoverable; notFound() is not.
   if (error) {
     console.error("load customer order failed", { orderId: id, error });
-    throw new Error("Could not load this order.");
+    throw new Error("Could not load this order.", { cause: error });
   }
   if (!order) notFound();
   const typedOrder = order as unknown as CustomerOrderDetail;

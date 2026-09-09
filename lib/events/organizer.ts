@@ -129,7 +129,12 @@ export async function listMyEvents(supabase: SupabaseClient): Promise<OrganizerE
     // A query FAILURE and "you run no events" are different answers and an
     // organiser must not be shown the wrong one — same rule as the customer
     // orders page. Throwing renders the error boundary, which is recoverable.
-    throw new Error("Could not load your events.");
+    // `cause` carries the PostgrestError to Sentry. Without it this throw
+    // produced "Error: Could not load your events." and nothing else —
+    // ROULE-RODRIGUES-3, five occurrences, unresolvable. console.error goes to
+    // Vercel's runtime logs, which expire and are not where anybody looks; the
+    // Error goes to Sentry, which is. scanner.ts already learned this.
+    throw new Error("Could not load your events.", { cause: error });
   }
   return (data as OrganizerEvent[] | null) ?? [];
 }
@@ -147,7 +152,7 @@ export async function getEventDetail(
   if (error) {
     if (error.code === "RR003") return null;
     console.error("organizer_event_detail failed", error);
-    throw new Error("Could not load this event.");
+    throw new Error("Could not load this event.", { cause: error });
   }
   return (data as OrganizerEventDetail | null) ?? null;
 }
