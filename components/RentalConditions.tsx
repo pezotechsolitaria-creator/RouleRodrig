@@ -61,8 +61,29 @@ export default function RentalConditions({ items }: { items: ConditionItem[] }) 
                 <span className="font-bebas text-[10px] tracking-[0.2em] text-muted shrink-0 w-28 pt-0.5">
                   {label?.[language as keyof typeof label] ?? label?.en ?? item.question}
                 </span>
-                <span className="font-dm text-xs text-offwhite/80 flex-1 leading-relaxed">
-                  {isOpen ? item.answer : short}
+                <span className="flex-1">
+                  {/* ── THE QUESTION HAS TO BE ON THE PAGE ──────────────────
+                      This row rendered a short LABEL ("Minimum age") and the
+                      first sentence of the answer. The question itself — "What
+                      is the minimum age to rent?" — was nowhere in the DOM at
+                      all, while /browse/car and /browse/scooter both carried
+                      FAQPage markup claiming eight of them.
+
+                      Google's structured-data policy is that the Q&A must be
+                      present on the page carrying the markup. Measured on the
+                      live car page before this: the question text matched
+                      neither innerText NOR innerHTML. Invalid markup earns
+                      nothing at best, and a manual action at worst.
+
+                      Kept small and secondary so the panel still reads as a
+                      terms strip rather than turning into an FAQ page: the
+                      label is still the thing the eye lands on. */}
+                  <span className="block font-dm text-[11px] leading-snug text-offwhite/55">
+                    {item.question}
+                  </span>
+                  <span className="mt-0.5 block font-dm text-xs leading-relaxed text-offwhite/80">
+                    {isOpen ? item.answer : short}
+                  </span>
                 </span>
                 {hasMore && (
                   <ChevronDown
