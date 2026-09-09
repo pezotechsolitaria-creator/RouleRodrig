@@ -81,6 +81,43 @@ export function isValidPhone(full: string | null | undefined): boolean {
   }
 }
 
+// ── The owner's rule for Mauritian numbers ──────────────────────────────────
+//
+// libphonenumber says "70587837" is a VALID Mauritian number — its metadata
+// accepts ranges nobody on the island actually dials. That exact number
+// reached the taxi dispatch desk as a customer's contact, and the operator had
+// nobody callable on the other end of a real booking.
+//
+// The rule, from the person who phones these numbers for a living: a Mauritian
+// mobile starts with 5 and has 8 digits. For contact fields — where the whole
+// point is that a driver can ring or WhatsApp the person — that rule outranks
+// the library's metadata. Foreign numbers (Réunion, France, …) still validate
+// through libphonenumber as before.
+//
+// A number typed with NO country code is treated as Mauritian: that is what a
+// local means by it, and it is exactly how "70587837" got in.
+export type ContactPhoneProblem = "empty" | "invalid" | "mu-not-mobile";
+
+export function contactPhoneProblem(
+  full: string | null | undefined,
+): ContactPhoneProblem | null {
+  const raw = (full ?? "").trim();
+  if (!raw) return "empty";
+  const compact = raw.replace(/[\s\-().]/g, "").replace(/^00(?=\d)/, "+");
+  const parsed = parsePhoneNumberFromString(compact, "MU");
+  if (!parsed || !parsed.isValid()) return "invalid";
+  if (parsed.countryCallingCode === "230") {
+    return /^5\d{7}$/.test(String(parsed.nationalNumber)) ? null : "mu-not-mobile";
+  }
+  return null;
+}
+
+/** True only for a number a driver could actually call: valid for its country,
+ *  and — when Mauritian — a real 5-prefixed 8-digit mobile. */
+export function isValidContactPhone(full: string | null | undefined): boolean {
+  return contactPhoneProblem(full) === null;
+}
+
 // Basic but solid email format check (used client + server).
 export function isValidEmail(email: string | null | undefined): boolean {
   const v = (email ?? "").trim();

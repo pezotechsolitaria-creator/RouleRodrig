@@ -13,6 +13,30 @@ import { pickupTimeLabel, pickupClock,
   formatRidePrice, rideReference, type RideStatus, type RideService,
   isOpenRide,
 } from "@/lib/rides/model";
+import { googleMapsLink, hasUsablePin } from "@/lib/orders/location";
+
+// A ride end as the desk shows it: the label, made tappable when the customer's
+// device gave us a pin. "Ma position actuelle" is a LABEL, not a place — the
+// place is the coordinates, and the operator's next act is always to open them
+// on a map (to brief a driver, or to judge which driver is close). Plain text
+// here meant copying nothing into Google Maps by hand, which is exactly what
+// the owner was doing.
+function RideEnd({
+  label, lat, lng,
+}: { label: React.ReactNode; lat?: number | null; lng?: number | null }) {
+  if (!hasUsablePin(lat, lng)) return <>{label}</>;
+  return (
+    <a
+      href={googleMapsLink(lat as number, lng as number)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="underline decoration-yellow/40 underline-offset-2 hover:text-yellow"
+      title="Open in Google Maps"
+    >
+      {label}
+    </a>
+  );
+}
 
 // ── THE DISPATCH DESK ───────────────────────────────────────────────────────
 //
@@ -32,6 +56,10 @@ import { pickupTimeLabel, pickupClock,
 type Ride = {
   id: string; service: RideService; when_kind: string; scheduled_at: string | null;
   pickup_label: string; dropoff_label: string | null; passengers: number; luggage: number;
+  // "Ma position actuelle" is a label, not a place — the place is these
+  // coordinates, and the desk renders them as a tappable map link.
+  pickup_lat?: number | null; pickup_lng?: number | null;
+  dropoff_lat?: number | null; dropoff_lng?: number | null;
   customer_name: string; customer_phone: string; quoted_price: number | null; currency: string;
   status: RideStatus; driver_id: string | null; offer_rounds: number; created_at: string;
   taxi_drivers?: { name: string; phone: string; whatsapp: string | null } | null;
@@ -348,12 +376,17 @@ export default function RidesDesk() {
                         </span>
                       </p>
                     )}
-                    <p className="flex items-start gap-2"><MapPin size={14} className="mt-0.5 text-green-400" /> {ride.pickup_label}</p>
+                    <p className="flex items-start gap-2">
+                      <MapPin size={14} className="mt-0.5 text-green-400" />
+                      <RideEnd label={ride.pickup_label} lat={ride.pickup_lat} lng={ride.pickup_lng} />
+                    </p>
                     <p className="flex items-start gap-2">
                       <Navigation size={14} className="mt-0.5 text-yellow" />
                       {/* A private day hire has no destination (M98). Saying so
                           beats an empty line the operator has to interpret. */}
-                      {ride.dropoff_label ?? (
+                      {ride.dropoff_label ? (
+                        <RideEnd label={ride.dropoff_label} lat={ride.dropoff_lat} lng={ride.dropoff_lng} />
+                      ) : (
                         <span className="text-muted">Day hire — no fixed destination</span>
                       )}
                     </p>

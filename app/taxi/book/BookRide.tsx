@@ -27,6 +27,8 @@ import {
 import type { RidePlace } from "@/lib/rides/places";
 import { searchPlaces } from "@/lib/rides/places";
 import PlacePicker from "@/components/PlacePicker";
+import PhoneInput from "@/components/PhoneInput";
+import { isValidContactPhone } from "@/lib/phone";
 import { useLanguage } from "@/context/LanguageContext";
 import { RIDES_COPY } from "@/lib/rides/copy.i18n";
 import { rideQuoteShown, rideRequestSubmitted } from "@/lib/analytics/flows";
@@ -351,8 +353,13 @@ export default function BookRide({
     (!needsDropoff || !!dropoff) &&
     (whenKind === "now" || !!when) &&
     flightRefOk;
+  // isValidContactPhone, not a length check. "70587837" was five-plus
+  // characters and sailed through to the dispatch desk, where the operator
+  // had a booking and nobody callable — libphonenumber even calls it a valid
+  // Mauritian number, which is why the rule lives in lib/phone.ts rather
+  // than in the library's metadata.
   const canBook =
-    canContinue2 && name.trim().length > 1 && phone.trim().length > 4;
+    canContinue2 && name.trim().length > 1 && isValidContactPhone(phone);
 
   return (
     <div>
@@ -665,14 +672,17 @@ export default function BookRide({
             />
           </Field>
           <Field label={c.step3.phoneLabel}>
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              inputMode="tel"
-              autoComplete="tel"
-              className={inputCls}
-              placeholder={c.step3.phonePlaceholder}
-            />
+            {/* The real phone field — country picker (Mauritius first) plus
+                per-country validation — instead of the bare text box that let
+                "70587837" through. PhoneInput emits "+230 5xxx xxxx", so the
+                dispatch desk and wa.me links downstream get a callable
+                number in one canonical shape. */}
+            <PhoneInput value={phone} onChange={setPhone} />
+            {phone.trim().length > 4 && !isValidContactPhone(phone) && (
+              <p className="mt-1.5 font-dm text-xs leading-relaxed text-red-400">
+                {c.step3.phoneInvalid}
+              </p>
+            )}
           </Field>
           <Field label={c.step3.emailLabel}>
             <input

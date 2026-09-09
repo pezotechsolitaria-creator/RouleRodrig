@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { absorbCountryCode, isValidPhone, toE164 } from "./phone";
+import { absorbCountryCode, contactPhoneProblem, isValidContactPhone, isValidPhone, toE164 } from "./phone";
 
 describe("absorbCountryCode", () => {
   it("takes a pasted +230 number out of the box and into the picker", () => {
@@ -119,5 +119,51 @@ describe("strict E.164", () => {
       expect(out, typed).not.toBeNull();
       expect(SERVER.test(out as string), typed).toBe(true);
     }
+  });
+});
+
+describe("contactPhoneProblem — the owner's Mauritian rule", () => {
+  it("rejects THE number that reached the dispatch desk", () => {
+    // "70587837" arrived as a real customer contact on a real taxi booking,
+    // and libphonenumber calls it VALID for Mauritius — its metadata accepts
+    // ranges nobody on the island dials. The owner's rule: a Mauritian
+    // mobile starts with 5 and has 8 digits. This case is the whole reason
+    // the function exists; if it ever passes, the bug is back.
+    expect(contactPhoneProblem("70587837")).toBe("mu-not-mobile");
+    expect(contactPhoneProblem("+230 70587837")).toBe("mu-not-mobile");
+    expect(contactPhoneProblem("00230 7058 7837")).toBe("mu-not-mobile");
+    expect(isValidPhone("+230 70587837")).toBe(true); // the library's blind spot, pinned
+  });
+
+  it("accepts a real Mauritian mobile, however it is written", () => {
+    for (const n of ["57698834", "+230 5769 8834", "+2305769-8834", "00230 5769 8834"]) {
+      expect(contactPhoneProblem(n), n).toBeNull();
+    }
+  });
+
+  it("treats a number with no country code as Mauritian — that is how 70587837 got in", () => {
+    expect(contactPhoneProblem("58363401")).toBeNull();
+    // A 4-prefix is not even a valid Mauritian allocation, so the library
+    // itself refuses it before our rule is consulted. Rejected either way.
+    expect(contactPhoneProblem("48363401")).toBe("invalid");
+  });
+
+  it("still lets the tourists book", () => {
+    // Réunion and France are the site's biggest visitor markets; their
+    // numbers validate by their own countries' rules, untouched.
+    expect(contactPhoneProblem("+262 692 12 34 56")).toBeNull();
+    expect(contactPhoneProblem("+33 6 12 34 56 78")).toBeNull();
+    // Not 7700 900xxx: that is Ofcom's FICTIONAL drama range and the
+    // library correctly refuses it — which is itself a good sign.
+    expect(contactPhoneProblem("+44 7911 123456")).toBeNull();
+  });
+
+  it("says empty and invalid apart, so a form can speak precisely", () => {
+    expect(contactPhoneProblem("")).toBe("empty");
+    expect(contactPhoneProblem("   ")).toBe("empty");
+    expect(contactPhoneProblem("5123")).toBe("invalid");
+    expect(contactPhoneProblem("not a number")).toBe("invalid");
+    expect(isValidContactPhone("+230 5769 8834")).toBe(true);
+    expect(isValidContactPhone("70587837")).toBe(false);
   });
 });

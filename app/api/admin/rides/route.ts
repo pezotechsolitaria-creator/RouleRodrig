@@ -90,6 +90,10 @@ export async function GET(req: NextRequest) {
 
   let q = admin.from("ride_requests")
     .select("id, service, when_kind, scheduled_at, pickup_label, dropoff_label, passengers, luggage, " +
+            // The coordinates the customer's device reported. Without them the
+            // desk showed "Ma position actuelle" as dead text — a label that
+            // names a place only the coordinates actually know.
+            "pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, " +
             "customer_name, customer_phone, quoted_price, currency, status, driver_id, offer_rounds, " +
             "created_at, assigned_at, flight_ref, meet_greet, taxi_drivers(name, phone, whatsapp)")
     .order("created_at", { ascending: false })

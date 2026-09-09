@@ -4,6 +4,7 @@ import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { guard } from "@/lib/rate-limit";
 import { sendRideEmails } from "@/lib/email";
 import { RIDE_SERVICES, RIDE_SERVICE_META } from "@/lib/rides/model";
+import { isValidContactPhone } from "@/lib/phone";
 
 // ── THE CUSTOMER'S OWN BOOKING ──────────────────────────────────────────────
 //
@@ -44,7 +45,20 @@ const bookSchema = z.object({
   flightRef: z.string().trim().max(40).optional(),
   meetGreet: z.boolean().default(false),
   name: z.string().trim().min(2).max(120),
-  phone: z.string().trim().min(5).max(40),
+  // isValidContactPhone, not a length check: "70587837" reached the dispatch
+  // desk as a customer contact and the operator had nobody callable. The form
+  // now validates too, but the form is a convenience and THIS is the rule —
+  // a Mauritian number must be a real 5-prefixed 8-digit mobile, and a
+  // foreign one must be valid for its own country (lib/phone.ts).
+  phone: z
+    .string()
+    .trim()
+    .min(5)
+    .max(40)
+    .refine(isValidContactPhone, {
+      message:
+        "Enter a number your driver can really call — a Mauritian mobile starts with 5 and has 8 digits.",
+    }),
   email: z.string().trim().email().max(160).optional().or(z.literal("")),
 })
   // ── AN ARRIVAL RUN CARRIES ITS FLIGHT OR FERRY NUMBER ─────────────────────

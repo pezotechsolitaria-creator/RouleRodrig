@@ -175,6 +175,7 @@ const EN = {
       namePlaceholder: "e.g. Marie Perrine",
       phoneLabel: "YOUR PHONE",
       phonePlaceholder: "+230 5XXX XXXX",
+      phoneInvalid: "Enter a number your driver can really call — a Mauritian mobile starts with 5 and has 8 digits.",
       emailLabel: "EMAIL (OPTIONAL)",
       emailPlaceholder: "you@example.com",
       notesLabel: "ANYTHING THE DRIVER SHOULD KNOW (OPTIONAL)",
@@ -233,6 +234,7 @@ const EN = {
       refPlaceholder: "RR-4F2A91",
       refLabel: "Your reference",
       phonePlaceholder: "+230 5XXX XXXX",
+      phoneInvalid: "Enter a number your driver can really call — a Mauritian mobile starts with 5 and has 8 digits.",
       phoneLabel: "The phone number you booked with",
     },
     cta: {
@@ -417,6 +419,7 @@ const FR: RidesCopy = {
       namePlaceholder: "ex. Marie Perrine",
       phoneLabel: "VOTRE TÉLÉPHONE",
       phonePlaceholder: "+230 5XXX XXXX",
+      phoneInvalid: "Entrez un numéro que votre chauffeur peut vraiment appeler — un portable mauricien commence par 5 et compte 8 chiffres.",
       emailLabel: "E-MAIL (FACULTATIF)",
       emailPlaceholder: "vous@exemple.com",
       notesLabel: "À SAVOIR POUR LE CHAUFFEUR (FACULTATIF)",
@@ -475,6 +478,7 @@ const FR: RidesCopy = {
       refPlaceholder: "RR-4F2A91",
       refLabel: "Votre référence",
       phonePlaceholder: "+230 5XXX XXXX",
+      phoneInvalid: "Entrez un numéro que votre chauffeur peut vraiment appeler — un portable mauricien commence par 5 et compte 8 chiffres.",
       phoneLabel: "Le numéro de téléphone utilisé pour réserver",
     },
     cta: {
@@ -656,6 +660,7 @@ const CR: RidesCopy = {
       namePlaceholder: "ex. Marie Perrine",
       phoneLabel: "OU TELEFONN",
       phonePlaceholder: "+230 5XXX XXXX",
+      phoneInvalid: "Met enn nimero ki ou sofer kapav vremem apele — enn portab morisien konmans ar 5 ek ena 8 sif.",
       emailLabel: "EMAIL (OPSIONEL)",
       emailPlaceholder: "ou@exemple.com",
       notesLabel: "ENN ZAFER SOFER BIZIN KONE (OPSIONEL)",
@@ -714,6 +719,7 @@ const CR: RidesCopy = {
       refPlaceholder: "RR-4F2A91",
       refLabel: "Ou referans",
       phonePlaceholder: "+230 5XXX XXXX",
+      phoneInvalid: "Met enn nimero ki ou sofer kapav vremem apele — enn portab morisien konmans ar 5 ek ena 8 sif.",
       phoneLabel: "Nimero telefonn ki ou finn servi pou rezerve",
     },
     cta: {

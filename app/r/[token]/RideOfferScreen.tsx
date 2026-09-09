@@ -6,6 +6,7 @@ import {
   Phone, PlaneTakeoff, CheckCircle2, AlertCircle,
 } from "lucide-react";
 import { RIDE_SERVICE_META, formatRidePrice, type RideService } from "@/lib/rides/model";
+import { googleMapsLink, hasUsablePin } from "@/lib/orders/location";
 
 // ── ONE JOB. TWO BUTTONS. ───────────────────────────────────────────────────
 //
@@ -30,6 +31,12 @@ type Offer = {
   scheduledAt?: string | null;
   pickup?: string;
   dropoff?: string;
+  // The pins behind the labels — "Ma position actuelle" names a place only
+  // these numbers know, and a driver's next act is to navigate to it.
+  pickupLat?: number | null;
+  pickupLng?: number | null;
+  dropoffLat?: number | null;
+  dropoffLng?: number | null;
   passengers?: number;
   luggage?: number;
   notes?: string | null;
@@ -233,14 +240,39 @@ export default function RideOfferScreen({ token }: { token: string }) {
           <MapPin size={18} className="mt-0.5 shrink-0 text-green-400" />
           <div>
             <p className="font-bebas text-[10px] tracking-[0.22em] text-muted">PICK UP</p>
-            <p className="font-dm text-base text-offwhite">{offer.pickup}</p>
+            {/* Tappable when the customer's device gave us a pin: the label
+                alone can literally read "Ma position actuelle", and the one
+                thing a driver does with a pickup is navigate to it. */}
+            {hasUsablePin(offer.pickupLat, offer.pickupLng) ? (
+              <a
+                href={googleMapsLink(offer.pickupLat as number, offer.pickupLng as number)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-dm text-base text-offwhite underline decoration-yellow/40 underline-offset-2"
+              >
+                {offer.pickup}
+              </a>
+            ) : (
+              <p className="font-dm text-base text-offwhite">{offer.pickup}</p>
+            )}
           </div>
         </div>
         <div className="flex items-start gap-3">
           <Navigation size={18} className="mt-0.5 shrink-0 text-yellow" />
           <div>
             <p className="font-bebas text-[10px] tracking-[0.22em] text-muted">DROP OFF</p>
-            <p className="font-dm text-base text-offwhite">{offer.dropoff}</p>
+            {hasUsablePin(offer.dropoffLat, offer.dropoffLng) ? (
+              <a
+                href={googleMapsLink(offer.dropoffLat as number, offer.dropoffLng as number)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-dm text-base text-offwhite underline decoration-yellow/40 underline-offset-2"
+              >
+                {offer.dropoff}
+              </a>
+            ) : (
+              <p className="font-dm text-base text-offwhite">{offer.dropoff}</p>
+            )}
           </div>
         </div>
 
