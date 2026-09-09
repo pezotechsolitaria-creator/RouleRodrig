@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { PlaceLink, RouteLink } from "@/components/admin/PlaceLink";
 import { toast } from "sonner";
 import { buildPickupQr } from "@/lib/orders/pickup-qr";
 import {
@@ -31,7 +32,12 @@ import { pickupTimeLabel, pickupClock,
 
 type Ride = {
   id: string; service: RideService; when_kind: string; scheduled_at: string | null;
-  pickup_label: string; dropoff_label: string | null; passengers: number; luggage: number;
+  pickup_label: string; dropoff_label: string | null;
+  // The pins behind those labels. A pickup reading "Ma position actuelle"
+  // is answered only by these.
+  pickup_lat: number | null; pickup_lng: number | null;
+  dropoff_lat: number | null; dropoff_lng: number | null;
+  passengers: number; luggage: number;
   customer_name: string; customer_phone: string; customer_email: string | null;
   quoted_price: number | null; currency: string;
   status: RideStatus; driver_id: string | null; offer_rounds: number; created_at: string;
@@ -296,7 +302,13 @@ export default function RidesDesk() {
                           {RIDE_SERVICE_META[r.service]?.label ?? r.service} · {rideReference(r.id)}
                         </p>
                         <p className="mt-0.5 truncate font-dm text-xs text-muted">
-                          {r.pickup_label} → {r.dropoff_label ?? "day hire"}
+                          <PlaceLink label={r.pickup_label} lat={r.pickup_lat} lng={r.pickup_lng} />
+                          {" → "}
+                          {r.dropoff_label ? (
+                            <PlaceLink label={r.dropoff_label} lat={r.dropoff_lat} lng={r.dropoff_lng} />
+                          ) : (
+                            "day hire"
+                          )}
                           {r.flight_ref && (
                             <span className="ml-2 rounded-md border border-yellow/30 bg-yellow/10 px-1.5 py-0.5 font-dm text-[11px] text-yellow">
                               {r.flight_ref}
@@ -369,15 +381,37 @@ export default function RidesDesk() {
                         </span>
                       </p>
                     )}
-                    <p className="flex items-start gap-2"><MapPin size={14} className="mt-0.5 text-green-400" /> {ride.pickup_label}</p>
+                    <p className="flex items-start gap-2">
+                      <MapPin size={14} className="mt-0.5 text-green-400" />
+                      <PlaceLink
+                        label={ride.pickup_label}
+                        lat={ride.pickup_lat}
+                        lng={ride.pickup_lng}
+                      />
+                    </p>
                     <p className="flex items-start gap-2">
                       <Navigation size={14} className="mt-0.5 text-yellow" />
                       {/* A private day hire has no destination (M98). Saying so
                           beats an empty line the operator has to interpret. */}
-                      {ride.dropoff_label ?? (
+                      {ride.dropoff_label ? (
+                        <PlaceLink
+                          label={ride.dropoff_label}
+                          lat={ride.dropoff_lat}
+                          lng={ride.dropoff_lng}
+                        />
+                      ) : (
                         <span className="text-muted">Day hire — no fixed destination</span>
                       )}
                     </p>
+                    {/* How far the job is, which is what the desk is deciding
+                        and which neither pin answers on its own. */}
+                    <RouteLink
+                      fromLat={ride.pickup_lat}
+                      fromLng={ride.pickup_lng}
+                      toLat={ride.dropoff_lat}
+                      toLng={ride.dropoff_lng}
+                      className="text-xs"
+                    />
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-2 border-t border-white/10 pt-3">

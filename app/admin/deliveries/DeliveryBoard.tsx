@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { PlaceLink, RouteLink } from "@/components/admin/PlaceLink";
 import { usePolling } from "@/lib/use-polling";
 import { KIND_LABEL, toRequestKind } from "@/lib/delivery/kind";
 import Link from "next/link";
@@ -23,6 +24,10 @@ type Live = {
   storeName: string; storePhone: string | null;
   customerName: string | null; customerPhone: string | null;
   dropoffNote: string | null;
+  // m196. The pins the desk needs to answer "where is this" — a label
+  // alone can read "Ma position actuelle", which says nothing.
+  pickupLat: number | null; pickupLng: number | null;
+  dropoffLat: number | null; dropoffLng: number | null;
   driverId: string | null; driverName: string | null; driverPhone: string | null;
   earning: number; customerFee: number;
   createdAt: string; assignedAt: string | null;
@@ -49,6 +54,8 @@ type Driver = {
 type Req = {
   id: string; kind: string; what: string; sizeClass: string; status: string;
   pickupText: string; dropoffText: string;
+  pickupLat: number | null; pickupLng: number | null;
+  dropoffLat: number | null; dropoffLng: number | null;
   contactName: string; contactPhone: string;
   spendCap: number | null;
   createdAt: string; expiresAt: string | null;
@@ -251,7 +258,16 @@ export default function DeliveryBoard() {
                       {d.jobKind === "direct" && d.what && (
                         <p className="font-dm text-xs text-muted">{d.what}</p>
                       )}
-                      {d.dropoffNote && <p className="font-dm text-xs text-muted">→ {d.dropoffNote}</p>}
+                      {d.dropoffNote && (
+                        <p className="font-dm text-xs text-muted">
+                          {"→ "}
+                          <PlaceLink
+                            label={d.dropoffNote}
+                            lat={d.dropoffLat}
+                            lng={d.dropoffLng}
+                          />
+                        </p>
+                      )}
                     </div>
                     <span className={`shrink-0 rounded-full px-3 py-1 font-dm text-[11px] font-semibold ${
                       isException ? "bg-red-500/20 text-red-300"
@@ -413,7 +429,16 @@ export default function DeliveryBoard() {
                         {r.spendCap != null && ` · up to Rs ${centsToDecimalString(r.spendCap)}`}
                       </p>
                       <p className="mt-1.5 font-dm text-xs text-muted">
-                        {r.pickupText} → {r.dropoffText}
+                        <PlaceLink label={r.pickupText} lat={r.pickupLat} lng={r.pickupLng} />
+                        {" → "}
+                        <PlaceLink label={r.dropoffText} lat={r.dropoffLat} lng={r.dropoffLng} />
+                        {" "}
+                        <RouteLink
+                          fromLat={r.pickupLat}
+                          fromLng={r.pickupLng}
+                          toLat={r.dropoffLat}
+                          toLng={r.dropoffLng}
+                        />
                       </p>
                       <p className="mt-1 font-dm text-xs text-muted">
                         {r.contactName} · {r.contactPhone}

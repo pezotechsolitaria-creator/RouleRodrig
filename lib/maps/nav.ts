@@ -56,6 +56,23 @@ export function routeUrl(from: Point, to: Point): string {
   );
 }
 
+/**
+ * Show a point on a map, without starting anything.
+ *
+ * ── THE SHAPE THIS FILE CALLS THE WORST ONE, USED ON PURPOSE ──────────────
+ * The header above says /maps/search/ "drops a pin" and calls it the worst of
+ * the three for the driver console. That is true THERE: a driver at the
+ * roadside wants guidance, and a pin costs them two more taps.
+ *
+ * At a desk it is exactly right. The dispatcher is not going anywhere — they
+ * are answering "where actually is this person", which on a request whose
+ * pickup reads "Ma position actuelle" is a question the label cannot answer
+ * and only the coordinates can. Turn-by-turn from the office would be absurd.
+ */
+export function pinUrl(lat: number, lng: number): string {
+  return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+}
+
 /** A named place with no coordinates — the only case a text search is right. */
 export function searchUrl(query: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;

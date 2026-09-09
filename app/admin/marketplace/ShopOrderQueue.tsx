@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { pinUrl } from "@/lib/maps/nav";
 import { usePolling } from "@/lib/use-polling";
 import { toast } from "sonner";
 import {
@@ -394,7 +395,10 @@ function ShopOrderCard({
         )}
         {order.deliveryLat != null && order.deliveryLng != null && (
           <a
-            href={`https://www.google.com/maps/search/?api=1&query=${order.deliveryLat},${order.deliveryLng}`}
+            // Same URL shape as every other pin on the platform. Written
+            // once in lib/maps/nav.ts, because this file and three others
+            // had their own copy of it.
+            href={pinUrl(order.deliveryLat, order.deliveryLng)}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-yellow hover:underline"

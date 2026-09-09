@@ -89,7 +89,11 @@ export async function GET(req: NextRequest) {
   }
 
   let q = admin.from("ride_requests")
-    .select("id, service, when_kind, scheduled_at, pickup_label, dropoff_label, passengers, luggage, " +
+    // The COORDINATES, not just the labels. A pickup that reads "Ma position
+    // actuelle" tells the desk nothing; the pin behind it is the whole
+    // answer, and it was being selected away.
+    .select("id, service, when_kind, scheduled_at, pickup_label, dropoff_label, " +
+            "pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, passengers, luggage, " +
             // customer_email: the desk had no way to reach somebody whose
             // phone was unreachable. It is optional on the form, so it is
             // often null — the card says so rather than showing a blank.
