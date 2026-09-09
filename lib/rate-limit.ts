@@ -68,8 +68,28 @@ export function guard(
   scope: string,
   limit: number,
   windowMs: number,
+  /** ── AN EXTRA KEY, WHERE THE IP IS THE WRONG UNIT ────────────────────
+   *  Every limit here is keyed on the client IP, and on Rodrigues that is a
+   *  much blunter instrument than it looks: mobile CGNAT puts a large share
+   *  of the island behind a handful of addresses, so one budget is shared by
+   *  strangers.
+   *
+   *  It bites hardest on polling. The tracking screen re-reads its request
+   *  every twenty seconds — three calls a minute, each one entirely
+   *  legitimate — so twenty people watching twenty different deliveries eat
+   *  a 60/min ceiling between them and start 429ing each other.
+   *
+   *  Passing the thing being polled splits that into one bucket per request,
+   *  which is the unit the limit is actually about.
+   *
+   *  NOT for the guessing paths. Where the budget IS the brute-force
+   *  protection — a guest supplying an email against a request id — the IP
+   *  must stay the whole key, or an attacker splits their own budget simply
+   *  by varying what they guess. */
+  identity?: string,
 ): NextResponse | null {
-  const res = rateLimit(`${scope}:${clientIp(req)}`, limit, windowMs);
+  const key = identity ? `${scope}:${identity}:${clientIp(req)}` : `${scope}:${clientIp(req)}`;
+  const res = rateLimit(key, limit, windowMs);
   return res.ok ? null : tooMany(res.retryAfter, res.limit);
 }
 
@@ -194,8 +214,11 @@ export async function guardShared(
   scope: string,
   limit: number,
   windowMs: number,
+  /** See guard(). Splits the bucket by the thing being acted on, for the
+   *  scopes where the IP is not the unit the limit is about. */
+  identity?: string,
 ): Promise<NextResponse | null> {
-  const local = guard(req, scope, limit, windowMs);
+  const local = guard(req, scope, limit, windowMs, identity);
   if (local) return local;
   if (!hasSharedLimiter()) return null;
 
@@ -203,7 +226,8 @@ export async function guardShared(
   // Bucket the key by window so a fixed window rolls over cleanly even if a key
   // outlives its TTL for a moment.
   const bucket = Math.floor(Date.now() / windowMs);
-  const count = await sharedIncr(`rl:${scope}:${clientIp(req)}:${bucket}`, windowSec);
+  const who = identity ? `${identity}:${clientIp(req)}` : clientIp(req);
+  const count = await sharedIncr(`rl:${scope}:${who}:${bucket}`, windowSec);
   if (count === null || count <= limit) return null;
   return tooMany(windowSec, limit);
 }

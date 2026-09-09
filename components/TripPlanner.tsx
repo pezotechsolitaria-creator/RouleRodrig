@@ -221,12 +221,15 @@ export default function TripPlanner() {
           className="mb-12"
         >
           <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.planner.eyebrow}</p>
-          <h2
+          {/* h1, not h2. Same fault as /faq and /map: the page's own title
+              rendered as an h2 and the document had no h1 at all. Used by
+              exactly one route. */}
+          <h1
             className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]"
             style={{ fontSize: "clamp(34px, 7vw, 72px)" }}
           >
             {t.planner.title}
-          </h2>
+          </h1>
           <p className="text-muted font-dm text-sm md:text-base mt-4 max-w-xl">
             {t.planner.subtitle}
           </p>

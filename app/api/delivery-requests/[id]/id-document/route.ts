@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { guard } from "@/lib/rate-limit";
 import { detectFileType } from "@/lib/file-signature";
+import { makeViewable } from "@/lib/images/optimise";
 
 // POST /api/delivery-requests/<id>/id-document — the customer's ID, for a job
 // they are settling in cash.
@@ -40,12 +41,23 @@ export const dynamic = "force-dynamic";
 
 const MAX_BYTES = 4 * 1024 * 1024;
 // No PDF, and never SVG — a script-execution shape wearing an image extension.
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/heic"]);
+// image/avif: newer Android cameras and share sheets produce it. The
+// signature sniffer returned null for those, so a photo just taken was
+// refused as "not a photo" — and only when it was SMALL, because a large
+// one is re-encoded to JPEG by the client shrinker before it arrives.
+const ALLOWED = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/avif",
+]);
 const EXT: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
   "image/heic": "heic",
+  "image/avif": "avif",
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -54,13 +66,19 @@ export async function POST(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  const limited = guard(req, "delivery-id-document", 6, 60_000);
-  if (limited) return limited;
-
   const { id } = await ctx.params;
   if (!UUID.test(id)) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
+
+  // Keyed by the REQUEST too, which is why it now runs after the id is known
+  // and validated. This upload is the ONE thing that releases a cash job — the
+  // driver's button stays disabled until it lands — and six attempts a minute
+  // shared across everyone behind a CGNAT address is not a budget for that. A
+  // customer whose first upload failed on a bad signal retries a few times and
+  // is locked out while a driver waits at their door.
+  const limited = guard(req, "delivery-id-document", 6, 60_000, id);
+  if (limited) return limited;
 
   if (!hasServiceRole()) {
     console.error("id document: SUPABASE_SERVICE_ROLE_KEY missing");
@@ -115,11 +133,19 @@ export async function POST(
       );
     }
 
-    const name = `${Date.now()}-${Math.random().toString(36).slice(2)}.${EXT[detected]}`;
+
+    // ── HEIC BECOMES SOMETHING THE DRIVER CAN OPEN ────────────────────────
+    // An iPhone HEIC is commonly 1–2 MB, so it clears the size cap and the
+    // client shrinker leaves it alone — nothing to shrink. Stored as .heic it
+    // is unreadable to every browser but Safari, which on the Android phone at
+    // the customer's door is a blank tab. Pixels are kept; only the container
+    // changes. AVIF is left alone — every current browser renders it.
+    const out = await makeViewable(file, detected);
+    const name = `${Date.now()}-${Math.random().toString(36).slice(2)}.${out.ext}`;
     const key = `${id}/${name}`;
     const { error } = await admin.storage
       .from("delivery-identity")
-      .upload(key, file, { contentType: detected, upsert: false });
+      .upload(key, out.body, { contentType: out.contentType, upsert: false });
 
     if (error) {
       console.error("id document upload failed", error);

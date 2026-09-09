@@ -7,6 +7,21 @@ import { toE164 } from "@/lib/phone";
 import { notifyDriversOfNewRequest } from "@/lib/delivery/notify-requests";
 import { ERRAND_KINDS, REQUEST_KINDS } from "@/lib/delivery/kind";
 
+// ── THE POST BUTTON WAITS FOR THE WHOLE ISLAND TO BE TOLD ──────────────────
+// notifyDriversOfNewRequest() below is awaited on purpose — a serverless
+// function that has returned can be frozen mid-flight, and a job nobody hears
+// about is a job nobody answers. That decision stands.
+//
+// What was missing is a ceiling. It runs an RPC plus a Promise.allSettled over
+// every eligible driver on two channels, and with no maxDuration this route
+// took the platform default. Past that the gateway returns HTML, which the
+// client's res.json().catch(() => ({})) flattens into a status with no id — so
+// the request IS created, drivers ARE told, and the customer sees the Post
+// button spin and then fail. They post it again.
+//
+// 60s matches the notifications worker, which does the same fan-out.
+export const maxDuration = 60;
+
 // POST /api/delivery-requests — post a Deliver Anything job.
 //
 // A thin, Zod-validated pass-through, exactly like /api/checkout. Every rule

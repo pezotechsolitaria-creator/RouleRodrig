@@ -8,6 +8,13 @@
 //
 // Immutable hashed build assets are cache-first (safe — their URL changes when
 // they change). Everything else is network-first with an offline fallback.
+// v355 — A FAILED NAVIGATION NO LONGER RETURNS THE HOMEPAGE. Both fallbacks
+// ended `|| cache.match(SHELL)`, and SHELL is "/", so any navigation whose
+// fetch threw — a bad mobile connection, a cold serverless start, a route
+// still compiling — handed back the cached HOMEPAGE with the requested URL
+// still in the address bar. Next hydrated it as the homepage and corrected
+// the location to "/". Reported by the owner as pages "not loading"; the
+// customer sees their delivery link open the front page instead.
 // v95 — M9/M10 release: stale-quote guard (RR012), payment-ledger fix and
 // checkout idempotency. Bumping evicts every older cache on activate, so no
 // client can keep running a checkout bundle that predates those fixes.
@@ -223,10 +230,23 @@
 // v309 - the kitchen can see what to cook in total, not one ticket at a time.
 // v310 - All day never merges two kitchens into one pan.
 // v311 - the product page prices what you are actually taking.
-// v337 - ride phone numbers are validated (a Mauritian mobile starts with 5,
-// 8 digits) and every ride location is a tappable map link, so the booking
-// form and both dispatch surfaces changed.
-const CACHE = "rr-cache-v337";
+
+// v345 — the driver console finally knows where to collect: Navigate points
+// at the leg the driver is actually on, and the quote board can show the
+// whole route instead of only how far away the pickup is.
+// v361 — ride phone numbers are validated and stored in international format,
+// and every ride location is a tappable Google Maps link on the dispatch desk
+// and the driver's offer screen. Past v360 (main) and v337 (this branch): a
+// cache version must only ever move forward, or it evicts nothing.
+const CACHE = "rr-cache-v361";
+
+// Dev hosts get no cache-first anything: their asset URLs are not content
+// hashed, so the immutability that makes cache-first safe does not hold.
+const IS_DEV_HOST =
+  self.location.hostname === "localhost" ||
+  self.location.hostname === "127.0.0.1" ||
+  self.location.hostname.endsWith(".local") ||
+  /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(self.location.hostname);
 const SHELL = "/";
 
 self.addEventListener("install", (event) => {
@@ -243,6 +263,42 @@ self.addEventListener("activate", (event) => {
     })(),
   );
 });
+
+// ── WHAT A FAILED NAVIGATION SHOULD SAY ─────────────────────────────────────
+//
+// Small, self-contained and honest: no build assets, because the reason we are
+// here is that the network is not answering. It keeps the requested URL, so the
+// browser's own reload lands back on the page the customer actually wanted
+// rather than somewhere else.
+function offlinePage(url) {
+  const body = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>No connection</title>
+<style>
+  :root { color-scheme: dark }
+  body { margin:0; min-height:100vh; display:flex; align-items:center;
+         justify-content:center; background:#0B0B0B; color:#F5F3EF;
+         font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+         padding:24px; text-align:center }
+  h1 { font-size:20px; margin:0 0 8px }
+  p  { margin:0 0 20px; color:#B0B0B0; line-height:1.5; font-size:14px }
+  a  { display:inline-block; min-height:48px; line-height:48px; padding:0 24px;
+       border-radius:999px; background:#F5C842; color:#0B0B0B;
+       font-weight:700; text-decoration:none }
+</style></head><body><div>
+  <h1>No connection</h1>
+  <p>We couldn't reach Roul&eacute; Rodrigues just now.<br>Nothing you sent has been lost.</p>
+  <a href="${url.pathname}${url.search}">Try again</a>
+</div></body></html>`;
+  return new Response(body, {
+    status: 503,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      // Never let this land in any cache as if it were the page.
+      "Cache-Control": "no-store",
+    },
+  });
+}
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
@@ -265,24 +321,82 @@ self.addEventListener("fetch", (event) => {
           }
           return fresh;
         } catch {
+          // ── NEVER SERVE THE HOMEPAGE UNDER SOMEBODY ELSE'S URL ──────────
+          //
+          // This used to fall back to `cache.match(SHELL)` -- SHELL is "/" --
+          // for ANY failed navigation. So a customer opening
+          // /deliver/<id> on a bad connection, or during a cold serverless
+          // start, or while a route was still compiling, was handed the
+          // CACHED HOMEPAGE with their own URL in the address bar. Next then
+          // hydrated it as the homepage and corrected the location to "/".
+          //
+          // From the outside that is indistinguishable from "the app lost my
+          // delivery", and it is reachable on a normal Rodrigues mobile
+          // connection, not only offline. It is the whole of the owner's
+          // report that pages were "not loading" -- and it was reproduced
+          // here by opening a delivery link and landing on the homepage.
+          //
+          // A wrong page rendered confidently is worse than an honest error,
+          // because the customer cannot tell it is wrong.
           const cache = await caches.open(CACHE);
-          return (await cache.match(request)) || (await cache.match(SHELL)) || Response.error();
+
+          // The SAME page, stale, is still the right page -- that is what an
+          // offline cache is for.
+          const mine = await cache.match(request);
+          if (mine) return mine;
+
+          // The shell is only ever the answer for the shell's own URL.
+          if (url.pathname === "/") {
+            const shell = await cache.match(SHELL);
+            if (shell) return shell;
+          }
+
+          return offlinePage(url);
         }
       })(),
     );
     return;
   }
 
-  // ── Immutable hashed build assets: cache-first ──
-  if (sameOrigin && url.pathname.startsWith("/_next/static/")) {
+  // ── Immutable hashed build assets: cache-first (DEPLOYED BUILDS ONLY) ──
+  //
+  // "Immutable" is a PRODUCTION property, not a universal one. Next content-
+  // hashes these filenames on a real build, so a changed file is a changed URL
+  // and cache-first can never go stale.
+  //
+  // In dev, Turbopack REUSES the names: _03qkajq._.js keeps its name while its
+  // contents change on every edit. Cache-first then pins the first copy a
+  // browser ever saw, for as long as the cache lives, and nothing surfaces it.
+  //
+  // It cost hours twice in one session. A CSS fix appeared not to apply -- the
+  // server was serving `right: 12px`, the page was running a cached sheet
+  // without it. Then the map appeared to have regressed to pixelated 2016
+  // imagery: the served chunk carried the Mapbox URL, the cached chunk predated
+  // it, and that looks exactly like somebody swapped the basemap. Measured
+  // while fixing it -- server 42,384 bytes with Mapbox, SW cache 41,811 bytes
+  // with the EOX fallback, same URL.
+  //
+  // localhost now falls through to the network-first handler below, which still
+  // serves from cache when the dev server is down.
+  if (sameOrigin && !IS_DEV_HOST && url.pathname.startsWith("/_next/static/")) {
     event.respondWith(
       (async () => {
         const cache = await caches.open(CACHE);
         const hit = await cache.match(request);
         if (hit) return hit;
-        const res = await fetch(request);
-        if (res && res.ok) cache.put(request, res.clone()).catch(() => {});
-        return res;
+        // The only branch here without a try. An uncaught reject inside
+        // respondWith surfaces as a generic network failure for the asset,
+        // which for a JS chunk means the page half-loads and the React error
+        // boundary catches whatever breaks next -- an error two steps removed
+        // from "the phone lost signal". Failing explicitly keeps the cause
+        // legible in the console and in the Network panel.
+        try {
+          const res = await fetch(request);
+          if (res && res.ok) cache.put(request, res.clone()).catch(() => {});
+          return res;
+        } catch {
+          return new Response("", { status: 504, statusText: "offline" });
+        }
       })(),
     );
     return;
@@ -301,9 +415,16 @@ self.addEventListener("fetch", (event) => {
       } catch {
         const cached = await caches.match(request);
         if (cached) return cached;
+        // The same rule as the navigation handler above, for the same reason:
+        // the shell is the answer for the shell's URL and for nothing else.
+        // Navigations return earlier so this is belt and braces -- but it is
+        // where the next person would copy the wrong idea from.
         if (request.mode === "navigate") {
-          const home = await caches.match(SHELL);
-          if (home) return home;
+          if (url.pathname === "/") {
+            const home = await caches.match(SHELL);
+            if (home) return home;
+          }
+          return offlinePage(url);
         }
         throw new Error("offline");
       }

@@ -6,6 +6,7 @@ import { ArrowLeft, Flame, Users, Clock, ChefHat, UtensilsCrossed, Info, Message
 import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
 import { getFoodItem } from "@/lib/food/queries";
+import { dishMetaDescription } from "@/lib/food/meta-description";
 import { centsToShortString } from "@/lib/money";
 import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
@@ -35,10 +36,20 @@ export async function generateMetadata({
   const dish = await getFoodItem(supabase, slug);
   if (!dish) return { title: "Dish not found | Roulé Rodrigues" };
 
-  const description =
-    dish.descriptor ??
-    dish.description?.slice(0, 155) ??
-    `Order ${dish.name} in Rodrigues — pick it up or get it delivered.`;
+  // WAS: descriptor ?? description.slice(0,155) ?? a template.
+  //
+  // The descriptor is the ingredient strip printed under a name on a menu card
+  // — three words, by design — and trying it FIRST gave nine of the ten dish
+  // pages a meta description between 12 and 45 characters. "500g lobster" is
+  // not a short description, it is none: Google discards it and writes its own
+  // snippet, which on a page that sells something means giving up the one line
+  // you control in the result. See lib/food/meta-description.ts.
+  const description = dishMetaDescription({
+    name: dish.name,
+    descriptor: dish.descriptor,
+    description: dish.description,
+    kitchenName: dish.kitchenName,
+  });
 
   return {
     title: `${dish.name} — order in Rodrigues | Roulé Rodrigues`,

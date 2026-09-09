@@ -1,8 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toCents } from "@/lib/money";
 import { usePolling } from "@/lib/use-polling";
-import { isErrandKind, toRequestKind, type RequestKind } from "@/lib/delivery/kind";
+import {
+  isErrandKind,
+  mayLayOutMoney,
+  toRequestKind,
+  type RequestKind,
+} from "@/lib/delivery/kind";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -52,6 +58,7 @@ import {
   TERMINAL_LEGS,
   BROKEN_LEGS,
   PRE_PICKUP_LEGS,
+  DEAD_LEGS,
   requestRef,
   type Quote,
 } from "@/lib/delivery/request-status";
@@ -59,6 +66,7 @@ import { emailFor, saveRequest } from "@/lib/delivery/my-requests";
 import { columnsToItem, DELIVER_COPY } from "@/lib/delivery/copy.i18n";
 import { writeDraft } from "@/lib/delivery/draft";
 import { formatWindow } from "@/lib/delivery/schedule";
+import { shrinkImage } from "@/lib/images/shrink";
 import { recipe, transition, travel, type as t } from "@/lib/delivery/tokens";
 
 // ── Where a Deliver Anything job is actually decided ────────────────────────
@@ -133,6 +141,21 @@ type RequestView = {
   createdAt: string;
   expiresAt: string | null;
   cancelReason: string | null;
+  /** ── WHERE A TRANSFER ACTUALLY GOES ──────────────────────────────────
+   *  M190. "Bank transfer" was offered with no destination anywhere in this
+   *  flow — no account_number, no bank_name, nothing, while the marketplace
+   *  side has all of it. The customer chose it, was told "Send it now", and
+   *  had nowhere to send it.
+   *
+   *  Null as a WHOLE when the owner has not filled the account in, which is
+   *  what stops the option being offered at all. An empty destination must
+   *  never be presented as a working choice. */
+  bankDetails?: {
+    accountName: string;
+    bankName: string | null;
+    accountNumber: string | null;
+    note: string | null;
+  } | null;
   quotes: Quote[];
   delivery: {
     id: string;
@@ -346,17 +369,44 @@ export default function RequestTracker({
   });
 
   async function act(body: Record<string, unknown>): Promise<boolean> {
-    const res = await fetch(`/api/delivery-requests/${id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...body, email: emailRef.current || undefined }),
-    });
-    const json = (await res.json()) as { ok?: boolean; error?: string };
-    if (!res.ok) {
-      toast.error(json.error ?? c.error.generic);
+    // ── EVERY WAY THIS CAN FAIL HAS TO REACH A HUMAN ──────────────────────
+    // This had no try at all, while its sibling load() below has exactly this
+    // guard. On island mobile data a dropped connection rejects fetch(), and a
+    // proxy or an error page rejects res.json() — and book(), the only caller
+    // that matters, wraps this in try/finally with NO catch and is invoked as
+    // `void book(...)`. So the rejection was unhandled: the spinner cleared,
+    // the sheet stayed open, and the customer was told NOTHING.
+    //
+    // That is what "it crashes when I choose how to pay" looks like from the
+    // customer's seat, and in `next dev` an unhandled rejection puts the
+    // full-screen error overlay on top of the sheet.
+    //
+    // Confirming is the one action on this screen that commits money, so it is
+    // the last place that should fail in silence.
+    try {
+      const res = await fetch(`/api/delivery-requests/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...body, email: emailRef.current || undefined }),
+      });
+      // A 502 from the edge is HTML, not JSON. Reading the status first means
+      // a gateway error reports as a network problem rather than as a parse
+      // error nobody can act on.
+      let json: { ok?: boolean; error?: string } = {};
+      try {
+        json = (await res.json()) as { ok?: boolean; error?: string };
+      } catch {
+        json = {};
+      }
+      if (!res.ok) {
+        toast.error(json.error ?? c.error.generic);
+        return false;
+      }
+      return true;
+    } catch {
+      toast.error(c.error.network);
       return false;
     }
-    return true;
   }
 
   async function book(quote: Quote, paymentMethod: PaymentMethod) {
@@ -521,19 +571,110 @@ export default function RequestTracker({
     language,
   );
   const KindIcon = KIND_ICON[toRequestKind(view.kind)];
-  // Getting out. Two different acts behind one control:
+  // Getting out. THREE different acts behind one control:
   //   open      -> withdraw the request. Nobody is committed; costs nothing.
   //   accepted  -> cancel a booked driver, but ONLY before they collect. After
   //                that the database refuses and names who to call instead, so
   //                offering the button there would be a promise the server
   //                breaks.
+  //   accepted, -> the job is already over and the request was left behind at
+  //   job dead     'accepted', because nothing on the server moves it back.
+  //                cancel_delivery_request() has handled exactly this since
+  //                m145 and this page never asked it to — so an operator
+  //                killing a job stranded the customer on a screen that said
+  //                "booked" with no way off it. A tidy-up, not a cancellation,
+  //                and the label says so.
   const prePickup =
     view.status === "accepted" &&
     (PRE_PICKUP_LEGS as readonly string[]).includes(
       view.delivery?.status ?? "",
     );
-  const canWithdraw = view.status === "open" || prePickup;
+  const strandedAccepted =
+    view.status === "accepted" &&
+    (DEAD_LEGS as readonly string[]).includes(view.delivery?.status ?? "");
+  // Still 'open' in the database, but past its expiry. requestStatusCopy()
+  // calls that dead well before sweep_delivery_requests() gets to the row, so
+  // this page was printing "Withdraw this request" directly underneath its own
+  // headline saying the request had expired. The POST still works — the SQL
+  // sees 'open' — it is only the word that was wrong.
+  const expiredUnswept = view.status === "open" && status.tone === "dead";
+  // Both of these are TIDYING UP something already over, which is why they
+  // share a label that says neither "cancel" nor "withdraw".
+  const stranded = strandedAccepted || expiredUnswept;
+  const canWithdraw =
+    view.status === "open" || prePickup || strandedAccepted;
   const closes = expiresIn(view.expiresAt, language);
+
+  // Is a document still owed, and therefore the only thing on this screen that
+  // matters? A cash job waits on the customer's ID, a transfer on the receipt;
+  // in both cases the driver cannot start until it lands.
+  const blockingDocument =
+    view.status === "accepted" &&
+    ((view.delivery?.paymentMethod === "cash" && !view.delivery?.idDocumentAt) ||
+      (view.delivery?.paymentMethod === "bank_transfer" &&
+        !view.delivery?.paymentProofAt));
+
+  // What the customer asked for: the item, the window, and both addresses.
+  //
+  // Lifted into a const when this was briefly folded behind a summary to buy
+  // back 190px. The fold is gone -- the owner's verdict was that it made the
+  // screen harder, and he was right, because it put a tap between a customer
+  // and their own collection address. The const stays: it keeps the section's
+  // body out of an already very long return.
+  const askedFor = (
+    <>
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-yellow/12 text-yellow">
+              <KindIcon size={17} />
+            </span>
+            <div className="min-w-0">
+              <p className={cn(t.cardTitle, "text-offwhite")}>{view.what}</p>
+              {/* The two kinds are named with the FORM's words, not a second
+                  house translation of the same idea. */}
+              <p className={cn(t.meta, "mt-1 text-[#B0B0B0]")}>
+                {KIND_TITLE[toRequestKind(view.kind)]}
+                {view.sizeClass === "large" && ` · ${c.tracker.largeItem}`}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-3">
+            {/* WHEN, above where. M152 gave the request a window and this screen
+                had no line for it — so a customer who asked for "tomorrow
+                afternoon" could not see, anywhere, that we had understood. */}
+            {view.windowStart && (
+              <p
+                className={cn(t.bodySm, "flex items-center gap-2 text-offwhite")}
+              >
+                <Clock size={15} className="shrink-0 text-yellow" aria-hidden />
+                <span>
+                  {/* The window itself was already language-aware and was being
+                      handed a hardcoded "en" by the one screen that renders it
+                      for a customer. */}
+                  <span className="text-[#B0B0B0]">{c.tracker.neededLabel} </span>
+                  {formatWindow(
+                    view.windowStart,
+                    view.windowEnd,
+                    view.scheduleKind,
+                    view.timeSlot,
+                    language,
+                  )}
+                </span>
+              </p>
+            )}
+            <Leg
+              label={c.tracker.collectFrom}
+              place={view.pickupText}
+              note={view.pickupNote}
+            />
+            <Leg
+              label={c.tracker.deliverTo}
+              place={view.dropoffText}
+              note={view.dropoffNote}
+            />
+          </div>
+    </>
+  );
 
   return (
     <div className="flex flex-col gap-6 pb-40">
@@ -549,7 +690,10 @@ export default function RequestTracker({
       </p>
 
       {/* ── Where this stands ───────────────────────────────────────────── */}
-      <header>
+      {/* data-testid, because "the status is above the fold" is a claim about
+          GEOMETRY, and the only honest way to check it is to measure the box
+          on a 375px screen. e2e/delivery-status.spec.ts does exactly that. */}
+      <header data-testid="tracker-status">
         <span
           className={cn(
             t.eyebrow,
@@ -609,59 +753,15 @@ export default function RequestTracker({
       </header>
 
       {/* ── What was asked for ──────────────────────────────────────────── */}
+      {/* This was briefly folded behind a summary once a driver was carrying
+          the job, to buy back 190px. The owner's answer was that it made the
+          screen harder, and he is right: it put a tap between a customer and
+          their own collection address, which is the thing they re-read when a
+          driver rings them. Height is not worth that. */}
       <section
         className={cn("rounded-2xl border border-white/10 bg-dark-card p-4")}
       >
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-yellow/12 text-yellow">
-            <KindIcon size={17} />
-          </span>
-          <div className="min-w-0">
-            <p className={cn(t.cardTitle, "text-offwhite")}>{view.what}</p>
-            {/* The two kinds are named with the FORM's words, not a second
-                house translation of the same idea. */}
-            <p className={cn(t.meta, "mt-1 text-[#B0B0B0]")}>
-              {KIND_TITLE[toRequestKind(view.kind)]}
-              {view.sizeClass === "large" && ` · ${c.tracker.largeItem}`}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-col gap-3">
-          {/* WHEN, above where. M152 gave the request a window and this screen
-              had no line for it — so a customer who asked for "tomorrow
-              afternoon" could not see, anywhere, that we had understood. */}
-          {view.windowStart && (
-            <p
-              className={cn(t.bodySm, "flex items-center gap-2 text-offwhite")}
-            >
-              <Clock size={15} className="shrink-0 text-yellow" aria-hidden />
-              <span>
-                {/* The window itself was already language-aware and was being
-                    handed a hardcoded "en" by the one screen that renders it
-                    for a customer. */}
-                <span className="text-[#B0B0B0]">{c.tracker.neededLabel} </span>
-                {formatWindow(
-                  view.windowStart,
-                  view.windowEnd,
-                  view.scheduleKind,
-                  view.timeSlot,
-                  language,
-                )}
-              </span>
-            </p>
-          )}
-          <Leg
-            label={c.tracker.collectFrom}
-            place={view.pickupText}
-            note={view.pickupNote}
-          />
-          <Leg
-            label={c.tracker.deliverTo}
-            place={view.dropoffText}
-            note={view.dropoffNote}
-          />
-        </div>
+        {askedFor}
       </section>
 
       {/* ── The prices, or the wait ─────────────────────────────────────── */}
@@ -697,6 +797,62 @@ export default function RequestTracker({
         </section>
       )}
 
+      {/* ── THE ONE THING HOLDING THIS JOB UP ────────────────────────────
+          accept_delivery_quote defaults to cash, and advance_delivery then
+          refuses to let the driver leave `assigned` without the customer's ID.
+          So the DEFAULT payment choice blocks every job until this is
+          uploaded — and this control used to render after the live map and the
+          driver card, two or three screens down on a phone. The driver's side
+          said "waiting"; the customer's side did not say what for, anywhere
+          they were looking.
+
+          While it is outstanding it goes first, above everything. Once it is
+          done it drops back down to where it was, because then it is a record
+          rather than a task. */}
+      {blockingDocument && (
+        <>
+      {view.delivery?.paymentMethod === "cash" && (
+            <IdDocument
+              requestId={view.id}
+              email={email}
+              attachedAt={view.delivery.idDocumentAt}
+              onDone={() => void load()}
+            />
+          )}
+
+          {view.delivery?.paymentMethod === "bank_transfer" && (
+            <PaymentProof
+              requestId={view.id}
+              email={email}
+              attachedAt={view.delivery.paymentProofAt}
+              reference={view.delivery.paymentReference}
+              // Where to actually send it. This screen asked for a receipt without
+              // ever naming an account — the customer was being chased for proof
+              // of a payment they had no way to make.
+              bank={view.bankDetails ?? null}
+              onDone={() => void load()}
+            />
+          )}
+        </>
+      )}
+
+      {/* ── WHO IS COMING, AND THE BUTTON THAT REACHES THEM ─────────────
+          Below the blocking document above, deliberately: while the job is
+          held up, the thing that unblocks it outranks the person waiting on
+          it. Everything else about this card is unchanged.
+
+          Measured on a 375px screen with a driver booked: this card started at
+          y=1022 -- a screen and a half below the fold, under a 380px map. "Who
+          has my delivery and how do I ring them" is the second question a
+          customer asks after "what is happening", and it was the last thing on
+          the page to answer it.
+
+          It now sits directly under the status, above the map. The map says
+          WHERE; this says WHO -- and only one of the two can be acted on. */}
+      {view.status === "accepted" && view.delivery && (
+        <BookedDriver view={view} />
+      )}
+
       {/* ── Where the driver actually is ────────────────────────────────── */}
       {/* Gated on channelKey, not on status: the key exists only once the
           server has a trip row with a driver on it, so this cannot render an
@@ -730,11 +886,6 @@ export default function RequestTracker({
         />
       )}
 
-      {/* ── The driver who was chosen ───────────────────────────────────── */}
-      {view.status === "accepted" && view.delivery && (
-        <BookedDriver view={view} />
-      )}
-
       {/* ── The transfer receipt ────────────────────────────────────────
           Shown only while it is actually outstanding, and it is the one thing
           on this screen holding the delivery up — so it sits directly under
@@ -745,23 +896,33 @@ export default function RequestTracker({
           its own private bucket, it is readable only by the driver currently
           holding the job and only until the job ends, and it is DELETED after
           the retention window. See M158 and /api/cron/purge-documents. */}
+      {/* Rendered here only once it is DONE — while it is outstanding it is
+          hoisted above the map instead. See `blockingDocument`. */}
+      {!blockingDocument && (
+        <>
       {view.delivery?.paymentMethod === "cash" && (
-        <IdDocument
-          requestId={view.id}
-          email={email}
-          attachedAt={view.delivery.idDocumentAt}
-          onDone={() => void load()}
-        />
-      )}
+            <IdDocument
+              requestId={view.id}
+              email={email}
+              attachedAt={view.delivery.idDocumentAt}
+              onDone={() => void load()}
+            />
+          )}
 
-      {view.delivery?.paymentMethod === "bank_transfer" && (
-        <PaymentProof
-          requestId={view.id}
-          email={email}
-          attachedAt={view.delivery.paymentProofAt}
-          reference={view.delivery.paymentReference}
-          onDone={() => void load()}
-        />
+          {view.delivery?.paymentMethod === "bank_transfer" && (
+            <PaymentProof
+              requestId={view.id}
+              email={email}
+              attachedAt={view.delivery.paymentProofAt}
+              reference={view.delivery.paymentReference}
+              // Where to actually send it. This screen asked for a receipt without
+              // ever naming an account — the customer was being chased for proof
+              // of a payment they had no way to make.
+              bank={view.bankDetails ?? null}
+              onDone={() => void load()}
+            />
+          )}
+        </>
       )}
 
       {/* ── How was it? ─────────────────────────────────────────────────── */}
@@ -898,7 +1059,9 @@ export default function RequestTracker({
             ? c.tracker.cancelling
             : prePickup
               ? c.tracker.cancelDelivery
-              : c.tracker.withdraw}
+              : stranded
+                ? c.tracker.closeRequest
+                : c.tracker.withdraw}
         </button>
       )}
 
@@ -999,11 +1162,28 @@ function QuoteCard({
   const { language } = useLanguage();
   const c = DELIVER_COPY[language];
   const Icon = VEHICLE_ICON[quote.vehicleType ?? ""] ?? Package;
+  // ── A PRICE THAT CANNOT BE TAKEN ──────────────────────────────────────
+  // M189. accept_delivery_quote() refuses a driver who is not approved, is
+  // off duty, or whose vehicle cannot carry this load — and the view used to
+  // list the quote anyway. The customer read the price, tapped it, chose cash
+  // or bank transfer, confirmed, and only THEN was told "That driver is not
+  // available any more". The refusal landed at the payment step because that
+  // is the only moment the page talks to the server.
+  //
+  // `available` is computed by the same three tests. Absent means an older
+  // row, which is bookable — do not read `undefined` as false.
+  const bookable = quote.available !== false;
   return (
     <button
       type="button"
       onClick={onChoose}
-      className={cn(recipe.cardButton, "group")}
+      disabled={!bookable}
+      aria-describedby={bookable ? undefined : `unavailable-${quote.id}`}
+      className={cn(
+        recipe.cardButton,
+        "group",
+        !bookable && "cursor-not-allowed opacity-50",
+      )}
     >
       <div className="flex items-start gap-3">
         <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.05] text-[#B0B0B0]">
@@ -1056,6 +1236,24 @@ function QuoteCard({
               </>
             )}
           </p>
+
+          {/* Why the card is greyed. Named, not implied: a disabled control
+              with no reason reads as a broken page. */}
+          {!bookable && (
+            <p
+              id={`unavailable-${quote.id}`}
+              className={cn(
+                t.meta,
+                "mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-1 text-[#B0B0B0]",
+              )}
+            >
+              <Clock size={11} aria-hidden /> {c.tracker.unavailable}
+              {/* The badge is three words because the card is dense. Somebody
+                  using a screen reader gets the whole reason, since they
+                  cannot see the greying that carries it visually. */}
+              <span className="sr-only">{c.tracker.unavailableWhy}</span>
+            </p>
+          )}
 
           {quote.note && (
             <p className={cn(t.bodySm, "mt-2 text-[#B0B0B0]")}>
@@ -1116,16 +1314,45 @@ function ConfirmSheet({
   const { language } = useLanguage();
   const c = DELIVER_COPY[language];
   const exposure = quote.fee + (view.spendCap ?? 0);
+  // Does the driver front their own money on this job? The same question
+  // payAtDoor() asks, and the reason the two payment options describe
+  // different amounts: a transfer covers the fee, never the till.
+  const laysOutMoney = mayLayOutMoney(toRequestKind(view.kind), view.spendCap);
   const cashAllowed = view.cashLimit === null || exposure <= view.cashLimit;
+  // A transfer needs somewhere to go. Until the owner fills the account in,
+  // offering it sends the customer to a screen asking for a receipt for a
+  // payment they had no way to make.
+  const transferAllowed = Boolean(view.bankDetails?.accountName);
+  // ── BOTH CAN BE SHUT AT ONCE ──────────────────────────────────────────
+  // Cash is capped at Rs 3,000 on `fee + spendCap`, and a transfer needs an
+  // account the owner has not published yet. Above the cap, with no account,
+  // NEITHER is available — an ordinary state for any grocery or gas run.
+  //
+  // The previous expression read `cashAllowed || !transferAllowed ? "cash"`,
+  // which in exactly that case selected CASH: the disabled option. Both
+  // buttons were greyed so it could not be changed, and Confirm was live —
+  // so the one thing the customer could still tap sent a request the server
+  // was certain to refuse, and the refusal told them to use the option beside
+  // it reading "Not set up yet".
+  //
+  // That is a dead end that says "error", which is the complaint.
+  const canPay = cashAllowed || transferAllowed;
   const [method, setMethod] = useState<PaymentMethod>(
+    // Only ever an option that can actually be taken.
     cashAllowed ? "cash" : "bank_transfer",
   );
 
+  // Follows the toggle. Without the method this breakdown was fixed at the
+  // cash figure, so choosing "Bank transfer" left a heading reading "You pay
+  // at the door — up to Rs 1,750" directly above an option explaining that
+  // only the shop money is due there. The sheet contradicted itself in the
+  // one place a customer is deciding what to hand over.
   const pay = payAtDoor(
     {
       fee: quote.fee,
       kind: view.kind,
       spendCap: view.spendCap,
+      paymentMethod: method,
     },
     language,
   );
@@ -1246,7 +1473,9 @@ function ConfirmSheet({
             ))}
             <div className="mt-1 flex items-baseline justify-between gap-4 border-t border-white/10 pt-2.5">
               <dt className={cn(t.bodySm, "font-semibold text-offwhite")}>
-                {c.tracker.payAtDoor}
+                {pay.dueAtDoor
+                  ? c.tracker.payAtDoor
+                  : c.tracker.settledByTransfer}
               </dt>
               <dd
                 className={cn(
@@ -1295,8 +1524,26 @@ function ConfirmSheet({
                   k: "bank_transfer" as const,
                   icon: Landmark,
                   title: c.pay.transfer.label,
-                  body: c.pay.transfer.help,
-                  disabled: false,
+                  // ── WHAT A TRANSFER DOES NOT COVER ──────────────────────
+                  // This said only "Send it now, then attach the receipt" —
+                  // no amount at all, and no word about the shopping money.
+                  // On a job where the driver fronts cash at the till, the
+                  // transfer pays the FEE and nothing else: the till money is
+                  // still owed in cash when they arrive. A customer who read
+                  // "bank transfer" as "everything is paid" met a driver
+                  // expecting up to the whole cap and had none of it.
+                  //
+                  // The cash option has always named its total. This one now
+                  // names both halves.
+                  body: !transferAllowed
+                    ? c.pay.transferUnset
+                    : laysOutMoney
+                      ? c.pay.transferSplit(
+                          formatFee(quote.fee),
+                          formatFee(view.spendCap ?? 0),
+                        )
+                      : c.pay.transferTotal(formatFee(quote.fee)),
+                  disabled: !transferAllowed,
                 },
               ].map((o) => {
                 const on = method === o.k;
@@ -1345,13 +1592,30 @@ function ConfirmSheet({
             </div>
           </fieldset>
 
+          {/* Nothing to confirm WITH. Said in words above the button rather
+              than left for the server to refuse after the tap — the same rule
+              the cash cap already follows. The page header carries Call us and
+              WhatsApp us, which is the way out. */}
+          {!canPay && (
+            <p
+              role="alert"
+              className={cn(
+                t.bodySm,
+                "mt-4 rounded-xl border border-red-400/40 bg-red-500/[0.08] px-3 py-2 text-offwhite",
+              )}
+            >
+              {c.pay.noWayToPay}
+            </p>
+          )}
+
           <button
             type="button"
             onClick={() => onConfirm(method)}
-            disabled={busy}
+            disabled={busy || !canPay}
             className={cn(
               recipe.primaryAction,
               "mt-5 inline-flex items-center justify-center gap-2",
+              !canPay && "cursor-not-allowed opacity-45",
             )}
           >
             {busy && <Loader2 size={16} className="animate-spin" />}
@@ -1393,18 +1657,32 @@ function PaymentProof({
   email,
   attachedAt,
   reference,
+  bank,
   onDone,
 }: {
   requestId: string;
   email: string;
   attachedAt: string | null;
   reference: string | null;
+  bank: {
+    accountName: string;
+    bankName: string | null;
+    accountNumber: string | null;
+    note: string | null;
+  } | null;
   onDone: () => void;
 }) {
   const { language } = useLanguage();
   const c = DELIVER_COPY[language];
   const [file, setFile] = useState<File | null>(null);
+  /** The canvas re-encode is running. Seconds on a cheap phone with a big
+   *  photo, and it used to happen behind an unchanged screen. */
+  const [preparing, setPreparing] = useState(false);
   const [ref, setRef] = useState("");
+  /** What they say they sent, as typed. Rupees on screen, cents on the wire —
+   *  the two are never the same variable, which is how this repo has shipped a
+   *  money bug twice. */
+  const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -1462,6 +1740,10 @@ function PaymentProof({
           action: "attachProof",
           path: upJson.path,
           reference: ref.trim() || undefined,
+          // toCents, never parseFloat * 100: 9.995 * 100 is
+          // 999.4999999999999 in IEEE-754. Undefined when blank — the field is
+          // optional and an empty string must not become Rs 0.
+          amount: amount.trim() ? toCents(amount.trim()) : undefined,
           email: email || undefined,
         }),
       });
@@ -1486,20 +1768,89 @@ function PaymentProof({
         {c.pay.proofWhy} {c.pay.proofHelp}
       </p>
 
+      {/* ── THE ACCOUNT ──────────────────────────────────────────────────
+          Above the upload, because it is the step that comes first and the
+          one this screen used to leave out entirely. Selectable text, not an
+          image: somebody is copying it into a banking app one-handed. */}
+      {bank && (
+        <dl className="mt-3 space-y-1.5 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <dt className={cn(t.meta, "text-[#B0B0B0]")}>{c.pay.bankName}</dt>
+            <dd className={cn(t.bodySm, "text-right text-offwhite")}>
+              {bank.accountName}
+            </dd>
+          </div>
+          {bank.bankName && (
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className={cn(t.meta, "text-[#B0B0B0]")}>{c.pay.bankBank}</dt>
+              <dd className={cn(t.bodySm, "text-right text-offwhite")}>
+                {bank.bankName}
+              </dd>
+            </div>
+          )}
+          {bank.accountNumber && (
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className={cn(t.meta, "text-[#B0B0B0]")}>
+                {c.pay.bankNumber}
+              </dt>
+              <dd
+                className={cn(
+                  t.numeric,
+                  "select-all text-right text-sm text-offwhite",
+                )}
+              >
+                {bank.accountNumber}
+              </dd>
+            </div>
+          )}
+          {bank.note && (
+            <p className={cn(t.meta, "pt-1 text-[#B0B0B0]")}>{bank.note}</p>
+          )}
+        </dl>
+      )}
+
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,application/pdf"
+        // HEIC is what an iPhone shooting "High Efficiency" produces, and the
+        // server has always accepted it — leaving it out here hid the photo
+        // from the picker on the one device most people are holding.
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
         className="sr-only"
         aria-label={c.pay.proofChoose}
         onChange={(e) => {
           const f = e.target.files?.[0] ?? null;
           setError(null);
-          if (f && f.size > 4 * 1024 * 1024) {
-            setError(c.pay.tooBig);
+          // Reset the input, or re-picking THE SAME photo fires no change
+          // event and the button appears dead. After a rejection that is
+          // exactly what somebody tries first. The File above is already
+          // captured, so clearing the element cannot affect it.
+          e.target.value = "";
+          if (!f) {
+            setFile(null);
             return;
           }
-          setFile(f);
+          // ── SHRINK FIRST, REFUSE ONLY IF IT IS STILL TOO BIG ────────────
+          // This rejected the file outright at 4 MB, which is where a normal
+          // phone photo lands. The person is standing in a shop or at a door
+          // with the only camera they own and no way to make it smaller.
+          // shrinkImage never throws; it hands back the original if it cannot
+          // help, so the old refusal still stands behind it.
+          //
+          // `preparing` is not decoration: re-encoding a 48 MP photo on a cheap
+          // phone takes seconds, during which the button still said "Choose"
+          // and the submit stayed disabled with nothing saying why. PhotoInput
+          // sets its busy flag before calling this; these two did not.
+          setPreparing(true);
+          void shrinkImage(f)
+            .then((small) => {
+              if (small.size > 4 * 1024 * 1024) {
+                setError(c.pay.tooBig);
+                return;
+              }
+              setFile(small);
+            })
+            .finally(() => setPreparing(false));
         }}
       />
 
@@ -1508,8 +1859,16 @@ function PaymentProof({
         onClick={() => inputRef.current?.click()}
         className="mt-3 flex min-h-14 w-full items-center justify-center gap-2.5 rounded-xl border border-[#6E6E6E] px-4 font-dm text-[16px] text-offwhite"
       >
-        <UploadCloud size={18} aria-hidden />
-        {file ? file.name.slice(0, 34) : c.pay.proofChoose}
+        {preparing ? (
+          <Loader2 size={18} className="animate-spin" aria-hidden />
+        ) : (
+          <UploadCloud size={18} aria-hidden />
+        )}
+        {preparing
+          ? c.pay.preparing
+          : file
+            ? file.name.slice(0, 34)
+            : c.pay.proofChoose}
       </button>
 
       <label
@@ -1523,6 +1882,31 @@ function PaymentProof({
         value={ref}
         onChange={(e) => setRef(e.target.value)}
         placeholder={c.tracker.referencePlaceholder}
+        className={cn(recipe.field, "mt-1")}
+      />
+
+      {/* ── HOW MUCH WAS SENT ────────────────────────────────────────────
+          M155 added payment_method, payment_reference, payment_proof_path,
+          payment_proof_at, payment_verified_at and payment_verified_by — and
+          no AMOUNT. So somebody sent an unspecified sum, uploaded a picture
+          of it, and the driver was released: there was no figure anywhere to
+          compare the receipt against, and no screen on which to compare it.
+
+          Optional, and it says so. Somebody photographing a slip at the
+          counter must not be blocked on typing a number already in the
+          picture. inputMode decimal, so the phone opens a number pad. */}
+      <label
+        htmlFor="proof-amount"
+        className={cn(t.meta, "mt-3 block text-[#B0B0B0]")}
+      >
+        {c.tracker.amountOptional}
+      </label>
+      <input
+        id="proof-amount"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        inputMode="decimal"
+        placeholder={c.tracker.amountPlaceholder}
         className={cn(recipe.field, "mt-1")}
       />
 
@@ -1575,6 +1959,9 @@ function IdDocument({
   const { language } = useLanguage();
   const c = DELIVER_COPY[language];
   const [file, setFile] = useState<File | null>(null);
+  /** The canvas re-encode is running. Seconds on a cheap phone with a big
+   *  photo, and it used to happen behind an unchanged screen. */
+  const [preparing, setPreparing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -1656,18 +2043,43 @@ function IdDocument({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
         capture="environment"
         className="sr-only"
         aria-label={c.pay.idChoose}
         onChange={(e) => {
           const f = e.target.files?.[0] ?? null;
           setError(null);
-          if (f && f.size > 4 * 1024 * 1024) {
-            setError(c.pay.tooBig);
+          // Reset the input, or re-picking THE SAME photo fires no change
+          // event and the button appears dead. After a rejection that is
+          // exactly what somebody tries first. The File above is already
+          // captured, so clearing the element cannot affect it.
+          e.target.value = "";
+          if (!f) {
+            setFile(null);
             return;
           }
-          setFile(f);
+          // ── SHRINK FIRST, REFUSE ONLY IF IT IS STILL TOO BIG ────────────
+          // This rejected the file outright at 4 MB, which is where a normal
+          // phone photo lands. The person is standing in a shop or at a door
+          // with the only camera they own and no way to make it smaller.
+          // shrinkImage never throws; it hands back the original if it cannot
+          // help, so the old refusal still stands behind it.
+          //
+          // `preparing` is not decoration: re-encoding a 48 MP photo on a cheap
+          // phone takes seconds, during which the button still said "Choose"
+          // and the submit stayed disabled with nothing saying why. PhotoInput
+          // sets its busy flag before calling this; these two did not.
+          setPreparing(true);
+          void shrinkImage(f)
+            .then((small) => {
+              if (small.size > 4 * 1024 * 1024) {
+                setError(c.pay.tooBig);
+                return;
+              }
+              setFile(small);
+            })
+            .finally(() => setPreparing(false));
         }}
       />
 
@@ -1676,8 +2088,16 @@ function IdDocument({
         onClick={() => inputRef.current?.click()}
         className="mt-3 flex min-h-14 w-full items-center justify-center gap-2.5 rounded-xl border border-[#6E6E6E] px-4 font-dm text-[16px] text-offwhite"
       >
-        <UploadCloud size={18} aria-hidden />
-        {file ? file.name.slice(0, 34) : c.pay.idChoose}
+        {preparing ? (
+          <Loader2 size={18} className="animate-spin" aria-hidden />
+        ) : (
+          <UploadCloud size={18} aria-hidden />
+        )}
+        {preparing
+          ? c.pay.preparing
+          : file
+            ? file.name.slice(0, 34)
+            : c.pay.idChoose}
       </button>
 
       {error && (
@@ -1707,11 +2127,16 @@ function BookedDriver({ view }: { view: RequestView }) {
   const c = DELIVER_COPY[language];
   const d = view.delivery!;
   const here = legIndex(d.status);
+  // d.paymentMethod was sitting right here and was not passed. On a bank
+  // transfer this screen told the customer to have the whole delivery fee in
+  // hand at the door — a sum they had already sent — while the driver's card
+  // said "Nothing to collect for the delivery."
   const pay = payAtDoor(
     {
       fee: d.fee,
       kind: view.kind,
       spendCap: view.spendCap,
+      paymentMethod: d.paymentMethod,
     },
     language,
   );
@@ -1849,7 +2274,11 @@ function BookedDriver({ view }: { view: RequestView }) {
         ))}
         <div className="mt-1 flex items-baseline justify-between gap-4 border-t border-white/10 pt-2.5">
           <dt className={cn(t.bodySm, "font-semibold text-offwhite")}>
-            {d.status === "delivered" ? c.tracker.paid : c.tracker.payAtDoor}
+            {d.status === "delivered"
+              ? c.tracker.paid
+              : pay.dueAtDoor
+                ? c.tracker.payAtDoor
+                : c.tracker.settledByTransfer}
           </dt>
           <dd
             className={cn(

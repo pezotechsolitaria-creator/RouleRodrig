@@ -24,12 +24,24 @@ export default function Faq({ content }: { content?: FaqContent }) {
           className="mb-12 text-center"
         >
           <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">FAQ</p>
-          <h2
+          {/* h1, not h2. This component IS its page and its title is the
+              page's subject — but it shipped as an h2 with no h1 anywhere in
+              the document.
+
+              Found by reading the LIVE HTML rather than the source, which is
+              the only way it could have been: app/faq/page.tsx does contain an
+              h1, inside the branch that renders when there are NO questions.
+              So the source looked correct and every real visit served a page
+              without one. Four indexed pages had the same fault.
+
+              Used by exactly one route, so promoting it cannot create a second
+              h1 somewhere else. */}
+          <h1
             className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]"
             style={{ fontSize: "clamp(32px, 7vw, 64px)" }}
           >
             {content.title}
-          </h2>
+          </h1>
           {content.subtitle && (
             <p className="text-muted font-dm text-sm md:text-base mt-3">{content.subtitle}</p>
           )}

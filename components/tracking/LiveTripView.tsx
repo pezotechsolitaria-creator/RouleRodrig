@@ -20,6 +20,7 @@ import {
   formatEta,
   lastSeenLabel,
   TRACKING_CUSTOMER_STATUS,
+  isTrackingOver,
 } from "@/lib/tracking/model";
 import JourneyTrack, { type JourneyStage } from "./JourneyTrack";
 import { useLanguage } from "@/context/LanguageContext";
@@ -284,6 +285,10 @@ export default function LiveTripView({
     TRACKING_CUSTOMER_STATUS[status as keyof typeof TRACKING_CUSTOMER_STATUS] ??
     c.tracking;
 
+  // Read from the same `status` the badge uses, so the chip and the line under
+  // the map can never disagree again.
+  const tripOver = isTrackingOver(status);
+
   // The driver's standing, and never an invented one. A rating only exists once
   // somebody has actually left one; until then the honest number is the count of
   // rides they have completed, which the platform has tracked since day one.
@@ -516,7 +521,16 @@ export default function LiveTripView({
         </p>
 
         {/* Freshness. The line that stops somebody watching a dot that stopped
-            updating ten minutes ago. */}
+            updating ten minutes ago.
+
+            Not shown once the trip has ENDED. It used to run regardless, so a
+            booking completed two days earlier read "Last seen 52 h 16 min ago
+            — we've lost their signal. They're most likely still on the way"
+            immediately under a chip saying Complete. Two sentences on one
+            screen contradicting each other, and the wrong one is the reassuring
+            one: it tells somebody whose delivery already arrived to keep
+            waiting for it. A finished trip has no signal to lose. */}
+        {!tripOver && (
         <p className="mt-1.5 font-dm text-[11px] text-muted">
           {freshness === "live" ? (
             <span className="text-yellow">{c.liveBadge}</span>
@@ -529,6 +543,7 @@ export default function LiveTripView({
           )}
           {eta?.source === "approx" && !stale && " · times are estimated"}
         </p>
+        )}
 
         {/* ── Which booking ───────────────────────────────────────────── */}
         {(reference || open) && <div className="mt-4 h-px bg-white/10" />}

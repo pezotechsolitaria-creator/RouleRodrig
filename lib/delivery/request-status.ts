@@ -100,6 +100,29 @@ export const BROKEN_LEGS: readonly DeliveryLeg[] = [
   "requires_admin",
 ];
 
+/** ── A JOB THAT IS OVER, BADLY ─────────────────────────────────────────────
+ *
+ *  The delivery has ended and the goods did not arrive: an operator killed it
+ *  with admin_force_delivery_status, the driver failed it, or it went back to
+ *  the shop.
+ *
+ *  `delivery_requests.status` does not follow. It goes to 'accepted' when a
+ *  quote is taken and NOTHING EVER MOVES IT BACK — driver_cannot_complete()
+ *  and admin_reassign_delivery() write only the deliveries row. So the request
+ *  sits at 'accepted' for ever and the customer's page keeps saying a driver
+ *  is booked for a job that no longer exists.
+ *
+ *  cancel_delivery_request() has handled exactly this since m145: given one of
+ *  these legs it brings the request into line and answers true. The UI simply
+ *  never offered the control — it gated the button on PRE_PICKUP_LEGS, and not
+ *  one of these three is in that list. A working server-side remedy that
+ *  nothing could reach. */
+export const DEAD_LEGS: readonly DeliveryLeg[] = [
+  "cancelled",
+  "failed_delivery",
+  "returned_to_merchant",
+];
+
 export type StatusTone = "waiting" | "action" | "moving" | "done" | "dead";
 
 export type StatusCopy = {
@@ -558,6 +581,17 @@ export type Quote = {
   driverPhone: string | null;
   completed: number;
   rating: number | null;
+  /** ── CAN THIS PRICE ACTUALLY BE TAKEN? ────────────────────────────────
+   *  M189. The view listed every 'offered' quote and tested the driver not at
+   *  all, while accept_delivery_quote() tests three things: approved, not
+   *  offline, and vehicle_can_handle(). A driver who quotes and then goes off
+   *  duty — the ordinary way of saying "not tonight" — left a live-looking
+   *  price that could not be taken, and the refusal landed only after the
+   *  customer had chosen how to pay.
+   *
+   *  Optional because a delivery created before M189 has no such key; absent
+   *  is read as bookable, which is what every one of them was. */
+  available?: boolean;
 };
 
 /**
@@ -643,37 +677,75 @@ export function formatFee(cents: number): string {
  */
 const PAY_COPY: Record<
   Language,
-  { fee: string; spend: string; upTo: (total: string) => string; note: string }
+  {
+    fee: string;
+    spend: string;
+    upTo: (total: string) => string;
+    note: string;
+    sent: string;
+    nothing: string;
+  }
 > = {
   en: {
     fee: "Delivery",
     spend: "What it costs, up to",
     upTo: (total) => `up to ${total}`,
     note: "You repay exactly what the driver spent — the receipt decides, not your cap.",
+    sent: "Delivery (sent by transfer)",
+    nothing: "Nothing to pay at the door",
   },
   fr: {
     fee: "Livraison",
     spend: "Ce que cela coûte, jusqu’à",
     upTo: (total) => `jusqu’à ${total}`,
     note: "Vous remboursez exactement ce que le chauffeur a dépensé — c’est le reçu qui décide, pas votre limite.",
+    sent: "Livraison (envoyée par virement)",
+    nothing: "Rien à payer à la porte",
   },
   cr: {
     fee: "Livrezon",
     spend: "Seki li koute, ziska",
     upTo: (total) => `ziska ${total}`,
     note: "Ou rambours exakteman seki sofer la finn depanse — se resi la ki deside, pa ou limit.",
+    sent: "Livrezon (avoye par virman)",
+    nothing: "Nanye pou paye kot laport",
   },
 };
 
 export function payAtDoor(
-  input: { fee: number; kind: string; spendCap: number | null },
+  input: {
+    fee: number;
+    kind: string;
+    spendCap: number | null;
+    /** ── WHICH HALF IS ALREADY PAID ─────────────────────────────────────
+     *  M190. This function was method-BLIND, and both its callers show money
+     *  the customer is about to hand over.
+     *
+     *  On a bank transfer the FEE has already been sent. Ignoring that told a
+     *  customer who had just transferred Rs 250 to have Rs 250 in hand at the
+     *  door — 100% of a sum already paid — while the driver's own card said
+     *  "Nothing to collect for the delivery." Two screens, one job, opposite
+     *  instructions.
+     *
+     *  What a transfer does NOT cover is the till: on a shopping run the
+     *  driver still fronts their own money and is repaid in cash on arrival.
+     *  So a transfer moves the fee out of this total and leaves the spend in.
+     *
+     *  Optional, and absent means cash: every delivery created before M155 has
+     *  no method at all, and cash is what all of them were. */
+    paymentMethod?: string | null;
+  },
   lang: Language,
 ): {
   lines: { label: string; value: string }[];
   total: string;
   note: string | null;
+  /** False when the transfer settled everything — the caller must then not say
+   *  "you pay at the door" at all, rather than saying it about zero. */
+  dueAtDoor: boolean;
 } {
   const c = PAY_COPY[lang];
+  const transferred = input.paymentMethod === "bank_transfer";
   const fee = { label: c.fee, value: formatFee(input.fee) };
   // mayLayOutMoney, NOT `kind !== "shop_and_deliver"`. This function decides
   // what a customer is told to have in their hand at the door, and the old
@@ -682,12 +754,40 @@ export function payAtDoor(
   // fraction of what they owed. An errand can lay out money exactly like a
   // shopping run; what it may not do is be assumed not to.
   if (!mayLayOutMoney(toRequestKind(input.kind), input.spendCap)) {
-    return { lines: [fee], total: formatFee(input.fee), note: null };
+    // Nothing is laid out, so the fee is the whole bill — and a transfer has
+    // already settled it.
+    return transferred
+      ? {
+          lines: [{ label: c.sent, value: formatFee(input.fee) }],
+          total: c.nothing,
+          note: null,
+          dueAtDoor: false,
+        }
+      : {
+          lines: [fee],
+          total: formatFee(input.fee),
+          note: null,
+          dueAtDoor: true,
+        };
+  }
+  // A shopping run. The till money is cash at the door whichever way the fee
+  // was paid — that is the money the driver has already spent out of pocket.
+  if (transferred) {
+    return {
+      lines: [
+        { label: c.sent, value: formatFee(input.fee) },
+        { label: c.spend, value: formatFee(input.spendCap) },
+      ],
+      total: c.upTo(formatFee(input.spendCap)),
+      note: c.note,
+      dueAtDoor: true,
+    };
   }
   return {
     lines: [fee, { label: c.spend, value: formatFee(input.spendCap) }],
     total: c.upTo(formatFee(input.fee + input.spendCap)),
     note: c.note,
+    dueAtDoor: true,
   };
 }
 

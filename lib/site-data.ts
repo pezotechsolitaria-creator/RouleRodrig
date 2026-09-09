@@ -148,6 +148,32 @@ function firstImage(
   return undefined;
 }
 
+/**
+ * Is this fleet row finished enough to put in front of a customer?
+ *
+ * ── WHY THIS EXISTS ────────────────────────────────────────────────────────
+ * /browse/car went live on 2026-09-09 (it had been a soft 404) and immediately
+ * showed FOUR unfinished template listings among the real cars:
+ *
+ *     NEW CARS · "ADD A SHORT TAGLINE." · "Add a description for this car."
+ *     From Rs 0 / day    [ Book Now ]
+ *
+ * A car bookable at Rs 0 on the page a "car rental Rodrigues" searcher lands
+ * on. The owner had added the rows and not finished them.
+ *
+ * The test is the PRICE, and only the price. A row with no usable daily rate
+ * cannot be sold — there is nothing to charge — so it is a draft, whatever it
+ * is called. Rows that DO carry a real rate are left alone even when the name
+ * and description are still placeholders: those are the owner's words to fix,
+ * and a Rs 2,499 car is a real car.
+ *
+ * Nothing is deleted. The row stays in site_content and appears the moment it
+ * is priced. (Deleting from that row destroyed real inventory once before.)
+ */
+export function isSellableFleetItem(item: { price: string }): boolean {
+  return priceNumber(item.price) != null;
+}
+
 export function buildBrowseCategories(
   content: SiteContent,
   fleet: FleetView[],
@@ -156,7 +182,9 @@ export function buildBrowseCategories(
   const cats: BrowseCategory[] = [];
   const vehicleBookings: Record<string, number> = {}; // slug → total recent bookings
   for (const vc of content.vehicleCategories.filter((c) => c.enabled)) {
-    const items = fleet.filter((f) => (f.category ?? "scooter") === vc.id);
+    const items = fleet.filter(
+      (f) => (f.category ?? "scooter") === vc.id && isSellableFleetItem(f),
+    );
     if (!items.length) continue;
     const prices = items
       .map((it) => priceNumber(it.price))
@@ -293,7 +321,9 @@ export function fleetFromPrice(
   category?: string,
 ): number {
   const inScope = category
-    ? fleet.filter((f) => (f.category ?? "scooter") === category)
+    ? fleet.filter(
+        (f) => (f.category ?? "scooter") === category && isSellableFleetItem(f),
+      )
     : fleet;
   const prices = inScope
     .map((f) => priceNumber(f.price))

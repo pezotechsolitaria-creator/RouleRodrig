@@ -2394,7 +2394,14 @@ html.light *:focus-visible {
    reads as a rendering glitch rather than a control. The switcher was fully
    built, fully styled, and unreachable.
 
-   Stacked below that button instead: 12px inset + 44px button + 8px gap.
+   Stacked below that button instead. The arithmetic was 12px inset + 44px
+   button + 8px gap = 64px, taking 44px from the button's `min-h-11`.
+
+   MEASURED, and min-h-11 is a FLOOR, not the height: the button renders 46.6px
+   once its icon and 15px label are laid out, so 64px left a 5.4px gap rather
+   than the intended 8px. Still clear, but the margin for a language whose
+   label wraps -- or a font that renders a touch taller -- was gone. 68px is
+   12 + 48 + 8, so a 48px button still gets its 8px.
 
    `right` is restated here too. The base rule sits at 10px, which is right for
    a map where this switch owns the corner alone; stacked under a 12px button it
@@ -2402,7 +2409,7 @@ html.light *:focus-visible {
    a mistake rather than a pair. Only the stacked case is changed -- IslandMap
    and the rest keep the 10px they were drawn against. */
 .rr-basemap-switch--below {
-  top: 64px;
+  top: 68px;
   right: 12px;
 }
 .rr-basemap-switch button {

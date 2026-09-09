@@ -33,6 +33,20 @@ import {
 export const dynamic = "force-dynamic";
 
 const SAFE_RPC_ERROR = "P0001";
+/** ── "NOT YOURS", AS DISTINCT FROM "NO" ──────────────────────────────────
+ *  M191. Both accept wrappers used to raise P0001 for an ownership miss, and
+ *  so does accept_delivery_quote() for about ten real refusals — expired,
+ *  price moved, driver off duty, over the cash cap, driver's hands full.
+ *
+ *  This route could not tell them apart, so it retried EVERY refusal through
+ *  the guest path, whose own ownership check then failed (a request posted
+ *  while signed in has no guest_email) and replaced the true reason with
+ *  "That quote no longer exists."
+ *
+ *  A customer whose driver went off duty was told their quote had vanished.
+ *  The message is unchanged and still deliberately vague — only the code is
+ *  new, so the retry fires on a genuine identity miss and nothing else. */
+const NOT_YOURS = "P0002";
 
 const schema = z.discriminatedUnion("action", [
   z.object({
@@ -72,6 +86,10 @@ const schema = z.discriminatedUnion("action", [
     // against the bucket prefix, so a forged one cannot point elsewhere.
     path: z.string().trim().max(300),
     reference: z.string().trim().max(120).optional(),
+    // M193. Minor units, and the customer's own claim — nothing here can
+    // verify it. Its job is to give the receipt a figure to be checked
+    // against, which it has never had. Capped where the fee is capped.
+    amount: z.number().int().min(0).max(5_000_000).optional(),
   }),
   z.object({
     action: z.literal("cancel"),
@@ -82,6 +100,32 @@ const schema = z.discriminatedUnion("action", [
 
 const NOT_FOUND =
   "We couldn't find that request. Check the link and the email you used.";
+
+/**
+ * Everyone who has to hear that a request just died, and the single exit for
+ * a successful cancellation.
+ *
+ * ── WHY THIS IS A FUNCTION ────────────────────────────────────────────────
+ * Cancelling has TWO success paths — the ordinary one, and a retry for a
+ * signed-in customer who originally posted as a guest, whose ownership is
+ * proved by email rather than by session. The retry path called
+ * notifyDriverOfCancellation and returned, and never called
+ * notifyLosingDrivers: every driver holding a standing price on that request
+ * was told nothing, which is exactly the failure the second call exists to
+ * prevent. A driver who quotes and hears nothing stops opening the board.
+ *
+ * Two exits that must do the same thing will eventually not. So there is one.
+ */
+async function announceCancellation(id: string) {
+  // The most time-critical message in the flow: a booked driver may already
+  // be on the road, and every minute they keep going is their fuel spent on a
+  // job that no longer exists. Awaited, and it never throws. Does nothing when
+  // the request was still open — there is nobody to tell.
+  await notifyDriverOfCancellation(id);
+  // And everybody whose standing price just died with the request.
+  await notifyLosingDrivers(id);
+  return NextResponse.json({ ok: true });
+}
 
 export async function POST(
   req: NextRequest,
@@ -128,13 +172,23 @@ export async function POST(
   // is meant to slow down. A signed-in customer polling their own request
   // sends no email and keeps the roomy budget; anyone supplying one is
   // guessing until proven otherwise.
-  const guessing = v.action === "view" && Boolean(v.email);
+  // ── A SUCCESSFUL LOOKUP IS NOT A GUESS ──────────────────────────────────
+  // The guest branch used to spend an 8/min IP budget on every view — but the
+  // tracker polls every twenty seconds and the client sends whatever email is
+  // in storage, so a guest watching their own delivery burnt 3 of those 8 a
+  // minute doing nothing wrong. Under mobile CGNAT two or three guests share
+  // one bucket, and the third one gets "Too many requests" on the screen that
+  // is supposed to tell them where their driver is.
+  //
+  // The brute-force ceiling is about WRONG guesses, so it is charged on a MISS
+  // instead — below, where the RPC has already answered. Eight wrong (id,
+  // email) pairs a minute per IP, and unlimited polling of a pair that works.
   const limited =
     v.action !== "view"
       ? await guardShared(req, "delivery-request-act", 10, 60_000)
-      : guessing
-        ? await guardShared(req, "delivery-request-guest-view", 8, 60_000)
-        : await guardShared(req, "delivery-request-view", 60, 60_000);
+      : // Keyed by the REQUEST as well as the IP: twenty people watching
+        // twenty different deliveries should not eat one ceiling between them.
+        await guardShared(req, "delivery-request-view", 60, 60_000, id);
   if (limited) return limited;
 
   // A guest cannot reach any of these RPCs without the key.
@@ -182,7 +236,21 @@ export async function POST(
         { status: 500 },
       );
     }
-    if (!data) return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
+    if (!data) {
+      // The miss is the guess. Charged here so a legitimate poll never pays,
+      // and eight wrong pairs a minute per IP is still the ceiling it always
+      // was. Deliberately AFTER the RPC, and returning the same NOT_FOUND
+      // either way, so this cannot be used to tell "wrong email" from "no such
+      // request".
+      const blocked = await guardShared(
+        req,
+        "delivery-request-guest-miss",
+        8,
+        60_000,
+      );
+      if (blocked) return blocked;
+      return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
+    }
     return NextResponse.json({ request: data });
   }
 
@@ -243,6 +311,7 @@ export async function POST(
       p_path: v.path,
       p_reference: v.reference ?? null,
       p_email: user ? null : (v.email ?? null),
+      p_amount: v.amount ?? null,
     });
     if (error) {
       if (error.code === SAFE_RPC_ERROR) {
@@ -286,22 +355,11 @@ export async function POST(
           p_email: v.email,
           p_reason: v.reason ?? null,
         });
-        if (retry) {
-          await notifyDriverOfCancellation(id);
-          return NextResponse.json({ ok: true });
-        }
+        if (retry) return announceCancellation(id);
       }
       return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
     }
-    // The most time-critical message in the flow: a booked driver may already
-    // be on the road, and every minute they keep going is their fuel spent on
-    // a job that no longer exists. Awaited, and it never throws. Does nothing
-    // when the request was still open -- there is nobody to tell.
-    await notifyDriverOfCancellation(id);
-    // And everybody whose standing price just died with the request. A driver
-    // who quotes and hears nothing stops opening the board.
-    await notifyLosingDrivers(id);
-    return NextResponse.json({ ok: true });
+    return announceCancellation(id);
   }
 
   // ── accept ────────────────────────────────────────────────────────────────
@@ -322,8 +380,9 @@ export async function POST(
     );
     if (!error) {
       deliveryId = data as string;
-    } else if (error.code === SAFE_RPC_ERROR && v.email) {
-      // Posted as a guest, accepted while signed in.
+    } else if (error.code === NOT_YOURS && v.email) {
+      // Posted as a guest, accepted while signed in. ONLY on NOT_YOURS: a
+      // real refusal must keep its own words.
       const admin = await getPrivileged();
       const { data: g, error: gErr } = await admin.rpc(
         "guest_accept_delivery_quote",
@@ -335,7 +394,7 @@ export async function POST(
         },
       );
       if (gErr) {
-        if (gErr.code === SAFE_RPC_ERROR) {
+        if (gErr.code === SAFE_RPC_ERROR || gErr.code === NOT_YOURS) {
           return NextResponse.json({ error: gErr.message }, { status: 409 });
         }
         console.error("guest_accept_delivery_quote failed", gErr);
@@ -345,7 +404,10 @@ export async function POST(
         );
       }
       deliveryId = g as string;
-    } else if (error.code === SAFE_RPC_ERROR) {
+    } else if (error.code === SAFE_RPC_ERROR || error.code === NOT_YOURS) {
+      // The real reason, in the server's own words — "That driver is not
+      // available any more", "That is too much to settle in cash", and the
+      // rest. These used to be swallowed by the retry above.
       return NextResponse.json({ error: error.message }, { status: 409 });
     } else {
       console.error("customer_accept_delivery_quote failed", error);
@@ -365,7 +427,10 @@ export async function POST(
       p_payment_method: v.paymentMethod,
     });
     if (error) {
-      if (error.code === SAFE_RPC_ERROR) {
+      // NOT_YOURS too: for a signed-out guest there is no second identity to
+      // try, so an ownership miss is a final answer like any other refusal.
+      // Without this it would fall through to a 500 and read as our fault.
+      if (error.code === SAFE_RPC_ERROR || error.code === NOT_YOURS) {
         return NextResponse.json({ error: error.message }, { status: 409 });
       }
       console.error("guest_accept_delivery_quote failed", error);

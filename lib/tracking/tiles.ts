@@ -181,9 +181,11 @@ export function getBasemaps(): Basemap[] {
   const sat = satelliteFromEnv();
   const satellite: Basemap = sat ? { ...SATELLITE, base: sat } : SATELLITE;
   const streets = fromEnv() ?? STREETS;
-  // Street first: it is the default, and a switcher whose default is not the
-  // leading option reads as though something has already been changed.
-  return [streets, satellite];
+  // The DEFAULT leads. That rule is unchanged; which basemap satisfies it
+  // flipped on 2026-09-07 when satellite became the default again. A switcher
+  // whose default is not the leading option reads as though something has
+  // already been changed.
+  return [satellite, streets];
 }
 
 export function getBasemap(id: BasemapId): Basemap {
@@ -245,20 +247,40 @@ export function shouldFallBack(id: BasemapId, errors: number): boolean {
 }
 
 /**
- * STREET by default — the owner's call, and the right one now that the imagery
- * is 2016 Sentinel-2 at 10 m/pixel.
+ * SATELLITE by default — the owner's call, reversed on 2026-09-07 after seeing
+ * the street map come up on their own phone and asking for the imagery back.
  *
- * The earlier default was satellite, chosen when the layer was Esri's sharp
- * imagery. That layer had to go for licence reasons, and what replaced it is
- * legally clean but visibly softer past z14. A street rendering has sharp roads
- * and labels at every zoom, loads in a fraction of the bytes on a phone on
- * mobile data, and is the better first impression for the thing this map is
- * mostly used for: following a road.
+ * The history matters, because this has now flipped twice:
  *
- * Satellite stays one tap away for the case it genuinely wins — recognising a
- * beach, a track, or a building that no street map names.
+ *   until 2026-08-19   satellite, on Esri's sharp imagery
+ *   2026-08-19         streets, when that layer had to go for licence reasons
+ *                      and the Sentinel-2 fallback turned out visibly softer
+ *                      past z14
+ *   2026-09-07         satellite again, asked for directly
+ *
+ * The argument for streets was real: sharp roads and labels at every zoom, and
+ * a fraction of the bytes on mobile data. It lost anyway, because the owner
+ * looked at both on a phone and preferred the imagery — and for an island where
+ * people navigate by a beach, a track or a building rather than by a road name,
+ * that is a reasonable thing to prefer.
+ *
+ * One correction to the 2026-08-19 reasoning, checked rather than assumed:
+ * "softer past z14" describes the Sentinel-2 FALLBACK, which is what a machine
+ * with no map env vars renders. Production sets NEXT_PUBLIC_MAP_SATELLITE_URL
+ * and serves Mapbox imagery — the "© Mapbox Satellite" in the owner's own
+ * screenshot. So the sharpness objection barely applies to what visitors get.
+ *
+ * Streets stays one tap away.
+ *
+ * NOTE for anyone reading this after a bug report: a viewer's own tap is
+ * remembered in localStorage under BASEMAP_STORAGE_KEY and BEATS this default.
+ * Someone who once pressed "Map" keeps the street map whatever this says, so
+ * changing this constant will not fix their screen — they have to tap
+ * "Satellite" once. That is exactly what happened to the owner: the switch
+ * became tappable for the first time on 2026-09-07 (it had been sitting
+ * unreachable underneath the "Where I am" button), and a tap landed on Map.
  */
-export const DEFAULT_BASEMAP: BasemapId = "streets";
+export const DEFAULT_BASEMAP: BasemapId = "satellite";
 
 /** Remembered per browser, so a viewer's choice survives a reload. */
 export const BASEMAP_STORAGE_KEY = "rr-basemap";

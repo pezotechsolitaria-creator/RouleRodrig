@@ -20,11 +20,33 @@ import WorldSwitcher from "@/components/world/WorldSwitcher";
  */
 export default function AppPageHeader({
   title,
+  titleAs = "span",
   showBack = false,
   backHref = "/",
   logo,
 }: {
   title?: string;
+  /**
+   * What the centred title is, semantically. Defaults to a plain span.
+   *
+   * ── WHY THE DEFAULT CHANGED ──────────────────────────────────────────────
+   * This was an unconditional <h1>, and it is NAVIGATION CHROME: 16px, centred,
+   * truncated at 62% of the bar. On any page that also has a real heading it
+   * produced two h1s, and it did — measured on the live site:
+   *
+   *   /browse/scooter/burgman-125cc   "BURGMAN 125cc" twice
+   *   /browse/car/suzuki-swift…       the name twice
+   *   /experiences                    "Experiences" AND "Rodrigues under the sun"
+   *
+   * Two h1s is not a doubled signal, it is an ambiguous one — a crawler is
+   * being told the page has two subjects.
+   *
+   * The default is "span" rather than "h1" because that is the direction that
+   * fails SAFELY: a new page that forgets this prop gets chrome that is merely
+   * unhelpful, instead of silently competing with its own heading. The two
+   * pages whose only heading this is opt back in explicitly.
+   */
+  titleAs?: "h1" | "span";
   /**
    * A back control on a PRIMARY page — one that carries its own h1 and so does
    * not want the header's.
@@ -95,9 +117,17 @@ export default function AppPageHeader({
         )}
 
         {title ? (
-          <h1 className="mx-auto max-w-[62%] truncate text-center font-syne text-base font-bold text-offwhite">
-            {title}
-          </h1>
+          // Same element, same classes, whichever tag — the bar must look
+          // identical on all twenty-odd pages that use it.
+          titleAs === "h1" ? (
+            <h1 className="mx-auto max-w-[62%] truncate text-center font-syne text-base font-bold text-offwhite">
+              {title}
+            </h1>
+          ) : (
+            <span className="mx-auto max-w-[62%] truncate text-center font-syne text-base font-bold text-offwhite">
+              {title}
+            </span>
+          )
         ) : (
           <span className="flex-1" />
         )}

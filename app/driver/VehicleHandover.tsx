@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { shrinkImage } from "@/lib/images/shrink";
 import { Camera, CarFront, CheckCircle2, Loader2, X } from "lucide-react";
 
 // ── Photographing somebody's car before you drive it away ───────────────────
@@ -45,10 +46,19 @@ export default function VehicleHandover({ requestId, plate, next, onDone }: Prop
     );
   }
 
-  async function addPhoto(file: File) {
+  async function addPhoto(input: File) {
     setUploading(true);
     setError(null);
     try {
+      // ── THE ONE UPLOAD THAT COULD NOT BE WORKED AROUND ──────────────────
+      // /api/delivery-requests/photo refuses over 4 MB and a phone photo is
+      // routinely 3–10 MB. Here that is not a degraded path: the submit button
+      // below is disabled until photos.length > 0 — "the whole feature is this
+      // rule" — so a driver whose camera shoots big simply CANNOT record the
+      // handover. Standing at a customer's car, holding the most valuable
+      // thing this platform ever moves, with a button that will not turn on
+      // and a message telling them to take the photo again.
+      const file = await shrinkImage(input);
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch("/api/delivery-requests/photo", { method: "POST", body: fd });

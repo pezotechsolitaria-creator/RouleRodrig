@@ -43,6 +43,33 @@ export const TRACKING_CUSTOMER_STATUS: Record<TrackingStatus, string> = {
   ended: "Complete",
 };
 
+/**
+ * Whether there is anything left to track.
+ *
+ * A finished trip has no signal to lose, so the freshness line must not run on
+ * one. Without this, a booking completed two days ago still told the customer
+ * "Last seen 52 h 16 min ago — we've lost their signal. They're most likely
+ * still on the way", directly under a chip reading Complete. Reported from a
+ * real screen.
+ *
+ * A Record rather than `status === "ended"`: adding a status to TrackingStatus
+ * then fails to compile until somebody says whether it ends the trip. A
+ * hand-written list is how this file's sibling ended up testing for a leg
+ * status that did not exist.
+ */
+export const TRACKING_OVER: Record<TrackingStatus, boolean> = {
+  pending: false,
+  en_route_pickup: false,
+  at_pickup: false,
+  on_trip: false,
+  ended: true,
+};
+
+/** Narrow helper for callers holding a plain string off the wire. */
+export function isTrackingOver(status: string): boolean {
+  return TRACKING_OVER[status as TrackingStatus] === true;
+}
+
 /** What an operator sees — precise, because they act on it. */
 export const TRACKING_ADMIN_STATUS: Record<TrackingStatus, string> = {
   pending: "Not started",

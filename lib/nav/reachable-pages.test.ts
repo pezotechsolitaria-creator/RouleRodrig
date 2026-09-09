@@ -107,7 +107,7 @@ function allRoutes(): string[] {
 const PRIVATE_PREFIXES = ["/admin", "/merchant", "/kitchen", "/driver", "/organizer"];
 const isPrivate = (r: string) => PRIVATE_PREFIXES.some((p) => r === p || r.startsWith(`${p}/`));
 
-type LinkSite = { target: string; fromFile: string; fromPrivate: boolean };
+type LinkSite = { target: string; fromFile: string; fromPrivate: boolean; dynamic: boolean };
 
 /**
  * Every clickable path, WITH the file it lives in.
@@ -119,32 +119,37 @@ type LinkSite = { target: string; fromFile: string; fromPrivate: boolean };
  */
 function linkSites(): LinkSite[] {
   const out: LinkSite[] = [];
-  const patterns = [
-    /href\s*=\s*["'`](\/[^"'`?#${]*)/g,          // <Link href="/x">
-    /href:\s*["'`](\/[^"'`?#${]*)/g,             // { href: "/x" } nav tables
-    /(?:push|replace|redirect)\(\s*["'`](\/[^"'`?#${]*)/g,
-    /href\s*=\s*\{?[`"'](\/[a-z0-9\-/]*)\$\{/gi, // href={`/shop/${slug}`}
+  // The last one captures only the STATIC PREFIX of an interpolated href, so
+  // `href={`/browse/${category}`}` yields "/browse". That is a real link for
+  // the reachability test — it proves /browse/[category] can be clicked to —
+  // and NOT a destination anybody visits, which matters to the "every link
+  // lands somewhere" test below: /browse itself is not a page, and reporting it
+  // as a dead link would be a false alarm on four correct call sites.
+  const patterns: { re: RegExp; dynamic: boolean }[] = [
+    { re: /href\s*=\s*["'`](\/[^"'`?#${]*)/g, dynamic: false },          // <Link href="/x">
+    { re: /href:\s*["'`](\/[^"'`?#${]*)/g, dynamic: false },             // { href: "/x" } nav tables
+    { re: /(?:push|replace|redirect)\(\s*["'`](\/[^"'`?#${]*)/g, dynamic: false },
+    { re: /href\s*=\s*\{?[`"'](\/[a-z0-9\-/]*)\$\{/gi, dynamic: true },  // href={`/shop/${slug}`}
   ];
 
   for (const dir of SCAN_DIRS) {
     for (const file of walk(dir)) {
       if (!/\.(tsx?|mjs)$/.test(file)) continue;
-      // A TEST FILE IS NOT A PAGE. It ships to nobody, renders nothing, and
-      // cannot put a link in front of a visitor — but it quotes routes
-      // constantly, which is its job. lib/services/admin-desk.test.ts names
-      // /admin/deliveries and /admin/service-bookings in its assertions and was
-      // reported as a public page leaking the back door.
+      // ── A TEST FILE IS NOT A PAGE ───────────────────────────────────
+      // It ships to nobody, renders nothing and cannot put a link in front of
+      // a visitor — but it quotes routes constantly, which is its job:
+      // `expect(shell).toMatch(/href: "\/admin\/deliveries"/)`.
+      //
+      // Wrong in BOTH directions, which is why it is worth the line:
+      //   · lib/services/admin-desk.test.ts was reported as a public page
+      //     leaking the back door, and
+      //   · an orphaned page would count as "reachable" because a test
+      //     mentioned its path — hiding the exact fault this file exists for.
+      //
+      // (Two identical guards stood here after a rebase, each with its own
+      // comment saying the same thing. One is enough.)
       if (/\.test\.tsx?$/.test(file)) continue;
       if (!tracked().has(file)) continue;
-      // ── A TEST IS NOT A PAGE ────────────────────────────────────────
-      // Tests quote hrefs to assert on them — `expect(shell).toMatch(/href:
-      // "\/admin\/deliveries"/)` — and the scanner read those as real links.
-      // That is wrong in BOTH directions, which is why it is worth a line:
-      //   · it reported a test file as a public page leaking /admin, and
-      //   · it would have called an orphaned page "reachable" because a test
-      //     mentioned its path, hiding exactly the fault this file exists for.
-      // Nobody can click a link inside a test.
-      if (/\.test\.tsx?$/.test(file)) continue;
       const s = readFileSync(file, "utf8");
       const asRoute = file.startsWith(ROUTE_ROOT) ? norm(routeOf(file)) : null;
       // A file is "private" if it IS a private route, or lives in a private
@@ -157,8 +162,25 @@ function linkSites(): LinkSite[] {
         // real one.
         /[\\/](admin|merchant|kitchen|driver|organizer)[\\/]/.test(file);
 
-      for (const re of patterns) {
-        for (const m of s.matchAll(re)) out.push({ target: norm(m[1]), fromFile: file, fromPrivate });
+      for (const { re, dynamic } of patterns) {
+        for (const m of s.matchAll(re)) {
+          // ── IS THIS THE WHOLE PATH, OR JUST ITS PREFIX? ────────────────
+          // The first three patterns stop at `$`, so `href: `/browse/${cat}``
+          // is captured as "/browse" by an expression that is not the
+          // interpolation pattern at all. Deciding by which regex matched got
+          // that wrong and reported two correct call sites as broken links.
+          //
+          // The source itself answers it: if a `${` sits immediately after
+          // what was captured, the captured text is a prefix and not a
+          // destination.
+          const after = s.slice(m.index + m[0].length, m.index + m[0].length + 2);
+          out.push({
+            target: norm(m[1]),
+            fromFile: file,
+            fromPrivate,
+            dynamic: dynamic || after.startsWith("${"),
+          });
+        }
       }
     }
   }
@@ -169,6 +191,92 @@ function linkSites(): LinkSite[] {
 function clickableTargets(): Set<string> {
   return new Set(linkSites().map((l) => l.target));
 }
+
+// ── AND THE OTHER DIRECTION: EVERY LINK MUST LAND SOMEWHERE ────────────────
+//
+// The test below asserts that every page has a link. It says nothing about
+// whether a link has a PAGE — and that is the direction a visitor actually
+// experiences, as a 404.
+//
+// The two failures look nothing alike. An unlinked page is invisible: nobody
+// complains, because nobody knew it was there. A link to a page that does not
+// exist is the opposite — somebody clicks it, on purpose, and the site tells
+// them they are lost. It also survives every other check in this repo: a
+// wrong href type-checks, builds, renders and passes the crawl right up to the
+// moment it is clicked.
+//
+// Routes with parameters are matched by SHAPE, so /shop/foo/bar satisfies
+// /shop/[storeSlug]/[productSlug]. Whether that particular shop exists is a
+// data question and belongs to the page, which is entitled to 404 an unknown
+// slug. What is checked here is that the ROUTE exists at all.
+
+/** Turn /shop/[a]/[b] into a matcher, honouring catch-alls. */
+function routeMatcher(route: string): RegExp {
+  const body = route
+    .split("/")
+    .map((seg) => {
+      if (/^\[\[\.\.\..+\]\]$/.test(seg)) return "(?:/.*)?";   // [[...opt]]
+      if (/^\[\.\.\..+\]$/.test(seg)) return "/.+";              // [...all]
+      if (/^\[.+\]$/.test(seg)) return "/[^/]+";                 // [one]
+      return seg === "" ? "" : "/" + seg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    })
+    .join("");
+  return new RegExp(`^${body || "/"}$`);
+}
+
+describe("every link lands somewhere", () => {
+  const routes = allRoutes();
+  const matchers = routes.map(routeMatcher);
+
+  /** Paths that are real URLs but not Next pages in this repo. */
+  const NOT_A_PAGE: RegExp[] = [
+    /^\/api\//,                      // route handlers, not pages
+    /^\/_next\//,
+    /\.(xml|txt|json|ico|png|jpe?g|svg|webp|pdf|webmanifest)$/i,
+  ];
+
+  it("has no link pointing at a route that does not exist", () => {
+    const dead = new Map<string, Set<string>>();
+
+    for (const site of linkSites()) {
+      const target = norm(site.target.split("?")[0]);
+      if (NOT_A_PAGE.some((re) => re.test(target))) continue;
+
+      // An interpolated href yields only its static prefix, and the prefix is
+      // not somewhere anybody goes: `href={`/browse/${category}`}` gives
+      // "/browse", which is not a page and is not meant to be. Checking it as a
+      // destination reported four correct call sites as broken. What IS worth
+      // checking is that the prefix leads somewhere at all — a typo like
+      // /browes/${x} still has no route beneath it.
+      if (site.dynamic) {
+        const prefix = target === "/" ? "/" : `${target}/`;
+        if (routes.some((r) => r === target || r.startsWith(prefix))) continue;
+      } else if (matchers.some((re) => re.test(target))) {
+        continue;
+      }
+
+      if (!dead.has(target)) dead.set(target, new Set());
+      dead.get(target)!.add(site.fromFile);
+    }
+
+    const report = [...dead.entries()]
+      .map(([t, files]) => `${t}  <- ${[...files].join(", ")}`)
+      .sort();
+
+    expect(
+      report,
+      `These links go nowhere. Every one is a 404 waiting for somebody to click it:\n  ${report.join("\n  ")}`,
+    ).toEqual([]);
+  });
+
+  it("finds routes and links at all (tripwire against matching nothing)", () => {
+    // Without this the assertion above passes loudly when a refactor breaks the
+    // scanners — zero links against zero routes is a green test that checks
+    // nothing, which is the failure mode this whole file exists to prevent.
+    expect(routes.length).toBeGreaterThan(40);
+    expect(linkSites().length).toBeGreaterThan(80);
+  });
+});
 
 describe("every page is reachable by clicking", () => {
   const routes = allRoutes();

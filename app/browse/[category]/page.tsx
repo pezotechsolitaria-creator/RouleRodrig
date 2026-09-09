@@ -8,6 +8,7 @@ import {
   getFleetView,
   buildBrowseCategories,
   priceNumber,
+  isSellableFleetItem,
 } from "@/lib/site-data";
 import AppPageHeader from "@/components/AppPageHeader";
 import Link from "next/link";
@@ -141,22 +142,47 @@ const PLACE_SLUGS: Record<
 // guest-house delivery in the approved reviews rendered on the homepage.
 const VEHICLE_COPY: Record<
   string,
-  { heading: string; intro: (from: number | null) => string; frLabel?: string }
+  {
+    heading: string;
+    /** `from` is the cheapest daily rate; `deliveryFee` is this category's
+     *  delivery charge, which is 0 for scooters and Rs 600 for cars. Both come
+     *  from the CMS so the sentence cannot drift from what checkout charges. */
+    intro: (from: number | null, deliveryFee?: number) => string;
+    frLabel?: string;
+  }
 > = {
   scooter: {
     heading: "Scooter Rental in Rodrigues",
     intro: (from) =>
       `Rent a scooter in Rodrigues direct from local owners${
         from ? ` — from Rs ${from.toLocaleString("en-US")} a day` : ""
-      }, helmet included, with discounts from 3 days. We hand over in person, with real advice on the roads and the places worth riding to, and deliver to your guest house. Pick a scooter below and book your dates online.`,
+      }, helmet included and delivered free to your guest house. We hand over in person, with real advice on the roads and the places worth riding to. Pick a scooter below and book your dates online.`,
     frLabel: "Location de scooter à Rodrigues — cette page en français",
   },
   car: {
     heading: "Car Rental in Rodrigues",
-    intro: (from) =>
+    // WHAT CHANGED AND WHY.
+    //
+    // "with discounts from 3 days" was false: the automatic 10%/15% tiers came
+    // out of lib/booking-pricing.ts in M159, so the rate table renders exactly
+    // 1x, 3x and 7x the daily rate. A commercial page cannot promise a discount
+    // the checkout will not give.
+    //
+    // The delivery fee is now stated rather than implied. Cars carry a Rs 600
+    // fee (content.vehicleCategories) while scooters are free, and the fleet
+    // card already prints "+ Rs 600 delivery" -- so an intro that said only "we
+    // deliver to your guest house" was quietly setting up the contradiction.
+    //
+    // Airport, Plaine Corail, automatic, air-conditioned and which side of the
+    // road are here because the EN car pages contained ZERO occurrences of any
+    // of them, while the French page answers all of those questions and is the
+    // best car page on the site. These are the things a car renter searches for.
+    intro: (from, deliveryFee) =>
       `Hire a car in Rodrigues from local owners${
-        from ? ` — clear daily rates from Rs ${from.toLocaleString("en-US")}` : ""
-      }, with discounts from 3 days. Ideal for families and longer stays: we deliver to your guest house, hand over in person and explain the island's roads before you set off. Choose a car below and book your dates online.`,
+        from ? ` — clear daily rates from Rs ${from.toLocaleString("en-US")} a day` : ""
+      }${
+        deliveryFee ? `, plus Rs ${deliveryFee.toLocaleString("en-US")} delivery` : ""
+      }. Automatic, air-conditioned and insured — the easy choice for families, longer stays and the rainy season. We bring the car to your guest house or meet you at Plaine Corail airport, hand over in person and explain the island's roads before you set off; on Rodrigues you drive on the left, as in Mauritius. Choose a car below and book your dates online.`,
     frLabel: "Location de voiture à Rodrigues — cette page en français",
   },
 };
@@ -173,16 +199,30 @@ const META: Record<
   string,
   { title: string; description: string; fr?: string }
 > = {
+  // ── THE PRICE BELONGS IN THE TITLE ──────────────────────────────────────
+  // These two are the transactional money pages and neither title carried a
+  // number, a delivery promise or anything a competitor's title does not also
+  // say. On a result Google already shows around position 20, the title is the
+  // only lever that moves clicks without moving rank.
+  //
+  // The figures are the CHEAPEST REAL daily rate in the fleet, checked against
+  // site_content before writing: scooters Rs 699, cars Rs 1,999. The August
+  // optimisation spec said Rs 1,499 for cars — it is out of date, and shipping
+  // it would have advertised a price the page itself does not show.
+  //
+  // " | Roule Rodrigues" is appended by pageMeta(), so it is deliberately not
+  // repeated here; these read ~42 characters, which survives truncation with
+  // the brand suffix attached.
   scooter: {
-    title: "Scooter Rental in Rodrigues Island",
+    title: "Scooter Rental Rodrigues — from Rs 699/day",
     description:
-      "Rent a scooter in Rodrigues from local owners. Helmets included, island-wide pickup and real WhatsApp support. Compare models and book your dates online.",
+      "Rent a scooter in Rodrigues from Rs 699/day, delivered free to your guest house. Helmets included, no minimum hire, and real local advice on where to ride.",
     fr: "/fr/location-scooter-rodrigues",
   },
   car: {
-    title: "Car Rental in Rodrigues Island, Mauritius",
+    title: "Car Rental Rodrigues — from Rs 1,999/day",
     description:
-      "Hire a car in Rodrigues for the family or a longer stay. Local owners, clear daily rates, island-wide pickup. Compare vehicles and book yours online today.",
+      "Rent a car in Rodrigues from Rs 1,999/day, delivered free to your guest house. Suzuki Swift and Hyundai Venue, no minimum hire, booked direct with locals.",
     fr: "/fr/location-voiture-rodrigues",
   },
   stays: {
@@ -361,7 +401,18 @@ export default async function BrowsePage({
 
   // Breadcrumb trail (Home › This page) + the listing itself, so Google shows
   // a real trail under the result instead of a bare URL.
-  const seo = (label: string, items: { name: string }[]) => (
+  // withFaq, because the FAQPage below describes SCOOTER RENTAL and only the
+  // vehicle branch renders it visibly. Verified live before this parameter
+  // existed: /browse/stays, /browse/tours and /browse/activities each published
+  // all eight questions -- "What is the minimum age to rent?", "Do I need a
+  // driving licence?", "Is insurance included?" -- and zero of them appeared
+  // anywhere in those pages' text.
+  //
+  // Google requires FAQ markup to match content the visitor can read; markup
+  // for invisible content is the exact thing that guideline exists to stop. It
+  // was also telling Google that a page about guest houses is about driving
+  // licences, which is a topical-relevance leak on three commercial pages.
+  const seo = (label: string, items: { name: string }[], withFaq = false) => (
     <JsonLd
       data={[
         breadcrumbLd([
@@ -380,7 +431,7 @@ export default async function BrowsePage({
         // Same source as the panel, so the two can never disagree: if the owner
         // edits an answer in admin, the visible text and the structured data
         // move together.
-        ...(conditionItems.length
+        ...(withFaq && conditionItems.length
           ? [
               {
                 "@context": "https://schema.org",
@@ -400,8 +451,14 @@ export default async function BrowsePage({
 
   // App-style top bar (back to Explore + page title + language). Replaces the
   // marketing navbar on this redesigned surface; the global BottomNav does the rest.
-  const header = (title: string) => (
-    <AppPageHeader title={title} backHref="/#explore" />
+  // titleAs is a parameter because the VEHICLE pages have a better h1 available
+  // than this bar has. The bar shows the one-word nav label -- on /browse/car
+  // that label is "Cars", which was the page's <h1> while the actual keyword
+  // heading, "Car Rental in Rodrigues", sat below it as an <h2>. The strongest
+  // heading on a commercial page was a nav crumb. The other two callers keep
+  // the bar as their h1 because they have no competing heading.
+  const header = (title: string, titleAs: "h1" | "span" = "h1") => (
+    <AppPageHeader title={title} titleAs={titleAs} backHref="/#explore" />
   );
   const footer = (
     <>
@@ -415,12 +472,105 @@ export default async function BrowsePage({
   );
 
   // ── Vehicles (scooters / cars / other) ──
-  const vcat = content.vehicleCategories.find(
-    (c) => c.id === category && c.enabled,
-  );
+  // ── A SWITCHED-OFF CATEGORY MUST NOT 404 AN INDEXED PAGE (M190) ──────────
+  //
+  // On 2026-09-09 the owner turned the Cars category off in /admin while he was
+  // adding vehicles. /browse/car began returning the "Lost on the island"
+  // screen with <meta name="robots" content="noindex">, because a disabled
+  // category matched no branch on this page and fell through to notFound() at
+  // the bottom. Nothing warned him.
+  //
+  // That page is in the sitemap, carries reciprocal hreflang from
+  // /fr/location-voiture-rodrigues, and is one of the two pages the business
+  // sells from. A 404 is how you tell Google to DELETE a URL; it is the wrong
+  // answer to "this is paused for an afternoon", and it throws away whatever
+  // ranking the page had.
+  //
+  // So the lookup is split. A category that does not exist at all still 404s
+  // -- /browse/hovercraft should. A category that exists and is switched off
+  // keeps its URL, its heading and its copy at HTTP 200, and says plainly that
+  // it is unavailable. That is the same shape Google asks for on a temporarily
+  // out-of-stock product: keep the page, state the availability.
+  const vcatAny = content.vehicleCategories.find((c) => c.id === category);
+  const vcat = vcatAny?.enabled ? vcatAny : undefined;
+
+  if (vcatAny && !vcat) {
+    const pausedCopy = VEHICLE_COPY[vcatAny.id];
+    const other = content.vehicleCategories.find((c) => c.enabled && c.id !== vcatAny.id);
+    return (
+      <>
+        {header(vcatAny.label, "span")}
+        <main className="bg-dark min-h-screen px-4 pb-24 pt-6">
+          <div className="mx-auto max-w-3xl">
+            <p className="font-bebas text-yellow text-[11px] tracking-[0.3em]">
+              ROULE RODRIGUES
+            </p>
+            {/* The h1 and the intro stay. They are what this URL ranks on, and
+                a pause is not a reason to throw that away. */}
+            <h1 className="mt-1 font-syne text-2xl font-extrabold text-offwhite md:text-3xl">
+              {pausedCopy?.heading ?? vcatAny.label}
+            </h1>
+            <p className="mt-4 rounded-2xl border border-yellow/40 bg-yellow/10 px-4 py-3 font-dm text-sm text-offwhite">
+              {vcatAny.label} are not available to book right now. Message us on
+              WhatsApp and we will tell you the moment they are back.
+            </p>
+            {pausedCopy ? (
+              <p className="mt-4 font-dm text-sm leading-relaxed text-muted">
+                {pausedCopy.intro(null, undefined)}
+              </p>
+            ) : null}
+            <div className="mt-6 flex flex-wrap gap-3">
+              {other ? (
+                <Link
+                  href={`/browse/${other.id}`}
+                  className="inline-flex min-h-[48px] items-center rounded-full bg-yellow px-5 font-syne text-sm font-bold text-dark"
+                >
+                  See {other.label.toLowerCase()} instead
+                </Link>
+              ) : null}
+              <Link
+                href="/browse/getting-around"
+                className="inline-flex min-h-[48px] items-center rounded-full border border-dark-control px-5 font-dm text-sm text-offwhite"
+              >
+                Other ways to get around
+              </Link>
+            </div>
+          </div>
+        </main>
+        {footer}
+      </>
+    );
+  }
+
   if (vcat) {
-    const items = fleet.filter((f) => (f.category ?? "scooter") === vcat.id);
-    if (items.length === 0) notFound();
+    // Unpriced rows are unfinished drafts, not stock — see
+    // isSellableFleetItem. They fall out here, so a category holding only
+    // drafts correctly reads as "nothing to rent today" rather than
+    // listing a car somebody could book for Rs 0.
+    const items = fleet.filter(
+      (f) => (f.category ?? "scooter") === vcat.id && isSellableFleetItem(f),
+    );
+    // Same reasoning as the disabled case, for the same URL: an empty fleet is
+    // "nothing to rent today", not "this page never existed".
+    if (items.length === 0) {
+      return (
+        <>
+          {header(vcat.label, "span")}
+          <main className="bg-dark min-h-screen px-4 pb-24 pt-6">
+            <div className="mx-auto max-w-3xl">
+              <h1 className="font-syne text-2xl font-extrabold text-offwhite md:text-3xl">
+                {VEHICLE_COPY[vcat.id]?.heading ?? vcat.label}
+              </h1>
+              <p className="mt-4 rounded-2xl border border-yellow/40 bg-yellow/10 px-4 py-3 font-dm text-sm text-offwhite">
+                Everything in this category is out on hire right now. Message us
+                on WhatsApp and we will find you something.
+              </p>
+            </div>
+          </main>
+          {footer}
+        </>
+      );
+    }
     const vcopy = VEHICLE_COPY[vcat.id];
     // Cheapest real daily rate on THIS page, for the intro sentence — derived
     // from the same fleet the cards render, so the copy can never advertise a
@@ -439,6 +589,8 @@ export default async function BrowsePage({
         {seo(
           vcat.label,
           items.map((i) => ({ name: i.name })),
+          // The only branch that renders <RentalConditions> visibly.
+          true,
         )}
         {/* The vehicles are rendered on THIS page, so this is where their
             Product markup belongs — with real ratings where reviews exist. */}
@@ -498,7 +650,7 @@ export default async function BrowsePage({
             ],
           }}
         />
-        {header(vcat.label)}
+        {header(vcat.label, "span")}
         <main>
           <BrowseTabs
             categories={cats}
@@ -516,10 +668,11 @@ export default async function BrowsePage({
             whatsapp={businessWhatsApp}
             eyebrow="OUR FLEET"
             title={vcopy?.heading ?? vcat.label}
+            titleAs="h1"
             subtitle={
               vcopy ? (
                 <>
-                  {vcopy.intro(vFrom)}
+                  {vcopy.intro(vFrom, vcat.deliveryFee)}
                   {vFrHref && vcopy.frLabel ? (
                     <>
                       {" "}
@@ -544,7 +697,7 @@ export default async function BrowsePage({
               here is already true elsewhere on the site (a free helmet is in
               t.booking.included; the 3+/7+ day discounts are in
               lib/booking-pricing), so nothing new is being promised. */}
-          <TrustBar />
+          <TrustBar category={vcat.id} />
           <BookingSection
             fleet={items}
             categories={content.vehicleCategories}
@@ -565,7 +718,36 @@ export default async function BrowsePage({
   const place = PLACE_SLUGS[category];
   if (place) {
     const items = content.recommended.items.filter(place.filter);
-    if (items.length === 0) notFound();
+    // Same guard as the vehicle branch above, for the same reason. /browse/stays
+    // and /browse/tours are in the sitemap and carry hreflang from their French
+    // twins, and an empty listing is "nothing published yet", not "this URL was
+    // never real". Emptying the list in /admin used to delete the page from
+    // Google; now it keeps its heading and says so.
+    if (items.length === 0) {
+      return (
+        <>
+          {header(place.label)}
+          <main className="bg-dark min-h-screen px-4 pb-24 pt-6">
+            <div className="mx-auto max-w-3xl">
+              <h1 className="font-syne text-2xl font-extrabold text-offwhite md:text-3xl">
+                {place.heading ?? place.label}
+              </h1>
+              <p className="mt-4 rounded-2xl border border-yellow/40 bg-yellow/10 px-4 py-3 font-dm text-sm text-offwhite">
+                Nothing is listed here just yet. Message us on WhatsApp and we
+                will point you to the right place on the island.
+              </p>
+              <Link
+                href="/explore"
+                className="mt-6 inline-flex min-h-[48px] items-center rounded-full bg-yellow px-5 font-syne text-sm font-bold text-dark"
+              >
+                Explore the island
+              </Link>
+            </div>
+          </main>
+          {footer}
+        </>
+      );
+    }
     return (
       <>
         {seo(

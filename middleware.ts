@@ -40,6 +40,40 @@ export async function middleware(req: NextRequest) {
 
   const { pathname } = req.nextUrl;
 
+  // ── URLS PEOPLE GUESS, POINTED AT THE PAGES THAT ANSWER THEM ──────────────
+  //
+  // Neither of these was ever linked from the site, so no test could have
+  // caught them: they are what somebody TYPES, or writes on a card, or shortens
+  // a shared link to. /contact is the most guessed URL on any website and
+  // /stays is the obvious short form of /browse/stays, and both returned the
+  // not-found screen while the real thing sat one path segment away.
+  //
+  // Here rather than as redirect pages, because a page would then need an entry
+  // in reachable-pages' ALLOWED_WITHOUT_LINKS explaining why nothing links to
+  // it — and a redirect is not a page anybody should be linking to.
+  //
+  // Deliberately NOT a general "send them to the nearest match" rule. Every
+  // entry is a guess somebody actually makes, aimed at a page that actually
+  // exists; a fuzzy matcher would turn typos into confident wrong answers, and
+  // a 404 that says "not found" is better than a page that says the wrong
+  // thing convincingly.
+  const GUESSED: Record<string, string> = {
+    '/contact': '/#contact',
+    '/stays': '/browse/stays',
+    // /browse has six categories beneath it and no index. It stopped being a
+    // broken LINK when /admin/marketplace was pointed at /shop, but it is still
+    // a path somebody shortens a URL to. /explore is the page that actually
+    // answers "show me what there is".
+    '/browse': '/explore',
+  };
+  const guessed = GUESSED[pathname.replace(/\/+$/, '') || '/'];
+  if (guessed) {
+    // 307, not 308: these are conveniences, and pinning them into every
+    // browser's cache permanently would make them impossible to change if
+    // either destination ever moves.
+    return NextResponse.redirect(new URL(guessed, req.url), 307);
+  }
+
   // ── "/" ANSWERS WITH THE WORLD YOU CHOSE ───────────────────────────────────
   //
   // A visitor who has chosen Curated should land on Curated from every "home"

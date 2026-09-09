@@ -30,11 +30,63 @@ import { driverDutyState } from "@/lib/delivery/availability";
 import DeliveryLog from "./DeliveryLog";
 import QuoteBoard, { type OpenRequest } from "./QuoteBoard";
 import { formatWindow } from "@/lib/delivery/schedule";
+import { legFor } from "@/lib/delivery/leg";
+import { legTarget } from "@/lib/delivery/job-legs";
+import { isPoint, navigateUrl, routeUrl } from "@/lib/maps/nav";
 import {
   canStartDelivery,
   paymentCardState,
   waitingOn,
 } from "@/lib/delivery/payment-state";
+
+/**
+ * Open a signed document, and notice when the browser refuses.
+ *
+ * ── WHY THIS IS NOT JUST window.open ──────────────────────────────────────
+ * Both call sites open AFTER two awaits — a fetch and a json() — so the tap
+ * that started it is long over. Every mobile browser treats a window.open with
+ * no user gesture behind it as a popup and blocks it, and it does so SILENTLY:
+ * the call returns null and nothing anywhere says a word.
+ *
+ * The driver is standing at the door on a cash job, taps "View ID", and
+ * nothing happens. Not an error, not a document — nothing. There is no way for
+ * them to tell that from a slow connection, so they tap again, and again.
+ *
+ * A blocked popup is reported now, with the one instruction that fixes it.
+ */
+function openSigned(url: string, onBlocked: (message: string) => void): void {
+  const win = window.open(url, "_blank", "noopener,noreferrer");
+  if (!win || win.closed) {
+    onBlocked(
+      "Your browser blocked the document window. Allow pop-ups for this site, then tap again.",
+    );
+  }
+}
+
+/** The only failure where the tap never left the phone. */
+const OFFLINE_MESSAGE =
+  "No signal just now — that did not go through. Nothing has changed, so tap it again when you have a bar.";
+
+/**
+ * Did the request fail to reach the server at all?
+ *
+ * A fetch that never connects rejects with a TypeError, and the message is the
+ * browser's rather than ours: "Load failed" (Safari), "Failed to fetch"
+ * (Chrome), "NetworkError when attempting to fetch resource" (Firefox). We do
+ * not match on those strings — they are three, they are localised in some
+ * builds, and they change. The reliable signals are the error TYPE and, when
+ * the browser bothers to set it, navigator.onLine.
+ */
+function isNetworkFailure(e: unknown): boolean {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
+  return e instanceof TypeError;
+}
+
+/** Our own messages pass through; anything else becomes plain words. */
+function messageFor(e: unknown): string {
+  const m = e instanceof Error ? e.message : "";
+  return m && m.length < 200 ? m : "That didn't work. Try again.";
+}
 
 // ── The driver's phone ──────────────────────────────────────────────────────
 //
@@ -55,6 +107,10 @@ type Offer = {
   storeAddress: string | null;
   dropoffNote: string | null;
   expiresAt: string | null;
+  /** M186 emits these for the offers block too. A dispatch offer is a
+   *  countdown, and "is this pickup near me" is most of the decision. */
+  pickupLat?: number | null;
+  pickupLng?: number | null;
 };
 type Active = {
   id: string;
@@ -69,6 +125,18 @@ type Active = {
   dropoffLat: number | null;
   dropoffLng: number | null;
   dropoffNote: string | null;
+  /** ── WHERE TO COLLECT FROM ────────────────────────────────────────────
+   *  M186. `deliveries` has no pickup columns at all, and driver_dashboard()
+   *  joined the request to read `pickup_text` — the ADDRESS — while selecting
+   *  neither coordinate. So the console knew the NAME of the place and could
+   *  not point at it: the only Navigate button on the screen went to the
+   *  drop-off, whatever leg the driver was on. On a store job these come from
+   *  the store's own pin, on a direct request from what the customer dropped
+   *  on the map. */
+  pickupLat?: number | null;
+  pickupLng?: number | null;
+  /** "Ask for Marie round the back" — worth nothing until you have arrived. */
+  pickupNote?: string | null;
   pickupDueAt: string | null;
   deliveryDueAt: string | null;
   pinAttempts: number;
@@ -243,6 +311,9 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
   const focusDone = useRef(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Did the CURRENT message come from something the driver did? If so the
+   *  twenty-second poll must not wipe it before they have read it. */
+  const errorFromAction = useRef(false);
   const [pin, setPin] = useState<Record<string, string>>({});
   const [excuseFor, setExcuseFor] = useState<string | null>(null);
   const [reason, setReason] = useState("vehicle");
@@ -251,12 +322,45 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/driver", { cache: "no-store" });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error || "Could not load.");
+      // ── A NON-JSON REPLY USED TO UNAPPROVE THE DRIVER ──────────────────
+      // res.json() had no .catch, unlike act() below which has exactly this
+      // guard. An edge 502, a captive-portal page, a carrier interception —
+      // any of them rejected here, `dash` stayed null, and loading still
+      // cleared. The render then read `dash?.driver?.status` as undefined and
+      // told an APPROVED driver, mid-shift:
+      //
+      //     Account undefined
+      //     We'll message you as soon as it's checked.
+      //     You can't take deliveries yet.
+      //
+      // No jobs, no button, no sign-in link, and the word "undefined" in the
+      // sentence. A bad first byte on 3G is routine.
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          (body as { error?: string } | null)?.error || "Could not load.",
+        );
+      }
+      // A 200 that is not the dashboard is not a dashboard. Keeping the last
+      // good state beats replacing a working screen with a wrong one.
+      if (!body || typeof body !== "object") {
+        throw new Error("Could not load.");
+      }
       setDash(body as Dash);
-      setError(null);
+      // ── ONLY CLEAR WHAT THIS FUNCTION SAID ─────────────────────────────
+      // This cleared EVERY message, and usePolling runs it every twenty
+      // seconds regardless of what the driver just did. So RR086, a 429, the
+      // offline notice — all of them vanished inside twenty seconds whether or
+      // not anyone read them. A driver who glances up from the road sees a
+      // normal screen and no explanation of why their tap did nothing.
+      //
+      // An action's message now stays until the driver takes another action.
+      if (!errorFromAction.current) setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load.");
+      // Same rule as act(): a driver refreshing on 3G must not be shown
+      // "Load failed", which is Safari's words for "no signal" and reads like
+      // the app is broken.
+      setError(isNetworkFailure(e) ? OFFLINE_MESSAGE : messageFor(e));
     } finally {
       setLoading(false);
     }
@@ -293,6 +397,9 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
   async function act(key: string, payload: Record<string, unknown>) {
     if (busy) return; // one action at a time, always
     setBusy(key);
+    // A new action supersedes the last one's message, and hands the flag back
+    // to load() until something goes wrong again.
+    errorFromAction.current = false;
     setError(null);
     try {
       const res = await fetch("/api/driver", {
@@ -303,11 +410,26 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "That didn't work.");
       // A soft failure (wrong PIN, job taken) comes back 200 with ok:false.
-      if (body.ok === false && body.message) setError(body.message);
+      if (body.ok === false && body.message) {
+        errorFromAction.current = true;
+        setError(body.message);
+      }
       await load();
       return body;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "That didn't work.");
+      // ── WHAT A DRIVER ON A BAD SIGNAL ACTUALLY SEES ────────────────────
+      // A failed fetch is a TypeError whose message is the browser's own:
+      // "Load failed" on Safari, "Failed to fetch" on Chrome, "NetworkError
+      // when attempting to fetch resource" on Firefox. Those went straight to
+      // the screen — three different English strings, none of which tells
+      // somebody standing at a roadside on 3G that their tap did not leave the
+      // phone, and none of which says whether the step happened.
+      //
+      // The distinction that matters is exactly that: a REQUEST THAT NEVER
+      // ARRIVED is safe to repeat, and a driver who does not know that either
+      // gives up or taps again and fears they have broken something.
+      errorFromAction.current = true;
+      setError(isNetworkFailure(e) ? OFFLINE_MESSAGE : messageFor(e));
     } finally {
       setBusy(null);
     }
@@ -485,14 +607,19 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
           invisible to dispatch AND to the customer watching them, and that has
           to be visible before the work, not buried under it.
 
-          Only the FIRST active job is tracked. A driver holding two deliveries
-          is in one place, and the position belongs to whichever they are
-          actually doing — which is the one at the top of this list. */}
+          A driver holding two deliveries is in one place, and the position
+          belongs to whichever they are actually doing. THE SERVER DECIDES
+          WHICH — this list is ordered oldest-first and the tracking context
+          takes the newest, so the old `active[0]` guess disagreed with it and
+          the driver went dark for both customers. */}
       {approved && (
         <DeliveryTracking
           online={online}
-          activeId={active[0]?.id ?? null}
-          activeStatus={active[0]?.status ?? null}
+          // ALL of them, not active[0]. The server picks which one is being
+          // tracked — see the note on the `jobs` prop. Sending it the first
+          // of the list meant a driver holding two deliveries broadcast for
+          // neither.
+          jobs={allActive.map((a) => ({ id: a.id, status: a.status }))}
           driverId={dash?.driver?.id ?? null}
         />
       )}
@@ -512,6 +639,10 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
         const next = NEXT[a.status];
         const atDoor =
           a.status === "arrived" || a.status === "out_for_delivery";
+        // Which end of the job this is — the shop, or the customer's door.
+        // Shared with the deadline strip below and with Navigate, because
+        // those three disagreeing is exactly the confusion being fixed.
+        const leg = legFor(a.status);
         // The exact condition advance_delivery() refuses on, so the button
         // can say so instead of throwing RR087 after the tap. Kept in
         // lib/delivery/payment-state.ts with a test naming the SQL it mirrors,
@@ -542,11 +673,7 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
                 once is noise; showing neither is what shipped. */}
             {(() => {
               const due = timeLeft(
-                ["assigned", "going_to_pickup", "arrived_at_pickup"].includes(
-                  a.status,
-                )
-                  ? a.pickupDueAt
-                  : a.deliveryDueAt,
+                leg === "pickup" ? a.pickupDueAt : a.deliveryDueAt,
               );
               if (!due) return null;
               return (
@@ -558,31 +685,50 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
                   }`}
                 >
                   <Clock size={12} />
-                  {[
-                    "assigned",
-                    "going_to_pickup",
-                    "arrived_at_pickup",
-                  ].includes(a.status)
-                    ? "Pickup"
-                    : "Delivery"}{" "}
-                  {due.text}
+                  {leg === "pickup" ? "Pickup" : "Delivery"} {due.text}
                 </p>
               );
             })()}
 
             <Progress status={a.status} />
 
+            {/* ── THE TWO ENDS, SAID AS SUCH ────────────────────────────────
+                These were two grey lines with two different icons and no
+                words: one the collection address, one the delivery note. A
+                driver had to know which was which from a Package glyph. On
+                the leg where it matters most — before collection — the app
+                was showing them the customer's instructions with equal
+                weight and no label. */}
             <div className="mt-3 space-y-1.5 font-dm text-sm">
               {a.storeAddress && (
                 <p className="flex items-start gap-2 text-muted">
-                  <Package size={14} className="mt-0.5 shrink-0 text-yellow" />{" "}
-                  {a.storeAddress}
+                  <Package size={14} className="mt-0.5 shrink-0 text-yellow" />
+                  <span>
+                    <span className="text-white/40">Collect from </span>
+                    <span className={leg === "pickup" ? "text-offwhite" : ""}>
+                      {a.storeAddress}
+                    </span>
+                  </span>
+                </p>
+              )}
+              {/* Collection instructions, and only while collecting: "ask for
+                  Marie round the back" is noise once the package is in the
+                  bag. */}
+              {leg === "pickup" && a.pickupNote && (
+                <p className="flex items-start gap-2 text-offwhite">
+                  <FileText size={14} className="mt-0.5 shrink-0 text-yellow" />
+                  {a.pickupNote}
                 </p>
               )}
               {a.dropoffNote && (
                 <p className="flex items-start gap-2 text-muted">
-                  <MapPin size={14} className="mt-0.5 shrink-0 text-yellow" />{" "}
-                  {a.dropoffNote}
+                  <MapPin size={14} className="mt-0.5 shrink-0 text-yellow" />
+                  <span>
+                    <span className="text-white/40">Deliver to </span>
+                    <span className={leg === "dropoff" ? "text-offwhite" : ""}>
+                      {a.dropoffNote}
+                    </span>
+                  </span>
                 </p>
               )}
             </div>
@@ -627,16 +773,80 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
             {/* Calling and navigating are the two things a driver reaches for
                 mid-job; they are links, not buried in a menu. */}
             <div className="mt-3 flex flex-wrap gap-2">
-              {a.dropoffLat != null && a.dropoffLng != null && (
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${a.dropoffLat},${a.dropoffLng}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/20 px-4 font-dm text-sm"
-                >
-                  <Navigation size={14} /> Navigate
-                </a>
+              {/* ── NAVIGATE TO THE END YOU ARE ACTUALLY GOING TO ─────────
+                  This pointed at the DROP-OFF on every leg of every job. A
+                  driver on `assigned` — who has not collected anything yet —
+                  tapped Navigate and was routed to the customer's house.
+
+                  It also used /maps/search/, which drops a pin rather than
+                  starting guidance: two more taps on a screen they are trying
+                  not to look at. Both fixed here; the label now names the
+                  destination, so it is checkable at a glance instead of
+                  trusted. */}
+              {/* ── BOTH ENDS, ALWAYS ────────────────────────────────────
+                  One button whose destination swapped with the stage still
+                  decides FOR the driver. A driver on `going_to_pickup` who
+                  wants to see how far the customer is before choosing the
+                  order to run two jobs in had no way to look, and one who
+                  left something at the shop after collecting was offered no
+                  route back to it.
+
+                  So both are offered and the STAGE decides which is
+                  EMPHASISED, not which exists. The gold one is still the one
+                  obvious next action.
+
+                  A leg with no coordinates falls back to a map search on the
+                  place name -- the owner's "kot pive" -- labelled as a search
+                  rather than passed off as a pin. */}
+              {([
+                ["pickup", legTarget(a.pickupLat, a.pickupLng, a.storeAddress), "Pickup"],
+                ["dropoff", legTarget(a.dropoffLat, a.dropoffLng, a.dropoffNote), "Drop-off"],
+              ] as const).map(([which, target, name]) =>
+                target ? (
+                  <a
+                    key={which}
+                    href={target.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={target.precise ? undefined : target.label}
+                    className={
+                      leg === which
+                        ? "inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-yellow px-4 font-dm text-sm font-bold text-dark"
+                        : "inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/20 px-4 font-dm text-sm text-offwhite"
+                    }
+                  >
+                    <Navigation
+                      size={14}
+                      className={leg === which ? "" : "text-yellow"}
+                    />
+                    {name}
+                    {/* Never let an approximate result look exact: a driver
+                        who trusts a name search as a pin ends up in the wrong
+                        village and blames the app. */}
+                    {!target.precise && (
+                      <span className="opacity-60">~</span>
+                    )}
+                  </a>
+                ) : null,
               )}
+              {/* Where they will be sent NEXT, while they still have a choice
+                  about the order they do things in. Quiet on purpose — it is
+                  information, not the next action. */}
+              {leg === "pickup" &&
+                isPoint(a.pickupLat, a.pickupLng) &&
+                isPoint(a.dropoffLat, a.dropoffLng) && (
+                  <a
+                    href={routeUrl(
+                      { lat: a.pickupLat as number, lng: a.pickupLng as number },
+                      { lat: a.dropoffLat as number, lng: a.dropoffLng as number },
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/20 px-4 font-dm text-sm text-muted"
+                  >
+                    <MapPin size={14} /> Whole route
+                  </a>
+                )}
               {a.customerPhone && atDoor && (
                 <a
                   href={`tel:${a.customerPhone.replace(/\s+/g, "")}`}
@@ -848,6 +1058,22 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
                         {o.storeAddress}
                       </p>
                     )}
+                    {/* An offer is a countdown, and "is that pickup near me"
+                        is most of the decision. Opens in a new tab on purpose:
+                        the offer must still be here when they come back. */}
+                    {isPoint(o.pickupLat, o.pickupLng) && (
+                      <a
+                        href={navigateUrl(
+                          o.pickupLat as number,
+                          o.pickupLng as number,
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-flex items-center gap-1 font-dm text-xs text-muted underline-offset-4 hover:text-yellow hover:underline"
+                      >
+                        <Navigation size={11} /> Where is this?
+                      </a>
+                    )}
                     {o.dropoffNote && (
                       <p className="mt-1 flex items-start gap-1.5 font-dm text-xs text-muted">
                         <MapPin size={12} className="mt-0.5 shrink-0" />{" "}
@@ -898,6 +1124,18 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
             ))}
           </div>
         ) : active.length === 0 && openRequests.length === 0 ? (
+          // ── IT HAS TO LOOK AT THE BOARD BELOW IT ────────────────────────
+          // This branched on `offers` and `active` only, while the quote board
+          // renders as the very next sibling from a SECOND rpc
+          // (driver_open_requests). Dispatch offers are rare here — Deliver
+          // Anything is a reverse auction, so nearly all work arrives on the
+          // board — which made "Nothing available right now" the ordinary
+          // state of a screen with jobs printed underneath it. The owner
+          // reported exactly that, naming a job ("f44") he could see below the
+          // card telling him there was none.
+          //
+          // An empty state is a claim about the WHOLE SCREEN, so it has to be
+          // computed from everything the screen can show.
           <div className="rounded-2xl border border-white/10 bg-dark-card p-6 text-center">
             <CheckCircle2 size={24} className="mx-auto text-muted" />
             <p className="mt-2 font-syne text-sm font-bold">
@@ -908,16 +1146,14 @@ export default function DriverDashboard({ only }: { only?: "errand" } = {}) {
             <p className="mt-1 font-dm text-xs text-muted">{duty.detail}</p>
           </div>
         ) : active.length === 0 && openRequests.length > 0 ? (
-          // ── THE PANEL USED TO LIE ────────────────────────────────────────
-          // This branch tested `offers` and `active` and nothing else, while
-          // the quote board below it renders `openRequests` — a different list
-          // entirely. With no direct offer but jobs open for quotes, the driver
-          // was shown "Nothing available right now" with real work sitting
-          // underneath it, far enough down to need scrolling to find.
+          // ── AND SILENCE IS NOT THE FIX EITHER ────────────────────────────
+          // Correcting the condition above stops the screen LYING, but it
+          // leaves this slot blank — and the board it is pointing at starts
+          // below the fold on a phone. A driver who opens the app to nothing
+          // where the news used to be has no reason to keep scrolling.
           //
-          // A driver who reads "nothing available" closes the app. That is the
-          // whole cost of this bug: the jobs were there and the screen said
-          // they were not.
+          // So the same space that used to say "no work" now says how much
+          // there is and takes them to it. One tap, not a scroll and a hope.
           <a
             href="#quote-board"
             className="flex items-center justify-between gap-3 rounded-2xl border border-yellow/40 bg-yellow/[0.07] p-4"
@@ -1035,7 +1271,7 @@ function PaymentState({ delivery: a }: { delivery: Active }) {
         setError(json.error ?? "Could not open it.");
         return;
       }
-      window.open(json.url, "_blank", "noopener,noreferrer");
+      openSigned(json.url, setError);
     } catch {
       setError("Could not open it. Check your connection.");
     } finally {
@@ -1060,7 +1296,7 @@ function PaymentState({ delivery: a }: { delivery: Active }) {
         return;
       }
       // A five-minute signed URL. Opened, never stored.
-      window.open(json.url, "_blank", "noopener,noreferrer");
+      openSigned(json.url, setError);
     } catch {
       setError("Could not open the receipt. Check your connection.");
     } finally {

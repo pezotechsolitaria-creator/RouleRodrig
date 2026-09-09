@@ -3,6 +3,9 @@ import { SITE_URL } from "@/lib/site";
 import AppPageHeader from "@/components/AppPageHeader";
 import BookRide from "@/app/taxi/book/BookRide";
 import BookingHeading from "@/app/taxi/book/BookingHeading";
+import JsonLd from "@/components/JsonLd";
+import { readFlatFares } from "@/lib/rides/fares";
+import { centsToShortString } from "@/lib/money";
 
 // /transfers — the "planning ahead" half of getting around.
 //
@@ -49,15 +52,17 @@ import BookingHeading from "@/app/taxi/book/BookingHeading";
 
 export const revalidate = 600;
 
+// 152 characters. The old one was 188 and truncated mid-clause in the SERP,
+// and led with "Book an" rather than with the thing a searcher is comparing.
 const DESCRIPTION =
-  "Book an airport transfer in Rodrigues — Plaine Corail to Port Mathurin, your hotel or anywhere on the island. Tell us the flight, the passengers and the luggage, and we arrange the vehicle.";
+  "Airport transfer in Rodrigues — Plaine Corail to Port Mathurin or your guest house, at a flat fare. Give us your flight number and a driver meets you.";
 
 export const metadata: Metadata = {
-  title: "Airport transfers in Rodrigues | Roulé Rodrigues",
+  title: "Airport transfers in Rodrigues | Roule Rodrigues",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/transfers` },
   openGraph: {
-    title: "Airport transfers in Rodrigues | Roulé Rodrigues",
+    title: "Airport transfers in Rodrigues | Roule Rodrigues",
     description: DESCRIPTION,
     url: `${SITE_URL}/transfers`,
     type: "website",
@@ -65,13 +70,73 @@ export const metadata: Metadata = {
   },
 };
 
-export default function TransfersPage() {
+export default async function TransfersPage() {
+  // The fares this platform guarantees, read from ride_pricing. Null when the
+  // read is unavailable (no service-role key locally), in which case the page
+  // simply says nothing about price rather than inventing one.
+  const fares = await readFlatFares();
+  // Grouped, because the rest of the site writes "Rs 1,499" and this rendered
+  // "Rs 1800" beside it. centsToShortString already drops a trailing .00, so
+  // this only adds the separator to the whole part and leaves real cents alone.
+  const money = (cents: number) => {
+    const [whole, frac] = centsToShortString(cents).split(".");
+    return `Rs ${Number(whole).toLocaleString("en-US")}${frac ? `.${frac}` : ""}`;
+  };
+  const airport = fares.airport != null ? money(fares.airport) : null;
+  const ferry = fares.ferry != null ? money(fares.ferry) : null;
+
   return (
     <>
       {/* Was the marketing <Navbar>: fixed, 78px, and on a phone it carried no
           back control at all — only a saved-hearts icon and a burger. The 96px
           of pt-24 underneath existed solely to clear it. */}
       <AppPageHeader showBack backHref="/" />
+
+      {/* ── STRUCTURED DATA, WHICH THIS PAGE HAD NONE OF ──────────────────
+          Not one JSON-LD block on the page that owns "airport transfer
+          Rodrigues", while /taxi beside it carries Service, Organization and
+          Place. The Offer is the point: a flat fare is exactly the shape
+          schema.org can state precisely, and it is what an assistant asked
+          "how much is a transfer from Rodrigues airport" needs in order to
+          answer with a number instead of a paraphrase.
+
+          Priced only when the fare was actually read. An Offer with no price,
+          or with a guessed one, is worse than no Offer. */}
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "Service",
+          "@id": `${SITE_URL}/transfers#service`,
+          name: "Airport transfer in Rodrigues",
+          serviceType: "Airport transfer",
+          description: DESCRIPTION,
+          url: `${SITE_URL}/transfers`,
+          areaServed: {
+            "@type": "Place",
+            name: "Rodrigues Island, Mauritius",
+          },
+          provider: { "@id": `${SITE_URL}/#business` },
+          ...(fares.airport != null
+            ? {
+                offers: {
+                  "@type": "Offer",
+                  priceCurrency: "MUR",
+                  price: (fares.airport / 100).toFixed(2),
+                  availability: "https://schema.org/InStock",
+                  url: `${SITE_URL}/transfers`,
+                  priceSpecification: {
+                    "@type": "PriceSpecification",
+                    priceCurrency: "MUR",
+                    price: (fares.airport / 100).toFixed(2),
+                    valueAddedTaxIncluded: true,
+                    description:
+                      "Flat fare, Plaine Corail airport to any address on Rodrigues",
+                  },
+                },
+              }
+            : {}),
+        }}
+      />
 
       <main className="min-h-[calc(100vh-3.5rem)] bg-dark px-4 pb-10 pt-3 text-offwhite">
         <div className="mx-auto max-w-lg">
@@ -93,11 +158,36 @@ export default function TransfersPage() {
           <p className="mt-8 font-dm text-sm leading-relaxed text-muted">
             Airport transfers in Rodrigues, arranged before you land: tell us
             your flight, passengers and luggage, and a local driver meets you
-            at Plaine Corail airport and takes you to Port Mathurin, your
+            at Plaine Corail airport &mdash; officially Plaine Corail
+            (RRG), still called Sir Ga&eacute;tan Duval by the operator, and
+            you will hear both &mdash; and takes you to Port Mathurin, your
             guest house or anywhere on the island. Book the return trip to the
-            airport the same way. The price is confirmed with you before
-            anything is charged.
+            airport the same way.
           </p>
+
+          {/* ── THE PRICE, WHICH WAS NOWHERE ────────────────────────────────
+              ride_pricing has held a flat_fare for `airport` and `ferry` since
+              August. quote_ride() returns those unchanged, so they are what a
+              customer is actually charged -- and they appeared in no indexable
+              HTML anywhere on this site. A transfer page with no price is the
+              one question a visitor came to answer, unanswered.
+
+              Rendered only when the read succeeded. A page with no price is
+              worse than one with a price; a page with an INVENTED price is
+              worse than both. */}
+          {airport ? (
+            <div className="mt-5 rounded-2xl border border-yellow/35 bg-yellow/[0.07] px-4 py-3.5">
+              <p className="font-syne text-base font-bold text-offwhite">
+                {airport} flat, airport to anywhere on Rodrigues
+              </p>
+              <p className="mt-1.5 font-dm text-sm leading-relaxed text-muted">
+                One fare, agreed before you book, for the whole journey from
+                Plaine Corail to your address &mdash; not a meter.
+                {ferry ? ` The ferry terminal at Port Mathurin is ${ferry}.` : ""}{" "}
+                Rides that are not transfers are priced by distance instead.
+              </p>
+            </div>
+          ) : null}
         </div>
       </main>
     </>

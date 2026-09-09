@@ -38,12 +38,15 @@ describe("the basemap switcher is reachable on the pin-the-place map", () => {
   });
 
   it("clears the button rather than merely nudging past it", () => {
-    // 12px inset + 44px min-h-11 button + 8px breathing room.
+    // 12px inset + the button + breathing room. min-h-11 is a FLOOR: the
+    // button measures 46.6px in a real browser once its icon and 15px label
+    // are laid out, so the floor here is 12 + 46.6 = 58.6 rounded up, not the
+    // 56 the 44px arithmetic suggested.
     const rule = /\.rr-basemap-switch--below\s*\{([^}]*)\}/.exec(CSS);
     expect(rule, "the --below rule is gone from globals.css").toBeTruthy();
     const top = /top:\s*(\d+)px/.exec(rule![1]);
     expect(top).toBeTruthy();
-    expect(Number(top![1])).toBeGreaterThanOrEqual(56);
+    expect(Number(top![1])).toBeGreaterThanOrEqual(59);
   });
 
   it("leaves the shared class alone for the maps that do not collide", () => {

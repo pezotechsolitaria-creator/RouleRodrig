@@ -5,6 +5,7 @@ import { sendWhatsApp } from "@/lib/notifications/whatsapp";
 import { sendNtfy } from "@/lib/notifications/ntfy";
 import { sendQueuedAlertEmail } from "@/lib/email";
 import { notifySweepResult } from "@/lib/delivery/notify";
+import { notifyDriversOfNewRequest } from "@/lib/delivery/notify-requests";
 import { notifyRideOffers, notifyOwnerRideUnassigned, notifyOwnerRosterBlocked } from "@/lib/rides/notify";
 import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/queue";
 
@@ -164,6 +165,53 @@ async function run(req: NextRequest) {
     console.error("sweep_delivery_requests threw", err);
   }
 
+  // ── A job nobody answered, asked once more (M188) ───────────────────
+  //
+  // The comment above says an unanswered request is "a supply problem the
+  // board already shows". It shows it to whoever OPENS THE APP. The
+  // announcement itself fires exactly once, from the POST that creates the
+  // request, and both target lists filter `availability <> 'offline'` — so a
+  // driver who was off duty at that instant is never told, on either channel,
+  // ever.
+  //
+  // This asks a second time, and only a second time. The targeting is
+  // re-evaluated at send, so it reaches whoever is on duty NOW and has not
+  // already quoted; the push carries the same `delivery-request-<id>` tag, so
+  // it replaces the first card rather than stacking a second.
+  //
+  // claim_stale_unanswered_requests() stamps renotified_at in the same
+  // statement it selects, under FOR UPDATE SKIP LOCKED — so overlapping runs
+  // of this worker cannot double-send.
+  let renotified = 0;
+  try {
+    const { data, error } = await admin.rpc("claim_stale_unanswered_requests", {
+      // Long enough that the original announcement had a fair chance on an
+      // island where drivers are not staring at a phone, short enough that the
+      // job has not gone cold.
+      p_minutes: 15,
+    });
+    if (error) console.error("claim_stale_unanswered_requests failed", error);
+    else {
+      const ids = ((data ?? []) as { id: string }[]).map((r) => r.id);
+      // Sequential, not Promise.all: each of these fans out to every eligible
+      // driver on two channels, and the point is to reach people, not to
+      // finish quickly.
+      for (const id of ids) {
+        try {
+          await notifyDriversOfNewRequest(id);
+          renotified += 1;
+        } catch (err) {
+          // Already stamped, so this one will not be retried. That is the
+          // right trade: a missed repeat is a quiet day, a repeated repeat is
+          // a driver turning notifications off.
+          console.error("re-announce failed", id, err);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("claim_stale_unanswered_requests threw", err);
+  }
+
   // ── Nothing has happened SINCE (M93) ─────────────────────────────────────
   //
   // Rides this cron for the same reason the delivery sweep does: it is already
@@ -235,24 +283,54 @@ async function run(req: NextRequest) {
     // lib/notifications/ntfy.ts had been written, complete, with no callers.
     // This is the line that was missing.
     const channel = job.channel ?? "whatsapp";
-    const result =
-      channel === "ntfy"
-        ? await sendNtfy({ target: job.target ?? "", message: job.message })
-        : channel === "email"
-          ? (await sendQueuedAlertEmail({
-              to: job.target ?? "",
-              message: job.message,
-              jobId: job.job_id,
-            }))
-            ? ({ ok: true } as const)
-            : // send() already logged the provider's reason to email_log.
-              // Retryable: a provider blip should not burn the job.
-              ({ ok: false, error: "email send failed", retryable: true } as const)
-          : await sendWhatsApp({
-              phone: job.phone ?? "",
-              apiKey: job.api_key ?? "",
-              message: job.message,
-            });
+
+    // ── ONE BAD JOB MUST NOT TAKE THE BATCH WITH IT ────────────────────────
+    //
+    // None of the three doors is supposed to throw -- sendWhatsApp's own
+    // comment says "an exception here would abort a whole batch because one
+    // number was misconfigured" -- but on 2026-09-07 one of them did, three
+    // times in seventeen minutes, with `Cannot read properties of null
+    // (reading 'trim')`. An unhandled throw here does exactly what the header
+    // of this file worries about for a hung caller: jobs are claimed UP FRONT,
+    // so everything claimed-but-unsent is stranded in `sending` until
+    // requeue_stuck_notifications() rescues it ten minutes later. And the bad
+    // job is re-claimed next minute, so it repeats.
+    //
+    // Retryable, deliberately: a throw is an unknown, and an unknown might be
+    // transient. The attempt budget still burns it out rather than letting it
+    // block the queue for ever.
+    const result = await (async () => {
+      try {
+        return channel === "ntfy"
+          ? await sendNtfy({ target: job.target ?? "", message: job.message })
+          : channel === "email"
+            ? (await sendQueuedAlertEmail({
+                to: job.target ?? "",
+                message: job.message,
+                jobId: job.job_id,
+              }))
+              ? ({ ok: true } as const)
+              : // send() already logged the provider's reason to email_log.
+                // Retryable: a provider blip should not burn the job.
+                ({ ok: false, error: "email send failed", retryable: true } as const)
+            : await sendWhatsApp({
+                phone: job.phone ?? "",
+                apiKey: job.api_key ?? "",
+                message: job.message,
+              });
+      } catch (err) {
+        console.error("notification send threw", {
+          jobId: job.job_id,
+          channel,
+          err,
+        });
+        return {
+          ok: false,
+          error: `send threw: ${err instanceof Error ? err.message : String(err)}`,
+          retryable: true,
+        } as const;
+      }
+    })();
 
     if (result.ok) {
       sent += 1;
@@ -376,6 +454,10 @@ async function run(req: NextRequest) {
     requeued: (requeued as number | null) ?? 0,
     deliverySweep: sweep,
     requestSweep,
+    // How many unanswered jobs were put back in front of the board. The
+    // owner's question here is "is anyone seeing my requests?", and this is
+    // the number that answers it.
+    renotified,
     // { warned, expired } — how many kitchens were nudged that a collection
     // time had arrived, and how many orders died because nobody answered.
     orderSweep,

@@ -67,3 +67,32 @@ describe("Permissions-Policy", () => {
     expect(value).toMatch(/microphone=\(\)/);
   });
 });
+
+// ── THE WEBSOCKET OUR OWN CSP WAS BLOCKING ──────────────────────────────────
+//
+// `connect-src 'self' https:` allowed every HTTPS request on the internet and
+// refused our own realtime socket. CSP Level 3 scheme-matching upgrades
+// http:→https: and ws:→wss:; it does NOT map https: onto wss:.
+//
+// What that broke: Supabase Realtime — the driver's live position broadcast,
+// the customer's live map, and the admin fleet presence.
+//
+// Found on a real iPhone in Mauritius (Mobile Safari 18.1.1) two hours after
+// app/error.tsx started reporting to Sentry: "SecurityError: The operation is
+// insecure", DOMException code 18, from transportConnect on a
+// visibilitychange. It had always been happening; nothing was listening.
+describe("the realtime socket is allowed", () => {
+  const connect = (config.match(/"connect-src ([^"]+)"/) ?? [])[1] ?? "";
+
+  it("connect-src names a wss: source", () => {
+    expect(connect, "connect-src is missing").toBeTruthy();
+    expect(connect).toMatch(/wss:/);
+  });
+
+  it("and it is scoped to a host, not a bare scheme", () => {
+    // The one WebSocket this site opens is Supabase Realtime. A bare `wss:`
+    // would be a second wildcard on the loosest directive here.
+    expect(connect).toContain("wss://*.supabase.co");
+    expect(connect.split(/\s+/)).not.toContain("wss:");
+  });
+});

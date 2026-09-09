@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import Image from "next/image";
 import { MessageCircle } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
@@ -8,6 +9,7 @@ import HeroVideoLayer from "@/components/HeroVideo";
 import { INTRO, useCalm, useHeroReveal, useSplashGate } from "@/lib/hero-intro";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
+import { splitWords } from "@/lib/hero-words";
 
 // Fixed positions so SSR and client render identically (no hydration mismatch).
 const PARTICLES = [
@@ -364,14 +366,37 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
                   aria-label={line}
                   role="img"
                   className="rr-on-media block font-syne font-extrabold text-offwhite leading-[0.9] uppercase tracking-tight [text-shadow:0_2px_40px_rgba(0,0,0,0.45)]"
-                  style={{ fontSize: "clamp(1.85rem, 6.6vw, 7rem)" }}
+                  // ── 5rem, NOT 7 ───────────────────────────────────────
+                  // The middle term is sized against the VIEWPORT while the
+                  // headline sits in a max-w-5xl box, so past about 1030px of
+                  // viewport the container stops growing and the type does
+                  // not. Measured at 1280px: the box is 976px and the line
+                  // wants 1004px, so the greeting wrapped — and, because
+                  // every letter is its own inline-block, it wrapped INSIDE
+                  // the word ("WELCOMET" / "O").
+                  //
+                  // "WELCOME TO" measures 11.89x its own font-size in Syne
+                  // extrabold with tracking-tight, so 976 / 11.89 = 82px is
+                  // the largest that fits. 5rem is 80 — a little slack for a
+                  // fallback face rendering wider before Syne loads.
+                  //
+                  // 6.6vw reaches 80px at a 1212px viewport, so every width
+                  // below that renders exactly as it did before.
+                  style={{ fontSize: "clamp(1.85rem, 6.6vw, 5rem)" }}
                 >
-                  {[...line].map((ch, j) =>
-                    ch === " " ? (
-                      // A real space, not an animated one: giving it a width in
-                      // em keeps the gap proportional at every clamp size.
-                      <span key={j} aria-hidden className="inline-block w-[0.26em]" />
-                    ) : (
+                  {splitWords(line).map((word, w) => (
+                    <Fragment key={`${word.text}-${w}`}>
+                      {w > 0 && (
+                        // A real space, not an animated one: giving it a width
+                        // in em keeps the gap proportional at every clamp size.
+                        // It sits BETWEEN the word groups, so it is also the
+                        // only place the line is allowed to break.
+                        <span aria-hidden className="inline-block w-[0.26em]" />
+                      )}
+                      <span className="inline-block whitespace-nowrap">
+                        {[...word.text].map((ch, k) => {
+                          const j = word.at + k;
+                          return (
                       <motion.span
                         key={j}
                         aria-hidden
@@ -393,8 +418,11 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
                       >
                         {ch}
                       </motion.span>
-                    ),
-                  )}
+                          );
+                        })}
+                      </span>
+                    </Fragment>
+                  ))}
                 </div>
               </div>
             );

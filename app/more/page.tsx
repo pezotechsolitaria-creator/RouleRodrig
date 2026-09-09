@@ -5,7 +5,7 @@ import {
   ChevronRight, Compass, Map as MapIcon, BookOpen, Calendar,
   HelpCircle, Phone, Siren, FileText, Shield, RefreshCw, Store, CalendarCheck, ClipboardList,
   UtensilsCrossed, Ticket, ShoppingBag, CircleUser, Car, Sparkles,
-  ClipboardCheck, Bike,
+  ClipboardCheck, Bike, Languages, Info,
 } from "lucide-react";
 import { getContent } from "@/lib/content";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -46,6 +46,12 @@ const GROUPS: { title: string; rows: Row[] }[] = [
     rows: [
       { icon: Sparkles, label: "Curated Rodrigues", href: "/curated", note: "Our own selection — stays, experiences and local gems" },
       { icon: Compass, label: "Rodrigues island guide", href: "/guide/rodrigues", note: "Beaches, tortoises, tips" },
+      // The two hub pages. Both parents used to 404 while eight and eleven
+      // pages sat beneath them, and neither was linked from anywhere — which is
+      // how a 404 survives on a site with a reachability test: nothing pointed
+      // at it to be checked.
+      { icon: BookOpen, label: "All island guides", href: "/guide", note: "Beaches, hikes, food, shopping — all eight" },
+      { icon: Languages, label: "Rodrigues en français", href: "/fr", note: "Onze guides en français" },
       { icon: MapIcon, label: "Interactive island map", href: "/map" },
       { icon: BookOpen, label: "Travel blog", href: "/blog" },
       { icon: Calendar, label: "Trip planner", href: "/trip-planner" },
@@ -58,6 +64,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
       { icon: CircleUser, label: "My account", href: "/account", note: "Orders, bookings, my shop or driver dashboard, settings" },
       { icon: ClipboardList, label: "Track an order", href: "/track", note: "No account needed" },
       { icon: HelpCircle, label: "FAQ", href: "/faq" },
+      { icon: Info, label: "About us", href: "/about", note: "Who runs this, and where we are" },
       { icon: Phone, label: "Contact us", href: "/#contact" },
       { icon: Siren, label: "Emergency numbers", href: "/emergency" },
     ],

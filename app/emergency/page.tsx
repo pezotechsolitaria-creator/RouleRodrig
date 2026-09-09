@@ -22,6 +22,22 @@ export default async function EmergencyPage() {
           Same control every other redesigned page now carries: it stays on
           screen, and its tap target is 52px. */}
       <AppPageHeader showBack backHref="/" />
+
+      {/* This page had NO heading above the individual contact cards — the
+          document's first heading was "Rodrigues Tourism Office", a section
+          well down the page. So the one page somebody opens in an emergency
+          never stated, in its structure, what it was. UsefulNumbers renders no
+          heading of its own, so it belongs here. */}
+      <div className="mx-auto max-w-3xl px-5 pt-6">
+        <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">RODRIGUES</p>
+        <h1 className="mt-1 font-syne text-3xl font-extrabold uppercase leading-[0.95] text-offwhite">
+          Emergency &amp; useful numbers
+        </h1>
+        <p className="mt-2 font-dm text-sm text-muted">
+          Police, hospital, fire, the coastguard and the tourism office — every number tap-to-call.
+        </p>
+      </div>
+
       <UsefulNumbers contacts={content.usefulContacts} />
 
       {/* The strongest placement on the site for this. Somebody on the

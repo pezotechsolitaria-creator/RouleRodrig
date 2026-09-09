@@ -2,7 +2,7 @@
 
 import "leaflet/dist/leaflet.css"; // bundled locally — no external CDN (CSP-safe)
 import { useEffect, useRef, useState } from "react";
-import { Check, Loader2, LocateFixed, X } from "lucide-react";
+import { Check, Loader2, LocateFixed, MapPin, X } from "lucide-react";
 import {
   getBasemap,
   getBasemaps,
@@ -83,6 +83,9 @@ export default function PinOnMap({
     lng: RODRIGUES_CENTRE[1],
   });
   const [locating, setLocating] = useState(false);
+  /** The map code itself never arrived. Nothing on this screen works without
+   *  it, so it says so and offers the way out rather than sitting blank. */
+  const [chunkFailed, setChunkFailed] = useState(false);
 
   // Same key as every other map on the site, so a viewer who chose satellite
   // once is still on satellite here — which is the sheet that actually helps
@@ -123,7 +126,15 @@ export default function PinOnMap({
     if (!host.current || mapInst.current) return;
     let cancelled = false;
 
-    void import("leaflet").then((L) => {
+    // ── A CHUNK THAT NEVER ARRIVES ────────────────────────────────────
+    // This had no .catch. A rejected promise inside an effect cannot be
+    // caught by a React error boundary, so on a dropped 3G connection — or
+    // after a deploy swapped the chunk out from under a phone that has been
+    // open for a while — the sheet opened onto a blank grey box, for ever,
+    // saying nothing. The cancel button is the only way out and nothing
+    // explains why there is no map.
+    void import("leaflet")
+      .then((L) => {
       if (cancelled || !host.current || mapInst.current) return;
 
       const bounds = L.latLngBounds(
@@ -154,7 +165,10 @@ export default function PinOnMap({
       report();
 
       setEpoch((n) => n + 1);
-    });
+    })
+      .catch(() => {
+        if (!cancelled) setChunkFailed(true);
+      });
 
     return () => {
       cancelled = true;
@@ -265,6 +279,25 @@ export default function PinOnMap({
 
       <div className="relative min-h-0 flex-1">
         <div ref={host} className="h-full w-full" />
+
+        {/* The map code never arrived. Everything on this screen depends on
+            it, so say so and point at the way out — a blank grey box with a
+            cancel button explains nothing. */}
+        {chunkFailed && (
+          <div
+            role="alert"
+            className="absolute inset-0 z-[500] flex flex-col items-center justify-center gap-3 bg-dark px-8 text-center"
+          >
+            <MapPin size={26} className="text-[#B0B0B0]" aria-hidden />
+            <p className="font-syne text-base font-bold text-offwhite">
+              The map could not load
+            </p>
+            <p className="font-dm text-sm text-[#B0B0B0]">
+              That is the connection, not your phone. Go back and type the
+              place name instead — a driver reads it either way.
+            </p>
+          </div>
+        )}
 
         {/* The pin. Welded to the centre, never a drag target. The dot marks the
             exact point so the tip of the teardrop is not mistaken for it. */}

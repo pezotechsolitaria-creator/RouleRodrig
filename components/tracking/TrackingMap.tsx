@@ -215,7 +215,18 @@ export default function TrackingMap({
     // then may point somewhere else. The Map instance itself never changes.
     const markers = placeMarkers.current;
 
-    void import("leaflet").then((leaflet) => {
+    // No .catch here either: a rejected import inside an effect is an
+    // unhandled rejection, not something the error boundary sees, so a failed
+    // chunk left the customer watching a blank box where their driver should
+    // be. The tracking card around it still shows the status in words, so
+    // logging and moving on is enough — but silently is not.
+    void import("leaflet")
+      .catch((err) => {
+        console.error("leaflet chunk failed to load", err);
+        return null;
+      })
+      .then((leaflet) => {
+      if (!leaflet) return;
       if (cancelled || !host.current || map.current) return;
       L.current = leaflet;
 

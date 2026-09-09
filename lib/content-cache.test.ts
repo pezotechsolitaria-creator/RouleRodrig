@@ -19,7 +19,12 @@ const CONTENT = readFileSync(join(process.cwd(), "lib/content.ts"), "utf8");
 
 describe("the public read is cached, and invalidated by the only writer", () => {
   it("caches across requests under a tag", () => {
-    expect(CONTENT).toMatch(/const readPublicContent = unstable_cache\(/);
+    // `readPublicContentAt(version)` since the cache guard: the entry is keyed
+    // on the row's own updated_at, so a write from OUTSIDE saveContent — a psql
+    // session, a migration — still shows, instead of serving the old blob for
+    // an hour with no signal anywhere. Same cache, same tag; the key gained a
+    // component. See lib/content-cache-guard.test.ts.
+    expect(CONTENT).toMatch(/function readPublicContentAt\([\s\S]{0,140}unstable_cache\(/);
     expect(CONTENT).toMatch(/tags: \[CONTENT_TAG\]/);
   });
 
@@ -27,8 +32,19 @@ describe("the public read is cached, and invalidated by the only writer", () => 
     // unstable_cache stores whatever it is handed. Returning defaults on a DB
     // blip would pin the seed copy over the live site for the whole window; a
     // throw is not cached, so the next request retries.
-    const fn = CONTENT.slice(CONTENT.indexOf("const readPublicContent"));
+    const fn = CONTENT.slice(CONTENT.indexOf("function readPublicContentAt"));
     expect(fn).toMatch(/if \(!loaded\) throw/);
+  });
+
+  it("refuses to cache a failed VERSION read either", () => {
+    // The freshness check carries the same hazard: caching "I could not read
+    // the timestamp" would pin whatever key that produced for the whole window,
+    // and the guard would quietly stop guarding.
+    const fn = CONTENT.slice(
+      CONTENT.indexOf("const readContentVersion"),
+      CONTENT.indexOf("export async function getContent"),
+    );
+    expect(fn).toMatch(/if \(error\) throw error/);
   });
 
   it("revalidates the tag inside saveContent", () => {

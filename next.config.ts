@@ -120,7 +120,24 @@ const ContentSecurityPolicy = [
   // explicitly rather than opening frame-src to https:, because an iframe is a
   // far more dangerous thing to allow broadly than an image or a video.
   "frame-src 'self' https://www.paypal.com https://*.paypal.com https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com",
-  "connect-src 'self' https:",
+  // ── wss: IS NOT COVERED BY https: ─────────────────────────────────────────
+  // CSP Level 3 scheme-matching upgrades http:→https: and ws:→wss:. It does
+  // NOT map https: onto wss:, so this directive allowed every HTTPS request on
+  // the internet and blocked our own WebSocket.
+  //
+  // That is Supabase Realtime — the driver's live position broadcast, the
+  // customer's live map, and the admin fleet presence. All of it silently
+  // refused by our own header.
+  //
+  // Found on a real iPhone in Mauritius (Mobile Safari 18.1.1) two hours after
+  // app/error.tsx started reporting to Sentry: "SecurityError: The operation
+  // is insecure", DOMException code 18, thrown from transportConnect on a
+  // visibilitychange. The error was always happening; nothing was listening.
+  //
+  // Scoped to the Supabase host rather than a bare `wss:`. The realtime socket
+  // is the only WebSocket this site opens, and a directive that is already the
+  // loosest one here does not need a second wildcard.
+  "connect-src 'self' https: wss://*.supabase.co",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "upgrade-insecure-requests",

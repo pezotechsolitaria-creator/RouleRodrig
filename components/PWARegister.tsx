@@ -13,6 +13,8 @@ import { createClient } from "@/lib/supabase/client";
 export default function PWARegister() {
   const identifiedUserId = useRef<string | null>(null);
   const cleanup = useRef<(() => void) | null>(null);
+  /** Unhooks the deferred-reload listener if this unmounts first. */
+  const pendingReload = useRef<(() => void) | null>(null);
 
   // ── Register, and keep it UP TO DATE ──────────────────────────────────────
   //
@@ -63,15 +65,50 @@ export default function PWARegister() {
     // The guard is not optional: without it a worker that keeps re-claiming
     // turns this into a reload loop, which is a far worse bug than the stale
     // page it was meant to fix.
-    const onControllerChange = () => {
-      if (!hadController || reloading) return;
+    //
+    // ── BUT NOT WHILE SOMEBODY IS LOOKING AT IT ──────────────────────────
+    // This reloaded the instant the new worker claimed the page, and
+    // registration.update() runs on every visibilitychange — so backgrounding
+    // the phone to look up an address or copy a phone number, which is simply
+    // how a form gets filled on a phone, was enough to trigger it after any
+    // deploy. sw.js calls skipWaiting(), so the takeover is immediate.
+    //
+    // /deliver survives that because its draft is written on every keystroke.
+    // /deliver/[id] has no draft: an open payment sheet, a typed transfer
+    // reference and a chosen-but-unsent photo all go.
+    //
+    // So the reload waits until the page is HIDDEN — the user has moved on and
+    // it costs them nothing. Already hidden means it happens at once. The case
+    // this defers is exactly the case where interrupting destroys work.
+    const reloadNow = () => {
+      if (reloading) return;
       reloading = true;
       window.location.reload();
+    };
+    const reloadWhenUnwatched = () => {
+      if (document.visibilityState === "hidden") {
+        reloadNow();
+        return;
+      }
+      const onHide = () => {
+        if (document.visibilityState !== "hidden") return;
+        document.removeEventListener("visibilitychange", onHide);
+        pendingReload.current = null;
+        reloadNow();
+      };
+      document.addEventListener("visibilitychange", onHide);
+      pendingReload.current = () =>
+        document.removeEventListener("visibilitychange", onHide);
+    };
+    const onControllerChange = () => {
+      if (!hadController || reloading) return;
+      reloadWhenUnwatched();
     };
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
 
     return () => {
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+      pendingReload.current?.();
       cleanup.current?.();
     };
   }, []);
