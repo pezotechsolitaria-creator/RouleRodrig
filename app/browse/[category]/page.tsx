@@ -198,16 +198,30 @@ const META: Record<
   string,
   { title: string; description: string; fr?: string }
 > = {
+  // ── THE PRICE BELONGS IN THE TITLE ──────────────────────────────────────
+  // These two are the transactional money pages and neither title carried a
+  // number, a delivery promise or anything a competitor's title does not also
+  // say. On a result Google already shows around position 20, the title is the
+  // only lever that moves clicks without moving rank.
+  //
+  // The figures are the CHEAPEST REAL daily rate in the fleet, checked against
+  // site_content before writing: scooters Rs 699, cars Rs 1,999. The August
+  // optimisation spec said Rs 1,499 for cars — it is out of date, and shipping
+  // it would have advertised a price the page itself does not show.
+  //
+  // " | Roule Rodrigues" is appended by pageMeta(), so it is deliberately not
+  // repeated here; these read ~42 characters, which survives truncation with
+  // the brand suffix attached.
   scooter: {
-    title: "Scooter Rental in Rodrigues Island",
+    title: "Scooter Rental Rodrigues — from Rs 699/day",
     description:
-      "Rent a scooter in Rodrigues from local owners. Helmets included, island-wide pickup and real WhatsApp support. Compare models and book your dates online.",
+      "Rent a scooter in Rodrigues from Rs 699/day, delivered free to your guest house. Helmets included, no minimum hire, and real local advice on where to ride.",
     fr: "/fr/location-scooter-rodrigues",
   },
   car: {
-    title: "Car Rental in Rodrigues Island, Mauritius",
+    title: "Car Rental Rodrigues — from Rs 1,999/day",
     description:
-      "Hire a car in Rodrigues for the family or a longer stay. Local owners, clear daily rates, island-wide pickup. Compare vehicles and book yours online today.",
+      "Rent a car in Rodrigues from Rs 1,999/day, delivered free to your guest house. Suzuki Swift and Hyundai Venue, no minimum hire, booked direct with locals.",
     fr: "/fr/location-voiture-rodrigues",
   },
   stays: {
