@@ -38,6 +38,11 @@ describe("the airport transfer page states its price", () => {
     expect(FARES).toMatch(/fare > 0/);
   });
 
+  it("groups the fare the way the rest of the site writes money", () => {
+    // It shipped as "Rs 1800" next to a site that writes "Rs 1,499".
+    expect(TRANSFERS).toContain('Number(whole).toLocaleString("en-US")');
+  });
+
   it("does not open the ride_pricing table to the public to do it", () => {
     // ride_pricing has RLS on, no policies and no anon grant. The fix is the
     // privileged client, NOT a grant — this project has already shipped one

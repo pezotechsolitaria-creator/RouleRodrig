@@ -75,8 +75,15 @@ export default async function TransfersPage() {
   // read is unavailable (no service-role key locally), in which case the page
   // simply says nothing about price rather than inventing one.
   const fares = await readFlatFares();
-  const airport = fares.airport != null ? `Rs ${centsToShortString(fares.airport)}` : null;
-  const ferry = fares.ferry != null ? `Rs ${centsToShortString(fares.ferry)}` : null;
+  // Grouped, because the rest of the site writes "Rs 1,499" and this rendered
+  // "Rs 1800" beside it. centsToShortString already drops a trailing .00, so
+  // this only adds the separator to the whole part and leaves real cents alone.
+  const money = (cents: number) => {
+    const [whole, frac] = centsToShortString(cents).split(".");
+    return `Rs ${Number(whole).toLocaleString("en-US")}${frac ? `.${frac}` : ""}`;
+  };
+  const airport = fares.airport != null ? money(fares.airport) : null;
+  const ferry = fares.ferry != null ? money(fares.ferry) : null;
 
   return (
     <>
