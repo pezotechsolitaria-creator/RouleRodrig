@@ -51,7 +51,19 @@ const bookSchema = z.object({
   flightRef: z.string().trim().max(40).optional(),
   meetGreet: z.boolean().default(false),
   name: z.string().trim().min(2).max(120),
-  phone: z.string().trim().min(5).max(40),
+  // toE164National as the VALIDITY rule, not only the storage step. The form
+  // gates its button on this same function, but a form is a convenience —
+  // without this refine a direct POST could still store five characters of
+  // anything. One function decides on both sides, so they cannot disagree.
+  phone: z
+    .string()
+    .trim()
+    .min(5)
+    .max(40)
+    .refine((p) => toE164National(p) !== null, {
+      message:
+        "That doesn't look like a number your driver can call. A Mauritian number has 8 digits — check it and try again.",
+    }),
   email: z.string().trim().email().max(160).optional().or(z.literal("")),
 })
   // ── AN ARRIVAL RUN CARRIES ITS FLIGHT OR FERRY NUMBER ─────────────────────
@@ -123,7 +135,9 @@ export async function POST(req: NextRequest) {
     // and a visitor's "+33…" is left alone. Falls back to the raw text when it
     // cannot be parsed: an unusual number is still worth having, and refusing
     // the booking over its format would be far worse than storing it as given.
-    p_customer_phone: toE164National(v.phone) ?? v.phone,
+    // The refine above guarantees this is non-null; the fallback would only
+    // ever store keystrokes the rule had already rejected.
+    p_customer_phone: toE164National(v.phone),
     p_customer_email: v.email || null,
   });
 

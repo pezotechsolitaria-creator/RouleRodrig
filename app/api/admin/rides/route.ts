@@ -93,6 +93,10 @@ export async function GET(req: NextRequest) {
             // customer_email: the desk had no way to reach somebody whose
             // phone was unreachable. It is optional on the form, so it is
             // often null — the card says so rather than showing a blank.
+            // The coordinates the customer's device reported. Without them the
+            // desk showed "Ma position actuelle" as dead text — a label that
+            // names a place only the coordinates actually know.
+            "pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, " +
             "customer_name, customer_phone, customer_email, quoted_price, currency, status, driver_id, offer_rounds, " +
             "created_at, assigned_at, flight_ref, meet_greet, taxi_drivers(name, phone, whatsapp)")
     .order("created_at", { ascending: false })
