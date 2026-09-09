@@ -10,7 +10,7 @@ import {
   RIDE_SERVICE_META,
   formatRidePrice,
 } from "@/lib/rides/model";
-import { isValidContactPhone } from "@/lib/phone";
+import { formatContactPhone, isValidContactPhone } from "@/lib/phone";
 
 // ── THE CUSTOMER'S OWN BOOKING ──────────────────────────────────────────────
 //
@@ -51,11 +51,11 @@ const bookSchema = z.object({
   flightRef: z.string().trim().max(40).optional(),
   meetGreet: z.boolean().default(false),
   name: z.string().trim().min(2).max(120),
-  // isValidContactPhone, not a length check: "70587837" reached the dispatch
-  // desk as a customer contact and the operator had nobody callable. The form
-  // now validates too, but the form is a convenience and THIS is the rule —
-  // a Mauritian number must be a real 5-prefixed 8-digit mobile, and a
-  // foreign one must be valid for its own country (lib/phone.ts).
+  // isValidContactPhone, not a length check. The form validates too, but the
+  // form is a convenience and THIS is the rule: valid per the country's real
+  // allocation plan (libphonenumber), Mauritian when typed with no code. See
+  // lib/phone.ts for why the rule is the library's data and not a prefix —
+  // a guessed "starts with 5" rule once rejected a customer's REAL number.
   phone: z
     .string()
     .trim()
@@ -63,7 +63,7 @@ const bookSchema = z.object({
     .max(40)
     .refine(isValidContactPhone, {
       message:
-        "Enter a number your driver can really call — a Mauritian mobile starts with 5 and has 8 digits.",
+        "That doesn't look like a number your driver can call. A Mauritian number has 8 digits — check it and try again.",
     }),
   email: z.string().trim().email().max(160).optional().or(z.literal("")),
 })
@@ -126,7 +126,9 @@ export async function POST(req: NextRequest) {
     p_flight_ref: v.flightRef ?? null,
     p_meet_greet: v.meetGreet,
     p_customer_name: v.name,
-    p_customer_phone: v.phone,
+    // The CANONICAL shape ("+230 7058 7837"), never the keystrokes — one
+    // format means the desk, wa.me and tel: links always agree.
+    p_customer_phone: formatContactPhone(v.phone) ?? v.phone,
     p_customer_email: v.email || null,
   });
 

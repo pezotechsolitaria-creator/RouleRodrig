@@ -81,22 +81,21 @@ export function isValidPhone(full: string | null | undefined): boolean {
   }
 }
 
-// ── The owner's rule for Mauritian numbers ──────────────────────────────────
+// ── Contact numbers a driver can actually call ─────────────────────────────
 //
-// libphonenumber says "70587837" is a VALID Mauritian number — its metadata
-// accepts ranges nobody on the island actually dials. That exact number
-// reached the taxi dispatch desk as a customer's contact, and the operator had
-// nobody callable on the other end of a real booking.
+// HISTORY, because this rule has now flipped once and must not flip blindly
+// again: a booking arrived with phone "70587837", the owner first said it was
+// wrong ("a Mauritian mobile starts with 5"), a 5-prefix rule shipped — and
+// the owner then corrected himself: the number was REAL. Mauritius has newer
+// mobile ranges beyond the 5-prefix, and libphonenumber's metadata (built
+// from the ITU filings) knew that all along: it accepted 70587837 and it
+// rejects genuinely unallocated shapes like 48363401.
 //
-// The rule, from the person who phones these numbers for a living: a Mauritian
-// mobile starts with 5 and has 8 digits. For contact fields — where the whole
-// point is that a driver can ring or WhatsApp the person — that rule outranks
-// the library's metadata. Foreign numbers (Réunion, France, …) still validate
-// through libphonenumber as before.
-//
-// A number typed with NO country code is treated as Mauritian: that is what a
-// local means by it, and it is exactly how "70587837" got in.
-export type ContactPhoneProblem = "empty" | "invalid" | "mu-not-mobile";
+// So the rule is now: TRUST THE LIBRARY's per-country allocation data, and
+// add only what it cannot know — that a number typed with NO country code on
+// this site means a Mauritian number (that is how locals type them), and
+// that empty and invalid deserve different words on a form.
+export type ContactPhoneProblem = "empty" | "invalid";
 
 export function contactPhoneProblem(
   full: string | null | undefined,
@@ -105,17 +104,27 @@ export function contactPhoneProblem(
   if (!raw) return "empty";
   const compact = raw.replace(/[\s\-().]/g, "").replace(/^00(?=\d)/, "+");
   const parsed = parsePhoneNumberFromString(compact, "MU");
-  if (!parsed || !parsed.isValid()) return "invalid";
-  if (parsed.countryCallingCode === "230") {
-    return /^5\d{7}$/.test(String(parsed.nationalNumber)) ? null : "mu-not-mobile";
-  }
-  return null;
+  return parsed?.isValid() ? null : "invalid";
 }
 
-/** True only for a number a driver could actually call: valid for its country,
- *  and — when Mauritian — a real 5-prefixed 8-digit mobile. */
+/** True for a number a driver could actually call: valid for its own
+ *  country's real allocation plan (Mauritian when typed without a code). */
 export function isValidContactPhone(full: string | null | undefined): boolean {
   return contactPhoneProblem(full) === null;
+}
+
+/**
+ * The same number, in canonical international format ("+230 7058 7837") —
+ * store THIS, never the keystrokes. One shape means the dispatch desk,
+ * wa.me links and tel: links all agree, from any country.
+ * Null when the number is not valid, so a caller cannot format garbage.
+ */
+export function formatContactPhone(full: string | null | undefined): string | null {
+  const raw = (full ?? "").trim();
+  if (!raw) return null;
+  const compact = raw.replace(/[\s\-().]/g, "").replace(/^00(?=\d)/, "+");
+  const parsed = parsePhoneNumberFromString(compact, "MU");
+  return parsed?.isValid() ? parsed.formatInternational() : null;
 }
 
 // Basic but solid email format check (used client + server).
