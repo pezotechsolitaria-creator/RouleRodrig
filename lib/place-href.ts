@@ -1,4 +1,5 @@
 import type { RecommendedPlace } from "@/lib/defaults";
+import { hasOwnPage, placePageHref } from "@/lib/place-slug";
 
 // ── TAPPING A NAMED CARD MUST OPEN THAT NAME (M160) ─────────────────────────
 //
@@ -48,6 +49,20 @@ export function placeListingHref(p: RecommendedPlace): string {
  * already open. Every card, teaser and rail links through here.
  */
 export function placeHref(p: RecommendedPlace): string {
+  // ── AN ADDRESS BEATS AN ANCHOR (M191) ────────────────────────────────────
+  //
+  // M160 above fixed "tapping a named card must open that name" with a query
+  // parameter that scrolls the listing to the right card. That was the right
+  // fix while a place had nowhere else to go. Now that experiences have their
+  // own pages, the same tap can land on the place itself — which answers the
+  // original complaint more completely, and gives those pages the internal
+  // links they need to be found at all. A URL nothing links to does not rank,
+  // and every card on the site routes through this function.
+  //
+  // The parameter path stays for everything without a page of its own: stays
+  // are still browsed on /browse/stays and restaurants on /food.
+  if (hasOwnPage(p)) return placePageHref(p);
+
   const base = placeListingHref(p);
   // /food is a dish menu, not a list of places — there is no card there to
   // open, so pointing a parameter at it would promise something it cannot do.

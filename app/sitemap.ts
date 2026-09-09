@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { EXPERIENCES } from "@/lib/experiences";
+import { placeSlug, placesWithOwnPage } from "@/lib/place-slug";
 import { SITE_URL } from "@/lib/site";
 import { getFleetView, buildBrowseCategories } from "@/lib/site-data";
 import { vehicleHref } from "@/lib/vehicle-slug";
@@ -132,6 +133,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.85,
       })),
     );
+    // ── ONE EXPERIENCE, ONE URL (M191) ────────────────────────────────────
+    // Every experience now has a page of its own. They are the transactional
+    // half of this site's most-searched subject -- "Île aux Cocos" is the thing
+    // most visitors to Rodrigues look up -- and until now each was a query
+    // parameter on a listing, which canonicals to the listing and so could
+    // never be ranked, shared or cited. Priority above the listing they sit
+    // under: the listing is a shelf, these are the products.
+    extra.push(
+      ...placesWithOwnPage(content.recommended.items).map((pl) => ({
+        url: `${SITE_URL}/experiences/${placeSlug(pl)}`,
+        lastModified: contentAt,
+        changeFrequency: "weekly" as const,
+        priority: 0.85,
+      })),
+    );
+
     if (content.mapLocations.some((l) => l.category === "shop")) {
       extra.push({
         url: `${SITE_URL}/guide/shops`,

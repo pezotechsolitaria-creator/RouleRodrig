@@ -7,6 +7,9 @@ import { SERVICE_TYPES, type ServiceType } from "@/lib/defaults";
 import { EXPERIENCES, experiencesOfType, fromPriceOf, experienceFaq } from "@/lib/experiences";
 import { breadcrumbLd, itemListLd, experienceLd, sellerLd } from "@/lib/schema";
 import { placeHref } from "@/lib/place-href";
+import { findPlaceBySlug, placeSlug, placesWithOwnPage } from "@/lib/place-slug";
+import { placePrice } from "@/lib/place-detail";
+import PlaceDetail from "./PlaceDetail";
 import JsonLd from "@/components/JsonLd";
 import ExperienceMarket from "@/components/experiences/ExperienceMarket";
 import Navbar from "@/components/Navbar";
@@ -20,8 +23,24 @@ import ScrollToTop from "@/components/ScrollToTop";
 // changes when the owner edits it, not by the minute.
 export const revalidate = 300;
 
-export function generateStaticParams() {
-  return SERVICE_TYPES.map((type) => ({ type }));
+// Both kinds of page this route serves: the three service listings, and one
+// entry per experience that now has an address of its own. Async because the
+// second half is owner data, not a constant.
+export async function generateStaticParams() {
+  const listings = SERVICE_TYPES.map((type) => ({ type }));
+  try {
+    const { content } = await getFleetView();
+    return [
+      ...listings,
+      ...placesWithOwnPage(content.recommended.items).map((p) => ({
+        type: placeSlug(p),
+      })),
+    ];
+  } catch {
+    // A content read that fails must not empty the sitemap of the three
+    // listing pages, which are constants and never needed it.
+    return listings;
+  }
 }
 
 function copyFor(type: string) {
@@ -37,7 +56,48 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { type } = await params;
   const copy = copyFor(type);
-  if (!copy) return { title: "Not found" };
+  if (!copy) {
+    // Not a service listing — try it as an experience's own page.
+    try {
+      const { content } = await getFleetView();
+      const place = findPlaceBySlug(content.recommended.items, type);
+      if (place) {
+        const url = `${SITE_URL}/experiences/${placeSlug(place)}`;
+        const price = placePrice(place);
+        // Same reasoning as the listing titles below: the price pre-qualifies
+        // the tap and is the number an assistant repeats.
+        const title = price
+          ? `${place.name} — Rs ${price.toLocaleString("en-US")} in Rodrigues`
+          : `${place.name} in Rodrigues`;
+        const description =
+          (place.description || "").trim().slice(0, 155) ||
+          [
+            place.name,
+            place.priceNote?.trim(),
+            place.highlights?.slice(0, 4).join(", "),
+          ]
+            .filter(Boolean)
+            .join(" — ")
+            .slice(0, 155);
+        const image = place.image || place.images?.[0];
+        return {
+          title,
+          description,
+          alternates: { canonical: url },
+          openGraph: {
+            title,
+            description,
+            url,
+            type: "website",
+            ...(image ? { images: [image] } : {}),
+          },
+        };
+      }
+    } catch {
+      /* fall through to the not-found title */
+    }
+    return { title: "Not found" };
+  }
 
   // ── PRICE IN THE TITLE, BECAUSE THAT IS WHAT WORKS (M135) ────────────────
   //
@@ -93,7 +153,21 @@ export async function generateMetadata({
 export default async function ExperiencePage({ params }: { params: Promise<{ type: string }> }) {
   const { type } = await params;
   const copy = copyFor(type);
-  if (!copy) notFound();
+
+  // ── TWO PAGES, ONE SEGMENT ────────────────────────────────────────────────
+  // Next does not allow two dynamic siblings under /experiences, so this route
+  // answers both: a SERVICE TYPE renders the listing it always did, and
+  // anything else is resolved as one experience's own page. A slug can never
+  // shadow a listing — hasOwnPage() refuses any place whose slug is a service
+  // type — so the listing always wins the name it already owns.
+  if (!copy) {
+    const { content, businessWhatsApp } = await getFleetView();
+    const place = findPlaceBySlug(content.recommended.items, type);
+    if (!place) notFound();
+    return (
+      <PlaceDetail place={place} businessWhatsApp={businessWhatsApp} />
+    );
+  }
 
   const { content, businessWhatsApp } = await getFleetView();
   const places = experiencesOfType(content.recommended.items, copy.slug);

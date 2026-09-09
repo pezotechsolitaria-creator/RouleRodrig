@@ -17,7 +17,8 @@ import { loc } from "@/lib/localize";
 import PlaceBookingModal from "@/components/PlaceBookingModal";
 import PlaceDetailModal from "@/components/PlaceDetailModal";
 import { usePlaceDeepLink } from "@/components/usePlaceDeepLink";
-import { placeAnchorId } from "@/lib/place-href";
+import { placeAnchorId, placeHref } from "@/lib/place-href";
+import { hasOwnPage } from "@/lib/place-slug";
 
 // The discovery + booking surface shared by massage, fishing and sea trips.
 //
@@ -291,7 +292,21 @@ function ExperienceCard({
       </button>
 
       <div className="flex flex-1 flex-col p-3.5">
-        <h3 className="font-syne text-base font-extrabold leading-tight text-offwhite">{place.name}</h3>
+        {/* The name is the link, because the name IS the anchor text: an
+            experience's own page wants "Île aux Cocos Excursion" pointing at
+            it, not "details". These listings are the most topically relevant
+            pages on the site to link from, and until the detail pages existed
+            this card could only open a modal — which is fine for browsing and
+            useless to a crawler. The card body still opens the modal. */}
+        <h3 className="font-syne text-base font-extrabold leading-tight text-offwhite">
+          {hasOwnPage(place) ? (
+            <Link href={placeHref(place)} className="hover:text-yellow">
+              {place.name}
+            </Link>
+          ) : (
+            place.name
+          )}
+        </h3>
 
         {place.providerName && (
           <p className="mt-0.5 font-dm text-xs text-muted">

@@ -64,18 +64,36 @@ describe("a tour goes to the tours page, not to the page that excludes tours", (
 });
 
 describe("the link names WHICH listing, not only which page", () => {
-  it("carries the id, so two boat trips have two addresses", () => {
-    expect(placeHref(BALADE)).toBe(`/experiences/boat?${PLACE_PARAM}=rec-1785681665552`);
-    expect(placeHref(APNEE)).toBe(`/experiences/boat?${PLACE_PARAM}=svc-1786553123744`);
+  // ── UPDATED BY M191, DELIBERATELY ────────────────────────────────────────
+  //
+  // These three asserted the query-parameter form, which was the M160 fix:
+  // land on the listing with the right card open. Experiences now have pages
+  // of their own, so the same tap lands on the place itself — which answers
+  // the original complaint MORE completely, not less. The property being
+  // protected is unchanged and still asserted below: two experiences must
+  // never share one address, and the link must name the item.
+  it("gives two boat trips two different addresses", () => {
+    expect(placeHref(BALADE)).toBe("/experiences/balade-en-mer");
+    expect(placeHref(APNEE)).toBe(
+      "/experiences/plongee-en-apnee-aquarium-riviere-banane",
+    );
     expect(placeHref(BALADE)).not.toBe(placeHref(APNEE));
   });
 
-  it("names Île aux Cocos on the page it actually lives on", () => {
-    expect(placeHref(COCOS)).toBe(`/browse/tours?${PLACE_PARAM}=rec-1784585562167`);
+  it("gives Île aux Cocos a page of its own", () => {
+    // It used to be /browse/tours?place=rec-1784585562167 — a query parameter
+    // on a listing, which canonicals to the listing. The thing most visitors
+    // to Rodrigues search for had nothing to rank.
+    expect(placeHref(COCOS)).toBe(
+      "/experiences/ile-aux-cocos-excursion-with-les-inseparables",
+    );
   });
 
-  it("escapes an id rather than pasting it into a query string", () => {
-    expect(placeHref(place({ id: "a b&c" }))).toContain("a%20b%26c");
+  it("still escapes an id for anything without a page of its own", () => {
+    // A stay is still browsed on /browse/stays, so the parameter path stays.
+    expect(placeHref(place({ id: "a b&c", category: "hotel" }))).toContain(
+      "a%20b%26c",
+    );
   });
 
   it("adds nothing to /food, which lists dishes and has no card to open", () => {
