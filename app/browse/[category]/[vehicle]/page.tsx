@@ -12,7 +12,8 @@ import { findVehicle, vehicleName, vehicleSlug } from "@/lib/vehicle-slug";
 import JsonLd from "@/components/JsonLd";
 import RentalConditions from "@/components/RentalConditions";
 import AppPageHeader from "@/components/AppPageHeader";
-import WhatsAppButton from "@/components/WhatsAppButton";
+import VehicleActionBar from "@/components/VehicleActionBar";
+import { whatsappHref } from "@/lib/whatsapp-link";
 import ScrollToTop from "@/components/ScrollToTop";
 
 // ── ONE VEHICLE, ONE URL ────────────────────────────────────────────────────
@@ -304,9 +305,25 @@ export default async function VehiclePage({ params }: Props) {
         </div>
       </main>
 
-      <WhatsAppButton
-        phone={businessWhatsApp}
-        message={`Hi Roule Rodrigues! I'd like to rent the ${vehicleName(item)}.`}
+      {/* ── PRICE AND BOOK, WITHOUT SCROLLING ────────────────────────────
+          Measured here at 393x852 before this: the first price sat at
+          y=1,180 (1.4 screens down, under a full-bleed gallery) and the only
+          booking control was at the bottom of a 3,816px page. Both questions
+          a renter opens this page with needed scrolling to answer.
+
+          The floating WhatsApp button is deliberately NOT rendered alongside
+          it — the bar carries WhatsApp, and two entry points 40px apart is a
+          worse screen, not a better one. */}
+      <VehicleActionBar
+        price={item.price}
+        unit={item.unit}
+        bookHref={`/browse/${category}#booking`}
+        whatsappHref={whatsappHref(
+          businessWhatsApp,
+          `Hi Roule Rodrigues! I'd like to rent the ${vehicleName(item)}.`,
+        )}
+        vehicleName={vehicleName(item)}
+        soldOut={out}
       />
       <ScrollToTop />
     </>

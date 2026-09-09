@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { whatsappHref } from "@/lib/whatsapp-link";
 import { useLanguage } from "@/context/LanguageContext";
 import { X } from "lucide-react";
 import type { WhatsAppNumber } from "@/lib/defaults";
@@ -12,20 +13,6 @@ import type { WhatsAppNumber } from "@/lib/defaults";
  * (e.g. Bookings vs Support), each opening that number's WhatsApp chat.
  * Hides entirely if no usable number is configured.
  */
-
-function toLink(raw: string, message: string): string | null {
-  if (!raw) return null;
-  let href: string;
-  if (raw.includes("http")) {
-    href = raw;
-  } else {
-    const digits = raw.replace(/\D/g, "");
-    if (digits.length < 7) return null;
-    href = `https://wa.me/${digits}`;
-  }
-  if (/x/i.test(href)) return null; // placeholder like 5XXX
-  return href.includes("?") ? href : `${href}?text=${encodeURIComponent(message)}`;
-}
 
 export default function WhatsAppButton({
   phone = "",
@@ -59,12 +46,12 @@ export default function WhatsAppButton({
 
   // Build the list of valid WhatsApp targets
   const targets = (numbers ?? [])
-    .map((n) => ({ label: n.label?.trim() || "WhatsApp", url: toLink(n.number, message) }))
+    .map((n) => ({ label: n.label?.trim() || "WhatsApp", url: whatsappHref(n.number, message) }))
     .filter((t): t is { label: string; url: string } => !!t.url);
 
   // Fall back to the single legacy number if no list configured
   if (targets.length === 0) {
-    const fallback = toLink(whatsapp, message) ?? toLink(phone, message);
+    const fallback = whatsappHref(whatsapp, message) ?? whatsappHref(phone, message);
     if (fallback) targets.push({ label: "WhatsApp", url: fallback });
   }
 
