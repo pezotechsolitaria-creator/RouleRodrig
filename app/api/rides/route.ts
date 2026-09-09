@@ -3,7 +3,13 @@ import { z } from "zod";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { guard } from "@/lib/rate-limit";
 import { sendRideEmails } from "@/lib/email";
-import { RIDE_SERVICES, RIDE_SERVICE_META } from "@/lib/rides/model";
+import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/queue";
+import { SITE_URL } from "@/lib/site";
+import {
+  RIDE_SERVICES,
+  RIDE_SERVICE_META,
+  formatRidePrice,
+} from "@/lib/rides/model";
 
 // ── THE CUSTOMER'S OWN BOOKING ──────────────────────────────────────────────
 //
@@ -159,6 +165,72 @@ export async function POST(req: NextRequest) {
     });
   } catch {
     /* ignore email failures */
+  }
+
+  // ── AND EVERY OTHER CHANNEL THE OWNER WATCHES ─────────────────────────────
+  //
+  // The email above works — email_log shows an owner_ride_alert landing within
+  // a second of each of the last two bookings. It was also the ONLY thing a
+  // taxi booking did. No WhatsApp, no ntfy, nothing on the phone the owner
+  // actually carries: a request arrived and sat in /admin/rides until somebody
+  // thought to look.
+  //
+  // Everything needed already existed. The notification queue has a `rides`
+  // category, the worker sends on whatsapp, ntfy and email alike, and three
+  // slots — two CallMeBot numbers and the owner's ntfy topic — take every
+  // category. Nothing subscribed them to this event because nothing raised it.
+  //
+  // Queued rather than sent inline, deliberately: the queue retries, records
+  // the attempt, and cannot make a customer wait on CallMeBot answering. The
+  // worker drains it every minute.
+  //
+  // Never blocks the booking, exactly like the email above it. The ride is
+  // already committed and the reference is minted; an alert failing must not
+  // turn a successful request into an error on the customer's screen.
+  try {
+    const meta = RIDE_SERVICE_META[v.service];
+    const when =
+      v.whenKind === "scheduled" && v.scheduledAt
+        ? new Date(v.scheduledAt).toLocaleString("en-GB", {
+            day: "numeric",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: "Indian/Mauritius",
+          })
+        : "As soon as possible";
+
+    await enqueueNotification({
+      type: "ride.requested",
+      category: "rides",
+      message: formatWhatsAppMessage({
+        title: `🚕 ${meta?.label ?? v.service} request${created.reference ? ` · ${created.reference}` : ""}`,
+        lines: [
+          `When: ${when}`,
+          `From: ${v.pickupLabel}`,
+          v.dropoffLabel ? `To: ${v.dropoffLabel}` : null,
+          `Who: ${v.name} — ${v.phone}`,
+          `${v.passengers} passenger${v.passengers === 1 ? "" : "s"}${v.luggage ? `, ${v.luggage} bag${v.luggage === 1 ? "" : "s"}` : ""}`,
+          // The SERVER's price, never one the caller sent — the same rule the
+          // RPC and the email follow. Minor units, so the shared formatter
+          // divides rather than this file doing arithmetic on money.
+          created.price != null ? `Price: ${formatRidePrice(created.price)}` : null,
+          v.flightRef ? `Flight: ${v.flightRef}` : null,
+          v.meetGreet ? "Meet & greet requested" : null,
+          v.notes ? `Note: ${v.notes}` : null,
+        ],
+        action: `${SITE_URL}/admin/rides`,
+      }),
+      // One alert per ride per channel. A retry of this route must not raise a
+      // second; enqueue_notification counts the suppression instead.
+      dedupeKey: created.reference
+        ? `ride.requested:${created.reference}`
+        : undefined,
+      payload: { service: v.service, whenKind: v.whenKind },
+    });
+  } catch (err) {
+    // Same guarantee as the email: the booking stands.
+    console.error("ride alert enqueue threw", err);
   }
 
   // The reference is all that comes back. No id, so nothing here can be used to

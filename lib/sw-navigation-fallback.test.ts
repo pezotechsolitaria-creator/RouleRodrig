@@ -87,6 +87,15 @@ describe("the fix can actually reach a device", () => {
     // A service worker only replaces its cache when the NAME changes. Shipping
     // sw.js without this leaves every existing device on the old behaviour —
     // the file's own changelog records that lesson twice.
-    expect(SW).toMatch(/const CACHE = "rr-cache-v(3[5-9][5-9]|[4-9]\d\d)"/);
+    //
+    // Compared as a NUMBER. The pattern here was
+    // /rr-cache-v(3[5-9][5-9]|[4-9]\d\d)/, which reads as "355 or above" and
+    // is not: the last group is [5-9], so it matched v355-v359 and then failed
+    // on v360 — the next bump after it was written. A version check that
+    // breaks when the version goes up is worse than none, because it fails on
+    // somebody else's unrelated commit.
+    const m = SW.match(/const CACHE = "rr-cache-v(\d+)"/);
+    expect(m, "sw.js has no cache version").not.toBeNull();
+    expect(Number(m![1])).toBeGreaterThanOrEqual(355);
   });
 });
