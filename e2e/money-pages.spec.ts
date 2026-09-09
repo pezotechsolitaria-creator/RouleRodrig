@@ -85,12 +85,17 @@ test("the homepage does not link to a dead category", async ({ page }) => {
   expect(hrefs.length, "no browse links on the homepage at all").toBeGreaterThan(0);
 
   for (const href of hrefs) {
-    const res = await page.request.get(href);
-    expect(res.status(), `${href} is linked from the homepage`).toBe(200);
-    // A status check ALONE would have passed all through this bug: the soft
-    // 404 answered 200. So read what the page actually says as well.
+    const res = await page.goto(href, { waitUntil: "domcontentloaded" });
+    expect(res?.status(), `${href} is linked from the homepage`).toBe(200);
+
+    // It has to be RENDERED text. A status check alone passed all the way
+    // through this bug, because the soft 404 answered 200 — and grepping the
+    // raw HTML is no better, because the 404 component ships inside the
+    // streamed React payload of every page on the site. That false positive
+    // cost me a wrong report of seven broken pages before I rendered them.
+    await page.waitForTimeout(1500);
     expect(
-      await res.text(),
+      await body(page),
       `${href} is linked from the homepage and renders the 404 page`,
     ).not.toMatch(/This page doesn't exist/i);
   }
