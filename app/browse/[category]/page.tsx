@@ -8,6 +8,7 @@ import {
   getFleetView,
   buildBrowseCategories,
   priceNumber,
+  isSellableFleetItem,
 } from "@/lib/site-data";
 import AppPageHeader from "@/components/AppPageHeader";
 import Link from "next/link";
@@ -531,7 +532,13 @@ export default async function BrowsePage({
   }
 
   if (vcat) {
-    const items = fleet.filter((f) => (f.category ?? "scooter") === vcat.id);
+    // Unpriced rows are unfinished drafts, not stock — see
+    // isSellableFleetItem. They fall out here, so a category holding only
+    // drafts correctly reads as "nothing to rent today" rather than
+    // listing a car somebody could book for Rs 0.
+    const items = fleet.filter(
+      (f) => (f.category ?? "scooter") === vcat.id && isSellableFleetItem(f),
+    );
     // Same reasoning as the disabled case, for the same URL: an empty fleet is
     // "nothing to rent today", not "this page never existed".
     if (items.length === 0) {
