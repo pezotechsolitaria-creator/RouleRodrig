@@ -62,6 +62,7 @@ function timeLabel(value?: string | null): string {
 
 export default function BookingSection({
   fleet,
+  category,
   categories,
   whatsapp,
   conditions,
@@ -76,6 +77,10 @@ export default function BookingSection({
    *  without this would quote one figure and charge another. */
   categories?: VehicleCategory[];
   whatsapp?: string;
+  /** Which category's form this is. Only used to choose wording — the fleet
+   *  itself is already filtered by the caller. Defaulted, so nothing that
+   *  omits it changes. */
+  category?: string;
 }) {
   const { t, language } = useLanguage();
   const { convert } = useCurrency();
@@ -943,7 +948,14 @@ export default function BookingSection({
                   <textarea
                     id="bk-message"
                     rows={3}
-                    placeholder={t.booking.messagePlaceholder}
+                    placeholder={
+                      // "extra helmet" above a CAR booking button reads as a
+                      // form built for something else — the same mistake the
+                      // helmet FAQ row was making on this page.
+                      category && category !== "scooter"
+                        ? t.booking.messagePlaceholderCar
+                        : t.booking.messagePlaceholder
+                    }
                     value={form.message}
                     onChange={(e) => setForm({ ...form, message: e.target.value })}
                     className={`${inputCls} pl-10 resize-none`}

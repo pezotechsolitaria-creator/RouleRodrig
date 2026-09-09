@@ -56,6 +56,24 @@ describe("a car page does not answer scooter questions", () => {
     );
   });
 
+  it("does not offer a car renter an extra helmet", () => {
+    // The free-text box above the CAR booking button read "Hotel name,
+    // delivery address, extra helmet…" — the same wrong-product mistake the
+    // FAQ row was making, in the last field before Submit.
+    const read = (...p: string[]) =>
+      readFileSync(join(process.cwd(), ...p), "utf8");
+    const booking = read("components", "BookingSection.tsx");
+    expect(booking).toContain("t.booking.messagePlaceholderCar");
+    expect(booking).toMatch(/category && category !== "scooter"/);
+    // All three languages, or a French reader gets a blank placeholder.
+    const i18n = read("lib", "i18n.ts");
+    expect((i18n.match(/messagePlaceholderCar:/g) ?? []).length).toBe(3);
+    // And the category has to actually reach the component.
+    expect(read("app", "browse", "[category]", "page.tsx")).toContain(
+      "category={category}",
+    );
+  });
+
   it("is wired into BOTH the listing and the vehicle detail page", () => {
     // The detail page is the one every earlier pass missed, and it is the
     // actual conversion page.

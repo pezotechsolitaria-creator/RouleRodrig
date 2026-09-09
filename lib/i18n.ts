@@ -141,6 +141,9 @@ const translations = {
       phonePlaceholder: "+230 XXXX XXXX",
       messageLabel: "SPECIAL REQUESTS",
       messagePlaceholder: "Hotel name, delivery address, extra helmet…",
+      /** The same box on a CAR form. "extra helmet" is a scooter prompt and
+       *  read as nonsense above the car booking button. */
+      messagePlaceholderCar: "Hotel name, delivery address, child seat…",
       partnerPrompt: "Do you have a partner or hotel referral code?",
       partnerLabel: "PARTNER CODE",
       partnerPlaceholder: "e.g. CHEZ-FRANCINE",
@@ -1108,6 +1111,8 @@ const translations = {
       messageLabel: "DEMANDES SPÉCIALES",
       messagePlaceholder:
         "Nom de l'hôtel, adresse de livraison, casque supplémentaire…",
+      messagePlaceholderCar:
+        "Nom de l'hôtel, adresse de livraison, siège enfant…",
       partnerPrompt:
         "Avez-vous un code partenaire ou de recommandation hôtel ?",
       partnerLabel: "CODE PARTENAIRE",
@@ -2022,6 +2027,7 @@ const translations = {
       phonePlaceholder: "+230 XXXX XXXX",
       messageLabel: "DEMANN SPESIAL",
       messagePlaceholder: "Non lotel, ladrès livrezon, kasket ekstra…",
+      messagePlaceholderCar: "Non lotel, ladrès livrezon, syez zanfan…",
       partnerPrompt: "Ou ena enn kode partner ou lotel?",
       partnerLabel: "KOD PARTNER",
       partnerPlaceholder: "ex. CHEZ-FRANCINE",

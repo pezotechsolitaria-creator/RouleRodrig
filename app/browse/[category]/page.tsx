@@ -706,6 +706,7 @@ export default async function BrowsePage({
           <TrustBar category={vcat.id} />
           <BookingSection
             fleet={items}
+            category={category}
             categories={content.vehicleCategories}
             whatsapp={businessWhatsApp}
             /* The rental terms the customer needs BEFORE committing — age,
