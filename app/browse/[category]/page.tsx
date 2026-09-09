@@ -401,7 +401,18 @@ export default async function BrowsePage({
 
   // Breadcrumb trail (Home › This page) + the listing itself, so Google shows
   // a real trail under the result instead of a bare URL.
-  const seo = (label: string, items: { name: string }[]) => (
+  // withFaq, because the FAQPage below describes SCOOTER RENTAL and only the
+  // vehicle branch renders it visibly. Verified live before this parameter
+  // existed: /browse/stays, /browse/tours and /browse/activities each published
+  // all eight questions -- "What is the minimum age to rent?", "Do I need a
+  // driving licence?", "Is insurance included?" -- and zero of them appeared
+  // anywhere in those pages' text.
+  //
+  // Google requires FAQ markup to match content the visitor can read; markup
+  // for invisible content is the exact thing that guideline exists to stop. It
+  // was also telling Google that a page about guest houses is about driving
+  // licences, which is a topical-relevance leak on three commercial pages.
+  const seo = (label: string, items: { name: string }[], withFaq = false) => (
     <JsonLd
       data={[
         breadcrumbLd([
@@ -420,7 +431,7 @@ export default async function BrowsePage({
         // Same source as the panel, so the two can never disagree: if the owner
         // edits an answer in admin, the visible text and the structured data
         // move together.
-        ...(conditionItems.length
+        ...(withFaq && conditionItems.length
           ? [
               {
                 "@context": "https://schema.org",
@@ -578,6 +589,8 @@ export default async function BrowsePage({
         {seo(
           vcat.label,
           items.map((i) => ({ name: i.name })),
+          // The only branch that renders <RentalConditions> visibly.
+          true,
         )}
         {/* The vehicles are rendered on THIS page, so this is where their
             Product markup belongs — with real ratings where reviews exist. */}

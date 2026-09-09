@@ -53,6 +53,12 @@ const EN = {
   book: {
     chrome: {
       heading: "Book a ride",
+      // The <h1> of /transfers, which is a LANDING PAGE and not just a form.
+      // It used to reuse services.airport.label — "Airport transfer", sixteen
+      // characters with no island in them — as the primary heading of the page
+      // that owns "airport transfer Rodrigues". The form keeps the short label
+      // on its service chip; the page gets the sentence somebody searches.
+      transferHeading: "Airport transfers in Rodrigues — Plaine Corail to your hotel",
       requiredNote: "= required, or we cannot price your ride.",
     },
     services: {
@@ -306,6 +312,7 @@ const FR: RidesCopy = {
   book: {
     chrome: {
       heading: "Réserver une course",
+      transferHeading: "Transfert aéroport à Rodrigues — de Plaine Corail à votre hôtel",
       requiredNote:
         "= obligatoire, sans quoi nous ne pouvons pas calculer votre prix.",
     },
@@ -547,6 +554,7 @@ const CR: RidesCopy = {
   book: {
     chrome: {
       heading: "Rezerv enn kours",
+      transferHeading: "Transfer erport Rodrig — depi Plaine Corail ziska ou lotel",
       requiredNote: "= obligatwar, sinon nou pa kapav kalkil ou pri.",
     },
     services: {

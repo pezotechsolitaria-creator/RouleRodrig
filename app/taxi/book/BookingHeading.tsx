@@ -25,8 +25,10 @@ export default function BookingHeading({
 }) {
   const { language } = useLanguage();
   const c = RIDES_COPY[language].book;
+  // The transfer page is a landing page, so it takes the long heading. The
+  // short service label stays where it belongs: on the chip inside the form.
   const heading =
-    variant === "transfer" ? c.services.airport.label : c.chrome.heading;
+    variant === "transfer" ? c.chrome.transferHeading : c.chrome.heading;
 
   return (
     <>
