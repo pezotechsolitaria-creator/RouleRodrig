@@ -268,6 +268,35 @@ async function adminWrite(input: string, init?: RequestInit): Promise<boolean> {
   }
 }
 
+// ── ...AND ADMIN READS MUST NEVER BE ASSUMED TO HAVE ARRIVED ────────────────
+// The same fault as adminWrite, in the other direction. Every loader here was
+// `if (res.ok) setThing(await res.json())` inside a try/finally with no catch,
+// so BOTH failure modes were silent: a non-ok response fell through the `if`,
+// and a rejected fetch — a phone losing signal, which Safari reports as
+// "Load failed" — skipped to `finally`. Either way the spinner stopped and the
+// screen kept whatever it had, usually nothing. An empty list is an answer, and
+// showing one the server never gave is how an owner concludes that nobody
+// booked today.
+//
+// Returns null rather than throwing, so the caller keeps the data it already
+// had instead of blanking the screen, and the toast says the number is stale.
+// `what` is a plain noun, lower case: it lands mid-sentence.
+async function adminRead<T>(input: string, what: string): Promise<T | null> {
+  try {
+    const res = await fetch(input);
+    if (res.ok) return (await res.json()) as T;
+    toast.error(
+      res.status === 401
+        ? `Your admin session has expired — ${what} could not be loaded.`
+        : `Could not load ${what} (error ${res.status}).`,
+    );
+    return null;
+  } catch {
+    toast.error(`Could not load ${what} — you appear to be offline.`);
+    return null;
+  }
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -684,7 +713,14 @@ function ImagePicker({
       if (res.ok) {
         const { path } = (await res.json()) as { path: string };
         onUpload(path);
+      } else {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(body.error ?? `That photo did not upload (error ${res.status}).`);
       }
+    } catch {
+      // Silence here meant picking a photo and watching nothing happen — no
+      // image, no message, no way to tell whether to try again.
+      toast.error("That photo did not upload — you appear to be offline.");
     } finally {
       setUploading(false);
     }
@@ -764,9 +800,12 @@ function MultiImagePicker({
 
   async function handleFiles(files: FileList) {
     setUploading(true);
+    // Declared OUTSIDE the try: if one file's request never arrives, the ones
+    // that already uploaded are still real and must still reach the gallery.
+    // Inside, a mid-loop failure threw them away along with the batch.
+    const uploaded: string[] = [];
+    const rejected: string[] = [];
     try {
-      const uploaded: string[] = [];
-      const rejected: string[] = [];
       for (const file of Array.from(files)) {
         const fd = new FormData();
         fd.append("file", file);
@@ -795,6 +834,14 @@ function MultiImagePicker({
           { duration: 8000 },
         );
       }
+    } catch {
+      if (uploaded.length) onChange([...images, ...uploaded]);
+      toast.error(
+        uploaded.length
+          ? `${uploaded.length} photo${uploaded.length === 1 ? "" : "s"} were added, then the connection dropped. The rest were not.`
+          : "Those photos did not upload — you appear to be offline.",
+        { duration: 8000 },
+      );
     } finally {
       setUploading(false);
     }
@@ -2624,8 +2671,8 @@ function SubmissionsViewer() {
   async function remove(id: string) {
     setDeleting(id);
     try {
-      const res = await fetch(`/api/admin/submissions?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-      if (res.ok) setSubmissions((prev) => prev.filter((s) => s.id !== id));
+      if (await adminWrite(`/api/admin/submissions?id=${encodeURIComponent(id)}`, { method: "DELETE" }))
+        setSubmissions((prev) => prev.filter((s) => s.id !== id));
     } finally {
       setDeleting(null);
     }
@@ -3269,12 +3316,14 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
     if (!confirm("Delete this booking permanently? This cannot be undone.")) return;
     setUpdating(id);
     try {
-      const res = await fetch("/api/admin/bookings", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-      if (res.ok) setBookings((prev) => prev.filter((b) => b.id !== id));
+      if (
+        await adminWrite("/api/admin/bookings", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        })
+      )
+        setBookings((prev) => prev.filter((b) => b.id !== id));
     } finally {
       setUpdating(null);
     }
@@ -3589,12 +3638,14 @@ function PlaceBookingsManager() {
     if (!confirm("Delete this reservation permanently? This cannot be undone.")) return;
     setUpdating(id);
     try {
-      const res = await fetch("/api/admin/place-bookings", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-      if (res.ok) setRows((prev) => prev.filter((b) => b.id !== id));
+      if (
+        await adminWrite("/api/admin/place-bookings", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        })
+      )
+        setRows((prev) => prev.filter((b) => b.id !== id));
     } finally {
       setUpdating(null);
     }
@@ -6133,8 +6184,8 @@ function PartnersManager() {
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/partners");
-      if (res.ok) setPartners(await res.json());
+      const data = await adminRead<Partner[]>("/api/admin/partners", "partners");
+      if (data) setPartners(data);
     } finally {
       setLoading(false);
     }
@@ -6143,8 +6194,8 @@ function PartnersManager() {
   async function loadBookings() {
     setBookingsLoading(true);
     try {
-      const res = await fetch("/api/admin/bookings");
-      if (res.ok) setBookings(await res.json());
+      const data = await adminRead<Booking[]>("/api/admin/bookings", "bookings");
+      if (data) setBookings(data);
     } finally {
       setBookingsLoading(false);
     }
@@ -6161,12 +6212,13 @@ function PartnersManager() {
         commission_pct: 0,
         ...(editing ? { id: editing } : {}),
       };
-      const res = await fetch("/api/admin/partners", {
-        method: editing ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) {
+      if (
+        await adminWrite("/api/admin/partners", {
+          method: editing ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      ) {
         await load();
         setShowForm(false);
         setEditing(null);
@@ -6609,8 +6661,8 @@ function MarketplaceManager() {
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/marketplace");
-      if (res.ok) setListings(await res.json());
+      const data = await adminRead<MarketplaceListing[]>("/api/admin/marketplace", "the marketplace listings");
+      if (data) setListings(data);
     } finally {
       setLoading(false);
     }
@@ -6623,12 +6675,13 @@ function MarketplaceManager() {
     setSaving(true);
     try {
       const payload = { ...form, ...(editing ? { id: editing } : {}) };
-      const res = await fetch("/api/admin/marketplace", {
-        method: editing ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) {
+      if (
+        await adminWrite("/api/admin/marketplace", {
+          method: editing ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      ) {
         await load();
         setShowForm(false);
         setEditing(null);
@@ -6923,8 +6976,11 @@ function ReviewsModeration() {
   async function remove(id: string) {
     setBusy(id);
     try {
-      await fetch(`/api/admin/reviews?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-      setReviews((prev) => prev.filter((r) => r.id !== id));
+      // Was an unchecked fetch followed by an UNCONDITIONAL removal, so a
+      // refused delete still took the review off the screen — the exact lie
+      // adminWrite was written to stop.
+      if (await adminWrite(`/api/admin/reviews?id=${encodeURIComponent(id)}`, { method: "DELETE" }))
+        setReviews((prev) => prev.filter((r) => r.id !== id));
     } finally {
       setBusy(null);
     }
@@ -7123,8 +7179,8 @@ function TaxiManager() {
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/taxi");
-      if (res.ok) setDrivers(await res.json());
+      const data = await adminRead<TaxiDriver[]>("/api/admin/taxi", "the taxi drivers");
+      if (data) setDrivers(data);
     } finally { setLoading(false); }
   }
   async function loadReviews() {
@@ -7158,12 +7214,13 @@ function TaxiManager() {
         languages: form.languages.split(",").map((s) => s.trim()).filter(Boolean),
         ...(editing ? { id: editing } : {}),
       };
-      const res = await fetch("/api/admin/taxi", {
-        method: editing ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) { await load(); setShowForm(false); setEditing(null); setForm(emptyDriverForm()); }
+      if (
+        await adminWrite("/api/admin/taxi", {
+          method: editing ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      ) { await load(); setShowForm(false); setEditing(null); setForm(emptyDriverForm()); }
     } finally { setSaving(false); }
   }
 
@@ -7481,8 +7538,8 @@ function OwnerApplicationsViewer() {
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/owner-applications");
-      if (res.ok) setList(await res.json());
+      const data = await adminRead<OwnerApplication[]>("/api/admin/owner-applications", "owner applications");
+      if (data) setList(data);
     } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
@@ -7802,9 +7859,11 @@ function NotificationsEditor() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/admin/notifications");
-        if (res.ok) {
-          const d = await res.json();
+        const d = await adminRead<{ phone?: string; apikeyHint?: string }>(
+          "/api/admin/notifications",
+          "the notification settings",
+        );
+        if (d) {
           setPhone(d.phone || "");
           setApikeyHint(d.apikeyHint || "");
         }
@@ -7939,9 +7998,13 @@ function EmailSettingsCard() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/admin/email");
-        if (res.ok) {
-          const d = await res.json();
+        const d = await adminRead<{
+          from?: string;
+          listId?: string;
+          transactionalListId?: string;
+          apikeyHint?: string;
+        }>("/api/admin/email", "the email settings");
+        if (d) {
           setFrom(d.from || "");
           setListId(d.listId || "");
           setTxListId(d.transactionalListId || "");
@@ -8257,9 +8320,8 @@ function EmailDeliveryCard() {
 
   async function load() {
     try {
-      const res = await fetch("/api/admin/email");
-      if (res.ok) {
-        const data = (await res.json()) as EmailOpsData;
+      const data = await adminRead<EmailOpsData>("/api/admin/email", "the email settings");
+      if (data) {
         setD(data);
         seed(data);
       }
@@ -8590,8 +8652,8 @@ function WaitlistViewer() {
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/waitlist");
-      if (res.ok) setList(await res.json());
+      const data = await adminRead<WaitlistEntry[]>("/api/admin/waitlist", "the waitlist");
+      if (data) setList(data);
     } finally {
       setLoading(false);
     }

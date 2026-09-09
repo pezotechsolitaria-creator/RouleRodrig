@@ -64,6 +64,13 @@ export default function NotificationPreferences({ className = "" }: { className?
         setError(payload?.error ?? "Could not save that.");
         setPrefs((p) => p?.map((x) => (x.category === category ? { ...x, enabled: !next } : x)) ?? null);
       }
+    } catch {
+      // The !res.ok branch above already reverts a REFUSED save. This is the
+      // one that never got an answer at all — offline, or the request dropped.
+      // Without it the optimistic flip stayed on screen and the person walked
+      // away believing they had turned the notification off.
+      setError("Could not save that — you appear to be offline.");
+      setPrefs((p) => p?.map((x) => (x.category === category ? { ...x, enabled: !next } : x)) ?? null);
     } finally {
       setBusy(null);
     }

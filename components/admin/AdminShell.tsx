@@ -159,7 +159,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   async function signOut() {
     try {
-      await fetch("/api/admin/logout", { method: "POST" });
+      // Swallowed on purpose: signing out locally must happen whether or not
+      // the server was reachable. The redirect below is the part that matters,
+      // and it runs either way — this only stops the failure surfacing as an
+      // unhandled rejection.
+      await fetch("/api/admin/logout", { method: "POST" }).catch(() => {});
     } finally {
       router.push("/admin/login");
       router.refresh();

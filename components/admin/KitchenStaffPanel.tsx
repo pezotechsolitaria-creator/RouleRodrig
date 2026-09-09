@@ -87,6 +87,11 @@ export default function KitchenStaffPanel() {
       setEmail("");
       setName("");
       await load();
+    } catch {
+      // The !res.ok branch reports a REFUSAL. This is no answer at all, and
+      // without it the operator watched the spinner stop and could not tell
+      // whether the person had been added.
+      setMsg({ kind: "err", text: "Could not add that person — you appear to be offline." });
     } finally {
       setBusy(false);
     }

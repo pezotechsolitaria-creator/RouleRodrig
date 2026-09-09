@@ -133,6 +133,8 @@ export default function AdminPushSetup() {
         kind: "ok",
         text: `Sent to ${body.sent} of ${body.devices} device${body.devices === 1 ? "" : "s"}. It should arrive in a second.`,
       });
+    } catch {
+      setMsg({ kind: "err", text: "The test push did not go through — you appear to be offline." });
     } finally {
       setBusy(null);
     }
@@ -154,6 +156,11 @@ export default function AdminPushSetup() {
       }
       setMsg(null);
       await refresh();
+    } catch {
+      // The two calls inside already swallow their own failures; what is left
+      // is serviceWorker.ready or the refresh. Saying so beats a toggle that
+      // appears to do nothing.
+      setMsg({ kind: "err", text: "Could not turn alerts off on this device." });
     } finally {
       setBusy(null);
     }

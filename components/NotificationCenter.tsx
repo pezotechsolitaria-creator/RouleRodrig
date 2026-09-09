@@ -101,7 +101,11 @@ export default function NotificationCenter({ className = "" }: { className?: str
     // is a badge that reappears on the next poll.
     setItems((prev) => prev?.map((n) => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })) ?? null);
     try {
-      await fetch("/api/notifications", { method: "POST" });
+      // .catch, to match markOneRead below: the optimistic update above is the
+      // point, and the comment already says a failure only means the badge
+      // returns on the next poll. Swallowing it here keeps that promise
+      // without leaving an unhandled rejection behind.
+      await fetch("/api/notifications", { method: "POST" }).catch(() => {});
     } finally {
       setBusy(false);
     }

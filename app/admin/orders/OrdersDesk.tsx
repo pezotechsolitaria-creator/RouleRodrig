@@ -89,6 +89,11 @@ export default function OrdersDesk() {
           status === "cancelled" ? `${o.orderNumber} cancelled.` : `${o.orderNumber} updated.`,
         );
         await load();
+      } catch {
+        // load() reports its own failures. This is the PATCH never arriving —
+        // and an order desk that silently does nothing is how the same order
+        // gets moved twice.
+        toast.error("Could not reach the server — that order was not changed.");
       } finally {
         setBusy(null);
       }

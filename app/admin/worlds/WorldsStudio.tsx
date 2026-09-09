@@ -272,6 +272,11 @@ export default function WorldsStudio(props: StudioProps) {
           }
         }
       }
+    } catch {
+      // A refused action already sets `error` above. This is the request that
+      // never arrived, and a studio that silently does nothing is how an editor
+      // publishes the same change three times.
+      setError("That did not work — you appear to be offline.");
     } finally {
       setBusy(null);
     }
