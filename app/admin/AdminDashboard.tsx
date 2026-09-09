@@ -892,6 +892,16 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
   const [places, setPlaces] = useState<PlaceBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // ── A BLIP USED TO READ AS "NO BUSINESS TODAY" ──────────────────────────
+  // load() was try/finally with no catch. One rejected fetch — a phone losing
+  // signal mid-request, which Safari reports as `TypeError: Load failed` and
+  // Sentry logged from this page — skipped every setState, while `finally`
+  // still cleared the spinner. The owner was left looking at zero bookings,
+  // zero enquiries and zero revenue, presented exactly like a real answer.
+  //
+  // Same failure as the kitchen board: losing the server must never be
+  // indistinguishable from a quiet day.
+  const [loadError, setLoadError] = useState(false);
 
   async function load() {
     setRefreshing(true);
@@ -914,6 +924,12 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
           .filter((b) => b.status === "confirmed" || b.status === "completed")
           .reduce((sum, b) => sum + (b.total_amount ?? 0), 0),
       });
+      setLoadError(false);
+    } catch (err) {
+      // Not rethrown: the dashboard stays usable and says what happened,
+      // rather than handing the whole admin area to the error boundary.
+      console.error("admin dashboard load failed", err);
+      setLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -921,7 +937,7 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
   }
 
   useEffect(() => {
-    load();
+    void load();
   }, []);
 
   const today = islandDate(0);
@@ -970,6 +986,26 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
       {loading ? (
         <div className="flex items-center gap-3 text-muted font-dm text-sm">
           <Loader2 size={16} className="animate-spin" /> Loading stats…
+        </div>
+      ) : loadError ? (
+        <div
+          role="alert"
+          className="rounded-2xl border border-red-500/30 bg-red-500/[0.07] p-5 font-dm text-sm"
+        >
+          <p className="font-syne font-bold text-offwhite">
+            Couldn&apos;t load today&apos;s numbers
+          </p>
+          <p className="mt-1 text-muted">
+            This is a connection problem, not a quiet day — your bookings are
+            safe. Try again in a moment.
+          </p>
+          <button
+            onClick={load}
+            disabled={refreshing}
+            className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl bg-yellow px-5 font-syne text-sm font-bold text-dark disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} /> Try again
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
