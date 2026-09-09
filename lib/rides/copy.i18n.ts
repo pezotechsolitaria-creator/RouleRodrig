@@ -108,9 +108,9 @@ const EN = {
        * The strings INSIDE the place picker, which this screen was not
        * passing. components/PlacePicker.tsx falls back to English literals
        * when `copy` is absent, so a French or Kreol customer picked where to
-       * be collected from an English control — the "Common places" heading,
-       * the eight village chips' "Choose"/"Change", and the "Use where I am
-       * now" button — in the middle of an otherwise translated form.
+       * be collected from an English control — "Choose"/"Change", the "Use
+       * where I am now" button and the whole pin-on-a-map sheet — in the
+       * middle of an otherwise translated form.
        *
        * The wordings are /deliver's, verbatim (lib/delivery/copy.i18n.ts
        * `where`). It is the SAME control asking the SAME question, and two
@@ -119,12 +119,11 @@ const EN = {
        */
       picker: {
         useMyLocation: "Use where I am now",
-        nearby: "Common places",
         recent: "You used recently",
         choose: "Choose",
         change: "Change",
         myLocation: "My current location",
-        useTyped: (q: string) => `Use “${q}” — we’ll confirm the price`,
+        useTyped: (q: string) => `Show us where “${q}” is on the map`,
         pin: {
           open: "Show us on the map",
           title: "Point to the place",
@@ -369,13 +368,12 @@ const FR: RidesCopy = {
       dropoffPlaceholder: "Où allez-vous ?",
       picker: {
         useMyLocation: "Utiliser où je suis maintenant",
-        nearby: "Lieux courants",
         recent: "Utilisés récemment",
         choose: "Choisir",
         change: "Modifier",
         myLocation: "Ma position actuelle",
         useTyped: (q: string) =>
-          `Utiliser « ${q} » — nous confirmerons le prix`,
+          `Montrez-nous où se trouve « ${q} » sur la carte`,
         pin: {
           open: "Montrez-nous sur la carte",
           title: "Indiquez l’endroit",
@@ -614,12 +612,11 @@ const CR: RidesCopy = {
       dropoffPlaceholder: "Kot ou pe ale ?",
       picker: {
         useMyLocation: "Servi kot mo ete la",
-        nearby: "Bann plas kouran",
         recent: "Servi dernierman",
         choose: "Swazir",
         change: "Sanze",
         myLocation: "Kot mo ete la",
-        useTyped: (q: string) => `Servi « ${q} » — nou pou konfirm pri la`,
+        useTyped: (q: string) => `Montre nou kot « ${q} » lor kart la`,
         pin: {
           open: "Montre nou lor kart la",
           title: "Montre landrwa la",
