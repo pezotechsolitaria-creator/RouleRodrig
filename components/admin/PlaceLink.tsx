@@ -1,6 +1,7 @@
 import { MapPin, Route } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isPoint, pinUrl, routeUrl } from "@/lib/maps/nav";
+import { liveMapHref } from "@/lib/maps/live-focus";
 
 // ── WHERE IS THIS, ACTUALLY ─────────────────────────────────────────────────
 //
@@ -19,22 +20,49 @@ import { isPoint, pinUrl, routeUrl } from "@/lib/maps/nav";
 // point of the request was that taxi and delivery should behave the SAME. A
 // surface added later gets this by using it.
 //
-// ── A PIN, NOT NAVIGATION ─────────────────────────────────────────────────
-// lib/maps/nav.ts calls /maps/search/ the worst of its three shapes, and for a
-// DRIVER it is — they want guidance and a pin costs two more taps. At a desk it
-// is exactly right: the dispatcher is not going anywhere, they are answering
-// "where is this person", and turn-by-turn from the office would be absurd.
+// ── OUR MAP, NOT GOOGLE'S ─────────────────────────────────────────────────
+// The label opens /admin/live focused on the point, not Google Maps. Google
+// shows the spot and nothing else; the live map shows the spot WITH THE FLEET
+// AROUND IT, and "who is near this" is the question a dispatcher is actually
+// asking. That is the whole reason the desk has its own map.
+//
+// The route link beside it still goes to Google, deliberately: "how far is
+// this, and how long" is a routing question our map does not answer and Google
+// does. Two links, two different questions.
+//
+// ── BOTH ENDS, FROM EITHER END ────────────────────────────────────────────
+// A row that knows both ends passes `journey`, and then EITHER label opens the
+// map showing the whole trip. The owner asked for exactly this in one breath:
+// "his exact location ... AND WHERE HE IS GOING TO". Answering only the half
+// that was clicked would have made them click twice and hold the other half in
+// their head.
+//
+// Which end was clicked deliberately does not change the link. The map frames
+// every focus point it is given, so both clicks want the same picture; making
+// them differ would only mean the operator saw less depending on which word
+// they happened to hit.
+
+/** One end of a job: what the row calls it, and where it actually is. */
+type Place = {
+  label?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+};
 
 export function PlaceLink({
   label,
   lat,
   lng,
+  journey,
   className,
 }: {
   /** What the row says. Shown whether or not there is a pin behind it. */
   label: string | null | undefined;
   lat?: number | null;
   lng?: number | null;
+  /** Both ends of the job this place belongs to, when the row has them. Given
+   *  it, the link shows the whole trip instead of the one end clicked. */
+  journey?: { from?: Place | null; to?: Place | null } | null;
   className?: string;
 }) {
   const text = (label ?? "").trim();
@@ -43,9 +71,31 @@ export function PlaceLink({
   if (!isPoint(lat, lng)) {
     return <span className={className}>{text || "—"}</span>;
   }
+
+  const from = journey?.from;
+  const to = journey?.to;
+  // Whole trip when the row knows it; this one end when it does not.
+  const live = journey
+    ? liveMapHref({
+        lat: from?.lat, lng: from?.lng, label: from?.label,
+        toLat: to?.lat, toLng: to?.lng, toLabel: to?.label,
+      })
+    : liveMapHref({ lat, lng, label: text });
+
+  // ── OFF THE ISLAND ──────────────────────────────────────────────────────
+  // Our fleet map covers Rodrigues, so liveMapHref refuses a fix from anywhere
+  // else — a Mauritius-mainland coordinate, say. That refusal must not turn a
+  // location the operator could previously open into three dead words. The
+  // point is real; it is just not somewhere our drivers are. Google can show
+  // it, so Google gets that one.
+  const offIsland = live === null;
+  const href = live ?? pinUrl(lat as number, lng as number);
+
   return (
     <a
-      href={pinUrl(lat as number, lng as number)}
+      href={href}
+      // A new tab on purpose: a dispatcher mid-dispatch must not lose the desk
+      // and the row they were working.
       target="_blank"
       rel="noopener noreferrer"
       // The desk is a dense screen; the affordance is the underline on hover
@@ -54,11 +104,19 @@ export function PlaceLink({
         "inline-flex items-baseline gap-1 underline-offset-4 hover:text-yellow hover:underline",
         className,
       )}
-      title={`${text || "This place"} — open the exact spot on a map`}
+      title={
+        offIsland
+          ? `${text || "This place"} — outside Rodrigues, so it opens in Google Maps`
+          : `${text || "This place"} — open it on the live map, with the drivers around it`
+      }
     >
       {text || "See on map"}
       <MapPin size={11} className="shrink-0 translate-y-px" aria-hidden />
-      <span className="sr-only">— opens the exact spot on a map</span>
+      <span className="sr-only">
+        {offIsland
+          ? "— outside Rodrigues, opens in Google Maps"
+          : "— opens the live operations map, focused here"}
+      </span>
     </a>
   );
 }
