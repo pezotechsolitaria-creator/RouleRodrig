@@ -460,12 +460,99 @@ export default async function BrowsePage({
   );
 
   // ── Vehicles (scooters / cars / other) ──
-  const vcat = content.vehicleCategories.find(
-    (c) => c.id === category && c.enabled,
-  );
+  // ── A SWITCHED-OFF CATEGORY MUST NOT 404 AN INDEXED PAGE (M190) ──────────
+  //
+  // On 2026-09-09 the owner turned the Cars category off in /admin while he was
+  // adding vehicles. /browse/car began returning the "Lost on the island"
+  // screen with <meta name="robots" content="noindex">, because a disabled
+  // category matched no branch on this page and fell through to notFound() at
+  // the bottom. Nothing warned him.
+  //
+  // That page is in the sitemap, carries reciprocal hreflang from
+  // /fr/location-voiture-rodrigues, and is one of the two pages the business
+  // sells from. A 404 is how you tell Google to DELETE a URL; it is the wrong
+  // answer to "this is paused for an afternoon", and it throws away whatever
+  // ranking the page had.
+  //
+  // So the lookup is split. A category that does not exist at all still 404s
+  // -- /browse/hovercraft should. A category that exists and is switched off
+  // keeps its URL, its heading and its copy at HTTP 200, and says plainly that
+  // it is unavailable. That is the same shape Google asks for on a temporarily
+  // out-of-stock product: keep the page, state the availability.
+  const vcatAny = content.vehicleCategories.find((c) => c.id === category);
+  const vcat = vcatAny?.enabled ? vcatAny : undefined;
+
+  if (vcatAny && !vcat) {
+    const pausedCopy = VEHICLE_COPY[vcatAny.id];
+    const other = content.vehicleCategories.find((c) => c.enabled && c.id !== vcatAny.id);
+    return (
+      <>
+        {header(vcatAny.label, "span")}
+        <main className="bg-dark min-h-screen px-4 pb-24 pt-6">
+          <div className="mx-auto max-w-3xl">
+            <p className="font-bebas text-yellow text-[11px] tracking-[0.3em]">
+              ROULE RODRIGUES
+            </p>
+            {/* The h1 and the intro stay. They are what this URL ranks on, and
+                a pause is not a reason to throw that away. */}
+            <h1 className="mt-1 font-syne text-2xl font-extrabold text-offwhite md:text-3xl">
+              {pausedCopy?.heading ?? vcatAny.label}
+            </h1>
+            <p className="mt-4 rounded-2xl border border-yellow/40 bg-yellow/10 px-4 py-3 font-dm text-sm text-offwhite">
+              {vcatAny.label} are not available to book right now. Message us on
+              WhatsApp and we will tell you the moment they are back.
+            </p>
+            {pausedCopy ? (
+              <p className="mt-4 font-dm text-sm leading-relaxed text-muted">
+                {pausedCopy.intro(null, undefined)}
+              </p>
+            ) : null}
+            <div className="mt-6 flex flex-wrap gap-3">
+              {other ? (
+                <Link
+                  href={`/browse/${other.id}`}
+                  className="inline-flex min-h-[48px] items-center rounded-full bg-yellow px-5 font-syne text-sm font-bold text-dark"
+                >
+                  See {other.label.toLowerCase()} instead
+                </Link>
+              ) : null}
+              <Link
+                href="/browse/getting-around"
+                className="inline-flex min-h-[48px] items-center rounded-full border border-dark-control px-5 font-dm text-sm text-offwhite"
+              >
+                Other ways to get around
+              </Link>
+            </div>
+          </div>
+        </main>
+        {footer}
+      </>
+    );
+  }
+
   if (vcat) {
     const items = fleet.filter((f) => (f.category ?? "scooter") === vcat.id);
-    if (items.length === 0) notFound();
+    // Same reasoning as the disabled case, for the same URL: an empty fleet is
+    // "nothing to rent today", not "this page never existed".
+    if (items.length === 0) {
+      return (
+        <>
+          {header(vcat.label, "span")}
+          <main className="bg-dark min-h-screen px-4 pb-24 pt-6">
+            <div className="mx-auto max-w-3xl">
+              <h1 className="font-syne text-2xl font-extrabold text-offwhite md:text-3xl">
+                {VEHICLE_COPY[vcat.id]?.heading ?? vcat.label}
+              </h1>
+              <p className="mt-4 rounded-2xl border border-yellow/40 bg-yellow/10 px-4 py-3 font-dm text-sm text-offwhite">
+                Everything in this category is out on hire right now. Message us
+                on WhatsApp and we will find you something.
+              </p>
+            </div>
+          </main>
+          {footer}
+        </>
+      );
+    }
     const vcopy = VEHICLE_COPY[vcat.id];
     // Cheapest real daily rate on THIS page, for the intro sentence — derived
     // from the same fleet the cards render, so the copy can never advertise a
@@ -611,7 +698,36 @@ export default async function BrowsePage({
   const place = PLACE_SLUGS[category];
   if (place) {
     const items = content.recommended.items.filter(place.filter);
-    if (items.length === 0) notFound();
+    // Same guard as the vehicle branch above, for the same reason. /browse/stays
+    // and /browse/tours are in the sitemap and carry hreflang from their French
+    // twins, and an empty listing is "nothing published yet", not "this URL was
+    // never real". Emptying the list in /admin used to delete the page from
+    // Google; now it keeps its heading and says so.
+    if (items.length === 0) {
+      return (
+        <>
+          {header(place.label)}
+          <main className="bg-dark min-h-screen px-4 pb-24 pt-6">
+            <div className="mx-auto max-w-3xl">
+              <h1 className="font-syne text-2xl font-extrabold text-offwhite md:text-3xl">
+                {place.heading ?? place.label}
+              </h1>
+              <p className="mt-4 rounded-2xl border border-yellow/40 bg-yellow/10 px-4 py-3 font-dm text-sm text-offwhite">
+                Nothing is listed here just yet. Message us on WhatsApp and we
+                will point you to the right place on the island.
+              </p>
+              <Link
+                href="/explore"
+                className="mt-6 inline-flex min-h-[48px] items-center rounded-full bg-yellow px-5 font-syne text-sm font-bold text-dark"
+              >
+                Explore the island
+              </Link>
+            </div>
+          </main>
+          {footer}
+        </>
+      );
+    }
     return (
       <>
         {seo(
