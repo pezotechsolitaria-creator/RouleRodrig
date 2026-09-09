@@ -5,6 +5,7 @@ import { guard } from "@/lib/rate-limit";
 import { sendRideEmails } from "@/lib/email";
 import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/queue";
 import { SITE_URL } from "@/lib/site";
+import { toE164National } from "@/lib/phone";
 import {
   RIDE_SERVICES,
   RIDE_SERVICE_META,
@@ -112,7 +113,17 @@ export async function POST(req: NextRequest) {
     p_flight_ref: v.flightRef ?? null,
     p_meet_greet: v.meetGreet,
     p_customer_name: v.name,
-    p_customer_phone: v.phone,
+    // ── THE NUMBER THE DRIVER HAS TO RING ──────────────────────────────
+    // Stored EXACTLY as typed until now, so "70587837" — how everyone on this
+    // island writes a mobile — went in raw and every wa.me and tel: link built
+    // from it was dead. On the dispatch screen it then looks like a wrong
+    // number when it is a perfectly correct one missing +230.
+    //
+    // Normalised against Mauritius, so a local number gains its country code
+    // and a visitor's "+33…" is left alone. Falls back to the raw text when it
+    // cannot be parsed: an unusual number is still worth having, and refusing
+    // the booking over its format would be far worse than storing it as given.
+    p_customer_phone: toE164National(v.phone) ?? v.phone,
     p_customer_email: v.email || null,
   });
 
@@ -209,7 +220,7 @@ export async function POST(req: NextRequest) {
           `When: ${when}`,
           `From: ${v.pickupLabel}`,
           v.dropoffLabel ? `To: ${v.dropoffLabel}` : null,
-          `Who: ${v.name} — ${v.phone}`,
+          `Who: ${v.name} — ${toE164National(v.phone) ?? v.phone}`,
           `${v.passengers} passenger${v.passengers === 1 ? "" : "s"}${v.luggage ? `, ${v.luggage} bag${v.luggage === 1 ? "" : "s"}` : ""}`,
           // The SERVER's price, never one the caller sent — the same rule the
           // RPC and the email follow. Minor units, so the shared formatter

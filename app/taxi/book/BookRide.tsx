@@ -29,6 +29,7 @@ import { searchPlaces } from "@/lib/rides/places";
 import PlacePicker from "@/components/PlacePicker";
 import { useLanguage } from "@/context/LanguageContext";
 import { RIDES_COPY } from "@/lib/rides/copy.i18n";
+import { toE164National } from "@/lib/phone";
 import { rideQuoteShown, rideRequestSubmitted } from "@/lib/analytics/flows";
 
 // ── THE CUSTOMER BOOKS THEIR OWN RIDE ───────────────────────────────────────
@@ -259,7 +260,8 @@ export default function BookRide({
           flightRef: meta.needsArrival ? flightRef || undefined : undefined,
           meetGreet: meta.needsArrival ? meetGreet : false,
           name,
-          phone,
+          // The completed form, not the raw text.
+          phone: phoneE164 ?? phone,
           email: email || undefined,
         }),
       });
@@ -351,8 +353,22 @@ export default function BookRide({
     (!needsDropoff || !!dropoff) &&
     (whenKind === "now" || !!when) &&
     flightRefOk;
+  // ── A NUMBER A DRIVER CAN ACTUALLY RING ─────────────────────────────────
+  // The gate was `phone.trim().length > 4`, which accepts "705", "abc12" and
+  // anything else. On 9 Sept a real booking came in as "70587837" — a valid
+  // Mauritian mobile written the way everyone here writes one — and was stored
+  // raw, so every wa.me and tel: link built from it was dead and it LOOKED
+  // like a wrong number on the dispatch screen when it was perfectly correct.
+  //
+  // Parsed against Mauritius, so a local number is accepted and completed to
+  // +230…, while a visitor's "+33…" is respected as their own. Checked here,
+  // on the page, where a typo costs a correction instead of a lost ride.
+  const phoneE164 = toE164National(phone);
+  // Only complain once they have typed enough to mean something — an error on
+  // the second keystroke reads as the form arguing with you.
+  const phoneLooksWrong = phone.trim().length > 4 && !phoneE164;
   const canBook =
-    canContinue2 && name.trim().length > 1 && phone.trim().length > 4;
+    canContinue2 && name.trim().length > 1 && !!phoneE164;
 
   return (
     <div>
@@ -670,9 +686,15 @@ export default function BookRide({
               onChange={(e) => setPhone(e.target.value)}
               inputMode="tel"
               autoComplete="tel"
+              aria-invalid={phoneLooksWrong || undefined}
               className={inputCls}
               placeholder={c.step3.phonePlaceholder}
             />
+            {phoneLooksWrong && (
+              <p role="alert" className="mt-1.5 font-dm text-sm text-red-300">
+                {c.step3.phoneBad}
+              </p>
+            )}
           </Field>
           <Field label={c.step3.emailLabel}>
             <input
@@ -683,6 +705,14 @@ export default function BookRide({
               className={inputCls}
               placeholder={c.step3.emailPlaceholder}
             />
+            {/* Why it is worth giving. Optional stays optional — requiring an
+                address would block the local customers this form exists for —
+                but "optional" with no reason reads as "pointless", and this is
+                the only second way to reach somebody whose phone does not
+                answer. */}
+            <p className="mt-1.5 font-dm text-xs text-muted">
+              {c.step3.emailHint}
+            </p>
           </Field>
           <Field label={c.step3.notesLabel}>
             <input

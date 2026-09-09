@@ -105,6 +105,50 @@ export function isValidEmail(email: string | null | undefined): boolean {
  * Returns null when there is nothing usable, so a caller can tell "empty" from
  * "wrong" rather than sending a string the server will certainly reject.
  */
+/**
+ * The same job as toE164, for a box somebody typed a LOCAL number into.
+ *
+ * ── WHY toE164 IS NOT ENOUGH ──────────────────────────────────────────────
+ * toE164 assumes the country code is already present: it strips punctuation,
+ * bolts on a "+" and checks the shape. Hand it a Mauritian mobile as anyone
+ * here writes it — "70587837" — and it returns "+70587837", which passes that
+ * regex and is not a phone number anywhere on earth.
+ *
+ * That is not hypothetical. /api/rides stored `phone` exactly as typed, and on
+ * 9 Sept a real customer's "70587837" went into the database raw. Every
+ * wa.me and tel: link built from it was dead, and the number looked WRONG to
+ * the person reading the dispatch screen when it was perfectly correct — it was
+ * missing +230, which the app never added.
+ *
+ * So this parses against a default country, the way the person typing expects:
+ *
+ *   "70587837"      -> +23070587837   (national, assumed Mauritian)
+ *   "+230 7058 7837"-> +23070587837   (already international)
+ *   "0033 6 12 …"   -> +33612…        (a tourist's own number, respected)
+ *
+ * An explicit country code always wins, so a visitor's foreign number is never
+ * rewritten into a Mauritian one. Returns null when the result is not a valid
+ * number for its country, so the caller decides what to do rather than storing
+ * something unreachable.
+ */
+export function toE164National(
+  input: string | null | undefined,
+  defaultCountry: CountryCode = "MU",
+): string | null {
+  const raw = (input ?? "").trim();
+  if (!raw) return null;
+  // "00" is how a keypad dials international; libphonenumber wants a "+".
+  const text = /^00\d/.test(raw.replace(/[\s\-().]/g, ""))
+    ? `+${raw.replace(/[\s\-().]/g, "").slice(2)}`
+    : raw;
+  try {
+    const parsed = parsePhoneNumberFromString(text, defaultCountry);
+    return parsed?.isValid() ? parsed.number : null;
+  } catch {
+    return null;
+  }
+}
+
 export function toE164(input: string | null | undefined): string | null {
   const raw = (input ?? "").trim();
   if (!raw) return null;

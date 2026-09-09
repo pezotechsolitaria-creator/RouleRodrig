@@ -183,6 +183,14 @@ const EN = {
       phonePlaceholder: "+230 5XXX XXXX",
       emailLabel: "EMAIL (OPTIONAL)",
       emailPlaceholder: "you@example.com",
+      // Optional, and staying optional: 44% of Rodriguans over 60 cannot
+      // read or write, and requiring an address would block exactly the
+      // local customers this form exists to serve. What it CAN do is say
+      // why it is wanted, which costs nothing and lifts uptake.
+      emailHint:
+        "If we cannot reach you on the phone, this is how we find you. Nothing else is sent here.",
+      phoneBad:
+        "That does not look like a working number. Check it — a driver has to be able to ring you.",
       notesLabel: "ANYTHING THE DRIVER SHOULD KNOW (OPTIONAL)",
       notesPlaceholder: "e.g. baby seat, wheelchair, two stops",
       summaryWhenNow: "As soon as possible",
@@ -426,6 +434,10 @@ const FR: RidesCopy = {
       phonePlaceholder: "+230 5XXX XXXX",
       emailLabel: "E-MAIL (FACULTATIF)",
       emailPlaceholder: "vous@exemple.com",
+      emailHint:
+        "Si nous ne pouvons pas vous joindre au téléphone, c’est ainsi que nous vous retrouvons. Rien d’autre n’y est envoyé.",
+      phoneBad:
+        "Ce numéro ne semble pas valide. Vérifiez-le — un chauffeur doit pouvoir vous appeler.",
       notesLabel: "À SAVOIR POUR LE CHAUFFEUR (FACULTATIF)",
       notesPlaceholder: "ex. siège bébé, fauteuil roulant, deux arrêts",
       summaryWhenNow: "Dès que possible",
@@ -666,6 +678,10 @@ const CR: RidesCopy = {
       phonePlaceholder: "+230 5XXX XXXX",
       emailLabel: "EMAIL (OPSIONEL)",
       emailPlaceholder: "ou@exemple.com",
+      emailHint:
+        "Si nou pa kapav zwenn ou lor telefonn, se koumsa nou pou retrouv ou. Nanye dot pa avoye la.",
+      phoneBad:
+        "Sa nimero la pa paret bon. Verifie li — enn sofer bizin kapav apel ou.",
       notesLabel: "ENN ZAFER SOFER BIZIN KONE (OPSIONEL)",
       notesPlaceholder: "ex. sez bebe, sez roulan, de aret",
       summaryWhenNow: "Pli vit posib",

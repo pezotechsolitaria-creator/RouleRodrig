@@ -32,7 +32,8 @@ import { pickupTimeLabel, pickupClock,
 type Ride = {
   id: string; service: RideService; when_kind: string; scheduled_at: string | null;
   pickup_label: string; dropoff_label: string | null; passengers: number; luggage: number;
-  customer_name: string; customer_phone: string; quoted_price: number | null; currency: string;
+  customer_name: string; customer_phone: string; customer_email: string | null;
+  quoted_price: number | null; currency: string;
   status: RideStatus; driver_id: string | null; offer_rounds: number; created_at: string;
   taxi_drivers?: { name: string; phone: string; whatsapp: string | null } | null;
   // M120 — an airport or ferry run is planned around the flight, so the desk
@@ -335,6 +336,26 @@ export default function RidesDesk() {
                 <div className="rounded-2xl border border-white/10 bg-dark-card p-4">
                   <p className="font-syne text-base font-bold">{ride.customer_name}</p>
                   <a href={`tel:${ride.customer_phone}`} className="font-dm text-sm text-yellow">{ride.customer_phone}</a>
+                  {/* ── THE SECOND WAY TO REACH THEM ──────────────────────
+                      A phone that does not answer used to be the end of it:
+                      the desk had the number and nothing else, so a booking
+                      with a mistyped or unreachable mobile could only be
+                      cancelled. The address is optional on the form, so when
+                      it is missing the card SAYS so — a blank line reads as a
+                      loading bug, and "no email given" is itself the answer to
+                      "how else can I reach this person". */}
+                  {ride.customer_email ? (
+                    <a
+                      href={`mailto:${ride.customer_email}?subject=${encodeURIComponent(`Your ride with Roule Rodrigues${ride.pickup_label ? ` — ${ride.pickup_label}` : ""}`)}`}
+                      className="mt-0.5 block font-dm text-sm text-yellow underline-offset-4 hover:underline"
+                    >
+                      {ride.customer_email}
+                    </a>
+                  ) : (
+                    <p className="mt-0.5 font-dm text-xs text-muted">
+                      No email given — the phone is the only way to reach them.
+                    </p>
+                  )}
                   <div className="mt-3 space-y-1.5 font-dm text-sm">
                     {ride.flight_ref && (
                       <p className="flex items-start gap-2 font-dm text-sm text-yellow">
