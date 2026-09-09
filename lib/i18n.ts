@@ -295,11 +295,21 @@ const translations = {
     },
 
     // Footer
+    //
+    // ── THE TAGLINE IS SITEWIDE COPY, SO IT IS SITEWIDE POSITIONING ────────
+    // This line renders in the footer of ~75 of the site's 77 pages. It read
+    // "Premium scooter rentals" and named no other product, so the sentence
+    // Google saw most often across the whole domain said this business rents
+    // scooters — while the owner asked, repeatedly, why he only ever receives
+    // scooter bookings. "car rental" appeared on 5 pages against that.
+    // Naming both is not a keyword trick: four cars are live on /browse/car
+    // and the fleet page sells them. Keep any future edit honest about what
+    // is actually rentable.
     footer: {
       navigate: "NAVIGATE",
       follow: "FOLLOW US",
       tagline:
-        "Explore Rodrigues. Ride free. Premium scooter rentals on the most beautiful island in the Indian Ocean.",
+        "Explore Rodrigues. Ride free. Scooter and car rental on the most beautiful island in the Indian Ocean.",
       tag: "Tag us in your Rodrigues adventures.",
       rights: (year: number) =>
         `© ${year} Roule Rodrigues. All rights reserved.`,
@@ -1255,7 +1265,7 @@ const translations = {
       navigate: "NAVIGATION",
       follow: "SUIVEZ-NOUS",
       tagline:
-        "Explorez Rodrigues. Roulez libre. Location de scooters premium sur la plus belle île de l'Océan Indien.",
+        "Explorez Rodrigues. Roulez libre. Location de scooters et de voitures sur la plus belle île de l'Océan Indien.",
       tag: "Identifiez-nous dans vos aventures à Rodrigues.",
       rights: (year: number) =>
         `© ${year} Roule Rodrigues. Tous droits réservés.`,
@@ -2163,7 +2173,7 @@ const translations = {
       navigate: "NAVIGE",
       follow: "SWIV NOU",
       tagline:
-        "Explor Rodrig. Rul lib. Lokasion skooter premiem lor zil pli zoli dan Losean Indien.",
+        "Explor Rodrig. Rul lib. Lokasion skooter ek loto lor zil pli zoli dan Losean Indien.",
       tag: "Tagn nou dan ou lavantur Rodrig.",
       rights: (year: number) => `© ${year} Roule Rodrigues. Tou drwa rezerve.`,
       location: "Zil Rodrig, Repiblik Moris",

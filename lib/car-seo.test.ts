@@ -12,6 +12,11 @@ const BROWSE_CODE = BROWSE.replace(/^\s*\/\/.*$/gm, "");
 const TRUST = read("components", "TrustBar.tsx");
 const FLEET = read("components", "Fleet.tsx");
 const SITEMAP = read("app", "sitemap.ts");
+const I18N = read("lib", "i18n.ts");
+// Same reason BROWSE_CODE exists above: the comment explaining the rewrite
+// names the phrase it removed, and a bare substring check fails on its own
+// explanation.
+const I18N_CODE = I18N.replace(/^\s*\/\/.*$/gm, "");
 
 // ── "WHY DO I ONLY GET SCOOTER BOOKINGS?" ───────────────────────────────────
 //
@@ -123,5 +128,37 @@ describe("the sitemap", () => {
     // Verified absent: 0 of 76 <loc> entries. It is the only page on the site
     // whose visible text says "rent a car".
     expect(SITEMAP).toContain("/browse/getting-around");
+  });
+});
+
+describe("the sitewide footer names both products", () => {
+  // ── THE SENTENCE GOOGLE SAW MOST OFTEN ────────────────────────────────────
+  // The measurement at the top of this file — "Premium scooter rentals" on 75
+  // of 77 pages — had a single cause: the FOOTER tagline, which renders on
+  // every page that has a footer. It named scooters and nothing else, so the
+  // most-repeated sentence on the whole domain said this business rents
+  // scooters, while the owner asked why he only receives scooter bookings.
+  //
+  // Honest by construction: four cars are live on /browse/car. If the fleet
+  // ever stops carrying cars, this test SHOULD fail and the copy should change
+  // with it — that is the point of pinning it.
+  const taglineCount = (I18N.match(/^\s*tagline:$/gm) ?? []).length;
+
+  it("has a tagline in all three languages", () => {
+    expect(taglineCount).toBe(3);
+  });
+
+  it("no longer sells scooters alone, in any language", () => {
+    // en / fr / cr — a visitor reading Creole should not be told something
+    // different about what the business rents.
+    expect(I18N).toContain("Scooter and car rental on the most beautiful island");
+    expect(I18N).toContain("Location de scooters et de voitures");
+    expect(I18N).toContain("Lokasion skooter ek loto");
+  });
+
+  it("drops the scooter-only phrasing that was measured on 75 pages", () => {
+    expect(I18N_CODE).not.toContain("Premium scooter rentals");
+    expect(I18N_CODE).not.toContain("Location de scooters premium");
+    expect(I18N_CODE).not.toContain("Lokasion skooter premiem");
   });
 });
