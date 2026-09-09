@@ -4,7 +4,12 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Check, ChevronRight } from "lucide-react";
 import { SITE_URL } from "@/lib/site";
-import { getFleetView, priceNumber } from "@/lib/site-data";
+import {
+  getFleetView,
+  priceNumber,
+  isSellableFleetItem,
+} from "@/lib/site-data";
+import { realCopy } from "@/lib/placeholder-copy";
 import { priceBreakdown } from "@/lib/booking-pricing";
 import { breadcrumbLd, productLd, sellerLd } from "@/lib/schema";
 import { pickConditions } from "@/lib/rental-conditions";
@@ -36,7 +41,16 @@ type Props = { params: Promise<{ category: string; vehicle: string }> };
 
 async function resolve(category: string, vehicle: string) {
   const { content, fleet, businessWhatsApp } = await getFleetView();
-  const item = findVehicle(fleet, category, vehicle);
+  const found = findVehicle(fleet, category, vehicle);
+  // ── A DRAFT HAS NO PAGE ─────────────────────────────────────────────────
+  // /browse/car/new-cars was live, indexable and IN THE SITEMAP, with the
+  // meta description "Add a description for this car." and a price of
+  // "From Rs 0/day". The listing already filtered these out; this route did
+  // not, so the page stayed reachable and Google kept being invited to it.
+  //
+  // Treated as missing rather than rendered empty: there is no such vehicle to
+  // rent, and a thin page in the index drags the whole car cluster with it.
+  const item = found && isSellableFleetItem(found) ? found : undefined;
   return { content, fleet, businessWhatsApp, item };
 }
 
@@ -53,7 +67,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       ? `${vehicleName(item)} — Rs ${from}/day in Rodrigues`
       : `${vehicleName(item)} — rent in Rodrigues`;
     const description =
-      (item.description || item.tagline || "").slice(0, 155) ||
+      // realCopy: without it "Add a description for this car." became the
+      // META DESCRIPTION — the sentence Google prints under the result.
+      (realCopy(item.description) || realCopy(item.tagline) || "").slice(0, 155) ||
       `Rent the ${vehicleName(item)} on Rodrigues Island, direct from local owners.`;
     const image = item.images?.[0] || item.image;
     const images = [image?.startsWith("http") ? image : `${SITE_URL}${image ?? "/og-image.jpg"}`];
@@ -100,7 +116,8 @@ export default async function VehiclePage({ params }: Props) {
             // for the Avenis landed on a grid of everything.
             ...productLd({
               name: vehicleName(item),
-              description: item.description || item.tagline || undefined,
+              description:
+                realCopy(item.description) ?? realCopy(item.tagline) ?? undefined,
               image: photos[0],
               price: from ?? null,
               category,
@@ -144,7 +161,7 @@ export default async function VehiclePage({ params }: Props) {
 
           <div className="mt-5 flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0">
-              {item.tagline && (
+              {realCopy(item.tagline) && (
                 <p className="font-bebas text-[11px] uppercase tracking-[0.2em] text-muted">{item.tagline}</p>
               )}
               <h1 className="font-syne text-3xl font-extrabold uppercase leading-none text-offwhite">

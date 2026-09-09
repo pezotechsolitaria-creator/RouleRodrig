@@ -8,6 +8,7 @@ import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban, ChevronLeft, Ch
 import { motion, useReducedMotion } from "framer-motion";
 import { DEFAULT_CONTENT, type FleetItem, type VehicleCategory } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
+import { realCopy } from "@/lib/placeholder-copy";
 import { loc } from "@/lib/localize";
 import { typeChips, shouldShowTypeFilter, applyTypeFilter } from "@/lib/vehicle-filter";
 import { useCurrency } from "@/context/CurrencyContext";
@@ -455,9 +456,16 @@ export default function Fleet({
 
                 {/* Content */}
                 <div className="p-5">
-                  <p className="font-bebas text-muted text-[11px] tracking-[0.2em] mb-1 uppercase">
-                    {loc(language, scooter.tagline, scooter.taglineFr, scooter.taglineCr)}
-                  </p>
+                  {/* The admin form pre-fills this with "Add a short tagline."
+                      as a PROMPT to the owner. Three of the four cars were
+                      printing it above the model name on /browse/car. */}
+                  {realCopy(
+                    loc(language, scooter.tagline, scooter.taglineFr, scooter.taglineCr),
+                  ) && (
+                    <p className="font-bebas text-muted text-[11px] tracking-[0.2em] mb-1 uppercase">
+                      {loc(language, scooter.tagline, scooter.taglineFr, scooter.taglineCr)}
+                    </p>
+                  )}
                   {/* The name is a real link to the vehicle's own page. The
                       Details button below still opens the modal — comparing a
                       grid is faster than loading three pages — but until now
