@@ -397,7 +397,7 @@ export default async function BrowsePage({
   // question the visible panel does not render — which is the exact thing
   // Google's FAQ guideline forbids, and the exact thing that happens when two
   // lists are maintained separately.
-  const conditionItems = pickConditions(content.faq?.items);
+  const conditionItems = pickConditions(content.faq?.items, category);
 
   // Breadcrumb trail (Home › This page) + the listing itself, so Google shows
   // a real trail under the result instead of a bare URL.
@@ -635,9 +635,15 @@ export default async function BrowsePage({
                       : `${SITE_URL}${first.image}`
                     : undefined,
                   price: prices.length ? Math.min(...prices) : null,
-                  available: units.some(
-                    (u) => !(u.available === false || u.soldOutToday),
-                  ),
+                  // WITHDRAWN, not BUSY. This read
+                  // `!(u.available === false || u.soldOutToday)`, so on any
+                  // day the fleet was out it published every scooter to
+                  // Google and to AI assistants as schema.org/OutOfStock —
+                  // while the Rs 699 price sat right beside it. That is the
+                  // site's strongest citation asset carrying "no" as its
+                  // answer, and it fired hardest on the busiest days.
+                  // A rental that is out today is still for hire next week.
+                  available: units.some((u) => u.available !== false),
                   // The vehicle's OWN page, now that it has one. Every Offer
                   // used to advertise this category grid, so a shopping
                   // result for the Avenis landed on a list of everything and

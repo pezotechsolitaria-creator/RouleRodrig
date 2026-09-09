@@ -58,7 +58,16 @@ function resolveSpecs(item: FleetItem): Spec[] {
  * photo, and the arrows/dots/counter are ALWAYS visible on touch screens
  * (they only hide-until-hover on desktop). Crossfade keeps it smooth.
  */
-function FleetImageCarousel({ scooter }: { scooter: FleetItem }) {
+function FleetImageCarousel({
+  scooter,
+  cardIndex,
+}: {
+  scooter: FleetItem;
+  /** Which CARD this is in the grid. `i` inside the component is the index of
+   *  a photo within this one card's carousel, and the two were being confused
+   *  — see the loading attribute below. */
+  cardIndex: number;
+}) {
   const { t } = useLanguage();
   const photos = scooter.images && scooter.images.length > 0
     ? scooter.images
@@ -123,7 +132,15 @@ function FleetImageCarousel({ scooter }: { scooter: FleetItem }) {
             i === idx ? "opacity-100" : "opacity-0"
           } ${dim ? "brightness-50" : ""}`}
           sizes="(max-width: 768px) 100vw, 50vw"
-          loading={i === 0 ? "eager" : "lazy"}
+          // ── ONE EAGER IMAGE, NOT ONE PER CARD ──────────────────────
+          // This read `i === 0`, and `i` is the photo index WITHIN a card. So
+          // every card's first photo was eager: four full-viewport images on
+          // /browse/car, three on /browse/scooter, each with a matching
+          // <link rel="preload" as="image"> in the head at
+          // sizes="(max-width:768px) 100vw" — four phone-width photographs
+          // racing the one that is actually on screen. Only the first photo
+          // of the first card is above the fold.
+          loading={cardIndex === 0 && i === 0 ? "eager" : "lazy"}
           unoptimized={src.startsWith("/uploads/") || (src.startsWith("http") && !src.includes("supabase.co"))}
         />
       ))}
@@ -415,7 +432,7 @@ export default function Fleet({
                 className="group relative bg-dark-card rounded-2xl overflow-hidden border border-white/10 transition-colors duration-300 hover:border-yellow/50"
               >
                 {/* Photo carousel */}
-                <FleetImageCarousel scooter={scooter} />
+                <FleetImageCarousel scooter={scooter} cardIndex={i} />
 
                 {/* Save (wishlist) heart */}
                 <div className="absolute top-5 right-5 z-10">

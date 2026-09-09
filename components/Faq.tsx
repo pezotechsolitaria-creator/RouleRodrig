@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Plus, HelpCircle } from "lucide-react";
 import type { FaqContent } from "@/lib/defaults";
 
@@ -62,9 +62,11 @@ export default function Faq({ content }: { content?: FaqContent }) {
                 }`}
               >
                 <button
+                  id={`faq-q-${item.id}`}
                   onClick={() => setOpen(isOpen ? null : item.id)}
                   className="w-full flex items-center justify-between gap-4 text-left px-5 md:px-6 py-5"
                   aria-expanded={isOpen}
+                  aria-controls={`faq-panel-${item.id}`}
                 >
                   <span className="flex items-start gap-3">
                     <HelpCircle size={18} className="text-yellow shrink-0 mt-0.5" />
@@ -74,20 +76,41 @@ export default function Faq({ content }: { content?: FaqContent }) {
                     <Plus size={20} className={isOpen ? "text-yellow" : "text-muted"} />
                   </motion.span>
                 </button>
-                <AnimatePresence initial={false}>
-                  {isOpen && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.25 }}
-                    >
-                      <p className="text-muted/85 font-dm text-sm leading-relaxed px-5 md:px-6 pb-5 pl-[3.25rem]">
-                        {item.answer}
-                      </p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {/* ── THE ANSWERS HAVE TO BE IN THE PAGE ──────────────────
+                    This was `{isOpen && <motion.div>…}`, which MOUNTS the
+                    answer on click. So the whole of /faq was 1,176 characters
+                    of visible text: eleven questions and not one answer.
+                    "helmet", "licence" and "insurance" each occurred exactly
+                    once on the page — in the question.
+
+                    The answers were being published to Google only inside the
+                    FAQPage JSON-LD, which is markup describing text that is
+                    not on the page. That is the mismatch the structured-data
+                    guidelines exist to catch, and it threw away every word of
+                    the owner's real writing as far as ranking and as far as an
+                    assistant reading the page is concerned.
+
+                    Collapsed with CSS grid rows instead: the text is in the
+                    DOM at all times, laid out, indexable and findable with
+                    ctrl-F. Never `hidden`, `display:none` or
+                    `visibility:hidden` here — those are treated as absent too.
+                    aria-hidden is likewise deliberately absent; the panel is
+                    reachable and `aria-expanded`/`aria-controls` say what its
+                    state is. */}
+                <div
+                  id={`faq-panel-${item.id}`}
+                  role="region"
+                  aria-labelledby={`faq-q-${item.id}`}
+                  className={`grid transition-[grid-template-rows] duration-250 ease-out ${
+                    isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <p className="text-muted/85 font-dm text-sm leading-relaxed px-5 md:px-6 pb-5 pl-[3.25rem]">
+                      {item.answer}
+                    </p>
+                  </div>
+                </div>
               </motion.div>
             );
           })}

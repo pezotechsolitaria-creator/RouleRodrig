@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   CONDITION_IDS,
@@ -19,6 +21,54 @@ const faq = (over: Partial<Record<string, string>> = {}) =>
     question: `Q ${id}`,
     answer: over[id] ?? `A ${id}`,
   }));
+
+// ── A CAR PAGE ANSWERED A SCOOTER QUESTION ─────────────────────────────────
+//
+// /browse/car rendered "Do scooters come with a helmet? Yes. For every scooter
+// rental a helmet is included free for each rider…" in the BEFORE YOU BOOK
+// panel directly above the car booking form — and shipped that same Question
+// inside the page's FAQPage structured data. So the owner's weakest-selling
+// product answered a question about his strongest one at the moment of
+// deciding, and an assistant asked about car hire was handed a helmet policy.
+describe("a car page does not answer scooter questions", () => {
+  const all = faq({});
+  it("drops the helmet row for cars", () => {
+    expect(pickConditions(all, "car").map((c) => c.id)).not.toContain("helmet");
+  });
+
+  it("keeps it for scooters", () => {
+    expect(pickConditions(all, "scooter").map((c) => c.id)).toContain("helmet");
+  });
+
+  it("keeps everything else, because the owner wrote it for both", () => {
+    // Age, licence, insurance, fuel, delivery, breakdown and minimum duration
+    // all read correctly for a car. Only the helmet is scooter-only, and this
+    // must not quietly become two divergent lists.
+    const car = pickConditions(all, "car").map((c) => c.id);
+    const scooter = pickConditions(all, "scooter").map((c) => c.id);
+    expect(scooter.filter((id) => !car.includes(id))).toEqual(["helmet"]);
+  });
+
+  it("still returns the full list when no category is given", () => {
+    // Defaulted on purpose: every existing caller and test predates this.
+    expect(pickConditions(all).map((c) => c.id)).toEqual(
+      pickConditions(all, "scooter").map((c) => c.id),
+    );
+  });
+
+  it("is wired into BOTH the listing and the vehicle detail page", () => {
+    // The detail page is the one every earlier pass missed, and it is the
+    // actual conversion page.
+    const read = (...p: string[]) =>
+      readFileSync(join(process.cwd(), ...p), "utf8");
+    expect(read("app", "browse", "[category]", "page.tsx")).toContain(
+      "pickConditions(content.faq?.items, category)",
+    );
+    expect(
+      read("app", "browse", "[category]", "[vehicle]", "page.tsx"),
+    ).toContain("pickConditions(content.faq?.items, category)");
+  });
+});
 
 describe("pickConditions", () => {
   it("returns the conditions in CONDITION_IDS order, not FAQ order", () => {

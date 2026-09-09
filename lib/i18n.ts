@@ -299,7 +299,7 @@ const translations = {
       navigate: "NAVIGATE",
       follow: "FOLLOW US",
       tagline:
-        "Explore Rodrigues. Ride free. Premium scooter rentals on the most beautiful island in the Indian Ocean.",
+        "Explore Rodrigues. Ride free. Premium scooter and car rental on the most beautiful island in the Indian Ocean.",
       tag: "Tag us in your Rodrigues adventures.",
       rights: (year: number) =>
         `© ${year} Roule Rodrigues. All rights reserved.`,
@@ -1255,7 +1255,7 @@ const translations = {
       navigate: "NAVIGATION",
       follow: "SUIVEZ-NOUS",
       tagline:
-        "Explorez Rodrigues. Roulez libre. Location de scooters premium sur la plus belle île de l'Océan Indien.",
+        "Explorez Rodrigues. Roulez libre. Location de scooters et de voitures sur la plus belle île de l'Océan Indien.",
       tag: "Identifiez-nous dans vos aventures à Rodrigues.",
       rights: (year: number) =>
         `© ${year} Roule Rodrigues. Tous droits réservés.`,
@@ -2163,7 +2163,7 @@ const translations = {
       navigate: "NAVIGE",
       follow: "SWIV NOU",
       tagline:
-        "Explor Rodrig. Rul lib. Lokasion skooter premiem lor zil pli zoli dan Losean Indien.",
+        "Explor Rodrig. Rul lib. Lokasion skooter ek loto lor zil pli zoli dan Losean Indien.",
       tag: "Tagn nou dan ou lavantur Rodrig.",
       rights: (year: number) => `© ${year} Roule Rodrigues. Tou drwa rezerve.`,
       location: "Zil Rodrig, Repiblik Moris",

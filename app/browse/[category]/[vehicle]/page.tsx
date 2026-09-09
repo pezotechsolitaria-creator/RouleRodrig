@@ -20,6 +20,7 @@ import AppPageHeader from "@/components/AppPageHeader";
 import VehicleActionBar from "@/components/VehicleActionBar";
 import { whatsappHref } from "@/lib/whatsapp-link";
 import ScrollToTop from "@/components/ScrollToTop";
+import { metaDescription } from "@/lib/meta-description";
 
 // ── ONE VEHICLE, ONE URL ────────────────────────────────────────────────────
 //
@@ -69,7 +70,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const description =
       // realCopy: without it "Add a description for this car." became the
       // META DESCRIPTION — the sentence Google prints under the result.
-      (realCopy(item.description) || realCopy(item.tagline) || "").slice(0, 155) ||
+      // metaDescription, not .slice(155): the owner's copy carries a
+      // zero-width space and real newlines, and a hard slice cut one of these
+      // mid-sentence on "…the perfect companion for". Same string feeds
+      // og:description, which is the WhatsApp preview.
+      metaDescription(realCopy(item.description) || realCopy(item.tagline)) ||
       `Rent the ${vehicleName(item)} on Rodrigues Island, direct from local owners.`;
     const image = item.images?.[0] || item.image;
     const images = [image?.startsWith("http") ? image : `${SITE_URL}${image ?? "/og-image.jpg"}`];
@@ -93,7 +98,7 @@ export default async function VehiclePage({ params }: Props) {
   const slug = vehicleSlug(item);
   const url = `${SITE_URL}/browse/${category}/${slug}`;
   const photos = item.images?.length ? item.images : item.image ? [item.image] : [];
-  const conditions = pickConditions(content.faq?.items);
+  const conditions = pickConditions(content.faq?.items, category);
   const from = priceNumber(item.price);
   const out = item.available === false || item.soldOutToday === true;
 
@@ -310,11 +315,14 @@ export default async function VehiclePage({ params }: Props) {
             </div>
           </div>
 
-          {/* The booking form lives on the category page and pre-fills from the
-              hash, so this hands the customer straight to it with the vehicle
-              already chosen rather than duplicating a second form here. */}
+          {/* The booking form lives on the category page rather than being
+              duplicated here. It pre-fills from ?v= — NOT from the hash, which
+              is what this comment used to claim and what nothing ever read.
+              Without the parameter this button delivered a customer who had
+              already chosen a vehicle to an empty "Choose a vehicle…" form.
+              The fragment stays last so the native scroll to #booking fires. */}
           <Link
-            href={`/browse/${category}#booking`}
+            href={`/browse/${category}?v=${item.id}#booking`}
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-yellow px-5 py-4 font-syne text-base font-bold text-dark transition hover:brightness-110"
           >
             Book the {vehicleName(item)} <ChevronRight size={17} />
@@ -334,7 +342,7 @@ export default async function VehiclePage({ params }: Props) {
       <VehicleActionBar
         price={item.price}
         unit={item.unit}
-        bookHref={`/browse/${category}#booking`}
+        bookHref={`/browse/${category}?v=${item.id}#booking`}
         whatsappHref={whatsappHref(
           businessWhatsApp,
           `Hi Roule Rodrigues! I'd like to rent the ${vehicleName(item)}.`,

@@ -79,7 +79,27 @@ export default function BookingSection({
 }) {
   const { t, language } = useLanguage();
   const { convert } = useCurrency();
-  const scooters = (fleet ?? []).filter((s) => s.available !== false && !s.soldOutToday);
+  // ── OUT ON A TRIP TODAY IS NOT "NOT FOR HIRE" (M158, the half that was missed)
+  //
+  // This filter had `&& !s.soldOutToday`, and it feeds the vehicle <select>.
+  // So on any day the whole fleet is out, the dropdown held nothing but its
+  // own placeholder — and the field is `required`, so the form could not be
+  // submitted AT ALL. The site's best-selling page silently stopped taking
+  // bookings, invisibly, because no request was ever sent.
+  //
+  // M158 fixed exactly this confusion on the CARDS (Fleet.tsx) and on the
+  // availability strip below, and lib/fleet-availability.test.ts has pinned
+  // the distinction since. This line was missed:
+  //
+  //   available === false   the owner withdrew it in admin — never bookable
+  //   soldOutToday          every unit is out TODAY — says nothing about
+  //                         next Tuesday, which is what most people book
+  //
+  // Nothing here is the safety net. /api/availability is capacity-aware per
+  // date, the calendar greys out full days, and app/api/bookings re-checks
+  // server-side before accepting. Dropping the row was a crude gate standing
+  // in front of a correct one.
+  const scooters = (fleet ?? []).filter((s) => s.available !== false);
 
   const [formState, setFormState] = useState<FormState>("idle");
   // createPortal needs document.body, which does not exist during SSR.
@@ -189,6 +209,29 @@ export default function BookingSection({
     window.addEventListener("rr:prefill-booking", onPrefill);
     return () => window.removeEventListener("rr:prefill-booking", onPrefill);
   }, []);
+
+  // ── ARRIVING FROM A VEHICLE'S OWN PAGE ──────────────────────────────────
+  //
+  // rr:prefill-booking above is a CustomEvent on `window`, so it only works
+  // for a card on THIS page. Every "Book the Toyota Hilux" button on a vehicle
+  // detail page linked to /browse/car#booking — a different document — so the
+  // event could never fire and the customer landed on "Choose a vehicle…"
+  // with an empty price summary, having already told us exactly which car
+  // they wanted. The comment on that link claimed it pre-filled from the hash;
+  // nothing here has ever read the hash.
+  //
+  // Read with URLSearchParams rather than useSearchParams: this route is
+  // statically prerendered (X-Nextjs-Prerender: 1) and useSearchParams would
+  // opt it into per-request rendering for a query parameter that is absent on
+  // almost every visit.
+  useEffect(() => {
+    const v = new URLSearchParams(window.location.search).get("v");
+    // Only a vehicle the dropdown can actually show — otherwise a stale link
+    // would select a value with no matching <option>, which renders blank.
+    if (v && scooters.some((s) => s.id === v)) {
+      setForm((f) => (f.scooter ? f : { ...f, scooter: v }));
+    }
+  }, [scooters]);
 
   // Trip Planner → Booking across pages: it stores the planned length in
   // localStorage, so pre-fill the dates when the booking form loads here.
@@ -724,6 +767,11 @@ export default function BookingSection({
                   {scooters.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name} — {convert(s.price)}
+                      {/* Says it, rather than hiding the row. The wording is
+                          the one the card and the strip already use, in all
+                          three languages — a new string here would be a
+                          fourth way of saying the same thing. */}
+                      {s.soldOutToday ? ` · ${t.fleet.bookedToday}` : ""}
                     </option>
                   ))}
                 </select>

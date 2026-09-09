@@ -79,6 +79,51 @@ describe("the booking form does not contradict its own calendar", () => {
     // the button is safe rather than reckless.
     expect(BOOKING).toContain("/api/availability?scooter=");
   });
+
+  // ── THE HALF OF M158 THAT WAS MISSED ──────────────────────────────────────
+  //
+  // The cards, the sort and the availability strip were all fixed. The filter
+  // feeding the vehicle <select> was not, and that is the one that decides
+  // whether the form can be submitted at all. On 2026-09-10 every scooter was
+  // out on a trip, so /browse/scooter served a `required` select containing
+  // ONLY its placeholder while /browse/car served four real options. The
+  // best-selling page on the site could not take a booking, and nothing was
+  // logged because no request was ever made.
+  it("offers a vehicle that is merely out today", () => {
+    expect(BOOKING).toContain(
+      "const scooters = (fleet ?? []).filter((s) => s.available !== false);",
+    );
+    // The exact line that shipped the outage. If it returns, so does it.
+    expect(BOOKING).not.toContain("s.available !== false && !s.soldOutToday");
+  });
+
+  it("marks that vehicle as out today instead of deleting the row", () => {
+    // Offering it silently would be the opposite error — a customer picking a
+    // scooter with no idea it is on a trip.
+    const select = BOOKING.slice(BOOKING.indexOf("scooters.map((s) => ("));
+    expect(select.slice(0, 400)).toContain("t.fleet.bookedToday");
+  });
+});
+
+// ── THE SAME CONFUSION, PUBLISHED TO GOOGLE ────────────────────────────────
+//
+// The category page fed schema.org the same collapsed flag, so on a busy day
+// every scooter Offer carried availability: OutOfStock next to its Rs 699
+// price. For an assistant asked "can I rent a scooter in Rodrigues?" that
+// reads as no, and it fired hardest exactly when demand was highest.
+describe("an Offer is out of stock only when the owner withdrew it", () => {
+  const CATEGORY = strip(
+    readFileSync(join(ROOT, "app", "browse", "[category]", "page.tsx"), "utf8"),
+  );
+
+  it("does not let today's bookings mark the Offer OutOfStock", () => {
+    expect(CATEGORY).toContain(
+      "available: units.some((u) => u.available !== false)",
+    );
+    expect(CATEGORY).not.toMatch(
+      /available: units\.some\(\s*\(u\) => !\(u\.available === false \|\| u\.soldOutToday\)/,
+    );
+  });
 });
 
 describe("the new wording exists in every language", () => {

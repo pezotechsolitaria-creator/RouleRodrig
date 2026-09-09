@@ -141,3 +141,40 @@ describe("llms.txt does not leave the French half out", () => {
     }
   });
 });
+
+// ── THE ONE FILE WRITTEN FOR AI ASSISTANTS WITHHELD BOTH PRICES ────────────
+//
+// llms.txt said "Current daily rates are shown on each rental page" while the
+// site's own <title> tags publish "from Rs 699/day" and "from Rs 1,999/day",
+// and the food bullet three lines below already priced itself ("des Rs 80").
+// An assistant asked "how much is a scooter on Rodrigues?" could not answer
+// from the file built to answer it, so it either skipped the site or guessed.
+describe("llms.txt states the prices the site already publishes", () => {
+  const txt = readFileSync(join(process.cwd(), "public", "llms.txt"), "utf8");
+
+  it("gives both headline rates", () => {
+    expect(txt).toContain("Rs 699");
+    expect(txt).toContain("Rs 1,999");
+  });
+
+  it("keeps the word 'from', because neither is the only rate", () => {
+    // Rs 1,999 is the cheapest of three car rates; stating it bare would be a
+    // price the owner does not charge for two of his cars.
+    expect(txt).toMatch(/from Rs 699\/day/);
+    expect(txt).toMatch(/from Rs 1,999\/day/);
+  });
+
+  it("no longer defers the answer to another page", () => {
+    expect(txt).not.toContain("Current daily rates are");
+  });
+
+  it("agrees with the prices the rental pages advertise", () => {
+    // If a category's meta price changes and this file does not, the two
+    // disagree and the assistant quotes the stale one.
+    const page = readFileSync(
+      join(process.cwd(), "app", "browse", "[category]", "page.tsx"),
+      "utf8",
+    );
+    for (const rate of ["699", "1,999"]) expect(page).toContain(rate);
+  });
+});

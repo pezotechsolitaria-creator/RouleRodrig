@@ -37,14 +37,38 @@ export const CONDITION_LABELS: Record<string, { en: string; fr: string; cr: stri
 
 export type ConditionItem = { id: string; question: string; answer: string };
 
+/**
+ * Conditions that only apply to a scooter.
+ *
+ * /browse/car answered "Do scooters come with a helmet?" — in the BEFORE YOU
+ * BOOK panel directly above the car booking form, and inside the page's own
+ * FAQPage structured data. A customer comparing cars read a scooter answer at
+ * the moment of deciding, and an assistant asked about car hire on Rodrigues
+ * was handed a helmet policy as a fact about it.
+ *
+ * Only the helmet is genuinely scooter-only. Age, licence, insurance, fuel,
+ * delivery, breakdown and minimum duration all read correctly for a car, and
+ * the owner wrote them for both — so this stays a set of one rather than
+ * becoming two divergent lists.
+ */
+const SCOOTER_ONLY_IDS = new Set<string>(["helmet"]);
+
 /** The conditions, in CONDITION_IDS order, skipping any the owner has removed
  *  or left blank. Both the panel and the FAQPage schema call this, so the
  *  markup can never describe a question the page does not show. */
 export function pickConditions(
   items: { id?: string; question?: string; answer?: string }[] | undefined,
+  /** The rental category being shown. Defaulted, so every existing caller and
+   *  every existing test keeps the full list unchanged; only a caller that
+   *  says "this is a car page" drops the scooter-only rows. */
+  category?: string,
 ): ConditionItem[] {
   const byId = new Map((items ?? []).map((i) => [i.id, i]));
-  return CONDITION_IDS.map((id) => byId.get(id))
+  const ids =
+    category && category !== "scooter"
+      ? CONDITION_IDS.filter((id) => !SCOOTER_ONLY_IDS.has(id))
+      : CONDITION_IDS;
+  return ids.map((id) => byId.get(id))
     .filter((i): i is { id: string; question: string; answer: string } =>
       Boolean(i?.id && i?.question && i?.answer?.trim()),
     )
