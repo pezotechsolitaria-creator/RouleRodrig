@@ -141,6 +141,27 @@ function FleetImageCarousel({
           // racing the one that is actually on screen. Only the first photo
           // of the first card is above the fold.
           loading={cardIndex === 0 && i === 0 ? "eager" : "lazy"}
+          // ── AND THE EAGER ONE HAS TO BE THE PRIORITY ONE ───────────
+          // `eager` only means "do not lazy-load"; it says nothing about
+          // WHEN. Measured on /browse/car (PageSpeed, mobile, real run):
+          //
+          //   LCP                     7.7 s
+          //   time to first byte      20 ms
+          //   resource load DELAY     936 ms   <- this line fixes this
+          //   resource load duration  275 ms   (the photo itself is fine)
+          //   element render delay    1,410 ms
+          //
+          // Lighthouse's lcp-discovery check scored 0.00 with exactly one
+          // box unticked: "fetchpriority=high should be applied to the
+          // image preload request". The photo was discoverable and not
+          // lazy — it simply queued behind 330 KB of JavaScript for most
+          // of a second before the browser bothered to start it.
+          //
+          // `priority` is what emits fetchpriority="high" plus a
+          // <link rel="preload">. Same single image as `loading` above —
+          // deliberately the same condition, because a preload per card is
+          // the bug the comment above describes, in a more expensive form.
+          priority={cardIndex === 0 && i === 0}
           unoptimized={src.startsWith("/uploads/") || (src.startsWith("http") && !src.includes("supabase.co"))}
         />
       ))}
