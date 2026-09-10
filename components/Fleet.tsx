@@ -85,13 +85,52 @@ function FleetImageCarousel({
   const wrapRef = useRef<HTMLDivElement>(null);
   const touchX = useRef<number | null>(null);
 
-  // Auto-rotate — no touch needed to discover the other photos
-  // (same simple pattern as the promo carousel; pauses on hover/touch)
+  // ── AUTO-ROTATE, BUT NOT BEFORE LCP HAS SETTLED ──────────────────────────
+  //
+  // No touch needed to discover the other photos — except on the FIRST card,
+  // where rotating early cost four seconds of Largest Contentful Paint.
+  //
+  // Every slide is a full-width photograph in the same box, so every rotation
+  // paints a new LCP CANDIDATE. LCP takes the last one, and it stops updating
+  // only on the first user input — which in a lab run never comes. Measured on
+  // /browse/car (PageSpeed, mobile):
+  //
+  //   LCP reported            7.6 s
+  //   sum of its own subparts 3.0 s   <- the gap is the carousel
+  //
+  // Photo 1 painted at ~3s; the slide at 3.5s and the one at 7s each reset the
+  // clock. That is also why adding `priority` to photo 1 moved nothing: it
+  // made the wrong image faster.
+  //
+  // Waiting for the first real interaction is exactly right rather than a
+  // guessed delay: LCP is finalised BY that interaction, so a rotation which
+  // starts there can never become the LCP, and a visitor who scrolls or taps
+  // — which is everybody, within a second — still gets the feature. Cards
+  // below the fold are not LCP candidates at all, so they rotate immediately.
+  const [mayRotate, setMayRotate] = useState(cardIndex !== 0);
   useEffect(() => {
-    if (photos.length <= 1 || paused) return;
+    if (mayRotate) return;
+    const go = () => setMayRotate(true);
+    const opts = { once: true, passive: true } as const;
+    window.addEventListener("pointerdown", go, opts);
+    window.addEventListener("keydown", go, opts);
+    window.addEventListener("scroll", go, opts);
+    // A belt-and-braces ceiling for a visitor who opens the page and simply
+    // reads it: they should still see the other photos eventually.
+    const t = setTimeout(go, 12_000);
+    return () => {
+      window.removeEventListener("pointerdown", go);
+      window.removeEventListener("keydown", go);
+      window.removeEventListener("scroll", go);
+      clearTimeout(t);
+    };
+  }, [mayRotate]);
+
+  useEffect(() => {
+    if (photos.length <= 1 || paused || !mayRotate) return;
     const t = setInterval(() => setIdx((i) => (i + 1) % photos.length), 3500);
     return () => clearInterval(t);
-  }, [photos.length, paused]);
+  }, [photos.length, paused, mayRotate]);
 
   const prev = (e: React.MouseEvent) => {
     e.preventDefault();
