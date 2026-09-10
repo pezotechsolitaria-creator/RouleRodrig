@@ -213,16 +213,29 @@ const META: Record<
   // " | Roule Rodrigues" is appended by pageMeta(), so it is deliberately not
   // repeated here; these read ~42 characters, which survives truncation with
   // the brand suffix attached.
+  // ── NO PRICE IN THESE LITERALS. IT IS READ FROM THE FLEET BELOW ─────────
+  //
+  // I hardcoded "from Rs 1,999/day" into the car title on 2026-09-09, checked
+  // against the fleet that day, and it was WRONG BY THE NEXT MORNING: the
+  // owner repriced the Swift to Rs 1,899 and the title kept quoting 1,999
+  // while the body paragraph — which derives from the fleet — correctly said
+  // 1,899. The page contradicted itself, and the half Google shows was the
+  // wrong half.
+  //
+  // A price a human types in one place and a machine derives in another WILL
+  // drift; the only question is how long it takes. Here it took a day. So the
+  // title and the description now take theirs from the same fleet the grid
+  // renders, and there is a test that fails if they ever disagree again.
   scooter: {
-    title: "Scooter Rental Rodrigues — from Rs 699/day",
+    title: "Scooter Rental Rodrigues",
     description:
-      "Rent a scooter in Rodrigues from Rs 699/day, delivered free to your guest house. Helmets included, no minimum hire, and real local advice on where to ride.",
+      "Rent a scooter in Rodrigues, delivered free to your guest house. Helmets included, no minimum hire, and real local advice on where to ride.",
     fr: "/fr/location-scooter-rodrigues",
   },
   car: {
-    title: "Car Rental Rodrigues — from Rs 1,999/day",
+    title: "Car Rental Rodrigues",
     description:
-      "Rent a car in Rodrigues from Rs 1,999/day, delivered free to your guest house. Suzuki Swift and Hyundai Venue, no minimum hire, booked direct with locals.",
+      "Rent a car in Rodrigues, delivered free to your guest house. Automatic, air-conditioned and insured, booked direct with local owners.",
     fr: "/fr/location-voiture-rodrigues",
   },
   stays: {
@@ -307,10 +320,20 @@ export async function generateMetadata({
   // and a content read that half-failed must leave it null so the page falls
   // back to its plain title rather than to a price nobody honours.
   let listings: Parameters<typeof buildBrowseCategories>[0]["recommended"]["items"] | null = null;
+  // The cheapest REAL daily rate in this vehicle category, for the title. Same
+  // fleet, same filter and same price parser the grid uses, so the title cannot
+  // advertise a rate the page below it does not show.
+  let vehicleFrom: number | null = null;
   try {
     const { content, fleet, recentBookings } = await getFleetView();
     cats = buildBrowseCategories(content, fleet, recentBookings);
     listings = content.recommended.items;
+    const rates = fleet
+      .filter((f) => (f.category ?? "scooter") === category)
+      .filter(isSellableFleetItem)
+      .map((f) => priceNumber(f.price))
+      .filter((n): n is number => n != null);
+    vehicleFrom = rates.length ? Math.min(...rates) : null;
     const first = fleet.find(
       (f) => (f.category ?? "scooter") === category && f.image,
     );
@@ -340,7 +363,10 @@ export async function generateMetadata({
     const from =
       placeFilter !== null && listings !== null
         ? fromPriceOf(listings.filter(placeFilter))
-        : null;
+        : // Vehicle categories price themselves from the fleet. A category with
+          // nothing sellable keeps its plain title rather than inventing a
+          // figure to look consistent.
+          vehicleFrom;
     const title = from
       ? `${m.title} from Rs ${from.toLocaleString("en-US")}`
       : m.title;
