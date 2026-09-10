@@ -7,9 +7,11 @@ import { vehicleHref } from "@/lib/vehicle-slug";
 import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban, ChevronLeft, ChevronRight, Star, Maximize2, Snowflake, Fuel, MapPin, Bluetooth, DoorOpen, Check, LifeBuoy, Flame, CalendarClock } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { DEFAULT_CONTENT, type FleetItem, type VehicleCategory } from "@/lib/defaults";
+import type { Language } from "@/lib/i18n";
 import { useLanguage } from "@/context/LanguageContext";
 import { realCopy } from "@/lib/placeholder-copy";
 import { loc } from "@/lib/localize";
+import { fleetTerm, fleetTerms, fleetPrice } from "@/lib/fleet-terms";
 import { typeChips, shouldShowTypeFilter, applyTypeFilter } from "@/lib/vehicle-filter";
 import { useCurrency } from "@/context/CurrencyContext";
 import ScooterDetailModal from "@/components/ScooterDetailModal";
@@ -45,9 +47,15 @@ function specIcon(label: string): React.ElementType {
 function isScooterCat(cat: string): boolean {
   return /scooter|moto|bike|moped/.test(cat.toLowerCase());
 }
-function resolveSpecs(item: FleetItem): Spec[] {
+function resolveSpecs(item: FleetItem, lang: Language): Spec[] {
   const own = (item.specs ?? []).filter(Boolean);
-  if (own.length) return own.map((label) => ({ icon: specIcon(label), label }));
+  // The ICON is chosen from the owner's English, the LABEL is what the reader
+  // sees — pick the icon first or a French card loses every icon it has.
+  if (own.length)
+    return own.map((label) => ({
+      icon: specIcon(label),
+      label: fleetTerm(lang, label),
+    }));
   if (isScooterCat(item.category ?? "scooter") || item.id === "burgman" || item.id === "avenis") return SCOOTER_SPECS;
   return [];
 }
@@ -359,7 +367,7 @@ export default function Fleet({
                     : "bg-dark-card border border-dark-border text-muted hover:text-offwhite hover:border-yellow/40"
                 }`}
               >
-                {c.label}
+                {fleetTerm(language, c.label)}
               </button>
             ))}
           </div>
@@ -417,7 +425,7 @@ export default function Fleet({
                     )
                   )}
                   <span className="relative z-10">
-                    {chip.label}{" "}
+                    {fleetTerm(language, chip.label)}{" "}
                     <span className={`ml-1 font-dm font-normal tabular-nums ${on && solid ? "text-dark/70" : ""}`}>
                       {chip.n}
                     </span>
@@ -432,10 +440,10 @@ export default function Fleet({
             long catalogue turning into a very long scroll on a wide screen. */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
           {items.map((scooter, i) => {
-            const specs = resolveSpecs(scooter);
+            const specs = resolveSpecs(scooter, language);
             const ownInc = (scooter.included ?? []).filter(Boolean);
             const included = ownInc.length
-              ? ownInc
+              ? fleetTerms(language, ownInc)
               : (isScooterCat(scooter.category ?? "scooter") || scooter.id === "burgman" || scooter.id === "avenis")
               ? [...t.booking.included]
               : [];
@@ -472,7 +480,7 @@ export default function Fleet({
                 {/* Badges overlay */}
                 <div className="absolute top-5 left-5 flex items-center gap-2 z-10">
                   <span className="font-bebas text-xs tracking-[0.2em] bg-yellow text-dark px-3.5 py-1.5 rounded-full">
-                    {scooter.badge}
+                    {fleetTerm(language, scooter.badge)}
                   </span>
                   {out ? (
                     <span className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.15em] bg-red-500/90 text-white px-3 py-1.5 rounded-full">
@@ -564,8 +572,8 @@ export default function Fleet({
 
                   <div className="pt-4 border-t border-white/10 space-y-3">
                     <div>
-                      <span className="font-syne font-extrabold text-yellow text-2xl">{convert(scooter.price)}</span>
-                      <span className="font-dm text-muted text-sm ml-1">{scooter.unit}</span>
+                      <span className="font-syne font-extrabold text-yellow text-2xl">{convert(fleetPrice(language, scooter.price))}</span>
+                      <span className="font-dm text-muted text-sm ml-1">{fleetTerm(language, scooter.unit)}</span>
                     </div>
                     <div className="flex items-center gap-2.5">
                       <button
