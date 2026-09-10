@@ -17,8 +17,12 @@ export const CONDITION_IDS = [
   "age",
   "license",
   "insurance",
+  // The money question, asked as early as the licence one and answered
+  // nowhere on the site until the owner supplied the figure on 2026-09-10.
+  "deposit",
   "helmet",
   "fuel",
+  "mileage",
   "delivery",
   "breakdown",
   "faq-min-duration",
@@ -32,6 +36,8 @@ export const CONDITION_LABELS: Record<string, { en: string; fr: string; cr: stri
   fuel: { en: "Fuel", fr: "Carburant", cr: "Karburan" },
   delivery: { en: "Delivery", fr: "Livraison", cr: "Livrezon" },
   breakdown: { en: "If it breaks down", fr: "En cas de panne", cr: "Si li gagn pann" },
+  deposit: { en: "Deposit", fr: "Caution", cr: "Kosyon" },
+  mileage: { en: "Mileage", fr: "Kilométrage", cr: "Kilometraz" },
   "faq-min-duration": { en: "Minimum rental", fr: "Durée minimum", cr: "Dire minimum" },
 };
 
@@ -53,6 +59,22 @@ export type ConditionItem = { id: string; question: string; answer: string };
  */
 const SCOOTER_ONLY_IDS = new Set<string>(["helmet"]);
 
+/**
+ * Conditions that only apply to a car.
+ *
+ * The Rs 5,000 security deposit is the owner's figure and he gave it for CARS.
+ * Nothing is known about a scooter deposit, so the row must not appear on
+ * /browse/scooter quoting a number that was never said about a scooter — the
+ * same mistake as the helmet, pointed the other way.
+ *
+ * Note this is NOT the `deposit` the booking engine computes. That one is a
+ * PERCENTAGE of the rental (lib/booking-pricing.ts depositPct — 50% for cars)
+ * and it is the part-payment that confirms the booking online. Rs 5,000 is a
+ * security deposit against the vehicle. Two different sums with one word, so
+ * the answer text says which is which.
+ */
+const CAR_ONLY_IDS = new Set<string>(["deposit"]);
+
 /** The conditions, in CONDITION_IDS order, skipping any the owner has removed
  *  or left blank. Both the panel and the FAQPage schema call this, so the
  *  markup can never describe a question the page does not show. */
@@ -64,10 +86,14 @@ export function pickConditions(
   category?: string,
 ): ConditionItem[] {
   const byId = new Map((items ?? []).map((i) => [i.id, i]));
-  const ids =
-    category && category !== "scooter"
-      ? CONDITION_IDS.filter((id) => !SCOOTER_ONLY_IDS.has(id))
-      : CONDITION_IDS;
+  const exclude = !category
+    ? null
+    : category === "scooter"
+      ? CAR_ONLY_IDS
+      : SCOOTER_ONLY_IDS;
+  const ids = exclude
+    ? CONDITION_IDS.filter((id) => !exclude.has(id))
+    : CONDITION_IDS;
   return ids.map((id) => byId.get(id))
     .filter((i): i is { id: string; question: string; answer: string } =>
       Boolean(i?.id && i?.question && i?.answer?.trim()),

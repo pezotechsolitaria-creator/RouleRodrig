@@ -1349,6 +1349,24 @@ export const DEFAULT_CONTENT: SiteContent = {
         answer: 'Basic third-party insurance is included with every rental. Please ride responsibly and follow local road rules — full terms are shared at pickup.',
       },
       {
+        // The owner's figure, given on 2026-09-10, and CARS only —
+        // lib/rental-conditions.ts CAR_ONLY_IDS keeps it off the scooter
+        // pages, because nothing is known about a scooter deposit.
+        //
+        // Deliberately says "separate": lib/booking-pricing.ts computes a
+        // different `deposit` — a PERCENTAGE of the rental, 50% for cars —
+        // which is the part-payment that confirms a booking online. Two sums,
+        // one word, and they appear within a screen of each other.
+        id: 'deposit',
+        question: 'Do you take a deposit?',
+        answer: 'A security deposit of Rs 5,000 applies to car rentals. It is separate from the part-payment that confirms your booking online, and full terms are shared at pickup.',
+      },
+      {
+        id: 'mileage',
+        question: 'Is there a mileage limit?',
+        answer: 'No. There is no mileage limit on our rentals, so you can drive as much of the island as you like.',
+      },
+      {
         id: 'delivery',
         question: 'Can you deliver the scooter to my hotel?',
         answer: 'Yes — we can deliver to and collect from your hotel or guesthouse anywhere on the island. Just let us know your location when you book.',

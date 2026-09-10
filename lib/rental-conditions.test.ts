@@ -51,9 +51,50 @@ describe("a car page does not answer scooter questions", () => {
 
   it("still returns the full list when no category is given", () => {
     // Defaulted on purpose: every existing caller and test predates this.
-    expect(pickConditions(all).map((c) => c.id)).toEqual(
-      pickConditions(all, "scooter").map((c) => c.id),
+    // The full list now means EVERY id — the scooter-only helmet and the
+    // car-only deposit both — because an unqualified caller has not told us
+    // which product it is showing.
+    expect(pickConditions(all).map((c) => c.id)).toEqual([...CONDITION_IDS]);
+  });
+
+  // ── THE OWNER'S OWN FIGURE, ON THE RIGHT PRODUCT ─────────────────────────
+  //
+  // He gave Rs 5,000 for CARS. Nothing is known about a scooter deposit, so
+  // quoting it on /browse/scooter would be the helmet mistake pointed the
+  // other way — a number attached to a product it was never said about.
+  it("shows the deposit on cars and not on scooters", () => {
+    expect(pickConditions(all, "car").map((c) => c.id)).toContain("deposit");
+    expect(pickConditions(all, "scooter").map((c) => c.id)).not.toContain(
+      "deposit",
     );
+  });
+
+  it("shows mileage on both, because no limit was stated for either", () => {
+    for (const cat of ["car", "scooter"]) {
+      expect(pickConditions(all, cat).map((c) => c.id)).toContain("mileage");
+    }
+  });
+
+  it("keeps the two exclusive lists genuinely exclusive", () => {
+    // car gets everything except helmet; scooter everything except deposit.
+    const car = pickConditions(all, "car").map((c) => c.id);
+    const scooter = pickConditions(all, "scooter").map((c) => c.id);
+    expect(scooter.filter((id) => !car.includes(id))).toEqual(["helmet"]);
+    expect(car.filter((id) => !scooter.includes(id))).toEqual(["deposit"]);
+  });
+
+  it("does not confuse the security deposit with the booking part-payment", () => {
+    // lib/booking-pricing.ts depositPct() computes a PERCENTAGE of the rental
+    // (50% for cars) — the sum that confirms a booking online. Rs 5,000 is a
+    // security deposit against the vehicle. One word, two sums, and a
+    // customer reading "deposit Rs 5,000" beside a "deposit" line in the
+    // price summary would reasonably think the booking costs Rs 5,000.
+    // The real wording, not the synthetic fixture above.
+    const real = (DEFAULT_CONTENT.faq?.items ?? []).find(
+      (f) => f.id === "deposit",
+    );
+    expect(real?.answer ?? "").toMatch(/separate/i);
+    expect(real?.answer ?? "").toMatch(/Rs 5,000/);
   });
 
   it("does not offer a car renter an extra helmet", () => {
@@ -196,5 +237,19 @@ describe("conditionPreview", () => {
   it("returns nothing for an empty answer instead of throwing", () => {
     expect(conditionPreview("")).toBe("");
     expect(conditionPreview("   ")).toBe("");
+  });
+});
+
+// ── AN ID WITH NO FALLBACK ANSWER IS AN INVISIBLE ROW ──────────────────────
+//
+// DEFAULT_CONTENT is what renders when Supabase cannot be read. Adding an id
+// to CONDITION_IDS without adding the answer there means the row is fine in
+// production and silently missing in exactly the situation where the customer
+// most needs to read the terms.
+describe("every condition has a fallback answer", () => {
+  it("covers all of CONDITION_IDS in DEFAULT_CONTENT", () => {
+    const have = new Set((DEFAULT_CONTENT.faq?.items ?? []).map((f) => f.id));
+    const missing = CONDITION_IDS.filter((id) => !have.has(id));
+    expect(missing).toEqual([]);
   });
 });
