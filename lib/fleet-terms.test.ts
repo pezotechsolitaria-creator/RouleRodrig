@@ -161,6 +161,39 @@ describe("the price wrapper changes words, never figures", () => {
   });
 });
 
+// ── THE SECOND PANEL THAT BUILDS ITS OWN LIST ─────────────────────────────
+//
+// Fleet.tsx was fixed first, and BookingSection was missed for a whole deploy
+// because it does not take the card's list — it derives its own from
+// selectedScooter.included. So the INCLUDED box directly above the booking
+// button still read "Fast pickup & drop-off / Insurance & roadside assistance
+// / Well-maintained, clean vehicles / 24/7 customer support" in French, and a
+// sweep of the page that only checked the cards would have called it clean.
+describe("the booking form's INCLUDED panel uses it too", () => {
+  const src = readFileSync(
+    join(process.cwd(), "components", "BookingSection.tsx"),
+    "utf8",
+  )
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+
+  it("translates the inclusions", () => {
+    expect(src).toMatch(/const includedItems = fleetTerms\(\s*language,/);
+  });
+
+  it("translates the price in the vehicle dropdown", () => {
+    // The owner's raw string carries "(Free delivery)" inside it.
+    expect(src).toContain("convert(fleetPrice(language, s.price))");
+  });
+
+  it("accepts the readonly i18n fallback without a cast", () => {
+    // t.booking.included is an `as const` tuple and is ALREADY translated;
+    // it must still type-check as an input.
+    const terms = readFileSync(join(process.cwd(), "lib", "fleet-terms.ts"), "utf8");
+    expect(terms).toMatch(/list\?: readonly \(string \| null \| undefined\)\[\]/);
+  });
+});
+
 describe("the card actually uses it", () => {
   const src = readFileSync(join(process.cwd(), "components", "Fleet.tsx"), "utf8")
     .replace(/\/\*[\s\S]*?\*\//g, "")

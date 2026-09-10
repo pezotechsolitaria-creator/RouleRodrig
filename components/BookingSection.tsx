@@ -25,6 +25,7 @@ import {
   ShieldCheck, CalendarClock } from "lucide-react";
 import type { FleetItem, VehicleCategory } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
+import { fleetTerms, fleetPrice } from "@/lib/fleet-terms";
 import { useCurrency } from "@/context/CurrencyContext";
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import PayPalDeposit from "@/components/PayPalDeposit";
@@ -168,10 +169,19 @@ export default function BookingSection({
   // one is chosen, borrow the first vehicle in THIS category, so a car page
   // never shows scooter kit. The i18n list survives only as a last resort for
   // a category whose vehicles carry no inclusions at all.
-  const includedItems =
+  //
+  // fleetTerms(): these come from the owner's admin in English and have no
+  // translated sibling, so on the French and Kreol views this panel read
+  // "Fast pickup & drop-off / Insurance & roadside assistance / Well-
+  // maintained, clean vehicles / 24/7 customer support" directly above the
+  // booking button. Fleet.tsx was fixed first and this panel was missed,
+  // because it builds its OWN list rather than taking the card's.
+  const includedItems = fleetTerms(
+    language,
     selectedScooter?.included?.length
       ? selectedScooter.included
-      : scooters.find((s) => s.included?.length)?.included ?? t.booking.included;
+      : scooters.find((s) => s.included?.length)?.included ?? t.booking.included,
+  );
   // A single tap = a 1-day rental. Now that rentalDays() counts BOTH ends, one
   // day is start === end. It used to be start+1, which was the same 1 day under
   // the old exclusive arithmetic — leaving it would silently have made every
@@ -771,7 +781,7 @@ export default function BookingSection({
                   <option value="">{t.booking.scooterPlaceholder}</option>
                   {scooters.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name} — {convert(s.price)}
+                      {s.name} — {convert(fleetPrice(language, s.price))}
                       {/* Says it, rather than hiding the row. The wording is
                           the one the card and the strip already use, in all
                           three languages — a new string here would be a

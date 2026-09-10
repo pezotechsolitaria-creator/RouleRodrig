@@ -147,8 +147,18 @@ export function fleetTerm(lang: Language, text?: string | null): string {
   return raw;
 }
 
-/** Every term on a list, in order. */
-export function fleetTerms(lang: Language, list?: (string | null | undefined)[]): string[] {
+/**
+ * Every term on a list, in order.
+ *
+ * `readonly` because the i18n dictionaries hand over `as const` tuples — the
+ * fallback list in t.booking.included is one — and those are already in the
+ * reader's language. Passing them through is harmless: a French string does
+ * not match an English key and falls straight out again.
+ */
+export function fleetTerms(
+  lang: Language,
+  list?: readonly (string | null | undefined)[],
+): string[] {
   return (list ?? []).filter(Boolean).map((s) => fleetTerm(lang, s));
 }
 
