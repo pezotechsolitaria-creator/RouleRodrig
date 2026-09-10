@@ -1,9 +1,15 @@
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { pushToDriverEndpoints, pushToCustomer, pushToDriver, type Target } from "@/lib/push/send";
 import { sendWhatsApp } from "@/lib/notifications/whatsapp";
-import { sendGuestQuoteEmail } from "@/lib/email";
+import { sendGuestQuoteEmail, sendDeliveryProblemEmail } from "@/lib/email";
 import { SITE_URL } from "@/lib/site";
 import { formatWhatsAppMessage } from "@/lib/notifications/queue";
+import {
+  deliveryStalledCopy,
+  deliveryClosedCopy,
+  requestExpiredCopy,
+  type CustomerProblemKind,
+} from "@/lib/delivery/customer-copy";
 import {
   newRequestTitle,
   newRequestLines,
@@ -403,4 +409,198 @@ export async function notifyLosingDrivers(requestId: string): Promise<void> {
     }),
     whatsappFan(waTargets, formatWhatsAppMessage({ title, lines })),
   ]);
+}
+
+// ── 6. THE PERSON WAITING BY THE DOOR ───────────────────────────────────────
+
+type ProblemFacts = {
+  requestId: string | null;
+  what: string | null;
+  dropoffText: string | null;
+  guestEmail: string | null;
+  customerId: string | null;
+};
+
+/** Who to tell, for a delivery that came from a Deliver Anything request. */
+async function customerFor(deliveryId: string): Promise<ProblemFacts | null> {
+  if (!hasServiceRole()) return null;
+  try {
+    const admin = await getPrivileged();
+    const { data: d } = await admin
+      .from("deliveries")
+      .select("request_id")
+      .eq("id", deliveryId)
+      .maybeSingle();
+    const requestId = (d as { request_id?: string | null } | null)?.request_id ?? null;
+    // A shop order's customer is told through the order pipeline, which has its
+    // own addresses and its own copy. Returning null here is that boundary, not
+    // a failure.
+    if (!requestId) return null;
+
+    const { data: r } = await admin
+      .from("delivery_requests")
+      .select("id, what, dropoff_text, guest_email, customer_id")
+      .eq("id", requestId)
+      .maybeSingle();
+    if (!r) return null;
+    const row = r as {
+      id: string;
+      what: string | null;
+      dropoff_text: string | null;
+      guest_email: string | null;
+      customer_id: string | null;
+    };
+    return {
+      requestId: row.id,
+      what: row.what,
+      dropoffText: row.dropoff_text,
+      guestEmail: row.guest_email,
+      customerId: row.customer_id,
+    };
+  } catch (err) {
+    console.error("customerFor failed", { deliveryId, err });
+    return null;
+  }
+}
+
+/**
+ * Tell the customer their booked delivery has stopped.
+ *
+ * Push first, because it costs nothing and a guest CAN receive it — a guest
+ * subscription is matched on the contact email, live since M147.
+ *
+ * ── WHEN THIS SPENDS AN EMAIL ─────────────────────────────────────────────
+ * The standing rule (M41/M167) is that guest email must not be spent on every
+ * quote in a bidding war, because the free tier is shared with Supabase auth
+ * mail and password resets stop arriving when it runs dry. That rule is about
+ * VOLUME: many messages about one request.
+ *
+ * A stall is at most one message per job, and it is the single message the
+ * customer most needs. So the email goes when the push reached NOBODY, or when
+ * there is no account behind the request at all — the two cases where silence
+ * would otherwise be total. A signed-in customer whose phone took the push is
+ * not mailed as well.
+ */
+export async function notifyCustomerOfDeliveryProblem(
+  deliveryId: string,
+  kind: CustomerProblemKind,
+): Promise<void> {
+  try {
+    const f = await customerFor(deliveryId);
+    if (!f?.requestId) return;
+
+    const copy = deliveryStalledCopy({
+      what: f.what,
+      dropoff: f.dropoffText,
+      kind,
+    });
+
+    const reached = await pushToCustomer(
+      { email: f.guestEmail, userId: f.customerId },
+      {
+        title: copy.title,
+        body: copy.lines[0],
+        url: customerPath(f.requestId),
+        // Replaces the "booked" card rather than stacking beside it.
+        tag: `delivery-quotes-${f.requestId}`,
+        urgent: true,
+      },
+    );
+
+    if (f.guestEmail && (reached === 0 || !f.customerId)) {
+      await sendDeliveryProblemEmail({
+        to: f.guestEmail,
+        what: f.what,
+        dropoff: f.dropoffText,
+        reason: copy.lines[0],
+        nextStep: copy.lines.slice(1).join(" ") || "We will be in touch.",
+        url: `${SITE_URL}${customerPath(f.requestId)}`,
+        deliveryId,
+        kind,
+      });
+    }
+  } catch (err) {
+    // Same contract as the rest of this file: a caller on a committed path
+    // must never be brought down by a notification.
+    console.error("notifyCustomerOfDeliveryProblem failed", { deliveryId, kind, err });
+  }
+}
+
+/** Tell the customer the job is over without being delivered. */
+export async function notifyCustomerOfDeliveryClosed(
+  deliveryId: string,
+  reason: string | null,
+): Promise<void> {
+  try {
+    const f = await customerFor(deliveryId);
+    if (!f?.requestId) return;
+
+    const copy = deliveryClosedCopy({ what: f.what, reason });
+    const reached = await pushToCustomer(
+      { email: f.guestEmail, userId: f.customerId },
+      {
+        title: copy.title,
+        body: copy.lines[0],
+        url: customerPath(f.requestId),
+        tag: `delivery-quotes-${f.requestId}`,
+      },
+    );
+
+    if (f.guestEmail && (reached === 0 || !f.customerId)) {
+      await sendDeliveryProblemEmail({
+        to: f.guestEmail,
+        what: f.what,
+        dropoff: f.dropoffText,
+        reason: copy.lines[0],
+        nextStep: copy.lines.slice(1).join(" "),
+        url: `${SITE_URL}${customerPath(f.requestId)}`,
+        deliveryId,
+        kind: "closed",
+      });
+    }
+  } catch (err) {
+    console.error("notifyCustomerOfDeliveryClosed failed", { deliveryId, err });
+  }
+}
+
+/**
+ * Tell the customer their request ran out of time with a price on it.
+ *
+ * Called from the nightly sweep, which now returns the rows rather than a
+ * count — the same change that lets the owner's alert name them.
+ */
+export async function notifyCustomerOfExpiry(job: {
+  id: string;
+  what: string | null;
+  guestEmail: string | null;
+  isGuest: boolean;
+  bestFeeCents: number | null;
+}): Promise<void> {
+  try {
+    const copy = requestExpiredCopy({ what: job.what, bestFeeCents: job.bestFeeCents });
+    const reached = await pushToCustomer(
+      { email: job.guestEmail, userId: job.isGuest ? null : undefined },
+      {
+        title: copy.title,
+        body: copy.lines[0],
+        url: customerPath(job.id),
+        tag: `delivery-quotes-${job.id}`,
+      },
+    );
+
+    if (job.guestEmail && (reached === 0 || job.isGuest)) {
+      await sendDeliveryProblemEmail({
+        to: job.guestEmail,
+        what: job.what,
+        dropoff: null,
+        reason: copy.lines[0],
+        nextStep: copy.lines.slice(1).join(" "),
+        url: `${SITE_URL}${customerPath(job.id)}`,
+        deliveryId: job.id,
+        kind: "expired",
+      });
+    }
+  } catch (err) {
+    console.error("notifyCustomerOfExpiry failed", { requestId: job.id, err });
+  }
 }

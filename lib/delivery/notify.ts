@@ -5,6 +5,7 @@ import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/
 import { sendDeliveryStallEmail } from "@/lib/email";
 import { centsToDecimalString } from "@/lib/money";
 import { deliveryStallAlert, type DeliveryStallKind } from "@/lib/delivery/escalation-copy";
+import { notifyCustomerOfDeliveryProblem } from "@/lib/delivery/notify-requests";
 import { deliveryOfferLines, deliveryOfferTitle, type DeliveryOfferFacts } from "@/lib/delivery/offer-copy";
 import { googleMapsLink, hasUsablePin } from "@/lib/orders/location";
 
@@ -360,6 +361,18 @@ export async function notifyOwnerDeliveryStalled(
       dedupeKey: alert.dedupeKey,
       kind: settled,
     });
+
+    // ── AND THE PERSON WAITING (M198) ─────────────────────────────────────
+    //
+    // Everything above tells the OWNER. Until now that was the whole function,
+    // and a customer whose booked delivery had stopped was told nothing at all
+    // — not that it had stalled, not that anyone knew. On 6 September that was
+    // a guest who had accepted a price twenty minutes earlier.
+    //
+    // Awaited rather than fired and forgotten: this runs inside a cron that
+    // may be frozen the moment it returns. It cannot throw — see the function
+    // it calls — so it cannot cost the owner their own alert.
+    await notifyCustomerOfDeliveryProblem(deliveryId, settled);
   } catch (err) {
     console.error("notifyOwnerDeliveryStalled failed", { deliveryId, kind, err });
   }

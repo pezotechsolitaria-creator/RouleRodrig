@@ -240,7 +240,10 @@
 // got in v363, and the phone rule the form enforces is enforced by the API.
 // v366 — clearing a delivery actually clears it: the bell and the operations
 // feed both stopped counting a job the owner had already dealt with.
-const CACHE = "rr-cache-v366";
+// v367 - the alerts name the person. The owner's messages carry facts and a
+// tap instead of counts, and the customer waiting by a door is finally told
+// when their booked delivery stops.
+const CACHE = "rr-cache-v367";
 
 // Dev hosts get no cache-first anything: their asset URLs are not content
 // hashed, so the immutability that makes cache-first safe does not hold.

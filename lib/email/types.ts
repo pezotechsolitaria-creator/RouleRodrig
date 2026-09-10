@@ -221,6 +221,10 @@ export const EMAIL_TYPES = {
   // their delivery and nothing happens until they choose. Transactional — this
   // is the reply to something they asked for minutes earlier.
   customer_quote_arrived:           { category: "marketplace", priority: "high" },
+  // M198. The customer waiting by a door when the job stops moving. High,
+  // and deliberately so: it is at most one mail per job, and the person it
+  // goes to is expecting something that is not coming.
+  customer_delivery_problem:        { category: "marketplace", priority: "high" },
   owner_tiroule_digest:             { category: "operational", priority: "low" },
   admin_test:                       { category: "operational", priority: "low" },
   // Outbound to an APPLICANT, not to the owner — so unlike its neighbours here

@@ -1711,6 +1711,83 @@ export async function sendGuestQuoteEmail(input: {
   });
 }
 
+/**
+ * Tell the CUSTOMER that the delivery they booked has stopped moving.
+ *
+ * ── THE MESSAGE THAT DID NOT EXIST ────────────────────────────────────────
+ * On 6 September a guest posted a delivery, was quoted Rs 25, accepted it at
+ * 22:30, and then nobody came. Every one of the nine notifications that job
+ * produced went to the OWNER's WhatsApp and ntfy. She was told nothing — not
+ * that it had stalled, not that it had been closed, ever. She had given us an
+ * email address and we never used it.
+ *
+ * The owner has always been told (sendDeliveryStallEmail). This is the half
+ * that was missing: the person actually waiting by a door.
+ *
+ * ── WHY THIS ONE IS WORTH THE MAIL BUDGET ─────────────────────────────────
+ * The standing rule (M41/M167) is that guest email must not be spent on every
+ * quote in a bidding war, because the free tier is shared with Supabase auth
+ * mail and password resets stop arriving when it runs dry. That rule is about
+ * VOLUME: a bidding war is many messages about one request.
+ *
+ * A stall is at most one message per job, and it is the single message the
+ * customer most needs — they are waiting for something that is not coming.
+ * Silence here does not save a send; it costs a customer.
+ */
+export async function sendDeliveryProblemEmail(input: {
+  to: string;
+  /** What they asked for, so the mail is recognisable at a glance. */
+  what: string | null;
+  /** Where it was going. */
+  dropoff: string | null;
+  /** Plain words for what went wrong — no status codes. */
+  reason: string;
+  /** What happens next, and what they should do. */
+  nextStep: string;
+  /** Absolute link to their own request page. */
+  url: string;
+  /** Dedupe: one delivery mails once per kind of problem. */
+  deliveryId: string;
+  kind: string;
+}): Promise<boolean> {
+  const to = (input.to ?? "").trim();
+  if (!to) return false;
+
+  const { logo } = await getBrand();
+  const title = input.what
+    ? `About your delivery — ${input.what}`
+    : "About your delivery";
+
+  const detail: [string, string][] = [];
+  if (input.what) detail.push(["Item", input.what]);
+  if (input.dropoff) detail.push(["Going to", input.dropoff]);
+  detail.push(["What happened", input.reason]);
+
+  const body = `
+    ${paragraph(input.reason)}
+    ${detailCard(rows(detail))}
+    ${paragraph(input.nextStep)}
+    <div style="text-align:center">${primaryButton(input.url, "See your request")}</div>`;
+
+  return send({
+    to,
+    subject: title,
+    html: shell({
+      preheader: input.reason,
+      eyebrow: "Deliver anything",
+      title,
+      body,
+      logo,
+    }),
+    type: "customer_delivery_problem",
+    // Per delivery AND per kind: a job that first goes uncollected and later
+    // is closed is two different things the customer needs to hear.
+    key: keyFor("customer_delivery_problem", `${input.deliveryId}:${input.kind}`),
+    relatedType: "delivery",
+    relatedId: input.deliveryId,
+  });
+}
+
 /** Customer confirmation + owner notification for a Stay·Eat·Do reservation. */
 export async function sendPlaceBookingEmails(
   b: PlaceBookingEmailData,

@@ -5,9 +5,18 @@ import { sendWhatsApp } from "@/lib/notifications/whatsapp";
 import { sendNtfy } from "@/lib/notifications/ntfy";
 import { sendQueuedAlertEmail } from "@/lib/email";
 import { notifySweepResult } from "@/lib/delivery/notify";
-import { notifyDriversOfNewRequest } from "@/lib/delivery/notify-requests";
+import {
+  notifyDriversOfNewRequest,
+  notifyCustomerOfExpiry,
+} from "@/lib/delivery/notify-requests";
 import { notifyRideOffers, notifyOwnerRideUnassigned, notifyOwnerRosterBlocked } from "@/lib/rides/notify";
 import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/queue";
+import {
+  ownerAlert,
+  alertMoneyCents,
+  alertElapsed,
+  localDial,
+} from "@/lib/notifications/owner-alert";
 
 // ── The notification worker ─────────────────────────────────────────────────
 //
@@ -24,11 +33,30 @@ import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/
 // Fails CLOSED without CRON_SECRET, same as the reminders cron: an open
 // endpoint that sends WhatsApp messages is a spam cannon.
 
+/** One request that died with prices on it. M198 — the sweep used to return
+ *  counts only, which is why the alert could not name anybody. */
+type ExpiredJob = {
+  id: string;
+  what: string | null;
+  kind: string | null;
+  pickup: string | null;
+  dropoff: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
+  guestEmail: string | null;
+  isGuest: boolean;
+  quotes: number;
+  /** MINOR UNITS. Never divide this here — use the shared formatter. */
+  bestFeeCents: number | null;
+  waitedHours: number | null;
+};
+
 /** What sweep_delivery_requests() hands back. */
 type RequestSweep = {
   requestsExpired: number;
   quotesExpired: number;
   expiredWithQuotes: number;
+  jobs?: ExpiredJob[];
 };
 
 export const dynamic = "force-dynamic";
@@ -131,7 +159,7 @@ async function run(req: NextRequest) {
     console.error("sweep_expired_orders threw", err);
   }
 
-  let requestSweep: RequestSweep = { requestsExpired: 0, quotesExpired: 0, expiredWithQuotes: 0 };
+  let requestSweep: RequestSweep = { requestsExpired: 0, quotesExpired: 0, expiredWithQuotes: 0, jobs: [] };
   try {
     const { data, error } = await admin.rpc("sweep_delivery_requests");
     if (error) console.error("sweep_delivery_requests failed", error);
@@ -142,18 +170,74 @@ async function run(req: NextRequest) {
       // already shows; a request that got prices and expired anyway is the
       // marketplace failing at the last step, which is the one worth a nudge.
       if (requestSweep.expiredWithQuotes > 0) {
+        // ── M198: NAME THEM ─────────────────────────────────────────────
+        // This alert used to say "1 closed, 1 prices withdrawn. Somebody was
+        // quoted and never booked. Worth asking why." — advice the message
+        // itself made impossible to follow, because it never said who. The
+        // sweep now returns the jobs, so the owner can ring the person
+        // straight from the notification.
+        const jobs = requestSweep.jobs ?? [];
+        const one = jobs.length === 1 ? jobs[0] : null;
+
+        // ── TELL THEM TOO (M198) ────────────────────────────────────────
+        // The customer did everything except the last step. Until now the
+        // only person told their request had closed was the owner, which is
+        // the wrong way round: the owner cannot repost it for them and the
+        // customer usually never saw the price at all.
+        await Promise.allSettled(jobs.map((j) => notifyCustomerOfExpiry(j)));
+
+        const price = alertMoneyCents;
+        const waited = alertElapsed;
+
+        const message = one
+          ? // One job: say everything about it, and make the phone dialable.
+            ownerAlert({
+              headline: `Nobody booked: ${one.what || "a delivery"}${
+                price(one.bestFeeCents) ? ` — ${price(one.bestFeeCents)} was offered` : ""
+              }`,
+              facts: [
+                { label: "Customer", value: one.contactName },
+                { label: "Phone", value: localDial(one.contactPhone) },
+                { label: "Route", value: [one.pickup, one.dropoff].filter(Boolean).join(" → ") },
+                { label: "Prices offered", value: one.quotes },
+                { label: "Cheapest", value: price(one.bestFeeCents) },
+                { label: "Waited", value: waited(one.waitedHours) },
+                { label: "Account", value: one.isGuest ? "guest, no login" : "signed in" },
+              ],
+              note: "They were quoted and never booked. The request has now closed.",
+              actions: [
+                ...(one.contactPhone
+                  ? ([{ kind: "chat", label: "Message them", phone: one.contactPhone }] as const)
+                  : []),
+                { kind: "open", label: "Board", path: "/admin/deliveries" },
+              ],
+            })
+          : // Several: one line each, so the owner can pick who to ring.
+            ownerAlert({
+              headline: `${requestSweep.expiredWithQuotes} customers were quoted and never booked`,
+              facts: jobs.map((j) => ({
+                label: j.contactName || j.what || "Someone",
+                value: [
+                  j.what,
+                  price(j.bestFeeCents),
+                  localDial(j.contactPhone),
+                  waited(j.waitedHours) ? `waited ${waited(j.waitedHours)}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · "),
+              })),
+              note: `${requestSweep.requestsExpired} request${
+                requestSweep.requestsExpired === 1 ? "" : "s"
+              } closed, ${requestSweep.quotesExpired} price${
+                requestSweep.quotesExpired === 1 ? "" : "s"
+              } withdrawn.`,
+              actions: [{ kind: "open", label: "Board", path: "/admin/deliveries" }],
+            });
+
         await enqueueNotification({
           type: "delivery.requests_expired",
           category: "deliveries",
-          message: formatWhatsAppMessage({
-            title: `${requestSweep.expiredWithQuotes} delivery request${
-              requestSweep.expiredWithQuotes === 1 ? "" : "s"
-            } expired with prices waiting`,
-            lines: [
-              `${requestSweep.requestsExpired} closed, ${requestSweep.quotesExpired} prices withdrawn.`,
-              "Somebody was quoted and never booked. Worth asking why.",
-            ],
-          }),
+          message,
           // The hour, so running every minute still means at most one message
           // per hour however many sweeps find something.
           dedupeKey: `delivery.requests_expired:${new Date().toISOString().slice(0, 13)}`,
