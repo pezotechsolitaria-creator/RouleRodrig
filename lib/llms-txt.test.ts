@@ -154,27 +154,47 @@ describe("llms.txt states the prices the site already publishes", () => {
 
   it("gives both headline rates", () => {
     expect(txt).toContain("Rs 699");
-    expect(txt).toContain("Rs 1,999");
+    expect(txt).toContain("Rs 1,899");
   });
 
   it("keeps the word 'from', because neither is the only rate", () => {
-    // Rs 1,999 is the cheapest of three car rates; stating it bare would be a
-    // price the owner does not charge for two of his cars.
+    // Four car rates: Rs 1,899 / 1,999 / 2,399 / 2,899. Stating the cheapest
+    // bare would be a price the owner does not charge for three of them.
     expect(txt).toMatch(/from Rs 699\/day/);
-    expect(txt).toMatch(/from Rs 1,999\/day/);
+    expect(txt).toMatch(/from Rs 1,899\/day/);
+  });
+
+  // ── THIS FILE HOLDS THE LAST HAND-TYPED PRICE ON THE SITE ────────────────
+  //
+  // The category titles stopped carrying a literal in 2eb8f542, because the
+  // hardcoded "Rs 1,999" was wrong the morning after it was written — the
+  // owner repriced the Swift to Rs 1,899 and only the derived half of the
+  // page followed. llms.txt is static and cannot read the fleet, so it kept
+  // the stale figure a day longer than the page did.
+  //
+  // This is the tripwire. If a price literal comes back into the titles,
+  // there are two hand-typed prices again and they will drift apart.
+  it("is not racing a second hardcoded price in the category titles", () => {
+    const page = readFileSync(
+      join(process.cwd(), "app", "browse", "[category]", "page.tsx"),
+      "utf8",
+    );
+    // Comments stripped first: a prose mention of an old price is history,
+    // not a hardcoded price, and asserting over prose is how three tests in
+    // this repo have broken on their own explanatory text.
+    const code = page
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    const META = code.slice(
+      code.indexOf("const META"),
+      code.indexOf("export async function generateMetadata"),
+    );
+    expect(META).not.toMatch(/Rs [\d,]+/);
   });
 
   it("no longer defers the answer to another page", () => {
     expect(txt).not.toContain("Current daily rates are");
   });
 
-  it("agrees with the prices the rental pages advertise", () => {
-    // If a category's meta price changes and this file does not, the two
-    // disagree and the assistant quotes the stale one.
-    const page = readFileSync(
-      join(process.cwd(), "app", "browse", "[category]", "page.tsx"),
-      "utf8",
-    );
-    for (const rate of ["699", "1,999"]) expect(page).toContain(rate);
-  });
+
 });

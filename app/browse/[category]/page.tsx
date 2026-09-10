@@ -205,11 +205,6 @@ const META: Record<
   // say. On a result Google already shows around position 20, the title is the
   // only lever that moves clicks without moving rank.
   //
-  // The figures are the CHEAPEST REAL daily rate in the fleet, checked against
-  // site_content before writing: scooters Rs 699, cars Rs 1,999. The August
-  // optimisation spec said Rs 1,499 for cars — it is out of date, and shipping
-  // it would have advertised a price the page itself does not show.
-  //
   // " | Roule Rodrigues" is appended by pageMeta(), so it is deliberately not
   // repeated here; these read ~42 characters, which survives truncation with
   // the brand suffix attached.
