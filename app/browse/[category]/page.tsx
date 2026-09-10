@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import dynamic from "next/dynamic";
 import { SITE_URL } from "@/lib/site";
 import { fromPriceOf } from "@/lib/experiences";
 import { breadcrumbLd, itemListLd, productLd, stayLd, experienceLd, sellerLd } from "@/lib/schema";
@@ -17,34 +16,12 @@ import FrenchTwinLink from "@/components/FrenchTwinLink";
 import BrowseTabs from "@/components/BrowseTabs";
 import Fleet from "@/components/Fleet";
 import TrustBar from "@/components/TrustBar";
-// ── BELOW-THE-FOLD CLIENT JS, OFF THE CRITICAL PATH ────────────────────────
-//
-// Measured on /browse/car (PageSpeed, mobile): Script Evaluation 1,389 ms and
-// 161 KB of unused JavaScript across three app chunks, on a page whose LCP is
-// dominated by script work rather than by its photographs — the LCP image
-// itself fetches in 168 ms.
-//
-// BookingSection is 1,301 lines of form state, date logic and payment states;
-// RecommendedPlaces and GettingAround are scroll-reveal blocks. All three sit
-// BELOW THE FOLD, and all three were in the initial bundle, parsed and
-// evaluated before anybody had scrolled to them.
-//
-// next/dynamic in a Server Component keeps SSR — the HTML is byte-identical —
-// and only splits the CLIENT chunk. That matters here beyond performance:
-// RentalConditions renders inside BookingSection, and its questions must stay
-// in the server HTML or the FAQPage schema on this page becomes a claim about
-// content Google cannot see. e2e/faq-schema.spec.ts fails if that regresses,
-// which is why this change is safe to make at all.
-const BookingSection = dynamic(
-  () => import("@/components/BookingSection"),
-);
+import BookingSection from "@/components/BookingSection";
 import { pickConditions } from "@/lib/rental-conditions";
 import { vehicleHref } from "@/lib/vehicle-slug";
-const RecommendedPlaces = dynamic(
-  () => import("@/components/RecommendedPlaces"),
-);
+import RecommendedPlaces from "@/components/RecommendedPlaces";
 import { placeHref } from "@/lib/place-href";
-const GettingAround = dynamic(() => import("@/components/GettingAround"));
+import GettingAround from "@/components/GettingAround";
 import CategoryNotes, { type CategoryNote } from "@/components/browse/CategoryNotes";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import ScrollToTop from "@/components/ScrollToTop";
