@@ -700,16 +700,31 @@ export default async function BrowsePage({
               vcopy ? (
                 <>
                   {vcopy.intro(vFrom, vcat.deliveryFee)}
+                  {/* ── THE FRENCH TWIN, ON ITS OWN LINE ──────────────────
+                      This was a bare <a> welded onto the end of the intro
+                      with a {" "}, so the English paragraph ran straight on
+                      into "Location de voiture à Rodrigues — cette page en
+                      français". On a phone that reads as one sentence that
+                      changes language halfway through. It also lacked
+                      hrefLang, which the place branch has carried all along:
+                      the pages that actually sell had the worse treatment.
+
+                      Still IN THE CONTENT, still a real crawlable link,
+                      still directly under the intro rather than below four
+                      car cards. That placement is the whole point — hreflang
+                      is an annotation, not a crawl path, and until these
+                      links existed URL Inspection reported the French pages
+                      "unknown to Google" despite correct reciprocal hreflang
+                      on all eight. A header language switcher would not
+                      replace this; it would remove the thing that got the
+                      French side indexed. */}
                   {vFrHref && vcopy.frLabel ? (
-                    <>
-                      {" "}
-                      <a
-                        href={vFrHref}
-                        className="underline underline-offset-2 hover:text-offwhite"
-                      >
-                        {vcopy.frLabel}
-                      </a>
-                    </>
+                    <FrenchTwinLink
+                      href={vFrHref}
+                      label={vcopy.frLabel}
+                      as="span"
+                      className="mt-3"
+                    />
                   ) : null}
                 </>
               ) : (

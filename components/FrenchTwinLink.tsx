@@ -30,6 +30,7 @@ export default function FrenchTwinLink({
   href,
   label,
   className = "",
+  as = "p",
 }: {
   /** The French twin's path — must be the page that names THIS page in its own
    *  hreflang, or the pair stops being reciprocal and Google ignores both. */
@@ -37,9 +38,20 @@ export default function FrenchTwinLink({
   /** Written in French: it is addressed to a French reader, not an English one. */
   label: string;
   className?: string;
+  /**
+   * The element to render as.
+   *
+   * "span" exists because the vehicle pages put this directly under their
+   * intro, and that intro is already a <p>. A nested <p> is invalid and the
+   * parser silently closes the outer one, which breaks the layout in a way
+   * that looks like a CSS bug. The span is still `block`, so it still sits on
+   * its own line.
+   */
+  as?: "p" | "span";
 }) {
+  const Tag = as;
   return (
-    <p className={`mt-6 font-dm text-sm text-muted ${className}`}>
+    <Tag className={`mt-6 block font-dm text-sm text-muted ${className}`}>
       <Link
         href={href}
         hrefLang="fr"
@@ -47,6 +59,6 @@ export default function FrenchTwinLink({
       >
         {label}
       </Link>
-    </p>
+    </Tag>
   );
 }
