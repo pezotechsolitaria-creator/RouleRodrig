@@ -112,16 +112,26 @@ export function chatLink(phone: string | null | undefined): string | null {
   return `https://wa.me/${digits}`;
 }
 
-/** Rs from MINOR UNITS. This platform has shipped rupees-for-cents twice. */
+/**
+ * Rs from MINOR UNITS. This platform has shipped rupees-for-cents twice, so
+ * the conversion happens here and nowhere else.
+ *
+ * "Rs 1,250", not "Rs 1250.00". Trailing zeroes are noise on a lock screen,
+ * and a separator is the difference between reading 1250 and 12500 at a
+ * glance. Real cents are kept — Rs 25.50 is a price somebody quoted.
+ */
 export function alertMoneyCents(cents: number | null | undefined): string | null {
   if (cents === null || cents === undefined || !Number.isFinite(cents)) return null;
-  return `Rs ${centsToDecimalString(cents)}`;
+  const decimal = centsToDecimalString(cents);
+  const [whole, frac] = decimal.split(".");
+  const grouped = Number(whole).toLocaleString("en-GB");
+  return frac && frac !== "00" ? `Rs ${grouped}.${frac}` : `Rs ${grouped}`;
 }
 
 /** Rs from WHOLE RUPEES — bookings store rupees, orders store cents. */
 export function alertMoneyRupees(rupees: number | null | undefined): string | null {
   if (rupees === null || rupees === undefined || !Number.isFinite(rupees)) return null;
-  return `Rs ${rupees.toLocaleString("en-GB")}`;
+  return `Rs ${Math.round(rupees).toLocaleString("en-GB")}`;
 }
 
 /** One clock for every alert, in the owner's own timezone. */

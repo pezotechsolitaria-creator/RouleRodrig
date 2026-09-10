@@ -115,7 +115,7 @@ export const ALERT_SAMPLES: SampleAlert[] = [
     when: "Somebody books a taxi",
     build: () =>
       ownerAlert({
-        headline: "New taxi booking - Fri 12 Sep 10:00",
+        headline: `New taxi booking - ${alertClock("2026-09-12T06:00:00Z")}`,
         facts: [
           { label: "Who", value: "Laurence" },
           { label: "Phone", value: localDial(OWNER_PHONE) },

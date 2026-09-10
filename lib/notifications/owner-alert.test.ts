@@ -4,6 +4,8 @@ import {
   encodedLength,
   localDial,
   chatLink,
+  alertMoneyCents,
+  alertMoneyRupees,
   absoluteUrl,
   ALERT_LIMITS,
 } from "./owner-alert";
@@ -95,6 +97,25 @@ describe("the tap is never the thing that gets cut", () => {
     expect(encodedLength(m)).toBeLessThanOrEqual(ALERT_LIMITS.MAX_ENCODED_CHARS);
     // ntfy turns a body over 4096 bytes into an expiring attachment.
     expect(Buffer.byteLength(m, "utf8")).toBeLessThanOrEqual(ALERT_LIMITS.MAX_NTFY_BYTES);
+  });
+});
+
+describe("money reads the way a person reads it", () => {
+  it("drops noise decimals and groups thousands, from CENTS", () => {
+    // "Rs 1250.00" on a lock screen is harder to read than "Rs 1,250", and
+    // the separator is what stops 1250 and 12500 looking alike at a glance.
+    expect(alertMoneyCents(2500)).toBe("Rs 25");
+    expect(alertMoneyCents(125000)).toBe("Rs 1,250");
+    // A real part-rupee price is a price somebody quoted, so it survives.
+    expect(alertMoneyCents(2550)).toBe("Rs 25.50");
+    expect(alertMoneyCents(null)).toBeNull();
+  });
+
+  it("keeps the two units apart", () => {
+    // bookings store WHOLE RUPEES, orders and quotes store CENTS. Feeding one
+    // to the other formatter is the bug that has shipped twice.
+    expect(alertMoneyRupees(1800)).toBe("Rs 1,800");
+    expect(alertMoneyCents(1800)).toBe("Rs 18");
   });
 });
 
