@@ -236,6 +236,41 @@ export default async function HebergementRodriguesPage() {
           </div>
         </header>
 
+        {/* ── LA SEULE CHOSE QUE CETTE PAGE NE DISAIT PAS ────────────────────
+            Une chambre et un logement indépendant ne se réservent pas de la
+            même façon, et cette page ne faisait pas la différence. Trois
+            annonces sur cinq emploient déjà le mot "self-catering", et l'une
+            d'elles affiche un tarif par personne plutôt que par chambre.
+
+            Ce que cette section NE dit PAS, délibérément : petit-déjeuner,
+            piscine, wifi, climatisation. lib/stays-fr.test.ts l'interdit, et il
+            a raison — ces informations vivent dans le texte libre d'une seule
+            annonce, pas dans un champ que le propriétaire remplit. Une page qui
+            les généralise est exactement la raison pour laquelle un client
+            arrive en s'attendant à une piscine. Le jour où ces champs
+            existeront, la page pourra le dire.
+
+            Une seule section, et pas trois : la FAQ ci-dessous répond déjà au
+            prix, au moment du paiement, aux types de logement et aux délais.
+            Les répéter plus haut ferait double emploi. */}
+        <div className="mx-auto max-w-3xl px-5 pt-14">
+          <section>
+            <h2 className="font-syne text-2xl md:text-3xl font-bold text-offwhite">
+              Une chambre, ou un logement indépendant
+            </h2>
+            <p className="mt-4 font-dm text-muted leading-relaxed">
+              Plusieurs de ces adresses ne sont pas des chambres mais des
+              logements indépendants, avec de quoi cuisiner et votre propre
+              entrée — c&apos;est ce que veut dire &laquo;&nbsp;self-catering
+              &nbsp;&raquo; sur les fiches. Certaines affichent alors un tarif
+              par personne plutôt qu&apos;un prix par nuit, ce qui change le
+              calcul pour une famille ou un long séjour. Le détail est sur
+              chaque annonce : lisez-le avant de vous décider sur le seul prix
+              affiché.
+            </p>
+          </section>
+        </div>
+
         {faq.length > 0 && (
           <div className="mx-auto max-w-3xl px-5 py-14">
             <h2 className="font-syne text-2xl md:text-3xl font-bold text-offwhite">
