@@ -48,6 +48,8 @@ interface LanguageContextValue {
   setLanguage: (lang: Language) => void;
   t: typeof translations.en;
   hasChosen: boolean;
+  /** A page that IS written in one language claims it — see PageLanguage. */
+  forceLanguage: (lang: Language | null) => void;
 }
 
 const LanguageContext = createContext<LanguageContextValue>({
@@ -55,11 +57,28 @@ const LanguageContext = createContext<LanguageContextValue>({
   setLanguage: () => {},
   t: translations.en,
   hasChosen: false,
+  forceLanguage: () => {},
 });
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLang] = useState<Language>("en");
+  const [chosen, setLang] = useState<Language>("en");
   const [hasChosen, setHasChosen] = useState(false);
+
+  // ── A PAGE WRITTEN IN A LANGUAGE SPEAKS THAT LANGUAGE ────────────────────
+  //
+  // PageLanguage used to set `<html lang="fr">` and nothing else. So every
+  // /fr/ page served its hand-written French body inside ENGLISH chrome —
+  // header, nav, "Book Now", the whole footer — for ever, because the chrome
+  // is client components reading THIS context and the context only ever knew
+  // the visitor's own preference. Measured on the live site: eleven of eleven
+  // French pages, each carrying "Explore Rodrigues. Ride free.",
+  // "Official visitor information and support", "Sell with us" and
+  // "We love a plastic-free Rodrigues" in English.
+  //
+  // The lock is per-route and does NOT touch the saved preference, so leaving
+  // the page puts the visitor back in the language they actually chose.
+  const [forced, setForced] = useState<Language | null>(null);
+  const language = forced ?? chosen;
 
   // Restore saved language on mount
   useEffect(() => {
@@ -96,11 +115,14 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     // A page written IN a language owns the attribute — see
     // components/PageLanguage.tsx. The /fr landing pages stay French for a
     // reader whose switcher says English, because their words do not change.
-    if (document.documentElement.dataset.langLocked === "1") return;
     document.documentElement.lang = languageTag(language);
   }, [language]);
 
   function setLanguage(lang: Language) {
+    // An explicit press beats the route's claim. Somebody standing on a French
+    // page who deliberately picks English means it, and a switcher that
+    // visibly does nothing is worse than either language.
+    setForced(null);
     setLang(lang);
     setHasChosen(true);
     try {
@@ -119,6 +141,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         // cast: all translations share the same structure; literal type differences are safe
         t: translations[language] as typeof translations.en,
         hasChosen,
+        forceLanguage: setForced,
       }}
     >
       {children}

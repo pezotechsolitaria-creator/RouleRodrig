@@ -1,43 +1,47 @@
 "use client";
 
 import { useEffect } from "react";
+import type { Language } from "@/lib/i18n";
+import { useLanguage } from "@/context/LanguageContext";
 
 // ── A PAGE WHOSE CONTENT IS IN ONE LANGUAGE, WHATEVER THE SWITCHER SAYS ─────
 //
-// The three /fr/ landing pages are written in French. Their words do not change
-// when somebody flips the header switch to English — they are hand-written
-// French SEO pages, not translations of a shared template. So `<html lang>` on
-// those routes describes the CONTENT, not the reader's preference.
+// The /fr/ landing pages are written in French. Their words do not change when
+// somebody flips the header switch — they are hand-written French SEO pages,
+// not translations of a shared template.
 //
-// Verified on the live site before this existed: /fr/plages-rodrigues served
-// `<html lang="en">` while rendering `<h1>Les 12 plus belles plages de
-// Rodrigues</h1>`. Google uses `lang` as one signal for which audience a page
-// serves, and a screen reader uses it to choose how to pronounce every word on
-// it — French read with English phonetics.
+// ── WHAT THIS USED TO DO, AND WHY IT WAS NOT ENOUGH ─────────────────────────
+// It set `document.documentElement.lang` and stopped there. That fixed the
+// attribute a screen reader and Google read, and fixed nothing a customer saw:
+// the header, the nav, "Book Now" and the entire footer are client components
+// reading LanguageContext, and the context only ever knew the VISITOR's
+// preference. So a French page served French prose inside English furniture,
+// permanently, for anyone who had not separately switched the site to French.
 //
-// ── WHY IT NEEDS A LOCK, NOT JUST AN ASSIGNMENT ─────────────────────────────
-// context/LanguageContext.tsx also writes documentElement.lang, from the
-// reader's chosen language. Without the flag below, an English-preferring
-// visitor landing on a French page would have `lang` corrected to "fr" here and
-// then immediately overwritten with "en" by the provider — the two would fight
-// on every render, and the last writer would win by accident.
+// Measured on the live site before this change — all eleven /fr pages carried
+// "EXPLORE THE ISLAND", "Island Map", "Book Now", "Sell with us",
+// "Official visitor information and support", "Tag us in your Rodrigues
+// adventures." and "Explore Rodrigues. Ride free. Premium scooter and car
+// rental on the most beautiful island in the Indian Ocean." in English, every
+// one of which has had a French translation in lib/i18n.ts the whole time.
 //
-// The flag makes the precedence explicit and gives the right answer: a page
-// that IS in a language beats a preference about what language to show.
+// So it now claims the CONTEXT, and the provider owns `<html lang>` from the
+// same value — one writer instead of two fighting over the attribute.
+//
+// ── WHAT IT DELIBERATELY DOES NOT DO ────────────────────────────────────────
+// It does not save anything. The visitor's own choice is untouched, so
+// navigating away from a French page returns them to the language they picked.
+// And an explicit press of the switcher clears the claim (see setLanguage), so
+// somebody who deliberately chooses English on a French page gets English
+// chrome rather than a control that visibly does nothing.
 
-export default function PageLanguage({ lang }: { lang: string }) {
+export default function PageLanguage({ lang }: { lang: Language }) {
+  const { forceLanguage } = useLanguage();
+
   useEffect(() => {
-    const root = document.documentElement;
-    const previous = root.lang;
-    root.lang = lang;
-    root.dataset.langLocked = "1";
-    return () => {
-      delete root.dataset.langLocked;
-      // Hand it back as it was, so navigating away from a French page does not
-      // leave the rest of the site claiming to be French.
-      root.lang = previous;
-    };
-  }, [lang]);
+    forceLanguage(lang);
+    return () => forceLanguage(null);
+  }, [lang, forceLanguage]);
 
   return null;
 }

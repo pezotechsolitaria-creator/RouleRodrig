@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight, Compass } from "lucide-react";
 import BackLink from "@/components/BackLink";
+import PageLanguage from "@/components/PageLanguage";
 import Navbar from "@/components/Navbar";
 import JsonLd from "@/components/JsonLd";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
@@ -60,6 +61,12 @@ export default async function FrHubPage() {
           ),
         ]}
       />
+      {/* The hub was written in French throughout and still served English
+          chrome, because it was the one /fr route without this. Its own header
+          comment says a French visitor greeted in English "has been told
+          something about how much the French half of this site is looked
+          after" — and the nav directly under it said EXPLORE THE ISLAND. */}
+      <PageLanguage lang="fr" />
       <Navbar
         branding={content.branding}
         announcementActive={false}
