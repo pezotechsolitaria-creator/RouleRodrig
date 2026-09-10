@@ -26,7 +26,21 @@ const CATEGORY: Record<
 // Source tag included in every outbound link/message so leads are attributable.
 const SOURCE = "roulerodrigues";
 
-export default function RecommendedPlaces({ content, whatsapp }: { content?: RecommendedContent; whatsapp?: string }) {
+export default function RecommendedPlaces({
+  content,
+  whatsapp,
+  // ── WHICH HEADING LEVEL THIS SECTION OWNS ────────────────────────────────
+  // h2 by default, because on a page that already has its own <h1> this is a
+  // section within it. The category pages are the other case: this section's
+  // title IS the page's subject ("Where to Stay in Rodrigues"), and rendering
+  // it as an h2 under an <h1> that said "Accommodations" put the nav crumb
+  // above the keyword. See the note in app/browse/[category]/page.tsx.
+  titleAs: TitleTag = "h2",
+}: {
+  content?: RecommendedContent;
+  whatsapp?: string;
+  titleAs?: "h1" | "h2";
+}) {
   const { t, language } = useLanguage();
   const ts = t.stayEatDo;
   const [filter, setFilter] = useState<string>("all");
@@ -92,9 +106,9 @@ export default function RecommendedPlaces({ content, whatsapp }: { content?: Rec
       <div className="max-w-5xl mx-auto px-4 md:px-6">
         <div className="mb-6">
           <p className="font-bebas text-yellow text-[11px] tracking-[0.3em] mb-1.5 uppercase">{ts.eyebrow}</p>
-          <h2 className="font-syne font-extrabold text-offwhite uppercase leading-tight text-2xl md:text-3xl">
+          <TitleTag className="font-syne font-extrabold text-offwhite uppercase leading-tight text-2xl md:text-3xl">
             {loc(language, content.title, content.titleFr, content.titleCr)}
-          </h2>
+          </TitleTag>
           {content.subtitle && (
             <p className="text-muted font-dm text-sm mt-2 max-w-xl leading-relaxed">{loc(language, content.subtitle, content.subtitleFr, content.subtitleCr)}</p>
           )}

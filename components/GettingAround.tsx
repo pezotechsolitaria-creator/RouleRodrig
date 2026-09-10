@@ -16,7 +16,17 @@ const ICONS: Record<TransportOption["icon"], React.ElementType> = {
   walk: Footprints,
 };
 
-export default function GettingAround({ content }: { content?: GettingAroundContent }) {
+export default function GettingAround({
+  content,
+  // Same reasoning as RecommendedPlaces: h2 as a section inside a page, h1 when
+  // this section's title IS the page's subject. /browse/getting-around had
+  // "Getting around" as its <h1> and "Getting Around Rodrigues" — the heading
+  // that names the island — as an <h2> underneath it.
+  titleAs: TitleTag = "h2",
+}: {
+  content?: GettingAroundContent;
+  titleAs?: "h1" | "h2";
+}) {
   const { t, language } = useLanguage();
   if (!content || !content.enabled) return null;
   const options = content.options ?? [];
@@ -27,9 +37,9 @@ export default function GettingAround({ content }: { content?: GettingAroundCont
       <div className="max-w-5xl mx-auto px-4 md:px-6">
         <div className="mb-6">
           <p className="font-bebas text-yellow text-[11px] tracking-[0.3em] mb-1.5 uppercase">{t.gettingAround.eyebrow}</p>
-          <h2 className="font-syne font-extrabold text-offwhite uppercase leading-tight text-2xl md:text-3xl">
+          <TitleTag className="font-syne font-extrabold text-offwhite uppercase leading-tight text-2xl md:text-3xl">
             {loc(language, content.title, content.titleFr, content.titleCr)}
-          </h2>
+          </TitleTag>
           {content.subtitle && (
             <p className="text-muted font-dm text-sm mt-2 max-w-xl leading-relaxed">{loc(language, content.subtitle, content.subtitleFr, content.subtitleCr)}</p>
           )}

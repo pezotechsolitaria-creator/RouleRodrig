@@ -769,7 +769,9 @@ export default async function BrowsePage({
     if (items.length === 0) {
       return (
         <>
-          {header(place.label)}
+          {/* Also "span": this branch has its own <h1> below, so the default
+              was putting TWO h1 elements on the empty-state page. */}
+          {header(place.label, "span")}
           <main className="bg-dark min-h-screen px-4 pb-24 pt-6">
             <div className="mx-auto max-w-3xl">
               <h1 className="font-syne text-2xl font-extrabold text-offwhite md:text-3xl">
@@ -841,7 +843,14 @@ export default async function BrowsePage({
             }),
           }}
         />
-        {header(place.label)}
+        {/* "span", not the default h1. This branch rendered place.label —
+            "Accommodations" — as the <h1> while the actual keyword heading,
+            "Where to Stay in Rodrigues", sat below it as an <h2> inside
+            RecommendedPlaces. That is the identical fault fixed for the vehicle
+            categories above, and the META entry for stays records what it cost:
+            indexed, and zero impressions for any accommodation query in 90
+            days. The heading is promoted to <h1> on the section below. */}
+        {header(place.label, "span")}
         <main>
           <BrowseTabs
             categories={cats}
@@ -849,6 +858,7 @@ export default async function BrowsePage({
             stickyTop="top-[56px]"
           />
           <RecommendedPlaces
+            titleAs="h1"
             content={{
               enabled: true,
               title: place.heading ?? place.label,
@@ -899,14 +909,17 @@ export default async function BrowsePage({
           "Getting around",
           opts.map((o) => ({ name: o.title })),
         )}
-        {header("Getting around")}
+        {/* "span": GettingAround below carries the heading that names the
+            island ("Getting Around Rodrigues"). This was the third page with
+            the nav label sitting above the keyword as its h1. */}
+        {header("Getting around", "span")}
         <main>
           <BrowseTabs
             categories={cats}
             active={category}
             stickyTop="top-[56px]"
           />
-          <GettingAround content={{ ...ga, options: opts }} />
+          <GettingAround titleAs="h1" content={{ ...ga, options: opts }} />
           {/* /fr/se-deplacer-a-rodrigues was "Discovered - currently not
               indexed": Google knew of it and had never fetched it. Its
               hreflang twin is the blog post, so this is a plain link rather
