@@ -22,6 +22,7 @@ import { vehicleHref } from "@/lib/vehicle-slug";
 import RecommendedPlaces from "@/components/RecommendedPlaces";
 import { placeHref } from "@/lib/place-href";
 import GettingAround from "@/components/GettingAround";
+import CategoryNotes, { type CategoryNote } from "@/components/browse/CategoryNotes";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import ScrollToTop from "@/components/ScrollToTop";
 
@@ -32,6 +33,40 @@ export const revalidate = 60;
 // Special (non-vehicle) place categories → which items render on each page.
 // Activities and Guided Tours share the "activity" category, split by isTour.
 type Place = { category: string; isTour?: boolean };
+// ── /browse/getting-around ─────────────────────────────────────────────────
+// Not in PLACE_SLUGS: that branch reads content.gettingAround, whose three
+// options ship with EMPTY descriptions, so there was nothing on the page to
+// section. These are the facts the site already publishes elsewhere — the two
+// "from" prices are the ones live on /browse/car and /browse/scooter today, and
+// the taxi paragraph is the answer already given on /taxi ("every driver sets
+// their own fare, so there is no fixed price list").
+const GETTING_AROUND_NOTES: CategoryNote[] = [
+  {
+    h2: "Driving yourself",
+    h2Fr: "Conduire vous-même",
+    body:
+      "A car is from Rs 1,999 a day and a scooter from Rs 699, both booked direct with local owners. On Rodrigues you drive on the left, the same as Mauritius.",
+    bodyFr:
+      "Une voiture à partir de Rs 1 999 par jour, un scooter à partir de Rs 699, réservés directement auprès de propriétaires de l’île. À Rodrigues, on roule à gauche, comme à Maurice.",
+  },
+  {
+    h2: "Taking a taxi",
+    h2Fr: "Prendre un taxi",
+    body:
+      "There is no fixed price list on Rodrigues — every driver sets their own fare. Tell us where you are going and the price is confirmed with you before anything is agreed.",
+    bodyFr:
+      "Il n’y a pas de tarif fixe à Rodrigues : chaque chauffeur fixe son propre prix. Dites-nous où vous allez et le prix vous est confirmé avant tout engagement.",
+  },
+  {
+    h2: "Which one suits your trip",
+    h2Fr: "Lequel choisir",
+    body:
+      "A scooter is the cheapest way to cover the island in dry weather. A car earns its cost with a family, a longer stay or the rainy season. A taxi suits an airport run or an evening out.",
+    bodyFr:
+      "Le scooter est le moyen le moins cher de parcourir l’île par beau temps. La voiture se justifie en famille, pour un long séjour ou en saison des pluies. Le taxi convient pour un transfert à l’aéroport ou une sortie le soir.",
+  },
+];
+
 const PLACE_SLUGS: Record<
   string,
   {
@@ -47,6 +82,15 @@ const PLACE_SLUGS: Record<
     heading?: string;
     /** Intro paragraph above the cards, in place of the shared subtitle. */
     intro?: string;
+    /**
+     * Sections BELOW the cards, each a real h2.
+     *
+     * After the h1 fix these pages had no h2 at all — the promoted heading was
+     * their only one — leaving 550-740 words with no sectioning. Every claim
+     * here is taken from the live listings or from what the site already
+     * publishes; see components/browse/CategoryNotes.tsx.
+     */
+    notes?: CategoryNote[];
     /** French versions of both. The FR pages outrank everything else here. */
     headingFr?: string;
     introFr?: string;
@@ -107,6 +151,35 @@ const PLACE_SLUGS: Record<
     headingFr: "Excursions et sorties en mer à Rodrigues",
     introFr:
       "Sorties en mer et excursions guidées menées par des skippers et des guides de l’île — l’Île aux Cocos et sa réserve d’oiseaux, la plongée en apnée sur le corail à Rivière Banane, la pêche traditionnelle, et une balade dans le lagon. Les prix sont par personne et figurent sur chaque fiche, plusieurs sorties durant environ une heure.",
+    // Grounded the same way the intro below is: Rs 700 to Rs 1,000 is the real
+    // spread on the cards, three of the four are set at 60 minutes, and the
+    // Ile aux Cocos sentence is the operator's own description of the reserve.
+    notes: [
+      {
+        h2: "What a boat trip costs",
+        h2Fr: "Combien coûte une sortie en mer",
+        body:
+          "Trips on this page run from about Rs 700 to Rs 1,000 per person, and most last around an hour. The price and, where the skipper has set one, the duration are on each card.",
+        bodyFr:
+          "Les sorties de cette page vont d’environ Rs 700 à Rs 1 000 par personne, et durent le plus souvent une heure. Le prix et, lorsqu’elle est indiquée, la durée figurent sur chaque fiche.",
+      },
+      {
+        h2: "Île aux Cocos",
+        h2Fr: "L’Île aux Cocos",
+        body:
+          "Île aux Cocos is an uninhabited seabird reserve in the lagoon, about four kilometres west of Rodrigues. You reach it only by boat, and the visit is guided.",
+        bodyFr:
+          "L’Île aux Cocos est une réserve d’oiseaux marins inhabitée, dans le lagon à environ quatre kilomètres à l’ouest de Rodrigues. On y accède uniquement en bateau, et la visite est guidée.",
+      },
+      {
+        h2: "Who takes you out",
+        h2Fr: "Qui vous emmène",
+        body:
+          "These are island skippers, named on their own listings — the snorkelling at Rivière Banane, the lagoon trip and the traditional fishing are all run by Arnaud. You are booking a person, not a desk.",
+        bodyFr:
+          "Ce sont des skippers de l’île, nommés sur leur propre fiche : la plongée en apnée à Rivière Banane, la balade en mer et la pêche traditionnelle sont toutes menées par Arnaud. Vous réservez auprès d’une personne, pas d’un guichet.",
+      },
+    ],
   },
   // ── WHY THIS ONE CARRIES COPY AND THE OTHERS DO NOT (M146) ───────────
   // /browse/stays was indexed and drew zero impressions for any
@@ -125,6 +198,35 @@ const PLACE_SLUGS: Record<
     headingFr: "Où loger à Rodrigues",
     introFr:
       "Chambres d’hôtes, villas avec cuisine et petits hôtels à Rodrigues — vue sur mer, petit-déjeuner, climatisation et piscine selon les adresses. Chaque hébergement est tenu par un propriétaire local indépendant : le prix par nuit est indiqué sur la fiche, puis vous réservez ou vous vous renseignez directement auprès de lui.",
+    // Every figure below is on a card on this page today: Lakaze Mama at
+    // Rs 1,000, Les Mangliers at Rs 7,000, and two places that quote
+    // self-catering per person rather than per room.
+    notes: [
+      {
+        h2: "What a room costs on Rodrigues",
+        h2Fr: "Combien coûte une chambre à Rodrigues",
+        body:
+          "Nightly prices on this page start around Rs 1,000 and run to about Rs 7,000, depending on whether you want a room or a whole house to yourself. A few places quote self-catering per person instead of per room — the card tells you which.",
+        bodyFr:
+          "Les prix par nuit sur cette page vont d’environ Rs 1 000 à Rs 7 000, selon que vous cherchez une chambre ou une maison entière. Certaines adresses affichent un tarif par personne en formule cuisine plutôt qu’un prix par chambre : c’est indiqué sur la fiche.",
+      },
+      {
+        h2: "Self-catering, or breakfast included",
+        h2Fr: "Avec cuisine, ou petit-déjeuner compris",
+        body:
+          "Several of these are self-contained — a kitchen, a lounge and your own front door rather than a single room. Others include breakfast, and one or two price both separately, so it is worth reading the card before you enquire.",
+        bodyFr:
+          "Plusieurs de ces adresses sont indépendantes : une cuisine, un salon et votre propre entrée plutôt qu’une simple chambre. D’autres incluent le petit-déjeuner, et certaines proposent les deux formules à des tarifs différents — lisez la fiche avant de vous renseigner.",
+      },
+      {
+        h2: "Booking direct with the owner",
+        h2Fr: "Réserver directement auprès du propriétaire",
+        body:
+          "Every place here is run by an independent local owner. You book or enquire with them directly and agree the details with the person who actually runs it, rather than through a desk that has never seen the room.",
+        bodyFr:
+          "Chaque hébergement est tenu par un propriétaire local indépendant. Vous réservez ou vous vous renseignez directement auprès de lui et vous convenez des détails avec la personne qui tient les lieux, pas avec une agence qui n’a jamais vu la chambre.",
+      },
+    ],
   },
 };
 
@@ -869,6 +971,7 @@ export default async function BrowsePage({
             }}
             whatsapp={businessWhatsApp}
           />
+          {place.notes ? <CategoryNotes notes={place.notes} /> : null}
           {/* The French twin as a real link, not only an hreflang annotation.
               META.stays has declared /fr/hebergement-rodrigues for weeks and
               this branch never rendered it, so the only routes into the French
@@ -920,6 +1023,7 @@ export default async function BrowsePage({
             stickyTop="top-[56px]"
           />
           <GettingAround titleAs="h1" content={{ ...ga, options: opts }} />
+          <CategoryNotes notes={GETTING_AROUND_NOTES} />
           {/* /fr/se-deplacer-a-rodrigues was "Discovered - currently not
               indexed": Google knew of it and had never fetched it. Its
               hreflang twin is the blog post, so this is a plain link rather
