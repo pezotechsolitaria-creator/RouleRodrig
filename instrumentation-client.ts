@@ -119,6 +119,23 @@ if (!posthogProjectToken) {
     // because anyone with project access can flip it back without review.
     disable_session_recording: true,
 
+    // ── SURVEYS: 33 KB OF THIRD-PARTY JS FOR A FEATURE NOBODY USES ────
+    //
+    // posthog-js lazy-loads surveys.js on every page unless told not to.
+    // Measured on /browse/car (PageSpeed, mobile): 33 KB fetched, 27 KB of
+    // it unused, on a page whose LCP is dominated by script evaluation
+    // (1,389 ms) rather than by images.
+    //
+    // The word "survey" does not appear anywhere in this codebase outside
+    // this comment. Nothing renders one, nothing configures one. It was
+    // pure weight on the two pages that sell.
+    //
+    // In code rather than by dashboard toggle, for the same reason as
+    // session recording above: a dashboard setting is not a durable
+    // guarantee. If surveys are ever wanted, deleting this line is the
+    // whole change.
+    disable_surveys: true,
+
     // Exception capture off: Sentry owns error tracking here and scrubs PII on
     // the way out (lib/sentry-scrub.ts). PostHog has no equivalent scrubbing,
     // so letting it also swallow exceptions would quietly create a second,
