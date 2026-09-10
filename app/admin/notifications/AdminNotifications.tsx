@@ -127,6 +127,20 @@ const EMPTY: Draft = { name: "", role: "", phone: "", apiKey: "", categories: []
 const input =
   "w-full rounded-lg border border-dark-border bg-dark px-3 py-2 font-dm text-sm text-offwhite placeholder:text-muted/60 focus:border-yellow focus:outline-none";
 
+type Sample = {
+  key: string;
+  when: string;
+  /** The first line — the whole message on a lock screen. */
+  headline: string;
+  message: string;
+  chars: number;
+  encodedChars: number;
+  withinWhatsApp: boolean;
+  withinNtfy: boolean;
+  titleSurvivesNtfy: boolean;
+  linksAreAbsolute: boolean;
+};
+
 export default function AdminNotifications() {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -137,6 +151,13 @@ export default function AdminNotifications() {
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ id: string; ok: boolean; text: string } | null>(null);
+  // ── Reading every alert before a customer triggers one ──────────────────
+  // Built from frozen fixtures by the REAL builders, so what is rendered here
+  // is exactly what would arrive. No booking, request or order is created.
+  const [samples, setSamples] = useState<Sample[]>([]);
+  const [sampleErr, setSampleErr] = useState<string | null>(null);
+  const [sending, setSending] = useState<string | null>(null);
+  const [openSample, setOpenSample] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -154,9 +175,22 @@ export default function AdminNotifications() {
     }
   }, []);
 
+  const loadSamples = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/alert-preview");
+      if (!res.ok) throw new Error(String(res.status));
+      const body = await res.json();
+      setSamples((body.samples ?? []) as Sample[]);
+      setSampleErr(null);
+    } catch {
+      setSampleErr("Could not load the samples.");
+    }
+  }, []);
+
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadSamples();
+  }, [load, loadSamples]);
 
   async function save() {
     if (!draft || busy) return;
@@ -213,6 +247,32 @@ export default function AdminNotifications() {
       body: JSON.stringify({ isActive: !slot.is_active }),
     });
     await load();
+  }
+
+  async function sendSample(key: string) {
+    // Same re-entrancy guard as test(): `disabled` only bites after a
+    // re-render, and every call here is a real message on a real number.
+    if (sending) return;
+    setSending(key);
+    setFlash(null);
+    try {
+      const res = await fetch("/api/admin/alert-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key }),
+      });
+      const body = await res.json().catch(() => ({}));
+      setFlash({
+        id: key,
+        ok: res.ok,
+        text: res.ok ? (body.note ?? "Queued.") : body.error || "Could not send.",
+      });
+      await load();
+    } catch {
+      setFlash({ id: key, ok: false, text: "Could not reach the server." });
+    } finally {
+      setSending(null);
+    }
   }
 
   async function test(slot: Slot) {
@@ -471,6 +531,97 @@ export default function AdminNotifications() {
               </div>
             ))}
           </div>
+        )}
+
+        {/* ── Read every alert before a customer triggers one ────────────── */}
+        {samples.length > 0 && (
+          <section className="mt-10">
+            <h2 className="font-syne text-lg font-bold">What each alert says</h2>
+            <p className="mt-1 max-w-[60ch] font-dm text-xs text-muted">
+              Every message this platform can send you, built by the same code that
+              builds the real ones. Reading them here costs nothing and creates no
+              booking, request or order — so a sample can never put fake work in
+              front of a real driver. Send one to see how it lands on your phone;
+              it arrives marked <span className="text-offwhite">[SAMPLE]</span>.
+            </p>
+
+            <ul className="mt-4 space-y-2">
+              {samples.map((sm) => {
+                const open = openSample === sm.key;
+                // Any of these means the message would not arrive intact, which
+                // is the failure a longer message causes and nothing reports.
+                const broken =
+                  !sm.withinWhatsApp || !sm.withinNtfy || !sm.titleSurvivesNtfy || !sm.linksAreAbsolute;
+                return (
+                  <li
+                    key={sm.key}
+                    className={`rounded-xl border bg-dark-card px-3 py-2.5 ${
+                      broken ? "border-red-500/40" : "border-white/10"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setOpenSample(open ? null : sm.key)}
+                        className="min-w-0 flex-1 text-left"
+                        aria-expanded={open}
+                      >
+                        <p className="truncate font-dm text-sm text-offwhite">
+                          {sm.headline}
+                        </p>
+                        <p className="mt-0.5 font-dm text-[11px] text-muted">
+                          {sm.when}
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void sendSample(sm.key)}
+                        disabled={sending !== null}
+                        className="shrink-0 rounded-lg border border-yellow/40 px-2.5 py-1 font-dm text-[11px] text-yellow transition-colors hover:bg-yellow/10 disabled:opacity-40"
+                      >
+                        {sending === sm.key ? "Sending…" : "Send to me"}
+                      </button>
+                    </div>
+
+                    {broken && (
+                      <p className="mt-1.5 font-dm text-[11px] text-red-300">
+                        {!sm.withinWhatsApp && "Too long for WhatsApp. "}
+                        {!sm.withinNtfy && "Too long for ntfy. "}
+                        {!sm.titleSurvivesNtfy && "The first line would arrive blank on ntfy. "}
+                        {!sm.linksAreAbsolute && "A link is relative and would be dead text."}
+                      </p>
+                    )}
+
+                    {flash?.id === sm.key && (
+                      <p
+                        className={`mt-1.5 font-dm text-[11px] ${
+                          flash.ok ? "text-green-300" : "text-red-300"
+                        }`}
+                      >
+                        {flash.text}
+                      </p>
+                    )}
+
+                    {open && (
+                      <>
+                        <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-lg bg-black/30 p-2.5 font-dm text-xs leading-relaxed text-offwhite">
+                          {sm.message}
+                        </pre>
+                        <p className="mt-1 font-dm text-[11px] text-muted">
+                          {sm.chars} characters, {sm.encodedChars} once encoded for
+                          WhatsApp — the number that decides whether it arrives.
+                        </p>
+                      </>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {sampleErr && (
+          <p className="mt-6 font-dm text-xs text-red-300">{sampleErr}</p>
         )}
 
         {/* ── Recent sends ───────────────────────────────────── */}

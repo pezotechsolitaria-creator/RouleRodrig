@@ -37,9 +37,13 @@ function unauthorised(req: NextRequest): NextResponse | null {
 function describe(key: string, when: string, message: string) {
   const encoded = encodedLength(message);
   const bytes = Buffer.byteLength(message, "utf8");
+  const headline = message.split("\n")[0];
   return {
     key,
     when,
+    // The first line, called out on its own: it is the ntfy title, the email
+    // subject, and the whole message on a locked phone.
+    headline,
     message,
     chars: message.length,
     encodedChars: encoded,

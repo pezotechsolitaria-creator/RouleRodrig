@@ -169,6 +169,20 @@ describe("the customer half is actually wired in", () => {
     expect(src).toContain("pushToCustomer");
   });
 
+  it("the owner can read every alert from the page he already uses", () => {
+    // Sending them required an admin login, which is exactly where the owner
+    // already is. A curl command he has to paste is not a feature.
+    const page = read("app/admin/notifications/AdminNotifications.tsx");
+    expect(page).toContain("/api/admin/alert-preview");
+    expect(page).toContain("What each alert says");
+    // Re-entrancy guard, not just `disabled`: disabled only bites after a
+    // re-render, and every send is a real message on a real number.
+    expect(page).toContain("if (sending) return;");
+    // A message that would not arrive has to say so before it is sent.
+    expect(page).toContain("withinWhatsApp");
+    expect(page).toContain("titleSurvivesNtfy");
+  });
+
   it("the preview endpoint invents no jobs", () => {
     // The whole point: read every message without putting fake work in front
     // of real drivers.
