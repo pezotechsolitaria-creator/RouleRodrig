@@ -176,11 +176,45 @@ export async function GET(req: NextRequest) {
   // The customer is TOLD. They were given a deadline in writing when it was
   // approved; letting it lapse in silence is the defect the marketplace already
   // has on its list, and repeating it deliberately would be worse.
-  const { data: lapsed } = await supabase
-    .from("bookings")
-    .select("id, name, email, scooter, start_date, end_date, deposit_paid_at, payment_due_by")
-    .eq("status", "approved")
-    .lt("payment_due_by", new Date().toISOString());
+  // ── THE DEADLINE IS COMPARED WHERE IT IS STORED (M199) ──────────────────
+  //
+  // This was:
+  //
+  //     .eq("status", "approved")
+  //     .lt("payment_due_by", new Date().toISOString())
+  //
+  // payment_due_by is a database column; new Date() is the clock of whichever
+  // serverless container drew this cron. Nothing keeps those together. On
+  // 2026-09-10 this project's own machine read 23:30 UTC while the database
+  // read 17:27 UTC the next day — eighteen hours apart. A container that far
+  // ahead cancels reservations that still have hours left, emails the customer
+  // that their window passed, and releases the vehicle. Silently, and the
+  // email is indistinguishable from a legitimate one.
+  //
+  // expired_hold_ids() does the comparison against now() in the database, next
+  // to the column. This route no longer sends a timestamp at all.
+  const { data: expiredIds, error: sweepErr } = await supabase.rpc("expired_hold_ids");
+
+  // FAIL SAFE, NOT FAIL OPEN — deliberately the opposite of the usual rule.
+  // Everywhere else a missing table means carry on; here carrying on means
+  // falling back to the broken clock comparison and cancelling somebody's
+  // live reservation. A dead hold left open for one more day costs the owner
+  // one booking slot. A wrongly cancelled one costs him the customer.
+  if (sweepErr) {
+    console.warn(
+      "expired_hold_ids() unavailable — skipping the hold sweep rather than " +
+        "judging a database deadline by this container's clock. Apply M199.",
+      sweepErr.message,
+    );
+  }
+  const lapsedIds = ((expiredIds ?? []) as { id: string }[]).map((r) => r.id);
+
+  const { data: lapsed } = lapsedIds.length
+    ? await supabase
+        .from("bookings")
+        .select("id, name, email, scooter, start_date, end_date, deposit_paid_at, payment_due_by")
+        .in("id", lapsedIds)
+    : { data: [] as never[] };
 
   for (const b of (lapsed ?? []) as {
     id: string; name: string; email: string | null; scooter: string;
