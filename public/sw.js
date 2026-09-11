@@ -243,7 +243,9 @@
 // v369 - the alerts name the person. The owner's messages carry facts and a
 // tap instead of counts, and the customer waiting by a door is finally told
 // when their booked delivery stops.
-const CACHE = "rr-cache-v369";
+// v370 — a taxi driver's number can be written the way people write it;
+// the admin desk stopped answering with Postgres constraint names.
+const CACHE = "rr-cache-v370";
 
 // Dev hosts get no cache-first anything: their asset URLs are not content
 // hashed, so the immutability that makes cache-first safe does not hold.

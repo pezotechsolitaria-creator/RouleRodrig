@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPrivileged } from "@/lib/supabase/admin";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
 import { audit } from "@/lib/admin/audit";
+import { toE164National } from "@/lib/phone";
 
 function auth(req: NextRequest): NextResponse | null {
   const ok = verifySession(req.cookies.get(COOKIE_NAME)?.value);
@@ -33,6 +34,85 @@ function pick(body: Record<string, unknown>) {
   const out: Record<string, unknown> = {};
   for (const k of ALLOWED) if (k in body) out[k] = body[k];
   return out;
+}
+
+// ── THE FORM AND THE DATABASE DISAGREED ABOUT WHAT A NUMBER IS ─────────────
+//
+// M119 put E.164 on this table — phone must match ^\+[1-9][0-9]{6,15}$ — and
+// nothing on the way in ever enforced it. pick() handed whatever was typed
+// straight to Postgres, so editing a driver and writing their number the way
+// anyone in Rodrigues writes it ("5806 6022", "+230 5806 6022") failed the
+// constraint, and the owner was shown the raw database text:
+//
+//     new row for relation "taxi_drivers" violates check constraint
+//     "taxi_drivers_phone_check"
+//
+// Two separate faults. The number was reasonable and we rejected it; and the
+// rejection was addressed to a database administrator, not to the person who
+// typed it. Both are fixed here rather than in the form, because the API is
+// what the constraint actually guards — a second screen posting to it would
+// otherwise reintroduce the same 500.
+//
+// WHATSAPP HAS THE OPPOSITE TRAP. Its constraint is `null or <regex>`, and a
+// cleared field posts "" — which is not null and does not match, so emptying
+// the box was ALSO a 500. Blank means null here, deliberately.
+
+const NOT_A_NUMBER =
+  "does not look like a phone number. Write it as 5806 6022, or with the " +
+  "country code for a number outside Mauritius (+262 ... for Réunion).";
+
+/**
+ * Put both contact numbers into the shape the column requires, or say plainly
+ * which one cannot be read. Mutates the object about to be written.
+ *
+ * Returns a human sentence on failure — never a constraint name.
+ */
+function normaliseContacts(out: Record<string, unknown>): string | null {
+  if ("name" in out) {
+    // btrim(name) <> '' is a check too, and failed the same illegible way.
+    const name = String(out.name ?? "").trim();
+    if (!name) return "A driver needs a name.";
+    out.name = name;
+  }
+
+  if ("phone" in out) {
+    const raw = String(out.phone ?? "").trim();
+    if (!raw) return "A driver needs a phone number — it is how a ride reaches them.";
+    const e164 = toE164National(raw);
+    if (!e164) return `"${raw}" ${NOT_A_NUMBER}`;
+    out.phone = e164;
+  }
+
+  if ("whatsapp" in out) {
+    const raw = String(out.whatsapp ?? "").trim();
+    if (!raw) {
+      // Not "". The column says `null or matches`, and "" is neither.
+      out.whatsapp = null;
+    } else {
+      const e164 = toE164National(raw);
+      if (!e164) return `The WhatsApp number "${raw}" ${NOT_A_NUMBER}`;
+      out.whatsapp = e164;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Anything Postgres still refuses, said in words.
+ *
+ * A constraint name is a fact about our schema; it tells the person reading it
+ * nothing they can act on. This is the backstop for the checks normaliseContacts
+ * does not know about, so a future constraint degrades to a readable sentence
+ * instead of leaking the schema onto the owner's phone.
+ */
+function readableDbError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("taxi_drivers_phone_check")) return `That phone number ${NOT_A_NUMBER}`;
+  if (m.includes("taxi_drivers_whatsapp_check")) return `That WhatsApp number ${NOT_A_NUMBER}`;
+  if (m.includes("taxi_drivers_name_check")) return "A driver needs a name.";
+  if (m.includes("duplicate key")) return "There is already a driver with those details.";
+  return "That change could not be saved. Nothing was altered.";
 }
 
 /**
@@ -97,7 +177,10 @@ export async function GET(req: NextRequest) {
     )
     .order("featured", { ascending: false })
     .order("created_at", { ascending: true });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("taxi driver list failed", error);
+    return NextResponse.json({ error: "Could not load the drivers." }, { status: 500 });
+  }
 
   // Whether automation will reach them, without revealing the credential.
   const [{ data: waReady }, { data: pushReady }] = await Promise.all([
@@ -141,8 +224,14 @@ export async function POST(req: NextRequest) {
     if (!UUID.test(rotateFor)) return NextResponse.json({ error: "Not found." }, { status: 404 });
     const { data, error } = await supabase.rpc("admin_rotate_driver_token", { p_driver_id: rotateFor });
     if (error) {
-      // RR090 is "no such driver" — the function refusing, not a crash.
-      return NextResponse.json({ error: error.message }, { status: error.code === "RR090" ? 404 : 500 });
+      // RR090 is "no such driver" — the function refusing, not a crash, and its
+      // message is written for a person. Anything else is a real fault, and its
+      // text belongs in the log rather than on the owner's phone.
+      if (error.code === "RR090") {
+        return NextResponse.json({ error: error.message }, { status: 404 });
+      }
+      console.error("admin_rotate_driver_token failed", { rotateFor, error });
+      return NextResponse.json({ error: "Could not make a new link." }, { status: 500 });
     }
     const r = (data ?? {}) as {
       ok?: boolean; reason?: string; message?: string;
@@ -176,8 +265,17 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { data, error } = await supabase.from("taxi_drivers").insert([pick(body)]).select("id, name").single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const row = pick(body);
+  const bad = normaliseContacts(row);
+  // 400, not 500: the request is wrong, not the server. A 500 tells the owner
+  // the platform broke when in fact it read exactly what they typed.
+  if (bad) return NextResponse.json({ error: bad }, { status: 400 });
+
+  const { data, error } = await supabase.from("taxi_drivers").insert([row]).select("id, name").single();
+  if (error) {
+    console.error("taxi driver insert failed", error);
+    return NextResponse.json({ error: readableDbError(error.message) }, { status: 400 });
+  }
   return NextResponse.json(data);
 }
 
@@ -187,8 +285,16 @@ export async function PATCH(req: NextRequest) {
   const { id, ...patch } = await req.json();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
   const supabase = await getPrivileged();
-  const { data, error } = await supabase.from("taxi_drivers").update(pick(patch)).eq("id", id).select("id, name").single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const row = pick(patch);
+  const bad = normaliseContacts(row);
+  if (bad) return NextResponse.json({ error: bad }, { status: 400 });
+
+  const { data, error } = await supabase.from("taxi_drivers").update(row).eq("id", id).select("id, name").single();
+  if (error) {
+    console.error("taxi driver update failed", { id, error });
+    return NextResponse.json({ error: readableDbError(error.message) }, { status: 400 });
+  }
   return NextResponse.json(data);
 }
 
@@ -199,6 +305,19 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
   const supabase = await getPrivileged();
   const { error } = await supabase.from("taxi_drivers").delete().eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    // A driver with rides against them is refused by a foreign key, and that
+    // refusal used to arrive as raw Postgres text too.
+    console.error("taxi driver delete failed", { id, error });
+    const inUse = error.message.toLowerCase().includes("foreign key");
+    return NextResponse.json(
+      {
+        error: inUse
+          ? "This driver has rides on record, so they cannot be deleted. Switch them off instead — they stop being offered work and the history stays."
+          : readableDbError(error.message),
+      },
+      { status: 400 },
+    );
+  }
   return NextResponse.json({ ok: true });
 }
