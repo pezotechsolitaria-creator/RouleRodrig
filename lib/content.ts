@@ -182,6 +182,44 @@ const readContentVersion = unstable_cache(
   { tags: [CONTENT_TAG], revalidate: CONTENT_VERSION_WINDOW_SECONDS },
 );
 
+/**
+ * Strip everything the owner has hidden.
+ *
+ * ── WHY THIS IS ONE FUNCTION AND NOT SIXTY-ONE FILTERS ──────────────────────
+ * `content.recommended.items` is read at 61 places outside /admin — browse
+ * pages, the experiences hub, /explore, the sitemap, schema builders, place
+ * detail pages. Adding `.filter(p => !p.hidden)` to each is a list nobody can
+ * keep complete, and the failure mode is silent: one missed call site and a
+ * listing the owner believes is down is still on the site, still bookable,
+ * still in the sitemap.
+ *
+ * So it happens once, at the door. getContent() is what the public site reads
+ * through; getContentWithStatus() is what /admin reads through and is
+ * deliberately NOT filtered, because an editor has to see a hidden row to
+ * un-hide it. lib/content-cache.test.ts already pins that split.
+ */
+export function withoutHidden(content: SiteContent): SiteContent {
+  const items = content.recommended?.items ?? [];
+  const fleet = content.fleet ?? [];
+  const hiddenPlaces = items.some((p) => p.hidden);
+  const hiddenFleet = fleet.some((v) => v.hidden);
+  // Nothing hidden: hand back the very same object. This runs on every request
+  // and the common case should not allocate two new arrays to change nothing.
+  if (!hiddenPlaces && !hiddenFleet) return content;
+  return {
+    ...content,
+    ...(hiddenFleet ? { fleet: fleet.filter((v) => !v.hidden) } : {}),
+    ...(hiddenPlaces
+      ? {
+          recommended: {
+            ...content.recommended,
+            items: items.filter((p) => !p.hidden),
+          },
+        }
+      : {}),
+  };
+}
+
 export async function getContent(): Promise<SiteContent> {
   // A FAILED VERSION READ MUST NOT COST A BLOB READ. Falling through to the
   // uncached path here would answer a database blip by fetching 148 kB on
@@ -196,10 +234,11 @@ export async function getContent(): Promise<SiteContent> {
   }
 
   try {
-    return await readPublicContentAt(version);
+    return withoutHidden(await readPublicContentAt(version));
   } catch {
     // Uncached fallback, which has its own defaults-on-failure behaviour.
-    return (await getContentWithStatus()).content;
+    // Filtered too — a database blip must not un-hide the owner's listings.
+    return withoutHidden((await getContentWithStatus()).content);
   }
 }
 

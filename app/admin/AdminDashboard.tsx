@@ -44,6 +44,7 @@ import {
   Ban,
   ClipboardList,
   Eye,
+  EyeOff,
   Handshake,
   Store,
   Truck,
@@ -1754,6 +1755,31 @@ function FleetEditor({
               {g.label.toUpperCase()} — {scooter.name || "Untitled"}
             </p>
             <div className="flex items-center gap-4">
+              {/* ── SHOWN / HIDDEN ──────────────────────────────────────
+                  Different from Available below it, and the difference is
+                  the point. Unavailable still RENDERS, dimmed and badged,
+                  because a vehicle out on hire today is back tomorrow and a
+                  visitor should see it exists. Hidden takes it off the site.
+
+                  Before this the only way to take a listing down was Remove,
+                  and deleting from the content row has already destroyed
+                  real inventory on this site once. */}
+              <button
+                type="button"
+                onClick={() => updateScooter(idx, { hidden: !scooter.hidden })}
+                aria-pressed={!scooter.hidden}
+                className={`flex items-center gap-2 text-xs font-dm px-3 py-1.5 rounded-full border transition-colors ${
+                  scooter.hidden
+                    ? "border-white/25 text-muted hover:border-yellow/50 hover:text-yellow"
+                    : "border-yellow/40 text-yellow hover:bg-white/5"
+                }`}
+              >
+                {scooter.hidden ? (
+                  <><EyeOff size={12} /> Hidden</>
+                ) : (
+                  <><Eye size={12} /> On the site</>
+                )}
+              </button>
               {/* Availability toggle */}
               <button
                 type="button"
@@ -5015,6 +5041,33 @@ function ServicesEditor({
                 >
                   View page
                 </a>
+                {/* ── SHOWN / HIDDEN ────────────────────────────────────
+                    These listings had no way to come down at all: the only
+                    control on this row was Remove. So a guest house closing
+                    for a month, or a listing whose photos are not ready, had
+                    to be DELETED and retyped later — and deleting from the
+                    content row has already destroyed real inventory on this
+                    site once.
+
+                    Hidden takes it off the website and out of search and
+                    stops it taking bookings, while the row stays here to be
+                    switched back on. */}
+                <button
+                  type="button"
+                  onClick={() => update(index, { hidden: !it.hidden })}
+                  aria-pressed={!it.hidden}
+                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-dm transition-colors ${
+                    it.hidden
+                      ? "border-white/25 text-muted hover:border-yellow/50 hover:text-yellow"
+                      : "border-yellow/40 text-yellow hover:bg-white/5"
+                  }`}
+                >
+                  {it.hidden ? (
+                    <><EyeOff size={12} /> Hidden</>
+                  ) : (
+                    <><Eye size={12} /> On the site</>
+                  )}
+                </button>
                 <button
                   type="button"
                   onClick={() => remove(index)}

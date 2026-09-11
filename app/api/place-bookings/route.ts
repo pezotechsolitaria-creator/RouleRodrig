@@ -100,7 +100,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const item = content.recommended.items.find((p) => p.id === place_id);
+  // ── HIDDEN MEANS HIDDEN HERE TOO ────────────────────────────────────────
+  // This route reads getContentWithStatus() on purpose (see above: it must
+  // fail closed on a content outage rather than price from defaults), and that
+  // path is deliberately UNFILTERED so /admin can see hidden rows. Which means
+  // the filter in getContent() does not cover this endpoint.
+  //
+  // Without this line a listing the owner has taken down stays bookable to
+  // anyone holding a stale page or a saved link — the booking lands, the money
+  // is taken, and the owner finds out when somebody turns up.
+  const item = content.recommended.items.find(
+    (p) => p.id === place_id && !p.hidden,
+  );
 
   if (!item) {
     // Deliberately the same wording as an unavailable vehicle: it tells the

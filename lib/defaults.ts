@@ -67,6 +67,19 @@ export interface FleetItem {
   price: string;
   unit: string;
   available: boolean;
+  /**
+   * Taken off the website entirely, without being deleted.
+   *
+   * NOT the same as `available: false`, and the difference is the point.
+   * Unavailable still RENDERS — dimmed, badged "Unavailable" — because a
+   * vehicle that is out on hire today is back tomorrow and a visitor should
+   * see it exists. Hidden removes it from the site altogether: a car that was
+   * sold, a listing half-written, a scooter off the road for a month.
+   *
+   * Before this existed the only way to take a listing down was to DELETE it,
+   * and that has already destroyed real inventory on this site once.
+   */
+  hidden?: boolean;
   units?: number;         // how many of this model you own (for availability)
   assets?: FleetAsset[];  // individual physical units — enables exact asset tracking
   soldOutToday?: boolean; // computed at request time: every unit is out on a trip today
@@ -389,6 +402,20 @@ export interface RecommendedPlace {
   link?: string;       // website, booking page or Google Maps link
   linkText?: string;
   whatsapp?: string;   // business WhatsApp — enables the "Book / Enquire" redirect
+  /**
+   * Taken off the website entirely, without being deleted.
+   *
+   * Stays, restaurants, activities and tours had NO way to be hidden — the
+   * only control was Delete. So a guest house closing for a month, or a
+   * listing whose photos are not ready, had to be destroyed and retyped
+   * later. That is how somebody eventually deletes the wrong one.
+   *
+   * Filtered inside getContent(), which is the single door the public site
+   * reads through — sixty-one call sites, none of which needs to know. The
+   * admin reads getContentWithStatus() and still sees hidden rows, which is
+   * what makes them un-hideable.
+   */
+  hidden?: boolean;
   featured?: boolean;  // sponsored placement — shown first with a badge
   bookable?: boolean;  // enables the on-site reservation form + live calendar
   capacity?: number;   // hotel = total rooms · restaurant = seats per slot · activity = spots per date (default 1)
