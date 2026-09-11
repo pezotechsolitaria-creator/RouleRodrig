@@ -4504,6 +4504,76 @@ function RecommendedEditor({
         </Field>
       </div>
 
+      {/* ── WHAT IS ON THE SITE, IN ONE LIST ────────────────────────────────
+          Every listing below this is a FULLY EXPANDED form — photos,
+          description, prices, booking fields. Fine for editing one place,
+          useless for the job the owner actually asked for: "I want to hide
+          Les Mangliers." That meant scrolling past a dozen long forms to
+          reach the right one.
+
+          So the whole list lives here as one line each, with the same toggle
+          icon the section switch above already uses. Find the name, flick the
+          icon, done — no scrolling and nothing expanded.
+
+          Hidden is not deleted: the row stays, dimmed, and flicks back on. */}
+      {rec.items.length > 0 && (
+        <div className="rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] p-5">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <p className="font-syne text-sm font-bold text-offwhite">
+              Show or hide each one
+            </p>
+            <p className="font-dm text-[11px] text-muted/60">
+              {rec.items.filter((it) => it.hidden).length > 0
+                ? `${rec.items.filter((it) => it.hidden).length} hidden`
+                : "all on the site"}
+            </p>
+          </div>
+          <ul className="divide-y divide-white/5">
+            {rec.items.map((it, i) => (
+              <li
+                key={`vis-${it.id}`}
+                className="flex items-center justify-between gap-3 py-2"
+              >
+                <span className="min-w-0">
+                  <span
+                    className={`block truncate font-dm text-sm ${
+                      it.hidden ? "text-muted/50 line-through" : "text-offwhite"
+                    }`}
+                  >
+                    {it.name || `Place ${i + 1}`}
+                  </span>
+                  <span className="font-bebas text-[10px] tracking-[0.18em] text-muted/50">
+                    {it.category === "hotel"
+                      ? "STAY"
+                      : it.category === "restaurant"
+                        ? "RESTAURANT"
+                        : it.isTour
+                          ? "TOUR"
+                          : "ACTIVITY"}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => updateItem(i, { hidden: !it.hidden })}
+                  aria-pressed={!it.hidden}
+                  aria-label={`${it.name || `Place ${i + 1}`}: ${
+                    it.hidden ? "hidden — tap to show" : "on the site — tap to hide"
+                  }`}
+                  title={it.hidden ? "Hidden — tap to show" : "On the site — tap to hide"}
+                  className="shrink-0 text-muted/60 transition-colors hover:text-yellow"
+                >
+                  {it.hidden ? (
+                    <ToggleLeft size={26} />
+                  ) : (
+                    <ToggleRight size={26} className="text-green-400" />
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {rec.items.map((it, i) => (
         <div key={it.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
           <div className="flex items-center justify-between">
