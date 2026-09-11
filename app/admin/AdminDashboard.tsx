@@ -1412,6 +1412,81 @@ function legacyDepositPct(catId: string): number {
   return catId === "car" ? 50 : 25;
 }
 
+/**
+ * "Show or hide each one" — every item in a list, one line each, one icon.
+ *
+ * Every editor in this file renders its items as FULLY EXPANDED forms: photos,
+ * descriptions, prices, booking fields. Right for editing one thing, wrong for
+ * the commonest job there is — "take Les Mangliers off the site" — which meant
+ * scrolling past a dozen long forms to reach one switch.
+ *
+ * Same ToggleRight/ToggleLeft the section switches already use, so it is the
+ * language this dashboard already speaks. A hidden row stays in the list,
+ * struck through: it has to be findable to be switched back on. Hiding is
+ * never deleting — deleting from the content row has already destroyed real
+ * inventory on this site once.
+ */
+function VisibilityList({
+  rows,
+  onToggle,
+  noun = "listing",
+}: {
+  rows: { key: string; name: string; meta?: string; hidden?: boolean }[];
+  onToggle: (i: number) => void;
+  noun?: string;
+}) {
+  if (rows.length === 0) return null;
+  const hiddenCount = rows.filter((r) => r.hidden).length;
+  return (
+    <div className="rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] p-5">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <p className="font-syne text-sm font-bold text-offwhite">
+          Show or hide each one
+        </p>
+        <p className="font-dm text-[11px] text-muted/60">
+          {hiddenCount > 0 ? `${hiddenCount} hidden` : "all on the site"}
+        </p>
+      </div>
+      <ul className="divide-y divide-white/5">
+        {rows.map((r, i) => (
+          <li key={r.key} className="flex items-center justify-between gap-3 py-2">
+            <span className="min-w-0">
+              <span
+                className={`block truncate font-dm text-sm ${
+                  r.hidden ? "text-muted/50 line-through" : "text-offwhite"
+                }`}
+              >
+                {r.name || `${noun} ${i + 1}`}
+              </span>
+              {r.meta && (
+                <span className="font-bebas text-[10px] tracking-[0.18em] text-muted/50">
+                  {r.meta}
+                </span>
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={() => onToggle(i)}
+              aria-pressed={!r.hidden}
+              aria-label={`${r.name || `${noun} ${i + 1}`}: ${
+                r.hidden ? "hidden — tap to show" : "on the site — tap to hide"
+              }`}
+              title={r.hidden ? "Hidden — tap to show" : "On the site — tap to hide"}
+              className="shrink-0 text-muted/60 transition-colors hover:text-yellow"
+            >
+              {r.hidden ? (
+                <ToggleLeft size={26} />
+              ) : (
+                <ToggleRight size={26} className="text-green-400" />
+              )}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function FleetEditor({
   content,
   onChange,
@@ -1715,85 +1790,26 @@ function FleetEditor({
         </button>
       </div>
 
-      {/* ── WHAT IS ON THE SITE, IN ONE LIST ────────────────────────────────
-          The same list the Accommodations section has, for the same reason:
-          every vehicle below this is a fully expanded form — photos, price,
-          specs, description — so taking ONE scooter off the site meant
-          scrolling past all of them to find it.
-
-          One line each, one icon to flick, across every category at once —
-          a car and a kayak are two scrolls apart in the forms below but
-          adjacent here, which is the point when the question is simply
-          "what is currently showing?".
-
-          Hidden is not Unavailable, and both stay separate: unavailable
-          still renders, dimmed and badged, because a scooter out on hire
-          today is back tomorrow. This icon removes it from the site. */}
-      {rows.length > 0 && (
-        <div className="rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] p-5">
-          <div className="mb-3 flex items-baseline justify-between gap-3">
-            <p className="font-syne text-sm font-bold text-offwhite">
-              Show or hide each one
-            </p>
-            <p className="font-dm text-[11px] text-muted/60">
-              {rows.filter((r) => r.item.hidden).length > 0
-                ? `${rows.filter((r) => r.item.hidden).length} hidden`
-                : "all on the site"}
-            </p>
-          </div>
-          <ul className="divide-y divide-white/5">
-            {rows.map(({ item, idx }) => {
-              const label =
-                groupDefs.find((g) => g.id === (item.category ?? "scooter"))
-                  ?.label ?? (item.category ?? "scooter");
-              return (
-                <li
-                  key={`vis-${item.id}`}
-                  className="flex items-center justify-between gap-3 py-2"
-                >
-                  <span className="min-w-0">
-                    <span
-                      className={`block truncate font-dm text-sm ${
-                        item.hidden
-                          ? "text-muted/50 line-through"
-                          : "text-offwhite"
-                      }`}
-                    >
-                      {item.name || `Vehicle ${idx + 1}`}
-                    </span>
-                    <span className="font-bebas text-[10px] tracking-[0.18em] text-muted/50">
-                      {label.toUpperCase()}
-                      {item.available === false && " · UNAVAILABLE"}
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => updateScooter(idx, { hidden: !item.hidden })}
-                    aria-pressed={!item.hidden}
-                    aria-label={`${item.name || `Vehicle ${idx + 1}`}: ${
-                      item.hidden
-                        ? "hidden — tap to show"
-                        : "on the site — tap to hide"
-                    }`}
-                    title={
-                      item.hidden
-                        ? "Hidden — tap to show"
-                        : "On the site — tap to hide"
-                    }
-                    className="shrink-0 text-muted/60 transition-colors hover:text-yellow"
-                  >
-                    {item.hidden ? (
-                      <ToggleLeft size={26} />
-                    ) : (
-                      <ToggleRight size={26} className="text-green-400" />
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
+      {/* One line per vehicle across every category at once: the forms below
+          are grouped, but "what is currently showing?" is not a per-category
+          question. UNAVAILABLE shows in the meta and is deliberately NOT struck
+          through — a scooter out on hire today is back tomorrow, which is a
+          different state from being off the site. */}
+      <VisibilityList
+        noun="vehicle"
+        rows={rows.map(({ item }) => ({
+          key: `vis-${item.id}`,
+          name: item.name,
+          meta:
+            (
+              groupDefs.find((g) => g.id === (item.category ?? "scooter"))?.label ??
+              item.category ??
+              "scooter"
+            ).toUpperCase() + (item.available === false ? " · UNAVAILABLE" : ""),
+          hidden: item.hidden,
+        }))}
+        onToggle={(i) => updateScooter(rows[i].idx, { hidden: !rows[i].item.hidden })}
+      />
 
       {groupDefs.map((g) => {
         const groupRows = rows.filter((r) => (r.item.category ?? "scooter") === g.id);
@@ -2436,6 +2452,41 @@ function GalleryEditor({
                 className="object-cover"
                 unoptimized
               />
+              {/* ── HIDDEN, ON THE PHOTO ITSELF ─────────────────────────
+                  A text list of alt attributes is the wrong control for a
+                  grid of pictures — the owner recognises the photo, not its
+                  filename. So this one toggle sits ON the thumbnail: the
+                  same "flick the icon where it is found", literally.
+
+                  Always visible when hidden (not only on hover), because a
+                  hidden photo has to be findable on a touch screen, where
+                  there is no hover at all. */}
+              {img.hidden && (
+                <div className="absolute inset-0 bg-black/70" aria-hidden />
+              )}
+              <button
+                type="button"
+                onClick={() =>
+                  onChange({
+                    ...content,
+                    gallery: content.gallery.map((g) =>
+                      g.id === img.id ? { ...g, hidden: !g.hidden } : g,
+                    ),
+                  })
+                }
+                aria-pressed={!img.hidden}
+                aria-label={`Photo${img.alt ? ` "${img.alt}"` : ""}: ${
+                  img.hidden ? "hidden — tap to show" : "on the site — tap to hide"
+                }`}
+                title={img.hidden ? "Hidden — tap to show" : "On the site — tap to hide"}
+                className={`absolute left-2 top-2 z-10 rounded-full p-1.5 transition-opacity ${
+                  img.hidden
+                    ? "bg-black/80 text-muted opacity-100"
+                    : "bg-black/60 text-white opacity-0 group-hover:opacity-100"
+                }`}
+              >
+                {img.hidden ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <button
                   onClick={() => handleDelete(img.id)}
@@ -2502,6 +2553,17 @@ function TestimonialsEditor({
           No reviews yet. Add your first customer review below.
         </p>
       )}
+
+      <VisibilityList
+        noun="review"
+        rows={content.testimonials.map((r, i) => ({
+          key: `vis-rev-${i}`,
+          name: r.name || `Review ${i + 1}`,
+          meta: r.text ? `"${r.text.slice(0, 48)}${r.text.length > 48 ? "…" : ""}"` : undefined,
+          hidden: r.hidden,
+        }))}
+        onToggle={(i) => updateReview(i, { hidden: !content.testimonials[i].hidden })}
+      />
 
       {content.testimonials.map((review, idx) => (
         <div
@@ -3974,6 +4036,17 @@ function MapEditor({
         longitude <strong className="text-offwhite">63.4147</strong>).
       </p>
 
+      <VisibilityList
+        noun="place"
+        rows={content.mapLocations.map((l, i) => ({
+          key: `vis-map-${i}`,
+          name: l.name || `Place ${i + 1}`,
+          meta: (l.category ?? "").toUpperCase() || undefined,
+          hidden: l.hidden,
+        }))}
+        onToggle={(i) => updateLoc(i, { hidden: !content.mapLocations[i].hidden })}
+      />
+
       {content.mapLocations.map((loc, idx) => (
         <div
           key={loc.id}
@@ -4150,6 +4223,16 @@ function PlannerEditor({
         schedule automatically based on the visitor&apos;s days and interests.
       </p>
 
+      <VisibilityList
+        noun="activity"
+        rows={activities.map((a, i) => ({
+          key: `vis-act-${i}`,
+          name: a.name || `Activity ${i + 1}`,
+          hidden: a.hidden,
+        }))}
+        onToggle={(i) => update(i, { hidden: !activities[i].hidden })}
+      />
+
       {activities.map((act, idx) => (
         <div key={act.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
           <div className="flex items-center justify-between">
@@ -4293,6 +4376,17 @@ function RideRoutesEditor({
           {hikeCount === 1 ? "trail" : "trails"} → <span className="text-yellow/80">/guide/hiking</span>
         </span>
       </div>
+
+      <VisibilityList
+        noun="route"
+        rows={routes.map((r, i) => ({
+          key: `vis-route-${i}`,
+          name: r.name || `Route ${i + 1}`,
+          meta: ((r.kind ?? "ride") === "hike" ? "HIKE" : "RIDE"),
+          hidden: r.hidden,
+        }))}
+        onToggle={(i) => update(i, { hidden: !routes[i].hidden })}
+      />
 
       {routes.map((r, idx) => (
         <div key={r.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
@@ -4498,6 +4592,17 @@ function UsefulContactsEditor({
         Emergency, taxi and other useful contacts. These show on the website grouped by type, each as a
         tap-to-call number. Entries with a placeholder number (XXXX) stay hidden until you set a real one.
       </p>
+      <VisibilityList
+        noun="contact"
+        rows={list.map((c, i) => ({
+          key: `vis-contact-${i}`,
+          name: c.label || `Contact ${i + 1}`,
+          meta: [c.category?.toUpperCase(), c.number].filter(Boolean).join(" · ") || undefined,
+          hidden: c.hidden,
+        }))}
+        onToggle={(i) => update(i, { hidden: !list[i].hidden })}
+      />
+
       {list.map((c, i) => (
         <div key={c.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between">
@@ -4584,75 +4689,23 @@ function RecommendedEditor({
         </Field>
       </div>
 
-      {/* ── WHAT IS ON THE SITE, IN ONE LIST ────────────────────────────────
-          Every listing below this is a FULLY EXPANDED form — photos,
-          description, prices, booking fields. Fine for editing one place,
-          useless for the job the owner actually asked for: "I want to hide
-          Les Mangliers." That meant scrolling past a dozen long forms to
-          reach the right one.
-
-          So the whole list lives here as one line each, with the same toggle
-          icon the section switch above already uses. Find the name, flick the
-          icon, done — no scrolling and nothing expanded.
-
-          Hidden is not deleted: the row stays, dimmed, and flicks back on. */}
-      {rec.items.length > 0 && (
-        <div className="rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] p-5">
-          <div className="mb-3 flex items-baseline justify-between gap-3">
-            <p className="font-syne text-sm font-bold text-offwhite">
-              Show or hide each one
-            </p>
-            <p className="font-dm text-[11px] text-muted/60">
-              {rec.items.filter((it) => it.hidden).length > 0
-                ? `${rec.items.filter((it) => it.hidden).length} hidden`
-                : "all on the site"}
-            </p>
-          </div>
-          <ul className="divide-y divide-white/5">
-            {rec.items.map((it, i) => (
-              <li
-                key={`vis-${it.id}`}
-                className="flex items-center justify-between gap-3 py-2"
-              >
-                <span className="min-w-0">
-                  <span
-                    className={`block truncate font-dm text-sm ${
-                      it.hidden ? "text-muted/50 line-through" : "text-offwhite"
-                    }`}
-                  >
-                    {it.name || `Place ${i + 1}`}
-                  </span>
-                  <span className="font-bebas text-[10px] tracking-[0.18em] text-muted/50">
-                    {it.category === "hotel"
-                      ? "STAY"
-                      : it.category === "restaurant"
-                        ? "RESTAURANT"
-                        : it.isTour
-                          ? "TOUR"
-                          : "ACTIVITY"}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => updateItem(i, { hidden: !it.hidden })}
-                  aria-pressed={!it.hidden}
-                  aria-label={`${it.name || `Place ${i + 1}`}: ${
-                    it.hidden ? "hidden — tap to show" : "on the site — tap to hide"
-                  }`}
-                  title={it.hidden ? "Hidden — tap to show" : "On the site — tap to hide"}
-                  className="shrink-0 text-muted/60 transition-colors hover:text-yellow"
-                >
-                  {it.hidden ? (
-                    <ToggleLeft size={26} />
-                  ) : (
-                    <ToggleRight size={26} className="text-green-400" />
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <VisibilityList
+        noun="place"
+        rows={rec.items.map((it) => ({
+          key: `vis-${it.id}`,
+          name: it.name,
+          meta:
+            it.category === "hotel"
+              ? "STAY"
+              : it.category === "restaurant"
+                ? "RESTAURANT"
+                : it.isTour
+                  ? "TOUR"
+                  : "ACTIVITY",
+          hidden: it.hidden,
+        }))}
+        onToggle={(i) => updateItem(i, { hidden: !rec.items[i].hidden })}
+      />
 
       {rec.items.map((it, i) => (
         <div key={it.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">
@@ -5188,6 +5241,25 @@ function ServicesEditor({
           </p>
         </div>
       )}
+
+      {/* Follows the world filter above rather than the whole array: the filter
+          answers "what is in Curated", this answers "which of those are
+          showing", and a list showing a different set from the forms beneath it
+          is the confusion the filter exists to prevent. */}
+      <VisibilityList
+        noun="experience"
+        rows={visible.map(({ it }) => {
+          const k =
+            SERVICE_KINDS.find((x) => x.key === it.serviceType) ?? SERVICE_KINDS[0];
+          return {
+            key: `vis-${it.id}`,
+            name: `${k.emoji} ${it.name || `${k.label} — unnamed`}`,
+            meta: k.label.toUpperCase(),
+            hidden: it.hidden,
+          };
+        })}
+        onToggle={(i) => update(visible[i].index, { hidden: !visible[i].it.hidden })}
+      />
 
       {visible.map(({ it, index }) => {
         const kind = SERVICE_KINDS.find((k) => k.key === it.serviceType) ?? SERVICE_KINDS[0];
@@ -5738,6 +5810,20 @@ function FaqEditor({
           <TextInput value={faq.subtitle} onChange={(v) => set({ subtitle: v })} />
         </Field>
       </div>
+
+      {/* An FAQ answer is also structured data: /browse/car and
+          /browse/scooter publish these as FAQPage markup, and Google requires
+          the questions to be VISIBLE on the page carrying it. Hiding one here
+          removes it from BOTH, together — see e2e/faq-schema.spec.ts. */}
+      <VisibilityList
+        noun="question"
+        rows={faq.items.map((it, i) => ({
+          key: `vis-faq-${i}`,
+          name: it.question || `Question ${i + 1}`,
+          hidden: it.hidden,
+        }))}
+        onToggle={(i) => updateItem(i, { hidden: !faq.items[i].hidden })}
+      />
 
       {faq.items.map((it, i) => (
         <div key={it.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-4">

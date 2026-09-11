@@ -162,6 +162,10 @@ export interface ContactContent {
 }
 
 export interface GalleryImage {
+  /** Taken off the website without being deleted. See withoutHidden() in
+   *  lib/content.ts — filtered once at the public door, never per call site. */
+  hidden?: boolean;
+
   id: string;
   src: string;
   alt: string;
@@ -169,6 +173,10 @@ export interface GalleryImage {
 }
 
 export interface TestimonialItem {
+  /** Taken off the website without being deleted. See withoutHidden() in
+   *  lib/content.ts — filtered once at the public door, never per call site. */
+  hidden?: boolean;
+
   id: string;
   name: string;
   origin: string;
@@ -241,6 +249,10 @@ export interface AnnouncementContent {
 }
 
 export interface MapLocation {
+  /** Taken off the website without being deleted. See withoutHidden() in
+   *  lib/content.ts — filtered once at the public door, never per call site. */
+  hidden?: boolean;
+
   id: string;
   name: string;
   nameFr?: string;
@@ -273,6 +285,10 @@ export interface MapLocation {
 }
 
 export interface PlannerActivity {
+  /** Taken off the website without being deleted. See withoutHidden() in
+   *  lib/content.ts — filtered once at the public door, never per call site. */
+  hidden?: boolean;
+
   id: string;
   name: string;
   nameFr?: string;
@@ -296,6 +312,10 @@ export interface PlannerActivity {
 }
 
 export interface RideRoute {
+  /** Taken off the website without being deleted. See withoutHidden() in
+   *  lib/content.ts — filtered once at the public door, never per call site. */
+  hidden?: boolean;
+
   id: string;
   name: string;
   nameFr?: string;
@@ -361,6 +381,10 @@ export interface Sponsor {
 }
 
 export interface UsefulContact {
+  /** Taken off the website without being deleted. See withoutHidden() in
+   *  lib/content.ts — filtered once at the public door, never per call site. */
+  hidden?: boolean;
+
   id: string;
   category: "emergency" | "taxi" | "other";
   label: string;
@@ -631,6 +655,10 @@ export interface FoodConciergeContent {
 }
 
 export interface FaqItem {
+  /** Taken off the website without being deleted. See withoutHidden() in
+   *  lib/content.ts — filtered once at the public door, never per call site. */
+  hidden?: boolean;
+
   id: string;
   question: string;
   answer: string;

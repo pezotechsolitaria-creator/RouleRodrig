@@ -198,27 +198,64 @@ const readContentVersion = unstable_cache(
  * deliberately NOT filtered, because an editor has to see a hidden row to
  * un-hide it. lib/content-cache.test.ts already pins that split.
  */
+/**
+ * Every top-level array whose items can be individually hidden.
+ *
+ * Listed rather than inferred: a key added here is a promise that the public
+ * site filters it, and a silent "we filter anything with a .hidden" rule would
+ * quietly start filtering a list nobody intended.
+ */
+const HIDEABLE_LISTS = [
+  "fleet",
+  "gallery",
+  "testimonials",
+  "mapLocations",
+  "plannerActivities",
+  "rideRoutes",
+  "usefulContacts",
+] as const;
+
 export function withoutHidden(content: SiteContent): SiteContent {
-  const items = content.recommended?.items ?? [];
-  const fleet = content.fleet ?? [];
-  const hiddenPlaces = items.some((p) => p.hidden);
-  const hiddenFleet = fleet.some((v) => v.hidden);
-  // Nothing hidden: hand back the very same object. This runs on every request
-  // and the common case should not allocate two new arrays to change nothing.
-  if (!hiddenPlaces && !hiddenFleet) return content;
-  return {
-    ...content,
-    ...(hiddenFleet ? { fleet: fleet.filter((v) => !v.hidden) } : {}),
-    ...(hiddenPlaces
-      ? {
-          recommended: {
-            ...content.recommended,
-            items: items.filter((p) => !p.hidden),
-          },
-        }
-      : {}),
-  };
+  const out: Record<string, unknown> = { ...content };
+  let changed = false;
+
+  for (const key of HIDEABLE_LISTS) {
+    const list = (content as unknown as Record<string, unknown>)[key];
+    if (!Array.isArray(list)) continue;
+    const kept = list.filter((it) => !(it as { hidden?: boolean })?.hidden);
+    if (kept.length !== list.length) {
+      out[key] = kept;
+      changed = true;
+    }
+  }
+
+  // recommended.items is nested, and it carries BOTH the Accommodations &
+  // Activities listings and the Experiences ones — the same array, two editors.
+  const items = content.recommended?.items;
+  if (Array.isArray(items)) {
+    const kept = items.filter((p) => !p.hidden);
+    if (kept.length !== items.length) {
+      out.recommended = { ...content.recommended, items: kept };
+      changed = true;
+    }
+  }
+
+  // The FAQ lives under faq.items on its own section object.
+  const faq = (content as unknown as { faq?: { items?: { hidden?: boolean }[] } }).faq;
+  if (Array.isArray(faq?.items)) {
+    const kept = faq.items.filter((q) => !q.hidden);
+    if (kept.length !== faq.items.length) {
+      out.faq = { ...faq, items: kept };
+      changed = true;
+    }
+  }
+
+  // Nothing hidden: hand back the very same object. This runs on every public
+  // request and the common case must not allocate a dozen arrays to change
+  // nothing.
+  return changed ? (out as unknown as SiteContent) : content;
 }
+
 
 export async function getContent(): Promise<SiteContent> {
   // A FAILED VERSION READ MUST NOT COST A BLOB READ. Falling through to the

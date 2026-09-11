@@ -179,23 +179,85 @@ describe("the toggle is on every list that can be hidden", () => {
     });
   }
 
-  for (const editor of ["RecommendedEditor", "FleetEditor"]) {
+  for (const editor of [
+    "RecommendedEditor", // Accommodations & Activities
+    "FleetEditor", // Vehicles
+    "ServicesEditor", // Experiences
+    "TestimonialsEditor", // Reviews
+    "MapEditor", // Island map places
+    "PlannerEditor", // Trip planner
+    "RideRoutesEditor", // Taxi routes & hikes
+    "UsefulContactsEditor", // Contacts
+    "FaqEditor", // FAQ questions
+  ]) {
     it(`${editor} has the one-line list, not just a buried toggle`, () => {
       // The owner asked for this twice. The first toggle worked and was
       // useless: every row in these editors is a fully expanded form, so
       // reaching ONE listing meant scrolling past all of them. What was
       // actually wanted is a compact list — name, kind, one icon to flick.
+      // One shared <VisibilityList>, not ten copies: the copy-per-editor
+      // version is how three of them ended up subtly different.
       const body = bodyOf(editor);
       expect(body, `${editor} has no visibility list`).toContain(
-        "Show or hide each one",
+        "<VisibilityList",
       );
-      // And it has to say how many are down without the owner counting.
-      expect(body).toMatch(/hidden`\s*:\s*"all on the site"/);
+      expect(body, `${editor} never sets hidden`).toMatch(/hidden: !/);
     });
   }
 
   it("the Accommodations list also SHOWS which rows are hidden", () => {
     // A long list of guest houses cannot be scanned by row title alone.
     expect(bodyOf("RecommendedEditor")).toContain("HIDDEN");
+  });
+});
+
+describe("every hideable list is actually filtered", () => {
+  // A toggle that writes a flag nothing reads is worse than no toggle: the
+  // owner believes a listing is down and it is still on the site.
+  const CONTENT = readFileSync(join(process.cwd(), "lib/content.ts"), "utf8");
+
+  for (const key of [
+    "fleet",
+    "gallery",
+    "testimonials",
+    "mapLocations",
+    "plannerActivities",
+    "rideRoutes",
+    "usefulContacts",
+  ]) {
+    it(`${key} is in HIDEABLE_LISTS`, () => {
+      const list = CONTENT.slice(
+        CONTENT.indexOf("const HIDEABLE_LISTS"),
+        CONTENT.indexOf("] as const"),
+      );
+      expect(list).toContain(`"${key}"`);
+    });
+  }
+
+  it("covers the two nested lists as well", () => {
+    // recommended.items carries BOTH Accommodations and Experiences — one
+    // array, two editors — and faq.items sits on its own section object, so
+    // neither is reachable by the top-level loop.
+    expect(CONTENT).toContain("content.recommended?.items");
+    expect(CONTENT).toMatch(/faq\?\.items/);
+  });
+
+  it("hides a gallery photo and an FAQ question", () => {
+    const out = withoutHidden({
+      ...DEFAULT_CONTENT,
+      gallery: [
+        { id: "a", src: "", alt: "", uploadedAt: "" },
+        { id: "b", src: "", alt: "", uploadedAt: "", hidden: true },
+      ],
+      faq: {
+        ...DEFAULT_CONTENT.faq,
+        items: [
+          { question: "keep", answer: "" },
+          { question: "gone", answer: "", hidden: true },
+        ],
+      },
+    } as never);
+    expect(out.gallery.map((g) => g.id)).toEqual(["a"]);
+    expect(out.faq.items.map((q) => q.question)).toEqual(["keep"]);
   });
 });
