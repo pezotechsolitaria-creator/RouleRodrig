@@ -6,6 +6,7 @@ import {
 } from "./channel";
 import {
   filterFix, isOnRodrigues, publishIntervalMs,
+  gradeIsDrawable, PERSIST_FLOOR_MS,
   type Fix, type TrackingStatus,
 } from "./model";
 
@@ -236,11 +237,34 @@ export function useDriverTracking({
           // Drift and out-of-order frames are normal and constant; they are not
           // worth telling anybody about, and saying "weak signal" every time a
           // parked car twitches would train drivers to ignore the message.
+
+          // ── THIS USED TO RETURN HERE, ABOVE BOTH SINKS ──────────────────
+          // No broadcast AND no database write. So a driver in a valley, or a
+          // parked one, wrote nothing at all — while the customer's map went
+          // on presenting the last good fix as LIVE for stale_location_minutes
+          // (ten by default). The owner hit this and read it as the route's
+          // fault, because the coastal road holds a 10 m fix and the inland
+          // road does not. Same driver, same phone, different sky.
+          //
+          // The position is still real. It is only too vague to DRAW, or too
+          // small a movement to be worth a message. Either way it is proof the
+          // driver is there, so it reaches the database on the floor below and
+          // the customer's clock keeps telling the truth.
+          if (decision.reason !== "invalid" && decision.grade !== "reject") {
+            const nowR = Date.now();
+            if (nowR - lastPersist.current >= PERSIST_FLOOR_MS) {
+              lastPersist.current = nowR;
+              void persist(fix);
+            }
+          }
           return;
         }
 
         const good = decision.fix;
-        setGps("live");
+        // "poor" is no longer a dead end — it is a weaker fix that still gets
+        // published, and the driver should see which of the two they are on
+        // rather than believing the app has stopped.
+        setGps(decision.grade === "precise" ? "live" : "poor");
         fixRef.current = good;
         setLastFix(good);
 
@@ -251,7 +275,10 @@ export function useDriverTracking({
         // of idling taxis is exactly how a 2,000,000-message monthly allowance
         // gets spent on nothing happening.
         const interval = publishIntervalMs(good.speedKmh);
-        if (c.channelKey && now - lastPublish.current >= interval) {
+        // persist_only: real enough to prove the driver is there, too vague to
+        // put a confident dot on one of two parallel roads. Database, not map.
+        const drawable = gradeIsDrawable(decision.grade);
+        if (drawable && c.channelKey && now - lastPublish.current >= interval) {
           lastPublish.current = now;
           publisher.current?.publish(good);
         }

@@ -4,6 +4,10 @@ import {
   lastSeenLabel, approxEta, formatEta, formatDistance, isOnRodrigues,
   activeTarget, TRACKING_CUSTOMER_STATUS, TRACKING_ADMIN_STATUS, shouldRefit, isFramableSize, filterFix, publishIntervalMs,
   type Fix,
+  gradeAccuracy,
+  gradeIsDrawable,
+  POOR_ACCURACY_M,
+  PERSIST_FLOOR_MS,
 } from "./model";
 
 // Real Rodrigues coordinates, from lib/rides/places.ts — the same gazetteer the
@@ -311,12 +315,63 @@ describe("filterFix — the GPS quality pipeline", () => {
     if (d.accept) expect(d.reason).toBe("first");
   });
 
-  it("REFUSES a fix too imprecise to place on a road", () => {
-    // A wifi/cell fallback. Drawn as a confident dot it puts the driver on the
-    // wrong road entirely.
-    expect(filterFix(null, base({ accuracyM: 120 })).accept).toBe(false);
-    expect(filterFix(null, base({ accuracyM: 51 })).accept).toBe(false);
-    expect(filterFix(null, base({ accuracyM: 50 })).accept).toBe(true);
+  // ── CHANGED DELIBERATELY: 51 m USED TO BE REFUSED ────────────────────────
+  //
+  // This test previously required accuracyM 51 and 120 to be REJECTED, and
+  // useDriverTracking returned on a rejection above BOTH sinks — no broadcast
+  // and no database write. So a driver whose accuracy degraded went silent,
+  // and the customer's map presented the last good fix as live for ten
+  // minutes. The owner reported it as route-dependent: the coastal road holds
+  // a 10 m fix, the inland road through the valleys does not.
+  //
+  // A 90 m fix cannot say which of two parallel roads he is on. It says
+  // perfectly well that he is near Mont Lubin and still moving, which is the
+  // question being asked. Accuracy grades now; it does not gate.
+  it("grades a fix by accuracy instead of refusing it", () => {
+    expect(gradeAccuracy(null)).toBe("precise");
+    expect(gradeAccuracy(50)).toBe("precise");
+    expect(gradeAccuracy(51)).toBe("approximate");
+    expect(gradeAccuracy(150)).toBe("approximate");
+    expect(gradeAccuracy(151)).toBe("persist_only");
+    expect(gradeAccuracy(2000)).toBe("persist_only");
+    expect(gradeAccuracy(2001)).toBe("reject");
+  });
+
+  it("still accepts a degraded fix, and says it is degraded", () => {
+    const d = filterFix(null, base({ accuracyM: 120 }));
+    expect(d.accept).toBe(true);
+    if (d.accept) expect(d.grade).toBe("approximate");
+  });
+
+  it("keeps a very vague fix out of the map but not out of the database", () => {
+    // 400 m cannot be drawn honestly. It is still proof the driver is there,
+    // and the whole bug was throwing that proof away.
+    const d = filterFix(null, base({ accuracyM: 400 }));
+    expect(d.accept).toBe(true);
+    if (d.accept) {
+      expect(d.grade).toBe("persist_only");
+      expect(gradeIsDrawable(d.grade)).toBe(false);
+    }
+  });
+
+  it("REFUSES only a fix that belongs to another village", () => {
+    const d = filterFix(null, base({ accuracyM: 2500 }));
+    expect(d.accept).toBe(false);
+    if (!d.accept) expect(d.reason).toBe("imprecise");
+  });
+
+  it("wires the constant that was written for this and never used", () => {
+    // POOR_ACCURACY_M sat in model.ts with zero references, with a comment
+    // describing exactly this job.
+    expect(gradeAccuracy(POOR_ACCURACY_M)).toBe("approximate");
+    expect(gradeAccuracy(POOR_ACCURACY_M + 1)).toBe("persist_only");
+  });
+
+  it("never lets a refusal be silent for longer than the live window", () => {
+    // freshness() calls anything under 60 s "live". A heartbeat inside that
+    // window is what stops the customer's screen claiming live while the
+    // driver is unreachable.
+    expect(PERSIST_FLOOR_MS).toBeLessThan(60_000);
   });
 
   it("REFUSES drift: a stationary phone wandering a few metres", () => {

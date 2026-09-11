@@ -149,6 +149,57 @@ export function isOnRodrigues(lat: number, lng: number): boolean {
  */
 export const POOR_ACCURACY_M = 150;
 
+// ── A BAD FIX IS NOT NO FIX ─────────────────────────────────────────────────
+//
+// filterFix used to REFUSE anything over TRACKING_ACCURACY_M (50 m), and
+// useDriverTracking returned on a refusal above BOTH sinks — no broadcast and
+// no database write. So a driver whose accuracy degraded went completely
+// silent, while the customer's map kept showing the last good fix as LIVE for
+// stale_location_minutes (10 by default).
+//
+// The owner hit this and read it as route-dependent: tracking "worked" on the
+// road the app suggested and froze when he took another. It is not the route.
+// It is the sky. The coastal road has open sky and gives 5-15 m; the inland
+// road through the valleys gives a wifi/cell fallback at 60-200 m, every fix
+// of which was thrown away. Same driver, same phone, different accuracy.
+//
+// A 90 m fix is not good enough to assert which of two parallel roads somebody
+// is on. It is easily good enough to say "he is near Mont Lubin and still
+// moving", which is the entire question a customer and an owner are asking.
+// So accuracy now GRADES a fix instead of gating it:
+//
+//   precise       <= 50 m    draw a confident dot, as today
+//   approximate   <= 150 m   draw it with an accuracy ring, say "approximate"
+//   persist_only  <= 2000 m  too vague to draw, still proof of life: written
+//                            to the database so recorded_at advances and the
+//                            customer's screen stops claiming this is live
+//   reject        > 2000 m   a cell-tower fix in another village
+export type FixGrade = "precise" | "approximate" | "persist_only" | "reject";
+
+export function gradeAccuracy(accuracyM: number | null | undefined): FixGrade {
+  if (accuracyM == null || !Number.isFinite(accuracyM)) return "precise";
+  if (accuracyM <= TRACKING_ACCURACY_M) return "precise";
+  if (accuracyM <= POOR_ACCURACY_M) return "approximate";
+  if (accuracyM <= USELESS_ACCURACY_M) return "persist_only";
+  return "reject";
+}
+
+/** May a fix of this grade be drawn on the customer's map at all? */
+export function gradeIsDrawable(g: FixGrade): boolean {
+  return g === "precise" || g === "approximate";
+}
+
+/**
+ * The floor under silence.
+ *
+ * Whatever the pipeline decides, something is written at least this often while
+ * a job is live. 45 s because freshness() calls anything under 60 s "live" —
+ * a heartbeat inside that window means the customer's screen can never claim
+ * live while the driver is actually unreachable, which is the failure that let
+ * a frozen dot look like a moving one for ten minutes.
+ */
+export const PERSIST_FLOOR_MS = 45_000;
+
 /** Fixes worse than this are dropped outright rather than shown as approximate. */
 export const USELESS_ACCURACY_M = 2000;
 
@@ -378,8 +429,13 @@ export const STATIONARY_KMH = 2;
 export const SMOOTHING_ALPHA = 0.35;
 
 export type FilterDecision =
-  | { accept: true; fix: Fix; reason: "first" | "moving" | "smoothed" }
-  | { accept: false; reason: "imprecise" | "impossible" | "drift" | "invalid" | "stale" };
+  | { accept: true; fix: Fix; reason: "first" | "moving" | "smoothed"; grade: FixGrade }
+  | {
+      accept: false;
+      reason: "imprecise" | "impossible" | "drift" | "invalid" | "stale";
+      /** Absent only when the reading was not a position at all. */
+      grade?: FixGrade;
+    };
 
 /**
  * The whole pipeline, as one decision.
@@ -395,28 +451,30 @@ export function filterFix(prev: Fix | null, next: Fix): FilterDecision {
   if (Math.abs(next.lat) > 90 || Math.abs(next.lng) > 180) {
     return { accept: false, reason: "invalid" };
   }
-  // Too imprecise to place on a road.
-  if (next.accuracyM != null && next.accuracyM > TRACKING_ACCURACY_M) {
-    return { accept: false, reason: "imprecise" };
-  }
-  if (!prev) return { accept: true, fix: next, reason: "first" };
+  // Accuracy no longer REFUSES — it grades. Only a fix so vague it belongs to
+  // another village is thrown away; everything else is still proof of life.
+  // See the note on FixGrade above: this is the change that stopped a driver
+  // going silent on the inland road.
+  const grade = gradeAccuracy(next.accuracyM);
+  if (grade === "reject") return { accept: false, reason: "imprecise", grade };
+  if (!prev) return { accept: true, fix: next, reason: "first", grade };
 
   // Out-of-order callbacks happen. Accepting a late one walks the marker back.
-  if (next.at <= prev.at) return { accept: false, reason: "stale" };
+  if (next.at <= prev.at) return { accept: false, reason: "stale", grade };
 
   const metres = haversineKm(prev.lat, prev.lng, next.lat, next.lng) * 1000;
 
   // Drift: the device says it is not moving, and it has barely moved.
   const speed = next.speedKmh ?? 0;
   if (speed < STATIONARY_KMH && metres < DRIFT_RADIUS_M) {
-    return { accept: false, reason: "drift" };
+    return { accept: false, reason: "drift", grade };
   }
 
   // Impossible: no vehicle on this island does 160 km/h.
   const hours = (next.at - prev.at) / 3_600_000;
   if (hours > 0 && metres > 30) {
     const impliedKmh = metres / 1000 / hours;
-    if (impliedKmh > 160) return { accept: false, reason: "impossible" };
+    if (impliedKmh > 160) return { accept: false, reason: "impossible", grade };
   }
 
   // Real movement, lightly smoothed toward the reading.
@@ -424,6 +482,7 @@ export function filterFix(prev: Fix | null, next: Fix): FilterDecision {
   return {
     accept: true,
     reason: metres >= DRIFT_RADIUS_M ? "moving" : "smoothed",
+    grade,
     fix: {
       ...next,
       // EMA: a is the weight kept from the PREVIOUS position, so 0.35 means the
