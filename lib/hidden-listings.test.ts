@@ -144,3 +144,43 @@ describe("a hidden listing stops taking bookings", () => {
     expect(code).toMatch(/p\.id === place_id && !p\.hidden/);
   });
 });
+
+describe("the toggle is on every list that can be hidden", () => {
+  // ── THE BUG THIS TEST EXISTS FOR ──────────────────────────────────────────
+  // I shipped the hide toggle and put it in ServicesEditor, believing it was
+  // the Accommodations & Activities editor. Both edit
+  // `content.recommended.items`; only one of them is the list the owner meant.
+  // The owner came back with "I want it especially for accommodations and
+  // activities" — it was missing from precisely the list they asked for.
+  //
+  // A field on the type and a filter in getContent() are worth nothing if the
+  // button that sets the field is on the wrong screen.
+  const ADMIN = readFileSync(
+    join(process.cwd(), "app/admin/AdminDashboard.tsx"),
+    "utf8",
+  );
+
+  /** The source of one top-level function, up to the next one. */
+  function bodyOf(name: string): string {
+    const start = ADMIN.indexOf(`function ${name}(`);
+    expect(start, `${name} not found`).toBeGreaterThan(-1);
+    const next = ADMIN.indexOf("\nfunction ", start + 1);
+    return ADMIN.slice(start, next === -1 ? undefined : next);
+  }
+
+  for (const editor of [
+    "RecommendedEditor", // Accommodations & Activities — stays, restaurants, activities, tours
+    "ServicesEditor", // Experiences / services
+    "FleetEditor", // Vehicles
+  ]) {
+    it(`${editor} can hide a row`, () => {
+      const body = bodyOf(editor);
+      expect(body, `${editor} has no hidden toggle`).toMatch(/hidden: !\w+\.hidden/);
+    });
+  }
+
+  it("the Accommodations list also SHOWS which rows are hidden", () => {
+    // A long list of guest houses cannot be scanned by row title alone.
+    expect(bodyOf("RecommendedEditor")).toContain("HIDDEN");
+  });
+});

@@ -4514,6 +4514,13 @@ function RecommendedEditor({
                   <Star size={8} className="fill-yellow" /> SPONSORED
                 </span>
               )}
+              {it.hidden && (
+                // Scanning a long list, the row title alone cannot tell you a
+                // listing is down. The chip can.
+                <span className="flex items-center gap-1 rounded-full border border-white/20 bg-white/5 px-2 py-0.5 font-bebas text-[9px] tracking-[0.15em] text-muted">
+                  <EyeOff size={8} /> HIDDEN
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -4522,6 +4529,33 @@ function RecommendedEditor({
                 className={`flex items-center gap-1.5 text-xs font-dm px-3 py-1.5 rounded-full border transition-colors ${it.featured ? "border-yellow/40 text-yellow bg-yellow/10" : "border-[#2a2a2a] text-muted/60 hover:border-yellow/30 hover:text-yellow"}`}
               >
                 <Star size={11} /> {it.featured ? "Sponsored" : "Make sponsored"}
+              </button>
+              {/* ── SHOWN / HIDDEN ──────────────────────────────────────
+                  THIS is the Accommodations & Activities list — the guest
+                  houses, restaurants, activities and tours. Until now the
+                  only control that could take one down was Remove beside it,
+                  so a place closing for a month had to be DELETED and
+                  retyped later. Deleting from the content row has already
+                  destroyed real inventory on this site once.
+
+                  Hidden takes it off the website, out of the sitemap and
+                  out of booking, while the row stays here to be switched
+                  back on. */}
+              <button
+                type="button"
+                onClick={() => updateItem(i, { hidden: !it.hidden })}
+                aria-pressed={!it.hidden}
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-dm transition-colors ${
+                  it.hidden
+                    ? "border-white/25 text-muted hover:border-yellow/50 hover:text-yellow"
+                    : "border-yellow/40 text-yellow hover:bg-white/5"
+                }`}
+              >
+                {it.hidden ? (
+                  <><EyeOff size={12} /> Hidden</>
+                ) : (
+                  <><Eye size={12} /> On the site</>
+                )}
               </button>
               <button type="button" onClick={() => removeItem(i)} className="flex items-center gap-1.5 text-xs font-dm text-muted/60 hover:text-red-400 transition-colors">
                 <Trash2 size={12} /> Remove
