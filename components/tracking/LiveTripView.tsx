@@ -341,6 +341,17 @@ export default function LiveTripView({
                     bearing: fix.heading,
                     stale,
                     vehicle: "car",
+                    // ── SAY HOW SURE WE ARE ───────────────────────────────
+                    // Fixes between 50 m and 150 m used to be thrown away by
+                    // filterFix, so the dot was always precise or absent. It
+                    // is now published, because throwing it away is what made
+                    // a driver on the inland road look parked for ten minutes.
+                    //
+                    // Published without this, it would be the opposite lie: a
+                    // confident 12 px dot asserting one of two parallel roads
+                    // off a reading that cannot tell them apart. The ring is
+                    // the honesty that makes publishing it safe.
+                    accuracyM: fix.accuracyM ?? undefined,
                   }
                 : null
             }

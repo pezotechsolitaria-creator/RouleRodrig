@@ -10,7 +10,9 @@ import {
 } from "@/lib/tracking/tiles";
 import { guardTiles } from "@/lib/tracking/tile-fallback";
 import { createSmoothMarker, type SmoothMarker } from "@/lib/tracking/smooth-marker";
-import { shouldRefit, isFramableSize } from "@/lib/tracking/model";
+import { shouldRefit, isFramableSize,
+  TRACKING_ACCURACY_M,
+} from "@/lib/tracking/model";
 import { labelsForZoom } from "@/lib/tracking/place-labels";
 
 // ── THE MAP, FOR EVERY SURFACE THAT NEEDS ONE ───────────────────────────────
@@ -41,6 +43,15 @@ export type MapPin = {
   /** Dims the marker and stops the pulse — for a position we no longer trust. */
   stale?: boolean;
   vehicle?: "car" | "bike" | "van" | "truck";
+  /**
+   * Reported GPS accuracy in metres. Drawn as a ring past
+   * TRACKING_ACCURACY_M — see the ring effect below.
+   *
+   * Was read through a cast because it was never declared here, which is why
+   * nothing noticed that no caller passed it and the ring had never once been
+   * drawn in production.
+   */
+  accuracyM?: number;
   onClick?: () => void;
   selected?: boolean;
 };
@@ -733,13 +744,21 @@ export default function TrackingMap({
 
   // Accuracy is drawn only when it is BAD. A 5-metre circle is invisible noise;
   // a 400-metre one explains why the dot is not where the customer expects.
+  //
+  // The floor was 120 m, chosen when anything over 50 m never reached the map
+  // at all — filterFix refused it. Now that a degraded fix IS published rather
+  // than being dropped into silence, the band that most needs explaining is
+  // exactly 50-120 m: precise enough to place a dot, not precise enough to
+  // choose between two roads a hundred metres apart. Drawn from
+  // TRACKING_ACCURACY_M so the ring appears at exactly the point the fix stops
+  // being called precise, and the two can never drift apart.
   useEffect(() => {
     const leaflet = L.current;
     const m = map.current;
     if (!leaflet || !m || !driver) return;
-    const acc = (driver as MapPin & { accuracyM?: number }).accuracyM;
+    const acc = driver.accuracyM;
     if (accuracyRing.current) { m.removeLayer(accuracyRing.current); accuracyRing.current = null; }
-    if (acc && acc > 120) {
+    if (acc && acc > TRACKING_ACCURACY_M) {
       accuracyRing.current = leaflet
         .circle([driver.lat, driver.lng], {
           radius: acc, color: "#F5C842", weight: 1, opacity: 0.3,
