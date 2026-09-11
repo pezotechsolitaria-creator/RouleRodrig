@@ -179,6 +179,21 @@ describe("the toggle is on every list that can be hidden", () => {
     });
   }
 
+  for (const editor of ["RecommendedEditor", "FleetEditor"]) {
+    it(`${editor} has the one-line list, not just a buried toggle`, () => {
+      // The owner asked for this twice. The first toggle worked and was
+      // useless: every row in these editors is a fully expanded form, so
+      // reaching ONE listing meant scrolling past all of them. What was
+      // actually wanted is a compact list — name, kind, one icon to flick.
+      const body = bodyOf(editor);
+      expect(body, `${editor} has no visibility list`).toContain(
+        "Show or hide each one",
+      );
+      // And it has to say how many are down without the owner counting.
+      expect(body).toMatch(/hidden`\s*:\s*"all on the site"/);
+    });
+  }
+
   it("the Accommodations list also SHOWS which rows are hidden", () => {
     // A long list of guest houses cannot be scanned by row title alone.
     expect(bodyOf("RecommendedEditor")).toContain("HIDDEN");

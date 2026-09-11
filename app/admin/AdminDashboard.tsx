@@ -1715,6 +1715,86 @@ function FleetEditor({
         </button>
       </div>
 
+      {/* ── WHAT IS ON THE SITE, IN ONE LIST ────────────────────────────────
+          The same list the Accommodations section has, for the same reason:
+          every vehicle below this is a fully expanded form — photos, price,
+          specs, description — so taking ONE scooter off the site meant
+          scrolling past all of them to find it.
+
+          One line each, one icon to flick, across every category at once —
+          a car and a kayak are two scrolls apart in the forms below but
+          adjacent here, which is the point when the question is simply
+          "what is currently showing?".
+
+          Hidden is not Unavailable, and both stay separate: unavailable
+          still renders, dimmed and badged, because a scooter out on hire
+          today is back tomorrow. This icon removes it from the site. */}
+      {rows.length > 0 && (
+        <div className="rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] p-5">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <p className="font-syne text-sm font-bold text-offwhite">
+              Show or hide each one
+            </p>
+            <p className="font-dm text-[11px] text-muted/60">
+              {rows.filter((r) => r.item.hidden).length > 0
+                ? `${rows.filter((r) => r.item.hidden).length} hidden`
+                : "all on the site"}
+            </p>
+          </div>
+          <ul className="divide-y divide-white/5">
+            {rows.map(({ item, idx }) => {
+              const label =
+                groupDefs.find((g) => g.id === (item.category ?? "scooter"))
+                  ?.label ?? (item.category ?? "scooter");
+              return (
+                <li
+                  key={`vis-${item.id}`}
+                  className="flex items-center justify-between gap-3 py-2"
+                >
+                  <span className="min-w-0">
+                    <span
+                      className={`block truncate font-dm text-sm ${
+                        item.hidden
+                          ? "text-muted/50 line-through"
+                          : "text-offwhite"
+                      }`}
+                    >
+                      {item.name || `Vehicle ${idx + 1}`}
+                    </span>
+                    <span className="font-bebas text-[10px] tracking-[0.18em] text-muted/50">
+                      {label.toUpperCase()}
+                      {item.available === false && " · UNAVAILABLE"}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => updateScooter(idx, { hidden: !item.hidden })}
+                    aria-pressed={!item.hidden}
+                    aria-label={`${item.name || `Vehicle ${idx + 1}`}: ${
+                      item.hidden
+                        ? "hidden — tap to show"
+                        : "on the site — tap to hide"
+                    }`}
+                    title={
+                      item.hidden
+                        ? "Hidden — tap to show"
+                        : "On the site — tap to hide"
+                    }
+                    className="shrink-0 text-muted/60 transition-colors hover:text-yellow"
+                  >
+                    {item.hidden ? (
+                      <ToggleLeft size={26} />
+                    ) : (
+                      <ToggleRight size={26} className="text-green-400" />
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       {groupDefs.map((g) => {
         const groupRows = rows.filter((r) => (r.item.category ?? "scooter") === g.id);
         const gnoun = KIND_DEFAULTS[vehicleKind(g.id, g.label)].noun;
