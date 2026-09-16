@@ -40,7 +40,7 @@ const MAJOR = new Set([
   "grand-baie", "port-sud-est", "st-francois", "riviere-banane",
 ]);
 
-export const PLACE_LABELS: PlaceLabel[] = RIDE_PLACES.flatMap((p) =>
+const PLACE_LABELS_UNSORTED: PlaceLabel[] = RIDE_PLACES.flatMap((p) =>
   // A place with no coordinates cannot be drawn. The gazetteer allows null for
   // "somewhere else", which exists so a customer is never refused a booking.
   p.lat == null || p.lng == null
@@ -54,7 +54,69 @@ export const PLACE_LABELS: PlaceLabel[] = RIDE_PLACES.flatMap((p) =>
       }],
 );
 
-/** What belongs on screen at this zoom. */
+// ── TWO NAMES FOR ONE PLACE IS WORSE THAN NO NAME ──────────────────────────
+//
+// The owner sent a screenshot of the admin map around Graviers carrying, on
+// one screen, "Graviers", "Graviers beach", and a third "Graviers" printed
+// into the satellite imagery itself. His words: "there are 2 graviers u shows
+// me on admin dashboard".
+//
+// The gazetteer holds both, 505 m apart:
+//   graviers        -19.7014, 63.4794
+//   gravier-beach   -19.7031, 63.4839
+//
+// Both are legitimate — somebody really does ask for the beach rather than the
+// village — so neither is deleted. At zoom 14 they sit 56 px apart, render as
+// one smudge, and read as a duplicate.
+//
+// So the overlay thins by DISTANCE ON SCREEN rather than by name. Nothing
+// leaves the gazetteer, nothing is renamed, and zooming in still reveals the
+// finer name once there is room for it — which is exactly when the difference
+// between a village and its beach begins to matter.
+
+// Sorted by tier so the thinning below keeps the label that ORIENTS you.
+// Without this the survivor of a collision would be whichever happened to sit
+// earlier in the gazetteer file, which is not a decision anybody made.
+export const PLACE_LABELS: PlaceLabel[] = [...PLACE_LABELS_UNSORTED].sort(
+  (a, b) => a.minZoom - b.minZoom,
+);
+
+/** How much clear space a label needs before the next one may be drawn. */
+const MIN_LABEL_GAP_PX = 60;
+
+/**
+ * Ground metres per screen pixel at a Web Mercator zoom, at this latitude.
+ *
+ * 156543.03392 is the equatorial figure for zoom 0. Rodrigues sits near 19.7
+ * degrees south and the cosine matters: dropping it overstates the gap by 6%
+ * and lets through a pair that should have been thinned.
+ */
+function metresPerPixel(zoom: number, lat: number): number {
+  return (156543.03392 * Math.cos((lat * Math.PI) / 180)) / 2 ** zoom;
+}
+
+/** Cheap planar metres — exact enough across an island 18 km wide. */
+function roughMetres(a: PlaceLabel, b: PlaceLabel): number {
+  const dy = (a.lat - b.lat) * 110_574;
+  const dx = (a.lng - b.lng) * 111_320 * Math.cos((a.lat * Math.PI) / 180);
+  return Math.hypot(dx, dy);
+}
+
+/**
+ * What belongs on screen at this zoom, thinned so no two labels collide.
+ *
+ * Order is priority: an anchor beats a village, a village beats a beach, and
+ * inside a tier the gazetteer's own order wins. When two names compete for one
+ * patch of screen the one that orients you survives, so "Graviers" stays and
+ * "Graviers beach" waits for a closer zoom.
+ */
 export function labelsForZoom(zoom: number): PlaceLabel[] {
-  return PLACE_LABELS.filter((l) => zoom >= l.minZoom);
+  const gap = MIN_LABEL_GAP_PX * metresPerPixel(zoom, -19.7);
+  const kept: PlaceLabel[] = [];
+  for (const l of PLACE_LABELS) {
+    if (zoom < l.minZoom) continue;
+    if (kept.some((k) => roughMetres(k, l) < gap)) continue;
+    kept.push(l);
+  }
+  return kept;
 }
