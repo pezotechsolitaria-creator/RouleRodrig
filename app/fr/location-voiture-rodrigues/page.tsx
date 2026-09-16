@@ -39,7 +39,7 @@ const rs = (n: number) => n.toLocaleString("fr-FR");
 
 // 57 chars / 155 — inside the 50–60 and 140–160 targets.
 const TITLE = (from: number) =>
-  `Location voiture Rodrigues dès Rs ${rs(from)}/jour | Roule Rodrigues`;
+  `Location voiture Rodrigues dès Rs ${rs(from)}/jour`;
 // "livraison à l'aéroport ou à votre hôtel", not just the hotel: somebody
 // searching "location voiture aéroport Rodrigues" has already booked a flight
 // and is looking for the word aéroport. It is also true — the FAQ commits to

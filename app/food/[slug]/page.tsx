@@ -52,7 +52,7 @@ export async function generateMetadata({
   });
 
   return {
-    title: `${dish.name} — order in Rodrigues | Roulé Rodrigues`,
+    title: `${dish.name} — order in Rodrigues`,
     description,
     alternates: { canonical: `${SITE_URL}/food/${dish.slug}` },
     openGraph: {

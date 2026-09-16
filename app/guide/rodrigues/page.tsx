@@ -48,7 +48,7 @@ const DESCRIPTION =
 
 export const metadata: Metadata = {
   title:
-    "Rodrigues Island travel guide — beaches, tortoises, ferry & tips | Roule Rodrigues",
+    "Rodrigues Island Travel Guide | Roule Rodrigues",
   description: DESCRIPTION,
   keywords: [
     "Rodrigues Island",

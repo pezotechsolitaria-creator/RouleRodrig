@@ -15,7 +15,7 @@ const DESCRIPTION =
   "Plan your Rodrigues Island trip in seconds: pick your days and interests and get a free day-by-day itinerary with beaches, viewpoints and activities — then rent a scooter or car to do it.";
 
 export const metadata: Metadata = {
-  title: "Rodrigues trip planner — free day-by-day itinerary | Roule Rodrigues",
+  title: "Rodrigues Trip Planner — Free Itinerary | Roule Rodrigues",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/trip-planner` },
   openGraph: {

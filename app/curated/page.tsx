@@ -12,7 +12,7 @@ import WorldPage from "@/components/world-page/WorldPage";
 // renamed in the content studio, an event selling out.
 export const revalidate = 600;
 
-const FALLBACK_TITLE = "Curated Rodrigues — handpicked stays, experiences & local gems";
+const FALLBACK_TITLE = "Curated Rodrigues — Handpicked Stays & Experiences";
 const FALLBACK_DESCRIPTION =
   "Ti Roulé's own selection of Rodrigues: a few handpicked stays, experiences and local places worth making time for, chosen by people who live here.";
 

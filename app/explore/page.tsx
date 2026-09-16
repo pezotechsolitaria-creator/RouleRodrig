@@ -13,7 +13,7 @@ const DESCRIPTION =
   "Explore Rodrigues Island: the best beaches, viewpoints, hikes, scenic rides, guided tours and things to do — curated by locals, all in one place.";
 
 export const metadata: Metadata = {
-  title: "Explore Rodrigues — beaches, hikes, tours & things to do | Roule Rodrigues",
+  title: "Explore Rodrigues — Beaches & Hikes | Roule Rodrigues",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/explore` },
   openGraph: {

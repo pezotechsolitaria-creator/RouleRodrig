@@ -37,7 +37,7 @@ import AppPageHeader from "@/components/AppPageHeader";
 
 export const revalidate = 3600;
 
-const TITLE = "Île aux Cocos, Rodrigues: what to know before you book";
+const TITLE = "Île aux Cocos, Rodrigues: What to Know";
 const DESCRIPTION =
   "Île aux Cocos is a seabird reserve 4 km west of Rodrigues. You cannot visit on your own — access needs authorisation and a licensed boat. What the trip involves, what is closed to visitors, and how to book.";
 

@@ -33,7 +33,7 @@ const DESCRIPTION =
   "Tous nos guides sur Rodrigues en français : plages, activités, itinéraires, hébergement, taxi et location de scooter ou de voiture — écrits par des gens qui vivent sur l'île.";
 
 export const metadata: Metadata = {
-  title: "Rodrigues en français — guides, plages, activités & transport | Roule Rodrigues",
+  title: "Rodrigues en français — le guide | Roule Rodrigues",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/fr` },
   openGraph: {

@@ -38,7 +38,7 @@ export const revalidate = 3600;
 
 const NB = " "; // narrow no-break space — French sets one before ? ! ; :
 
-const TITLE = `Que faire à Rodrigues${NB}? Le guide des activités | Roule Rodrigues`;
+const TITLE = `Que faire à Rodrigues${NB}? Le guide | Roule Rodrigues`;
 const DESCRIPTION =
   "Que faire à Rodrigues : excursions en mer, plongée, pêche traditionnelle, randonnées, plages et points de vue. Les activités réservables sur place, avec les prix.";
 

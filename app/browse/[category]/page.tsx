@@ -336,7 +336,7 @@ const META: Record<
     fr: "/fr/location-voiture-rodrigues",
   },
   stays: {
-    title: "Where to Stay in Rodrigues Island",
+    title: "Where to Stay in Rodrigues",
     description:
       "Guesthouses, lodges and hotels across Rodrigues, recommended by locals. See photos and prices, then book directly with the owner — no booking fees.",
     // A one-way hreflang is silently ignored, so this half matters as much as
@@ -349,7 +349,7 @@ const META: Record<
       "Kitesurfing, snorkelling, hiking, island tours and more. Real activities in Rodrigues with photos and prices — book directly with the people who run them.",
   },
   tours: {
-    title: "Guided Tours in Rodrigues Island",
+    title: "Guided Tours in Rodrigues",
     description:
       "Guided island tours in Rodrigues led by locals who know it best. See what's included, compare prices and book directly — no middleman, no booking fees.",
   },

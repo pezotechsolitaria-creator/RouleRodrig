@@ -39,7 +39,7 @@ export const revalidate = 3600;
 
 const NB = " "; // narrow no-break space — French sets one before ? ! ; :
 
-const TITLE = `Se déplacer à Rodrigues${NB}: bus, taxi, scooter ou voiture | Roule Rodrigues`;
+const TITLE = `Se déplacer à Rodrigues${NB}: le guide | Roule Rodrigues`;
 const DESCRIPTION =
   "Comment se déplacer à Rodrigues : les bus, les taxis, le scooter et la voiture, avec ce que chacun coûte et ce qu'il permet vraiment. Et comment rejoindre l'île.";
 

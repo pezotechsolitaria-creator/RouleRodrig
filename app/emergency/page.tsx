@@ -8,7 +8,7 @@ import TourismOffice from "@/components/TourismOffice";
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: "Emergency & useful numbers — Rodrigues Island | Roule Rodrigues",
+  title: "Emergency Numbers — Rodrigues | Roule Rodrigues",
   description:
     "Emergency and useful phone numbers for Rodrigues Island — police, hospital, coastguard and local contacts, kept handy for your trip.",
   alternates: { canonical: `${SITE_URL}/emergency` },

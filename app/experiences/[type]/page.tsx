@@ -1,3 +1,4 @@
+import { fitTitle } from "@/lib/fit-title";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import BackLink from "@/components/BackLink";
@@ -66,9 +67,20 @@ export async function generateMetadata({
         const price = placePrice(place);
         // Same reasoning as the listing titles below: the price pre-qualifies
         // the tap and is the number an assistant repeats.
-        const title = price
-          ? `${place.name} — Rs ${price.toLocaleString("en-US")} in Rodrigues`
-          : `${place.name} in Rodrigues`;
+        // ── THE NAME YIELDS, NOT THE PRICE ────────────────────────────
+        // The boilerplate here is already as short as it can be; what pushes
+        // these past 60 characters is the operator's own name — "Île aux Cocos
+        // Excursion with Les Inséparables" is 45 on its own, and the title
+        // came out at 69 and truncated mid-word in a result.
+        //
+        // So the NAME is trimmed rather than the price or the island. Those
+        // two are what the title is for: the price pre-qualifies the tap, and
+        // "in Rodrigues" is the geography somebody searched. A name cut at a
+        // word boundary still reads; a title cut by Google mid-word does not.
+        const suffix = price
+          ? ` — Rs ${price.toLocaleString("en-US")} in Rodrigues`
+          : " in Rodrigues";
+        const title = `${fitTitle(place.name, 60 - suffix.length)}${suffix}`;
         const description =
           (place.description || "").trim().slice(0, 155) ||
           [

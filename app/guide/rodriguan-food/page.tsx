@@ -36,7 +36,7 @@ import AppPageHeader from "@/components/AppPageHeader";
 
 export const revalidate = 3600;
 
-const TITLE = "Rodriguan food: what to eat, and why the octopus has a season";
+const TITLE = "Rodriguan Food: What to Eat on Rodrigues";
 const DESCRIPTION =
   "Ourite, tourte rodriguaise, piments limon and cono-cono — what Rodriguan cooking actually is, and the law that closes the octopus fishery twice a year.";
 

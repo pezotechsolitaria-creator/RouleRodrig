@@ -53,7 +53,7 @@ const DESCRIPTION =
   "Buy from Rodrigues Island's own shops and producers — honey, piment, spices, baskets, crafts and souvenirs. Order online, pick up in person or get it delivered island-wide.";
 
 export const metadata: Metadata = {
-  title: "Rodrigues Marketplace — buy local products online | Roulé Rodrigues",
+  title: "Rodrigues Marketplace — Buy Local Online | Roulé Rodrigues",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/shop` },
   openGraph: {

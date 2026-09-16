@@ -439,7 +439,7 @@ export const DEFAULT_CURATED: WorldDoc = {
   ],
 
   seo: {
-    title: "Curated Rodrigues — handpicked stays, experiences & local gems",
+    title: "Curated Rodrigues — Handpicked Stays & Experiences",
     description:
       "Ti Roulé's own selection of Rodrigues: a few handpicked stays, experiences and local places worth making time for, chosen by people who live here.",
   },

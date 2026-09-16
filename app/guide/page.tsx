@@ -27,7 +27,7 @@ const DESCRIPTION =
   "Every Rodrigues guide in one place: beaches, viewpoints, hikes, scooter routes, Île aux Cocos, what to eat and where to shop — written by people who live here.";
 
 export const metadata: Metadata = {
-  title: "Rodrigues Island guides — beaches, hikes, food & more | Roule Rodrigues",
+  title: "Rodrigues Island Guides | Roule Rodrigues",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/guide` },
   openGraph: {

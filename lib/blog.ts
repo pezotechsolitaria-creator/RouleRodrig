@@ -235,7 +235,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "rodrigues-vs-mauritius",
     title: "Rodrigues vs Mauritius: An Honest Comparison",
     metaTitle:
-      "Rodrigues vs Mauritius: Is It Worth Visiting? | Roule Rodrigues",
+      "Rodrigues vs Mauritius: Worth Visiting? | Roule Rodrigues",
     description:
       "Rodrigues has 8 hotels to Mauritius's 109, and a lagoon twice the size of the island. The honest case for and against, with the numbers, from people who live here.",
     keyword: "Rodrigues vs Mauritius",
@@ -305,7 +305,7 @@ export const BLOG_POSTS: BlogPost[] = [
   {
     slug: "best-time-to-visit-rodrigues",
     title: "The Best Time to Visit Rodrigues",
-    metaTitle: "Best Time to Visit Rodrigues: Month by Month | Roule Rodrigues",
+    metaTitle: "Best Time to Visit Rodrigues | Roule Rodrigues",
     description:
       "Rodrigues weather month by month from the official climate record: temperatures, rainfall, cyclone season, and when the island's own festivals actually fall.",
     keyword: "best time to visit Rodrigues",

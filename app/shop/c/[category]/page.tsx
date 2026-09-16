@@ -39,7 +39,7 @@ export async function generateMetadata({
   const { category } = await params;
   const cat = await loadCategory(category);
   if (!cat) return {};
-  const title = `${cat.name} from Rodrigues — buy online | Roulé Rodrigues`;
+  const title = `${cat.name} in Rodrigues | Roulé Rodrigues`;
   const description = `Buy ${cat.name.toLowerCase()} from Rodrigues Island shops and producers. Pick up in person or get it delivered island-wide.`;
   return {
     title,

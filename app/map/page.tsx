@@ -16,7 +16,7 @@ const DESCRIPTION =
   "Explore Rodrigues Island on an interactive map — beaches, viewpoints, hidden gems, fuel stations and landmarks, each with directions from wherever you are.";
 
 export const metadata: Metadata = {
-  title: "Rodrigues Island Map — beaches, viewpoints & hidden gems | Roule Rodrigues",
+  title: "Rodrigues Map — Beaches & Viewpoints | Roule Rodrigues",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/map` },
   openGraph: {
