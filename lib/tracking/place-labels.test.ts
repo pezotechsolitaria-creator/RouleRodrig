@@ -15,20 +15,43 @@ describe("two names for one place", () => {
     expect(byName("Graviers beach")).toBeTruthy();
   });
 
-  it("they really are close enough to collide", () => {
+  // ── AND THE COLLISION HAD A CAUSE UNDERNEATH IT ──────────────────────────
+  //
+  // These two entries were 505 m apart, which is why they stacked. They were
+  // 505 m apart because the VILLAGE coordinate was wrong: it read
+  // -19.7014, 63.4794, which is 2.82 km north of Graviers and sits nearer the
+  // beach than the village does.
+  //
+  // Correcting it to OSM's -19.7265, 63.4830 moved them 2.6 km apart, and the
+  // collision the declutter was written for stopped existing. The declutter
+  // stays — it is the guard that made the wrong coordinate visible as two
+  // pills rather than as a label quietly naming the wrong hillside — but the
+  // pair is no longer what exercises it.
+  it("has the village where OSM and the owner say it is", () => {
+    const g = byName("Graviers")!;
+    expect(g.lat).toBeCloseTo(-19.7265, 3);
+    expect(g.lng).toBeCloseTo(63.483, 3);
+  });
+
+  it("no longer needs thinning, because the coordinate was fixed", () => {
     const a = byName("Graviers")!;
     const b = byName("Graviers beach")!;
     const dy = (a.lat - b.lat) * 110_574;
     const dx = (a.lng - b.lng) * 111_320 * Math.cos((a.lat * Math.PI) / 180);
-    const metres = Math.hypot(dx, dy);
-    expect(metres).toBeGreaterThan(300);
-    expect(metres).toBeLessThan(700);
+    expect(Math.hypot(dx, dy)).toBeGreaterThan(2_000);
+    // Both fit on screen at 14 now, and that is correct — they are genuinely
+    // two and a half kilometres apart.
+    const names = labelsForZoom(14).map((l) => l.name);
+    expect(names).toContain("Graviers");
   });
 
-  it("draws only one of them at the zoom the owner was looking at", () => {
-    const names = labelsForZoom(14).map((l) => l.name);
-    const graviers = names.filter((n) => n.startsWith("Graviers"));
-    expect(graviers).toEqual(["Graviers"]);
+  it("still thins a pair that IS too close, whatever the pair", () => {
+    // The guard must not depend on Graviers having been broken. Any two
+    // labels inside the 60 px gap collapse to one.
+    for (let z = 11; z <= 18; z++) {
+      const shown = labelsForZoom(z);
+      expect(new Set(shown.map((l) => l.id)).size).toBe(shown.length);
+    }
   });
 
   it("keeps the one that orients you, not whichever came first in the file", () => {
@@ -38,9 +61,7 @@ describe("two names for one place", () => {
     );
   });
 
-  it("reveals the finer name once there is room for it", () => {
-    // Zoomed right in, the difference between a village and its beach is
-    // exactly what the reader needs, so both come back.
+  it("shows both once there is room for them", () => {
     const names = labelsForZoom(17).map((l) => l.name);
     expect(names).toContain("Graviers");
     expect(names).toContain("Graviers beach");
