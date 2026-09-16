@@ -411,7 +411,12 @@ export default function TrackingMap({
 
       const draw = () => {
         group.clearLayers();
-        for (const l of labelsForZoom(m.getZoom())) {
+        // bm is the EFFECTIVE basemap — getBasemap() resolves through
+        // getBasemaps(), so this is the env-merged one and its `labelled` flag
+        // reflects what production actually serves (Mapbox satellite-streets,
+        // whose names are baked into the raster), not the bare EOX fallback
+        // this overlay was written against.
+        for (const l of labelsForZoom(m.getZoom(), bm.labelled)) {
           leaflet
             .marker([l.lat, l.lng], {
               interactive: false,

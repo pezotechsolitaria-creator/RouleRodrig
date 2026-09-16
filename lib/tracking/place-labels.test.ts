@@ -107,3 +107,55 @@ describe("the overlay never stacks labels at any zoom", () => {
     }
   });
 });
+
+// ── THE LABELS WERE NEVER ALL OURS ─────────────────────────────────────────
+//
+// The owner: "Note that these places is integrated by default by mapbox and
+// not by me". He is right, and it is the half my gazetteer fix could not
+// reach. Production serves Mapbox satellite-streets-v12 — imagery WITH street
+// and place names drawn into the raster — while tiles.ts still carried the
+// comment "Place names come from our own gazetteer", true of the EOX fallback
+// it was written for and false of what actually ships.
+//
+// So every name was printed twice: once by Mapbox, once by us. A label burnt
+// into a JPEG cannot be moved or hidden. Ours can, so ours gives way.
+describe("our overlay defers to a basemap that labels itself", () => {
+  it("draws the full set only when the basemap is bare", () => {
+    const bare = labelsForZoom(16, false);
+    const labelled = labelsForZoom(16, true);
+    expect(bare.length).toBeGreaterThan(labelled.length);
+  });
+
+  it("keeps exactly the names OpenStreetMap has never heard of", () => {
+    // Mapbox's labels are OSM-derived, so these are the ones no basemap will
+    // ever supply — and they are the ones a local actually says.
+    const shown = labelsForZoom(18, true).map((l) => l.name);
+    for (const n of [
+      "Port Mathurin ferry terminal",
+      "Graviers beach",
+      "Île aux Cocos jetty",
+      "Queen Elizabeth Hospital",
+    ]) {
+      expect(shown).toContain(n);
+    }
+  });
+
+  it("stops drawing the ones Mapbox already prints", () => {
+    const shown = labelsForZoom(18, true).map((l) => l.name);
+    // These were the visible duplicates in the owner's screenshot.
+    expect(shown).not.toContain("Graviers");
+    expect(shown).not.toContain("Port Mathurin");
+    expect(shown).not.toContain("Mont Lubin");
+  });
+
+  it("every ownOnly id is a real gazetteer entry", () => {
+    // A typo here silently drops a name nobody else supplies. "cocos-jetty"
+    // was wrong; the entry is "ile-aux-cocos".
+    const own = PLACE_LABELS.filter((l) => l.ownOnly);
+    expect(own.length).toBe(7);
+  });
+
+  it("defaults to the old behaviour for a caller that does not say", () => {
+    expect(labelsForZoom(16)).toEqual(labelsForZoom(16, false));
+  });
+});

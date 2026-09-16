@@ -83,6 +83,23 @@ export type Basemap = {
   overlay?: TileLayerSpec;
   /** Whether the design-system tile filter (a dark treatment) may apply. */
   tintable: boolean;
+  /**
+   * Does this basemap already print place names into its own tiles?
+   *
+   * The whole labels design assumed NO. SATELLITE below is EOX s2cloudless,
+   * which is bare imagery, and its comment says "Place names come from our own
+   * gazetteer". That is true of EOX and false of what production actually
+   * serves: NEXT_PUBLIC_MAP_SATELLITE_URL points at Mapbox
+   * satellite-streets-v12, whose street and place names are baked into the
+   * raster. So every name appeared TWICE — once from Mapbox, once from us —
+   * and the owner reported it as "there are 2 graviers u shows me".
+   *
+   * OSM's streets tiles carry labels too, so the same was true on Map.
+   *
+   * A label burnt into a JPEG cannot be moved or hidden. What we control is
+   * OUR overlay, so this flag decides how much of it to draw.
+   */
+  labelled: boolean;
 };
 
 export type BasemapId = "satellite" | "streets";
@@ -112,11 +129,13 @@ const SATELLITE: Basemap = {
     maxNativeZoom: 14,
   },
   // No third-party overlay. Place names come from our own gazetteer — see the
-  // LABELS note above.
+  // LABELS note above. True of THIS layer; see `labelled` and satelliteFromEnv.
   overlay: undefined,
   // Never tinted: darkening photography does not make it stylish, it makes it
   // muddy, and the point of imagery is seeing the ground.
   tintable: false,
+  // Bare Sentinel-2 imagery. No names of any kind.
+  labelled: false,
 };
 
 const STREETS: Basemap = {
@@ -129,6 +148,8 @@ const STREETS: Basemap = {
     maxNativeZoom: 18,
   },
   tintable: true,
+  // Standard OSM raster carries its own place names.
+  labelled: true,
 };
 
 /**
@@ -141,6 +162,25 @@ const STREETS: Basemap = {
  *
  * Point NEXT_PUBLIC_MAP_SATELLITE_URL at it and this module needs no change.
  */
+/**
+ * Does a tile URL point at a style that prints its own place names?
+ *
+ * Production sets NEXT_PUBLIC_MAP_SATELLITE_URL to Mapbox
+ * satellite-streets-v12 — imagery WITH streets and place labels drawn into the
+ * raster. The owner picked it for the roads ("satellite like Google, so we can
+ * see the routes"), and the roads are the reason to keep it. The labels that
+ * come welded to it are the reason every name appeared twice.
+ *
+ * Matched on the style id rather than on a provider name, so a swap to
+ * satellite-v9 (bare imagery) or to a self-hosted mosaic is detected without
+ * anyone remembering to update a flag.
+ */
+export function urlHasOwnLabels(url: string): boolean {
+  return /satellite-streets|\/styles\/v1\/mapbox\/(streets|outdoors|light|dark|navigation)/i.test(
+    url,
+  );
+}
+
 export function satelliteFromEnv(): TileLayerSpec | null {
   const url = process.env.NEXT_PUBLIC_MAP_SATELLITE_URL;
   const attribution = process.env.NEXT_PUBLIC_MAP_SATELLITE_ATTRIBUTION;
@@ -173,13 +213,22 @@ function fromEnv(): Basemap | null {
       subdomains: process.env.NEXT_PUBLIC_MAP_TILE_SUBDOMAINS || undefined,
     },
     tintable: process.env.NEXT_PUBLIC_MAP_TILE_TINTABLE !== "false",
+    // Any street basemap worth swapping in carries its own names, so this is
+    // true rather than sniffed. Defaulting the OTHER way is what produced two
+    // of every label: assuming a source is bare when it is not.
+    labelled: true,
   };
 }
 
 /** Every basemap a viewer may switch between, in menu order. */
 export function getBasemaps(): Basemap[] {
   const sat = satelliteFromEnv();
-  const satellite: Basemap = sat ? { ...SATELLITE, base: sat } : SATELLITE;
+  // A configured satellite source may or may not label itself; ask the URL
+  // rather than assuming EOX's bare imagery, which is what the block below
+  // used to do silently.
+  const satellite: Basemap = sat
+    ? { ...SATELLITE, base: sat, labelled: urlHasOwnLabels(sat.url) }
+    : SATELLITE;
   const streets = fromEnv() ?? STREETS;
   // The DEFAULT leads. That rule is unchanged; which basemap satisfies it
   // flipped on 2026-09-07 when satellite became the default again. A switcher

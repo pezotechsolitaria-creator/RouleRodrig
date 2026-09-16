@@ -25,7 +25,29 @@ export type PlaceLabel = {
   lng: number;
   /** Below this zoom the label is hidden. */
   minZoom: number;
+  /**
+   * Is this a name the BASEMAP will not print for us?
+   *
+   * Checked against OpenStreetMap on 2026-09-16, which is where Mapbox's
+   * satellite-streets labels come from too. These seven returned no match, so
+   * they are ours alone — and they are exactly the names a local uses: the
+   * ferry terminal, the jetty, the hospital, the beach as distinct from its
+   * village.
+   */
+  ownOnly: boolean;
 };
+
+/**
+ * Names OpenStreetMap has no record of, so no OSM-derived basemap prints them.
+ *
+ * Everything NOT in this set is already drawn by Mapbox satellite-streets and
+ * by OSM's own raster, which is why drawing all 33 put two of every name on
+ * screen.
+ */
+const NOT_IN_OSM = new Set([
+  "ferry", "brulee", "anse-quitor", "citron-donis",
+  "gravier-beach", "ile-aux-cocos", "hospital",
+]);
 
 /**
  * The handful that orient somebody looking at the whole island. The two
@@ -51,6 +73,7 @@ const PLACE_LABELS_UNSORTED: PlaceLabel[] = RIDE_PLACES.flatMap((p) =>
         lat: p.lat,
         lng: p.lng,
         minZoom: ANCHORS.has(p.id) ? 11 : MAJOR.has(p.id) ? 13 : 14,
+        ownOnly: NOT_IN_OSM.has(p.id),
       }],
 );
 
@@ -110,10 +133,27 @@ function roughMetres(a: PlaceLabel, b: PlaceLabel): number {
  * patch of screen the one that orients you survives, so "Graviers" stays and
  * "Graviers beach" waits for a closer zoom.
  */
-export function labelsForZoom(zoom: number): PlaceLabel[] {
+export function labelsForZoom(
+  zoom: number,
+  /**
+   * Does the basemap under this overlay already print place names?
+   *
+   * Production serves Mapbox satellite-streets-v12, whose labels are baked
+   * into the raster — so every name we drew appeared alongside Mapbox's own
+   * and the owner reported "there are 2 graviers u shows me". A label burnt
+   * into a JPEG cannot be moved or hidden; ours can, so ours gives way.
+   *
+   * We keep drawing the seven OSM has never heard of. Those are the names a
+   * local actually uses and no basemap will ever supply them.
+   *
+   * Defaults false so an existing caller behaves as before.
+   */
+  basemapHasLabels = false,
+): PlaceLabel[] {
   const gap = MIN_LABEL_GAP_PX * metresPerPixel(zoom, -19.7);
   const kept: PlaceLabel[] = [];
   for (const l of PLACE_LABELS) {
+    if (basemapHasLabels && !l.ownOnly) continue;
     if (zoom < l.minZoom) continue;
     if (kept.some((k) => roughMetres(k, l) < gap)) continue;
     kept.push(l);
