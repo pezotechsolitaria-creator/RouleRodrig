@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { loc } from "@/lib/localize";
 import { ChevronDown, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
@@ -47,8 +48,10 @@ export default function RentalConditions({ items }: { items: ConditionItem[] }) 
       <ul className="divide-y divide-white/5">
         {items.map((item) => {
           const isOpen = open === item.id;
-          const short = conditionPreview(item.answer);
-          const hasMore = short.length < item.answer.trim().length;
+          const answer = loc(language, item.answer, item.answerFr, item.answerCr);
+          const question = loc(language, item.question, item.questionFr, item.questionCr);
+          const short = conditionPreview(answer);
+          const hasMore = short.length < answer.trim().length;
           const label = CONDITION_LABELS[item.id];
           return (
             <li key={item.id} className="py-2.5 first:pt-0 last:pb-0">
@@ -59,7 +62,7 @@ export default function RentalConditions({ items }: { items: ConditionItem[] }) 
                 className="w-full text-left flex items-start gap-3 group"
               >
                 <span className="font-bebas text-[10px] tracking-[0.2em] text-muted shrink-0 w-28 pt-0.5">
-                  {label?.[language as keyof typeof label] ?? label?.en ?? item.question}
+                  {label?.[language as keyof typeof label] ?? label?.en ?? question}
                 </span>
                 <span className="flex-1">
                   {/* ── THE QUESTION HAS TO BE ON THE PAGE ──────────────────
@@ -79,10 +82,10 @@ export default function RentalConditions({ items }: { items: ConditionItem[] }) 
                       terms strip rather than turning into an FAQ page: the
                       label is still the thing the eye lands on. */}
                   <span className="block font-dm text-[11px] leading-snug text-offwhite/55">
-                    {item.question}
+                    {question}
                   </span>
                   <span className="mt-0.5 block font-dm text-xs leading-relaxed text-offwhite/80">
-                    {isOpen ? item.answer : short}
+                    {isOpen ? answer : short}
                   </span>
                 </span>
                 {hasMore && (

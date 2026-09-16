@@ -662,6 +662,12 @@ export interface FaqItem {
   id: string;
   question: string;
   answer: string;
+  /** Optional translations, filled in admin — see lib/localize.ts loc().
+   *  Absent falls back to the base text, so nothing ever goes blank. */
+  questionFr?: string;
+  questionCr?: string;
+  answerFr?: string;
+  answerCr?: string;
 }
 
 export interface FaqContent {

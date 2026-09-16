@@ -41,7 +41,18 @@ export const CONDITION_LABELS: Record<string, { en: string; fr: string; cr: stri
   "faq-min-duration": { en: "Minimum rental", fr: "Durée minimum", cr: "Dire minimum" },
 };
 
-export type ConditionItem = { id: string; question: string; answer: string };
+export type ConditionItem = {
+  id: string;
+  question: string;
+  answer: string;
+  /** Carried through so the panel can render the reader's language. The FAQ
+   *  answers were English-only in every language until 2026-09-16 — the words
+   *  existed, nothing passed them on. */
+  questionFr?: string;
+  questionCr?: string;
+  answerFr?: string;
+  answerCr?: string;
+};
 
 /**
  * Conditions that only apply to a scooter.
@@ -78,8 +89,18 @@ const CAR_ONLY_IDS = new Set<string>(["deposit"]);
 /** The conditions, in CONDITION_IDS order, skipping any the owner has removed
  *  or left blank. Both the panel and the FAQPage schema call this, so the
  *  markup can never describe a question the page does not show. */
+type RawCondition = {
+  id?: string;
+  question?: string;
+  answer?: string;
+  questionFr?: string;
+  questionCr?: string;
+  answerFr?: string;
+  answerCr?: string;
+};
+
 export function pickConditions(
-  items: { id?: string; question?: string; answer?: string }[] | undefined,
+  items: RawCondition[] | undefined,
   /** The rental category being shown. Defaulted, so every existing caller and
    *  every existing test keeps the full list unchanged; only a caller that
    *  says "this is a car page" drops the scooter-only rows. */
@@ -98,7 +119,15 @@ export function pickConditions(
     .filter((i): i is { id: string; question: string; answer: string } =>
       Boolean(i?.id && i?.question && i?.answer?.trim()),
     )
-    .map((i) => ({ id: i.id, question: i.question, answer: i.answer }));
+    .map((i) => ({
+      id: i.id,
+      question: i.question,
+      answer: i.answer,
+      questionFr: (i as RawCondition).questionFr,
+      questionCr: (i as RawCondition).questionCr,
+      answerFr: (i as RawCondition).answerFr,
+      answerCr: (i as RawCondition).answerCr,
+    }));
 }
 
 /**

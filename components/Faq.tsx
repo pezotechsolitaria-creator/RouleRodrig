@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import { motion } from "framer-motion";
+import { loc } from "@/lib/localize";
 import { Plus, HelpCircle } from "lucide-react";
 import type { FaqContent } from "@/lib/defaults";
 
 export default function Faq({ content }: { content?: FaqContent }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [open, setOpen] = useState<string | null>(null);
   if (!content || !content.enabled) return null;
   const items = (content.items ?? []).filter((i) => i.question && i.answer);
@@ -70,7 +71,9 @@ export default function Faq({ content }: { content?: FaqContent }) {
                 >
                   <span className="flex items-start gap-3">
                     <HelpCircle size={18} className="text-yellow shrink-0 mt-0.5" />
-                    <span className="font-syne font-bold text-offwhite text-sm md:text-base">{item.question}</span>
+                    <span className="font-syne font-bold text-offwhite text-sm md:text-base">
+                      {loc(language, item.question, item.questionFr, item.questionCr)}
+                    </span>
                   </span>
                   <motion.span animate={{ rotate: isOpen ? 45 : 0 }} transition={{ duration: 0.2 }} className="shrink-0">
                     <Plus size={20} className={isOpen ? "text-yellow" : "text-muted"} />
@@ -107,7 +110,7 @@ export default function Faq({ content }: { content?: FaqContent }) {
                 >
                   <div className="overflow-hidden">
                     <p className="text-muted/85 font-dm text-sm leading-relaxed px-5 md:px-6 pb-5 pl-[3.25rem]">
-                      {item.answer}
+                      {loc(language, item.answer, item.answerFr, item.answerCr)}
                     </p>
                   </div>
                 </div>
