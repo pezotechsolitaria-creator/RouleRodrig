@@ -354,7 +354,17 @@ const META: Record<
       "Guided island tours in Rodrigues led by locals who know it best. See what's included, compare prices and book directly — no middleman, no booking fees.",
   },
   "getting-around": {
-    title: "How to Get Around Rodrigues Island",
+    // ── NOT "How to Get Around Rodrigues Island" ──────────────────────────
+    // That was the title here AND on /blog/how-to-get-around-rodrigues, word
+    // for word, so the two pages competed for one query and Google had to pick
+    // one. The blog post is the article that answers "how do I get around" —
+    // informational intent, and it should keep the phrase.
+    //
+    // This page is a list of taxis, car hire and scooter hire with prices and
+    // links, so it takes the transactional half instead. Different intent,
+    // different title, and they stop cannibalising each other. The <h1> stays
+    // "Getting Around Rodrigues", which is what the page is.
+    title: "Taxi, Car & Scooter Hire in Rodrigues",
     description:
       "Getting around Rodrigues: taxis, airport transfers, scooter and car hire. Compare real local prices and contact drivers direct — no agency, no booking fees.",
   },
