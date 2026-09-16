@@ -189,6 +189,19 @@ export interface SocialLinks {
   facebook: string;
   tiktok: string;
   whatsapp: string;
+  /**
+   * The Google Business Profile, as a URL.
+   *
+   * Not "social" in the ordinary sense, and it earns its place here anyway:
+   * this is the field that tells Google, and every AI engine reading the page,
+   * that the website and the Maps listing are ONE business. Without it the two
+   * are separate entities that merely share a name — and on an island where
+   * several businesses share a surname, that is not a safe assumption for a
+   * machine to make on its own.
+   *
+   * Optional, so every existing stored blob stays valid without a migration.
+   */
+  google?: string;
 }
 
 export interface BrandingContent {
@@ -1046,6 +1059,9 @@ export const DEFAULT_CONTENT: SiteContent = {
     facebook: '',
     tiktok: '',
     whatsapp: '',
+    // Empty, like the rest: a guessed Maps URL would point sameAs at somebody
+    // else's business, which is worse than having no link at all.
+    google: '',
   },
   branding: {
     logo: '',

@@ -2780,6 +2780,22 @@ function BrandingEditor({
       {/* Social links */}
       <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-6 space-y-5">
         <p className="font-bebas text-yellow text-xs tracking-[0.3em]">SOCIAL MEDIA LINKS</p>
+        {/* First, and not really "social": this is the one that tells Google
+            and the AI engines that this website and the Maps listing are the
+            same business. Everything else here is a profile; this is identity. */}
+        <Field label="GOOGLE BUSINESS PROFILE URL">
+          <TextInput
+            value={s.google ?? ""}
+            onChange={(v) => setSocial({ google: v })}
+            placeholder="https://maps.app.goo.gl/… or https://g.page/…"
+          />
+          <p className="mt-1.5 font-dm text-[11px] leading-relaxed text-muted">
+            Open your profile in Google Maps, press Share, and copy the link.
+            This puts the listing in the site&apos;s structured data as the same
+            business — the strongest local-search signal there is. Leave it
+            blank rather than guessing: a wrong link points at somebody else.
+          </p>
+        </Field>
         <Field label="INSTAGRAM URL">
           <TextInput
             value={s.instagram}

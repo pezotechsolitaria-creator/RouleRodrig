@@ -240,11 +240,22 @@ export default async function Home() {
   // (the hub + map + planner are all about Rodrigues) and the visible FAQ.
   // Per-vehicle Product markup lives on /browse/[category], where the vehicles
   // are really rendered — marking up off-page content gets it ignored.
+  // ── THE GOOGLE BUSINESS PROFILE BELONGS HERE FIRST ───────────────────────
+  // sameAs is how a machine learns that this site and that Maps listing are the
+  // same business rather than two with a similar name. It is the single most
+  // direct signal available for local search, and it is what the profile being
+  // claimed is actually FOR — a listing nothing links to is an island of its
+  // own, exactly like the French pages were.
+  //
+  // First in the array deliberately: order carries no formal weight, but this
+  // is the authoritative identity and the one a human reading the markup should
+  // see first.
   const sameAs = [
+    content.social.google,
     content.social.instagram,
     content.social.facebook,
     content.social.tiktok,
-  ].filter((u) => u && u.trim());
+  ].filter((u): u is string => Boolean(u && u.trim()));
 
   // Real daily rates, straight from the fleet. Google's AI Overview was quoting
   // a competitor's "Rs 800/day" for us because we never stated our own price in
@@ -344,6 +355,16 @@ export default async function Home() {
         ],
         areaServed: { "@type": "Place", name: "Rodrigues Island, Mauritius" },
         ...(sameAs.length ? { sameAs } : {}),
+        // ── hasMap, WHICH CLOSES THE geo GAP ABOVE WITHOUT INVENTING ONE ───
+        // The block above removed `geo` because a guessed point drops the pin
+        // in the wrong village, and noted that the right coordinates are the
+        // ones on the Google Business Profile. This is how they get used: not
+        // copied here to go stale, but pointed AT, so the listing stays the one
+        // source of where this business is. Emitted only once the owner has
+        // pasted the profile URL in /admin — blank until then, like the geo.
+        ...(content.social.google?.trim()
+          ? { hasMap: content.social.google.trim() }
+          : {}),
         // ── THE RATING BELONGS TO THE BUSINESS, NOT TO A BIKE ──────────────
         //
         // Ten approved five-star reviews exist and no page has ever emitted a
