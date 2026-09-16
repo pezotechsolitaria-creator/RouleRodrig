@@ -46,8 +46,14 @@ export const OPENING_HOURS = {
     "Monday", "Tuesday", "Wednesday", "Thursday",
     "Friday", "Saturday", "Sunday",
   ],
-  opens: "09:00",
-  closes: "18:00",
+  // ── OPEN 24 HOURS ────────────────────────────────────────────────────────
+  // 00:00 to 23:59 is how schema.org and Google express "open 24 hours"; there
+  // is no dedicated flag. It is NOT an approximation of a long day — a parser
+  // reading this pair treats the business as always open, which is what the
+  // Google Business Profile has said all along while this file said 9 to 6.
+  // The profile is the version the owner confirmed.
+  opens: "00:00",
+  closes: "23:59",
   /**
    * What a human reads, and where it comes from.
    *
@@ -60,6 +66,12 @@ export const OPENING_HOURS = {
    * "Mon-sun: 7am-8pm" while the owner's actual hours are 9am to 6pm. That is
    * a promise somebody turns up on, and it had been live long enough for an
    * external audit to quote it back as fact.
+   *
+   * Corrected again on 16 Sep 2026. Linking the Google Business Profile
+   * surfaced a third version — the profile said OPEN 24 HOURS while this said
+   * 9am to 6pm — and the owner confirmed the profile. Same class of fault as
+   * before, found the same way: by comparing two records that should have
+   * agreed and did not.
    */
-  label: "Open every day, 9am – 6pm",
+  label: "Open 24 hours, every day",
 } as const;

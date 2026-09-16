@@ -33,12 +33,25 @@ describe("the published opening hours", () => {
   });
 
   it("says the same thing to a machine and to a person", () => {
-    // 09:00/18:00 against "9am – 6pm". If somebody edits one, this fails.
+    // Two shapes, because the business is now one of them. 00:00-23:59 is how
+    // schema.org spells "open 24 hours", and checking it for "0am" and "11pm"
+    // would assert nonsense; anything else is a normal day and keeps the
+    // original am/pm cross-check that caught "Mon-sun: 7am-8pm".
     const label = OPENING_HOURS.label.toLowerCase();
     const openHour = Number(OPENING_HOURS.opens.slice(0, 2));
     const closeHour = Number(OPENING_HOURS.closes.slice(0, 2));
-    expect(label).toContain(`${openHour}am`);
-    expect(label).toContain(`${closeHour - 12}pm`);
+    const allDay = OPENING_HOURS.opens === "00:00" && OPENING_HOURS.closes === "23:59";
+
+    if (allDay) {
+      expect(label).toMatch(/24 hours/);
+    } else {
+      expect(label).toContain(`${openHour}am`);
+      expect(label).toContain(`${closeHour - 12}pm`);
+    }
+  });
+
+  it("still says every day, whichever shape it is in", () => {
+    expect(OPENING_HOURS.label.toLowerCase()).toContain("every day");
   });
 
   it("is emitted as OpeningHoursSpecification on the business entity", () => {
