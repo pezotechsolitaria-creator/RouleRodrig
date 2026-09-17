@@ -237,9 +237,23 @@ export const RIDE_PLACES: RidePlace[] = [
   {
     id: "gravier-beach",
     name: "Graviers beach",
-    area: "East coast",
-    lat: -19.7031,
-    lng: 63.4839,
+    area: "South-east coast",
+    // ── CORRECTED 17 SEPT 2026 ──────────────────────────────────────────
+    // This pin sat at -19.7031, 63.4839: 2.6 km NORTH of Graviers village and
+    // 1.3 km inland from the nearest sand, on a wooded hillside. The owner
+    // noticed it on the tracking map — "a beach is in a forest" — and he was
+    // right. A tourist who booked "Graviers beach" was being priced and
+    // dispatched to a spot with no road, no beach and no village.
+    //
+    // Now the sandy strip directly in front of the village, beside the
+    // fisheries, where the coastal path to Trou d'Argent starts. Taken from
+    // OpenStreetMap (natural=beach way centred at -19.72817, 63.48544; the
+    // village node is -19.72652, 63.48296), not from a guess. A beach named
+    // after a village belongs next to it — places-geography.test.ts now
+    // insists on that for every "X beach" entry, so the next one cannot
+    // drift 2 km either.
+    lat: -19.7282,
+    lng: 63.4854,
   },
   {
     id: "caverne-patate",

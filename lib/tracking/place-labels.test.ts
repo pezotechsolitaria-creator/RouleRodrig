@@ -15,34 +15,48 @@ describe("two names for one place", () => {
     expect(byName("Graviers beach")).toBeTruthy();
   });
 
-  // ── AND THE COLLISION HAD A CAUSE UNDERNEATH IT ──────────────────────────
+  // ── AND THE COLLISION HAD A CAUSE UNDERNEATH IT — TWICE ─────────────────
   //
   // These two entries were 505 m apart, which is why they stacked. They were
-  // 505 m apart because the VILLAGE coordinate was wrong: it read
-  // -19.7014, 63.4794, which is 2.82 km north of Graviers and sits nearer the
-  // beach than the village does.
+  // 505 m apart because BOTH coordinates were wrong, 2.6 km north of the real
+  // village. The village was corrected first (to OSM's -19.7265, 63.4830) and
+  // a previous version of this test then asserted the pair was ">2,000 m
+  // apart" and "no longer needs thinning" — which enshrined the still-broken
+  // beach pin, on a wooded hillside, as the correct state. The owner found it
+  // on the tracking map on 17 Sept 2026: "a beach is in a forest".
   //
-  // Correcting it to OSM's -19.7265, 63.4830 moved them 2.6 km apart, and the
-  // collision the declutter was written for stopped existing. The declutter
-  // stays — it is the guard that made the wrong coordinate visible as two
-  // pills rather than as a label quietly naming the wrong hillside — but the
-  // pair is no longer what exercises it.
+  // With the beach now on the sand in front of the village they are ~300 m
+  // apart, a village and its beach, and the declutter is exercised by exactly
+  // the pair it was written for. The behaviour below was measured, not
+  // assumed: at zoom 14 the two are ~35 px apart — inside the 60 px gap — so
+  // the village (higher tier) survives and the beach waits; at 15 there is
+  // room for both.
   it("has the village where OSM and the owner say it is", () => {
     const g = byName("Graviers")!;
     expect(g.lat).toBeCloseTo(-19.7265, 3);
     expect(g.lng).toBeCloseTo(63.483, 3);
   });
 
-  it("no longer needs thinning, because the coordinate was fixed", () => {
+  it("keeps the beach beside its village, not up the coast", () => {
     const a = byName("Graviers")!;
     const b = byName("Graviers beach")!;
     const dy = (a.lat - b.lat) * 110_574;
     const dx = (a.lng - b.lng) * 111_320 * Math.cos((a.lat * Math.PI) / 180);
-    expect(Math.hypot(dx, dy)).toBeGreaterThan(2_000);
-    // Both fit on screen at 14 now, and that is correct — they are genuinely
-    // two and a half kilometres apart.
+    // A beach named after a village is next to it. The wrong-way assertion
+    // that used to live here (> 2,000 m) is the one that let the bug through.
+    expect(Math.hypot(dx, dy)).toBeLessThan(1_000);
+  });
+
+  it("thins the pair at zoom 14 and lets the village win", () => {
     const names = labelsForZoom(14).map((l) => l.name);
     expect(names).toContain("Graviers");
+    expect(names).not.toContain("Graviers beach");
+  });
+
+  it("shows both once there is room, at zoom 15", () => {
+    const names = labelsForZoom(15).map((l) => l.name);
+    expect(names).toContain("Graviers");
+    expect(names).toContain("Graviers beach");
   });
 
   it("still thins a pair that IS too close, whatever the pair", () => {

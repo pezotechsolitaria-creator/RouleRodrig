@@ -84,13 +84,19 @@ const PLACE_LABELS_UNSORTED: PlaceLabel[] = RIDE_PLACES.flatMap((p) =>
 // into the satellite imagery itself. His words: "there are 2 graviers u shows
 // me on admin dashboard".
 //
-// The gazetteer holds both, 505 m apart:
-//   graviers        -19.7014, 63.4794
-//   gravier-beach   -19.7031, 63.4839
+// The gazetteer holds both, roughly 300 m apart:
+//   graviers        -19.7265, 63.4830   (the village, per OpenStreetMap)
+//   gravier-beach   -19.7282, 63.4854   (the sand in front of it)
+//
+// (An earlier version of this note quoted -19.7014 / -19.7031 and "505 m".
+// Both pins were then 2.6 km north of the real village; the village was later
+// corrected and the beach was not, which left a beach label on a wooded
+// hillside until 17 Sept 2026. lib/rides/places-geography.test.ts now holds
+// every "X beach" within 1 km of X.)
 //
 // Both are legitimate — somebody really does ask for the beach rather than the
-// village — so neither is deleted. At zoom 14 they sit 56 px apart, render as
-// one smudge, and read as a duplicate.
+// village — so neither is deleted. At zoom 14 they are closer than the width
+// of a label, render as one smudge, and read as a duplicate.
 //
 // So the overlay thins by DISTANCE ON SCREEN rather than by name. Nothing
 // leaves the gazetteer, nothing is renamed, and zooming in still reveals the
