@@ -21,7 +21,31 @@ const MAX_CENTS = 2_147_483_647;
  * amount, so callers can distinguish "invalid" from "zero".
  */
 export function toCents(input: string): number | null {
-  const trimmed = input.trim().replace(/,/g, "");
+  const raw = input.trim();
+  if (raw === "") return null;
+
+  // ── A COMMA IS NOT ALWAYS A THOUSANDS SEPARATOR ──────────────────────────
+  //
+  // This stripped EVERY comma, so "5,997" correctly became 599700 — and
+  // "2999,50" became 29995000, which is Rs 299,950 for somebody who meant
+  // Rs 2,999.50.
+  //
+  // That is not a hypothetical. Mauritius writes decimals with a comma, the
+  // owner writes in French, and every caller of this function is a money-entry
+  // field an admin or a merchant types into: product prices, dish prices,
+  // delivery fees, ticketing fees. A merchant entering 250,50 for a dish would
+  // have priced it at Rs 25,050.
+  //
+  // So a comma is accepted ONLY where it is unambiguously grouping thousands.
+  // Anything else is REFUSED rather than guessed at: the form says "enter a
+  // valid amount" and the person retypes, which costs three seconds. Guessing
+  // costs a hundred times the money, silently, and this platform has shipped
+  // that class of error four times.
+  const trimmed = raw.includes(",")
+    ? /^\d{1,3}(,\d{3})+(\.\d+)?$/.test(raw)
+      ? raw.replace(/,/g, "")
+      : ""
+    : raw;
   if (trimmed === "") return null;
   if (!/^\d+(\.\d+)?$/.test(trimmed)) return null;
 
