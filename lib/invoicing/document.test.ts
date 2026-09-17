@@ -15,6 +15,7 @@ const BOOKING: Invoice = {
   totalCents: 599700, paidCents: 0, balanceCents: 599700,
   sourceAmountUnit: "rupees", sourceAmountRaw: 5997, sourceTotalCents: 599700,
   state: "issued", issuedAt: "2026-09-17T09:00:00Z", dueAt: null, paidAt: null,
+  sentAt: null, sentTo: null, sendCount: 0,
   notes: null, createdAt: "2026-09-17T09:00:00Z",
 };
 

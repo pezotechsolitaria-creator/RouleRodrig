@@ -92,6 +92,18 @@ export type Invoice = {
   issuedAt: string | null;
   dueAt: string | null;
   paidAt: string | null;
+
+  /**
+   * When the document last left the building, and where it went AS SENT.
+   *
+   * sentTo is deliberately not a join to the customer record: if their address
+   * is corrected next month, the answer to "where did we send it?" must still
+   * be the old one — which is usually the reason they never received it.
+   */
+  sentAt: string | null;
+  sentTo: string | null;
+  sendCount: number;
+
   notes: string | null;
   createdAt: string;
 };

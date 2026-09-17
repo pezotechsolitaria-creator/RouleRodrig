@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { guardAdminApi, readJson, failed } from "@/lib/admin/api-guard";
 import { audit } from "@/lib/admin/audit";
+import { toInvoice } from "@/lib/invoicing/row";
 
 // ── CANCELLING AN INVOICE ───────────────────────────────────────────────────
 //
@@ -40,10 +41,9 @@ export async function POST(
     });
     if (error) return failed(error, "Could not cancel the invoice.");
 
-    const inv = (Array.isArray(data) ? data[0] : data) as
-      | { id: string; number: string; state: string }
-      | null;
-    if (!inv) return failed(null, "The invoice was not returned.");
+    const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
+    if (!row) return failed(null, "The invoice was not returned.");
+    const inv = toInvoice(row);
 
     await audit(admin, {
       action: "invoice.void",

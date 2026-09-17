@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, Wallet, Ban } from "lucide-react";
+import { ArrowLeft, Download, Wallet, Ban, Send } from "lucide-react";
 import type { Invoice, InvoiceLine, InvoicePayment } from "@/lib/invoicing/types";
 import { SUBJECTS } from "@/lib/invoicing/subjects";
 import { STATE_TONE, STATE_LABEL, money } from "@/lib/invoicing/register";
@@ -10,6 +10,7 @@ import { PAYMENT_METHOD_LABEL, type PaymentMethod } from "@/lib/invoicing/paymen
 import { invoiceToReceipt } from "@/lib/invoicing/document";
 import { downloadReceipt } from "@/lib/receipt";
 import PaymentDialog from "../PaymentDialog";
+import SendDialog from "../SendDialog";
 
 // ── ONE INVOICE, AND THE DOCUMENT IT PRODUCES ───────────────────────────────
 //
@@ -30,6 +31,7 @@ export default function InvoiceDetailView({ id }: { id: string }) {
   const [payments, setPayments] = useState<InvoicePayment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
+  const [sending, setSending] = useState(false);
   const [said, setSaid] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -99,6 +101,15 @@ export default function InvoiceDetailView({ id }: { id: string }) {
             >
               <Download size={15} /> Download PDF
             </button>
+            {inv.state !== "draft" && (
+              <button
+                type="button"
+                onClick={() => setSending(true)}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/12 px-4 font-dm text-sm"
+              >
+                <Send size={15} /> {inv.sentAt ? "Send again" : "Send to customer"}
+              </button>
+            )}
             {(inv.state === "issued" || inv.state === "part_paid" || inv.state === "paid") && (
               <button
                 type="button"
@@ -154,6 +165,18 @@ export default function InvoiceDetailView({ id }: { id: string }) {
                 </dd>
               </div>
             </dl>
+
+            {/* ── HAS THE CUSTOMER ACTUALLY GOT IT? ────────────────────────
+                Until M204 the only way to answer this was to remember. An
+                unpaid invoice that was never sent is not a debtor, it is an
+                oversight, and the two need different phone calls. */}
+            <p className="mt-3 border-t border-white/10 pt-2.5 font-dm text-xs text-muted">
+              {inv.sentAt
+                ? `Sent ${inv.sentAt.slice(0, 10)} to ${inv.sentTo}${
+                    inv.sendCount > 1 ? ` · ${inv.sendCount} times` : ""
+                  }`
+                : "Not sent to the customer yet."}
+            </p>
           </div>
         </div>
 
@@ -239,6 +262,19 @@ export default function InvoiceDetailView({ id }: { id: string }) {
           </p>
         )}
       </div>
+
+      {sending && (
+        <SendDialog
+          invoice={inv}
+          onClose={() => setSending(false)}
+          onSent={(updated, message) => {
+            setSending(false);
+            setSaid(message);
+            if (updated) setInv(updated);
+            void load();
+          }}
+        />
+      )}
 
       {paying && (
         <PaymentDialog

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { guardAdminApi, readJson, failed } from "@/lib/admin/api-guard";
 import { audit } from "@/lib/admin/audit";
+import { toInvoice } from "@/lib/invoicing/row";
 import { isInvoiceSubject, SUBJECTS, supportedSubjects } from "@/lib/invoicing/subjects";
 
 // ── ISSUING AN INVOICE ──────────────────────────────────────────────────────
@@ -56,10 +57,12 @@ export async function POST(req: NextRequest) {
     });
     if (error) return failed(error, "Could not issue the invoice.");
 
-    const inv = (Array.isArray(data) ? data[0] : data) as
-      | { id: string; number: string; total_cents: number; source_amount_unit: string }
-      | null;
-    if (!inv) return failed(null, "The invoice was not returned.");
+    const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
+    if (!row) return failed(null, "The invoice was not returned.");
+    // Mapped before it goes anywhere. The dialogs read camelCase money fields,
+    // and a raw row cast to Invoice type-checks while every one of them is
+    // undefined — which is how "Rs NaN still owed" reaches a screen.
+    const inv = toInvoice(row);
 
     // The trail records the UNIT as well as the figure. When somebody asks in a
     // year why a document says what it says, the answer is one row away.
@@ -71,8 +74,8 @@ export async function POST(req: NextRequest) {
         number: inv.number,
         subjectType,
         subjectId: subjectId.trim(),
-        totalCents: inv.total_cents,
-        sourceAmountUnit: inv.source_amount_unit,
+        totalCents: inv.totalCents,
+        sourceAmountUnit: inv.sourceAmountUnit,
       },
     });
 
@@ -106,60 +109,16 @@ export async function GET(req: NextRequest) {
           "currency, subtotal_cents, discount_cents, tax_cents, delivery_cents, " +
           "total_cents, paid_cents, balance_cents, " +
           "source_amount_unit, source_amount_raw, source_total_cents, " +
-          "state, issued_at, due_at, paid_at, notes, created_at",
+          "state, issued_at, due_at, paid_at, sent_at, sent_to, send_count, notes, created_at",
       )
       .order("seq", { ascending: false });
     if (error) return failed(error, "Could not load the invoices.");
 
     // snake_case to camelCase at the edge, once, so nothing downstream has to
-    // know which side of the wire it is on.
-    //
-    // The row shape is spelled out rather than cast to any: this is the seam
-    // where every money column crosses into TypeScript, and a silent `any` here
-    // is how a cents column gets read as rupees two files later.
-    type Row = {
-      id: string; number: string; doc_kind: string;
-      subject_type: string; subject_id: string; reference: string;
-      bill_to_name: string; bill_to_email: string | null; bill_to_phone: string | null;
-      seller_name: string; seller_address: string; currency: string;
-      subtotal_cents: number; discount_cents: number; tax_cents: number;
-      delivery_cents: number; total_cents: number; paid_cents: number;
-      balance_cents: number;
-      source_amount_unit: string; source_amount_raw: number; source_total_cents: number;
-      state: string; issued_at: string | null; due_at: string | null;
-      paid_at: string | null; notes: string | null; created_at: string;
-    };
-
-    const invoices = ((data ?? []) as unknown as Row[]).map((r) => ({
-      id: r.id,
-      number: r.number,
-      docKind: r.doc_kind,
-      subjectType: r.subject_type,
-      subjectId: r.subject_id,
-      reference: r.reference,
-      billToName: r.bill_to_name,
-      billToEmail: r.bill_to_email,
-      billToPhone: r.bill_to_phone,
-      sellerName: r.seller_name,
-      sellerAddress: r.seller_address,
-      currency: r.currency,
-      subtotalCents: r.subtotal_cents,
-      discountCents: r.discount_cents,
-      taxCents: r.tax_cents,
-      deliveryCents: r.delivery_cents,
-      totalCents: r.total_cents,
-      paidCents: r.paid_cents,
-      balanceCents: r.balance_cents,
-      sourceAmountUnit: r.source_amount_unit,
-      sourceAmountRaw: r.source_amount_raw,
-      sourceTotalCents: r.source_total_cents,
-      state: r.state,
-      issuedAt: r.issued_at,
-      dueAt: r.due_at,
-      paidAt: r.paid_at,
-      notes: r.notes,
-      createdAt: r.created_at,
-    }));
+    // know which side of the wire it is on — and in ONE function, shared with
+    // every other route that reads an invoice. Three copies of a money mapping
+    // is how a column gets read correctly in one route and not in the next.
+    const invoices = ((data ?? []) as unknown as Record<string, unknown>[]).map(toInvoice);
 
     return NextResponse.json({ invoices });
   } catch (err) {

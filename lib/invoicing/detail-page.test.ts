@@ -10,6 +10,7 @@ const VIEW = read("app", "admin", "invoices", "[id]", "InvoiceDetailView.tsx");
 const PAGE = read("app", "admin", "invoices", "[id]", "page.tsx");
 const ROUTE = read("app", "api", "admin", "invoices", "[id]", "route.ts");
 const DOC = read("lib", "invoicing", "document.ts");
+const ROW = read("lib", "invoicing", "row.ts");
 
 // ── THE DOCUMENT COSTS NOTHING TO PRODUCE ───────────────────────────────────
 //
@@ -69,9 +70,14 @@ describe("the provenance is on the page", () => {
     expect(VIEW).toContain("money(inv.sourceTotalCents)");
   });
 
-  it("is carried by the API, not recomputed in the browser", () => {
-    expect(ROUTE).toContain("sourceAmountUnit: r.source_amount_unit");
-    expect(ROUTE).toContain("sourceTotalCents: r.source_total_cents");
+  it("is carried across the wire by the one shared mapper", () => {
+    // The mapping used to be spelled out inside each route. It lives in
+    // lib/invoicing/row.ts now — one seam where a database row becomes an
+    // invoice, so a money column cannot be read correctly in one route and
+    // wrongly in the next.
+    expect(ROW).toContain("sourceAmountUnit: str(r.source_amount_unit)");
+    expect(ROW).toContain("sourceTotalCents: num(r.source_total_cents)");
+    expect(ROUTE).toContain("toInvoice(inv.data as Record<string, unknown>)");
   });
 });
 
@@ -101,7 +107,8 @@ describe("the route and the page hold their contracts", () => {
   });
 
   it("converts the numeric qty PostgREST sends as a string", () => {
-    expect(ROUTE).toContain("qty: Number(l.qty)");
+    expect(ROW).toContain("qty: num(r.qty)");
+    expect(ROW).toMatch(/const num =[\s\S]*?Number\(/);
   });
 
   it("404s a missing invoice instead of rendering an empty document", () => {

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { guardAdminApi, readJson, failed } from "@/lib/admin/api-guard";
 import { audit } from "@/lib/admin/audit";
 import { isPaymentMethod, PAYMENT_METHODS } from "@/lib/invoicing/payments";
+import { toInvoice } from "@/lib/invoicing/row";
 
 // ── RECORDING MONEY AGAINST AN INVOICE ──────────────────────────────────────
 //
@@ -70,10 +71,11 @@ export async function POST(
     // replacing it with something generic.
     if (error) return failed(error, "Could not record the payment.");
 
-    const inv = (Array.isArray(data) ? data[0] : data) as
-      | { id: string; number: string; state: string; paid_cents: number; balance_cents: number }
-      | null;
-    if (!inv) return failed(null, "The invoice was not returned.");
+    const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
+    if (!row) return failed(null, "The invoice was not returned.");
+    // The dialog reads balanceCents off this to tell the admin what is left.
+    // Returning the raw row satisfies the compiler and hands it undefined.
+    const inv = toInvoice(row);
 
     await audit(admin, {
       action: "invoice.payment",
@@ -84,8 +86,8 @@ export async function POST(
         amountCents,
         method,
         stateAfter: inv.state,
-        paidCents: inv.paid_cents,
-        balanceCents: inv.balance_cents,
+        paidCents: inv.paidCents,
+        balanceCents: inv.balanceCents,
       },
     });
 

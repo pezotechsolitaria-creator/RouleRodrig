@@ -31,6 +31,10 @@ export type EmailCategory =
   // platform — so a dashboard that files rides under scooters answers "what is
   // eating Brevo's quota today?" with the wrong name.
   | "ride"
+  // Invoices and receipts — a document about a transaction rather than the
+  // transaction itself, and the only category that can follow any of the
+  // others.
+  | "billing"
   | "account"
   | "operational"
   | "marketing";
@@ -160,6 +164,16 @@ export const EMAIL_TYPES = {
   email_verification:               { category: "account", priority: "critical" },
   password_reset:                   { category: "account", priority: "critical" },
   security_notification:            { category: "account", priority: "critical", planned: true },
+
+  // ── Billing (the documents, not the transactions) ────────────────────────
+  // An invoice follows a booking, an order or a ride, so it could have been
+  // filed under any of them. It is its own category because the question a
+  // quota dashboard answers is "what is eating capacity today?", and a burst
+  // of month-end invoicing filed under scooter_rental would be read as a
+  // rental problem. It also must not be able to eat the reserve that protects
+  // a booking confirmation: a confirmation is time-critical, an invoice is a
+  // document that is just as good an hour later.
+  invoice_document:                 { category: "billing", priority: "high" },
 
   // ── Operational (internal — owner and staff) ─────────────────────────────
   // A missed owner alert is backed by the CallMeBot WhatsApp ping, which is why

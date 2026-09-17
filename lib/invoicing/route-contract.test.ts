@@ -46,7 +46,7 @@ describe("it is admin-only and it leaves a trail", () => {
     // When somebody asks in a year why a document says what it says, the
     // answer should be one row away.
     expect(ROUTE).toContain('action: "invoice.issue"');
-    expect(ROUTE).toContain("sourceAmountUnit: inv.source_amount_unit");
+    expect(ROUTE).toContain("sourceAmountUnit: inv.sourceAmountUnit");
   });
 
   it("reuses the existing audit trail rather than a second one", () => {
