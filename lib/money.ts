@@ -91,3 +91,23 @@ export function rupeesToCents(rupees: unknown): number | null {
     ? Math.round(rupees * 100)
     : null;
 }
+
+/**
+ * Cents -> what a customer reads. "1,800" · "1,800.50" · "-250".
+ *
+ * Grouped, and the ".00" dropped because Rodrigues prices are whole rupees
+ * almost without exception and the owner asked for no decimal point on one.
+ * Unlike centsToShortString this KEEPS the thousands separator, which is the
+ * difference between 180000 reading as Rs 1,800 and reading as Rs 180000.
+ *
+ * Use this anywhere an Activity amount is shown. Two screens had hand-rolled
+ * their own version of this line and both got the unit wrong — see
+ * lib/activity.ts.
+ */
+export function centsToDisplay(cents: number): string {
+  const sign = cents < 0 ? "-" : "";
+  const abs = Math.abs(cents);
+  const rupees = Math.floor(abs / 100).toLocaleString("en-US");
+  const rest = abs % 100;
+  return rest === 0 ? `${sign}${rupees}` : `${sign}${rupees}.${String(rest).padStart(2, "0")}`;
+}

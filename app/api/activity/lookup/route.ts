@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rupeesToCents } from "@/lib/money";
 import { getPrivileged } from "@/lib/supabase/admin";
 import { guard } from "@/lib/rate-limit";
 import {
@@ -98,7 +99,11 @@ export async function POST(req: NextRequest) {
         date: start,
         // amount_paid is the truthful figure: what the customer has actually
         // handed over, not what the total says they will owe.
-        amount: (b.amountPaid as number | null) ?? (b.deposit as number | null) ?? null,
+        // WHOLE RUPEES on a booking. Converted at the edge, once — the rule
+        // lib/money.ts states and this route broke.
+        amountCents: rupeesToCents(
+          (b.amountPaid as number | null) ?? (b.deposit as number | null) ?? null,
+        ),
         currency: "MUR",
         stage,
         statusLabel: activityLabel(kind, stage),
@@ -125,7 +130,8 @@ export async function POST(req: NextRequest) {
         title: String(o.storeName ?? "Order"),
         provider: (o.storeName as string | null) ?? null,
         date: (o.placedAt as string | null) ?? null,
-        amount: (o.total as number | null) ?? null,
+        // orders.total is already cents.
+        amountCents: (o.total as number | null) ?? null,
         currency: (o.currency as string) ?? "MUR",
         stage,
         statusLabel: activityLabel("order", stage, STATUS_LABEL[status as OrderStatus]),

@@ -33,6 +33,10 @@
 // has done exactly as much "a thing I booked" as somebody renting a scooter,
 // and leaving it out would send them back to ringing the shop to ask when
 // their own appointment was.
+import { rupeesToCents } from "@/lib/money";
+// The ONLY import here, and it keeps this module pure: lib/money.ts has no
+// database and no React either. It carries the rule this file broke.
+
 export const ACTIVITY_KINDS = ["vehicle", "place", "order", "ride", "delivery", "service"] as const;
 export type ActivityKind = (typeof ACTIVITY_KINDS)[number];
 
@@ -55,8 +59,20 @@ export type Activity = {
   provider: string | null;
   /** ISO date this is FOR (not when it was booked). Sorting key. */
   date: string | null;
-  /** Minor units. Null when nothing is owed or known. */
-  amount: number | null;
+  /**
+   * Minor units (cents). Null when nothing is owed or known.
+   *
+   * NAMED for its unit, because the previous name was `amount` and it carried
+   * RUPEES for a vehicle or a place and CENTS for an order or a ride. Both
+   * screens rendering it branched on `kind === "order"` and printed everything
+   * else as whole rupees — so a Rs 1,800 transfer, stored as 180000, was shown
+   * to the customer as "Rs 180,000".
+   *
+   * lib/money.ts already states the rule this broke: convert at the EDGE, once,
+   * and give the converted field a name that says Cents. This is the fourth
+   * time the platform has shipped the same confusion.
+   */
+  amountCents: number | null;
   currency: string;
   stage: ActivityStage;
   /** The kind-specific word shown on the badge, in English. */
@@ -373,7 +389,8 @@ export function vehicleToActivity(row: VehicleRow, today: string): Activity {
     provider: null,
     date: row.start_date ?? null,
     // What the customer has actually paid, not what they will owe.
-    amount: row.amount_paid ?? row.deposit_amount ?? null,
+    // bookings / place_bookings store WHOLE RUPEES. Converted here, once.
+    amountCents: rupeesToCents(row.amount_paid ?? row.deposit_amount ?? null),
     currency: "MUR",
     stage,
     statusLabel: activityLabel("vehicle", stage),
@@ -403,7 +420,8 @@ export function placeToActivity(row: PlaceRow, today: string): Activity {
     title: row.place_name || "Booking",
     provider: row.place_name ?? null,
     date: row.start_date ?? null,
-    amount: row.amount_paid ?? row.deposit_amount ?? null,
+    // bookings / place_bookings store WHOLE RUPEES. Converted here, once.
+    amountCents: rupeesToCents(row.amount_paid ?? row.deposit_amount ?? null),
     currency: "MUR",
     stage,
     statusLabel: activityLabel("place", stage),
@@ -434,7 +452,8 @@ export function orderToActivity(row: OrderRow, statusLabel?: string): Activity {
     // placed_at is when it became a real order; created_at is the fallback for
     // rows that predate it.
     date: row.placed_at ?? row.created_at ?? null,
-    amount: row.total ?? null,
+    // orders.total is already cents.
+    amountCents: row.total ?? null,
     currency: row.currency ?? "MUR",
     stage,
     statusLabel: activityLabel("order", stage, statusLabel),
@@ -476,7 +495,8 @@ export function rideToActivity(row: RideRow): Activity {
     // A scheduled pickup is the date that matters; an "as soon as possible"
     // ride only ever had the moment it was asked for.
     date: row.scheduled_at ?? row.created_at ?? null,
-    amount: typeof row.quoted_price === "number" ? row.quoted_price : null,
+    // ride_requests.quoted_price is already cents: 180000 is Rs 1,800.
+    amountCents: typeof row.quoted_price === "number" ? row.quoted_price : null,
     currency: row.currency || "MUR",
     stage,
     statusLabel: activityLabel("ride", stage),
@@ -520,7 +540,7 @@ export function serviceToActivity(row: ServiceBookingRow): Activity {
     date: row.starts_at ?? null,
     // Nothing is taken online. Showing the price would read as money already
     // handed over, and the customer settles with the provider on the day.
-    amount: null,
+    amountCents: null,
     currency: "MUR",
     stage,
     statusLabel: activityLabel("service", stage),
@@ -542,7 +562,7 @@ export function deliveryToActivity(row: DeliveryRow): Activity {
     date: row.created_at ?? null,
     // max_budget is what the customer was WILLING to pay, not what anything
     // costs. Showing it as an amount would read as a price they had agreed.
-    amount: null,
+    amountCents: null,
     currency: "MUR",
     stage,
     statusLabel: activityLabel("delivery", stage),

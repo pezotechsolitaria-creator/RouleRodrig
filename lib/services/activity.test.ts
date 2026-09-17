@@ -38,7 +38,7 @@ describe("a booking joins the five backends", () => {
     // A price here would read as money already handed over. The customer
     // settles with the provider on the day.
     const a = serviceToActivity({ id: "x", service_name: "Quick wash", status: "booked" });
-    expect(a.amount).toBeNull();
+    expect(a.amountCents).toBeNull();
   });
 
   it("falls back to the marketplace when the shop has no slug", () => {

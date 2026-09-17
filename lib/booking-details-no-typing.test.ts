@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { centsToDecimalString } from "./money";
+import { centsToDecimalString, centsToDisplay } from "./money";
 
 // ── FOUR BOOKINGS, EVERY FIGURE A HUNDREDTH OF THE TRUTH (M165) ─────────────
 //
@@ -25,19 +25,32 @@ const MANAGE = readFileSync(join(ROOT, "app", "manage-booking", "page.tsx"), "ut
 const CODE = MANAGE.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
 describe("the activity page shows the amount that was actually paid", () => {
-  it("formats bookings as rupees and orders as cents", () => {
-    expect(ORDERS).toMatch(/a\.kind === "order"/);
-    expect(ORDERS).toMatch(/Math\.round\(a\.amount\)\.toLocaleString/);
+  // ── REPLACED DELIBERATELY ────────────────────────────────────────────────
+  //
+  // This required `a.kind === "order"` and a rupee branch beside it — the M165
+  // fix, pinned as a requirement. It was right for what it fixed and wrong as
+  // an invariant: the set of cents kinds is not {order}. ride_requests
+  // .quoted_price is cents too, so the same branch printed a Rs 1,800 transfer
+  // as "Rs 180,000" on this page.
+  //
+  // Activity now carries amountCents, converted at the edge, so there is
+  // nothing to branch on. Asserting the ABSENCE of the branch is the stronger
+  // statement: it cannot silently start being wrong for a sixth kind.
+  it("runs every kind through one formatter, with no branch", () => {
+    expect(ORDERS).toContain("centsToDisplay(a.amountCents)");
+    expect(ORDERS).not.toMatch(/a\.kind === "order"/);
+    expect(ORDERS).not.toMatch(/Math\.round\(a\.amount/);
   });
 
   it("no longer runs every activity through the cents formatter", () => {
-    expect(ORDERS).not.toMatch(/Rs \{centsToDecimalString\(a\.amount\)\}/);
+    expect(ORDERS).not.toMatch(/Rs \{centsToDecimalString\(a\.amount\w*\)\}/);
   });
 
   it("prints a rupee figure with no decimal point, as asked", () => {
-    expect(Math.round(12942).toLocaleString("en-US")).toBe("12,942");
-    expect(Math.round(12942).toLocaleString("en-US")).not.toContain(".");
-    // What the page used to show for the same booking.
+    // Rs 12,942 is 1294200 cents once converted at the edge.
+    expect(centsToDisplay(1294200)).toBe("12,942");
+    expect(centsToDisplay(1294200)).not.toContain(".");
+    // What the page showed before M165, for the same booking.
     expect(centsToDecimalString(12942)).toBe("129.42");
   });
 

@@ -13,7 +13,7 @@ const TODAY = "2026-08-15";
 
 const act = (over: Partial<Activity>): Activity => ({
   kind: "order", id: "1", reference: "R1", title: "T", provider: null,
-  date: TODAY, amount: null, currency: "MUR", stage: "confirmed",
+  date: TODAY, amountCents: null, currency: "MUR", stage: "confirmed",
   statusLabel: "Confirmed", href: "#", ...over,
 });
 
@@ -255,15 +255,19 @@ describe("vehicleToActivity", () => {
   });
 
   it("prefers what was actually paid over what is owed", () => {
-    expect(vehicleToActivity({ ...row, amount_paid: 250000, deposit_amount: 400000 }, TODAY).amount).toBe(250000);
-    expect(vehicleToActivity({ ...row, amount_paid: null, deposit_amount: 400000 }, TODAY).amount).toBe(400000);
+    // The fixture used to say 250000 for a scooter, which as RUPEES is
+    // Rs 250,000 — a figure nobody has ever paid here. Whoever wrote it was
+    // thinking in cents, which is the confusion this whole change is about.
+    // bookings hold WHOLE RUPEES, so Rs 2,500 is 2500 and becomes 250000 cents.
+    expect(vehicleToActivity({ ...row, amount_paid: 2500, deposit_amount: 4000 }, TODAY).amountCents).toBe(250000);
+    expect(vehicleToActivity({ ...row, amount_paid: null, deposit_amount: 4000 }, TODAY).amountCents).toBe(400000);
   });
 
   it("survives a row with almost nothing in it", () => {
     const bare = vehicleToActivity({ id: "aaaaaaaa-0000-0000-0000-000000000000" }, TODAY);
     expect(bare.title).toBe("Rental");
     expect(bare.date).toBeNull();
-    expect(bare.amount).toBeNull();
+    expect(bare.amountCents).toBeNull();
   });
 });
 

@@ -121,6 +121,6 @@ describe("what the customer sees, and what they no longer have to type", () => {
     // max_budget is what the customer was willing to pay, not what anything
     // costs. Rendering it as an amount would read as an agreed figure.
     const a = deliveryToActivity({ id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", status: "accepted" });
-    expect(a.amount).toBeNull();
+    expect(a.amountCents).toBeNull();
   });
 });

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft, ArrowRight, Bike, CalendarCheck, Car, Clock, Loader2, MapPin, Search, Store, Ticket, Truck, User, UtensilsCrossed, Wrench } from "lucide-react";
-import { centsToDecimalString } from "@/lib/money";
+import { centsToDecimalString, centsToDisplay } from "@/lib/money";
 import type { Activity, ActivityKind, ActivityStage } from "@/lib/activity";
 import { holdInfo, holdDeadlineLabel, holdRemaining } from "@/lib/orders/hold";
 import { useLanguage } from "@/context/LanguageContext";
@@ -202,21 +202,14 @@ function ActivityCard({ activity }: { activity: Activity }) {
             })}
           </span>
         )}
-        {activity.amount != null && activity.amount > 0 && (
+        {activity.amountCents != null && activity.amountCents > 0 && (
           <span className="font-syne font-extrabold text-yellow">
-            {/* ── TWO UNITS, ONE FORMATTER (M162) ────────────────────────
-                /api/activity/lookup returns amounts in different units by
-                kind: a rental or an experience carries `deposit`/`amountPaid`
-                in whole RUPEES, a shop order carries `total` in CENTS. Every
-                one of them was run through centsToDecimalString, so a rental
-                deposit of Rs 524 rendered on the customer's tracking page as
-                "Rs 5.24" — a hundredth of what they actually paid, on the one
-                screen somebody opens when they are already anxious about their
-                money. */}
-            Rs{" "}
-            {activity.kind === "order"
-              ? centsToDecimalString(activity.amount)
-              : Math.round(activity.amount).toLocaleString("en-US")}
+            {/* ── ONE UNIT, NO BRANCH (M162, and now this) ────────────────
+                The kind === "order" branch was right when orders were the only
+                cents. Rides are cents too, so a Rs 1,800 transfer showed as
+                Rs 180,000. Activity carries amountCents now; nothing to
+                branch on. */}
+            Rs {centsToDisplay(activity.amountCents)}
           </span>
         )}
       </div>

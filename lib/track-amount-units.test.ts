@@ -24,22 +24,33 @@ const API = readFileSync(
 );
 
 describe("the tracking card shows the amount the customer actually paid", () => {
-  it("formats by kind instead of assuming cents", () => {
-    expect(SRC).toMatch(/activity\.kind === "order"/);
-    expect(SRC).toMatch(/centsToDecimalString\(activity\.amount\)/);
-    expect(SRC).toMatch(/Math\.round\(activity\.amount\)\.toLocaleString/);
+  // ── REPLACED DELIBERATELY ────────────────────────────────────────────────
+  //
+  // M162 fixed a Rs 524 deposit reading as "Rs 5.24" by branching on kind, and
+  // this test pinned that branch. The branch was correct for what it fixed and
+  // wrong as an invariant: rides are cents as well as orders, so the same line
+  // printed a Rs 1,800 transfer as "Rs 180,000".
+  //
+  // The unit is now resolved at the edge and the field is named amountCents.
+  // Asserting the branch is GONE is the stronger guarantee.
+  it("runs every kind through one formatter, with no branch", () => {
+    expect(SRC).toContain("centsToDisplay(activity.amountCents)");
+    expect(SRC).not.toMatch(/activity\.kind === "order"/);
+    expect(SRC).not.toMatch(/Math\.round\(activity\.amount/);
   });
 
   it("no longer runs every kind through the cents formatter", () => {
     // The exact shape of the bug: one call, unconditional.
-    expect(SRC).not.toMatch(/Rs \{centsToDecimalString\(activity\.amount\)\}/);
+    expect(SRC).not.toMatch(/centsToDecimalString\(activity\.amount\w*\)/);
   });
 
-  it("the units really do differ in the API, which is why this is needed", () => {
-    // Rentals and experiences: rupees.
-    expect(API).toMatch(/amount:\s*\(b\.amountPaid[^)]*\)\s*\?\?\s*\(b\.deposit/);
-    // Orders: the marketplace total, which is stored in cents.
-    expect(API).toMatch(/amount:\s*\(o\.total/);
+  it("the API converts at the edge, so the units no longer differ on the wire", () => {
+    // They still differ in the DATABASE — a booking is rupees, an order is
+    // cents — which is exactly why the conversion belongs here and once.
+    expect(API).toMatch(/amountCents: rupeesToCents\(/);
+    expect(API).toMatch(/amountCents: \(o\.total/);
+    // And nothing leaves this route under the old ambiguous name.
+    expect(API).not.toMatch(/^\s*amount:/m);
   });
 });
 

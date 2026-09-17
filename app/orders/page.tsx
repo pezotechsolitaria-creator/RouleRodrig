@@ -10,7 +10,7 @@ import NotificationCenter from "@/components/NotificationCenter";
 import NotificationPreferences from "@/components/orders/NotificationPreferences";
 import { createClient } from "@/lib/supabase/server";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
-import { centsToDecimalString } from "@/lib/money";
+import { centsToDecimalString, centsToDisplay } from "@/lib/money";
 import OrdersFilterBar from "@/components/orders/OrdersFilterBar";
 import { Badge } from "@/components/ui/badge";
 
@@ -256,22 +256,17 @@ function ActivityGroup({
               </p>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1.5">
-              {a.amount != null && a.amount > 0 && (
+              {a.amountCents != null && a.amountCents > 0 && (
                 <span className="font-dm text-sm font-semibold text-offwhite">
-                  {/* ── RUPEES ARE NOT CENTS (M165) ──────────────────────────
-                      Same fault as /track carried until yesterday, on the page
-                      a signed-in customer sees FIRST. A rental deposit of
-                      Rs 524 read as "Rs 5.24" and a Rs 12,942 car booking as
-                      "Rs 129.42" — four bookings on one screen, every one of
-                      them a hundredth of the truth.
-
-                      Shop orders a few lines up really are stored in cents and
-                      keep centsToDecimalString. Bookings carry whole rupees,
-                      so they are printed as integers — which is also what the
-                      owner asked for: no decimal point on a rupee figure. */}
-                  Rs {a.kind === "order"
-                    ? centsToDecimalString(a.amount)
-                    : Math.round(a.amount).toLocaleString("en-US")}
+                  {/* ── ONE UNIT, NO BRANCH (M162, M165, and now this) ──────
+                      This read `kind === "order" ? cents : rupees`, which was
+                      right when orders were the only cents. A ride is cents
+                      too, so a Rs 1,800 transfer stored as 180000 printed here
+                      as "Rs 180,000" — on the page a signed-in customer sees
+                      first.
+                      Activity now carries amountCents, converted at the edge.
+                      There is nothing left to branch on. */}
+                  Rs {centsToDisplay(a.amountCents)}
                 </span>
               )}
               <Badge variant="outline" className="border-white/15 text-muted">
