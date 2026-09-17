@@ -186,9 +186,15 @@ describe("the registry agrees with the adapter", () => {
     expect(ISSUABLE).toContain("totalCents: d.customer_fee");
   });
 
-  it("still multiplies by 100 only for the one table holding rupees", () => {
+  it("multiplies by 100 exactly as often as there are rupee subjects", () => {
+    // This used to read `toBe(1)` — true while bookings.total_amount was the
+    // only rupee source, and a failing test the moment place_bookings arrived.
+    // Derived from the registry instead, so it cannot go stale: every rupee
+    // subject converts once for display, every cents subject converts never.
     const multiplications = ISSUABLE.match(/\*\s*100/g) ?? [];
-    expect(multiplications.length).toBe(1); // bookings.total_amount
+    const rupeeSubjects = supportedSubjects().filter((k) => SUBJECTS[k].unit === "rupees");
+    expect(multiplications.length).toBe(rupeeSubjects.length);
+    expect(rupeeSubjects.length).toBeGreaterThan(0);
   });
 
   it("leaves no public role able to issue a document in the company's name", () => {

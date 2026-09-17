@@ -13,6 +13,9 @@ import type { InvoiceSubjectType } from "./types";
 //
 //   bookings.total_amount        5997      = Rs 5,997     RUPEES
 //   place_bookings.deposit_amount           (0 rows)      RUPEES
+//     (no live row to measure, so proved from four render sites instead:
+//      rupeesToCents() in lib/activity.ts and app/api/admin/money, and
+//      "Rs {amount}" printed with no division in lib/email.ts twice)
 //   orders.total                 75000     = Rs 750       CENTS
 //   deliveries.customer_fee      30000     = Rs 300       CENTS
 //     (rendered with centsToDecimalString() on the admin board, and
@@ -99,10 +102,17 @@ export const SUBJECTS: Record<InvoiceSubjectType, SubjectAdapter> = {
     amountColumn: "deposit_amount",
     unit: "rupees",
     label: "Experience or stay",
-    supported: false,
-    // Zero rows ever. There is no pricing module behind it, so the amount is
-    // whatever the operator agreed and has to be entered rather than read.
-    pending: "no transactions yet — amount would have to be entered by hand",
+    // M210. The entry here used to read "amount would have to be entered by
+    // hand", and that was simply wrong: deposit_amount is written once, at
+    // INSERT, from a server-resolved listing price the client cannot touch,
+    // and nothing writes it afterwards — the same property that made
+    // deliveries.customer_fee safe to bill.
+    //
+    // THE NAME IS A FOSSIL. It stopped being a deposit on 2026-08-13, when the
+    // owner made activities payable in full at booking. lib/defaults.ts: "this
+    // number is the whole price and nothing is owed later". The document must
+    // never call it a deposit.
+    supported: true,
   },
   service_booking: {
     table: "service_bookings",
@@ -110,7 +120,22 @@ export const SUBJECTS: Record<InvoiceSubjectType, SubjectAdapter> = {
     unit: "none",
     label: "Service",
     supported: false,
-    pending: "settled with the provider on the day; no money column",
+    // NOT a "not yet" — a "never, as the business works today". The platform
+    // is not the payee. components/shop/BookService.tsx tells the customer at
+    // the moment of booking: "Nothing to pay now — you settle it with them."
+    // trade_providers has no commission, fee or take-rate column, so this
+    // money never touches Roule Rodrigues, and an invoice would go out under
+    // invoice_settings.legal_name for a debt owed to a car wash.
+    //
+    // The amount looks readable through variant_id -> product_variants.price
+    // and is not: nothing is snapshotted onto the booking, the merchant can
+    // rewrite that price at any time, and the FK is ON DELETE SET NULL — so a
+    // price read today for a March booking is a different figure, or none.
+    // There is no email column either; the public door takes a name and a
+    // phone. M200 already wrote this verdict into a constraint by excluding
+    // service_booking from invoices_not_above_source.
+    pending:
+      "the platform is not the payee — the customer is told at booking that they settle it with the provider",
   },
   subscription_invoice: {
     table: "subscription_invoices",
@@ -118,7 +143,19 @@ export const SUBJECTS: Record<InvoiceSubjectType, SubjectAdapter> = {
     unit: "cents",
     label: "Merchant subscription",
     supported: false,
-    pending: "merchant billing, not a customer document",
+    // The money IS readable — amount is cents and non-null — and that is not
+    // the problem. A DOCUMENT ALREADY EXISTS for these exact rows:
+    // components/merchant/InvoicePdfButton.tsx builds a PDF headed
+    // "Subscription invoice" carrying the reference, plan, period and amount,
+    // and app/merchant/(app)/subscription/page.tsx mounts it twice, so any
+    // merchant can download one today. Issuing RR-INV numbers over the same
+    // rows would be a second document for one debt — the failure M208 was
+    // written to prevent, arriving from the other direction.
+    //
+    // There is also no payer to address: merchants.contact_email is NULL on
+    // every live merchant, and all four rows belong to one test shop, one of
+    // them for Rs 0.
+    pending: "merchants already download a subscription invoice from their own page",
   },
   managed_ticketing_agreement: {
     table: "managed_ticketing_agreements",
@@ -126,7 +163,25 @@ export const SUBJECTS: Record<InvoiceSubjectType, SubjectAdapter> = {
     unit: "cents",
     label: "Ticketing fee",
     supported: false,
-    pending: "fee is NULL on every live agreement",
+    // Two blockers, and the second is the dangerous one.
+    //
+    // No figure: invoiced_fee_cents is frozen by an existing billing run
+    // (admin_set_managed_ticketing_payment moves payment_status to 'invoiced'
+    // and stamps the basis, the fee and the date). It is NULL on both live
+    // agreements, so an adapter reading it would refuse every row that exists.
+    // Computing the fee instead would be a second implementation that can
+    // disagree with the database's own — and for a percentage fee it would
+    // disagree by construction, because the basis moves with ticket sales
+    // until the freeze.
+    //
+    // NO PAYER, AND A TRAP WHERE ONE LOOKS LIKE IT IS. The agreement carries
+    // no name, email or phone. The obvious join — store_id -> stores.
+    // merchant_id -> merchants.contact_email — resolves to the SYSTEM-OWNED
+    // merchant that M40 gave every event store, so it would address the
+    // invoice to Roule Rodrigues itself. And invoiced_basis_cents must never
+    // be billed: it is the organiser's own ticket revenue, buyers' money owed
+    // TO them.
+    pending: "no fee has ever been set, and the agreement names no payer",
   },
 };
 

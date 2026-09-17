@@ -73,9 +73,15 @@ describe("a fare is already in minor units", () => {
     expect(ISSUABLE).toContain("totalCents: r.quoted_price");
   });
 
-  it("multiplies by 100 only for the one table that holds rupees", () => {
+  it("multiplies by 100 exactly as often as there are rupee subjects", () => {
+    // This read `toBe(1)` while bookings.total_amount was the only rupee
+    // source, which made the next rupee subject a failing test rather than a
+    // passing one. Derived from the registry now — the invariant is that a
+    // cents subject is never multiplied, not that there is exactly one rupee
+    // subject in the world.
     const multiplications = ISSUABLE.match(/\*\s*100/g) ?? [];
-    expect(multiplications.length).toBe(1); // bookings.total_amount
+    const rupeeSubjects = supportedSubjects().filter((k) => SUBJECTS[k].unit === "rupees");
+    expect(multiplications.length).toBe(rupeeSubjects.length);
     expect(ISSUABLE).toContain("totalCents: b.total_amount * 100");
   });
 });

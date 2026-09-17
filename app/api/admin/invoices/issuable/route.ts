@@ -7,8 +7,8 @@ import type { IssuableSubject } from "@/lib/invoicing/types";
 
 // ── WHAT CAN STILL BE INVOICED ──────────────────────────────────────────────
 //
-// Bookings, orders, rides and deliveries that do not already have a live
-// invoice. The exclusion matters: invoices_one_live_per_subject would reject a
+// Bookings, orders, rides, deliveries and place reservations that do not
+// already have a live invoice. The exclusion matters: invoices_one_live_per_subject would reject a
 // second one anyway, so offering it would be offering a button that always
 // errors.
 //
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       ),
     );
 
-    const [bookings, orders, rides, deliveries] = await Promise.all([
+    const [bookings, orders, rides, deliveries, places] = await Promise.all([
       admin
         .from("bookings")
         .select("id, name, scooter, days, total_amount, start_date")
@@ -80,11 +80,26 @@ export async function GET(req: NextRequest) {
         .gt("customer_fee", 0)
         .order("created_at", { ascending: false })
         .limit(100),
+      // ── RESERVATIONS THE OWNER HAS ACCEPTED ─────────────────────────────
+      // 'pending' means the owner has not said yes yet, so nothing is agreed
+      // and place_bookings_approved_has_deadline has not even set a due date.
+      // A zero or NULL price means a request-only listing — eight of the
+      // sixteen live listings carry no price at all — and there is nothing to
+      // put on a document. invoice_issue() refuses both; the picker does not
+      // offer them.
+      admin
+        .from("place_bookings")
+        .select("id, place_name, name, deposit_amount, start_date, end_date, status, payment_due_by")
+        .in("status", ["approved", "confirmed", "completed"])
+        .gt("deposit_amount", 0)
+        .order("created_at", { ascending: false })
+        .limit(100),
     ]);
     if (bookings.error) return failed(bookings.error, "Could not load bookings.");
     if (orders.error) return failed(orders.error, "Could not load orders.");
     if (rides.error) return failed(rides.error, "Could not load rides.");
     if (deliveries.error) return failed(deliveries.error, "Could not load deliveries.");
+    if (places.error) return failed(places.error, "Could not load reservations.");
 
     type BookingRow = {
       id: string; name: string | null; scooter: string | null;
@@ -103,6 +118,11 @@ export async function GET(req: NextRequest) {
       id: string; status: string; customer_fee: number; request_id: string;
       created_at: string; delivered_at: string | null;
       payment_method: string | null; payment_verified_at: string | null;
+    };
+    type PlaceRow = {
+      id: string; place_name: string; name: string; deposit_amount: number;
+      start_date: string; end_date: string; status: string;
+      payment_due_by: string | null;
     };
     type RequestRow = {
       id: string; kind: string; contact_name: string;
@@ -215,6 +235,29 @@ export async function GET(req: NextRequest) {
               : "The driver was told to collect this at the door — record the payment after issuing.",
         });
       }
+    }
+
+    for (const p of (places.data ?? []) as unknown as PlaceRow[]) {
+      if (done.has(`place_booking:${p.id}`)) continue;
+      out.push({
+        subjectType: "place_booking",
+        subjectId: p.id,
+        reference: `RR-${p.id.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+        who: p.name,
+        // Never "deposit": the column name is a fossil and the figure is the
+        // whole price, paid in full to confirm.
+        what: `${p.place_name} — ${p.start_date.slice(0, 10)}`,
+        // place_bookings.deposit_amount is WHOLE RUPEES, like bookings. The
+        // conversion here is only so the picker can show a figure;
+        // invoice_issue() converts again from the source row and the
+        // invoices_unit_provenance CHECK is what guarantees the document.
+        totalCents: p.deposit_amount * 100,
+        when: p.start_date,
+        note:
+          p.payment_due_by && p.status === "approved"
+            ? `Due ${p.payment_due_by.slice(0, 10)} — the date the customer was already given.`
+            : undefined,
+      });
     }
 
     return NextResponse.json({ issuable: out });
