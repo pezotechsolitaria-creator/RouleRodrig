@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, Wallet, Ban, Send, ReceiptText } from "lucide-react";
+import { ArrowLeft, Download, Wallet, Ban, Send, ReceiptText, RotateCcw } from "lucide-react";
 import type { Invoice, InvoiceLine, InvoicePayment, RelatedDocument } from "@/lib/invoicing/types";
 import { SUBJECTS } from "@/lib/invoicing/subjects";
 import { STATE_TONE, STATE_LABEL, money } from "@/lib/invoicing/register";
@@ -11,6 +11,7 @@ import { invoiceToReceipt } from "@/lib/invoicing/document";
 import { downloadReceipt } from "@/lib/receipt";
 import PaymentDialog from "../PaymentDialog";
 import SendDialog from "../SendDialog";
+import CreditNoteDialog from "../CreditNoteDialog";
 
 // ── ONE INVOICE, AND THE DOCUMENT IT PRODUCES ───────────────────────────────
 //
@@ -34,6 +35,7 @@ export default function InvoiceDetailView({ id }: { id: string }) {
   const [paying, setPaying] = useState(false);
   const [sending, setSending] = useState(false);
   const [receipting, setReceipting] = useState(false);
+  const [crediting, setCrediting] = useState(false);
   // Separate from `error`: that one replaces the whole page, which is the right
   // answer when the invoice cannot be loaded and the wrong one when an action
   // fails — blanking the document to say "not paid in full" helps nobody.
@@ -82,6 +84,7 @@ export default function InvoiceDetailView({ id }: { id: string }) {
 
   const subject = SUBJECTS[inv.subjectType];
   const hasReceipt = related.some((r) => r.docKind === "receipt" && r.state !== "void");
+  const hasCreditNote = related.some((r) => r.docKind === "credit_note" && r.state !== "void");
 
   // A receipt takes no input at all: every figure is copied from this invoice
   // by the RPC, so there is nothing for a dialog to ask and nothing for a
@@ -136,6 +139,18 @@ export default function InvoiceDetailView({ id }: { id: string }) {
                 className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/12 px-4 font-dm text-sm"
               >
                 <Send size={15} /> {inv.sentAt ? "Send again" : "Send to customer"}
+              </button>
+            )}
+            {inv.docKind === "invoice" &&
+              inv.state !== "draft" &&
+              inv.state !== "void" &&
+              !hasCreditNote && (
+              <button
+                type="button"
+                onClick={() => setCrediting(true)}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/12 px-4 font-dm text-sm"
+              >
+                <RotateCcw size={15} /> Credit note
               </button>
             )}
             {inv.docKind === "invoice" && inv.state === "paid" && !hasReceipt && (
@@ -324,6 +339,18 @@ export default function InvoiceDetailView({ id }: { id: string }) {
           </p>
         )}
       </div>
+
+      {crediting && (
+        <CreditNoteDialog
+          invoice={inv}
+          onClose={() => setCrediting(false)}
+          onDone={(note) => {
+            setCrediting(false);
+            setSaid(`${note.number} raised against ${inv.number}.`);
+            void load();
+          }}
+        />
+      )}
 
       {sending && (
         <SendDialog
