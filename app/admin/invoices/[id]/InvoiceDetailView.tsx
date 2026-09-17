@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Download, Wallet, Ban, Send, ReceiptText, RotateCcw } from "lucide-react";
 import type { Invoice, InvoiceLine, InvoicePayment, RelatedDocument } from "@/lib/invoicing/types";
 import { SUBJECTS } from "@/lib/invoicing/subjects";
+import { canVoid } from "@/lib/invoicing/void-form";
 import { STATE_TONE, STATE_LABEL, money } from "@/lib/invoicing/register";
 import { PAYMENT_METHOD_LABEL, type PaymentMethod } from "@/lib/invoicing/payments";
 import { invoiceToReceipt } from "@/lib/invoicing/document";
@@ -12,6 +13,7 @@ import { downloadReceipt } from "@/lib/receipt";
 import PaymentDialog from "../PaymentDialog";
 import SendDialog from "../SendDialog";
 import CreditNoteDialog from "../CreditNoteDialog";
+import VoidDialog from "../VoidDialog";
 
 // ── ONE INVOICE, AND THE DOCUMENT IT PRODUCES ───────────────────────────────
 //
@@ -36,6 +38,7 @@ export default function InvoiceDetailView({ id }: { id: string }) {
   const [sending, setSending] = useState(false);
   const [receipting, setReceipting] = useState(false);
   const [crediting, setCrediting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   // Separate from `error`: that one replaces the whole page, which is the right
   // answer when the invoice cannot be loaded and the wrong one when an action
   // fails — blanking the document to say "not paid in full" helps nobody.
@@ -139,6 +142,15 @@ export default function InvoiceDetailView({ id }: { id: string }) {
                 className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/12 px-4 font-dm text-sm"
               >
                 <Send size={15} /> {inv.sentAt ? "Send again" : "Send to customer"}
+              </button>
+            )}
+            {canVoid(inv) && (
+              <button
+                type="button"
+                onClick={() => setCancelling(true)}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/12 px-4 font-dm text-sm text-muted"
+              >
+                <Ban size={15} /> Cancel
               </button>
             )}
             {inv.docKind === "invoice" &&
@@ -339,6 +351,18 @@ export default function InvoiceDetailView({ id }: { id: string }) {
           </p>
         )}
       </div>
+
+      {cancelling && (
+        <VoidDialog
+          invoice={inv}
+          onClose={() => setCancelling(false)}
+          onDone={(updated) => {
+            setCancelling(false);
+            setSaid(`${updated.number} cancelled.`);
+            void load();
+          }}
+        />
+      )}
 
       {crediting && (
         <CreditNoteDialog
