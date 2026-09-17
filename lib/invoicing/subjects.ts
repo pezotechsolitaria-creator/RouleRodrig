@@ -14,6 +14,9 @@ import type { InvoiceSubjectType } from "./types";
 //   bookings.total_amount        5997      = Rs 5,997     RUPEES
 //   place_bookings.deposit_amount           (0 rows)      RUPEES
 //   orders.total                 75000     = Rs 750       CENTS
+//   deliveries.customer_fee      30000     = Rs 300       CENTS
+//     (rendered with centsToDecimalString() on the admin board, and
+//      driver_earning + platform_fee equals it on every live row)
 //   ride_requests.quoted_price   180000    = Rs 1,800     CENTS
 //     (8 priced rides span 25000..180000 — Rs 250 to Rs 1,800, which is what
 //      an island transfer costs. A rupee reading makes the cheapest taxi
@@ -32,9 +35,9 @@ export type SubjectAdapter = {
    * The unit that column is in.
    *
    * "none" means the table has no money column at all — a service_booking is
-   * settled with the provider on the day, and a delivery's payment_amount is
-   * the customer's own claim about what the shopping cost, not a price anyone
-   * agreed. Both can still be invoiced; the amount is not read from the row.
+   * settled with the provider on the day. Such a subject can still be invoiced
+   * one day, but the amount would have to be entered rather than read, which
+   * is a different and more dangerous kind of adapter.
    */
   unit: "rupees" | "cents" | "none";
   /** What the document calls this, in English. */
@@ -79,14 +82,17 @@ export const SUBJECTS: Record<InvoiceSubjectType, SubjectAdapter> = {
   },
   delivery: {
     table: "deliveries",
-    amountColumn: null,
-    unit: "none",
+    // customer_fee, NOT payment_amount. The column's own database comment is
+    // the authority: payment_amount is "what the customer says they
+    // transferred ... their claim, not a verified figure" — an unconfirmed
+    // claim about paying THIS fee, NULL on every live row. If a transfer is
+    // real it becomes a payment against the invoice, never the invoice itself.
+    // M208 bills the fee and says on the document that the shopping is not
+    // part of it.
+    amountColumn: "customer_fee",
+    unit: "cents",
     label: "Delivery",
-    supported: false,
-    // payment_amount exists and is NULL on every live row; it records what the
-    // customer said the shopping cost, not a price. A delivery invoice is for
-    // the FEE and must say so on the document.
-    pending: "invoice is for the fee only — needs wording the owner approves",
+    supported: true,
   },
   place_booking: {
     table: "place_bookings",

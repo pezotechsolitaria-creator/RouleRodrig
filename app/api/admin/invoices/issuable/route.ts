@@ -1,13 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { guardAdminApi, failed } from "@/lib/admin/api-guard";
 import { rideReference, RIDE_SERVICE_META, type RideService } from "@/lib/rides/model";
+import { requestRef } from "@/lib/delivery/request-status";
 import type { IssuableSubject } from "@/lib/invoicing/types";
 
 // ── WHAT CAN STILL BE INVOICED ──────────────────────────────────────────────
 //
-// Bookings, orders and rides that do not already have a live invoice. The
-// exclusion matters: invoices_one_live_per_subject would reject a second one
-// anyway, so offering it would be offering a button that always errors.
+// Bookings, orders, rides and deliveries that do not already have a live
+// invoice. The exclusion matters: invoices_one_live_per_subject would reject a
+// second one anyway, so offering it would be offering a button that always
+// errors.
 //
 // A VOIDED invoice does not count — that subject is issuable again, which is
 // how a cancelled document is reissued with a fresh number.
@@ -35,7 +37,7 @@ export async function GET(req: NextRequest) {
       ),
     );
 
-    const [bookings, orders, rides] = await Promise.all([
+    const [bookings, orders, rides, deliveries] = await Promise.all([
       admin
         .from("bookings")
         .select("id, name, scooter, days, total_amount, start_date")
@@ -59,10 +61,28 @@ export async function GET(req: NextRequest) {
         .neq("status", "cancelled")
         .order("created_at", { ascending: false })
         .limit(100),
+      // ── ONLY DELIVER-ANYTHING DELIVERIES ────────────────────────────────
+      // A delivery attached to a store ORDER is already billed: create_order()
+      // computes total = subtotal + tax + delivery_fee, so the fee sits inside
+      // orders.total and inside that order's invoice. Offering it here would be
+      // offering to charge the same journey twice. invoice_issue() refuses it
+      // by name; the picker does not raise the question.
+      admin
+        .from("deliveries")
+        .select("id, status, customer_fee, request_id, created_at, delivered_at, payment_method, payment_verified_at")
+        .is("order_id", null)
+        // ONLY A DELIVERED JOB. The failed-delivery tracker tells the customer
+        // "You have not been charged a delivery fee", and nothing ever zeroes
+        // customer_fee, so every cancelled and failed row still carries one.
+        .eq("status", "delivered")
+        .gt("customer_fee", 0)
+        .order("created_at", { ascending: false })
+        .limit(100),
     ]);
     if (bookings.error) return failed(bookings.error, "Could not load bookings.");
     if (orders.error) return failed(orders.error, "Could not load orders.");
     if (rides.error) return failed(rides.error, "Could not load rides.");
+    if (deliveries.error) return failed(deliveries.error, "Could not load deliveries.");
 
     type BookingRow = {
       id: string; name: string | null; scooter: string | null;
@@ -76,6 +96,15 @@ export async function GET(req: NextRequest) {
       id: string; service: string; customer_name: string;
       quoted_price: number; pickup_label: string; dropoff_label: string | null;
       scheduled_at: string | null; created_at: string;
+    };
+    type DeliveryRow = {
+      id: string; status: string; customer_fee: number; request_id: string;
+      created_at: string; delivered_at: string | null;
+      payment_method: string | null; payment_verified_at: string | null;
+    };
+    type RequestRow = {
+      id: string; kind: string; contact_name: string;
+      pickup_text: string; dropoff_text: string;
     };
 
     const out: IssuableSubject[] = [];
@@ -129,6 +158,62 @@ export async function GET(req: NextRequest) {
         totalCents: r.quoted_price,
         when: r.scheduled_at ?? r.created_at,
       });
+    }
+
+    // The customer's identity and the route live on the REQUEST, not on the
+    // delivery. Fetched by id list rather than as an embedded select: an
+    // explicit second query cannot be surprised by how PostgREST names an
+    // embedded relation, and there are at most a hundred of them.
+    const deliveryRows = (deliveries.data ?? []) as unknown as DeliveryRow[];
+    const wanted = deliveryRows.filter((d) => !done.has(`delivery:${d.id}`));
+    if (wanted.length > 0) {
+      const reqs = await admin
+        .from("delivery_requests")
+        .select("id, kind, contact_name, pickup_text, dropoff_text")
+        .in("id", wanted.map((d) => d.request_id));
+      if (reqs.error) return failed(reqs.error, "Could not load the delivery requests.");
+
+      const byId = new Map(
+        ((reqs.data ?? []) as unknown as RequestRow[]).map((r) => [r.id, r]),
+      );
+
+      for (const d of wanted) {
+        const r = byId.get(d.request_id);
+        if (!r) continue; // No request row means no customer to bill.
+        // The site's own names for the three kinds, same as the invoice line.
+        const what =
+          r.kind === "shop_and_deliver" ? "Buy & deliver"
+          : r.kind === "errand" ? "Errand"
+          : r.kind === "package" ? "Collect & deliver"
+          : "Delivery";
+        out.push({
+          subjectType: "delivery",
+          subjectId: d.id,
+          // The reference the CUSTOMER holds is the request's, not the
+          // delivery's — requestRef() is what they were shown and asked to keep.
+          reference: requestRef(r.id),
+          who: r.contact_name,
+          what: `${what} — ${r.pickup_text} to ${r.dropoff_text}`,
+          // deliveries.customer_fee is ALREADY CENTS, and it is the fee alone:
+          // never max_budget, which is the customer's shopping money.
+          totalCents: d.customer_fee,
+          when: d.delivered_at ?? d.created_at,
+          // ── THE MONEY IS USUALLY ALREADY IN ─────────────────────────────
+          // A delivery only becomes invoiceable once it is delivered, and by
+          // then the fee has been collected: cash into the driver's hand at
+          // the door, or a transfer evidenced before the driver could leave
+          // 'assigned'. Nothing RECORDS the cash, so the invoice is issued
+          // unpaid and correctly so — but an operator who is not told this
+          // hands a customer a document reading "Awaiting payment" for money
+          // they have already paid. One sentence prevents that.
+          note:
+            d.payment_method === "bank_transfer"
+              ? d.payment_verified_at
+                ? "Paid by bank transfer, verified — record the payment after issuing."
+                : "Paid by bank transfer, not yet verified — check before recording it."
+              : "The driver was told to collect this at the door — record the payment after issuing.",
+        });
+      }
     }
 
     return NextResponse.json({ issuable: out });

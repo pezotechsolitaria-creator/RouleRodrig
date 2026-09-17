@@ -133,6 +133,15 @@ export default function IssueDialog({
                     {r.reference} · {r.what}
                     {r.when ? ` · ${r.when.slice(0, 10)}` : ""}
                   </span>
+                  {/* What the picker knows and the invoice does not — chiefly
+                      that a delivery fee has usually been collected already,
+                      so the document about to be issued needs a payment
+                      recorded against it straight away. */}
+                  {r.note && (
+                    <span className="mt-0.5 block font-dm text-[11px] text-amber-200/80">
+                      {r.note}
+                    </span>
+                  )}
                 </span>
                 <span className="shrink-0 font-dm text-sm tabular-nums text-offwhite">
                   {money(r.totalCents)}

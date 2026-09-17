@@ -126,6 +126,15 @@ export type IssuableSubject = {
   /** Minor units, converted from whatever the source column holds. */
   totalCents: number;
   when: string | null;
+  /**
+   * One line of context the picker knows and the invoice does not.
+   *
+   * A delivery is the case that needs it: by the time one can be invoiced the
+   * fee has in practice already been collected, and an operator who is not
+   * told that issues a document reading "Awaiting payment" for money that is
+   * in the till.
+   */
+  note?: string;
 };
 
 /** A sibling document about the same sale — a receipt, or the invoice it came from. */
