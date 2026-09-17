@@ -7,7 +7,9 @@ import {
   Gauge, UtensilsCrossed, Truck, Clock, Store, Users, Ticket, UserCog,
   PenSquare, MapPinned, Wallet, MessageCircle, ScrollText, Search, Menu, X,
   ExternalLink, LogOut, Waves, Bike, Activity, Receipt, ChefHat, ShoppingBag, Car, ClipboardList,
-  Sparkles, UserCheck, Radar, CalendarDays } from "lucide-react";
+  Sparkles, UserCheck, Radar, CalendarDays,
+  FileText,
+} from "lucide-react";
 import CommandPalette from "./CommandPalette";
 import AdminBell from "@/components/admin/AdminBell";
 import { OPEN_ADMIN_SEARCH } from "@/components/admin/AdminSearchBar";
@@ -54,6 +56,9 @@ const NAV: NavGroup[] = [
       // answer "what is waiting for me" — each of those sees a third of it.
       { href: "/admin/orders", label: "All orders", icon: ClipboardList },
       { href: "/admin/statement", label: "Order statement", icon: Receipt },
+      // Beside the statement because they answer adjacent questions: the
+      // statement is what the shops are owed, this is what customers owe us.
+      { href: "/admin/invoices", label: "Invoices", icon: FileText },
       { href: "/admin/kitchen-staff", label: "Kitchen teams", icon: ChefHat },
       { href: "/admin/food", label: "Food orders", icon: UtensilsCrossed },
       { href: "/admin/marketplace", label: "Shop orders", icon: ShoppingBag },
