@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FileText, Download, RefreshCw } from "lucide-react";
+import { FileText, Download, RefreshCw, Plus, Wallet } from "lucide-react";
+import PaymentDialog from "./PaymentDialog";
+import IssueDialog from "./IssueDialog";
 import type { Invoice, InvoiceState, InvoiceSubjectType } from "@/lib/invoicing/types";
 import { SUBJECTS } from "@/lib/invoicing/subjects";
 import {
@@ -43,6 +45,18 @@ export default function InvoiceDesk() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [f, setF] = useState<InvoiceFilters>({ state: "all", subjectType: "all" });
+  const [issuing, setIssuing] = useState(false);
+  const [paying, setPaying] = useState<Invoice | null>(null);
+  // Said out loud rather than toasted: this desk has no Toaster mounted, and
+  // adding one for a single confirmation would be a dependency for a sentence.
+  const [said, setSaid] = useState<string | null>(null);
+
+  /** Replace one row in place, so the table does not flash on every payment. */
+  function replace(updated: Invoice) {
+    setInvoices((prev) =>
+      (prev ?? []).map((i) => (i.id === updated.id ? { ...i, ...updated } : i)),
+    );
+  }
 
   async function load() {
     setBusy(true);
@@ -85,6 +99,13 @@ export default function InvoiceDesk() {
           <div className="flex gap-2">
             <button
               type="button"
+              onClick={() => setIssuing(true)}
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-yellow/50 bg-yellow/10 px-4 font-syne text-sm font-bold text-yellow"
+            >
+              <Plus size={15} /> Issue invoice
+            </button>
+            <button
+              type="button"
               onClick={() => void load()}
               disabled={busy}
               className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/12 px-4 font-dm text-sm disabled:opacity-50"
@@ -106,6 +127,12 @@ export default function InvoiceDesk() {
             </button>
           </div>
         </div>
+
+        {said && (
+          <p className="mt-4 rounded-xl border border-green-500/30 bg-green-500/10 px-3 py-2.5 font-dm text-sm text-green-200">
+            {said}
+          </p>
+        )}
 
         {/* ── The cards ─────────────────────────────────────────────────── */}
         <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -188,7 +215,7 @@ export default function InvoiceDesk() {
           <table className="w-full min-w-[56rem] border-collapse">
             <thead>
               <tr className="border-b border-white/10 text-left">
-                {["Number", "Issued", "Service", "Customer", "Total", "Paid", "Balance", "Status"].map(
+                {["Number", "Issued", "Service", "Customer", "Total", "Paid", "Balance", "Status", ""].map(
                   (h) => (
                     <th key={h} className="px-3 py-2.5 font-bebas text-[10px] tracking-[0.2em] text-muted">
                       {h}
@@ -225,6 +252,20 @@ export default function InvoiceDesk() {
                   <td className="px-3 py-2.5">
                     <Badge tone={STATE_TONE[i.state]}>{STATE_LABEL[i.state]}</Badge>
                   </td>
+                  <td className="px-3 py-2.5 text-right">
+                    {/* Offered only where money can actually be taken. The
+                        database refuses the rest, and a button that always
+                        errors teaches people to distrust the screen. */}
+                    {(i.state === "issued" || i.state === "part_paid" || i.state === "paid") && (
+                      <button
+                        type="button"
+                        onClick={() => setPaying(i)}
+                        className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-white/12 px-2.5 font-dm text-xs text-offwhite"
+                      >
+                        <Wallet size={13} /> Payment
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -253,6 +294,33 @@ export default function InvoiceDesk() {
           )}
         </div>
       </div>
+
+      {issuing && (
+        <IssueDialog
+          onClose={() => setIssuing(false)}
+          onIssued={(inv) => {
+            setIssuing(false);
+            setSaid(`${inv.number} issued.`);
+            void load();
+          }}
+        />
+      )}
+
+      {paying && (
+        <PaymentDialog
+          invoice={paying}
+          onClose={() => setPaying(null)}
+          onDone={(updated) => {
+            replace(updated);
+            setPaying(null);
+            setSaid(
+              updated.balanceCents <= 0
+                ? `${updated.number} is settled.`
+                : `Payment recorded. ${money(updated.balanceCents)} still owed on ${updated.number}.`,
+            );
+          }}
+        />
+      )}
     </main>
   );
 }
