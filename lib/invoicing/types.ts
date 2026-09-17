@@ -95,3 +95,21 @@ export type Invoice = {
   notes: string | null;
   createdAt: string;
 };
+
+/** One allocation of money against an invoice. */
+export type InvoicePayment = {
+  id: string;
+  amountCents: number;
+  method: string;
+  receivedAt: string;
+  externalRef: string | null;
+  note: string | null;
+  recordedBy: string;
+};
+
+/** An invoice with everything needed to render a document from it. */
+export type InvoiceDetail = {
+  invoice: Invoice;
+  lines: InvoiceLine[];
+  payments: InvoicePayment[];
+};
