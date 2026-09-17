@@ -95,7 +95,10 @@ export function invoiceToReceipt(inv: Invoice, lines: InvoiceLine[]): ReceiptDat
 
   return {
     ref: inv.number,
-    heading: inv.docKind === "credit_note" ? "Credit note" : "Invoice",
+    heading:
+      inv.docKind === "credit_note" ? "Credit note"
+      : inv.docKind === "receipt" ? "Receipt"
+      : "Invoice",
     customer: inv.billToName,
     itemLabel: subject.label,
     // What the customer already holds — their order number or booking

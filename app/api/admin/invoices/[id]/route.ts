@@ -35,10 +35,29 @@ export async function GET(
     if (lines.error) return failed(lines.error, "Could not load the lines.");
     if (pays.error) return failed(pays.error, "Could not load the payments.");
 
+    const invoice = toInvoice(inv.data as Record<string, unknown>);
+
+    // ── THE OTHER DOCUMENTS ABOUT THIS SALE ──────────────────────────────
+    // A receipt is a separate row with its own number, and without this the
+    // only way to reach it from its invoice would be to search the register
+    // for a number nobody has written down yet. Both directions: an invoice
+    // finds its receipt, a receipt finds the invoice it acknowledges.
+    const parentId = (inv.data as { parent_invoice_id?: string | null }).parent_invoice_id ?? null;
+    const rel = await admin
+      .from("invoices")
+      .select("id, number, doc_kind, state")
+      .or(`parent_invoice_id.eq.${id}${parentId ? `,id.eq.${parentId}` : ""}`);
+    if (rel.error) return failed(rel.error, "Could not load the related documents.");
+
     return NextResponse.json({
-      invoice: toInvoice(inv.data as Record<string, unknown>),
+      invoice,
       lines: ((lines.data ?? []) as Record<string, unknown>[]).map(toLine),
       payments: ((pays.data ?? []) as Record<string, unknown>[]).map(toPayment),
+      related: ((rel.data ?? []) as unknown as {
+        id: string; number: string; doc_kind: string; state: string;
+      }[]).map((r) => ({
+        id: r.id, number: r.number, docKind: r.doc_kind, state: r.state,
+      })),
     });
   } catch (err) {
     return failed(err, "Could not load the invoice.");

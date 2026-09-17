@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, Wallet, Ban, Send } from "lucide-react";
-import type { Invoice, InvoiceLine, InvoicePayment } from "@/lib/invoicing/types";
+import { ArrowLeft, Download, Wallet, Ban, Send, ReceiptText } from "lucide-react";
+import type { Invoice, InvoiceLine, InvoicePayment, RelatedDocument } from "@/lib/invoicing/types";
 import { SUBJECTS } from "@/lib/invoicing/subjects";
 import { STATE_TONE, STATE_LABEL, money } from "@/lib/invoicing/register";
 import { PAYMENT_METHOD_LABEL, type PaymentMethod } from "@/lib/invoicing/payments";
@@ -29,9 +29,15 @@ export default function InvoiceDetailView({ id }: { id: string }) {
   const [inv, setInv] = useState<Invoice | null>(null);
   const [lines, setLines] = useState<InvoiceLine[]>([]);
   const [payments, setPayments] = useState<InvoicePayment[]>([]);
+  const [related, setRelated] = useState<RelatedDocument[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [sending, setSending] = useState(false);
+  const [receipting, setReceipting] = useState(false);
+  // Separate from `error`: that one replaces the whole page, which is the right
+  // answer when the invoice cannot be loaded and the wrong one when an action
+  // fails — blanking the document to say "not paid in full" helps nobody.
+  const [actionError, setActionError] = useState<string | null>(null);
   const [said, setSaid] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -43,6 +49,7 @@ export default function InvoiceDetailView({ id }: { id: string }) {
       setInv(body.invoice as Invoice);
       setLines((body.lines ?? []) as InvoiceLine[]);
       setPayments((body.payments ?? []) as InvoicePayment[]);
+      setRelated((body.related ?? []) as RelatedDocument[]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load the invoice.");
     }
@@ -74,6 +81,27 @@ export default function InvoiceDetailView({ id }: { id: string }) {
   }
 
   const subject = SUBJECTS[inv.subjectType];
+  const hasReceipt = related.some((r) => r.docKind === "receipt" && r.state !== "void");
+
+  // A receipt takes no input at all: every figure is copied from this invoice
+  // by the RPC, so there is nothing for a dialog to ask and nothing for a
+  // person to get wrong.
+  async function issueReceipt() {
+    setReceipting(true);
+    setSaid(null);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/admin/invoices/${inv!.id}/receipt`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error ?? "Could not issue the receipt.");
+      setSaid(`${(body.invoice as Invoice).number} issued.`);
+      void load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not issue the receipt.");
+    } finally {
+      setReceipting(false);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-dark px-4 py-8 text-offwhite md:px-8">
@@ -110,6 +138,16 @@ export default function InvoiceDetailView({ id }: { id: string }) {
                 <Send size={15} /> {inv.sentAt ? "Send again" : "Send to customer"}
               </button>
             )}
+            {inv.docKind === "invoice" && inv.state === "paid" && !hasReceipt && (
+              <button
+                type="button"
+                onClick={() => void issueReceipt()}
+                disabled={receipting}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/12 px-4 font-dm text-sm disabled:opacity-50"
+              >
+                <ReceiptText size={15} /> {receipting ? "Issuing…" : "Issue receipt"}
+              </button>
+            )}
             {(inv.state === "issued" || inv.state === "part_paid" || inv.state === "paid") && (
               <button
                 type="button"
@@ -121,6 +159,12 @@ export default function InvoiceDetailView({ id }: { id: string }) {
             )}
           </div>
         </div>
+
+        {actionError && (
+          <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 font-dm text-sm text-red-300">
+            {actionError}
+          </p>
+        )}
 
         {said && (
           <p className="mt-4 rounded-xl border border-green-500/30 bg-green-500/10 px-3 py-2.5 font-dm text-sm text-green-200">
@@ -179,6 +223,24 @@ export default function InvoiceDetailView({ id }: { id: string }) {
             </p>
           </div>
         </div>
+
+        {related.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="font-bebas text-[10px] tracking-[0.22em] text-muted">
+              Related documents
+            </span>
+            {related.map((r) => (
+              <Link
+                key={r.id}
+                href={`/admin/invoices/${r.id}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/12 px-3 py-1 font-mono text-xs text-offwhite hover:border-yellow"
+              >
+                {r.number}
+                {r.state === "void" && <span className="text-muted">· cancelled</span>}
+              </Link>
+            ))}
+          </div>
+        )}
 
         {/* ── What is being charged for ──────────────────────────────────── */}
         <div className="mt-4 overflow-x-auto rounded-2xl border border-white/10">

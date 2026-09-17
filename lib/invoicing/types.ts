@@ -128,6 +128,14 @@ export type IssuableSubject = {
   when: string | null;
 };
 
+/** A sibling document about the same sale — a receipt, or the invoice it came from. */
+export type RelatedDocument = {
+  id: string;
+  number: string;
+  docKind: InvoiceDocKind;
+  state: InvoiceState;
+};
+
 /** One allocation of money against an invoice. */
 export type InvoicePayment = {
   id: string;
