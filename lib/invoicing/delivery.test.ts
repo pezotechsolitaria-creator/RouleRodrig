@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { requestRef } from "@/lib/delivery/request-status";
+import { REQUEST_KINDS, KIND_LABEL } from "@/lib/delivery/kind";
 import { SUBJECTS, supportedSubjects } from "./subjects";
 
 const readSql = (file: string) =>
@@ -65,7 +66,7 @@ describe("what a delivery invoice may not contain", () => {
     expect(ISSUABLE).not.toContain("max_budget");
   });
 
-  it("never reads payment_amount — what the customer said the shopping cost", () => {
+  it("never reads payment_amount — an unverified claim about paying THIS fee", () => {
     expect(M208).not.toContain("payment_amount");
   });
 
@@ -89,7 +90,11 @@ describe("what a delivery invoice may not contain", () => {
     // is NOT — on this site that labels a payment method for the fee itself.
     expect(BRANCH).toContain("is separate");
     expect(BRANCH).not.toContain("cash at the door");
-    expect(BRANCH).toMatch(/v_notes\s*:=\s*coalesce\(\s*p_notes,/);
+    // APPENDED, never replaced: coalesce(p_notes, disclaimer) would let an
+    // operator's "Thanks for your custom" delete the only sentence stopping a
+    // customer from reading this as a bill for their own groceries.
+    expect(BRANCH).not.toMatch(/v_notes\s*:=\s*coalesce\(\s*p_notes/);
+    expect(BRANCH).toMatch(/v_notes := 'This is the delivery fee only[\s\S]*?\|\| coalesce\(chr\(10\)/);
   });
 });
 
@@ -131,10 +136,21 @@ describe("the customer is found whichever way they arrived", () => {
     // delivery_requests.what is the customer's own description of their
     // parcel or shopping. Putting it on an invoice would read as though the
     // platform sold it.
-    // And by the site's OWN names for the kinds, not invented ones.
-    expect(BRANCH).toContain("when 'shop_and_deliver' then 'Buy & deliver'");
-    expect(BRANCH).toContain("when 'package'          then 'Collect & deliver'");
     expect(BRANCH).not.toContain("r.what");
+  });
+
+  it("uses KIND_LABEL's words for every kind, with nothing invented", () => {
+    // lib/delivery/kind.ts exists because the ternary spelling of this is
+    // correct for two kinds and silently wrong for three. SQL cannot import
+    // the record, so this loop is what stops the fourth copy drifting — add a
+    // kind to REQUEST_KINDS and this fails until the migration knows about it.
+    for (const kind of REQUEST_KINDS) {
+      expect(BRANCH, kind).toContain(`when '${kind}'`);
+      expect(BRANCH, kind).toContain(`'${KIND_LABEL[kind]}'`);
+    }
+    // Including the one that reads oddly on an invoice and is used anyway,
+    // because it is what every other surface calls that job.
+    expect(KIND_LABEL.errand).toBe("Do it for me");
   });
 });
 
@@ -221,7 +237,10 @@ describe("the operator is told the fee was already collected", () => {
 
   it("distinguishes a verified transfer from an unverified one", () => {
     // An unverified transfer is the customer's claim, not a confirmed receipt.
-    expect(ISSUABLE).toContain("payment_verified_at");
+    // The column appearing in the select proves nothing; the branch does.
+    expect(ISSUABLE).toMatch(
+      /d\.payment_verified_at\s*\?[\s\S]*?verified[\s\S]*?:[\s\S]*?not yet verified/,
+    );
   });
 
   it("is actually rendered, not just returned", () => {
@@ -231,7 +250,13 @@ describe("the operator is told the fee was already collected", () => {
   it("does not mark the invoice paid on its own", () => {
     // A cash collection is INSTRUCTED, not recorded. A function that issues a
     // document must not also record a payment nobody counted.
-    expect(BRANCH).not.toContain("invoice_record_payment");
-    expect(BRANCH).not.toMatch(/paid_cents/);
+    //
+    // Asserted over the WHOLE migration, not the delivery branch: the branch
+    // could never have contained the INSERT's column list, so the slice made
+    // this assertion vacuous — it would have passed while the function marked
+    // every invoice paid two hundred lines further down.
+    expect(M208).not.toContain("invoice_record_payment");
+    expect(M208).not.toContain("paid_cents");
+    expect(M208).toContain("'issued', now(), v_notes");
   });
 });

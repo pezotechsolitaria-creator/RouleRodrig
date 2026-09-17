@@ -133,6 +133,35 @@ function wrap(s: string, maxChars: number): string[] {
   return lines;
 }
 
+/**
+ * Cuts a label or value that would run into the next column.
+ *
+ * The rows are drawn in two FIXED columns — the label at MARGIN, the value at
+ * VALUE_X — with no wrapping and, until now, no limit. Nothing enforced a
+ * length anywhere upstream, so a long one simply overprinted the money.
+ *
+ * It was not hypothetical. A ride line reads "Taxi — Graviers beach to
+ * François Leguat tortoise reserve" (56 characters) and a delivery line is
+ * built from two addresses the CUSTOMER typed, with no CHECK on either. The
+ * first document long enough to collide would have printed its amount through
+ * the middle of a place name, on a page somebody keeps.
+ *
+ * Crude by the same design as wrap() above: a conservative character budget
+ * rather than a Helvetica width table. An ellipsis is the honest failure —
+ * the row still says what it is, and the figure beside it stays readable.
+ */
+function clamp(s: string, maxChars: number): string {
+  const t = toWinAnsi(s);
+  return t.length <= maxChars ? t : `${t.slice(0, maxChars - 1).trimEnd()}…`;
+}
+
+// The label column runs MARGIN (56) to VALUE_X (330): 274pt. At 10pt Helvetica
+// that is roughly 52 characters; 46 leaves a visible gap before the figure.
+const LABEL_CHARS = 46;
+// The value column runs VALUE_X (330) to the right margin: 209pt, and it is
+// set in bold, so fewer characters fit.
+const VALUE_CHARS = 30;
+
 function buildContent(d: ReceiptData, dateLabel: string): string {
   const ops: Op[] = [];
   let y = PAGE_H - MARGIN;
@@ -172,13 +201,13 @@ function buildContent(d: ReceiptData, dateLabel: string): string {
       y -= 4;
       ops.push(
         `${GREEN[0]} ${GREEN[1]} ${GREEN[2]} rg`,
-        text(MARGIN, y, 12, "F2", r.label),
-        text(VALUE_X, y, 12, "F2", r.value),
+        text(MARGIN, y, 12, "F2", clamp(r.label, LABEL_CHARS - 8)),
+        text(VALUE_X, y, 12, "F2", clamp(r.value, VALUE_CHARS - 4)),
       );
       y -= 24;
     } else {
-      ops.push(BLACK, text(MARGIN, y, 10, "F1", r.label));
-      ops.push(text(VALUE_X, y, 10, "F2", r.value));
+      ops.push(BLACK, text(MARGIN, y, 10, "F1", clamp(r.label, LABEL_CHARS)));
+      ops.push(text(VALUE_X, y, 10, "F2", clamp(r.value, VALUE_CHARS)));
       ops.push(rect(MARGIN, y - 7, PAGE_W - MARGIN * 2, 0.5, [0.9, 0.9, 0.9]));
       y -= 21;
     }

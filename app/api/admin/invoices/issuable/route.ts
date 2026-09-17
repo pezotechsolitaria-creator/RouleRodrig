@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { guardAdminApi, failed } from "@/lib/admin/api-guard";
 import { rideReference, RIDE_SERVICE_META, type RideService } from "@/lib/rides/model";
 import { requestRef } from "@/lib/delivery/request-status";
+import { KIND_LABEL, toRequestKind } from "@/lib/delivery/kind";
 import type { IssuableSubject } from "@/lib/invoicing/types";
 
 // ── WHAT CAN STILL BE INVOICED ──────────────────────────────────────────────
@@ -62,9 +63,10 @@ export async function GET(req: NextRequest) {
         .order("created_at", { ascending: false })
         .limit(100),
       // ── ONLY DELIVER-ANYTHING DELIVERIES ────────────────────────────────
-      // A delivery attached to a store ORDER is already billed: create_order()
-      // computes total = subtotal + tax + delivery_fee, so the fee sits inside
-      // orders.total and inside that order's invoice. Offering it here would be
+      // A delivery attached to a store ORDER is already billed: order_amounts()
+      // returns p_subtotal + v_tax + v_fee and create_order() writes it into
+      // orders.total, so the fee sits inside that order's invoice too. Offering
+      // it here would be
       // offering to charge the same journey twice. invoice_issue() refuses it
       // by name; the picker does not raise the question.
       admin
@@ -180,12 +182,11 @@ export async function GET(req: NextRequest) {
       for (const d of wanted) {
         const r = byId.get(d.request_id);
         if (!r) continue; // No request row means no customer to bill.
-        // The site's own names for the three kinds, same as the invoice line.
-        const what =
-          r.kind === "shop_and_deliver" ? "Buy & deliver"
-          : r.kind === "errand" ? "Errand"
-          : r.kind === "package" ? "Collect & deliver"
-          : "Delivery";
+        // KIND_LABEL, not a ternary. lib/delivery/kind.ts exists precisely
+        // because the ternary spelling of this is correct for two kinds and
+        // silently wrong for three, and a Record<RequestKind, …> makes the
+        // fourth kind a compile error instead of a mislabelled job.
+        const what = KIND_LABEL[toRequestKind(r.kind)];
         out.push({
           subjectType: "delivery",
           subjectId: d.id,

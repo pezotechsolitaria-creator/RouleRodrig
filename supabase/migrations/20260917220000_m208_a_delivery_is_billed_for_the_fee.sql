@@ -200,15 +200,27 @@ begin
            coalesce(nullif(btrim(coalesce(r.guest_email, '')), ''), u.email),
            r.contact_phone,
            'RR-' || upper(substr(replace(r.id::text,'-',''), 1, 6)),
-           -- The site's OWN names for the three kinds, from copy.i18n.ts:
-           -- "Collect & deliver", "Buy & deliver", and the noun the errand
-           -- flow itself uses ("What kind of errand is it?"). Nothing invented:
-           -- a customer reading this line has already seen these words.
+           -- KIND_LABEL from lib/delivery/kind.ts, word for word. That module
+           -- exists because every consumer used to write
+           --   kind === 'shop_and_deliver' ? 'Buy & deliver' : 'Collect & deliver'
+           -- which is correct for two kinds and SILENTLY WRONG for three — it
+           -- labelled every errand as a collection. This is SQL and cannot
+           -- import the record, so it is a fourth copy; delivery.test.ts loops
+           -- over REQUEST_KINDS and fails if any label here drifts from it.
+           --
+           -- 'Do it for me' reads oddly on an invoice and is used anyway: it is
+           -- what the driver board, the admin desk, the tracker and the push
+           -- notification all call this job, so it is the name the customer has
+           -- already seen. A fifth vocabulary invented for the invoice alone
+           -- would be the actual mistake.
            case r.kind
-             when 'shop_and_deliver' then 'Buy & deliver'
-             when 'errand'           then 'Errand'
              when 'package'          then 'Collect & deliver'
-             else 'Delivery'
+             when 'shop_and_deliver' then 'Buy & deliver'
+             when 'errand'           then 'Do it for me'
+             -- toRequestKind() falls back to package for the same reason: an
+             -- unknown kind degrades into "somebody moves a thing", never into
+             -- "somebody spends your money".
+             else 'Collect & deliver'
            end || ' — ' || btrim(r.pickup_text) || ' to ' || btrim(r.dropoff_text)
       into v_name, v_email, v_phone, v_ref, v_desc
       from public.delivery_requests r
@@ -229,10 +241,11 @@ begin
     -- phrase. Deliberately NOT "cash at the door": on this site that is the
     -- label of a payment METHOD FOR THE FEE, so borrowing it for the goods
     -- money would contradict copy the customer has already read.
-    v_notes := coalesce(
-      p_notes,
-      'This is the delivery fee only. What the driver spent at the shop or on a bill is separate — it is repaid to them directly and is not billed here.'
-    );
+    -- APPENDED, NEVER REPLACED. coalesce(p_notes, disclaimer) would let an
+    -- operator who types "Thanks for your custom" delete the one sentence that
+    -- stops a customer reading this as a bill for their own groceries.
+    v_notes := 'This is the delivery fee only. What the driver spent at the shop or on a bill is separate — it is repaid to them directly and is not billed here.'
+               || coalesce(chr(10) || chr(10) || nullif(btrim(coalesce(p_notes, '')), ''), '');
 
     v_unit  := 'cents';
     v_cents := v_raw;

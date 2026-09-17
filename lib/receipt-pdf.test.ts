@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { toWinAnsi } from "./receipt-pdf";
+import { toWinAnsi, buildReceiptPdf } from "./receipt-pdf";
+import type { ReceiptData } from "./receipt";
 
 // ── THE RECEIPT THAT SAID "Rs 25?883" ───────────────────────────────────────
 //
@@ -57,5 +58,56 @@ describe("toWinAnsi", () => {
     for (const b of bytes(toWinAnsi(nasty))) {
       expect(b).toBeLessThanOrEqual(0xff);
     }
+  });
+});
+
+// ── THE LINE THAT PRINTED THROUGH THE AMOUNT ────────────────────────────────
+//
+// Rows are drawn in two FIXED columns — the label at x=56, the value at x=330 —
+// with no wrapping and, until the delivery adapter, no limit either. Nothing
+// upstream enforced a length: a ride line already read "Taxi — Graviers beach
+// to François Leguat tortoise reserve" at 56 characters, and a delivery line
+// is built from two addresses the CUSTOMER typed, with no CHECK on either.
+//
+// The first document long enough to collide would have printed its amount
+// through the middle of a place name, on a page somebody keeps.
+describe("a long label cannot overprint the figure beside it", () => {
+  const doc = (label: string, value = "Rs 5,997"): ReceiptData => ({
+    ref: "RR-INV-2026-000001",
+    heading: "Invoice",
+    customer: "A Customer",
+    itemLabel: "Delivery",
+    item: "RR-868AE9",
+    rows: [{ label, value }],
+  });
+
+  /** The drawn text of every row, as it reaches the page. */
+  const drawn = (d: ReceiptData) =>
+    Buffer.from(buildReceiptPdf(d)).toString("latin1");
+
+  it("keeps a short label exactly as it was written", () => {
+    expect(drawn(doc("Collect & deliver"))).toContain("Collect & deliver");
+  });
+
+  it("cuts a long one and says so with an ellipsis", () => {
+    const long =
+      "Do it for me — Camp du Roi, near the CEB office with the blue gate to Port Sud-Est";
+    const out = drawn(doc(long));
+    expect(out).not.toContain(long);
+    // 0x85 is the WinAnsi ellipsis: the cut is visible, not silent.
+    expect(out).toContain(String.fromCharCode(0x85));
+  });
+
+  it("still prints the figure in full when the label was cut", () => {
+    // The whole point. Losing the end of an address is a nuisance; losing the
+    // amount, or printing it through the address, is a broken document.
+    const out = drawn(doc("Do it for me — " + "x".repeat(200), "Rs 1,234.56"));
+    expect(out).toContain("Rs 1,234.56");
+  });
+
+  it("cuts a very long value too, so it cannot run off the page", () => {
+    const out = drawn(doc("Delivery", "A".repeat(120)));
+    expect(out).not.toContain("A".repeat(120));
+    expect(out).toContain(String.fromCharCode(0x85));
   });
 });
