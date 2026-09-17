@@ -15,6 +15,9 @@ import type { InvoiceSubjectType } from "./types";
 //   place_bookings.deposit_amount           (0 rows)      RUPEES
 //   orders.total                 75000     = Rs 750       CENTS
 //   ride_requests.quoted_price   180000    = Rs 1,800     CENTS
+//     (8 priced rides span 25000..180000 — Rs 250 to Rs 1,800, which is what
+//      an island transfer costs. A rupee reading makes the cheapest taxi
+//      Rs 25,000, so the unit is not in doubt.)
 //
 // The conversion itself does NOT happen here. invoice_issue() does it in SQL,
 // once, and the invoice row carries the proof. This map exists so a human can
@@ -69,10 +72,10 @@ export const SUBJECTS: Record<InvoiceSubjectType, SubjectAdapter> = {
     amountColumn: "quoted_price",
     unit: "cents",
     label: "Taxi or transfer",
-    supported: false,
-    // A ride invoice cannot show a fare breakdown — there is no distance column
-    // to break it down by — so the line is the quoted fare and says so.
-    pending: "needs the ride adapter",
+    // M203. The line is the quoted fare and nothing else: there is no distance
+    // column to break a fare down by, and inventing kilometres to fill a table
+    // would put a figure on a customer's document that nothing supports.
+    supported: true,
   },
   delivery: {
     table: "deliveries",

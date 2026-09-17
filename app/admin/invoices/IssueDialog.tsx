@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X, FileText } from "lucide-react";
-import type { Invoice } from "@/lib/invoicing/types";
+import type { Invoice, IssuableSubject } from "@/lib/invoicing/types";
 import { money } from "@/lib/invoicing/register";
 
 // ── ISSUING ─────────────────────────────────────────────────────────────────
@@ -14,15 +14,6 @@ import { money } from "@/lib/invoicing/register";
 // A subject that already has a live invoice is not offered at all: the database
 // would refuse it, and a button that always errors is worse than no button.
 
-type Issuable = {
-  subjectType: "booking" | "order";
-  subjectId: string;
-  reference: string;
-  who: string;
-  what: string;
-  totalCents: number;
-  when: string | null;
-};
 
 export default function IssueDialog({
   onClose, onIssued,
@@ -30,7 +21,7 @@ export default function IssueDialog({
   onClose: () => void;
   onIssued: (inv: Invoice) => void;
 }) {
-  const [rows, setRows] = useState<Issuable[] | null>(null);
+  const [rows, setRows] = useState<IssuableSubject[] | null>(null);
   const [q, setQ] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +39,7 @@ export default function IssueDialog({
     })();
   }, []);
 
-  async function issue(row: Issuable) {
+  async function issue(row: IssuableSubject) {
     setBusyId(row.subjectId);
     setError(null);
     try {
@@ -84,7 +75,7 @@ export default function IssueDialog({
           <div>
             <h2 className="font-syne text-lg font-extrabold text-offwhite">Issue an invoice</h2>
             <p className="mt-0.5 font-dm text-xs text-muted">
-              Pick the booking or order. The amount comes from the record itself.
+              Pick the booking, order or ride. The amount comes from the record itself.
             </p>
           </div>
           <button

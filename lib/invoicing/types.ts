@@ -96,6 +96,26 @@ export type Invoice = {
   createdAt: string;
 };
 
+/**
+ * Something that could be invoiced but has not been.
+ *
+ * Typed by InvoiceSubjectType rather than by the handful of subjects
+ * invoice_issue() happens to accept today: adding an adapter then widens the
+ * picker automatically instead of leaving a union to be remembered in two
+ * files. The API and the dialog both use THIS — they had a copy each, and a
+ * copy is how a field gets added to one and not the other.
+ */
+export type IssuableSubject = {
+  subjectType: InvoiceSubjectType;
+  subjectId: string;
+  reference: string;
+  who: string;
+  what: string;
+  /** Minor units, converted from whatever the source column holds. */
+  totalCents: number;
+  when: string | null;
+};
+
 /** One allocation of money against an invoice. */
 export type InvoicePayment = {
   id: string;

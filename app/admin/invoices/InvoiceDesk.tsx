@@ -283,7 +283,7 @@ export default function InvoiceDesk() {
             <div className="px-4 py-12 text-center">
               <FileText size={22} className="mx-auto text-muted" />
               <p className="mt-2 font-dm text-sm text-muted">
-                No invoices yet. One is created from a booking or an order.
+                No invoices yet. One is created from a booking, an order or a ride.
               </p>
             </div>
           )}

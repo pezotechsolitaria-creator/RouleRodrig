@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     );
   }
   if (typeof subjectId !== "string" || !subjectId.trim()) {
-    return NextResponse.json({ error: "Which booking or order?" }, { status: 400 });
+    return NextResponse.json({ error: "Which record is this invoice for?" }, { status: 400 });
   }
 
   // Refuse here as well as in the RPC, so the message can explain rather than

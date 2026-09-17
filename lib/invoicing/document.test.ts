@@ -144,11 +144,26 @@ describe("every subject is accounted for", () => {
     }
   });
 
-  it("ships exactly the two phase 1 subjects — one of each unit", () => {
-    // The whole point of phase 1: prove a rupee source and a cents source can
-    // share one document type without a 100x error.
-    expect(supportedSubjects().sort()).toEqual(["booking", "order"]);
-    expect(SUBJECTS.booking.unit).not.toBe(SUBJECTS.order.unit);
+  it("carries both units at once, and never invents an amount", () => {
+    // THIS TEST USED TO READ:
+    //   expect(supportedSubjects().sort()).toEqual(["booking", "order"])
+    //
+    // which pinned a MOMENT — the two subjects phase 1 happened to ship — and
+    // turned the next adapter into a failing test rather than a passing one.
+    // A test that has to be edited to add a feature is not protecting anything.
+    //
+    // What phase 1 actually proved, and what must stay true however many
+    // subjects arrive, is below: a rupee source and a cents source can share
+    // one document type without a 100x error, and nothing is invoiced from a
+    // table with no money in it.
+    const units = new Set(supportedSubjects().map((s) => SUBJECTS[s].unit));
+    expect(units).toContain("rupees");
+    expect(units).toContain("cents");
+    expect(units).not.toContain("none");
+
+    for (const s of supportedSubjects()) {
+      expect(SUBJECTS[s].amountColumn, `${s} must name its source column`).toBeTruthy();
+    }
   });
 
   it("refuses anything that is not a subject", () => {
