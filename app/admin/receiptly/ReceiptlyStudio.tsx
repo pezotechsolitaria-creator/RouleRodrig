@@ -64,7 +64,7 @@ export default function ReceiptlyStudio() {
   const [drafted, setDrafted] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [savedNumber, setSavedNumber] = useState<string | null>(null);
-  const [dirty, setDirty] = useState(false);
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [docs, setDocs] = useState<SavedDoc[]>([]);
   const [prefills, setPrefills] = useState<Prefill[]>([]);
@@ -130,11 +130,14 @@ export default function ReceiptlyStudio() {
     return () => clearTimeout(t);
   }, [doc, hydrated]);
 
-  // Any edit after a save means the row is behind what is on screen.
-  useEffect(() => {
-    if (hydrated && savedId) setDirty(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc]);
+  // WHETHER THE ROW IS BEHIND THE SCREEN, by comparison rather than by flag.
+  //
+  // This was a useEffect on [doc] that set a dirty flag. It marked every
+  // freshly OPENED document dirty: openSaved() sets the doc and clears the
+  // flag in one batch, then the effect runs after that render, sees a changed
+  // doc and a savedId, and sets it straight back. A snapshot cannot race
+  // itself — it is the same two values compared, whenever they are read.
+  const dirty = savedId !== null && JSON.stringify(doc) !== savedSnapshot;
 
   // ── The preview scales to whatever room it has ─────────────────────────
   useEffect(() => {
@@ -182,7 +185,12 @@ export default function ReceiptlyStudio() {
       const saved = body.document as SavedDoc;
       setSavedId(saved.id);
       setSavedNumber(saved.number);
-      setDirty(false);
+      // The snapshot is what the DATABASE returned, not what was sent: SQL
+      // trims, lowercases the email and recomputes the totals, so comparing
+      // against the sent version would show "unsaved changes" on a document
+      // that is saved.
+      setDoc(saved);
+      setSavedSnapshot(JSON.stringify(saved));
       void refresh();
       return saved;
     } catch (err) {
@@ -205,7 +213,7 @@ export default function ReceiptlyStudio() {
       setSavedId(saved.id);
       setSavedNumber(saved.number);
       setPlaceBookingId(saved.placeBookingId);
-      setDirty(false);
+      setSavedSnapshot(JSON.stringify(saved));
       setShowSaved(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not open it.");
@@ -241,7 +249,7 @@ export default function ReceiptlyStudio() {
     setSavedId(null);
     setSavedNumber(null);
     setPlaceBookingId(null);
-    setDirty(false);
+    setSavedSnapshot(null);
   }, [today]);
 
   /** Remember the business identity for the next document. */
@@ -604,7 +612,16 @@ export default function ReceiptlyStudio() {
                     inputMode="numeric" placeholder="Qty" value={l.qty || ""}
                     onChange={(e) => set("lines", doc.lines.map((x, j) => j === i
                       ? { ...x, qty: Math.max(0, Number(e.target.value.replace(/[^\d.]/g, "")) || 0) } : x))} />
-                  <input aria-label={`Line ${i + 1} unit price`} className={`${inputCls} col-span-6 !mt-0 sm:col-span-3`}
+                  {/* UNCONTROLLED, and remounted deliberately.
+                      A controlled money field fights the typist: parse "1.5"
+                      and format it back and the cursor jumps mid-number. But
+                      defaultValue only initialises on MOUNT, so opening a
+                      saved document left the old text in the box while the
+                      preview showed the new figure. The key changes with the
+                      document and the currency — the two things that change
+                      what this field should say — and nothing else. */}
+                  <input key={`unit-${savedId ?? "new"}-${i}-${doc.currencyCode}`}
+                    aria-label={`Line ${i + 1} unit price`} className={`${inputCls} col-span-6 !mt-0 sm:col-span-3`}
                     inputMode="decimal" placeholder={`Unit (${c.symbol})`}
                     defaultValue={l.unitMinor ? String(l.unitMinor / 10 ** c.exponent) : ""}
                     onChange={(e) => {
@@ -645,7 +662,8 @@ export default function ReceiptlyStudio() {
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls} htmlFor="r-recv">Amount received</label>
-                <input id="r-recv" className={inputCls} inputMode="decimal" placeholder="0"
+                <input id="r-recv" key={`recv-${savedId ?? "new"}-${doc.currencyCode}-${doc.receivedMinor}`}
+                  className={inputCls} inputMode="decimal" placeholder="0"
                   defaultValue={doc.receivedMinor ? String(doc.receivedMinor / 10 ** c.exponent) : ""}
                   onChange={(e) => set("receivedMinor", parseMoney(e.target.value, c) ?? 0)} />
               </div>
