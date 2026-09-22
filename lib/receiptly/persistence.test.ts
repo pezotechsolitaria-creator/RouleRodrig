@@ -15,6 +15,7 @@ const readTs = (...p: string[]) =>
 const M214 = readSql("20260923090000_m214_receiptly_documents.sql");
 const M215 = readSql("20260923100000_m215_saving_a_receiptly_document.sql");
 const ROUTE = readTs("app", "api", "admin", "receiptly", "route.ts");
+const STUDIO = readTs("app", "admin", "receiptly", "ReceiptlyStudio.tsx");
 
 const DOC: ReceiptlyDoc = {
   ...blankDoc("2026-09-23"),
@@ -214,5 +215,46 @@ describe("the endpoint guards what the database would refuse anyway", () => {
 
   it("audits the figures the database computed, not the ones posted", () => {
     expect(ROUTE).toContain("totalMinor: row.total_minor");
+  });
+});
+
+// ── TWO BUGS THAT ONLY APPEAR AFTER A ROUND TRIP ────────────────────────────
+//
+// Both shipped, and neither could have been caught by a pure-function test:
+// they live in how React initialises and batches. Pinned here as source facts,
+// which is what this repo asserts with, having no DOM environment.
+describe("the form follows the document it is showing", () => {
+  it("remounts the money fields when the document or the currency changes", () => {
+    // The money inputs are UNCONTROLLED on purpose — a controlled one parses
+    // "1.5", formats it back and moves the cursor mid-number. But defaultValue
+    // initialises on MOUNT only, so opening a saved document used to leave the
+    // old text in the box beside a preview showing the new figure.
+    expect(STUDIO).toContain("key={`unit-${savedId ?? \"new\"}-${i}-${doc.currencyCode}`}");
+    expect(STUDIO).toContain("key={`recv-${savedId ?? \"new\"}-${doc.currencyCode}");
+  });
+
+  it("does not put the typed unit price in that key", () => {
+    // It changes on every keystroke; remounting on each one would take the
+    // focus out of the field being typed into.
+    const at = STUDIO.indexOf("key={`unit-");
+    expect(at).toBeGreaterThan(-1);
+    expect(STUDIO.slice(at, at + 80)).not.toContain("unitMinor");
+  });
+
+  it("decides dirtiness by comparison, not by an effect that races its reset", () => {
+    // It was a useEffect on [doc]: openSaved() set the doc and cleared the flag
+    // in one batch, the effect then ran after that render and set it straight
+    // back, and every freshly opened document claimed unsaved changes.
+    expect(STUDIO).toContain(
+      "const dirty = savedId !== null && JSON.stringify(doc) !== savedSnapshot",
+    );
+    expect(STUDIO).not.toContain("setDirty(");
+  });
+
+  it("snapshots what the database returned, not what was sent", () => {
+    // SQL trims the strings, lowercases the email and recomputes the totals, so
+    // snapshotting the sent version would report unsaved changes on a document
+    // that had just been saved.
+    expect(STUDIO).toContain("setSavedSnapshot(JSON.stringify(saved))");
   });
 });
