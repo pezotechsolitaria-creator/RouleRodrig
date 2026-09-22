@@ -521,3 +521,65 @@ describe("an estimate demands nothing", () => {
     expect(computeMoney(c).depositMinor).toBe(50000);
   });
 });
+
+// ── THE FIGURES ARE THE LIVE ONES ───────────────────────────────────────────
+//
+// Fixtures I invent agree with me. These are the amounts actually sitting in
+// the tables today, so the unit reading is checked against the business rather
+// than against my own arithmetic.
+describe("real rows from the live tables", () => {
+  const rental = (totalRupees: number, days: number, depositRupees: number, pct: number) =>
+    vehicleRentalDoc({
+      kind: "confirmation", reference: "RR-1", customerName: "X", vehicle: "AVENIS 125",
+      startDate: "2026-10-01", endDate: "2026-10-05", days,
+      totalRupees, deliveryRupees: 0, depositRupees, depositPct: pct,
+      issuedOn: "2026-09-23",
+    })!;
+
+  it("prices a rental per day, because every live total divides by its days", () => {
+    // 8388 over 12 days is Rs 699 a day; 5997 over 3 is Rs 1,999.
+    expect(rental(8388, 12, 2097, 25).lines[0]).toEqual({
+      description: "AVENIS 125 — 12 days", qty: 12, unitMinor: 69900,
+    });
+    expect(rental(5997, 3, 2999, 50).lines[0].unitMinor).toBe(199900);
+  });
+
+  it("shows the percentage on the rows where it lands, and the figure where it does not", () => {
+    // 25% of 8388 is exactly 2097, so the document can say why.
+    expect(rental(8388, 12, 2097, 25).depositPct).toBe(25);
+    // 50% of 5997 is 2998.50 and the row says 2999. The stored figure is the
+    // one the customer was quoted, so that is what prints.
+    expect(rental(5997, 3, 2999, 50).depositPct).toBeNull();
+    expect(computeMoney(rental(5997, 3, 2999, 50)).depositMinor).toBe(299900);
+  });
+
+  it("reads the only priced reservation as Rs 1,000, not Rs 10", () => {
+    const doc = placeReservationDoc({
+      kind: "confirmation", reference: "RR-1", customerName: "X", placeName: "P",
+      startDate: "2026-10-02", endDate: "2026-10-02", priceRupees: 1000,
+      issuedOn: "2026-09-23",
+    })!;
+    expect(computeMoney(doc).totalMinor).toBe(100_000);
+  });
+
+  it("reads the ride fares as Rs 250 to Rs 1,800, not Rs 25,000 to Rs 180,000", () => {
+    // The whole span of priced rides. A rupee reading makes the cheapest taxi
+    // on the island cost twenty-five thousand rupees.
+    for (const [cents, rupees] of [[25_000, 250], [180_000, 1800]] as const) {
+      const doc = rideDoc({
+        reference: "RR-1", customerName: "X", serviceLabel: "Taxi", pickup: "A",
+        fareCents: cents, issuedOn: "2026-09-23",
+      })!;
+      expect(computeMoney(doc).totalMinor).toBe(rupees * 100);
+    }
+  });
+
+  it("refuses to receipt the two bookings that are confirmed with no payment", () => {
+    // Both live `confirmed` rows have no deposit_paid_at and no
+    // payment_reported_at. They are exactly what the guard in
+    // lib/receipts/payment-receipt.ts exists for: confirming a booking is not
+    // the same event as receiving money for it.
+    const RECEIPTS = readTs("lib", "receipts", "payment-receipt.ts");
+    expect(RECEIPTS).toContain("if (!b.deposit_paid_at && !b.payment_reported_at) return false;");
+  });
+});
