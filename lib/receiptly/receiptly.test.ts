@@ -342,12 +342,22 @@ describe("reviving a stored draft", () => {
     expect(reviveDoc({ kind: "not-a-kind" }, today).kind).toBe("confirmation");
   });
 
-  it("refuses a logo that is not a data URL", () => {
-    // A stored draft is user-controlled input. An http:// logo would make the
-    // document fetch from somewhere on render.
-    expect(reviveDoc({ business: { logo: "http://evil.example/x.png" } }, today).business.logo).toBeNull();
-    expect(reviveDoc({ business: { logo: "data:image/png;base64,AAA" } }, today).business.logo)
-      .toBe("data:image/png;base64,AAA");
+  it("accepts only a JPEG data URL as a logo", () => {
+    // A stored draft is user-controlled input, and this same reviver
+    // sanitises the POST body. An http:// logo would make the document fetch
+    // from somewhere on render; an SVG data URL in an <img> is a script
+    // surface; a PNG would pass here and be dropped by the column CHECK,
+    // showing a logo in the preview that never reaches the document.
+    for (const bad of [
+      "http://evil.example/x.png",
+      "data:image/svg+xml;base64,AAA",
+      "data:text/html;base64,AAA",
+      "data:image/png;base64,AAA",
+    ]) {
+      expect(reviveDoc({ business: { logo: bad } }, today).business.logo, bad).toBeNull();
+    }
+    expect(reviveDoc({ business: { logo: "data:image/jpeg;base64,AAA" } }, today).business.logo)
+      .toBe("data:image/jpeg;base64,AAA");
   });
 
   it("refuses an accent that is not a colour", () => {

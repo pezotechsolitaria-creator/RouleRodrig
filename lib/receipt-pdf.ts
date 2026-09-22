@@ -275,10 +275,29 @@ export function buildReceiptPdf(d: ReceiptData, now: Date = new Date()): Uint8Ar
  * length IS the offset. A second implementation of this arithmetic is a second
  * chance to produce a file no reader will open.
  */
-export function assembleOnePagePdf(content: string): Uint8Array {
+export type EmbeddedImage = {
+  /** Raw base64 of a BASELINE JPEG — no data: prefix. */
+  base64: string;
+  width: number;
+  height: number;
+};
+
+export function assembleOnePagePdf(
+  content: string,
+  /**
+   * An image to embed as /Im1 instead of the built-in logo.
+   *
+   * JPEG only, because /DCTDecode hands the bytes to the reader untouched and
+   * nothing here has to understand the format. A PNG would need /FlateDecode
+   * plus a colour-space decision, so the caller re-encodes to JPEG before it
+   * gets here — which also bounds the size of what a business can upload.
+   */
+  image?: EmbeddedImage | null,
+): Uint8Array {
+  const art = image ?? RECEIPT_LOGO;
   // atob gives one character per byte, which is exactly the representation the
   // assembler below counts and writes.
-  const logoBytes = atob(RECEIPT_LOGO.base64);
+  const logoBytes = atob(art.base64);
 
   const objects: string[] = [
     "<</Type/Catalog/Pages 2 0 R>>",
@@ -292,7 +311,7 @@ export function assembleOnePagePdf(content: string): Uint8Array {
     // untouched — no re-encoding, and nothing here has to understand JPEG.
     // Decoded to a latin-1 string so it obeys this file's one rule: one
     // character is one byte, or every xref offset below is wrong.
-    `<</Type/XObject/Subtype/Image/Width ${RECEIPT_LOGO.width}/Height ${RECEIPT_LOGO.height}` +
+    `<</Type/XObject/Subtype/Image/Width ${art.width}/Height ${art.height}` +
       `/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${logoBytes.length}>>` +
       `
 stream

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Download, Plus, Trash2, Copy, Check, Sparkles, History, Upload, X,
+  Download, Plus, Trash2, Copy, Check, Sparkles, Upload, X, Save,
+  FolderOpen, Ban, Loader2,
 } from "lucide-react";
 import { downloadBlob } from "@/lib/download";
 import {
@@ -11,7 +12,9 @@ import {
   computeMoney, suggestReference, MAX_LINES, type DocKind, type ReceiptlyDoc,
 } from "@/lib/receiptly/model";
 import { buildReceiptlyPdf, receiptlyFilename } from "@/lib/receiptly/pdf";
-import { blankDoc, loadDraft, saveDraft, pushHistory, loadHistory, type HistoryEntry } from "@/lib/receiptly/draft";
+import { blankDoc, loadDraft, saveDraft } from "@/lib/receiptly/draft";
+import { fileToLogoDataUrl } from "@/lib/receiptly/logo";
+import type { SavedDoc, BusinessProfile } from "@/lib/receiptly/db";
 import DocumentPreview from "./DocumentPreview";
 import { PAGE } from "@/lib/receiptly/theme";
 
@@ -21,10 +24,30 @@ import { PAGE } from "@/lib/receiptly/theme";
 // preview is not a mock-up of the PDF — it reads the same constants, so a line
 // that will be cut off in the download is cut off on screen too.
 //
-// Everything lives in the browser until you press Download. Drafts autosave to
-// localStorage, and the last ten finished documents are one click away.
+// TWO KINDS OF SAVING, kept visibly apart because conflating them would be a
+// lie. The draft autosaves to THIS BROWSER on every keystroke, so a refresh
+// never costs work. Pressing Save writes a numbered row to the database, which
+// is what makes a document findable next week, from another device, by
+// somebody else.
+//
+// The database does the arithmetic. The browser sends the typed figures and
+// receives the totals back; it never computes a total and sends it.
 
 const ACCENTS = ["#0a7d3b", "#0f172a", "#1d4ed8", "#b45309", "#be123c", "#7c3aed", "#0891b2"];
+
+/** A reservation a document can be started from. */
+type Prefill = {
+  placeBookingId: string;
+  reference: string;
+  guestName: string;
+  guestEmail: string | null;
+  guestPhone: string | null;
+  placeName: string;
+  startDate: string;
+  guests: number | null;
+  timeSlot: string | null;
+  totalMinor: number;
+};
 
 /** Today, as the date input wants it. */
 function isoToday(): string {
@@ -35,34 +58,83 @@ export default function ReceiptlyStudio() {
   const today = useMemo(isoToday, []);
   const [doc, setDoc] = useState<ReceiptlyDoc>(() => blankDoc(today));
   const [hydrated, setHydrated] = useState(false);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
-  const [saved, setSaved] = useState(false);
+  // Two different "saved" states, and conflating them would be a lie to the
+  // user: `drafted` is the autosave to this browser, `savedId` is the row in
+  // the database that other people and other devices can see.
+  const [drafted, setDrafted] = useState(false);
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const [savedNumber, setSavedNumber] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [docs, setDocs] = useState<SavedDoc[]>([]);
+  const [prefills, setPrefills] = useState<Prefill[]>([]);
+  const [showSaved, setShowSaved] = useState(false);
+  const [placeBookingId, setPlaceBookingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [previewScale, setPreviewScale] = useState(0.62);
   const previewWrap = useRef<HTMLDivElement>(null);
 
   const c = currencyByCode(doc.currencyCode);
   const m = computeMoney(doc);
 
-  // ── Hydrate from the last draft, once ──────────────────────────────────
-  useEffect(() => {
-    const d = loadDraft(today);
-    if (d) setDoc(d);
-    setHistory(loadHistory(today));
-    setHydrated(true);
-  }, [today]);
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/receiptly", { cache: "no-store" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error ?? "Could not load your documents.");
+      setDocs(body.documents ?? []);
+      setPrefills(body.prefills ?? []);
+      return body.profile as BusinessProfile | undefined;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load your documents.");
+      return undefined;
+    }
+  }, []);
 
-  // ── Autosave, debounced ────────────────────────────────────────────────
+  // ── Hydrate: the local draft first, the server's profile behind it ─────
+  useEffect(() => {
+    const local = loadDraft(today);
+    if (local) setDoc(local);
+    void (async () => {
+      const profile = await refresh();
+      // The saved profile fills a NEW document only. Overwriting a draft the
+      // owner is halfway through typing would be the tool undoing his work.
+      if (profile && !local) {
+        setDoc((d) => ({
+          ...d,
+          business: {
+            name: profile.name || d.business.name,
+            tagline: profile.tagline || d.business.tagline,
+            website: profile.website || d.business.website,
+            accent: profile.accent || d.business.accent,
+            logo: profile.logo ?? d.business.logo,
+          },
+          payMethod: profile.payMethod || d.payMethod,
+          payReference: profile.payReference || d.payReference,
+          terms: profile.terms || d.terms,
+          footer: profile.footer || d.footer,
+        }));
+      }
+      setHydrated(true);
+    })();
+  }, [today, refresh]);
+
+  // ── Autosave the DRAFT to this browser, debounced ──────────────────────
   useEffect(() => {
     if (!hydrated) return;
     const t = setTimeout(() => {
       saveDraft(doc);
-      setSaved(true);
-      const hide = setTimeout(() => setSaved(false), 1400);
-      return () => clearTimeout(hide);
+      setDrafted(true);
+      setTimeout(() => setDrafted(false), 1400);
     }, 600);
     return () => clearTimeout(t);
   }, [doc, hydrated]);
+
+  // Any edit after a save means the row is behind what is on screen.
+  useEffect(() => {
+    if (hydrated && savedId) setDirty(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc]);
 
   // ── The preview scales to whatever room it has ─────────────────────────
   useEffect(() => {
@@ -85,13 +157,7 @@ export default function ReceiptlyStudio() {
       new Blob([pdf.slice().buffer as ArrayBuffer], { type: "application/pdf" }),
       receiptlyFilename(doc),
     );
-    pushHistory({
-      at: new Date().toISOString(),
-      label: `${doc.reference || DOC_KIND_LABEL[doc.kind]} · ${doc.customerName || "—"}`,
-      doc,
-    });
-    setHistory(loadHistory(today));
-  }, [doc, today]);
+  }, [doc]);
 
   const markPaid = useCallback(() => {
     setDoc((d) => {
@@ -100,25 +166,152 @@ export default function ReceiptlyStudio() {
     });
   }, []);
 
+  /** Write the document to the database and take back the figures it computed. */
+  const save = useCallback(async () => {
+    if (saving) return null;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/receiptly", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: savedId, doc, placeBookingId }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error ?? "Could not save.");
+      const saved = body.document as SavedDoc;
+      setSavedId(saved.id);
+      setSavedNumber(saved.number);
+      setDirty(false);
+      void refresh();
+      return saved;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save.");
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  }, [doc, savedId, placeBookingId, saving, refresh]);
+
+  /** Reopen a saved document, lines and all. */
+  const openSaved = useCallback(async (id: string) => {
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/receiptly/${id}`, { cache: "no-store" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error ?? "Could not open it.");
+      const saved = body.document as SavedDoc;
+      setDoc(saved);
+      setSavedId(saved.id);
+      setSavedNumber(saved.number);
+      setPlaceBookingId(saved.placeBookingId);
+      setDirty(false);
+      setShowSaved(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not open it.");
+    }
+  }, []);
+
+  /** Cancelled, never deleted: the number is never reused. */
+  const cancelSaved = useCallback(async (id: string, state: "open" | "cancelled") => {
+    try {
+      await fetch(`/api/admin/receiptly/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state }),
+      });
+      void refresh();
+    } catch {
+      setError("Could not update it.");
+    }
+  }, [refresh]);
+
+  /** Start a fresh document, keeping the business identity. */
+  const startNew = useCallback(() => {
+    const fresh = blankDoc(today);
+    setDoc((d) => ({
+      ...fresh,
+      business: d.business,
+      payMethod: d.payMethod,
+      payReference: d.payReference,
+      terms: d.terms,
+      footer: d.footer,
+      currencyCode: d.currencyCode,
+    }));
+    setSavedId(null);
+    setSavedNumber(null);
+    setPlaceBookingId(null);
+    setDirty(false);
+  }, [today]);
+
+  /** Remember the business identity for the next document. */
+  const saveProfile = useCallback(async () => {
+    try {
+      await fetch("/api/admin/receiptly", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profile: {
+            name: doc.business.name, tagline: doc.business.tagline,
+            website: doc.business.website, accent: doc.business.accent,
+            logo: doc.business.logo,
+            payMethod: doc.payMethod, payReference: doc.payReference,
+            terms: doc.terms, footer: doc.footer,
+          },
+        }),
+      });
+    } catch {
+      // A profile that failed to save is not worth interrupting the document
+      // for; the fields still hold what was typed.
+    }
+  }, [doc]);
+
+  function applyPrefill(p: Prefill) {
+    // What the reservation knows. The price comes across only when the listing
+    // actually had one — most do not, which is why this tool exists.
+    setPlaceBookingId(p.placeBookingId);
+    setDoc((d) => ({
+      ...d,
+      reference: p.reference,
+      customerName: p.guestName,
+      customerEmail: p.guestEmail ?? "",
+      customerPhone: p.guestPhone ?? "",
+      serviceName: p.placeName,
+      details: [
+        { label: "Guests", value: p.guests ? `${p.guests} persons` : "" },
+        { label: "Meeting point", value: "" },
+        { label: "Meeting time", value: p.timeSlot ?? "" },
+        { label: "Date", value: p.startDate.slice(0, 10) },
+      ],
+      lines: [{ description: p.placeName, qty: 1, unitMinor: p.totalMinor }],
+    }));
+    setSavedId(null);
+    setSavedNumber(null);
+  }
+
   // ── Keyboard shortcuts ─────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey;
       if (!meta) return;
-      if (e.key.toLowerCase() === "s") { e.preventDefault(); download(); }
+      if (e.key.toLowerCase() === "s") { e.preventDefault(); void save(); }
+      if (e.key.toLowerCase() === "p") { e.preventDefault(); download(); }
       if (e.key.toLowerCase() === "d") { e.preventDefault(); markPaid(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [download, markPaid]);
+  }, [download, markPaid, save]);
 
-  function onLogo(file: File | null) {
+  async function onLogo(file: File | null) {
     if (!file) return set("business", { ...doc.business, logo: null });
-    // Read in the browser and keep it as a data: URL — the document then
-    // carries its own logo and needs nothing from the network to render.
-    const reader = new FileReader();
-    reader.onload = () => set("business", { ...doc.business, logo: String(reader.result) });
-    reader.readAsDataURL(file);
+    try {
+      // Downscaled and re-encoded to JPEG in the browser. A logo off a phone
+      // is a three-megapixel photo; stored raw it would be megabytes of base64
+      // copied onto every document this business ever issues.
+      set("business", { ...doc.business, logo: await fileToLogoDataUrl(file) });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That image could not be used.");
+    }
   }
 
   const inputCls =
@@ -162,22 +355,43 @@ export default function ReceiptlyStudio() {
             ))}
           </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {/* Two states, said separately. "Draft saved" is this browser; the
+                number beside it is the row everyone else can see. */}
             <AnimatePresence>
-              {saved && (
+              {drafted && !dirty && (
                 <motion.span
                   initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                   className="hidden items-center gap-1 text-xs text-slate-400 sm:flex"
                 >
-                  <Check size={12} /> Saved
+                  <Check size={12} /> Draft saved
                 </motion.span>
               )}
             </AnimatePresence>
+            {savedNumber && (
+              <span className="hidden items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-500 sm:flex dark:bg-white/[0.06] dark:text-slate-400">
+                {savedNumber}
+                {dirty && <span className="text-amber-600 dark:text-amber-400">unsaved changes</span>}
+              </span>
+            )}
+
             <button
-              type="button" onClick={() => setShowHistory((v) => !v)}
+              type="button" onClick={startNew}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-medium transition hover:bg-slate-100 dark:border-white/10 dark:hover:bg-white/5"
             >
-              <History size={14} /> <span className="hidden sm:inline">Recent</span>
+              <Plus size={14} /> <span className="hidden sm:inline">New</span>
+            </button>
+            <button
+              type="button" onClick={() => setShowSaved((v) => !v)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-medium transition hover:bg-slate-100 dark:border-white/10 dark:hover:bg-white/5"
+            >
+              <FolderOpen size={14} />
+              <span className="hidden sm:inline">Saved</span>
+              {docs.length > 0 && (
+                <span className="rounded bg-slate-200 px-1 text-[10px] text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                  {docs.length}
+                </span>
+              )}
             </button>
             <button
               type="button" onClick={markPaid} title="Mark as paid (Ctrl+D)"
@@ -186,7 +400,15 @@ export default function ReceiptlyStudio() {
               <Check size={14} /> <span className="hidden sm:inline">Mark paid</span>
             </button>
             <button
-              type="button" onClick={download} title="Download PDF (Ctrl+S)"
+              type="button" onClick={() => void save()} disabled={saving}
+              title="Save to your documents (Ctrl+S)"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold transition hover:bg-slate-100 disabled:opacity-50 dark:border-white/15 dark:hover:bg-white/5"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              {saving ? "Saving" : savedId ? "Save changes" : "Save"}
+            </button>
+            <button
+              type="button" onClick={download} title="Download PDF (Ctrl+P)"
               className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
             >
               <Download size={14} /> Download PDF
@@ -194,29 +416,79 @@ export default function ReceiptlyStudio() {
           </div>
         </div>
 
+        {error && (
+          <div className="mx-auto max-w-[1500px] px-4 pb-3 md:px-6">
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
+              {error}
+            </p>
+          </div>
+        )}
+
         <AnimatePresence>
-          {showHistory && (
+          {showSaved && (
             <motion.div
               initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden border-t border-slate-200/80 bg-white dark:border-white/10 dark:bg-[#0b0f14]"
             >
               <div className="mx-auto max-w-[1500px] px-4 py-3 md:px-6">
-                {history.length === 0 ? (
-                  <p className="py-4 text-center text-xs text-slate-400">
-                    Nothing yet. Documents you download appear here.
+                {prefills.length > 0 && (
+                  <div className="mb-3">
+                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                      Start from a reservation
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {prefills.slice(0, 8).map((p) => (
+                        <button
+                          key={p.placeBookingId} type="button"
+                          onClick={() => { applyPrefill(p); setShowSaved(false); }}
+                          className="rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-xs transition hover:border-slate-500 dark:border-white/15"
+                        >
+                          {p.guestName} — {p.placeName}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Your documents
+                </p>
+                {docs.length === 0 ? (
+                  <p className="py-6 text-center text-xs text-slate-400">
+                    Nothing saved yet. Press Save and it appears here, numbered, from any device.
                   </p>
                 ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {history.map((h, i) => (
-                      <button
-                        key={i} type="button"
-                        onClick={() => { setDoc(h.doc); setShowHistory(false); }}
-                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs transition hover:border-slate-400 dark:border-white/10"
+                  <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {docs.map((d) => (
+                      <li
+                        key={d.id}
+                        className={`flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 dark:border-white/10 ${
+                          d.state === "cancelled" ? "opacity-55" : ""
+                        }`}
                       >
-                        {h.label}
-                      </button>
+                        <button
+                          type="button" onClick={() => void openSaved(d.id)}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <span className="block truncate text-xs font-semibold">
+                            {d.reference}
+                            {d.state === "cancelled" ? " (cancelled)" : ""}
+                          </span>
+                          <span className="block truncate text-[11px] text-slate-500">
+                            {d.customerName} — {DOC_KIND_LABEL[d.kind]} — {d.number}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          title={d.state === "cancelled" ? "Reopen" : "Cancel"}
+                          onClick={() => void cancelSaved(d.id, d.state === "cancelled" ? "open" : "cancelled")}
+                          className="shrink-0 rounded p-1 text-slate-400 transition hover:text-rose-500"
+                        >
+                          <Ban size={13} />
+                        </button>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 )}
               </div>
             </motion.div>
@@ -258,8 +530,16 @@ export default function ReceiptlyStudio() {
               <Field label="Tagline" value={doc.business.tagline} cls={inputCls} labelCls={labelCls}
                 onChange={(v) => set("business", { ...doc.business, tagline: v })} placeholder="Take the long way" />
             </div>
-            <div className="mt-3">
+            <div className="mt-3 flex items-center justify-between gap-2">
               <span className={labelCls}>Brand colour</span>
+              <button
+                type="button" onClick={() => void saveProfile()}
+                className="text-[11px] font-medium text-slate-500 underline-offset-2 transition hover:text-slate-900 hover:underline dark:hover:text-white"
+              >
+                Remember for next time
+              </button>
+            </div>
+            <div className="mt-2">
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {ACCENTS.map((a) => (
                   <button key={a} type="button" aria-label={`Use ${a}`}

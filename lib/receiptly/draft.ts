@@ -15,8 +15,6 @@ import {
 // over a known-good default and every field is checked.
 
 const KEY = "receiptly.draft.v1";
-const HISTORY_KEY = "receiptly.history.v1";
-const MAX_HISTORY = 10;
 
 export function blankDoc(today: string): ReceiptlyDoc {
   return {
@@ -92,8 +90,16 @@ export function reviveDoc(raw: unknown, today: string): ReceiptlyDoc {
       name: str(b.name, base.business.name),
       tagline: str(b.tagline, base.business.tagline),
       website: str(b.website, base.business.website),
-      // A logo is a data: URL and can be large; anything else is dropped.
-      logo: typeof b.logo === "string" && b.logo.startsWith("data:") ? b.logo : null,
+      // JPEG data URLs ONLY, matching the column CHECK and what the PDF
+      // embedder can decode. "data:" alone is too loose: this reviver also
+      // sanitises the POST body, and an SVG data URL rendered into an <img>
+      // is a script-execution surface, while anything that is not JPEG would
+      // be dropped one layer later anyway and show a logo in the preview that
+      // never appears on the document.
+      logo:
+        typeof b.logo === "string" && b.logo.startsWith("data:image/jpeg;base64,")
+          ? b.logo
+          : null,
       accent: /^#[0-9a-f]{3,8}$/i.test(str(b.accent)) ? str(b.accent) : base.business.accent,
     },
     customerName: str(d.customerName),
@@ -141,34 +147,7 @@ export function saveDraft(doc: ReceiptlyDoc): void {
   }
 }
 
-export type HistoryEntry = { at: string; label: string; doc: ReceiptlyDoc };
-
-/** A short trail of finished documents, so "the last one" is always reachable. */
-export function pushHistory(entry: HistoryEntry): void {
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    const list: unknown = raw ? JSON.parse(raw) : [];
-    const arr = Array.isArray(list) ? list : [];
-    localStorage.setItem(HISTORY_KEY, JSON.stringify([entry, ...arr].slice(0, MAX_HISTORY)));
-  } catch {
-    // Same reasoning as saveDraft.
-  }
-}
-
-export function loadHistory(today: string): HistoryEntry[] {
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    const list: unknown = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(list)) return [];
-    return list.slice(0, MAX_HISTORY).map((e) => {
-      const r = (e ?? {}) as Record<string, unknown>;
-      return {
-        at: str(r.at),
-        label: str(r.label, "Document"),
-        doc: reviveDoc(r.doc, today),
-      };
-    });
-  } catch {
-    return [];
-  }
-}
+// The trail of finished documents used to live here, in localStorage. It does
+// not any more: saved documents are rows in receiptly_documents, which is what
+// makes one findable next week, from another device, by somebody else. Two
+// histories would have meant two answers to "what did I send him?".

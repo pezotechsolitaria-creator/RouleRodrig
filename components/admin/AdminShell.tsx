@@ -9,7 +9,6 @@ import {
   ExternalLink, LogOut, Waves, Bike, Activity, Receipt, ChefHat, ShoppingBag, Car, ClipboardList,
   Sparkles, UserCheck, Radar, CalendarDays,
   FileText,
-  FileSignature,
 } from "lucide-react";
 import CommandPalette from "./CommandPalette";
 import AdminBell from "@/components/admin/AdminBell";
@@ -65,7 +64,6 @@ const NAV: NavGroup[] = [
       // Receiptly writes the document for everything it does not — a walk-in,
       // an excursion agreed by message, a price that was never in a table.
       { href: "/admin/receiptly", label: "Receiptly", icon: Sparkles },
-      { href: "/admin/booking-docs", label: "Booking documents", icon: FileSignature },
       { href: "/admin/kitchen-staff", label: "Kitchen teams", icon: ChefHat },
       { href: "/admin/food", label: "Food orders", icon: UtensilsCrossed },
       { href: "/admin/marketplace", label: "Shop orders", icon: ShoppingBag },

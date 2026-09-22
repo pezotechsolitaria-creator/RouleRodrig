@@ -1,4 +1,5 @@
 import { toWinAnsi, assembleOnePagePdf, type Op } from "@/lib/receipt-pdf";
+import { dataUrlToEmbedded } from "./logo";
 import { measure, fit, wrapToWidth, type PdfFont } from "./metrics";
 import {
   PAGE, CONTENT_WIDTH, TABLE, TYPE, SPACE, INK, STATUS_COLOUR, STATUS_TINT,
@@ -297,7 +298,11 @@ export function longDate(iso: string): string {
 }
 
 export function buildReceiptlyPdf(doc: ReceiptlyDoc): Uint8Array {
-  return assembleOnePagePdf(buildContent(doc));
+  // A business that uploaded its own mark gets it on the page. Anything this
+  // cannot decode falls back to the built-in logo rather than embedding a
+  // dictionary that lies about its image, which is how a reader ends up
+  // refusing the whole file.
+  return assembleOnePagePdf(buildContent(doc), dataUrlToEmbedded(doc.business.logo));
 }
 
 export function receiptlyFilename(doc: ReceiptlyDoc): string {
