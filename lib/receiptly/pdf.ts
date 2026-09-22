@@ -1,9 +1,10 @@
 import { toWinAnsi, assembleOnePagePdf, type Op } from "@/lib/receipt-pdf";
+import { RECEIPT_LOGO } from "@/lib/receipt-logo";
 import { dataUrlToEmbedded } from "./logo";
 import { measure, fit, wrapToWidth, type PdfFont } from "./metrics";
 import {
   PAGE, CONTENT_WIDTH, TABLE, TYPE, SPACE, INK, STATUS_COLOUR, STATUS_TINT,
-  FOOTER_RESERVE, hexToRgb, type Rgb,
+  FOOTER_RESERVE, LOGO_BOX, hexToRgb, type Rgb,
 } from "./theme";
 import {
   computeMoney, docStatus, heroAmount, formatMoney, currencyByCode,
@@ -45,6 +46,11 @@ function ink(hex: string): Op {
 function box(x: number, y: number, w: number, h: number, hex: string): Op {
   const c = hexToRgb(hex);
   return `${c[0]} ${c[1]} ${c[2]} rg ${x} ${y} ${w} ${h} re f`;
+}
+
+/** Two decimals is more than a page at 72dpi can show, and keeps the stream short. */
+function pt(v: number): string {
+  return (Math.round(v * 100) / 100).toString();
 }
 
 function roundedTint(x: number, y: number, w: number, h: number, hex: string): Op {
@@ -93,7 +99,10 @@ function hairline(ctx: Ctx, y: number, hex = INK.hairline, h = SPACE.hairline): 
   ctx.ops.push(box(L, y, CONTENT_WIDTH, h, hex));
 }
 
-function buildContent(doc: ReceiptlyDoc): string {
+/** Just enough of the embedded image for the masthead to lay it out. */
+type Mark = { width: number; height: number };
+
+function buildContent(doc: ReceiptlyDoc, mark: Mark): string {
   const ctx: Ctx = { ops: [], y: PAGE.height - PAGE.margin };
   const c = currencyByCode(doc.currencyCode);
   const m = computeMoney(doc);
@@ -104,11 +113,23 @@ function buildContent(doc: ReceiptlyDoc): string {
 
   // ── Masthead ─────────────────────────────────────────────────────────────
   let y = ctx.y;
-  if (doc.business.logo) {
-    // The logo is drawn from the shared XObject the assembler always embeds.
-    ctx.ops.push(`q 30 0 0 30 ${L} ${y - 22} cm /Im1 Do Q`);
-  }
-  const nameX = doc.business.logo ? L + 40 : L;
+  // ── THE MARK, AT ITS OWN SHAPE ───────────────────────────────────────────
+  //
+  // Always drawn: the assembler embeds the built-in Roué Rodrigues mark as
+  // /Im1 whenever a document carries no uploaded one, so skipping the draw
+  // when business.logo was null meant every unbranded document — including
+  // every one this platform sends by itself — went out with no logo at all,
+  // while the image sat unused in the file.
+  //
+  // FITTED, not forced. `30 0 0 30` scaled whatever was handed over into a
+  // 30×30 square, so a wide wordmark came out visibly squeezed. The transform
+  // now fits the longest edge and keeps the other in proportion, hanging from
+  // the same top edge so the name beside it does not move.
+  const scale = Math.min(LOGO_BOX / mark.width, LOGO_BOX / mark.height);
+  const lw = pt(mark.width * scale);
+  const lh = pt(mark.height * scale);
+  ctx.ops.push(`q ${lw} 0 0 ${lh} ${L} ${pt(y + 8 - mark.height * scale)} cm /Im1 Do Q`);
+  const nameX = L + LOGO_BOX + 10;
   put(ctx, nameX, y, doc.business.name || "Your business", TYPE.title, "bold", INK.strong);
   const sub = [doc.business.website, doc.business.tagline].filter(Boolean).join("  ·  ");
   if (sub) put(ctx, nameX, y - 12, sub, TYPE.small, "regular", INK.muted);
@@ -153,10 +174,15 @@ function buildContent(doc: ReceiptlyDoc): string {
   });
 
   const rx = L + CONTENT_WIDTH / 2 + 12;
-  putLabel(ctx, rx, y - 4, doc.kind === "quote" ? "Valid until" : "Issued", INK.faint);
+  // The big date is the ISSUE date on every kind, because that is the date it
+  // prints. Labelling it "Valid until" on a quote said the estimate expired on
+  // the day it was written; the expiry is dueOn, and it belongs on the line
+  // that actually shows dueOn.
+  putLabel(ctx, rx, y - 4, "Issued", INK.faint);
   putFitted(ctx, rx, y - 20, longDate(doc.issuedOn), colW, TYPE.strong, "bold", INK.strong);
   if (doc.dueOn) {
-    putFitted(ctx, rx, y - 33, `Due ${longDate(doc.dueOn)}`, colW, TYPE.small, "regular", INK.muted);
+    const dueLabel = doc.kind === "quote" ? "Valid until" : "Due";
+    putFitted(ctx, rx, y - 33, `${dueLabel} ${longDate(doc.dueOn)}`, colW, TYPE.small, "regular", INK.muted);
   }
 
   y -= 33 + Math.max(who.length, 1) * 11 + 8;
@@ -218,13 +244,35 @@ function buildContent(doc: ReceiptlyDoc): string {
   }
   if (m.depositMinor > 0) {
     rows.push({
-      label: doc.depositPct != null ? `Deposit (${doc.depositPct}%)` : "Deposit required",
+      // "Deposit required" is a demand, and on a receipt the money is already
+      // in. The row is the same fact in both cases; only the tense differs.
+      label:
+        doc.depositPct != null
+          ? `Deposit (${doc.depositPct}%)`
+          : doc.kind === "receipt"
+            ? "Deposit"
+            : "Deposit required",
       value: fmt(m.depositMinor),
     });
     rows.push({ label: "Balance after deposit", value: fmt(m.balanceAfterDepositMinor) });
   }
   rows.push({ label: "Total", value: fmt(m.totalMinor), strong: true });
-  if (doc.kind !== "quote") {
+  // ── WHAT IS STILL OWED, WHEN THAT IS THE QUESTION ────────────────────────
+  //
+  // A booking confirmation asking for a Rs 1,499 deposit printed "Received
+  // Rs 0" and, in red, "Still owed Rs 5,997" — directly under a hero reading
+  // "Rs 1,499 · Deposit to confirm". Both figures are arithmetically true and
+  // the customer is left with two amounts in front of them, the louder one
+  // wrong for what they are being asked to do.
+  //
+  // The settlement pair belongs on a document ABOUT settlement — an invoice,
+  // a receipt — or on any document where money has actually arrived. On a
+  // fresh confirmation the deposit and balance rows above already say what to
+  // pay and when, and the badge already says AWAITING PAYMENT. Nothing is
+  // hidden; the page just stops arguing with itself.
+  const settlement =
+    doc.kind === "invoice" || doc.kind === "receipt" || m.receivedMinor > 0;
+  if (settlement) {
     rows.push({ label: "Received", value: fmt(m.receivedMinor) });
     if (m.outstandingMinor !== 0) {
       rows.push({
@@ -302,7 +350,12 @@ export function buildReceiptlyPdf(doc: ReceiptlyDoc): Uint8Array {
   // cannot decode falls back to the built-in logo rather than embedding a
   // dictionary that lies about its image, which is how a reader ends up
   // refusing the whole file.
-  return assembleOnePagePdf(buildContent(doc), dataUrlToEmbedded(doc.business.logo));
+  //
+  // The SAME choice drives the layout: the content stream has to scale the
+  // image it is actually going to be handed, so the resolved art is passed to
+  // both halves rather than decided twice.
+  const art = dataUrlToEmbedded(doc.business.logo);
+  return assembleOnePagePdf(buildContent(doc, art ?? RECEIPT_LOGO), art);
 }
 
 export function receiptlyFilename(doc: ReceiptlyDoc): string {

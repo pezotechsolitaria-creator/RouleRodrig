@@ -2,8 +2,10 @@
 
 import Image from "next/image";
 import {
-  PAGE, CONTENT_WIDTH, TABLE, TYPE, INK, STATUS_COLOUR, STATUS_TINT, FOOTER_RESERVE,
+  PAGE, CONTENT_WIDTH, TABLE, TYPE, SPACE, INK, STATUS_COLOUR, STATUS_TINT,
+  FOOTER_RESERVE, LOGO_BOX,
 } from "@/lib/receiptly/theme";
+import { RECEIPT_LOGO_DATA_URL as BUILT_IN_MARK } from "@/lib/receipt-logo";
 import {
   computeMoney, docStatus, heroAmount, formatMoney, currencyByCode,
   DOC_KIND_LABEL, MAX_LINES, type ReceiptlyDoc,
@@ -35,6 +37,8 @@ export default function DocumentPreview({
   const accent = doc.business.accent || "#0a7d3b";
   const fmt = (v: number) => formatMoney(v, c);
   const lines = doc.lines.slice(0, MAX_LINES);
+  const settlement =
+    doc.kind === "invoice" || doc.kind === "receipt" || m.receivedMinor > 0;
   const details = doc.details.filter((d) => d.value.trim() !== "");
   const payBits = [doc.payMethod, doc.payReference].filter((s) => s.trim() !== "");
 
@@ -69,17 +73,25 @@ export default function DocumentPreview({
         {/* ── Masthead ──────────────────────────────────────────────── */}
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-2.5">
-            {doc.business.logo && (
-              <Image
-                src={doc.business.logo}
-                alt=""
-                width={30}
-                height={30}
-                unoptimized
-                className="rounded"
-                style={{ width: 30, height: 30, objectFit: "cover" }}
-              />
-            )}
+            {/* ── THE SAME MARK, THE SAME SHAPE ─────────────────────────
+                Always rendered, because the PDF always draws one: with no
+                upload the assembler embeds the built-in Roulé Rodrigues mark,
+                so a preview that showed nothing was a preview of a document
+                that does not exist.
+
+                `contain`, because the PDF fits the mark inside the box. It was
+                `cover`, which centre-crops — so a wide wordmark lost its ends
+                on screen and came out squeezed on the page: two different
+                wrong pictures of one upload. */}
+            <Image
+              src={doc.business.logo ?? BUILT_IN_MARK}
+              alt=""
+              width={LOGO_BOX}
+              height={LOGO_BOX}
+              unoptimized
+              className="rounded"
+              style={{ width: LOGO_BOX, height: LOGO_BOX, objectFit: "contain" }}
+            />
             <div>
               <div style={{ fontSize: TYPE.title, fontWeight: 700, color: INK.strong, lineHeight: 1.1 }}>
                 {doc.business.name || "Your business"}
@@ -148,13 +160,13 @@ export default function DocumentPreview({
             ))}
           </div>
           <div style={{ width: "50%" }}>
-            <Label>{doc.kind === "quote" ? "Valid until" : "Issued"}</Label>
+            <Label>Issued</Label>
             <div style={{ fontSize: TYPE.strong, fontWeight: 700, color: INK.strong, marginTop: 6 }}>
               {longDate(doc.issuedOn) || "—"}
             </div>
             {doc.dueOn && (
               <div style={{ fontSize: TYPE.small, color: INK.muted, marginTop: 2 }}>
-                Due {longDate(doc.dueOn)}
+                {doc.kind === "quote" ? "Valid until" : "Due"} {longDate(doc.dueOn)}
               </div>
             )}
           </div>
@@ -190,9 +202,15 @@ export default function DocumentPreview({
         </div>
         <div style={{ height: 1, background: INK.hairline, marginTop: 7 }} />
 
+        {/* ── ONE ROW HEIGHT, NOT TWO ────────────────────────────────
+            These rows were 10 + line + 10 ≈ 31pt against the PDF's 21, so
+            every basket pushed the totals, the payment band and the notes to a
+            different place on the two pages — and the longer the basket the
+            wider the gap. SPACE.rowHeight is the PDF's own step; the preview
+            steps by exactly the same amount. */}
         {lines.map((l, i) => (
-          <div key={i}>
-            <div className="flex items-baseline" style={{ marginTop: 10, marginBottom: 10 }}>
+          <div key={i} style={{ height: SPACE.rowHeight, position: "relative" }}>
+            <div className="flex items-baseline" style={{ paddingTop: 5 }}>
               <div style={{ width: `${TABLE.descriptionRight * 100}%`, fontSize: TYPE.body, color: INK.body,
                             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 12 }}>
                 {l.description || "—"}
@@ -206,7 +224,10 @@ export default function DocumentPreview({
                 {fmt(m.lineTotals[i])}
               </div>
             </div>
-            {i < lines.length - 1 && <div style={{ height: 1, background: INK.hairline }} />}
+            {i < lines.length - 1 && (
+              <div style={{ position: "absolute", left: 0, right: 0, bottom: 0,
+                            height: 1, background: INK.hairline }} />
+            )}
           </div>
         ))}
 
@@ -220,15 +241,23 @@ export default function DocumentPreview({
             {m.depositMinor > 0 && (
               <>
                 <Row
-                  label={doc.depositPct != null ? `Deposit (${doc.depositPct}%)` : "Deposit required"}
+                  label={
+                    doc.depositPct != null
+                      ? `Deposit (${doc.depositPct}%)`
+                      : doc.kind === "receipt" ? "Deposit" : "Deposit required"
+                  }
                   value={fmt(m.depositMinor)}
                 />
                 <Row label="Balance after deposit" value={fmt(m.balanceAfterDepositMinor)} />
               </>
             )}
             <Row label="Total" value={fmt(m.totalMinor)} strong />
-            {doc.kind !== "quote" && <Row label="Received" value={fmt(m.receivedMinor)} />}
-            {doc.kind !== "quote" && m.outstandingMinor !== 0 && (
+            {/* The same rule as the PDF, and for the reason written there: a
+                fresh confirmation printing "Still owed <the whole total>" in
+                red under a hero reading "Deposit to confirm" gives the reader
+                two amounts and shouts the wrong one. */}
+            {settlement && <Row label="Received" value={fmt(m.receivedMinor)} />}
+            {settlement && m.outstandingMinor !== 0 && (
               <Row
                 label={m.outstandingMinor > 0 ? "Still owed" : "Overpaid"}
                 value={fmt(Math.abs(m.outstandingMinor))}

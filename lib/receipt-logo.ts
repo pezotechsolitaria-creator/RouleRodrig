@@ -119,3 +119,13 @@ export const RECEIPT_LOGO = {
   "hDvDeU6eTpsthZE+q8vUMaAfAPqY/kPuKACeF34+myyHigvUGwdg6V4e6KNN01TJI5D3Fy4HHO/c" +
   "9gPYe36mpAKWmx8dkDelq//Z",
 } as const;
+
+/**
+ * The same mark, as something an <img> can render.
+ *
+ * The preview needs it because the PDF assembler embeds this logo whenever a
+ * document carries no uploaded one — so a preview that showed nothing was
+ * previewing a document that does not exist. Derived, never retyped: one
+ * base64 string, two renderers.
+ */
+export const RECEIPT_LOGO_DATA_URL = `data:image/jpeg;base64,${RECEIPT_LOGO.base64}`;

@@ -13,6 +13,7 @@ import {
 } from "@/lib/receiptly/model";
 import { buildReceiptlyPdf, receiptlyFilename } from "@/lib/receiptly/pdf";
 import { blankDoc, loadDraft, saveDraft } from "@/lib/receiptly/draft";
+import { islandToday } from "@/lib/receiptly/documents";
 import { fileToLogoDataUrl } from "@/lib/receiptly/logo";
 import type { SavedDoc, BusinessProfile } from "@/lib/receiptly/db";
 import DocumentPreview from "./DocumentPreview";
@@ -51,7 +52,7 @@ type Prefill = {
 
 /** Today, as the date input wants it. */
 function isoToday(): string {
-  return new Date().toISOString().slice(0, 10);
+  return islandToday();
 }
 
 export default function ReceiptlyStudio() {
@@ -72,6 +73,21 @@ export default function ReceiptlyStudio() {
   const [placeBookingId, setPlaceBookingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [previewScale, setPreviewScale] = useState(0.62);
+  // ── WHEN AN UNCONTROLLED BOX MUST BE RE-READ ──────────────────────────
+  //
+  // The money and quantity fields are uncontrolled on purpose: a controlled
+  // one parses what you typed, formats it back and moves the cursor mid-
+  // number. But defaultValue initialises on MOUNT only, so any change to the
+  // document that did NOT come from the box itself — opening a saved one,
+  // Mark paid, a prefill, deleting a line and shifting every index up — left
+  // the old text sitting in the box beside a preview showing the new figure.
+  //
+  // This counter is the remount signal, and it is bumped only by those
+  // outside-the-form events. Keying on the VALUE instead is what made the
+  // "Amount received" box unusable: it remounted on every keystroke, so it
+  // lost focus after the first character and "1800" was saved as Rs 1.
+  const [formEpoch, setFormEpoch] = useState(0);
+  const reseedForm = useCallback(() => setFormEpoch((n) => n + 1), []);
   const previewWrap = useRef<HTMLDivElement>(null);
 
   const c = currencyByCode(doc.currencyCode);
@@ -94,7 +110,15 @@ export default function ReceiptlyStudio() {
   // ── Hydrate: the local draft first, the server's profile behind it ─────
   useEffect(() => {
     const local = loadDraft(today);
-    if (local) setDoc(local);
+    if (local) {
+      setDoc(local.doc);
+      // WHICH ROW the draft belongs to, restored with it. Without this a
+      // reload mid-edit turned the next Save into a second numbered document
+      // for the same booking.
+      setSavedId(local.savedId);
+      setSavedNumber(local.savedNumber);
+      setPlaceBookingId(local.placeBookingId);
+    }
     void (async () => {
       const profile = await refresh();
       // The saved profile fills a NEW document only. Overwriting a draft the
@@ -123,12 +147,12 @@ export default function ReceiptlyStudio() {
   useEffect(() => {
     if (!hydrated) return;
     const t = setTimeout(() => {
-      saveDraft(doc);
+      saveDraft({ doc, savedId, savedNumber, placeBookingId });
       setDrafted(true);
       setTimeout(() => setDrafted(false), 1400);
     }, 600);
     return () => clearTimeout(t);
-  }, [doc, hydrated]);
+  }, [doc, hydrated, savedId, savedNumber, placeBookingId]);
 
   // WHETHER THE ROW IS BEHIND THE SCREEN, by comparison rather than by flag.
   //
@@ -167,7 +191,9 @@ export default function ReceiptlyStudio() {
       const money = computeMoney(d);
       return { ...d, receivedMinor: money.totalMinor, kind: "receipt" as DocKind };
     });
-  }, []);
+    // It writes receivedMinor from outside the box, so the box has to re-read.
+    reseedForm();
+  }, [reseedForm]);
 
   /** Write the document to the database and take back the figures it computed. */
   const save = useCallback(async () => {
@@ -191,6 +217,8 @@ export default function ReceiptlyStudio() {
       // that is saved.
       setDoc(saved);
       setSavedSnapshot(JSON.stringify(saved));
+      // SQL trims and re-rounds, so the boxes have to re-read what came back.
+      reseedForm();
       void refresh();
       return saved;
     } catch (err) {
@@ -199,7 +227,7 @@ export default function ReceiptlyStudio() {
     } finally {
       setSaving(false);
     }
-  }, [doc, savedId, placeBookingId, saving, refresh]);
+  }, [doc, savedId, placeBookingId, saving, refresh, reseedForm]);
 
   /** Reopen a saved document, lines and all. */
   const openSaved = useCallback(async (id: string) => {
@@ -214,11 +242,12 @@ export default function ReceiptlyStudio() {
       setSavedNumber(saved.number);
       setPlaceBookingId(saved.placeBookingId);
       setSavedSnapshot(JSON.stringify(saved));
+      reseedForm();
       setShowSaved(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not open it.");
     }
-  }, []);
+  }, [reseedForm]);
 
   /** Cancelled, never deleted: the number is never reused. */
   const cancelSaved = useCallback(async (id: string, state: "open" | "cancelled") => {
@@ -250,7 +279,8 @@ export default function ReceiptlyStudio() {
     setSavedNumber(null);
     setPlaceBookingId(null);
     setSavedSnapshot(null);
-  }, [today]);
+    reseedForm();
+  }, [today, reseedForm]);
 
   /** Remember the business identity for the next document. */
   const saveProfile = useCallback(async () => {
@@ -295,6 +325,8 @@ export default function ReceiptlyStudio() {
     }));
     setSavedId(null);
     setSavedNumber(null);
+    setSavedSnapshot(null);
+    reseedForm();
   }
 
   // ── Keyboard shortcuts ─────────────────────────────────────────────────
@@ -595,7 +627,10 @@ export default function ReceiptlyStudio() {
             action={
               doc.lines.length < MAX_LINES ? (
                 <button type="button"
-                  onClick={() => set("lines", [...doc.lines, { description: "", qty: 1, unitMinor: 0 }])}
+                  onClick={() => {
+                    set("lines", [...doc.lines, { description: "", qty: 1, unitMinor: 0 }]);
+                    reseedForm();
+                  }}
                   className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 transition hover:text-slate-900 dark:hover:text-white">
                   <Plus size={13} /> Add line
                 </button>
@@ -608,10 +643,20 @@ export default function ReceiptlyStudio() {
                   <input aria-label={`Line ${i + 1} description`} className={`${inputCls} col-span-12 !mt-0 sm:col-span-6`}
                     placeholder="Description" value={l.description}
                     onChange={(e) => set("lines", doc.lines.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} />
-                  <input aria-label={`Line ${i + 1} quantity`} className={`${inputCls} col-span-3 !mt-0 sm:col-span-2`}
-                    inputMode="numeric" placeholder="Qty" value={l.qty || ""}
-                    onChange={(e) => set("lines", doc.lines.map((x, j) => j === i
-                      ? { ...x, qty: Math.max(0, Number(e.target.value.replace(/[^\d.]/g, "")) || 0) } : x))} />
+                  {/* UNCONTROLLED, for the reason the price beside it is.
+                      As a controlled field it ATE THE DECIMAL POINT: typing
+                      "1.5" re-rendered the box as "1" after the dot, so the
+                      "5" landed against it and the line became qty 15 — ten
+                      times the job, on the saved document and the PDF. */}
+                  <input key={`qty-${formEpoch}-${i}`}
+                    aria-label={`Line ${i + 1} quantity`} className={`${inputCls} col-span-3 !mt-0 sm:col-span-2`}
+                    inputMode="decimal" placeholder="Qty"
+                    defaultValue={l.qty ? String(l.qty) : ""}
+                    onChange={(e) => {
+                      const n = Number(e.target.value.replace(/[^\d.]/g, ""));
+                      set("lines", doc.lines.map((x, j) => j === i
+                        ? { ...x, qty: Number.isFinite(n) ? Math.max(0, n) : 0 } : x));
+                    }} />
                   {/* UNCONTROLLED, and remounted deliberately.
                       A controlled money field fights the typist: parse "1.5"
                       and format it back and the cursor jumps mid-number. But
@@ -619,8 +664,14 @@ export default function ReceiptlyStudio() {
                       saved document left the old text in the box while the
                       preview showed the new figure. The key changes with the
                       document and the currency — the two things that change
-                      what this field should say — and nothing else. */}
-                  <input key={`unit-${savedId ?? "new"}-${i}-${doc.currencyCode}`}
+                      what this field should say — and nothing else.
+
+                      The epoch is in the key because the INDEX is not enough:
+                      deleting line 1 of two re-renders the survivor at index
+                      0 with the identical key, so React kept the old DOM node
+                      and the box still read the deleted line's price beside
+                      the right description. */}
+                  <input key={`unit-${formEpoch}-${i}-${doc.currencyCode}`}
                     aria-label={`Line ${i + 1} unit price`} className={`${inputCls} col-span-6 !mt-0 sm:col-span-3`}
                     inputMode="decimal" placeholder={`Unit (${c.symbol})`}
                     defaultValue={l.unitMinor ? String(l.unitMinor / 10 ** c.exponent) : ""}
@@ -629,7 +680,11 @@ export default function ReceiptlyStudio() {
                       set("lines", doc.lines.map((x, j) => j === i ? { ...x, unitMinor: v ?? 0 } : x));
                     }} />
                   <button type="button" aria-label={`Remove line ${i + 1}`}
-                    onClick={() => doc.lines.length > 1 && set("lines", doc.lines.filter((_, j) => j !== i))}
+                    onClick={() => {
+                      if (doc.lines.length <= 1) return;
+                      set("lines", doc.lines.filter((_, j) => j !== i));
+                      reseedForm();
+                    }}
                     className="col-span-3 grid place-items-center rounded-lg border border-slate-200 text-slate-400 transition hover:text-rose-500 sm:col-span-1 dark:border-white/10">
                     <Trash2 size={13} />
                   </button>
@@ -662,7 +717,7 @@ export default function ReceiptlyStudio() {
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls} htmlFor="r-recv">Amount received</label>
-                <input id="r-recv" key={`recv-${savedId ?? "new"}-${doc.currencyCode}-${doc.receivedMinor}`}
+                <input id="r-recv" key={`recv-${formEpoch}-${doc.currencyCode}`}
                   className={inputCls} inputMode="decimal" placeholder="0"
                   defaultValue={doc.receivedMinor ? String(doc.receivedMinor / 10 ** c.exponent) : ""}
                   onChange={(e) => set("receivedMinor", parseMoney(e.target.value, c) ?? 0)} />

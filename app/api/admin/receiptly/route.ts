@@ -4,6 +4,7 @@ import { audit } from "@/lib/admin/audit";
 import { toSavedDoc, toSaveArgs, toProfile, EMPTY_PROFILE } from "@/lib/receiptly/db";
 import { reviveDoc } from "@/lib/receiptly/draft";
 import { MAX_LINES, CURRENCIES, DOC_KINDS, type DocKind } from "@/lib/receiptly/model";
+import { islandToday } from "@/lib/receiptly/documents";
 
 // ── THE DOCUMENTS RECEIPTLY HAS SAVED ───────────────────────────────────────
 //
@@ -48,6 +49,9 @@ export async function GET(req: NextRequest) {
     };
 
     return NextResponse.json({
+      // The drawer lists reference, customer, kind and number — never figures —
+      // so the lines are deliberately not joined here. Opening one goes through
+      // /api/admin/receiptly/[id], which does read them.
       documents: ((docs.data ?? []) as Record<string, unknown>[]).map((d) => toSavedDoc(d)),
       prefills: ((places.data ?? []) as unknown as PlaceRow[]).map((p) => ({
         placeBookingId: p.id,
@@ -85,7 +89,7 @@ export async function POST(req: NextRequest) {
   // reviver a stored draft gets: every field checked, a logo that is not a
   // data URL dropped, an accent that is not a colour ignored. A request body
   // is user-controlled input even when the user is the owner.
-  const doc = reviveDoc(rawDoc, new Date().toISOString().slice(0, 10));
+  const doc = reviveDoc(rawDoc, islandToday());
 
   if (!doc.reference.trim()) {
     return NextResponse.json({ error: "What reference should this carry?" }, { status: 400 });
@@ -99,6 +103,19 @@ export async function POST(req: NextRequest) {
   const usable = doc.lines.filter((l) => l.description.trim() !== "" && l.qty > 0);
   if (usable.length === 0) {
     return NextResponse.json({ error: "Add at least one line." }, { status: 400 });
+  }
+  // ── A PRICED LINE WITH NO DESCRIPTION IS REFUSED, NOT DROPPED ────────────
+  //
+  // toSaveArgs() filters lines with no description, and both renderers print
+  // one as "—" and count it in the total. So a line carrying a price and no
+  // words showed up on the preview and on the downloaded PDF, was added into
+  // the figure the owner read — and then vanished at save, leaving the stored
+  // document a smaller total than the one he had already sent. Saying no is
+  // the only answer that cannot silently change a figure.
+  if (doc.lines.some((l) => l.description.trim() === "" && (l.unitMinor > 0 || l.qty > 1))) {
+    return NextResponse.json(
+      { error: "Give every priced line a description." }, { status: 400 },
+    );
   }
   if (usable.length > MAX_LINES) {
     return NextResponse.json(
@@ -125,7 +142,29 @@ export async function POST(req: NextRequest) {
 
     const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
     if (!row) return failed(null, "The document was not returned.");
-    const saved = toSavedDoc(row);
+
+    // ── READ THE LINES BACK, OR HAND BACK AN EMPTY DOCUMENT ──────────────────
+    //
+    // receiptly_doc_save() returns `public.receiptly_documents` — the row, and
+    // by definition not its lines, which live in their own table. Calling
+    // toSavedDoc() with one argument let its `lines: Row[] = []` default
+    // through, so a successful save replied `lines: []`. The studio adopts the
+    // response as the document being edited, so the table emptied on screen,
+    // the total fell to Rs 0, and the "Download PDF" button sitting next to
+    // Save handed the customer a blank, zero-total document — while the rows
+    // in the database were perfectly correct. Nothing warned, because the
+    // dirty check compares against that same reply.
+    //
+    // A failed read here is NOT a failed save: the document is committed. It
+    // costs the caller the echo, so it is reported rather than swallowed.
+    const { data: lineRows, error: linesError } = await admin
+      .from("receiptly_document_lines")
+      .select("*")
+      .eq("document_id", row.id as string)
+      .order("position", { ascending: true });
+    if (linesError) return failed(linesError, "The document saved, but could not be read back.");
+
+    const saved = toSavedDoc(row, (lineRows ?? []) as Record<string, unknown>[]);
 
     await audit(admin, {
       action: id ? "receiptly.update" : "receiptly.create",

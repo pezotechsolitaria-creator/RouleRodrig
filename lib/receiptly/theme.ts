@@ -108,6 +108,14 @@ export const TYPE = {
   tiny: 7.5,
 } as const;
 
+/**
+ * The square the masthead mark is fitted inside, in points.
+ *
+ * Shared, because the preview and the PDF must place the business name at the
+ * same x: a logo box that differs between them moves the entire masthead.
+ */
+export const LOGO_BOX = 30;
+
 export const SPACE: {
   hairline: number; rule: number; rowHeight: number; sectionGap: number;
 } = {

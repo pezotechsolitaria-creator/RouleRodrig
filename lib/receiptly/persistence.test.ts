@@ -224,21 +224,53 @@ describe("the endpoint guards what the database would refuse anyway", () => {
 // they live in how React initialises and batches. Pinned here as source facts,
 // which is what this repo asserts with, having no DOM environment.
 describe("the form follows the document it is showing", () => {
-  it("remounts the money fields when the document or the currency changes", () => {
-    // The money inputs are UNCONTROLLED on purpose — a controlled one parses
-    // "1.5", formats it back and moves the cursor mid-number. But defaultValue
-    // initialises on MOUNT only, so opening a saved document used to leave the
-    // old text in the box beside a preview showing the new figure.
-    expect(STUDIO).toContain("key={`unit-${savedId ?? \"new\"}-${i}-${doc.currencyCode}`}");
-    expect(STUDIO).toContain("key={`recv-${savedId ?? \"new\"}-${doc.currencyCode}");
+  it("remounts the money fields from a counter, not from their own value", () => {
+    // The money and quantity inputs are UNCONTROLLED on purpose — a controlled
+    // one parses "1.5", formats it back and moves the cursor mid-number. But
+    // defaultValue initialises on MOUNT only, so anything that replaces the
+    // document from OUTSIDE the form has to force a remount. formEpoch is that
+    // signal, and it is bumped by those events alone.
+    expect(STUDIO).toContain("const [formEpoch, setFormEpoch] = useState(0)");
+    expect(STUDIO).toContain("key={`unit-${formEpoch}-${i}-${doc.currencyCode}`}");
+    expect(STUDIO).toContain("key={`recv-${formEpoch}-${doc.currencyCode}`}");
+    expect(STUDIO).toContain("key={`qty-${formEpoch}-${i}`}");
   });
 
-  it("does not put the typed unit price in that key", () => {
-    // It changes on every keystroke; remounting on each one would take the
-    // focus out of the field being typed into.
-    const at = STUDIO.indexOf("key={`unit-");
-    expect(at).toBeGreaterThan(-1);
-    expect(STUDIO.slice(at, at + 80)).not.toContain("unitMinor");
+  it("keeps every typed figure OUT of those keys", () => {
+    // This is the whole bug the counter replaces. `recv` was keyed on
+    // doc.receivedMinor: the box remounted on every keystroke, lost focus
+    // after the first character, and "1800" was saved as Rs 1 — which also
+    // flips the status badge and, on a receipt, the hero figure.
+    for (const prefix of ["key={`unit-", "key={`recv-", "key={`qty-"]) {
+      const at = STUDIO.indexOf(prefix);
+      expect(at, prefix).toBeGreaterThan(-1);
+      const key = STUDIO.slice(at, STUDIO.indexOf("}", STUDIO.indexOf("`}", at)));
+      expect(key, prefix).not.toContain("unitMinor");
+      expect(key, prefix).not.toContain("receivedMinor");
+      expect(key, prefix).not.toContain("l.qty");
+    }
+  });
+
+  it("bumps the counter on every change that does not come from the form", () => {
+    // Deleting line 1 of two re-renders the survivor at index 0 with the same
+    // index-keyed identity, so React kept the old node and the price box still
+    // showed the DELETED line's figure next to the right description.
+    const bumps = STUDIO.split("reseedForm()").length - 1;
+    expect(bumps).toBeGreaterThanOrEqual(6);
+    for (const site of ["const markPaid", "const openSaved", "const startNew"]) {
+      const at = STUDIO.indexOf(site);
+      expect(at, site).toBeGreaterThan(-1);
+    }
+  });
+
+  it("the quantity box is uncontrolled, so a decimal point survives typing", () => {
+    // As a controlled field it ATE THE DOT: "1.5" re-rendered as "1" the
+    // moment the dot was typed, so the 5 landed against it and the line became
+    // qty 15 — ten times the job, on the document and on the PDF.
+    const at = STUDIO.indexOf("key={`qty-");
+    const box = STUDIO.slice(at, at + 420);
+    expect(box).toContain("defaultValue={l.qty");
+    expect(box).not.toContain("value={l.qty");
   });
 
   it("decides dirtiness by comparison, not by an effect that races its reset", () => {

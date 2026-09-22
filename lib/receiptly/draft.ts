@@ -1,6 +1,7 @@
 import {
   DOC_KINDS, CURRENCIES, type DocKind, type ReceiptlyDoc,
 } from "./model";
+import { HOUSE } from "./documents";
 
 // ── DRAFTS, IN THE BROWSER ──────────────────────────────────────────────────
 //
@@ -19,13 +20,10 @@ const KEY = "receiptly.draft.v1";
 export function blankDoc(today: string): ReceiptlyDoc {
   return {
     kind: "confirmation",
-    business: {
-      name: "Roulé Rodrigues",
-      tagline: "Take the long way",
-      website: "roulerodrig.com",
-      logo: null,
-      accent: "#0a7d3b",
-    },
+    // The same identity the automated documents carry. One constant, so a
+    // booking confirmation the platform sends and one the owner types by hand
+    // cannot come from two subtly different businesses.
+    business: { ...HOUSE },
     customerName: "",
     customerEmail: "",
     customerPhone: "",
@@ -128,19 +126,50 @@ export function reviveDoc(raw: unknown, today: string): ReceiptlyDoc {
   };
 }
 
-export function loadDraft(today: string): ReceiptlyDoc | null {
+// ── A DRAFT REMEMBERS WHICH ROW IT IS ───────────────────────────────────────
+//
+// The draft used to be the document alone. Reload the page halfway through
+// editing a SAVED document and the text came back but `savedId` did not, so
+// the next Save posted with no id — and minted a second numbered document for
+// one booking, out of a counter that is deliberately gap-free. Two documents,
+// two numbers, one reservation, and the customer holding whichever arrived
+// first.
+//
+// The envelope carries the identity alongside the text. An older draft, stored
+// before this existed, is a bare document and still loads as one.
+
+export type Draft = {
+  doc: ReceiptlyDoc;
+  savedId: string | null;
+  savedNumber: string | null;
+  placeBookingId: string | null;
+};
+
+const id = (v: unknown): string | null =>
+  typeof v === "string" && v.trim() !== "" ? v : null;
+
+export function loadDraft(today: string): Draft | null {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return null;
-    return reviveDoc(JSON.parse(raw), today);
+    const parsed = JSON.parse(raw) as Record<string, unknown> | null;
+    if (!parsed || typeof parsed !== "object") return null;
+    // An envelope has `doc`; anything else is a draft from before it existed.
+    const enveloped = "doc" in parsed;
+    return {
+      doc: reviveDoc(enveloped ? parsed.doc : parsed, today),
+      savedId: enveloped ? id(parsed.savedId) : null,
+      savedNumber: enveloped ? id(parsed.savedNumber) : null,
+      placeBookingId: enveloped ? id(parsed.placeBookingId) : null,
+    };
   } catch {
     return null;
   }
 }
 
-export function saveDraft(doc: ReceiptlyDoc): void {
+export function saveDraft(draft: Draft): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(doc));
+    localStorage.setItem(KEY, JSON.stringify(draft));
   } catch {
     // Storage full, or blocked. The document on screen is unaffected, which is
     // the thing that matters; the next keystroke tries again.

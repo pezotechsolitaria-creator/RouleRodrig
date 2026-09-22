@@ -222,6 +222,21 @@ export type DocStatus = {
   detail: string;
 };
 
+/**
+ * What this document is holding, in the words its own kind would use.
+ *
+ * Every non-quote sentence used to say "reservation", so an invoice for a
+ * finished job announced that "this reservation is held once payment is
+ * received" — about work already delivered, to a customer who has no
+ * reservation. A receipt said it too.
+ */
+const SUBJECT: Record<DocKind, string> = {
+  receipt: "payment",
+  confirmation: "reservation",
+  invoice: "invoice",
+  quote: "estimate",
+};
+
 export function docStatus(doc: ReceiptlyDoc, m: ReceiptlyMoney): DocStatus {
   if (doc.kind === "quote") {
     return {
@@ -244,13 +259,19 @@ export function docStatus(doc: ReceiptlyDoc, m: ReceiptlyMoney): DocStatus {
     };
   }
 
+  const held = doc.kind === "confirmation";
+
   if (m.receivedMinor <= 0) {
     return {
       label: "AWAITING PAYMENT",
       tone: "pending",
-      detail: hasDeposit
-        ? "This reservation is held once the deposit is received."
-        : "This reservation is held once payment is received.",
+      detail: held
+        ? hasDeposit
+          ? "This reservation is held once the deposit is received."
+          : "This reservation is held once payment is received."
+        : hasDeposit
+          ? "Nothing has been received against this deposit yet."
+          : `Nothing has been received against this ${SUBJECT[doc.kind]} yet.`,
     };
   }
 
@@ -258,16 +279,20 @@ export function docStatus(doc: ReceiptlyDoc, m: ReceiptlyMoney): DocStatus {
     return {
       label: "DEPOSIT RECEIVED",
       tone: "part",
-      detail: "The reservation is held. The balance is payable as arranged.",
+      detail: held
+        ? "The reservation is held. The balance is payable as arranged."
+        : "The deposit is settled. The balance is payable as arranged.",
     };
   }
 
   return {
     label: "PART PAID",
     tone: "part",
-    detail: hasDeposit
-      ? "This reservation is held once the deposit is received in full."
-      : "This reservation is held once payment is received in full.",
+    detail: held
+      ? hasDeposit
+        ? "This reservation is held once the deposit is received in full."
+        : "This reservation is held once payment is received in full."
+      : "Part of the amount has been received. The balance is still owed.",
   };
 }
 

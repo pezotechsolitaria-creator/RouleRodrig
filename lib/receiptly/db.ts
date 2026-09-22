@@ -109,7 +109,18 @@ export function toSaveArgs(doc: ReceiptlyDoc, id: string | null, placeBookingId:
       phone: doc.customerPhone.trim(),
     },
     p_service_name: doc.serviceName.trim() || null,
-    p_details: doc.details.filter((d) => d.value.trim() !== ""),
+    // ── LABELS SURVIVE, EMPTY OR NOT ────────────────────────────────────
+    //
+    // This used to drop every row with no value. Both renderers already skip
+    // an empty row, so dropping it here bought nothing and cost something
+    // real: a document saved with "Meeting point" blank came back WITHOUT
+    // that box, and the form builds its boxes from doc.details, so there was
+    // no way to type into it again. The row is the form's structure, not just
+    // its content.
+    p_details: doc.details.slice(0, 8).map((d) => ({
+      label: d.label.trim(),
+      value: d.value.trim(),
+    })),
     p_lines: doc.lines
       .filter((l) => l.description.trim() !== "" && l.qty > 0)
       .slice(0, MAX_LINES)
