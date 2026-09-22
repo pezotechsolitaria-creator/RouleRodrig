@@ -6,6 +6,7 @@ import {
 import { guard } from "@/lib/rate-limit";
 import { isVehicleFree } from "@/lib/availability";
 import { sendVehicleUnavailableEmail } from "@/lib/email";
+import { sendPaymentReceipt } from "@/lib/receipts/payment-receipt";
 import { getContent } from "@/lib/content";
 
 // Captures an approved PayPal order and — ONLY if PayPal confirms the capture is
@@ -164,6 +165,24 @@ export async function POST(req: NextRequest) {
       },
       { status: 500 },
     );
+  }
+
+  // ── THE RECEIPT ────────────────────────────────────────────────────────
+  //
+  // Until now this was the end of the road: PayPal took the money, the row was
+  // updated, and the customer was told nothing at all. No confirmation, no
+  // figure, no document — the only way to find out whether a card payment had
+  // landed was to email and ask.
+  //
+  // Best-effort and awaited: the payment is captured and recorded whatever
+  // happens here, and this runs in a serverless function that is killed the
+  // moment the handler resolves, so a floating promise is an email that
+  // sometimes never leaves. It is read back from the row rather than from the
+  // capture, so the figures on the receipt are the figures in the database.
+  try {
+    await sendPaymentReceipt(supabase, kind === "place" ? "place" : "vehicle", bookingId, "PayPal");
+  } catch (e) {
+    console.error("[paypal] receipt email failed", e);
   }
 
   // First-to-pay-wins: this deposit just secured the vehicle, so release any

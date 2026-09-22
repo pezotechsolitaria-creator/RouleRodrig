@@ -4,6 +4,7 @@ import { verifySession, COOKIE_NAME } from '@/lib/auth';
 import { getPrivileged } from '@/lib/supabase/admin';
 import { PAYMENT_WINDOW_HOURS } from '@/lib/holds';
 import { sendPlaceAvailabilityConfirmed, sendPlaceUnavailable } from '@/lib/email';
+import { sendPaymentReceipt } from '@/lib/receipts/payment-receipt';
 
 // ── THE OWNER DECIDES AVAILABILITY, AND THE CUSTOMER IS TOLD (M127) ────────
 //
@@ -77,7 +78,8 @@ export async function PATCH(req: NextRequest) {
   // for and what it costs, and none of that is in the request body.
   const { data: current, error: readErr } = await supabase
     .from('place_bookings')
-    .select('id, name, email, place_name, category, start_date, end_date, time_slot, deposit_amount, status')
+    // One string literal: supabase-js reads the row type out of it.
+    .select('id, name, email, phone, place_name, category, start_date, end_date, time_slot, guests, quantity, deposit_amount, status')
     .eq('id', id)
     .maybeSingle();
 
@@ -123,6 +125,14 @@ export async function PATCH(req: NextRequest) {
         placeName: (current.place_name as string) || 'your booking',
         category: (current.category as string | null) ?? null,
         when: whenLabel(current as Record<string, string | null>),
+        // For the attached document only. The sentence above still reads from
+        // `when`; these are the fields the PDF prints in its own layout.
+        phone: (current.phone as string | null) ?? null,
+        startDate: (current.start_date as string | null) ?? null,
+        endDate: (current.end_date as string | null) ?? null,
+        timeSlot: (current.time_slot as string | null) ?? null,
+        guests: typeof current.guests === 'number' ? current.guests : null,
+        quantity: typeof current.quantity === 'number' ? current.quantity : null,
       };
       emailed =
         status === 'approved'
@@ -136,6 +146,14 @@ export async function PATCH(req: NextRequest) {
       console.error('place-booking availability email failed', err);
       emailed = false;
     }
+  }
+
+  // The receipt, when this is the moment the money was accepted. Same rule as
+  // the vehicle desk: `confirmed` from here means the owner matched a declared
+  // transfer against his statement, and sendPaymentReceipt refuses a row that
+  // carries no evidence of payment at all.
+  if (status === 'confirmed' && current.status !== 'confirmed') {
+    await sendPaymentReceipt(supabase, 'place', id, 'Bank transfer');
   }
 
   // `emailed: false` for a guest who gave no address is normal, not a fault —

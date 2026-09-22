@@ -13,6 +13,7 @@ import {
   type PaymentProvider,
 } from "@/lib/orders/hold";
 import { FULFILLMENT_LABEL } from "@/lib/orders/location";
+import { orderDocumentAttachments } from "@/lib/receipts/order-document";
 
 // ── M17 Phase 2: exactly-once order-placed notifications ────────────────────
 // The CLAIM lives in SQL (claim_order_notification / release_order_notification,
@@ -283,6 +284,16 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
     });
 
     // ── Customer side ──
+    //
+    // The order as a page they can keep, headed "Booking confirmation" rather
+    // than "Receipt": nothing is paid at this point. Every marketplace payment
+    // here is settled by hand — cash, bank transfer or the merchant's own QR
+    // — so an order that has just been placed has been paid for by nobody,
+    // whichever provider it names.
+    const customerDoc = input.customerEmail
+      ? await orderDocumentAttachments(admin, input.orderId, "confirmation")
+      : [];
+
     const customerSend = input.customerEmail
       ? dispatchNotification({
           recipientType: "customer",
@@ -319,6 +330,7 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
           emailType: "marketplace_order_confirmation",
           idempotencyKey: `marketplace_order_confirmation:${input.orderId}`,
           orderId: input.orderId,
+          attachments: customerDoc,
         })
       : null;
 

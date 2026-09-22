@@ -97,9 +97,16 @@ describe("the owner's decision is validated and acted on", () => {
 
   it("never lets a failed email roll back a decision already taken", () => {
     // He has already spoken to the partner. The status must stand.
-    const i = route.indexOf("let emailed");
-    expect(i).toBeGreaterThan(-1);
-    expect(route.slice(i, i + 1400)).toMatch(/catch \(err\)/);
+    //
+    // Measured between the two landmarks rather than over a fixed number of
+    // characters: the window was 1400, and adding two lines to the payload
+    // moved the catch outside it and failed a test about behaviour that had
+    // not changed.
+    const from = route.indexOf("let emailed");
+    const to = route.indexOf("ok: true");
+    expect(from).toBeGreaterThan(-1);
+    expect(to).toBeGreaterThan(from);
+    expect(route.slice(from, to)).toMatch(/catch \(err\)/);
   });
 
   it("reports whether the customer could actually be reached", () => {

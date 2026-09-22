@@ -5,6 +5,7 @@ import type { NotificationType } from "./registry";
 import { SITE_URL } from "@/lib/site";
 import { centsToDecimalString } from "@/lib/money";
 import type { EmailType } from "@/lib/email/types";
+import { orderDocumentAttachments } from "@/lib/receipts/order-document";
 
 // ── Customer-facing lifecycle emails ────────────────────────────────────────
 //
@@ -162,6 +163,18 @@ export async function notifyOrderCustomer(orderId: string, event: OrderCustomerE
           ? `${SITE_URL}/orders/track?ref=${encodeURIComponent(row.order_number)}`
           : `${SITE_URL}/orders/${orderId}`;
 
+    // ── THE DOCUMENT ────────────────────────────────────────────────────
+    //
+    // Only for the event that means the money is in. "Accepted", "expired" and
+    // "payment due" are all states in which nothing has been received, and a
+    // PDF headed Receipt attached to any of them would be a written claim that
+    // it had. Best-effort: it returns an empty list rather than throwing, and
+    // the email goes out either way.
+    const attachments =
+      event === "payment_confirmed"
+        ? await orderDocumentAttachments(admin, orderId, "receipt")
+        : [];
+
     const result = await notify(
       EVENT_NOTIFICATION_TYPE[event],
       // userId drives the in-app row; a guest has none and gets push by email.
@@ -179,6 +192,7 @@ export async function notifyOrderCustomer(orderId: string, event: OrderCustomerE
           cta: { url: ctaUrl, label: copy.cta },
           emailType: EVENT_EMAIL_TYPE[event],
           idempotencyKey: `${EVENT_EMAIL_TYPE[event]}:${orderId}:${event}`,
+          attachments,
         },
       },
     );

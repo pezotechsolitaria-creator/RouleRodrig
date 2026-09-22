@@ -38,6 +38,16 @@ import {
   upsertBrevoContactRaw,
 } from "./email/providers/brevo";
 import { invalidateEmailConfigCache } from "./email/config";
+// Every booking email a customer receives now carries the same PDF the owner
+// would have made by hand in Receiptly. The adapters are pure and the renderer
+// never throws out of attachmentsFor(), so nothing here can fail an email.
+import { attachmentsFor } from "./receiptly/attach";
+import {
+  islandToday,
+  placeReservationDoc,
+  rideDoc,
+  vehicleRentalDoc,
+} from "./receiptly/documents";
 import { resendProvider } from "./email/providers/resend";
 import { brevoProvider } from "./email/providers/brevo";
 
@@ -66,6 +76,12 @@ interface BookingEmailData {
 
 // "1617" → "Rs 1,617"
 const rs = (n: number) => `Rs ${Math.round(n).toLocaleString("en-US")}`;
+
+/** Today, as a document dates itself — on the island, not in UTC. */
+const issueDate = (): string => islandToday();
+/** An ISO timestamp -> the date part a document can print. */
+const dayOf = (iso: string | null | undefined): string =>
+  typeof iso === "string" && iso.length >= 10 ? iso.slice(0, 10) : "";
 
 interface Attachment {
   name: string;
@@ -795,6 +811,36 @@ export async function sendBookingEmails(
           name: "roule-rodrigues-booking.ics",
           content: Buffer.from(cal.ics, "utf8").toString("base64"),
         },
+        // AN ESTIMATE, not a confirmation and not a bill. The email above says
+        // in as many words that no payment is due yet and that nobody has
+        // checked the vehicle is free; a document headed "Booking confirmation"
+        // stapled to it would contradict the paragraph it arrives with, and a
+        // customer who acts on the document rather than the email wires a
+        // deposit for a vehicle nobody has confirmed — the exact involuntary
+        // refund M91 exists to prevent. `quote` prints ESTIMATE and "This is an
+        // estimate, not a request for payment."
+        //
+        // The bank details are deliberately NOT passed: they belong only on the
+        // document that goes out after approval, for the same reason.
+        ...attachmentsFor(
+          vehicleRentalDoc({
+            kind: "quote",
+            reference: b.ref ?? "",
+            customerName: b.name,
+            customerEmail: b.email,
+            customerPhone: b.phone,
+            vehicle: b.scooter,
+            startDate: b.start_date,
+            endDate: b.end_date,
+            pickupTime: b.pickup_time,
+            days: b.days,
+            totalRupees: b.total_amount,
+            deliveryRupees: b.delivery_fee,
+            depositRupees: b.deposit_amount,
+            depositPct: b.deposit_pct,
+            issuedOn: issueDate(),
+          }),
+        ),
       ],
     });
   }
@@ -862,11 +908,24 @@ export async function sendAvailabilityConfirmed(b: {
   id: string;
   email: string | null;
   name: string;
+  phone?: string | null;
   scooter: string;
   start_date: string;
   end_date: string;
+  /** bookings.deposit_amount — WHOLE RUPEES. What confirms the vehicle. */
   amountDue: number | null;
   payBy: string;
+  // ── The rest of the booking, for the document ──────────────────────────
+  // All optional, all read straight off the row by the one caller. A booking
+  // written before these columns existed simply gets no attachment rather than
+  // a document with a hole in it.
+  /** bookings.total_amount — WHOLE RUPEES. */
+  total_amount?: number | null;
+  /** bookings.delivery_fee — WHOLE RUPEES. */
+  delivery_fee?: number | null;
+  deposit_pct?: number | null;
+  days?: number | null;
+  pickup_time?: string | null;
 }): Promise<boolean> {
   if (!b.email) return false;
   const { wa, logo } = await getBrand();
@@ -904,6 +963,36 @@ export async function sendAvailabilityConfirmed(b: {
     ${paragraph(`<a href="${payUrl}" style="color:${C.ink};font-weight:600">Payer et confirmer</a> — avec votre référence <strong>${ref}</strong> et cette adresse e-mail.`)}
     ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! About booking ${ref} — `, "💬 WhatsApp")}</div>` : ""}`;
 
+  // ── The booking confirmation, as a document ─────────────────────────────
+  //
+  // THIS is the moment the picture the owner drew by hand describes: the
+  // vehicle is held, the deposit is named, and the account to send it to is on
+  // the page. Everything on it is read off the booking row, so the figure the
+  // document prints and the figure this email prints are the same figure.
+  const confirmation = vehicleRentalDoc({
+    kind: "confirmation",
+    reference: ref,
+    customerName: b.name,
+    customerEmail: b.email,
+    customerPhone: b.phone,
+    vehicle: b.scooter,
+    startDate: b.start_date,
+    endDate: b.end_date,
+    pickupTime: b.pickup_time,
+    days: b.days ?? 1,
+    totalRupees: b.total_amount,
+    deliveryRupees: b.delivery_fee,
+    depositRupees: b.amountDue,
+    depositPct: b.deposit_pct,
+    issuedOn: issueDate(),
+    dueOn: dayOf(b.payBy),
+    pay: { method: `${PAY_BANK} · ${PAY_ACCOUNT}`, reference: `Reference ${ref}` },
+    notes:
+      `Pay by bank transfer to the account above, or by PayPal to ${PAY_PAYPAL}, ` +
+      `then confirm at ${SITE_URL.replace(/^https?:\/\//, "")}/manage-booking with reference ${ref}. ` +
+      `We hold the vehicle until ${byEn}.`,
+  });
+
   return send({
     to: b.email,
     subject: `It's available — confirm your ${b.scooter} · Disponible 🛵`,
@@ -918,6 +1007,7 @@ export async function sendAvailabilityConfirmed(b: {
     key: keyFor("booking_availability_confirmed", b.id),
     relatedType: "booking",
     relatedId: b.id,
+    attachments: attachmentsFor(confirmation),
   });
 }
 
@@ -1035,11 +1125,23 @@ export async function sendPlaceAvailabilityConfirmed(b: {
   id: string;
   email: string | null;
   name: string;
+  phone?: string | null;
   placeName: string;
   category?: string | null;
   when: string;
+  /**
+   * place_bookings.deposit_amount — WHOLE RUPEES, and the WHOLE PRICE. The
+   * copy below already says "pay {amount}" rather than "pay a deposit of", and
+   * the document matches it: one line, no deposit row.
+   */
   amountDue: number | null;
   payBy: string;
+  /** For the document only — the dates it prints, not the sentence above. */
+  startDate?: string | null;
+  endDate?: string | null;
+  timeSlot?: string | null;
+  guests?: number | null;
+  quantity?: number | null;
 }): Promise<boolean> {
   if (!b.email) return false;
   const { wa, logo } = await getBrand();
@@ -1087,6 +1189,30 @@ export async function sendPlaceAvailabilityConfirmed(b: {
     key: keyFor(placeEmailType("availability_confirmed", b.category), b.id),
     relatedType: "place_booking",
     relatedId: b.id,
+    attachments: attachmentsFor(
+      placeReservationDoc({
+        kind: "confirmation",
+        reference: ref,
+        customerName: b.name,
+        customerEmail: b.email,
+        customerPhone: b.phone,
+        placeName: b.placeName,
+        category: b.category,
+        startDate: b.startDate ?? "",
+        endDate: b.endDate ?? "",
+        timeSlot: b.timeSlot,
+        guests: b.guests,
+        quantity: b.quantity,
+        priceRupees: b.amountDue,
+        issuedOn: issueDate(),
+        dueOn: dayOf(b.payBy),
+        pay: { method: `${PAY_BANK} · ${PAY_ACCOUNT}`, reference: `Reference ${ref}` },
+        notes:
+          `Pay by bank transfer to the account above, or by PayPal to ${PAY_PAYPAL}, ` +
+          `then confirm at ${SITE_URL.replace(/^https?:\/\//, "")}/track with reference ${ref}. ` +
+          `We hold it until ${byEn}.`,
+      }),
+    ),
   });
 }
 
@@ -1138,6 +1264,211 @@ export async function sendPlaceUnavailable(b: {
     key: keyFor(placeEmailType("unavailable", b.category), b.id),
     relatedType: "place_booking",
     relatedId: b.id,
+  });
+}
+
+// ── "WE HAVE YOUR MONEY" — THE ONE EMAIL THAT DID NOT EXIST ───────────────
+//
+// Every other step of a booking told the customer something: the request was
+// received, the vehicle is free, it was not free, the request expired. The
+// moment the money actually arrived was silent. A customer who paid a deposit
+// by bank transfer, or who paid by card through PayPal, got nothing at all —
+// no confirmation, no figure, no receipt — and the only way to find out
+// whether it had landed was to email and ask.
+//
+// M41 has been carrying the type for this since the registry was written
+// (scooter_payment_confirmation, car_payment_confirmation and the two place
+// equivalents, all marked `planned`). These two senders are what makes them
+// real, and the document is the reason they are worth an email at all: the
+// receipt is the thing the customer keeps, files, and shows at the counter.
+//
+// ── WHAT "RECEIVED" MEANS HERE ──────────────────────────────────────────────
+//
+// `amount_paid` is written only by the PayPal capture, which resolves it from
+// what PayPal says it actually took. A bank transfer has no such column, so the
+// figure falls back to what the customer was ASKED for — which is precisely
+// what the owner checked against his statement before pressing the button that
+// calls this. Neither caller calls it without that evidence: a booking with no
+// deposit_paid_at and no payment_reported_at gets no receipt, because a receipt
+// for money nobody can show is worse than no receipt.
+
+/** A rental's deposit, or its full price, has been received. */
+export async function sendBookingPaymentReceipt(b: {
+  id: string;
+  email: string | null;
+  name: string;
+  phone?: string | null;
+  scooter: string;
+  vehicleCategory?: string | null;
+  start_date: string;
+  end_date: string;
+  days?: number | null;
+  pickup_time?: string | null;
+  /** bookings.total_amount — WHOLE RUPEES. */
+  total_amount?: number | null;
+  /** bookings.delivery_fee — WHOLE RUPEES. */
+  delivery_fee?: number | null;
+  /** bookings.deposit_amount — WHOLE RUPEES. */
+  deposit_amount?: number | null;
+  deposit_pct?: number | null;
+  /** What was actually received, WHOLE RUPEES. */
+  received: number | null;
+  /** "PayPal" or "Bank transfer" — printed, so keep it true. */
+  method: string;
+}): Promise<boolean> {
+  if (!b.email) return false;
+  const { wa, logo } = await getBrand();
+  const ref = "RR-" + b.id.replace(/-/g, "").slice(0, 6).toUpperCase();
+  const total = typeof b.total_amount === "number" ? b.total_amount : null;
+  const received = typeof b.received === "number" && b.received > 0 ? b.received : null;
+  const balance = total != null && received != null ? Math.max(0, total - received) : null;
+
+  const receipt = vehicleRentalDoc({
+    kind: "receipt",
+    reference: ref,
+    customerName: b.name,
+    customerEmail: b.email,
+    customerPhone: b.phone,
+    vehicle: b.scooter,
+    startDate: b.start_date,
+    endDate: b.end_date,
+    pickupTime: b.pickup_time,
+    days: b.days ?? 1,
+    totalRupees: b.total_amount,
+    deliveryRupees: b.delivery_fee,
+    depositRupees: b.deposit_amount,
+    depositPct: b.deposit_pct,
+    paidRupees: received,
+    issuedOn: issueDate(),
+    notes: `Received by ${b.method} on ${issueDate()}. Reference ${ref}.`,
+  });
+
+  const balanceEn =
+    balance != null && balance > 0
+      ? ` The balance of <strong>${rs(balance)}</strong> is payable at pickup.`
+      : " Nothing further is owed.";
+  const balanceFr =
+    balance != null && balance > 0
+      ? ` Le solde de <strong>${rs(balance)}</strong> se règle au retrait.`
+      : " Plus rien n'est dû.";
+
+  const body = `
+    ${paragraph(`Thank you ${escapeHtml(b.name)} — we have received ${received != null ? `<strong>${rs(received)}</strong>` : "your payment"} for <strong>${escapeHtml(b.scooter)}</strong>, and your booking is confirmed.${balanceEn}`)}
+    ${detailCard(
+      rows([
+        ["Reference", ref],
+        ["Vehicle", b.scooter],
+        ["Dates", `${fmtDate(b.start_date)} → ${fmtDate(b.end_date)}`],
+        ...(received != null ? ([["Received", rs(received)]] as [string, string][]) : []),
+        ["Paid by", b.method],
+      ]),
+    )}
+    ${paragraph(`Your receipt is attached as a PDF — keep it, and bring it with you if you can.`)}
+    ${sectionLabel("Before your pickup, please bring")}
+    ${checkList(["A valid driver's licence", "This receipt or your booking reference", "A valid ID or passport if requested"])}
+    ${sepFr()}
+    ${frHeading("Paiement reçu")}
+    ${paragraph(`Merci ${escapeHtml(b.name)} — nous avons bien reçu ${received != null ? `<strong>${rs(received)}</strong>` : "votre paiement"} pour <strong>${escapeHtml(b.scooter)}</strong>, et votre réservation est confirmée.${balanceFr}`)}
+    ${paragraph(`Votre reçu est joint en PDF — conservez-le et présentez-le si possible au retrait.`)}
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! About booking ${ref} — `, "💬 WhatsApp")}</div>` : ""}`;
+
+  const type = vehicleEmailType("payment_confirmation", b.vehicleCategory);
+  return send({
+    to: b.email,
+    subject: `Payment received — ${ref} · Paiement reçu 🧾`,
+    html: shell({
+      preheader: "Your receipt is attached · Votre reçu est joint.",
+      eyebrow: "Payment received · Paiement reçu",
+      title: "Thank you — we have your payment",
+      body,
+      logo,
+    }),
+    type,
+    key: keyFor(type, b.id),
+    relatedType: "booking",
+    relatedId: b.id,
+    attachments: attachmentsFor(receipt),
+  });
+}
+
+/** A stay, a table or an experience has been paid for. */
+export async function sendPlacePaymentReceipt(b: {
+  id: string;
+  email: string | null;
+  name: string;
+  phone?: string | null;
+  placeName: string;
+  category?: string | null;
+  when: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  time_slot?: string | null;
+  guests?: number | null;
+  quantity?: number | null;
+  /** place_bookings.deposit_amount — WHOLE RUPEES, and the WHOLE PRICE. */
+  price: number | null;
+  /** What was actually received, WHOLE RUPEES. */
+  received: number | null;
+  method: string;
+}): Promise<boolean> {
+  if (!b.email) return false;
+  const { wa, logo } = await getBrand();
+  const ref = "RR-" + b.id.replace(/-/g, "").slice(0, 6).toUpperCase();
+  const received = typeof b.received === "number" && b.received > 0 ? b.received : null;
+
+  const receipt = placeReservationDoc({
+    kind: "receipt",
+    reference: ref,
+    customerName: b.name,
+    customerEmail: b.email,
+    customerPhone: b.phone,
+    placeName: b.placeName,
+    category: b.category,
+    startDate: b.start_date ?? "",
+    endDate: b.end_date ?? "",
+    timeSlot: b.time_slot,
+    guests: b.guests,
+    quantity: b.quantity,
+    priceRupees: b.price,
+    paidRupees: received,
+    issuedOn: issueDate(),
+    notes: `Received by ${b.method} on ${issueDate()}. Reference ${ref}.`,
+  });
+
+  const body = `
+    ${paragraph(`Thank you ${escapeHtml(b.name)} — we have received ${received != null ? `<strong>${rs(received)}</strong>` : "your payment"} for <strong>${escapeHtml(b.placeName)}</strong>. Your reservation for ${escapeHtml(b.when)} is confirmed.`)}
+    ${detailCard(
+      rows([
+        ["Reference", ref],
+        ["Reservation", b.placeName],
+        ["When", b.when],
+        ...(received != null ? ([["Received", rs(received)]] as [string, string][]) : []),
+        ["Paid by", b.method],
+      ]),
+    )}
+    ${paragraph(`Your receipt is attached as a PDF — keep it, and show it on arrival if you are asked for it.`)}
+    ${sepFr()}
+    ${frHeading("Paiement reçu")}
+    ${paragraph(`Merci ${escapeHtml(b.name)} — nous avons bien reçu ${received != null ? `<strong>${rs(received)}</strong>` : "votre paiement"} pour <strong>${escapeHtml(b.placeName)}</strong>. Votre réservation du ${escapeHtml(b.when)} est confirmée.`)}
+    ${paragraph(`Votre reçu est joint en PDF — conservez-le et présentez-le à votre arrivée si on vous le demande.`)}
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! About reservation ${ref} — `, "💬 WhatsApp")}</div>` : ""}`;
+
+  const type = placeEmailType("payment_confirmation", b.category);
+  return send({
+    to: b.email,
+    subject: `Payment received — ${ref} · Paiement reçu 🧾`,
+    html: shell({
+      preheader: "Your receipt is attached · Votre reçu est joint.",
+      eyebrow: "Payment received · Paiement reçu",
+      title: "Thank you — we have your payment",
+      body,
+      logo,
+    }),
+    type,
+    key: keyFor(type, b.id),
+    relatedType: "place_booking",
+    relatedId: b.id,
+    attachments: attachmentsFor(receipt),
   });
 }
 
@@ -1354,6 +1685,14 @@ interface PlaceBookingEmailData {
   quantity?: number | null;
   time_slot?: string | null;
   message: string | null;
+  /**
+   * place_bookings.deposit_amount — WHOLE RUPEES, and despite the name it is
+   * the WHOLE PRICE (M210, and lib/defaults.ts: "this number is the whole price
+   * and nothing is owed later"). Present only so the attached document can
+   * quote it; no copy in this email calls it a deposit, and neither does the
+   * document.
+   */
+  deposit_amount?: number | null;
 }
 
 function placeRows(b: PlaceBookingEmailData): string {
@@ -1820,6 +2159,28 @@ export async function sendPlaceBookingEmails(
       key: keyFor(type, bookingKeyPart(b)),
       relatedType: "place_booking",
       relatedId: bookingKeyPart(b),
+      // An ESTIMATE, matching the paragraph above it: "This is a request, not
+      // yet a confirmed reservation". The venue is not his, so nobody has
+      // agreed to anything yet and a document that said otherwise would be the
+      // first thing the guest believed.
+      attachments: attachmentsFor(
+        placeReservationDoc({
+          kind: "quote",
+          reference: b.ref ?? "",
+          customerName: b.name,
+          customerEmail: b.email,
+          customerPhone: b.phone,
+          placeName: b.place_name,
+          category: b.category,
+          startDate: b.start_date,
+          endDate: b.end_date,
+          timeSlot: b.time_slot,
+          guests: b.guests,
+          quantity: b.quantity,
+          priceRupees: b.deposit_amount,
+          issuedOn: issueDate(),
+        }),
+      ),
     });
   }
 
@@ -2095,6 +2456,30 @@ export async function sendRideEmails(
       key: keyFor("ride_request_confirmation", b.reference),
       relatedType: "ride",
       relatedId: b.reference,
+      // An ESTIMATE, and it could not honestly be anything else: this money
+      // never reaches the platform. The document's note repeats the checklist
+      // line above it word for word — "You pay the driver directly at the end
+      // of the trip — nothing is charged here" — so the two cannot drift into
+      // saying different things about who gets paid.
+      attachments: attachmentsFor(
+        rideDoc({
+          reference: b.reference ?? "",
+          customerName: b.name,
+          customerEmail: b.email,
+          customerPhone: b.phone,
+          serviceLabel: label,
+          pickup: b.pickup,
+          dropoff: b.dropoff,
+          whenLabel:
+            b.whenKind === "now" || !b.scheduledAt
+              ? "As soon as possible"
+              : pickupTimeLabel(b.whenKind, b.scheduledAt),
+          passengers: b.passengers,
+          // ride_requests.quoted_price is CENTS — see lib/invoicing/subjects.ts.
+          fareCents: b.price,
+          issuedOn: issueDate(),
+        }),
+      ),
     });
   }
 
@@ -2499,6 +2884,8 @@ export async function sendOrderNotificationEmail(o: {
   /** Stable per-event key, e.g. `marketplace_order_status:<orderId>:accepted`. */
   idempotencyKey?: string | null;
   orderId?: string | null;
+  /** The order as a document. Costs no quota: the ceiling counts rows. */
+  attachments?: Attachment[];
 }): Promise<boolean> {
   const { logo } = await getBrand();
   const pairs: [string, string][] = [
@@ -2519,5 +2906,6 @@ export async function sendOrderNotificationEmail(o: {
     key: o.idempotencyKey ?? null,
     relatedType: "order",
     relatedId: o.orderId ?? o.orderNumber ?? null,
+    attachments: o.attachments,
   });
 }

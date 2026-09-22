@@ -3,6 +3,7 @@ import { sendOrderNotificationEmail } from "@/lib/email";
 import { enqueueNotification, formatWhatsAppMessage } from "./queue";
 import { pushToCustomer } from "@/lib/push/send";
 import type { EmailType } from "@/lib/email/types";
+import type { EmailAttachment } from "@/lib/receiptly/attach";
 
 // ── Best-effort external notification dispatch (Milestone 4) ────────────────
 // The AUTHORITATIVE, atomic in-app notification is written by the
@@ -50,6 +51,14 @@ export interface NotificationEvent {
    */
   idempotencyKey?: string | null;
   orderId?: string | null;
+  /**
+   * Files for the email channel, and only the email channel.
+   *
+   * A push notification cannot carry a PDF and a WhatsApp ping through
+   * CallMeBot cannot either, so this is deliberately not part of the shared
+   * event vocabulary the other channels read — they ignore it.
+   */
+  attachments?: EmailAttachment[];
 }
 
 export type ChannelName = "email" | "whatsapp" | "web-push" | "mobile-push";
@@ -74,6 +83,7 @@ const emailChannel: NotificationChannel = {
       type: event.emailType,
       idempotencyKey: event.idempotencyKey ?? null,
       orderId: event.orderId ?? null,
+      attachments: event.attachments,
     });
   },
 };

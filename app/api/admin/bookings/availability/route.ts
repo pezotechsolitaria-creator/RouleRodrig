@@ -44,7 +44,13 @@ export async function POST(req: NextRequest) {
   // all, and after the update the old value is gone.
   const { data: before } = await supabase
     .from("bookings")
-    .select("id, name, email, phone, scooter, start_date, end_date, status, deposit_amount, total_amount")
+    // Everything after `status` is for the booking-confirmation PDF the
+    // approval email now carries: it itemises the rental and the delivery
+    // exactly as the email's own summary does, so the two cannot quote
+    // different figures. ONE STRING LITERAL, deliberately — supabase-js infers
+    // the row type from it, and concatenating the parts makes every column
+    // come back untyped.
+    .select("id, name, email, phone, scooter, start_date, end_date, status, deposit_amount, total_amount, delivery_fee, deposit_pct, days, pickup_time")
     .eq("id", id)
     .maybeSingle();
 
@@ -94,6 +100,12 @@ export async function POST(req: NextRequest) {
         end_date: (row.end_date as string) ?? "",
         amountDue: typeof row.deposit_amount === "number" ? row.deposit_amount : null,
         payBy: dueBy,
+        phone: (row.phone as string) ?? null,
+        total_amount: typeof row.total_amount === "number" ? row.total_amount : null,
+        delivery_fee: typeof row.delivery_fee === "number" ? row.delivery_fee : null,
+        deposit_pct: typeof row.deposit_pct === "number" ? row.deposit_pct : null,
+        days: typeof row.days === "number" ? row.days : null,
+        pickup_time: (row.pickup_time as string) ?? null,
       });
     } catch (e) {
       console.error("availability approved: email failed", e);

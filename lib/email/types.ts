@@ -101,7 +101,7 @@ export const EMAIL_TYPES = {
 
   // ── Scooter rentals ──────────────────────────────────────────────────────
   scooter_booking_confirmation:     { category: "scooter_rental", priority: "high" },
-  scooter_payment_confirmation:     { category: "scooter_rental", priority: "critical", planned: true },
+  scooter_payment_confirmation:     { category: "scooter_rental", priority: "critical" },
   scooter_pickup_reminder:          { category: "scooter_rental", priority: "normal" },
   scooter_return_reminder:          { category: "scooter_rental", priority: "normal" },
   scooter_booking_status:           { category: "scooter_rental", priority: "high" },
@@ -113,7 +113,7 @@ export const EMAIL_TYPES = {
   // 25%), and the brief requires per-domain routing. Resolved per booking by
   // vehicleEmailType() below.
   car_booking_confirmation:         { category: "car_rental", priority: "high" },
-  car_payment_confirmation:         { category: "car_rental", priority: "critical", planned: true },
+  car_payment_confirmation:         { category: "car_rental", priority: "critical" },
   car_pickup_reminder:              { category: "car_rental", priority: "normal" },
   car_return_reminder:              { category: "car_rental", priority: "normal" },
   car_booking_status:               { category: "car_rental", priority: "high" },
@@ -121,7 +121,7 @@ export const EMAIL_TYPES = {
 
   // ── Accommodation (place_bookings, category 'hotel') ─────────────────────
   accommodation_booking_confirmation: { category: "accommodation", priority: "high" },
-  accommodation_payment_confirmation: { category: "accommodation", priority: "critical", planned: true },
+  accommodation_payment_confirmation: { category: "accommodation", priority: "critical" },
   accommodation_checkin_reminder:   { category: "accommodation", priority: "normal" },
   accommodation_checkout_reminder:  { category: "accommodation", priority: "normal", planned: true },
   accommodation_status:             { category: "accommodation", priority: "high" },
@@ -129,7 +129,7 @@ export const EMAIL_TYPES = {
 
   // ── Activities (place_bookings, non-hotel) ───────────────────────────────
   activity_booking_confirmation:    { category: "activity", priority: "high" },
-  activity_payment_confirmation:    { category: "activity", priority: "critical", planned: true },
+  activity_payment_confirmation:    { category: "activity", priority: "critical" },
   activity_reminder:                { category: "activity", priority: "normal" },
   activity_status:                  { category: "activity", priority: "high" },
   activity_feedback_request:        { category: "activity", priority: "low" },
@@ -321,7 +321,7 @@ export function vehicleEmailType(base: VehicleEmailBase, vehicleCategory?: strin
 // 'hotel' is the accommodation marker used throughout lib/email.ts (it picks
 // the "Rooms · Chambres" row label from the same value).
 type PlaceEmailBase =
-  | "booking_confirmation" | "reminder" | "status" | "feedback_request"
+  | "booking_confirmation" | "payment_confirmation" | "reminder" | "status" | "feedback_request"
   // M127. Availability is decided before payment, exactly as for vehicles.
   | "availability_confirmed" | "unavailable";
 

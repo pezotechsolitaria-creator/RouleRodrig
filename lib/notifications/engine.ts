@@ -5,6 +5,7 @@ import { enqueueNotification, formatWhatsAppMessage } from "./queue";
 import { dispatchNotification } from "./dispatch";
 import type { EmailType } from "@/lib/email/types";
 import { templateFor, type NotificationType, type TemplateContext } from "./registry";
+import type { EmailAttachment } from "@/lib/receiptly/attach";
 
 // ── The notification engine ────────────────────────────────────────────────
 //
@@ -95,6 +96,14 @@ export async function notify(
       emailType?: string;
       /** Overrides the derived key when a caller already has a stable one. */
       idempotencyKey?: string;
+      /**
+       * The event as a document the customer can keep.
+       *
+       * Built by the caller, because only the caller knows whether this event
+       * means "ordered" or "paid" — and a receipt for money nobody has sent
+       * is worse than no receipt. Email only; the other channels ignore it.
+       */
+      attachments?: EmailAttachment[];
     };
   },
 ): Promise<NotifyResult> {
@@ -207,6 +216,7 @@ export async function notify(
         // if the in-app insert is later removed.
         idempotencyKey: e?.idempotencyKey ?? `email:${opts.dedupeKey}`,
         orderId: opts.orderId ?? null,
+        attachments: e?.attachments,
       });
       emailed = Boolean(sent);
     }

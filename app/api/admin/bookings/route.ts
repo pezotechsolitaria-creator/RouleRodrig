@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifySession, COOKIE_NAME } from '@/lib/auth';
 import { getPrivileged } from '@/lib/supabase/admin';
 import { notifyBookingStatus } from '@/lib/notifications/booking-status';
+import { sendPaymentReceipt } from '@/lib/receipts/payment-receipt';
 
 function isAuthed(req: NextRequest) {
   return verifySession(req.cookies.get(COOKIE_NAME)?.value);
@@ -54,6 +55,21 @@ export async function PATCH(req: NextRequest) {
       email: (before as { email?: string | null }).email,
       status: body.status,
     });
+
+    // ── THE RECEIPT FOR A BANK TRANSFER ──────────────────────────────────
+    //
+    // Reaching `confirmed` from this desk IS the owner saying the money is in
+    // his account: the customer declared the transfer, he checked it against
+    // his statement, and pressed the button. Until now that produced a push
+    // notification and nothing the customer could keep.
+    //
+    // sendPaymentReceipt refuses a booking with no evidence of payment, so a
+    // row confirmed for some other reason is skipped rather than receipted.
+    // The router's idempotency key is per booking, so the PayPal path having
+    // already sent one cannot produce a second.
+    if (body.status === 'confirmed') {
+      await sendPaymentReceipt(supabase, 'vehicle', body.id, 'Bank transfer');
+    }
   }
 
   return NextResponse.json({ ok: true });
