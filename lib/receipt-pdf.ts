@@ -19,9 +19,9 @@ import { RECEIPT_LOGO } from "./receipt-logo";
 // Deliberately Type1 base-14 fonts (Helvetica): every reader has them built in,
 // so nothing has to be embedded and the file stays around 2 KB.
 
-const PAGE_W = 595.28; // A4 at 72dpi
-const PAGE_H = 841.89;
-const MARGIN = 56;
+export const PAGE_W = 595.28; // A4 at 72dpi
+export const PAGE_H = 841.89;
+export const MARGIN = 56;
 const VALUE_X = 330; // values sit in a fixed second column — see fmtRow below
 
 /**
@@ -89,34 +89,51 @@ export function toWinAnsi(input: string): string {
 }
 
 /** Escapes the three characters that terminate or nest a PDF literal string. */
-function pdfEscape(s: string): string {
+export function pdfEscape(s: string): string {
   return toWinAnsi(s).replace(/[\\()]/g, (c) => `\\${c}`);
 }
 
-type Op = string;
+export type Op = string;
 
-function text(x: number, y: number, size: number, font: "F1" | "F2", value: string): Op {
+export function text(x: number, y: number, size: number, font: "F1" | "F2", value: string): Op {
   return `BT /${font} ${size} Tf ${x} ${y} Td (${pdfEscape(value)}) Tj ET`;
 }
 
-function rect(x: number, y: number, w: number, h: number, rgb: [number, number, number]): Op {
+export function rect(x: number, y: number, w: number, h: number, rgb: [number, number, number]): Op {
   return `${rgb[0]} ${rgb[1]} ${rgb[2]} rg ${x} ${y} ${w} ${h} re f`;
 }
 
-function gray(v: number): Op {
+/**
+ * An outlined box — `re S` strokes where rect()'s `re f` fills.
+ *
+ * The booking document needs one: its payment status sits in a bordered panel
+ * so the eye lands on it before the arithmetic above it. Drawing that as four
+ * thin filled rects would work and would also be four chances to get a corner
+ * wrong.
+ */
+export function strokeRect(
+  x: number, y: number, w: number, h: number,
+  rgb: [number, number, number], lineWidth = 1,
+): Op {
+  return `${rgb[0]} ${rgb[1]} ${rgb[2]} RG ${lineWidth} w ${x} ${y} ${w} ${h} re S`;
+}
+
+export function gray(v: number): Op {
   return `${v} ${v} ${v} rg`;
 }
 
-const BLACK: Op = "0 0 0 rg";
-const YELLOW: [number, number, number] = [0.961, 0.784, 0.259]; // #F5C842
-const GREEN: [number, number, number] = [0.039, 0.49, 0.231]; // #0a7d3b
+export const BLACK: Op = "0 0 0 rg";
+export const YELLOW: [number, number, number] = [0.961, 0.784, 0.259]; // #F5C842
+export const GREEN: [number, number, number] = [0.039, 0.49, 0.231]; // #0a7d3b
+/** For a status a customer must not miss. Used only by the booking document. */
+export const RED: [number, number, number] = [0.72, 0.11, 0.11];
 
 /**
  * Wraps a long string to a character budget. Crude by design: proportional font
  * metrics would mean shipping a width table for a note that is two lines long.
  * The budget is conservative enough that Helvetica 9pt never overruns the page.
  */
-function wrap(s: string, maxChars: number): string[] {
+export function wrap(s: string, maxChars: number): string[] {
   const words = toWinAnsi(s).split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let line = "";
@@ -150,7 +167,7 @@ function wrap(s: string, maxChars: number): string[] {
  * rather than a Helvetica width table. An ellipsis is the honest failure —
  * the row still says what it is, and the figure beside it stays readable.
  */
-function clamp(s: string, maxChars: number): string {
+export function clamp(s: string, maxChars: number): string {
   const t = toWinAnsi(s);
   return t.length <= maxChars ? t : `${t.slice(0, maxChars - 1).trimEnd()}…`;
 }
@@ -246,7 +263,19 @@ export function buildReceiptPdf(d: ReceiptData, now: Date = new Date()): Uint8Ar
     month: "short",
     year: "numeric",
   });
-  const content = buildContent(d, dateLabel);
+  return assembleOnePagePdf(buildContent(d, dateLabel));
+}
+
+/**
+ * Wraps one page of content operators into a finished PDF file.
+ *
+ * Extracted so a second document layout can share it rather than copy it. The
+ * xref entries below are BYTE offsets into the finished file, which is why
+ * every string stays inside Latin-1: one character is one byte, so the running
+ * length IS the offset. A second implementation of this arithmetic is a second
+ * chance to produce a file no reader will open.
+ */
+export function assembleOnePagePdf(content: string): Uint8Array {
   // atob gives one character per byte, which is exactly the representation the
   // assembler below counts and writes.
   const logoBytes = atob(RECEIPT_LOGO.base64);
