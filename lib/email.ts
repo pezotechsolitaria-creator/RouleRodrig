@@ -38,6 +38,7 @@ import {
   upsertBrevoContactRaw,
 } from "./email/providers/brevo";
 import { invalidateEmailConfigCache } from "./email/config";
+import { PAYMENT, PAY_HOW } from "./payment-details";
 // Every booking email a customer receives now carries the same PDF the owner
 // would have made by hand in Receiptly. The adapters are pure and the renderer
 // never throws out of attachmentsFor(), so nothing here can fail an email.
@@ -270,19 +271,28 @@ function primaryButton(href: string, label: string): string {
 // ── Payment details shown on the booking confirmation ────────────────────────
 // Kept here (not in the CMS) so they can't be changed by accident. If the bank
 // or PayPal address ever changes, edit these constants.
-const PAY_BANK = "MCB (Mauritius Commercial Bank)";
-const PAY_ACCOUNT = "000447902350";
+// The account lives in lib/payment-details.ts now, not as a literal here. It
+// was written out in full in TWO files — this one and
+// components/BankTransferDetails.tsx — and two copies of a bank account is a
+// silent way to lose a deposit: change one, and a customer reading the other
+// pays into an account nobody is watching.
+const PAY_BANK = PAYMENT.bank;
+const PAY_ACCOUNT = PAYMENT.account;
+const PAY_ACCOUNT_NAME = PAYMENT.accountName;
 
 // DO NOT "upgrade" this to a @roulerodrig.com address. It is not a contact
 // address — it's the identity of the actual PayPal ACCOUNT. Payments sent to an
 // address PayPal doesn't recognise don't arrive. It only changes once the owner
 // has added the new address inside PayPal itself.
-const PAY_PAYPAL = "roulerodrig@gmail.com";
+const PAY_PAYPAL = PAYMENT.paypal;
 
 function PAYMENT_ROWS(b: BookingEmailData): string {
   return rows([
     ["Bank", PAY_BANK],
-    ["Account number", PAY_ACCOUNT],
+    // Named, because a banking app asks WHO you are paying before it asks for
+    // the number, and a guest who cannot answer that stops there.
+    ["Account name", PAY_ACCOUNT_NAME],
+    [`Account number (${PAY_HOW})`, PAY_ACCOUNT],
     ["PayPal", PAY_PAYPAL],
     ["Payment reference", `${b.name} — ${b.scooter}`],
     ["Questions", CONTACT_EMAIL],
@@ -986,9 +996,12 @@ export async function sendAvailabilityConfirmed(b: {
     depositPct: b.deposit_pct,
     issuedOn: issueDate(),
     dueOn: dayOf(b.payBy),
-    pay: { method: `${PAY_BANK} · ${PAY_ACCOUNT}`, reference: `Reference ${ref}` },
+    pay: {
+      method: `${PAY_HOW} · ${PAY_ACCOUNT}`,
+      reference: `${PAY_ACCOUNT_NAME} · Ref ${ref}`,
+    },
     notes:
-      `Pay by bank transfer to the account above, or by PayPal to ${PAY_PAYPAL}, ` +
+      `Send it by MCB Juice or bank transfer to the account above, or by PayPal to ${PAY_PAYPAL}, ` +
       `then confirm at ${SITE_URL.replace(/^https?:\/\//, "")}/manage-booking with reference ${ref}. ` +
       `We hold the vehicle until ${byEn}.`,
   });
@@ -1206,9 +1219,12 @@ export async function sendPlaceAvailabilityConfirmed(b: {
         priceRupees: b.amountDue,
         issuedOn: issueDate(),
         dueOn: dayOf(b.payBy),
-        pay: { method: `${PAY_BANK} · ${PAY_ACCOUNT}`, reference: `Reference ${ref}` },
+        pay: {
+      method: `${PAY_HOW} · ${PAY_ACCOUNT}`,
+      reference: `${PAY_ACCOUNT_NAME} · Ref ${ref}`,
+    },
         notes:
-          `Pay by bank transfer to the account above, or by PayPal to ${PAY_PAYPAL}, ` +
+          `Send it by MCB Juice or bank transfer to the account above, or by PayPal to ${PAY_PAYPAL}, ` +
           `then confirm at ${SITE_URL.replace(/^https?:\/\//, "")}/track with reference ${ref}. ` +
           `We hold it until ${byEn}.`,
       }),
