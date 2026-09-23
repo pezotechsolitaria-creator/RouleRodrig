@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOwnStoreId } from "@/lib/merchant/context";
 import { guard } from "@/lib/rate-limit";
 import { paymentSettingsSchema } from "@/lib/schemas/checkout";
-import { isPrepaymentOnly } from "@/lib/payments/prepayment";
+import { isPrepaymentOnlyFor } from "@/lib/payments/prepayment";
 
 const SUBSCRIPTION_CODE = "RR008";
 
@@ -66,9 +66,10 @@ export async function GET(req: NextRequest) {
   //
   // M89 ships prepaymentOnly alongside it: the form needs to explain why the
   // Cash box no longer does anything, rather than letting a merchant tick it,
-  // save successfully, and still take no orders.
+  // save successfully, and still take no orders. Asked of THIS store (M201):
+  // an exempt shop's Cash box works again, and the form must say so.
   return NextResponse.json({
-    prepaymentOnly: await isPrepaymentOnly(supabase),
+    prepaymentOnly: await isPrepaymentOnlyFor(supabase, storeId),
     settings: data ?? {
       accepts_cash: true,
       accepts_bank_transfer: false,

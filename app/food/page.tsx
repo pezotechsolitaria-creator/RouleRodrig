@@ -51,8 +51,10 @@ import {
 // /shop, for the same reason.
 export const dynamic = "force-dynamic";
 
+// "Pay by bank transfer" stopped being true on 23 Sept 2026 (M201): Chez
+// Banane, the kitchen on this page, takes cash and has no bank account.
 const DESCRIPTION =
-  "Order food in Rodrigues Island — octopus, grilled fish, Creole curries and local snacks from island kitchens. Pick it up or get it delivered. Pay by bank transfer.";
+  "Order food in Rodrigues Island — octopus, grilled fish, Creole curries and snacks from island kitchens. Pick up or delivery; pay cash or by bank transfer.";
 
 export const metadata: Metadata = {
   title: "Order food in Rodrigues | Roulé Rodrigues",

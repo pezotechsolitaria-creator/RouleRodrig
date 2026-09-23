@@ -24,3 +24,42 @@ export async function isPrepaymentOnly(supabase: SupabaseClient): Promise<boolea
   }
   return data !== false;
 }
+
+/**
+ * Is cash refused for THIS store? (M201)
+ *
+ * The platform switch, unless the owner has exempted the store — on 23 Sept
+ * 2026 Chez Banane was, on "allow cash for chez banane". Every screen that
+ * shows ONE store's cash controls asks this, not isPrepaymentOnly(): asking
+ * the platform question there would hide cash the database now accepts.
+ *
+ * Fails closed exactly like isPrepaymentOnly, and for the same reason. No
+ * store means no exemption to look up, so it gets the platform answer.
+ */
+export async function isPrepaymentOnlyFor(
+  supabase: SupabaseClient,
+  storeId: string | null | undefined,
+): Promise<boolean> {
+  if (!storeId) return isPrepaymentOnly(supabase);
+  const { data, error } = await supabase.rpc("prepayment_only_for", { p_store_id: storeId });
+  if (error) {
+    console.error("prepayment_only_for failed", error);
+    return true;
+  }
+  return data !== false;
+}
+
+/**
+ * A screen that shows orders from SEVERAL stores at once (the kitchen board
+ * serves every kitchen a cook is on) can only show a cash control when EVERY
+ * one of them takes cash. One store still bound by the rule, or an empty list,
+ * and the answer is the platform's — fail closed, never open.
+ */
+export async function isPrepaymentOnlyForAll(
+  supabase: SupabaseClient,
+  storeIds: readonly string[],
+): Promise<boolean> {
+  if (storeIds.length === 0) return isPrepaymentOnly(supabase);
+  const answers = await Promise.all(storeIds.map((id) => isPrepaymentOnlyFor(supabase, id)));
+  return answers.some(Boolean);
+}

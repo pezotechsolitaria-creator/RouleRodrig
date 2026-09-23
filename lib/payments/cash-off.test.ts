@@ -137,11 +137,15 @@ describe("cash never defaults to available", () => {
     const body = latest!.sql.slice(
       latest!.sql.search(/create\s+or\s+replace\s+function\s+public\.store_payment_options/i),
     );
+    // Since M201 the live body asks prepayment_only_for(s.id) — the platform
+    // switch plus the owner's per-store exemptions — so a future migration
+    // copying TODAY's body forward is correct too. Either call satisfies this;
+    // a body consulting neither does not.
     expect(
       body,
       `The newest definition of store_payment_options (${latest!.file}) does not consult ` +
-        `prepayment_only(), so cash would be offered again island-wide.`,
-    ).toMatch(/prepayment_only\s*\(\s*\)/);
+        `prepayment_only() or prepayment_only_for(), so cash would be offered again island-wide.`,
+    ).toMatch(/prepayment_only(_for)?\s*\(/);
   });
 });
 

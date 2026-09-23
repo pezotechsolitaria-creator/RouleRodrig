@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { guard } from "@/lib/rate-limit";
-import { isPrepaymentOnly } from "@/lib/payments/prepayment";
+import { isPrepaymentOnlyForAll } from "@/lib/payments/prepayment";
 
 // The cook's entire API surface.
 //
@@ -64,10 +64,12 @@ export async function GET(req: NextRequest) {
   // kitchen_dashboard() so the RPC body does not have to be rewritten for a
   // platform flag; the board uses it to hide controls that would now be
   // refused by the payments trigger.
-  const [{ data, error }, prepaymentOnly] = await Promise.all([
-    supabase.rpc("kitchen_dashboard"),
-    isPrepaymentOnly(supabase),
-  ]);
+  //
+  // M201 made that a per-kitchen question (Chez Banane takes cash while the
+  // platform does not), so it is asked of the kitchens the dashboard names —
+  // after it, not beside it — and only answered "cash exists" when every one
+  // of them is exempt.
+  const { data, error } = await supabase.rpc("kitchen_dashboard");
   if (error) {
     // Not being on a team is a normal state, not a failure — the page uses it
     // to explain rather than to show an error.
@@ -75,6 +77,10 @@ export async function GET(req: NextRequest) {
     console.error("kitchen_dashboard failed", error);
     return NextResponse.json({ error: "Could not load your orders." }, { status: 500 });
   }
+  const kitchenIds = ((data as { kitchens?: { id?: unknown }[] } | null)?.kitchens ?? [])
+    .map((k) => k?.id)
+    .filter((id): id is string => typeof id === "string");
+  const prepaymentOnly = await isPrepaymentOnlyForAll(supabase, kitchenIds);
   return NextResponse.json({ onTeam: true, prepaymentOnly, ...(data as object) });
 }
 

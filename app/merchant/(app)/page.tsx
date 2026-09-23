@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMerchantDashboard, getDashboardStats, getWorkQueue } from "@/lib/merchant/context";
 import type { WorkQueue as WorkQueueResult } from "@/lib/merchant/context";
 import type { ScheduleStatus } from "@/lib/schedule";
-import { isPrepaymentOnly } from "@/lib/payments/prepayment";
+import { isPrepaymentOnlyFor } from "@/lib/payments/prepayment";
 import { getEarnings } from "@/lib/merchant/earnings";
 import { getBilling } from "@/lib/merchant/billing";
 import { KIND_VOCAB } from "@/lib/merchant/kind";
@@ -104,7 +104,8 @@ export default async function MerchantHome() {
           .rpc("store_payment_options", { p_store_id: storeId })
           .then((r) => (r.data as Record<string, boolean>[] | null)?.[0] ?? null)
       : null,
-    isPrepaymentOnly(supabase),
+    // This store's answer, not the platform's (M201): an exempt shop takes cash.
+    isPrepaymentOnlyFor(supabase, storeId),
     // Only fetched when a block actually asks for it — the registry decides
     // what the page loads, not just what it renders.
     wantsServing && storeId

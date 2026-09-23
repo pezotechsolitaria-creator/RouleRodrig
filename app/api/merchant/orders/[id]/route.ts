@@ -11,7 +11,7 @@ import { dispatchNotification } from "@/lib/notifications/dispatch";
 import { channelsForStatus } from "@/lib/orders/email-policy";
 import { notifyDriversOfNewOffer } from "@/lib/delivery/notify";
 import { pushToCustomer } from "@/lib/push/send";
-import { isPrepaymentOnly } from "@/lib/payments/prepayment";
+import { isPrepaymentOnlyFor } from "@/lib/payments/prepayment";
 import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/queue";
 
 const NOT_FOUND_CODE = "RR003";
@@ -79,8 +79,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   // M89 — whether cash still exists. The detail card uses it to hide recording
   // a PART payment, which books the remainder as a pending cash row that the
-  // payments trigger now refuses.
-  const prepaymentOnly = await isPrepaymentOnly(supabase);
+  // payments trigger now refuses. Asked of THIS store (M201): an exempt shop
+  // takes cash, so its part-payment button comes back.
+  const prepaymentOnly = await isPrepaymentOnlyFor(supabase, storeId);
 
   return NextResponse.json({
     order: Object.assign({}, order, {
