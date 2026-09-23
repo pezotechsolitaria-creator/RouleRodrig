@@ -247,7 +247,9 @@
 // the admin desk stopped answering with Postgres constraint names.
 // v373 — "Need help with payment?": a WhatsApp card on every payment screen,
 // with the problem, reference and amount already written for the owner.
-const CACHE = "rr-cache-v373";
+// v374 — a product page says how the shop can ACTUALLY be paid, instead of
+// promising a bank transfer to every shop; the four test shops are hidden.
+const CACHE = "rr-cache-v374";
 
 // Dev hosts get no cache-first anything: their asset URLs are not content
 // hashed, so the immutability that makes cache-first safe does not hold.

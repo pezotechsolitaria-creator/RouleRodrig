@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronRight, Truck, Store as StoreIcon, Handshake, ShieldCheck, Star } from "lucide-react";
+import { ChevronRight, Truck, Store as StoreIcon, Handshake, ShieldCheck, Star, AlertCircle } from "lucide-react";
 import { SITE_URL } from "@/lib/site";
 import { createClient } from "@/lib/supabase/server";
 import { centsToDecimalString, centsToShortString } from "@/lib/money";
@@ -20,7 +20,8 @@ import ProductAnalytics from "@/components/shop/ProductAnalytics";
 import MarketHeader from "@/components/shop/MarketHeader";
 import PaymentHelp from "@/components/payments/PaymentHelp";
 import { T, TCount, TName, LabelledNav } from "@/components/shop/ShopCopy";
-import { getProductDetail, relatedProducts } from "@/lib/marketplace/catalog";
+import { getProductDetail, relatedProducts, getStorePaymentOptions } from "@/lib/marketplace/catalog";
+import { payLineKey, cannotBePaid } from "@/lib/marketplace/pay-line";
 
 // ── The product page ────────────────────────────────────────────────────────
 //
@@ -86,11 +87,18 @@ export default async function ProductPage({
   if (!p) notFound();
 
   const supabase = await createClient();
-  const related = await relatedProducts(supabase, {
-    category: p.category?.slug ?? null,
-    excludeId: p.id,
-    limit: 4,
-  });
+  // In parallel: the payment answer must not add a round trip to the page.
+  const [related, payment] = await Promise.all([
+    relatedProducts(supabase, {
+      category: p.category?.slug ?? null,
+      excludeId: p.id,
+      limit: 4,
+    }),
+    getStorePaymentOptions(supabase, p.store.id),
+  ]);
+  // The shop can take NO payment: the line says so instead of promising a
+  // transfer, and the help pill beneath it lights up.
+  const unpayable = cannotBePaid(payment);
 
   // ── IS THIS TIME, OR IS IT A THING? ─────────────────────────────────────
   // A trade's page can be either. A variant with a duration is booked; anything
@@ -363,9 +371,17 @@ export default async function ProductPage({
                 about bank transfer directly under it contradicts that. */}
             {variants.length > 0 && (
               <>
-                <p className="mt-3 flex items-center gap-2 font-dm text-xs text-muted">
-                  <ShieldCheck size={13} className="shrink-0 text-yellow/70" />
-                  <TName k="product.payDirect" v={p.store.name} />
+                <p
+                  className={`mt-3 flex items-center gap-2 font-dm text-xs ${
+                    unpayable ? "text-orange-200" : "text-muted"
+                  }`}
+                >
+                  {unpayable ? (
+                    <AlertCircle size={13} className="shrink-0 text-orange-300" />
+                  ) : (
+                    <ShieldCheck size={13} className="shrink-0 text-yellow/70" />
+                  )}
+                  <TName k={payLineKey(payment)} v={p.store.name} />
                 </p>
                 {/* Payment help, on the one line that says how paying works —
                     where a first-time buyer wonders how a transfer to a shop
@@ -382,7 +398,7 @@ export default async function ProductPage({
                     amount={null}
                     method={null}
                     defaultTopic="how_to_pay"
-                    emphasis={!p.store.acceptingOrders}
+                    emphasis={!p.store.acceptingOrders || unpayable}
                   />
                 </div>
               </>

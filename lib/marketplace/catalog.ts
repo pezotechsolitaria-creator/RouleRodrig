@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BrowseProductsResult, MarketplaceHome, ProductDetail, ProductSort } from "./types";
 import { withGalleries } from "@/lib/product-gallery";
 import { toProductSort } from "./types";
+import type { StorePayment } from "./pay-line";
 
 // Server-side reads for the marketplace.
 //
@@ -102,6 +103,35 @@ export async function getProductDetail(
     return null;
   }
   return (data as ProductDetail) ?? null;
+}
+
+/**
+ * How a shop can actually be paid — the SAME answer checkout uses.
+ *
+ * A second read on the product page, against this file's one-RPC-per-screen
+ * rule, on purpose: store_payment_options() is the database's own verdict
+ * (the marketplace-wide prepayment rule included), so reading it here adds no
+ * second opinion — it removes one. The page used to assert "bank transfer" for
+ * every shop, which is the disagreement that rule exists to prevent.
+ *
+ * Returns booleans only; it cannot leak a bank account. Null when it fails, and
+ * the caller must then name NO method rather than guess one.
+ */
+export async function getStorePaymentOptions(
+  supabase: SupabaseClient,
+  storeId: string,
+): Promise<StorePayment> {
+  const { data, error } = await supabase.rpc("store_payment_options", { p_store_id: storeId });
+  if (error) {
+    console.error("store_payment_options failed", error);
+    return null;
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { accepts_cash?: boolean | null; accepts_bank_transfer?: boolean | null }
+    | null
+    | undefined;
+  if (!row) return null;
+  return { cash: row.accepts_cash === true, bank: row.accepts_bank_transfer === true };
 }
 
 /**

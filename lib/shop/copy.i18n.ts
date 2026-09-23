@@ -198,8 +198,18 @@ const EN = {
     stillVisit: "You can still visit them:",
     deliveryFrom: (fee: string) =>
       `Delivery from Rs ${fee} — you pick your area at checkout.`,
+    // Chosen by lib/marketplace/pay-line.ts from what the shop can ACTUALLY
+    // take. payDirect used to be shown for every shop, including ones with no
+    // bank account and no cash — a promise checkout then broke.
     payDirect: (shop: string) =>
       `Pay ${shop} direct by bank transfer. No card details.`,
+    payBankOrCash: (shop: string) =>
+      `Pay ${shop} by bank transfer or in cash. No card details.`,
+    payCash: (shop: string) => `Pay ${shop} in cash. No card details.`,
+    payNone: (shop: string) =>
+      `${shop} hasn't set up payment yet, so you can't order online. Message us — we'll help.`,
+    payAtCheckout: (shop: string) =>
+      `You pay ${shop} direct — you'll choose how at checkout. No card details.`,
     details: "Details",
     reviewsTitle: "What buyers said",
     reviewsNote:
@@ -458,6 +468,13 @@ const FR: ShopCopy = {
       `Livraison à partir de Rs ${fee} — vous choisissez votre région au moment de payer.`,
     payDirect: (shop: string) =>
       `Payez ${shop} directement par virement bancaire. Aucune carte.`,
+    payBankOrCash: (shop: string) =>
+      `Payez ${shop} par virement bancaire ou en espèces. Aucune carte.`,
+    payCash: (shop: string) => `Payez ${shop} en espèces. Aucune carte.`,
+    payNone: (shop: string) =>
+      `${shop} n'a pas encore configuré le paiement : impossible de commander en ligne. Écrivez-nous, on vous aide.`,
+    payAtCheckout: (shop: string) =>
+      `Vous payez ${shop} directement — vous choisirez comment au moment de payer. Aucune carte.`,
     details: "Détails",
     reviewsTitle: "Ce que les acheteurs ont dit",
     reviewsNote:
@@ -692,6 +709,13 @@ const CR: ShopCopy = {
       `Livrezon apartir Rs ${fee} — ou swazir ou landrwa kan ou peye.`,
     payDirect: (shop: string) =>
       `Peye ${shop} direk par vireman banker. Pena kart.`,
+    payBankOrCash: (shop: string) =>
+      `Peye ${shop} par vireman banker ouswa kas. Pena kart.`,
+    payCash: (shop: string) => `Peye ${shop} kas. Pena kart.`,
+    payNone: (shop: string) =>
+      `${shop} pankor met peyman an plas, ou pa kapav komand lor internet. Ekrir nou, nou pou ed ou.`,
+    payAtCheckout: (shop: string) =>
+      `Ou peye ${shop} direk — ou swazir kouma kan ou peye. Pena kart.`,
     details: "Detay",
     reviewsTitle: "Seki bann aseter finn dir",
     reviewsNote:
