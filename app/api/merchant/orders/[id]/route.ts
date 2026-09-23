@@ -55,6 +55,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .select(
       "id, order_number, status, customer_id, customer_name, customer_phone, notes, subtotal, discount, tax, total, currency, commission_amount, placed_at, created_at, updated_at, " +
         "fulfillment_method, delivery_fee, delivery_lat, delivery_lng, delivery_instructions, payment_receipt_path, receipt_submitted_at, accepted_at, auto_release_at, " +
+        // M216 — the booked slot, as range text. Without it a cash pre-order's
+        // page showed only the 7-day hold, which is not when anything happens.
+        "pickup_slot, " +
         "delivery_zones(name), " +
         "order_items(id, product_name, variant_name, sku, unit_price, quantity, line_total), " +
         "payments(id, provider, provider_ref, amount, currency, status, created_at), " +

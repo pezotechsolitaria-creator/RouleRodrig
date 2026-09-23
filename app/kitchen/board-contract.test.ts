@@ -80,3 +80,53 @@ describe("the poll that once billed 110,000 requests a day", () => {
     expect(CODE).toMatch(/useEffect\(\(\) => \{\s*loadRef\.current = load;\s*\}, \[load\]\)/);
   });
 });
+
+// ── M216: orders booked a day or two ahead ────────────────────────────────
+// The day logic is tested in lib/kitchen/board.test.ts against a fixed clock.
+// These guard the wiring: that the component actually asks it.
+describe("a booked order is not cooked before its day (M216)", () => {
+  it("never renders the advance button for a Coming-up order", () => {
+    // The one place "Start cooking" is rendered. Losing `!holdForDay` puts a
+    // big yellow button on Friday's order on Wednesday.
+    expect(CODE).toMatch(/\{next && !o\.waitingOnTransfer && !holdForDay && \(\s*<button\s+onClick=\{\(\) => void advance\(o\)\}/);
+    expect(CODE).toMatch(/const holdForDay = waitsForItsDay\(o, nowDate\)/);
+  });
+
+  it("puts something in the button's place, with a way to clear the new-order banner", () => {
+    const at = CODE.indexOf("{next && !o.waitingOnTransfer && holdForDay && (");
+    expect(at).toBeGreaterThan(0);
+    const block = CODE.slice(at);
+    expect(block.slice(0, 1200)).toContain("cook on the day");
+    expect(block.slice(0, 1200)).toMatch(/setNewIds\(\(prev\) => prev\.filter\(\(id\) => id !== o\.id\)\)/);
+  });
+
+  it("keeps Cancel on a Coming-up order — the day hold is on cooking, not on letting go", () => {
+    // A customer who rings on Wednesday to call off Friday's lunch must be
+    // let go on Wednesday. Only "Start cooking" waits for the day.
+    expect(CODE).toMatch(/\{!o\.awaitingPayment && !o\.finished && \(\s*<button\s+onClick=\{\(\) => void cancelOrder\(o\)\}/);
+  });
+
+  it("leads every booked card with its window", () => {
+    expect(CODE).toMatch(/const headline = slotHeadline\(o, nowDate\)/);
+    // Above the order number, i.e. first on the card.
+    expect(CODE.indexOf("{headline ? (")).toBeLessThan(CODE.indexOf("{o.orderNumber}</p>"));
+  });
+
+  it("lists Today above Coming up", () => {
+    const today = CODE.indexOf("{board.today.map(renderCard)}");
+    const later = CODE.indexOf("{board.later.map(renderCard)}");
+    expect(today).toBeGreaterThan(0);
+    expect(later).toBeGreaterThan(today);
+  });
+
+  it("still chimes for a pre-order — the new-order set is every live order", () => {
+    // Filtering this by day would make Friday's booking arrive in silence,
+    // and a booking nobody noticed is a Friday that goes wrong.
+    expect(CODE).toContain("const live = (next.orders ?? []).filter((o) => !o.finished);");
+    expect(CODE).toMatch(/if \(fresh\.length > 0\) \{\s*chime\.play\(\);/);
+  });
+
+  it("gives All Day the board's clock, so the two tabs split the day at the same instant", () => {
+    expect(CODE).toContain("<AllDayPanel orders={live} now={now} />");
+  });
+});

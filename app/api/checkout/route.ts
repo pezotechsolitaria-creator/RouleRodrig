@@ -121,6 +121,10 @@ export async function POST(req: NextRequest) {
   // control. create_food_order is a NEW signature beside create_order, not a
   // replacement: shop and event checkout reach the untouched 14-arg function
   // on exactly the path they always did.
+  //
+  // M216: ASAP is no longer always a valid answer. For a kitchen that needs
+  // notice the create_order branch is refused by t_orders_kitchen_notice
+  // (RR030, mapped below) — this route stays a pass-through, not a judge.
   const wantsSlot = Boolean(pickupDate && pickupTime);
 
   const orderArgs = {
@@ -171,8 +175,12 @@ export async function POST(req: NextRequest) {
     }
     // M161: "The kitchen is closed then." / "That time has passed." The RPC
     // writes these for the customer, so they are passed through unchanged.
+    // M216 adds "needs 24 hours' notice" — from food_pickup_window, and from
+    // the orders trigger when an ASAP order reaches a kitchen that needs
+    // notice. The code travels so the form can drop the refused time and
+    // reload the picker instead of leaving the customer on a dead choice.
     if (error.code === "RR030") {
-      return NextResponse.json({ error: error.message }, { status: 409 });
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 409 });
     }
     if (error.code === UNAVAILABLE_CODE || error.code === STOCK_CODE) {
       return NextResponse.json({ error: error.message }, { status: 409 });

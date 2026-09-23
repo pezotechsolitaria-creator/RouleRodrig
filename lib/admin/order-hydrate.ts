@@ -55,9 +55,13 @@ export type HydratedOrder = Record<string, unknown> & {
  * file exists to stop select strings failing in production, losing the one
  * compile-time check that catches a misspelled COLUMN would be a poor trade.
  * Keep it on a single line.
+ *
+ * pickup_slot and accepted_at (M216): the owner runs Chez Banane from the food
+ * queue, and a pre-order's card has to say WHICH day it is for — and whether
+ * anyone has taken it — or a Friday lunch reads exactly like one due now.
  */
 export const ORDER_COLUMNS =
-  "id, order_number, status, store_id, customer_name, customer_phone, customer_email, notes, subtotal, delivery_fee, total, currency, fulfillment_method, placed_at, created_at, delivery_lat, delivery_lng, delivery_instructions, auto_release_at, delivery_zone_id, payment_receipt_path, receipt_submitted_at" as const;
+  "id, order_number, status, store_id, customer_name, customer_phone, customer_email, notes, subtotal, delivery_fee, total, currency, fulfillment_method, placed_at, created_at, delivery_lat, delivery_lng, delivery_instructions, auto_release_at, accepted_at, pickup_slot, delivery_zone_id, payment_receipt_path, receipt_submitted_at" as const;
 
 /**
  * Attach items, payments and the delivery-zone name to a page of orders.

@@ -5,6 +5,7 @@ import { Plus, Minus, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart/CartContext";
 import type { FoodCard as FoodCardType } from "@/lib/food/types";
+import { useFoodCopy } from "./FoodCopy";
 
 // One tap to add — the single most important interaction on the food surface.
 //
@@ -35,6 +36,7 @@ export default function FoodQuickAdd({
 }) {
   const router = useRouter();
   const { cart, addItem, updateQuantity, clear } = useCart("food");
+  const copy = useFoodCopy();
 
   const dimensions = size === "sm" ? "h-8 w-8" : "h-10 w-10";
   const icon = size === "sm" ? 15 : 17;
@@ -42,13 +44,17 @@ export default function FoodQuickAdd({
   // A dish that cannot be ordered shows WHY on the card itself; the control is
   // simply absent rather than present-and-dead, because a disabled button
   // invites tapping and explains nothing.
+  //
+  // `orderable`, never `kitchenOpen` (M216): a kitchen that needs notice is
+  // booked for a later slot, so its dishes go in the basket while it is
+  // closed, and the slot is chosen at checkout.
   if (!item.orderable) return null;
 
   if (!item.variantId) {
     return (
       <button
         type="button"
-        aria-label={`Choose a size for ${item.name}`}
+        aria-label={copy.quickAdd.chooseSizeAria(item.name)}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -75,7 +81,7 @@ export default function FoodQuickAdd({
     // refuses it too (create_order locks the row), but being told at checkout
     // that the last portion went is a worse moment to find out.
     if (inCart >= item.stock) {
-      toast.error(`Only ${item.stock} left today.`);
+      toast.error(copy.toast.onlyLeft(item.stock));
       return;
     }
 
@@ -87,10 +93,10 @@ export default function FoodQuickAdd({
     });
 
     if (result === "conflict") {
-      toast.error(`${item.name} is cooked at another kitchen.`, {
-        description: `Your order so far is from ${cart?.storeName ?? "a different kitchen"}. One order comes from one kitchen so it can be cooked and collected together.`,
+      toast.error(copy.toast.conflictTitle(item.name), {
+        description: copy.toast.conflictBody(cart?.storeName ?? copy.toast.otherKitchen),
         action: {
-          label: "Start a new order",
+          label: copy.toast.startNew,
           onClick: () => {
             clear();
             addItem({
@@ -99,7 +105,7 @@ export default function FoodQuickAdd({
               variantId,
               quantity: 1,
             });
-            toast.success(`${item.name} added.`);
+            toast.success(copy.toast.added(item.name));
           },
         },
         duration: 8000,
@@ -111,7 +117,7 @@ export default function FoodQuickAdd({
     return (
       <button
         type="button"
-        aria-label={`Add ${item.name}`}
+        aria-label={copy.quickAdd.addAria(item.name)}
         onClick={add}
         className={`flex ${dimensions} items-center justify-center rounded-full bg-yellow text-dark shadow-[0_6px_18px_-4px_rgba(245,200,66,0.55)] transition-transform hover:scale-110 active:scale-95`}
       >
@@ -127,7 +133,7 @@ export default function FoodQuickAdd({
     >
       <button
         type="button"
-        aria-label={`Remove one ${item.name}`}
+        aria-label={copy.quickAdd.oneFewerAria(item.name)}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -140,7 +146,7 @@ export default function FoodQuickAdd({
       <span className="min-w-4 text-center font-syne text-sm font-extrabold tabular-nums">{inCart}</span>
       <button
         type="button"
-        aria-label={`Add another ${item.name}`}
+        aria-label={copy.quickAdd.oneMoreAria(item.name)}
         onClick={add}
         className={`flex ${dimensions} items-center justify-center rounded-full active:scale-90`}
       >

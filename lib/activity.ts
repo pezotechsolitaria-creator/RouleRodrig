@@ -34,6 +34,7 @@
 // and leaving it out would send them back to ringing the shop to ask when
 // their own appointment was.
 import { rupeesToCents } from "@/lib/money";
+import { parseSlotRange } from "@/lib/orders/slot";
 // The ONLY import here, and it keeps this module pure: lib/money.ts has no
 // database and no React either. It carries the rule this file broke.
 
@@ -99,6 +100,15 @@ export type Activity = {
    * lookup card must show a countdown ONLY where one is genuinely running.
    */
   holdUntil?: string | null;
+  /**
+   * M216 — the booked window of a food pre-order, as ISO bounds (from
+   * `orders.pickup_slot`). When set it is the order's real deadline and the
+   * customer's reason to turn up, and `holdUntil` is null: the 7-day cash hold
+   * is not when anything happens to a booked order, and "reserved until next
+   * Wednesday" on a Friday-lunch order is how a customer comes on the wrong day.
+   */
+  pickupFrom?: string | null;
+  pickupTo?: string | null;
 };
 
 // ── Vehicle rentals ─────────────────────────────────────────────────────────
@@ -439,10 +449,13 @@ export type OrderRow = {
   created_at?: string | null;
   storeName?: string | null;
   auto_release_at?: string | null;
+  /** PostgREST range text, e.g. ["2026-09-25 08:00:00+00","2026-09-25 08:30:00+00"). */
+  pickup_slot?: string | null;
 };
 
 export function orderToActivity(row: OrderRow, statusLabel?: string): Activity {
   const stage = orderStage(row.status);
+  const slot = parseSlotRange(row.pickup_slot);
   return {
     kind: "order",
     id: row.id,
@@ -463,7 +476,10 @@ export function orderToActivity(row: OrderRow, statusLabel?: string): Activity {
     // old value (verified in production: 3 of 3 cancelled orders still carry
     // one). Reading the column alone would therefore draw a live countdown on
     // an order that is already dead, so the stage decides, not the column.
-    holdUntil: stage === "pending" ? (row.auto_release_at ?? null) : null,
+    // M216: a booked order's deadline is its slot, never the cash hold.
+    holdUntil: stage === "pending" && !slot ? (row.auto_release_at ?? null) : null,
+    pickupFrom: slot ? slot.from.toISOString() : null,
+    pickupTo: slot ? slot.to.toISOString() : null,
   };
 }
 

@@ -13,8 +13,29 @@
 // was running.
 
 import { dateLocales, type Language } from "@/lib/i18n";
+import type { SlotWindow } from "./slot";
 
 export type PaymentProvider = "cash" | "bank_transfer" | "manual";
+
+// ── A BOOKED ORDER HAS A DAY, NOT A HOLD (M216) ─────────────────────────────
+//
+// Everything in this file describes auto_release_at, and for an order with no
+// time it IS the deadline. A food order booked for a slot (orders.pickup_slot)
+// is different. expire_order() (M181b) lets the hold fire only once the slot
+// has BEGUN, and cancels an order nobody started shortly after the slot ENDS —
+// so a slotted order is always decided within an hour of its slot, and the
+// 7-day cash hold never is the moment that matters. Printing it anyway
+// ("reserved until Wed 30 Sep", "Accept by Wed 30 Sep", "6 days remaining") is
+// how a customer turns up on the wrong day and an owner calls the cook about
+// the wrong one.
+//
+// So every surface that shows the hold asks this first, and a slotted order is
+// described by lib/orders/slot-copy.ts instead.
+
+/** False for an order booked for a slot: show the slot, never the hold. */
+export function holdIsTheDeadline(slot: SlotWindow | null | undefined): boolean {
+  return !slot;
+}
 
 export type HoldInfo = {
   deadline: Date;

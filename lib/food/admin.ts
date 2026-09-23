@@ -86,6 +86,10 @@ export type KitchenInput = {
   lng?: number | null;
   prepMinutesMin: number;
   prepMinutesMax: number;
+  /** M216 — hours ahead an order must be placed. 0 / absent = walk-up. */
+  minNoticeHours?: number;
+  /** M216 — days ahead customers can book. 0 / absent = today only. */
+  preorderDays?: number;
   pickupHint?: string;
   position?: number;
   cookerName?: string;
@@ -139,6 +143,10 @@ export async function createKitchen(admin: SupabaseClient, input: KitchenInput):
     store_id: storeId,
     prep_minutes_min: input.prepMinutesMin,
     prep_minutes_max: input.prepMinutesMax,
+    // M216. Written with the row, not after it: the pair is CHECKed together
+    // (notice <= days × 24), and both default to 0 — walk-up — when absent.
+    min_notice_hours: input.minNoticeHours ?? 0,
+    preorder_days: input.preorderDays ?? 0,
     pickup_hint: input.pickupHint?.trim() || null,
     position: input.position ?? 0,
   });

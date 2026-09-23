@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, UtensilsCrossed, Clock, BadgeCheck, Phone } from "lucide-react";
+import { ArrowLeft, UtensilsCrossed, Clock, BadgeCheck, Phone, CalendarClock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
 import { getFoodKitchen } from "@/lib/food/queries";
@@ -37,11 +37,20 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   if (!kitchen) return { title: "Kitchen not found" };
 
   const title = `${kitchen.name} — order food in Rodrigues`;
-  const description =
-    kitchen.description?.trim() ||
-    `${kitchen.name} in Rodrigues Island. ${kitchen.dishCount} dish${
-      kitchen.dishCount === 1 ? "" : "es"
-    } to pick up or have delivered. Pay the kitchen direct.`;
+  // M216: a kitchen that must be booked ahead says so in the snippet too, so
+  // nobody arrives from a search result expecting dinner in half an hour —
+  // after the owner's own description as well, which was written before the
+  // kitchen needed notice and cannot be relied on to mention it.
+  const ahead =
+    kitchen.minNoticeHours > 0
+      ? ` Cooked to order — book at least ${kitchen.minNoticeHours} hours ahead.`
+      : "";
+  const own = kitchen.description?.trim();
+  const description = own
+    ? `${own}${ahead}`
+    : `${kitchen.name} in Rodrigues Island. ${kitchen.dishCount} dish${
+        kitchen.dishCount === 1 ? "" : "es"
+      } to pick up or have delivered.${ahead} Pay the kitchen direct.`;
 
   return {
     title,
@@ -66,8 +75,12 @@ export default async function KitchenPage({ params }: Params) {
   // wrong".
   if (!kitchen) notFound();
 
+  // M216: the kitchen's cooking time is a promise only when it cooks on the
+  // spot. A kitchen that needs notice shows how far ahead to order instead,
+  // beside the Open/Closed pill, which stays: it is an hours fact either way.
+  const notice = kitchen.minNoticeHours > 0 ? kitchen.minNoticeHours : 0;
   const prep =
-    kitchen.prepMin && kitchen.prepMax
+    !notice && kitchen.prepMin && kitchen.prepMax
       ? kitchen.prepMin === kitchen.prepMax
         ? `${kitchen.prepMin} min`
         : `${kitchen.prepMin}–${kitchen.prepMax} min`
@@ -122,6 +135,15 @@ export default async function KitchenPage({ params }: Params) {
               <span>
                 <TCount k="chrome.kitchenDishes" n={kitchen.dishCount} />
               </span>
+              {notice > 0 && (
+                <>
+                  <span className="opacity-50">·</span>
+                  <span className="inline-flex items-center gap-1 text-yellow/90">
+                    <CalendarClock size={11} aria-hidden />
+                    <TCount k="card.noticeBadge" n={notice} />
+                  </span>
+                </>
+              )}
               {prep && (
                 <>
                   <span className="opacity-50">·</span>

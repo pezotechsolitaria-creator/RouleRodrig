@@ -82,6 +82,9 @@ describe("nobody sees a missing translation", () => {
           c.form.payment.expect.receipt(s),
           c.form.payment.expect.guest(s),
           c.form.payment.expect.plain(s),
+          // M216 — the two that name who is shut, and who hands the food over.
+          c.form.schedule.closedOrderLater(s),
+          c.form.slotted.cashDelivery(s, "Friday 25 September, 12:00–12:30"),
         ];
         for (const [i, sentence] of sentences.entries()) {
           const namesTheSeller = [s.the, s.theCap, s.thisCap, s.poss].some((f) =>
@@ -89,6 +92,48 @@ describe("nobody sees a missing translation", () => {
           );
           expect(namesTheSeller, `${l}.${domain}[${i}] — ${sentence}`).toBe(true);
         }
+      }
+    }
+  });
+
+  it("says the booked time in every sentence that replaces the reservation clock", () => {
+    // M216. The slot IS the sentence under a booked food order; a language
+    // that dropped `when` would tell the customer how to pay and never when.
+    const when = "Friday 25 September, 12:00–12:30";
+    for (const l of LANGS) {
+      const t = CHECKOUT_COPY[l].form.slotted;
+      const s = sellerWords(l, "food");
+      for (const line of [t.cashCollect(when), t.cashSomeone(when), t.cashDelivery(s, when), t.transfer(when)]) {
+        expect(line, l).toContain(when);
+      }
+    }
+  });
+
+  it("writes no HTML entity where a character belongs", () => {
+    // These strings are rendered as text, so "&rsquo;" would reach the
+    // customer as eight literal characters. The apostrophe is ’.
+    for (const l of LANGS) {
+      const walk = (v: unknown, at: string): void => {
+        if (typeof v === "string") {
+          expect(v, `${l}.${at}`).not.toMatch(/&[a-z]+;|&#\d+;/i);
+          return;
+        }
+        if (Array.isArray(v)) return v.forEach((x, i) => walk(x, `${at}[${i}]`));
+        if (v && typeof v === "object") {
+          Object.entries(v).forEach(([k, x]) => walk(x, `${at}.${k}`));
+        }
+      };
+      walk(CHECKOUT_COPY[l], "");
+      const s = sellerWords(l, "food");
+      const f = CHECKOUT_COPY[l].form;
+      for (const line of [
+        f.schedule.closedOrderLater(s),
+        f.slotted.cashCollect("x"),
+        f.slotted.cashSomeone("x"),
+        f.slotted.cashDelivery(s, "x"),
+        f.slotted.transfer("x"),
+      ]) {
+        expect(line, l).not.toMatch(/&[a-z]+;|&#\d+;/i);
       }
     }
   });

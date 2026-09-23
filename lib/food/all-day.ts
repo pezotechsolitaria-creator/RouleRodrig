@@ -8,6 +8,8 @@
 // This is the arithmetic, kept out of the component so it can be tested
 // properly. The component's job is to display what this returns.
 
+import { isForLaterDay } from "@/lib/kitchen/board";
+
 export type AllDayItem = {
   name: string;
   variant: string | null;
@@ -49,6 +51,14 @@ export type AllDayView = {
    * the one direction that wastes food.
    */
   excludedOrders: number;
+  /**
+   * M216 — live orders booked for a LATER day, not counted.
+   *
+   * Reported for the same reason as excludedOrders: "12 portions" has to mean
+   * twelve to cook today, and the cook has to be able to see that Friday's
+   * orders exist without mistaking them for today's.
+   */
+  laterOrders: number;
 };
 
 type OrderLike = {
@@ -58,6 +68,9 @@ type OrderLike = {
   finished?: boolean;
   /** Bank transfer with nothing proven yet. The board already says: do NOT cook. */
   waitingOnTransfer?: boolean;
+  /** M216 — the booked window, if it has one. Null means as soon as ready. */
+  pickupFrom?: string | null;
+  pickupTo?: string | null;
 };
 
 /**
@@ -76,6 +89,17 @@ type OrderLike = {
  * mistake gets expensive. They are counted separately and reported, so the
  * number on screen can be trusted as the number to cook.
  *
+ * ORDERS BOOKED FOR A LATER DAY ARE OUT (M216). Chez Banane takes orders one
+ * to two days ahead, and the board keeps them in view from the moment they
+ * are placed. All Day is TODAY's pans: Friday's six curries added into
+ * Wednesday's total is six portions cooked two days early. The test is the
+ * board's own (isForLaterDay), in Rodrigues time, so this screen and the
+ * Orders tab's "Coming up" can never disagree. A booked order is counted from
+ * its own day — including one whose day has passed and is still live, which
+ * is overdue rather than for later. One that is both for later and waiting on
+ * a transfer is reported as later: it is not today's cooking whether or not
+ * the money arrives.
+ *
  * ── HOW LINES ARE GROUPED ─────────────────────────────────────────────────
  *
  * By name AND variant, never by name alone. "Curry (large)" and "Curry
@@ -87,14 +111,19 @@ type OrderLike = {
  * while orders for it were already live, the cook needs to see it — those
  * customers still need telling. Hiding the line hides the problem.
  */
-export function allDayFrom(orders: OrderLike[]): AllDayView {
+export function allDayFrom(orders: OrderLike[], now: Date = new Date()): AllDayView {
   // kitchen -> dish key -> line
   const byKitchen = new Map<string, Map<string, AllDayItem & { orderIds: Set<number> }>>();
   let countedOrders = 0;
   let excludedOrders = 0;
+  let laterOrders = 0;
 
   orders.forEach((order, index) => {
     if (order.finished) return;
+    if (isForLaterDay(order, now)) {
+      laterOrders += 1;
+      return;
+    }
     if (order.waitingOnTransfer) {
       excludedOrders += 1;
       return;
@@ -163,5 +192,6 @@ export function allDayFrom(orders: OrderLike[]): AllDayView {
     totalPortions: groups.reduce((n, g) => n + g.totalPortions, 0),
     countedOrders,
     excludedOrders,
+    laterOrders,
   };
 }

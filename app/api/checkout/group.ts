@@ -32,6 +32,11 @@ const DELIVERY_WINDOW_CODE = "RR011";
 const PRICE_CHANGED_CODE = "RR012";
 const TOO_MANY_OPEN_CODE = "RR013";
 const REFERENCE_CODE = "RR014";
+// M216: t_orders_kitchen_notice refuses, BEFORE INSERT on orders, any order
+// for a kitchen that needs notice placed without a stamped slot — and every
+// create_order this RPC makes is exactly that. Without the mapping the
+// customer read "Something went wrong" for a rule with a sentence of its own.
+const KITCHEN_NOTICE_CODE = "RR030";
 const SAFE_RPC_ERROR_CODE = "P0001";
 
 type PlacedOrder = {
@@ -106,7 +111,8 @@ export async function placeOrderGroup(input: GroupedCheckout): Promise<NextRespo
       code === SHOP_CLOSED_CODE ||
       code === DELIVERY_WINDOW_CODE ||
       code === PRICE_CHANGED_CODE ||
-      code === TOO_MANY_OPEN_CODE
+      code === TOO_MANY_OPEN_CODE ||
+      code === KITCHEN_NOTICE_CODE
     ) {
       return NextResponse.json({ error: error.message, code }, { status: 409 });
     }

@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useLanguage } from "@/context/LanguageContext";
 import Link from "next/link";
-import { Plus, Minus, ShoppingBag, Clock } from "lucide-react";
+import { Plus, Minus, ShoppingBag, Clock, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart/CartContext";
 import { centsToDecimalString, centsToShortString } from "@/lib/money";
-import { UNAVAILABLE_LABEL, type FoodDetail } from "@/lib/food/types";
+import type { FoodDetail } from "@/lib/food/types";
+import { useFoodCopy } from "./FoodCopy";
 
 // The order panel on a dish page: choose a size, choose how many, add.
 //
@@ -25,9 +25,31 @@ import { UNAVAILABLE_LABEL, type FoodDetail } from "@/lib/food/types";
 // finds out here rather than at the payment button. The real guarantee is the
 // row lock inside create_order(), which is what makes two people racing for the
 // last plate produce exactly one order.
+//
+// ── A KITCHEN THAT NEEDS NOTICE (M216) ─────────────────────────────────────
+// `dish.orderable` means "can go in the basket", so a notice kitchen's dish
+// gets this panel while the kitchen is closed — the order is for a later slot.
+// What it must NOT get is "Usually ready in 15–30 minutes": that is the
+// cooking once it starts, and for Chez Banane the customer cannot have it for
+// at least a day. The panel says how far ahead instead, and that the day and
+// time are chosen at checkout, where WhenPicker offers only bookable slots.
+//
+// Every word here comes from FOOD_COPY. It used to be English literals in all
+// three languages while FoodCopy.tsx said otherwise.
 
-export default function DishOrderPanel({ dish }: { dish: FoodDetail }) {
-  const { t } = useLanguage();
+export default function DishOrderPanel({
+  dish,
+  readyNowExists = false,
+}: {
+  dish: FoodDetail;
+  /**
+   * Whether /food?open=1 can list anything (M216): some walk-up kitchen is
+   * open. The dish page asks only when this panel will show that exit.
+   * Defaults to false — a missing answer must not produce a dead-end link.
+   */
+  readyNowExists?: boolean;
+}) {
+  const copy = useFoodCopy();
   const { cart, addItem, clear } = useCart("food");
   const sellable = useMemo(() => dish.variants.filter((v) => v.stock > 0), [dish.variants]);
   const [variantId, setVariantId] = useState<string>(
@@ -38,6 +60,7 @@ export default function DishOrderPanel({ dish }: { dish: FoodDetail }) {
   const variant = dish.variants.find((v) => v.id === variantId) ?? dish.variants[0];
   const max = Math.min(variant?.stock ?? 0, 20);
   const lineTotal = (variant?.price ?? dish.price) * qty;
+  const notice = dish.minNoticeHours > 0 ? dish.minNoticeHours : 0;
 
   function add() {
     if (!variant) return;
@@ -49,10 +72,10 @@ export default function DishOrderPanel({ dish }: { dish: FoodDetail }) {
     });
 
     if (result === "conflict") {
-      toast.error(`${dish.name} is cooked at another kitchen.`, {
-        description: `Your order so far is from ${cart?.storeName ?? "a different kitchen"}. One order comes from one kitchen so it can be cooked and collected together.`,
+      toast.error(copy.toast.conflictTitle(dish.name), {
+        description: copy.toast.conflictBody(cart?.storeName ?? copy.toast.otherKitchen),
         action: {
-          label: "Start a new order",
+          label: copy.toast.startNew,
           onClick: () => {
             clear();
             addItem({
@@ -61,48 +84,77 @@ export default function DishOrderPanel({ dish }: { dish: FoodDetail }) {
               variantId: variant.id,
               quantity: qty,
             });
-            toast.success(`${dish.name} added.`);
+            toast.success(copy.toast.added(dish.name));
           },
         },
         duration: 8000,
       });
       return;
     }
-    toast.success(`${qty}× ${dish.name} added.`);
+    toast.success(copy.toast.addedQty(qty, dish.name));
   }
 
   if (!dish.orderable) {
+    const reason = dish.reason;
     return (
       <div className="rounded-2xl border border-orange-400/30 bg-orange-400/5 px-5 py-4">
         <p className="font-syne text-base font-bold text-orange-200">
-          {dish.reason ? UNAVAILABLE_LABEL[dish.reason] : "Not available"}
+          {reason ? copy.unavailable[reason] : copy.panel.notAvailable}
         </p>
         <p className="mt-1.5 font-dm text-sm text-orange-100/80">
-          {dish.reason === "sold_out"
-            ? "Today's batch has gone. It is usually back tomorrow."
-            : dish.reason === "wrong_time"
-              ? "This dish is only cooked at certain hours. Check back later today."
-              : dish.reason === "wrong_day"
-                ? "It is not on the stove today."
-                : dish.reason === "kitchen_closed"
-                  ? "The kitchen is closed right now."
-                  : "It is off the menu for the moment."}
+          {reason === "sold_out" || reason === "wrong_time" || reason === "wrong_day" || reason === "kitchen_closed"
+            ? copy.panel.reason[reason]
+            : copy.panel.reason.other}
         </p>
-        <Link
-          href="/food?open=1"
-          className="mt-3.5 inline-block rounded-xl border border-yellow/50 px-4 py-2.5 font-dm text-sm font-bold text-yellow transition-colors hover:bg-yellow/10"
-        >
-          {t.dish.seeReady}
-        </Link>
+        {/* Where to go next. "See what's ready now" is the right exit from a
+            walk-up kitchen; from a kitchen that needs notice it points at a
+            list that can never contain this kitchen's food, so the exit is
+            the rest of ITS menu, which can still be booked. And from a
+            walk-up kitchen it is right only while some walk-up kitchen is
+            open (readyNowExists, lib/food/ready-now.ts) — otherwise that list
+            is empty, and the whole menu, where dishes can still be booked
+            ahead, is the exit that leads somewhere. */}
+        {notice ? (
+          <Link
+            href={`/food/k/${dish.kitchenSlug}`}
+            className="mt-3.5 inline-block rounded-xl border border-yellow/50 px-4 py-2.5 font-dm text-sm font-bold text-yellow transition-colors hover:bg-yellow/10"
+          >
+            {copy.chrome.openKitchen(dish.kitchenName)}
+          </Link>
+        ) : readyNowExists ? (
+          <Link
+            href="/food?open=1"
+            className="mt-3.5 inline-block rounded-xl border border-yellow/50 px-4 py-2.5 font-dm text-sm font-bold text-yellow transition-colors hover:bg-yellow/10"
+          >
+            {copy.panel.seeReady}
+          </Link>
+        ) : (
+          <Link
+            href="/food"
+            className="mt-3.5 inline-block rounded-xl border border-yellow/50 px-4 py-2.5 font-dm text-sm font-bold text-yellow transition-colors hover:bg-yellow/10"
+          >
+            {copy.chrome.kitchenBack}
+          </Link>
+        )}
       </div>
     );
   }
 
   return (
     <div className="rounded-2xl border border-white/10 bg-dark-card p-5">
+      {/* First, before a size or a quantity: this is not food for tonight.
+          Said here rather than discovered at checkout, where the time picker
+          would otherwise be the first place the customer meets it. */}
+      {notice > 0 && (
+        <p className="mb-4 flex items-start gap-2 rounded-xl border border-yellow/20 bg-yellow/5 px-3.5 py-2.5 font-dm text-sm leading-snug text-offwhite/90">
+          <CalendarClock size={15} className="mt-0.5 shrink-0 text-yellow" aria-hidden />
+          <span>{copy.panel.noticeLead(dish.kitchenName, notice)}</span>
+        </p>
+      )}
+
       {dish.variants.length > 1 && (
         <fieldset>
-          <legend className="font-bebas text-[11px] tracking-[0.25em] text-muted">{t.dish.chooseSize}</legend>
+          <legend className="font-bebas text-[11px] tracking-[0.25em] text-muted">{copy.panel.chooseSize}</legend>
           <div className="mt-2.5 space-y-2">
             {dish.variants.map((v) => {
               const out = v.stock <= 0;
@@ -126,10 +178,10 @@ export default function DishOrderPanel({ dish }: { dish: FoodDetail }) {
                       className="h-4 w-4 accent-[#F5C842]"
                     />
                     <span className={`font-dm text-sm ${variantId === v.id ? "text-yellow" : "text-offwhite"}`}>
-                      {v.name ?? "Standard"}
+                      {v.name ?? copy.panel.standard}
                       {/* Sold-out sizes stay VISIBLE. A dish that silently
                           loses a size reads as a bug, not as a sold-out size. */}
-                      {out && <span className="ml-1.5 text-muted">· sold out</span>}
+                      {out && <span className="ml-1.5 text-muted">· {copy.panel.soldOut}</span>}
                     </span>
                   </span>
                   <span className="shrink-0 font-syne text-sm font-extrabold text-offwhite">
@@ -146,7 +198,7 @@ export default function DishOrderPanel({ dish }: { dish: FoodDetail }) {
         <div className="flex items-center gap-1 rounded-full border border-white/15 p-1">
           <button
             type="button"
-            aria-label={t.dish.oneFewer}
+            aria-label={copy.panel.oneFewer}
             onClick={() => setQty((n) => Math.max(1, n - 1))}
             disabled={qty <= 1}
             className="flex h-9 w-9 items-center justify-center rounded-full text-offwhite disabled:opacity-30"
@@ -156,7 +208,7 @@ export default function DishOrderPanel({ dish }: { dish: FoodDetail }) {
           <span className="min-w-8 text-center font-syne text-base font-extrabold tabular-nums">{qty}</span>
           <button
             type="button"
-            aria-label={t.dish.oneMore}
+            aria-label={copy.panel.oneMore}
             onClick={() => setQty((n) => Math.min(max, n + 1))}
             disabled={qty >= max}
             className="flex h-9 w-9 items-center justify-center rounded-full text-offwhite disabled:opacity-30"
@@ -171,7 +223,7 @@ export default function DishOrderPanel({ dish }: { dish: FoodDetail }) {
 
       {max <= 5 && max > 0 && (
         <p className="mt-2 font-dm text-xs text-orange-300">
-          Only {max} portion{max === 1 ? "" : "s"} left today.
+          {copy.panel.portionsLeft(max)}
         </p>
       )}
 
@@ -181,13 +233,14 @@ export default function DishOrderPanel({ dish }: { dish: FoodDetail }) {
         disabled={!variant || max === 0}
         className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-yellow px-5 py-4 font-dm text-base font-bold text-dark transition-opacity hover:opacity-90 disabled:opacity-40"
       >
-        <ShoppingBag size={17} /> {t.dish.addToOrder}
+        <ShoppingBag size={17} /> {copy.panel.addToOrder}
       </button>
 
-      {dish.prepMin != null && dish.prepMax != null && (
+      {/* The cooking time, only where it is also when you get the food. */}
+      {!notice && dish.prepMin != null && dish.prepMax != null && (
         <p className="mt-3 flex items-center justify-center gap-1.5 font-dm text-xs text-muted">
           <Clock size={12} />
-          Usually ready in {dish.prepMin}–{dish.prepMax} minutes once the kitchen starts
+          {copy.panel.readyIn(dish.prepMin, dish.prepMax)}
         </p>
       )}
     </div>

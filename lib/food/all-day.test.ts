@@ -131,7 +131,7 @@ describe("all day totals", () => {
 
   it("is empty, not broken, with nothing live", () => {
     const v = allDayFrom([]);
-    expect(v).toEqual({ groups: [], totalPortions: 0, countedOrders: 0, excludedOrders: 0 });
+    expect(v).toEqual({ groups: [], totalPortions: 0, countedOrders: 0, excludedOrders: 0, laterOrders: 0 });
   });
 
   // ── The bug this grouping exists to prevent ─────────────────────────────
@@ -189,5 +189,96 @@ describe("all day totals", () => {
     ]);
     expect(one(v)).toHaveLength(1);
     expect(one(v)[0]).toMatchObject({ qty: 3, variant: null, tickets: 3 });
+  });
+});
+
+// ── M216: Chez Banane takes orders one to two days ahead ──────────────────
+//
+// Every clock here is fixed and written in Rodrigues time (UTC+4, no DST), so
+// the tests say the same thing on any machine. The bounds are in the shape
+// kitchen_dashboard() sends: "2026-09-25T08:00:00+00:00" is Friday 12:00 in
+// Rodrigues.
+describe("all day counts today's cooking only (M216)", () => {
+  /** Thursday 24 Sept 2026, 10:00 in Rodrigues. */
+  const THU_10 = new Date("2026-09-24T10:00:00+04:00");
+  const slot = (rodriguesStart: string) => {
+    const from = new Date(`${rodriguesStart}:00+04:00`);
+    return {
+      pickupFrom: from.toISOString().replace(".000Z", "+00:00"),
+      pickupTo: new Date(from.getTime() + 30 * 60_000).toISOString().replace(".000Z", "+00:00"),
+    };
+  };
+
+  it("leaves Friday's pre-order out of Thursday's pans, and says so", () => {
+    const v = allDayFrom([
+      { items: [item("Curry", 6)], ...slot("2026-09-25T12:00") },  // Friday
+      { items: [item("Curry", 2)], ...slot("2026-09-24T12:00") },  // today
+      { items: [item("Curry", 1)] },                                // walk-up, now
+    ], THU_10);
+    expect(one(v)[0]).toMatchObject({ name: "Curry", qty: 3, tickets: 2 });
+    expect(v.countedOrders).toBe(2);
+    expect(v.laterOrders).toBe(1);
+    expect(v.excludedOrders).toBe(0);
+  });
+
+  it("counts a booked order ON its day — the Rodrigues day, not the UTC one", () => {
+    // Thursday 20:30 UTC is already Friday 00:30 in Rodrigues. A board that
+    // asked the UTC date would keep Friday's order out of Friday's total for
+    // the first four hours of the day.
+    const friEarly = new Date("2026-09-25T00:30:00+04:00");
+    const order = { items: [item("Octopus", 4)], ...slot("2026-09-25T08:00") };
+    expect(allDayFrom([order], new Date("2026-09-24T23:59:00+04:00")).laterOrders).toBe(1);
+    const v = allDayFrom([order], friEarly);
+    expect(v.laterOrders).toBe(0);
+    expect(v.totalPortions).toBe(4);
+  });
+
+  it("counts an overdue booking from a past day as today's, not as later", () => {
+    // Cooked for yesterday and never collected: still a problem for today.
+    const v = allDayFrom([{ items: [item("Mine", 1)], ...slot("2026-09-23T16:30") }], THU_10);
+    expect(v.countedOrders).toBe(1);
+    expect(v.laterOrders).toBe(0);
+  });
+
+  it("reports later-day orders separately from unpaid ones", () => {
+    const v = allDayFrom([
+      { items: [item("A", 1)], ...slot("2026-09-25T12:00") },
+      { items: [item("A", 1)], ...slot("2026-09-26T09:00") },
+      { items: [item("A", 1)], waitingOnTransfer: true },
+      // For later AND unpaid: later — it is not today's cooking either way.
+      { items: [item("A", 1)], waitingOnTransfer: true, ...slot("2026-09-25T13:00") },
+      { items: [item("B", 2)] },
+    ], THU_10);
+    expect(v.laterOrders).toBe(3);
+    expect(v.excludedOrders).toBe(1);
+    expect(v.countedOrders).toBe(1);
+    expect(v.totalPortions).toBe(2);
+  });
+
+  it("does not count a finished pre-order as later", () => {
+    const v = allDayFrom([{ items: [item("A", 1)], finished: true, ...slot("2026-09-25T12:00") }], THU_10);
+    expect(v).toEqual({ groups: [], totalPortions: 0, countedOrders: 0, excludedOrders: 0, laterOrders: 0 });
+  });
+
+  it("has nothing to cook when every order is for later — and still says how many", () => {
+    const v = allDayFrom([{ items: [item("A", 3)], ...slot("2026-09-26T12:00") }], THU_10);
+    expect(v.groups).toEqual([]);
+    expect(v.laterOrders).toBe(1);
+  });
+
+  it("at 23:30 UTC it is already the next morning on the island", () => {
+    // 23:40 UTC on Thursday is 03:40 on FRIDAY in Rodrigues. Friday's noon
+    // booking is today's cooking; the order placed ten minutes ago (03:30
+    // local) is for Saturday, the first day its 24 hours' notice allows. A
+    // total that asked the UTC date would do the opposite of both.
+    const now = new Date("2026-09-24T23:40:00Z");
+    const v = allDayFrom([
+      { items: [item("Octopus", 4)], ...slot("2026-09-25T12:00") },  // Friday, booked earlier
+      { items: [item("Octopus", 2)], ...slot("2026-09-26T08:00") },  // placed 23:30 UTC, for Saturday
+      { items: [item("Octopus", 1)] },                                // walk-up at 23:30 UTC
+    ], now);
+    expect(one(v)[0]).toMatchObject({ name: "Octopus", qty: 5, tickets: 2 });
+    expect(v.countedOrders).toBe(2);
+    expect(v.laterOrders).toBe(1);
   });
 });

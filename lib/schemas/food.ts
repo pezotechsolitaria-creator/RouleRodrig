@@ -60,6 +60,24 @@ const kitchenFields = z.object({
 
     prepMinutesMin: z.number().int().min(0).max(480),
     prepMinutesMax: z.number().int().min(0).max(480),
+
+    // M216 — booking ahead. Notice is how far ahead an order must be placed (0
+    // = walk-up); days is how far ahead the calendar opens. The same bounds as
+    // the database CHECKs, stated here so the owner reads a sentence rather
+    // than a constraint name. Optional: a PATCH that leaves them out leaves
+    // them alone, and a new kitchen is born walk-up (both default to 0).
+    minNoticeHours: z
+      .number()
+      .int("Use whole hours.")
+      .min(0, "Notice cannot be negative — use 0 for a kitchen that cooks on the spot.")
+      .max(72, "72 hours (three days) is the most notice a kitchen can ask for.")
+      .optional(),
+    preorderDays: z
+      .number()
+      .int("Use whole days.")
+      .min(0, "Days ahead cannot be negative — use 0 for today only.")
+      .max(3, "Customers can book at most 3 days ahead.")
+      .optional(),
     pickupHint: z.string().trim().max(300).optional().or(z.literal("")),
     position: z.number().int().min(0).max(999).optional(),
 
@@ -96,6 +114,8 @@ function checkKitchenPairs(
   v: {
     prepMinutesMin?: number;
     prepMinutesMax?: number;
+    minNoticeHours?: number;
+    preorderDays?: number;
     lat?: number | null;
     lng?: number | null;
     halalCertified?: boolean;
@@ -103,6 +123,23 @@ function checkKitchenPairs(
   },
   ctx: z.RefinementCtx,
 ) {
+  // M216 — notice longer than the calendar leaves NO time a customer can pick:
+  // 48 hours' notice with bookings one day ahead is a kitchen that shows its
+  // menu and refuses every order. food_kitchens_notice_within_horizon refuses
+  // it too; this is the sentence instead of the constraint name.
+  if (
+    v.minNoticeHours !== undefined &&
+    v.preorderDays !== undefined &&
+    v.minNoticeHours > v.preorderDays * 24
+  ) {
+    const days = Math.ceil(v.minNoticeHours / 24);
+    ctx.addIssue({
+      code: "custom",
+      message: `With ${v.minNoticeHours} hours’ notice, customers must be able to book at least ${days} day${days === 1 ? "" : "s"} ahead — otherwise there is no time left they can choose.`,
+      path: ["minNoticeHours"],
+    });
+  }
+
   // "Certified" with nobody behind it is not a certification, it is the word.
   // The database refuses this too — the rule is here as well so the operator
   // gets a sentence in the form rather than a constraint violation.

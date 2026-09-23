@@ -3,8 +3,9 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, Phone, MapPin, Clock, RotateCcw, EyeOff, Eye, Trash2, Check, X, AlertTriangle } from "lucide-react";
+import { Loader2, Plus, Pencil, Phone, MapPin, Clock, RotateCcw, EyeOff, Eye, Trash2, Check, X, AlertTriangle, CalendarClock } from "lucide-react";
 import { foodWrite, type AdminKitchen } from "./types";
+import { bookingRule } from "./booking-rule";
 import RemoveKitchenPanel from "./RemoveKitchenPanel";
 import { certificateState, needsAttention } from "@/lib/admin/halal";
 
@@ -32,6 +33,9 @@ type Draft = {
   lng: string;
   prepMinutesMin: number;
   prepMinutesMax: number;
+  /** M216. Loaded from GET on edit — save() sends the whole draft. */
+  minNoticeHours: number;
+  preorderDays: number;
   pickupHint: string;
   cookerName: string;
   cookerPhone: string;
@@ -54,6 +58,10 @@ const emptyDraft = (): Draft => ({
   lng: "",
   prepMinutesMin: 15,
   prepMinutesMax: 30,
+  // A new kitchen cooks on the spot until somebody says otherwise — the
+  // database default, and the only setting that never refuses an order.
+  minNoticeHours: 0,
+  preorderDays: 0,
   pickupHint: "",
   cookerName: "",
   cookerPhone: "",
@@ -130,6 +138,8 @@ export default function KitchensPanel({
       lng: draft.lng.trim() ? Number(draft.lng) : null,
       prepMinutesMin: draft.prepMinutesMin,
       prepMinutesMax: draft.prepMinutesMax,
+      minNoticeHours: draft.minNoticeHours,
+      preorderDays: draft.preorderDays,
       pickupHint: draft.pickupHint,
       cookerName: draft.cookerName,
       cookerPhone: draft.cookerPhone,
@@ -200,6 +210,20 @@ export default function KitchensPanel({
                   <span className="inline-flex items-center gap-1">
                     <Clock size={12} /> {k.prepMinutesMin}–{k.prepMinutesMax} min
                   </span>
+                  {/* M216 — the booking rule, on the card, so "why can't I
+                      order for today?" is answerable without opening SQL. */}
+                  {(k.minNoticeHours > 0 || k.preorderDays > 0) && (
+                    <span
+                      className={`inline-flex items-center gap-1 ${
+                        k.preorderLive === false ? "text-muted line-through" : "text-yellow"
+                      }`}
+                    >
+                      <CalendarClock size={12} /> {bookingRule(k.minNoticeHours, k.preorderDays)}
+                    </span>
+                  )}
+                  {(k.minNoticeHours > 0 || k.preorderDays > 0) && k.preorderLive === false && (
+                    <span className="text-orange-200">Advance ordering is switched off for every kitchen</span>
+                  )}
                   <span>{k.liveDishCount} of {k.dishCount} dishes live</span>
                   {k.address && (
                     <span className="inline-flex items-center gap-1"><MapPin size={12} /> {k.address}</span>
@@ -326,6 +350,12 @@ export default function KitchensPanel({
                       lng: k.lng?.toString() ?? "",
                       prepMinutesMin: k.prepMinutesMin,
                       prepMinutesMax: k.prepMinutesMax,
+                      // The kitchen's real notice, never a default (M216).
+                      // save() sends the whole draft, so a 0 here would put
+                      // Chez Banane back to walk-up on any unrelated edit —
+                      // the offersRrDelivery bug below, one field over.
+                      minNoticeHours: k.minNoticeHours,
+                      preorderDays: k.preorderDays,
                       pickupHint: k.pickupHint ?? "",
                       cookerName: k.cookerName ?? "",
                       cookerPhone: k.cookerPhone ?? "",
@@ -463,6 +493,41 @@ export default function KitchensPanel({
               <p className="-mt-2 font-dm text-[11px] text-muted">
                 A range, never a single number. Every dish here inherits it unless it says otherwise.
               </p>
+
+              {/* ── BOOKING AHEAD (M216) ─────────────────────────────────────
+                  The owner's lever for a cook who needs notice — Chez Banane's
+                  "24-48 hours" — which until now could only be changed in SQL.
+                  With notice above 0 customers must pick a time; "as soon as
+                  possible" disappears for this kitchen. */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <span className={label}>NOTICE NEEDED (HOURS)</span>
+                  <input className={input} inputMode="numeric" value={draft.minNoticeHours}
+                    onChange={(e) => setDraft({ ...draft, minNoticeHours: parseInt(e.target.value, 10) || 0 })} />
+                </div>
+                <div>
+                  <span className={label}>DAYS AHEAD CUSTOMERS CAN BOOK</span>
+                  <select className={input} value={draft.preorderDays}
+                    onChange={(e) => setDraft({ ...draft, preorderDays: parseInt(e.target.value, 10) || 0 })}>
+                    <option value={0}>Today only</option>
+                    <option value={1}>1 day ahead</option>
+                    <option value={2}>2 days ahead</option>
+                    <option value={3}>3 days ahead</option>
+                  </select>
+                </div>
+              </div>
+              {draft.minNoticeHours > draft.preorderDays * 24 ? (
+                <p className="-mt-2 font-dm text-[11px] text-orange-200">
+                  That much notice needs more days ahead — otherwise there is no time left a customer
+                  can choose.
+                </p>
+              ) : (
+                <p className="-mt-2 font-dm text-[11px] text-muted">
+                  0 hours = cooks on the spot. With notice, customers must pick a time at least that far
+                  ahead. Allow a day more than the notice, or after closing time there is nothing left to
+                  book.
+                </p>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

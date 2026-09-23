@@ -7,10 +7,12 @@ import {
   UtensilsCrossed,
   MessageCircle,
   SlidersHorizontal,
+  CalendarClock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
 import { getFoodHome, browseFood } from "@/lib/food/queries";
+import { walkUpKitchensServingNow } from "@/lib/food/ready-now";
 import { DIETARY_TAGS } from "@/lib/food/types";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
@@ -51,10 +53,17 @@ import {
 // /shop, for the same reason.
 export const dynamic = "force-dynamic";
 
-// "Pay by bank transfer" stopped being true on 23 Sept 2026 (M201): Chez
-// Banane, the kitchen on this page, takes cash and has no bank account.
+// The snippet says what ordering here IS, in the one kitchen's terms, because
+// on 23 Sept 2026 there was one. "Pay by bank transfer" stopped being true
+// that day (M201: Chez Banane takes cash and has no bank account), and "pick
+// up or delivery" read as tonight's dinner when the same kitchen became
+// book-ahead only (M216: at least 24 hours' notice, up to two days). When a
+// walk-up kitchen goes live, "Book a day ahead" is the phrase to revisit.
+// Under 155 characters: Google cuts at about that, and the keywords lead. The
+// dishes named are ones actually on sale — "Creole curries" was the purged
+// demo kitchen's, and a snippet must not offer what nobody can order.
 const DESCRIPTION =
-  "Order food in Rodrigues Island — octopus, grilled fish, Creole curries and snacks from island kitchens. Pick up or delivery; pay cash or by bank transfer.";
+  "Order food in Rodrigues — grilled lobster, octopus and fish from island kitchens. Book a day ahead, collect or have it delivered, pay cash at handover.";
 
 export const metadata: Metadata = {
   title: "Order food in Rodrigues | Roulé Rodrigues",
@@ -166,6 +175,23 @@ export default async function FoodPage({
   // state) before publishing anything.
   if (empty && first(sp.preview) !== "1") redirect("/food/concierge");
 
+  // "N cooking now" is a promise about NOW. food_home().kitchensOpen counts
+  // kitchens inside their opening hours, and since M216 a kitchen can be open
+  // while nothing it makes can be had today — Chez Banane at 10:00 is open and
+  // booking for tomorrow. So the count is of open WALK-UP kitchens only, read
+  // from the same kitchens list (both are grouped from food_catalog).
+  const cookingNow = home ? walkUpKitchensServingNow(home.kitchens) : 0;
+  // The "Ready now" chip is browse_food(p_orderable_only), which reads
+  // ready_now since M216 and so can never hold a notice kitchen's dish. With
+  // no walk-up kitchen open it was a chip that always led to "Nothing
+  // delicious matched that" — see lib/food/ready-now.ts. It stays while it is
+  // SWITCHED ON, so somebody arriving on ?open=1 can still turn it off.
+  const showReadyNow = cookingNow > 0 || f.open;
+  // "Quickest" ranks kitchens' cooking times against each other. With one
+  // kitchen there is nothing to rank, and that kitchen is booked a day ahead,
+  // so its half-hour is not when anybody eats. Same rule: kept while active.
+  const showQuickest = (home?.kitchens.length ?? 0) > 1 || f.sort === "fastest";
+
   return (
     <main className="min-h-screen bg-dark px-4 pb-56 pt-0 text-offwhite md:pb-44">
       {/* ── A WAY BACK, THAT STAYS ─────────────────────────────
@@ -230,8 +256,8 @@ export default async function FoodPage({
         {!empty && (
           <p className="mt-1 font-dm text-xs text-muted">
             <TCount k="chrome.dishCount" n={home.dishCount} />
-            {home.kitchensOpen > 0 && (
-              <> · <TCount k="chrome.cookingNow" n={home.kitchensOpen} /></>
+            {cookingNow > 0 && (
+              <> · <TCount k="chrome.cookingNow" n={cookingNow} /></>
             )}
           </p>
         )}
@@ -304,20 +330,24 @@ export default async function FoodPage({
             )}
 
             <div className="mt-2.5 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <Link
-                href={foodHref(f, { open: !f.open })}
-                className={f.open ? chipOn : chipOff}
-              >
-                <T k="chrome.readyNow" />
-              </Link>
-              <Link
-                href={foodHref(f, {
-                  sort: f.sort === "fastest" ? "recommended" : "fastest",
-                })}
-                className={f.sort === "fastest" ? chipOn : chipOff}
-              >
-                <T k="chrome.quickest" />
-              </Link>
+              {showReadyNow && (
+                <Link
+                  href={foodHref(f, { open: !f.open })}
+                  className={f.open ? chipOn : chipOff}
+                >
+                  <T k="chrome.readyNow" />
+                </Link>
+              )}
+              {showQuickest && (
+                <Link
+                  href={foodHref(f, {
+                    sort: f.sort === "fastest" ? "recommended" : "fastest",
+                  })}
+                  className={f.sort === "fastest" ? chipOn : chipOff}
+                >
+                  <T k="chrome.quickest" />
+                </Link>
+              )}
               <Link
                 href={foodHref(f, {
                   sort: f.sort === "price_asc" ? "recommended" : "price_asc",
@@ -435,15 +465,27 @@ export default async function FoodPage({
                         </span>
                       </div>
                       {/* Open/closed is the one fact that changes whether this
-                          tap is worth making, so it is the only badge here. */}
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 font-dm text-[10px] ${
-                          k.isOpen
-                            ? "bg-emerald-500/15 text-emerald-300"
-                            : "bg-white/5 text-muted"
-                        }`}
-                      >
-                        <T k={k.isOpen ? "chrome.kitchenOpen" : "chrome.kitchenClosed"} />
+                          tap is worth making, so it was the only badge here.
+                          M216 added the second: a kitchen that needs notice
+                          is worth the tap while CLOSED (it books ahead) and
+                          no use for tonight while OPEN, and only the notice
+                          says which. */}
+                      <span className="flex shrink-0 flex-col items-end gap-1">
+                        <span
+                          className={`rounded-full px-2 py-0.5 font-dm text-[10px] ${
+                            k.isOpen
+                              ? "bg-emerald-500/15 text-emerald-300"
+                              : "bg-white/5 text-muted"
+                          }`}
+                        >
+                          <T k={k.isOpen ? "chrome.kitchenOpen" : "chrome.kitchenClosed"} />
+                        </span>
+                        {k.minNoticeHours > 0 && (
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-yellow/10 px-2 py-0.5 font-dm text-[10px] text-yellow/90">
+                            <CalendarClock size={10} aria-hidden />
+                            <TCount k="card.noticeBadge" n={k.minNoticeHours} />
+                          </span>
+                        )}
                       </span>
                     </Link>
                   ))}

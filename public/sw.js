@@ -249,7 +249,7 @@
 // with the problem, reference and amount already written for the owner.
 // v374 — a product page says how the shop can ACTUALLY be paid, instead of
 // promising a bank transfer to every shop; the four test shops are hidden.
-const CACHE = "rr-cache-v375";
+const CACHE = "rr-cache-v376";
 
 // Dev hosts get no cache-first anything: their asset URLs are not content
 // hashed, so the immutability that makes cache-first safe does not hold.

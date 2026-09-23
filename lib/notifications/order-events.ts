@@ -6,6 +6,9 @@ import { SITE_URL } from "@/lib/site";
 import { centsToDecimalString } from "@/lib/money";
 import type { EmailType } from "@/lib/email/types";
 import { orderDocumentAttachments } from "@/lib/receipts/order-document";
+import { formatSlot, parseSlotRange, slotDayWords, type SlotWindow } from "@/lib/orders/slot";
+import { customerSlotLead, customerSlotPayment, slotRowLabel } from "@/lib/orders/slot-copy";
+import type { PaymentProvider } from "@/lib/orders/hold";
 
 // ── Customer-facing lifecycle emails ────────────────────────────────────────
 //
@@ -30,6 +33,10 @@ export type OrderCustomerEvent = "accepted" | "payment_confirmed" | "expired" | 
  * `critical` in the registry — it is the message that tells a customer they owe
  * nothing further, and its absence produces a support call every time.
  */
+/** For a merchant-typed string on its way into email HTML. */
+export const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
 const EVENT_EMAIL_TYPE: Record<OrderCustomerEvent, EmailType> = {
   payment_due: "marketplace_payment_due",
   accepted: "marketplace_order_status",
@@ -50,8 +57,31 @@ const EVENT_NOTIFICATION_TYPE: Record<OrderCustomerEvent, NotificationType> = {
   expired: "order.expired",
 };
 
-/** Copy per event. Kept together so the whole customer voice is readable at once. */
-function compose(event: OrderCustomerEvent, orderNumber: string, storeName: string) {
+/** A booked order's slot, and what it takes to describe it (M216). */
+export type ComposeSlot = {
+  window: SlotWindow;
+  fulfillment: string | null;
+  provider: PaymentProvider | undefined;
+};
+
+/**
+ * Copy per event. Kept together so the whole customer voice is readable at once.
+ *
+ * ── A BOOKED ORDER IS FOR A DAY (M216) ──────────────────────────────────────
+ * With `slot`, every message names the day and time the order is booked for.
+ * "Accepted … and is preparing it" is false on a Wednesday about Friday's
+ * lunch — a cook can accept a pre-order days before he starts it — and "no
+ * longer on a reservation clock" talks about a hold that was never the
+ * deadline of a slotted order (lib/orders/hold.ts, holdIsTheDeadline).
+ * Exported so the wording is tested without a database.
+ */
+export function compose(
+  event: OrderCustomerEvent,
+  orderNumber: string,
+  storeName: string,
+  slot: ComposeSlot | null = null,
+) {
+  if (slot) return composeSlotted(event, orderNumber, storeName, slot);
   switch (event) {
     // The only message in this file that can still change the outcome. Every
     // other one reports something already decided; this one is sent while the
@@ -93,6 +123,54 @@ function compose(event: OrderCustomerEvent, orderNumber: string, storeName: stri
   }
 }
 
+function composeSlotted(
+  event: OrderCustomerEvent,
+  orderNumber: string,
+  storeName: string,
+  { window: w, fulfillment, provider }: ComposeSlot,
+) {
+  // Spelled out, never "tomorrow": an email is read whenever it is read.
+  const when = formatSlot(w);
+  const day = slotDayWords(w.from);
+  const lead = customerSlotLead(w, fulfillment, storeName);
+  switch (event) {
+    case "payment_due":
+      return {
+        title: `Order ${orderNumber} for ${day} is waiting for your transfer`,
+        body:
+          `Your order at ${storeName} is booked for ${when}, but the transfer hasn't been reported yet. ` +
+          `Send it and tell us before then, so ${storeName} can confirm it. ` +
+          `Nothing is charged automatically, and you can still cancel by doing nothing.`,
+        cta: "Pay and keep my order →",
+      };
+    case "accepted":
+      return {
+        title: `${storeName} confirmed order ${orderNumber} for ${day}`,
+        body:
+          `Good news — ${storeName} has confirmed your order. ${lead}` +
+          (provider === "cash" ? ` ${customerSlotPayment(provider, fulfillment)}` : ""),
+        cta: "Track your order →",
+      };
+    case "payment_confirmed":
+      return {
+        title: `Payment received for order ${orderNumber}`,
+        body: `${storeName} has confirmed your payment. Nothing further is owed. ${lead}`,
+        cta: "View your order →",
+      };
+    case "expired":
+      // expire_order() cancels a booked order that nobody started once its
+      // slot is over (M181b), so the time is what this names — not a lapsed
+      // "reservation" the customer was never shown.
+      return {
+        title: `Order ${orderNumber} was not confirmed in time`,
+        body:
+          `${storeName} had not confirmed your order for ${when} by then, so it was cancelled and ` +
+          `nothing was charged. If you still want it, you can order again.`,
+        cta: "See what’s cooking →",
+      };
+  }
+}
+
 /**
  * Emails the customer about an order lifecycle event. Never throws; returns
  * true only when a channel actually delivered.
@@ -113,7 +191,10 @@ export async function notifyOrderCustomer(orderId: string, event: OrderCustomerE
 
     const { data: order } = await admin
       .from("orders")
-      .select("id, order_number, customer_id, customer_email, total, store_id, stores(name)")
+      .select(
+        "id, order_number, customer_id, customer_email, total, store_id, pickup_slot, fulfillment_method, " +
+          "stores(name), payments(provider)",
+      )
       .eq("id", orderId)
       .maybeSingle();
     if (!order) {
@@ -125,7 +206,10 @@ export async function notifyOrderCustomer(orderId: string, event: OrderCustomerE
       customer_id: string | null;
       customer_email: string | null;
       total: number;
+      pickup_slot: string | null;
+      fulfillment_method: string | null;
       stores: { name: string } | { name: string }[] | null;
+      payments: { provider: string }[] | null;
     };
 
     const store = Array.isArray(row.stores) ? row.stores[0] : row.stores;
@@ -144,7 +228,23 @@ export async function notifyOrderCustomer(orderId: string, event: OrderCustomerE
     if (!email) return false;
     const isGuest = !row.customer_id;
 
-    const copy = compose(event, row.order_number, storeName);
+    // M216. Only food orders are ever booked for a slot, which is also why an
+    // expired one is sent back to /food rather than the shop directory.
+    const slotWindow = parseSlotRange(row.pickup_slot);
+    const slot: ComposeSlot | null = slotWindow
+      ? {
+          window: slotWindow,
+          fulfillment: row.fulfillment_method,
+          provider: row.payments?.[0]?.provider as PaymentProvider | undefined,
+        }
+      : null;
+
+    // The composed title and body become the email's <h1> and a paragraph()
+    // of HTML (sendOrderNotificationEmail escapes neither — some callers pass
+    // markup on purpose). stores.name is set by store staff, so it is escaped
+    // HERE, for the email only; push and in-app get the raw name through
+    // ctx.storeName below, as plain text. order-placed.ts does the same.
+    const copy = compose(event, row.order_number, escapeHtml(storeName), slot);
 
     // MIGRATED ONTO THE ENGINE. This used to call dispatchNotification directly
     // and therefore reached email only — the customer got no in-app entry and
@@ -158,7 +258,7 @@ export async function notifyOrderCustomer(orderId: string, event: OrderCustomerE
     // priority and the in-app/push wording.
     const ctaUrl =
       event === "expired"
-        ? `${SITE_URL}/shop`
+        ? `${SITE_URL}${slot ? "/food" : "/shop"}`
         : isGuest
           ? `${SITE_URL}/orders/track?ref=${encodeURIComponent(row.order_number)}`
           : `${SITE_URL}/orders/${orderId}`;
@@ -179,7 +279,8 @@ export async function notifyOrderCustomer(orderId: string, event: OrderCustomerE
       EVENT_NOTIFICATION_TYPE[event],
       // userId drives the in-app row; a guest has none and gets push by email.
       { userId: row.customer_id ?? null, email },
-      { ref: row.order_number, storeName, id: orderId },
+      // `when` is the booked slot, for the registry's in-app and push wording.
+      { ref: row.order_number, storeName, id: orderId, when: slot ? formatSlot(slot.window) : null },
       {
         // Same shape as the key this replaced, so an order mid-flight during
         // the deploy cannot be emailed twice.
@@ -188,7 +289,12 @@ export async function notifyOrderCustomer(orderId: string, event: OrderCustomerE
         email: {
           title: copy.title,
           body: copy.body,
-          details: [["Total", `Rs ${centsToDecimalString(row.total)}`]],
+          details: [
+            ...(slot
+              ? ([[slotRowLabel(slot.fulfillment), formatSlot(slot.window)]] as [string, string][])
+              : []),
+            ["Total", `Rs ${centsToDecimalString(row.total)}`],
+          ],
           cta: { url: ctaUrl, label: copy.cta },
           emailType: EVENT_EMAIL_TYPE[event],
           idempotencyKey: `${EVENT_EMAIL_TYPE[event]}:${orderId}:${event}`,

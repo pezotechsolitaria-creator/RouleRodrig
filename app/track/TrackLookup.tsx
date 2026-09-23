@@ -6,6 +6,7 @@ import { AlertTriangle, ArrowLeft, ArrowRight, Bike, CalendarCheck, Car, Clock, 
 import { centsToDecimalString, centsToDisplay } from "@/lib/money";
 import type { Activity, ActivityKind, ActivityStage } from "@/lib/activity";
 import { holdInfo, holdDeadlineLabel, holdRemaining } from "@/lib/orders/hold";
+import { formatSlotInSentence, slotFromBounds } from "@/lib/orders/slot";
 import { useLanguage } from "@/context/LanguageContext";
 import { dateLocales } from "@/lib/i18n";
 import { TRACK_COPY, type TrackCopy } from "@/lib/track/copy.i18n";
@@ -256,6 +257,26 @@ function ActivityCard({ activity }: { activity: Activity }) {
           </span>
         )}
       </div>
+
+      {/* ── THE DAY IT IS FOR (M216) ─────────────────────────────────────
+          A food pre-order is booked for a 30-minute window a day or two out.
+          That window — not the 7-day cash hold, which the lookup now withholds
+          for a booked order — is what the customer acts on. Only while the
+          order is live: under a Cancelled badge, "Booked for tomorrow" would
+          send someone to a kitchen for food that is not coming. */}
+      {(() => {
+        const w = slotFromBounds(activity.pickupFrom, activity.pickupTo);
+        if (!w || activity.stage === "done" || activity.stage === "cancelled") return null;
+        return (
+          <p className="mt-3.5 flex items-start gap-2 rounded-xl border border-yellow/25 bg-yellow/[0.06] px-3.5 py-2.5 font-dm text-xs leading-relaxed text-offwhite">
+            <CalendarCheck size={13} className="mt-0.5 shrink-0 text-yellow" />
+            <span>
+              {c.card.slot.bookedFor}
+              <span className="font-bold">{formatSlotInSentence(w, language, new Date())}</span>
+            </span>
+          </p>
+        );
+      })()}
 
       {/* ── THE CLOCK, AT THE FIRST SURFACE THAT SEES IT (backlog #53) ────
           This card was the first thing a guest saw after finding their order,

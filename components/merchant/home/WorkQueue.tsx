@@ -2,6 +2,8 @@ import Link from "next/link";
 import { AlertTriangle, ChevronRight, Clock, ShoppingBag } from "lucide-react";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { holdInfo, holdRemaining } from "@/lib/orders/hold";
+import { parseSlotRange } from "@/lib/orders/slot";
+import { slotDueLabel, slotRunningLate } from "@/lib/merchant/slot-label";
 import { centsToDecimalString } from "@/lib/money";
 import type { WorkQueue as Queue, WorkItem } from "@/lib/merchant/context";
 
@@ -26,30 +28,26 @@ import type { WorkQueue as Queue, WorkItem } from "@/lib/merchant/context";
 // platform has shipped the rupees-vs-cents bug three times and twice in a
 // column called something plausible.
 
-function slotWindow(range: string | null): string | null {
-  if (!range) return null;
-  // ["2026-09-06 12:30:00+00","2026-09-06 13:00:00+00")
-  const parts = range.match(/[[(]"?([^",)\]]+)"?,\s*"?([^",)\]]+)/);
-  if (!parts) return null;
-  const fmt = (raw: string) => {
-    const d = new Date(raw.replace(" ", "T"));
-    return Number.isNaN(d.getTime())
-      ? null
-      : d.toLocaleTimeString("en-GB", {
-          hour: "2-digit",
-          minute: "2-digit",
-          timeZone: "Indian/Mauritius",
-        });
-  };
-  const from = fmt(parts[1]);
-  const to = fmt(parts[2]);
-  return from && to ? `${from}–${to}` : from;
-}
-
-/** The deadline in words, and whether it should shout. */
-function dueLabel(item: WorkItem): { text: string; urgent: boolean } | null {
-  const window = slotWindow(item.pickupSlot);
-  if (window) return { text: `Collection ${window}`, urgent: false };
+/**
+ * The deadline in words, and whether it should shout.
+ *
+ * ── THE SLOT WAS NEVER SHOWN (M216) ──────────────────────────────────────
+ * This used to parse pickup_slot itself: it swapped the space for a "T" and
+ * handed V8 "2026-09-25T08:00:00+00" — an offset with no minutes, which V8
+ * reads as Invalid Date. The label came back null and every booked order fell
+ * through to the payment hold, so a cash pre-order for Friday lunch read
+ * "7 days to pay". Nobody saw it because nothing had ever booked a slot.
+ *
+ * The shared reader in lib/orders/slot.ts takes both of Postgres's shapes, and
+ * the DAY is now in the label: with Chez Banane taking orders a day or two
+ * ahead, "12:00–12:30" alone is the wrong lunch.
+ */
+function dueLabel(item: WorkItem, now: Date): { text: string; urgent: boolean } | null {
+  const slot = parseSlotRange(item.pickupSlot);
+  const text = slotDueLabel(item.pickupSlot, item.fulfillment, now);
+  if (slot && text) {
+    return { text, urgent: slotRunningLate(slot, item.status, Boolean(item.acceptedAt), now) };
+  }
 
   const hold = holdInfo(item.autoReleaseAt);
   if (!hold) return null;
@@ -122,6 +120,10 @@ export default function WorkQueue({
     );
   }
 
+  // One "now" for every row, so "today" and "tomorrow" cannot disagree
+  // between two orders on the same screen.
+  const now = new Date();
+
   return (
     <section className="mt-4">
       <div className="flex items-baseline justify-between">
@@ -135,7 +137,7 @@ export default function WorkQueue({
 
       <ul className="mt-2 space-y-2">
         {queue.items.map((item) => {
-          const due = dueLabel(item);
+          const due = dueLabel(item, now);
           return (
             <li key={item.id}>
               <Link

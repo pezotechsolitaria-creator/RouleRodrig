@@ -14,6 +14,19 @@ export type AdminKitchen = {
   lng: number | null;
   prepMinutesMin: number;
   prepMinutesMax: number;
+  /**
+   * M216 — hours ahead this kitchen must be booked (0 = walk-up, 0–72), and
+   * how many days ahead customers can book (0–3). Notice can never exceed
+   * days × 24: that kitchen would have no bookable time at all.
+   */
+  minNoticeHours: number;
+  preorderDays: number;
+  /**
+   * marketplace_settings.food_preorder_enabled. While it is off every kitchen
+   * is walk-up whatever the two numbers above say, so the card must say so or
+   * a saved "24 h notice" would change nothing and read as if it had.
+   */
+  preorderLive?: boolean;
   pickupHint: string | null;
   position: number;
   /** Halal certification is a property of the kitchen, and of whoever issued it. */
@@ -135,6 +148,16 @@ export type AdminFoodOrder = {
   deliveryInstructions: string | null;
   placedAt: string;
   autoReleaseAt: string | null;
+  /**
+   * M216 — the booked 30-minute slot as ISO bounds, or null for an ASAP order.
+   * Parsed from orders.pickup_slot on the server, so no screen ever has to
+   * read Postgres range text (the shape that silently defeated the merchant
+   * home). For a delivery order it is when the food leaves the kitchen.
+   */
+  pickupFrom: string | null;
+  pickupTo: string | null;
+  /** M14. Set by accept_order(); an accepted order is never auto-cancelled. */
+  acceptedAt: string | null;
   /** A proof of transfer exists. The path itself never leaves the server. */
   hasReceipt?: boolean;
   /** Cash still to be collected on a split payment. Minor units. */

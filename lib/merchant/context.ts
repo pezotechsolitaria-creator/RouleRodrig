@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cache } from "react";
 import { OPEN_ORDER_STATUSES } from "@/lib/admin/attention-load";
+import { parseSlotRange } from "@/lib/orders/slot";
 import type { MerchantKind } from "./kind";
 
 /** Which store the dashboard is currently acting for. See getAccessibleStores. */
@@ -145,6 +146,13 @@ export type WorkItem = {
   itemCount: number;
   /** Postgres tstzrange as text, or null. Present only where a slot was booked. */
   pickupSlot: string | null;
+  /**
+   * pickup / rr_delivery / customer_delivery (null on the oldest orders). Only
+   * for the WORD on the slot — "Collection" or "Delivery" — never for ranking.
+   */
+  fulfillment: string | null;
+  /** M14. An accepted order is never auto-cancelled, so it is not at risk. */
+  acceptedAt: string | null;
   autoReleaseAt: string | null;
   createdAt: string;
   dueAt: string;
@@ -182,7 +190,7 @@ export async function getWorkQueue(
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, order_number, status, customer_name, total, pickup_slot, auto_release_at, created_at, order_items(count)",
+      "id, order_number, status, customer_name, total, pickup_slot, fulfillment_method, accepted_at, auto_release_at, created_at, order_items(count)",
     )
     .eq("store_id", storeId)
     .in("status", OPEN_ORDER_STATUSES)
@@ -202,6 +210,8 @@ export async function getWorkQueue(
     customer_name: string | null;
     total: number | null;
     pickup_slot: string | null;
+    fulfillment_method: string | null;
+    accepted_at: string | null;
     auto_release_at: string | null;
     created_at: string;
     order_items: { count: number }[] | null;
@@ -216,6 +226,8 @@ export async function getWorkQueue(
       totalCents: r.total,
       itemCount: r.order_items?.[0]?.count ?? 0,
       pickupSlot: r.pickup_slot,
+      fulfillment: r.fulfillment_method,
+      acceptedAt: r.accepted_at,
       autoReleaseAt: r.auto_release_at,
       createdAt: r.created_at,
       dueAt: slotStart(r.pickup_slot) ?? r.auto_release_at ?? r.created_at,
@@ -242,16 +254,21 @@ export async function getWorkQueue(
 }
 
 /**
- * The lower bound of a Postgres tstzrange, as text.
+ * The lower bound of a Postgres tstzrange, as an ISO string.
  *
  * pickup_slot arrives over PostgREST as its literal range text —
  * ["2026-09-06 12:30:00+00","2026-09-06 13:00:00+00") — not as an object. Only
- * the start is needed, and only for ordering and display.
+ * the start is needed, and only for ordering.
+ *
+ * ISO, not the raw bound (M216). dueAt is compared as a STRING against
+ * auto_release_at, which PostgREST sends as "2026-09-06T…+00:00". The raw bound
+ * has a space where that has a "T", and a space sorts before every digit — so
+ * on the same day a 16:00 collection outranked a 09:00 deadline. Harmless
+ * while nothing had a slot; with Chez Banane booking ahead, it is the order of
+ * the whole list. Parsed by the one shared reader in lib/orders/slot.ts.
  */
 function slotStart(range: string | null): string | null {
-  if (!range) return null;
-  const m = range.match(/[[(]"?([^",)\]]+)/);
-  return m ? m[1] : null;
+  return parseSlotRange(range)?.from.toISOString() ?? null;
 }
 
 /** Cheap existence check for pages that only need to gate on "has a shop yet". */

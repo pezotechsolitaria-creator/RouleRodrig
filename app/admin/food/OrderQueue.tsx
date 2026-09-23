@@ -6,11 +6,12 @@ import { usePolling } from "@/lib/use-polling";
 import { toast } from "sonner";
 import {
   Loader2, RefreshCw, Bike, ShoppingBag, Phone, MapPin, Clock, ChefHat,
-  CheckCircle2, XCircle, ScanLine, StickyNote,
+  CheckCircle2, XCircle, ScanLine, StickyNote, CalendarClock,
 } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import { STATUS_LABEL, legalNextStatuses, type OrderStatus } from "@/lib/orders/status";
 import { foodWrite, type AdminFoodOrder } from "./types";
+import { bySoonestDue, canConfirmWithCook, confirmedLine, isRunningLate, slotLine } from "./queue-time";
 
 // The live kitchen queue — the operational centre of the whole feature.
 //
@@ -48,7 +49,11 @@ function minutesAgo(iso: string): number {
   return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
 }
 
-/** How long this order has been waiting, in words. The operator's real clock. */
+/**
+ * How long this order has been waiting, in words. The operator's real clock —
+ * for an order due now. A booked order's clock is its slot (M216), and the
+ * card says that first; this becomes "placed … ago" beneath it.
+ */
 function waited(iso: string): string {
   const m = minutesAgo(iso);
   if (m < 1) return "just now";
@@ -109,6 +114,35 @@ export default function OrderQueue({ kitchens }: { kitchens: { id: string; name:
         return;
       }
       toast.success(`${order.orderNumber} → ${STATUS_LABEL[status]}`);
+      void load();
+    },
+    [load],
+  );
+
+  // ── "CONFIRMED WITH COOK" (M217) ──────────────────────────────────────────
+  // The owner rings the cook, then says so here. NOT "Confirm payment": that
+  // one records the cash as received, and on a Friday lunch booked on
+  // Wednesday nobody has paid anything yet. This stops the auto-cancel after
+  // the slot and tells the customer the booking stands — and moves no money.
+  const confirmBooking = useCallback(
+    async (order: AdminFoodOrder) => {
+      if (!confirm(
+        `Confirm ${order.orderNumber} with the cook? The customer is told it is confirmed. No payment is recorded — that stays "Confirm payment", at the handover.`,
+      )) return;
+
+      setBusy(order.id);
+      const result = await foodWrite("/api/admin/food/orders", {
+        method: "PATCH",
+        body: JSON.stringify({ orderId: order.id, action: "accept" }),
+      });
+      setBusy(null);
+
+      if (!result.ok) {
+        toast.error(result.error);
+        void load();
+        return;
+      }
+      toast.success(`${order.orderNumber} confirmed — the customer has been told.`);
       void load();
     },
     [load],
@@ -232,13 +266,16 @@ export default function OrderQueue({ kitchens }: { kitchens: { id: string; name:
       )}
 
       {/* Grouped by status, most urgent first — not a flat list sorted by time,
-          because "what needs me next" is a question about state, not about when. */}
+          because "what needs me next" is a question about state, not about when.
+          WITHIN a group it is about when (M216): soonest due first, by slot if
+          one was booked, else by when it was placed. The API sends newest
+          first, which put Friday's pre-order above today's lunch. */}
       <div className="mt-5 space-y-6">
         {COLUMNS.map((col) => {
           const list = [
             ...(grouped.get(col.status) ?? []),
             ...(col.status === "pending_payment" ? grouped.get("awaiting_payment_confirmation") ?? [] : []),
-          ];
+          ].sort(bySoonestDue);
           if (list.length === 0) return null;
           return (
             <section key={col.status}>
@@ -252,6 +289,7 @@ export default function OrderQueue({ kitchens }: { kitchens: { id: string; name:
                     order={o}
                     busy={busy === o.id}
                     onMove={move}
+                    onConfirm={confirmBooking}
                     onNote={(id) => { setNoteFor(id); setNote(""); }}
                   />
                 ))}
@@ -265,7 +303,7 @@ export default function OrderQueue({ kitchens }: { kitchens: { id: string; name:
             <h3 className="font-bebas text-[12px] tracking-[0.25em] text-muted">FINISHED</h3>
             <div className="mt-2 space-y-3 opacity-60">
               {[...(grouped.get("collected") ?? []), ...(grouped.get("cancelled") ?? [])].map((o) => (
-                <OrderCard key={o.id} order={o} busy={false} onMove={move} onNote={() => {}} />
+                <OrderCard key={o.id} order={o} busy={false} onMove={move} onConfirm={confirmBooking} onNote={() => {}} />
               ))}
             </div>
           </section>
@@ -310,18 +348,29 @@ export default function OrderQueue({ kitchens }: { kitchens: { id: string; name:
 }
 
 function OrderCard({
-  order, busy, onMove, onNote,
+  order, busy, onMove, onConfirm, onNote,
 }: {
   order: AdminFoodOrder;
   busy: boolean;
   onMove: (o: AdminFoodOrder, s: OrderStatus) => void;
+  onConfirm: (o: AdminFoodOrder) => void;
   onNote: (id: string) => void;
 }) {
   const next = legalNextStatuses(order.status as OrderStatus);
   const isDelivery = order.fulfillment === "rr_delivery" || order.fulfillment === "customer_delivery";
+  const now = new Date();
   // Twenty minutes in one state during service is the point at which somebody
-  // should be looking at it, whatever the state is.
-  const stale = minutesAgo(order.placedAt) > 20 && !["collected", "cancelled"].includes(order.status);
+  // should be looking at it — for an order due NOW. A booked order is judged
+  // against its slot instead (M216): an order placed yesterday for tomorrow is
+  // early, not a day late. See queue-time.ts.
+  const stale = isRunningLate(order, now);
+  // "For tomorrow · 12:00–12:30". For delivery it is when the food leaves the
+  // kitchen: the driver job is only created when the order is marked ready.
+  const slot = slotLine(order, now);
+  // M217 — has anybody told the cook? Asked of accepted_at, never of status:
+  // a confirmed cash booking stays "pending payment" until the handover.
+  const confirmable = canConfirmWithCook(order);
+  const confirmed = confirmedLine(order, now);
 
   return (
     <article
@@ -335,8 +384,30 @@ function OrderCard({
             {order.orderNumber}
             <span className="ml-2 font-dm text-xs font-normal text-muted">{order.kitchenName}</span>
           </p>
+          {/* The day comes first on a pre-order, because it is the whole
+              message: the same dish for Friday and for now look identical. */}
+          {(slot || confirmed) && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {slot && (
+                <p
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-0.5 font-dm text-xs font-semibold ${
+                    stale ? "bg-orange-400/15 text-orange-300" : "bg-yellow/10 text-yellow"
+                  }`}
+                >
+                  <CalendarClock size={12} /> {slot}
+                </p>
+              )}
+              {confirmed && (
+                <p className="inline-flex items-center gap-1.5 rounded-lg bg-green-500/10 px-2 py-0.5 font-dm text-xs font-semibold text-green-300">
+                  <CheckCircle2 size={12} /> {confirmed}
+                </p>
+              )}
+            </div>
+          )}
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-dm text-xs text-muted">
-            <span className={stale ? "font-semibold text-orange-300" : ""}>{waited(order.placedAt)}</span>
+            <span className={stale && !slot ? "font-semibold text-orange-300" : ""}>
+              {slot ? `Placed ${waited(order.placedAt)}` : waited(order.placedAt)}
+            </span>
             <span aria-hidden>·</span>
             <span className="inline-flex items-center gap-1">
               {isDelivery ? <Bike size={12} /> : <ShoppingBag size={12} />}
@@ -410,6 +481,19 @@ function OrderCard({
 
       {next.length > 0 && (
         <div className="mt-3.5 flex flex-wrap gap-2">
+          {/* First, because on a booking it is the first thing that happens:
+              the cook is rung days before anyone pays. Never merged with
+              "Confirm payment" — see confirmBooking(). */}
+          {confirmable && (
+            <button
+              onClick={() => onConfirm(order)}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-yellow/50 px-4 py-2 font-dm text-xs font-bold text-yellow hover:bg-yellow/10 disabled:opacity-50"
+            >
+              {busy ? <Loader2 size={13} className="animate-spin" /> : <ChefHat size={13} />}
+              Confirmed with cook
+            </button>
+          )}
           {next
             // Cancel is offered last and styled differently — it is the only
             // action on this card that cannot be undone.

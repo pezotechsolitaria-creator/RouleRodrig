@@ -54,6 +54,12 @@ export async function GET(req: NextRequest) {
     .select(
       "store_id, prep_minutes_min, prep_minutes_max, pickup_hint, position, " +
         "halal_certified, halal_certifier, halal_certified_until, " +
+        // M216 — READ BACK, because the editor writes them. The panel's save()
+        // sends the WHOLE draft, so a field the edit form cannot load is a
+        // field every unrelated save resets: exactly what happened to
+        // offers_rr_delivery below. Unselected, fixing a typo in Chez Banane's
+        // tagline would have put it back to walk-up with no notice.
+        "min_notice_hours, preorder_days, " +
         // stores IS a real parent (food_kitchens.store_id → stores.id), so this
         // embed is the one that can be trusted.
         "stores(id, name, slug, tagline, status, address, phone, whatsapp, lat, lng)",
@@ -109,6 +115,8 @@ export async function GET(req: NextRequest) {
     halal_certified: boolean | null;
     halal_certifier: string | null;
     halal_certified_until: string | null;
+    min_notice_hours: number | null;
+    preorder_days: number | null;
     stores: Record<string, unknown> | Record<string, unknown>[] | null;
 
   };
@@ -166,6 +174,21 @@ export async function GET(req: NextRequest) {
     .in("store_id", rows.map((r) => r.store_id));
   const hasHours = new Set(((hourRows ?? []) as { store_id: string }[]).map((h) => h.store_id));
 
+  // M216 — the platform lever. While food_preorder_enabled is off,
+  // kitchen_notice_hours() answers 0 and every horizon is forced to today, so
+  // a kitchen set to "24 h notice" is walk-up regardless. The card has to say
+  // so, or saving the notice would look like it worked and change nothing.
+  // Undefined on a failed read, so the card claims nothing either way.
+  const { data: leverRow, error: leverError } = await admin
+    .from("marketplace_settings")
+    .select("food_preorder_enabled")
+    .limit(1)
+    .maybeSingle();
+  if (leverError) console.error("food_preorder_enabled read failed", leverError);
+  const preorderLive = leverError
+    ? undefined
+    : Boolean((leverRow as { food_preorder_enabled?: boolean } | null)?.food_preorder_enabled);
+
   const dishCount = new Map<string, { total: number; live: number }>();
   for (const p of (counts ?? []) as { store_id: string; status: string }[]) {
     const entry = dishCount.get(p.store_id) ?? { total: 0, live: 0 };
@@ -193,6 +216,9 @@ export async function GET(req: NextRequest) {
         lng: store?.lng ?? null,
         prepMinutesMin: r.prep_minutes_min,
         prepMinutesMax: r.prep_minutes_max,
+        minNoticeHours: r.min_notice_hours ?? 0,
+        preorderDays: r.preorder_days ?? 0,
+        preorderLive,
         pickupHint: r.pickup_hint,
         position: r.position,
         halalCertified: r.halal_certified ?? false,
@@ -299,6 +325,11 @@ export async function PATCH(req: NextRequest) {
     const kitchenPatch: Record<string, unknown> = {};
     if (v.prepMinutesMin !== undefined) kitchenPatch.prep_minutes_min = v.prepMinutesMin;
     if (v.prepMinutesMax !== undefined) kitchenPatch.prep_minutes_max = v.prepMinutesMax;
+    // M216 — in the SAME update as each other, because the database checks the
+    // pair together (notice <= days × 24): two writes would fail halfway
+    // whenever both move up at once.
+    if (v.minNoticeHours !== undefined) kitchenPatch.min_notice_hours = v.minNoticeHours;
+    if (v.preorderDays !== undefined) kitchenPatch.preorder_days = v.preorderDays;
     if (v.pickupHint !== undefined) kitchenPatch.pickup_hint = v.pickupHint?.trim() || null;
     if (v.position !== undefined) kitchenPatch.position = v.position;
     // Certification travels as a pair or not at all. Turning it OFF clears the
@@ -316,6 +347,15 @@ export async function PATCH(req: NextRequest) {
     }
     if (Object.keys(kitchenPatch).length) {
       const { error } = await admin.from("food_kitchens").update(kitchenPatch).eq("store_id", v.storeId);
+      // Only one half of the pair sent (the schema can only check both when
+      // both arrive), against a stored other half it now contradicts: the
+      // constraint's name is not a sentence, so give the owner one.
+      if (error && /food_kitchens_notice_within_horizon/.test(error.message)) {
+        return NextResponse.json(
+          { error: "The notice is longer than the days customers can book ahead, so no time would be left to choose. Raise the days ahead, or lower the notice." },
+          { status: 400 },
+        );
+      }
       if (error) throw new Error(error.message);
     }
 

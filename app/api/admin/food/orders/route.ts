@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { pushToCustomer } from "@/lib/push/send";
-import { guardFoodAdmin, readJson, failed } from "@/lib/food/guard";
+import { guardFoodAdmin, readJson, failed, type FoodAdminContext } from "@/lib/food/guard";
+import { notifyOrderCustomer } from "@/lib/notifications/order-events";
 import { ORDER_COLUMNS, hydrateOrders, balanceDueOf } from "@/lib/admin/order-hydrate";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
+import { parseSlotRange } from "@/lib/orders/slot";
 import { formatPickupCode } from "@/lib/orders/pickup";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
 import { channelsForStatus } from "@/lib/orders/email-policy";
@@ -24,6 +26,8 @@ const patchSchema = z.object({
   orderId: z.string().uuid(),
   status: z.enum(["paid", "preparing", "ready_for_pickup", "collected", "cancelled"]).optional(),
   internalNote: z.string().trim().max(2000).optional(),
+  // M217 — "Confirmed with cook". An ACTION, never a status: see acceptBooking().
+  action: z.literal("accept").optional(),
 });
 
 const NOT_FOUND_CODE = "RR003";
@@ -103,39 +107,51 @@ export async function GET(req: NextRequest) {
 
 
   return NextResponse.json({
-    orders: hydrated.map((o) => ({
-      id: o.id as string,
-      orderNumber: o.order_number as string,
-      status: o.status as OrderStatus,
-      kitchenId: o.store_id as string,
-      kitchenName: kitchenName.get(o.store_id as string) ?? "Kitchen",
-      customerName: o.customer_name as string | null,
-      customerPhone: o.customer_phone as string | null,
-      customerEmail: o.customer_email as string | null,
-      notes: o.notes as string | null,
-      subtotal: Number(o.subtotal ?? 0),
-      deliveryFee: Number(o.delivery_fee ?? 0),
-      total: Number(o.total ?? 0),
-      currency: (o.currency as string) ?? "MUR",
-      fulfillment: o.fulfillment_method as string,
-      deliveryZone: o.deliveryZoneName,
-      deliveryLat: o.delivery_lat as number | null,
-      deliveryLng: o.delivery_lng as number | null,
-      deliveryInstructions: o.delivery_instructions as string | null,
-      placedAt: (o.placed_at as string) ?? (o.created_at as string),
-      autoReleaseAt: o.auto_release_at as string | null,
-      // A boolean, not the path: the storage key is minted into a short-lived
-      // signed URL on demand rather than shipped to every browser that opens
-      // the queue. The admin could not see a proof of payment AT ALL before
-      // this — the column was never even selected.
-      hasReceipt: Boolean(o.payment_receipt_path),
-      // M79 — money still owed on a split payment. Summed from the ledger, the
-      // same way the kitchen screen does it, so the two can never disagree.
-      balanceDue: balanceDueOf(o),
-      receiptSubmittedAt: o.receipt_submitted_at as string | null,
-      payment: o.payments[0] ?? null,
-      items: o.items,
-    })),
+    orders: hydrated.map((o) => {
+      // M216 — the booked slot, as ISO bounds. Parsed HERE so the browser never
+      // reads Postgres range text: `new Date("2026-09-25T08:00:00+00")` is
+      // Invalid Date in V8, which is how the merchant home lost every slot.
+      const slot = parseSlotRange(o.pickup_slot as string | null);
+      return {
+        id: o.id as string,
+        orderNumber: o.order_number as string,
+        status: o.status as OrderStatus,
+        kitchenId: o.store_id as string,
+        kitchenName: kitchenName.get(o.store_id as string) ?? "Kitchen",
+        customerName: o.customer_name as string | null,
+        customerPhone: o.customer_phone as string | null,
+        customerEmail: o.customer_email as string | null,
+        notes: o.notes as string | null,
+        subtotal: Number(o.subtotal ?? 0),
+        deliveryFee: Number(o.delivery_fee ?? 0),
+        total: Number(o.total ?? 0),
+        currency: (o.currency as string) ?? "MUR",
+        fulfillment: o.fulfillment_method as string,
+        deliveryZone: o.deliveryZoneName,
+        deliveryLat: o.delivery_lat as number | null,
+        deliveryLng: o.delivery_lng as number | null,
+        deliveryInstructions: o.delivery_instructions as string | null,
+        placedAt: (o.placed_at as string) ?? (o.created_at as string),
+        // The 7-day cash HOLD. Not a deadline for a slotted order — an
+        // unaccepted pre-order is cancelled 30 minutes after its slot ends — so
+        // the queue shows pickupFrom/pickupTo instead and never this.
+        autoReleaseAt: o.auto_release_at as string | null,
+        pickupFrom: slot?.from.toISOString() ?? null,
+        pickupTo: slot?.to.toISOString() ?? null,
+        acceptedAt: (o.accepted_at as string | null) ?? null,
+        // A boolean, not the path: the storage key is minted into a short-lived
+        // signed URL on demand rather than shipped to every browser that opens
+        // the queue. The admin could not see a proof of payment AT ALL before
+        // this — the column was never even selected.
+        hasReceipt: Boolean(o.payment_receipt_path),
+        // M79 — money still owed on a split payment. Summed from the ledger, the
+        // same way the kitchen screen does it, so the two can never disagree.
+        balanceDue: balanceDueOf(o),
+        receiptSubmittedAt: o.receipt_submitted_at as string | null,
+        payment: o.payments[0] ?? null,
+        items: o.items,
+      };
+    }),
     counts,
     kitchens: kitchenIds.map((id) => ({ id, name: kitchenName.get(id) ?? "Kitchen" })),
   });
@@ -152,7 +168,16 @@ export async function PATCH(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input." }, { status: 400 });
   }
-  const { orderId, status, internalNote } = parsed.data;
+  const { orderId, status, internalNote, action } = parsed.data;
+  if (action === "accept") {
+    // Alone, or not at all. A status riding along would go through
+    // admin_update_order_status — and 'paid' there captures the cash row, the
+    // exact thing this action exists to avoid.
+    if (status || internalNote) {
+      return NextResponse.json({ error: "Confirm the booking on its own." }, { status: 400 });
+    }
+    return acceptBooking(admin, orderId);
+  }
   if (!status && !internalNote) {
     return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
   }
@@ -387,6 +412,76 @@ export async function PATCH(req: NextRequest) {
   });
 
   return NextResponse.json({ ok: true, status: targetStatus });
+}
+
+/**
+ * "Confirmed with cook" (M217) — the owner has rung the cook, and the cook
+ * knows about this order.
+ *
+ * Chez Banane's orders arrive a day or two ahead and are paid in cash at the
+ * handover. The owner's only buttons were status moves, and the one that
+ * looked like "confirm" was 'paid' — which CAPTURES the pending cash row: money
+ * recorded on Wednesday for a Friday lunch nobody has paid for, a customer told
+ * "paid", and a later no-show turned into a refund of cash that never existed.
+ * Doing nothing was no better: an order nobody accepts is cancelled 30 minutes
+ * after its slot ends, possibly after the food was handed over.
+ *
+ * admin_accept_order() records accepted_at (which is what stops that sweep),
+ * clears the hold and writes the customer's in-app row. It touches NO payment,
+ * and this path never reaches admin_update_order_status. It is service_role
+ * only, so it runs through the privileged client guardFoodAdmin() handed back
+ * once it had verified the admin — the same door as the status moves above.
+ */
+async function acceptBooking(admin: FoodAdminContext["admin"], orderId: string): Promise<NextResponse> {
+  const { data: current } = await admin
+    .from("orders")
+    .select("order_number, status, store_id, accepted_at")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (!current) return NextResponse.json({ error: "Order not found." }, { status: 404 });
+
+  // Food only, exactly like the status moves: a shop's order is its merchant's.
+  const { data: isKitchen } = await admin
+    .from("food_kitchens")
+    .select("store_id")
+    .eq("store_id", current.store_id as string)
+    .maybeSingle();
+  if (!isKitchen) return NextResponse.json({ error: "Order not found." }, { status: 404 });
+
+  const { data, error } = await admin.rpc("admin_accept_order", { p_order_id: orderId }).single();
+  if (error) {
+    if (error.code === NOT_FOUND_CODE) return NextResponse.json({ error: error.message }, { status: 404 });
+    if (error.code === ILLEGAL_TRANSITION_CODE) return NextResponse.json({ error: error.message }, { status: 409 });
+    if (error.code === SAFE_RPC_ERROR_CODE) return NextResponse.json({ error: error.message }, { status: 400 });
+    return failed(error, "Could not confirm that order.");
+  }
+
+  // The RPC is idempotent: a second tap returns the first confirmation. Only
+  // the FIRST one tells anybody anything.
+  const firstTime = !current.accepted_at;
+  if (firstTime) {
+    // The email (and push) the RPC cannot send. notifyOrderCustomer names the
+    // booked day and says nothing has been charged — the same message the
+    // merchant's own Accept sends. Best-effort: the confirmation has committed,
+    // and a mail provider being down must not make the owner ring the cook twice.
+    try {
+      await notifyOrderCustomer(orderId, "accepted");
+    } catch (err) {
+      console.error("food order accept notification failed", err);
+    }
+    await audit(admin, {
+      action: "order.accepted",
+      entityType: "order",
+      entityId: orderId,
+      diff: { status: current.status, by: "platform" },
+    });
+  }
+
+  const acceptedAt =
+    (data as { accepted_at?: string | null } | null)?.accepted_at ??
+    (current.accepted_at as string | null) ??
+    null;
+  return NextResponse.json({ ok: true, acceptedAt, alreadyConfirmed: !firstTime });
 }
 
 /**

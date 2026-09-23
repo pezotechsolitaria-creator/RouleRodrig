@@ -157,6 +157,12 @@ const EN = {
     halal: "Halal",
     /** Sits immediately before the price: "from Rs 120". */
     from: "from",
+    /**
+     * M216. Stands where the "15–30 min" clock stood for a kitchen that needs
+     * notice: that figure is the cooking once it starts, and next to a dish
+     * you cannot have today it read as a promise. Short — it sits on a card.
+     */
+    noticeBadge: (hours: number) => `Order ${hours} h ahead`,
   },
 
   // ── /food/[slug] ────────────────────────────────────────────────────────
@@ -198,7 +204,7 @@ const EN = {
       kitchen_closed: "The kitchen is closed right now.",
       other: "It is off the menu for the moment.",
     },
-    seeReady: "See what's ready now",
+    seeReady: "See what’s ready now",
     chooseSize: "CHOOSE A SIZE",
     /** Only when a variant has no name of its own. */
     standard: "Standard",
@@ -210,6 +216,9 @@ const EN = {
     addToOrder: "Add to order",
     readyIn: (min: number, max: number) =>
       `Usually ready in ${min}–${max} minutes once the kitchen starts`,
+    /** M216 — replaces readyIn for a kitchen that must be booked ahead. */
+    noticeLead: (kitchen: string, hours: number) =>
+      `${kitchen} cooks to order — choose your day and time at checkout, at least ${hours} hours ahead.`,
   },
 
   // ── The "+" on a card ───────────────────────────────────────────────────
@@ -292,8 +301,30 @@ const EN = {
     today: "Today",
     tomorrow: "Tomorrow",
     closedNow: (kitchen: string) => `${kitchen} is closed now.`,
+    // `day` arrives already shaped for a sentence ("tomorrow", "Friday 25") —
+    // lower-casing it here turned a weekday into "friday".
     orderingFor: (day: string, from: string, to: string) =>
-      `You are ordering for ${day.toLowerCase()}, ${from} – ${to}.`,
+      `You are ordering for ${day}, ${from} – ${to}.`,
+    // M216 — a kitchen that needs notice.
+    needsNotice: (kitchen: string, hours: number) =>
+      `${kitchen} cooks to order — book at least ${hours} hours ahead.`,
+    bookAhead: "book ahead",
+    // For a notice kitchen the picker is also shown for delivery (M216). No
+    // Roulé job exists until the cook marks the order ready, so the time is
+    // the HANDOVER, not the knock on the door.
+    handToDriver: (kitchen: string) =>
+      `For delivery, this is when ${kitchen} hands your order to the driver.`,
+    handToCollector: (kitchen: string) =>
+      `This is when the person you send can collect it from ${kitchen}.`,
+    // M216 — never a silent fall back to "as soon as it's ready", which a
+    // notice kitchen refuses.
+    loadFailed: "We could not load the times.",
+    retry: "Retry",
+    // Friday evening at a kitchen needing 24 hours, closed Sunday: every day
+    // in the horizon is too soon or shut. One sentence, not three dead chips.
+    noneBookable: (kitchen: string) =>
+      `${kitchen} has no time left to book in the days it is taking orders for. Check again tomorrow, when the next day opens.`,
+    weekdays: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
     noSlots: "No collection times left today.",
     noHours: "This kitchen has not set its opening hours yet.",
     closedDay: "Closed that day.",
@@ -390,6 +421,9 @@ const FR: FoodCopy = {
     halalCertified: "Certifié halal",
     halal: "Halal",
     from: "à partir de",
+    // "Commande 24 h à l’avance" measured 129px and wrapped to two lines in a
+    // 152px rail card; this is 94px, and "réserver" is the checkout's own verb.
+    noticeBadge: (hours: number) => `Réserver ${hours} h avant`,
   },
 
   dish: {
@@ -428,6 +462,8 @@ const FR: FoodCopy = {
     addToOrder: "Ajouter à la commande",
     readyIn: (min: number, max: number) =>
       `Prêt en général en ${min}–${max} minutes une fois que le restaurant commence`,
+    noticeLead: (kitchen: string, hours: number) =>
+      `${kitchen} cuisine à la commande — choisissez le jour et l’heure en passant commande, au moins ${hours} h à l’avance.`,
   },
 
   quickAdd: {
@@ -486,7 +522,21 @@ const FR: FoodCopy = {
     tomorrow: "Demain",
     closedNow: (kitchen) => `${kitchen} est fermé maintenant.`,
     orderingFor: (day, from, to) =>
-      `Vous commandez pour ${day.toLowerCase()}, ${from} – ${to}.`,
+      `Vous commandez pour ${day}, ${from} – ${to}.`,
+    needsNotice: (kitchen, hours) =>
+      `${kitchen} cuisine sur commande — réservez au moins ${hours} h à l’avance.`,
+    bookAhead: "à réserver",
+    handToDriver: (kitchen) =>
+      `En livraison, c’est l’heure à laquelle ${kitchen} remet votre commande au chauffeur.`,
+    handToCollector: (kitchen) =>
+      // "auprès de", not "chez": kitchens here are often called "Chez …", and
+      // "chez Chez Banane" is the doubling lib/orders/slot-copy.ts already fixed.
+      `C’est l’heure à laquelle la personne que vous envoyez peut la récupérer auprès de ${kitchen}.`,
+    loadFailed: "Nous n’avons pas pu charger les horaires.",
+    retry: "Réessayer",
+    noneBookable: (kitchen) =>
+      `${kitchen} n’a plus d’horaire libre sur les jours ouverts à la commande. Revenez demain, quand le jour suivant s’ouvre.`,
+    weekdays: ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"],
     noSlots: "Plus de créneaux aujourd’hui.",
     noHours: "Cette cuisine n’a pas encore indiqué ses horaires.",
     closedDay: "Fermé ce jour-là.",
@@ -570,6 +620,8 @@ const CR: FoodCopy = {
     halalCertified: "Sertifie halal",
     halal: "Halal",
     from: "apartir",
+    // "davans" (the checkout's word) wrapped in a 152px rail card; "avan" fits.
+    noticeBadge: (hours: number) => `Komann ${hours} er avan`,
   },
 
   dish: {
@@ -606,6 +658,8 @@ const CR: FoodCopy = {
     addToOrder: "Azout dan komann",
     readyIn: (min: number, max: number) =>
       `Normalman pare dan ${min}–${max} minit apre ki lakwizinn koumanse`,
+    noticeLead: (kitchen: string, hours: number) =>
+      `${kitchen} kwi lor komann — swazir ki zour ek ki ler kan ou fer ou komann, omwin ${hours} er davans.`,
   },
 
   quickAdd: {
@@ -663,7 +717,19 @@ const CR: FoodCopy = {
     tomorrow: "Demin",
     closedNow: (kitchen) => `${kitchen} ferme la.`,
     orderingFor: (day, from, to) =>
-      `Ou pe komann pou ${day.toLowerCase()}, ${from} – ${to}.`,
+      `Ou pe komann pou ${day}, ${from} – ${to}.`,
+    needsNotice: (kitchen, hours) =>
+      `${kitchen} kwi lor komann — komann omwin ${hours} er davans.`,
+    bookAhead: "komann davans",
+    handToDriver: (kitchen) =>
+      `Pou livrezon, samem ler ki ${kitchen} donn sofer la ou komann.`,
+    handToCollector: (kitchen) =>
+      `Samem ler ki dimoun ki ou avoy kapav al pran li kot ${kitchen}.`,
+    loadFailed: "Nou pa finn kapav sarz bann ler.",
+    retry: "Esey ankor",
+    noneBookable: (kitchen) =>
+      `${kitchen} nepli ena ler pou komann dan bann zour ki li pe pran komann. Get ankor demin, kan enn nouvo zour ouver.`,
+    weekdays: ["Dimans", "Lindi", "Mardi", "Merkredi", "Zedi", "Vandredi", "Samdi"],
     noSlots: "Nepli ena ler pou zordi.",
     noHours: "Sa lakwizinn la pankor met so lertan.",
     closedDay: "Ferme sa zour la.",

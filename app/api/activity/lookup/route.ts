@@ -144,7 +144,14 @@ export async function POST(req: NextRequest) {
         // this and the card simply dropped it, so /track showed a customer
         // "Pending" with no hint that the order dies on a deadline. Gated on
         // the stage because cancelled rows keep a stale auto_release_at.
-        holdUntil: stage === "pending" ? ((o.autoReleaseAt as string | null) ?? null) : null,
+        //
+        // M216: NOT for a booked food order. Its deadline is the slot
+        // lookup_order() now returns; the 7-day cash hold would tell a
+        // Friday-lunch customer "reserved until next Wednesday".
+        holdUntil:
+          stage === "pending" && !o.pickupFrom ? ((o.autoReleaseAt as string | null) ?? null) : null,
+        pickupFrom: (o.pickupFrom as string | null) ?? null,
+        pickupTo: (o.pickupTo as string | null) ?? null,
       };
       return NextResponse.json({ activity, raw: o });
     }

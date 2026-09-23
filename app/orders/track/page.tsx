@@ -7,7 +7,10 @@ import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, Search, CheckCircle2, UserPlus, PackageSearch, Phone } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import { statusLabel, type OrderStatus } from "@/lib/orders/status";
-import { holdInfo, customerHoldCopy, holdRemaining, type PaymentProvider } from "@/lib/orders/hold";
+import { holdInfo, holdIsTheDeadline, customerHoldCopy, holdRemaining, type PaymentProvider } from "@/lib/orders/hold";
+import { slotFromBounds } from "@/lib/orders/slot";
+import { slotCard, slotCardApplies } from "@/lib/orders/slot-copy";
+import BookedSlotCard from "@/components/orders/BookedSlotCard";
 import BankTransferPanel from "@/components/orders/BankTransferPanel";
 import RefundPanel from "@/components/refunds/RefundPanel";
 import DeliveryStatusCard from "@/components/orders/DeliveryStatusCard";
@@ -51,6 +54,10 @@ type TrackedOrder = {
   total: number;
   placedAt: string | null;
   autoReleaseAt: string | null;
+  // M216. The booked slot's bounds, ISO ("2026-09-25T08:00:00+00:00"), or
+  // null for an order with no time.
+  pickupFrom?: string | null;
+  pickupTo?: string | null;
   acceptedAt: string | null;
   receiptSubmittedAt: string | null;
   provider: PaymentProvider | null;
@@ -101,7 +108,7 @@ export default function TrackOrderPage() {
 }
 
 function TrackOrder() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const searchParams = useSearchParams();
   const [orderNumber, setOrderNumber] = useState("");
   const [email, setEmail] = useState("");
@@ -215,9 +222,23 @@ function TrackOrder() {
   }
 
   const hold = order ? holdInfo(order.autoReleaseAt) : null;
+  // M216: an order booked for a slot shows the slot, never the hold — the
+  // same rule, and the same reason, as the signed-in order page.
+  const slot = order ? slotFromBounds(order.pickupFrom, order.pickupTo) : null;
   // Same rule as the signed-in order page: the clock only matters while the
   // order is still waiting, and an accepted order has had its fuse cleared.
-  const showHold = !!hold && order?.status === "pending_payment" && !order?.acceptedAt;
+  const showHold =
+    !!hold && order?.status === "pending_payment" && !order?.acceptedAt && holdIsTheDeadline(slot);
+  const slotCopy =
+    order && slot && slotCardApplies(order.status)
+      ? slotCard(slot, {
+          fulfillment: order.fulfillment,
+          storeName: order.storeName,
+          provider: order.provider,
+          status: order.status,
+          lang: language,
+        })
+      : null;
   const isBankTransfer = order?.provider === "bank_transfer";
   const awaitingConfirmation = order?.status === "awaiting_payment_confirmation";
   const showBankPanel =
@@ -304,6 +325,11 @@ function TrackOrder() {
 
         {order && (
           <div className="mt-6 space-y-4">
+            {/* WHEN comes first (M216). A guest who booked Friday's lunch on a
+                Wednesday opens this page to answer one question, and before
+                this the only date on it was a hold a week away. */}
+            {slotCopy && <BookedSlotCard copy={slotCopy} />}
+
             <div className="rounded-2xl border border-white/10 bg-dark-card p-5">
               <div className="flex items-center justify-between gap-3">
                 <span className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{order.orderNumber}</span>

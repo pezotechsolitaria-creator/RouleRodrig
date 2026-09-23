@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Ban, AlertTriangle } from "lucide-react";
+import { Check, Ban, AlertTriangle, CalendarClock } from "lucide-react";
 import { allDayFrom } from "@/lib/food/all-day";
 
 // ── The batching screen ─────────────────────────────────────────────────────
@@ -13,26 +13,47 @@ import { allDayFrom } from "@/lib/food/all-day";
 // timers, no buttons. It is read at arm's length, mid-service, and every extra
 // element is something the eye has to skip. The quantity is the biggest thing
 // on the row because it is the only number being acted on.
+//
+// M216: it is TODAY's totals. Orders booked for a later day are left out and
+// counted in one line, so the cook can see they exist without adding them to
+// today's pans. The day test is the board's own (lib/kitchen/board.ts).
 
 type Order = {
   kitchen?: string | null;
   items: { name: string; variant: string | null; qty: number; soldOut?: boolean }[];
   finished?: boolean;
   waitingOnTransfer?: boolean;
+  pickupFrom?: string | null;
+  pickupTo?: string | null;
 };
 
-export default function AllDayPanel({ orders }: { orders: Order[] }) {
-  const view = allDayFrom(orders);
+/** "1 order for a later day is" / "3 orders for later days are". */
+function laterWords(n: number): string {
+  return n === 1 ? "1 order for a later day is" : `${n} orders for later days are`;
+}
+
+/**
+ * `now` is the board's clock, passed down rather than read here, so this tab
+ * and the Orders tab split today from later at the same instant.
+ */
+export default function AllDayPanel({ orders, now }: { orders: Order[]; now: number }) {
+  const view = allDayFrom(orders, new Date(now));
 
   if (view.groups.length === 0) {
     return (
       <div className="rounded-2xl border border-dark-border bg-dark-card p-8 text-center">
         <Check size={26} className="mx-auto text-green-400" />
-        <p className="mt-2 font-syne text-base font-bold">Nothing to cook</p>
+        <p className="mt-2 font-syne text-base font-bold">
+          {view.laterOrders > 0 ? "Nothing to cook today" : "Nothing to cook"}
+        </p>
         <p className="mt-1 font-dm text-sm text-muted">
-          {view.excludedOrders > 0
-            ? "The only orders in are still waiting on payment."
-            : "Totals appear here the moment an order comes in."}
+          {view.excludedOrders > 0 && view.laterOrders > 0
+            ? "The orders in are still waiting on payment or booked for a later day."
+            : view.excludedOrders > 0
+              ? "The only orders in are still waiting on payment."
+              : view.laterOrders > 0
+                ? `${laterWords(view.laterOrders)} under Coming up on the Orders tab.`
+                : "Totals appear here the moment an order comes in."}
         </p>
       </div>
     );
@@ -45,6 +66,7 @@ export default function AllDayPanel({ orders }: { orders: Order[] }) {
       <div className="flex items-baseline justify-between gap-3 rounded-xl border border-dark-border bg-dark-card px-4 py-3">
         <span className="font-dm text-sm text-muted">
           {view.countedOrders} {view.countedOrders === 1 ? "order" : "orders"}
+          {view.laterOrders > 0 && " today"}
         </span>
         <span className="font-syne text-lg font-bold text-yellow tabular-nums">
           {view.totalPortions} {view.totalPortions === 1 ? "portion" : "portions"}
@@ -60,6 +82,19 @@ export default function AllDayPanel({ orders }: { orders: Order[] }) {
             {view.excludedOrders === 1
               ? "1 more order is not counted here — it is still waiting on the customer's bank transfer."
               : `${view.excludedOrders} more orders are not counted here — they are still waiting on the customer's bank transfer.`}
+          </span>
+        </p>
+      )}
+
+      {/* Not a warning — nothing is wrong. Quiet, so it is not confused with
+          the unpaid line above, but present, so "12 portions" is plainly
+          today's twelve and Friday's orders are known to exist. */}
+      {view.laterOrders > 0 && (
+        <p className="flex items-start gap-2 rounded-xl border border-dark-border bg-dark-card px-4 py-3 font-dm text-sm text-muted">
+          <CalendarClock size={15} className="mt-0.5 shrink-0" />
+          <span>
+            {laterWords(view.laterOrders)} not counted —{" "}
+            {view.laterOrders === 1 ? "cook it on its day." : "cook them on their day."}
           </span>
         </p>
       )}

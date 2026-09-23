@@ -29,9 +29,17 @@ export const revalidate = 3600;
 // the names most likely to disappear when the demo is retired. The page
 // describes the cuisine and the mechanism instead, both of which are stable.
 //
-// The prices ARE real and are stated: Rs 80 is the smallest dish on the live
-// page, Rs 2 500 the whole grilled lobster, and 15 to 30 minutes is what every
-// kitchen quotes. Those come off the rendered page, not from a guess.
+// The prices ARE real and are stated: Rs 1 000 is the smallest item on the
+// live menu (the beach package), Rs 2 500 the grilled-lobster package — read
+// from food_catalog on 24 Sept 2026. The page used to say "dès Rs 80… des
+// caris, des nouilles", the demo kitchen's menu, weeks after it was purged.
+//
+// No cooking time is promised (M216). This page used to say every kitchen
+// quotes 15 to 30 minutes and that only what is cooked on the spot is offered;
+// since 23 Sept 2026 Chez Banane, the kitchen on /food, takes orders a day or
+// two ahead and cash on collection (M201). The page says what the checkout
+// does — some kitchens cook on the spot, some need a day's notice, and the
+// customer picks the day and time — in step with lib/food-faq.ts.
 //
 // No delivery promise beyond what exists. Collection is always available and
 // free; delivery is offered where the kitchen offers it, and the page says it
@@ -39,7 +47,7 @@ export const revalidate = 3600;
 
 const TITLE = "Manger à Rodrigues : commander en ligne | Roule Rodrigues";
 const DESCRIPTION =
-  "Commander à manger à l'île Rodrigues : cuisine rodriguaise préparée par des cuisines locales, dès Rs 80. Retrait gratuit ou livraison, prix et délai affichés avant de commander.";
+  "Commander à manger à Rodrigues : cuisine rodriguaise de cuisines locales, dès Rs 1 000. À commander 24 h à l’avance, retrait ou livraison, en espèces.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -69,15 +77,15 @@ export const metadata: Metadata = {
 const FAQ = [
   {
     q: "Peut-on commander à manger en ligne à Rodrigues ?",
-    a: "Oui. Les plats des cuisines de l'île sont proposés avec leur prix et leur temps de préparation, et vous commandez depuis le site sans passer un appel. La plupart des cuisines annoncent 15 à 30 minutes.",
+    a: "Oui. Les plats des cuisines de l’île sont proposés avec leur prix, et vous commandez depuis le site sans passer un appel. Chaque plat indique combien de temps à l’avance le commander : une cuisine qui cuisine à la commande demande un jour de préavis — Chez Banane, au moins 24 heures. Au moment de commander, vous choisissez le jour et l’heure qui vous conviennent.",
   },
   {
     q: "Combien coûte un repas à Rodrigues ?",
-    a: "Les plats commencent autour de Rs 80 pour une petite portion et montent jusqu'à Rs 2 500 pour une langouste grillée entière, avec des caris, du poisson grillé et des nouilles entre les deux. Le prix est affiché avant que vous commandiez, pas à la fin.",
+    a: "Aujourd’hui, les formules vont de Rs 1 000 à Rs 2 500 pour la formule langouste grillée. Le prix est affiché avant que vous commandiez, pas à la fin, et vous payez la cuisine en espèces au retrait.",
   },
   {
     q: "Peut-on venir chercher sa commande plutôt que payer la livraison ?",
-    a: "Oui, et le retrait est sans frais : vous recevez un code à présenter à la cuisine en arrivant. La livraison reste possible lorsque la cuisine la propose.",
+    a: "Oui, et le retrait est sans frais : vous recevez un code à présenter à la cuisine en arrivant. Vous payez la cuisine, pas le site : Chez Banane se règle en espèces au retrait. La livraison reste possible lorsque la cuisine la propose.",
   },
   {
     q: "Y a-t-il des plats végétariens, halal ou sans gluten ?",
@@ -147,7 +155,7 @@ export default async function MangerARodriguesPage() {
               availableLanguage: ["fr", "en", "mfe"],
             },
             description:
-              "Commandez des plats rodriguais préparés par les cuisines de l'île : prix et temps de préparation affichés avant la commande, retrait gratuit avec un code, ou livraison lorsque la cuisine la propose.",
+              "Commandez des plats rodriguais préparés par les cuisines de l’île : prix affiché avant la commande, jour et heure de retrait au choix, retrait gratuit avec un code, ou livraison lorsque la cuisine la propose.",
           },
           breadcrumbLd([
             { name: "Accueil", url: SITE_URL },
@@ -180,19 +188,21 @@ export default async function MangerARodriguesPage() {
             <p className="mt-4 font-dm text-muted leading-relaxed max-w-2xl">
               La cuisine rodriguaise se joue entre la mer et le jardin
               créole&nbsp;: ourite, poisson grillé au charbon, caris et
-              rougailles. Les cuisines de l&apos;île les préparent à la
-              commande — vous voyez le prix et le temps de préparation avant de
-              commander, et vous venez chercher ou vous faites livrer.
+              rougailles. Les cuisines de l’île les préparent à la
+              commande, avec un jour de préavis. Vous voyez le prix avant de
+              commander, vous choisissez
+              le jour et l’heure, et vous venez chercher ou vous faites livrer.
             </p>
 
             <ul className="mt-7 space-y-2.5">
               {[
-                "Dès Rs 80 le plat, jusqu'à Rs 2 500 pour une langouste entière",
-                "Prix et temps de préparation affichés avant la commande",
+                "Dès Rs 1 000, jusqu’à Rs 2 500 pour la formule langouste",
+                "Prix affiché avant la commande, jour et heure de retrait au choix",
                 "Retrait sans frais, avec un code à présenter à la cuisine",
                 "Livraison lorsque la cuisine la propose",
                 "Filtres végétarien, halal, sans gluten et fruits de mer",
-                "Seuls les plats réellement préparés sur le moment sont proposés",
+                "Sur le moment ou avec un jour de préavis : chaque plat l’indique",
+                "Chez Banane se règle en espèces au retrait",
               ].map((li) => (
                 <li
                   key={li}

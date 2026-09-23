@@ -133,7 +133,9 @@ describe("it ships off", () => {
 
 // ── THE WIRING ──────────────────────────────────────────────────────────────
 // The engine is only worth having if checkout can reach it, and only safe if
-// shop and event checkout cannot accidentally reach it.
+// shop and event checkout cannot accidentally reach it. Since M216 it is also
+// only CORRECT if checkout insists on a time where the kitchen does: ASAP is
+// no longer an answer that always works.
 
 const SRC = (...p: string[]) => readFileSync(join(__dirname, "..", ...p), "utf8");
 
@@ -170,6 +172,23 @@ describe("checkout reaches the new door, and only for food", () => {
     // RR030 sentences are written for a human: "The kitchen is closed then."
     expect(route).toContain('error.code === "RR030"');
   });
+
+  it("sends RR030's code, so the form can drop the time and re-read", () => {
+    // M216: without the code the form cannot tell "that time is gone" from
+    // any other 409, and the customer is left holding the refused slot.
+    expect(route).toMatch(
+      /error\.code === "RR030"\) \{\s*return NextResponse\.json\(\{ error: error\.message, code: error\.code \}, \{ status: 409 \}\)/,
+    );
+  });
+
+  it("the grouped path maps the notice wall's refusal too", () => {
+    // t_orders_kitchen_notice fires on EVERY insert into orders, including
+    // the ones create_order_group makes. Unmapped, it read "Something went
+    // wrong" — a 500 for a rule with a sentence of its own.
+    const grouped = SRC("app", "api", "checkout", "group.ts");
+    expect(grouped).toContain('const KITCHEN_NOTICE_CODE = "RR030"');
+    expect(grouped).toContain("code === KITCHEN_NOTICE_CODE");
+  });
 });
 
 describe("the slots endpoint decides nothing", () => {
@@ -187,21 +206,47 @@ describe("the slots endpoint decides nothing", () => {
   it("is rate limited", () => {
     expect(api).toContain('guardShared(req, "food-slots"');
   });
+
+  it("asks kitchen_notice_hours, the same question the validator and the wall ask", () => {
+    // M216. If the picker read the column itself, or skipped the platform
+    // lever inside kitchen_notice_hours(), it could draw an ASAP button that
+    // food_pickup_window and the orders trigger then refuse.
+    expect(api).toContain('rpc("kitchen_notice_hours"');
+    expect(api).toContain("noticeHours === 0");
+    expect(api).toMatch(/const asap = !kitchenError && /);
+  });
 });
 
 describe("the picker is mounted, and only where it can work", () => {
   const form = SRC("components", "checkout", "CheckoutForm.tsx");
   const picker = SRC("components", "food", "WhenPicker.tsx");
+  const gate = SRC("lib", "checkout", "when-gate.ts");
 
-  it("renders for food collection only", () => {
-    // Delivery has its own timing story and the kitchen's window is not the
-    // rider's; shop and event checkout must never see this control.
-    expect(form).toContain('sellerDomain === "food" && fulfillment === "pickup"');
+  it("belongs to food orders only — every fulfilment for a notice kitchen, collection for a walk-up", () => {
+    // M161 pinned `sellerDomain === "food" && fulfillment === "pickup"`:
+    // delivery had its own timing story. M216 ended that for a kitchen that
+    // needs notice — food_pickup_window AND the orders trigger refuse ASAP
+    // whatever the fulfilment, so a delivery order with no time can never be
+    // placed. For delivery the slot is the HANDOVER: no Roulé job exists
+    // until the cook marks the order ready. Walk-up kitchens keep M161's
+    // rule. Shop and event checkout must still never see this control.
+    expect(form).toContain('const isFood = sellerDomain === "food"');
+    expect(form).toContain("{isFood && cart?.storeId && (");
+    expect(form).toContain("show={timing.visible}");
+    expect(gate).toContain('return isFood && (f === "pickup" || needsNoticeFor(isFood, when));');
+    expect(form).not.toContain('sellerDomain === "food" && fulfillment === "pickup"');
   });
 
-  it("sends both fields or neither", () => {
-    expect(form).toContain("pickupDate: slot?.date");
-    expect(form).toContain("pickupTime: slot?.time");
+  it("sends both fields or neither — and never a slot the customer cannot see", () => {
+    // `slot` is form state and survives a switch of fulfilment; what travels
+    // is the gated copy, null whenever the picker is not shown for THIS order.
+    expect(form).toContain("const sentSlot = timing.slot;");
+    expect(form).toContain("pickupDate: sentSlot?.date");
+    expect(form).toContain("pickupTime: sentSlot?.time");
+    expect(form).not.toContain("pickupDate: slot?.date");
+    expect(gate).toContain("const slot = applies ? i.slot : null;");
+    // ...and it is dropped when the fulfilment changes to one it does not fit.
+    expect(form).toContain("if (!whenAppliesTo(isFood, f, when)) setSlot(null);");
   });
 
   it("keeps the choice in form state, never in storage or the URL", () => {
@@ -218,15 +263,80 @@ describe("the picker is mounted, and only where it can work", () => {
     expect(picker).toContain('fetch("/api/food/slots"');
     expect(picker).not.toContain("Indian/Mauritius");
     expect(picker).not.toMatch(/opens_at|closes_at|preorder_days/);
+    // The sentence under a slot is built from the server's instant
+    // (startsAt), in lib/orders/slot.ts — not from offset maths here.
+    expect(picker).not.toContain("@/lib/orders/slot");
+    expect(picker).toContain("startsAt: first.startsAt");
   });
 
-  it("does not block checkout when it cannot load", () => {
-    // Falling back to ASAP is the pre-M161 behaviour, which always works.
-    expect(picker).toContain("setSlots([])");
+  it("says so when it cannot load — no silent fall back to ASAP", () => {
+    // Until M216 a failed read set an empty list and the customer went ahead
+    // as ASAP, "the pre-M161 behaviour, which always works". It no longer
+    // does: a kitchen that needs notice refuses ASAP. The failure is drawn,
+    // with a Retry, and reported so checkout holds the button.
+    expect(picker).not.toContain("setSlots([])");
+    expect(picker).toContain("setFailed(true)");
+    expect(picker).toContain("{c.loadFailed}");
+    expect(picker).toContain("setAttempt((a) => a + 1)");
+    expect(gate).toMatch(/i\.when\.status === "failed"\s*\?\s*"failed"/);
   });
 
-  it("hides ASAP when the kitchen is shut", () => {
-    expect(picker).toContain("asapAvailable && (");
+  it("offers ASAP only when the kitchen is cooking now AND the server takes ASAP", () => {
+    // M161 pinned `asapAvailable && (` — open now. M216: a kitchen that needs
+    // notice is often OPEN, and that is exactly when "as soon as it's ready"
+    // would be drawn and then refused. The server's own answer (asap, from
+    // /api/food/slots) is the second condition, and the ONLY one the button
+    // renders under.
+    expect(picker).toContain("const asapOffered = asapAvailable && serverAsap;");
+    expect(picker).toContain("setServerAsap(b.asap !== false)");
+    expect(picker).toContain("{asapOffered && (");
+    expect(picker).not.toContain("{asapAvailable && (");
+  });
+
+  it("draws the reason when nothing can be booked, never an empty space above a dark button", () => {
+    // Friday evening at a kitchen needing 24 hours and shut on Sunday: no
+    // ASAP, no bookable day. Checkout holds the button ("none"), so the
+    // picker must say why. Only a walk-up kitchen with no pre-orders — where
+    // ASAP is the whole story — may still draw nothing.
+    expect(picker).toContain("if (days.length === 0 && serverAsap) return null;");
+    expect(picker).toContain("const nothingToChoose = !asapOffered && !firstBookable;");
+    expect(picker).toContain("{c.noneBookable(kitchenName)}");
+    expect(gate).toContain('i.when.bookable ? "choose" : "none"');
+  });
+
+  it("reports what the server said, so checkout can require a time", () => {
+    expect(picker).toContain("onState?.({ status, noticeHours, asap: serverAsap, bookable })");
+    expect(form).toContain("onState={setWhen}");
+    expect(form).toContain("&& whenReady && scheduleReady &&");
+  });
+
+  it("drops a refused time and reads the times again", () => {
+    // RR030 at checkout: the slot passed, or was inside the notice. Keeping
+    // it would refuse the same order on every press.
+    const at = form.indexOf('body.code === "RR030"');
+    expect(at).toBeGreaterThan(-1);
+    const branch = form.slice(at, at + 300);
+    expect(branch).toContain("setSlot(null)");
+    expect(branch).toContain("setWhenKey((k) => k + 1)");
+    expect(form).toContain("key={whenKey}");
+  });
+
+  it("never shows a booked order the reservation clock", () => {
+    // checkoutHoldCopy's date is the 7-day cash hold — beside a slot two days
+    // out it read as the deadline. A slotted order gets its slot instead.
+    expect(form).toContain("sentSlotWords ? (");
+    expect(form).toContain("slotPaymentLine(c.form.slotted");
+    expect(form).toMatch(/const showHoldClock = !sentSlot && /);
+    expect(form).toContain(") : showHoldClock && (");
+  });
+
+  it("does not let 'closed right now' stop an order for later", () => {
+    // store_schedule_status runs at rr_fulfil_at() — the SLOT — inside
+    // create_food_order, so the form only blocks what the server would.
+    expect(form).not.toContain("const shopClosed");
+    expect(form).toContain("const closedHere = timing.closedFor[f];");
+    expect(form).toContain('timing.closedBanner === "hard"');
+    expect(form).toContain('timing.closedBanner === "later"');
   });
 });
 

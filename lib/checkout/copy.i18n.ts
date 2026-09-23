@@ -115,6 +115,11 @@ const EN = {
         `Enter your phone number so ${s.the} can reach you.`,
       location: "Share your delivery location to continue.",
       zone: "Choose your delivery area to continue.",
+      // M216 — a kitchen that needs notice refuses "as soon as it's ready".
+      when: "Choose when you want it.",
+      whenLoading: "Loading the times you can choose…",
+      whenFailed: "We could not load the times — tap Retry above.",
+      whenNone: "No time is left to book right now.",
       payment: (s: SellerWords) =>
         `${s.thisCap} does not accept the selected payment method.`,
       closed: (s: SellerWords) =>
@@ -137,6 +142,10 @@ const EN = {
       todayPrefix: " · Today ",
       openNow: "Open now",
       todayLower: " · today ",
+      /** M216 — shut now, but the order is FOR a later time, so it is not a
+       *  dead end and must not read as one. */
+      closedOrderLater: (s: SellerWords) =>
+        `${s.thisCap} is closed right now — you can still order for a later time.`,
     },
 
     ticket: {
@@ -262,6 +271,20 @@ const EN = {
       },
     },
 
+    // ── M216 · A BOOKED FOOD ORDER ──────────────────────────────────────────
+    // Replaces the reservation clock (lib/orders/hold.ts) under an order with a
+    // time. That clock is the 7-day cash hold, not a deadline — beside a slot
+    // two days out it read as a second, contradictory date. `when` is the slot
+    // as lib/orders/slot.ts formats it: "Friday 25 September, 12:00–12:30".
+    slotted: {
+      cashCollect: (when: string) => `Pay in cash when you collect — ${when}.`,
+      cashSomeone: (when: string) => `Paid in cash by whoever collects it — ${when}.`,
+      cashDelivery: (s: SellerWords, when: string) =>
+        `Pay in cash when it reaches you. ${s.theCap} hands it to the driver — ${when}.`,
+      transfer: (when: string) =>
+        `Booked for ${when}. Send the transfer and upload your proof of payment before then. You are never charged automatically.`,
+    },
+
     summary: {
       eyebrow: "SUMMARY",
       /** The other word for form.tryAgain, on the same screen. Reported. */
@@ -285,6 +308,8 @@ const EN = {
       cartLoad: "We couldn't load your cart.",
       quote: "We couldn't price your order.",
       priceChanged: "The price changed. Please review the new total.",
+      /** RR030 with no sentence of its own — the times are reloaded under it. */
+      slotRefused: "That time can no longer be booked. Choose another.",
       failed: "Checkout failed.",
       placed: "Order placed!",
     },
@@ -392,6 +417,10 @@ const FR: CheckoutCopy = {
         `Saisissez votre numéro de téléphone pour que ${s.the} puisse vous joindre.`,
       location: "Partagez votre position de livraison pour continuer.",
       zone: "Choisissez votre zone de livraison pour continuer.",
+      when: "Choisissez quand vous le voulez.",
+      whenLoading: "Chargement des horaires disponibles…",
+      whenFailed: "Nous n’avons pas pu charger les horaires — touchez Réessayer ci-dessus.",
+      whenNone: "Plus aucun horaire ne peut être réservé pour le moment.",
       payment: (s: SellerWords) =>
         `${s.thisCap} n’accepte pas le mode de paiement choisi.`,
       closed: (s: SellerWords) =>
@@ -412,6 +441,8 @@ const FR: CheckoutCopy = {
       todayPrefix: " · Aujourd’hui ",
       openNow: "Ouvert",
       todayLower: " · aujourd’hui ",
+      closedOrderLater: (s: SellerWords) =>
+        `${s.thisCap} est fermé en ce moment — vous pouvez quand même commander pour plus tard.`,
     },
 
     ticket: {
@@ -531,6 +562,16 @@ const FR: CheckoutCopy = {
       },
     },
 
+    slotted: {
+      cashCollect: (when: string) => `Paiement en espèces au retrait — ${when}.`,
+      cashSomeone: (when: string) =>
+        `Payé en espèces par la personne qui vient la chercher — ${when}.`,
+      cashDelivery: (s: SellerWords, when: string) =>
+        `Paiement en espèces à la réception. ${s.theCap} la remet au chauffeur — ${when}.`,
+      transfer: (when: string) =>
+        `Réservé pour ${when}. Envoyez le virement et joignez votre preuve de paiement avant cette heure. Vous n’êtes jamais débité automatiquement.`,
+    },
+
     summary: {
       eyebrow: "RÉCAPITULATIF",
       retry: "Réessayer",
@@ -550,6 +591,7 @@ const FR: CheckoutCopy = {
       cartLoad: "Nous n’avons pas pu charger votre panier.",
       quote: "Nous n’avons pas pu calculer le prix de votre commande.",
       priceChanged: "Le prix a changé. Veuillez vérifier le nouveau total.",
+      slotRefused: "Cet horaire ne peut plus être réservé. Choisissez-en un autre.",
       failed: "La commande n’a pas abouti.",
       placed: "Commande passée !",
     },
@@ -635,6 +677,10 @@ const CR: CheckoutCopy = {
         `Met ou nimero telefonn pou ki ${s.the} kapav zwenn ou.`,
       location: "Partaz ou pozision livrezon pou kontinie.",
       zone: "Swazir ou zonn livrezon pou kontinie.",
+      when: "Swazir kan ou anvi li.",
+      whenLoading: "Pe sarz bann ler ki ou kapav swazir…",
+      whenFailed: "Nou pa finn kapav sarz bann ler — tap Esey ankor anwo.",
+      whenNone: "Pena okenn ler pou komann aster la.",
       payment: (s: SellerWords) =>
         `${s.thisCap} pa aksepte sa metod peyman la.`,
       closed: (s: SellerWords) =>
@@ -654,6 +700,8 @@ const CR: CheckoutCopy = {
       todayPrefix: " · Zordi ",
       openNow: "Ouver",
       todayLower: " · zordi ",
+      closedOrderLater: (s: SellerWords) =>
+        `${s.thisCap} ferme aster la — ou kapav kan mem komann pou pli tar.`,
     },
 
     ticket: {
@@ -770,6 +818,15 @@ const CR: CheckoutCopy = {
       },
     },
 
+    slotted: {
+      cashCollect: (when: string) => `Peye kas kan ou al pran li — ${when}.`,
+      cashSomeone: (when: string) => `Dimoun ki al pran li peye kas — ${when}.`,
+      cashDelivery: (s: SellerWords, when: string) =>
+        `Peye kas kan li ariv kot ou. ${s.theCap} donn sofer la li — ${when}.`,
+      transfer: (when: string) =>
+        `Rezerve pou ${when}. Avoy vireman la ek met ou prev peyman avan sa ler la. Nou zame pran ou larzan otomatikman.`,
+    },
+
     summary: {
       eyebrow: "REZIME",
       retry: "Esey ankor",
@@ -789,6 +846,7 @@ const CR: CheckoutCopy = {
       cartLoad: "Nou pa finn kapav sarz ou panye.",
       quote: "Nou pa finn kapav kalkil pri ou komann.",
       priceChanged: "Pri la finn sanze. Silvouple verifie nouvo total la.",
+      slotRefused: "Nepli kapav komann pou sa ler la. Swazir enn lot.",
       failed: "Komann la pa finn pase.",
       placed: "Komann konfirme !",
     },

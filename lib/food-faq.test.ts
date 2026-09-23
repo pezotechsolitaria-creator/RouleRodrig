@@ -29,13 +29,40 @@ describe("the answers exist in both languages", () => {
 
 describe("every figure was read off the live page", () => {
   it("quotes the real price floor and ceiling", () => {
-    // Coconut Napolitaine Rs 80; Flame-Grilled Lobster Package Rs 2,500.
-    expect(en).toContain("Rs 80");
+    // Beach Experience Package Rs 1,000; Flame-Grilled Lobster Package
+    // Rs 2,500 — food_catalog, 24 Sept 2026. It quoted the purged demo
+    // kitchen's Rs 80 Coconut Napolitaine, and "curry … noodles", for weeks —
+    // inside the FAQPage JSON-LD that /food publishes.
+    expect(en).toContain("Rs 1,000");
     expect(en).toContain("Rs 2,500");
+    expect(en).not.toMatch(/Rs 80\b|noodles/);
   });
 
-  it("quotes the prep time every kitchen actually shows", () => {
-    expect(en).toContain("15 to 30 minutes");
+  it("describes collection the way the page implements it, not a cooking time", () => {
+    // M216: this used to pin "15 to 30 minutes". Since 23 Sept 2026 the only
+    // kitchen on /food needs 24 hours' notice, and the checkout refuses "as
+    // soon as it's ready" for it — the half hour was a promise nobody made.
+    expect(en).not.toContain("15 to 30 minutes");
+    expect(en).toMatch(/day’s notice/);
+    expect(en).toMatch(/Each dish says how far ahead to order/);
+    expect(en).toMatch(/At checkout you choose when you want it/);
+    // Not while no kitchen does it: "some kitchens cook on the spot" and "as
+    // soon as it is ready" described a checkout option the only kitchen on
+    // /food refuses — and this answer is published as FAQPage JSON-LD.
+    expect(en).not.toMatch(/cook on the spot|as soon as it is ready/);
+    expect(en).toContain("at least 24 hours");
+  });
+
+  it("no longer says only what is cooking now is offered", () => {
+    // A notice kitchen's dish is ORDERABLE while nothing is being cooked.
+    expect(en).not.toMatch(/cooking now is offered/i);
+  });
+
+  it("says who is paid, and how, where the rule is one kitchen's", () => {
+    // M201: Chez Banane takes cash; the platform switch still says prepay.
+    // Naming the kitchen keeps it from reading as a platform-wide rule.
+    expect(en).toMatch(/You pay the kitchen, not the site/);
+    expect(en).toMatch(/Chez Banane takes cash when you collect/);
   });
 
   it("describes collection the way the page implements it", () => {
@@ -74,7 +101,33 @@ describe("it names no dish, on purpose", () => {
   });
 
   it("describes the food by category instead, which cannot go stale", () => {
-    expect(en.toLowerCase()).toMatch(/curry|grilled fish|noodles/);
+    // By KIND, and only kinds actually on the menu: "curry … noodles" was the
+    // purged demo kitchen's, still promised here in September 2026.
+    expect(en.toLowerCase()).toMatch(/grilled lobster|seafood|curry|grilled fish/);
+  });
+});
+
+describe("the French says the same thing (M216)", () => {
+  const fr = FR.map((f) => `${f.question} ${f.answer}`).join(" ");
+  const frPage = readFileSync(
+    join(__dirname, "..", "app", "fr", "manger-a-rodrigues", "page.tsx"),
+    "utf8",
+  );
+
+  it("drops the half-hour promise and the cooking-now claim", () => {
+    for (const text of [fr, frPage]) {
+      expect(text).not.toContain("15 à 30 minutes");
+      expect(text).not.toMatch(/Seul ce qu.une cuisine prépare sur le moment est proposé/);
+      expect(text).not.toMatch(/Seuls les plats réellement préparés sur le moment/);
+    }
+  });
+
+  it("names the notice, the choice of time and the cash", () => {
+    for (const text of [fr, frPage]) {
+      expect(text).toMatch(/jour de préavis/);
+      expect(text).toMatch(/espèces au retrait/);
+    }
+    expect(fr).toMatch(/au moins 24 heures/);
   });
 });
 

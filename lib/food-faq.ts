@@ -8,11 +8,20 @@ import type { Language } from "@/lib/i18n";
 // Rodrigues" are the questions people type. None had a sentence on the page.
 //
 // Every figure below was read off the live page rather than the database: Rs
-// 80 is the Coconut Napolitaine, Rs 2,500 the Flame-Grilled Lobster Package,
-// and 15-30 min is what every kitchen quotes. Deliberately no dish is named —
-// seven of the nine belong to a kitchen marked DEMO and no_index, so naming
-// them would put a listing into an answer engine that the site itself is
-// keeping out of search.
+// 80 is the Coconut Napolitaine, Rs 2,500 the Flame-Grilled Lobster Package.
+// Deliberately no dish is named — seven of the nine belong to a kitchen marked
+// DEMO and no_index, so naming them would put a listing into an answer engine
+// that the site itself is keeping out of search.
+//
+// ── "MOST KITCHENS QUOTE 15 TO 30 MINUTES" STOPPED BEING TRUE (M216) ────────
+// On 23 Sept 2026 Chez Banane — the one kitchen on /food — became pre-order
+// only: at least 24 hours' notice, up to two days ahead, cash on collection
+// (M201). The answers below said a meal takes half an hour and that only what
+// a kitchen is cooking NOW is offered; this page's own JSON-LD was telling
+// answer engines both. They now say what the checkout does: some kitchens cook
+// on the spot, some need a day's notice, and the customer picks the day and
+// time. Chez Banane is named because the payment rule is its own, and a rule
+// with no kitchen attached would read as the platform's.
 
 import type { FaqItem } from "@/lib/experiences-faq";
 
@@ -20,17 +29,17 @@ const EN: FaqItem[] = [
   {
     question: "Can I order food online in Rodrigues?",
     answer:
-      "Yes. Dishes from island kitchens are listed with their price and how long they take, and you order on the site — no phone call needed. Most kitchens quote 15 to 30 minutes.",
+      "Yes. Dishes from island kitchens are listed with their price, and you order on the site — no phone call needed. Each dish says how far ahead to order: a kitchen that cooks to order needs a day’s notice. At checkout you choose when you want it — the day and the time.",
   },
   {
     question: "How much does a meal cost?",
     answer:
-      "Dishes start at around Rs 80 for something small and run to Rs 2,500 for a whole flame-grilled lobster, with plates of curry, grilled fish and noodles in between. Every price is shown before you order.",
+      "Right now dishes run from Rs 1,000 up to Rs 2,500 for flame-grilled lobster, cooked to order by the beach. Every price is shown before you order, and you pay the kitchen in cash when you collect.",
   },
   {
     question: "Can I collect instead of paying for delivery?",
     answer:
-      "Yes. Choose Collect in person and there is no fee — you get a code to show at the kitchen when you arrive. Delivery is the other option where the kitchen offers it.",
+      "Yes. Choose Collect in person and there is no fee — you get a code to show at the kitchen when you arrive. You pay the kitchen, not the site: Chez Banane takes cash when you collect. Delivery is the other option where the kitchen offers it.",
   },
   {
     question: "Is there vegetarian, halal or gluten-free food?",
@@ -40,7 +49,7 @@ const EN: FaqItem[] = [
   {
     question: "How do I know a dish is actually available?",
     answer:
-      "Only what a kitchen is cooking now is offered — dishes that have sold out or are outside their serving hours are marked, so the menu you see is the one you can actually order from.",
+      "Every dish says whether you can order it: sold-out dishes and ones off the menu are marked, and a kitchen that cooks to order says how far ahead to book. The collection times offered at checkout are only ones the kitchen can actually cook for — Chez Banane asks for at least 24 hours.",
   },
 ];
 
@@ -48,17 +57,17 @@ const FR: FaqItem[] = [
   {
     question: "Peut-on commander à manger en ligne à Rodrigues ?",
     answer:
-      "Oui. Les plats des cuisines de l'île sont proposés avec leur prix et leur temps de préparation, et vous commandez sur le site — sans appeler. La plupart des cuisines annoncent 15 à 30 minutes.",
+      "Oui. Les plats des cuisines de l’île sont proposés avec leur prix, et vous commandez sur le site — sans appeler. Chaque plat indique combien de temps à l’avance le commander : une cuisine qui cuisine à la commande demande un jour de préavis. Au moment de commander, vous choisissez quand vous le voulez — le jour et l’heure.",
   },
   {
     question: "Combien coûte un repas ?",
     answer:
-      "Les plats démarrent autour de Rs 80 pour une petite portion et vont jusqu'à Rs 2 500 pour une langouste grillée entière, avec des caris, du poisson grillé et des nouilles entre les deux. Chaque prix est affiché avant la commande.",
+      "Aujourd’hui, les plats vont de Rs 1 000 à Rs 2 500 pour la langouste grillée, cuisinée à la commande au bord de la plage. Chaque prix est affiché avant la commande, et vous payez la cuisine en espèces au retrait.",
   },
   {
     question: "Peut-on venir chercher sa commande au lieu de payer la livraison ?",
     answer:
-      "Oui. Choisissez le retrait sur place : c'est sans frais, et vous recevez un code à présenter à la cuisine en arrivant. La livraison reste possible lorsque la cuisine la propose.",
+      "Oui. Choisissez le retrait sur place : c'est sans frais, et vous recevez un code à présenter à la cuisine en arrivant. Vous payez la cuisine, pas le site : Chez Banane se règle en espèces au retrait. La livraison reste possible lorsque la cuisine la propose.",
   },
   {
     question: "Y a-t-il des plats végétariens, halal ou sans gluten ?",
@@ -68,7 +77,7 @@ const FR: FaqItem[] = [
   {
     question: "Comment savoir qu'un plat est vraiment disponible ?",
     answer:
-      "Seul ce qu'une cuisine prépare sur le moment est proposé : les plats épuisés ou hors de leurs heures de service sont signalés, donc le menu affiché est bien celui que vous pouvez commander.",
+      "Chaque plat indique s’il peut être commandé : les plats épuisés ou retirés de la carte sont signalés, et une cuisine qui prépare à la commande précise combien de temps à l’avance réserver. Les heures de retrait proposées au moment de commander sont uniquement celles où la cuisine peut vraiment préparer le plat — Chez Banane demande au moins 24 heures.",
   },
 ];
 

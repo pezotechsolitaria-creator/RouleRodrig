@@ -3,8 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   Loader2, ChefHat, Check, Clock, UtensilsCrossed, ClipboardList,
-  Volume2, VolumeX, Undo2, WifiOff, Layers, History, TriangleAlert, RefreshCw,
+  Volume2, VolumeX, Undo2, WifiOff, Layers, History, TriangleAlert, RefreshCw, CalendarClock,
 } from "lucide-react";
+import {
+  splitLive, cardTone, clockText, slotHeadline, handoverWords, waitsForItsDay,
+  newOrdersLine, orderSlot, weekdayOf, shortDay, type Tone,
+} from "@/lib/kitchen/board";
 import AllDayPanel from "./AllDayPanel";
 import HistoryPanel from "./HistoryPanel";
 import MenuPanel from "./MenuPanel";
@@ -43,6 +47,12 @@ import MenuPanel from "./MenuPanel";
 // Finished orders are also no longer interleaved with live ones by timestamp —
 // a cancelled order from three hours ago used to sort above an order that
 // needed cooking now.
+//
+// M216 gave it a second kind of order. Chez Banane takes orders one to two
+// days ahead, so the board now holds Friday's orders on Wednesday. Each card
+// leads with its booked window, the live list splits into Today and Coming
+// up, and a Coming-up order offers no "Start cooking" until its day. The
+// logic is lib/kitchen/board.ts, tested against a fixed clock.
 
 type Item = {
   name: string;
@@ -60,6 +70,13 @@ type Order = {
   customer: string;
   fulfillment: string | null;
   placedAt: string;
+  /**
+   * M216 — the booked 30-minute window, ISO ("2026-09-25T08:00:00+00:00").
+   * Null for an as-soon-as-ready order. For Roulé delivery it is when the
+   * kitchen hands over: the delivery job only exists once the food is ready.
+   */
+  pickupFrom?: string | null;
+  pickupTo?: string | null;
   items: Item[];
   note: string | null;
   /** Cash, not yet paid. The customer settles at the counter on collection. */
@@ -118,25 +135,18 @@ const STATUS_LABEL: Record<string, string> = {
   ready_for_pickup: "Ready — waiting for collection",
 };
 
-function minutesSince(iso: string): number {
-  return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
-}
-
-function waitingFor(iso: string): string {
-  const mins = minutesSince(iso);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins} min`;
-  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
-}
-
-// Toast's traffic light, in this kitchen's palette. The thresholds are
-// deliberately generous — a Rodrigues kitchen cooks to order, and a screen that
-// screams at ten minutes is a screen people learn to ignore.
-function ageTone(mins: number): { ring: string; clock: string } {
-  if (mins >= 25) return { ring: "border-red-500/60 bg-red-500/[0.08]", clock: "text-red-300" };
-  if (mins >= 12) return { ring: "border-orange-400/50 bg-orange-400/[0.07]", clock: "text-orange-300" };
-  return { ring: "border-yellow/30 bg-yellow/[0.05]", clock: "text-muted" };
-}
+// Toast's traffic light, in this kitchen's palette. WHEN a card turns is
+// decided in lib/kitchen/board.ts (cardTone): by time waiting for a walk-up,
+// by time to the slot for a booking (M216). "ahead" is a later day's order —
+// the plain card colour, because nothing about it needs the cook yet, and a
+// board where Friday's order is tinted like a live ticket is a board that
+// gets cooked from on Wednesday.
+const TONE: Record<Tone, { ring: string; clock: string }> = {
+  late: { ring: "border-red-500/60 bg-red-500/[0.08]", clock: "text-red-300" },
+  warn: { ring: "border-orange-400/50 bg-orange-400/[0.07]", clock: "text-orange-300" },
+  calm: { ring: "border-yellow/30 bg-yellow/[0.05]", clock: "text-muted" },
+  ahead: { ring: "border-dark-border bg-dark-card", clock: "text-muted" },
+};
 
 /**
  * The chime.
@@ -279,8 +289,12 @@ export default function KitchenBoard({ canManage = false }: { canManage?: boolea
   const [lastOk, setLastOk] = useState<number>(() => Date.now());
   const [stale, setStale] = useState(false);
   const [newIds, setNewIds] = useState<string[]>([]);
-  // Forces the ageing clocks to re-render even when no data changed.
-  const [, setTick] = useState(0);
+  // The board's clock. Ticking it re-renders the ageing clocks even when no
+  // data changed, and since M216 it also decides which orders are Today's: at
+  // Rodrigues midnight Friday's orders move up and get their "Start cooking"
+  // without anyone reloading. Held in state rather than read while rendering,
+  // so one render has one "now" and every card agrees with the others.
+  const [now, setNow] = useState<number>(() => Date.now());
 
   const seen = useRef<Set<string> | null>(null);
   const chime = useChime();
@@ -298,6 +312,11 @@ export default function KitchenBoard({ canManage = false }: { canManage?: boolea
       // Chime for orders that were not on the previous poll. The first load
       // seeds the set silently — otherwise opening the page mid-service would
       // announce every order already on the board.
+      //
+      // A pre-order for Friday chimes too (M216). It needs nothing cooked
+      // today, but a booking the cook never noticed is a Friday that goes
+      // wrong; the banner names its day so the chime does not send anyone to
+      // the stove.
       const live = (next.orders ?? []).filter((o) => !o.finished);
       if (seen.current === null) {
         seen.current = new Set(live.map((o) => o.id));
@@ -313,6 +332,7 @@ export default function KitchenBoard({ canManage = false }: { canManage?: boolea
       setDash(next);
       setError(null);
       setLastOk(Date.now());
+      setNow(Date.now());
       setStale(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load.");
@@ -349,7 +369,7 @@ export default function KitchenBoard({ canManage = false }: { canManage?: boolea
   // a kitchen screen must never have.
   useEffect(() => {
     const t = setInterval(() => {
-      setTick((n) => n + 1);
+      setNow(Date.now());
       setStale(Date.now() - lastOk > 70_000);
     }, 20_000);
     return () => clearInterval(t);
@@ -477,14 +497,16 @@ Tell the customer why — they will see this.`,
   }
 
   const orders = useMemo(() => dash?.orders ?? [], [dash]);
-  // Live first, oldest first; finished last, most recent first. The server
-  // sorts purely by time, which put a cancelled order from this morning above
-  // one that needed cooking now.
-  const live = useMemo(
-    () => orders.filter((o) => !o.finished)
-      .sort((a, b) => new Date(a.placedAt).getTime() - new Date(b.placedAt).getTime()),
-    [orders],
-  );
+  const nowDate = useMemo(() => new Date(now), [now]);
+  // Live first; finished last, most recent first. The server sorts purely by
+  // time, which put a cancelled order from this morning above one that needed
+  // cooking now.
+  //
+  // M216: live orders are Today (walk-ups, and slots whose Rodrigues date is
+  // today) then Coming up (later days), each in the order the food is needed —
+  // the slot when there is one, else when it was placed.
+  const board = useMemo(() => splitLive(orders, nowDate), [orders, nowDate]);
+  const live = useMemo(() => [...board.today, ...board.later], [board]);
   const done = useMemo(
     () => orders.filter((o) => o.finished)
       .sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()),
@@ -538,13 +560,20 @@ Tell the customer why — they will see this.`,
     );
   }
 
+  const newLine = newOrdersLine(newIds, live, nowDate);
+
   const renderCard = (o: Order) => {
     const next = NEXT[o.status];
     const ready = o.status === "ready_for_pickup";
-    const mins = minutesSince(o.placedAt);
-    const tone = ageTone(mins);
+    const tone = TONE[cardTone(o, nowDate)];
     const isNew = newIds.includes(o.id);
     const undoLabel = UNDO_LABEL[o.status];
+    // M216 — the booked window, who takes the food then, and whether its day
+    // has come. `holdForDay` is a Coming-up order: no "Start cooking" yet.
+    const headline = slotHeadline(o, nowDate);
+    const handover = handoverWords(o.fulfillment);
+    const holdForDay = waitsForItsDay(o, nowDate);
+    const slotDay = holdForDay ? weekdayOf(orderSlot(o)!.from) : null;
 
     return (
       <div
@@ -559,6 +588,27 @@ Tell the customer why — they will see this.`,
                 : tone.ring
         }`}
       >
+        {/* WHEN, FIRST AND BIGGEST (M216). A booked order's window is the one
+            fact that decides whether it is cooked now, and it used to appear
+            nowhere on this screen — every card looked like "now". Mixed case
+            in the markup and capitals in CSS, so a screen reader says
+            "Friday", not F-R-I-D-A-Y. Day and time are unbreakable halves:
+            on a phone the line wraps between them, never inside "12:00–12:30"
+            (see slotHeadline). Walk-ups get one small line instead: there is
+            no time to show, only who takes it. */}
+        {headline ? (
+          <div className="mb-2">
+            <p className="flex flex-wrap items-baseline gap-x-2 font-syne text-xl font-extrabold uppercase leading-tight text-offwhite">
+              <span className="whitespace-nowrap">{headline.day}</span>
+              <span aria-hidden className="text-muted">·</span>
+              <span className="whitespace-nowrap tabular-nums">{headline.times}</span>
+            </p>
+            {handover && <p className="font-dm text-sm text-muted">{handover}</p>}
+          </div>
+        ) : handover ? (
+          <p className="mb-1 font-dm text-xs text-muted">As soon as it’s ready · {handover}</p>
+        ) : null}
+
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             {/* Monospaced, because this is a CODE. It is what a cook reads
@@ -578,7 +628,7 @@ Tell the customer why — they will see this.`,
               the food. Grey 12px text is not a timer. */}
           <div className="flex shrink-0 flex-col items-end gap-0.5">
             <span className={`flex items-center gap-1 font-syne text-sm font-bold ${o.finished ? "text-muted" : tone.clock}`}>
-              <Clock size={13} /> {waitingFor(o.placedAt)}
+              <Clock size={13} /> {clockText(o, nowDate)}
             </span>
             {/* WHAT IT IS WORTH.
                 The ticket carried no money at all. `total` has been on this
@@ -666,7 +716,8 @@ Tell the customer why — they will see this.`,
                     : "bg-dark-raised text-muted"
           }`}
         >
-          {STATUS_LABEL[o.status] ?? o.status}
+          {/* "New order" on Friday's booking reads as "cook this". */}
+          {holdForDay ? "Booked" : STATUS_LABEL[o.status] ?? o.status}
         </p>
 
         {/* Do NOT cook this yet. The customer chose bank transfer and nothing
@@ -833,7 +884,7 @@ The order is ${money(o.total!, o.currency)}. The rest becomes cash to collect on
             comment there says the absence of a button is the point. The button
             was rendering anyway, so every unpaid order showed a cook a big
             yellow control that could only fail. */}
-        {next && !o.waitingOnTransfer && (
+        {next && !o.waitingOnTransfer && !holdForDay && (
           <button
             onClick={() => void advance(o)}
             disabled={busy !== null}
@@ -843,6 +894,38 @@ The order is ${money(o.total!, o.currency)}. The rest becomes cash to collect on
           >
             {busy === o.id ? <Loader2 size={18} className="mx-auto animate-spin" /> : next.label}
           </button>
+        )}
+
+        {/* NOT BEFORE ITS DAY (M216). A big yellow "Start cooking" on
+            Friday's order, on Wednesday, is an invitation to cook it two days
+            early — and starting a cash pre-order is also what stops it being
+            released if the customer never comes. So the button's place holds
+            a calm statement instead, stated positively for the same reason as
+            "Nothing to cook yet": an absent button reads as a broken card.
+            Cancel stays available above. The button returns on its own at
+            Rodrigues midnight.
+
+            A NEW booking still needs ONE action, or the "new order" banner
+            could never clear — the only thing that cleared it was starting
+            the order. "Got it" is that action. */}
+        {next && !o.waitingOnTransfer && holdForDay && (
+          <div className="mt-3 rounded-2xl border border-dark-border bg-white/[0.03] px-4 py-3">
+            <p className="flex items-center gap-2 font-syne text-base font-bold text-offwhite">
+              <CalendarClock size={17} className="shrink-0 text-muted" />
+              For {slotDay} — cook on the day
+            </p>
+            <p className="mt-0.5 font-dm text-xs text-muted">
+              “Start cooking” appears here on {slotDay}.
+            </p>
+            {isNew && (
+              <button
+                onClick={() => setNewIds((prev) => prev.filter((id) => id !== o.id))}
+                className="mt-3 min-h-[48px] w-full rounded-xl border border-yellow/60 font-syne text-sm font-bold text-yellow"
+              >
+                Got it
+              </button>
+            )}
+          </div>
         )}
       </div>
     );
@@ -860,7 +943,7 @@ The order is ${money(o.total!, o.currency)}. The rest becomes cash to collect on
       ) : tab === "history" ? (
         <HistoryPanel />
       ) : tab === "allday" ? (
-        <AllDayPanel orders={live} />
+        <AllDayPanel orders={live} now={now} />
       ) : (
       <>
       {/* Sound is the single most important control on a kitchen screen, so it
@@ -882,10 +965,11 @@ The order is ${money(o.total!, o.currency)}. The rest becomes cash to collect on
       </div>
 
       {/* A cook who was not looking gets told what they missed, in one line
-          they can act on. Clears itself as soon as each order is started. */}
-      {newIds.length > 0 && (
+          they can act on. Clears itself as soon as each order is started —
+          or, for one booked for a later day, acknowledged with "Got it". */}
+      {newLine && (
         <p className="rounded-xl border border-yellow bg-yellow/15 px-4 py-3 font-syne text-sm font-bold text-yellow">
-          {newIds.length === 1 ? "1 new order" : `${newIds.length} new orders`} just came in
+          {newLine}
         </p>
       )}
 
@@ -909,7 +993,34 @@ The order is ${money(o.total!, o.currency)}. The rest becomes cash to collect on
         </div>
       ) : (
         <>
-          {live.map(renderCard)}
+          {/* TODAY, THEN COMING UP (M216). Headings only once there is
+              something booked ahead — a walk-up kitchen's board is all today,
+              and a "Today" label over every card would be noise on the screen
+              read fastest. */}
+          {board.later.length > 0 && (
+            <h2 className="flex items-baseline justify-between gap-3 px-1 pt-1">
+              <span className="font-syne text-base font-bold text-offwhite">Today</span>
+              <span className="font-dm text-xs text-muted">{shortDay(nowDate)}</span>
+            </h2>
+          )}
+          {board.later.length > 0 && board.today.length === 0 && (
+            <p className="rounded-2xl border border-dark-border bg-dark-card px-4 py-3 font-dm text-sm text-muted">
+              Nothing to cook today yet. New orders appear here on their own.
+            </p>
+          )}
+          {board.today.map(renderCard)}
+
+          {board.later.length > 0 && (
+            <>
+              <h2 className="flex items-baseline justify-between gap-3 px-1 pt-3">
+                <span className="font-syne text-base font-bold text-offwhite">Coming up</span>
+                <span className="font-dm text-xs text-muted">
+                  {board.later.length === 1 ? "1 order for a later day" : `${board.later.length} orders for later days`}
+                </span>
+              </h2>
+              {board.later.map(renderCard)}
+            </>
+          )}
 
           {done.length > 0 && (
             // Today's record, kept below the live work rather than mixed into

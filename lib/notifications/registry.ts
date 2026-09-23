@@ -125,8 +125,14 @@ const CUSTOMER = {
     // The shop said yes and the reservation clock stopped. That is a record.
     channels: ["in_app", "push", "email"],
     emailType: "marketplace_order_status",
-    title: () => "Order accepted",
-    body: (c) => `${c.storeName ?? "The shop"} accepted ${ref(c)} and is preparing it.`,
+    // M216: a BOOKED order (ctx.when is its slot) is confirmed for a day, not
+    // being prepared now — "is preparing it" on Wednesday for Friday's lunch
+    // reads as "come now".
+    title: (c) => (c.when ? "Order confirmed" : "Order accepted"),
+    body: (c) =>
+      c.when
+        ? `${c.storeName ?? "The shop"} confirmed ${ref(c)} for ${c.when}.`
+        : `${c.storeName ?? "The shop"} accepted ${ref(c)} and is preparing it.`,
     link: (c) => (c.id ? `/orders/${c.id}` : "/orders"),
   },
   "order.payment_due": {
@@ -137,9 +143,15 @@ const CUSTOMER = {
     // the customer can still act. Critical so a mute cannot swallow it.
     channels: ["in_app", "push", "email"],
     emailType: "marketplace_payment_due",
-    title: () => "Your reservation ends soon",
-    body: (c) => `${ref(c)} is still reserved, but we haven't seen the transfer yet.`,
-    pushBody: () => "Your reservation ends soon — tap to view.",
+    // M216: a BOOKED order (ctx.when) is not on a reservation clock — its slot
+    // is the deadline, and the email already says so (composeSlotted).
+    title: (c) => (c.when ? "Transfer needed for your booking" : "Your reservation ends soon"),
+    body: (c) =>
+      c.when
+        ? `${ref(c)} is booked for ${c.when} — we haven't seen the transfer yet.`
+        : `${ref(c)} is still reserved, but we haven't seen the transfer yet.`,
+    pushBody: (c) =>
+      c.when ? "Your booking is waiting for the transfer — tap to view." : "Your reservation ends soon — tap to view.",
     link: (c) => (c.id ? `/orders/${c.id}` : "/orders/track"),
   },
   "order.expired": {
@@ -148,9 +160,15 @@ const CUSTOMER = {
     priority: "high",
     channels: ["in_app", "push", "email"],
     emailType: "marketplace_order_expired",
-    title: () => "Reservation expired",
-    body: (c) => `${ref(c)} was released because payment wasn't confirmed in time.`,
-    link: () => "/shop",
+    // M216: a booked food order is cancelled 30 minutes after its slot when
+    // the kitchen never confirmed it — payment is not what lapsed, and the way
+    // back is the menu, not the shop directory.
+    title: (c) => (c.when ? "Booking cancelled" : "Reservation expired"),
+    body: (c) =>
+      c.when
+        ? `${ref(c)} for ${c.when} was cancelled — the kitchen had not confirmed it in time. Nothing was charged.`
+        : `${ref(c)} was released because payment wasn't confirmed in time.`,
+    link: (c) => (c.when ? "/food" : "/shop"),
   },
   "order.preparing": {
     audience: "customer",

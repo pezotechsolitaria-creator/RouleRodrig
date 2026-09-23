@@ -43,11 +43,14 @@ describe("it names no dish, for the same reason the English FAQ does not", () =>
 
 describe("the prices are the real ones", () => {
   it("quotes the live floor and ceiling, written the French way", () => {
-    // Rs 80 is the smallest dish on the rendered page; Rs 2 500 the whole
-    // grilled lobster. French uses a space as the thousands separator.
-    expect(CODE).toContain("Rs 80");
+    // Rs 1 000 is the smallest item on the live menu (the beach package), Rs
+    // 2 500 the grilled-lobster package — food_catalog, 24 Sept 2026. It said
+    // "dès Rs 80" for weeks after the demo kitchen whose menu that was had been
+    // purged. French uses a space as the thousands separator.
+    expect(CODE).toContain("Rs 1 000");
     expect(CODE).toContain("Rs 2 500");
     expect(CODE).not.toContain("Rs 2,500");
+    expect(CODE).not.toMatch(/Rs 80\b/);
   });
 
   it("states the collection rule the page actually implements", () => {

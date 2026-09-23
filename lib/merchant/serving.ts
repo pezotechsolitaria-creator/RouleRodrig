@@ -13,6 +13,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // food_catalog already computes `orderable` by folding all of it together —
 // the same column /food gates its Add button on — so the cook's screen and the
 // customer's screen can never disagree about what is available.
+//
+// M216: for a kitchen that needs notice, `orderable` means "can be booked" —
+// true while the kitchen is shut, because the order is for a later slot. That
+// is still exactly what the card says ("can be ordered right now"); what is
+// cookable THIS minute is food_catalog.ready_now, and it is not this card's
+// question.
 
 export type ServingToday = {
   ok: true;

@@ -65,8 +65,26 @@ export type FoodCard = {
   kitchenHalalCertified: boolean;
   kitchenHalalCertifier: string | null;
   categories: string[];
+  /**
+   * CAN GO IN THE BASKET (M216). For a walk-up kitchen that is still "cookable
+   * right now"; for a kitchen that needs notice it stays true while the kitchen
+   * is closed, because the order is for a later slot and food_pickup_slots()
+   * re-checks the dish at every time it offers.
+   */
   orderable: boolean;
   reason: FoodUnavailableReason | null;
+  /**
+   * Hours ahead this kitchen must be booked (M216, kitchen_notice_hours()).
+   * 0 = walk-up. Above 0 the customer must pick a slot at checkout — ASAP is
+   * refused — so prepMin/prepMax describe the cooking once it starts, never
+   * when the food can be had, and no surface may show them as a promise.
+   */
+  minNoticeHours: number;
+  /**
+   * Cookable RIGHT NOW (M216): M161's old meaning of `orderable`. Always false
+   * for a notice kitchen. "Ready now" and "Ready to order now" read this.
+   */
+  readyNow: boolean;
 };
 
 export type FoodVariant = {
@@ -128,7 +146,10 @@ export type FoodKitchenSummary = {
   address: string | null;
   lat: number | null;
   lng: number | null;
+  /** Inside its opening hours right now — an hours fact, not "ready now". */
   isOpen: boolean;
+  /** Hours ahead it must be booked (M216). 0 = walk-up. */
+  minNoticeHours: number;
   dishCount: number;
   pickupHint: string | null;
   halal: boolean;
@@ -142,6 +163,7 @@ export type FoodKitchenDetail = FoodKitchenSummary & {
   description: string | null;
   phone: string | null;
   whatsapp: string | null;
+  /** Cooking time once started. Not a promise when minNoticeHours > 0. */
   prepMin: number | null;
   prepMax: number | null;
   halalCertifier: string | null;
@@ -154,6 +176,11 @@ export type FoodHome = {
   categories: FoodCategory[];
   /** The seller layer (M168). Open kitchens first, then by menu size. */
   kitchens: FoodKitchenSummary[];
+  /**
+   * Kitchens inside their opening hours — NOT kitchens that can feed anybody
+   * now. Since M216 an open kitchen may be booking for tomorrow; "N cooking
+   * now" and the "Ready now" chip use walkUpKitchensServingNow(kitchens).
+   */
   kitchensOpen: number;
   dishCount: number;
   deliveryEnabled: boolean;

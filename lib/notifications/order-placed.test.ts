@@ -27,8 +27,16 @@ vi.mock("@/lib/supabase/admin", () => ({
   hasServiceRole: () => hasServiceRole(),
   getPrivileged: () => getPrivileged(),
 }));
+// The owner's ntfy/WhatsApp alert, captured so its TEXT can be read — that
+// text is where the booked day and the cook's number go (M216). The real
+// formatWhatsAppMessage stays, so the assertions read the actual message.
+const enqueueNotification = vi.fn(async (_input?: unknown) => 1);
+vi.mock("./queue", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./queue")>()),
+  enqueueNotification: (input: unknown) => enqueueNotification(input),
+}));
 
-const { notifyOrderPlaced, claimAndNotifyOrderPlaced } = await import("./order-placed");
+const { notifyOrderPlaced, claimAndNotifyOrderPlaced, cookCallLine } = await import("./order-placed");
 
 // ── Minimal chainable stand-in for the admin client ─────────────────────────
 // Each from() chain resolves to a canned per-table result; every .eq() call is
@@ -40,6 +48,10 @@ function mockAdmin(opts: {
   store?: TableResult;
   items?: TableResult;
   staff?: TableResult;
+  /** A food_kitchens row makes the store a kitchen (M50). */
+  kitchen?: TableResult;
+  /** food_kitchen_ops — the cook's name and number, service-role only. */
+  ops?: TableResult;
   /** user_id → email (null = account without an address). */
   emails?: Record<string, string | null>;
   getUserById?: (id: string) => Promise<unknown>;
@@ -58,6 +70,8 @@ function mockAdmin(opts: {
       error: null,
     },
     stores: opts.store ?? { data: { merchant_id: "merchant-1", name: "Ti Boutique" }, error: null },
+    ...(opts.kitchen ? { food_kitchens: opts.kitchen } : {}),
+    ...(opts.ops ? { food_kitchen_ops: opts.ops } : {}),
     order_items:
       opts.items ??
       ({
@@ -332,5 +346,167 @@ describe("claimAndNotifyOrderPlaced", () => {
       return { data: true, error: null };
     });
     await expect(claimAndNotifyOrderPlaced({ rpc }, INPUT)).resolves.toBeUndefined();
+  });
+});
+
+// ── M216 · A BOOKING AT A KITCHEN THAT NEEDS NOTICE ─────────────────────────
+//
+// Chez Banane, cash, collected Friday 25 September 12:00–12:30 — placed days
+// before. Every message leads with that day, none of them carries the 7-day
+// cash hold, and the owner's own alert tells him which cook to phone.
+
+describe("cookCallLine", () => {
+  it("names the cook and the number", () => {
+    expect(cookCallLine({ cooker_name: "Mr Arnaud", cooker_phone: "57000000" })).toBe("Call Mr Arnaud 57000000");
+  });
+
+  it("a number with no name still says who to call", () => {
+    expect(cookCallLine({ cooker_name: null, cooker_phone: " 57000000 " })).toBe("Call the cook 57000000");
+  });
+
+  it("no number, no line — a name alone is nothing to act on", () => {
+    expect(cookCallLine({ cooker_name: "Mr Arnaud", cooker_phone: null })).toBeNull();
+    expect(cookCallLine({ cooker_name: "Mr Arnaud", cooker_phone: "  " })).toBeNull();
+    expect(cookCallLine(null)).toBeNull();
+  });
+});
+
+describe("notifyOrderPlaced — a booked kitchen order (M216)", () => {
+  const SLOT_RANGE = '["2026-09-25 08:00:00+00","2026-09-25 08:30:00+00")';
+  const COOK_PHONE = "57000000";
+  const KITCHEN_INPUT: OrderPlacedInput = { ...INPUT, provider: "cash", fulfillment: "pickup" };
+
+  const kitchenAdmin = (over: Parameters<typeof mockAdmin>[0] = {}) =>
+    mockAdmin({
+      order: {
+        data: {
+          // Still set on a fresh cash order: the hold exists, it just is not
+          // the deadline of a booked one and must not be printed.
+          auto_release_at: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
+          pickup_slot: SLOT_RANGE,
+          fulfillment_method: "pickup",
+        },
+        error: null,
+      },
+      store: { data: { merchant_id: "merchant-1", name: "Chez Banane" }, error: null },
+      kitchen: { data: { store_id: "store-1" }, error: null },
+      ops: { data: { cooker_name: "Mr Arnaud", cooker_phone: COOK_PHONE }, error: null },
+      emails: { "staff-1": "a@shop.mu" },
+      ...over,
+    });
+
+  const ownerAlert = () => {
+    expect(enqueueNotification).toHaveBeenCalledTimes(1);
+    return enqueueNotification.mock.calls[0][0] as { category: string; message: string };
+  };
+
+  beforeEach(() => {
+    enqueueNotification.mockClear();
+    pushToAdmins.mockClear();
+    pushToMerchant.mockClear();
+    dispatchNotification.mockResolvedValue(true);
+  });
+
+  it("the customer's email leads with when and where, says cash, and never the hold", async () => {
+    getPrivileged.mockResolvedValue(kitchenAdmin().client);
+    await expect(notifyOrderPlaced(KITCHEN_INPUT)).resolves.toBe(true);
+
+    const [c] = customerEvents();
+    expect(c.title).toBe("Order RR260807-ABCDE booked for Friday 25 September");
+    expect(c.body.startsWith("Collect on Friday 25 September, 12:00–12:30 at Chez Banane.")).toBe(true);
+    expect(c.body).toContain("Pay in cash when you collect");
+    expect(c.body).not.toMatch(/reserved until/i);
+    expect(c.details[0]).toEqual(["Collection", "Friday 25 September, 12:00–12:30"]);
+    expect(c.details.map((d: [string, string]) => d[0])).not.toContain("Reserved until");
+  });
+
+  it("the kitchen's email leads with the slot and has no 'Accept by <hold>'", async () => {
+    getPrivileged.mockResolvedValue(kitchenAdmin().client);
+    await notifyOrderPlaced(KITCHEN_INPUT);
+
+    const [m] = merchantEvents();
+    expect(m.body.startsWith("Booked for Friday 25 September, 12:00–12:30.")).toBe(true);
+    expect(m.details[0]).toEqual(["Collection", "Friday 25 September, 12:00–12:30"]);
+    expect(m.details.map((d: [string, string]) => d[0])).not.toContain("Accept by");
+  });
+
+  it("a delivery says the kitchen hands it to the driver — the slot is the handover", async () => {
+    getPrivileged.mockResolvedValue(
+      kitchenAdmin({
+        order: {
+          data: { auto_release_at: null, pickup_slot: SLOT_RANGE, fulfillment_method: "rr_delivery" },
+          error: null,
+        },
+      }).client,
+    );
+    await notifyOrderPlaced({ ...KITCHEN_INPUT, fulfillment: "rr_delivery" });
+    const [c] = customerEvents();
+    expect(c.body).toContain("the kitchen hands it to the driver at 12:00–12:30");
+    expect(c.details[0]).toEqual(["Handed to driver", "Friday 25 September, 12:00–12:30"]);
+  });
+
+  it("the owner's alert: the day on line 2, the cook to call, no hold", async () => {
+    getPrivileged.mockResolvedValue(kitchenAdmin().client);
+    await notifyOrderPlaced(KITCHEN_INPUT);
+
+    const alert = ownerAlert();
+    expect(alert.category).toBe("food");
+    const lines = alert.message.split("\n").filter(Boolean);
+    expect(lines[1]).toBe("For FRI 25 SEP 12:00–12:30");
+    expect(lines).toContain(`Call Mr Arnaud ${COOK_PHONE}`);
+    expect(alert.message).not.toMatch(/Accept by/);
+  });
+
+  it("the phone pushes are prefixed with the day and carry no hold", async () => {
+    getPrivileged.mockResolvedValue(kitchenAdmin().client);
+    await notifyOrderPlaced(KITCHEN_INPUT);
+
+    const adminBody = (pushToAdmins.mock.calls[0][0] as { body: string }).body;
+    const merchantBody = (pushToMerchant.mock.calls[0][1] as { body: string }).body;
+    expect(adminBody.startsWith("For FRI 25 SEP 12:00–12:30 · ")).toBe(true);
+    expect(merchantBody.startsWith("For FRI 25 SEP 12:00–12:30 · ")).toBe(true);
+    expect(adminBody).not.toMatch(/Accept by/);
+  });
+
+  it("the cook's number reaches the owner's alert and NOTHING else", async () => {
+    getPrivileged.mockResolvedValue(kitchenAdmin().client);
+    await notifyOrderPlaced(KITCHEN_INPUT);
+
+    expect(ownerAlert().message).toContain(COOK_PHONE);
+    for (const e of dispatchNotification.mock.calls.map((call) => call[0])) {
+      expect(JSON.stringify(e)).not.toContain(COOK_PHONE);
+      expect(JSON.stringify(e)).not.toContain("Arnaud");
+    }
+    for (const call of [...pushToAdmins.mock.calls, ...pushToMerchant.mock.calls]) {
+      expect(JSON.stringify(call)).not.toContain(COOK_PHONE);
+    }
+  });
+
+  it("no cook row, or no number, leaves the line out", async () => {
+    getPrivileged.mockResolvedValue(kitchenAdmin({ ops: { data: null, error: null } }).client);
+    await notifyOrderPlaced(KITCHEN_INPUT);
+    expect(ownerAlert().message).not.toMatch(/^Call /m);
+
+    enqueueNotification.mockClear();
+    getPrivileged.mockResolvedValue(
+      kitchenAdmin({ ops: { data: { cooker_name: "Mr Arnaud", cooker_phone: null }, error: null } }).client,
+    );
+    await notifyOrderPlaced(KITCHEN_INPUT);
+    expect(ownerAlert().message).not.toMatch(/^Call /m);
+  });
+
+  it("a shop order never gets a cook line, even if an ops row came back", async () => {
+    const { client } = mockAdmin({
+      ops: { data: { cooker_name: "Someone", cooker_phone: COOK_PHONE }, error: null },
+      emails: { "staff-1": "a@shop.mu" },
+    });
+    getPrivileged.mockResolvedValue(client);
+    await notifyOrderPlaced(INPUT);
+
+    const alert = ownerAlert();
+    expect(alert.category).toBe("admin");
+    expect(alert.message).not.toContain(COOK_PHONE);
+    // An order with no slot keeps its hold, exactly as before M216.
+    expect(alert.message).toMatch(/Accept by/);
   });
 });

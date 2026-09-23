@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { getT } from "@/lib/i18n-server";
+import { getT, getLanguage } from "@/lib/i18n-server";
+import { formatSlot, parseSlotRange } from "@/lib/orders/slot";
+import { slotCardApplies } from "@/lib/orders/slot-copy";
 import Link from "next/link";
 import BackLink from "@/components/BackLink";
 import { redirect } from "next/navigation";
@@ -40,7 +42,7 @@ export default async function CustomerOrdersPage({
   searchParams: Promise<{ q?: string; status?: string; page?: string }>;
 }) {
   const { q, status, page: pageParam } = await searchParams;
-  const t = await getT();
+  const [t, language] = await Promise.all([getT(), getLanguage()]);
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
 
   const supabase = await createClient();
@@ -52,7 +54,9 @@ export default async function CustomerOrdersPage({
   let query = supabase
     .from("orders")
     .select(
-      "id, order_number, status, total, currency, created_at, placed_at, stores(name), order_items(count)",
+      // pickup_slot (M216): a food pre-order is FOR a day, and the row says
+      // which. authenticated holds a column grant on it since M161.
+      "id, order_number, status, total, currency, created_at, placed_at, pickup_slot, stores(name), order_items(count)",
       { count: "exact" },
     )
     .eq("customer_id", user.id)
@@ -164,6 +168,9 @@ export default async function CustomerOrdersPage({
             {orders.map((o) => {
               const store = Array.isArray(o.stores) ? o.stores[0] : o.stores;
               const itemCount = Array.isArray(o.order_items) ? o.order_items[0]?.count ?? 0 : 0;
+              // Only while the order is live — the same rule as the order page's
+              // slot card. A cancelled booking must not read "Tomorrow, 12:00".
+              const slot = slotCardApplies(o.status) ? parseSlotRange(o.pickup_slot as string | null) : null;
               return (
                 <Link
                   key={o.id}
@@ -175,6 +182,11 @@ export default async function CustomerOrdersPage({
                     <p className="mt-0.5 truncate font-dm text-xs text-muted">
                       {(store as { name?: string } | null)?.name ?? "Order"} · {itemCount} item(s) · {fmtDate(o.created_at)}
                     </p>
+                    {slot && (
+                      <p className="mt-0.5 truncate font-dm text-xs font-medium text-yellow">
+                        {formatSlot(slot, language, new Date())}
+                      </p>
+                    )}
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
                     <span className="font-dm text-sm font-semibold text-offwhite">Rs {centsToDecimalString(o.total)}</span>

@@ -45,10 +45,18 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("food_pickup_slots", {
-    p_store_id: parsed.data.storeId,
-    p_variant_ids: parsed.data.variantIds ?? null,
-  });
+  const [{ data, error }, { data: kitchen, error: kitchenError }] = await Promise.all([
+    supabase.rpc("food_pickup_slots", {
+      p_store_id: parsed.data.storeId,
+      p_variant_ids: parsed.data.variantIds ?? null,
+    }),
+    // M216 — how far ahead this kitchen must be booked, from the SAME
+    // function food_pickup_window() and the orders trigger ask, so the picker
+    // cannot draw an option they refuse. It is 0 while the platform lever is
+    // off — the rollback restores ASAP here too, with no change in this file.
+    supabase.rpc("kitchen_notice_hours", { p_store_id: parsed.data.storeId }),
+  ]);
+  if (kitchenError) console.error("kitchen_notice_hours failed", kitchenError);
 
   if (error) {
     console.error("food_pickup_slots failed", error);
@@ -66,7 +74,17 @@ export async function POST(req: NextRequest) {
   // page can say "closed Sunday" instead of showing an empty strip.
   const rows = (data ?? []) as Row[];
 
+  // M216 — a kitchen that needs notice cannot cook "as soon as it's ready":
+  // food_pickup_window() refuses ASAP for it (RR030). Two witnesses, so the
+  // picker never draws an option checkout will refuse: the database's own
+  // answer, and a day the slot generator explained as 'notice' (which also
+  // covers that read failing). A failed read is not "no notice".
+  const noticeHours = Number(kitchen) || 0;
+  const asap = !kitchenError && noticeHours === 0 && !rows.some((r) => r.reason === "notice");
+
   return NextResponse.json({
+    noticeHours,
+    asap,
     slots: rows.map((r) => ({
       date: r.slot_date,
       time: r.slot_time ? r.slot_time.slice(0, 5) : null,

@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Flame, Users, Clock, ChefHat, UtensilsCrossed, Info, MessageCircle, BadgeCheck } from "lucide-react";
+import { ArrowLeft, Flame, Users, Clock, ChefHat, UtensilsCrossed, Info, MessageCircle, BadgeCheck, CalendarClock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
 import { getFoodItem } from "@/lib/food/queries";
+import { anyWalkUpServingNow } from "@/lib/food/ready-now";
 import { dishMetaDescription } from "@/lib/food/meta-description";
 import { centsToShortString } from "@/lib/money";
 import { breadcrumbLd } from "@/lib/schema";
@@ -75,12 +76,23 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
   // So an unpublished slug 404s rather than leaking that it exists.
   if (!dish) notFound();
 
+  // M216: a kitchen that must be booked ahead shows HOW FAR ahead where the
+  // cooking time used to sit. "15–30 min" beside a dish you cannot have until
+  // tomorrow is a promise the kitchen never made.
+  const notice = dish.minNoticeHours > 0 ? dish.minNoticeHours : 0;
   const prep =
-    dish.prepMin != null && dish.prepMax != null
+    !notice && dish.prepMin != null && dish.prepMax != null
       ? dish.prepMin === dish.prepMax
         ? `${dish.prepMin} min`
         : `${dish.prepMin}–${dish.prepMax} min`
       : null;
+
+  // The unavailable panel's "See what's ready now" exit, only where that list
+  // can hold something (M216, lib/food/ready-now.ts). Asked only on the path
+  // that shows it — a walk-up dish that cannot be ordered — so an orderable
+  // dish, and every Chez Banane dish, pays no second round trip.
+  const readyNowExists =
+    !dish.orderable && !notice ? await anyWalkUpServingNow(supabase) : false;
 
   return (
     <main className="min-h-screen bg-dark pb-44 text-offwhite">
@@ -105,9 +117,17 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
               priceCurrency: dish.currency,
               price: (dish.price / 100).toFixed(2),
               url: `${SITE_URL}/food/${dish.slug}`,
-              availability: dish.orderable
-                ? "https://schema.org/InStock"
-                : "https://schema.org/OutOfStock",
+              // `orderable`, not `readyNow` (M216): a dish booked a day ahead
+              // is still for sale, and OutOfStock would tell a search engine
+              // Chez Banane's whole menu is gone. InStock would say the other
+              // wrong thing — that it can be had now. PreOrder is schema.org's
+              // word for "orderable, fulfilled later", which is what a kitchen
+              // needing notice sells. A walk-up kitchen is unchanged.
+              availability: !dish.orderable
+                ? "https://schema.org/OutOfStock"
+                : notice > 0
+                  ? "https://schema.org/PreOrder"
+                  : "https://schema.org/InStock",
             },
           },
         ]}
@@ -149,6 +169,11 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
                 {dish.variantCount > 1 && <span className="font-dm text-xs font-normal text-muted"><T k="card.from" />{" "}</span>}
                 Rs {centsToShortString(dish.price)}
               </span>
+              {notice > 0 && (
+                <span className="inline-flex items-center gap-1 text-yellow/90">
+                  <CalendarClock size={13} aria-hidden /> <TCount k="card.noticeBadge" n={notice} />
+                </span>
+              )}
               {prep && (
                 <span className="inline-flex items-center gap-1"><Clock size={13} /> {prep}</span>
               )}
@@ -283,7 +308,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
               sits directly under it, above the related strip. */}
           <div className="mt-6 lg:mt-0">
             <div className="lg:sticky lg:top-6">
-              <DishOrderPanel dish={dish} />
+              <DishOrderPanel dish={dish} readyNowExists={readyNowExists} />
             </div>
           </div>
         </div>

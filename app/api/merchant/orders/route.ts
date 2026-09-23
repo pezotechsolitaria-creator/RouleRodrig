@@ -31,10 +31,12 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status");
   const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
 
+  // pickup_slot (M216): a pre-order is FOR a day, and the list has to say which
+  // one — "Placed Wed" on its own reads like it is due now.
   let query = supabase
     .from("orders")
     .select(
-      "id, order_number, status, customer_name, customer_phone, total, currency, created_at, placed_at, order_items(count), payments(status, provider, created_at)",
+      "id, order_number, status, customer_name, customer_phone, total, currency, created_at, placed_at, pickup_slot, order_items(count), payments(status, provider, created_at)",
       { count: "exact" },
     )
     .eq("store_id", storeId)

@@ -24,6 +24,9 @@ import { FULFILMENT } from "@/lib/shop/plain-words";
 import PickupLocationCard, { type PickupLocation } from "@/components/orders/PickupLocationCard";
 import PaymentHelp from "@/components/payments/PaymentHelp";
 import { checkoutHoldCopy, type PaymentProvider } from "@/lib/orders/hold";
+import {
+  checkoutTiming, slotPaymentLine, slotWords, whenAppliesTo, WHEN_LOADING, type WhenState,
+} from "@/lib/checkout/when-gate";
 
 // Leaflet is heavy and most orders are pickup. Loaded only if the sheet opens.
 const PinOnMap = dynamic(() => import("@/components/PinOnMap"), { ssr: false });
@@ -165,6 +168,13 @@ export default function CheckoutForm({
   // Plain form state on purpose: never localStorage and never a URL param,
   // because a time chosen an hour ago is not a time the kitchen still has.
   const [slot, setSlot] = useState<PickedSlot>(null);
+  // M216 — what the WhenPicker learned from /api/food/slots: does this kitchen
+  // need notice, did the read work, can anything be booked. The picker is the
+  // only thing on the page that asks, so it reports up and the gates below
+  // (lib/checkout/when-gate.ts) read it.
+  const [when, setWhen] = useState<WhenState>(WHEN_LOADING);
+  // Bumped to remount the picker — a fresh read — when checkout refuses a time.
+  const [whenKey, setWhenKey] = useState(0);
   // Bank transfer is the default because it is, as of M89, the only method the
   // platform offers. The cart-resolve effect still corrects this from what the
   // shop actually accepts, so nothing here assumes the switch is on.
@@ -278,6 +288,34 @@ export default function CheckoutForm({
     return () => { cancelled = true; };
   }, []);
 
+  // Opening hours. create_order() refuses a closed shop (RR010) and refuses
+  // rr_delivery outside the delivery window (RR011); these mirror that so the
+  // customer is stopped before filling the form, not after submitting it.
+  const closedNow = !!schedule && schedule.has_schedule && !schedule.is_open;
+  const deliveryOffNow = !!schedule && schedule.has_schedule && !schedule.delivery_available;
+  // ── M216 · WHEN, AND WHAT "CLOSED NOW" STILL BLOCKS ─────────────────────
+  // Both of those checks run at rr_fulfil_at() — the SLOT, when there is one
+  // — so they only stop an order that is for right now. A kitchen that needs
+  // notice refuses right-now outright (RR030), for every fulfilment, so it
+  // must get a time, and "closed at 23:44" must not stop an order for
+  // Friday. Every rule is in lib/checkout/when-gate.ts, pinned by its test.
+  //
+  // Computed HERE, above the early returns, because the price needs the slot
+  // too (M218) and hooks cannot follow a conditional return.
+  const isFood = sellerDomain === "food";
+  const timing = checkoutTiming({ isFood, fulfilment: fulfillment, when, slot, closedNow, deliveryOffNow });
+  // The only slot ever sent: one the picker is showing for THIS fulfilment.
+  const sentSlot = timing.slot;
+  const quoteDate = sentSlot?.date ?? null;
+  const quoteTime = sentSlot?.time ?? null;
+  // ── M218 · WAIT FOR THE TIME BEFORE ASKING THE PRICE ───────────────────
+  // quote_order() judges opening hours at the instant being priced. With no
+  // slot it prices NOW — and at 00:20 a pre-order kitchen is shut, so the
+  // summary said "closed right now" in red under a perfectly bookable Friday
+  // slot, and the button never lit. A food order is priced only once the
+  // picker has answered, and a kitchen that needs notice only with a slot.
+  const quoteWaitsForTime = isFood && (when.status !== "ready" || (timing.needsNotice && !sentSlot));
+
   // ── Price it, server-side ────────────────────────────────────────────────
   const fetchQuote = useCallback(async () => {
     if (!cart || cart.items.length === 0) return;
@@ -287,7 +325,15 @@ export default function CheckoutForm({
       const r = await fetch("/api/checkout/quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ storeId: cart.storeId, items: cart.items, fulfillment, deliveryZoneId: zoneId || undefined }),
+        body: JSON.stringify({
+          storeId: cart.storeId,
+          items: cart.items,
+          fulfillment,
+          deliveryZoneId: zoneId || undefined,
+          // M218: priced for the booked instant, the same one the order uses.
+          pickupDate: quoteDate ?? undefined,
+          pickupTime: quoteTime ?? undefined,
+        }),
       });
       const body = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(body.error || c.form.errors.quote);
@@ -300,13 +346,14 @@ export default function CheckoutForm({
     }
     // `c` only ever changes when the reader switches language; the effect that
     // calls this does not list it, so nothing re-fetches on a language change.
-  }, [cart, fulfillment, zoneId, c]);
+  }, [cart, fulfillment, zoneId, c, quoteDate, quoteTime]);
 
   useEffect(() => {
     if (!hydrated || cartError || !resolved || resolved.length === 0) return;
+    if (quoteWaitsForTime) return;
     void fetchQuote();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, cartKey, fulfillment, zoneId, resolved, cartError]);
+  }, [hydrated, cartKey, fulfillment, zoneId, resolved, cartError, quoteDate, quoteTime, quoteWaitsForTime]);
 
   function shareLocation() {
     if (!navigator.geolocation) {
@@ -385,12 +432,16 @@ export default function CheckoutForm({
   const locationReady = !needsLocation || coords !== null;
   // rr_delivery has no price until an area is chosen, so it cannot be submitted.
   const zoneReady = fulfillment !== "rr_delivery" || !!zoneId;
-  // Opening hours. create_order() refuses a closed shop (RR010) and refuses
-  // rr_delivery outside the delivery window (RR011); these mirror that so the
-  // customer is stopped before filling the form, not after submitting it.
-  const shopClosed = !!schedule && schedule.has_schedule && !schedule.is_open;
-  const deliveryOffNow = !!schedule && schedule.has_schedule && !schedule.delivery_available;
-  const scheduleReady = !shopClosed && !(fulfillment === "rr_delivery" && deliveryOffNow);
+  // (closedNow, deliveryOffNow, isFood, timing and sentSlot live above the
+  // early returns now — M218: the price needs the slot too.)
+  // "Friday 25 September, 12:00–12:30", from the server's own instant.
+  const sentSlotWords = slotWords(sentSlot, language);
+  // The reservation clock is for an order with NO time. A food order waits
+  // for the picker's answer first, or Chez Banane's checkout would flash a
+  // 7-day hold before settling on its slot.
+  const showHoldClock = !sentSlot && (!isFood || (when.status === "ready" && !timing.needsNotice));
+  const scheduleReady = timing.scheduleReady;
+  const whenReady = timing.whenBlock === null;
   // A shop with no payment method configured cannot be ordered from at all;
   // create_order() would refuse whatever we sent.
   // (M49c) Bank transfer used to carry an extra condition for a guest: a shop
@@ -409,7 +460,7 @@ export default function CheckoutForm({
   // confirmation or find this order again, since they have no account.
   const identityReady = !isGuest || guestEmailValid;
   const canSubmit = !submitting && !hasIssue && !!quote && !quoting && locationReady && zoneReady
-    && scheduleReady && paymentReady && !!name.trim() && !!phone.trim() && identityReady;
+    && whenReady && scheduleReady && paymentReady && !!name.trim() && !!phone.trim() && identityReady;
 
   // A disabled button with no explanation is a dead end: the customer has filled
   // in what they can see and the only affordance left is dark. Name and phone
@@ -422,6 +473,10 @@ export default function CheckoutForm({
     : !phone.trim() ? c.form.blocked.phone(s)
     : !locationReady ? c.form.blocked.location
     : !zoneReady ? c.form.blocked.zone
+    : timing.whenBlock === "choose" ? c.form.blocked.when
+    : timing.whenBlock === "none" ? c.form.blocked.whenNone
+    : timing.whenBlock === "failed" ? c.form.blocked.whenFailed
+    : timing.whenBlock === "loading" ? c.form.blocked.whenLoading
     : !paymentReady ? c.form.blocked.payment(s)
     : !scheduleReady ? c.form.blocked.closed(s)
     : !quote ? c.form.blocked.quote(s)
@@ -444,9 +499,11 @@ export default function CheckoutForm({
           fulfillment,
           notes: notes || undefined,
           // Both or neither. The RPC re-derives the real window and
-          // refuses (RR030) anything it would not have offered.
-          pickupDate: slot?.date,
-          pickupTime: slot?.time,
+          // refuses (RR030) anything it would not have offered. sentSlot,
+          // never `slot`: a time chosen under "pick up" and then hidden by a
+          // switch to delivery at a walk-up kitchen must not travel (M216).
+          pickupDate: sentSlot?.date,
+          pickupTime: sentSlot?.time,
           provider,
           deliveryLat: coords?.lat,
           deliveryLng: coords?.lng,
@@ -470,6 +527,18 @@ export default function CheckoutForm({
         if (body.code === "RR012") {
           await fetchQuote();
           throw new Error(body.error || c.form.errors.priceChanged);
+        }
+        // M216 — the time was refused: taken, passed, inside the notice, or
+        // no time at all for a kitchen that needs one. Drop it and remount
+        // the picker so it reads the times the server offers NOW; its first
+        // bookable one is chosen again, under the server's own sentence.
+        if (body.code === "RR030") {
+          setSlot(null);
+          setWhen(WHEN_LOADING);
+          setWhenKey((k) => k + 1);
+          // The database's sentence is English; a French or Kreol reader gets
+          // the translated one, which says the same thing.
+          throw new Error(language === "en" && body.error ? body.error : c.form.errors.slotRefused);
         }
         throw new Error(body.error || c.form.errors.failed);
       }
@@ -531,7 +600,7 @@ export default function CheckoutForm({
       </section>
 
       {/* Opening hours — stated up front, because a closed shop blocks everything. */}
-      {shopClosed && (
+      {timing.closedBanner === "hard" && (
         <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/[0.06] px-4 py-3">
           <p className="font-dm text-sm text-red-300">{c.form.schedule.closedNow(s)}</p>
           <p className="mt-0.5 font-dm text-xs text-muted">
@@ -544,7 +613,15 @@ export default function CheckoutForm({
           </p>
         </div>
       )}
-      {!shopClosed && schedule?.has_schedule && (
+      {/* M216 — shut now, but this order is FOR a later time. Not red and not
+          an alert: nothing is wrong. And never "try again during opening
+          hours", the one advice that sends a pre-order customer away. */}
+      {timing.closedBanner === "later" && (
+        <p className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 font-dm text-sm text-offwhite/85">
+          {c.form.schedule.closedOrderLater(s)}
+        </p>
+      )}
+      {!closedNow && schedule?.has_schedule && (
         <p className="font-dm text-xs text-muted">
           <span className="text-green-400">{c.form.schedule.openNow}</span>{c.form.schedule.todayLower}{todayLine(schedule)}
         </p>
@@ -572,18 +649,21 @@ export default function CheckoutForm({
             // A shut delivery window disables ONLY rr_delivery — pickup and a
             // customer's own driver still work, which is exactly what the RPC
             // allows, so the UI never blocks something the server would accept.
+            // M216: per option, and only when no LATER time could carry it —
+            // a notice kitchen is booked for a slot, whatever the clock says.
+            const closedHere = timing.closedFor[f];
             const disabled =
-              shopClosed
+              closedHere
                 ? true
                 : f === "rr_delivery"
-                  ? !offersRrDelivery || deliveryOffNow
+                  ? !offersRrDelivery || timing.deliveryOffFor
                   : f === "pickup"
                     ? !offersPickup
                     : !offersCustomerDelivery || !storeOffersDelivery;
             const reason =
-              shopClosed ? c.form.fulfilment.closed(s)
+              closedHere ? c.form.fulfilment.closed(s)
                 : f === "rr_delivery" && !offersRrDelivery ? c.form.fulfilment.noRrDelivery(s)
-                : f === "rr_delivery" && deliveryOffNow ? c.form.fulfilment.deliveryOff
+                : f === "rr_delivery" && timing.deliveryOffFor ? c.form.fulfilment.deliveryOff
                 : null;
             return (
               <label
@@ -598,7 +678,13 @@ export default function CheckoutForm({
                   value={f}
                   checked={fulfillment === f}
                   disabled={disabled}
-                  onChange={() => { setFulfillment(f); setLocationError(null); }}
+                  onChange={() => {
+                    setFulfillment(f);
+                    setLocationError(null);
+                    // M216: a time the picker will no longer show is dropped,
+                    // not carried silently into the order.
+                    if (!whenAppliesTo(isFood, f, when)) setSlot(null);
+                  }}
                   className="mt-1 accent-yellow"
                 />
                 <span>
@@ -699,7 +785,9 @@ export default function CheckoutForm({
             <p className="font-dm text-xs text-muted">
               {c.form.zone.agreed}
             </p>
-            {deliveryLine(schedule) && (
+            {/* TODAY's delivery hours. Beside an order booked for Friday
+                (M216) they describe a day it is not going out on. */}
+            {!sentSlot && deliveryLine(schedule) && (
               <p className="mt-1 font-dm text-xs text-muted">
                 {c.form.zone.today}{deliveryLine(schedule)}
               </p>
@@ -883,18 +971,29 @@ export default function CheckoutForm({
             />
           </div>
           {/* ── M161 · WHEN DO YOU WANT IT? ────────────────────────────
-              Food collection only. Delivery has its own timing story and the
-              kitchen's window is not the rider's. The component renders
-              nothing at all unless the kitchen opted in to pre-orders, so
-              this is inert for every shop and every event. */}
-          {sellerDomain === "food" && fulfillment === "pickup" && cart?.storeId && (
+              Mounted for every FOOD order and never for a shop or an event.
+              A walk-up kitchen keeps M161's rule — shown for collection only,
+              since a delivery goes as soon as it is ready. A kitchen that
+              needs notice (M216) refuses "as soon as it's ready" for every
+              fulfilment, so it is shown for all three: for delivery the time
+              is the handover, because no Roulé job exists until the cook
+              marks the order ready.
+
+              It stays MOUNTED while hidden: it is what learns whether the
+              kitchen needs notice at all, and reports it through onState.
+              Hidden, it draws nothing and chooses nothing. */}
+          {isFood && cart?.storeId && (
             <WhenPicker
+              key={whenKey}
               storeId={cart.storeId}
               variantIds={cart.items.map((i) => i.variantId)}
               kitchenName={pickup?.storeName ?? s.the}
               asapAvailable={schedule?.is_open ?? true}
+              show={timing.visible}
+              fulfilment={fulfillment}
               value={slot}
               onChange={setSlot}
+              onState={setWhen}
             />
           )}
           <Textarea
@@ -1015,8 +1114,19 @@ export default function CheckoutForm({
             Stated as a date and time rather than a duration, because "48
             hours" from an unstated starting point is not something anyone can
             act on. The hours come from order_hold_hours() on the server, so
-            this cannot drift from what the database will actually enforce. */}
-        {paymentReady && (
+            this cannot drift from what the database will actually enforce.
+
+            M216 — NOT under a booked food order. There that date is the
+            7-day cash hold, not a deadline: the cook starts on the day, and an
+            order nobody accepted is cancelled half an hour after its slot
+            ends. Beside a slot two days out it read as a second, conflicting
+            date. The slot itself is said instead, with how it is paid. */}
+        {paymentReady && (sentSlotWords ? (
+          <p className="mt-3 flex items-start gap-2 rounded-xl border border-yellow/25 bg-yellow/[0.06] px-4 py-3 font-dm text-xs leading-relaxed text-offwhite">
+            <Clock size={14} className="mt-0.5 shrink-0 text-yellow" />
+            <span>{slotPaymentLine(c.form.slotted, s, provider, fulfillment, sentSlotWords)}</span>
+          </p>
+        ) : showHoldClock && (
           <p className="mt-3 flex items-start gap-2 rounded-xl border border-yellow/25 bg-yellow/[0.06] px-4 py-3 font-dm text-xs leading-relaxed text-offwhite">
             <Clock size={14} className="mt-0.5 shrink-0 text-yellow" />
             {/* Still English in every language: lib/orders/hold.ts builds this
@@ -1025,7 +1135,7 @@ export default function CheckoutForm({
                 seller words, so the two stay consistent with each other. */}
             <span>{checkoutHoldCopy(provider, holdWindows[provider] ?? 48, Date.now(), v.seller)}</span>
           </p>
-        )}
+        ))}
 
         {/* ── NEED HELP WITH PAYMENT? ─────────────────────────────────────
             Last in the payment block, so it sits between the instructions and

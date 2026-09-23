@@ -3,8 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Search, ClipboardList, CreditCard } from "lucide-react";
-import { useOrders } from "@/lib/merchant/orders";
+import { useOrders, type OrderListItem } from "@/lib/merchant/orders";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
+import { parseSlotRange, slotTimes } from "@/lib/orders/slot";
+import { slotDayShort } from "@/lib/merchant/slot-label";
 import { paymentLabel } from "@/lib/payments/words";
 import { centsToDecimalString } from "@/lib/money";
 import { Input } from "@/components/ui/input";
@@ -30,6 +32,26 @@ function statusBadge(status: OrderStatus) {
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+/**
+ * The day and window a booked order is FOR (M216), or null.
+ *
+ * "Placed" alone made a Friday pre-order look due the moment it arrived.
+ * pickup_slot is Postgres range text; lib/orders/slot.ts reads it, because a
+ * hand-rolled `new Date()` on it is Invalid Date (see WorkQueue).
+ */
+function slotFor(o: OrderListItem, now: Date): { day: string; times: string } | null {
+  // The list type in lib/merchant/orders.ts predates the column.
+  const w = parseSlotRange((o as OrderListItem & { pickup_slot?: string | null }).pickup_slot);
+  if (!w) return null;
+  // "today" / "tomorrow" / "Fri 25 Sep" — lower-case so it reads mid-sentence.
+  return { day: slotDayShort(w, now), times: slotTimes(w) };
+}
+
+/** "tomorrow" → "Tomorrow", for a table cell that starts with it. */
+function cap(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 export default function OrdersTable() {
@@ -67,6 +89,11 @@ export default function OrdersTable() {
   const orders = data?.orders ?? [];
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / (data?.pageSize ?? 20)));
   const noOrdersAtAll = orders.length === 0 && page === 1 && q === "" && status === "all";
+  const now = new Date();
+  const slots = new Map(orders.map((o) => [o.id, slotFor(o, now)] as const));
+  // The "For" column only where something on this page was booked. A shop
+  // never books a slot, and a column of dashes on every shop's list is noise.
+  const showFor = [...slots.values()].some((s) => s !== null);
 
   if (noOrdersAtAll) {
     return (
@@ -123,58 +150,83 @@ export default function OrdersTable() {
                   <th className="px-4 py-3 font-medium">Total</th>
                   <th className="px-4 py-3 font-medium">Payment</th>
                   <th className="px-4 py-3 font-medium">Status</th>
+                  {showFor && <th className="px-4 py-3 font-medium">For</th>}
                   <th className="px-4 py-3 font-medium">Placed</th>
                 </tr>
               </thead>
               <tbody>
-                {orders.map((o) => (
-                  <tr
-                    key={o.id}
-                    className="cursor-pointer border-t border-white/10 font-dm text-sm text-offwhite transition-colors hover:bg-white/[0.03]"
-                  >
-                    <td className="px-4 py-3">
-                      <Link href={`/merchant/orders/${o.id}`} className="font-medium hover:text-yellow">
-                        {o.order_number}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-muted">{o.customer_name ?? "—"}</td>
-                    <td className="px-4 py-3 text-muted">{o.order_items[0]?.count ?? 0}</td>
-                    <td className="px-4 py-3">Rs {centsToDecimalString(o.total)}</td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1 text-xs text-muted">
-                        <CreditCard size={12} />{" "}
-                        {/* Was `payments[0].status` raw: "captured",
-                            "authorized", "partially_refunded" — payments-API
-                            vocabulary shown to someone selling honey. */}
-                        {o.payments[0] ? paymentLabel(o.payments[0].status, o.payments[0].provider) : "—"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">{statusBadge(o.status)}</td>
-                    <td className="px-4 py-3 text-muted">{o.placed_at ? fmtDate(o.placed_at) : "—"}</td>
-                  </tr>
-                ))}
+                {orders.map((o) => {
+                  const slot = slots.get(o.id) ?? null;
+                  return (
+                    <tr
+                      key={o.id}
+                      className="cursor-pointer border-t border-white/10 font-dm text-sm text-offwhite transition-colors hover:bg-white/[0.03]"
+                    >
+                      <td className="px-4 py-3">
+                        <Link href={`/merchant/orders/${o.id}`} className="font-medium hover:text-yellow">
+                          {o.order_number}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 text-muted">{o.customer_name ?? "—"}</td>
+                      <td className="px-4 py-3 text-muted">{o.order_items[0]?.count ?? 0}</td>
+                      <td className="px-4 py-3">Rs {centsToDecimalString(o.total)}</td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center gap-1 text-xs text-muted">
+                          <CreditCard size={12} />{" "}
+                          {/* Was `payments[0].status` raw: "captured",
+                              "authorized", "partially_refunded" — payments-API
+                              vocabulary shown to someone selling honey. */}
+                          {o.payments[0] ? paymentLabel(o.payments[0].status, o.payments[0].provider) : "—"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">{statusBadge(o.status)}</td>
+                      {showFor && (
+                        <td className="px-4 py-3">
+                          {slot ? (
+                            <span className="block leading-tight">
+                              <span className="block font-medium text-yellow">{cap(slot.day)}</span>
+                              <span className="block text-xs text-muted">{slot.times}</span>
+                            </span>
+                          ) : (
+                            // Booked nothing: cooked when it came in.
+                            <span className="text-xs text-muted">ASAP</span>
+                          )}
+                        </td>
+                      )}
+                      <td className="px-4 py-3 text-muted">{o.placed_at ? fmtDate(o.placed_at) : "—"}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
           {/* Mobile cards */}
           <div className="mt-4 space-y-2 sm:hidden">
-            {orders.map((o) => (
-              <Link
-                key={o.id}
-                href={`/merchant/orders/${o.id}`}
-                className="block rounded-xl border border-white/10 bg-dark-card p-3 transition-colors hover:border-yellow/30"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-dm text-sm font-medium text-offwhite">{o.order_number}</span>
-                  {statusBadge(o.status)}
-                </div>
-                <p className="mt-1 font-dm text-xs text-muted">
-                  {o.customer_name ?? "—"} · {o.order_items[0]?.count ?? 0} item(s) · Rs {centsToDecimalString(o.total)}
-                </p>
-                <p className="mt-0.5 font-dm text-[11px] text-muted/70">{o.placed_at ? fmtDate(o.placed_at) : "—"}</p>
-              </Link>
-            ))}
+            {orders.map((o) => {
+              const slot = slots.get(o.id) ?? null;
+              return (
+                <Link
+                  key={o.id}
+                  href={`/merchant/orders/${o.id}`}
+                  className="block rounded-xl border border-white/10 bg-dark-card p-3 transition-colors hover:border-yellow/30"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-dm text-sm font-medium text-offwhite">{o.order_number}</span>
+                    {statusBadge(o.status)}
+                  </div>
+                  <p className="mt-1 font-dm text-xs text-muted">
+                    {o.customer_name ?? "—"} · {o.order_items[0]?.count ?? 0} item(s) · Rs {centsToDecimalString(o.total)}
+                  </p>
+                  {slot && (
+                    <p className="mt-0.5 font-dm text-xs font-semibold text-yellow">
+                      For {slot.day} · {slot.times}
+                    </p>
+                  )}
+                  <p className="mt-0.5 font-dm text-[11px] text-muted/70">{o.placed_at ? fmtDate(o.placed_at) : "—"}</p>
+                </Link>
+              );
+            })}
           </div>
 
           {totalPages > 1 && (

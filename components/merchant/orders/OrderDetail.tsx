@@ -4,14 +4,22 @@ import { useState } from "react";
 import posthog from "posthog-js";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, User, Phone, CreditCard, Ticket, StickyNote, Check, Loader2, Clock } from "lucide-react";
+import { ArrowLeft, User, Phone, CreditCard, Ticket, StickyNote, Check, Loader2, Clock, CalendarClock } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useOrder, useUpdateOrder, orderKeys } from "@/lib/merchant/orders";
 import PaymentConfirmCard from "./PaymentConfirmCard";
 import DeliveryLocationCard from "./DeliveryLocationCard";
 import { STATUS_LABEL, legalNextStatuses, type OrderStatus } from "@/lib/orders/status";
 import { centsToDecimalString } from "@/lib/money";
-import { holdInfo, merchantHoldCopy, type PaymentProvider } from "@/lib/orders/hold";
+import { holdInfo, holdIsTheDeadline, merchantHoldCopy, type PaymentProvider } from "@/lib/orders/hold";
+import { formatSlot, parseSlotRange } from "@/lib/orders/slot";
+import {
+  handoverWord,
+  momentShort,
+  slotCancelAt,
+  slotDayShort,
+  slotRunningLate,
+} from "@/lib/merchant/slot-label";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -131,6 +139,26 @@ export default function OrderDetail({ id }: { id: string }) {
     !order.accepted_at &&
     (order.status === "pending_payment" || order.status === "awaiting_payment_confirmation");
   const hold = holdInfo(order.auto_release_at);
+
+  // ── THE SLOT, AND THE DEADLINE THAT REALLY APPLIES (M216) ─────────────────
+  // A booked order is FOR a day. Before this the page never said which: a cash
+  // pre-order showed only the 7-day hold ("confirm within 6 days"), which is
+  // not when anything happens. expire_order() never lets the hold fire before
+  // the slot begins, and cancels an unaccepted order 30 minutes after it ENDS,
+  // so the hold card goes (holdIsTheDeadline, the rule every surface shares)
+  // and the real moment is shown instead. Only pending_payment is ever swept:
+  // an order awaiting a transfer check is not cancelled, so it gets no clock.
+  // The detail type in lib/merchant/orders.ts predates the column.
+  const now = new Date();
+  const slot = parseSlotRange((order as typeof order & { pickup_slot?: string | null }).pickup_slot);
+  const showHold = holdIsTheDeadline(slot);
+  const cancelAt =
+    slot && !order.accepted_at && order.status === "pending_payment"
+      ? slotCancelAt(slot, hold?.deadline ?? null)
+      : null;
+  const cancelLapsed = cancelAt !== null && now.getTime() > cancelAt.getTime();
+  const slotLate = slot !== null && slotRunningLate(slot, order.status, Boolean(order.accepted_at), now);
+  const slotSoon = slot ? slotDayShort(slot, now) : null;
   // The newest token, which is the only one that can be live: ensure_pickup_code
   // reuses an unredeemed, unexpired code rather than minting a second one.
   const pickup = order.qr_pickup_tokens.slice().sort((a, b) => b.issued_at.localeCompare(a.issued_at))[0] ?? null;
@@ -175,13 +203,64 @@ export default function OrderDetail({ id }: { id: string }) {
         </div>
       </div>
 
+      {/* The booked slot, first: on a pre-order the day is the whole message.
+          For delivery it is when the food leaves the kitchen — the driver is
+          only called when the order is marked ready. */}
+      {slot && (
+        <div
+          role="status"
+          className="mt-4 flex items-start gap-2.5 rounded-2xl border border-yellow/30 bg-yellow/[0.06] p-4"
+        >
+          <CalendarClock size={16} className="mt-0.5 shrink-0 text-yellow" />
+          <div>
+            <p className="font-dm text-sm text-offwhite">
+              <span className="font-bold">{handoverWord(order.fulfillment_method)}:</span>{" "}
+              {formatSlot(slot, "en")}
+              {(slotSoon === "today" || slotSoon === "tomorrow") && (
+                <span className="ml-2 rounded-full bg-yellow/15 px-2 py-0.5 text-[11px] font-semibold text-yellow">
+                  {slotSoon}
+                </span>
+              )}
+            </p>
+            <p className="mt-0.5 font-dm text-xs text-muted">
+              {/* Only a Roulé delivery sends a driver; the customer's own
+                  driver simply turns up (lib/orders/slot-copy.ts splits them
+                  the same way for the kitchen's email). */}
+              {order.fulfillment_method === "rr_delivery"
+                ? "Have it ready to hand to the driver in this window. The driver is called when you mark it ready."
+                : order.fulfillment_method === "customer_delivery"
+                  ? "The customer’s own driver collects it in this window."
+                  : "The customer comes to collect it in this window."}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* The real rule for a booked order nobody has accepted yet. */}
+      {cancelAt && (
+        <div
+          role="status"
+          className={`mt-3 flex items-start gap-2.5 rounded-2xl border p-4 ${
+            cancelLapsed || slotLate ? "border-red-500/30 bg-red-500/[0.07]" : "border-white/10 bg-white/[0.03]"
+          }`}
+        >
+          <Clock size={16} className={cancelLapsed || slotLate ? "mt-0.5 text-red-400" : "mt-0.5 text-muted"} />
+          <p className="font-dm text-sm leading-relaxed text-offwhite/85">
+            {cancelLapsed
+              ? "Nobody accepted this order in time, so it is being cancelled automatically and the customer told."
+              : `Accept it by ${momentShort(cancelAt, now)} or it is cancelled automatically, and the customer is told.`}
+          </p>
+        </div>
+      )}
+
       {/* Reservation clock. Derived from the server's auto_release_at, never
           from browser time — a merchant with a skewed device clock would
           otherwise be told they had longer than they do, which is the one
           direction that costs them the sale. Disappears once accepted, because
           accept_order() nulls auto_release_at and there is nothing left to
-          count down. */}
-      {hold && !order.accepted_at && (
+          count down. Never on a booked order (M216): the hold is not its
+          deadline, and showing it was the bug. */}
+      {hold && !order.accepted_at && showHold && (
         <div
           role="status"
           className={`mt-4 flex items-start gap-2.5 rounded-2xl border p-4 ${

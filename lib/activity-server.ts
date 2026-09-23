@@ -76,7 +76,7 @@ export async function listActivitiesForCustomer(opts: {
       : Promise.resolve({ data: [], error: null }),
     admin
       .from("orders")
-      .select("id, order_number, status, total, currency, placed_at, created_at, stores(name)")
+      .select("id, order_number, status, total, currency, placed_at, created_at, pickup_slot, stores(name)")
       .eq("customer_id", opts.userId)
       .order("created_at", { ascending: false })
       .limit(50),
@@ -195,6 +195,7 @@ export async function listActivitiesForCustomer(opts: {
           placed_at: row.placed_at as string | null,
           created_at: row.created_at as string | null,
           storeName: (store as { name?: string } | null)?.name ?? null,
+          pickup_slot: row.pickup_slot as string | null,
         },
         STATUS_LABEL[row.status as OrderStatus],
       ),

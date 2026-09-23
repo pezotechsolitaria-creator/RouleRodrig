@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getT } from "@/lib/i18n-server";
+import { getLanguage, getT } from "@/lib/i18n-server";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, User, Phone, CreditCard, MapPin, Truck, Receipt } from "lucide-react";
@@ -9,7 +9,10 @@ import { centsToDecimalString } from "@/lib/money";
 import OrderTimeline from "@/components/orders/OrderTimeline";
 import { statusLabel, type OrderStatus } from "@/lib/orders/status";
 import { FULFILLMENT_LABEL, googleMapsLink, formatCoords } from "@/lib/orders/location";
-import { holdInfo, customerHoldCopy, holdRemaining, type PaymentProvider } from "@/lib/orders/hold";
+import { holdInfo, holdIsTheDeadline, customerHoldCopy, holdRemaining, type PaymentProvider } from "@/lib/orders/hold";
+import { parseSlotRange } from "@/lib/orders/slot";
+import { slotCard, slotCardApplies } from "@/lib/orders/slot-copy";
+import BookedSlotCard from "@/components/orders/BookedSlotCard";
 import BankTransferPanel, { type BankDetails } from "@/components/orders/BankTransferPanel";
 import RefundPanel from "@/components/refunds/RefundPanel";
 import PickupCodeCard from "@/components/orders/PickupCodeCard";
@@ -50,6 +53,10 @@ type CustomerOrderDetail = {
   // always governed whether the order survives, and until now no customer-facing
   // file referenced it at all.
   auto_release_at: string | null;
+  // M216. The slot a food order is booked for, as PostgREST range text:
+  // ["2026-09-25 08:00:00+00","2026-09-25 08:30:00+00"). Readable by
+  // `authenticated` since M161's column grant.
+  pickup_slot: string | null;
   store_id: string;
   stores: { name: string; phone: string | null } | { name: string; phone: string | null }[] | null;
   order_items: {
@@ -77,7 +84,7 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
     .from("orders")
     .select(
       "id, order_number, status, notes, subtotal, discount, tax, total, currency, placed_at, created_at, store_id, " +
-        "fulfillment_method, delivery_fee, delivery_lat, delivery_lng, delivery_instructions, payment_receipt_path, receipt_submitted_at, auto_release_at, " +
+        "fulfillment_method, delivery_fee, delivery_lat, delivery_lng, delivery_instructions, payment_receipt_path, receipt_submitted_at, auto_release_at, pickup_slot, " +
         "stores(name, phone), " +
         "order_items(id, product_name, variant_name, sku, unit_price, quantity, line_total), " +
         "payments(id, provider, amount, currency, status, created_at)",
@@ -137,8 +144,24 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
   // happens next" surface on this page, so a cash customer (cash is the
   // checkout default) saw a timeline, a status word, and nothing else, while a
   // clock they could not see decided whether their order survived.
+  //
+  // Except for an order booked for a slot (M216). Its hold is never the real
+  // deadline, and "reserved until Wed 30 Sep · 6 days remaining" on an order
+  // for Friday lunch is the only date on the page and the wrong one. The slot
+  // card below replaces it.
+  const slot = parseSlotRange(typedOrder.pickup_slot);
   const hold = holdInfo(typedOrder.auto_release_at);
-  const showHold = hold !== null && typedOrder.status === "pending_payment";
+  const showHold = hold !== null && typedOrder.status === "pending_payment" && holdIsTheDeadline(slot);
+  const slotCopy =
+    slot && slotCardApplies(typedOrder.status)
+      ? slotCard(slot, {
+          fulfillment: typedOrder.fulfillment_method,
+          storeName: pickupLocation.storeName ?? (store as { name?: string } | null)?.name ?? "",
+          provider: payment?.provider as PaymentProvider | undefined,
+          status: typedOrder.status,
+          lang: await getLanguage(),
+        })
+      : null;
 
   // Bank details come from store_bank_details(), not from the table.
   //
@@ -241,6 +264,11 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
             Status: <span className="text-offwhite">{statusLabel(typedOrder.status as OrderStatus, tickets.length > 0)}</span>
           </p>
         </div>
+
+        {/* WHEN, straight under the status (M216). A booked cash order reads
+            "Pending payment" for the day or two before it is cooked; the
+            next thing the customer sees has to be the day it is for. */}
+        {slotCopy && <BookedSlotCard copy={slotCopy} className="mt-4" />}
 
         {/* M56. Same reasoning as the pickup code, one step stronger: for an
             event order the ticket is the ONLY thing this page exists to hand

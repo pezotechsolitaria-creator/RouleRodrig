@@ -2,8 +2,23 @@ import { describe, expect, it } from "vitest";
 import {
   holdInfo, holdRemaining, customerHoldCopy, merchantHoldCopy,
   checkoutHoldCopy, holdWindowLabel, projectedDeadline, holdDeadlineLabel,
+  holdIsTheDeadline,
 } from "./hold";
+import { parseSlotRange } from "./slot";
 import { dateLocales } from "@/lib/i18n";
+
+describe("holdIsTheDeadline (M216)", () => {
+  it("a booked order is described by its slot, never by the 7-day hold", () => {
+    const slot = parseSlotRange('["2026-09-25 08:00:00+00","2026-09-25 08:30:00+00")');
+    expect(holdIsTheDeadline(slot)).toBe(false);
+  });
+
+  it("an order with no time keeps the hold as its deadline", () => {
+    expect(holdIsTheDeadline(null)).toBe(true);
+    expect(holdIsTheDeadline(undefined)).toBe(true);
+    expect(holdIsTheDeadline(parseSlotRange(null))).toBe(true);
+  });
+});
 
 const NOW = Date.parse("2026-08-06T12:00:00Z");
 const at = (hoursFromNow: number) => new Date(NOW + hoursFromNow * 3_600_000).toISOString();

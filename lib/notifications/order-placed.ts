@@ -7,12 +7,21 @@ import { SITE_URL } from "@/lib/site";
 import { centsToDecimalString } from "@/lib/money";
 import {
   holdInfo,
+  holdIsTheDeadline,
   customerHoldCopy,
   merchantHoldCopy,
   holdDeadlineLabel,
   type PaymentProvider,
 } from "@/lib/orders/hold";
 import { FULFILLMENT_LABEL } from "@/lib/orders/location";
+import { formatSlot, parseSlotRange, slotDayWords } from "@/lib/orders/slot";
+import {
+  customerSlotLead,
+  customerSlotPayment,
+  merchantSlotCopy,
+  slotAlertLine,
+  slotRowLabel,
+} from "@/lib/orders/slot-copy";
 import { orderDocumentAttachments } from "@/lib/receipts/order-document";
 
 // ── M17 Phase 2: exactly-once order-placed notifications ────────────────────
@@ -41,6 +50,26 @@ const rs = (cents: number) => `Rs ${centsToDecimalString(cents)}`;
 // name/phone are typed by the customer and product names by merchants — escape
 // them all rather than trusting either party.
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** The two columns of food_kitchen_ops the owner's alert reads (M50). */
+export type CookContact = { cooker_name?: string | null; cooker_phone?: string | null };
+
+/**
+ * "Call Mr Arnaud 57xxxxxx" — the cook to phone, for the owner's alert (M216).
+ *
+ * The owner relays every booking to the cook by phone (M217 explains why the
+ * kitchen board is not the path), so the alert that tells him about the order
+ * also tells him who to ring. No number, no line: a name alone is nothing he
+ * can act on from a lock screen, and he knows who cooks for Chez Banane.
+ *
+ * INTERNAL ONLY. Plain text for ntfy/WhatsApp, never HTML, never a customer.
+ */
+export function cookCallLine(ops: CookContact | null | undefined): string | null {
+  const phone = ops?.cooker_phone?.trim();
+  if (!phone) return null;
+  const name = ops?.cooker_name?.trim();
+  return `Call ${name || "the cook"} ${phone}`;
+}
 
 export interface OrderPlacedInput {
   orderId: string;
@@ -87,8 +116,8 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
     }
     const admin = await getPrivileged();
 
-    const [orderRes, storeRes, itemsRes, kitchenRes] = await Promise.all([
-      admin.from("orders").select("auto_release_at").eq("id", input.orderId).maybeSingle(),
+    const [orderRes, storeRes, itemsRes, kitchenRes, cookRes] = await Promise.all([
+      admin.from("orders").select("auto_release_at, pickup_slot, fulfillment_method").eq("id", input.orderId).maybeSingle(),
       admin.from("stores").select("merchant_id, name").eq("id", input.storeId).maybeSingle(),
       admin.from("order_items").select("product_name, variant_name, quantity, line_total").eq("order_id", input.orderId),
       // ── IS THIS A KITCHEN? ─────────────────────────────────────────────
@@ -99,9 +128,20 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
       // one wrong word in a select silences every order notification, not just
       // the one that needed it.
       admin.from("food_kitchens").select("store_id").eq("store_id", input.storeId).maybeSingle(),
+      // ── WHO THE OWNER PHONES (M216/M217) ───────────────────────────────
+      // A cook has no login (M50), and the kitchen board is not how a
+      // booking reaches him: the owner reads the alert below and CALLS him.
+      // food_kitchen_ops is service-role only (RLS on, no policy, no grant to
+      // anon or authenticated), which `admin` is — hasServiceRole() was
+      // checked above. A shop has no row, so for one this is an empty read.
+      admin.from("food_kitchen_ops").select("cooker_name, cooker_phone").eq("store_id", input.storeId).maybeSingle(),
     ]);
 
     const isKitchen = Boolean(kitchenRes.data);
+    // Only ever placed in the owner's INTERNAL alert below — never in the
+    // customer's email, the merchant's email or any push. A cook's number is
+    // exactly the data M50 put behind the service role.
+    const callCook = isKitchen ? cookCallLine(cookRes.data as CookContact | null) : null;
     const store = storeRes.data as { merchant_id: string; name: string } | null;
     if (!store) {
       console.error(`notifyOrderPlaced: store ${input.storeId} not found for order ${input.orderNumber}`);
@@ -142,12 +182,36 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
       rs(it.line_total),
     ]);
 
-    const hold = holdInfo((orderRes.data as { auto_release_at: string | null } | null)?.auto_release_at);
+    const orderRow = orderRes.data as {
+      auto_release_at: string | null;
+      pickup_slot?: string | null;
+      fulfillment_method?: string | null;
+    } | null;
+
+    // ── THE DAY IT IS FOR (M216) ─────────────────────────────────────────
+    // A food order booked for a slot carries it in orders.pickup_slot (range
+    // text from PostgREST). When it is set, the slot is what every message
+    // below leads with, and the 7-day cash hold is dropped from all of them:
+    // "Accept by Wed 30 Sep" on an order for Friday lunch told the cook the
+    // wrong day and the customer "reserved until" a date a week out. `hold`
+    // is null for such an order, which removes every hold line in one place.
+    const slot = parseSlotRange(orderRow?.pickup_slot);
+    const hold = holdIsTheDeadline(slot) ? holdInfo(orderRow?.auto_release_at) : null;
+    // The order's own row decides the fulfilment wording; the route's copy is
+    // the fallback for a read that came back without it.
+    const fulfillment = orderRow?.fulfillment_method ?? input.fulfillment;
     const providerLabel = PROVIDER_LABEL[input.provider] ?? input.provider;
-    const fulfillmentLabel = FULFILLMENT_LABEL[input.fulfillment] ?? input.fulfillment;
+    const fulfillmentLabel = FULFILLMENT_LABEL[fulfillment] ?? fulfillment;
+    // Leads the detail table, above the items: the day is the first thing a
+    // cook or a customer looks for, and a row at the bottom is a row skipped.
+    const slotRows: [string, string][] = slot ? [[slotRowLabel(fulfillment), formatSlot(slot)]] : [];
+    // "For FRI 25 SEP 12:00–12:30" — prefixed to the owner's and the shop's
+    // phone alerts, which is where the owner reads it before calling the cook.
+    const alertLine = slot ? slotAlertLine(slot) : null;
 
     // ── Merchant side ──
     const merchantDetails: [string, string][] = [
+      ...slotRows,
       ...itemRows,
       ["Total", rs(input.total)],
       ["Payment", providerLabel],
@@ -156,9 +220,11 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
       ...(hold ? ([["Accept by", holdDeadlineLabel(hold)]] as [string, string][]) : []),
     ];
     const merchantTitle = `New order ${input.orderNumber} — ${store.name}`;
-    const merchantBody = hold
-      ? merchantHoldCopy(input.provider, hold)
-      : "A new order has been placed at your shop.";
+    const merchantBody = slot
+      ? merchantSlotCopy(slot, fulfillment, input.provider)
+      : hold
+        ? merchantHoldCopy(input.provider, hold)
+        : "A new order has been placed at your shop.";
 
     const merchantEmailSends = staffEmails.map((email) =>
       dispatchNotification({
@@ -189,7 +255,7 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
     // touch the ~400/day email ceiling that is shared with Supabase auth mail.
     const ownerPingSend = pushToAdmins({
       title: merchantTitle,
-      body: `${rs(input.total)} · ${providerLabel} · ${fulfillmentLabel} · ${input.customerName}`,
+      body: `${alertLine ? `${alertLine} · ` : ""}${rs(input.total)} · ${providerLabel} · ${fulfillmentLabel} · ${input.customerName}`,
       url: "/admin/food",
       // Per order, so a burst of orders does not collapse into one entry.
       tag: `order:${input.orderNumber}`,
@@ -224,10 +290,16 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
       category: isKitchen ? "food" : "admin",
       message: formatWhatsAppMessage({
         title: `\u{1F9FE} New order ${input.orderNumber}`,
+        // The slot sits straight under the title: ntfy makes the first line
+        // the notification's title, so this is the first line of its body.
         lines: [
+          alertLine,
           `${store.name} \u2014 ${input.customerName}`,
           `${rs(input.total)} \u00b7 ${providerLabel} \u00b7 ${fulfillmentLabel}`,
           ...(hold ? [`Accept by ${holdDeadlineLabel(hold)}`] : []),
+          // "Call Mr Arnaud 5\u2026" \u2014 the next thing the owner does, on the
+          // screen he reads it from. Omitted when there is no number.
+          callCook,
           `${SITE_URL}${isKitchen ? "/admin/food" : "/admin/marketplace"}`,
         ],
       }),
@@ -253,7 +325,7 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
     // this function reports on.
     const merchantPush = pushToMerchant(input.storeId, {
       title: `New order ${input.orderNumber}`,
-      body: `${rs(input.total)} · ${fulfillmentLabel} · ${input.customerName}`,
+      body: `${alertLine ? `${alertLine} · ` : ""}${rs(input.total)} · ${fulfillmentLabel} · ${input.customerName}`,
       url: "/merchant/orders",
       tag: `order:${input.orderNumber}`,
       urgent: true,
@@ -300,11 +372,20 @@ export async function notifyOrderPlaced(input: OrderPlacedInput): Promise<boolea
           recipientEmail: input.customerEmail,
           orderNumber: input.orderNumber,
           type: "order_created",
-          title: `Order ${input.orderNumber} placed`,
-          body: hold
-            ? customerHoldCopy(input.provider, hold)
-            : "Your order has been placed. The shop will confirm it shortly.",
+          // The subject carries the day too: it is what shows in the inbox
+          // list, and the one line of this email a customer rereads on the day.
+          title: slot
+            ? `Order ${input.orderNumber} booked for ${slotDayWords(slot.from)}`
+            : `Order ${input.orderNumber} placed`,
+          // paragraph() in lib/email.ts takes HTML, so the merchant-typed
+          // store name is escaped like every other interpolated value here.
+          body: slot
+            ? `${customerSlotLead(slot, fulfillment, esc(store.name))} ${customerSlotPayment(input.provider, fulfillment)}`
+            : hold
+              ? customerHoldCopy(input.provider, hold)
+              : "Your order has been placed. The shop will confirm it shortly.",
           details: [
+            ...slotRows,
             ...itemRows,
             ["Total", rs(input.total)],
             ["Payment", providerLabel],

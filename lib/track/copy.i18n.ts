@@ -186,6 +186,10 @@ const EN = {
       reservedAfter: (remaining: string) =>
         ` — ${remaining} left to pay, or the order is cancelled.`,
     },
+    /** M216 — a booked food order: the day it is FOR, which is the whole point. */
+    slot: {
+      bookedFor: "Booked for ",
+    },
   },
 };
 
@@ -290,6 +294,9 @@ const FR: TrackCopy = {
       reservedAfter: (remaining: string) =>
         ` — il reste ${remaining} pour payer, sinon la commande est annulée.`,
     },
+    slot: {
+      bookedFor: "Réservé pour ",
+    },
   },
 };
 
@@ -383,6 +390,9 @@ const CR: TrackCopy = {
       reservedBefore: "Rezerve ziska ",
       reservedAfter: (remaining: string) =>
         ` — ou ena ${remaining} pou peye, sinon komann la anile.`,
+    },
+    slot: {
+      bookedFor: "Rezerve pou ",
     },
   },
 };

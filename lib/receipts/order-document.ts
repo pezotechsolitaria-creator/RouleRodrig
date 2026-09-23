@@ -3,6 +3,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { attachmentsFor, type EmailAttachment } from "@/lib/receiptly/attach";
 import { islandToday, marketplaceOrderDoc } from "@/lib/receiptly/documents";
 import { FULFILLMENT_LABEL } from "@/lib/orders/location";
+import { parseSlotRange } from "@/lib/orders/slot";
+import { slotRowLabel, slotShortLabel } from "@/lib/orders/slot-copy";
+import type { ReceiptlyDoc } from "@/lib/receiptly/model";
 
 // ── THE SHOP ORDER, AS A DOCUMENT ───────────────────────────────────────────
 //
@@ -32,7 +35,7 @@ export async function orderDocumentAttachments(
     const [orderRes, itemsRes] = await Promise.all([
       admin
         .from("orders")
-        .select("id, order_number, customer_name, customer_email, customer_phone, subtotal, tax, delivery_fee, total, fulfillment_method, stores(name)")
+        .select("id, order_number, customer_name, customer_email, customer_phone, subtotal, tax, delivery_fee, total, fulfillment_method, pickup_slot, stores(name)")
         .eq("id", orderId)
         .maybeSingle(),
       admin
@@ -52,6 +55,7 @@ export async function orderDocumentAttachments(
       delivery_fee: number | null;
       total: number;
       fulfillment_method: string | null;
+      pickup_slot?: string | null;
       stores: { name: string } | { name: string }[] | null;
     };
     if (itemsRes.error) return [];
@@ -65,7 +69,7 @@ export async function orderDocumentAttachments(
     const store = Array.isArray(o.stores) ? o.stores[0] : o.stores;
 
     return attachmentsFor(
-      marketplaceOrderDoc({
+      withSlot(marketplaceOrderDoc({
         kind,
         orderNumber: o.order_number,
         customerName: o.customer_name ?? "",
@@ -95,10 +99,35 @@ export async function orderDocumentAttachments(
           : null,
         storeName: store?.name ?? null,
         issuedOn: islandToday(),
-      }),
+      }), o.pickup_slot ?? null, o.fulfillment_method),
     );
   } catch (err) {
     console.error("order document failed", { orderId, kind, err });
     return [];
   }
+}
+
+/**
+ * The booked slot as a detail row: "Collection · Fri 25 Sep, 12:00–12:30".
+ *
+ * M216. The confirmation is the document a customer keeps, forwards and shows
+ * at the counter, and it printed everything except the day the food is for.
+ * Appended to the adapter's rows here rather than taught to the shared adapter
+ * in lib/receiptly, which serves every kind of document this site issues.
+ *
+ * The SHORT label, because a detail field is a third of the page wide: the full
+ * "Wednesday 30 September, 12:00–12:30" is clipped mid-time, and a time cut to
+ * "12:0" is worse than no time.
+ */
+export function withSlot(
+  doc: ReceiptlyDoc | null,
+  pickupSlot: string | null,
+  fulfillment: string | null,
+): ReceiptlyDoc | null {
+  const slot = parseSlotRange(pickupSlot);
+  if (!doc || !slot) return doc;
+  return {
+    ...doc,
+    details: [...doc.details, { label: slotRowLabel(fulfillment), value: slotShortLabel(slot) }],
+  };
 }

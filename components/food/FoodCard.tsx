@@ -1,11 +1,11 @@
 import Link from "next/link";
 import AutoPhotos from "@/components/AutoPhotos";
-import { Flame, Star, Clock, Users, BadgeCheck } from "lucide-react";
+import { Flame, Star, Clock, Users, BadgeCheck, CalendarClock } from "lucide-react";
 import { centsToShortString } from "@/lib/money";
 import { type FoodCard as FoodCardType } from "@/lib/food/types";
 import { dishArt } from "@/lib/food/dish-art";
 import FoodQuickAdd from "./FoodQuickAdd";
-import { SpiceAria, T, TUnavailable } from "./FoodCopy";
+import { SpiceAria, T, TCount, TUnavailable } from "./FoodCopy";
 
 // The food card. The most-rendered component on the surface, and the one that
 // decides whether this feels like a food platform or a business directory.
@@ -15,7 +15,8 @@ import { SpiceAria, T, TUnavailable } from "./FoodCopy";
 //   2. the name
 //   3. the price
 //   4. one line of what is in it
-//   5. how long it takes
+//   5. how long it takes — or, for a kitchen that needs notice (M216), how
+//      far ahead to order, which is the only honest answer there
 //   6. the kitchen, small, last — and only on the detail view
 //
 // A card dominated by a logo and a business name is a directory listing. The
@@ -38,9 +39,15 @@ export default function FoodCard({
   /** Position in the grid — offsets this card's photo cycle. */
   index?: number;
 }) {
+  // `orderable` is "can go in the basket" (M216), so a notice kitchen's dish
+  // is NOT dimmed while the kitchen is closed — it is booked for a later slot.
   const unavailable = !item.orderable;
+  const notice = item.minNoticeHours > 0 ? item.minNoticeHours : 0;
+  // The cooking time is only a promise when the kitchen cooks on the spot.
+  // Beside a dish that needs a day's notice, "15–30 min" read as "ready in
+  // half an hour", which is exactly what Chez Banane's cook cannot do.
   const prep =
-    item.prepMin != null && item.prepMax != null
+    !notice && item.prepMin != null && item.prepMax != null
       ? item.prepMin === item.prepMax
         ? `${item.prepMin} min`
         : `${item.prepMin}–${item.prepMax} min`
@@ -147,18 +154,32 @@ export default function FoodCard({
             kitchen's own statement about one recipe, and it says so by staying
             plain. Somebody who needs certification can tell which they are
             looking at without opening anything. */}
-        {(item.kitchenHalalCertified || item.dietary?.includes("halal")) && (
-          <p className="mt-1.5">
-            <span
-              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-dm text-[10px] font-semibold ${
-                item.kitchenHalalCertified
-                  ? "bg-emerald-500/20 text-emerald-200"
-                  : "bg-emerald-500/10 text-emerald-300/90"
-              }`}
-            >
-              {item.kitchenHalalCertified && <BadgeCheck size={11} aria-hidden />}
-              {item.kitchenHalalCertified ? "Halal certified" : "Halal"}
-            </span>
+        {/* ── HOW FAR AHEAD, BESIDE IT (M216) ─────────────────────────────
+            Same reasoning as halal: "can I have this tonight" is decided
+            before anything else is read. It shares the row so a dish carrying
+            both does not grow a line taller than its neighbours. */}
+        {(item.kitchenHalalCertified || item.dietary?.includes("halal") || notice > 0) && (
+          <p className="mt-1.5 flex flex-wrap gap-1">
+            {(item.kitchenHalalCertified || item.dietary?.includes("halal")) && (
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-dm text-[10px] font-semibold ${
+                  item.kitchenHalalCertified
+                    ? "bg-emerald-500/20 text-emerald-200"
+                    : "bg-emerald-500/10 text-emerald-300/90"
+                }`}
+              >
+                {item.kitchenHalalCertified && <BadgeCheck size={11} aria-hidden />}
+                <T k={item.kitchenHalalCertified ? "card.halalCertified" : "card.halal"} />
+              </span>
+            )}
+            {notice > 0 && (
+              // Tighter than the halal pill on purpose: the longest wording
+              // (French, 94px) has to hold one line in a 152px rail card.
+              <span className="inline-flex items-center gap-0.5 whitespace-nowrap rounded-full bg-yellow/10 px-1.5 py-0.5 font-dm text-[10px] font-semibold text-yellow/90">
+                <CalendarClock size={11} aria-hidden />
+                <TCount k="card.noticeBadge" n={notice} />
+              </span>
+            )}
           </p>
         )}
 
@@ -176,7 +197,7 @@ export default function FoodCard({
             and the layout that makes this look like a menu survives. */}
         <div className="mt-auto flex flex-col items-start gap-0.5 pt-2.5 sm:flex-row sm:items-end sm:justify-between sm:gap-2">
           <p className="whitespace-nowrap font-syne text-[15px] font-extrabold leading-tight text-yellow sm:text-base">
-            {item.variantCount > 1 && <span className="font-dm text-[11px] font-normal text-muted">from </span>}
+            {item.variantCount > 1 && <span className="font-dm text-[11px] font-normal text-muted"><T k="card.from" />{" "}</span>}
             Rs {centsToShortString(item.price)}
           </p>
           <p className="flex items-center gap-2 whitespace-nowrap font-dm text-[11px] text-muted">
