@@ -92,6 +92,25 @@ export function measure(encoded: string, size: number, font: PdfFont): number {
 }
 
 /**
+ * The same, with letter-spacing applied.
+ *
+ * THE OFF-BY-ONE THAT MATTERS. PDF's `Tc` operator, and CSS letter-spacing,
+ * both add the space AFTER every glyph including the last. So the advance the
+ * renderer consumes is `base + track * n`, but the INK on the page spans only
+ * `base + track * (n - 1)` — the trailing space is empty.
+ *
+ * Right-align with the first number and a tracked column head hangs off the
+ * margin by exactly one letter-space, on both renderers, in a way that looks
+ * like a rounding bug and is not.
+ */
+export function measureTracked(
+  encoded: string, size: number, font: PdfFont, track = 0,
+): number {
+  const base = measure(encoded, size, font);
+  return encoded.length > 1 ? base + track * (encoded.length - 1) : base;
+}
+
+/**
  * Cut a string to a width, with a real ellipsis when it does not fit.
  *
  * Measured rather than counted, so "Îles aux Cocos" and "MMMMMMMMMMMMMM" are

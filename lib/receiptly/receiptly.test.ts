@@ -53,8 +53,14 @@ const latin1 = (d: ReceiptlyDoc) => Buffer.from(buildReceiptlyPdf(d)).toString("
 function drawn(d: ReceiptlyDoc) {
   const raw = latin1(d);
   const content = raw.slice(raw.indexOf("stream") + 6, raw.indexOf("endstream"));
-  return [...content.matchAll(/BT \/(F\d) ([\d.]+) Tf ([\d.-]+) ([\d.-]+) Td \((.*?)\) Tj ET/g)]
-    .map((mm) => ({ font: mm[1], size: Number(mm[2]), x: Number(mm[3]), y: Number(mm[4]), text: mm[5] }));
+  // A tracked run carries `Tc` inside its BT/ET, set before the run and reset
+  // straight after so it cannot leak into the rest of the page.
+  return [...content.matchAll(
+    /BT (?:([\d.-]+) Tc )?\/(F\d) ([\d.]+) Tf ([\d.-]+) ([\d.-]+) Td \((.*?)\) Tj(?: 0 Tc)? ET/g,
+  )].map((mm) => ({
+    track: Number(mm[1] ?? 0), font: mm[2], size: Number(mm[3]),
+    x: Number(mm[4]), y: Number(mm[5]), text: mm[6],
+  }));
 }
 
 // ── MONEY IS WRITTEN THE WAY EACH CURRENCY IS WRITTEN ───────────────────────
@@ -283,11 +289,12 @@ describe("the rendered document", () => {
       terms: "And terms at least as long as the note. ".repeat(20),
     };
     const ops = drawn(full);
-    const footer = ops.find((o) => o.text.startsWith("Thank you"))!;
-    expect(footer).toBeTruthy();
-    // BOTH footer ops sit on that line — the thank-you and the byline beside
-    // it — so the document's own content is everything above them.
+    // The footer is PINNED: identified by where it sits, not by its words.
+    // It used to read "Thank you for choosing X" beside "Made with
+    // Receiptly", which gave the software equal billing with the business on
+    // the business's own paper; it carries the hard facts now.
     const isFooter = (o: { y: number }) => o.y <= PAGE.margin + 14;
+    expect(ops.filter(isFooter).length).toBeGreaterThanOrEqual(2);
     const content = ops.filter((o) => !isFooter(o));
     expect(Math.min(...content.map((o) => o.y)))
       .toBeGreaterThanOrEqual(PAGE.margin + FOOTER_RESERVE - 24);

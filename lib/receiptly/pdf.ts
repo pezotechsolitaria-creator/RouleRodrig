@@ -1,14 +1,14 @@
 import { toWinAnsi, assembleOnePagePdf, type Op } from "@/lib/receipt-pdf";
 import { RECEIPT_LOGO } from "@/lib/receipt-logo";
 import { dataUrlToEmbedded } from "./logo";
-import { measure, fit, wrapToWidth, type PdfFont } from "./metrics";
+import { measure, measureTracked, fit, wrapToWidth, type PdfFont } from "./metrics";
 import {
-  PAGE, CONTENT_WIDTH, TABLE, TYPE, SPACE, INK, STATUS_COLOUR, STATUS_TINT,
-  FOOTER_RESERVE, LOGO_BOX, hexToRgb, type Rgb,
+  PAGE, CONTENT_WIDTH, RIGHT, AXIS, TABLE, TYPE, TRACK, SPACE, INK, STATUS_COLOUR,
+  FOOTER_RESERVE, LOGO_BOX, Y, FLOW_TOP, hexToRgb, type Rgb,
 } from "./theme";
 import {
   computeMoney, docStatus, heroAmount, formatMoney, currencyByCode,
-  DOC_KIND_LABEL, MAX_LINES, type ReceiptlyDoc,
+  DOC_KIND_LABEL, MAX_LINES, type DetailRow, type ReceiptlyDoc,
 } from "./model";
 
 // ── THE DOCUMENT, DRAWN ─────────────────────────────────────────────────────
@@ -18,22 +18,46 @@ import {
 // and font machinery into the bundle, on a mobile-first site whose largest
 // paint is already dominated by script. What it buys is 1:1 parity between a
 // React preview and a React PDF — which this gets instead by having both
-// renderers read their colours, sizes and column positions from theme.ts.
+// renderers read their colours, sizes, axes and baselines from theme.ts.
 //
 // The thing that actually separates this from the old receipt is measurement.
 // lib/receiptly/metrics.ts carries the Helvetica AFM widths, so money is
 // RIGHT-ALIGNED and long text is cut where it genuinely stops fitting. A money
-// column whose decimal points do not line up is the clearest possible tell
-// that a document was assembled by hand.
+// column whose figures do not line up is the clearest possible tell that a
+// document was assembled by hand.
+//
+// ── ENGRAVED, NOT STYLED ────────────────────────────────────────────────────
+//
+// This page has no coloured rectangles on it. It used to have three — a tinted
+// status pill, a tinted "how to pay" band, and a 2pt green bar under the
+// masthead — and between them they carried the most visual weight on the sheet
+// while conveying the least information. A pill is browser chrome; a tint is
+// what a layout reaches for when the type is not doing the work; a brand
+// colour that appears once, on a divider, is a stripe rather than branding,
+// and in greyscale it is a meaningless dark bar.
+//
+// What replaces them is geometry the renderer can actually draw: four 0.5pt
+// ink hairlines, three vertical axes, and a frozen skeleton of baselines that
+// does not move between documents.
 
 const L = PAGE.margin;
-const R = PAGE.margin + CONTENT_WIDTH;
 
 function esc(s: string): string {
   return s.replace(/[\\()]/g, (c) => `\\${c}`);
 }
 
-type Ctx = { ops: Op[]; y: number };
+type Ctx = { ops: Op[] };
+
+/** From-top coordinates, because that is how a page is read and specified. */
+const yOf = (fromTop: number): number => PAGE.height - fromTop;
+
+/** An axis, as an absolute x. */
+const axis = (i: 0 | 1 | 2): number => L + CONTENT_WIDTH * AXIS[i];
+
+/** Two decimals is more than a page at 72dpi can show, and keeps the stream short. */
+function pt(v: number): string {
+  return (Math.round(v * 100) / 100).toString();
+}
 
 function rgbFill(c: Rgb): Op {
   return `${c[0]} ${c[1]} ${c[2]} rg`;
@@ -43,294 +67,372 @@ function ink(hex: string): Op {
   return rgbFill(hexToRgb(hex));
 }
 
-function box(x: number, y: number, w: number, h: number, hex: string): Op {
+function box(x: number, yFromTop: number, w: number, h: number, hex: string): Op {
   const c = hexToRgb(hex);
-  return `${c[0]} ${c[1]} ${c[2]} rg ${x} ${y} ${w} ${h} re f`;
+  return `${c[0]} ${c[1]} ${c[2]} rg ${pt(x)} ${pt(yOf(yFromTop))} ${pt(w)} ${pt(h)} re f`;
 }
 
-/** Two decimals is more than a page at 72dpi can show, and keeps the stream short. */
-function pt(v: number): string {
-  return (Math.round(v * 100) / 100).toString();
+type Draw = {
+  x: number;
+  /** From the top of the page. */
+  y: number;
+  text: string;
+  size: number;
+  font: PdfFont;
+  hex: string;
+  track?: number;
+  /** Right-align to this x instead of starting at it. */
+  right?: boolean;
+  /** Clip to this width with an ellipsis. */
+  maxW?: number;
+};
+
+/**
+ * One text run.
+ *
+ * `Tc` is emitted for a tracked run and reset immediately after, because it is
+ * part of the graphics state and would otherwise leak into every string drawn
+ * afterwards — which is a whole document set in tracked type.
+ */
+function put(ctx: Ctx, d: Draw): void {
+  let enc = toWinAnsi(d.text);
+  if (d.maxW != null) enc = fit(enc, d.maxW, d.size, d.font);
+  if (!enc) return;
+  const track = d.track ?? 0;
+  const x = d.right ? d.x - measureTracked(enc, d.size, d.font, track) : d.x;
+  const f = d.font === "bold" ? "F2" : "F1";
+  ctx.ops.push(
+    ink(d.hex),
+    `BT ${track ? `${pt(track)} Tc ` : ""}/${f} ${d.size} Tf ${pt(x)} ${pt(yOf(d.y))} Td (${esc(enc)}) Tj${track ? " 0 Tc" : ""} ET`,
+  );
 }
 
-function roundedTint(x: number, y: number, w: number, h: number, hex: string): Op {
-  // A plain rectangle: PDF can draw rounded corners with Bézier curves, and at
-  // the sizes used here the difference is a pixel nobody will see against the
-  // cost of four curve operators per box.
-  return box(x, y, w, h, hex);
+/** THE only label role: bold, all caps, tracked, muted. */
+function label(ctx: Ctx, x: number, y: number, text: string, right = false): void {
+  put(ctx, {
+    x, y, text: text.toUpperCase(), size: TYPE.label, font: "bold",
+    hex: INK.muted, track: TRACK.label, right,
+  });
 }
 
-/** Left-aligned text. Everything goes through toWinAnsi before it is measured. */
-function put(
-  ctx: Ctx, x: number, y: number, s: string, size: number, font: PdfFont, hex: string,
+/** A label above a value, on one of the three axes. The page's one field module. */
+function field(
+  ctx: Ctx, x: number, yLabel: number, yValue: number,
+  name: string, value: string, maxW: number, bold = false,
 ): void {
-  const enc = toWinAnsi(s);
-  ctx.ops.push(ink(hex), `BT /${font === "bold" ? "F2" : "F1"} ${size} Tf ${x} ${y} Td (${esc(enc)}) Tj ET`);
+  if (!value.trim()) return;
+  label(ctx, x, yLabel, name);
+  put(ctx, {
+    x, y: yValue, text: value, size: bold ? TYPE.strong : TYPE.body,
+    font: bold ? "bold" : "regular", hex: INK.ink, maxW,
+  });
 }
 
-/** Right-aligned: the reason this module measures at all. */
-function putRight(
-  ctx: Ctx, xRight: number, y: number, s: string, size: number, font: PdfFont, hex: string,
-): void {
-  const enc = toWinAnsi(s);
-  const x = xRight - measure(enc, size, font);
-  ctx.ops.push(ink(hex), `BT /${font === "bold" ? "F2" : "F1"} ${size} Tf ${x} ${y} Td (${esc(enc)}) Tj ET`);
+function rule(ctx: Ctx, yFromTop: number): void {
+  ctx.ops.push(box(L, yFromTop, CONTENT_WIDTH, SPACE.rule, INK.hairline));
 }
 
-function putFitted(
-  ctx: Ctx, x: number, y: number, s: string, maxW: number,
-  size: number, font: PdfFont, hex: string,
-): void {
-  const enc = fit(toWinAnsi(s), maxW, size, font);
-  ctx.ops.push(ink(hex), `BT /${font === "bold" ? "F2" : "F1"} ${size} Tf ${x} ${y} Td (${esc(enc)}) Tj ET`);
-}
-
-/** A small-caps-ish section label: uppercase, tracked out by drawing per char. */
-function putLabel(ctx: Ctx, x: number, y: number, s: string, hex: string): void {
-  const enc = toWinAnsi(s.toUpperCase());
-  let cx = x;
-  for (const ch of enc) {
-    ctx.ops.push(ink(hex), `BT /F2 ${TYPE.section} Tf ${cx} ${y} Td (${esc(ch)}) Tj ET`);
-    cx += measure(ch, TYPE.section, "bold") + 0.9; // the tracking
-  }
-}
-
-function hairline(ctx: Ctx, y: number, hex = INK.hairline, h = SPACE.hairline): void {
-  ctx.ops.push(box(L, y, CONTENT_WIDTH, h, hex));
-}
-
-/** Just enough of the embedded image for the masthead to lay it out. */
 type Mark = { width: number; height: number };
 
+/** The widest a field on one of the three axes may be. */
+const FIELD_W = CONTENT_WIDTH / 3 - 14;
+
 function buildContent(doc: ReceiptlyDoc, mark: Mark): string {
-  const ctx: Ctx = { ops: [], y: PAGE.height - PAGE.margin };
+  const ctx: Ctx = { ops: [] };
   const c = currencyByCode(doc.currencyCode);
   const m = computeMoney(doc);
   const status = docStatus(doc, m);
   const hero = heroAmount(doc, m);
-  const accent = doc.business.accent || "#0a7d3b";
   const fmt = (v: number) => formatMoney(v, c);
+  /** Bare, because the column head says RS once for the whole numeric field. */
+  const bare = (v: number) => fmt(v).replace(/^[^\d-]+\s*/, "");
+
+  // ══ FROZEN ZONE ══════════════════════════════════════════════════════════
+  // Every baseline below is an absolute from theme.Y. Nothing here moves
+  // because of content, which is what makes two of these look like the same
+  // stationery rather than two templates.
 
   // ── Masthead ─────────────────────────────────────────────────────────────
-  let y = ctx.y;
-  // ── THE MARK, AT ITS OWN SHAPE ───────────────────────────────────────────
-  //
-  // Always drawn: the assembler embeds the built-in Roué Rodrigues mark as
-  // /Im1 whenever a document carries no uploaded one, so skipping the draw
-  // when business.logo was null meant every unbranded document — including
-  // every one this platform sends by itself — went out with no logo at all,
-  // while the image sat unused in the file.
-  //
-  // FITTED, not forced. `30 0 0 30` scaled whatever was handed over into a
-  // 30×30 square, so a wide wordmark came out visibly squeezed. The transform
-  // now fits the longest edge and keeps the other in proportion, hanging from
-  // the same top edge so the name beside it does not move.
+  // The mark is ALWAYS drawn: the assembler embeds the built-in one whenever a
+  // document carries no upload, so skipping the draw left an unbranded
+  // document with no logo and an unused image sitting in the file. Fitted to
+  // its own aspect rather than forced into a square.
   const scale = Math.min(LOGO_BOX / mark.width, LOGO_BOX / mark.height);
-  const lw = pt(mark.width * scale);
-  const lh = pt(mark.height * scale);
-  ctx.ops.push(`q ${lw} 0 0 ${lh} ${L} ${pt(y + 8 - mark.height * scale)} cm /Im1 Do Q`);
-  const nameX = L + LOGO_BOX + 10;
-  put(ctx, nameX, y, doc.business.name || "Your business", TYPE.title, "bold", INK.strong);
-  const sub = [doc.business.website, doc.business.tagline].filter(Boolean).join("  ·  ");
-  if (sub) put(ctx, nameX, y - 12, sub, TYPE.small, "regular", INK.muted);
+  const lw = mark.width * scale;
+  const lh = mark.height * scale;
+  ctx.ops.push(
+    `q ${pt(lw)} 0 0 ${pt(lh)} ${pt(L)} ${pt(yOf(Y.logoTop + lh))} cm /Im1 Do Q`,
+  );
+  const nameX = L + LOGO_BOX + 12;
 
-  // Document kind, top right, quiet.
-  putRight(ctx, R, y, DOC_KIND_LABEL[doc.kind].toUpperCase(), TYPE.small, "bold", INK.faint);
-  if (doc.reference) {
-    putRight(ctx, R, y - 12, doc.reference, TYPE.body, "bold", INK.strong);
-  }
-
-  y -= 34;
-  ctx.ops.push(box(L, y, CONTENT_WIDTH, 2, accent));
-
-  // ── The hero: the one number the reader is looking for ───────────────────
-  y -= 46;
-  put(ctx, L, y, fmt(hero.minor), TYPE.hero, "bold", INK.strong);
-  put(ctx, L, y - 15, hero.caption, TYPE.body, "regular", INK.muted);
-
-  // Status badge, right, on a tint.
-  const badge = toWinAnsi(status.label);
-  const badgeW = measure(badge, TYPE.small, "bold") + 20;
-  ctx.ops.push(roundedTint(R - badgeW, y - 4, badgeW, 20, STATUS_TINT[status.tone]));
-  putRight(ctx, R - 10, y + 2, status.label, TYPE.small, "bold", STATUS_COLOUR[status.tone]);
-  if (status.detail) {
-    const dw = CONTENT_WIDTH * 0.52;
-    const lines = wrapToWidth(toWinAnsi(status.detail), dw, TYPE.tiny, "regular");
-    lines.slice(0, 2).forEach((ln, i) => {
-      putRight(ctx, R, y - 18 - i * 10, ln, TYPE.tiny, "regular", INK.faint);
-    });
-  }
-
-  // ── Who and what ─────────────────────────────────────────────────────────
-  y -= 52;
-  hairline(ctx, y + 14);
-
-  const colW = CONTENT_WIDTH / 2 - 12;
-  putLabel(ctx, L, y - 4, "Billed to", INK.faint);
-  putFitted(ctx, L, y - 20, doc.customerName || "—", colW, TYPE.strong, "bold", INK.strong);
-  const who = [doc.customerEmail, doc.customerPhone].filter(Boolean);
-  who.slice(0, 2).forEach((v, i) => {
-    putFitted(ctx, L, y - 33 - i * 11, v, colW, TYPE.small, "regular", INK.muted);
+  put(ctx, {
+    x: nameX, y: Y.brand, text: doc.business.name || "Your business",
+    size: TYPE.brand, font: "bold", hex: INK.ink, track: TRACK.brand,
+    maxW: CONTENT_WIDTH * 0.55,
+  });
+  // The tagline is gone. Marketing copy between a business name and a payment
+  // reference weakens both; what a guest with a problem needs at 9pm is a way
+  // to reach somebody.
+  put(ctx, {
+    x: nameX, y: Y.contact, text: doc.business.website,
+    size: TYPE.fine, font: "regular", hex: INK.muted, maxW: CONTENT_WIDTH * 0.55,
   });
 
-  const rx = L + CONTENT_WIDTH / 2 + 12;
-  // The big date is the ISSUE date on every kind, because that is the date it
-  // prints. Labelling it "Valid until" on a quote said the estimate expired on
-  // the day it was written; the expiry is dueOn, and it belongs on the line
-  // that actually shows dueOn.
-  putLabel(ctx, rx, y - 4, "Issued", INK.faint);
-  putFitted(ctx, rx, y - 20, longDate(doc.issuedOn), colW, TYPE.strong, "bold", INK.strong);
-  if (doc.dueOn) {
-    const dueLabel = doc.kind === "quote" ? "Valid until" : "Due";
-    putFitted(ctx, rx, y - 33, `${dueLabel} ${longDate(doc.dueOn)}`, colW, TYPE.small, "regular", INK.muted);
-  }
+  // Right half of the masthead, on the SAME two baselines as the left half.
+  // Four text items on four unrelated baselines was the actual defect here.
+  label(ctx, RIGHT, Y.brand, DOC_KIND_LABEL[doc.kind], true);
+  put(ctx, {
+    x: RIGHT, y: Y.contact, text: doc.reference, size: TYPE.strong, font: "bold",
+    hex: INK.ink, track: TRACK.reference, right: true, maxW: CONTENT_WIDTH * 0.4,
+  });
 
-  y -= 33 + Math.max(who.length, 1) * 11 + 8;
+  rule(ctx, Y.rule1);
 
-  // ── The service, when there is one worth its own block ───────────────────
+  // ── The one figure ───────────────────────────────────────────────────────
+  // Caption ABOVE the number, which is the difference between a receipt and a
+  // poster: the reader never sees the figure before knowing what it is.
+  label(ctx, L, Y.heroCaption, hero.caption);
+  put(ctx, {
+    x: L, y: Y.hero, text: fmt(hero.minor), size: TYPE.hero, font: "bold",
+    hex: INK.ink, track: TRACK.hero,
+  });
+  // The status is a WORD, not a badge. The explanatory sentence that used to
+  // sit under the badge is gone too: the word and the pay block already say
+  // it, and a third statement in the smallest type on the page is anxiety
+  // rather than service.
+  put(ctx, {
+    x: L, y: Y.status, text: status.label, size: TYPE.strong, font: "bold",
+    hex: STATUS_COLOUR[status.tone], track: TRACK.status,
+  });
+
+  // ── Who, and when ────────────────────────────────────────────────────────
+  field(ctx, axis(0), Y.metaLabel, Y.metaValue, "Billed to", doc.customerName || "—", FIELD_W, true);
+  const contact = [doc.customerEmail, doc.customerPhone].filter(Boolean);
+  contact.slice(0, 2).forEach((v, i) => {
+    put(ctx, {
+      x: axis(0), y: Y.metaValue + SPACE.leadMeta * (i + 1), text: v,
+      size: TYPE.body, font: "regular", hex: INK.muted, maxW: FIELD_W,
+    });
+  });
+  field(ctx, axis(1), Y.metaLabel, Y.metaValue, "Issued", longDate(doc.issuedOn), FIELD_W, true);
+  field(
+    ctx, axis(2), Y.metaLabel, Y.metaValue,
+    doc.kind === "quote" ? "Valid until" : "Due",
+    doc.dueOn ? longDate(doc.dueOn) : "", FIELD_W, true,
+  );
+
+  // ── What it is for ───────────────────────────────────────────────────────
+  //
+  // Label-above-value fields on the same three axes, NOT a " · "-joined line.
+  // That chain flattened structured key/value data the system already holds
+  // into prose that cannot be scanned, wrapped or aligned with anything.
+  //
+  // Six slots across two frozen rows. An empty slot stays white and nothing
+  // below it moves.
   const details = doc.details.filter((d) => d.value.trim() !== "");
-  if (doc.serviceName.trim() || details.length) {
-    hairline(ctx, y + 10);
-    y -= 12;
-    if (doc.serviceName.trim()) {
-      putFitted(ctx, L, y, doc.serviceName, CONTENT_WIDTH, TYPE.strong, "bold", INK.strong);
-      y -= 15;
+  const slots: (DetailRow | null)[] = [
+    doc.serviceName.trim() ? { label: "Service", value: doc.serviceName } : null,
+    ...details.slice(0, 5).map((d) => d as DetailRow),
+  ];
+  slots.forEach((slot, i) => {
+    if (!slot) return;
+    const row = i < 3 ? 0 : 1;
+    const col = (i % 3) as 0 | 1 | 2;
+    const isService = i === 0;
+    if (isService) {
+      label(ctx, axis(0), Y.serviceLabel[0], slot.label);
+      // The service name is the one field allowed a second line, and the line
+      // is reserved whether or not it is used.
+      const lines = wrapToWidth(toWinAnsi(slot.value), FIELD_W, TYPE.strong, "bold").slice(0, 2);
+      lines.forEach((ln, j) => {
+        put(ctx, {
+          x: axis(0), y: j === 0 ? Y.serviceValue[0] : Y.serviceWrap, text: ln,
+          size: TYPE.strong, font: "bold", hex: INK.ink,
+        });
+      });
+      return;
     }
-    if (details.length) {
-      const joined = details.map((d) => `${d.label}: ${d.value}`).join("   ·   ");
-      for (const ln of wrapToWidth(toWinAnsi(joined), CONTENT_WIDTH, TYPE.body, "regular").slice(0, 2)) {
-        put(ctx, L, y, ln, TYPE.body, "regular", INK.muted);
-        y -= 13;
-      }
-    }
-    y -= 6;
-  }
+    field(
+      ctx, axis(col), Y.serviceLabel[row], Y.serviceValue[row],
+      slot.label, slot.value, FIELD_W,
+    );
+  });
 
-  // ── The table ────────────────────────────────────────────────────────────
+  // ── Column heads ─────────────────────────────────────────────────────────
+  // "AMOUNT · RS" states the currency ONCE for the whole numeric field, so the
+  // rows below carry bare numerals. Helvetica's digits are all 556/1000, which
+  // makes a column of them genuinely tabular.
   const unitR = L + CONTENT_WIDTH * TABLE.qtyUnitRight;
   const amtR = L + CONTENT_WIDTH * TABLE.amountRight;
   const descW = CONTENT_WIDTH * TABLE.descriptionRight;
+  label(ctx, L, Y.columnHeads, "Description");
+  label(ctx, unitR, Y.columnHeads, `Qty × Unit`, true);
+  label(ctx, amtR, Y.columnHeads, `Amount · ${c.code}`, true);
+  rule(ctx, Y.rule2);
 
-  hairline(ctx, y + 8, INK.hairline, SPACE.rule);
-  y -= 6;
-  putLabel(ctx, L, y, "Description", INK.faint);
-  putRight(ctx, unitR, y, "QTY × UNIT", TYPE.section, "bold", INK.faint);
-  putRight(ctx, amtR, y, "AMOUNT", TYPE.section, "bold", INK.faint);
-  y -= 10;
-  hairline(ctx, y);
-  y -= 16;
+  // ══ FLOW ZONE ════════════════════════════════════════════════════════════
+  let y = FLOW_TOP;
+  const floor = PAGE.height - PAGE.margin - FOOTER_RESERVE;
 
+  // ── The table ────────────────────────────────────────────────────────────
+  // No rule between rows. 22pt of pitch separates them better than a hairline
+  // does, and a rule per row is exported-spreadsheet styling — at 21pt against
+  // 9.5pt text the old rows were visually heavier than the data in them.
   const lines = doc.lines.slice(0, MAX_LINES);
+  const pitch = lines.length > 8 ? 19 : SPACE.rowPitch;
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
-    putFitted(ctx, L, y, l.description || "—", descW, TYPE.body, "regular", INK.body);
-    // Quantity and unit price read as one fact — "2 x Rs 1,800" — rather than
-    // as two columns the eye has to join up. It is also what the preview does,
-    // and the two must not diverge.
-    putRight(ctx, unitR, y, `${l.qty} × ${fmt(l.unitMinor)}`, TYPE.body, "regular", INK.muted);
-    putRight(ctx, amtR, y, fmt(m.lineTotals[i]), TYPE.body, "bold", INK.strong);
-    y -= SPACE.rowHeight;
-    if (i < lines.length - 1) hairline(ctx, y + 8);
-  }
-
-  // ── Totals, right-aligned under the amount column ────────────────────────
-  y -= 4;
-  ctx.ops.push(box(L + CONTENT_WIDTH * 0.5, y + 10, CONTENT_WIDTH * 0.5, SPACE.hairline, INK.hairline));
-  y -= 6;
-
-  const rows: Array<{ label: string; value: string; strong?: boolean; tone?: string }> = [];
-  if (m.depositMinor > 0 || m.receivedMinor > 0) {
-    rows.push({ label: "Subtotal", value: fmt(m.subtotalMinor) });
-  }
-  if (m.depositMinor > 0) {
-    rows.push({
-      // "Deposit required" is a demand, and on a receipt the money is already
-      // in. The row is the same fact in both cases; only the tense differs.
-      label:
-        doc.depositPct != null
-          ? `Deposit (${doc.depositPct}%)`
-          : doc.kind === "receipt"
-            ? "Deposit"
-            : "Deposit required",
-      value: fmt(m.depositMinor),
+    put(ctx, {
+      x: L, y, text: l.description || "—", size: TYPE.body, font: "regular",
+      hex: INK.ink, maxW: descW,
     });
-    rows.push({ label: "Balance after deposit", value: fmt(m.balanceAfterDepositMinor) });
-  }
-  rows.push({ label: "Total", value: fmt(m.totalMinor), strong: true });
-  // ── WHAT IS STILL OWED, WHEN THAT IS THE QUESTION ────────────────────────
-  //
-  // A booking confirmation asking for a Rs 1,499 deposit printed "Received
-  // Rs 0" and, in red, "Still owed Rs 5,997" — directly under a hero reading
-  // "Rs 1,499 · Deposit to confirm". Both figures are arithmetically true and
-  // the customer is left with two amounts in front of them, the louder one
-  // wrong for what they are being asked to do.
-  //
-  // The settlement pair belongs on a document ABOUT settlement — an invoice,
-  // a receipt — or on any document where money has actually arrived. On a
-  // fresh confirmation the deposit and balance rows above already say what to
-  // pay and when, and the badge already says AWAITING PAYMENT. Nothing is
-  // hidden; the page just stops arguing with itself.
-  const settlement =
-    doc.kind === "invoice" || doc.kind === "receipt" || m.receivedMinor > 0;
-  if (settlement) {
-    rows.push({ label: "Received", value: fmt(m.receivedMinor) });
-    if (m.outstandingMinor !== 0) {
-      rows.push({
-        label: m.outstandingMinor > 0 ? "Still owed" : "Overpaid",
-        value: fmt(Math.abs(m.outstandingMinor)),
-        strong: true,
-        tone: m.outstandingMinor > 0 ? STATUS_COLOUR.pending : STATUS_COLOUR.paid,
+    // A quantity of one needs no arithmetic shown: "1 x 300" beside "300" is
+    // the same fact twice, and a column of them turns the numeric field into
+    // noise. The rate appears only where it is doing work.
+    if (l.qty !== 1) {
+      put(ctx, {
+        x: unitR, y, text: `${l.qty} × ${bare(l.unitMinor)}`, size: TYPE.body,
+        font: "regular", hex: INK.muted, right: true,
       });
+    }
+    put(ctx, {
+      x: amtR, y, text: bare(m.lineTotals[i]), size: TYPE.body, font: "regular",
+      hex: INK.ink, right: true,
+    });
+    y += pitch;
+  }
+
+  // ── The ladder ───────────────────────────────────────────────────────────
+  //
+  // EVERY LINE WHOSE VALUE IS ZERO OR ABSENT IS OMITTED. Six unconditional
+  // rows used to restate the same two numbers up to three times; "Balance
+  // after deposit" and "Total" three lines apart is genuinely ambiguous about
+  // which figure to hand over; and "Still owed", in red, is accusatory copy to
+  // give somebody who has just paid you.
+  //
+  // What is left is at most one settlement line, called "Amount due" — the
+  // same words as the hero's caption, so the big number at the top and the
+  // last line at the bottom are demonstrably the same money.
+  y += 10;
+  const labelR = L + CONTENT_WIDTH * TABLE.ladderLabelRight;
+  ctx.ops.push(box(labelR - 40, y - 6, amtR - labelR + 40, SPACE.rule, INK.hairline));
+  y += 22;
+
+  type Row = { label: string; value: number; strong?: boolean; hex?: string };
+  const rows: Row[] = [];
+  if (lines.length > 1 && (m.depositMinor > 0 || m.receivedMinor > 0)) {
+    rows.push({ label: "Subtotal", value: m.subtotalMinor });
+  }
+  // The deposit row is dropped when "Paid" below is about to state the same
+  // figure. Two labels for one number is the ambiguity this ladder was
+  // rebuilt to remove.
+  if (m.depositMinor > 0 && m.depositMinor !== m.receivedMinor) {
+    rows.push({
+      label: doc.depositPct != null ? `Deposit (${doc.depositPct}%)` : "Deposit",
+      value: m.depositMinor,
+    });
+  }
+  rows.push({ label: "Total", value: m.totalMinor, strong: true });
+  // ONE settlement line, and only when it says something the Total does not.
+  //
+  // It is labelled with the HERO'S OWN CAPTION whenever the two figures are
+  // the same money, so the big number at the top of the page and the last line
+  // at the bottom are demonstrably about one thing. "Deposit to confirm" up
+  // there and "Amount due" down here is two names for one figure, which is
+  // exactly the ambiguity the old six-row ladder was full of.
+  // "Amount due" on a RECEIPT would read as "pay this now" to somebody who has
+  // just paid; what is left on a deposit receipt is a balance settled later,
+  // as the email says. Elsewhere the line takes the HERO'S OWN CAPTION when
+  // the two figures are the same money, so the big number at the top and the
+  // last line at the bottom are demonstrably about one thing.
+  const due = (value: number): Row => ({
+    label:
+      doc.kind === "receipt" ? "Balance"
+      : value === hero.minor ? hero.caption
+      : "Amount due",
+    value,
+    strong: true,
+  });
+  if (doc.kind !== "quote") {
+    if (m.receivedMinor > 0 && m.outstandingMinor === 0) {
+      rows.push({ label: "Paid", value: m.receivedMinor, strong: true, hex: INK.accent });
+    } else if (m.receivedMinor > 0) {
+      rows.push({ label: "Paid", value: m.receivedMinor });
+      rows.push(due(m.outstandingMinor));
+    } else if (doc.kind === "invoice" || m.depositMinor > 0) {
+      rows.push(due(m.depositMinor > 0 ? m.depositMinor : m.outstandingMinor));
     }
   }
 
   for (const r of rows) {
-    const size = r.strong ? TYPE.strong : TYPE.body;
-    putRight(ctx, unitR, y, r.label, size, r.strong ? "bold" : "regular",
-      r.tone ?? (r.strong ? INK.strong : INK.muted));
-    putRight(ctx, amtR, y, r.value, size, r.strong ? "bold" : "regular",
-      r.tone ?? (r.strong ? INK.strong : INK.body));
-    y -= r.strong ? 19 : 17;
+    const bold = r.strong === true;
+    put(ctx, {
+      x: labelR, y, text: r.label, size: bold ? TYPE.strong : TYPE.body,
+      font: bold ? "bold" : "regular", hex: r.hex ?? (bold ? INK.ink : INK.muted),
+      right: true,
+    });
+    put(ctx, {
+      x: amtR, y, text: bold ? fmt(r.value) : bare(r.value),
+      size: bold ? TYPE.strong : TYPE.body, font: bold ? "bold" : "regular",
+      hex: r.hex ?? INK.ink, right: true,
+    });
+    y += SPACE.ladderPitch;
   }
 
   // ── How to pay ───────────────────────────────────────────────────────────
+  // No band behind it. Printed only when something is actually owed: telling
+  // somebody how to pay a document they have already settled is how a customer
+  // pays twice.
   const payBits = [doc.payMethod, doc.payReference].filter((s) => s.trim() !== "");
-  if (payBits.length && doc.kind !== "receipt") {
-    y -= 10;
-    const h = 40;
-    ctx.ops.push(roundedTint(L, y - h + 22, CONTENT_WIDTH, h, INK.band));
-    putLabel(ctx, L + 14, y + 6, "How to pay", INK.faint);
-    putFitted(ctx, L + 14, y - 10, payBits.join("   ·   "), CONTENT_WIDTH - 28,
-      TYPE.strong, "bold", INK.strong);
-    y -= h + 8;
+  const owes = doc.kind !== "receipt" && m.outstandingMinor > 0;
+  if (payBits.length && owes) {
+    y += 18;
+    label(ctx, L, y, "How to pay");
+    y += 14;
+    put(ctx, {
+      x: L, y, text: payBits[0], size: TYPE.strong, font: "bold", hex: INK.ink,
+      maxW: CONTENT_WIDTH,
+    });
+    if (payBits[1]) {
+      y += SPACE.leadFine + 2;
+      put(ctx, {
+        x: L, y, text: payBits[1], size: TYPE.body, font: "regular", hex: INK.muted,
+        maxW: CONTENT_WIDTH,
+      });
+    }
   }
 
-  // ── Notes and terms ──────────────────────────────────────────────────────
   // ── Notes and terms, while there is room ─────────────────────────────────
   //
-  // The floor is not decoration. This renderer walks y downward with no
+  // The floor is not decoration. This renderer walks downward with no
   // pagination and then draws its footer at a FIXED height, so without a floor
-  // a long Terms block prints straight through "Thank you for choosing".
-  const floor = PAGE.margin + FOOTER_RESERVE;
+  // a long Terms block prints straight through it.
   for (const [heading, text] of [["Notes", doc.notes], ["Terms", doc.terms]] as const) {
     if (!text.trim()) continue;
-    if (y - 24 < floor) break;
-    y -= 6;
-    putLabel(ctx, L, y, heading, INK.faint);
-    y -= 13;
-    for (const ln of wrapToWidth(toWinAnsi(text), CONTENT_WIDTH, TYPE.small, "regular")) {
-      if (y < floor) break;
-      put(ctx, L, y, ln, TYPE.small, "regular", INK.muted);
-      y -= 11;
+    if (y + 26 > floor) break;
+    y += 26;
+    label(ctx, L, y, heading);
+    y += 12;
+    for (const ln of wrapToWidth(toWinAnsi(text), CONTENT_WIDTH, TYPE.fine, "regular")) {
+      if (y > floor) break;
+      put(ctx, { x: L, y, text: ln, size: TYPE.fine, font: "regular", hex: INK.muted });
+      y += SPACE.leadFine;
     }
   }
 
   // ── Footer, pinned ───────────────────────────────────────────────────────
-  ctx.ops.push(box(L, PAGE.margin + 24, CONTENT_WIDTH, SPACE.hairline, INK.hairline));
-  put(ctx, L, PAGE.margin + 10,
-    doc.footer.trim() || `Thank you for choosing ${doc.business.name || "us"}.`,
-    TYPE.small, "regular", INK.muted);
-  putRight(ctx, R, PAGE.margin + 10, "Made with Receiptly", TYPE.tiny, "regular", INK.faint);
+  //
+  // The hard facts, and no vendor credit. "Thank you for choosing X" and "Made
+  // with Receiptly" used to sit here at the same size and grey, which gave the
+  // software equal billing with the business on the business's own paper.
+  const footY = PAGE.height - PAGE.margin + 4;
+  rule(ctx, footY - 14);
+  const footer = doc.footer.trim() ||
+    [doc.business.name, doc.business.website].filter(Boolean).join("  ·  ");
+  put(ctx, { x: L, y: footY, text: footer, size: TYPE.fine, font: "regular", hex: INK.muted, maxW: CONTENT_WIDTH * 0.7 });
+  // The reference again, so a page separated from its email still says what it
+  // is and which booking it belongs to.
+  put(ctx, { x: RIGHT, y: footY, text: doc.reference, size: TYPE.fine, font: "regular", hex: INK.muted, right: true });
 
   return ctx.ops.join("\n");
 }
