@@ -2,6 +2,7 @@ import {
   DOC_KINDS, CURRENCIES, type DocKind, type ReceiptlyDoc,
 } from "./model";
 import { HOUSE } from "./documents";
+import { PAYMENT, PAY_HOW } from "@/lib/payment-details";
 
 // ── DRAFTS, IN THE BROWSER ──────────────────────────────────────────────────
 //
@@ -39,8 +40,11 @@ export function blankDoc(today: string): ReceiptlyDoc {
     depositPct: 50,
     depositFixedMinor: null,
     receivedMinor: 0,
-    payMethod: "",
-    payReference: "",
+    // Pre-filled with the house account so a new document is payable without
+    // the owner retyping twelve digits every time. His saved profile still
+    // wins over it, and an automated document never passes through here.
+    payMethod: PAY_HOW,
+    payReference: PAYMENT.account,
     reference: "",
     issuedOn: today,
     dueOn: "",

@@ -14,6 +14,7 @@ import {
 import { buildReceiptlyPdf, receiptlyFilename } from "@/lib/receiptly/pdf";
 import { blankDoc, loadDraft, saveDraft } from "@/lib/receiptly/draft";
 import { islandToday } from "@/lib/receiptly/documents";
+import { PAYMENT, PAY_HOW } from "@/lib/payment-details";
 import { fileToLogoDataUrl } from "@/lib/receiptly/logo";
 import type { SavedDoc, BusinessProfile } from "@/lib/receiptly/db";
 import DocumentPreview from "./DocumentPreview";
@@ -723,11 +724,14 @@ export default function ReceiptlyStudio() {
                   onChange={(e) => set("receivedMinor", parseMoney(e.target.value, c) ?? 0)} />
               </div>
               <Field label="Payment method" value={doc.payMethod} cls={inputCls} labelCls={labelCls}
-                onChange={(v) => set("payMethod", v)} placeholder="MCB Juice" />
+                onChange={(v) => set("payMethod", v)} placeholder={PAY_HOW} />
             </div>
             <div className="mt-3">
+              {/* The ACCOUNT number, not the mobile the first hand-drawn
+                  version of this document carried. Both work for Juice; only
+                  one of them cannot be reassigned to somebody else. */}
               <Field label="Payment reference" value={doc.payReference} cls={inputCls} labelCls={labelCls}
-                onChange={(v) => set("payReference", v)} placeholder="58363401" />
+                onChange={(v) => set("payReference", v)} placeholder={PAYMENT.account} />
             </div>
             <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2.5 text-xs dark:bg-white/[0.04]">
               <div className="flex justify-between"><span className="text-slate-500">Total</span>
