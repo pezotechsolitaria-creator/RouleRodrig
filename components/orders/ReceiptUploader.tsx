@@ -17,7 +17,17 @@ const ACCEPT_LABEL = "JPG, PNG, WebP or PDF, up to 4 MB";
 
 type Phase = "idle" | "uploading" | "error";
 
-export default function ReceiptUploader({ orderId, required }: { orderId: string; required: boolean }) {
+export default function ReceiptUploader({
+  orderId,
+  required,
+  onError,
+}: {
+  orderId: string;
+  required: boolean;
+  /** Told whenever the receipt fails (or recovers, with null) — so the payment
+   *  help card beside this uploader lights up at the moment somebody is stuck. */
+  onError?: (message: string | null) => void;
+}) {
   const { t } = useLanguage();
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
@@ -37,6 +47,18 @@ export default function ReceiptUploader({ orderId, required }: { orderId: string
   useEffect(() => () => {
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
   }, []);
+
+  // Every refusal counts, the 4 MB check included: to the customer holding a
+  // 6 MB phone photo, "the limit is 4 MB" is still a receipt that won't go.
+  // The callback lives in a ref so an inline arrow from the parent does not
+  // re-fire this on every render.
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+  useEffect(() => {
+    onErrorRef.current?.(error);
+  }, [error]);
 
   const accept = useCallback((f: File) => {
     setError(null);

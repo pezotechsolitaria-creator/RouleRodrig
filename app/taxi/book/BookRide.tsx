@@ -27,6 +27,7 @@ import {
 import type { RidePlace } from "@/lib/rides/places";
 import { searchPlaces } from "@/lib/rides/places";
 import PlacePicker from "@/components/PlacePicker";
+import PaymentHelp from "@/components/payments/PaymentHelp";
 import { useLanguage } from "@/context/LanguageContext";
 import { RIDES_COPY } from "@/lib/rides/copy.i18n";
 import { toE164National } from "@/lib/phone";
@@ -298,38 +299,50 @@ export default function BookRide({
   // ── Booked ──────────────────────────────────────────────────────────────
   if (done) {
     return (
-      <div className="rounded-3xl border border-green-500/30 bg-green-500/[0.07] p-6 text-center">
-        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-green-500/15 text-green-400">
-          <Check size={28} />
-        </span>
-        <h2 className="mt-4 font-syne text-2xl font-extrabold text-offwhite">
-          {c.done.heading}
-        </h2>
-        <p className="mt-2 font-dm text-sm text-muted">
-          No need to call anyone. A driver will accept in the next few minutes
-          and you&apos;ll see their name and number here.
-        </p>
-        <p className="mt-4 font-bebas text-[11px] tracking-[0.28em] text-yellow">
-          {c.done.referenceEyebrow}
-        </p>
-        <p className="font-syne text-3xl font-extrabold text-offwhite">
-          {done.reference}
-        </p>
-        {done.price != null && (
-          <p className="mt-1 font-dm text-sm text-offwhite/85">
-            {formatRidePrice(done.price)}
+      <div className="space-y-4">
+        <div className="rounded-3xl border border-green-500/30 bg-green-500/[0.07] p-6 text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-green-500/15 text-green-400">
+            <Check size={28} />
+          </span>
+          <h2 className="mt-4 font-syne text-2xl font-extrabold text-offwhite">
+            {c.done.heading}
+          </h2>
+          <p className="mt-2 font-dm text-sm text-muted">
+            No need to call anyone. A driver will accept in the next few minutes
+            and you&apos;ll see their name and number here.
           </p>
-        )}
-        <Link
-          href={`/taxi/track?ref=${encodeURIComponent(done.reference)}&phone=${encodeURIComponent(phone)}`}
-          className="mt-6 flex items-center justify-center gap-2 rounded-2xl bg-yellow px-5 py-4 font-dm text-base font-bold text-dark"
-        >
-          {c.done.follow} <ArrowRight size={18} />
-        </Link>
-        <p className="mt-3 font-dm text-xs text-muted">
-          Keep this reference. You&apos;ll need it and this phone number to
-          check on the ride.
-        </p>
+          <p className="mt-4 font-bebas text-[11px] tracking-[0.28em] text-yellow">
+            {c.done.referenceEyebrow}
+          </p>
+          <p className="font-syne text-3xl font-extrabold text-offwhite">
+            {done.reference}
+          </p>
+          {done.price != null && (
+            <p className="mt-1 font-dm text-sm text-offwhite/85">
+              {formatRidePrice(done.price)}
+            </p>
+          )}
+          <Link
+            href={`/taxi/track?ref=${encodeURIComponent(done.reference)}&phone=${encodeURIComponent(phone)}`}
+            className="mt-6 flex items-center justify-center gap-2 rounded-2xl bg-yellow px-5 py-4 font-dm text-base font-bold text-dark"
+          >
+            {c.done.follow} <ArrowRight size={18} />
+          </Link>
+          <p className="mt-3 font-dm text-xs text-muted">
+            Keep this reference. You&apos;ll need it and this phone number to
+            check on the ride.
+          </p>
+        </div>
+        {/* Payment help, full card: the one screen holding BOTH the reference
+            and the final fare, so the WhatsApp message arrives complete. Below
+            the box, never inside it — "Follow your ride" stays the first thing
+            under the price. The amount is the exact string shown above it. */}
+        <PaymentHelp
+          section="ride"
+          reference={done.reference}
+          amount={done.price != null ? formatRidePrice(done.price) : null}
+          method="cash"
+        />
       </div>
     );
   }
@@ -773,6 +786,23 @@ export default function BookRide({
           <p className="text-center font-dm text-xs text-muted">
             {c.step3.payNote}
           </p>
+          {/* Payment help, under the "you pay the driver" line it answers.
+              Compact, and AFTER Book: this path is height-budgeted (see
+              page.tsx), and nothing may sit between the customer and Book. No
+              reference yet; the amount is PriceCard's own string, or nothing. */}
+          <div className="flex justify-center">
+            <PaymentHelp
+              section="ride"
+              variant="compact"
+              reference={null}
+              amount={
+                quote?.ok && quote.price != null
+                  ? formatRidePrice(quote.price, quote.currency)
+                  : null
+              }
+              method="cash"
+            />
+          </div>
         </div>
       )}
     </div>

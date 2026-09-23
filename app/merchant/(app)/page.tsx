@@ -152,7 +152,10 @@ export default async function MerchantHome() {
       </h1>
 
       {/* ── SPINE ─────────────────────────────────────────────────────── */}
-      <CannotBePaid cannotBePaid={!pay.acceptsCash && !pay.acceptsBankTransfer} />
+      <CannotBePaid
+        cannotBePaid={!pay.acceptsCash && !pay.acceptsBankTransfer}
+        storeName={dashboard.store?.name ?? null}
+      />
       <RefundsOwed />
       <MerchantPushSetup />
       <WorkQueue queue={queue} storeSlug={storeSlug} />

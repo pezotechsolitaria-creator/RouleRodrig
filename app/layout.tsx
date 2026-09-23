@@ -23,7 +23,8 @@ import { getContent } from "@/lib/content";
 import { priceNumber, FLEET_PRICE_FALLBACK } from "@/lib/site-data";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { SITE_URL } from "@/lib/site";
+import { SITE_URL, CONTACT_EMAIL } from "@/lib/site";
+import { SupportContactProvider } from "@/components/payments/SupportContact";
 import WebVitals from "@/components/WebVitals";
 
 const syne = Syne({
@@ -253,6 +254,13 @@ export default async function RootLayout({
   const scooterDailyMur = scooterPrices.length
     ? Math.min(...scooterPrices)
     : undefined;
+  // ONE business WhatsApp for the whole site. Ti Roulé and every payment-help
+  // card read this variable, so the two can never link different numbers.
+  const supportWhatsapp =
+    content.contact.whatsappNumbers?.[0]?.number ||
+    content.social.whatsapp ||
+    content.contact.phone;
+  const supportEmail = content.contact.email?.trim() || CONTACT_EMAIL;
   const tiData = {
     beaches: content.mapLocations
       .filter((l) => l.category === "beach")
@@ -443,6 +451,7 @@ export default async function RootLayout({
               <CurrencyProvider>
                 <FavoritesProvider>
                   <CartProvider>
+                    <SupportContactProvider whatsapp={supportWhatsapp} email={supportEmail}>
                     <LanguagePicker />
                     {/* NO first-visit gateway. Removed on the owner's instruction:
                   a full-screen question in front of the homepage taxes every
@@ -484,11 +493,7 @@ export default async function RootLayout({
                     <GlobalTiRoule
                       image={content.branding.mascotImage}
                       poses={content.branding.mascotPoses}
-                      whatsapp={
-                        content.contact.whatsappNumbers?.[0]?.number ||
-                        content.social.whatsapp ||
-                        content.contact.phone
-                      }
+                      whatsapp={supportWhatsapp}
                       scooterDailyMur={scooterDailyMur}
                       data={tiData}
                     />
@@ -513,6 +518,7 @@ export default async function RootLayout({
                         },
                       }}
                     />
+                    </SupportContactProvider>
                   </CartProvider>
                 </FavoritesProvider>
               </CurrencyProvider>

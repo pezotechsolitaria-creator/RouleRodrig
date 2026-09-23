@@ -53,6 +53,7 @@ export default async function MerchantPaymentSettingsPage() {
           HOW CUSTOMERS PAY YOU
         </h2>
         <PaymentSettingsForm
+          storeName={dashboard?.store?.name ?? null}
           zones={zones ?? []}
           maxMinutes={settings?.delivery_max_minutes ?? 120}
           deliveryEnabled={settings?.delivery_enabled ?? false}

@@ -21,6 +21,7 @@ export default function BankTransferDetails({
   settlement = "deposit",
   bookingId,
   email,
+  onReceiptFailedChange,
 }: {
   name: string;
   vehicle: string;
@@ -28,6 +29,9 @@ export default function BankTransferDetails({
    *  upload — the credential is reference + email, exactly as on /track. */
   bookingId?: string;
   email?: string;
+  /** Passed through to the receipt upload: true while its error is showing.
+   *  The page owns the one payment-help card, so this panel does not draw one. */
+  onReceiptFailedChange?: (failed: boolean) => void;
   /**
    * "full" when the amount alongside is the whole price rather than a deposit.
    * Activities are settled in full at booking, and "transfer the deposit" would
@@ -115,7 +119,9 @@ export default function BankTransferDetails({
           has to scroll. Falls back to the WhatsApp instruction above when there
           is no email on the booking: email is optional for vehicle rentals, and
           reference + email is the credential this upload is proven by. */}
-      {bookingId && email ? <BookingReceiptUpload bookingId={bookingId} email={email} /> : null}
+      {bookingId && email ? (
+        <BookingReceiptUpload bookingId={bookingId} email={email} onFailedChange={onReceiptFailedChange} />
+      ) : null}
     </div>
   );
 }

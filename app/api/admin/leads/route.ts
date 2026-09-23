@@ -55,6 +55,7 @@ export async function GET(req: NextRequest) {
       stayEatDo: rows.filter((r) => r.kind === "stay_eat_do").length,
       taxi: rows.filter((r) => r.kind === "taxi").length,
       food: rows.filter((r) => r.kind === "food_concierge").length,
+      paymentHelp: rows.filter((r) => r.kind === "payment_help").length,
     },
     summary,
     recent: rows.slice(0, 50),

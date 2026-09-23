@@ -42,6 +42,7 @@ const KIND_ICON: Record<RequestKind, typeof Package> = {
 import { toast } from "sonner";
 import OrderAlerts from "@/components/orders/OrderAlerts";
 import LiveTripView from "@/components/tracking/LiveTripView";
+import PaymentHelp from "@/components/payments/PaymentHelp";
 import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
 import {
@@ -830,6 +831,9 @@ export default function RequestTracker({
               // ever naming an account — the customer was being chased for proof
               // of a payment they had no way to make.
               bank={view.bankDetails ?? null}
+              // A transfer covers the FEE, nothing else. Minor units, so it is
+              // formatted here by the same formatFee the rest of the screen uses.
+              transferAmount={formatFee(view.delivery.fee)}
               onDone={() => void load()}
             />
           )}
@@ -919,9 +923,30 @@ export default function RequestTracker({
               // ever naming an account — the customer was being chased for proof
               // of a payment they had no way to make.
               bank={view.bankDetails ?? null}
+              transferAmount={formatFee(view.delivery.fee)}
               onDone={() => void load()}
             />
           )}
+
+          {/* Paid by transfer, then the request ended before delivery (a
+              post-booking cancel, or a stranded job tidied away). The proof
+              card is in its green "done" state and BookedDriver is gone, so
+              this screen showed a finished receipt and nothing else — right
+              when the customer's question is "how do I get my money back". */}
+          {view.status !== "accepted" &&
+            view.delivery?.paymentMethod === "bank_transfer" &&
+            view.delivery.paymentProofAt &&
+            view.delivery.status !== "delivered" && (
+              <PaymentHelp
+                section="refund"
+                reference={requestRef(view.id)}
+                amount={formatFee(view.delivery.fee)}
+                method="bank_transfer"
+                defaultTopic="refund"
+                emphasis
+                className="mt-4"
+              />
+            )}
         </>
       )}
 
@@ -1432,7 +1457,12 @@ function ConfirmSheet({
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={transition.sheet}
-        className="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl border-t border-white/12 bg-dark-card px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3"
+        // Capped and scrollable. The sheet had no ceiling, so on a short phone
+        // with a shopping-run breakdown its head (title, close) could sit above
+        // the top of the screen with no way to reach it — and the payment-help
+        // pill adds another row. overscroll-contain keeps a scroll here from
+        // dragging the page behind the overlay.
+        className="fixed inset-x-0 bottom-0 z-50 max-h-[92dvh] overflow-y-auto overscroll-contain rounded-t-3xl border-t border-white/12 bg-dark-card px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3"
       >
         <div
           className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/15"
@@ -1595,7 +1625,8 @@ function ConfirmSheet({
           {/* Nothing to confirm WITH. Said in words above the button rather
               than left for the server to refuse after the tap — the same rule
               the cash cap already follows. The page header carries Call us and
-              WhatsApp us, which is the way out. */}
+              WhatsApp us, and the payment-help pill directly below is the way
+              out without leaving the sheet. */}
           {!canPay && (
             <p
               role="alert"
@@ -1607,6 +1638,24 @@ function ConfirmSheet({
               {c.pay.noWayToPay}
             </p>
           )}
+
+          {/* ── HELP, AT THE MOMENT OF CHOOSING HOW TO PAY ─────────────────
+              Compact, because this is a sheet. BEFORE the confirm button and
+              never after it: the focus trap above lands on the LAST live
+              control, and that has to stay "Book". When nothing can be booked
+              (!canPay) Book is disabled, so focus lands here instead — which
+              is right, since this is then the only way forward. Lit up in
+              exactly that dead end. No method named then: neither is on offer. */}
+          <div className="mt-4 flex justify-center">
+            <PaymentHelp
+              section="delivery"
+              variant="compact"
+              reference={requestRef(view.id)}
+              amount={formatFee(quote.fee)}
+              method={canPay ? method : null}
+              emphasis={!canPay}
+            />
+          </div>
 
           <button
             type="button"
@@ -1658,6 +1707,7 @@ function PaymentProof({
   attachedAt,
   reference,
   bank,
+  transferAmount,
   onDone,
 }: {
   requestId: string;
@@ -1670,6 +1720,9 @@ function PaymentProof({
     accountNumber: string | null;
     note: string | null;
   } | null;
+  /** What the transfer should be, ALREADY FORMATTED by the caller's formatFee.
+   *  A string, not the fee: this component never meets the minor-units number. */
+  transferAmount: string | null;
   onDone: () => void;
 }) {
   const { language } = useLanguage();
@@ -1762,6 +1815,7 @@ function PaymentProof({
   }
 
   return (
+    <div className="flex flex-col gap-3">
     <div className="rounded-2xl border border-yellow/40 bg-yellow/[0.05] p-4">
       <h3 className={cn(t.cardTitle, "text-offwhite")}>{c.pay.proofTitle}</h3>
       <p className={cn(t.bodySm, "mt-1 text-[#B0B0B0]")}>
@@ -1928,6 +1982,26 @@ function PaymentProof({
         {busy && <Loader2 size={16} className="animate-spin" />}
         {busy ? c.pay.proofSending : c.pay.proofSubmit}
       </button>
+    </div>
+
+      {/* ── HELP, DIRECTLY UNDER THE ACCOUNT AND THE UPLOAD ──────────────
+          The full card: this is the screen where a customer has to leave for
+          their banking app, come back, and photograph a slip. It is the most
+          likely place on the whole flow to get stuck. `error` is every way
+          the receipt failed to land (too big, refused, network), so the card
+          lights up and says "my receipt won't upload" by itself. While this
+          is on screen BookedDriver drops its own pill: one help per screen. */}
+      <PaymentHelp
+        section="delivery"
+        reference={requestRef(requestId)}
+        amount={transferAmount}
+        method="bank_transfer"
+        defaultTopic={error ? "upload_failed" : !bank ? "how_to_pay" : undefined}
+        // No destination account is its own dead end (transfer jobs booked
+        // before M190): the customer is asked for proof of a payment they
+        // have no way to make.
+        emphasis={error !== null || !bank}
+      />
     </div>
   );
 }
@@ -2148,6 +2222,17 @@ function BookedDriver({ view }: { view: RequestView }) {
   // nobody, beside a call button that rang somebody who was not coming.
   const broken = (BROKEN_LEGS as readonly string[]).includes(d.status);
   const hasDriver = Boolean(d.driverName);
+  // The column is free text; only the two methods this flow offers are named
+  // in a help message, anything else is left out rather than guessed.
+  const method =
+    d.paymentMethod === "cash" || d.paymentMethod === "bank_transfer"
+      ? d.paymentMethod
+      : null;
+  // One help per screen. While a transfer receipt is still owed, PaymentProof
+  // carries the full card; once delivered there is nothing left to pay.
+  const showPaymentHelp =
+    d.status !== "delivered" &&
+    !(method === "bank_transfer" && !d.paymentProofAt);
 
   return (
     <section className="flex flex-col gap-5">
@@ -2292,6 +2377,26 @@ function BookedDriver({ view }: { view: RequestView }) {
       </dl>
       {pay.note && (
         <p className={cn(t.meta, "-mt-3 text-[#B0B0B0]")}>{pay.note}</p>
+      )}
+
+      {/* ── Help, beside what is owed ───────────────────────────────────
+          Under the breakdown, because "how much do I hand over" and "I sent
+          it, has it arrived" are the money questions left once a driver is
+          booked. Compact: this column sits above the map, and the driver's
+          place above the fold is measured (e2e/delivery-status.spec.ts).
+          After a transfer, the likely problem is that it has not shown. */}
+      {showPaymentHelp && (
+        <PaymentHelp
+          section="delivery"
+          variant="compact"
+          reference={requestRef(view.id)}
+          amount={formatFee(d.fee)}
+          method={method}
+          defaultTopic={
+            method === "bank_transfer" ? "transfer_not_showing" : undefined
+          }
+          className="self-start"
+        />
       )}
     </section>
   );

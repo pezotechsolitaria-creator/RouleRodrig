@@ -8018,8 +8018,15 @@ function LeadsViewer() {
     fetch("/api/admin/leads", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q }) }).catch(() => {});
   };
 
+  // Every kind named. The old fallthrough labelled anything unknown
+  // "Accommodation & Activity" — including airport-transfer taps, and it would
+  // have done the same to payment-help taps.
   const kindLabel = (k: string) =>
-    k === "taxi" ? "Taxi" : k === "food_concierge" ? "Food concierge" : "Accommodation & Activity";
+    k === "taxi" ? "Taxi"
+    : k === "food_concierge" ? "Food concierge"
+    : k === "transfer" ? "Airport transfer"
+    : k === "payment_help" ? "Payment help"
+    : "Accommodation & Activity";
   const fmt = (s: string) => {
     try { return new Date(s).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); } catch { return s; }
   };
@@ -8119,7 +8126,9 @@ function LeadsViewer() {
                 <span className="text-offwhite/90 text-sm">{r.target_name}</span>
                 <span className="text-muted/50 text-xs ml-2">
                   {kindLabel(r.kind)}
-                  {r.kind === "food_concierge" && r.ref ? ` · ${r.ref}` : r.type ? ` · ${r.type}` : ""}
+                  {r.kind === "payment_help"
+                    ? `${r.category ? ` · ${r.category.replace(/_/g, " ")}` : ""}${r.ref ? ` · ${r.ref}` : ""}`
+                    : r.kind === "food_concierge" && r.ref ? ` · ${r.ref}` : r.type ? ` · ${r.type}` : ""}
                 </span>
               </div>
               <span className="text-muted/50 text-xs font-dm shrink-0">{fmt(r.created_at)}</span>

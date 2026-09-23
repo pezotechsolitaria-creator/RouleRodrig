@@ -29,6 +29,7 @@ import { fleetTerms, fleetPrice } from "@/lib/fleet-terms";
 import { useCurrency } from "@/context/CurrencyContext";
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import PayPalDeposit from "@/components/PayPalDeposit";
+import PaymentHelp from "@/components/payments/PaymentHelp";
 import PhoneInput from "@/components/PhoneInput";
 import SuccessBurst from "@/components/SuccessBurst";
 import BookingTimeline from "@/components/BookingTimeline";
@@ -118,6 +119,9 @@ export default function BookingSection({
   const [agreed, setAgreed] = useState(false);
   const [agreeError, setAgreeError] = useState(false);
   const [depositPaid, setDepositPaid] = useState(false);
+  // Reported by PayPalDeposit while its own "could not be completed" line is
+  // showing, so the payment-help card beside it lights up at that moment.
+  const [payPalFailed, setPayPalFailed] = useState(false);
   // Inline validation: which fields are wrong + the message to show. Set on a
   // submit attempt so the customer instantly sees WHAT to fix instead of a
   // silently-disabled button (the reported "took 5 minutes to figure out" pain).
@@ -674,6 +678,7 @@ export default function BookingSection({
                     the thing that makes the second path fair — and it is the
                     owner's exposure, not the customer's. */}
                 {!depositPaid && lastBooking?.bookingId && (lastBooking.deposit ?? 0) > 0 && (
+                  <>
                   <div className="mt-4 rounded-xl border border-yellow/25 bg-yellow/[0.04] p-4 text-left">
                     <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">
                       {t.booking.secureNowTitle}
@@ -691,9 +696,26 @@ export default function BookingSection({
                         fullMur={lastBooking.totalMur}
                         kind="vehicle"
                         onPaid={() => setDepositPaid(true)}
+                        onFailedChange={setPayPalFailed}
                       />
                     </div>
                   </div>
+                  {/* Straight under the only pay button on this screen, and only
+                      while it is offered. PayPal is the one method here, so a
+                      customer without it asks "how else can I pay?" — hence
+                      that topic first. The id becomes the RR-XXXXXX printed on
+                      the receipt; the deposit is in RUPEES (bookings) and is
+                      formatted exactly as that receipt formats it. */}
+                  <PaymentHelp
+                    section="rental"
+                    reference={lastBooking.bookingId}
+                    amount={`Rs ${(lastBooking.deposit ?? 0).toLocaleString()}`}
+                    method={payPalFailed ? "paypal" : null}
+                    defaultTopic="how_to_pay"
+                    emphasis={payPalFailed}
+                    className="mt-4"
+                  />
+                  </>
                 )}
 
                 <div className="mt-6 flex flex-col gap-2.5">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { UploadCloud, Loader2, AlertTriangle, FileText, Check, X } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -23,7 +23,17 @@ export function bookingRef(id: string): string {
   return "RR-" + id.replace(/-/g, "").slice(0, 6).toUpperCase();
 }
 
-export default function BookingReceiptUpload({ bookingId, email }: { bookingId: string; email: string }) {
+export default function BookingReceiptUpload({
+  bookingId,
+  email,
+  onFailedChange,
+}: {
+  bookingId: string;
+  email: string;
+  /** Told whenever the error line below appears or clears, so the page's
+   *  payment-help card can light up at the moment the upload fails. */
+  onFailedChange?: (failed: boolean) => void;
+}) {
   const { language } = useLanguage();
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -31,6 +41,15 @@ export default function BookingReceiptUpload({ bookingId, email }: { bookingId: 
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // The SAME error the customer is reading, not a second judgement of it. The
+  // cleanup reports "fine" on unmount, so a card elsewhere on the page never
+  // stays lit for an uploader that is no longer there.
+  useEffect(() => {
+    if (!onFailedChange) return;
+    onFailedChange(error !== null);
+    return () => onFailedChange(false);
+  }, [error, onFailedChange]);
 
   const T = {
     en: {

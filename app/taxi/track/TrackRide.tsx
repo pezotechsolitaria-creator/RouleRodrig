@@ -25,6 +25,7 @@ import {
   type RideService,
 } from "@/lib/rides/model";
 import LiveTripView from "@/components/tracking/LiveTripView";
+import PaymentHelp from "@/components/payments/PaymentHelp";
 import { useLanguage } from "@/context/LanguageContext";
 import { RIDES_COPY } from "@/lib/rides/copy.i18n";
 import { trackErrorMessage } from "@/lib/rides/track-errors";
@@ -500,6 +501,26 @@ export default function TrackRide({
             </div>
             <p className="mt-2 font-dm text-xs text-muted">{c.step2.payNote}</p>
           </div>
+
+          {/* Payment help, straight under the fare and "paid to your driver".
+              Every state but cancelled, where nothing is owed. Once the trip is
+              over the only payment question left is the fare charged, so that
+              is preselected. The amount is the fare string printed just above.
+              The reference is rideReference(tripId), as the live sheet and the
+              email show it — not `ref`, which can be a 4-character prefix. */}
+          {status !== "cancelled" && (
+            <PaymentHelp
+              section="ride"
+              reference={ride.tripId ? rideReference(ride.tripId) : null}
+              amount={
+                ride.price != null
+                  ? formatRidePrice(ride.price, ride.currency)
+                  : null
+              }
+              method="cash"
+              defaultTopic={status === "completed" ? "amount" : undefined}
+            />
+          )}
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
             <button

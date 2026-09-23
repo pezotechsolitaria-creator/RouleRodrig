@@ -9,6 +9,8 @@ import { holdInfo, holdDeadlineLabel, holdRemaining } from "@/lib/orders/hold";
 import { useLanguage } from "@/context/LanguageContext";
 import { dateLocales } from "@/lib/i18n";
 import { TRACK_COPY, type TrackCopy } from "@/lib/track/copy.i18n";
+import PaymentHelp from "@/components/payments/PaymentHelp";
+import type { PaymentSection } from "@/lib/payment-help";
 
 // ── ONE BOX FOR EVERYTHING ─────────────────────────────────────────────────
 //
@@ -38,6 +40,19 @@ const STAGE_STYLE: Record<ActivityStage, string> = {
   cancelled: "border-red-500/30 bg-red-500/10 text-red-200",
 };
 
+// Which payment desk a found activity belongs to, so the help message says
+// "Rental booking" for a scooter rather than "Order payment" for everything.
+// A trade appointment is settled with the provider on the day; "order" is the
+// nearest desk it has.
+const HELP_SECTION: Record<ActivityKind, PaymentSection> = {
+  vehicle: "rental",
+  place: "stay",
+  order: "order",
+  ride: "ride",
+  delivery: "delivery",
+  service: "order",
+};
+
 export default function TrackLookup({ initialRef = "" }: { initialRef?: string }) {
   const { language } = useLanguage();
   const c = TRACK_COPY[language];
@@ -48,6 +63,9 @@ export default function TrackLookup({ initialRef = "" }: { initialRef?: string }
   const [activity, setActivity] = useState<Activity | null>(null);
 
   const ready = ref.trim().length >= 4 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
+  // The card's own "this reservation has lapsed" state. holdUntil is only set
+  // on a PENDING order, so this is an unpaid order whose clock ran out.
+  const lapsed = !!activity && !!holdInfo(activity.holdUntil)?.expired;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -133,6 +151,31 @@ export default function TrackLookup({ initialRef = "" }: { initialRef?: string }
       )}
 
       {activity && <ActivityCard activity={activity} />}
+
+      {/* Payment help, under whatever the lookup showed: /track is where
+          people land when a payment has gone quiet. Compact — finding the
+          thing is this page's job. Once found it carries the server's own
+          reference and the amount exactly as the card prints it; never what
+          was typed in the box, which can arrive from a ?ref= link. Lit when an
+          unpaid order's hold has lapsed — "I paid" is then the likely story. */}
+      <div className="mt-4">
+        {/* Keyed per result: the pill has no picker, so a new lookup must
+            remount it to take the new section's own first problem. */}
+        <PaymentHelp
+          key={activity ? `${activity.kind}:${activity.id}` : "none"}
+          section={activity ? HELP_SECTION[activity.kind] : "order"}
+          variant="compact"
+          reference={activity?.reference || null}
+          amount={
+            activity?.amountCents != null && activity.amountCents > 0
+              ? `Rs ${centsToDisplay(activity.amountCents)}`
+              : null
+          }
+          method={null}
+          defaultTopic={lapsed ? "transfer_not_showing" : undefined}
+          emphasis={lapsed}
+        />
+      </div>
     </>
   );
 }

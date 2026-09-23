@@ -322,9 +322,16 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
         {/* Money owed BACK (M90). Above the bank panel deliberately: if this
             order was cancelled after payment, "where is my money" is the only
             question the customer has, and it used to have no answer anywhere
-            on this page. Renders nothing when there is no refund. */}
+            on this page. Renders nothing when there is no refund. Its
+            payment-help card stands down while the bank panel below shows its
+            own — one per screen. */}
         <div className="mt-4">
-          <RefundPanel credential={{ orderId: typedOrder.id }} />
+          <RefundPanel
+            credential={{ orderId: typedOrder.id }}
+            orderNumber={typedOrder.order_number}
+            paymentHelp={!showBankPanel}
+            paidThenCancelled={typedOrder.status === "cancelled" && !!typedOrder.receipt_submitted_at}
+          />
         </div>
 
         {showBankPanel && (

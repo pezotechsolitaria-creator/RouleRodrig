@@ -11,6 +11,7 @@ import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import PhoneInput from "@/components/PhoneInput";
 import { quoteStay } from "@/lib/stay-pricing";
 import SuccessBurst from "@/components/SuccessBurst";
+import PaymentHelp from "@/components/payments/PaymentHelp";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
 import { useLanguage } from "@/context/LanguageContext";
 import type { RecommendedPlace } from "@/lib/defaults";
@@ -285,6 +286,23 @@ export default function PlaceBookingModal({
                 </li>
               </ol>
 
+              {/* Payment help, directly under step 3 — the only place this
+                  modal talks about paying. The pill, not the card: this is a
+                  dialog with a 90vh cap, and a full card here pushed the steps
+                  off screen. "stay" only for a hotel — this modal also books
+                  tables, boat trips and massages. place_bookings store RUPEES;
+                  this is the same string as the total above. */}
+              <div className="mt-4 flex justify-center">
+                <PaymentHelp
+                  section={isStay ? "stay" : "booking"}
+                  variant="compact"
+                  reference={result.bookingId}
+                  amount={`Rs ${result.depositAmount.toLocaleString()}`}
+                  method={null}
+                  defaultTopic="how_to_pay"
+                />
+              </div>
+
               {whatsapp && (
                 <a href={waLink("about my reservation")} target="_blank" rel="noopener noreferrer"
                    className="mt-3 w-full flex items-center justify-center gap-2 text-muted hover:text-yellow font-dm text-sm py-2 transition-colors">
@@ -480,6 +498,23 @@ export default function PlaceBookingModal({
                 <p className="mt-1 font-dm text-[10px] text-muted/60">
                   {t.placeBooking.paidInFull}
                 </p>
+              </div>
+            )}
+
+            {/* The price and "paid in full to confirm" are the only payment
+                facts on this form, so the help pill sits right under them. The
+                pill, not the card: this is a request form, not the pay step.
+                Same rupee string as the total; no booking reference exists yet. */}
+            {quote && (
+              <div className="-mt-2">
+                <PaymentHelp
+                  section={isStay ? "stay" : "booking"}
+                  variant="compact"
+                  reference={null}
+                  amount={`Rs ${quote.total.toLocaleString()}`}
+                  method={null}
+                  defaultTopic="how_to_pay"
+                />
               </div>
             )}
 

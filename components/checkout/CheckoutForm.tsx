@@ -22,6 +22,7 @@ import { vocabFor, domainFromFlags } from "@/lib/food/vocabulary";
 import WhenPicker, { type PickedSlot } from "@/components/food/WhenPicker";
 import { FULFILMENT } from "@/lib/shop/plain-words";
 import PickupLocationCard, { type PickupLocation } from "@/components/orders/PickupLocationCard";
+import PaymentHelp from "@/components/payments/PaymentHelp";
 import { checkoutHoldCopy, type PaymentProvider } from "@/lib/orders/hold";
 
 // Leaflet is heavy and most orders are pickup. Loaded only if the sheet opens.
@@ -400,6 +401,9 @@ export default function CheckoutForm({
   // are both gone. Bank transfer is available whenever the shop accepts it.
   const bankTransferAvailable = acceptsBankTransfer;
   const paymentReady = (provider === "cash" && acceptsCash) || (provider === "bank_transfer" && bankTransferAvailable);
+  // The dead end: no method at all. Named once because the payment help card
+  // below lights up on exactly the condition the red alert is drawn on.
+  const cannotTakePayment = !acceptsCash && !acceptsBankTransfer;
   // Never allow submission on a price we could not obtain from the server.
   // A guest must supply a valid email — it is the ONLY way they can be sent a
   // confirmation or find this order again, since they have no account.
@@ -945,7 +949,7 @@ export default function CheckoutForm({
             {c.form.payment.cashOnlyAfter}
           </p>
         ) : null}
-        {!acceptsCash && !acceptsBankTransfer && (
+        {cannotTakePayment && (
           // Four live shops are in exactly this state the day M89 ships: cash
           // was their only method and they have published no account. Say what
           // is actually wrong rather than "no payment method", which reads to a
@@ -1022,6 +1026,26 @@ export default function CheckoutForm({
             <span>{checkoutHoldCopy(provider, holdWindows[provider] ?? 48, Date.now(), v.seller)}</span>
           </p>
         )}
+
+        {/* ── NEED HELP WITH PAYMENT? ─────────────────────────────────────
+            Last in the payment block, so it sits between the instructions and
+            the Place order button in every state. It matters most in the dead
+            end above, which said "contact them directly" and rendered no
+            contact unless the shop has a WhatsApp number: there it lights up
+            with "how to pay" chosen. No order exists yet, so the shop goes on
+            its own "Shop" line rather than posing as a reference. The total is
+            withheld while a new price loads (as the summary does), and the
+            refusal the customer is reading travels with the message. */}
+        <PaymentHelp
+          section="checkout"
+          shop={pickup?.storeName || cart?.storeName || null}
+          amount={quote && !quoting ? `Rs ${centsToDecimalString(quote.total)}` : null}
+          method={paymentReady ? provider : null}
+          defaultTopic={cannotTakePayment ? "how_to_pay" : error || quoteError ? "other" : undefined}
+          detail={error ?? quoteError}
+          emphasis={cannotTakePayment || !!error || !!quoteError}
+          className="mt-4"
+        />
       </fieldset>
 
       {/* Server-priced summary */}

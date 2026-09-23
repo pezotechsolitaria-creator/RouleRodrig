@@ -26,6 +26,7 @@ export default function PayPalDeposit({
   kind = "vehicle",
   settlement = "deposit",
   onPaid,
+  onFailedChange,
 }: {
   bookingId: string;
   depositMur: number; // the amount due in Rs (fee added on top for PayPal)
@@ -39,6 +40,9 @@ export default function PayPalDeposit({
    */
   settlement?: "deposit" | "full";
   onPaid?: () => void;
+  /** True while the red "could not be completed" line is showing — the page
+   *  lights its payment-help card from it. This component draws no card. */
+  onFailedChange?: (failed: boolean) => void;
 }) {
   const { language } = useLanguage();
   // Vehicles may let the customer pay the deposit OR the full total.
@@ -54,6 +58,14 @@ export default function PayPalDeposit({
   const [state, setState] = useState<"idle" | "paid" | "error">("idle");
   const [msg, setMsg] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+
+  // Report the failure the customer can already see, and "fine" on unmount so
+  // a help card never stays lit for a button that has gone.
+  useEffect(() => {
+    if (!onFailedChange) return;
+    onFailedChange(state === "error");
+    return () => onFailedChange(false);
+  }, [state, onFailedChange]);
 
   const T = {
     en: { pay: "Pay deposit to confirm", payFull: "Pay in full", deposit: "Deposit", full: "Full", fee: `incl. ${PAYPAL_FEE_PERCENT}% PayPal fee`, paid: "Payment received — booking confirmed! 🎉", secure: "Secure payment via PayPal", firstPaid: "First deposit paid keeps the vehicle — the dates are not held until this clears.", err: "Payment could not be completed. Please try again or pay by bank transfer." },

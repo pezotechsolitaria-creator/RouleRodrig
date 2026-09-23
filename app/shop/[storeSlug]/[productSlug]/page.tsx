@@ -18,6 +18,7 @@ import SaveButton from "@/components/shop/SaveButton";
 import AddressLink from "@/components/AddressLink";
 import ProductAnalytics from "@/components/shop/ProductAnalytics";
 import MarketHeader from "@/components/shop/MarketHeader";
+import PaymentHelp from "@/components/payments/PaymentHelp";
 import { T, TCount, TName, LabelledNav } from "@/components/shop/ShopCopy";
 import { getProductDetail, relatedProducts } from "@/lib/marketplace/catalog";
 
@@ -361,10 +362,30 @@ export default async function ProductPage({
                 said "nothing to pay now — you settle it with them", and a line
                 about bank transfer directly under it contradicts that. */}
             {variants.length > 0 && (
-              <p className="mt-3 flex items-center gap-2 font-dm text-xs text-muted">
-                <ShieldCheck size={13} className="shrink-0 text-yellow/70" />
-                <TName k="product.payDirect" v={p.store.name} />
-              </p>
+              <>
+                <p className="mt-3 flex items-center gap-2 font-dm text-xs text-muted">
+                  <ShieldCheck size={13} className="shrink-0 text-yellow/70" />
+                  <TName k="product.payDirect" v={p.store.name} />
+                </p>
+                {/* Payment help, on the one line that says how paying works —
+                    where a first-time buyer wonders how a transfer to a shop
+                    goes. Compact: the full card belongs at checkout. No
+                    reference, amount or method: nothing is ordered or chosen
+                    yet. Lit on the "not selling online" dead end, where a
+                    person is the only way forward. */}
+                <div className="mt-3">
+                  <PaymentHelp
+                    section="product"
+                    variant="compact"
+                    shop={p.store.name}
+                    reference={null}
+                    amount={null}
+                    method={null}
+                    defaultTopic="how_to_pay"
+                    emphasis={!p.store.acceptingOrders}
+                  />
+                </div>
+              </>
             )}
 
             {p.description && (

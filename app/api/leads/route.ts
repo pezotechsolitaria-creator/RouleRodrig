@@ -7,7 +7,9 @@ import { guard } from "@/lib/rate-limit";
 // MUST match BOTH database gates or the insert fails at runtime: the
 // lead_events_anon_insert RLS policy and the lead_events_kind_check constraint
 // (see M58). Three places, one list.
-const KINDS = ["stay_eat_do", "taxi", "food_concierge", "tiroule_miss", "transfer"];
+// payment_help (M200): a tap on the "Need help with payment?" card. target_name
+// is the section, category the problem the customer picked.
+const KINDS = ["stay_eat_do", "taxi", "food_concierge", "tiroule_miss", "transfer", "payment_help"];
 const TYPES = ["whatsapp", "call", "link"];
 
 export async function POST(req: NextRequest) {

@@ -12,6 +12,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { EVENTS_COPY } from "@/lib/events/copy.i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import PaymentHelp from "@/components/payments/PaymentHelp";
 import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 
 // The ticket checkout.
@@ -147,6 +148,11 @@ export default function EventCheckout({
 
   const total = lines.reduce((sum, l) => sum + l.price * l.quantity, 0);
   const ticketCount = lines.reduce((sum, l) => sum + l.quantity, 0);
+  // `total` is CENTS (order prices). Formatted once, so the Total row and the
+  // payment-help message can never disagree about the amount.
+  const totalLabel = `Rs ${centsToDecimalString(total)}`;
+  // The organiser accepts nothing: the dead end the payment section shows in red.
+  const noPaymentMethod = payment !== null && !payment.acceptsCash && !payment.acceptsBankTransfer;
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim());
   const identityReady = name.trim().length > 0 && phone.trim().length > 0 && (!isGuest || emailValid);
@@ -278,7 +284,7 @@ export default function EventCheckout({
             <div className="mt-3 flex items-baseline justify-between border-t border-white/10 pt-3">
               <span className="font-syne text-base font-bold text-offwhite">{c.total}</span>
               <span className="font-syne text-lg font-extrabold text-yellow">
-                Rs {centsToDecimalString(total)}
+                {totalLabel}
               </span>
             </div>
           </>
@@ -332,7 +338,7 @@ export default function EventCheckout({
         <h2 className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{c.payment}</h2>
         {payment === null ? (
           <p className="mt-3 font-dm text-sm text-muted">{c.loading}</p>
-        ) : !payment.acceptsCash && !payment.acceptsBankTransfer ? (
+        ) : noPaymentMethod ? (
           <p role="alert" className="mt-3 flex items-start gap-2 font-dm text-sm text-red-400">
             <AlertTriangle size={15} className="mt-0.5 shrink-0" />
             {c.noPayment}
@@ -384,6 +390,23 @@ export default function EventCheckout({
       </Button>
 
       <p className="text-center font-dm text-xs text-muted">{c.held}</p>
+
+      {/* Payment help, directly under the pay action: the yellow button stays
+          the first thing a buyer reaches, and the green card is right there
+          when it fails. It lights up on the three dead ends this screen has —
+          tickets that won't load, an organiser who accepts nothing, a reserve
+          that was refused. No reference: the order number only exists once
+          the button succeeds. The event list leads with "how to pay" — the
+          buyer has not paid yet — and a refusal travels with the message. */}
+      <PaymentHelp
+        section="event"
+        reference={null}
+        amount={lines.length > 0 ? totalLabel : null}
+        method={paymentReady ? provider : null}
+        defaultTopic={noPaymentMethod ? "how_to_pay" : error || loadError ? "other" : undefined}
+        detail={error ?? loadError}
+        emphasis={noPaymentMethod || !!error || !!loadError}
+      />
     </div>
   );
 }

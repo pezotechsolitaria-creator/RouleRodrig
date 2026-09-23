@@ -245,7 +245,9 @@
 // when their booked delivery stops.
 // v370 — a taxi driver's number can be written the way people write it;
 // the admin desk stopped answering with Postgres constraint names.
-const CACHE = "rr-cache-v372";
+// v373 — "Need help with payment?": a WhatsApp card on every payment screen,
+// with the problem, reference and amount already written for the owner.
+const CACHE = "rr-cache-v373";
 
 // Dev hosts get no cache-first anything: their asset URLs are not content
 // hashed, so the immutability that makes cache-first safe does not hold.

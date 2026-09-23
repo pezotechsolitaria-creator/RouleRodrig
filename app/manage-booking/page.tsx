@@ -8,6 +8,7 @@ import BookingTimeline from "@/components/BookingTimeline";
 import OrderAlerts from "@/components/orders/OrderAlerts";
 import PayPalDeposit from "@/components/PayPalDeposit";
 import BankTransferDetails from "@/components/BankTransferDetails";
+import PaymentHelp from "@/components/payments/PaymentHelp";
 import { Field } from "@/components/ui/field";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
@@ -59,6 +60,11 @@ export default function ManageBookingPage() {
   const [error, setError] = useState<string | null>(null);
   const [booking, setBooking] = useState<Booking | null>(null);
   const emailRef = useRef<HTMLInputElement | null>(null);
+  // Reported up by the PayPal button and the receipt upload, which already
+  // show their own red line. The page holds them so its ONE help card can
+  // light up for either — both payment options sit above that card.
+  const [payPalFailed, setPayPalFailed] = useState(false);
+  const [receiptFailed, setReceiptFailed] = useState(false);
 
 
   const lookup = useCallback(
@@ -164,6 +170,28 @@ export default function ManageBookingPage() {
   const paidAmount = booking?.depositPaid ? (booking.amountPaid ?? booking.deposit ?? 0) : 0;
   const paidInFull = Boolean(booking?.total != null && paidAmount >= Number(booking.total));
   const balanceDue = Math.max(0, Number(booking?.total ?? 0) - paidAmount);
+
+  // ── "NEED HELP WITH PAYMENT?" — ONE CARD, UNDER WHICHEVER PAY BLOCK SHOWS ──
+  // Built once and placed inside both pay blocks below; their conditions are
+  // exclusive, so it is never on screen twice. The reference is the RR-XXXXXX
+  // the API derives, never anything from the URL. Bookings store RUPEES, so
+  // the deposit is formatted exactly as this page formats every other amount.
+  // A place booking is a Stay·Eat·Do reservation — a room, a table, a boat
+  // trip — so it goes under the generic "booking", and its pay block is PayPal
+  // only, so "I paid by transfer but it isn't showing" is the wrong first ask.
+  const payHelp = booking ? (
+    <PaymentHelp
+      section={booking.kind === "vehicle" ? "rental" : "booking"}
+      reference={booking.ref}
+      amount={booking.deposit != null && booking.deposit > 0 ? `Rs ${Number(booking.deposit).toLocaleString()}` : null}
+      method={receiptFailed ? "bank_transfer" : payPalFailed ? "paypal" : null}
+      defaultTopic={
+        receiptFailed ? "upload_failed" : payPalFailed || booking.kind !== "vehicle" ? "how_to_pay" : undefined
+      }
+      emphasis={receiptFailed || payPalFailed}
+      className="mt-5"
+    />
+  ) : null;
 
   return (
     <main className="min-h-screen bg-dark font-dm text-offwhite">
@@ -295,7 +323,22 @@ export default function ManageBookingPage() {
             {isCancelled ? (
               <div className="rounded-xl border border-red-500/25 bg-red-500/[0.05] p-4">
                 <p className="font-dm text-sm text-offwhite">{M.cancelledBody}</p>
-                <p className="mt-1.5 font-dm text-sm text-muted">{M.cancelledNoCharge}</p>
+                {/* "You have not been charged" was shown on EVERY cancelled
+                    booking — including one whose deposit was taken (the "lock
+                    it in now" path takes it before the availability check).
+                    That customer gets the refund card instead. */}
+                {booking.depositPaid ? (
+                  <PaymentHelp
+                    section="refund"
+                    reference={booking.ref}
+                    amount={`Rs ${Number(paidAmount || booking.deposit || 0).toLocaleString()}`}
+                    defaultTopic="refund"
+                    emphasis
+                    className="mt-3"
+                  />
+                ) : (
+                  <p className="mt-1.5 font-dm text-sm text-muted">{M.cancelledNoCharge}</p>
+                )}
                 <Link
                   href="/browse/scooter"
                   className="mt-3 inline-flex items-center gap-1.5 font-dm text-sm font-bold text-yellow hover:underline"
@@ -315,7 +358,9 @@ export default function ManageBookingPage() {
               {booking.deposit != null && booking.deposit > 0 && !isCancelled && (
                 <Row
                   k={booking.depositPaid ? (paidInFull ? M.rowPaidInFull : M.rowDepositPaid) : M.rowDepositToConfirm}
-                  v={`Rs ${Number(paidAmount ?? booking.deposit).toLocaleString()}`}
+                  // paidAmount is 0 (not null) for an unpaid booking, so the old
+                  // `paidAmount ?? deposit` printed "Deposit to confirm: Rs 0".
+                  v={`Rs ${Number(booking.depositPaid ? paidAmount : booking.deposit).toLocaleString()}`}
                   strong
                 />
               )}
@@ -371,13 +416,20 @@ export default function ManageBookingPage() {
                   fullMur={booking.kind === "vehicle" && booking.total ? booking.total : undefined}
                   kind={booking.kind}
                   onPaid={() => setBooking((b) => (b ? { ...b, depositPaid: true, status: "confirmed" } : b))}
+                  onFailedChange={setPayPalFailed}
                 />
                 <BankTransferDetails
                   name={booking.ref}
                   vehicle={booking.item}
                   bookingId={booking.id}
                   email={email}
+                  onReceiptFailedChange={setReceiptFailed}
                 />
+                {/* Under both ways to pay, so it covers the PayPal button, the
+                    Juice/transfer details AND the receipt upload — and it is
+                    still here when they come back after transferring, which is
+                    when "I paid but it isn't showing" happens. */}
+                {payHelp}
               </div>
             )}
 
@@ -394,7 +446,11 @@ export default function ManageBookingPage() {
                   settlement="full"
                   kind={booking.kind}
                   onPaid={() => setBooking((b) => (b ? { ...b, depositPaid: true, status: "confirmed" } : b))}
+                  onFailedChange={setPayPalFailed}
                 />
+                {/* PayPal is the only way to pay a reservation here, so when it
+                    fails this card is the customer's only other door. */}
+                {payHelp}
               </div>
             )}
 

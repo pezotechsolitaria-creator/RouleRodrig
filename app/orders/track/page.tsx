@@ -458,8 +458,13 @@ function TrackOrder() {
             {/* M90 — the guest's refund, on the same credential they looked
                 the order up with. Above the bank panel for the same reason as
                 the signed-in page: a cancelled paid order has exactly one
-                question and it is this one. */}
-            <RefundPanel credential={{ orderNumber: order.orderNumber, email }} />
+                question and it is this one. Its payment-help card stands down
+                while the bank panel shows its own — one per screen. */}
+            <RefundPanel
+              credential={{ orderNumber: order.orderNumber, email }}
+              paymentHelp={!showBankPanel}
+              paidThenCancelled={order.status === "cancelled" && !!order.receiptSubmittedAt}
+            />
 
             {showBankPanel && (
               <BankTransferPanel
@@ -477,6 +482,10 @@ function TrackOrder() {
                     : null
                 }
                 awaitingConfirmation={!!awaitingConfirmation}
+                // The panel's help card lights up when this guest form fails:
+                // with a file attached it is most likely the receipt; without
+                // one, a transfer they made that we could not record.
+                reportFailure={reportError ? (receipt ? "upload_failed" : "transfer_not_showing") : null}
               >
                 {/* M49: a guest CAN now attach proof. Until then storage RLS
                     needed a session, so create_order refused guest bank transfer

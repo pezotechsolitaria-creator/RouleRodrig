@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { centsToDecimalString } from "@/lib/money";
+import PaymentHelp from "@/components/payments/PaymentHelp";
 
 type Settings = {
   accepts_cash: boolean;
@@ -25,8 +26,12 @@ type Settings = {
 type Zone = { id: string; name: string; fee: number };
 
 export default function PaymentSettingsForm({
-  zones, maxMinutes, deliveryEnabled,
-}: { zones: Zone[]; maxMinutes: number; deliveryEnabled: boolean }) {
+  zones, maxMinutes, deliveryEnabled, storeName = null,
+}: {
+  zones: Zone[]; maxMinutes: number; deliveryEnabled: boolean;
+  /** Names the shop in the payment-help message. Optional — not a secret. */
+  storeName?: string | null;
+}) {
   const [s, setS] = useState<Settings | null>(null);
   // M89. Fails closed at true: showing a live Cash box when the platform
   // refuses cash lets a merchant tick it, save happily, and still take no
@@ -86,12 +91,18 @@ export default function PaymentSettingsForm({
 
   if (loadError) {
     return (
-      <div role="alert" className="rounded-2xl border border-red-500/25 bg-red-500/[0.05] p-6 text-center">
-        <AlertTriangle className="mx-auto text-red-400" size={22} />
-        <p className="mt-2 font-dm text-sm text-red-400">{loadError}</p>
-        <Button variant="outline" className="mt-3" onClick={() => setReloadKey((k) => k + 1)}>
-          <RefreshCw size={15} className="mr-1.5" /> Try again
-        </Button>
+      <div className="space-y-4">
+        <div role="alert" className="rounded-2xl border border-red-500/25 bg-red-500/[0.05] p-6 text-center">
+          <AlertTriangle className="mx-auto text-red-400" size={22} />
+          <p className="mt-2 font-dm text-sm text-red-400">{loadError}</p>
+          <Button variant="outline" className="mt-3" onClick={() => setReloadKey((k) => k + 1)}>
+            <RefreshCw size={15} className="mr-1.5" /> Try again
+          </Button>
+        </div>
+        {/* The settings would not load, so the merchant can neither see nor fix
+            how they are paid. If "Try again" keeps failing, a person is the way
+            through — lit, because this IS the failure. */}
+        <PaymentHelp section="shop-setup" shop={storeName} defaultTopic="setup" emphasis={!!loadError} />
       </div>
     );
   }
@@ -109,6 +120,10 @@ export default function PaymentSettingsForm({
   const bankIncomplete = s.accepts_bank_transfer &&
     !(s.bank_name?.trim() && s.account_holder?.trim() && s.account_number?.trim());
   const noMethod = !s.accepts_cash && !s.accepts_bank_transfer;
+  // The two red dead ends under HOW CUSTOMERS PAY, as one flag for the help
+  // card. bankIncomplete is left out on purpose: that is a merchant halfway
+  // through typing, not stuck, and a card flashing at every keystroke is noise.
+  const cannotTakeOrders = (prepaymentOnly && !s.accepts_bank_transfer) || noMethod;
 
   return (
     <form onSubmit={save} className="space-y-6">
@@ -237,6 +252,17 @@ export default function PaymentSettingsForm({
           )}
         </fieldset>
       )}
+
+      {/* PAYMENT HELP closes the "getting paid" half of the form — after the
+          method choice and the bank details, before delivery, which is a
+          different question. It lights up on the failures this form already
+          shows in red: customers cannot pay, or the save was refused. */}
+      <PaymentHelp
+        section="shop-setup"
+        shop={storeName}
+        defaultTopic="setup"
+        emphasis={cannotTakeOrders || !!error}
+      />
 
       <fieldset className="rounded-2xl border border-white/10 bg-dark-card p-4">
         <legend className="px-1 font-bebas text-[11px] tracking-[0.3em] text-yellow">DELIVERY</legend>

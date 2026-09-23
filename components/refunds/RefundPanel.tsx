@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import { Loader2, Undo2, CheckCircle2 } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
+import PaymentHelp from "@/components/payments/PaymentHelp";
 
 // ── "Where is my money?" (M90) ─────────────────────────────────────────────
 //
@@ -41,7 +42,23 @@ function query(cred: RefundCredential): string {
     : `orderNumber=${encodeURIComponent(cred.orderNumber)}&email=${encodeURIComponent(cred.email)}`;
 }
 
-export default function RefundPanel({ credential }: { credential: RefundCredential }) {
+export default function RefundPanel({
+  credential,
+  orderNumber,
+  paymentHelp = true,
+  paidThenCancelled = false,
+}: {
+  credential: RefundCredential;
+  /** For the help message. The guest credential already carries it. */
+  orderNumber?: string;
+  /** False while the page shows another payment-help card (the bank transfer
+   *  panel's), so a screen never carries two. */
+  paymentHelp?: boolean;
+  /** The order was cancelled AFTER the customer reported paying. Until a refund
+   *  row exists this panel used to render nothing — the one moment "where is my
+   *  money" matters most, and the page offered no answer and no help. */
+  paidThenCancelled?: boolean;
+}) {
   const { t } = useLanguage();
   const [refunds, setRefunds] = useState<Refund[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -86,7 +103,21 @@ export default function RefundPanel({ credential }: { credential: RefundCredenti
   }
 
   const open = (refunds ?? []).filter((r) => r.status !== "waived");
-  if (open.length === 0) return null;
+  const helpReference = orderNumber ?? ("orderNumber" in credential ? credential.orderNumber : credential.orderId);
+  if (open.length === 0) {
+    // Only once the refunds have LOADED — otherwise this card flashes up and is
+    // then swapped for the refund list's own, two cards in quick succession.
+    return refunds !== null && paidThenCancelled && paymentHelp ? (
+      <PaymentHelp section="refund" reference={helpReference} defaultTopic="refund" emphasis />
+    ) : null;
+  }
+
+  // Money still on its way back — the only refund states with anything left
+  // to go wrong. "received" says "nothing further to do", so no help there.
+  const pending = open.filter((r) => r.status !== "received");
+  // refunds.amount is CENTS, formatted exactly as the figure above it. With
+  // two refunds in flight there is no single amount to name, so none is.
+  const helpAmount = pending.length === 1 ? `Rs ${centsToDecimalString(pending[0].amount)}` : null;
 
   return (
     <>
@@ -202,6 +233,18 @@ export default function RefundPanel({ credential }: { credential: RefundCredenti
           )}
         </section>
       ))}
+
+      {/* Once, under all the refunds rather than one per refund, and lit up
+          when saving the account details or confirming arrival just failed. */}
+      {paymentHelp && pending.length > 0 && (
+        <PaymentHelp
+          section="refund"
+          reference={helpReference}
+          amount={helpAmount}
+          emphasis={!!error}
+          className="mt-4"
+        />
+      )}
     </>
   );
 }
