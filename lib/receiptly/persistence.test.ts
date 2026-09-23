@@ -5,11 +5,18 @@ import { toSaveArgs, toSavedDoc, toProfile, EMPTY_PROFILE } from "./db";
 import { blankDoc } from "./draft";
 import { computeMoney, type ReceiptlyDoc } from "./model";
 
+// Line endings normalised FIRST. m215 is committed with CRLF, so the header
+// search below never found its closing paren followed by a bare newline,
+// returned -1, and the parameter scan ran to the end of the file, collecting
+// p_state from the NEXT function (receiptly_doc_set_state). The save call
+// was right; the parser was reading two functions as one.
 const readSql = (f: string) =>
   readFileSync(join(process.cwd(), "supabase", "migrations", f), "utf8")
+    .replace(/\r\n/g, "\n")
     .replace(/^\s*--.*$/gm, "");
 const readTs = (...p: string[]) =>
   readFileSync(join(process.cwd(), ...p), "utf8")
+    .replace(/\r\n/g, "\n")
     .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
 const M214 = readSql("20260923090000_m214_receiptly_documents.sql");
