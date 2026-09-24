@@ -17,7 +17,7 @@ import LegalDoc, { Section, P } from "@/components/LegalDoc";
 export const metadata: Metadata = {
   title: "Legal Notice | Roule Rodrigues",
   description:
-    "Legal identity of the operator of roulerodrig.com: company details, contact and hosting.",
+    "Who operates roulerodrig.com: the registered identity behind the site, how to reach a real person, where it is hosted and who answers for it.",
   alternates: { canonical: "/legal/notice" },
 };
 

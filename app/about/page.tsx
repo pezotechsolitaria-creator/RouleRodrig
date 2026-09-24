@@ -187,7 +187,11 @@ export default async function AboutPage() {
             <Link href="/faq" className="font-bold text-yellow hover:underline">
               The FAQ
             </Link>{" "}
-            answers the eleven we are asked most, and{" "}
+            {/* No number. The FAQ list lives in the Supabase site_content row,
+                so a count written here drifts every time the owner adds a
+                question — it had already drifted by two, promising eleven
+                against thirteen live. */}
+            answers the ones we are asked most, and{" "}
             <Link href="/#contact" className="font-bold text-yellow hover:underline">
               our contact details
             </Link>{" "}

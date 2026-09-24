@@ -24,7 +24,7 @@ import LegalDoc, { Section, P, UL } from "@/components/LegalDoc";
 export const metadata: Metadata = {
   title: "Privacy Policy | Roule Rodrigues",
   description:
-    "What Roulé Rodrigues collects, why, who sees it, and how to have it deleted.",
+    "What Roule Rodrigues collects about you, why we hold it, who ever sees it, how long we keep it, and how to have it corrected or deleted.",
   alternates: { canonical: "/legal/privacy" },
 };
 

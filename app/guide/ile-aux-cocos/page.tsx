@@ -40,7 +40,7 @@ export const revalidate = 3600;
 
 const TITLE = "Île aux Cocos, Rodrigues: What to Know";
 const DESCRIPTION =
-  "Île aux Cocos is a seabird reserve 4 km west of Rodrigues. You cannot visit on your own — access needs authorisation and a licensed boat. What the trip involves, what is closed to visitors, and how to book.";
+  "Île aux Cocos is a seabird reserve 4 km west of Rodrigues. You cannot go alone — it needs a permit and a licensed boat. What the trip involves, and how to book.";
 
 export const metadata: Metadata = {
   title: `${TITLE} | Roule Rodrigues`,

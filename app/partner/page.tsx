@@ -284,8 +284,22 @@ export default function PartnerPage() {
               </p>
               <div className="flex flex-col md:flex-row gap-5">
                 <div className="flex flex-col items-center gap-2 shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={qr} alt={t.partnerPortal.referralQr} className="w-32 h-32 rounded-xl bg-white p-1.5" />
+                  {/* `qr` is "" until the dynamic import of the encoder
+                      resolves, and this block renders the moment the stats
+                      fetch returns — so <img src=""> painted a white square
+                      with a broken-image marker on the one asset the page
+                      tells partners to print for their reception desk. The
+                      Download button beside it was already disabled for the
+                      same window; only the image lied about it. */}
+                  {qr ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={qr} alt={t.partnerPortal.referralQr} className="w-32 h-32 rounded-xl bg-white p-1.5" />
+                  ) : (
+                    <div
+                      aria-hidden
+                      className="w-32 h-32 rounded-xl bg-white/10 animate-pulse"
+                    />
+                  )}
                   <button
                     type="button"
                     onClick={downloadQr}

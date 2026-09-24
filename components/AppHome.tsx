@@ -507,8 +507,16 @@ export default function AppHome({
           session trying to get those cards onto the first screen. */}
 
       {/* pb clears the fixed bottom bar on a phone. Above md: the dock is gone
-          and the navigation is in the header, so the reserved strip goes too. */}
-      <main className="mx-auto max-w-5xl px-4 pb-[124px] md:pb-16">
+          and the navigation is in the header, so the reserved strip goes too.
+          The SAME ARITHMETIC AS THE DOCK, not a measurement. It was a flat
+          124px while the dock pads itself with
+          max(0.5rem,env(safe-area-inset-bottom)) — so on an iPhone with a home
+          indicator the bar stood ~26px taller than the space reserved for it,
+          and the end of the page (the copyright line and the legal row) sat
+          underneath a bar that owns the taps there. components/BottomNav.tsx
+          documents this exact failure and solves it with calc(); the dock
+          never got the same treatment. */}
+      <main className="mx-auto max-w-5xl px-4 pb-[calc(6.7rem+max(0.5rem,env(safe-area-inset-bottom)))] md:pb-16">
         {/* Six primary cards — v1 photo-card design, auto-cycling images. */}
         <section className="rr-home-cards-sec pt-2">
           <div className="rr-home-cards grid grid-cols-3 gap-2.5">
@@ -760,8 +768,13 @@ export default function AppHome({
         {/* Reviews + Footer (from v1) — keyed for the same RSC-boundary reason
             as hero above (server elements from Home, rendered among siblings). */}
         <Fragment key="reviews">{reviews}</Fragment>
-        <Fragment key="footer">{footer}</Fragment>
       </main>
+      {/* OUTSIDE <main>. A <footer> descended from <main> has no implicit ARIA
+          role, so on the homepage alone — every other page mounts SiteFooter
+          from the root layout — a screen-reader user's landmark list had no
+          contentinfo region, and the aria-label on Footer.tsx was attached to
+          a generic element and ignored. Still above the fixed dock. */}
+      <Fragment key="footer">{footer}</Fragment>
 
       {/* ── Floating bottom app nav ─────────────────────────
           A detached rounded panel with a small gap on the sides and below

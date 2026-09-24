@@ -45,7 +45,7 @@ function humanize(id: string): string {
 }
 
 const DESCRIPTION =
-  "A local's guide to Rodrigues Island: how to get there, the best time to visit, beaches, viewpoints, giant tortoises, food, culture and safety — plus scooter & car rental and a free AI island guide.";
+  "A local's guide to Rodrigues: getting there, when to go, beaches, viewpoints, giant tortoises and food — plus scooter and car rental and a free island guide.";
 
 export const metadata: Metadata = {
   title:

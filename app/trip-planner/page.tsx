@@ -13,7 +13,7 @@ import { ogImages } from "@/lib/share-image";
 export const revalidate = 3600;
 
 const DESCRIPTION =
-  "Plan your Rodrigues Island trip in seconds: pick your days and interests and get a free day-by-day itinerary with beaches, viewpoints and activities — then rent a scooter or car to do it.";
+  "Plan your Rodrigues trip in seconds: pick your days and interests for a free day-by-day itinerary of beaches and viewpoints — then rent a scooter or car.";
 
 export const metadata: Metadata = {
   title: "Rodrigues Trip Planner — Free Itinerary | Roule Rodrigues",

@@ -5,7 +5,7 @@ import LegalDoc, { Section, P, UL } from "@/components/LegalDoc";
 
 export const metadata: Metadata = {
   title: "Scooter Owner Agreement | Roule Rodrigues",
-  description: "The agreement between Roule Rodrigues and scooter owners/partners who list their vehicles.",
+  description: "The agreement between Roule Rodrigues and the owners who list a scooter or car with us: what each side commits to, how the money works, and how to leave.",
   alternates: { canonical: "/legal/owner-agreement" },
 };
 
